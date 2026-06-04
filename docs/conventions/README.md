@@ -1,0 +1,26 @@
+# Conventions
+
+Cross-cutting **standards** for how code in Magna Carta is written — the imperative "how," kept separate from the white paper's "why." Each file here is the single home for one standard; the white paper section it derives from is cited, not restated.
+
+These are rules. Rationale lives in the white paper; decisions and their status live in [`../Decision-Log.md`](../Decision-Log.md); the hard invariants that must never break are summarized in the root [`CLAUDE.md`](../../CLAUDE.md).
+
+References to the white paper below name the **area**, not a section number — section numbers shift when the paper is reorganized (see the cross-reference policy in the root [`CLAUDE.md`](../../CLAUDE.md)).
+
+| File                                                 | Covers                                                                          | White-paper area                                  |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------- |
+| [`invariants.md`](invariants.md)                     | Domain (subsystem) invariants — financial/trust, secrets/encryption             | Financial Core; Trust; Encryption                 |
+| [`documentation.md`](documentation.md)               | Documentation standard: definition-of-done, audiences, changelog/roadmap upkeep | User-facing documentation; Development guidelines |
+| [`documentation-style.md`](documentation-style.md)   | Writing language: change types, commit/changelog style, templates, glossary     | Development guidelines                            |
+| [`error-logging.md`](error-logging.md)               | Error & bug logging standard: in-house reporter, incidents, diagnostics agent   | Observability & diagnostics                       |
+| [`performance.md`](performance.md)                   | Compute placement, resource discipline, measure-first profiling                 | Performance & concurrency model                   |
+| [`settings.md`](settings.md)                         | Settings registry framework: scope resolution, access, storage                  | Settings & configuration                          |
+| [`code-style.md`](code-style.md)                     | Language-agnostic style principles + per-language index                         | Development guidelines                            |
+| [`typescript.md`](typescript.md)                     | TypeScript style, Oxlint/Oxfmt, zod, Svelte 5 runes                             | Delivery model; Development guidelines            |
+| [`rust.md`](rust.md)                                 | Rust style, rustfmt/clippy, WASM/native discipline                              | Delivery model; Development guidelines            |
+| [`ui-design.md`](ui-design.md)                       | Lucide-only icons, design tokens, shadcn-svelte primitives                      | Design system                                     |
+| [`testing.md`](testing.md)                           | Test strategy, fixtures, determinism, visual regression                         | Synthetic data & fixtures                         |
+| [`security.md`](security.md)                         | Firm-scoping, RBAC/ethical walls, encryption, telemetry redaction, PCI          | Tenancy; Auth & encryption; Observability         |
+| [`api.md`](api.md)                                   | REST/OpenAPI code-as-contract, versioning, internal RPC                         | Delivery model                                    |
+| [`area-claude-template.md`](area-claude-template.md) | Template for per-area `CLAUDE.md` files                                         | —                                                 |
+
+> **Status:** `invariants.md`, `documentation.md`, `documentation-style.md`, `error-logging.md`, `performance.md`, `settings.md`, and `testing.md` (framework decided) are **active** (they apply now). The rest are **stubs** describing scope and authoritative source; each is filled in as the corresponding subsystem is built (docs change in the same commit as code).

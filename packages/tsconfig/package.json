@@ -1,0 +1,11 @@
+{
+  "name": "@magna-carta/tsconfig",
+  "version": "0.0.0",
+  "private": true,
+  "sideEffects": false,
+  "exports": {
+    "./base": "./base.json",
+    "./worker": "./worker.json",
+    "./svelte": "./svelte.json"
+  }
+}

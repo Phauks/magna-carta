@@ -1,0 +1,65 @@
+# Documentation conventions
+
+**Status:** Active — this standard applies now (not a stub).
+
+**Scope (single home for):** how Magna Carta is documented — the definition of "done," the two audiences, which artifact each change updates, the cross-reference rule, and how the changelog and roadmap stay current.
+
+**Authoritative context:** the white paper's _User-facing documentation_ area (user-doc strategy) and _Development guidelines_ area. The root [`CLAUDE.md`](../../CLAUDE.md) carries the short golden-rule version; this file is the full standard.
+
+## Documentation is part of "done"
+
+**No feature is complete until it is documented — for both audiences.** Code that works but is undocumented is _unfinished_, not finished. Documentation ships in the **same commit/PR** as the code it describes; a change that needs docs and omits them does not merge.
+
+Every change updates the docs in its lane. Skip a lane only when it genuinely does not apply, and **say so explicitly in the PR** — silence is not "no docs needed."
+
+**Developer documentation (internal):**
+
+- [ ] Relevant [`conventions/`](.) standard and/or the subsystem spec in [`../specs/`](../specs/) updated.
+- [ ] Any architectural decision recorded in [`../Decision-Log.md`](../Decision-Log.md) (same commit, stable `ADR-NNNN`).
+- [ ] The [white paper](../Magna-Carta-White-Paper.md) updated **if the design changed** (it stays high-level; not every code edit).
+- [ ] The code area's local `CLAUDE.md` updated for new conventions or gotchas.
+
+**User documentation (product) — for any user-visible or admin-facing change:**
+
+- [ ] End-user guide added/updated in [`../user/`](../user/) for the feature.
+- [ ] In-app contextual help updated.
+- [ ] Admin docs updated if firm-owner/admin behavior changed.
+
+**Living trackers — update in the same PR:**
+
+- [ ] [`CHANGELOG.md`](../../CHANGELOG.md) `[Unreleased]` gets a line for any user-facing or notable change.
+- [ ] [`ROADMAP.md`](../../ROADMAP.md) reflects new status (moved to _Recently shipped_, next item promoted to _Now_).
+
+## Two audiences
+
+We serve **two readerships** and a feature must satisfy both:
+
+- **Developers** building Magna Carta — see the design/decision/convention artifacts above.
+- **Users** running their practice on it — lawyers, staff, admins, and portal users. Write their guides in plain language (what it does, how to do common tasks, edge cases); never internal architecture.
+
+A feature an engineer can use but a user cannot understand is half-built.
+
+**This is not duplication.** The two sets hold _different facts for different readers_ — there is no shared sentence to drift. Developer docs are the artifacts we already maintain (white paper, conventions, specs, ADRs); the user set ([`../user/`](../user/)) is the only _additive_ one, because user-facing help previously had no home and is itself a shipped product feature (the help center). The boundary is hard: **no internal architecture in user docs; no task walkthroughs in developer docs.**
+
+## Cross-reference rule
+
+Section numbers (`§N`) are navigation **inside the white paper only.** Any file pointing _into_ the white paper from outside references it by **document + topic/area name** (titles outlast numbers) or by a stable **`ADR-NNNN`** — never a section number, which shifts on reorganization. Link to a document and a name, not a number or line.
+
+## Changelog (Keep a Changelog)
+
+Root [`CHANGELOG.md`](../../CHANGELOG.md), categories Added / Changed / Deprecated / Removed / Fixed / Security. Hand-written `[Unreleased]` entries per PR are the reliable baseline; release-time aggregation/version-cutting is automated in Phase 0 (tool picked then, logged as an ADR). The propose-only **docs-maintenance agent** (white paper, _Maintenance agents_; ADR-0058) may later draft entries from merged PRs for approval.
+
+## Roadmap (living)
+
+Root [`ROADMAP.md`](../../ROADMAP.md) is the execution tracker (Now / Next / Recently shipped / Backlog), distinct from the white paper's stable phase strategy. Updated per PR; the propose-only **docs-maintenance agent** (_Maintenance agents_; ADR-0058) may later roll status up from the changelog.
+
+## Doc hygiene is enforced, not trusted
+
+Authoring stays **in-commit** with the change (the docs-in-commit rule above). Two backstops catch what slips, split by whether judgment is needed:
+
+- **Deterministic checks are CI (`vp check`), not an agent:** the cross-reference rule (a `§N` reference from _outside_ the white paper), dead/broken links, and an empty-`[Unreleased]`-on-a-user-facing-PR gate are lint rules — cheaper and more reliable than an LLM.
+- **Judgment-bearing checks are the propose-only docs-maintenance agent** (ADR-0058): drafting changelog/roadmap entries and flagging coverage gaps (a user-visible change with no `docs/user/` guide, a design change with no ADR). It never authors design narrative or user-guide prose and never auto-merges.
+
+## Per-feature user-guide pattern
+
+Each guide in [`../user/features/`](../user/): what it does (plain language) · how to do the common tasks (step by step) · tips & edge cases · related features.

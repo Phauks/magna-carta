@@ -1,0 +1,14 @@
+node_modules/
+.svelte-kit/
+apps/web/build/
+dist/
+.wrangler/
+.vite/
+coverage/
+*.log
+.DS_Store
+# pre-existing scraping artifacts
+.playwright-mcp/
+docs/research/trust-rules/_tmp_*
+# tooling artifacts
+.superpowers/
