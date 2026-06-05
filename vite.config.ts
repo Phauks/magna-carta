@@ -17,6 +17,10 @@ export default defineConfig({
       typeCheck: true,
     },
   },
+  // Per-package test projects. apps/worker runs its tests inside Miniflare via @cloudflare/vitest-pool-workers, which only activates when its own config (apps/worker/vitest.config.ts) is loaded, so it is registered as a Vitest project here; otherwise root `vp test` would run the worker test under the default pool and `cloudflare:test` would not resolve.
+  test: {
+    projects: ["apps/worker/vitest.config.ts"],
+  },
   // vp reads test/lint/format defaults from here; run.tasks declares the monorepo graph.
   // Task keys are plain task names with a `command`; the `package#task` form is only valid inside `dependsOn` (see viteplus.dev/config/run).
   run: {
@@ -28,7 +32,16 @@ export default defineConfig({
         command: 'vp run --filter "./apps/*" build',
         dependsOn: ["@magna-carta/web#build"],
       },
-      // NOTE: the worker's build/dev tasks (which must depend on @magna-carta/web#build because the worker serves apps/web/build) are added here when apps/worker is created in a later task (worker E3).
+      // The worker serves apps/web/build, so its build and dev both depend on the SPA build (cross-package package#task notation).
+      // Named worker-build / worker-dev (not build / dev) so they do not collide with the root package.json build / dev scripts.
+      "worker-build": {
+        command: 'vp run --filter "@magna-carta/worker" build',
+        dependsOn: ["@magna-carta/web#build"],
+      },
+      "worker-dev": {
+        command: 'vp run --filter "@magna-carta/worker" dev',
+        dependsOn: ["@magna-carta/web#build"],
+      },
     },
   },
 });

@@ -15,7 +15,8 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
-    "vite-plus": "catalog:"
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
   },
   "engines": {
     "node": ">=25.0.0",
