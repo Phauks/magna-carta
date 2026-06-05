@@ -25,4 +25,8 @@ _Add a new file here per language as it enters the codebase (e.g. SQL migrations
 - Error handling stance: fail loudly at boundaries; never swallow errors silently.
 - Cross-language naming alignment (DB columns ↔ types ↔ API fields) so the same concept reads the same everywhere.
 
+## Line length & wrapping (decided)
+
+**Never hand-wrap.** Code is wrapped automatically by the formatter (Oxfmt, `printWidth: 100`, set in the root `vite.config.ts` `fmt` block) — do not insert manual line breaks to hit a column. Prose and comments are authored **unwrapped** — one line per paragraph (or one sentence per line where sentence-level diffs help), per [`documentation-style.md`](documentation-style.md). This keeps git diffs minimal (an edit changes one line, not a reflowed block) and stops anyone fighting the formatter.
+
 > Hard invariants (no emojis, no shell for file ops, docs-in-commit) live in the root [`CLAUDE.md`](../../CLAUDE.md) — not duplicated here.

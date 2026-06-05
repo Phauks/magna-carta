@@ -1,0 +1,11 @@
+# Store and check out all text files as LF on every platform (matches .editorconfig + oxfmt; stops Git autocrlf from fighting the formatter and CI). This is line endings only -- .gitattributes has no line-length setting.
+* text=auto eol=lf
+
+# Binary types -- never normalize. Extend as real assets are added.
+*.png binary
+*.jpg binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
