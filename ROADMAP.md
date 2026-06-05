@@ -13,6 +13,11 @@ This is **not** the white paper's _Build roadmap_, which is the stable **phase s
 - Phase 0 build-out per the white paper's _Build roadmap_: Cloudflare scaffold (control-plane + per-firm D1, R2, Queues, Workers), Better Auth + RBAC skeleton, append-only ledger core, telemetry baseline, fixtures harness.
 - The API implementing-library spike (record result as an ADR; detail in [`docs/conventions/api.md`](docs/conventions/api.md)).
 
+## Deferred — operational setup (do when convenient, not blocking)
+
+- **Move the repo out of OneDrive sync.** It currently lives under `OneDrive\Desktop`, which locks `apps/web/build` during `adapter-static`'s cleanup so a local `vp run build-all` fails with `EPERM` (the compile itself succeeds; Linux CI is unaffected), and needlessly syncs `node_modules`/build output to the cloud. Relocate (e.g. `C:\dev\magna-carta`) or exclude the project folder from OneDrive sync. Flagged during slice 0·1; deferred by owner.
+- **Create the GitHub remote.** The repo is local-only on `main`; `.github/workflows/ci.yml` is committed and activates on first push. When the remote exists, flipping CI to real Cloudflare deploys is a one-liner: add a Cloudflare API token as a GitHub secret and drop `--dry-run` (and attach the `magnacarta.esq` domain when ready). Deferred by owner.
+
 ## Recently shipped
 
 - **Phase 0 slice 0·1 — walking skeleton** shipped (commits ef318f9…39eb4ea; ADR-0069, ADR-0070; spec in [`docs/specs/`](docs/specs/)): monorepo + `vp` toolchain, Hono Worker serving the SvelteKit SPA + `/api/health` → control-plane D1, Miniflare integration test, CI through `wrangler deploy --dry-run`.
