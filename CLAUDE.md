@@ -67,7 +67,8 @@ Broad principles for how we build — they apply across the work, not just one s
 vp install                   # deps (vp manages pnpm + Node version)
 vp dev                       # app dev server (Workers via `wrangler dev` — Miniflare: local D1 + R2)
 vp test                      # unit + component + integration (Vitest, single-run)
-vp check                     # format + lint + type-check (Oxfmt + Oxlint + tsgolint)
+vp check                     # format + lint + TS type-check (Oxfmt + Oxlint + tsgolint) — .ts only, not .svelte
+pnpm check                   # full gate: vp check + svelte-check (.svelte type-check). CI runs this, not bare vp check
 vp build  /  vp pack         # build the app / bundle internal libraries
 vp run <task>                # monorepo task runner
 cargo test  /  cargo clippy  # Rust

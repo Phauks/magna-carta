@@ -9,13 +9,26 @@ export default defineConfig({
     proseWrap: "preserve",
     endOfLine: "lf",
   },
+  // typeCheck makes `vp check` run tsgolint TS type-checks (not just fmt+lint); a real `.ts` type error now fails the gate.
+  // tsgolint does not parse `.svelte`, so the full gate (`pnpm check`) also runs svelte-check. See conventions/typescript.md.
+  lint: {
+    options: {
+      typeAware: true,
+      typeCheck: true,
+    },
+  },
   // vp reads test/lint/format defaults from here; run.tasks declares the monorepo graph.
-  // @ts-expect-error vp augments the Vite config with `run`; type may not be published yet
+  // Task keys are plain task names with a `command`; the `package#task` form is only valid inside `dependsOn` (see viteplus.dev/config/run).
   run: {
     tasks: {
-      // apps/worker build/dev/deploy depend on the SPA being built first
-      "apps/worker#build": { dependsOn: ["apps/web#build"] },
-      "apps/worker#dev": { dependsOn: ["apps/web#build"] },
+      // Build the whole app in dependency order: the SPA first, then (later) the worker that serves apps/web/build.
+      // Named `build-all` (not `build`) so it does not collide with the root package.json `build` script.
+      // The command builds every app package (filter excludes the root, which has no buildable entry); `dependsOn` uses the cross-package `package#task` notation to force apps/web's build first.
+      "build-all": {
+        command: 'vp run --filter "./apps/*" build',
+        dependsOn: ["@magna-carta/web#build"],
+      },
+      // NOTE: the worker's build/dev tasks (which must depend on @magna-carta/web#build because the worker serves apps/web/build) are added here when apps/worker is created in a later task (worker E3).
     },
   },
 });
