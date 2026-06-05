@@ -5,13 +5,16 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  vite: npm:@voidzero-dev/vite-plus-core@latest
-  vitest: npm:@voidzero-dev/vite-plus-test@latest
+  vite: npm:@voidzero-dev/vite-plus-core@0.1.24
+  vitest: npm:@voidzero-dev/vite-plus-test@0.1.24
 
 importers:
 
   .:
     devDependencies:
+      '@cloudflare/workers-types':
+        specifier: 4.20260604.1
+        version: 4.20260604.1
       vite-plus:
         specifier: 0.1.24
         version: 0.1.24(vite@8.0.16)
@@ -19,6 +22,9 @@ importers:
   packages/tsconfig: {}
 
 packages:
+
+  '@cloudflare/workers-types@4.20260604.1':
+    resolution: {integrity: sha512-nVTydUwPcz9WfwZ/6xAmqs8uUVeGbDVmyPvSYrYAo4CQTyi0122SoE1Suw8RvqnN60XXHPChAjDqSIjnr/mbmg==}
 
   '@emnapi/core@1.10.0':
     resolution: {integrity: sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw==}
@@ -839,6 +845,8 @@ packages:
         optional: true
 
 snapshots:
+
+  '@cloudflare/workers-types@4.20260604.1': {}
 
   '@emnapi/core@1.10.0':
     dependencies:
