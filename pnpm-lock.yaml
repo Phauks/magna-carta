@@ -66,9 +66,6 @@ importers:
 
   apps/web:
     devDependencies:
-      '@magna-carta/tsconfig':
-        specifier: workspace:*
-        version: link:../../packages/tsconfig
       '@sveltejs/adapter-static':
         specifier: 'catalog:'
         version: 3.0.10(@sveltejs/kit@2.63.0(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.2)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.27.3)(yaml@2.9.0)))(svelte@5.56.2)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.27.3)(yaml@2.9.0)))

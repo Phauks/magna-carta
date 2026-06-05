@@ -1,11 +1,6 @@
 {
   "name": "magna-carta",
   "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*",
-    "plugins/*"
-  ],
   "type": "module",
   "scripts": {
     "check": "vp check && pnpm --filter @magna-carta/web check",
