@@ -9,6 +9,7 @@
 **To document:**
 
 - **Oxlint** (`vp lint`) + **Oxfmt** (`vp fmt`; Prettier interim until Oxfmt is GA), with `vp check` running format + lint + **tsgolint** type-check in one pass: rules enforced, how to run, the CI gate.
+- **Current scaffold reality (Phase 0):** `vp check` runs **format + lint only** — tsgolint type-check is not yet enabled (it needs `lint.options.typeCheck` in the root `vite.config.ts`, and tsgolint does not parse `.svelte` files regardless). The quality gate runs through the root `check` package script (`pnpm check` / `pnpm run check`), which is `vp check && pnpm --filter @magna-carta/web check`; the second command is `svelte-check`, the type-checker for the SvelteKit app's `.ts` and `.svelte` source. CI must invoke `pnpm check` (or `vp check` followed by each package's `check` script), not bare `vp check`, until tsgolint type-check is enabled monorepo-wide. Wiring tsgolint into `vp check` and per-package type-check tasks is tracked for the worker slice (E3).
 - Type discipline: `strict` settings, no implicit `any`, prefer inference; when explicit types are required.
 - **zod** as the schema/validation source of truth (feeds the API contract — see [`api.md`](api.md)).
 - Async patterns on Workers (no Node assumptions; Web APIs / `fetch`; streaming).
