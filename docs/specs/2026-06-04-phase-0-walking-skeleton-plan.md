@@ -12,6 +12,8 @@
 
 **Module-reference discipline (ADR-0070):** no convenience barrels. Each package's public API is its `package.json` `exports` + `"sideEffects": false`; import specific source modules within a package; never deep-import another package's internals. The Oxlint no-barrel rule is enabled in Task 1.
 
+**Dependency management (pnpm catalog):** all dependency versions are pinned exactly and centralized in the `pnpm-workspace.yaml` `catalog:` — the single source of truth. Every `package.json` references shared deps as `"<dep>": "catalog:"`, never an inline version, so a bump is a one-line edit in the catalog and no two packages can drift to different versions. The catalog already holds the pins for everything this plan creates (toolchain, Cloudflare, Hono/Zod, SvelteKit). **Where a task snippet below shows a `<PIN>`/inline version, write `"catalog:"` instead** (the version lives in the catalog; add it there if missing). `vite`/`vitest` are aliased to the vite-plus bundles via `overrides`, not the catalog.
+
 ---
 
 ## File Structure

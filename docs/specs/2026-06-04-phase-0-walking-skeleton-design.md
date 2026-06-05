@@ -88,6 +88,7 @@ magna-carta/
 - **`vp check`** = **Oxlint** + **tsgolint** + formatter. Formatter is **Prettier (interim)** per the white paper; **Oxfmt** is beta (100% Prettier-conformant) and a fast-follow once GA — tracked, not adopted now.
 - **Module references (ADR-0070):** no convenience barrel files — the **Oxlint no-barrel rule** is enabled in `vp check`, every package sets **`"sideEffects": false`** and exposes its public API via `package.json` **`exports`** (curated, flat); deep cross-package imports are forbidden. The `dependency-cruiser`/`ts-arch` boundary + `no-cycle` fitness functions are added with the coherence-tooling slice; the Oxlint rule + `exports`/`sideEffects` discipline start now.
 - **Single root `vite.config.ts`** holds dev/build/test/lint/format + `run.tasks` with shared defaults.
+- **Dependency versions are centralized in a pnpm `catalog:`** (in `pnpm-workspace.yaml`) — the single source of truth, exact-pinned. Every `package.json` references shared deps as `"<dep>": "catalog:"`, so a bump is one line and versions can't drift between packages; upgrades stay deliberate (and the propose-only dependency-upgrade agent edits one place). `vite`/`vitest` are aliased to the vite-plus bundles via `overrides`.
 - **Node version + package manager** pinned via `packageManager` + `vp`.
 
 ---

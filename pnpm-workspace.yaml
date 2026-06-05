@@ -3,6 +3,27 @@ packages:
   - "packages/*"
   - "plugins/*"
 
+# Single source of truth for dependency versions (pnpm catalog).
+# Bump a version here once; every package.json that references `catalog:` follows.
+# Keep exact pins (no ^/~) — upgrades are deliberate, one line at a time.
+catalog:
+  # Toolchain
+  vite-plus: 0.1.24
+  # Cloudflare
+  wrangler: 4.98.0
+  "@cloudflare/workers-types": 4.20260604.1
+  "@cloudflare/vitest-pool-workers": 0.16.13
+  # API / Worker (apps/worker)
+  hono: 4.12.23
+  "@hono/zod-openapi": 1.4.0
+  zod: 4.4.3
+  # Web (apps/web)
+  svelte: 5.56.2
+  svelte-check: 4.6.0
+  "@sveltejs/kit": 2.63.0
+  "@sveltejs/adapter-static": 3.0.10
+  "@sveltejs/vite-plugin-svelte": 7.1.2
+
 overrides:
   vite: "npm:@voidzero-dev/vite-plus-core@0.1.24"
   vitest: "npm:@voidzero-dev/vite-plus-test@0.1.24"
