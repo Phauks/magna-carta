@@ -3,6 +3,16 @@ packages:
   - "packages/*"
   - "plugins/*"
 
+# Allow postinstall build scripts for packages that require native compilation.
+# Without this, pnpm 10 blocks lifecycle scripts by default (interactive approve is
+# unavailable in CI). workerd ships a pre-built binary via the platform-specific
+# optional dep (@cloudflare/workerd-<platform>), so it only needs this for the
+# workerd wrapper postinstall; esbuild and sharp similarly ship native binaries.
+onlyBuiltDependencies:
+  - workerd
+  - esbuild
+  - sharp
+
 # Single source of truth for dependency versions (pnpm catalog).
 # Bump a version here once; every package.json that references `catalog:` follows.
 # Keep exact pins (no ^/~) — upgrades are deliberate, one line at a time.
