@@ -6,15 +6,16 @@ This is **not** the white paper's _Build roadmap_, which is the stable **phase s
 
 ## Now — current focus
 
-- **Phase 0 — Foundation** — **slice 0·1 (walking skeleton) designed.** Phase 0 decomposed into ordered slices 0·1–0·9; the first (repo + `vp` toolchain + a Hono Worker serving the SvelteKit SPA + CI) is specced with ADR-0069 (Worker architecture) and ADR-0070 (module-reference policy). Next: its implementation plan, then build.
+- **Phase 0 — Foundation** — **slice 0·2 (§9 data primitives).** Walking skeleton shipped (slice 0·1); now building the §9 data-convention layer: the `money` module, the id-generator + prefix registry, idempotency middleware, the transactional outbox + relay, and the Drizzle schema + fleet-migration runner (ADR-0061–0065; spec in [`docs/specs/2026-06-04-foundational-data-conventions-design.md`](docs/specs/2026-06-04-foundational-data-conventions-design.md)).
 
 ## Next
 
-- Phase 0 build-out per the white paper's _Build roadmap_: tooling, Cloudflare scaffold (control-plane + per-firm D1, R2, Queues, Workers), Better Auth + RBAC skeleton, append-only ledger core, the **§9 data conventions** (the `money` module, the id generator + prefix registry, idempotency middleware, the outbox + relay, and the Drizzle schema + fleet-migration runner — ADR-0061–0065), telemetry baseline, fixtures harness.
+- Phase 0 build-out per the white paper's _Build roadmap_: Cloudflare scaffold (control-plane + per-firm D1, R2, Queues, Workers), Better Auth + RBAC skeleton, append-only ledger core, telemetry baseline, fixtures harness.
 - The API implementing-library spike (record result as an ADR; detail in [`docs/conventions/api.md`](docs/conventions/api.md)).
 
 ## Recently shipped
 
+- **Phase 0 slice 0·1 — walking skeleton** shipped (commits ef318f9…39eb4ea; ADR-0069, ADR-0070; spec in [`docs/specs/`](docs/specs/)): monorepo + `vp` toolchain, Hono Worker serving the SvelteKit SPA + `/api/health` → control-plane D1, Miniflare integration test, CI through `wrangler deploy --dry-run`.
 - **Foundational data & runtime conventions** (§9.3–9.7) designed and decided: money representation, identifier strategy, idempotency, the transactional outbox, and the schema-migration / fleet model (ADR-0061–0065; spec in [`docs/specs/2026-06-04-foundational-data-conventions-design.md`](docs/specs/2026-06-04-foundational-data-conventions-design.md)). With the time model (ADR-0055) and durability-on-close (ADR-0057), all of §9 is now settled — the cross-cutting data primitives Phase 0 builds on.
 - Documentation foundation: white-paper reorganization, ADR standard + Decision Log, `CLAUDE.md`, conventions, specs/user scaffolds, roadmap + changelog.
 

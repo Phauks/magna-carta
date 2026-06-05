@@ -61,18 +61,18 @@ Broad principles for how we build — they apply across the work, not just one s
 
 ## Commands
 
-> **Phase 0 scaffold is not yet built** — these are the intended entry points, wired up (and this block updated) with the repo scaffold.
+```
+vp install                                                              # deps (vp manages pnpm + Node version)
+vp dev                                                                  # web SPA dev server only (Vite HMR, no Worker)
+vp run worker-dev                                                       # full local app: builds the SPA, then runs wrangler dev (Miniflare: local D1/R2/Queues)
+vp run build-all                                                        # build all apps in dependency order
+vp test                                                                 # unit + integration (Vitest, single-run; includes the Miniflare worker integration test)
+pnpm check                                                              # full quality gate: vp check (fmt+lint+TS-typecheck) AND svelte-check (.svelte); CI runs this, not bare vp check
+pnpm --filter @magna-carta/worker exec wrangler deploy --dry-run        # validate deploy without pushing
+cargo test  /  cargo clippy                                             # Rust
+```
 
-```
-vp install                   # deps (vp manages pnpm + Node version)
-vp dev                       # app dev server (Workers via `wrangler dev` — Miniflare: local D1 + R2)
-vp test                      # unit + component + integration (Vitest, single-run)
-vp check                     # format + lint + TS type-check (Oxfmt + Oxlint + tsgolint) — .ts only, not .svelte
-pnpm check                   # full gate: vp check + svelte-check (.svelte type-check). CI runs this, not bare vp check
-vp build  /  vp pack         # build the app / bundle internal libraries
-vp run <task>                # monorepo task runner
-cargo test  /  cargo clippy  # Rust
-```
+**Known local gotcha (Windows + OneDrive):** `vp run build-all` can fail with `EPERM` because OneDrive locks `apps/web/build` during `adapter-static`'s cleanup step. Linux CI is unaffected. Workaround: pause OneDrive sync (or move the repo outside a synced folder) before running a full local build.
 
 ## Where to look next
 
