@@ -19,7 +19,7 @@ export default defineConfig({
   },
   // Per-package test projects. apps/worker runs its tests inside Miniflare via @cloudflare/vitest-pool-workers, which only activates when its own config (apps/worker/vitest.config.ts) is loaded, so it is registered as a Vitest project here; otherwise root `vp test` would run the worker test under the default pool and `cloudflare:test` would not resolve.
   test: {
-    projects: ["apps/worker/vitest.config.ts"],
+    projects: ["apps/worker/vitest.config.ts", "packages/*/vitest.config.ts"],
   },
   // vp reads test/lint/format defaults from here; run.tasks declares the monorepo graph.
   // Task keys are plain task names with a `command`; the `package#task` form is only valid inside `dependsOn` (see viteplus.dev/config/run).

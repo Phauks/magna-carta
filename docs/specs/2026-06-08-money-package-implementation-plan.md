@@ -42,6 +42,7 @@ packages/money/
 ## Task 1: Scaffold the package and pin dependencies
 
 **Files:**
+
 - Create: `packages/money/package.json`
 - Create: `packages/money/tsconfig.json`
 - Create: `packages/money/vitest.config.ts`
@@ -135,10 +136,10 @@ pnpm --filter @magna-carta/money add -D decimal.js
 Then read the resolved versions and pin them as **exact** entries (no `^`/`~`) in `pnpm-workspace.yaml` under `catalog:`, and switch the three `package.json` entries above to `catalog:` (they are already written as `catalog:`, so only the catalog needs the versions). Add under the existing catalog list:
 
 ```yaml
-  # Money (packages/money)
-  dinero.js: <resolved version, e.g. 2.0.2>
-  "@dinero.js/calculator-bigint": <resolved version>
-  decimal.js: <resolved version, e.g. 10.4.3>
+# Money (packages/money)
+dinero.js: <resolved version, e.g. 2.0.2>
+"@dinero.js/calculator-bigint": <resolved version>
+decimal.js: <resolved version, e.g. 10.4.3>
 ```
 
 Confirm exact versions:
@@ -181,6 +182,7 @@ git commit -m "chore(money): scaffold @magna-carta/money package + pin dinero/de
 ## Task 2: The Dinero bigint seam (`src/dinero.ts`)
 
 **Files:**
+
 - Create: `packages/money/src/dinero.ts`
 - Test: `packages/money/test/dinero.test.ts`
 
@@ -264,6 +266,7 @@ git commit -m "feat(money): bigint dinero seam (only file importing dinero.js)"
 ## Task 3: Branded types + constructors + minor-unit boundary (`src/money.ts`, `src/format.ts`)
 
 **Files:**
+
 - Create: `packages/money/src/money.ts`
 - Create: `packages/money/src/format.ts`
 - Test: `packages/money/test/money.test.ts`
@@ -320,7 +323,11 @@ export type Money = BigIntDinero & { readonly [moneyBrand]: "Money" };
 export type Rate = BigIntDinero & { readonly [rateBrand]: "Rate" };
 // Ratio is dimensionless (no currency) — a scaled amount, e.g. { amount: 8375n, scale: 5 } === 0.08375.
 // It is NOT a Dinero (Dinero requires a currency); it is the multiplier shape Dinero's multiply() accepts.
-export type Ratio = { readonly amount: bigint; readonly scale: number; readonly [ratioBrand]: "Ratio" };
+export type Ratio = {
+  readonly amount: bigint;
+  readonly scale: number;
+  readonly [ratioBrand]: "Ratio";
+};
 
 const MONEY_SCALE = 2;
 const RATE_SCALE = 4;
@@ -367,6 +374,7 @@ git commit -m "feat(money): branded Money/Rate/Ratio types + constructors + mino
 ## Task 4: Arithmetic with currency-mismatch guard (`src/money.ts`)
 
 **Files:**
+
 - Modify: `packages/money/src/money.ts`
 - Test: `packages/money/test/money.test.ts`
 
@@ -435,6 +443,7 @@ git commit -m "feat(money): add/subtract with currency-mismatch guard"
 ## Task 5: Rate x quantity and percent-of (`src/money.ts`)
 
 **Files:**
+
 - Modify: `packages/money/src/money.ts`, `packages/money/src/dinero.ts`
 - Test: `packages/money/test/money.test.ts`
 
@@ -541,6 +550,7 @@ git commit -m "feat(money): rate x quantity (high-precision intermediate) + perc
 ## Task 6: Named rounding helpers (`src/rounding.ts`)
 
 **Files:**
+
 - Create: `packages/money/src/rounding.ts`
 - Modify: `packages/money/src/dinero.ts`
 - Test: `packages/money/test/rounding.test.ts`
@@ -635,6 +645,7 @@ git commit -m "feat(money): named boundary rounding helpers (half-up tax/line, h
 ## Task 7: `allocate` — splits that sum exactly (`src/allocate.ts`)
 
 **Files:**
+
 - Create: `packages/money/src/allocate.ts`
 - Modify: `packages/money/src/dinero.ts`
 - Test: `packages/money/test/allocate.test.ts`
@@ -708,6 +719,7 @@ git commit -m "feat(money): allocate (largest-remainder, sums exactly to input)"
 ## Task 8: `format` for display (`src/format.ts`)
 
 **Files:**
+
 - Modify: `packages/money/src/format.ts`, `packages/money/src/dinero.ts`
 - Test: `packages/money/test/format.test.ts`
 
@@ -754,7 +766,9 @@ export function format(value: Money): string {
   // toDecimal gives the exact decimal string; Intl applies the currency's locale formatting with an explicit currency.
   const code = snapshot(value).currency.code;
   const decimal = toDecimal(value);
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: code }).format(Number(decimal));
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: code }).format(
+    Number(decimal),
+  );
 }
 ```
 
@@ -777,6 +791,7 @@ git commit -m "feat(money): format via Intl with explicit currency"
 ## Task 9: Differential test vs `decimal.js` (`test/differential.test.ts`)
 
 **Files:**
+
 - Create: `packages/money/test/differential.test.ts`
 
 - [ ] **Step 1: Write the test (this IS the deliverable — validates the Dinero wrapper, spec §6)**
@@ -842,6 +857,7 @@ git commit -m "test(money): differential vs decimal.js + allocate sum-to-input p
 ## Task 10: Seam-boundary fitness function (`test/seam-boundary.test.ts`)
 
 **Files:**
+
 - Create: `packages/money/test/seam-boundary.test.ts`
 
 - [ ] **Step 1: Write the failing test (enforces spec §1.5: Dinero imported only inside dinero.ts)**
@@ -891,6 +907,7 @@ git commit -m "test(money): fitness function — Dinero imported only inside the
 ## Task 11: Decision record + docs (golden rules 5 & 8)
 
 **Files:**
+
 - Modify: `docs/Decision-Log.md` (new ADR-0071, package layout)
 - Modify: `ROADMAP.md` (slice 0·2 progress)
 - Modify: `CHANGELOG.md`

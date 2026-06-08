@@ -1,0 +1,10 @@
+{
+  "extends": "@magna-carta/tsconfig/base",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": [],
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}

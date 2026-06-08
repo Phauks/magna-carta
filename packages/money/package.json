@@ -1,0 +1,25 @@
+{
+  "name": "@magna-carta/money",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./money": "./src/money.ts",
+    "./rounding": "./src/rounding.ts",
+    "./allocate": "./src/allocate.ts",
+    "./format": "./src/format.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@dinero.js/calculator-bigint": "catalog:",
+    "dinero.js": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "decimal.js": "catalog:",
+    "vitest": "catalog:"
+  }
+}
