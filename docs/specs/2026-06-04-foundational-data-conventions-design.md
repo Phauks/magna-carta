@@ -272,7 +272,29 @@ All test data flows through the write-path fixtures (ADR-0034), never raw insert
 
 ---
 
-## 7. Open items deferred to build
+## 7. Implementation structure (slice 0·2 build)
+
+The five conventions are realized as **four workspace packages**, split on the seam between _defining_ the data and _safely reaching_ it. Names are fully spelled out (golden rule 12, [`code-style.md`](../conventions/code-style.md)) — no `db`/`dal`/`ids` shorthand.
+
+| Package                    | Plain-English purpose                          | Contents                                                                                     | Depends on                          |
+| -------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------- |
+| `@magna-carta/money`       | All monetary math                              | `Money`/`Rate`/`Ratio` types, named rounding helpers, `allocate`, `format`; Dinero wrapped here only | — (Dinero.js)                       |
+| `@magna-carta/identifiers` | How every row is named                         | identifier generator, prefix registry, branded identifier types, seeded random source for fixtures | — (nanoid)                          |
+| `@magna-carta/database`    | How the database is **defined & evolved**      | Drizzle schemas (control-plane + per-firm), migration runner, fleet rollout orchestrator       | `identifiers`                       |
+| `@magna-carta/data-access` | How the database is **safely reached**         | idempotency middleware, transactional outbox + relay; later: firm-scoping, `protected()`, audit | `database`, `identifiers`, `money`  |
+
+**Why this seam, not others.** `money` and `identifiers` are pure leaves (no Cloudflare runtime, repo-dependency-free) → clean package edges, fast plain-Vitest tests, and a hard Dinero boundary enforced at module resolution. `database` (structure) and `data-access` (access) split on a genuine acyclic seam. Idempotency and outbox are **not** split into their own packages: they are mutually entangled through the shared D1 transaction (idempotency inserts inside the effect's transaction; outbox consumers reuse the idempotency record), so separate packages would force a circular dependency. They live together in `data-access`, separated by strict internal module boundaries + the §1.5/§3.3/§4.5 fitness functions instead. Dependency graph is strictly acyclic: `data-access → database → identifiers`, `data-access → money`.
+
+**Build order (one vertical slice per package, each its own commit with tests + doc updates):**
+
+1. `money` — pure, self-contained; establishes the package pattern. Property tests + differential test vs `decimal.js`.
+2. `identifiers` — pure; generator + prefix-registry conformance + brand negative-compile tests + fixture determinism.
+3. `database` — schemas + migration runner + fleet orchestrator ("a fleet of one" for now); expand-contract guard.
+4. `data-access` — idempotency middleware, then transactional outbox + relay; idempotency-required + outbox-chokepoint fitness functions.
+
+Each slice ships its fitness functions alongside the code they guard. The package-layout decision is recorded as an ADR in the same commit as slice 1 (golden rule 8).
+
+## 8. Open items deferred to build
 
 - Per-tier intervals/limits (idempotency TTL exact value, outbox sweep cadence, relay-DO alarm interval, migration concurrency bound) — the conventions bind now; the numbers arrive with the code (same intentional seam as ADR-0039).
 - The Dinero-vs-in-house re-evaluation trigger (if ledger math moves to Rust→WASM per ADR-0024/0039) — the `money` seam makes this a wrapper swap.

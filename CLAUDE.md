@@ -50,12 +50,13 @@ Broad principles for how we build — they apply across the work, not just one s
 9. **One home per fact.** Follow existing conventions; reference the white paper by topic name or `ADR-NNNN`, never a `§` number.
 10. **Measure before optimizing; keep work off the hot path.** No heavy work in a request handler or on the UI main thread — offload to Containers/Queues/Web Workers; stream, don't buffer; no N+1. Optimize against the load-profile harness, not guesses. (_Performance & concurrency model_; ADR-0039)
 11. **Implement on the latest — verify library docs first.** Before using or upgrading any library, look up its **current** documentation and build against the latest stable API/patterns (e.g. Svelte 5 **runes**, Tailwind v4, Vite+ `vp`) — never older idioms from memory. Web-search the docs when unsure. Getting it current up front avoids retrofitting the codebase later. (_Development guidelines_)
+12. **Fully write out names — no shorthand.** Spell every name out in full across packages, code, and docs: `@magna-carta/identifiers` not `ids`, `@magna-carta/database` not `db`, `@magna-carta/data-access` not `dal`; `newIdentifier()` not `newId()`; "the data-access layer", never "the DAL". Clarity imposed now is cheap; decoding shorthand later is not, and it compounds across the codebase. Only exception: documented storage-encoding suffixes from an accepted spec (e.g. `amount_minor`, `rate_e4`) and universal external terms (`id`, `URL`, `JSON`, `SQL`). Standard: [`docs/conventions/code-style.md`](docs/conventions/code-style.md).
 
 **Domain invariants (scoped).** Subsystem-specific correctness rules — the financial & trust ledger rules, and secrets/encryption — are hard but bind only in their area: see [`docs/conventions/invariants.md`](docs/conventions/invariants.md) and the local `CLAUDE.md` of the area you are working in.
 
 ## How we work
 
-- **Build in vertical slices:** each feature complete through every layer (schema → firm-scoped DAL → API → UI → tests → docs), not horizontal layers — each slice ships working and is perf-tested against the load-profile fixtures as built.
+- **Build in vertical slices:** each feature complete through every layer (schema → firm-scoped data-access layer → API → UI → tests → docs), not horizontal layers — each slice ships working and is perf-tested against the load-profile fixtures as built.
 - **Implementation:** autonomous and terse; comprehensive fixes over incremental patches. Design and brainstorming stay collaborative.
 - **Per-area `CLAUDE.md`:** each code area carries its own (template in [`docs/conventions/`](docs/conventions/)) for local rules and the domain invariants that apply there — keep cross-cutting rules in `docs/conventions/`, not duplicated locally.
 
