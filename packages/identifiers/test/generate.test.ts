@@ -58,4 +58,16 @@ describe("generateUniqueIdentifier", () => {
       generateUniqueIdentifier("matter", () => false, { maxAttempts: 3 }),
     ).rejects.toThrow(/3 attempts/);
   });
+
+  it("propagates a thrown tryInsert error immediately — a throw is fatal, not a collision", async () => {
+    let calls = 0;
+    const databaseFailure = new Error("D1_ERROR: no such table");
+    await expect(
+      generateUniqueIdentifier("matter", () => {
+        calls++;
+        throw databaseFailure;
+      }),
+    ).rejects.toBe(databaseFailure);
+    expect(calls).toBe(1); // no retry — retrying arbitrary database errors would mask real failures
+  });
 });
