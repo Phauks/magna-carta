@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const SRC = join(import.meta.dirname, "..", "src");
 
-describe("Dinero seam boundary (spec §1.5)", () => {
+describe("Dinero seam boundary", () => {
   it("only src/dinero.ts imports dinero.js", async () => {
     const files = (await readdir(SRC)).filter((f) => f.endsWith(".ts"));
     const offenders: string[] = [];

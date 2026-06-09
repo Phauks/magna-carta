@@ -6,6 +6,7 @@
   "sideEffects": false,
   "exports": {
     "./money": "./src/money.ts",
+    "./compare": "./src/compare.ts",
     "./rounding": "./src/rounding.ts",
     "./allocate": "./src/allocate.ts",
     "./format": "./src/format.ts"

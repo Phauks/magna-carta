@@ -3,6 +3,7 @@ import {
   EUR,
   makeMoneyDinero,
   multiplyDinero,
+  snapshot,
   subtractDinero,
   USD,
   type NumberCurrency,
@@ -56,6 +57,22 @@ export function rate(e4: number, currency: NumberCurrency): Rate {
   return makeMoneyDinero(e4, currency, RATE_SCALE) as Rate;
 }
 
+// The human/decimal input boundary (API/UI): parse "450.00", "-1234.5", "450" into Money (cents).
+// Rejects sub-cent precision (> 2 decimals) and malformed input — fail loud rather than guess.
+export function fromDecimal(text: string, currency: NumberCurrency): Money {
+  const match = /^(-?)(\d+)(?:\.(\d{1,2}))?$/.exec(text.trim());
+  if (!match) {
+    throw new RangeError(
+      `not a valid money amount (expected e.g. "450.00", at most 2 decimals): ${text}`,
+    );
+  }
+  const [, sign, whole, fraction = ""] = match;
+  const cents = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+  const minor = sign === "-" && cents !== 0 ? -cents : cents; // avoid -0 (Object.is(-0, 0) is false)
+  assertSafeInteger(minor);
+  return money(minor, currency);
+}
+
 // Dinero's add/subtract enforce same-currency at the type level and throw at runtime on mismatch.
 export function add(a: Money, b: Money): Money {
   return addDinero(a, b) as Money;
@@ -63,6 +80,33 @@ export function add(a: Money, b: Money): Money {
 
 export function subtract(a: Money, b: Money): Money {
   return subtractDinero(a, b) as Money;
+}
+
+// A zero balance in the given currency — the identity for sum() and the seed for accumulators.
+export function zero(currency: NumberCurrency): Money {
+  return money(0, currency);
+}
+
+// Negate a Money (a charge becomes its credit, and vice versa). Preserves scale and currency.
+export function negate(value: Money): Money {
+  return multiplyDinero(value, -1) as Money;
+}
+
+// Absolute value — the magnitude of a Money regardless of sign.
+export function abs(value: Money): Money {
+  return snapshot(value).amount < 0 ? negate(value) : value;
+}
+
+// Sum a NON-EMPTY list of same-currency Money (ledger/invoice totals). Mixed currencies throw (via add).
+// Empty throws — there is no currency to infer a zero from; callers with a possibly-empty list use
+// `list.length ? sum(list) : zero(currency)`.
+export function sum(values: Money[]): Money {
+  if (values.length === 0) {
+    throw new RangeError(
+      "sum() requires at least one Money (cannot infer currency from an empty list)",
+    );
+  }
+  return values.reduce((total, value) => add(total, value));
 }
 
 // Dimensionless ratio: a scaled amount (e.g. ratio(8375, 5) === 0.08375). Not a Dinero.

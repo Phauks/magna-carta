@@ -1,14 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
+  abs,
   add,
   EUR,
+  fromDecimal,
   money,
   multiplyByQuantity,
+  negate,
   percentOf,
   rate,
   ratio,
   subtract,
+  sum,
   USD,
+  zero,
   type Money,
 } from "../src/money.ts";
 import { fromMinor, toMinor } from "../src/format.ts";
@@ -57,5 +62,48 @@ describe("rate x quantity and percent", () => {
 
   it("rejects a quantity outside the supported decimal range (exponential notation)", () => {
     expect(() => multiplyByQuantity(rate(4500000, USD), 1e-7)).toThrow();
+  });
+});
+
+describe("zero / negate / abs / sum", () => {
+  it("zero is the additive identity in a currency", () => {
+    expect(toMinor(zero(USD))).toBe(0);
+    expect(toMinor(add(money(45000, USD), zero(USD)))).toBe(45000);
+  });
+
+  it("negate flips sign; abs takes magnitude", () => {
+    expect(toMinor(negate(money(45000, USD)))).toBe(-45000);
+    expect(toMinor(negate(money(-45000, USD)))).toBe(45000);
+    expect(toMinor(abs(money(-45000, USD)))).toBe(45000);
+    expect(toMinor(abs(money(45000, USD)))).toBe(45000);
+  });
+
+  it("sum totals a non-empty list and throws on empty", () => {
+    expect(toMinor(sum([money(100, USD), money(200, USD), money(50, USD)]))).toBe(350);
+    expect(toMinor(sum([money(45000, USD)]))).toBe(45000);
+    expect(() => sum([])).toThrow();
+  });
+
+  it("sum throws on mixed currencies", () => {
+    expect(() => sum([money(100, USD), money(100, EUR)])).toThrow();
+  });
+});
+
+describe("fromDecimal (human input boundary)", () => {
+  it("parses decimal strings into cents", () => {
+    expect(toMinor(fromDecimal("450.00", USD))).toBe(45000);
+    expect(toMinor(fromDecimal("450", USD))).toBe(45000);
+    expect(toMinor(fromDecimal("450.5", USD))).toBe(45050);
+    expect(toMinor(fromDecimal("-1234.56", USD))).toBe(-123456);
+    expect(toMinor(fromDecimal("0.01", USD))).toBe(1);
+    expect(toMinor(fromDecimal("0", USD))).toBe(0);
+    expect(toMinor(fromDecimal("-0", USD))).toBe(0); // never -0
+  });
+
+  it("rejects sub-cent precision and malformed input", () => {
+    expect(() => fromDecimal("450.005", USD)).toThrow(); // 3 decimals
+    expect(() => fromDecimal("abc", USD)).toThrow();
+    expect(() => fromDecimal("", USD)).toThrow();
+    expect(() => fromDecimal("4.5.6", USD)).toThrow();
   });
 });

@@ -15,4 +15,20 @@ describe("allocate (largest-remainder)", () => {
     const parts = allocate(gross, [333, 333, 333, 1]);
     expect(parts.reduce((sum, p) => sum + toMinor(p), 0)).toBe(1_000_000);
   });
+
+  it("a single recipient receives the whole amount", () => {
+    const parts = allocate(money(1003, USD), [1]);
+    expect(parts.map(toMinor)).toEqual([1003]);
+  });
+
+  it("a zero amount splits into zeros", () => {
+    const parts = allocate(money(0, USD), [1, 1, 1]);
+    expect(parts.map(toMinor)).toEqual([0, 0, 0]);
+  });
+
+  it("many recipients still sum exactly (no drift accumulation)", () => {
+    const parts = allocate(money(1000, USD), [1, 1, 1, 1, 1, 1, 1]); // $10.00 / 7
+    expect(parts).toHaveLength(7);
+    expect(parts.reduce((sum, p) => sum + toMinor(p), 0)).toBe(1000);
+  });
 });
