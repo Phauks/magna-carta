@@ -5,6 +5,8 @@ import type { BrandFor } from "./types.ts";
 // The token character class is the URL-safe set (A-Za-z0-9_-) the generator's alphabet draws from.
 // A test (registry/seam conformance) asserts every character of the seam's TOKEN_ALPHABET falls in this
 // class, so the two cannot drift. One precompiled pattern per entity type — built once at module load.
+// The cast is exhaustive: the entries come from ENTITY_PREFIXES, whose keys ARE EntityType, so every
+// entity type has a pattern and the keyed access below is never undefined.
 const HANDLE_PATTERNS = Object.fromEntries(
   Object.entries(ENTITY_PREFIXES).map(([type, prefix]) => [
     type,
