@@ -1,11 +1,9 @@
 import {
   addDinero,
-  down,
   EUR,
   makeMoneyDinero,
   multiplyDinero,
   subtractDinero,
-  transformScale,
   USD,
   type NumberCurrency,
   type NumberDinero,
@@ -19,9 +17,15 @@ export type { NumberCurrency };
 declare const moneyBrand: unique symbol;
 declare const rateBrand: unique symbol;
 declare const ratioBrand: unique symbol;
+declare const intermediateBrand: unique symbol;
 
 export type Money = NumberDinero & { readonly [moneyBrand]: "Money" };
 export type Rate = NumberDinero & { readonly [rateBrand]: "Rate" };
+// A high-precision product (rate x quantity, or money x ratio) at a scale finer than cents.
+// It is NOT spendable Money: the only legal next step is a named rounding helper (rounding.ts), which
+// collapses it to Money at the boundary. Branding it makes "round before you use it" a compile-time
+// guarantee — a raw Intermediate cannot be read as cents (toMinor) or added to Money.
+export type Intermediate = NumberDinero & { readonly [intermediateBrand]: "Intermediate" };
 // Ratio is dimensionless (no currency) — a scaled amount, e.g. { amount: 8375, scale: 5 } === 0.08375.
 // It is NOT a Dinero (Dinero requires a currency); it is the multiplier shape Dinero's multiply() accepts.
 export type Ratio = {
@@ -33,9 +37,10 @@ export type Ratio = {
 const MONEY_SCALE = 2;
 const RATE_SCALE = 4;
 
-function assertSafeInteger(value: number): void {
-  // Fail loud at the boundary: the number calculator is exact only for safe integers (< 2^53).
-  // If this ever fires in practice, the engine must move to the decimal.js custom calculator (ADR-0061).
+// Fail loud at the boundary: the number calculator is exact only for safe integers (< 2^53). If this
+// ever fires in practice, the engine must move to the decimal.js custom calculator (ADR-0061).
+// Exported so the rounding helpers can re-check a grown intermediate's raw amount before it collapses.
+export function assertSafeInteger(value: number): void {
   if (!Number.isSafeInteger(value)) {
     throw new RangeError(`money amount must be a safe integer, received ${value}`);
   }
@@ -65,25 +70,30 @@ export function ratio(amount: number, scale: number): Ratio {
   return { amount, scale } as Ratio;
 }
 
-// Rate x quantity -> high-precision intermediate (NOT yet rounded to Money). Quantity may be fractional.
-export function multiplyByQuantity(value: Rate | Money, quantity: number): NumberDinero {
+// Rate x quantity -> high-precision Intermediate (NOT yet Money). Quantity may be fractional.
+// Round it to Money with a named rounding helper (rounding.ts) at the boundary.
+export function multiplyByQuantity(value: Rate | Money, quantity: number): Intermediate {
   // Represent quantity as a scaled multiplier to stay in integer math (e.g. 2.5 -> { amount: 25, scale: 1 }).
-  return multiplyDinero(value, decimalToScaled(quantity));
+  return multiplyDinero(value, decimalToScaled(quantity)) as Intermediate;
 }
 
-export function percentOf(value: Money, percent: Ratio): NumberDinero {
-  return multiplyDinero(value, { amount: percent.amount, scale: percent.scale });
+// money x ratio (tax, interest, contingency %) -> high-precision Intermediate. Round at the boundary.
+export function percentOf(value: Money, percent: Ratio): Intermediate {
+  return multiplyDinero(value, { amount: percent.amount, scale: percent.scale }) as Intermediate;
 }
 
-// Collapse an intermediate to Money (scale 2). Rounds DOWN here; the NAMED boundary helpers
-// (rounding.ts, a later task) are the real rounding API used at money boundaries.
-export function transformToMoney(value: NumberDinero): Money {
-  return transformScale(value, MONEY_SCALE, down) as Money;
-}
-
-// Turn a JS number like 2.5 into { amount: 25, scale: 1 } without float drift on typical inputs.
+// Turn a JS number like 2.5 into { amount: 25, scale: 1 } so multiplication stays in integer math.
+// Rejects exponential notation (|n| >= 1e21 or |n| < 1e-6): toString() would emit "1e-7"/"1e+21", which
+// the dot-parsing would turn into a NON-integer amount and silently defeat the integer-math design.
+// Such quantities are out of the supported decimal range and must fail loud rather than corrupt.
 function decimalToScaled(n: number): { amount: number; scale: number } {
+  if (!Number.isFinite(n)) {
+    throw new RangeError(`quantity must be a finite number, received ${n}`);
+  }
   const text = n.toString();
+  if (text.includes("e") || text.includes("E")) {
+    throw new RangeError(`quantity out of supported decimal range: ${n}`);
+  }
   const dot = text.indexOf(".");
   if (dot === -1) return { amount: Number(text), scale: 0 };
   const scale = text.length - dot - 1;
