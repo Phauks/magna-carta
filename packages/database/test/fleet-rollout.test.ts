@@ -98,7 +98,7 @@ describe("rolloutMigrationsAcrossFleet", () => {
       targetForFirm: (firmId) => {
         const inner = fleet.targetForFirm(firmId);
         return {
-          appliedMigrationTags: inner.appliedMigrationTags,
+          appliedMigrationTags: () => inner.appliedMigrationTags(),
           applyMigration: async (migration) => {
             inFlight++;
             peak = Math.max(peak, inFlight);

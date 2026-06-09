@@ -18,7 +18,7 @@
 4. **Schema version mirror = the migration tag.** The control-plane firm registry stores the latest applied per-firm migration **tag** (`per_firm_schema_version TEXT`, null = unprovisioned). Tags are `NNNN_<words>` with a zero-padded index, so lexicographic order is application order.
 5. **Timestamps are ISO-8601 UTC instants in `TEXT` columns** (ADR-0055), e.g. `created_at TEXT NOT NULL`.
 6. **Naming (golden rule 12):** flat `src/` with fully spelled-out file names — `control-plane-schema.ts`, `per-firm-schema.ts`, `migration.ts`, `migration-runner.ts`, `d1-migration-target.ts`, `fleet-rollout.ts`. Singular table names (`firm`, `idempotency_key`, `outbox`), matching the spec.
-7. **What is deliberately NOT here:** no query helpers, no firm-scoping, no idempotency/outbox *behavior* (all `data-access`, package 4); no Cron/Workflow/DO wiring (lands in `apps/worker`); no real-D1 test in this package (the package stays plain-Vitest like `money`/`identifiers` — the D1 adapter is tested against a scripted stub honoring batch semantics, and end-to-end D1 application is exercised by the worker integration test when `data-access` wires it).
+7. **What is deliberately NOT here:** no query helpers, no firm-scoping, no idempotency/outbox _behavior_ (all `data-access`, package 4); no Cron/Workflow/DO wiring (lands in `apps/worker`); no real-D1 test in this package (the package stays plain-Vitest like `money`/`identifiers` — the D1 adapter is tested against a scripted stub honoring batch semantics, and end-to-end D1 application is exercised by the worker integration test when `data-access` wires it).
 
 ## File structure
 
@@ -56,6 +56,7 @@ packages/database/
 ### Task 1: Scaffold the package and pin dependencies
 
 **Files:**
+
 - Modify: `pnpm-workspace.yaml` (catalog)
 - Create: `packages/database/package.json`
 - Create: `packages/database/tsconfig.json`
@@ -64,10 +65,10 @@ packages/database/
 - [ ] **Step 1: Add catalog pins** — in `pnpm-workspace.yaml` under `catalog:`, after the identifiers entry:
 
 ```yaml
-  # Database (packages/database). Stable line, NOT the 1.0 RC: 0.31.x drizzle-kit emits
-  # NNNN_tag.sql + meta/_journal.json, which migration.ts consumes. Bump both together.
-  drizzle-orm: 0.45.2
-  drizzle-kit: 0.31.10
+# Database (packages/database). Stable line, NOT the 1.0 RC: 0.31.x drizzle-kit emits
+# NNNN_tag.sql + meta/_journal.json, which migration.ts consumes. Bump both together.
+drizzle-orm: 0.45.2
+drizzle-kit: 0.31.10
 ```
 
 - [ ] **Step 2: Create `packages/database/package.json`**
@@ -140,6 +141,7 @@ git commit -m "chore(database): scaffold @magna-carta/database package + pin dri
 ### Task 2: Control-plane schema — the firm registry
 
 **Files:**
+
 - Create: `packages/database/src/control-plane-schema.ts`
 - Test: `packages/database/test/control-plane-schema.test.ts`
 
@@ -218,6 +220,7 @@ git commit -m "feat(database): control-plane schema — firm registry with schem
 ### Task 3: Per-firm schema — `idempotency_key` + `outbox`
 
 **Files:**
+
 - Create: `packages/database/src/per-firm-schema.ts`
 - Test: `packages/database/test/per-firm-schema.test.ts`
 
@@ -251,7 +254,8 @@ describe("per-firm schema: idempotency_key (spec §3.1)", () => {
     const config = getTableConfig(idempotencyKey);
     const uniqueOnKey = config.indexes.some(
       (index) =>
-        index.config.unique && index.config.columns.some((column) => "name" in column && column.name === "key"),
+        index.config.unique &&
+        index.config.columns.some((column) => "name" in column && column.name === "key"),
     );
     expect(uniqueOnKey).toBe(true);
   });
@@ -350,6 +354,7 @@ git commit -m "feat(database): per-firm schema — idempotency_key + outbox per 
 ### Task 4: Schema-conformance fitness functions (identifier PKs + money columns)
 
 **Files:**
+
 - Test: `packages/database/test/schema-conformance.test.ts`
 
 These guard EVERY table in BOTH lineages, including ones added later — new tables are picked up automatically because the test enumerates the schema modules' exports.
@@ -437,6 +442,7 @@ git commit -m "test(database): fitness functions — identifier-handle PKs, no f
 ### Task 5: Drizzle configs, generated initial migrations, and the journal loader
 
 **Files:**
+
 - Create: `packages/database/drizzle-control-plane.config.ts`
 - Create: `packages/database/drizzle-per-firm.config.ts`
 - Create: `packages/database/src/migration.ts`
@@ -448,7 +454,11 @@ git commit -m "test(database): fitness functions — identifier-handle PKs, no f
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { migrationsFromJournal, splitSqlStatements, type MigrationJournal } from "../src/migration.ts";
+import {
+  migrationsFromJournal,
+  splitSqlStatements,
+  type MigrationJournal,
+} from "../src/migration.ts";
 
 describe("splitSqlStatements", () => {
   it("splits on the drizzle statement breakpoint and trims empties", () => {
@@ -477,16 +487,17 @@ describe("migrationsFromJournal", () => {
   it("orders migrations by journal idx and splits each file's statements", () => {
     const migrations = migrationsFromJournal(journal, {
       "0000_first": "CREATE TABLE a (id text);",
-      "0001_second": "ALTER TABLE a ADD col text;\n--> statement-breakpoint\nCREATE INDEX i ON a (col);",
+      "0001_second":
+        "ALTER TABLE a ADD col text;\n--> statement-breakpoint\nCREATE INDEX i ON a (col);",
     });
     expect(migrations.map((migration) => migration.tag)).toEqual(["0000_first", "0001_second"]);
     expect(migrations[1]?.statements).toHaveLength(2);
   });
 
   it("fails loud when a journal entry has no SQL", () => {
-    expect(() => migrationsFromJournal(journal, { "0000_first": "CREATE TABLE a (id text);" })).toThrow(
-      /0001_second/,
-    );
+    expect(() =>
+      migrationsFromJournal(journal, { "0000_first": "CREATE TABLE a (id text);" }),
+    ).toThrow(/0001_second/);
   });
 });
 ```
@@ -583,10 +594,12 @@ export default defineConfig({
 - [ ] **Step 6: Generate the initial migrations** (named, not random tags)
 
 Run:
+
 ```bash
 pnpm --filter @magna-carta/database exec drizzle-kit generate --config=drizzle-control-plane.config.ts --name=firm-registry
 pnpm --filter @magna-carta/database exec drizzle-kit generate --config=drizzle-per-firm.config.ts --name=foundational-tables
 ```
+
 Expected: `drizzle/control-plane/0000_firm-registry.sql` + `meta/_journal.json`, and `drizzle/per-firm/0000_foundational-tables.sql` + `meta/_journal.json`. Inspect both .sql files: CREATE TABLE statements matching the schemas, `--> statement-breakpoint` between statements.
 
 - [ ] **Step 7: Write the generated-artifact test** (`test/generated-migrations.test.ts`) — guards that the committed journal + SQL stay loadable and in sync with what the loader expects:
@@ -643,6 +656,7 @@ git commit -m "feat(database): two-lineage drizzle configs, initial migrations, 
 ### Task 6: The migration runner
 
 **Files:**
+
 - Create: `packages/database/src/migration-runner.ts`
 - Test: `packages/database/test/migration-runner.test.ts`
 
@@ -770,6 +784,7 @@ git commit -m "feat(database): migration runner — ordered, idempotent, fail-lo
 ### Task 7: The D1 adapter (`d1MigrationTarget`)
 
 **Files:**
+
 - Create: `packages/database/src/d1-migration-target.ts`
 - Test: `packages/database/test/d1-migration-target.test.ts`
 
@@ -800,7 +815,10 @@ function stubD1(options: { appliedRows?: { tag: string }[]; failBatchContaining?
     prepare: (sql: string) => makeStatement(sql),
     batch: (statements: { sql: string }[]) => {
       const sqls = statements.map((statement) => statement.sql);
-      if (options.failBatchContaining && sqls.some((sql) => sql.includes(options.failBatchContaining))) {
+      if (
+        options.failBatchContaining &&
+        sqls.some((sql) => sql.includes(options.failBatchContaining))
+      ) {
         return Promise.reject(new Error("D1_ERROR: batch rolled back")); // nothing recorded — atomic
       }
       batches.push(sqls);
@@ -817,7 +835,9 @@ describe("d1MigrationTarget", () => {
     const target = d1MigrationTarget(database as never);
     const tags = await target.appliedMigrationTags();
     expect(tags).toEqual(["0000_first"]);
-    expect(executed.some((sql) => sql.includes("CREATE TABLE IF NOT EXISTS _migrations"))).toBe(true);
+    expect(executed.some((sql) => sql.includes("CREATE TABLE IF NOT EXISTS _migrations"))).toBe(
+      true,
+    );
   });
 
   it("applies a migration's statements AND its _migrations record in one batch (atomic)", async () => {
@@ -902,6 +922,7 @@ git commit -m "feat(database): D1 migration target — batch-atomic apply (D1 ha
 ### Task 8: Fleet rollout orchestrator
 
 **Files:**
+
 - Create: `packages/database/src/fleet-rollout.ts`
 - Test: `packages/database/test/fleet-rollout.test.ts`
 
@@ -1115,6 +1136,7 @@ git commit -m "feat(database): fleet rollout — bounded fan-out, quarantine, id
 ### Task 9: Expand-contract guard (fitness function)
 
 **Files:**
+
 - Test: `packages/database/test/expand-contract.test.ts`
 
 Spec §5.4: a destructive change (DROP TABLE/COLUMN, ADD COLUMN NOT NULL without DEFAULT) must never ship silently — it is a deliberate **contract** step. The guard scans every committed migration statement; a destructive statement is allowed only when the migration file carries an explicit `-- contract:` annotation explaining the contract step.
@@ -1136,7 +1158,10 @@ function destructiveReason(statement: string): string | null {
   const sql = statement.toUpperCase();
   if (/\bDROP\s+TABLE\b/.test(sql)) return "DROP TABLE";
   if (/\bDROP\s+COLUMN\b/.test(sql)) return "DROP COLUMN";
-  if (/\bALTER\s+TABLE\b[\s\S]*\bADD\s+COLUMN\b[\s\S]*\bNOT\s+NULL\b/.test(sql) && !/\bDEFAULT\b/.test(sql)) {
+  if (
+    /\bALTER\s+TABLE\b[\s\S]*\bADD\s+COLUMN\b[\s\S]*\bNOT\s+NULL\b/.test(sql) &&
+    !/\bDEFAULT\b/.test(sql)
+  ) {
     return "ADD COLUMN NOT NULL without DEFAULT";
   }
   return null;
@@ -1154,7 +1179,9 @@ describe("destructiveReason (the detector itself)", () => {
   it("does not flag additive shapes", () => {
     expect(destructiveReason("CREATE TABLE a (id text NOT NULL);")).toBeNull();
     expect(destructiveReason("ALTER TABLE firm ADD COLUMN tier text;")).toBeNull();
-    expect(destructiveReason("ALTER TABLE firm ADD COLUMN tier text NOT NULL DEFAULT 'standard';")).toBeNull();
+    expect(
+      destructiveReason("ALTER TABLE firm ADD COLUMN tier text NOT NULL DEFAULT 'standard';"),
+    ).toBeNull();
   });
 });
 
@@ -1191,6 +1218,7 @@ git commit -m "test(database): expand-contract guard — destructive SQL require
 ### Task 10: Docs, gate, and wrap-up
 
 **Files:**
+
 - Modify: `CHANGELOG.md` (the `[Unreleased]` Added section — new `@magna-carta/database` entry, package 3 of 4)
 - Modify: `ROADMAP.md` (slice 0·2 status: database package shipped; data-access remains)
 - Modify: `docs/Decision-Log.md` — ADR-0065 note if its status line needs the "implemented (fleet of one)" touch; reference this plan
@@ -1218,7 +1246,7 @@ git commit -m "docs(database): roadmap + changelog for @magna-carta/database"
 
 - §5.1 tooling (Drizzle source of truth, two lineages): Tasks 2, 3, 5. Drizzle sits under the DAL — no query helpers exported, schemas only.
 - §5.2 version tracking (`_migrations` per DB + registry mirror): Tasks 7 (adapter owns `_migrations`) and 2/8 (mirror column + `recordFirmSchemaVersion`).
-- §5.3 rollout orchestrator (filter, bounded fan-out, quarantine, idempotent resume, report): Task 8. The Cron-Workflow *wiring* is `apps/worker` work for a later slice — this package ships the pure orchestration the Workflow will call. Lazy catch-up on connect is a `data-access` concern (the DAL checks version on connect) — the runner it will call is Task 6.
+- §5.3 rollout orchestrator (filter, bounded fan-out, quarantine, idempotent resume, report): Task 8. The Cron-Workflow _wiring_ is `apps/worker` work for a later slice — this package ships the pure orchestration the Workflow will call. Lazy catch-up on connect is a `data-access` concern (the DAL checks version on connect) — the runner it will call is Task 6.
 - §5.4 expand-contract: Task 9 (destructive-SQL guard with explicit contract annotation).
 - §5.5 safety nets: Time Travel/restore drills are ADR-0050 ops, not package code; load-profile-fixture migration tests arrive with the fixtures harness (its own Phase 0 item).
 - §1.5 / §1.1 money-column enforcement and §2 identifier-PK conformance: Task 4 — enumerates all tables automatically so later tables inherit the guards.

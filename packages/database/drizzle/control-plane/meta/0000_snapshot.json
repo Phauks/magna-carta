@@ -46,9 +46,7 @@
       "indexes": {
         "firm_database_identifier_unique": {
           "name": "firm_database_identifier_unique",
-          "columns": [
-            "database_identifier"
-          ],
+          "columns": ["database_identifier"],
           "isUnique": true
         }
       },

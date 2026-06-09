@@ -32,7 +32,8 @@ describe("migrationsFromJournal", () => {
   it("orders migrations by journal idx and splits each file's statements", () => {
     const migrations = migrationsFromJournal(journal, {
       "0000_first": "CREATE TABLE a (id text);",
-      "0001_second": "ALTER TABLE a ADD col text;\n--> statement-breakpoint\nCREATE INDEX i ON a (col);",
+      "0001_second":
+        "ALTER TABLE a ADD col text;\n--> statement-breakpoint\nCREATE INDEX i ON a (col);",
     });
     expect(migrations.map((migration) => migration.tag)).toEqual(["0000_first", "0001_second"]);
     expect(migrations[1]?.statements).toHaveLength(2);

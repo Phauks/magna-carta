@@ -22,10 +22,8 @@ function stubD1(options: { appliedRows?: { tag: string }[]; failBatchContaining?
     prepare: (sql: string) => makeStatement(sql),
     batch: (statements: { sql: string }[]) => {
       const sqls = statements.map((statement) => statement.sql);
-      if (
-        options.failBatchContaining &&
-        sqls.some((sql) => sql.includes(options.failBatchContaining))
-      ) {
+      const failOn = options.failBatchContaining;
+      if (failOn !== undefined && sqls.some((sql) => sql.includes(failOn))) {
         return Promise.reject(new Error("D1_ERROR: batch rolled back")); // nothing recorded — atomic
       }
       batches.push(sqls);

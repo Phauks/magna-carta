@@ -5,9 +5,9 @@ import * as perFirmSchema from "../src/per-firm-schema.ts";
 
 // Every drizzle table exported by either lineage. New tables are enumerated automatically —
 // these fitness functions bind to the whole schema surface, not a hand-kept list.
-const ALL_TABLES = [...Object.values(controlPlaneSchema), ...Object.values(perFirmSchema)].filter(
-  (candidate): candidate is SQLiteTable => candidate instanceof SQLiteTable,
-);
+const ALL_TABLES = (
+  [...Object.values(controlPlaneSchema), ...Object.values(perFirmSchema)] as unknown[]
+).filter((candidate): candidate is SQLiteTable => candidate instanceof SQLiteTable);
 
 describe("schema conformance (fitness functions)", () => {
   it("found the expected tables (guards the enumeration itself)", () => {
