@@ -9,7 +9,8 @@ export interface SqlDatabase {
 export interface SqlStatement {
   readonly sql?: string;
   bind(...values: unknown[]): SqlStatement;
-  run(): Promise<unknown>;
+  // meta.changes is the affected-row count (D1Result.meta.changes) — guarded updates branch on it.
+  run(): Promise<{ meta: { changes: number } }>;
   all<T = Record<string, unknown>>(): Promise<{ results: T[] }>;
 }
 

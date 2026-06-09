@@ -79,6 +79,44 @@ describe("sweepOutbox", () => {
     expect(publish).not.toHaveBeenCalled();
   });
 
+  it("status updates are guarded: only a still-pending row can be marked (concurrent-sweep safety)", async () => {
+    const stub = stubD1();
+    stub.onAll("FROM outbox", [pendingRow("obx_raced")]);
+    await sweepOutbox({ database: stub.database, publish: () => Promise.resolve(), now: NOW });
+    const dispatchUpdate = stub.executed.find((entry) => entry.sql.includes("'dispatched'"));
+    // Without the guard, a concurrent sweep that already marked the row 'failed' would be silently
+    // flipped back to 'dispatched' — a lost message.
+    expect(dispatchUpdate?.sql).toContain("status = 'pending'");
+  });
+
+  it("a concurrently-claimed row is not double-counted as dispatched (zero changes)", async () => {
+    const stub = stubD1();
+    stub.onAll("FROM outbox", [pendingRow("obx_claimed")]);
+    stub.onRunChanges("'dispatched'", 0); // another sweep already marked it
+    const report = await sweepOutbox({
+      database: stub.database,
+      publish: () => Promise.resolve(),
+      now: NOW,
+    });
+    expect(report.dispatched).toBe(0);
+  });
+
+  it("dead-letters at most once: a zero-changes failed update means another sweep already did", async () => {
+    const stub = stubD1();
+    stub.onAll("FROM outbox", [pendingRow("obx_dead", 4)]);
+    stub.onRunChanges("'failed'", 0); // the concurrent sweep won the failed-update race
+    const deadLetter = vi.fn((_row: OutboxRow, _error: Error) => Promise.resolve());
+    const report = await sweepOutbox({
+      database: stub.database,
+      publish: () => Promise.reject(new Error("still down")),
+      deadLetter,
+      maxAttempts: 5,
+      now: NOW,
+    });
+    expect(deadLetter).not.toHaveBeenCalled();
+    expect(report.deadLettered).toBe(0);
+  });
+
   it("respects batchSize in the select", async () => {
     const stub = stubD1();
     stub.onAll("FROM outbox", []);

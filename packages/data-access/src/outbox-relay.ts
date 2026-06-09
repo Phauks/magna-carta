@@ -23,6 +23,12 @@ export interface OutboxSweepReport {
 // Marking first would risk losing the effect entirely (at-most-once), never acceptable here.
 // A publish failure increments attempts; reaching maxAttempts marks the row failed and hands it to
 // the dead-letter callback (surfaced to observability, ADR-0038). Failures are per-row isolated.
+//
+// Sweeps may OVERLAP (a slow run meeting the next Cron fire), so every status transition is guarded
+// with `AND status = 'pending'` and branches on meta.changes: a row another sweep already claimed is
+// never re-marked (a failed row can never flip back to dispatched — that would silently lose it)
+// and the dead-letter callback fires at most once per row. Duplicate PUBLISHES under overlap remain
+// possible — that is the at-least-once contract consumers already dedup against.
 export async function sweepOutbox(options: {
   database: BatchDatabase;
   publish: (row: OutboxRow) => Promise<void>;
@@ -48,29 +54,33 @@ export async function sweepOutbox(options: {
   for (const row of results) {
     try {
       await options.publish(row);
-      await options.database
+      const marked = await options.database
         .prepare(
-          `UPDATE ${OUTBOX_TABLE} SET status = 'dispatched', dispatched_at = ?1 WHERE id = ?2`,
+          `UPDATE ${OUTBOX_TABLE} SET status = 'dispatched', dispatched_at = ?1 WHERE id = ?2 AND status = 'pending'`,
         )
         .bind(now(), row.id)
         .run();
-      dispatched++;
+      if (marked.meta.changes > 0) dispatched++; // zero changes = a concurrent sweep claimed it first
     } catch (caught) {
       failed++;
       const error = caught instanceof Error ? caught : new Error(String(caught));
       const attemptsAfterThis = row.attempts + 1;
       if (attemptsAfterThis >= maxAttempts) {
-        await options.database
+        const marked = await options.database
           .prepare(
-            `UPDATE ${OUTBOX_TABLE} SET status = 'failed', attempts = attempts + 1 WHERE id = ?1`,
+            `UPDATE ${OUTBOX_TABLE} SET status = 'failed', attempts = attempts + 1 WHERE id = ?1 AND status = 'pending'`,
           )
           .bind(row.id)
           .run();
-        if (options.deadLetter) await options.deadLetter(row, error);
-        deadLettered++;
+        if (marked.meta.changes > 0) {
+          if (options.deadLetter) await options.deadLetter(row, error);
+          deadLettered++;
+        }
       } else {
         await options.database
-          .prepare(`UPDATE ${OUTBOX_TABLE} SET attempts = attempts + 1 WHERE id = ?1`)
+          .prepare(
+            `UPDATE ${OUTBOX_TABLE} SET attempts = attempts + 1 WHERE id = ?1 AND status = 'pending'`,
+          )
           .bind(row.id)
           .run();
       }

@@ -136,6 +136,31 @@ describe("runIdempotentEffect", () => {
     ).rejects.toThrow(/no such table/);
   });
 
+  it("a thrown effect propagates with nothing committed and no record — same-key retry re-executes", async () => {
+    const stub = stubD1();
+    stub.onAll("FROM idempotency_key", []);
+    const explosion = new Error("handler exploded");
+    await expect(
+      runIdempotentEffect({
+        database: stub.database,
+        key: "client-key-1",
+        fingerprint: FINGERPRINT,
+        effect: () => Promise.reject(explosion),
+        now: NOW,
+      }),
+    ).rejects.toBe(explosion);
+    expect(stub.batches).toHaveLength(0); // nothing committed, no record stored
+    // The retry re-executes (there is no stored failure to replay — none was produced).
+    const retry = await runIdempotentEffect({
+      database: stub.database,
+      key: "client-key-1",
+      fingerprint: FINGERPRINT,
+      effect: () => effectReturning(201, "{}")(stub.database),
+      now: NOW,
+    });
+    expect(retry.kind).toBe("executed");
+  });
+
   it("no key (optional route without header): executes with NO idempotency SQL at all", async () => {
     const stub = stubD1();
     const effect = effectReturning(200, "{}");

@@ -50,6 +50,9 @@ export async function runIdempotentEffect(
   const decision = decideIdempotency(existing, options.fingerprint);
   if (decision.kind !== "execute") return resultFromDecision(decision);
 
+  // A THROWN effect (vs. a returned failure responseCode) propagates with nothing committed and NO
+  // record stored — no response existed to replay, so a retry safely re-executes. The spec's
+  // "replay the failure" rule binds only stored failure responses the handler actually produced.
   const outcome = await options.effect();
   try {
     await commitEffectBatch(options.database, outcome.write, {

@@ -16,6 +16,8 @@ export interface StubD1 {
   readonly batches: ExecutedStatement[][];
   /** Script the results all() returns for any statement whose SQL contains `sqlSubstring`. */
   onAll(sqlSubstring: string, results: unknown[] | (() => unknown[])): void;
+  /** Script the meta.changes run() reports for any statement whose SQL contains `sqlSubstring`. */
+  onRunChanges(sqlSubstring: string, changes: number): void;
   /** Make the next batch containing a matching SQL fail (whole batch records nothing). */
   failBatchWith(error: Error, sqlSubstring?: string): void;
 }
@@ -38,6 +40,7 @@ export function stubD1(): StubD1 {
   const executed: ExecutedStatement[] = [];
   const batches: ExecutedStatement[][] = [];
   const scriptedResults: { match: string; results: unknown[] | (() => unknown[]) }[] = [];
+  const scriptedChanges: { match: string; changes: number }[] = [];
   let pendingBatchFailure: { error: Error; match: string | undefined } | undefined;
 
   function makeStatement(sql: string, bindings: unknown[] = []): StubStatement {
@@ -47,7 +50,8 @@ export function stubD1(): StubD1 {
       bind: (...values: unknown[]) => makeStatement(sql, values),
       run: () => {
         executed.push({ sql, bindings });
-        return Promise.resolve({ success: true, meta: { changes: 1 } });
+        const scripted = scriptedChanges.find((entry) => sql.includes(entry.match));
+        return Promise.resolve({ success: true, meta: { changes: scripted?.changes ?? 1 } });
       },
       all: <T>() => {
         executed.push({ sql, bindings });
@@ -85,6 +89,9 @@ export function stubD1(): StubD1 {
     batches,
     onAll: (match, results) => {
       scriptedResults.push({ match, results });
+    },
+    onRunChanges: (match, changes) => {
+      scriptedChanges.push({ match, changes });
     },
     failBatchWith: (error, match) => {
       pendingBatchFailure = { error, match };

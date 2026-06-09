@@ -118,6 +118,73 @@ describe("idempotencyMiddleware", () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
+  it("the query string is part of the fingerprint: same key + different query -> 422, not replay", async () => {
+    const stub = stubD1();
+    // Store a completed record whose fingerprint matches the FIRST request (with ?capture=false).
+    let storedFingerprint = "";
+    stub.onAll("FROM idempotency_key", () => [
+      {
+        key: "client-key-1",
+        fingerprint: storedFingerprint,
+        status: "completed",
+        response_code: 201,
+        response_body: '{"id":"inv_stored"}',
+      },
+    ]);
+    const { app, handler } = appWith("required", stub);
+    const send = (query: string) =>
+      app.request(`/api/payments${query}`, {
+        method: "POST",
+        body: JSON.stringify({ a: 1 }),
+        headers: { "content-type": "application/json", "Idempotency-Key": "client-key-1" },
+      });
+    // Learn the canonical fingerprint of the ?capture=false request via the mismatch path.
+    storedFingerprint = "0".repeat(64);
+    await send("?capture=false");
+    const { fingerprintRequest } = await import("../src/canonical.ts");
+    storedFingerprint = await fingerprintRequest({
+      method: "POST",
+      path: "/api/payments?capture=false",
+      body: { a: 1 },
+    });
+    // Same query replays; a DIFFERENT query is a DIFFERENT request -> 422, never a replay.
+    const same = await send("?capture=false");
+    expect(same.status).toBe(201);
+    const different = await send("?capture=true");
+    expect(different.status).toBe(422);
+    // Query parameter ORDER does not matter (canonically sorted).
+    storedFingerprint = await fingerprintRequest({
+      method: "POST",
+      path: "/api/payments?a=1&b=2",
+      body: { a: 1 },
+    });
+    const reordered = await send("?b=2&a=1");
+    expect(reordered.status).toBe(201);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("the handler can still read the body via context.req.json() after the middleware", async () => {
+    const stub = stubD1();
+    stub.onAll("FROM idempotency_key", []);
+    let bodySeen: unknown;
+    const handler = vi.fn(
+      async (context: {
+        req: { json: () => Promise<unknown> };
+        json: (body: unknown, code?: number) => Response;
+      }) => {
+        bodySeen = await context.req.json(); // hono caches the body; the middleware's read must not consume it
+        return context.json({ ok: true }, 201);
+      },
+    );
+    const { app } = appWith("required", stub, handler as never);
+    await app.request("/api/payments", {
+      method: "POST",
+      body: JSON.stringify({ a: 1 }),
+      headers: { "content-type": "application/json", "Idempotency-Key": "client-key-1" },
+    });
+    expect(bodySeen).toEqual({ a: 1 });
+  });
+
   it("in_progress record -> 409", async () => {
     const stub = stubD1();
     const { fingerprintRequest } = await import("../src/canonical.ts");
