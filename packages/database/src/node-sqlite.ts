@@ -18,7 +18,10 @@ export interface NodeSqlStatement {
 
 export interface NodeBatchDatabase {
   prepare(sql: string): NodeSqlStatement;
-  batch(statements: NodeSqlStatement[]): Promise<unknown>;
+  // Statements must come from THIS database's prepare() — a statement built against another
+  // NodeBatchDatabase is structurally identical and would silently execute here (real D1 cannot
+  // express that mistake; this adapter trusts its single-database test/seeding context).
+  batch(statements: NodeSqlStatement[]): Promise<{ success: boolean }[]>;
 }
 
 export function nodeSqliteBatchDatabase(database: DatabaseSync): NodeBatchDatabase {
@@ -48,7 +51,15 @@ export function nodeSqliteBatchDatabase(database: DatabaseSync): NodeBatchDataba
         }
         database.exec("COMMIT");
       } catch (error) {
-        database.exec("ROLLBACK");
+        // SQLite may have auto-rolled-back already (e.g. SQLITE_FULL/IOERR end the transaction),
+        // making this ROLLBACK itself throw "no transaction is active" — harmless per SQLite docs.
+        // Swallow it so the caller always receives the ORIGINAL failure (the error consumers like
+        // isIdempotencyKeyConflict match on), never a masking secondary error.
+        try {
+          database.exec("ROLLBACK");
+        } catch {
+          // transaction already gone — nothing to roll back
+        }
         return Promise.reject(error);
       }
       return Promise.resolve(statements.map(() => ({ success: true })));
