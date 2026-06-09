@@ -5,8 +5,8 @@
   "type": "module",
   "sideEffects": false,
   "scripts": {
-    "build": "vite build",
-    "dev": "vite dev",
+    "build": "vp build",
+    "dev": "vp dev",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "prepare": "svelte-kit sync || echo ''"
   },
