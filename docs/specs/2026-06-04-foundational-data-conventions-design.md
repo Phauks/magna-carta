@@ -49,12 +49,12 @@ The in-house `money` module is the only surface the app/DAL uses; Dinero is neve
 
 No global default. The mode is encoded by intent:
 
-| Helper                      | Mode                 | Boundary                                                      |
-| --------------------------- | -------------------- | ------------------------------------------------------------- |
-| `roundTax(amount)`          | half-up              | sales/use tax (SSUTA §324, Nevada is a member)                |
-| `roundInvoiceLine(amount)`  | half-up              | invoice line totals (client expectation)                      |
-| `roundLedger(amount)`       | banker's (half-even) | GL / financial-statement aggregation (GAAP, bias-free)        |
-| `allocate(amount, weights)` | largest-remainder    | splits: contingency client/fee/cost/lien, payment application |
+| Helper                      | Mode                 | Boundary                                                                                           |
+| --------------------------- | -------------------- | -------------------------------------------------------------------------------------------------- |
+| `roundTax(amount)`          | half-up              | sales/use tax (SSUTA §324, Nevada is a member)                                                     |
+| `roundInvoiceLine(amount)`  | half-away-from-zero  | invoice line totals (symmetric: a credit/discount line rounds to the same magnitude as the charge) |
+| `roundLedger(amount)`       | banker's (half-even) | GL / financial-statement aggregation (GAAP, bias-free)                                             |
+| `allocate(amount, weights)` | largest-remainder    | splits: contingency client/fee/cost/lien, payment application                                      |
 
 - Raw `round(amount, mode)` requires an explicit `mode` (no default). A fitness function flags raw `round` calls outside the named helpers.
 - Rounding happens only at these boundaries, never mid-calculation.

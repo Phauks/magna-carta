@@ -21,6 +21,7 @@ _Add a new file here per language as it enters the codebase (e.g. SQL migrations
 
 - Naming intent: descriptive over terse; consistency with surrounding code over personal preference. Hard rule below — names are spelled out in full (_Naming — fully spelled out_).
 - Comment philosophy: match surrounding density; explain _why_, not _what_; no dead/commented-out code.
+- Comments are **self-contained and spec-agnostic** — never cite the spec, section, or `§` number a line was derived from (that pointer rots the moment the doc is reorganized, and means nothing to a future reader). Explain the thing itself; cite a stable `ADR-NNNN` only when the _why_ genuinely needs the decision's context. (This is the [`CLAUDE.md`](../../CLAUDE.md) cross-reference rule applied to code.)
 - File/module layout: one clear responsibility per file; split when a file grows to do too much.
 - Error handling stance: fail loudly at boundaries; never swallow errors silently.
 - Cross-language naming alignment (DB columns ↔ types ↔ API fields) so the same concept reads the same everywhere.
