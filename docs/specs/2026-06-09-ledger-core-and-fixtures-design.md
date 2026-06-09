@@ -12,25 +12,25 @@ Four tables join `per-firm-schema.ts`. All primary keys are identifier handles (
 
 The full structural shape, no chart-of-accounts product (no CRUD UI/API, no numbering scheme — Phase 3 adds the product layer on this unchanged schema).
 
-| column        | type                                                          | notes                                                                |
-| ------------- | ------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `id`          | TEXT PK, `acct_` handle                                       | new registry prefix `ledgerAccount: "acct"`                           |
-| `name`        | TEXT NOT NULL                                                  |                                                                       |
-| `type`        | TEXT NOT NULL, enum `asset/liability/equity/income/expense`    | normal balance is **derived in code** (asset/expense = debit-normal; liability/equity/income = credit-normal) — never a column (one home per fact) |
-| `currency`    | TEXT NOT NULL, ISO-4217                                        | always `USD` now; accounts are single-currency, lines inherit (ADR-0061) |
-| `parent_account_id` | TEXT NULL, self-FK                                       | the subledger seam — "Dana Smith's trust ledger" is a child of Client Trust Liability; a child must share its parent's `type` and `currency` (service-validated) |
-| `active`      | INTEGER NOT NULL DEFAULT 1                                     | soft close; accounts are never deleted (append-only discipline extends to the account dimension) |
-| `created_at`  | TEXT NOT NULL, UTC instant                                     |                                                                       |
+| column              | type                                                        | notes                                                                                                                                                            |
+| ------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                | TEXT PK, `acct_` handle                                     | new registry prefix `ledgerAccount: "acct"`                                                                                                                      |
+| `name`              | TEXT NOT NULL                                               |                                                                                                                                                                  |
+| `type`              | TEXT NOT NULL, enum `asset/liability/equity/income/expense` | normal balance is **derived in code** (asset/expense = debit-normal; liability/equity/income = credit-normal) — never a column (one home per fact)               |
+| `currency`          | TEXT NOT NULL, ISO-4217                                     | always `USD` now; accounts are single-currency, lines inherit (ADR-0061)                                                                                         |
+| `parent_account_id` | TEXT NULL, self-FK                                          | the subledger seam — "Dana Smith's trust ledger" is a child of Client Trust Liability; a child must share its parent's `type` and `currency` (service-validated) |
+| `active`            | INTEGER NOT NULL DEFAULT 1                                  | soft close; accounts are never deleted (append-only discipline extends to the account dimension)                                                                 |
+| `created_at`        | TEXT NOT NULL, UTC instant                                  |                                                                                                                                                                  |
 
 ### 1.2 `ledger_entry` — the transaction header
 
-| column               | type                          | notes                                                                                  |
-| -------------------- | ----------------------------- | --------------------------------------------------------------------------------------- |
-| `id`                 | TEXT PK, `led_` handle        | prefix already registered                                                               |
-| `description`        | TEXT NOT NULL                 | non-empty (service-validated; CHECK `length(description) > 0` backs it)                 |
-| `effective_date`     | TEXT NOT NULL, `YYYY-MM-DD`   | the bookkeeping fact — what statements/reconciliation key off; backdating allowed, future-dating refused (§3.3); a bare civil date per ADR-0055 — **no zone column**, zone resolution is a caller/boundary concern |
-| `recorded_at`        | TEXT NOT NULL, UTC instant    | when the row was posted — system-set, immutable, the audit truth; the gap between the two dates is itself audit signal |
-| `reverses_entry_id`  | TEXT NULL, FK → `ledger_entry.id`, **UNIQUE** | first-class correction link; UNIQUE makes double-reversal structurally impossible even under a concurrent race (the loser's batch rolls back) |
+| column              | type                                          | notes                                                                                                                                                                                                              |
+| ------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`                | TEXT PK, `led_` handle                        | prefix already registered                                                                                                                                                                                          |
+| `description`       | TEXT NOT NULL                                 | non-empty (service-validated; CHECK `length(description) > 0` backs it)                                                                                                                                            |
+| `effective_date`    | TEXT NOT NULL, `YYYY-MM-DD`                   | the bookkeeping fact — what statements/reconciliation key off; backdating allowed, future-dating refused (§3.3); a bare civil date per ADR-0055 — **no zone column**, zone resolution is a caller/boundary concern |
+| `recorded_at`       | TEXT NOT NULL, UTC instant                    | when the row was posted — system-set, immutable, the audit truth; the gap between the two dates is itself audit signal                                                                                             |
+| `reverses_entry_id` | TEXT NULL, FK → `ledger_entry.id`, **UNIQUE** | first-class correction link; UNIQUE makes double-reversal structurally impossible even under a concurrent race (the loser's batch rolls back)                                                                      |
 
 An entry's reversed/active status is **derived from the link** — never a mutated flag. No UPDATE ever touches this table.
 
@@ -38,14 +38,14 @@ An entry's reversed/active status is **derived from the link** — never a mutat
 
 Encoding: **direction + always-positive amount** (the Modern Treasury shape). Chosen over signed single-column and two-column debit/credit because it structurally eliminates the silent sign-flip — the bug class where a flipped sign still balances and nothing catches it. Direction must be _stated_ as data; negative/zero lines are impossible at the schema.
 
-| column         | type                                              | notes                                                       |
-| -------------- | ------------------------------------------------- | ------------------------------------------------------------ |
-| `id`           | TEXT PK, `lln_` handle                            | new registry prefix `ledgerLine: "lln"`                      |
-| `entry_id`     | TEXT NOT NULL, FK → `ledger_entry.id`             |                                                              |
-| `account_id`   | TEXT NOT NULL, FK → `ledger_account.id`           | leaf accounts only (service-validated, §3.3)                 |
-| `line_index`   | INTEGER NOT NULL                                   | stable display/export order; UNIQUE(`entry_id`, `line_index`) |
-| `direction`    | TEXT NOT NULL, enum `debit/credit`                |                                                              |
-| `amount_minor` | INTEGER NOT NULL, **CHECK (`amount_minor` > 0)**  | 2dp minor units (ADR-0061); currency inherited from account  |
+| column         | type                                             | notes                                                         |
+| -------------- | ------------------------------------------------ | ------------------------------------------------------------- |
+| `id`           | TEXT PK, `lln_` handle                           | new registry prefix `ledgerLine: "lln"`                       |
+| `entry_id`     | TEXT NOT NULL, FK → `ledger_entry.id`            |                                                               |
+| `account_id`   | TEXT NOT NULL, FK → `ledger_account.id`          | leaf accounts only (service-validated, §3.3)                  |
+| `line_index`   | INTEGER NOT NULL                                 | stable display/export order; UNIQUE(`entry_id`, `line_index`) |
+| `direction`    | TEXT NOT NULL, enum `debit/credit`               |                                                               |
+| `amount_minor` | INTEGER NOT NULL, **CHECK (`amount_minor` > 0)** | 2dp minor units (ADR-0061); currency inherited from account   |
 
 No currency column on the line: ADR-0061 fixes "accounts single-currency, postings inherit," and §3.3 enforces one currency per entry, so the account's tag is authoritative.
 
@@ -55,13 +55,13 @@ No currency column on the line: ADR-0061 fixes "accounts single-currency, postin
 
 One row per account, **created in the same batch as the account**. Balances are stored in **normal-balance terms** (positive = normal: a healthy trust liability reads positive), so bounds read the way trust rules, bank statements, and auditors state them.
 
-| column              | type                       | notes                                                  |
-| ------------------- | -------------------------- | ------------------------------------------------------- |
-| `account_id`        | TEXT PK, FK → `ledger_account.id` |                                                   |
-| `balance_minor`     | INTEGER NOT NULL DEFAULT 0 | normal-balance terms                                    |
-| `min_balance_minor` | INTEGER NULL               | NULL = unbounded; trust sets `0` in Phase 3 (ADR-0009)  |
-| `max_balance_minor` | INTEGER NULL               | NULL = unbounded                                        |
-| `updated_at`        | TEXT NOT NULL, UTC instant |                                                         |
+| column              | type                              | notes                                                  |
+| ------------------- | --------------------------------- | ------------------------------------------------------ |
+| `account_id`        | TEXT PK, FK → `ledger_account.id` |                                                        |
+| `balance_minor`     | INTEGER NOT NULL DEFAULT 0        | normal-balance terms                                   |
+| `min_balance_minor` | INTEGER NULL                      | NULL = unbounded; trust sets `0` in Phase 3 (ADR-0009) |
+| `max_balance_minor` | INTEGER NULL                      | NULL = unbounded                                       |
+| `updated_at`        | TEXT NOT NULL, UTC instant        |                                                        |
 
 **CHECK constraint — the enforcement mechanism:**
 

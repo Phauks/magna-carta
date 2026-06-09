@@ -53,6 +53,7 @@ ROADMAP.md / CHANGELOG.md                       MODIFY  same-commit docs
 ### Task 1: Identifier prefixes + money `currencyCode` (preludes in existing packages)
 
 **Files:**
+
 - Modify: `packages/identifiers/src/registry.ts`, `packages/identifiers/src/types.ts`
 - Create: `packages/identifiers/test/ledger-prefixes.test.ts`
 - Modify: `packages/money/src/format.ts`
@@ -143,6 +144,7 @@ git commit -m "feat(identifiers,money): ledger prefixes acct/lln + currencyCode 
 ### Task 2: Per-firm schema — the four ledger tables
 
 **Files:**
+
 - Modify: `packages/database/src/per-firm-schema.ts`
 - Create: `packages/database/test/ledger-schema.test.ts`
 
@@ -153,12 +155,7 @@ git commit -m "feat(identifiers,money): ledger prefixes acct/lln + currencyCode 
 ```ts
 import { getTableConfig } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
-import {
-  accountBalance,
-  ledgerAccount,
-  ledgerEntry,
-  ledgerLine,
-} from "../src/per-firm-schema.ts";
+import { accountBalance, ledgerAccount, ledgerEntry, ledgerLine } from "../src/per-firm-schema.ts";
 
 describe("ledger tables (ADR-0072)", () => {
   it("ledger_account: TEXT handle PK, type enum, parent seam, active flag", () => {
@@ -177,8 +174,9 @@ describe("ledger tables (ADR-0072)", () => {
     expect(columnNames).toEqual(
       expect.arrayContaining(["effective_date", "recorded_at", "reverses_entry_id"]),
     );
-    expect(config.uniqueConstraints.length + config.indexes.filter((i) => i.config.unique).length)
-      .toBeGreaterThanOrEqual(1);
+    expect(
+      config.uniqueConstraints.length + config.indexes.filter((i) => i.config.unique).length,
+    ).toBeGreaterThanOrEqual(1);
     expect(config.checks.map((check) => check.name)).toContain(
       "ledger_entry_description_nonempty_check",
     );
@@ -331,19 +329,20 @@ git commit -m "feat(database): ledger_account/ledger_entry/ledger_line/account_b
 ### Task 3: Generate + verify migration `0001_ledger-core`
 
 **Files:**
+
 - Generated: `packages/database/drizzle/per-firm/0001_ledger-core.sql` + updated `meta/`
 - Modify: `packages/database/test/generated-migrations.test.ts`
 
 - [ ] **Step 1: Extend the failing migration test** — in the per-firm test of `generated-migrations.test.ts`, append:
 
 ```ts
-    expect(allSql).toContain("ledger_account");
-    expect(allSql).toContain("ledger_entry");
-    expect(allSql).toContain("ledger_line");
-    expect(allSql).toContain("account_balance");
-    // The CHECKs are the point — bounds enforcement and positive amounts must exist in the DDL.
-    expect(allSql).toContain("account_balance_bounds_check");
-    expect(allSql).toContain("ledger_line_amount_minor_positive_check");
+expect(allSql).toContain("ledger_account");
+expect(allSql).toContain("ledger_entry");
+expect(allSql).toContain("ledger_line");
+expect(allSql).toContain("account_balance");
+// The CHECKs are the point — bounds enforcement and positive amounts must exist in the DDL.
+expect(allSql).toContain("account_balance_bounds_check");
+expect(allSql).toContain("ledger_line_amount_minor_positive_check");
 ```
 
 Run: `pnpm --filter @magna-carta/database test` → FAIL (no migration yet).
@@ -370,6 +369,7 @@ git commit -m "feat(database): generated per-firm migration 0001_ledger-core"
 ### Task 4: `@magna-carta/database` node:sqlite adapter (`./node-sqlite`)
 
 **Files:**
+
 - Create: `packages/database/src/node-sqlite.ts`
 - Create: `packages/database/test/node-sqlite.test.ts`
 - Modify: `packages/database/package.json` (exports map)
@@ -536,6 +536,7 @@ git commit -m "feat(database): node:sqlite D1-shaped batch adapter + disk migrat
 ### Task 5: Scaffold `@magna-carta/ledger`
 
 **Files:**
+
 - Create: `packages/ledger/package.json`, `packages/ledger/tsconfig.json`, `packages/ledger/vitest.config.ts`, `packages/ledger/CLAUDE.md`
 
 - [ ] **Step 1: Create the package files**
@@ -630,6 +631,7 @@ git commit -m "feat(ledger): scaffold @magna-carta/ledger domain package"
 ### Task 6: Domain types + normal-balance derivation
 
 **Files:**
+
 - Create: `packages/ledger/src/types.ts`, `packages/ledger/src/normal-balance.ts`
 - Test: `packages/ledger/test/normal-balance.test.ts`
 
@@ -731,6 +733,7 @@ git commit -m "feat(ledger): domain types + normal-balance derivation"
 ### Task 7: Entry validation (`validate.ts`)
 
 **Files:**
+
 - Create: `packages/ledger/src/validate.ts`
 - Test: `packages/ledger/test/validate.test.ts`
 
@@ -1008,6 +1011,7 @@ git commit -m "feat(ledger): entry validation — the ledger invariants with nam
 ### Task 8: Statement builders (`statements.ts`)
 
 **Files:**
+
 - Create: `packages/ledger/src/statements.ts`
 - Test: `packages/ledger/test/statements.test.ts`
 
@@ -1045,18 +1049,27 @@ describe("ledger statement builders against the real schema", () => {
     const childId = newIdentifier("ledgerAccount");
     await database.batch([
       insertAccountStatement(database, {
-        id: parentId, name: "Client Trust Liability", type: "liability", currency: "USD",
-        parentAccountId: null, createdAt: NOW,
+        id: parentId,
+        name: "Client Trust Liability",
+        type: "liability",
+        currency: "USD",
+        parentAccountId: null,
+        createdAt: NOW,
       }),
       insertBalanceRowStatement(database, parentId, NOW),
       insertAccountStatement(database, {
-        id: childId, name: "Dana Smith", type: "liability", currency: "USD",
-        parentAccountId: parentId, createdAt: NOW,
+        id: childId,
+        name: "Dana Smith",
+        type: "liability",
+        currency: "USD",
+        parentAccountId: parentId,
+        createdAt: NOW,
       }),
       insertBalanceRowStatement(database, childId, NOW),
     ]);
-    const { results } = await selectAccountSnapshotsStatement(database, [parentId, childId])
-      .all<Record<string, unknown>>();
+    const { results } = await selectAccountSnapshotsStatement(database, [parentId, childId]).all<
+      Record<string, unknown>
+    >();
     const byId = new Map(results.map((row) => [row["id"], row]));
     expect(byId.get(parentId)?.["has_children"]).toBe(1);
     expect(byId.get(childId)?.["has_children"]).toBe(0);
@@ -1069,8 +1082,12 @@ describe("ledger statement builders against the real schema", () => {
     const accountId = newIdentifier("ledgerAccount");
     await database.batch([
       insertAccountStatement(database, {
-        id: accountId, name: "Dana Smith", type: "liability", currency: "USD",
-        parentAccountId: null, createdAt: NOW,
+        id: accountId,
+        name: "Dana Smith",
+        type: "liability",
+        currency: "USD",
+        parentAccountId: null,
+        createdAt: NOW,
       }),
       insertBalanceRowStatement(database, accountId, NOW),
     ]);
@@ -1287,6 +1304,7 @@ git commit -m "feat(ledger): statement builders + bounds-CHECK batch-abort prove
 ### Task 9: `postEntry`
 
 **Files:**
+
 - Create: `packages/ledger/src/post-entry.ts`
 - Test: `packages/ledger/test/post-entry.test.ts`
 
@@ -1304,10 +1322,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { money, USD } from "@magna-carta/money/money";
 import { describe, expect, it } from "vitest";
 import { postEntry } from "../src/post-entry.ts";
-import {
-  insertAccountStatement,
-  insertBalanceRowStatement,
-} from "../src/statements.ts";
+import { insertAccountStatement, insertBalanceRowStatement } from "../src/statements.ts";
 import type { ClockPort } from "../src/types.ts";
 
 const clock: ClockPort = {
@@ -1323,13 +1338,21 @@ async function setup() {
   const smith = newIdentifier("ledgerAccount");
   await database.batch([
     insertAccountStatement(database, {
-      id: trustBank, name: "Trust Bank — IOLTA", type: "asset", currency: "USD",
-      parentAccountId: null, createdAt: clock.now(),
+      id: trustBank,
+      name: "Trust Bank — IOLTA",
+      type: "asset",
+      currency: "USD",
+      parentAccountId: null,
+      createdAt: clock.now(),
     }),
     insertBalanceRowStatement(database, trustBank, clock.now()),
     insertAccountStatement(database, {
-      id: smith, name: "Dana Smith", type: "liability", currency: "USD",
-      parentAccountId: null, createdAt: clock.now(),
+      id: smith,
+      name: "Dana Smith",
+      type: "liability",
+      currency: "USD",
+      parentAccountId: null,
+      createdAt: clock.now(),
     }),
     insertBalanceRowStatement(database, smith, clock.now()),
   ]);
@@ -1353,16 +1376,23 @@ describe("postEntry — the posting write path (ADR-0072)", () => {
     );
     await commitEffectBatch(database, effect, { now: clock.now });
 
-    const entry = (await database
-      .prepare("SELECT * FROM ledger_entry WHERE id = ?1").bind(entryId)
-      .all<Record<string, unknown>>()).results[0];
+    const entry = (
+      await database
+        .prepare("SELECT * FROM ledger_entry WHERE id = ?1")
+        .bind(entryId)
+        .all<Record<string, unknown>>()
+    ).results[0];
     expect(entry?.["recorded_at"]).toBe("2026-06-09T15:00:00.000Z");
     expect(entry?.["reverses_entry_id"]).toBeNull();
 
-    const lines = (await database
-      .prepare("SELECT direction, amount_minor, line_index FROM ledger_line WHERE entry_id = ?1 ORDER BY line_index")
-      .bind(entryId)
-      .all<{ direction: string; amount_minor: number; line_index: number }>()).results;
+    const lines = (
+      await database
+        .prepare(
+          "SELECT direction, amount_minor, line_index FROM ledger_line WHERE entry_id = ?1 ORDER BY line_index",
+        )
+        .bind(entryId)
+        .all<{ direction: string; amount_minor: number; line_index: number }>()
+    ).results;
     expect(lines).toEqual([
       { direction: "debit", amount_minor: 500000, line_index: 0 },
       { direction: "credit", amount_minor: 500000, line_index: 1 },
@@ -1370,15 +1400,20 @@ describe("postEntry — the posting write path (ADR-0072)", () => {
 
     // Both balances grow by 500000 in normal-balance terms (debit-normal asset debited;
     // credit-normal liability credited).
-    const balances = (await database
-      .prepare("SELECT account_id, balance_minor FROM account_balance ORDER BY account_id")
-      .bind()
-      .all<{ account_id: string; balance_minor: number }>()).results;
+    const balances = (
+      await database
+        .prepare("SELECT account_id, balance_minor FROM account_balance ORDER BY account_id")
+        .bind()
+        .all<{ account_id: string; balance_minor: number }>()
+    ).results;
     expect(balances.map((row) => row.balance_minor)).toEqual([500000, 500000]);
 
-    const outbox = (await database
-      .prepare("SELECT topic, payload, aggregate_key, seq FROM outbox").bind()
-      .all<{ topic: string; payload: string; aggregate_key: string; seq: number }>()).results;
+    const outbox = (
+      await database
+        .prepare("SELECT topic, payload, aggregate_key, seq FROM outbox")
+        .bind()
+        .all<{ topic: string; payload: string; aggregate_key: string; seq: number }>()
+    ).results;
     expect(outbox).toHaveLength(1);
     expect(outbox[0]?.topic).toBe("ledger.entry.posted");
     expect(outbox[0]?.aggregate_key).toBe("ledger");
@@ -1406,33 +1441,47 @@ describe("postEntry — the posting write path (ADR-0072)", () => {
   it("a violated balance bound aborts the WHOLE posting batch (entry, lines, outbox)", async () => {
     const { database, trustBank, smith } = await setup();
     // Fund Smith with 1000, then bound at min 0.
-    const funded = await postEntry(database, {
-      description: "Deposit", effectiveDate: "2026-06-09",
-      lines: [
-        { accountId: trustBank, direction: "debit", amount: money(1000, USD) },
-        { accountId: smith, direction: "credit", amount: money(1000, USD) },
-      ],
-    }, { clock });
+    const funded = await postEntry(
+      database,
+      {
+        description: "Deposit",
+        effectiveDate: "2026-06-09",
+        lines: [
+          { accountId: trustBank, direction: "debit", amount: money(1000, USD) },
+          { accountId: smith, direction: "credit", amount: money(1000, USD) },
+        ],
+      },
+      { clock },
+    );
     await commitEffectBatch(database, funded.effect, { now: clock.now });
     const { setAccountBoundsStatement } = await import("../src/statements.ts");
     await database.batch([setAccountBoundsStatement(database, smith, 0, null, clock.now())]);
 
     // Overdraw: debit Smith 2000 (liability debited = balance falls to -1000 < 0).
-    const overdraw = await postEntry(database, {
-      description: "Disbursement too large", effectiveDate: "2026-06-09",
-      lines: [
-        { accountId: smith, direction: "debit", amount: money(2000, USD) },
-        { accountId: trustBank, direction: "credit", amount: money(2000, USD) },
-      ],
-    }, { clock });
-    await expect(commitEffectBatch(database, overdraw.effect, { now: clock.now })).rejects.toThrow();
+    const overdraw = await postEntry(
+      database,
+      {
+        description: "Disbursement too large",
+        effectiveDate: "2026-06-09",
+        lines: [
+          { accountId: smith, direction: "debit", amount: money(2000, USD) },
+          { accountId: trustBank, direction: "credit", amount: money(2000, USD) },
+        ],
+      },
+      { clock },
+    );
+    await expect(
+      commitEffectBatch(database, overdraw.effect, { now: clock.now }),
+    ).rejects.toThrow();
 
     // NOTHING from the failed batch landed.
-    const entryCount = (await database
-      .prepare("SELECT COUNT(*) AS n FROM ledger_entry").bind().all<{ n: number }>()).results[0];
+    const entryCount = (
+      await database.prepare("SELECT COUNT(*) AS n FROM ledger_entry").bind().all<{ n: number }>()
+    ).results[0];
     expect(entryCount?.n).toBe(1);
-    const outboxCount = (await database
-      .prepare("SELECT COUNT(*) AS n FROM outbox").bind().all<{ n: number }>()).results[0];
+    const outboxCount = (
+      await database.prepare("SELECT COUNT(*) AS n FROM outbox").bind().all<{ n: number }>()
+    ).results[0];
     expect(outboxCount?.n).toBe(1);
   });
 });
@@ -1487,7 +1536,10 @@ export async function loadAccountSnapshots(
   database: SqlDatabase,
   accountIds: readonly LedgerAccountId[],
 ): Promise<Map<string, AccountSnapshot>> {
-  const { results } = await selectAccountSnapshotsStatement(database, accountIds).all<SnapshotRow>();
+  const { results } = await selectAccountSnapshotsStatement(
+    database,
+    accountIds,
+  ).all<SnapshotRow>();
   return new Map(
     results.map((row) => [
       row.id,
@@ -1584,6 +1636,7 @@ git commit -m "feat(ledger): postEntry — validate in memory, compose into the 
 ### Task 10: `createAccount`
 
 **Files:**
+
 - Create: `packages/ledger/src/create-account.ts`
 - Test: `packages/ledger/test/create-account.test.ts`
 
@@ -1645,8 +1698,12 @@ describe("createAccount", () => {
     await expect(
       createAccount(
         database,
-        { name: "Ghost child", type: "liability", currency: "USD",
-          parentAccountId: "acct_doesnotexist000000000" as never },
+        {
+          name: "Ghost child",
+          type: "liability",
+          currency: "USD",
+          parentAccountId: "acct_doesnotexist000000000" as never,
+        },
         { clock },
       ),
     ).rejects.toMatchObject({ code: "unknown-parent-account" });
@@ -1749,6 +1806,7 @@ git commit -m "feat(ledger): createAccount — account + balance row in one batc
 ### Task 11: `reverseEntry`
 
 **Files:**
+
 - Create: `packages/ledger/src/reverse-entry.ts`
 - Test: `packages/ledger/test/reverse-entry.test.ts`
 
@@ -1775,18 +1833,30 @@ async function setupWithPostedEntry() {
   const raw = new DatabaseSync(":memory:");
   applyMigrations(raw, loadMigrationsFromDisk("per-firm"));
   const database = nodeSqliteBatchDatabase(raw);
-  const bank = await createAccount(database, { name: "Trust Bank", type: "asset", currency: "USD" }, { clock });
+  const bank = await createAccount(
+    database,
+    { name: "Trust Bank", type: "asset", currency: "USD" },
+    { clock },
+  );
   await commitEffectBatch(database, bank.effect, { now: clock.now });
-  const smith = await createAccount(database, { name: "Dana Smith", type: "liability", currency: "USD" }, { clock });
+  const smith = await createAccount(
+    database,
+    { name: "Dana Smith", type: "liability", currency: "USD" },
+    { clock },
+  );
   await commitEffectBatch(database, smith.effect, { now: clock.now });
-  const posted = await postEntry(database, {
-    description: "Deposit posted to the wrong client",
-    effectiveDate: "2026-06-08",
-    lines: [
-      { accountId: bank.accountId, direction: "debit", amount: money(500000, USD) },
-      { accountId: smith.accountId, direction: "credit", amount: money(500000, USD) },
-    ],
-  }, { clock });
+  const posted = await postEntry(
+    database,
+    {
+      description: "Deposit posted to the wrong client",
+      effectiveDate: "2026-06-08",
+      lines: [
+        { accountId: bank.accountId, direction: "debit", amount: money(500000, USD) },
+        { accountId: smith.accountId, direction: "credit", amount: money(500000, USD) },
+      ],
+    },
+    { clock },
+  );
   await commitEffectBatch(database, posted.effect, { now: clock.now });
   return { database, bank: bank.accountId, smith: smith.accountId, originalId: posted.entryId };
 }
@@ -1801,22 +1871,33 @@ describe("reverseEntry — first-class corrections (ADR-0072)", () => {
     );
     await commitEffectBatch(database, reversal.effect, { now: clock.now });
 
-    const link = (await database
-      .prepare("SELECT reverses_entry_id FROM ledger_entry WHERE id = ?1")
-      .bind(reversal.entryId).all<{ reverses_entry_id: string }>()).results[0];
+    const link = (
+      await database
+        .prepare("SELECT reverses_entry_id FROM ledger_entry WHERE id = ?1")
+        .bind(reversal.entryId)
+        .all<{ reverses_entry_id: string }>()
+    ).results[0];
     expect(link?.reverses_entry_id).toBe(originalId);
 
-    const mirroredLines = (await database
-      .prepare("SELECT direction, amount_minor FROM ledger_line WHERE entry_id = ?1 ORDER BY line_index")
-      .bind(reversal.entryId).all<{ direction: string; amount_minor: number }>()).results;
+    const mirroredLines = (
+      await database
+        .prepare(
+          "SELECT direction, amount_minor FROM ledger_line WHERE entry_id = ?1 ORDER BY line_index",
+        )
+        .bind(reversal.entryId)
+        .all<{ direction: string; amount_minor: number }>()
+    ).results;
     expect(mirroredLines).toEqual([
       { direction: "credit", amount_minor: 500000 }, // original debit, flipped
       { direction: "debit", amount_minor: 500000 },
     ]);
 
-    const balances = (await database
-      .prepare("SELECT balance_minor FROM account_balance").bind()
-      .all<{ balance_minor: number }>()).results;
+    const balances = (
+      await database
+        .prepare("SELECT balance_minor FROM account_balance")
+        .bind()
+        .all<{ balance_minor: number }>()
+    ).results;
     expect(balances.every((row) => row.balance_minor === 0)).toBe(true);
   });
 
@@ -1840,7 +1921,11 @@ describe("reverseEntry — first-class corrections (ADR-0072)", () => {
     );
     // And after commit, the pre-check refuses politely.
     await expect(
-      reverseEntry(database, { entryId: originalId, description: "Again", effectiveDate: "2026-06-09" }, { clock }),
+      reverseEntry(
+        database,
+        { entryId: originalId, description: "Again", effectiveDate: "2026-06-09" },
+        { clock },
+      ),
     ).rejects.toMatchObject({ code: "already-reversed" });
   });
 
@@ -1849,7 +1934,11 @@ describe("reverseEntry — first-class corrections (ADR-0072)", () => {
     await expect(
       reverseEntry(
         database,
-        { entryId: "led_doesnotexist00000000" as never, description: "x", effectiveDate: "2026-06-09" },
+        {
+          entryId: "led_doesnotexist00000000" as never,
+          description: "x",
+          effectiveDate: "2026-06-09",
+        },
         { clock },
       ),
     ).rejects.toMatchObject({ code: "unknown-entry" });
@@ -1873,7 +1962,11 @@ import {
   type PostedEntry,
   type PostEntryOptions,
 } from "./post-entry.ts";
-import { selectEntryStatement, selectLinesForEntryStatement, selectReversalOfStatement } from "./statements.ts";
+import {
+  selectEntryStatement,
+  selectLinesForEntryStatement,
+  selectReversalOfStatement,
+} from "./statements.ts";
 import type { Direction, EntryLineInput, PostEntryInput } from "./types.ts";
 import { LedgerValidationError, validateEntry } from "./validate.ts";
 
@@ -1908,7 +2001,10 @@ export async function reverseEntry(
   if (reversals.length > 0) {
     throw new LedgerValidationError("already-reversed", `entry already reversed: ${input.entryId}`);
   }
-  const { results: lines } = await selectLinesForEntryStatement(database, input.entryId).all<LineRow>();
+  const { results: lines } = await selectLinesForEntryStatement(
+    database,
+    input.entryId,
+  ).all<LineRow>();
 
   const accountIds = [...new Set(lines.map((line) => line.account_id))] as LedgerAccountId[];
   const accounts = await loadAccountSnapshots(database, accountIds);
@@ -1948,6 +2044,7 @@ git commit -m "feat(ledger): reverseEntry — linked mirror corrections, UNIQUE 
 ### Task 12: Fitness queries (`fitness.ts`)
 
 **Files:**
+
 - Create: `packages/ledger/src/fitness.ts`
 - Test: `packages/ledger/test/fitness.test.ts`
 
@@ -1975,17 +2072,30 @@ describe("ledger fitness queries (ADR-0051) — prove the whole table, not one w
     const raw = new DatabaseSync(":memory:");
     applyMigrations(raw, loadMigrationsFromDisk("per-firm"));
     const database = nodeSqliteBatchDatabase(raw);
-    const bank = await createAccount(database, { name: "Bank", type: "asset", currency: "USD" }, { clock });
+    const bank = await createAccount(
+      database,
+      { name: "Bank", type: "asset", currency: "USD" },
+      { clock },
+    );
     await commitEffectBatch(database, bank.effect, { now: clock.now });
-    const income = await createAccount(database, { name: "Fee Income", type: "income", currency: "USD" }, { clock });
+    const income = await createAccount(
+      database,
+      { name: "Fee Income", type: "income", currency: "USD" },
+      { clock },
+    );
     await commitEffectBatch(database, income.effect, { now: clock.now });
-    const posted = await postEntry(database, {
-      description: "Fee received", effectiveDate: "2026-06-09",
-      lines: [
-        { accountId: bank.accountId, direction: "debit", amount: money(25000, USD) },
-        { accountId: income.accountId, direction: "credit", amount: money(25000, USD) },
-      ],
-    }, { clock });
+    const posted = await postEntry(
+      database,
+      {
+        description: "Fee received",
+        effectiveDate: "2026-06-09",
+        lines: [
+          { accountId: bank.accountId, direction: "debit", amount: money(25000, USD) },
+          { accountId: income.accountId, direction: "credit", amount: money(25000, USD) },
+        ],
+      },
+      { clock },
+    );
     await commitEffectBatch(database, posted.effect, { now: clock.now });
 
     expect((await unbalancedEntriesStatement(database).all()).results).toEqual([]);
@@ -1996,7 +2106,11 @@ describe("ledger fitness queries (ADR-0051) — prove the whole table, not one w
     const raw = new DatabaseSync(":memory:");
     applyMigrations(raw, loadMigrationsFromDisk("per-firm"));
     const database = nodeSqliteBatchDatabase(raw);
-    const bank = await createAccount(database, { name: "Bank", type: "asset", currency: "USD" }, { clock });
+    const bank = await createAccount(
+      database,
+      { name: "Bank", type: "asset", currency: "USD" },
+      { clock },
+    );
     await commitEffectBatch(database, bank.effect, { now: clock.now });
     // Corrupt the materialized balance directly (the very thing the query exists to catch).
     raw.prepare("UPDATE account_balance SET balance_minor = 999").run();
@@ -2012,11 +2126,7 @@ Run → FAIL.
 
 ```ts
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
-import {
-  ACCOUNT_BALANCE_TABLE,
-  LEDGER_ACCOUNT_TABLE,
-  LEDGER_LINE_TABLE,
-} from "./statements.ts";
+import { ACCOUNT_BALANCE_TABLE, LEDGER_ACCOUNT_TABLE, LEDGER_LINE_TABLE } from "./statements.ts";
 
 // Fitness queries (ADR-0051): re-prove the invariants over the WHOLE table. Zero rows = healthy.
 // Run in tests after every scenario; later wired into CI / an admin diagnostic.
@@ -2054,14 +2164,15 @@ git commit -m "feat(ledger): fitness queries — table-wide sum-to-zero + balanc
 ### Task 13: Scaffold `@magna-carta/fixtures` (+ faker catalog pin)
 
 **Files:**
+
 - Modify: `pnpm-workspace.yaml`
 - Create: `packages/fixtures/package.json`, `tsconfig.json`, `vitest.config.ts`, `CLAUDE.md`
 
 - [ ] **Step 1: Pin faker** — Run `pnpm view @faker-js/faker version`, then add to the catalog (Fixtures section) with that exact version, e.g.:
 
 ```yaml
-  # Fixtures (packages/fixtures). Seeded via faker.seed(); locale en.
-  "@faker-js/faker": <exact version from pnpm view>
+# Fixtures (packages/fixtures). Seeded via faker.seed(); locale en.
+"@faker-js/faker": <exact version from pnpm view>
 ```
 
 - [ ] **Step 2: Create the package** — `packages/fixtures/package.json`:
@@ -2116,7 +2227,7 @@ never raw inserts; data is valid by construction and scenarios double as integra
   nothing else may produce randomness or read wall-clock time. Same seed → byte-identical rows
   (outbox `id` excepted — minted unseeded inside data-access; documented seam).
 - **Real write paths only.** A raw business-table INSERT in this package is a bug. (Direct SQL is
-  allowed only to *corrupt* state on purpose in tests, or via `setAccountBoundsStatement` — the
+  allowed only to _corrupt_ state on purpose in tests, or via `setAccountBoundsStatement` — the
   Phase-3 seam primitive.)
 - **Never in production.** Every seeding entry point goes through `guard.ts`; this package is never
   imported by production worker code (boundary rule, ADR-0070).
@@ -2136,6 +2247,7 @@ git commit -m "feat(fixtures): scaffold @magna-carta/fixtures + faker catalog pi
 ### Task 14: `FixtureContext` + local database + guard
 
 **Files:**
+
 - Create: `packages/fixtures/src/context.ts`, `packages/fixtures/src/local-database.ts`, `packages/fixtures/src/guard.ts`
 - Test: `packages/fixtures/test/context.test.ts`
 
@@ -2295,6 +2407,7 @@ git commit -m "feat(fixtures): FixtureContext (seeded faker + fixed clock + seed
 ### Task 15: Demo chart of accounts + primitive factories
 
 **Files:**
+
 - Create: `packages/fixtures/src/demo-chart-of-accounts.ts`, `packages/fixtures/src/factories.ts`
 - Test: `packages/fixtures/test/demo-chart-of-accounts.test.ts`
 
@@ -2314,15 +2427,15 @@ describe("demo chart of accounts (DEMO DATA — not the Phase-3 product CoA)", (
     for (const key of DEMO_ACCOUNT_KEYS) expect(accounts.has(key)).toBe(true);
 
     const { results } = await database
-      .prepare(
-        "SELECT COUNT(*) AS n FROM ledger_account WHERE parent_account_id = ?1",
-      )
+      .prepare("SELECT COUNT(*) AS n FROM ledger_account WHERE parent_account_id = ?1")
       .bind(accounts.get("clientTrustLiability"))
       .all<{ n: number }>();
     expect(results[0]?.n).toBe(2); // Dana Smith + Marcus Webb demo client subledgers
 
     const balances = await database
-      .prepare("SELECT COUNT(*) AS n FROM account_balance").bind().all<{ n: number }>();
+      .prepare("SELECT COUNT(*) AS n FROM account_balance")
+      .bind()
+      .all<{ n: number }>();
     expect(balances.results[0]?.n).toBe(DEMO_ACCOUNT_KEYS.length); // every account got its row
   });
 });
@@ -2358,8 +2471,18 @@ const DEMO_ACCOUNTS: readonly DemoAccount[] = [
   { key: "accountsReceivable", name: "Accounts Receivable", type: "asset" },
   { key: "clientCostsAdvanced", name: "Client Costs Advanced", type: "asset" },
   { key: "clientTrustLiability", name: "Client Trust Liability", type: "liability" },
-  { key: "trustSmith", name: "Trust — Dana Smith", type: "liability", parentKey: "clientTrustLiability" },
-  { key: "trustWebb", name: "Trust — Marcus Webb", type: "liability", parentKey: "clientTrustLiability" },
+  {
+    key: "trustSmith",
+    name: "Trust — Dana Smith",
+    type: "liability",
+    parentKey: "clientTrustLiability",
+  },
+  {
+    key: "trustWebb",
+    name: "Trust — Marcus Webb",
+    type: "liability",
+    parentKey: "clientTrustLiability",
+  },
   { key: "ownersEquity", name: "Owner's Equity", type: "equity" },
   { key: "feeIncome", name: "Fee Income", type: "income" },
   { key: "costRecoveryIncome", name: "Cost Recovery Income", type: "income" },
@@ -2413,8 +2536,7 @@ export function aBalancedEntryInput(
     description?: string;
   },
 ): PostEntryInput {
-  const amountMinor =
-    input.amountMinor ?? context.faker.number.int({ min: 5000, max: 2_000_000 });
+  const amountMinor = input.amountMinor ?? context.faker.number.int({ min: 5000, max: 2_000_000 });
   return {
     description: input.description ?? `${context.faker.company.buzzPhrase()}`,
     effectiveDate: context.clock.today(),
@@ -2438,6 +2560,7 @@ git commit -m "feat(fixtures): demo chart of accounts + primitive entry factory"
 ### Task 16: Named scenarios
 
 **Files:**
+
 - Create: `packages/fixtures/src/scenarios.ts`
 - Test: `packages/fixtures/test/scenarios.test.ts`
 
@@ -2629,7 +2752,10 @@ export async function trustCorrection(
   context.clock.advanceMinutes(2);
 
   assertScenario((await balanceOf(database, webb)) === 0, "Webb's subledger restored to zero");
-  assertScenario((await balanceOf(database, smith)) >= 250000, "Smith's subledger holds the deposit");
+  assertScenario(
+    (await balanceOf(database, smith)) >= 250000,
+    "Smith's subledger holds the deposit",
+  );
   return { originalEntryId: wrong.entryId, reversalEntryId: reversal.entryId };
 }
 
@@ -2643,9 +2769,7 @@ export async function boundsRejection(
   const trustBank = accountOf(accounts, "trustBank");
   const smith = accountOf(accounts, "trustSmith");
   await retainerDeposit(database, context, accounts); // fund Smith with 500000 first
-  await database.batch([
-    setAccountBoundsStatement(database, smith, 0, null, context.clock.now()),
-  ]);
+  await database.batch([setAccountBoundsStatement(database, smith, 0, null, context.clock.now())]);
   const before = await balanceOf(database, smith);
 
   const overdraw = await postEntry(
@@ -2684,10 +2808,26 @@ export async function multiLineSettlement(
       description: "Settlement received — fees, recovered costs",
       effectiveDate: context.clock.today(),
       lines: [
-        { accountId: accountOf(accounts, "operatingBank"), direction: "debit", amount: money(1_000000, USD) },
-        { accountId: accountOf(accounts, "feeIncome"), direction: "credit", amount: money(850000, USD) },
-        { accountId: accountOf(accounts, "costRecoveryIncome"), direction: "credit", amount: money(50000, USD) },
-        { accountId: accountOf(accounts, "clientCostsAdvanced"), direction: "credit", amount: money(100000, USD) },
+        {
+          accountId: accountOf(accounts, "operatingBank"),
+          direction: "debit",
+          amount: money(1_000000, USD),
+        },
+        {
+          accountId: accountOf(accounts, "feeIncome"),
+          direction: "credit",
+          amount: money(850000, USD),
+        },
+        {
+          accountId: accountOf(accounts, "costRecoveryIncome"),
+          direction: "credit",
+          amount: money(50000, USD),
+        },
+        {
+          accountId: accountOf(accounts, "clientCostsAdvanced"),
+          direction: "credit",
+          amount: money(100000, USD),
+        },
       ],
     },
     serviceOptions(context),
@@ -2710,6 +2850,7 @@ git commit -m "feat(fixtures): named scenarios — retainerDeposit, trustCorrect
 ### Task 17: `seedDemoFirm` + determinism proof
 
 **Files:**
+
 - Create: `packages/fixtures/src/demo-firm.ts`
 - Test: `packages/fixtures/test/demo-firm.test.ts`
 
@@ -2823,10 +2964,14 @@ export async function seedDemoFirm(
   };
 
   // Opening: the owner funds the firm.
-  await post("Owner capital contribution", [
-    { accountId: id("operatingBank"), direction: "debit", amount: money(5_000000, USD) },
-    { accountId: id("ownersEquity"), direction: "credit", amount: money(5_000000, USD) },
-  ], 60);
+  await post(
+    "Owner capital contribution",
+    [
+      { accountId: id("operatingBank"), direction: "debit", amount: money(5_000000, USD) },
+      { accountId: id("ownersEquity"), direction: "credit", amount: money(5_000000, USD) },
+    ],
+    60,
+  );
 
   // Trust activity: two deposits, one correction story, one settlement.
   await retainerDeposit(database, context, accounts);
@@ -2834,37 +2979,67 @@ export async function seedDemoFirm(
   await multiLineSettlement(database, context, accounts);
 
   // Operating month: rent, salaries, supplies, bar dues, a fee billed and received, costs advanced.
-  await post("Office rent — monthly", [
-    { accountId: id("rentExpense"), direction: "debit", amount: money(450000, USD) },
-    { accountId: id("operatingBank"), direction: "credit", amount: money(450000, USD) },
-  ], 45);
-  await post("Salaries", [
-    { accountId: id("salariesExpense"), direction: "debit", amount: money(1_200000, USD) },
-    { accountId: id("operatingBank"), direction: "credit", amount: money(1_200000, USD) },
-  ], 45);
-  await post("Office supplies", [
-    { accountId: id("officeSuppliesExpense"), direction: "debit", amount: money(23000, USD) },
-    { accountId: id("operatingBank"), direction: "credit", amount: money(23000, USD) },
-  ], 30);
-  await post("State bar dues", [
-    { accountId: id("barDuesExpense"), direction: "debit", amount: money(54500, USD) },
-    { accountId: id("operatingBank"), direction: "credit", amount: money(54500, USD) },
-  ], 30);
-  await post("Fee billed — hourly matter", [
-    { accountId: id("accountsReceivable"), direction: "debit", amount: money(380000, USD) },
-    { accountId: id("feeIncome"), direction: "credit", amount: money(380000, USD) },
-  ], 90);
-  await post("Client payment on account", [
-    { accountId: id("operatingBank"), direction: "debit", amount: money(380000, USD) },
-    { accountId: id("accountsReceivable"), direction: "credit", amount: money(380000, USD) },
-  ], 60);
-  await post("Filing fee advanced for client", [
-    { accountId: id("clientCostsAdvanced"), direction: "debit", amount: money(43500, USD) },
-    { accountId: id("operatingBank"), direction: "credit", amount: money(43500, USD) },
-  ], 30);
+  await post(
+    "Office rent — monthly",
+    [
+      { accountId: id("rentExpense"), direction: "debit", amount: money(450000, USD) },
+      { accountId: id("operatingBank"), direction: "credit", amount: money(450000, USD) },
+    ],
+    45,
+  );
+  await post(
+    "Salaries",
+    [
+      { accountId: id("salariesExpense"), direction: "debit", amount: money(1_200000, USD) },
+      { accountId: id("operatingBank"), direction: "credit", amount: money(1_200000, USD) },
+    ],
+    45,
+  );
+  await post(
+    "Office supplies",
+    [
+      { accountId: id("officeSuppliesExpense"), direction: "debit", amount: money(23000, USD) },
+      { accountId: id("operatingBank"), direction: "credit", amount: money(23000, USD) },
+    ],
+    30,
+  );
+  await post(
+    "State bar dues",
+    [
+      { accountId: id("barDuesExpense"), direction: "debit", amount: money(54500, USD) },
+      { accountId: id("operatingBank"), direction: "credit", amount: money(54500, USD) },
+    ],
+    30,
+  );
+  await post(
+    "Fee billed — hourly matter",
+    [
+      { accountId: id("accountsReceivable"), direction: "debit", amount: money(380000, USD) },
+      { accountId: id("feeIncome"), direction: "credit", amount: money(380000, USD) },
+    ],
+    90,
+  );
+  await post(
+    "Client payment on account",
+    [
+      { accountId: id("operatingBank"), direction: "debit", amount: money(380000, USD) },
+      { accountId: id("accountsReceivable"), direction: "credit", amount: money(380000, USD) },
+    ],
+    60,
+  );
+  await post(
+    "Filing fee advanced for client",
+    [
+      { accountId: id("clientCostsAdvanced"), direction: "debit", amount: money(43500, USD) },
+      { accountId: id("operatingBank"), direction: "credit", amount: money(43500, USD) },
+    ],
+    30,
+  );
 
   const { results } = await database
-    .prepare("SELECT (SELECT COUNT(*) FROM ledger_account) AS accounts, (SELECT COUNT(*) FROM ledger_entry) AS entries")
+    .prepare(
+      "SELECT (SELECT COUNT(*) FROM ledger_account) AS accounts, (SELECT COUNT(*) FROM ledger_entry) AS entries",
+    )
     .bind()
     .all<{ accounts: number; entries: number }>();
   return { accountCount: results[0]?.accounts ?? 0, entryCount: results[0]?.entries ?? 0 };
@@ -2883,6 +3058,7 @@ git commit -m "feat(fixtures): seedDemoFirm — guarded, deterministic demo bund
 ### Task 18: Docs, invariants, full gate
 
 **Files:**
+
 - Modify: `docs/conventions/invariants.md`, `ROADMAP.md`, `CHANGELOG.md`
 
 - [ ] **Step 1: Extend `invariants.md`** — under _Money & accounting_, after the append-only bullet:
