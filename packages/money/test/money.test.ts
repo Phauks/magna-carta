@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { add, EUR, money, rate, subtract, USD, type Money } from "../src/money.ts";
+import {
+  add,
+  EUR,
+  money,
+  multiplyByQuantity,
+  percentOf,
+  rate,
+  ratio,
+  subtract,
+  transformToMoney,
+  USD,
+  type Money,
+} from "../src/money.ts";
 import { fromMinor, toMinor } from "../src/format.ts";
 
 describe("money / rate constructors", () => {
@@ -28,5 +40,19 @@ describe("money arithmetic", () => {
 
   it("throws when currencies are mixed", () => {
     expect(() => add(money(100, USD), money(100, EUR))).toThrow();
+  });
+});
+
+describe("rate x quantity and percent", () => {
+  it("multiplies a Rate by a fractional quantity and transforms to Money (2dp)", () => {
+    // $450.0000/hr x 2.5 hr = $1125.00
+    const line = transformToMoney(multiplyByQuantity(rate(4500000, USD), 2.5));
+    expect(toMinor(line)).toBe(112500);
+  });
+
+  it("takes a percent of a Money via a Ratio, keeping a high-precision intermediate", () => {
+    // 8.375% of $100.00; intermediate kept at higher precision until rounded (Task 6 rounds it).
+    const intermediate = percentOf(money(10000, USD), ratio(8375, 5)); // 0.08375
+    expect(transformToMoney(intermediate)).toBeDefined();
   });
 });

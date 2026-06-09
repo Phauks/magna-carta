@@ -1,8 +1,11 @@
 import {
   addDinero,
+  down,
   EUR,
   makeMoneyDinero,
+  multiplyDinero,
   subtractDinero,
+  transformScale,
   USD,
   type NumberCurrency,
   type NumberDinero,
@@ -55,4 +58,34 @@ export function add(a: Money, b: Money): Money {
 
 export function subtract(a: Money, b: Money): Money {
   return subtractDinero(a, b) as Money;
+}
+
+// Dimensionless ratio: a scaled amount (e.g. ratio(8375, 5) === 0.08375). Not a Dinero.
+export function ratio(amount: number, scale: number): Ratio {
+  return { amount, scale } as Ratio;
+}
+
+// Rate x quantity -> high-precision intermediate (NOT yet rounded to Money). Quantity may be fractional.
+export function multiplyByQuantity(value: Rate | Money, quantity: number): NumberDinero {
+  // Represent quantity as a scaled multiplier to stay in integer math (e.g. 2.5 -> { amount: 25, scale: 1 }).
+  return multiplyDinero(value, decimalToScaled(quantity));
+}
+
+export function percentOf(value: Money, percent: Ratio): NumberDinero {
+  return multiplyDinero(value, { amount: percent.amount, scale: percent.scale });
+}
+
+// Collapse an intermediate to Money (scale 2). Rounds DOWN here; the NAMED boundary helpers
+// (rounding.ts, a later task) are the real rounding API used at money boundaries.
+export function transformToMoney(value: NumberDinero): Money {
+  return transformScale(value, MONEY_SCALE, down) as Money;
+}
+
+// Turn a JS number like 2.5 into { amount: 25, scale: 1 } without float drift on typical inputs.
+function decimalToScaled(n: number): { amount: number; scale: number } {
+  const text = n.toString();
+  const dot = text.indexOf(".");
+  if (dot === -1) return { amount: Number(text), scale: 0 };
+  const scale = text.length - dot - 1;
+  return { amount: Number(text.replace(".", "")), scale };
 }
