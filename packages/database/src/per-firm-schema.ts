@@ -120,6 +120,9 @@ export const ledgerLine = sqliteTable(
     uniqueIndex("ledger_line_entry_id_line_index_unique_index").on(table.entryId, table.lineIndex),
     index("ledger_line_account_id_index").on(table.accountId),
     check("ledger_line_amount_minor_positive_check", sql`${table.amountMinor} > 0`),
+    // Drizzle text enums are type-level only — the direction constraint is stated as an explicit
+    // CHECK so the DDL enforces it (defense in depth on permanent rows — ADR-0072 spec §3.2).
+    check("ledger_line_direction_check", sql`${table.direction} IN ('debit', 'credit')`),
   ],
 );
 

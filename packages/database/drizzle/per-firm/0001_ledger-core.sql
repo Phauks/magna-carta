@@ -42,7 +42,8 @@ CREATE TABLE `ledger_line` (
 	`amount_minor` integer NOT NULL,
 	FOREIGN KEY (`entry_id`) REFERENCES `ledger_entry`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`account_id`) REFERENCES `ledger_account`(`id`) ON UPDATE no action ON DELETE no action,
-	CONSTRAINT "ledger_line_amount_minor_positive_check" CHECK("ledger_line"."amount_minor" > 0)
+	CONSTRAINT "ledger_line_amount_minor_positive_check" CHECK("ledger_line"."amount_minor" > 0),
+	CONSTRAINT "ledger_line_direction_check" CHECK("ledger_line"."direction" IN ('debit', 'credit'))
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `ledger_line_entry_id_line_index_unique_index` ON `ledger_line` (`entry_id`,`line_index`);--> statement-breakpoint

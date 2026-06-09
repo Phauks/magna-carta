@@ -38,6 +38,7 @@ describe("ledger tables (ADR-0072)", () => {
     expect(config.checks.map((check) => check.name)).toContain(
       "ledger_line_amount_minor_positive_check",
     );
+    expect(config.checks.map((check) => check.name)).toContain("ledger_line_direction_check");
     const uniqueOnEntryIdLineIndex = config.indexes.some(
       (index) =>
         index.config.unique &&

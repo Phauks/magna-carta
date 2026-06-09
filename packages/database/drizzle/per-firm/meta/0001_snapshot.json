@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "6a98143d-16bc-4a06-99ac-cc1af59e5d1f",
+  "id": "f36840f5-1d94-466d-a64e-916303897280",
   "prevId": "688a84d0-bda2-48f2-9c43-d94779637604",
   "tables": {
     "account_balance": {
@@ -371,6 +371,10 @@
         "ledger_line_amount_minor_positive_check": {
           "name": "ledger_line_amount_minor_positive_check",
           "value": "\"ledger_line\".\"amount_minor\" > 0"
+        },
+        "ledger_line_direction_check": {
+          "name": "ledger_line_direction_check",
+          "value": "\"ledger_line\".\"direction\" IN ('debit', 'credit')"
         }
       }
     },

@@ -39,5 +39,6 @@ describe("generated migrations (committed artifacts)", () => {
     // The CHECKs are the point — bounds enforcement and positive amounts must exist in the DDL.
     expect(allSql).toContain("account_balance_bounds_check");
     expect(allSql).toContain("ledger_line_amount_minor_positive_check");
+    expect(allSql).toContain("ledger_line_direction_check");
   });
 });
