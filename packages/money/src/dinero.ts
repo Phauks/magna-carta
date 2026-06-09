@@ -16,6 +16,8 @@ import {
   toSnapshot,
   transformScale,
   type Dinero,
+  type DineroCurrency,
+  type DineroSnapshot,
 } from "dinero.js";
 import { EUR, USD } from "dinero.js/currencies";
 
@@ -34,7 +36,8 @@ export {
 };
 
 export type NumberDinero = Dinero<number>;
-export type NumberCurrency = typeof USD;
+// The general number-currency type (accepts USD, EUR, …) — not `typeof USD`, which would reject EUR.
+export type NumberCurrency = DineroCurrency<number>;
 
 export function makeMoneyDinero(
   amount: number,
@@ -44,10 +47,6 @@ export function makeMoneyDinero(
   return dinero({ amount, currency, scale });
 }
 
-export function snapshot(value: NumberDinero): {
-  amount: number;
-  scale: number;
-  currency: NumberCurrency;
-} {
+export function snapshot(value: NumberDinero): DineroSnapshot<number> {
   return toSnapshot(value);
 }
