@@ -1,0 +1,32 @@
+{
+  "name": "@magna-carta/data-access",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./canonical": "./src/canonical.ts",
+    "./idempotency-decision": "./src/idempotency-decision.ts",
+    "./idempotency-statements": "./src/idempotency-statements.ts",
+    "./outbox-statements": "./src/outbox-statements.ts",
+    "./effect-batch": "./src/effect-batch.ts",
+    "./run-idempotent-effect": "./src/run-idempotent-effect.ts",
+    "./outbox-relay": "./src/outbox-relay.ts",
+    "./hono-idempotency-middleware": "./src/hono-idempotency-middleware.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "hono": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
+    "vitest": "catalog:"
+  }
+}
