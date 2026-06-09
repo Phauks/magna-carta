@@ -89,12 +89,12 @@ Creating or deactivating a user must write two databases (control-plane user, pe
 
 All routes are `createRoute` contracts with `x-mc-*` metadata per [`docs/conventions/api.md`](../conventions/api.md) (incl. the spike finding: OpenAPI-native `operationId` set from the metadata):
 
-| Route | Permission | Notes |
-| --- | --- | --- |
-| `POST /v1/firms` | platform-admin secret | provision a firm (§5); `idempotency: required`; `audited` |
-| `POST /v1/members` | `firm:manageMembers` | invite a member (§1); `idempotency: required`; `audited` |
-| `GET /v1/me` | authenticated | session user + firm + **effective permissions** — the SPA's future bootstrap call |
-| `/api/auth/*` | — | Better Auth's own routes (login, logout, verify, reset, TOTP) |
+| Route              | Permission            | Notes                                                                             |
+| ------------------ | --------------------- | --------------------------------------------------------------------------------- |
+| `POST /v1/firms`   | platform-admin secret | provision a firm (§5); `idempotency: required`; `audited`                         |
+| `POST /v1/members` | `firm:manageMembers`  | invite a member (§1); `idempotency: required`; `audited`                          |
+| `GET /v1/me`       | authenticated         | session user + firm + **effective permissions** — the SPA's future bootstrap call |
+| `/api/auth/*`      | —                     | Better Auth's own routes (login, logout, verify, reset, TOTP)                     |
 
 Plus the **`resolveSession` middleware primitive**: session cookie → control-plane lookup → `{ userId, firmId }` → the firm-scoped data-access handle. This is the first link of the ADR-0067 chokepoint chain; the full ordered middleware (RBAC enforcement per route metadata, rate limits) is slice 0·5 — this slice enforces permissions **in the two handlers that need it**, through the §4 resolver, so the resolver is exercised end-to-end without pre-building the chokepoint.
 
