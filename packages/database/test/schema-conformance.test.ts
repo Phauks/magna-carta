@@ -15,11 +15,19 @@ describe("schema conformance (fitness functions)", () => {
   });
 
   it("every table's primary key is a TEXT identifier handle named id (ADR-0062)", () => {
+    // Sanctioned exceptions: 1:1 extension tables keyed by the OWNING entity's handle. The primary
+    // key is still a TEXT identifier handle (ADR-0062) — it is the owner's, not a fresh one.
+    // account_balance is the materialized balance row of its ledger_account (ADR-0072).
+    const extensionTablePrimaryKeyNames: Record<string, string> = {
+      account_balance: "account_id",
+    };
     for (const table of ALL_TABLES) {
       const config = getTableConfig(table);
       const primaryColumns = config.columns.filter((column) => column.primary);
       expect(primaryColumns, config.name).toHaveLength(1);
-      expect(primaryColumns[0]?.name, config.name).toBe("id");
+      expect(primaryColumns[0]?.name, config.name).toBe(
+        extensionTablePrimaryKeyNames[config.name] ?? "id",
+      );
       expect(primaryColumns[0]?.getSQLType(), config.name).toBe("text");
     }
   });
