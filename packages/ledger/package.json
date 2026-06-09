@@ -1,0 +1,32 @@
+{
+  "name": "@magna-carta/ledger",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./types": "./src/types.ts",
+    "./normal-balance": "./src/normal-balance.ts",
+    "./validate": "./src/validate.ts",
+    "./statements": "./src/statements.ts",
+    "./post-entry": "./src/post-entry.ts",
+    "./create-account": "./src/create-account.ts",
+    "./reverse-entry": "./src/reverse-entry.ts",
+    "./fitness": "./src/fitness.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/money": "workspace:*"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
+    "vitest": "catalog:"
+  }
+}
