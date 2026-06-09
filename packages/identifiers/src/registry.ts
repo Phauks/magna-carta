@@ -10,6 +10,8 @@ export const ENTITY_PREFIXES = {
   event: "evt",
   portalGrant: "pgr",
   ledgerEntry: "led",
+  ledgerAccount: "acct",
+  ledgerLine: "lln",
   outbox: "obx",
   idempotencyRecord: "idr",
   user: "usr",
