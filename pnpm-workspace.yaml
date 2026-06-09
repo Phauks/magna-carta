@@ -33,6 +33,8 @@ catalog:
   # calculator + bigint currencies, so no separate (deprecated) @dinero.js/calculator-bigint is needed.
   "dinero.js": 2.0.2
   decimal.js: 10.6.0
+  # Identifiers (packages/identifiers). nanoid v5 (ESM, Web Crypto); customRandom + urlAlphabet.
+  nanoid: 5.1.11
   # Web (apps/web)
   "@types/node": 25.9.1
   svelte: 5.56.2

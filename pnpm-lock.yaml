@@ -36,6 +36,9 @@ catalogs:
     hono:
       specifier: 4.12.23
       version: 4.12.23
+    nanoid:
+      specifier: 5.1.11
+      version: 5.1.11
     svelte:
       specifier: 5.56.2
       version: 5.56.2
@@ -118,6 +121,22 @@ importers:
       wrangler:
         specifier: 'catalog:'
         version: 4.98.0(@cloudflare/workers-types@4.20260604.1)
+
+  packages/identifiers:
+    dependencies:
+      nanoid:
+        specifier: 'catalog:'
+        version: 5.1.11
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.1
+      vitest:
+        specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@25.9.1)(esbuild@0.27.3)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.27.3)(yaml@2.9.0))(yaml@2.9.0)'
 
   packages/money:
     dependencies:
@@ -1386,6 +1405,11 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
+  nanoid@5.1.11:
+    resolution: {integrity: sha512-v+KEsUv2ps74PaSKv0gHTxTCgMXOIfBEbaqa6w6ISIGC7ZsvHN4N9oJ8d4cmf0n5oTzQz2SLmThbQWhjd/8eKg==}
+    engines: {node: ^18 || >=20}
+    hasBin: true
+
   obug@2.1.2:
     resolution: {integrity: sha512-AWGB9WFcRXOQs48Z/udjI5ZcZMHXwX8XPByNpOydgcGsDLIzjGizhoMWJyKAWze7AVW/2W1i+/gPX4YtKe5cyg==}
     engines: {node: '>=12.20.0'}
@@ -2470,6 +2494,8 @@ snapshots:
   mrmime@2.0.1: {}
 
   nanoid@3.3.12: {}
+
+  nanoid@5.1.11: {}
 
   obug@2.1.2: {}
 

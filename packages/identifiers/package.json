@@ -1,0 +1,25 @@
+{
+  "name": "@magna-carta/identifiers",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./random": "./src/random.ts",
+    "./registry": "./src/registry.ts",
+    "./types": "./src/types.ts",
+    "./generate": "./src/generate.ts",
+    "./validate": "./src/validate.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "nanoid": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}
