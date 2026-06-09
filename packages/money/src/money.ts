@@ -1,6 +1,14 @@
-import { makeMoneyDinero, USD, type NumberCurrency, type NumberDinero } from "./dinero.ts";
+import {
+  addDinero,
+  EUR,
+  makeMoneyDinero,
+  subtractDinero,
+  USD,
+  type NumberCurrency,
+  type NumberDinero,
+} from "./dinero.ts";
 
-export { USD };
+export { EUR, USD };
 export type { NumberCurrency };
 
 // Branded, immutable. Backed by Dinero<number> (default calculator): Money @ scale 2, Rate @ scale 4.
@@ -38,4 +46,13 @@ export function money(minor: number, currency: NumberCurrency): Money {
 export function rate(e4: number, currency: NumberCurrency): Rate {
   assertSafeInteger(e4);
   return makeMoneyDinero(e4, currency, RATE_SCALE) as Rate;
+}
+
+// Dinero's add/subtract enforce same-currency at the type level and throw at runtime on mismatch.
+export function add(a: Money, b: Money): Money {
+  return addDinero(a, b) as Money;
+}
+
+export function subtract(a: Money, b: Money): Money {
+  return subtractDinero(a, b) as Money;
 }
