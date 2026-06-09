@@ -40,5 +40,7 @@ describe("generated migrations (committed artifacts)", () => {
     expect(allSql).toContain("account_balance_bounds_check");
     expect(allSql).toContain("ledger_line_amount_minor_positive_check");
     expect(allSql).toContain("ledger_line_direction_check");
+    expect(allSql).toContain("ledger_account_name_nonempty_check");
+    expect(allSql).toContain("ledger_entry_description_nonempty_check");
   });
 });
