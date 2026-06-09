@@ -10,11 +10,21 @@ export function fromMinor(minor: number, currency: NumberCurrency): Money {
   return money(minor, currency);
 }
 
+// Intl.NumberFormat construction is the expensive half of formatting; one instance per currency
+// serves every call (formatters are stateless after construction).
+const formatters = new Map<string, Intl.NumberFormat>();
+
 export function format(value: Money): string {
   // toDecimal gives the exact decimal string; Intl applies locale currency formatting with an explicit currency.
   const code = snapshot(value).currency.code;
-  const decimal = toDecimal(value);
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: code }).format(
-    Number(decimal),
-  );
+  let formatter = formatters.get(code);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat("en-US", { style: "currency", currency: code });
+    formatters.set(code, formatter);
+  }
+  // The decimal STRING goes to Intl as-is: ECMA-402 parses string input as an exact mathematical
+  // value. Converting through Number() would be lossy — float spacing near 2^53 cents (~1.6 cents)
+  // exceeds half a cent, silently misprinting the last digits of amounts the package supports.
+  // toDecimal returns string; the exact-value overload (ES2023.Intl) wants the numeric-string literal type.
+  return formatter.format(toDecimal(value) as Intl.StringNumericLiteral);
 }

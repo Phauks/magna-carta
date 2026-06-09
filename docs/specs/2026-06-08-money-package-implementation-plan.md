@@ -943,3 +943,11 @@ git commit -m "docs(money): amend ADR-0061 (number calculator) + ADR-0071 layout
 - §6 money test plan (property `allocate` sums; add/subtract; round-trip; named-rounding tables; differential vs decimal.js): Tasks 3, 6, 7, 9.
 
 **Deferred to later packages (not gaps):** the `REAL`-money-column and raw-`round` fitness functions (need schema / call sites — `database` and `data-access` slices); fixtures constructing money via `money`/`rate` (the fixtures harness is its own Phase 0 item).
+
+**Post-review hardening (2026-06-09).** A seven-angle review of the as-built package amended the plan's listings in five places (the listings above are point-in-time; the code is authoritative):
+
+- **`format` feeds Intl the exact decimal string, not `Number(decimal)`.** The float pass was a real bug: float spacing near the 2^53-cent ceiling (~1.6 cents) exceeds half a cent, so amounts the package supports could misprint their last digits (confirmed: 9007199254740991 cents printed `…409.90` instead of `…409.91`). ECMA-402 parses string input as an exact mathematical value (`ES2023.Intl` lib supplies the overload). The formatter is also memoized per currency — construction is the expensive half of `Intl.NumberFormat`.
+- **`ratio()` validates at construction** (safe-integer amount, non-negative integer scale), for parity with `money()`/`rate()` — a bad ratio previously surfaced downstream as Dinero's generic "Amount is invalid" or the collapse guard blaming "money amount".
+- **`negate(zero)` returns the zero untouched** — `0 * -1` is `-0` in JS, and `-0` must never leave the package (the same guard `fromDecimal` already had).
+- **`MONEY_SCALE` is exported from `money.ts`** and imported by `rounding.ts` (was redeclared there — a silent-drift landmine for any future scale change); the empty-list guard is one shared `assertNonEmpty` across `sum`/`minimum`/`maximum`.
+- **The collapse overflow guard is now pinned by a test** (a grown intermediate past 2^53 throws), and the `allocate` comment states Dinero's actual contract: fractional weights are accepted and exact; empty/all-zero/negative weight lists fail loud ("Ratios are invalid").

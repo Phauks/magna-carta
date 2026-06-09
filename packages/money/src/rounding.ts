@@ -1,7 +1,5 @@
 import { halfAwayFromZero, halfEven, halfUp, snapshot, transformScale } from "./dinero.ts";
-import { assertSafeInteger, type Intermediate, type Money } from "./money.ts";
-
-const MONEY_SCALE = 2;
+import { assertSafeInteger, MONEY_SCALE, type Intermediate, type Money } from "./money.ts";
 
 // Collapse a high-precision Intermediate to Money (scale 2) at the chosen rounding mode.
 // No global default — the mode is the caller's stated intent.

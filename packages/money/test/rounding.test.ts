@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { money, percentOf, ratio, USD } from "../src/money.ts";
+import { money, multiplyByQuantity, percentOf, rate, ratio, USD } from "../src/money.ts";
 import { roundInvoiceLine, roundLedger, roundTax } from "../src/rounding.ts";
 import { toMinor } from "../src/format.ts";
 
@@ -26,5 +26,11 @@ describe("named rounding helpers", () => {
   it("roundLedger is symmetric on negatives: -2.5c -> -2 (half-even)", () => {
     const negHalf = percentOf(money(-100, USD), ratio(25, 3));
     expect(toMinor(roundLedger(negHalf))).toBe(-2);
+  });
+
+  it("fails loud when a grown intermediate breaches the 2^53 safe range (ADR-0061 choke point)", () => {
+    // 2^52 x 4 = 2^54: integer-valued (so Dinero's multiply accepts it) but past the safe range —
+    // only the collapse guard can catch it before it becomes untrustworthy Money.
+    expect(() => roundLedger(multiplyByQuantity(rate(2 ** 52, USD), 4))).toThrow(RangeError);
   });
 });

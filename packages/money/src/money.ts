@@ -35,15 +35,24 @@ export type Ratio = {
   readonly [ratioBrand]: "Ratio";
 };
 
-const MONEY_SCALE = 2;
+// Exported so the rounding helpers collapse Intermediates to the same scale Money is built at.
+export const MONEY_SCALE = 2;
 const RATE_SCALE = 4;
 
 // Fail loud at the boundary: the number calculator is exact only for safe integers (< 2^53). If this
 // ever fires in practice, the engine must move to the decimal.js custom calculator (ADR-0061).
 // Exported so the rounding helpers can re-check a grown intermediate's raw amount before it collapses.
-export function assertSafeInteger(value: number): void {
+// `what` names the offending value in the error so the caller is blamed, not "money" generically.
+export function assertSafeInteger(value: number, what = "money amount"): void {
   if (!Number.isSafeInteger(value)) {
-    throw new RangeError(`money amount must be a safe integer, received ${value}`);
+    throw new RangeError(`${what} must be a safe integer, received ${value}`);
+  }
+}
+
+// Shared guard for the aggregation operations (sum/minimum/maximum) that cannot mean anything on [].
+export function assertNonEmpty(values: readonly unknown[], message: string): void {
+  if (values.length === 0) {
+    throw new RangeError(message);
   }
 }
 
@@ -88,8 +97,10 @@ export function zero(currency: NumberCurrency): Money {
 }
 
 // Negate a Money (a charge becomes its credit, and vice versa). Preserves scale and currency.
+// Zero is its own negation and is returned untouched: 0 * -1 is -0 in JS, and -0 must never
+// leave the package (same guard as fromDecimal).
 export function negate(value: Money): Money {
-  return multiplyDinero(value, -1) as Money;
+  return snapshot(value).amount === 0 ? value : (multiplyDinero(value, -1) as Money);
 }
 
 // Absolute value — the magnitude of a Money regardless of sign.
@@ -101,16 +112,21 @@ export function abs(value: Money): Money {
 // Empty throws — there is no currency to infer a zero from; callers with a possibly-empty list use
 // `list.length ? sum(list) : zero(currency)`.
 export function sum(values: Money[]): Money {
-  if (values.length === 0) {
-    throw new RangeError(
-      "sum() requires at least one Money (cannot infer currency from an empty list)",
-    );
-  }
+  assertNonEmpty(
+    values,
+    "sum() requires at least one Money (cannot infer currency from an empty list)",
+  );
   return values.reduce((total, value) => add(total, value));
 }
 
 // Dimensionless ratio: a scaled amount (e.g. ratio(8375, 5) === 0.08375). Not a Dinero.
+// Validated here, at construction, so a bad ratio is blamed by name — left to flow downstream it
+// would surface later as Dinero's generic "Amount is invalid" or the collapse guard blaming "money".
 export function ratio(amount: number, scale: number): Ratio {
+  assertSafeInteger(amount, "ratio amount");
+  if (!Number.isSafeInteger(scale) || scale < 0) {
+    throw new RangeError(`ratio scale must be a non-negative integer, received ${scale}`);
+  }
   return { amount, scale } as Ratio;
 }
 

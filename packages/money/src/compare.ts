@@ -11,7 +11,7 @@ import {
   maximumDinero,
   minimumDinero,
 } from "./dinero.ts";
-import type { Money } from "./money.ts";
+import { assertNonEmpty, type Money } from "./money.ts";
 
 // Comparisons and sign predicates over Money. Mixing currencies throws (Dinero enforces same-currency),
 // mirroring add/subtract. The ledger sum-to-zero (ADR-0008) and no-negative-trust (ADR-0009) invariants
@@ -55,15 +55,11 @@ export function compare(a: Money, b: Money): number {
 }
 
 export function minimum(values: Money[]): Money {
-  if (values.length === 0) {
-    throw new RangeError("minimum() requires at least one Money");
-  }
+  assertNonEmpty(values, "minimum() requires at least one Money");
   return minimumDinero(values as [Money, ...Money[]]) as Money;
 }
 
 export function maximum(values: Money[]): Money {
-  if (values.length === 0) {
-    throw new RangeError("maximum() requires at least one Money");
-  }
+  assertNonEmpty(values, "maximum() requires at least one Money");
   return maximumDinero(values as [Money, ...Money[]]) as Money;
 }

@@ -10,4 +10,11 @@ describe("format", () => {
   it("formats negative amounts", () => {
     expect(format(money(-45000, USD))).toBe("-$450.00");
   });
+
+  it("formats exactly at the top of the supported range (no float drift in the cents)", () => {
+    // Near 2^53 cents the float spacing (~1.6 cents) exceeds half a cent, so any pass through
+    // Number() can misprint the last digits. The package promises exactness up to 2^53.
+    expect(format(money(9007199254740991, USD))).toBe("$90,071,992,547,409.91");
+    expect(format(money(9007199254740987, USD))).toBe("$90,071,992,547,409.87");
+  });
 });

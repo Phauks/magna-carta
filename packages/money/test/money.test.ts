@@ -71,6 +71,11 @@ describe("zero / negate / abs / sum", () => {
     expect(toMinor(add(money(45000, USD), zero(USD)))).toBe(45000);
   });
 
+  it("negate of zero stays +0, never -0 (0 * -1 is -0 in JS)", () => {
+    expect(Object.is(toMinor(negate(zero(USD))), -0)).toBe(false);
+    expect(Object.is(toMinor(negate(zero(USD))), 0)).toBe(true);
+  });
+
   it("negate flips sign; abs takes magnitude", () => {
     expect(toMinor(negate(money(45000, USD)))).toBe(-45000);
     expect(toMinor(negate(money(-45000, USD)))).toBe(45000);
@@ -86,6 +91,19 @@ describe("zero / negate / abs / sum", () => {
 
   it("sum throws on mixed currencies", () => {
     expect(() => sum([money(100, USD), money(100, EUR)])).toThrow();
+  });
+});
+
+describe("ratio constructor", () => {
+  it("rejects a non-integer, non-finite, or unsafe amount (parity with money/rate)", () => {
+    expect(() => ratio(1.5, 2)).toThrow(RangeError);
+    expect(() => ratio(NaN, 2)).toThrow(RangeError);
+    expect(() => ratio(2 ** 53, 0)).toThrow(RangeError);
+  });
+
+  it("rejects a negative or fractional scale", () => {
+    expect(() => ratio(10, -2)).toThrow(RangeError);
+    expect(() => ratio(10, 0.5)).toThrow(RangeError);
   });
 });
 
