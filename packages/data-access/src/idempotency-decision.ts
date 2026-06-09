@@ -24,5 +24,9 @@ export function decideIdempotency(
   if (record.status === "in_progress") return { kind: "in-progress" };
   // A completed record always replays — including stored failures (a retry never silently re-runs).
   // A completed record with no stored code is malformed; surface it as a 500 rather than guess.
-  return { kind: "replay", responseCode: record.response_code ?? 500, responseBody: record.response_body };
+  return {
+    kind: "replay",
+    responseCode: record.response_code ?? 500,
+    responseBody: record.response_body,
+  };
 }

@@ -45,7 +45,9 @@ describe("sweepOutbox", () => {
       now: NOW,
     });
     expect(report).toEqual({ dispatched: 1, failed: 1, deadLettered: 0 });
-    const attemptBump = stub.executed.find((entry) => entry.sql.includes("attempts = attempts + 1"));
+    const attemptBump = stub.executed.find((entry) =>
+      entry.sql.includes("attempts = attempts + 1"),
+    );
     expect(attemptBump?.bindings).toEqual(["obx_bad"]);
     expect(stub.executed.some((entry) => entry.sql.includes("'failed'"))).toBe(false);
   });
@@ -53,7 +55,7 @@ describe("sweepOutbox", () => {
   it("reaching maxAttempts dead-letters exactly once and marks the row failed", async () => {
     const stub = stubD1();
     stub.onAll("FROM outbox", [pendingRow("obx_dead", 4)]); // attempts=4, maxAttempts=5 -> this failure is final
-    const deadLetter = vi.fn(() => Promise.resolve());
+    const deadLetter = vi.fn((_row: OutboxRow, _error: Error) => Promise.resolve());
     const report = await sweepOutbox({
       database: stub.database,
       publish: () => Promise.reject(new Error("still down")),
@@ -80,7 +82,12 @@ describe("sweepOutbox", () => {
   it("respects batchSize in the select", async () => {
     const stub = stubD1();
     stub.onAll("FROM outbox", []);
-    await sweepOutbox({ database: stub.database, publish: () => Promise.resolve(), batchSize: 7, now: NOW });
+    await sweepOutbox({
+      database: stub.database,
+      publish: () => Promise.resolve(),
+      batchSize: 7,
+      now: NOW,
+    });
     const select = stub.executed.find((entry) => entry.sql.includes("FROM outbox"));
     expect(select?.bindings).toEqual([7]);
   });

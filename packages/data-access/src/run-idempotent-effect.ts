@@ -38,7 +38,11 @@ export async function runIdempotentEffect(
   if (options.key === undefined) {
     const outcome = await options.effect();
     await commitEffectBatch(options.database, outcome.write, { now });
-    return { kind: "executed", responseCode: outcome.responseCode, responseBody: outcome.responseBody };
+    return {
+      kind: "executed",
+      responseCode: outcome.responseCode,
+      responseBody: outcome.responseBody,
+    };
   }
 
   // Pre-check: replay / 409 / 422 without running the effect. Also the fast path for retries.
@@ -65,7 +69,11 @@ export async function runIdempotentEffect(
     const winner = await readRecord(options.database, options.key);
     return resultFromDecision(decideIdempotency(winner, options.fingerprint));
   }
-  return { kind: "executed", responseCode: outcome.responseCode, responseBody: outcome.responseBody };
+  return {
+    kind: "executed",
+    responseCode: outcome.responseCode,
+    responseBody: outcome.responseBody,
+  };
 }
 
 async function readRecord(

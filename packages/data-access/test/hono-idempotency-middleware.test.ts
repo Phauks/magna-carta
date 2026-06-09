@@ -34,7 +34,9 @@ describe("idempotencyMiddleware", () => {
       headers: { "content-type": "application/json" },
     });
     expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ error: expect.stringContaining("Idempotency-Key") });
+    expect(await response.json()).toMatchObject({
+      error: expect.stringContaining("Idempotency-Key"),
+    });
     expect(handler).not.toHaveBeenCalled();
   });
 

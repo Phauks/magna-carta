@@ -49,7 +49,9 @@ export async function sweepOutbox(options: {
     try {
       await options.publish(row);
       await options.database
-        .prepare(`UPDATE ${OUTBOX_TABLE} SET status = 'dispatched', dispatched_at = ?1 WHERE id = ?2`)
+        .prepare(
+          `UPDATE ${OUTBOX_TABLE} SET status = 'dispatched', dispatched_at = ?1 WHERE id = ?2`,
+        )
         .bind(now(), row.id)
         .run();
       dispatched++;

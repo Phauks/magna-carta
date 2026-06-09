@@ -4,7 +4,7 @@
 
 **Goal:** Build slice 0·2 package 4 of 4 — how the database is **safely reached**: the idempotency write path (ADR-0063), the transactional outbox write + relay sweep (ADR-0064), and the single-batch effect composition that makes both atomic on D1. Firm-scoping, `protected()`, and audit arrive in later slices (per spec §7).
 
-**Architecture:** D1 has no interactive transactions (`BEGIN` rejected; the feature request is closed-not-planned) — the only atomic primitive is `D1Database.batch()`, whose statements are composed up front. So the write path is: *pre-check* the idempotency record (fast replay / 409 / 422 without running the handler), *execute* the handler's effect speculatively (it returns statements + outbox messages + the response, committing nothing), then commit **one batch**: `[INSERT idempotency record (completed, UNIQUE key), …business statements, INSERT outbox rows]`. A concurrent duplicate makes the UNIQUE insert fail, rolling back the **entire** batch — the loser re-reads the record and replays the winner's response. Client-minted identifiers (`@magna-carta/identifiers`) make up-front binding possible. The relay sweep publishes pending outbox rows at-least-once (publish, then mark dispatched), dead-lettering after max attempts.
+**Architecture:** D1 has no interactive transactions (`BEGIN` rejected; the feature request is closed-not-planned) — the only atomic primitive is `D1Database.batch()`, whose statements are composed up front. So the write path is: _pre-check_ the idempotency record (fast replay / 409 / 422 without running the handler), _execute_ the handler's effect speculatively (it returns statements + outbox messages + the response, committing nothing), then commit **one batch**: `[INSERT idempotency record (completed, UNIQUE key), …business statements, INSERT outbox rows]`. A concurrent duplicate makes the UNIQUE insert fail, rolling back the **entire** batch — the loser re-reads the record and replays the winner's response. Client-minted identifiers (`@magna-carta/identifiers`) make up-front binding possible. The relay sweep publishes pending outbox rows at-least-once (publish, then mark dispatched), dead-lettering after max attempts.
 
 **Tech Stack:** `@magna-carta/database` (schema), `@magna-carta/identifiers` (handles), hono (catalog, middleware adapter), Web Crypto SHA-256 (fingerprints), `@cloudflare/workers-types` + drizzle-orm as dev-only (D1 types; schema-name sync test). Plain Vitest via `vp test`.
 
@@ -135,25 +135,40 @@ export function selectIdempotencyRecordStatement(database: SqlDatabase, key: str
     .bind(key);
 }
 export interface CompletedIdempotencyRecord {
-  id: IdempotencyRecordId; key: string; fingerprint: string;
-  responseCode: number; responseBody: string | null; createdAt: string;
+  id: IdempotencyRecordId;
+  key: string;
+  fingerprint: string;
+  responseCode: number;
+  responseBody: string | null;
+  createdAt: string;
 }
 export function insertCompletedIdempotencyRecordStatement(
-  database: SqlDatabase, record: CompletedIdempotencyRecord,
+  database: SqlDatabase,
+  record: CompletedIdempotencyRecord,
 ) {
   return database
     .prepare(
       `INSERT INTO ${IDEMPOTENCY_TABLE} (id, key, fingerprint, status, response_code, response_body, created_at) VALUES (?1, ?2, ?3, 'completed', ?4, ?5, ?6)`,
     )
-    .bind(record.id, record.key, record.fingerprint, record.responseCode, record.responseBody, record.createdAt);
+    .bind(
+      record.id,
+      record.key,
+      record.fingerprint,
+      record.responseCode,
+      record.responseBody,
+      record.createdAt,
+    );
 }
 export function purgeExpiredIdempotencyRecordsStatement(database: SqlDatabase, olderThan: string) {
   return database.prepare(`DELETE FROM ${IDEMPOTENCY_TABLE} WHERE created_at < ?1`).bind(olderThan);
 }
 // The UNIQUE(key) conflict is the concurrency guard; centralize its detection (decision #5).
 export function isIdempotencyKeyConflict(error: unknown): boolean {
-  return error instanceof Error && error.message.includes("UNIQUE constraint failed") &&
-    error.message.includes(`${IDEMPOTENCY_TABLE}.key`);
+  return (
+    error instanceof Error &&
+    error.message.includes("UNIQUE constraint failed") &&
+    error.message.includes(`${IDEMPOTENCY_TABLE}.key`)
+  );
 }
 ```
 
@@ -171,13 +186,21 @@ export interface OutboxMessage {
 // over the same aggregate, sequential within the batch's transaction so multi-message effects get
 // consecutive seq values. Unordered messages (no aggregateKey) carry NULL seq.
 export function insertOutboxMessageStatement(
-  database: SqlDatabase, message: OutboxMessage, createdAt: string,
+  database: SqlDatabase,
+  message: OutboxMessage,
+  createdAt: string,
 ) {
   return database
     .prepare(
       `INSERT INTO ${OUTBOX_TABLE} (id, topic, payload, aggregate_key, seq, status, attempts, created_at) VALUES (?1, ?2, ?3, ?4, CASE WHEN ?4 IS NULL THEN NULL ELSE (SELECT COALESCE(MAX(seq), -1) + 1 FROM ${OUTBOX_TABLE} WHERE aggregate_key = ?4) END, 'pending', 0, ?5)`,
     )
-    .bind(newIdentifier("outbox"), message.topic, canonicalJsonStringify(message.payload), message.aggregateKey ?? null, createdAt);
+    .bind(
+      newIdentifier("outbox"),
+      message.topic,
+      canonicalJsonStringify(message.payload),
+      message.aggregateKey ?? null,
+      createdAt,
+    );
 }
 ```
 

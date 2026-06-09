@@ -28,6 +28,12 @@ export interface StubStatement {
   all<T>(): Promise<{ results: T[]; success: boolean }>;
 }
 
+// Narrow a builder-returned statement (typed as the package's minimal SqlStatement) back to the
+// stub's richer shape so tests can read the captured sql/bindings.
+export function captured(statement: unknown): StubStatement {
+  return statement as StubStatement;
+}
+
 export function stubD1(): StubD1 {
   const executed: ExecutedStatement[] = [];
   const batches: ExecutedStatement[][] = [];

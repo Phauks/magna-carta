@@ -37,9 +37,9 @@ describe("decideIdempotency (ADR-0063 decision table)", () => {
   });
 
   it("in_progress + same fingerprint -> in-progress (409)", () => {
-    expect(decideIdempotency(record({ status: "in_progress", response_code: null }), FINGERPRINT)).toEqual(
-      { kind: "in-progress" },
-    );
+    expect(
+      decideIdempotency(record({ status: "in_progress", response_code: null }), FINGERPRINT),
+    ).toEqual({ kind: "in-progress" });
   });
 
   it("any status + different fingerprint -> fingerprint-mismatch (422), mismatch wins over status", () => {

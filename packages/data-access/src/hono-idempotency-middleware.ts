@@ -25,10 +25,7 @@ export function idempotencyMiddleware(options: {
       const key = context.req.header("Idempotency-Key");
       if (key === undefined || key === "") {
         if (options.requirement === "required") {
-          return context.json(
-            { error: "this operation requires an Idempotency-Key header" },
-            400,
-          );
+          return context.json({ error: "this operation requires an Idempotency-Key header" }, 400);
         }
         await next(); // optional route, no header: no record, no SQL
         return;
