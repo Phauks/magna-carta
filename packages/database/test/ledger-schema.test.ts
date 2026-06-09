@@ -19,9 +19,14 @@ describe("ledger tables (ADR-0072)", () => {
     expect(columnNames).toEqual(
       expect.arrayContaining(["effective_date", "recorded_at", "reverses_entry_id"]),
     );
-    expect(
-      config.uniqueConstraints.length + config.indexes.filter((i) => i.config.unique).length,
-    ).toBeGreaterThanOrEqual(1);
+    const uniqueOnReversesEntryId = config.indexes.some(
+      (index) =>
+        index.config.unique &&
+        index.config.columns.some(
+          (column) => "name" in column && column.name === "reverses_entry_id",
+        ),
+    );
+    expect(uniqueOnReversesEntryId).toBe(true);
     expect(config.checks.map((check) => check.name)).toContain(
       "ledger_entry_description_nonempty_check",
     );
@@ -33,6 +38,18 @@ describe("ledger tables (ADR-0072)", () => {
     expect(config.checks.map((check) => check.name)).toContain(
       "ledger_line_amount_minor_positive_check",
     );
+    const uniqueOnEntryIdLineIndex = config.indexes.some(
+      (index) =>
+        index.config.unique &&
+        ["entry_id", "line_index"].every((wanted) =>
+          index.config.columns.some((column) => "name" in column && column.name === wanted),
+        ),
+    );
+    expect(uniqueOnEntryIdLineIndex).toBe(true);
+    const direction = config.columns.find((column) => column.name === "direction");
+    expect(direction).toBeDefined();
+    expect(direction?.notNull).toBe(true);
+    expect(direction?.enumValues).toEqual(["debit", "credit"]);
   });
 
   it("account_balance: bounds CHECK present (the D1 batch-abort mechanism)", () => {
