@@ -6,7 +6,7 @@ This is **not** the white paper's _Build roadmap_, which is the stable **phase s
 
 ## Now — current focus
 
-- **Phase 0 — Foundation** — **slice 0·2 (§9 data primitives).** Walking skeleton shipped (slice 0·1); now building the §9 data-convention layer: the `money` module, the id-generator + prefix registry, idempotency middleware, the transactional outbox + relay, and the Drizzle schema + fleet-migration runner (ADR-0061–0065; spec in [`docs/specs/2026-06-04-foundational-data-conventions-design.md`](docs/specs/2026-06-04-foundational-data-conventions-design.md)).
+- **Phase 0 — Foundation** — **slice 0·2 (§9 data primitives).** Walking skeleton shipped (slice 0·1); now building the §9 data-convention layer: the `money` module, the id-generator + prefix registry, idempotency middleware, the transactional outbox + relay, and the Drizzle schema + fleet-migration runner (ADR-0061–0065, ADR-0071; spec in [`docs/specs/2026-06-04-foundational-data-conventions-design.md`](docs/specs/2026-06-04-foundational-data-conventions-design.md)). **`@magna-carta/money` complete** (package 1 of 4): branded Money/Rate/Ratio over Dinero.js v2 (number calculator), named rounding helpers, largest-remainder allocate, Intl format, swappable seam, 20 tests green. Remaining: `@magna-carta/identifiers`, `@magna-carta/database`, `@magna-carta/data-access`.
 
 ## Next
 
