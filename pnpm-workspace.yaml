@@ -35,6 +35,10 @@ catalog:
   decimal.js: 10.6.0
   # Identifiers (packages/identifiers). nanoid v5 (ESM, Web Crypto); customRandom + urlAlphabet.
   nanoid: 5.1.11
+  # Database (packages/database). Stable line, NOT the 1.0 RC: 0.31.x drizzle-kit emits
+  # NNNN_tag.sql + meta/_journal.json, which src/migration.ts consumes. Bump both together.
+  drizzle-orm: 0.45.2
+  drizzle-kit: 0.31.10
   # Web (apps/web)
   "@types/node": 25.9.1
   svelte: 5.56.2
