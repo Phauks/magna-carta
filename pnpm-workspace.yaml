@@ -29,9 +29,9 @@ catalog:
   hono: 4.12.23
   "@hono/zod-openapi": 1.4.0
   zod: 4.4.3
-  # Money (packages/money)
+  # Money (packages/money). Bigint API: the consolidated `dinero.js/bigint` subpath bundles the
+  # calculator + bigint currencies, so no separate (deprecated) @dinero.js/calculator-bigint is needed.
   "dinero.js": 2.0.2
-  "@dinero.js/calculator-bigint": 2.0.0-alpha.2
   decimal.js: 10.6.0
   # Web (apps/web)
   "@types/node": 25.9.1

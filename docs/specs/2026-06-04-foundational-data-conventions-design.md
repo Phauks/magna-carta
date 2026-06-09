@@ -38,6 +38,8 @@ type Ratio = {
 
 The in-house `money` module is the only surface the app/DAL uses; Dinero is never imported directly outside it (swappable-seam discipline, enforced by a dependency-boundary fitness function).
 
+> **Amendment (2026-06-08, ADR-0061):** the in-memory representation is `Dinero<number>` (Dinero's default **number** calculator, JS safe-integer amounts), **not** `Dinero<bigint>`. Amounts never approach 2^53 ($90T at cents / $900B at a 4-dp rate) in legal practice management, so number arithmetic is exact across our range; and dinero 2.0.2's bigint build is broken for `multiply`/`transformScale`/`allocate`/`toDecimal`. Storage is unchanged (`*_minor`/`*_rate_e4` `INTEGER`). The seam makes a future swap to a `decimal.js` custom calculator (arbitrary precision, verified working) a one-file change if amounts ever exceed 2^53.
+
 **Operations** (all immutable, currency-checked — mixing currencies throws):
 `money(minor, currency)` · `rate(e4, currency)` · `add` · `subtract` · `multiplyByQuantity(money, qty)` · `percentOf(money, ratio)` · `allocate(money, weights[]) → Money[]` (largest-remainder) · the named rounding helpers (§1.3) · `format(money) → string` (`Intl.NumberFormat`, explicit currency) · `toMinor`/`fromMinor` (DB boundary).
 
