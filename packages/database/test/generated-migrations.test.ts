@@ -32,5 +32,12 @@ describe("generated migrations (committed artifacts)", () => {
     const allSql = migrations.flatMap((migration) => migration.statements).join("\n");
     expect(allSql).toContain("idempotency_key");
     expect(allSql).toContain("outbox");
+    expect(allSql).toContain("ledger_account");
+    expect(allSql).toContain("ledger_entry");
+    expect(allSql).toContain("ledger_line");
+    expect(allSql).toContain("account_balance");
+    // The CHECKs are the point — bounds enforcement and positive amounts must exist in the DDL.
+    expect(allSql).toContain("account_balance_bounds_check");
+    expect(allSql).toContain("ledger_line_amount_minor_positive_check");
   });
 });
