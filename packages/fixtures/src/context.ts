@@ -17,6 +17,9 @@ export interface FixtureContext {
 }
 
 // FNV-1a: a deterministic string → uint32 for faker.seed(). Not cryptographic — doesn't need to be.
+// Deliberately independent of the hash inside @magna-carta/identifiers/random (whose arithmetic
+// differs subtly): each seeds its OWN consumer and the two never need to agree on a number — do not
+// unify them or assert they match.
 function seedNumber(seed: string): number {
   let hash = 0x811c9dc5;
   for (let index = 0; index < seed.length; index++) {

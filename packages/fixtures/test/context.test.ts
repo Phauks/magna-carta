@@ -7,9 +7,14 @@ describe("FixtureContext — one seed carries all determinism (ADR-0034)", () =>
   it("same seed → identical ids, names, and clock readings", () => {
     const a = fixtureContext("demo-llp-1");
     const b = fixtureContext("demo-llp-1");
+    // Two draws each: byte-identical replay is a SEQUENCE property, not a first-element property.
     expect(newIdentifier("ledgerAccount", a.randomSource)).toBe(
       newIdentifier("ledgerAccount", b.randomSource),
     );
+    expect(newIdentifier("ledgerLine", a.randomSource)).toBe(
+      newIdentifier("ledgerLine", b.randomSource),
+    );
+    expect(a.faker.person.fullName()).toBe(b.faker.person.fullName());
     expect(a.faker.person.fullName()).toBe(b.faker.person.fullName());
     expect(a.clock.now()).toBe(b.clock.now());
   });
