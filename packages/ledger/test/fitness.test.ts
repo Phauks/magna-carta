@@ -8,7 +8,12 @@ import {
 import { money, USD } from "@magna-carta/money/money";
 import { describe, expect, it } from "vitest";
 import { createAccount } from "../src/create-account.ts";
-import { inconsistentBalancesStatement, unbalancedEntriesStatement } from "../src/fitness.ts";
+import {
+  assertLedgerFitness,
+  inconsistentBalancesStatement,
+  parentAccountsWithPostingsStatement,
+  unbalancedEntriesStatement,
+} from "../src/fitness.ts";
 import { postEntry } from "../src/post-entry.ts";
 import type { ClockPort } from "../src/types.ts";
 
@@ -48,10 +53,27 @@ async function setupHealthyLedger() {
 }
 
 describe("ledger fitness queries (ADR-0051) — prove the whole table, not one write", () => {
-  it("a healthy ledger yields zero rows from both queries", async () => {
+  it("a healthy ledger yields zero rows from every query", async () => {
     const { database } = await setupHealthyLedger();
     expect((await unbalancedEntriesStatement(database).all()).results).toEqual([]);
     expect((await inconsistentBalancesStatement(database).all()).results).toEqual([]);
+    expect((await parentAccountsWithPostingsStatement(database).all()).results).toEqual([]);
+    await expect(assertLedgerFitness(database)).resolves.toBeUndefined();
+  });
+
+  it("detects a parent account carrying direct postings (the creation/posting TOCTOU backstop)", async () => {
+    const { raw, database } = await setupHealthyLedger();
+    // Simulate the acknowledged race landing: a child appears under the posted-to Bank account
+    // (createAccount would refuse with parent-has-postings — only the concurrent-batch race or
+    // direct tampering can produce this state, which is exactly what fitness exists to catch).
+    raw
+      .prepare(
+        "INSERT INTO ledger_account (id, name, type, currency, parent_account_id, active, created_at) SELECT 'acct_racechild0000000000', 'Race child', type, currency, id, 1, created_at FROM ledger_account WHERE name = 'Bank'",
+      )
+      .run();
+    const offenders = (await parentAccountsWithPostingsStatement(database).all()).results;
+    expect(offenders).toHaveLength(1);
+    await expect(assertLedgerFitness(database)).rejects.toThrow(/parent accounts with postings/);
   });
 
   it("detects a corrupted balance row (simulated drift)", async () => {

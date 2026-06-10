@@ -130,8 +130,8 @@ export function composePostedEntry(
   // check happened pre-batch (validateEntry) — a concurrent createAccount adding a child between
   // that read and this batch's commit is not re-checked in-batch (cross-row predicates cannot abort
   // a D1 batch); the sequential version of that hazard is closed on the creation side instead
-  // (createAccount refuses a parent that already has postings), and the fitness queries re-prove
-  // the invariant table-wide.
+  // (createAccount refuses a parent that already has postings), and
+  // parentAccountsWithPostingsStatement (fitness.ts) re-proves the invariant table-wide.
   // Aggregated in BigInt for the same reason validateEntry sums in BigInt: per-line deltas are
   // safe integers, their running sum near 2^53 is not. Number() at the statement boundary makes an
   // unsafe aggregate fail loud there (assertMinorUnits), never silently rounded.

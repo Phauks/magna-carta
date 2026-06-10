@@ -73,8 +73,8 @@ export async function createAccount(
     // every child roll-up.
     // TOCTOU: a concurrent postEntry could commit a line on this account between this read and the
     // batch commit — both sides' pre-checks pass simultaneously (cross-row predicates cannot abort
-    // a D1 batch; the mirror of the race acknowledged in composePostedEntry). The fitness queries
-    // re-prove the leaf-only invariant table-wide.
+    // a D1 batch; the mirror of the race acknowledged in composePostedEntry).
+    // parentAccountsWithPostingsStatement (fitness.ts) re-proves the leaf-only invariant table-wide.
     const { results } = await selectAccountHasLinesStatement(database, input.parentAccountId).all<{
       has_lines: number;
     }>();
