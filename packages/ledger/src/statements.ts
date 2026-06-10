@@ -158,6 +158,17 @@ export function selectAccountSnapshotsStatement(
     .bind(...accountIds);
 }
 
+// The one sanctioned balance read for consumers (fixtures, future reports): keeping it here puts
+// the SQL inside the schema-name-sync net — a raw copy in a consumer package would not be.
+export function selectAccountBalanceStatement(
+  database: SqlDatabase,
+  accountId: LedgerAccountId,
+): SqlStatement {
+  return database
+    .prepare(`SELECT balance_minor FROM ${ACCOUNT_BALANCE_TABLE} WHERE account_id = ?1`)
+    .bind(accountId);
+}
+
 export function selectEntryStatement(database: SqlDatabase, entryId: LedgerEntryId): SqlStatement {
   return database
     .prepare(

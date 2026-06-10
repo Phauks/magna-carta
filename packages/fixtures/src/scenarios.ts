@@ -2,7 +2,11 @@ import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/
 import type { LedgerAccountId, LedgerEntryId } from "@magna-carta/identifiers/types";
 import { postEntry } from "@magna-carta/ledger/post-entry";
 import { reverseEntry } from "@magna-carta/ledger/reverse-entry";
-import { setAccountBoundsStatement } from "@magna-carta/ledger/statements";
+import {
+  selectAccountBalanceStatement,
+  selectEntryStatement,
+  setAccountBoundsStatement,
+} from "@magna-carta/ledger/statements";
 import { money, USD } from "@magna-carta/money/money";
 import type { FixtureContext } from "./context.ts";
 
@@ -18,11 +22,12 @@ function accountOf(accounts: DemoAccounts, key: string): LedgerAccountId {
   return id;
 }
 
+// Reads go through the ledger's exported statements (never raw SQL here): the schema-name-sync
+// fitness test covers those builders, so a table/column rename cannot break fixtures at runtime.
 async function balanceOf(database: BatchDatabase, accountId: LedgerAccountId): Promise<number> {
-  const { results } = await database
-    .prepare("SELECT balance_minor FROM account_balance WHERE account_id = ?1")
-    .bind(accountId)
-    .all<{ balance_minor: number }>();
+  const { results } = await selectAccountBalanceStatement(database, accountId).all<{
+    balance_minor: number;
+  }>();
   const balance = results[0]?.balance_minor;
   if (balance === undefined) throw new Error(`scenario: no balance row for ${accountId}`);
   return balance;
@@ -72,7 +77,11 @@ export async function trustCorrection(
   database: BatchDatabase,
   context: FixtureContext,
   accounts: DemoAccounts,
-): Promise<{ originalEntryId: LedgerEntryId; reversalEntryId: LedgerEntryId }> {
+): Promise<{
+  originalEntryId: LedgerEntryId;
+  reversalEntryId: LedgerEntryId;
+  repostEntryId: LedgerEntryId;
+}> {
   const trustBank = accountOf(accounts, "trustBank");
   const webb = accountOf(accounts, "trustWebb");
   const smith = accountOf(accounts, "trustSmith");
@@ -105,10 +114,9 @@ export async function trustCorrection(
   context.clock.advanceMinutes(2);
 
   // The link IS the correction mechanism — prove it landed, not just the balances.
-  const { results: link } = await database
-    .prepare("SELECT reverses_entry_id FROM ledger_entry WHERE id = ?1")
-    .bind(reversal.entryId)
-    .all<{ reverses_entry_id: string }>();
+  const { results: link } = await selectEntryStatement(database, reversal.entryId).all<{
+    reverses_entry_id: string;
+  }>();
   assertScenario(
     link[0]?.reverses_entry_id === wrong.entryId,
     "reversal entry is linked to the original via reverses_entry_id",
@@ -134,7 +142,11 @@ export async function trustCorrection(
     (await balanceOf(database, smith)) >= 250000,
     "Smith's subledger holds the deposit",
   );
-  return { originalEntryId: wrong.entryId, reversalEntryId: reversal.entryId };
+  return {
+    originalEntryId: wrong.entryId,
+    reversalEntryId: reversal.entryId,
+    repostEntryId: repost.entryId,
+  };
 }
 
 // The ADR-0009 mechanism, proven: bound Smith's subledger at min 0, attempt an overdraw, and the
@@ -166,8 +178,13 @@ export async function boundsRejection(
   let rejected = false;
   try {
     await commitEffectBatch(database, overdraw.effect, { now: () => context.clock.now() });
-  } catch {
-    rejected = true;
+  } catch (error) {
+    // Only the bounds CHECK counts as the proof — a bare catch would let an unrelated commit
+    // failure (malformed statement, adapter bug) masquerade as ADR-0009 enforcement. Same pattern
+    // the ledger's own bounds test pins.
+    rejected = /CHECK|account_balance_bounds_check/.test(
+      error instanceof Error ? error.message : String(error),
+    );
   }
   assertScenario(rejected, "the overdraw batch was rejected by the bounds CHECK");
   assertScenario((await balanceOf(database, smith)) === before, "Smith's balance is untouched");

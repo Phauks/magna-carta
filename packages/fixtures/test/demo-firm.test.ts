@@ -38,6 +38,23 @@ describe("seedDemoFirm — the demo bundle, deterministic by seed", () => {
     });
     expect(summary.accountCount).toBe(14); // the full demo chart
     expect(summary.entryCount).toBeGreaterThanOrEqual(12);
+    // The summary is tallied in code from the posts the seed itself made — prove it against what
+    // actually landed, so a scenario silently posting extra entries cannot drift past it.
+    const { results: entryRows } = await database
+      .prepare("SELECT COUNT(*) AS n FROM ledger_entry")
+      .bind()
+      .all<{ n: number }>();
+    expect(summary.entryCount).toBe(entryRows[0]?.n);
+    // Story coherence: the settlement recovers only costs already advanced — the receivable-style
+    // asset must never rest negative (review finding: it rested at -56500, "recovering" money
+    // never advanced; balances are stored in normal-balance terms, so negative = abnormal).
+    const { results: costsAdvanced } = await database
+      .prepare(
+        "SELECT b.balance_minor FROM account_balance b JOIN ledger_account a ON a.id = b.account_id WHERE a.name = 'Client Costs Advanced'",
+      )
+      .bind()
+      .all<{ balance_minor: number }>();
+    expect(costsAdvanced[0]?.balance_minor).toBeGreaterThanOrEqual(0);
     expect((await unbalancedEntriesStatement(database).all()).results).toEqual([]);
     expect((await inconsistentBalancesStatement(database).all()).results).toEqual([]);
   });

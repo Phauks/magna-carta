@@ -1,4 +1,5 @@
 import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
+import { assertLedgerFitness } from "@magna-carta/ledger/fitness";
 import { postEntry } from "@magna-carta/ledger/post-entry";
 import { money, USD } from "@magna-carta/money/money";
 import type { FixtureContext } from "./context.ts";
@@ -21,6 +22,7 @@ export async function seedDemoFirm(
 ): Promise<DemoFirmSummary> {
   assertSeedingAllowed(options);
   const accounts = await seedDemoChartOfAccounts(database, context);
+  let entryCount = 0;
   const post = async (
     description: string,
     lines: Parameters<typeof postEntry>[1]["lines"],
@@ -33,6 +35,7 @@ export async function seedDemoFirm(
     );
     await commitEffectBatch(database, effect, { now: () => context.clock.now() });
     context.clock.advanceMinutes(advanceMinutes);
+    entryCount += 1;
   };
   const id = (key: string) => {
     const accountId = accounts.get(key);
@@ -50,12 +53,31 @@ export async function seedDemoFirm(
     60,
   );
 
-  // Trust activity: a deposit, a correction story, a settlement.
-  await retainerDeposit(database, context, accounts);
-  await trustCorrection(database, context, accounts);
-  await multiLineSettlement(database, context, accounts);
+  // Costs are advanced BEFORE the settlement recovers them: the settlement's costs-recovered line
+  // credits clientCostsAdvanced 100000, so the advance must precede it and cover it — otherwise
+  // the asset rests negative, "recovering" money never advanced (review finding).
+  await post(
+    "Filing fees and expert retainer advanced — client matters",
+    [
+      { accountId: id("clientCostsAdvanced"), direction: "debit", amount: money(120000, USD) },
+      { accountId: id("operatingBank"), direction: "credit", amount: money(120000, USD) },
+    ],
+    30,
+  );
 
-  // Operating month: rent, salaries, supplies, bar dues, a fee billed and received, costs advanced.
+  // Trust activity: a deposit, a correction story, a settlement.
+  const deposit = await retainerDeposit(database, context, accounts);
+  const correction = await trustCorrection(database, context, accounts);
+  const settlement = await multiLineSettlement(database, context, accounts);
+  entryCount += [
+    deposit.entryId,
+    correction.originalEntryId,
+    correction.reversalEntryId,
+    correction.repostEntryId,
+    settlement.entryId,
+  ].length;
+
+  // Operating month: rent, salaries, supplies, bar dues, a fee billed and received.
   await post(
     "Office rent — monthly",
     [
@@ -104,20 +126,11 @@ export async function seedDemoFirm(
     ],
     60,
   );
-  await post(
-    "Filing fee advanced for client",
-    [
-      { accountId: id("clientCostsAdvanced"), direction: "debit", amount: money(43500, USD) },
-      { accountId: id("operatingBank"), direction: "credit", amount: money(43500, USD) },
-    ],
-    30,
-  );
+  // Every execution context gets the table-wide invariant proof, not just the vitest suite —
+  // a seed that corrupted balances mid-story fails HERE, at the seeding chokepoint.
+  await assertLedgerFitness(database);
 
-  const { results } = await database
-    .prepare(
-      "SELECT (SELECT COUNT(*) FROM ledger_account) AS accounts, (SELECT COUNT(*) FROM ledger_entry) AS entries",
-    )
-    .bind()
-    .all<{ accounts: number; entries: number }>();
-  return { accountCount: results[0]?.accounts ?? 0, entryCount: results[0]?.entries ?? 0 };
+  // Tallied in code from the seed's own posts (the demo-firm test cross-checks against a COUNT);
+  // no raw SQL leaves this package's reads outside the schema-name-sync net.
+  return { accountCount: accounts.size, entryCount };
 }

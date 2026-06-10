@@ -23,6 +23,7 @@ import {
   insertBalanceRowStatement,
   insertEntryStatement,
   insertLineStatement,
+  selectAccountBalanceStatement,
   selectAccountHasLinesStatement,
   selectAccountSnapshotsStatement,
   selectEntryStatement,
@@ -103,6 +104,7 @@ describe("schema name sync (ledger SQL pinned to @magna-carta/database)", () => 
       sqlOf(insertBalanceRowStatement(stub, ACCOUNT_ID, "t")),
       sqlOf(applyBalanceDeltaStatement(stub, ACCOUNT_ID, 1, "t")),
       sqlOf(setAccountBoundsStatement(stub, ACCOUNT_ID, 0, null, "t")),
+      sqlOf(selectAccountBalanceStatement(stub, ACCOUNT_ID)),
     ].join("\n");
     const entrySql = [
       sqlOf(
