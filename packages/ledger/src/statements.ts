@@ -129,6 +129,12 @@ export function setAccountBoundsStatement(
     );
 }
 
+// Cloudflare D1 caps bound parameters at 100 per query (D1 platform limits). The node:sqlite test
+// substrate allows ~32k, so an oversized IN-list would pass every local test and fail only against
+// production D1 — the builder asserts the cap so local runs fail the same way production would,
+// and loadAccountSnapshots chunks at this size.
+export const MAX_BOUND_PARAMETERS = 100;
+
 // Pre-batch reads (ADR-0063 pre-check pattern). has_children: parents take no postings.
 // has_balance_row: a missing row would make the in-batch UPDATE a silent no-op — refused upstream.
 export function selectAccountSnapshotsStatement(
@@ -138,6 +144,11 @@ export function selectAccountSnapshotsStatement(
   // An empty IN () is a SQLite syntax error, and an empty snapshot read is always a caller bug.
   if (accountIds.length === 0) {
     throw new Error("selectAccountSnapshotsStatement: accountIds must be non-empty");
+  }
+  if (accountIds.length > MAX_BOUND_PARAMETERS) {
+    throw new Error(
+      `selectAccountSnapshotsStatement: ${accountIds.length} accountIds exceeds D1's bound parameter cap (${MAX_BOUND_PARAMETERS}) — chunk the load`,
+    );
   }
   const placeholders = accountIds.map((_, index) => `?${index + 1}`).join(", ");
   return database

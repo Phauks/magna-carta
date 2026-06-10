@@ -150,6 +150,46 @@ describe("postEntry — the posting write path (ADR-0072)", () => {
     expect(results[0]?.balance_minor).toBe(9007199254740989);
   });
 
+  it("posts an entry touching more than 100 distinct accounts (snapshot load chunks under D1's cap)", async () => {
+    const { database, smith } = await setup();
+    const accountIds = Array.from({ length: 149 }, () => newIdentifier("ledgerAccount"));
+    await database.batch(
+      accountIds.flatMap((id, index) => [
+        insertAccountStatement(database, {
+          id,
+          name: `Cost account ${index}`,
+          type: "asset",
+          currency: "USD",
+          parentAccountId: null,
+          createdAt: clock.now(),
+        }),
+        insertBalanceRowStatement(database, id, clock.now()),
+      ]),
+    );
+    const { effect } = await postEntry(
+      database,
+      {
+        description: "Wide allocation — 150 distinct accounts",
+        effectiveDate: "2026-06-09",
+        lines: [
+          ...accountIds.map((id) => ({
+            accountId: id,
+            direction: "debit" as const,
+            amount: money(100, USD),
+          })),
+          { accountId: smith, direction: "credit" as const, amount: money(14900, USD) },
+        ],
+      },
+      { clock },
+    );
+    await commitEffectBatch(database, effect, { now: () => clock.now() });
+    const { results } = await database
+      .prepare("SELECT balance_minor FROM account_balance WHERE account_id = ?1")
+      .bind(smith)
+      .all<{ balance_minor: number }>();
+    expect(results[0]?.balance_minor).toBe(14900);
+  });
+
   it("refuses an unbalanced entry before composing anything", async () => {
     const { database, trustBank, smith } = await setup();
     await expect(

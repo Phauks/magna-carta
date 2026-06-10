@@ -11,6 +11,7 @@ import {
   applyBalanceDeltaStatement,
   insertAccountStatement,
   insertBalanceRowStatement,
+  MAX_BOUND_PARAMETERS,
   selectAccountSnapshotsStatement,
   setAccountBoundsStatement,
 } from "../src/statements.ts";
@@ -26,6 +27,19 @@ function freshDatabase(): BatchDatabase {
 }
 
 describe("ledger statement builders against the real schema", () => {
+  it("the snapshot IN-list refuses to exceed D1's bound-parameter cap (local SQLite would allow it)", () => {
+    const database = freshDatabase();
+    const ids = Array.from({ length: MAX_BOUND_PARAMETERS + 1 }, () =>
+      newIdentifier("ledgerAccount"),
+    );
+    // node:sqlite accepts ~32k parameters, production D1 caps at 100 — without this assertion an
+    // oversized list passes every local test and fails only in production.
+    expect(() => selectAccountSnapshotsStatement(database, ids)).toThrow(/bound parameter/);
+    expect(() =>
+      selectAccountSnapshotsStatement(database, ids.slice(0, MAX_BOUND_PARAMETERS)),
+    ).not.toThrow();
+  });
+
   it("insert account + balance row, then snapshot query reports leaf/active/balance-row", async () => {
     const database = freshDatabase();
     const parentId = newIdentifier("ledgerAccount");

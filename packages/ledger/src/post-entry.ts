@@ -10,6 +10,7 @@ import {
   applyBalanceDeltaStatement,
   insertEntryStatement,
   insertLineStatement,
+  MAX_BOUND_PARAMETERS,
   selectAccountSnapshotsStatement,
 } from "./statements.ts";
 import type {
@@ -52,23 +53,24 @@ export async function loadAccountSnapshots(
   database: SqlDatabase,
   accountIds: readonly LedgerAccountId[],
 ): Promise<Map<string, AccountSnapshot>> {
-  const { results } = await selectAccountSnapshotsStatement(
-    database,
-    accountIds,
-  ).all<SnapshotRow>();
-  return new Map(
-    results.map((row) => [
-      row.id,
-      {
+  const snapshots = new Map<string, AccountSnapshot>();
+  // Chunked at D1's bound-parameter cap: a wide allocation entry can touch more than 100 distinct
+  // accounts, and one IN-list that size commits fine locally but throws on production D1.
+  for (let start = 0; start < accountIds.length; start += MAX_BOUND_PARAMETERS) {
+    const chunk = accountIds.slice(start, start + MAX_BOUND_PARAMETERS);
+    const { results } = await selectAccountSnapshotsStatement(database, chunk).all<SnapshotRow>();
+    for (const row of results) {
+      snapshots.set(row.id, {
         id: row.id as LedgerAccountId,
         type: row.type,
         currency: row.currency,
         active: row.active === 1,
         hasChildren: row.has_children === 1,
         hasBalanceRow: row.has_balance_row === 1,
-      },
-    ]),
-  );
+      });
+    }
+  }
+  return snapshots;
 }
 
 // Validate in memory, then COMPOSE statements — no logic runs mid-transaction (D1 single-batch
