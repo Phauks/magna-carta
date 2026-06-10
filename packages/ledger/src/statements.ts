@@ -8,6 +8,16 @@ export const LEDGER_ENTRY_TABLE = "ledger_entry";
 export const LEDGER_LINE_TABLE = "ledger_line";
 export const ACCOUNT_BALANCE_TABLE = "account_balance";
 
+// Money columns are integer minor units (ADR-0061). SQLite would happily store a float or NaN as
+// REAL in an INTEGER column, silently corrupting balances — so every minor-unit number is asserted
+// here, at the last boundary before SQL.
+function assertMinorUnits(value: number, what: string): number {
+  if (!Number.isSafeInteger(value)) {
+    throw new TypeError(`${what} must be a safe integer of minor units, received ${value}`);
+  }
+  return value;
+}
+
 export interface InsertAccountRow {
   readonly id: LedgerAccountId;
   readonly name: string;
@@ -68,11 +78,21 @@ export function insertLineStatement(database: SqlDatabase, row: InsertLineRow): 
     .prepare(
       `INSERT INTO ${LEDGER_LINE_TABLE} (id, entry_id, account_id, line_index, direction, amount_minor) VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
     )
-    .bind(row.id, row.entryId, row.accountId, row.lineIndex, row.direction, row.amountMinor);
+    .bind(
+      row.id,
+      row.entryId,
+      row.accountId,
+      row.lineIndex,
+      row.direction,
+      assertMinorUnits(row.amountMinor, "amount_minor"),
+    );
 }
 
 // The in-batch balance write. A bounds violation makes the CHECK fire and the WHOLE batch roll
 // back — the enforcement mechanism of ADR-0072/ADR-0009. delta is in normal-balance terms.
+// PRECONDITION: the caller must have confirmed the balance row exists (selectAccountSnapshotsStatement,
+// hasBalanceRow) — against a missing row this UPDATE affects 0 rows and the batch SUCCEEDS with the
+// balance silently unwritten. The CHECK cannot fire on a no-op.
 export function applyBalanceDeltaStatement(
   database: SqlDatabase,
   accountId: LedgerAccountId,
@@ -83,11 +103,13 @@ export function applyBalanceDeltaStatement(
     .prepare(
       `UPDATE ${ACCOUNT_BALANCE_TABLE} SET balance_minor = balance_minor + ?2, updated_at = ?3 WHERE account_id = ?1`,
     )
-    .bind(accountId, deltaMinor, updatedAt);
+    .bind(accountId, assertMinorUnits(deltaMinor, "balance delta"), updatedAt);
 }
 
 // The Phase-3 trust seam primitive (ADR-0009): setting bounds on an account whose current balance
 // already violates them fails the CHECK immediately — bounds can never be born violated.
+// PRECONDITION: same silent-no-op hazard as applyBalanceDeltaStatement — confirm the balance row
+// exists before composing this against an unknown account.
 export function setAccountBoundsStatement(
   database: SqlDatabase,
   accountId: LedgerAccountId,
@@ -99,7 +121,12 @@ export function setAccountBoundsStatement(
     .prepare(
       `UPDATE ${ACCOUNT_BALANCE_TABLE} SET min_balance_minor = ?2, max_balance_minor = ?3, updated_at = ?4 WHERE account_id = ?1`,
     )
-    .bind(accountId, minBalanceMinor, maxBalanceMinor, updatedAt);
+    .bind(
+      accountId,
+      minBalanceMinor === null ? null : assertMinorUnits(minBalanceMinor, "min balance bound"),
+      maxBalanceMinor === null ? null : assertMinorUnits(maxBalanceMinor, "max balance bound"),
+      updatedAt,
+    );
 }
 
 // Pre-batch reads (ADR-0063 pre-check pattern). has_children: parents take no postings.
@@ -108,6 +135,10 @@ export function selectAccountSnapshotsStatement(
   database: SqlDatabase,
   accountIds: readonly LedgerAccountId[],
 ): SqlStatement {
+  // An empty IN () is a SQLite syntax error, and an empty snapshot read is always a caller bug.
+  if (accountIds.length === 0) {
+    throw new Error("selectAccountSnapshotsStatement: accountIds must be non-empty");
+  }
   const placeholders = accountIds.map((_, index) => `?${index + 1}`).join(", ");
   return database
     .prepare(

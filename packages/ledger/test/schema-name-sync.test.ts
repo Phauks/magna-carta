@@ -47,8 +47,10 @@ function columnsOf(table: Parameters<typeof getTableConfig>[0]): Set<string> {
 }
 
 // SQL keywords are written UPPERCASE in the builders, so the lowercase-identifier extraction below
-// only ever sees column names, table names, and aliases. Literals and placeholders never match.
-const identifiers = (sql: string) => sql.match(/\b[a-z_]+\b/g) ?? [];
+// only ever sees column names, table names, and aliases. Identifiers must START with a letter or
+// underscore, so ?1-style placeholders stay invisible while digit-containing identifiers (a future
+// balance_v2) are still extracted and checked rather than silently skipped.
+const identifiers = (sql: string) => sql.match(/\b[a-z_][a-z0-9_]*\b/g) ?? [];
 
 function expectOnlyKnownIdentifiers(sql: string, allowed: ReadonlySet<string>, label: string) {
   for (const identifier of identifiers(sql)) {

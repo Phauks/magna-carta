@@ -86,4 +86,17 @@ describe("ledger statement builders against the real schema", () => {
       .all<{ balance_minor: number }>();
     expect(results[0]?.balance_minor).toBe(500000); // untouched — the rollback proof
   });
+
+  it("builder guards: empty snapshot read and non-integer minor units are refused before SQL", () => {
+    const database = freshDatabase();
+    const accountId = newIdentifier("ledgerAccount");
+    expect(() => selectAccountSnapshotsStatement(database, [])).toThrow(/non-empty/);
+    expect(() => applyBalanceDeltaStatement(database, accountId, 0.5, NOW)).toThrow(/safe integer/);
+    expect(() => applyBalanceDeltaStatement(database, accountId, Number.NaN, NOW)).toThrow(
+      /safe integer/,
+    );
+    expect(() => setAccountBoundsStatement(database, accountId, 0.5, null, NOW)).toThrow(
+      /safe integer/,
+    );
+  });
 });
