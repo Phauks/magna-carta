@@ -67,6 +67,16 @@ describe("createAccount", () => {
     ).rejects.toMatchObject({ code: "unknown-parent-account" });
   });
 
+  it("refuses an unregistered currency code — a typo'd account could never be posted to", async () => {
+    const database = freshDatabase();
+    await expect(
+      createAccount(database, { name: "Operating", type: "asset", currency: "usd" }, { clock }),
+    ).rejects.toMatchObject({ code: "unsupported-currency" });
+    await expect(
+      createAccount(database, { name: "Operating", type: "asset", currency: "" }, { clock }),
+    ).rejects.toMatchObject({ code: "unsupported-currency" });
+  });
+
   it("refuses an empty name", async () => {
     const database = freshDatabase();
     await expect(

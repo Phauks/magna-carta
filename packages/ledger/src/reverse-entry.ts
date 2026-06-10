@@ -1,7 +1,7 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { LedgerAccountId, LedgerEntryId } from "@magna-carta/identifiers/types";
 import { fromMinor } from "@magna-carta/money/format";
-import { USD, type NumberCurrency } from "@magna-carta/money/money";
+import { currencyFromCode } from "@magna-carta/money/money";
 import {
   composePostedEntry,
   loadAccountSnapshots,
@@ -27,14 +27,6 @@ interface LineRow {
   line_index: number;
   direction: Direction;
   amount_minor: number;
-}
-
-// USD-only today (ADR-0061): the single-currency resolution deliberately has the SHAPE of the
-// future registry lookup; when a second currency arrives the money package will own a
-// currencyFromCode map and this becomes a real dispatch.
-function currencyFromCode(code: string): NumberCurrency {
-  void code;
-  return USD;
 }
 
 // Compose the EXACT mirror of an existing entry (directions flipped, amounts identical), linked via

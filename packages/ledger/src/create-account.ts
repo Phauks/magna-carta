@@ -3,6 +3,7 @@ import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statement
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { LedgerAccountId } from "@magna-carta/identifiers/types";
+import { isRegisteredCurrencyCode } from "@magna-carta/money/money";
 import { loadAccountSnapshots } from "./post-entry.ts";
 import {
   insertAccountStatement,
@@ -34,6 +35,15 @@ export async function createAccount(
 ): Promise<CreatedAccount> {
   if (input.name.trim().length === 0) {
     throw new LedgerValidationError("empty-account-name", "an account needs a name");
+  }
+  // The currency must resolve in the money registry: a typo'd code ('usd', '') would commit an
+  // account no Money value can ever match — permanently unpostable, and append-only means no
+  // account-update path could ever repair it. Refused at the only door it can enter through.
+  if (!isRegisteredCurrencyCode(input.currency)) {
+    throw new LedgerValidationError(
+      "unsupported-currency",
+      `not a registered currency code: ${input.currency}`,
+    );
   }
   if (input.parentAccountId) {
     const parents = await loadAccountSnapshots(database, [input.parentAccountId]);

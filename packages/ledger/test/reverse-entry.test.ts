@@ -5,7 +5,7 @@ import {
   loadMigrationsFromDisk,
   nodeSqliteBatchDatabase,
 } from "@magna-carta/database/node-sqlite";
-import { money, USD } from "@magna-carta/money/money";
+import { EUR, money, USD } from "@magna-carta/money/money";
 import { describe, expect, it } from "vitest";
 import { createAccount } from "../src/create-account.ts";
 import { postEntry } from "../src/post-entry.ts";
@@ -200,6 +200,49 @@ describe("reverseEntry — first-class corrections (ADR-0072)", () => {
       .bind(smith)
       .all<{ balance_minor: number }>();
     expect(results[0]?.balance_minor).toBe(0); // untouched — the whole batch rolled back
+  });
+
+  it("reverses an entry in any registered currency — EUR entries are correctable too", async () => {
+    const raw = new DatabaseSync(":memory:");
+    applyMigrations(raw, loadMigrationsFromDisk("per-firm"));
+    const database: BatchDatabase = nodeSqliteBatchDatabase(raw);
+    const bank = await createAccount(
+      database,
+      { name: "EUR Bank", type: "asset", currency: "EUR" },
+      { clock },
+    );
+    await commitEffectBatch(database, bank.effect, { now });
+    const client = await createAccount(
+      database,
+      { name: "EUR Client", type: "liability", currency: "EUR" },
+      { clock },
+    );
+    await commitEffectBatch(database, client.effect, { now });
+    const posted = await postEntry(
+      database,
+      {
+        description: "EUR deposit",
+        effectiveDate: "2026-06-08",
+        lines: [
+          { accountId: bank.accountId, direction: "debit", amount: money(500000, EUR) },
+          { accountId: client.accountId, direction: "credit", amount: money(500000, EUR) },
+        ],
+      },
+      { clock },
+    );
+    await commitEffectBatch(database, posted.effect, { now });
+    // The mirror must carry the account's own currency, not a hardcoded USD.
+    const reversal = await reverseEntry(
+      database,
+      { entryId: posted.entryId, description: "Correction", effectiveDate: "2026-06-09" },
+      { clock },
+    );
+    await commitEffectBatch(database, reversal.effect, { now });
+    const { results } = await database
+      .prepare("SELECT balance_minor FROM account_balance")
+      .bind()
+      .all<{ balance_minor: number }>();
+    expect(results.every((row) => row.balance_minor === 0)).toBe(true);
   });
 
   it("the future-dating guard applies to the reversal's own effective date", async () => {

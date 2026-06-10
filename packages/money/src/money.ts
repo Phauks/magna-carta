@@ -56,6 +56,26 @@ export function assertNonEmpty(values: readonly unknown[], message: string): voi
   }
 }
 
+// The code → currency registry: THE home of which currencies the platform knows (ADR-0061).
+// Consumers that store codes (the ledger's per-account currency) resolve them here — an unknown
+// code throws rather than guesses, so a typo can never mint mislabeled Money. A new currency is a
+// one-line addition here and nowhere else.
+const CURRENCIES_BY_CODE: ReadonlyMap<string, NumberCurrency> = new Map(
+  [USD, EUR].map((currency) => [currency.code, currency]),
+);
+
+export function isRegisteredCurrencyCode(code: string): boolean {
+  return CURRENCIES_BY_CODE.has(code);
+}
+
+export function currencyFromCode(code: string): NumberCurrency {
+  const currency = CURRENCIES_BY_CODE.get(code);
+  if (!currency) {
+    throw new RangeError(`unknown currency code: ${code}`);
+  }
+  return currency;
+}
+
 export function money(minor: number, currency: NumberCurrency): Money {
   assertSafeInteger(minor);
   return makeMoneyDinero(minor, currency, MONEY_SCALE) as Money;
