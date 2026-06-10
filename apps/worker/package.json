@@ -12,6 +12,12 @@
   },
   "dependencies": {
     "@hono/zod-openapi": "catalog:",
+    "@magna-carta/access-control": "workspace:*",
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "better-auth": "catalog:",
+    "drizzle-orm": "catalog:",
     "hono": "catalog:",
     "zod": "catalog:"
   },
@@ -19,6 +25,7 @@
     "@cloudflare/vitest-pool-workers": "catalog:",
     "@cloudflare/workers-types": "catalog:",
     "@magna-carta/tsconfig": "workspace:*",
+    "otpauth": "catalog:",
     "vitest": "catalog:",
     "wrangler": "catalog:"
   }

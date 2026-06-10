@@ -9,6 +9,18 @@ describe("prefix registry", () => {
     expect(prefixFor("idempotencyRecord")).toBe("idr");
   });
 
+  it("maps the auth and access-control entity types to their prefixes (slice 0·4)", () => {
+    expect(prefixFor("session")).toBe("ses");
+    expect(prefixFor("account")).toBe("acc");
+    expect(prefixFor("verification")).toBe("ver");
+    expect(prefixFor("twoFactor")).toBe("twf");
+    expect(prefixFor("role")).toBe("rol");
+    expect(prefixFor("rolePermission")).toBe("rpm");
+    expect(prefixFor("memberRole")).toBe("mrl");
+    expect(prefixFor("grant")).toBe("gnt");
+    expect(prefixFor("authAudit")).toBe("aud");
+  });
+
   it("has no duplicate prefixes (prefix space partitions the id space)", () => {
     const prefixes = Object.values(ENTITY_PREFIXES);
     expect(new Set(prefixes).size).toBe(prefixes.length);

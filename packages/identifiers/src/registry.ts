@@ -16,6 +16,15 @@ export const ENTITY_PREFIXES = {
   idempotencyRecord: "idr",
   user: "usr",
   firm: "firm",
+  session: "ses",
+  account: "acc",
+  verification: "ver",
+  twoFactor: "twf",
+  role: "rol",
+  rolePermission: "rpm",
+  memberRole: "mrl",
+  grant: "gnt",
+  authAudit: "aud",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;
