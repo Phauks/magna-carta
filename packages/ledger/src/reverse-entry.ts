@@ -64,20 +64,31 @@ export async function reverseEntry(
   const accountIds = [...new Set(lines.map((line) => line.account_id))] as LedgerAccountId[];
   const accounts = await loadAccountSnapshots(database, accountIds);
 
-  const mirroredLines: EntryLineInput[] = lines.map((line) => ({
-    accountId: line.account_id as LedgerAccountId,
-    direction: line.direction === "debit" ? "credit" : "debit",
-    amount: fromMinor(
-      line.amount_minor,
-      currencyFromCode(accounts.get(line.account_id)?.currency ?? "USD"),
-    ),
-  }));
+  const mirroredLines: EntryLineInput[] = lines.map((line) => {
+    // The map was built from this entry's own line account ids — a miss is corruption, the same
+    // programmer-error class as composePostedEntry's unreachable guard (plain Error, not a
+    // LedgerValidationError; nothing a caller's user can fix).
+    const accountCurrency = accounts.get(line.account_id)?.currency;
+    if (!accountCurrency) {
+      throw new Error(`unreachable: account ${line.account_id} missing from snapshot`);
+    }
+    return {
+      accountId: line.account_id as LedgerAccountId,
+      direction: line.direction === "debit" ? ("credit" as const) : ("debit" as const),
+      amount: fromMinor(line.amount_minor, currencyFromCode(accountCurrency)),
+    };
+  });
 
   const mirrored: PostEntryInput = {
     description: input.description,
     effectiveDate: input.effectiveDate,
     lines: mirroredLines,
   };
+  // validateEntry enforces structural invariants only (ADR-0072). Balance-bound enforcement
+  // (trust min bounds — ADR-0009) is deliberately deferred to the batch commit: if the mirror
+  // would violate a bound (reversing a deposit whose funds were since disbursed), the CHECK
+  // fires there and the whole batch rolls back — correct, but the error arrives from
+  // commitEffectBatch, not from this function. Callers handle both error paths.
   validateEntry(mirrored, accounts, options.clock.today());
   return composePostedEntry(database, mirrored, accounts, options, input.entryId);
 }

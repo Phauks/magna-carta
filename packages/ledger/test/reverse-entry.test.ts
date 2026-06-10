@@ -164,4 +164,52 @@ describe("reverseEntry — first-class corrections (ADR-0072)", () => {
       .all<{ balance_minor: number }>();
     expect(results[0]?.balance_minor).toBe(500000); // back to the original state
   });
+
+  it("a reversal violating a balance bound is refused at COMMIT, not by reverseEntry itself", async () => {
+    // The production trust scenario (ADR-0009): deposit received, funds disbursed, then someone
+    // attempts to reverse the original deposit — that would overdraw the client's trust ledger.
+    const { database, bank, smith, originalId } = await setupWithPostedEntry();
+    const { setAccountBoundsStatement } = await import("../src/statements.ts");
+    await database.batch([setAccountBoundsStatement(database, smith, 0, null, clock.now())]);
+    // Disburse the full deposit: Smith's subledger drops to 0.
+    const disbursed = await postEntry(
+      database,
+      {
+        description: "Disbursement to client",
+        effectiveDate: "2026-06-09",
+        lines: [
+          { accountId: smith, direction: "debit", amount: money(500000, USD) },
+          { accountId: bank, direction: "credit", amount: money(500000, USD) },
+        ],
+      },
+      { clock },
+    );
+    await commitEffectBatch(database, disbursed.effect, { now });
+    // reverseEntry composes successfully (structural invariants hold)…
+    const reversal = await reverseEntry(
+      database,
+      { entryId: originalId, description: "Reverse the deposit", effectiveDate: "2026-06-09" },
+      { clock },
+    );
+    // …but the commit refuses: the mirror would take Smith to -500000 < min 0.
+    await expect(commitEffectBatch(database, reversal.effect, { now })).rejects.toThrow(
+      /CHECK|account_balance_bounds_check/,
+    );
+    const { results } = await database
+      .prepare("SELECT balance_minor FROM account_balance WHERE account_id = ?1")
+      .bind(smith)
+      .all<{ balance_minor: number }>();
+    expect(results[0]?.balance_minor).toBe(0); // untouched — the whole batch rolled back
+  });
+
+  it("the future-dating guard applies to the reversal's own effective date", async () => {
+    const { database, originalId } = await setupWithPostedEntry();
+    await expect(
+      reverseEntry(
+        database,
+        { entryId: originalId, description: "Backdated wrong", effectiveDate: "2026-06-10" },
+        { clock },
+      ),
+    ).rejects.toMatchObject({ code: "future-effective-date" });
+  });
 });
