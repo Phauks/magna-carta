@@ -20,7 +20,7 @@ The remainder of Phase 0 (white paper, _Build roadmap_ — Phase 0), sliced in e
 ## Deferred — operational setup (do when convenient, not blocking)
 
 - **Move the repo out of OneDrive sync.** It currently lives under `OneDrive\Desktop`, which locks `apps/web/build` during `adapter-static`'s cleanup so a local `vp run build-all` fails with `EPERM` (the compile itself succeeds; Linux CI is unaffected), and needlessly syncs `node_modules`/build output to the cloud. Relocate (e.g. `C:\dev\magna-carta`) or exclude the project folder from OneDrive sync. Flagged during slice 0·1; deferred by owner.
-- **Flip CI to real Cloudflare deploys.** The GitHub remote exists (private, `Phauks/magna-carta`, created 2026-06-09) and CI runs on push. Remaining one-liner when ready: add a Cloudflare API token as a GitHub secret and drop `--dry-run` from the deploy step (and attach the `magnacarta.esq` domain when ready).
+- **Finish the Workers Builds deploy connection.** Production resources exist (created 2026-06-09; naming convention + environment model in ADR-0075) and `wrangler.jsonc` points at them; deploys go through **Cloudflare Workers Builds** (dashboard GitHub connection — owner-chosen over a GitHub-Actions API token; GitHub Actions stays the test/quality gate, PR previews disabled until a `staging` environment exists). Remaining: the owner completes the dashboard connection (root `/`, build `pnpm install --frozen-lockfile && pnpm exec vp run build-all`, deploy `pnpm --filter @magna-carta/worker exec wrangler deploy`, branch `main`), the control-plane migration is applied to the live database, and the first deploy is verified end-to-end (and attach the `magnacarta.esq` domain when ready).
 
 ## Recently shipped
 
