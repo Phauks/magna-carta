@@ -1,0 +1,32 @@
+{
+  "name": "@magna-carta/fixtures",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./context": "./src/context.ts",
+    "./local-database": "./src/local-database.ts",
+    "./guard": "./src/guard.ts",
+    "./demo-chart-of-accounts": "./src/demo-chart-of-accounts.ts",
+    "./factories": "./src/factories.ts",
+    "./scenarios": "./src/scenarios.ts",
+    "./demo-firm": "./src/demo-firm.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@faker-js/faker": "catalog:",
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/ledger": "workspace:*",
+    "@magna-carta/money": "workspace:*"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}
