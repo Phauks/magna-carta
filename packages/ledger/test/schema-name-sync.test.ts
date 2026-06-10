@@ -52,9 +52,11 @@ function columnsOf(table: Parameters<typeof getTableConfig>[0]): Set<string> {
 // only ever sees column names, table names, and aliases. Identifiers must START with a letter or
 // underscore, so ?1-style placeholders stay invisible while digit-containing identifiers (a future
 // balance_v2) are still extracted and checked rather than silently skipped. Single-quoted string
-// literals ('debit', 'asset', …) are values, not identifiers — stripped before extraction.
+// literals ('debit', 'asset', …) are values, not identifiers — stripped before extraction, with
+// SQL's doubled-quote escape ('it''s') consumed as part of the literal so its tail can't leak out
+// as a phantom identifier.
 const identifiers = (sql: string) =>
-  sql.replace(/'[^']*'/g, " ").match(/\b[a-z_][a-z0-9_]*\b/g) ?? [];
+  sql.replace(/'(?:[^']|'')*'/g, " ").match(/\b[a-z_][a-z0-9_]*\b/g) ?? [];
 
 function expectOnlyKnownIdentifiers(sql: string, allowed: ReadonlySet<string>, label: string) {
   for (const identifier of identifiers(sql)) {
