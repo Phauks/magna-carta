@@ -50,9 +50,21 @@ export async function createAccount(
         "a child account must share its parent's type and currency",
       );
     }
+    // Unreachable until the account-closing service exists (no account is inactive today), but the
+    // snapshot already carries the flag — a closed account must never gain children.
+    if (!parent.active) {
+      throw new LedgerValidationError(
+        "inactive-account",
+        `parent account is closed: ${input.parentAccountId}`,
+      );
+    }
     // The leaf-only invariant, enforced on the creation side (the posting side checks
     // has_children pre-batch): a parent with direct postings would strand them outside
     // every child roll-up.
+    // TOCTOU: a concurrent postEntry could commit a line on this account between this read and the
+    // batch commit — both sides' pre-checks pass simultaneously (cross-row predicates cannot abort
+    // a D1 batch; the mirror of the race acknowledged in composePostedEntry). The fitness queries
+    // re-prove the leaf-only invariant table-wide.
     const { results } = await selectAccountHasLinesStatement(database, input.parentAccountId).all<{
       has_lines: number;
     }>();
