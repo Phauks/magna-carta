@@ -1,5 +1,4 @@
-import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import type { NodeBatchDatabase } from "@magna-carta/database/node-sqlite";
+import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { LedgerAccountId } from "@magna-carta/identifiers/types";
 import { createAccount } from "@magna-carta/ledger/create-account";
 import type { AccountType } from "@magna-carta/ledger/types";
@@ -46,7 +45,7 @@ const DEMO_ACCOUNTS: readonly DemoAccount[] = [
 export const DEMO_ACCOUNT_KEYS: readonly string[] = DEMO_ACCOUNTS.map((account) => account.key);
 
 export async function seedDemoChartOfAccounts(
-  database: NodeBatchDatabase,
+  database: BatchDatabase,
   context: FixtureContext,
 ): Promise<Map<string, LedgerAccountId>> {
   const accounts = new Map<string, LedgerAccountId>();
