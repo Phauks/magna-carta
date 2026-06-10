@@ -75,7 +75,7 @@ ROADMAP.md / CHANGELOG.md                        MODIFY  same-commit docs
 **Files:** Modify: `pnpm-workspace.yaml`
 
 - [ ] **Step 1: Re-verify current stable versions** (web search / npm) for every package below; update the numbers if moved, and **check each tool's changelog for breaking changes against the spec's assumptions** (Terrazzo resolver + Tailwind plugin behavior; Storybook svelte-csf API; Bits UI v2 API):
-  baselines (June 2026): `@terrazzo/cli` 2.3.0, `@terrazzo/plugin-css` 2.3.0, `@terrazzo/plugin-tailwind` 2.3.0, `culori` (latest), `tailwindcss` 4.x + `@tailwindcss/vite` (latest 4.x), `bits-ui` 2.18.1, `storybook` 10.4.x, `@storybook/addon-svelte-csf` 5.0.9, `@storybook/sveltekit` 10.4.x, `@storybook/addon-a11y` + `@storybook/addon-vitest` 10.4.x, `@playwright/test` (latest), `clsx` (latest), `tailwind-merge` 3.6.0, `svelte-sonner` 1.1.1, `virtua` 0.49.1, `@tanstack/table-core` 8.x latest, `paneforge` 1.0.2, `@internationalized/date` 3.12.2, `@lucide/svelte` 1.17.0, `sveltekit-superforms` 2.30.1, `formsnap` 2.0.1, `apca-w3` (advisory only).
+      baselines (June 2026): `@terrazzo/cli` 2.3.0, `@terrazzo/plugin-css` 2.3.0, `@terrazzo/plugin-tailwind` 2.3.0, `culori` (latest), `tailwindcss` 4.x + `@tailwindcss/vite` (latest 4.x), `bits-ui` 2.18.1, `storybook` 10.4.x, `@storybook/addon-svelte-csf` 5.0.9, `@storybook/sveltekit` 10.4.x, `@storybook/addon-a11y` + `@storybook/addon-vitest` 10.4.x, `@playwright/test` (latest), `clsx` (latest), `tailwind-merge` 3.6.0, `svelte-sonner` 1.1.1, `virtua` 0.49.1, `@tanstack/table-core` 8.x latest, `paneforge` 1.0.2, `@internationalized/date` 3.12.2, `@lucide/svelte` 1.17.0, `sveltekit-superforms` 2.30.1, `formsnap` 2.0.1, `apca-w3` (advisory only).
 - [ ] **Step 2: Add exact pins to the catalog** in `pnpm-workspace.yaml` under new comment groups `# Design tokens (packages/design-tokens)` and `# Design system (packages/design-system)`, matching the existing exact-pin style.
 - [ ] **Step 3: Commit** — `chore(design-tokens,design-system): catalog pins for the slice 0·7a toolchain`.
 
@@ -126,11 +126,28 @@ ROADMAP.md / CHANGELOG.md                        MODIFY  same-commit docs
   "name": "magna-carta",
   "description": "Theme gallery x mode resolver — every context must resolve every semantic token (gated).",
   "sets": [
-    { "values": ["tokens/primitives/color.json", "tokens/primitives/dimension.json", "tokens/primitives/typography.json", "tokens/primitives/shadow.json", "tokens/primitives/z-index.json", "tokens/primitives/motion.json", "tokens/semantic.json"] }
+    {
+      "values": [
+        "tokens/primitives/color.json",
+        "tokens/primitives/dimension.json",
+        "tokens/primitives/typography.json",
+        "tokens/primitives/shadow.json",
+        "tokens/primitives/z-index.json",
+        "tokens/primitives/motion.json",
+        "tokens/semantic.json"
+      ]
+    }
   ],
   "modifiers": [
-    { "name": "theme", "values": [ { "name": "slate", "values": [] } ], "default": "slate" },
-    { "name": "mode", "values": [ { "name": "light", "values": ["tokens/themes/slate-light.json"] }, { "name": "dark", "values": ["tokens/themes/slate-dark.json"] } ], "default": "light" }
+    { "name": "theme", "values": [{ "name": "slate", "values": [] }], "default": "slate" },
+    {
+      "name": "mode",
+      "values": [
+        { "name": "light", "values": ["tokens/themes/slate-light.json"] },
+        { "name": "dark", "values": ["tokens/themes/slate-dark.json"] }
+      ],
+      "default": "light"
+    }
   ]
 }
 ```
@@ -168,7 +185,8 @@ export function parseGeneratedCss(file = "generated/tokens.css"): ContextVariabl
     for (const declaration of (block[2] ?? "").matchAll(DECL)) {
       declarations[declaration[1]] = declaration[2].trim();
     }
-    if (Object.keys(declarations).length > 0) contexts[selector] = { ...contexts[selector], ...declarations };
+    if (Object.keys(declarations).length > 0)
+      contexts[selector] = { ...contexts[selector], ...declarations };
   }
   return contexts;
 }
@@ -187,13 +205,21 @@ export function parseGeneratedCss(file = "generated/tokens.css"): ContextVariabl
 
 ```ts
 /** Foreground/background pairings that must clear WCAG 2.2 AA in every theme x mode. */
-export const CONTRAST_PAIRS: ReadonlyArray<{ foreground: string; background: string; minimumRatio: number }> = [
+export const CONTRAST_PAIRS: ReadonlyArray<{
+  foreground: string;
+  background: string;
+  minimumRatio: number;
+}> = [
   { foreground: "text-default", background: "surface-default", minimumRatio: 4.5 },
   { foreground: "text-muted", background: "surface-default", minimumRatio: 4.5 },
   { foreground: "text-default", background: "surface-raised", minimumRatio: 4.5 },
   { foreground: "action-primary-foreground", background: "action-primary", minimumRatio: 4.5 },
   { foreground: "action-secondary-foreground", background: "action-secondary", minimumRatio: 4.5 },
-  { foreground: "action-destructive-foreground", background: "action-destructive", minimumRatio: 4.5 },
+  {
+    foreground: "action-destructive-foreground",
+    background: "action-destructive",
+    minimumRatio: 4.5,
+  },
   { foreground: "status-info-foreground", background: "status-info", minimumRatio: 4.5 },
   { foreground: "status-success-foreground", background: "status-success", minimumRatio: 4.5 },
   { foreground: "status-warning-foreground", background: "status-warning", minimumRatio: 4.5 },
@@ -311,7 +337,7 @@ export type WithoutChildrenOrChild<T> = WithoutChildren<WithoutChild<T>>;
 
 Add `@tailwindcss/vite` to the web app's Vite plugins; import `app.css` in the root `+layout.svelte`. (Verify the `@source` path resolves through the pnpm symlink; otherwise use a relative workspace path.)
 
-- [ ] **Step 2: `components.css`** — opens the semantic-class layer (initially just the layer declaration + a comment documenting the rule: *every value in this file is a `var(--mc-…)` reference; no literals*). Component recipes accrete per component task.
+- [ ] **Step 2: `components.css`** — opens the semantic-class layer (initially just the layer declaration + a comment documenting the rule: _every value in this file is a `var(--mc-…)` reference; no literals_). Component recipes accrete per component task.
 - [ ] **Step 3: `theme-preference.ts`** — the storage seam:
 
 ```ts
@@ -330,7 +356,8 @@ export function applyThemePreference(theme: string, mode: Mode): void {
   localStorage.setItem(MODE_KEY, mode);
   const root = document.documentElement;
   root.dataset.theme = theme;
-  const dark = mode === "dark" || (mode === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+  const dark =
+    mode === "dark" || (mode === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
   root.classList.toggle("dark", dark);
 }
 ```
@@ -384,7 +411,7 @@ export function applyThemePreference(theme: string, mode: Mode): void {
 
 ## Phase D — components (tiered; exemplars are normative)
 
-> Every component task follows the same loop, shown fully in the four exemplars: **(1)** read the component's current Bits UI doc page (parts, data attributes, CSS variables); **(2)** write the story file covering every variant × state; **(3)** write behavior assertions (Vitest addon play functions or component tests) — they fail; **(4)** implement the wrapper parts + the `mc-*` recipe classes in `components.css` (token vars only); **(5)** per-story axe passes; **(6)** regenerate VRT baselines (Docker) — review the diff is only the new component; **(7)** commit `feat(design-system): <component>`. A batch ends with a **manual screen-reader pass** (NVDA) over the batch's stories and a note in the PR/commit.
+> Every component task follows the same loop, shown fully in the four exemplars: **(1)** read the component's current Bits UI doc page (parts, data attributes, CSS variables); **(2)** write the story file covering every variant × state; **(3)** write behavior assertions (Vitest addon play functions or component tests) — they fail; **(4)** implement the wrapper parts + the `mc-*` recipe classes in `components.css` (token vars only); **(5)** per-story axe passes; **(6)** regenerate VRT baselines (Docker) — review the diff is only the new component; **(7)** commit `feat(design-system): <component>`. A batch ends with a **manual screen-reader pass** (NVDA) over the batch's stories and a note in the PR/commit, **and an owner design review in Storybook** — the ADR-0053 critique gate: the owner walks the batch's stories across theme×mode in the running catalog (`pnpm --filter @magna-carta/design-system storybook`) and signs off or files changes before the next tier starts; VRT baselines re-pin after any change.
 
 ### Task 16: Button — Tier 1 exemplar (full pattern)
 
@@ -443,18 +470,34 @@ export function buttonClasses(options: { variant: ButtonVariant; size: ButtonSiz
 
 ```css
 .mc-button {
-  display: inline-flex; align-items: center; justify-content: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   gap: var(--mc-space-2);
   border-radius: var(--mc-radius-md);
-  font-size: var(--mc-text-sm); font-weight: var(--mc-weight-medium);
+  font-size: var(--mc-text-sm);
+  font-weight: var(--mc-weight-medium);
   transition: background-color var(--mc-duration-fast) var(--mc-easing-standard);
   outline-offset: 2px;
 }
-.mc-button:focus-visible { outline: 2px solid var(--mc-focus-ring); }
-.mc-button:disabled { background: var(--mc-action-disabled); color: var(--mc-action-disabled-foreground); pointer-events: none; }
-.mc-button-primary { background: var(--mc-action-primary); color: var(--mc-action-primary-foreground); }
-.mc-button-primary:hover { background: var(--mc-action-primary-hover); }
-.mc-button-primary:active { background: var(--mc-action-primary-active); }
+.mc-button:focus-visible {
+  outline: 2px solid var(--mc-focus-ring);
+}
+.mc-button:disabled {
+  background: var(--mc-action-disabled);
+  color: var(--mc-action-disabled-foreground);
+  pointer-events: none;
+}
+.mc-button-primary {
+  background: var(--mc-action-primary);
+  color: var(--mc-action-primary-foreground);
+}
+.mc-button-primary:hover {
+  background: var(--mc-action-primary-hover);
+}
+.mc-button-primary:active {
+  background: var(--mc-action-primary-active);
+}
 /* …secondary/destructive/ghost/link, sm/md/lg/icon heights from --mc-control-* … */
 ```
 
