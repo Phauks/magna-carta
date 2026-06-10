@@ -12,8 +12,10 @@ export interface DirectGrantRow {
 
 // effective = (permissions of held roles) UNION (unexpired direct grants) — ADR-0068.
 // Unknown keys are filtered out, not thrown: a registry that shrank must not brick login.
-// Expiry compares ISO-8601 UTC instants lexicographically (equal-format strings sort by time);
-// a grant expiring exactly at `now` is already expired.
+// Expiry compares ISO-8601 UTC instants lexicographically — that requires the fixed-width
+// millisecond `toISOString` form; the database write path owns that invariant (ADR-0055's single
+// formatting layer). A grant expiring exactly at `now` is already expired. `now` is a trusted
+// clock instant: a malformed `now` is the caller's bug, not handled here.
 export function effectivePermissions(
   rolePermissions: readonly RolePermissionRow[],
   directGrants: readonly DirectGrantRow[],

@@ -23,7 +23,15 @@ describe("effectivePermissions", () => {
       now,
     );
     expect(result).toEqual(new Set(["firm:manageMembers"]));
-    expect(result.size).toBe(1);
+  });
+
+  it("keeps a role-held permission effective despite an expired direct grant for the same key", () => {
+    const result = effectivePermissions(
+      [{ permission: "firm:manageMembers" }],
+      [{ permission: "firm:manageMembers", expires_at: "2026-06-10T11:00:00.000Z" }],
+      now,
+    );
+    expect(result).toEqual(new Set(["firm:manageMembers"]));
   });
 
   it("excludes a direct grant whose expires_at is in the past", () => {
