@@ -12,8 +12,18 @@ import {
   insertLineStatement,
   selectAccountSnapshotsStatement,
 } from "./statements.ts";
-import type { AccountSnapshot, AccountType, ClockPort, PostEntryInput } from "./types.ts";
+import type {
+  AccountSnapshot,
+  AccountType,
+  ClockPort,
+  EntryLineInput,
+  PostEntryInput,
+} from "./types.ts";
 import { validateEntry } from "./validate.ts";
+
+// toMinor is pure; the named helper makes "the line insert and the balance delta carry the SAME
+// minor value" visible at both call sites instead of relying on the reader knowing purity.
+const minorOf = (line: EntryLineInput): number => toMinor(line.amount);
 
 export const LEDGER_ENTRY_POSTED_TOPIC = "ledger.entry.posted";
 // One ordered outbox sequence per firm — total order for ledger consumers, cheap at per-firm scale.
@@ -77,6 +87,9 @@ export async function postEntry(
 
 // Shared with reverseEntry (which sets reversesEntryId). Exported for the sibling module, not for
 // external callers — external entry points are postEntry/reverseEntry, which always validate first.
+// CONTRACT: callers pass the SAME accounts map they ran validateEntry against — its unknown-account
+// check is what makes the per-line lookup below unreachable; a miss here is a programmer error
+// (deliberately a plain Error, not a LedgerValidationError: nothing the caller's user can fix).
 export function composePostedEntry(
   database: SqlDatabase,
   input: PostEntryInput,
@@ -102,17 +115,22 @@ export function composePostedEntry(
         accountId: line.accountId,
         lineIndex,
         direction: line.direction,
-        amountMinor: toMinor(line.amount),
+        amountMinor: minorOf(line),
       }),
     ),
   ];
 
-  // One balance UPDATE per touched account, deltas aggregated in normal-balance terms.
+  // One balance UPDATE per touched account, deltas aggregated in normal-balance terms. The leaf
+  // check happened pre-batch (validateEntry) — a concurrent createAccount adding a child between
+  // that read and this batch's commit is not re-checked in-batch (cross-row predicates cannot abort
+  // a D1 batch); the sequential version of that hazard is closed on the creation side instead
+  // (createAccount refuses a parent that already has postings), and the fitness queries re-prove
+  // the invariant table-wide.
   const deltas = new Map<string, number>();
   for (const line of input.lines) {
     const account = accounts.get(line.accountId);
     if (!account) throw new Error(`unreachable: validated account missing ${line.accountId}`);
-    const delta = balanceDelta(account.type, line.direction, toMinor(line.amount));
+    const delta = balanceDelta(account.type, line.direction, minorOf(line));
     deltas.set(line.accountId, (deltas.get(line.accountId) ?? 0) + delta);
   }
   for (const [accountId, delta] of deltas) {
