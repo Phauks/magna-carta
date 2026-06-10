@@ -67,6 +67,17 @@ describe("createAccount", () => {
     ).rejects.toMatchObject({ code: "unknown-parent-account" });
   });
 
+  it("refuses an unknown account type at runtime — drizzle enums are type-level only", async () => {
+    const database = freshDatabase();
+    await expect(
+      createAccount(
+        database,
+        { name: "Operating", type: "Asset" as never, currency: "USD" },
+        { clock },
+      ),
+    ).rejects.toMatchObject({ code: "unknown-account-type" });
+  });
+
   it("refuses an unregistered currency code — a typo'd account could never be posted to", async () => {
     const database = freshDatabase();
     await expect(

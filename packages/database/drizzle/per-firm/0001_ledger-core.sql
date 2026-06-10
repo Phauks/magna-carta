@@ -17,7 +17,8 @@ CREATE TABLE `ledger_account` (
 	`active` integer DEFAULT 1 NOT NULL,
 	`created_at` text NOT NULL,
 	FOREIGN KEY (`parent_account_id`) REFERENCES `ledger_account`(`id`) ON UPDATE no action ON DELETE no action,
-	CONSTRAINT "ledger_account_name_nonempty_check" CHECK(length("ledger_account"."name") > 0)
+	CONSTRAINT "ledger_account_name_nonempty_check" CHECK(length("ledger_account"."name") > 0),
+	CONSTRAINT "ledger_account_type_check" CHECK("ledger_account"."type" IN ('asset', 'liability', 'equity', 'income', 'expense'))
 );
 --> statement-breakpoint
 CREATE INDEX `ledger_account_parent_account_id_index` ON `ledger_account` (`parent_account_id`);--> statement-breakpoint

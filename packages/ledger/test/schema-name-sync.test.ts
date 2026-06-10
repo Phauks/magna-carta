@@ -7,7 +7,12 @@ import {
   ledgerLine,
 } from "@magna-carta/database/per-firm-schema";
 import { describe, expect, it } from "vitest";
-import { inconsistentBalancesStatement, unbalancedEntriesStatement } from "../src/fitness.ts";
+import {
+  inconsistentBalancesStatement,
+  parentAccountsWithPostingsStatement,
+  unbalancedEntriesStatement,
+} from "../src/fitness.ts";
+import { ACCOUNT_TYPES } from "../src/types.ts";
 import {
   ACCOUNT_BALANCE_TABLE,
   LEDGER_ACCOUNT_TABLE,
@@ -164,6 +169,11 @@ describe("schema name sync (ledger SQL pinned to @magna-carta/database)", () => 
     );
   });
 
+  it("ACCOUNT_TYPES matches the drizzle type enum — one type set, pinned across packages", () => {
+    const type = getTableConfig(ledgerAccount).columns.find((column) => column.name === "type");
+    expect(type?.enumValues).toEqual([...ACCOUNT_TYPES]);
+  });
+
   it("the fitness queries name only schema identifiers and their own aliases", () => {
     const stub = stubDatabase();
     const accountColumns = columnsOf(ledgerAccount);
@@ -172,8 +182,9 @@ describe("schema name sync (ledger SQL pinned to @magna-carta/database)", () => 
     const fitnessSql = [
       sqlOf(unbalancedEntriesStatement(stub)),
       sqlOf(inconsistentBalancesStatement(stub)),
+      sqlOf(parentAccountsWithPostingsStatement(stub)),
     ].join("\n");
-    // net / total / computed are computed output names; b / l / a / computed are table aliases.
+    // net / total / computed are computed output names; b / l / a / c / computed are table aliases.
     expectOnlyKnownIdentifiers(
       fitnessSql,
       new Set([
@@ -184,6 +195,7 @@ describe("schema name sync (ledger SQL pinned to @magna-carta/database)", () => 
         "b",
         "l",
         "a",
+        "c",
         "computed",
         "total",
         ...accountColumns,

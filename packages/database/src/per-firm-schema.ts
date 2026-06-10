@@ -73,6 +73,13 @@ export const ledgerAccount = sqliteTable(
   (table) => [
     index("ledger_account_parent_account_id_index").on(table.parentAccountId),
     check("ledger_account_name_nonempty_check", sql`length(${table.name}) > 0`),
+    // Drizzle text enums are type-level only (same rationale as ledger_line_direction_check): an
+    // unknown type silently reads as credit-normal everywhere, inverting every balance delta on
+    // the account with no fitness signal — the DDL refuses it on permanent rows.
+    check(
+      "ledger_account_type_check",
+      sql`${table.type} IN ('asset', 'liability', 'equity', 'income', 'expense')`,
+    ),
   ],
 );
 

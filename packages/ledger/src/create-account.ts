@@ -10,7 +10,7 @@ import {
   insertBalanceRowStatement,
   selectAccountHasLinesStatement,
 } from "./statements.ts";
-import type { AccountType, ClockPort } from "./types.ts";
+import { ACCOUNT_TYPES, type AccountType, type ClockPort } from "./types.ts";
 import { LedgerValidationError } from "./validate.ts";
 
 export interface CreateAccountInput {
@@ -35,6 +35,14 @@ export async function createAccount(
 ): Promise<CreatedAccount> {
   if (input.name.trim().length === 0) {
     throw new LedgerValidationError("empty-account-name", "an account needs a name");
+  }
+  // Compile-time AccountType does not survive untyped callers (a future API layer); the DDL CHECK
+  // is the last line of defense, this is the polite one with a named code.
+  if (!ACCOUNT_TYPES.includes(input.type)) {
+    throw new LedgerValidationError(
+      "unknown-account-type",
+      `not an account type: ${String(input.type)} (one of: ${ACCOUNT_TYPES.join(", ")})`,
+    );
   }
   // The currency must resolve in the money registry: a typo'd code ('usd', '') would commit an
   // account no Money value can ever match — permanently unpostable, and append-only means no

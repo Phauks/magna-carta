@@ -18,6 +18,7 @@ export type LedgerValidationCode =
   | "currency-mismatch"
   | "unbalanced"
   | "empty-account-name"
+  | "unknown-account-type"
   | "unsupported-currency"
   | "unknown-parent-account"
   | "parent-mismatch"

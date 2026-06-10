@@ -213,6 +213,10 @@
         "ledger_account_name_nonempty_check": {
           "name": "ledger_account_name_nonempty_check",
           "value": "length(\"ledger_account\".\"name\") > 0"
+        },
+        "ledger_account_type_check": {
+          "name": "ledger_account_type_check",
+          "value": "\"ledger_account\".\"type\" IN ('asset', 'liability', 'equity', 'income', 'expense')"
         }
       }
     },
