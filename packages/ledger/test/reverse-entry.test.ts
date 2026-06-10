@@ -1,4 +1,4 @@
-import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import { EUR, money, USD } from "@magna-carta/money/money";
 import { describe, expect, it } from "vitest";
@@ -11,7 +11,8 @@ const clock: ClockPort = { now: () => "2026-06-09T15:00:00.000Z", today: () => "
 const now = () => clock.now();
 
 async function setupWithPostedEntry() {
-  const { database } = createMigratedNodeDatabase("per-firm");
+  // Typed as the data-access BatchDatabase so the tests exercise the REAL D1-shaped surface.
+  const database: BatchDatabase = createMigratedNodeDatabase("per-firm").database;
   const bank = await createAccount(
     database,
     { name: "Trust Bank", type: "asset", currency: "USD" },
@@ -196,7 +197,7 @@ describe("reverseEntry — first-class corrections (ADR-0072)", () => {
   });
 
   it("reverses an entry in any registered currency — EUR entries are correctable too", async () => {
-    const { database } = createMigratedNodeDatabase("per-firm");
+    const database: BatchDatabase = createMigratedNodeDatabase("per-firm").database;
     const bank = await createAccount(
       database,
       { name: "EUR Bank", type: "asset", currency: "EUR" },

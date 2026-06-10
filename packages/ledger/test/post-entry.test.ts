@@ -1,4 +1,4 @@
-import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { money, USD } from "@magna-carta/money/money";
@@ -17,7 +17,8 @@ const clock: ClockPort = {
 };
 
 async function setup() {
-  const { database } = createMigratedNodeDatabase("per-firm");
+  // Typed as the data-access BatchDatabase so the tests exercise the REAL D1-shaped surface.
+  const database: BatchDatabase = createMigratedNodeDatabase("per-firm").database;
   const trustBank = newIdentifier("ledgerAccount");
   const smith = newIdentifier("ledgerAccount");
   await database.batch([
