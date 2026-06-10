@@ -1,0 +1,83 @@
+import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import type { LedgerAccountId, LedgerEntryId } from "@magna-carta/identifiers/types";
+import { fromMinor } from "@magna-carta/money/format";
+import { USD, type NumberCurrency } from "@magna-carta/money/money";
+import {
+  composePostedEntry,
+  loadAccountSnapshots,
+  type PostedEntry,
+  type PostEntryOptions,
+} from "./post-entry.ts";
+import {
+  selectEntryStatement,
+  selectLinesForEntryStatement,
+  selectReversalOfStatement,
+} from "./statements.ts";
+import type { Direction, EntryLineInput, PostEntryInput } from "./types.ts";
+import { LedgerValidationError, validateEntry } from "./validate.ts";
+
+export interface ReverseEntryInput {
+  readonly entryId: LedgerEntryId;
+  readonly description: string;
+  readonly effectiveDate: string;
+}
+
+interface LineRow {
+  account_id: string;
+  line_index: number;
+  direction: Direction;
+  amount_minor: number;
+}
+
+// USD-only today (ADR-0061): the single-currency resolution deliberately has the SHAPE of the
+// future registry lookup; when a second currency arrives the money package will own a
+// currencyFromCode map and this becomes a real dispatch.
+function currencyFromCode(code: string): NumberCurrency {
+  void code;
+  return USD;
+}
+
+// Compose the EXACT mirror of an existing entry (directions flipped, amounts identical), linked via
+// reverses_entry_id. The pre-check refuses politely; the UNIQUE index settles the concurrent race —
+// the losing batch rolls back whole. Reversing a reversal is allowed (it re-instates the original).
+// NOTE: re-validates via validateEntry, so a line on an inactive account would refuse — unreachable
+// today (no closing service exists); revisit when account closing ships (corrections must always
+// stay possible).
+export async function reverseEntry(
+  database: SqlDatabase,
+  input: ReverseEntryInput,
+  options: PostEntryOptions,
+): Promise<PostedEntry> {
+  const { results: entries } = await selectEntryStatement(database, input.entryId).all();
+  if (entries.length === 0) {
+    throw new LedgerValidationError("unknown-entry", `no such entry: ${input.entryId}`);
+  }
+  const { results: reversals } = await selectReversalOfStatement(database, input.entryId).all();
+  if (reversals.length > 0) {
+    throw new LedgerValidationError("already-reversed", `entry already reversed: ${input.entryId}`);
+  }
+  const { results: lines } = await selectLinesForEntryStatement(
+    database,
+    input.entryId,
+  ).all<LineRow>();
+
+  const accountIds = [...new Set(lines.map((line) => line.account_id))] as LedgerAccountId[];
+  const accounts = await loadAccountSnapshots(database, accountIds);
+
+  const mirroredLines: EntryLineInput[] = lines.map((line) => ({
+    accountId: line.account_id as LedgerAccountId,
+    direction: line.direction === "debit" ? "credit" : "debit",
+    amount: fromMinor(
+      line.amount_minor,
+      currencyFromCode(accounts.get(line.account_id)?.currency ?? "USD"),
+    ),
+  }));
+
+  const mirrored: PostEntryInput = {
+    description: input.description,
+    effectiveDate: input.effectiveDate,
+    lines: mirroredLines,
+  };
+  validateEntry(mirrored, accounts, options.clock.today());
+  return composePostedEntry(database, mirrored, accounts, options, input.entryId);
+}
