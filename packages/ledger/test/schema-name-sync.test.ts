@@ -7,6 +7,7 @@ import {
   ledgerLine,
 } from "@magna-carta/database/per-firm-schema";
 import { describe, expect, it } from "vitest";
+import { inconsistentBalancesStatement, unbalancedEntriesStatement } from "../src/fitness.ts";
 import {
   ACCOUNT_BALANCE_TABLE,
   LEDGER_ACCOUNT_TABLE,
@@ -50,8 +51,10 @@ function columnsOf(table: Parameters<typeof getTableConfig>[0]): Set<string> {
 // SQL keywords are written UPPERCASE in the builders, so the lowercase-identifier extraction below
 // only ever sees column names, table names, and aliases. Identifiers must START with a letter or
 // underscore, so ?1-style placeholders stay invisible while digit-containing identifiers (a future
-// balance_v2) are still extracted and checked rather than silently skipped.
-const identifiers = (sql: string) => sql.match(/\b[a-z_][a-z0-9_]*\b/g) ?? [];
+// balance_v2) are still extracted and checked rather than silently skipped. Single-quoted string
+// literals ('debit', 'asset', …) are values, not identifiers — stripped before extraction.
+const identifiers = (sql: string) =>
+  sql.replace(/'[^']*'/g, " ").match(/\b[a-z_][a-z0-9_]*\b/g) ?? [];
 
 function expectOnlyKnownIdentifiers(sql: string, allowed: ReadonlySet<string>, label: string) {
   for (const identifier of identifiers(sql)) {
@@ -156,6 +159,36 @@ describe("schema name sync (ledger SQL pinned to @magna-carta/database)", () => 
         ...balanceColumns,
       ]),
       "snapshot",
+    );
+  });
+
+  it("the fitness queries name only schema identifiers and their own aliases", () => {
+    const stub = stubDatabase();
+    const accountColumns = columnsOf(ledgerAccount);
+    const lineColumns = columnsOf(ledgerLine);
+    const balanceColumns = columnsOf(accountBalance);
+    const fitnessSql = [
+      sqlOf(unbalancedEntriesStatement(stub)),
+      sqlOf(inconsistentBalancesStatement(stub)),
+    ].join("\n");
+    // net / total / computed are computed output names; b / l / a / computed are table aliases.
+    expectOnlyKnownIdentifiers(
+      fitnessSql,
+      new Set([
+        LEDGER_LINE_TABLE,
+        LEDGER_ACCOUNT_TABLE,
+        ACCOUNT_BALANCE_TABLE,
+        "net",
+        "b",
+        "l",
+        "a",
+        "computed",
+        "total",
+        ...accountColumns,
+        ...lineColumns,
+        ...balanceColumns,
+      ]),
+      "fitness",
     );
   });
 });
