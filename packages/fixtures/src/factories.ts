@@ -1,7 +1,23 @@
 import type { LedgerAccountId } from "@magna-carta/identifiers/types";
+import type { CreateAccountInput } from "@magna-carta/ledger/create-account";
 import type { PostEntryInput } from "@magna-carta/ledger/types";
 import { money, USD } from "@magna-carta/money/money";
 import type { FixtureContext } from "./context.ts";
+
+// Primitive factory: a plausible single account input. Faker supplies the name; overrides win.
+// Callers pass the result to createAccount — the factory builds INPUTS, never rows (the
+// real-write-paths-only invariant).
+export function anAccountInput(
+  context: FixtureContext,
+  overrides: Partial<CreateAccountInput> = {},
+): CreateAccountInput {
+  return {
+    name: `${context.faker.company.name()} Account`,
+    type: "asset",
+    currency: "USD",
+    ...overrides,
+  };
+}
 
 // Primitive factory: a plausible balanced two-line entry. Faker supplies the narrative; the fixed
 // clock supplies the date; the amount defaults to a faker-drawn realistic figure. Overrides win.

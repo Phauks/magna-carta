@@ -33,3 +33,32 @@ describe("demo chart of accounts (DEMO DATA — not the Phase-3 product chart)",
     expect(dump(first.raw)).toEqual(dump(second.raw));
   });
 });
+
+describe("anAccountInput — the primitive account factory", () => {
+  it("builds a plausible input deterministically; overrides win; commits via createAccount", async () => {
+    const a = fixtureContext("factory-test");
+    const b = fixtureContext("factory-test");
+    const { anAccountInput } = await import("../src/factories.ts");
+    expect(anAccountInput(a)).toEqual(anAccountInput(b)); // seeded faker name
+    const overridden = anAccountInput(a, { name: "Escrow Holding", type: "liability" });
+    expect(overridden).toMatchObject({
+      name: "Escrow Holding",
+      type: "liability",
+      currency: "USD",
+    });
+
+    const { createAccount } = await import("@magna-carta/ledger/create-account");
+    const { commitEffectBatch } = await import("@magna-carta/data-access/effect-batch");
+    const { database } = createLocalPerFirmDatabase();
+    const created = await createAccount(database, anAccountInput(a), {
+      clock: a.clock,
+      randomSource: a.randomSource,
+    });
+    await commitEffectBatch(database, created.effect, { now: () => a.clock.now() });
+    const { results } = await database
+      .prepare("SELECT COUNT(*) AS n FROM ledger_account")
+      .bind()
+      .all<{ n: number }>();
+    expect(results[0]?.n).toBe(1);
+  });
+});
