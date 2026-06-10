@@ -20,6 +20,7 @@ export type LedgerValidationCode =
   | "empty-account-name"
   | "unknown-parent-account"
   | "parent-mismatch"
+  | "parent-has-postings"
   | "unknown-entry"
   | "already-reversed";
 

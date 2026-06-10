@@ -176,3 +176,15 @@ export function selectReversalOfStatement(
     .prepare(`SELECT id FROM ${LEDGER_ENTRY_TABLE} WHERE reverses_entry_id = ?1`)
     .bind(entryId);
 }
+
+// Creation-side guard for the leaf-only invariant: an account that already carries postings can
+// never become a parent (its direct lines would sit outside every child roll-up). EXISTS, not
+// COUNT — the first line is proof enough.
+export function selectAccountHasLinesStatement(
+  database: SqlDatabase,
+  accountId: LedgerAccountId,
+): SqlStatement {
+  return database
+    .prepare(`SELECT EXISTS(SELECT 1 FROM ${LEDGER_LINE_TABLE} WHERE account_id = ?1) AS has_lines`)
+    .bind(accountId);
+}

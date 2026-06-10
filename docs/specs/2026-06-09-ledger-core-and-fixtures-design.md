@@ -99,7 +99,7 @@ The Phase 3 adjustment workflow (reverse + repost as one operation, replacement 
 
 ### 2.3 `createAccount`
 
-`createAccount({ name, type, currency, parentAccountId? })`: validates (parent exists, shares type + currency), composes `[INSERT ledger_account, INSERT account_balance (0, unbounded)]` through the same idempotent path. Closing an account is a later state-change service; no delete exists.
+`createAccount({ name, type, currency, parentAccountId? })`: validates (parent exists, shares type + currency), composes `[INSERT ledger_account, INSERT account_balance (0, unbounded)]` through the same idempotent path. Closing an account is a later state-change service; no delete exists. A parent that already carries postings is refused (`parent-has-postings`) — the creation-side half of the leaf-only invariant, closing the sequential hole where an account posts first and gains children later.
 
 ## 3. Invariants & validation
 

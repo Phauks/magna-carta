@@ -17,6 +17,7 @@ import {
   insertBalanceRowStatement,
   insertEntryStatement,
   insertLineStatement,
+  selectAccountHasLinesStatement,
   selectAccountSnapshotsStatement,
   selectEntryStatement,
   selectLinesForEntryStatement,
@@ -118,6 +119,7 @@ describe("schema name sync (ledger SQL pinned to @magna-carta/database)", () => 
         }),
       ),
       sqlOf(selectLinesForEntryStatement(stub, ENTRY_ID)),
+      sqlOf(selectAccountHasLinesStatement(stub, ACCOUNT_ID)),
     ].join("\n");
     const snapshotSql = sqlOf(selectAccountSnapshotsStatement(stub, [ACCOUNT_ID, PARENT_ID]));
 
@@ -132,7 +134,12 @@ describe("schema name sync (ledger SQL pinned to @magna-carta/database)", () => 
       "balance",
     );
     expectOnlyKnownIdentifiers(entrySql, new Set([LEDGER_ENTRY_TABLE, ...entryColumns]), "entry");
-    expectOnlyKnownIdentifiers(lineSql, new Set([LEDGER_LINE_TABLE, ...lineColumns]), "line");
+    // has_lines is the computed output name of selectAccountHasLinesStatement, not a column.
+    expectOnlyKnownIdentifiers(
+      lineSql,
+      new Set([LEDGER_LINE_TABLE, "has_lines", ...lineColumns]),
+      "line",
+    );
     // The snapshot query joins ledger_account to account_balance; its aliases and computed output
     // names are the only non-column identifiers permitted.
     expectOnlyKnownIdentifiers(
