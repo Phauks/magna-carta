@@ -10,14 +10,19 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"],
   },
-  // Control-plane D1. database_id is a local/dry-run placeholder; real provisioning (wrangler d1 create) is the deploy switch.
+  // Real production resources (created 2026-06-09; naming convention in ADR-0075:
+  // magna-carta-<environment>-<scope>[-<purpose-or-slug>]). Binding names are the code-facing
+  // contract and never change; resource names are environment-scoped and permanent (D1/R2
+  // cannot be renamed). Local dev/tests run Miniflare simulations of these bindings.
   "d1_databases": [
     {
       "binding": "DB_CONTROL",
-      "database_name": "magna-carta-control",
-      "database_id": "local-dev-placeholder",
+      "database_name": "magna-carta-production-platform-control",
+      "database_id": "a0982ab7-97d9-471b-8dd7-19f18aa53f04",
     },
   ],
-  "r2_buckets": [{ "binding": "R2", "bucket_name": "magna-carta-files" }],
-  "queues": { "producers": [{ "binding": "QUEUE", "queue": "magna-carta-jobs" }] },
+  "r2_buckets": [{ "binding": "R2", "bucket_name": "magna-carta-production-platform-files" }],
+  "queues": {
+    "producers": [{ "binding": "QUEUE", "queue": "magna-carta-production-platform-jobs" }],
+  },
 }
