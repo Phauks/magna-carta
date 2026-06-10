@@ -1,10 +1,5 @@
-import { DatabaseSync } from "node:sqlite";
 import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
-import {
-  applyMigrations,
-  loadMigrationsFromDisk,
-  nodeSqliteBatchDatabase,
-} from "@magna-carta/database/node-sqlite";
+import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import { money, USD } from "@magna-carta/money/money";
 import { describe, expect, it } from "vitest";
 import { createAccount } from "../src/create-account.ts";
@@ -14,10 +9,9 @@ import type { ClockPort } from "../src/types.ts";
 const clock: ClockPort = { now: () => "2026-06-09T15:00:00.000Z", today: () => "2026-06-09" };
 const now = () => clock.now();
 
+// Typed as the data-access BatchDatabase so these tests exercise the REAL D1-shaped surface.
 function freshDatabase(): BatchDatabase {
-  const raw = new DatabaseSync(":memory:");
-  applyMigrations(raw, loadMigrationsFromDisk("per-firm"));
-  return nodeSqliteBatchDatabase(raw);
+  return createMigratedNodeDatabase("per-firm").database;
 }
 
 describe("createAccount", () => {

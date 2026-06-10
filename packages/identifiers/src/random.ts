@@ -25,7 +25,9 @@ export function seededRandomSource(seed: string | number): RandomSource {
 }
 
 // FNV-1a 32-bit hash of the seed's string form — maps any seed to an unsigned 32-bit PRNG state.
-function hashSeed(seed: string | number): number {
+// Exported for other seeded consumers (the fixtures harness seeds faker with it): one FNV-1a in
+// the codebase, not per-package copies. Each consumer still derives its OWN stream from the hash.
+export function hashSeed(seed: string | number): number {
   const text = typeof seed === "number" ? seed.toString() : seed;
   let hash = 0x811c9dc5;
   for (let index = 0; index < text.length; index++) {

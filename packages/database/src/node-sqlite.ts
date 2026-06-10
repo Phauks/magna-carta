@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { DatabaseSync, SQLInputValue } from "node:sqlite";
+import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { migrationsFromJournal, type Migration, type MigrationJournal } from "./migration.ts";
 
 // DEV/TEST ONLY — node-only. A D1-shaped adapter over node:sqlite so the data-access batch write
@@ -19,8 +19,10 @@ export interface NodeSqlStatement {
 export interface NodeBatchDatabase {
   prepare(sql: string): NodeSqlStatement;
   // Statements must come from THIS database's prepare() — a statement built against another
-  // NodeBatchDatabase is structurally identical and would silently execute here (real D1 cannot
-  // express that mistake; this adapter trusts its single-database test/seeding context).
+  // NodeBatchDatabase is structurally identical and would silently execute here. Real D1 behaves
+  // the same way (its prepared statements are SQL text + params re-sent through whichever binding
+  // runs them — workerd's d1-api shim does no identity check), so this is D1-faithful, not a
+  // local weakening; the single-database-per-request Worker context is what makes it safe there.
   batch(statements: NodeSqlStatement[]): Promise<{ success: boolean }[]>;
 }
 
@@ -65,6 +67,21 @@ export function nodeSqliteBatchDatabase(database: DatabaseSync): NodeBatchDataba
       return Promise.resolve(statements.map(() => ({ success: true })));
     },
   };
+}
+
+export interface MigratedNodeDatabase {
+  readonly database: NodeBatchDatabase; // D1-shaped; feed to the domain services + commitEffectBatch
+  readonly raw: DatabaseSync; // escape hatch for assertions / deliberate corruption in tests
+}
+
+// An in-memory database at the lineage's CURRENT committed schema — the one composition every
+// node-side test and the fixtures harness needs (one home; the copies it replaces drifted per file).
+export function createMigratedNodeDatabase(
+  lineage: "control-plane" | "per-firm",
+): MigratedNodeDatabase {
+  const raw = new DatabaseSync(":memory:");
+  applyMigrations(raw, loadMigrationsFromDisk(lineage));
+  return { database: nodeSqliteBatchDatabase(raw), raw };
 }
 
 // Load the committed migration artifacts from this package's drizzle/ directory (filesystem — hence

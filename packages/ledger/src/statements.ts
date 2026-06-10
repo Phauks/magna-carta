@@ -1,5 +1,6 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { LedgerAccountId, LedgerEntryId, LedgerLineId } from "@magna-carta/identifiers/types";
+import { assertSafeInteger } from "@magna-carta/money/money";
 import type { AccountType, Direction } from "./types.ts";
 
 // Table names tracked against @magna-carta/database's schema by the schema-name-sync test.
@@ -10,11 +11,10 @@ export const ACCOUNT_BALANCE_TABLE = "account_balance";
 
 // Money columns are integer minor units (ADR-0061). SQLite would happily store a float or NaN as
 // REAL in an INTEGER column, silently corrupting balances — so every minor-unit number is asserted
-// here, at the last boundary before SQL.
+// at the last boundary before SQL, via the money package's guard (ONE home for the safe-integer
+// rule: if the money engine's notion of a valid amount ever tightens, this boundary follows).
 function assertMinorUnits(value: number, what: string): number {
-  if (!Number.isSafeInteger(value)) {
-    throw new TypeError(`${what} must be a safe integer of minor units, received ${value}`);
-  }
+  assertSafeInteger(value, `${what} (minor units)`);
   return value;
 }
 

@@ -1,10 +1,5 @@
-import { DatabaseSync } from "node:sqlite";
-import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
-import {
-  applyMigrations,
-  loadMigrationsFromDisk,
-  nodeSqliteBatchDatabase,
-} from "@magna-carta/database/node-sqlite";
+import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { money, USD } from "@magna-carta/money/money";
 import { describe, expect, it } from "vitest";
@@ -22,9 +17,7 @@ const clock: ClockPort = {
 };
 
 async function setup() {
-  const raw = new DatabaseSync(":memory:");
-  applyMigrations(raw, loadMigrationsFromDisk("per-firm"));
-  const database: BatchDatabase = nodeSqliteBatchDatabase(raw);
+  const { database } = createMigratedNodeDatabase("per-firm");
   const trustBank = newIdentifier("ledgerAccount");
   const smith = newIdentifier("ledgerAccount");
   await database.batch([

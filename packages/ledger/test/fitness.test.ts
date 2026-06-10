@@ -1,10 +1,5 @@
-import { DatabaseSync } from "node:sqlite";
-import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
-import {
-  applyMigrations,
-  loadMigrationsFromDisk,
-  nodeSqliteBatchDatabase,
-} from "@magna-carta/database/node-sqlite";
+import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import { money, USD } from "@magna-carta/money/money";
 import { describe, expect, it } from "vitest";
 import { createAccount } from "../src/create-account.ts";
@@ -21,9 +16,7 @@ const clock: ClockPort = { now: () => "2026-06-09T15:00:00.000Z", today: () => "
 const now = () => clock.now();
 
 async function setupHealthyLedger() {
-  const raw = new DatabaseSync(":memory:");
-  applyMigrations(raw, loadMigrationsFromDisk("per-firm"));
-  const database: BatchDatabase = nodeSqliteBatchDatabase(raw);
+  const { database, raw } = createMigratedNodeDatabase("per-firm");
   const bank = await createAccount(
     database,
     { name: "Bank", type: "asset", currency: "USD" },
