@@ -7,6 +7,8 @@ These are **scoped, not universal:** each binds only when you work in its area. 
 ## Money & accounting
 
 - **Append-only ledger & audit.** Never mutate or delete a ledger or audit row; corrections are new, balancing entries. (_Financial Core_; ADR-0008)
+- **Balanced entries on leaf accounts.** Every ledger entry has ≥ 2 same-currency lines whose debits equal credits, posted to active leaf accounts only (parents are roll-ups); line amounts are always positive — direction is data, never a sign. (_Financial Core_; ADR-0072)
+- **Materialized balances are derived state.** `account_balance` rows update only inside the posting batch and must always equal the recomputed sum of lines (fitness query); bounds violations abort the whole batch. (_Financial Core_; ADR-0072, prepares ADR-0009)
 
 ## Trust
 
