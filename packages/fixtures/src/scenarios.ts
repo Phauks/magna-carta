@@ -104,6 +104,16 @@ export async function trustCorrection(
   await commitEffectBatch(database, reversal.effect, { now: () => context.clock.now() });
   context.clock.advanceMinutes(2);
 
+  // The link IS the correction mechanism — prove it landed, not just the balances.
+  const { results: link } = await database
+    .prepare("SELECT reverses_entry_id FROM ledger_entry WHERE id = ?1")
+    .bind(reversal.entryId)
+    .all<{ reverses_entry_id: string }>();
+  assertScenario(
+    link[0]?.reverses_entry_id === wrong.entryId,
+    "reversal entry is linked to the original via reverses_entry_id",
+  );
+
   const repost = await postEntry(
     database,
     {
@@ -138,6 +148,7 @@ export async function boundsRejection(
   const smith = accountOf(accounts, "trustSmith");
   await retainerDeposit(database, context, accounts); // fund Smith with 500000 first
   await database.batch([setAccountBoundsStatement(database, smith, 0, null, context.clock.now())]);
+  context.clock.advanceMinutes(1); // bounds set; now attempt the overdraw as a distinct step
   const before = await balanceOf(database, smith);
 
   const overdraw = await postEntry(

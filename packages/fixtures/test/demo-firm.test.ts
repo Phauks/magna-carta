@@ -36,6 +36,7 @@ describe("seedDemoFirm — the demo bundle, deterministic by seed", () => {
     const summary = await seedDemoFirm(database, fixtureContext("demo-llp-1"), {
       allowSeeding: true,
     });
+    expect(summary.accountCount).toBe(14); // the full demo chart
     expect(summary.entryCount).toBeGreaterThanOrEqual(12);
     expect((await unbalancedEntriesStatement(database).all()).results).toEqual([]);
     expect((await inconsistentBalancesStatement(database).all()).results).toEqual([]);
