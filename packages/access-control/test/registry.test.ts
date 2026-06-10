@@ -1,0 +1,65 @@
+import { describe, expect, it } from "vitest";
+import {
+  assertPermission,
+  isPermission,
+  PERMISSIONS,
+  permissionsForNamespace,
+} from "../src/registry.ts";
+
+describe("permission registry", () => {
+  it("recognizes every registered permission key", () => {
+    for (const key of PERMISSIONS) {
+      expect(isPermission(key)).toBe(true);
+    }
+    expect(isPermission("firm:manageMembers")).toBe(true);
+    expect(isPermission("firm:provision")).toBe(true);
+  });
+
+  it("rejects unknown keys", () => {
+    expect(isPermission("firm:deleteEverything")).toBe(false);
+    expect(isPermission("matter:read")).toBe(false);
+  });
+
+  it("rejects malformed shapes (no namespace, no action, wrong case, padding)", () => {
+    expect(isPermission("")).toBe(false);
+    expect(isPermission("firm")).toBe(false);
+    expect(isPermission("firm:")).toBe(false);
+    expect(isPermission(":manageMembers")).toBe(false);
+    expect(isPermission("FIRM:MANAGEMEMBERS")).toBe(false);
+    expect(isPermission(" firm:manageMembers")).toBe(false);
+    expect(isPermission("firm:manageMembers ")).toBe(false);
+  });
+
+  it("assertPermission returns the narrowed value for a known key", () => {
+    const permission = assertPermission("firm:manageMembers");
+    expect(permission).toBe("firm:manageMembers");
+  });
+
+  it("assertPermission throws on an unknown key, naming the offending value", () => {
+    expect(() => assertPermission("firm:deleteEverything")).toThrowError(/firm:deleteEverything/);
+    expect(() => assertPermission("")).toThrowError();
+  });
+
+  it("permissionsForNamespace('firm') returns exactly the firm keys", () => {
+    expect(permissionsForNamespace("firm")).toEqual(["firm:manageMembers", "firm:provision"]);
+  });
+
+  it("permissionsForNamespace returns an empty list for an unknown namespace", () => {
+    expect(permissionsForNamespace("matter")).toEqual([]);
+  });
+
+  it("permissionsForNamespace matches the whole namespace, not a prefix of it", () => {
+    expect(permissionsForNamespace("fir")).toEqual([]);
+    expect(permissionsForNamespace("")).toEqual([]);
+  });
+
+  it("every registered key is `<subsystem>:<action>` — lowercase-led camelCase segments", () => {
+    for (const key of PERMISSIONS) {
+      expect(key).toMatch(/^[a-z][a-zA-Z]*:[a-z][a-zA-Z]*$/);
+    }
+  });
+
+  it("has no duplicate keys", () => {
+    expect(new Set(PERMISSIONS).size).toBe(PERMISSIONS.length);
+  });
+});
