@@ -1,7 +1,14 @@
 {
-  "name": "magna-carta-app",
+  // Name matches the Workers Builds dashboard connection (the deployed Worker + its
+  // workers.dev URL); a mismatch makes every CI deploy override the name with a warning.
+  "name": "magna-carta",
   "main": "./src/index.ts",
   "compatibility_date": "2026-06-05",
+  // Explicit so deploys stop defaulting them: workers.dev serving stays on (the current
+  // public URL until magnacarta.esq attaches); per-version preview URLs stay off
+  // (previews are disabled until a staging environment exists — ADR-0075).
+  "workers_dev": true,
+  "preview_urls": false,
   // The SvelteKit SPA (apps/web build output) bound as Workers Static Assets.
   // run_worker_first routes /api/* to the Hono Worker; everything else falls through to assets, with single-page-application not-found handling serving index.html for deep links.
   "assets": {
