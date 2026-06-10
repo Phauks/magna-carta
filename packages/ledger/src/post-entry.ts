@@ -80,7 +80,13 @@ export async function postEntry(
   options: PostEntryOptions,
 ): Promise<PostedEntry> {
   const accountIds = [...new Set(input.lines.map((line) => line.accountId))];
-  const accounts = await loadAccountSnapshots(database, accountIds);
+  // An empty entry has no snapshots to load (and the snapshot statement rightly refuses an empty
+  // IN-list) — validateEntry against the empty map throws the named too-few-lines refusal instead
+  // of a programmer error surfacing from the read.
+  const accounts =
+    accountIds.length === 0
+      ? new Map<string, AccountSnapshot>()
+      : await loadAccountSnapshots(database, accountIds);
   validateEntry(input, accounts, options.clock.today());
   return composePostedEntry(database, input, accounts, options, null);
 }
@@ -126,16 +132,19 @@ export function composePostedEntry(
   // a D1 batch); the sequential version of that hazard is closed on the creation side instead
   // (createAccount refuses a parent that already has postings), and the fitness queries re-prove
   // the invariant table-wide.
-  const deltas = new Map<string, number>();
+  // Aggregated in BigInt for the same reason validateEntry sums in BigInt: per-line deltas are
+  // safe integers, their running sum near 2^53 is not. Number() at the statement boundary makes an
+  // unsafe aggregate fail loud there (assertMinorUnits), never silently rounded.
+  const deltas = new Map<string, bigint>();
   for (const line of input.lines) {
     const account = accounts.get(line.accountId);
     if (!account) throw new Error(`unreachable: validated account missing ${line.accountId}`);
-    const delta = balanceDelta(account.type, line.direction, minorOf(line));
-    deltas.set(line.accountId, (deltas.get(line.accountId) ?? 0) + delta);
+    const delta = BigInt(balanceDelta(account.type, line.direction, minorOf(line)));
+    deltas.set(line.accountId, (deltas.get(line.accountId) ?? 0n) + delta);
   }
   for (const [accountId, delta] of deltas) {
     statements.push(
-      applyBalanceDeltaStatement(database, accountId as LedgerAccountId, delta, recordedAt),
+      applyBalanceDeltaStatement(database, accountId as LedgerAccountId, Number(delta), recordedAt),
     );
   }
 

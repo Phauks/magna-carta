@@ -121,6 +121,23 @@ describe("validateEntry — the ledger invariants (ADR-0072)", () => {
     expect(codeOf(() => validateEntry(lopsided, snapshotMap(a, b), TODAY))).toBe("unbalanced");
   });
 
+  it("rejects an imbalance that float accumulation would round away near 2^53", () => {
+    const a = account();
+    const b = account({ type: "liability" });
+    // Every amount is an individually safe integer, but the true net is +1 minor: float
+    // accumulation rounds (2^53 - 1) + 2 to 2^53 (ties-to-even) and the imbalance vanishes.
+    const nearLimit = {
+      ...balancedInput(a, b),
+      lines: [
+        { accountId: a.id, direction: "debit" as const, amount: money(9007199254740991, USD) },
+        { accountId: a.id, direction: "debit" as const, amount: money(2, USD) },
+        { accountId: b.id, direction: "credit" as const, amount: money(4503599627370496, USD) },
+        { accountId: b.id, direction: "credit" as const, amount: money(4503599627370496, USD) },
+      ],
+    };
+    expect(codeOf(() => validateEntry(nearLimit, snapshotMap(a, b), TODAY))).toBe("unbalanced");
+  });
+
   it("backdating is allowed (effective date in the past)", () => {
     const a = account();
     const b = account({ type: "liability" });

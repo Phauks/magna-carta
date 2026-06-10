@@ -112,6 +112,44 @@ describe("postEntry — the posting write path (ADR-0072)", () => {
     expect(JSON.parse(outbox[0]?.payload ?? "{}")).toEqual({ entryId });
   });
 
+  it("refuses an empty entry with the named code — not a snapshot-read programmer error", async () => {
+    const { database } = await setup();
+    await expect(
+      postEntry(
+        database,
+        { description: "Empty", effectiveDate: "2026-06-09", lines: [] },
+        { clock },
+      ),
+    ).rejects.toMatchObject({ name: "LedgerValidationError", code: "too-few-lines" });
+  });
+
+  it("aggregates per-account deltas exactly near the safe-integer limit", async () => {
+    const { database, trustBank, smith } = await setup();
+    // trustBank (debit-normal asset): debit (2^53 - 1), debit 2, credit 4 — true delta 2^53 - 3.
+    // Float order-of-operations rounds the running sum to 2^53 - 4 and silently writes a wrong
+    // balance; BigInt aggregation keeps it exact.
+    const { effect } = await postEntry(
+      database,
+      {
+        description: "Near-limit aggregation",
+        effectiveDate: "2026-06-09",
+        lines: [
+          { accountId: trustBank, direction: "debit", amount: money(9007199254740991, USD) },
+          { accountId: trustBank, direction: "debit", amount: money(2, USD) },
+          { accountId: trustBank, direction: "credit", amount: money(4, USD) },
+          { accountId: smith, direction: "credit", amount: money(9007199254740989, USD) },
+        ],
+      },
+      { clock },
+    );
+    await commitEffectBatch(database, effect, { now: () => clock.now() });
+    const { results } = await database
+      .prepare("SELECT balance_minor FROM account_balance WHERE account_id = ?1")
+      .bind(trustBank)
+      .all<{ balance_minor: number }>();
+    expect(results[0]?.balance_minor).toBe(9007199254740989);
+  });
+
   it("refuses an unbalanced entry before composing anything", async () => {
     const { database, trustBank, smith } = await setup();
     await expect(

@@ -1,7 +1,12 @@
-import { isPermission, type Permission } from "../src/registry.ts";
+import { isPermission, type KnownPermission, type Permission } from "../src/registry.ts";
 
 declare const permission: Permission;
 declare const untrusted: string;
+declare const known: KnownPermission;
+
+// @ts-expect-error - KnownPermission (compile-checked literal) is intentionally NOT assignable to
+// Permission (runtime-validated brand) — crossing over requires isPermission/assertPermission
+export const knownAsBranded: Permission = known;
 
 // @ts-expect-error - a raw string must not be assignable to Permission without validation
 export const rawString: Permission = "firm:manageMembers";

@@ -73,9 +73,10 @@ export function validateEntry(
     );
   }
 
-  // Sum-to-zero over signed minor units: integers are exact and the money sum() cannot express an
-  // empty side. No rounding occurs — ADR-0061 holds.
-  let net = 0;
+  // Sum-to-zero over signed minor units. Each amount is a safe integer (money() asserts it), but
+  // the running SUM can exceed 2^53, where float accumulation rounds and a real imbalance can
+  // vanish — so the net runs in BigInt, exact at any magnitude (ADR-0061 held at the aggregate).
+  let net = 0n;
   let entryCurrency: string | undefined;
   for (const line of input.lines) {
     if (!isPositive(line.amount)) {
@@ -111,10 +112,10 @@ export function validateEntry(
     if (lineCurrency !== entryCurrency) {
       throw new LedgerValidationError("currency-mismatch", "all lines must share one currency");
     }
-    const minor = toMinor(line.amount);
+    const minor = BigInt(toMinor(line.amount));
     net += line.direction === "debit" ? minor : -minor;
   }
-  if (net !== 0) {
+  if (net !== 0n) {
     throw new LedgerValidationError("unbalanced", `entry does not balance (net ${net} minor)`);
   }
 }
