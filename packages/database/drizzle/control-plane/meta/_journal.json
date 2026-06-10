@@ -8,6 +8,13 @@
       "when": 1781030266036,
       "tag": "0000_firm-registry",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1781128109083,
+      "tag": "0001_auth-and-provisioning",
+      "breakpoints": true
     }
   ]
 }

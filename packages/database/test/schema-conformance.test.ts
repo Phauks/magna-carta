@@ -9,9 +9,22 @@ const ALL_TABLES = (
   [...Object.values(controlPlaneSchema), ...Object.values(perFirmSchema)] as unknown[]
 ).filter((candidate): candidate is SQLiteTable => candidate instanceof SQLiteTable);
 
+// Better Auth owns these five control-plane tables (slice 0-4). Their storage follows what the
+// pinned better-auth drizzle adapter expects — epoch-millisecond INTEGER timestamps — the one
+// sanctioned exception to ADR-0055's ISO-8601 text instants. Everything else is OUR lineage.
+const BETTER_AUTH_TABLE_NAMES = new Set([
+  "user",
+  "session",
+  "account",
+  "verification",
+  "two_factor",
+]);
+
 describe("schema conformance (fitness functions)", () => {
   it("found the expected tables (guards the enumeration itself)", () => {
-    expect(ALL_TABLES.length).toBeGreaterThanOrEqual(3); // firm, idempotency_key, outbox
+    // control-plane: firm + the five Better Auth tables + auth_audit + outbox + idempotency_key (9);
+    // per-firm: idempotency_key, outbox, ledger_account, ledger_entry, ledger_line, account_balance (6).
+    expect(ALL_TABLES.length).toBeGreaterThanOrEqual(15);
   });
 
   it("every table's primary key is a TEXT identifier handle named id (ADR-0062)", () => {
@@ -50,6 +63,21 @@ describe("schema conformance (fitness functions)", () => {
       const config = getTableConfig(table);
       for (const column of config.columns) {
         expect(column.getSQLType(), `${config.name}.${column.name}`).not.toBe("real");
+      }
+    }
+  });
+
+  it("timestamp columns are ISO-8601 TEXT in our tables; epoch-ms INTEGER in Better Auth's (ADR-0055)", () => {
+    // *_at catches every timestamp column either lineage uses (created_at, updated_at, expires_at,
+    // dispatched_at, recorded_at, …). Better Auth-owned tables are the scoped exception — their
+    // drizzle adapter reads and writes epoch-millisecond integers (mode "timestamp_ms").
+    for (const table of ALL_TABLES) {
+      const config = getTableConfig(table);
+      const expectedType = BETTER_AUTH_TABLE_NAMES.has(config.name) ? "integer" : "text";
+      for (const column of config.columns) {
+        if (column.name.endsWith("_at")) {
+          expect(column.getSQLType(), `${config.name}.${column.name}`).toBe(expectedType);
+        }
       }
     }
   });

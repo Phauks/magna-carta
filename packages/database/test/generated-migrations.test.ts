@@ -27,6 +27,29 @@ describe("generated migrations (committed artifacts)", () => {
     }
   });
 
+  it("control-plane 0001 adds the auth tables, auth_audit, outbox + idempotency, and the firm lifecycle columns", async () => {
+    const migrations = await loadLineage("control-plane");
+    expect(migrations.length).toBeGreaterThanOrEqual(2);
+    expect(migrations[1]?.tag).toMatch(/^0001_/);
+    const allSql = migrations.flatMap((migration) => migration.statements).join("\n");
+    for (const tableName of [
+      "user",
+      "session",
+      "account",
+      "verification",
+      "two_factor",
+      "auth_audit",
+      "outbox",
+      "idempotency_key",
+    ]) {
+      expect(allSql, tableName).toContain(`CREATE TABLE \`${tableName}\``);
+    }
+    // The firm lifecycle columns arrive as additive ALTERs — NOT NULL only with a DEFAULT.
+    expect(allSql).toContain("status");
+    expect(allSql).toContain("bucket_name");
+    expect(allSql).toContain("'active'");
+  });
+
   it("per-firm lineage loads and creates idempotency_key and outbox", async () => {
     const migrations = await loadLineage("per-firm");
     const allSql = migrations.flatMap((migration) => migration.statements).join("\n");
