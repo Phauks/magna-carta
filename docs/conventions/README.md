@@ -17,7 +17,7 @@ References to the white paper below name the **area**, not a section number — 
 | [`code-style.md`](code-style.md)                     | Language-agnostic style principles + per-language index                         | Development guidelines                            |
 | [`typescript.md`](typescript.md)                     | TypeScript style, Oxlint/Oxfmt, zod, Svelte 5 runes                             | Delivery model; Development guidelines            |
 | [`rust.md`](rust.md)                                 | Rust style, rustfmt/clippy, WASM/native discipline                              | Delivery model; Development guidelines            |
-| [`ui-design.md`](ui-design.md)                       | Lucide-only icons, design tokens, shadcn-svelte primitives                      | Design system                                     |
+| [`ui-design.md`](ui-design.md)                       | Lucide-only icons, design tokens, design-system components                      | Design system                                     |
 | [`testing.md`](testing.md)                           | Test strategy, fixtures, determinism, visual regression                         | Synthetic data & fixtures                         |
 | [`security.md`](security.md)                         | Firm-scoping, RBAC/ethical walls, encryption, telemetry redaction, PCI          | Tenancy; Auth & encryption; Observability         |
 | [`api.md`](api.md)                                   | REST/OpenAPI code-as-contract, versioning, internal RPC                         | Delivery model                                    |

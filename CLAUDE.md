@@ -28,7 +28,7 @@ Documentation is **segmented and non-duplicative.** Every fact has one authorita
 ## Stack at a glance
 
 - **Languages:** TypeScript (primary); **Rust** surgically (Tauri shell, Tantivy, a shared doc/discovery core → WASM for web + native for desktop).
-- **Frontend:** Svelte 5 / SvelteKit (SPA, `adapter-cloudflare`); Tailwind v4 + **shadcn-svelte**; DTCG tokens via Terrazzo; **Lucide icons**.
+- **Frontend:** Svelte 5 / SvelteKit (SPA, `adapter-cloudflare`); Tailwind v4 + the in-house **`@magna-carta/design-system`** (styled directly on headless **Bits UI**); DTCG tokens via Terrazzo; **Lucide icons**.
 - **Backend:** Cloudflare **Workers** + **Hono**; REST as **OpenAPI 3.1 code-as-contract** (zod).
 - **Data/platform:** per-firm **D1** + control-plane **D1**; per-firm **R2**; **Queues**, **Durable Objects**, **Vectorize**, **KV**; **Containers** (Collabora, Tantivy, OCR, LibreOffice).
 - **Auth:** Better Auth (control-plane D1). **Desktop:** Tauri 2 (after web MVP). **Tooling:** **Vite+** (CLI `vp`; manages pnpm + dev/build/pack/test + `vp check` for fmt/lint/typecheck — Oxc) · rustfmt/clippy. **Source control:** GitHub + GitHub Actions (CI → Cloudflare via Wrangler).
@@ -40,7 +40,7 @@ Architecture detail: the [white paper](docs/Magna-Carta-White-Paper.md) — _Del
 Broad principles for how we build — they apply across the work, not just one subsystem.
 
 1. **Reuse before building.** Check for an existing component, utility, or pattern before creating a new one; compose and extend rather than reinvent.
-2. **All UI through the design system.** Style only with Tailwind + the shadcn-svelte primitives and design tokens — no raw CSS, no off-token values (CI rejects them). Lucide icons; **no emojis** anywhere (UI, docs, commits). (_Design system_; ADR-0028)
+2. **All UI through the design system.** Style only with Tailwind + the `@magna-carta/design-system` components and design tokens — no raw CSS, no off-token values, no direct `bits-ui` imports outside the design-system package (CI rejects all three). Lucide icons; **no emojis** anywhere (UI, docs, commits). (_Design system_; ADR-0076)
 3. **Data access through the firm-scoped DAL.** All business data goes through the firm-scoped data-access layer — no query crosses firms; bulk content to R2, never D1. (_Tenancy & data isolation_; ADR-0003)
 4. **Standardized error & bug logging.** Report every error/bug through the one standard in-house pipeline; **redact by default** (never log privileged content), correlate by ID, surface a user-facing Error ID, and never use a third-party error SaaS. Standard: [`docs/conventions/error-logging.md`](docs/conventions/error-logging.md). (_Observability & diagnostics_; ADR-0017, ADR-0038)
 5. **Keep documentation current.** No feature is done until its docs (developer _and_ user) and [`ROADMAP.md`](ROADMAP.md) + [`CHANGELOG.md`](CHANGELOG.md) are updated — same commit. Standard: [`documentation.md`](docs/conventions/documentation.md); language: [`documentation-style.md`](docs/conventions/documentation-style.md).

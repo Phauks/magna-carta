@@ -11,7 +11,7 @@
 - **Unit + component (behavior)** — **Vite+ integrated testing** (the Vite+ toolchain's test runner, Vite-native). Svelte components test against the same SvelteKit pipeline with no extra build config: assert props, events, state, and **accessibility**. This is the standard place a component's _behavior_ is verified (visual-regression below catches _appearance_).
 - **Integration** — Vite+ testing against **Miniflare** (local D1 + R2), exercising Workers/API and the domain write-paths.
 - **End-to-end** — **Playwright**.
-- **Visual regression** — **Playwright/Chromatic** screenshots over the **Storybook/Histoire** component catalog; catches cross-component drift (design-system enforcement, white paper _Design system_).
+- **Visual regression** — **Playwright** screenshots over the **Storybook** component catalog, across every theme×mode, baselines generated in the pinned Playwright Docker image (Argos CI the named upgrade); catches cross-component drift (design-system enforcement, white paper _Design system_; ADR-0076).
 
 A component is properly covered when it has: a **catalog entry** (definition/review), **behavior tests** (Vite+), and is under **visual-regression** — appearance _and_ behavior, not one or the other.
 
