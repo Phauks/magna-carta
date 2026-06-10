@@ -36,9 +36,10 @@ export class LedgerValidationError extends Error {
 const ISO_CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 // A real ISO calendar date — the round-trip catches rollovers like 2026-02-30 without a Temporal
-// dependency (UTC parse, so no zone can shift the date).
+// dependency (UTC parse, so no zone can shift the date). Year 0000 is excluded explicitly: it
+// round-trips in V8 (astronomical year zero) but is no ledger date, and engines differ on it.
 export function isValidCalendarDate(date: string): boolean {
-  if (!ISO_CALENDAR_DATE.test(date)) return false;
+  if (!ISO_CALENDAR_DATE.test(date) || date.startsWith("0000")) return false;
   const parsed = new Date(`${date}T00:00:00.000Z`);
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
 }

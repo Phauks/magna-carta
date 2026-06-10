@@ -2,7 +2,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { money, USD, EUR } from "@magna-carta/money/money";
 import { describe, expect, it } from "vitest";
 import type { AccountSnapshot, PostEntryInput } from "../src/types.ts";
-import { LedgerValidationError, validateEntry } from "../src/validate.ts";
+import { isValidCalendarDate, LedgerValidationError, validateEntry } from "../src/validate.ts";
 
 const TODAY = "2026-06-09";
 
@@ -126,5 +126,25 @@ describe("validateEntry — the ledger invariants (ADR-0072)", () => {
     const b = account({ type: "liability" });
     const backdated = { ...balancedInput(a, b), effectiveDate: "2024-01-15" };
     expect(() => validateEntry(backdated, snapshotMap(a, b), TODAY)).not.toThrow();
+  });
+});
+
+describe("isValidCalendarDate — edge cases (guards money movement; exported for reuse)", () => {
+  it.each([
+    ["2026-06-09", true],
+    ["2028-02-29", true], // valid leap day
+    ["9999-12-31", true], // upper boundary of 4-digit years
+    ["0001-01-01", true], // padded early year still round-trips
+    ["2026-02-29", false], // not a leap year — rollover caught
+    ["2026-02-30", false], // day rollover
+    ["2026-00-01", false], // month 00
+    ["2026-13-01", false], // month 13
+    ["2026-01-00", false], // day 00
+    ["0000-01-01", false], // astronomical year zero — no ledger date
+    ["2026-1-01", false], // single-digit month blocked by the regex
+    ["10000-01-01", false], // 5-digit year blocked by the regex
+    ["not-a-date", false],
+  ])("isValidCalendarDate(%s) === %s", (input, expected) => {
+    expect(isValidCalendarDate(input)).toBe(expected);
   });
 });
