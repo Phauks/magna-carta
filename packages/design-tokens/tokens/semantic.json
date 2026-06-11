@@ -31,7 +31,7 @@
   },
   "border": {
     "default": { "$type": "color", "$value": "{color.neutral.200}" },
-    "strong": { "$type": "color", "$value": "{color.neutral.400}" },
+    "strong": { "$type": "color", "$value": "{color.neutral.500}" },
     "focus": { "$type": "color", "$value": "{color.brand.600}" }
   },
   "focus": {
@@ -39,9 +39,9 @@
   },
   "status": {
     "$description": "Status and feedback colors.",
-    "info": { "$type": "color", "$value": "{color.blue.500}" },
+    "info": { "$type": "color", "$value": "{color.blue.700}" },
     "info-foreground": { "$type": "color", "$value": "{color.neutral.0}" },
-    "success": { "$type": "color", "$value": "{color.green.500}" },
+    "success": { "$type": "color", "$value": "{color.green.700}" },
     "success-foreground": { "$type": "color", "$value": "{color.neutral.0}" },
     "warning": { "$type": "color", "$value": "{color.amber.500}" },
     "warning-foreground": { "$type": "color", "$value": "{color.neutral.1000}" },

@@ -20,8 +20,8 @@
     "secondary": { "$type": "color", "$value": "{color.neutral.800}" },
     "secondary-hover": { "$type": "color", "$value": "{color.neutral.700}" },
     "secondary-foreground": { "$type": "color", "$value": "{color.neutral.50}" },
-    "destructive": { "$type": "color", "$value": "{color.red.500}" },
-    "destructive-hover": { "$type": "color", "$value": "{color.red.400}" },
+    "destructive": { "$type": "color", "$value": "{color.red.400}" },
+    "destructive-hover": { "$type": "color", "$value": "{color.red.300}" },
     "destructive-foreground": { "$type": "color", "$value": "{color.neutral.1000}" },
     "disabled": { "$type": "color", "$value": "{color.neutral.800}" },
     "disabled-foreground": { "$type": "color", "$value": "{color.neutral.600}" }
@@ -35,13 +35,13 @@
     "ring": { "$type": "color", "$value": "{color.brand.400}" }
   },
   "status": {
-    "info": { "$type": "color", "$value": "{color.blue.500}" },
+    "info": { "$type": "color", "$value": "{color.blue.400}" },
     "info-foreground": { "$type": "color", "$value": "{color.neutral.1000}" },
-    "success": { "$type": "color", "$value": "{color.green.500}" },
+    "success": { "$type": "color", "$value": "{color.green.400}" },
     "success-foreground": { "$type": "color", "$value": "{color.neutral.1000}" },
     "warning": { "$type": "color", "$value": "{color.amber.500}" },
     "warning-foreground": { "$type": "color", "$value": "{color.neutral.1000}" },
-    "danger": { "$type": "color", "$value": "{color.red.500}" },
+    "danger": { "$type": "color", "$value": "{color.red.400}" },
     "danger-foreground": { "$type": "color", "$value": "{color.neutral.1000}" }
   }
 }

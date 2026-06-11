@@ -42,6 +42,9 @@ catalogs:
     '@types/node':
       specifier: 25.9.1
       version: 25.9.1
+    apca-w3:
+      specifier: 0.1.9
+      version: 0.1.9
     better-auth:
       specifier: 1.6.16
       version: 1.6.16
@@ -262,6 +265,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.1
+      apca-w3:
+        specifier: 'catalog:'
+        version: 0.1.9
       culori:
         specifier: 'catalog:'
         version: 4.0.2
@@ -2018,6 +2024,9 @@ packages:
     engines: {node: '>=0.4.0'}
     hasBin: true
 
+  apca-w3@0.1.9:
+    resolution: {integrity: sha512-Zrf6AeBeQjNe/fxK7U1jCo5zfdjDl6T4/kdw5Xlky3G7u+EJTZkyItjMYQGtwf9pkftsINxcYyOpuLkzKf1ITQ==}
+
   aria-query@5.3.1:
     resolution: {integrity: sha512-Z/ZeOgVl7bcSYZ/u/rh0fOpvEpq//LZmdbkXyc7syVzjPAhfOa9ebsdTSjEBDU4vs5nC98Kfduj1uFo0qyET3g==}
     engines: {node: '>= 0.4'}
@@ -2127,6 +2136,9 @@ packages:
 
   colorjs.io@0.6.1:
     resolution: {integrity: sha512-8lyR2wHzuIykCpqHKgluGsqQi5iDm3/a2IgP2GBZrasn2sBRkE4NOGsglZxWLs/jZQoNkmA/KM/8NV16rLUdBg==}
+
+  colorparsley@0.1.8:
+    resolution: {integrity: sha512-rObESTTTE6G5qO5WFwFxWPggpw4KfpxnLC6Ssl8bITBnNVRhDsyCeTRAUxWQNVTx2pRknKlO2nddYTxjkdNFaw==}
 
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
@@ -3925,6 +3937,10 @@ snapshots:
 
   acorn@8.16.0: {}
 
+  apca-w3@0.1.9:
+    dependencies:
+      colorparsley: 0.1.8
+
   aria-query@5.3.1: {}
 
   assertion-error@2.0.1: {}
@@ -3988,6 +4004,8 @@ snapshots:
   clsx@2.1.1: {}
 
   colorjs.io@0.6.1: {}
+
+  colorparsley@0.1.8: {}
 
   convert-source-map@2.0.0: {}
 
