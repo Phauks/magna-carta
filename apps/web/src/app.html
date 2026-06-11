@@ -1,8 +1,25 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="slate">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script>
+      // No-FOUC theme boot. MIRRORS packages/design-system/src/lib/internal/theme-preference.ts
+      // (readThemePreference + applyThemePreference) — it must run inline before first paint, so
+      // it cannot import that module; keep keys, defaults, and the dark resolution rule in sync.
+      // The static data-theme="slate" above is the no-JavaScript fallback.
+      (function () {
+        var theme = localStorage.getItem("magna-carta.theme") || "slate";
+        var mode = localStorage.getItem("magna-carta.mode");
+        if (mode !== "light" && mode !== "dark") mode = "system";
+        var root = document.documentElement;
+        root.dataset.theme = theme;
+        var dark =
+          mode === "dark" ||
+          (mode === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+        root.classList.toggle("dark", dark);
+      })();
+    </script>
     %sveltekit.head%
   </head>
   <body>

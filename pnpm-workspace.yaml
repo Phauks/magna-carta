@@ -71,6 +71,10 @@ catalog:
   "@playwright/test": 1.60.0
   clsx: 2.1.1
   tailwind-merge: 3.6.0
+  # happy-dom is the DOM test environment for browser-facing unit tests (an optional peer of the
+  # Vite+ test distribution); opted into per test file via the `@vitest-environment happy-dom`
+  # pragma so everything else stays in the default node pool.
+  happy-dom: 20.10.2
   svelte-sonner: 1.1.1
   virtua: 0.49.1
   "@tanstack/table-core": 8.21.3

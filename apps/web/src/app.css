@@ -1,0 +1,14 @@
+/*
+ * The one stylesheet of the app. Order matters:
+ *   1. Tailwind v4 (declares the theme/base/components/utilities cascade layers),
+ *   2. token custom properties (per theme-and-mode, scoped by [data-theme] + .dark),
+ *   3. the @theme mapping that turns semantic tokens into Tailwind utilities,
+ *   4. the design system's component recipes (slot into the `components` layer).
+ * The @source path reaches the design system's Svelte/TS sources through this app's
+ * node_modules symlink (pnpm workspace link) so Tailwind emits utilities used there.
+ */
+@import "tailwindcss";
+@import "@magna-carta/design-tokens/tokens.css";
+@import "@magna-carta/design-tokens/tailwind-theme.css";
+@import "@magna-carta/design-system/styles/components.css";
+@source "../node_modules/@magna-carta/design-system/src";

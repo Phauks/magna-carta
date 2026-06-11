@@ -1,0 +1,18 @@
+/*
+ * Semantic component classes — the visual recipes of the design system.
+ *
+ * Each component's look is a class here (mc-button, mc-button-primary, mc-select-content, ...)
+ * defined inside `@layer components`, which slots into Tailwind v4's native cascade layer of the
+ * same name (declared by `@import "tailwindcss"` in the consuming app), so utility classes can
+ * still override a recipe where a wrapper composes them.
+ *
+ * HARD RULE: every declaration value in this file is a `var(--mc-...)` token reference or a
+ * CSS-wide keyword (inherit, initial, unset, revert, transparent, currentColor, none) — no
+ * literal colors, lengths, durations, or numbers. The off-token fitness test enforces this;
+ * off-token values therefore have no place to hide. Spec: "Styling discipline"
+ * (docs/specs/2026-06-10-design-system-foundation-design.md).
+ *
+ * Component recipes accrete here one component task at a time.
+ */
+@layer components {
+}

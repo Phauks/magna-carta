@@ -6,7 +6,9 @@
   "sideEffects": false,
   "exports": {
     "./internal/merge-classes": "./src/lib/internal/merge-classes.ts",
-    "./internal/types": "./src/lib/internal/types.ts"
+    "./internal/theme-preference": "./src/lib/internal/theme-preference.ts",
+    "./internal/types": "./src/lib/internal/types.ts",
+    "./styles/components.css": "./src/lib/styles/components.css"
   },
   "scripts": {
     "test": "vp test run"
@@ -20,6 +22,7 @@
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",
+    "happy-dom": "catalog:",
     "svelte": "catalog:",
     "vitest": "catalog:"
   }
