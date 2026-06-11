@@ -5,80 +5,17 @@
 
 /*
  * Template for generated/tailwind-theme.css (@terrazzo/plugin-tailwind).
- * The @tz at-rule expands to the Tailwind v4 theme variables for the default
- * theme-and-mode permutation. Semantic tokens expand to var(--mc-...) references,
- * so utilities follow the active theme and mode selectors in generated/tokens.css.
+ *
+ * The plugin inlines resolved alias TARGETS for aliased tokens, so a generated
+ * semantic color would read var(--mc-color-neutral-0) — a mode-constant primitive —
+ * freezing utilities to light-mode values. Semantic colors are therefore hand-mapped
+ * below via @theme inline to the SEMANTIC --mc-* variables, which cascade per
+ * theme-and-mode in generated/tokens.css, keeping every color utility mode-responsive.
+ * Primitive color ramps are deliberately unmapped: components must use semantic names.
  */
+
+/* Mode-invariant namespaces (spacing, radius, shadows, typography, easing) — generated. */
 @theme {
-  --color-neutral-0: oklch(99% 0.002 250);
-  --color-neutral-50: oklch(97.5% 0.004 250);
-  --color-neutral-100: oklch(95% 0.006 250);
-  --color-neutral-200: oklch(90% 0.008 250);
-  --color-neutral-300: oklch(83% 0.01 250);
-  --color-neutral-400: oklch(72% 0.012 250);
-  --color-neutral-500: oklch(62% 0.014 250);
-  --color-neutral-600: oklch(52% 0.014 250);
-  --color-neutral-700: oklch(42% 0.012 250);
-  --color-neutral-800: oklch(32% 0.01 250);
-  --color-neutral-900: oklch(22% 0.008 250);
-  --color-neutral-1000: oklch(13% 0.006 250);
-  --color-brand-0: oklch(98% 0.01 250);
-  --color-brand-50: oklch(96% 0.02 250);
-  --color-brand-100: oklch(93% 0.03 250);
-  --color-brand-200: oklch(87% 0.05 250);
-  --color-brand-300: oklch(79% 0.07 250);
-  --color-brand-400: oklch(70% 0.09 250);
-  --color-brand-500: oklch(60% 0.11 250);
-  --color-brand-600: oklch(51% 0.11 250);
-  --color-brand-700: oklch(43% 0.1 250);
-  --color-brand-800: oklch(35% 0.08 250);
-  --color-brand-900: oklch(27% 0.06 250);
-  --color-brand-1000: oklch(20% 0.04 250);
-  --color-blue-100: oklch(93% 0.05 240);
-  --color-blue-500: oklch(55% 0.15 240);
-  --color-blue-700: oklch(42% 0.12 240);
-  --color-green-100: oklch(94% 0.06 150);
-  --color-green-500: oklch(56% 0.12 150);
-  --color-green-700: oklch(43% 0.1 150);
-  --color-amber-100: oklch(95% 0.06 80);
-  --color-amber-500: oklch(70% 0.13 80);
-  --color-amber-700: oklch(50% 0.11 80);
-  --color-red-100: oklch(94% 0.05 25);
-  --color-red-500: oklch(55% 0.18 25);
-  --color-red-700: oklch(44% 0.15 25);
-  --color-surface-default: var(--mc-color-neutral-0);
-  --color-surface-overlay: var(--mc-color-neutral-0);
-  --color-surface-raised: var(--mc-color-neutral-50);
-  --color-surface-sunken: var(--mc-color-neutral-100);
-  --color-text-default: var(--mc-color-neutral-900);
-  --color-text-muted: var(--mc-color-neutral-700);
-  --color-text-subtle: var(--mc-color-neutral-600);
-  --color-text-inverse: var(--mc-color-neutral-0);
-  --color-text-link: var(--mc-color-brand-600);
-  --color-action-destructive: var(--mc-color-red-500);
-  --color-action-destructive-foreground: var(--mc-color-neutral-0);
-  --color-action-destructive-hover: var(--mc-color-red-700);
-  --color-action-disabled: var(--mc-color-neutral-200);
-  --color-action-disabled-foreground: var(--mc-color-neutral-500);
-  --color-action-primary: var(--mc-color-brand-600);
-  --color-action-primary-active: var(--mc-color-brand-800);
-  --color-action-primary-foreground: var(--mc-color-neutral-0);
-  --color-action-primary-hover: var(--mc-color-brand-700);
-  --color-action-secondary: var(--mc-color-neutral-100);
-  --color-action-secondary-foreground: var(--mc-color-neutral-900);
-  --color-action-secondary-hover: var(--mc-color-neutral-200);
-  --color-border-default: var(--mc-color-neutral-200);
-  --color-border-focus: var(--mc-color-brand-600);
-  --color-border-strong: var(--mc-color-neutral-400);
-  --color-focus-ring: var(--mc-color-brand-500);
-  --color-status-danger: var(--mc-color-red-500);
-  --color-status-danger-foreground: var(--mc-color-neutral-0);
-  --color-status-info: var(--mc-color-blue-500);
-  --color-status-info-foreground: var(--mc-color-neutral-0);
-  --color-status-success: var(--mc-color-green-500);
-  --color-status-success-foreground: var(--mc-color-neutral-0);
-  --color-status-warning: var(--mc-color-amber-500);
-  --color-status-warning-foreground: var(--mc-color-neutral-1000);
   --spacing-0: 0px;
   --spacing-4: 4px;
   --spacing-8: 8px;
@@ -119,4 +56,41 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
   --ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+}
+
+/* Semantic colors — hand-authored; `inline` keeps the var() reference in utilities. */
+@theme inline {
+  --color-surface-default: var(--mc-surface-default);
+  --color-surface-raised: var(--mc-surface-raised);
+  --color-surface-sunken: var(--mc-surface-sunken);
+  --color-surface-overlay: var(--mc-surface-overlay);
+  --color-text-default: var(--mc-text-default);
+  --color-text-muted: var(--mc-text-muted);
+  --color-text-subtle: var(--mc-text-subtle);
+  --color-text-inverse: var(--mc-text-inverse);
+  --color-text-link: var(--mc-text-link);
+  --color-action-primary: var(--mc-action-primary);
+  --color-action-primary-hover: var(--mc-action-primary-hover);
+  --color-action-primary-active: var(--mc-action-primary-active);
+  --color-action-primary-foreground: var(--mc-action-primary-foreground);
+  --color-action-secondary: var(--mc-action-secondary);
+  --color-action-secondary-hover: var(--mc-action-secondary-hover);
+  --color-action-secondary-foreground: var(--mc-action-secondary-foreground);
+  --color-action-destructive: var(--mc-action-destructive);
+  --color-action-destructive-hover: var(--mc-action-destructive-hover);
+  --color-action-destructive-foreground: var(--mc-action-destructive-foreground);
+  --color-action-disabled: var(--mc-action-disabled);
+  --color-action-disabled-foreground: var(--mc-action-disabled-foreground);
+  --color-border-default: var(--mc-border-default);
+  --color-border-strong: var(--mc-border-strong);
+  --color-border-focus: var(--mc-border-focus);
+  --color-focus-ring: var(--mc-focus-ring);
+  --color-status-info: var(--mc-status-info);
+  --color-status-info-foreground: var(--mc-status-info-foreground);
+  --color-status-success: var(--mc-status-success);
+  --color-status-success-foreground: var(--mc-status-success-foreground);
+  --color-status-warning: var(--mc-status-warning);
+  --color-status-warning-foreground: var(--mc-status-warning-foreground);
+  --color-status-danger: var(--mc-status-danger);
+  --color-status-danger-foreground: var(--mc-status-danger-foreground);
 }

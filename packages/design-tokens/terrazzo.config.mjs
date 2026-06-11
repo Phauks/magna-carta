@@ -36,26 +36,10 @@ export default defineConfig({
       template: "../tailwind.template.css",
       filename: "tailwind-theme.css",
       theme: {
-        color: {
-          neutral: ["color.neutral.*"],
-          brand: ["color.brand.*"],
-          blue: ["color.blue.*"],
-          green: ["color.green.*"],
-          amber: ["color.amber.*"],
-          red: ["color.red.*"],
-          surface: ["surface.*"],
-          text: {
-            default: "text.default",
-            muted: "text.muted",
-            subtle: "text.subtle",
-            inverse: "text.inverse",
-            link: "text.link",
-          },
-          action: ["action.*"],
-          border: ["border.*"],
-          focus: ["focus.*"],
-          status: ["status.*"],
-        },
+        // No `color` mapping: the plugin inlines resolved alias targets (primitives),
+        // which would freeze semantic color utilities to light mode. Semantic colors
+        // are hand-mapped in tailwind.template.css via @theme inline instead, and
+        // primitive ramps are deliberately not exposed as Tailwind utilities.
         spacing: ["space.*"],
         radius: ["radius.*"],
         shadow: ["elevation.*"],
