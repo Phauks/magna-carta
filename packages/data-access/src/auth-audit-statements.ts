@@ -10,7 +10,7 @@ export interface AuthAuditInput {
   readonly id: AuthAuditId;
   readonly event: string; // e.g. 'sign_in.success', 'two_factor.enabled'
   readonly userId: UserId | null; // null for pre-identification events (e.g. a failed sign-in)
-  readonly metadata: unknown; // ids + non-privileged fields ONLY (ADR-0038); null = no metadata
+  readonly metadata: unknown; // ids + non-privileged fields ONLY (ADR-0038); null/undefined = no metadata
   readonly now: string; // ISO-8601 instant (ADR-0055)
 }
 
@@ -33,8 +33,10 @@ export function insertAuthAuditStatement(
     .bind(input.id, input.event, input.userId, metadata, input.now);
 }
 
-// Canary: refuse a literal `password` key anywhere in the metadata (case-insensitive, nested).
-// Values mentioning the word are fine — only a key trips it.
+// Canary: refuse any key CONTAINING `password` as a substring, anywhere in the metadata
+// (case-insensitive, nested) — catches `newPassword`, `currentPassword`, `passwordHash`, not just
+// the bare word. Values mentioning the word are fine — only a key trips it. No benign key
+// currently contains the substring; if one ever legitimately does, add an explicit allowlist here.
 function refuseUnredactedMetadata(value: unknown): void {
   if (Array.isArray(value)) {
     for (const entry of value) refuseUnredactedMetadata(entry);
@@ -42,9 +44,9 @@ function refuseUnredactedMetadata(value: unknown): void {
   }
   if (value !== null && typeof value === "object") {
     for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-      if (key.toLowerCase() === "password") {
+      if (key.toLowerCase().includes("password")) {
         throw new Error(
-          "auth_audit metadata contains a 'password' key — redact at the call site before logging (ADR-0038)",
+          `auth_audit metadata key '${key}' contains 'password' — redact at the call site before logging (ADR-0038)`,
         );
       }
       refuseUnredactedMetadata(entry);

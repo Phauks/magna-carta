@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import {
-  assignRoleStatement,
   insertMemberStatement,
+  insertRoleAssignmentStatement,
   selectMemberPermissionsStatements,
 } from "../src/member-statements.ts";
 import { captured, stubD1 } from "./support/stub-d1.ts";
@@ -36,13 +36,15 @@ describe("insertMemberStatement", () => {
   });
 });
 
-describe("assignRoleStatement", () => {
+describe("insertRoleAssignmentStatement", () => {
   it("inserts the assignment with ON CONFLICT DO NOTHING (replay-safe, UNIQUE-backed)", () => {
     const stub = stubD1();
     const id = newIdentifier("memberRole");
     const memberUserId = newIdentifier("user");
     const roleId = newIdentifier("role");
-    const statement = captured(assignRoleStatement(stub.database, { id, memberUserId, roleId }));
+    const statement = captured(
+      insertRoleAssignmentStatement(stub.database, { id, memberUserId, roleId }),
+    );
     expect(statement.sql).toContain("INSERT INTO member_role");
     expect(statement.sql).toContain("ON CONFLICT DO NOTHING");
     expect(statement.bindings).toEqual([id, memberUserId, roleId]);

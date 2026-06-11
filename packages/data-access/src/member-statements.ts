@@ -37,7 +37,7 @@ export interface RoleAssignmentInput {
   readonly roleId: RoleId;
 }
 
-export function assignRoleStatement(
+export function insertRoleAssignmentStatement(
   database: SqlDatabase,
   input: RoleAssignmentInput,
 ): SqlStatement {
@@ -52,6 +52,8 @@ export function assignRoleStatement(
 // @magna-carta/access-control's effectivePermissions resolver. Rows pass through structurally:
 // { permission } and { permission, expires_at }. Expiry is deliberately NOT filtered in SQL — the
 // resolver owns the boundary rule (a grant expiring exactly at `now` is already expired, ADR-0068).
+// Duplicates are possible on the role-permissions join when held roles share a permission; the
+// resolver's Set dedupes — DISTINCT deliberately omitted.
 export interface MemberPermissionsStatements {
   readonly rolePermissions: SqlStatement; // rows: { permission }
   readonly directGrants: SqlStatement; // rows: { permission, expires_at }

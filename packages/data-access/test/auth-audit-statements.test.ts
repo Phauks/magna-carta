@@ -61,6 +61,10 @@ describe("insertAuthAuditStatement", () => {
     expect(() => build({ password: "hunter2" })).toThrow(/password/);
     // The canary walks nested objects and is case-insensitive on the key name.
     expect(() => build({ context: { Password: "hunter2" } })).toThrow(/password/);
+    // Substring match — keys merely CONTAINING the word trip it too.
+    expect(() => build({ newPassword: "hunter3" })).toThrow(/password/);
+    expect(() => build({ context: { currentPassword: "hunter2" } })).toThrow(/password/);
+    expect(() => build({ passwordHash: "deadbeef" })).toThrow(/password/);
     // A *value* mentioning the word is fine — only a key trips the canary.
     expect(() => build({ method: "password" })).not.toThrow();
   });

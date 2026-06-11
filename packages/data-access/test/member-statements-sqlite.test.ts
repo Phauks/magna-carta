@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { UserId } from "@magna-carta/identifiers/types";
 import {
-  assignRoleStatement,
   insertMemberStatement,
+  insertRoleAssignmentStatement,
   selectMemberPermissionsStatements,
 } from "../src/member-statements.ts";
 import { captured, stubD1 } from "./support/stub-d1.ts";
@@ -16,7 +16,8 @@ import { captured, stubD1 } from "./support/stub-d1.ts";
 describe("member statements against real SQLite (replay no-op + read shape)", () => {
   function setupDatabase() {
     const database = new DatabaseSync(":memory:");
-    // Mirrors drizzle/per-firm/0002_member-rbac.sql (names guarded by schema-name-sync.test.ts).
+    // Mirrors drizzle/per-firm/0002_member-rbac.sql (names guarded by schema-name-sync.test.ts);
+    // foreign keys omitted — parent rows are out of scope here, and the pinned facts don't involve FKs.
     database.exec(
       `CREATE TABLE member (
         user_id TEXT PRIMARY KEY,
@@ -87,10 +88,18 @@ describe("member statements against real SQLite (replay no-op + read shape)", ()
     const memberUserId = newIdentifier("user");
     const roleId = newIdentifier("role");
     const original = capturedStatement((stub) =>
-      assignRoleStatement(stub, { id: newIdentifier("memberRole"), memberUserId, roleId }),
+      insertRoleAssignmentStatement(stub, {
+        id: newIdentifier("memberRole"),
+        memberUserId,
+        roleId,
+      }),
     );
     const replay = capturedStatement((stub) =>
-      assignRoleStatement(stub, { id: newIdentifier("memberRole"), memberUserId, roleId }),
+      insertRoleAssignmentStatement(stub, {
+        id: newIdentifier("memberRole"),
+        memberUserId,
+        roleId,
+      }),
     );
     database.prepare(original.sql).run(...original.bindings);
     database.prepare(replay.sql).run(...replay.bindings);
