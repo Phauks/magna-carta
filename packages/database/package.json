@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
+    "@magna-carta/access-control": "workspace:*",
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "drizzle-kit": "catalog:",

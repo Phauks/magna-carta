@@ -23,16 +23,33 @@ const BETTER_AUTH_TABLE_NAMES = new Set([
 describe("schema conformance (fitness functions)", () => {
   it("found the expected tables (guards the enumeration itself)", () => {
     // control-plane: firm + the five Better Auth tables + auth_audit + outbox + idempotency_key (9);
-    // per-firm: idempotency_key, outbox, ledger_account, ledger_entry, ledger_line, account_balance (6).
-    expect(ALL_TABLES.length).toBeGreaterThanOrEqual(15);
+    // per-firm: idempotency_key, outbox, ledger_account, ledger_entry, ledger_line, account_balance,
+    // member, role, role_permission, member_role, direct_grant (11).
+    expect(ALL_TABLES.length).toBeGreaterThanOrEqual(20);
+  });
+
+  it("auth tables exist ONLY in the control-plane lineage — never in the per-firm schema", () => {
+    // Tenancy boundary (ADR-0003): credentials and sessions live in the control plane; each firm's
+    // D1 carries only the member MIRROR (keyed by the global user handle), never auth state.
+    const perFirmTableNames = new Set(
+      (Object.values(perFirmSchema) as unknown[])
+        .filter((candidate): candidate is SQLiteTable => candidate instanceof SQLiteTable)
+        .map((table) => getTableConfig(table).name),
+    );
+    for (const authTableName of BETTER_AUTH_TABLE_NAMES) {
+      expect(perFirmTableNames.has(authTableName), authTableName).toBe(false);
+    }
   });
 
   it("every table's primary key is a TEXT identifier handle named id (ADR-0062)", () => {
     // Sanctioned exceptions: 1:1 extension tables keyed by the OWNING entity's handle. The primary
     // key is still a TEXT identifier handle (ADR-0062) — it is the owner's, not a fresh one.
     // account_balance is the materialized balance row of its ledger_account (ADR-0072).
+    // member is the per-firm mirror of the control-plane user — keyed by the GLOBAL usr_ handle,
+    // the join key across planes (white paper, Core domain).
     const extensionTablePrimaryKeyNames: Record<string, string> = {
       account_balance: "account_id",
+      member: "user_id",
     };
     for (const table of ALL_TABLES) {
       const config = getTableConfig(table);

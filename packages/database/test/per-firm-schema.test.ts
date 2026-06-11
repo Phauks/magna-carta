@@ -1,13 +1,27 @@
-import { getTableConfig } from "drizzle-orm/sqlite-core";
+import { getTableConfig, SQLiteTable } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
-import { idempotencyKey, outbox } from "../src/per-firm-schema.ts";
+import {
+  directGrant,
+  idempotencyKey,
+  member,
+  memberRole,
+  outbox,
+  role,
+  rolePermission,
+} from "../src/per-firm-schema.ts";
 
-const columnOf = (table: typeof idempotencyKey | typeof outbox, name: string) => {
+const columnOf = (table: SQLiteTable, name: string) => {
   const config = getTableConfig(table);
   const found = config.columns.find((candidate) => candidate.name === name);
   if (!found) throw new Error(`expected column ${name} on ${config.name}`);
   return found;
 };
+
+// Unique constraints (drizzle `unique().on(...)`) as comparable column-name lists.
+const uniqueConstraintColumnsOf = (table: SQLiteTable) =>
+  getTableConfig(table).uniqueConstraints.map((constraint) =>
+    constraint.columns.map((column) => column.name),
+  );
 
 describe("per-firm schema: idempotency_key (ADR-0063)", () => {
   it("matches the spec columns", () => {
@@ -52,5 +66,78 @@ describe("per-firm schema: outbox (ADR-0064)", () => {
       index.config.columns.some((column) => "name" in column && column.name === "status"),
     );
     expect(sweepIndex).toBeDefined();
+  });
+});
+
+describe("per-firm schema: member (the per-firm mirror of the control-plane user)", () => {
+  it("is keyed by the GLOBAL user handle — the join key across planes, not a fresh id", () => {
+    const config = getTableConfig(member);
+    expect(config.name).toBe("member");
+    expect(columnOf(member, "user_id").primary).toBe(true);
+    expect(columnOf(member, "user_id").getSQLType()).toBe("text"); // usr_ handle
+  });
+
+  it("matches the spec columns", () => {
+    expect(columnOf(member, "display_name").notNull).toBe(true);
+    const status = columnOf(member, "status");
+    expect(status.notNull).toBe(true);
+    expect(status.default).toBe("active");
+    expect(columnOf(member, "created_at").getSQLType()).toBe("text"); // ISO-8601 instant (ADR-0055)
+  });
+});
+
+describe("per-firm schema: role + role_permission (roles as data, ADR-0068)", () => {
+  it("role matches the spec columns with a unique name", () => {
+    const config = getTableConfig(role);
+    expect(config.name).toBe("role");
+    expect(columnOf(role, "id").primary).toBe(true);
+    expect(columnOf(role, "id").getSQLType()).toBe("text"); // rol_ handle
+    expect(columnOf(role, "name").notNull).toBe(true);
+    expect(columnOf(role, "name").isUnique).toBe(true);
+    expect(columnOf(role, "created_at").getSQLType()).toBe("text");
+  });
+
+  it("role_permission links role -> permission key, unique per pair", () => {
+    const config = getTableConfig(rolePermission);
+    expect(config.name).toBe("role_permission");
+    expect(columnOf(rolePermission, "id").primary).toBe(true);
+    expect(columnOf(rolePermission, "id").getSQLType()).toBe("text"); // rpm_ handle
+    expect(columnOf(rolePermission, "role_id").notNull).toBe(true);
+    expect(columnOf(rolePermission, "permission").notNull).toBe(true);
+    expect(config.foreignKeys).toHaveLength(1); // role_id -> role.id
+    expect(uniqueConstraintColumnsOf(rolePermission)).toEqual([["role_id", "permission"]]);
+  });
+});
+
+describe("per-firm schema: member_role (assignment, unique per member+role)", () => {
+  it("matches the spec columns and foreign keys", () => {
+    const config = getTableConfig(memberRole);
+    expect(config.name).toBe("member_role");
+    expect(columnOf(memberRole, "id").primary).toBe(true);
+    expect(columnOf(memberRole, "id").getSQLType()).toBe("text"); // mrl_ handle
+    expect(columnOf(memberRole, "member_user_id").notNull).toBe(true);
+    expect(columnOf(memberRole, "role_id").notNull).toBe(true);
+    expect(config.foreignKeys).toHaveLength(2); // member_user_id -> member.user_id, role_id -> role.id
+    expect(uniqueConstraintColumnsOf(memberRole)).toEqual([["member_user_id", "role_id"]]);
+  });
+});
+
+describe("per-firm schema: direct_grant (per-member permission, optionally expiring)", () => {
+  it("matches the spec columns", () => {
+    const config = getTableConfig(directGrant);
+    expect(config.name).toBe("direct_grant");
+    expect(columnOf(directGrant, "id").primary).toBe(true);
+    expect(columnOf(directGrant, "id").getSQLType()).toBe("text"); // gnt_ handle
+    expect(columnOf(directGrant, "member_user_id").notNull).toBe(true);
+    expect(columnOf(directGrant, "permission").notNull).toBe(true);
+    expect(columnOf(directGrant, "expires_at").notNull).toBe(false); // null = no expiry
+    expect(columnOf(directGrant, "expires_at").getSQLType()).toBe("text"); // ISO-8601 instant (ADR-0055)
+    expect(columnOf(directGrant, "granted_by").notNull).toBe(true);
+    expect(columnOf(directGrant, "created_at").notNull).toBe(true);
+  });
+
+  it("foreign-keys ONLY member_user_id — granted_by is an audit fact that must outlive the granter", () => {
+    const config = getTableConfig(directGrant);
+    expect(config.foreignKeys).toHaveLength(1); // member_user_id -> member.user_id
   });
 });

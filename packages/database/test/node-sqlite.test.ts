@@ -26,9 +26,35 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
       "ledger_entry",
       "ledger_line",
       "outbox",
+      "member",
+      "role",
+      "role_permission",
+      "member_role",
+      "direct_grant",
     ]) {
       expect(names).toContain(expected);
     }
+  });
+
+  it("the role seed actually executes: five default roles, manage-members on Owner/Admin only", () => {
+    const raw = freshPerFirmDatabase();
+    const roles = raw.prepare("SELECT id, name FROM role ORDER BY name").all() as {
+      id: string;
+      name: string;
+    }[];
+    expect(roles.map((row) => row.name)).toEqual([
+      "Attorney",
+      "Billing",
+      "Owner/Admin",
+      "Paralegal",
+      "Read-only",
+    ]);
+    const grants = raw.prepare("SELECT role_id, permission FROM role_permission").all() as {
+      role_id: string;
+      permission: string;
+    }[];
+    const ownerAdmin = roles.find((row) => row.name === "Owner/Admin");
+    expect(grants).toEqual([{ role_id: ownerAdmin?.id, permission: "firm:manageMembers" }]);
   });
 
   it("prepare/bind/run/all round-trips and batch() is atomic (all-or-nothing)", async () => {

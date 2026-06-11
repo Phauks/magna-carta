@@ -1,5 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { PERMISSIONS } from "@magna-carta/access-control/registry";
+import { isIdentifier } from "@magna-carta/identifiers/validate";
 import { describe, expect, it } from "vitest";
 import { migrationsFromJournal, type MigrationJournal } from "../src/migration.ts";
 
@@ -64,5 +66,92 @@ describe("generated migrations (committed artifacts)", () => {
     expect(allSql).toContain("ledger_line_direction_check");
     expect(allSql).toContain("ledger_account_name_nonempty_check");
     expect(allSql).toContain("ledger_entry_description_nonempty_check");
+  });
+
+  it("per-firm 0002 creates the RBAC tables and seeds the five default roles", async () => {
+    const migrations = await loadLineage("per-firm");
+    expect(migrations.length).toBeGreaterThanOrEqual(3);
+    expect(migrations[2]?.tag).toMatch(/^0002_/);
+    const statements = migrations[2]?.statements ?? [];
+    const sql = statements.join("\n");
+    for (const tableName of ["member", "role", "role_permission", "member_role", "direct_grant"]) {
+      expect(sql, tableName).toContain(`CREATE TABLE \`${tableName}\``);
+    }
+    const roleSeeds = statements
+      .filter((statement) => statement.includes("INSERT INTO `role`"))
+      .map(parseSingleRowInsert);
+    const seededRoleNames = roleSeeds.map((seed) => String(seed.name));
+    seededRoleNames.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    expect(seededRoleNames).toEqual([
+      "Attorney",
+      "Billing",
+      "Owner/Admin",
+      "Paralegal",
+      "Read-only",
+    ]);
+    for (const seed of roleSeeds) {
+      // The seeded handles were minted ONCE and committed as literals — every firm's defaults match.
+      expect(isIdentifier(seed.id, "role"), String(seed.id)).toBe(true);
+      expect(seed.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/); // ADR-0055
+    }
+    const ownerAdmin = roleSeeds.find((seed) => seed.name === "Owner/Admin");
+    const permissionSeeds = statements
+      .filter((statement) => statement.includes("INSERT INTO `role_permission`"))
+      .map(parseSingleRowInsert);
+    // firm:manageMembers goes to Owner/Admin ONLY — the other four defaults start permissionless.
+    expect(permissionSeeds).toHaveLength(1);
+    expect(permissionSeeds[0]?.role_id).toBe(ownerAdmin?.id);
+    expect(permissionSeeds[0]?.permission).toBe("firm:manageMembers");
+    expect(isIdentifier(permissionSeeds[0]?.id, "rolePermission")).toBe(true);
+  });
+
+  it("per-firm lineage never creates the auth tables — they are control-plane only", async () => {
+    const migrations = await loadLineage("per-firm");
+    const allSql = migrations.flatMap((migration) => migration.statements).join("\n");
+    for (const tableName of ["user", "session", "account", "verification", "two_factor"]) {
+      expect(allSql, tableName).not.toContain(`CREATE TABLE \`${tableName}\``);
+    }
+  });
+});
+
+// One INSERT, one row, drizzle backtick column style — what the seed SQL in this repo looks like.
+// Values must be single-quoted literals or NULL; anything else fails loud so the parser cannot
+// silently misread a future seed.
+function parseSingleRowInsert(statement: string): Record<string, string | null> {
+  const match = /INSERT INTO `\w+` \(([^)]*)\) VALUES \((.*)\);?$/su.exec(statement);
+  if (!match) throw new Error(`unparseable seed INSERT: ${statement}`);
+  const columns = (match[1] ?? "").split(",").map((column) => column.trim().replaceAll("`", ""));
+  const values = (match[2] ?? "").split(",").map((value) => {
+    const trimmed = value.trim();
+    if (trimmed === "NULL") return null;
+    const quoted = /^'((?:[^']|'')*)'$/su.exec(trimmed);
+    if (!quoted) throw new Error(`unparseable seed value ${trimmed} in: ${statement}`);
+    return (quoted[1] ?? "").replaceAll("''", "'");
+  });
+  if (columns.length !== values.length) throw new Error(`column/value mismatch in: ${statement}`);
+  return Object.fromEntries(columns.map((column, index) => [column, values[index] ?? null]));
+}
+
+describe("seed permission values stay inside the registry (fitness function)", () => {
+  it("every role_permission/direct_grant permission seeded by ANY committed migration is registered", async () => {
+    const registered = new Set<string>(PERMISSIONS);
+    let seedCount = 0;
+    for (const lineage of ["control-plane", "per-firm"] as const) {
+      const migrations = await loadLineage(lineage);
+      for (const migration of migrations) {
+        for (const statement of migration.statements) {
+          if (!/INSERT INTO `(role_permission|direct_grant)`/u.test(statement)) continue;
+          seedCount += 1;
+          const row = parseSingleRowInsert(statement);
+          const permission = row["permission"];
+          expect(typeof permission, `${migration.tag}: ${statement}`).toBe("string");
+          expect(
+            registered.has(permission as string),
+            `${migration.tag} seeds unregistered permission ${String(permission)}`,
+          ).toBe(true);
+        }
+      }
+    }
+    expect(seedCount).toBeGreaterThanOrEqual(1); // the parse actually covered the committed seed
   });
 });

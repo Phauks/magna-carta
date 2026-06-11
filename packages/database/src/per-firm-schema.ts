@@ -1,12 +1,25 @@
-import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import {
+  check,
+  index,
+  integer,
+  sqliteTable,
+  text,
+  unique,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import type {
+  GrantId,
   IdempotencyRecordId,
   LedgerAccountId,
   LedgerEntryId,
   LedgerLineId,
+  MemberRoleId,
   OutboxId,
+  RoleId,
+  RolePermissionId,
+  UserId,
 } from "@magna-carta/identifiers/types";
 
 // PER-FIRM LINEAGE. Every tenant firm's D1 carries these tables; drizzle-kit generates per-firm
@@ -49,6 +62,74 @@ export const outbox = sqliteTable(
   },
   (table) => [index("outbox_status_created_at_index").on(table.status, table.createdAt)],
 );
+
+// Per-firm RBAC (ADR-0068): roles are DATA, permissions are registry keys. The permission registry
+// and the effective-permissions resolver live in @magna-carta/access-control — this package only
+// defines the structure. Auth state (credentials, sessions) never lives here: it is control-plane only.
+
+// The per-firm mirror of the control-plane user. Keyed by the GLOBAL usr_ handle — the join key
+// across planes (white paper, Core domain) — never a fresh per-firm id.
+export const member = sqliteTable("member", {
+  userId: text("user_id").primaryKey().$type<UserId>(), // the global join key (white paper)
+  displayName: text("display_name").notNull(),
+  status: text("status").notNull().default("active"), // active | deactivated
+  createdAt: text("created_at").notNull(), // ISO-8601 instant (ADR-0055)
+});
+
+// A named bundle of permissions. Five defaults are SEEDED by migration with handles minted once and
+// committed as literals, so every firm's defaults match byte-for-byte.
+export const role = sqliteTable("role", {
+  id: text("id").primaryKey().$type<RoleId>(), // rol_ handle
+  name: text("name").notNull().unique(),
+  createdAt: text("created_at").notNull(),
+});
+
+// role -> permission key. The value is a registry key from @magna-carta/access-control — a fitness
+// test cross-checks every seeded value against the registry.
+export const rolePermission = sqliteTable(
+  "role_permission",
+  {
+    id: text("id").primaryKey().$type<RolePermissionId>(), // rpm_ handle
+    roleId: text("role_id")
+      .notNull()
+      .$type<RoleId>()
+      .references(() => role.id),
+    permission: text("permission").notNull(),
+  },
+  (table) => [unique().on(table.roleId, table.permission)],
+);
+
+// Assignment: which members hold which roles. UNIQUE makes a duplicate assignment structurally
+// impossible — a racing duplicate fails loud instead of double-assigning.
+export const memberRole = sqliteTable(
+  "member_role",
+  {
+    id: text("id").primaryKey().$type<MemberRoleId>(), // mrl_ handle
+    memberUserId: text("member_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    roleId: text("role_id")
+      .notNull()
+      .$type<RoleId>()
+      .references(() => role.id),
+  },
+  (table) => [unique().on(table.memberUserId, table.roleId)],
+);
+
+// A per-member permission outside any role, optionally expiring. granted_by is deliberately NOT a
+// foreign key — the audit fact must outlive the granter's member row.
+export const directGrant = sqliteTable("direct_grant", {
+  id: text("id").primaryKey().$type<GrantId>(), // gnt_ handle
+  memberUserId: text("member_user_id")
+    .notNull()
+    .$type<UserId>()
+    .references(() => member.userId),
+  permission: text("permission").notNull(),
+  expiresAt: text("expires_at"), // null = no expiry; ISO-8601 instant (ADR-0055)
+  grantedBy: text("granted_by").notNull().$type<UserId>(),
+  createdAt: text("created_at").notNull(),
+});
 
 // Append-only double-entry ledger (ADR-0008, posting model ADR-0072). Structure only — the posting
 // service, validation, and balance composition live in @magna-carta/ledger.
