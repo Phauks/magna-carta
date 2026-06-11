@@ -69,8 +69,8 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
         },
       },
     },
-    // databaseHooks.session.create.after is the seam where the sign-in audit write lands
-    // (writeAuthAudit — Task 13); deliberately not wired yet.
+    // databaseHooks is deliberately absent: the session.create.after audit write (login.success)
+    // is wired in Task 13 alongside the auth_audit statement builder.
     plugins: [twoFactor()],
   });
 }

@@ -134,7 +134,9 @@ describe("schema-sync fitness: better-auth against the committed control-plane m
     });
     expect(twoFactorRow.id).toMatch(/^twf_/);
 
-    // Read side: the adapter's field transforms must line up with the stored columns too.
+    // Read side: the adapter's field transforms must line up with the stored columns too —
+    // read every one of the five models back, querying by a non-id field where one exists so
+    // the where-clause transforms are exercised as well.
     const foundUser = await adapter.findOne<{ id: string; email: string; firmId: string }>({
       model: "user",
       where: [{ field: "id", value: user.id }],
@@ -146,5 +148,29 @@ describe("schema-sync fitness: better-auth against the committed control-plane m
       where: [{ field: "token", value: "fitness-session-token" }],
     });
     expect(foundSession?.id).toBe(session.id);
+
+    const foundAccount = await adapter.findOne<{ id: string; providerId: string }>({
+      model: "account",
+      where: [{ field: "userId", value: user.id }],
+    });
+    expect(foundAccount).toMatchObject({ id: account.id, providerId: "credential" });
+
+    const foundVerification = await adapter.findOne<{ id: string; value: string }>({
+      model: "verification",
+      where: [{ field: "identifier", value: "email-verification:fitness@example.com" }],
+    });
+    expect(foundVerification).toMatchObject({
+      id: verification.id,
+      value: "fitness-verification-value",
+    });
+
+    const foundTwoFactor = await adapter.findOne<{ id: string; secret: string }>({
+      model: "twoFactor",
+      where: [{ field: "userId", value: user.id }],
+    });
+    expect(foundTwoFactor).toMatchObject({
+      id: twoFactorRow.id,
+      secret: "encrypted-totp-secret-placeholder",
+    });
   });
 });
