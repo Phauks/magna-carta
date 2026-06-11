@@ -1,0 +1,47 @@
+{
+  "surface": {
+    "default": { "$type": "color", "$value": "{color.neutral.1000}" },
+    "raised": { "$type": "color", "$value": "{color.neutral.900}" },
+    "sunken": { "$type": "color", "$value": "{color.neutral.1000}" },
+    "overlay": { "$type": "color", "$value": "{color.neutral.900}" }
+  },
+  "text": {
+    "default": { "$type": "color", "$value": "{color.neutral.50}" },
+    "muted": { "$type": "color", "$value": "{color.neutral.300}" },
+    "subtle": { "$type": "color", "$value": "{color.neutral.400}" },
+    "inverse": { "$type": "color", "$value": "{color.neutral.1000}" },
+    "link": { "$type": "color", "$value": "{color.brand.300}" }
+  },
+  "action": {
+    "primary": { "$type": "color", "$value": "{color.brand.400}" },
+    "primary-hover": { "$type": "color", "$value": "{color.brand.300}" },
+    "primary-active": { "$type": "color", "$value": "{color.brand.200}" },
+    "primary-foreground": { "$type": "color", "$value": "{color.neutral.1000}" },
+    "secondary": { "$type": "color", "$value": "{color.neutral.800}" },
+    "secondary-hover": { "$type": "color", "$value": "{color.neutral.700}" },
+    "secondary-foreground": { "$type": "color", "$value": "{color.neutral.50}" },
+    "destructive": { "$type": "color", "$value": "{color.red.500}" },
+    "destructive-hover": { "$type": "color", "$value": "{color.red.100}" },
+    "destructive-foreground": { "$type": "color", "$value": "{color.neutral.1000}" },
+    "disabled": { "$type": "color", "$value": "{color.neutral.800}" },
+    "disabled-foreground": { "$type": "color", "$value": "{color.neutral.600}" }
+  },
+  "border": {
+    "default": { "$type": "color", "$value": "{color.neutral.800}" },
+    "strong": { "$type": "color", "$value": "{color.neutral.600}" },
+    "focus": { "$type": "color", "$value": "{color.brand.400}" }
+  },
+  "focus": {
+    "ring": { "$type": "color", "$value": "{color.brand.400}" }
+  },
+  "status": {
+    "info": { "$type": "color", "$value": "{color.blue.500}" },
+    "info-foreground": { "$type": "color", "$value": "{color.neutral.1000}" },
+    "success": { "$type": "color", "$value": "{color.green.500}" },
+    "success-foreground": { "$type": "color", "$value": "{color.neutral.1000}" },
+    "warning": { "$type": "color", "$value": "{color.amber.500}" },
+    "warning-foreground": { "$type": "color", "$value": "{color.neutral.1000}" },
+    "danger": { "$type": "color", "$value": "{color.red.500}" },
+    "danger-foreground": { "$type": "color", "$value": "{color.neutral.1000}" }
+  }
+}

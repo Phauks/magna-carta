@@ -1,0 +1,45 @@
+{
+  "name": "Magna Carta design tokens",
+  "description": "Resolver for the Magna Carta design-token source: primitive ramps + semantic aliases, modified by theme and mode. Mode files override only semantic aliases (ramp positions), so a future theme is a pure addition: a new theme context overriding ramp values plus, if needed, its own mode overlays.",
+  "version": "2025.10",
+  "sets": {
+    "primitives": {
+      "description": "Primitive scales: color ramps, dimensions, typography, shadows, z-index, motion.",
+      "sources": [
+        { "$ref": "tokens/primitives/color.json" },
+        { "$ref": "tokens/primitives/dimension.json" },
+        { "$ref": "tokens/primitives/typography.json" },
+        { "$ref": "tokens/primitives/shadow.json" },
+        { "$ref": "tokens/primitives/z-index.json" },
+        { "$ref": "tokens/primitives/motion.json" }
+      ]
+    },
+    "semantic": {
+      "description": "Semantic aliases onto primitives; the only names components consume.",
+      "sources": [{ "$ref": "tokens/semantic.json" }]
+    }
+  },
+  "modifiers": {
+    "theme": {
+      "description": "Visual theme. slate is the provisional default; new themes add a context here.",
+      "contexts": {
+        "slate": []
+      },
+      "default": "slate"
+    },
+    "mode": {
+      "description": "Light or dark color mode; overrides color-bearing semantic aliases.",
+      "contexts": {
+        "light": [{ "$ref": "tokens/themes/slate-light.json" }],
+        "dark": [{ "$ref": "tokens/themes/slate-dark.json" }]
+      },
+      "default": "light"
+    }
+  },
+  "resolutionOrder": [
+    { "$ref": "#/sets/primitives" },
+    { "$ref": "#/sets/semantic" },
+    { "$ref": "#/modifiers/theme" },
+    { "$ref": "#/modifiers/mode" }
+  ]
+}

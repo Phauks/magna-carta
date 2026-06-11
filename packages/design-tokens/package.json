@@ -1,0 +1,26 @@
+{
+  "name": "@magna-carta/design-tokens",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./tokens.css": "./generated/tokens.css",
+    "./tailwind-theme.css": "./generated/tailwind-theme.css",
+    "./contrast-pairs": "./src/contrast-pairs.ts"
+  },
+  "scripts": {
+    "build": "tz build",
+    "test": "vp test run"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@terrazzo/cli": "catalog:",
+    "@terrazzo/plugin-css": "catalog:",
+    "@terrazzo/plugin-tailwind": "catalog:",
+    "@types/node": "catalog:",
+    "culori": "catalog:",
+    "@types/culori": "catalog:",
+    "vitest": "catalog:"
+  }
+}

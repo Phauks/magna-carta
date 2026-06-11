@@ -1,0 +1,9 @@
+/*
+ * Template for generated/tailwind-theme.css (@terrazzo/plugin-tailwind).
+ * The @tz at-rule expands to the Tailwind v4 theme variables for the default
+ * theme-and-mode permutation. Semantic tokens expand to var(--mc-...) references,
+ * so utilities follow the active theme and mode selectors in generated/tokens.css.
+ */
+@theme {
+  @tz (theme: "slate", mode: "light");
+}
