@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 // Golden-file gate: generated/tokens.css and generated/tailwind-theme.css must be
 // byte-identical to their committed twins in test/golden/. This is the
-// Style-Dictionary-escape-hatch insurance (spec §2.5): if the generator is ever swapped
+// Style-Dictionary-escape-hatch insurance (design spec, "Gates"; ADR-0076): if the generator is ever swapped
 // (Terrazzo → Style Dictionary or anything else) or Terrazzo is upgraded, the new
 // pipeline is verified mechanically against known-good output instead of by eyeball.
 //
@@ -65,7 +65,7 @@ describe("golden directory shape", () => {
 });
 
 describe("generated CSS matches the committed golden files byte-for-byte", () => {
-  it.each(EXPECTED_GOLDEN_FILES)("generated/%s equals test/golden/%s", (file) => {
+  it.each(EXPECTED_GOLDEN_FILES)("generated/%s equals its test/golden twin", (file) => {
     const generated = readFileSync(join(GENERATED_DIRECTORY, file), "utf8");
     const golden = readFileSync(join(GOLDEN_DIRECTORY, file), "utf8");
     if (generated !== golden) {
