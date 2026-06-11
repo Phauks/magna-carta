@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseGeneratedCss, parseGeneratedCssText } from "../src/parse-generated-css.ts";
@@ -105,6 +105,12 @@ describe("the generated-CSS parser (policy self-check)", () => {
   it("rejects CSS it does not understand rather than silently skipping it", () => {
     expect(() => parseGeneratedCssText(":root { color: red }")).toThrow();
   });
+
+  it("rejects two declarations merged onto one line rather than parsing a corrupt value", () => {
+    expect(() =>
+      parseGeneratedCssText(':root[data-theme="example"] {\n--mc-a: 1px; --mc-b: 2px;\n}\n'),
+    ).toThrow(/Unrecognized line/);
+  });
 });
 
 describe("semantic token collection (self-check + source sanity)", () => {
@@ -121,6 +127,42 @@ describe("semantic token collection (self-check + source sanity)", () => {
     expect(semanticTokenNames).toContain("surface.default");
     expect(semanticTokenNames).toContain("action.primary-hover");
     expect(semanticTokenNames).toContain("density.control-height");
+  });
+});
+
+// Mode overlays must be a subset of the semantic token names. A typo'd name in a mode
+// overlay generates a stray `--mc-*` variable and leaves the real token un-darkened while
+// every other gate stays green: the completeness sweep only checks that semantic names are
+// PRESENT (the un-darkened token still inherits the default-mode value), and the stray
+// variable is extra, not missing — the one silent half-theming bug the gates didn't catch.
+describe("mode overlays are subsets of tokens/semantic.json (tokens/modes/*.json)", () => {
+  const MODES_DIRECTORY = join(PACKAGE_ROOT, "tokens", "modes");
+  const semanticNameSet = new Set(semanticTokenNames);
+
+  /** The token names in an overlay document that name no semantic token. */
+  function findStrayOverlayNames(overlayDocument: unknown): string[] {
+    return collectTokenNames(overlayDocument).filter((name) => !semanticNameSet.has(name));
+  }
+
+  const modeFiles = readdirSync(MODES_DIRECTORY).filter((entry) => entry.endsWith(".json"));
+
+  it("finds the mode overlay files", () => {
+    // Guards the directory listing itself: an empty sweep would vacuously pass below.
+    expect(modeFiles).toContain("dark.json");
+  });
+
+  it("the stray-name check itself catches a typo'd overlay token (self-check)", () => {
+    const crafted = {
+      surface: { default: { $type: "color", $value: "#000" } },
+      text: { defualt: { $type: "color", $value: "#fff" } }, // typo'd "default"
+    };
+    expect(findStrayOverlayNames(crafted)).toEqual(["text.defualt"]);
+  });
+
+  it.each(modeFiles)("%s names only tokens that exist in semantic.json", (file) => {
+    const overlay: unknown = JSON.parse(readFileSync(join(MODES_DIRECTORY, file), "utf8"));
+    expect(collectTokenNames(overlay).length).toBeGreaterThan(0);
+    expect(findStrayOverlayNames(overlay)).toEqual([]);
   });
 });
 

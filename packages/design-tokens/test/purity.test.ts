@@ -39,6 +39,24 @@ function findForbiddenDollarKeys(node: unknown, path = ""): string[] {
   return offenders;
 }
 
+/**
+ * Walk a parsed JSON tree and return the path of every object carrying `$value` without its
+ * own `$type`. DTCG allows group-level `$type` inheritance, but the completeness gate's
+ * color filter (completeness.test.ts) reads the token's OWN `$type` — an inherited-only
+ * `$type` would let a future color token silently dodge that gate, so we require it inline.
+ */
+function findTokensWithoutOwnType(node: unknown, path = ""): string[] {
+  if (node === null || typeof node !== "object" || Array.isArray(node)) return [];
+  const record = node as Record<string, unknown>;
+  if ("$value" in record) return "$type" in record ? [] : [path];
+  const offenders: string[] = [];
+  for (const [key, value] of Object.entries(record)) {
+    if (key.startsWith("$")) continue;
+    offenders.push(...findTokensWithoutOwnType(value, path === "" ? key : `${path}.${key}`));
+  }
+  return offenders;
+}
+
 /** Walk a parsed JSON tree and return the path of every key with the given name. */
 function findKeyNamed(node: unknown, keyName: string, path = ""): string[] {
   if (node === null || typeof node !== "object") return [];
@@ -77,6 +95,17 @@ describe("the purity walkers themselves catch violations (self-check)", () => {
     const clean = { group: { $description: "x", token: { $type: "color", $value: "#fff" } } };
     expect(findForbiddenDollarKeys(clean)).toEqual([]);
   });
+
+  it("flags a token relying on group-level $type inheritance, accepts inline $type", () => {
+    const crafted = {
+      group: {
+        $type: "color",
+        inherited: { $value: "#fff" }, // valid DTCG, but dodges the own-$type gate
+        inline: { $type: "color", $value: "#000" },
+      },
+    };
+    expect(findTokensWithoutOwnType(crafted)).toEqual(["group.inherited"]);
+  });
 });
 
 describe("token source purity (tokens/**/*.json)", () => {
@@ -91,9 +120,19 @@ describe("token source purity (tokens/**/*.json)", () => {
 
   it.each(tokenFiles)("%s parses as JSON and uses only allowlisted DTCG $-keys", (file) => {
     const parsed: unknown = JSON.parse(readFileSync(join(TOKENS_DIRECTORY, file), "utf8"));
+    // Deliberate defense-in-depth: $extensions is already outside the allowlist, but this
+    // explicit check survives a future mistaken widening of DTCG_KEY_ALLOWLIST.
     expect(findKeyNamed(parsed, "$extensions")).toEqual([]);
     expect(findForbiddenDollarKeys(parsed)).toEqual([]);
   });
+
+  it.each(tokenFiles)(
+    "%s: every token carries its own $type (no group-level inheritance)",
+    (file) => {
+      const parsed: unknown = JSON.parse(readFileSync(join(TOKENS_DIRECTORY, file), "utf8"));
+      expect(findTokensWithoutOwnType(parsed)).toEqual([]);
+    },
+  );
 });
 
 describe("resolver.json purity", () => {

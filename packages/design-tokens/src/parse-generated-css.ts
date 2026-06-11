@@ -35,7 +35,10 @@ export function parseGeneratedCss(file = "generated/tokens.css"): ParsedGenerate
   return parseGeneratedCssText(readFileSync(join(PACKAGE_ROOT, file), "utf8"));
 }
 
-const DECLARATION_PATTERN = /^(--[\w-]+)\s*:\s*(.+);$/;
+// The value group forbids `;` so two declarations merged onto one line fail loudly as an
+// unrecognized line instead of parsing as one corrupt value. No token value contains a
+// semicolon (and none plausibly will: colors, lengths, var() chains, shadow lists).
+const DECLARATION_PATTERN = /^(--[\w-]+)\s*:\s*([^;]+);$/;
 
 /** Parse generated-CSS text. Exported separately so tests can probe the policy directly. */
 export function parseGeneratedCssText(css: string): ParsedGeneratedCss {
