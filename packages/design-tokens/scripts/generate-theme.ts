@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { clampChroma, wcagContrast } from "culori";
+import { clampChroma, displayable, wcagContrast } from "culori";
 import { CONTRAST_PAIRS } from "../src/contrast-pairs.ts";
 
 /**
@@ -17,6 +17,12 @@ import { CONTRAST_PAIRS } from "../src/contrast-pairs.ts";
  *   --name <theme> --brand-hue <deg> [--brand-chroma n] \
  *   [--neutral-tint-hue deg --neutral-tint-chroma n] [--write]
  * (A leading "--" separator is tolerated — pnpm forwards it literally.)
+ *
+ * Validate-only mode — the workshop's re-check path after hand-tweaking a theme file:
+ *   pnpm --filter @magna-carta/design-tokens run generate-theme --validate <path-to-theme-file>
+ * Mutually exclusive with the generation flags. Loads the existing theme-context JSON
+ * (path resolved against the working directory), runs the contrast and gamut validation,
+ * and exits 1 on violations without generating or writing anything.
  */
 
 /** The 12 ramp stop names of color.neutral and color.brand, light to dark. */
@@ -91,7 +97,7 @@ export interface GenerateRampOptions {
   /** Peak chroma, reached mid-ramp; the chroma curve scales every other stop from it. */
   chroma: number;
   /** Optional chroma floor so even the lightest and darkest stops keep the hue. */
-  tint?: number;
+  chromaFloor?: number;
 }
 
 /**
@@ -112,15 +118,15 @@ function gamutMapChroma(lightness: number, chroma: number, hue: number): number 
 
 /**
  * Generate a 12-stop OKLCH ramp: the fixed lightness ladder, the mid-ramp-peaking chroma
- * curve scaled by the anchor chroma (floored at `tint` when given), constant hue, every
- * stop gamut-mapped into sRGB. Pure and deterministic: same options, same bytes.
+ * curve scaled by the anchor chroma (floored at `chromaFloor` when given), constant hue,
+ * every stop gamut-mapped into sRGB. Pure and deterministic: same options, same bytes.
  */
 export function generateRamp(options: GenerateRampOptions): Ramp {
   const ramp: Record<string, OklchComponents> = {};
   RAMP_STOP_NAMES.forEach((stopName, index) => {
     const lightness = LIGHTNESS_LADDER[index] as number;
     const curvedChroma = options.chroma * (CHROMA_CURVE[index] as number);
-    const flooredChroma = Math.max(curvedChroma, options.tint ?? 0);
+    const flooredChroma = Math.max(curvedChroma, options.chromaFloor ?? 0);
     ramp[stopName] = [
       lightness,
       gamutMapChroma(lightness, flooredChroma, options.hue),
@@ -202,7 +208,7 @@ export function generateThemeTokens(options: GenerateThemeTokensOptions): ThemeT
   const neutral = generateRamp({
     hue: neutralTint.hue,
     chroma: neutralTint.chroma,
-    tint: NEUTRAL_CHROMA_FLOOR,
+    chromaFloor: NEUTRAL_CHROMA_FLOOR,
   });
   const brand = generateRamp({ hue: options.brandHue, chroma: brandChroma });
   return {
@@ -233,6 +239,7 @@ export const SLATE_THEME_OPTIONS = {
 } satisfies GenerateThemeTokensOptions;
 
 export interface ContrastViolation {
+  kind: "contrast";
   mode: "light" | "dark";
   /** Contrast-pair foreground name (dashed semantic name, as in src/contrast-pairs.ts). */
   foreground: string;
@@ -247,6 +254,21 @@ export interface ContrastViolation {
   /** The pair's required minimum ratio. */
   minimumRatio: number;
 }
+
+export interface GamutViolation {
+  kind: "gamut";
+  mode: "light" | "dark";
+  /** Contrast-pair foreground name (dashed semantic name, as in src/contrast-pairs.ts). */
+  foreground: string;
+  /** Contrast-pair background name. */
+  background: string;
+  /** The semantic alias whose resolved stop sits outside the sRGB gamut. */
+  alias: string;
+  /** The out-of-gamut stop's OKLCH components. */
+  components: OklchComponents;
+}
+
+export type ThemeValidationViolation = ContrastViolation | GamutViolation;
 
 const PACKAGE_ROOT = join(import.meta.dirname, "..");
 
@@ -275,12 +297,18 @@ function collectColorAliases(node: unknown, path = "", into = new Map<string, st
 
 const COLOR_ALIAS_PATTERN = /^\{color\.([\w-]+)\.(\d+)\}$/;
 
+interface ResolvedAlias {
+  components: OklchComponents;
+  /** Whether the alias landed on the theme document or fell back to the shared primitives. */
+  source: "theme" | "primitives";
+}
+
 /** Resolve a "{color.<ramp>.<stop>}" alias: theme overrides first, shared primitives second. */
 function resolveAliasComponents(
   alias: string,
   themeTokens: ThemeTokensDocument,
   primitiveColor: Record<string, Record<string, DesignTokenColor>>,
-): OklchComponents {
+): ResolvedAlias {
   const match = COLOR_ALIAS_PATTERN.exec(alias);
   if (match === null) throw new Error(`Unsupported semantic color alias: "${alias}"`);
   const [, rampName, stopName] = match as unknown as [string, string, string];
@@ -289,12 +317,26 @@ function resolveAliasComponents(
     Record<string, DesignTokenColor> | string
   >;
   const themeRamp = themeRamps[rampName];
-  const token =
-    typeof themeRamp === "object" ? themeRamp[stopName] : primitiveColor[rampName]?.[stopName];
+  const fromTheme = typeof themeRamp === "object";
+  const token = fromTheme ? themeRamp[stopName] : primitiveColor[rampName]?.[stopName];
   if (token === undefined) {
     throw new Error(`Alias "${alias}" names no stop in the theme or the shared primitives`);
   }
-  return token.$value.components;
+  return { components: token.$value.components, source: fromTheme ? "theme" : "primitives" };
+}
+
+/**
+ * True when an OKLCH stop sits outside the sRGB gamut beyond floating-point fuzz. Fresh
+ * generator output always passes: its chroma is clampChroma-mapped and then floored to
+ * four decimals, which can only move it further INTO the gamut, so displayable() holds.
+ * For hand-entered values, the fallback applies the same gamut mapping the generator
+ * does and tolerates a chroma within one floored decimal step of the boundary — unless
+ * no chroma at all is displayable at this lightness (lightness itself out of range).
+ */
+function isOutOfSrgbGamut([lightness, chroma, hue]: OklchComponents): boolean {
+  if (displayable({ mode: "oklch", l: lightness, c: chroma, h: hue })) return false;
+  if (!displayable({ mode: "oklch", l: lightness, c: 0, h: hue })) return true;
+  return floorToFourDecimals(chroma) > gamutMapChroma(lightness, chroma, hue);
 }
 
 /**
@@ -303,10 +345,22 @@ function resolveAliasComponents(
  * values and measure every pair in src/contrast-pairs.ts in both modes — so a bad anchor
  * choice fails AT GENERATION with named pairs, not later in CI. Reads the real semantic,
  * mode, pairs, and primitives files: no duplicated tables to drift.
+ *
+ * A THEME-OWNED stop outside the sRGB gamut (after the same gamut-mapping tolerance the
+ * generator applies) is reported as a named gamut violation and excluded from contrast
+ * measurement — measuring the raw value could flatter the ratio, and the CI gate would
+ * refuse it anyway. Stops resolved from the shared primitives are exempt: several
+ * committed status stops deliberately exceed the raw sRGB gamut and rely on Terrazzo's
+ * build-time gamut mapping, which the CI gate measures after the fact; a theme document
+ * cannot fix them and must not fail for them.
+ *
+ * This is a pre-flight simulation, not the authority: the Terrazzo-resolved contrast gate
+ * (test/contrast.test.ts over generated/tokens.css) remains the authority if this
+ * simulation ever drifts from real resolver behavior.
  */
 export function validateThemeAgainstContrastPairs(
   themeTokens: ThemeTokensDocument,
-): ContrastViolation[] {
+): ThemeValidationViolation[] {
   const semanticDocument = readJson("tokens/semantic.json");
   const darkDocument = readJson("tokens/modes/dark.json");
   const primitiveColor = (readJson("tokens/primitives/color.json") as { color: unknown })
@@ -317,7 +371,7 @@ export function validateThemeAgainstContrastPairs(
   const darkAliases = new Map(lightAliases);
   for (const [name, alias] of collectColorAliases(darkDocument)) darkAliases.set(name, alias);
 
-  const violations: ContrastViolation[] = [];
+  const violations: ThemeValidationViolation[] = [];
   const modes = [
     { mode: "light" as const, aliases: lightAliases },
     { mode: "dark" as const, aliases: darkAliases },
@@ -332,22 +386,43 @@ export function validateThemeAgainstContrastPairs(
             `missing from the ${mode} mapping`,
         );
       }
-      const [foregroundLightness, foregroundChroma, foregroundHue] = resolveAliasComponents(
+      const resolvedForeground = resolveAliasComponents(
         foregroundAlias,
         themeTokens,
         primitiveColor,
       );
-      const [backgroundLightness, backgroundChroma, backgroundHue] = resolveAliasComponents(
+      const resolvedBackground = resolveAliasComponents(
         backgroundAlias,
         themeTokens,
         primitiveColor,
       );
+      let pairIsOutOfGamut = false;
+      for (const side of [
+        { alias: foregroundAlias, resolved: resolvedForeground },
+        { alias: backgroundAlias, resolved: resolvedBackground },
+      ]) {
+        if (side.resolved.source === "theme" && isOutOfSrgbGamut(side.resolved.components)) {
+          pairIsOutOfGamut = true;
+          violations.push({
+            kind: "gamut",
+            mode,
+            foreground: pair.foreground,
+            background: pair.background,
+            alias: side.alias,
+            components: side.resolved.components,
+          });
+        }
+      }
+      if (pairIsOutOfGamut) continue;
+      const [foregroundLightness, foregroundChroma, foregroundHue] = resolvedForeground.components;
+      const [backgroundLightness, backgroundChroma, backgroundHue] = resolvedBackground.components;
       const ratio = wcagContrast(
         { mode: "oklch", l: foregroundLightness, c: foregroundChroma, h: foregroundHue },
         { mode: "oklch", l: backgroundLightness, c: backgroundChroma, h: backgroundHue },
       );
       if (ratio < pair.minimumRatio) {
         violations.push({
+          kind: "contrast",
           mode,
           foreground: pair.foreground,
           background: pair.background,
@@ -362,10 +437,9 @@ export function validateThemeAgainstContrastPairs(
   return violations;
 }
 
-export interface ParsedCommandLine {
-  options: GenerateThemeTokensOptions;
-  write: boolean;
-}
+export type ParsedCommandLine =
+  | { command: "generate"; options: GenerateThemeTokensOptions; write: boolean }
+  | { command: "validate"; themeFilePath: string };
 
 /** Parse main()'s flags. Applies no defaults of its own: defaulting lives in the generator. */
 export function parseGenerateThemeCommandLine(argv: string[]): ParsedCommandLine {
@@ -382,8 +456,28 @@ export function parseGenerateThemeCommandLine(argv: string[]): ParsedCommandLine
       "neutral-tint-hue": { type: "string" },
       "neutral-tint-chroma": { type: "string" },
       write: { type: "boolean", default: false },
+      validate: { type: "string" },
     },
   });
+
+  if (values.validate !== undefined) {
+    const generationFlagsGiven: string[] = [];
+    if (values.name !== undefined) generationFlagsGiven.push("--name");
+    if (values["brand-hue"] !== undefined) generationFlagsGiven.push("--brand-hue");
+    if (values["brand-chroma"] !== undefined) generationFlagsGiven.push("--brand-chroma");
+    if (values["neutral-tint-hue"] !== undefined) generationFlagsGiven.push("--neutral-tint-hue");
+    if (values["neutral-tint-chroma"] !== undefined) {
+      generationFlagsGiven.push("--neutral-tint-chroma");
+    }
+    if (values.write) generationFlagsGiven.push("--write");
+    if (generationFlagsGiven.length > 0) {
+      throw new Error(
+        `--validate is mutually exclusive with the generation flags ` +
+          `(got ${generationFlagsGiven.join(", ")})`,
+      );
+    }
+    return { command: "validate", themeFilePath: values.validate };
+  }
 
   function requireNumber(flag: string, raw: string | undefined): number | undefined {
     if (raw === undefined) return undefined;
@@ -407,32 +501,61 @@ export function parseGenerateThemeCommandLine(argv: string[]): ParsedCommandLine
   if (neutralTintHue !== undefined && neutralTintChroma !== undefined) {
     options.neutralTint = { hue: neutralTintHue, chroma: neutralTintChroma };
   }
-  return { options, write: values.write };
+  return { command: "generate", options, write: values.write };
+}
+
+/** Run the validator over a theme document and print the outcome; true when it passes. */
+function reportThemeValidation(themeTokens: ThemeTokensDocument): boolean {
+  const violations = validateThemeAgainstContrastPairs(themeTokens);
+  const checkCount = CONTRAST_PAIRS.length * 2;
+  if (violations.length > 0) {
+    const violationWord = violations.length === 1 ? "violation" : "violations";
+    console.error(
+      `Theme validation: ${violations.length} ${violationWord} across ${checkCount} contrast checks:`,
+    );
+    for (const violation of violations) {
+      if (violation.kind === "gamut") {
+        console.error(
+          `  ${violation.mode}: ${violation.foreground} on ${violation.background} resolves ` +
+            `${violation.alias} to oklch(${violation.components.join(" ")}), which sits ` +
+            `outside the sRGB gamut`,
+        );
+      } else {
+        console.error(
+          `  ${violation.mode}: ${violation.foreground} (${violation.foregroundAlias}) on ` +
+            `${violation.background} (${violation.backgroundAlias}) measures ` +
+            `${violation.ratio.toFixed(3)}, below the minimum ${violation.minimumRatio}`,
+        );
+      }
+    }
+    return false;
+  }
+  console.info(`Contrast validation: all ${checkCount} checks pass.`);
+  return true;
 }
 
 /** Thin entry point: generate, contrast-validate, print, optionally write the theme file. */
 function main(): void {
-  const { options, write } = parseGenerateThemeCommandLine(process.argv.slice(2));
+  const parsed = parseGenerateThemeCommandLine(process.argv.slice(2));
+
+  if (parsed.command === "validate") {
+    const themeTokens = JSON.parse(
+      readFileSync(parsed.themeFilePath, "utf8"),
+    ) as ThemeTokensDocument;
+    if (!reportThemeValidation(themeTokens)) process.exitCode = 1;
+    return;
+  }
+
+  const { options, write } = parsed;
   const themeTokens = generateThemeTokens(options);
   const serialized = `${JSON.stringify(themeTokens, null, 2)}\n`;
   console.info(serialized);
 
-  const violations = validateThemeAgainstContrastPairs(themeTokens);
-  const checkCount = CONTRAST_PAIRS.length * 2;
-  if (violations.length > 0) {
-    console.error(`Contrast validation: ${violations.length} of ${checkCount} checks FAILED:`);
-    for (const violation of violations) {
-      console.error(
-        `  ${violation.mode}: ${violation.foreground} (${violation.foregroundAlias}) on ` +
-          `${violation.background} (${violation.backgroundAlias}) measures ` +
-          `${violation.ratio.toFixed(3)}, below the minimum ${violation.minimumRatio}`,
-      );
-    }
+  if (!reportThemeValidation(themeTokens)) {
     // Never write a theme that fails its own gate.
     process.exitCode = 1;
     return;
   }
-  console.info(`Contrast validation: all ${checkCount} checks pass.`);
 
   if (write) {
     const themesDirectory = join(PACKAGE_ROOT, "tokens", "themes");

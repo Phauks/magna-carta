@@ -17,8 +17,9 @@ import { CONTRAST_PAIRS } from "../src/contrast-pairs.ts";
 // Tests for the Culori OKLCH theme generator (scripts/generate-theme.ts): ramp shape
 // (fixed lightness ladder, mid-ramp chroma peak, constant hue), sRGB displayability after
 // gamut mapping, DTCG output purity, contrast pre-validation against the real semantic
-// mapping and contrast pairs, determinism, and the "slate is generated, not hand-drifted"
-// pin of tokens/primitives/color.json.
+// mapping and contrast pairs (including the gamut guard on hand-tweaked stops), the
+// command-line parse paths (generate and validate-only), determinism, and the "slate is
+// generated, not hand-drifted" pin of tokens/primitives/color.json.
 
 const PACKAGE_ROOT = join(import.meta.dirname, "..");
 
@@ -32,10 +33,10 @@ describe("generateRamp", () => {
   // ramp extremes — displayability must hold for any plausible workshop anchor.
   const anchorSets = [
     { hue: 250, chroma: 0.11 },
-    { hue: 250, chroma: 0.014, tint: 0.002 },
+    { hue: 250, chroma: 0.014, chromaFloor: 0.002 },
     { hue: 30, chroma: 0.2 },
     { hue: 145, chroma: 0.25 },
-    { hue: 80, chroma: 0.16, tint: 0.004 },
+    { hue: 80, chroma: 0.16, chromaFloor: 0.004 },
   ];
 
   it("returns exactly the 12 ramp stop names, in ramp order", () => {
@@ -108,7 +109,7 @@ describe("generateRamp", () => {
     // The slate-character anchors: the designed curve survives clamping untouched mid-ramp.
     for (const anchors of [
       { hue: 250, chroma: 0.11 },
-      { hue: 250, chroma: 0.014, tint: 0.002 },
+      { hue: 250, chroma: 0.014, chromaFloor: 0.002 },
     ]) {
       const ramp = generateRamp(anchors);
       expect(ramp["500"]![1]).toBe(anchors.chroma);
@@ -131,15 +132,15 @@ describe("generateRamp", () => {
     expect(displayable({ mode: "oklch", l: 0.6, c: 0.3, h: 30 })).toBe(false);
   });
 
-  it("tint floors the chroma so even the lightest and darkest stops keep the hue", () => {
-    const tint = 0.002;
-    const ramp = generateRamp({ hue: 250, chroma: 0.014, tint });
+  it("chromaFloor floors the chroma so even the lightest and darkest stops keep the hue", () => {
+    const chromaFloor = 0.002;
+    const ramp = generateRamp({ hue: 250, chroma: 0.014, chromaFloor });
     for (const stop of RAMP_STOP_NAMES) {
-      expect(ramp[stop]![1], `stop ${stop}`).toBeGreaterThanOrEqual(tint);
+      expect(ramp[stop]![1], `stop ${stop}`).toBeGreaterThanOrEqual(chromaFloor);
     }
-    // Without the floor, the curve would dip below the tint at stop 0 — proves the floor acts.
+    // Without the floor, the curve would dip below it at stop 0 — proves the floor acts.
     const unfloored = generateRamp({ hue: 250, chroma: 0.014 });
-    expect(unfloored["0"]![1]).toBeLessThan(tint);
+    expect(unfloored["0"]![1]).toBeLessThan(chromaFloor);
   });
 
   it("is deterministic: same options produce byte-identical output", () => {
@@ -259,6 +260,9 @@ describe("validateThemeAgainstContrastPairs", () => {
     expect(identities).toContain("light:action-primary-foreground/action-primary");
     expect(identities).toContain("dark:action-primary-foreground/action-primary");
     for (const violation of violations) {
+      // The crafted stops stay inside the sRGB gamut, so every violation is a contrast one.
+      expect(violation.kind).toBe("contrast");
+      if (violation.kind !== "contrast") continue;
       expect(violation.ratio).toBeLessThan(violation.minimumRatio);
       expect([4.5, 3]).toContain(violation.minimumRatio);
     }
@@ -283,13 +287,79 @@ describe("validateThemeAgainstContrastPairs", () => {
     bad.color.brand["600"]!.$value.components = [0.85, 0.05, 250];
     const violation = validateThemeAgainstContrastPairs(bad).find(
       (candidate) =>
+        candidate.kind === "contrast" &&
         candidate.mode === "light" &&
         candidate.foreground === "action-primary-foreground" &&
         candidate.background === "action-primary",
     );
     expect(violation).toBeDefined();
-    expect(violation!.foregroundAlias).toBe("{color.neutral.0}");
-    expect(violation!.backgroundAlias).toBe("{color.brand.600}");
+    if (violation?.kind !== "contrast") throw new Error("expected a contrast violation");
+    expect(violation.foregroundAlias).toBe("{color.neutral.0}");
+    expect(violation.backgroundAlias).toBe("{color.brand.600}");
+  });
+
+  it("an out-of-gamut hand-tweaked stop is a named gamut violation, never a measured ratio", () => {
+    const bad = structuredClone(slate);
+    // oklch(60% 0.3 30) sits well outside sRGB — the same probe the CI gate's self-check
+    // uses (test/contrast.test.ts) — simulating a workshop hand-tweak gone wrong.
+    bad.color.brand["600"]!.$value.components = [0.6, 0.3, 30];
+    const violations = validateThemeAgainstContrastPairs(bad);
+    const gamutViolations = violations.filter((violation) => violation.kind === "gamut");
+    expect(gamutViolations.length).toBeGreaterThan(0);
+    for (const violation of gamutViolations) {
+      expect(violation.alias).toBe("{color.brand.600}");
+      expect(violation.components).toEqual([0.6, 0.3, 30]);
+    }
+    const identities = gamutViolations.map(
+      (violation) => `${violation.mode}:${violation.foreground}/${violation.background}`,
+    );
+    expect(identities).toContain("light:action-primary-foreground/action-primary");
+    // The affected pair is excluded from contrast measurement: a raw out-of-gamut value
+    // could flatter the ratio (the CI gate throws in the same situation).
+    const measuredAnyway = violations.find(
+      (violation) =>
+        violation.kind === "contrast" &&
+        violation.mode === "light" &&
+        violation.foreground === "action-primary-foreground" &&
+        violation.background === "action-primary",
+    );
+    expect(measuredAnyway).toBeUndefined();
+  });
+
+  it("an out-of-range lightness (no displayable chroma at all) is also a gamut violation", () => {
+    const bad = structuredClone(slate);
+    bad.color.brand["600"]!.$value.components = [1.2, 0, 250];
+    const gamutViolations = validateThemeAgainstContrastPairs(bad).filter(
+      (violation) => violation.kind === "gamut",
+    );
+    expect(gamutViolations.length).toBeGreaterThan(0);
+    expect(gamutViolations[0]!.alias).toBe("{color.brand.600}");
+  });
+
+  it("stops resolved from the shared primitives are exempt from the gamut guard", () => {
+    // Several committed status stops rely on Terrazzo's build-time gamut mapping (the CI
+    // gate measures the mapped output, so it passes them): prove one such stop the pairs
+    // actually resolve (blue.700, status-info-foreground in light mode) is outside the
+    // raw sRGB gamut, then prove the validator still passes slate — a theme document
+    // cannot fix shared primitives and must not fail for them.
+    const primitives = JSON.parse(
+      readFileSync(join(PACKAGE_ROOT, "tokens", "primitives", "color.json"), "utf8"),
+    ) as {
+      color: Record<string, Record<string, { $value: { components: [number, number, number] } }>>;
+    };
+    const [lightness, chroma, hue] = primitives.color["blue"]!["700"]!.$value.components;
+    expect(displayable({ mode: "oklch", l: lightness, c: chroma, h: hue })).toBe(false);
+    expect(validateThemeAgainstContrastPairs(slate)).toEqual([]);
+  });
+
+  it("fresh generator output never trips the gamut guard, even for aggressive anchors", () => {
+    // The generator gamut-maps every stop (clampChroma floored to four decimals), so its
+    // output must pass the validator's gamut check with the same temperament as the CI gate.
+    const aggressive = generateThemeTokens({ name: "vivid", brandHue: 145, brandChroma: 0.25 });
+    const gamutViolations = validateThemeAgainstContrastPairs(aggressive).filter(
+      (violation) => violation.kind === "gamut",
+    );
+    expect(gamutViolations).toEqual([]);
   });
 });
 
@@ -327,6 +397,7 @@ describe("parseGenerateThemeCommandLine", () => {
       "--write",
     ]);
     expect(parsed).toEqual({
+      command: "generate",
       options: {
         name: "ocean",
         brandHue: 220,
@@ -339,7 +410,11 @@ describe("parseGenerateThemeCommandLine", () => {
 
   it("applies no defaults of its own: optional anchors stay absent for the generator", () => {
     const parsed = parseGenerateThemeCommandLine(["--name", "slate", "--brand-hue", "250"]);
-    expect(parsed).toEqual({ options: { name: "slate", brandHue: 250 }, write: false });
+    expect(parsed).toEqual({
+      command: "generate",
+      options: { name: "slate", brandHue: 250 },
+      write: false,
+    });
   });
 
   it("rejects a missing --name or --brand-hue", () => {
@@ -364,5 +439,35 @@ describe("parseGenerateThemeCommandLine", () => {
         "80",
       ]),
     ).toThrow(/neutral-tint/);
+  });
+
+  it("parses --validate into the validate-only command (no generation flags required)", () => {
+    expect(parseGenerateThemeCommandLine(["--validate", "tokens/themes/slate.json"])).toEqual({
+      command: "validate",
+      themeFilePath: "tokens/themes/slate.json",
+    });
+  });
+
+  it("tolerates the pnpm-forwarded separator before --validate", () => {
+    expect(parseGenerateThemeCommandLine(["--", "--validate", "theme.json"])).toEqual({
+      command: "validate",
+      themeFilePath: "theme.json",
+    });
+  });
+
+  it("rejects --validate combined with any generation flag (mutually exclusive)", () => {
+    const validateArguments = ["--validate", "theme.json"];
+    expect(() => parseGenerateThemeCommandLine([...validateArguments, "--name", "slate"])).toThrow(
+      /mutually exclusive.*--name/s,
+    );
+    expect(() =>
+      parseGenerateThemeCommandLine([...validateArguments, "--brand-hue", "250"]),
+    ).toThrow(/mutually exclusive.*--brand-hue/s);
+    expect(() =>
+      parseGenerateThemeCommandLine([...validateArguments, "--neutral-tint-hue", "80"]),
+    ).toThrow(/mutually exclusive.*--neutral-tint-hue/s);
+    expect(() => parseGenerateThemeCommandLine([...validateArguments, "--write"])).toThrow(
+      /mutually exclusive.*--write/s,
+    );
   });
 });
