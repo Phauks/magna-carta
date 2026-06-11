@@ -2,23 +2,13 @@ import { getTableConfig, SQLiteTable } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
 import * as controlPlaneSchema from "../src/control-plane-schema.ts";
 import * as perFirmSchema from "../src/per-firm-schema.ts";
+import { BETTER_AUTH_TABLE_NAMES } from "./better-auth-table-names.ts";
 
 // Every drizzle table exported by either lineage. New tables are enumerated automatically —
 // these fitness functions bind to the whole schema surface, not a hand-kept list.
 const ALL_TABLES = (
   [...Object.values(controlPlaneSchema), ...Object.values(perFirmSchema)] as unknown[]
 ).filter((candidate): candidate is SQLiteTable => candidate instanceof SQLiteTable);
-
-// Better Auth owns these five control-plane tables (slice 0-4). Their storage follows what the
-// pinned better-auth drizzle adapter expects — epoch-millisecond INTEGER timestamps — the one
-// sanctioned exception to ADR-0055's ISO-8601 text instants. Everything else is OUR lineage.
-const BETTER_AUTH_TABLE_NAMES = new Set([
-  "user",
-  "session",
-  "account",
-  "verification",
-  "two_factor",
-]);
 
 describe("schema conformance (fitness functions)", () => {
   it("found the expected tables (guards the enumeration itself)", () => {

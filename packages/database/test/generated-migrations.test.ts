@@ -4,6 +4,7 @@ import { PERMISSIONS } from "@magna-carta/access-control/registry";
 import { isIdentifier } from "@magna-carta/identifiers/validate";
 import { describe, expect, it } from "vitest";
 import { migrationsFromJournal, type MigrationJournal } from "../src/migration.ts";
+import { BETTER_AUTH_TABLE_NAMES } from "./better-auth-table-names.ts";
 
 const DRIZZLE = join(import.meta.dirname, "..", "drizzle");
 
@@ -35,11 +36,7 @@ describe("generated migrations (committed artifacts)", () => {
     expect(migrations[1]?.tag).toMatch(/^0001_/);
     const allSql = migrations.flatMap((migration) => migration.statements).join("\n");
     for (const tableName of [
-      "user",
-      "session",
-      "account",
-      "verification",
-      "two_factor",
+      ...BETTER_AUTH_TABLE_NAMES,
       "auth_audit",
       "outbox",
       "idempotency_key",
@@ -90,7 +87,7 @@ describe("generated migrations (committed artifacts)", () => {
       "Read-only",
     ]);
     for (const seed of roleSeeds) {
-      // The seeded handles were minted ONCE and committed as literals — every firm's defaults match.
+      // Seeded handles are committed literals — see drizzle/per-firm/0002_member-rbac.sql.
       expect(isIdentifier(seed.id, "role"), String(seed.id)).toBe(true);
       expect(seed.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/); // ADR-0055
     }
@@ -108,7 +105,7 @@ describe("generated migrations (committed artifacts)", () => {
   it("per-firm lineage never creates the auth tables — they are control-plane only", async () => {
     const migrations = await loadLineage("per-firm");
     const allSql = migrations.flatMap((migration) => migration.statements).join("\n");
-    for (const tableName of ["user", "session", "account", "verification", "two_factor"]) {
+    for (const tableName of BETTER_AUTH_TABLE_NAMES) {
       expect(allSql, tableName).not.toContain(`CREATE TABLE \`${tableName}\``);
     }
   });
@@ -132,15 +129,34 @@ function parseSingleRowInsert(statement: string): Record<string, string | null> 
   return Object.fromEntries(columns.map((column, index) => [column, values[index] ?? null]));
 }
 
+// Resolves an INSERT statement to its target table, or null for non-INSERT statements. Detection is
+// case-insensitive and the table name may be backtick-quoted, double-quoted, or bare — an INSERT
+// whose target cannot be resolved THROWS rather than being silently skipped, so a future seed
+// written in an unanticipated style breaks the fitness test instead of evading it.
+function insertTargetTableName(statement: string): string | null {
+  if (!/^\s*INSERT\b/iu.test(statement)) return null;
+  const match =
+    /^\s*INSERT\s+(?:OR\s+[A-Za-z]+\s+)?INTO\s+(?:`([^`]+)`|"([^"]+)"|([A-Za-z_][A-Za-z0-9_]*))/iu.exec(
+      statement,
+    );
+  const tableName = match?.[1] ?? match?.[2] ?? match?.[3];
+  if (tableName === undefined) {
+    throw new Error(`INSERT whose target table cannot be resolved: ${statement}`);
+  }
+  return tableName;
+}
+
 describe("seed permission values stay inside the registry (fitness function)", () => {
   it("every role_permission/direct_grant permission seeded by ANY committed migration is registered", async () => {
     const registered = new Set<string>(PERMISSIONS);
+    const permissionSeedTableNames = new Set(["role_permission", "direct_grant"]);
     let seedCount = 0;
     for (const lineage of ["control-plane", "per-firm"] as const) {
       const migrations = await loadLineage(lineage);
       for (const migration of migrations) {
         for (const statement of migration.statements) {
-          if (!/INSERT INTO `(role_permission|direct_grant)`/u.test(statement)) continue;
+          const tableName = insertTargetTableName(statement);
+          if (tableName === null || !permissionSeedTableNames.has(tableName)) continue;
           seedCount += 1;
           const row = parseSingleRowInsert(statement);
           const permission = row["permission"];

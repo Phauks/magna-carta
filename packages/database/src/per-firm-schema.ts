@@ -72,12 +72,14 @@ export const outbox = sqliteTable(
 export const member = sqliteTable("member", {
   userId: text("user_id").primaryKey().$type<UserId>(), // the global join key (white paper)
   displayName: text("display_name").notNull(),
-  status: text("status").notNull().default("active"), // active | deactivated
+  status: text("status", { enum: ["active", "deactivated"] })
+    .notNull()
+    .default("active"),
   createdAt: text("created_at").notNull(), // ISO-8601 instant (ADR-0055)
 });
 
-// A named bundle of permissions. Five defaults are SEEDED by migration with handles minted once and
-// committed as literals, so every firm's defaults match byte-for-byte.
+// A named bundle of permissions. Five defaults are seeded by migration — the seeded handles are
+// committed literals; see drizzle/per-firm/0002_member-rbac.sql.
 export const role = sqliteTable("role", {
   id: text("id").primaryKey().$type<RoleId>(), // rol_ handle
   name: text("name").notNull().unique(),
@@ -118,18 +120,27 @@ export const memberRole = sqliteTable(
 );
 
 // A per-member permission outside any role, optionally expiring. granted_by is deliberately NOT a
-// foreign key — the audit fact must outlive the granter's member row.
-export const directGrant = sqliteTable("direct_grant", {
-  id: text("id").primaryKey().$type<GrantId>(), // gnt_ handle
-  memberUserId: text("member_user_id")
-    .notNull()
-    .$type<UserId>()
-    .references(() => member.userId),
-  permission: text("permission").notNull(),
-  expiresAt: text("expires_at"), // null = no expiry; ISO-8601 instant (ADR-0055)
-  grantedBy: text("granted_by").notNull().$type<UserId>(),
-  createdAt: text("created_at").notNull(),
-});
+// foreign key — the audit fact must outlive the granter's member row. No UNIQUE on
+// (member_user_id, permission): rows with distinct expiry/granter are distinct audit facts, and the
+// effective-permissions resolver unions them.
+export const directGrant = sqliteTable(
+  "direct_grant",
+  {
+    id: text("id").primaryKey().$type<GrantId>(), // gnt_ handle
+    memberUserId: text("member_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    permission: text("permission").notNull(),
+    expiresAt: text("expires_at"), // null = no expiry; ISO-8601 instant (ADR-0055)
+    grantedBy: text("granted_by").notNull().$type<UserId>(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    // The per-request authorization read is WHERE member_user_id = ? — index the FK lookup column.
+    index("direct_grant_member_user_id_index").on(table.memberUserId),
+  ],
+);
 
 // Append-only double-entry ledger (ADR-0008, posting model ADR-0072). Structure only — the posting
 // service, validation, and balance composition live in @magna-carta/ledger.

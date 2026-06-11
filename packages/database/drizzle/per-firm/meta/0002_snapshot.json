@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "1479c07a-d714-4b75-bcc5-a2390156057e",
+  "id": "83c7a89f-7412-4d2d-85eb-9ac39585b643",
   "prevId": "f36840f5-1d94-466d-a64e-916303897280",
   "tables": {
     "account_balance": {
@@ -111,7 +111,13 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "direct_grant_member_user_id_index": {
+          "name": "direct_grant_member_user_id_index",
+          "columns": ["member_user_id"],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "direct_grant_member_user_id_member_user_id_fk": {
           "name": "direct_grant_member_user_id_member_user_id_fk",

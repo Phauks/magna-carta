@@ -8,6 +8,7 @@ CREATE TABLE `direct_grant` (
 	FOREIGN KEY (`member_user_id`) REFERENCES `member`(`user_id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
+CREATE INDEX `direct_grant_member_user_id_index` ON `direct_grant` (`member_user_id`);--> statement-breakpoint
 CREATE TABLE `member` (
 	`user_id` text PRIMARY KEY NOT NULL,
 	`display_name` text NOT NULL,
