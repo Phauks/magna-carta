@@ -1,22 +1,11 @@
 import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
-import { newIdentifier } from "@magna-carta/identifiers/generate";
-import { createAuth } from "../src/auth.ts";
-import { createLoggingEmailAdapter } from "../src/email-port.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
+import { createTestAuth, seedFirm } from "./support/test-auth.ts";
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
 });
-
-// A silent email adapter: these tests never assert on outbound mail, and the dev logging
-// adapter would spray verification links into the test output.
-function createTestAuth() {
-  return createAuth(
-    env,
-    createLoggingEmailAdapter(() => {}),
-  );
-}
 
 describe("better-auth mount", () => {
   it("serves the Better Auth routes under /api/auth/*", async () => {
@@ -63,12 +52,10 @@ describe("schema-sync fitness: better-auth against the committed control-plane m
     const adapter = context.adapter;
 
     // user.firm_id is a NOT NULL foreign key — the tenant firm row must exist first.
-    const firmId = newIdentifier("firm");
-    await env.DB_CONTROL.prepare(
-      "INSERT INTO firm (id, name, database_identifier, created_at) VALUES (?1, ?2, ?3, ?4)",
-    )
-      .bind(firmId, "Fitness Test Firm", "d1-fitness-test", new Date().toISOString())
-      .run();
+    const { firmId } = await seedFirm({
+      name: "Fitness Test Firm",
+      databaseIdentifier: "d1-fitness-test",
+    });
 
     const now = new Date();
     const inOneHour = new Date(now.getTime() + 60 * 60 * 1000);

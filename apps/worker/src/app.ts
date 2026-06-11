@@ -1,12 +1,17 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { createAuth } from "./auth.ts";
 import { createLoggingEmailAdapter } from "./email-port.ts";
+import { registerMeRoute } from "./routes/me.ts";
 
 // The Worker's runtime bindings, declared once here (the no-barrel single home for the app's env shape).
 // worker-env.d.ts mirrors this into the ambient `Cloudflare.Env` the vitest-pool-workers harness types `env` as.
 export type Bindings = {
   ASSETS: Fetcher;
   DB_CONTROL: D1Database;
+  // The dev firm-database pool (slice 0·4, decided #12) — pre-declared because Miniflare cannot
+  // create D1 at runtime; resolved from a firm's database_identifier by firm-binding-resolver.ts.
+  DB_FIRM_POOL_1: D1Database;
+  DB_FIRM_POOL_2: D1Database;
   R2: R2Bucket;
   QUEUE: Queue;
   // Better Auth's signing/encryption secret. Local dev + tests load it from .dev.vars;
@@ -57,6 +62,8 @@ export function createApp() {
   // Better Auth owns everything under its default basePath, /api/auth/* — its router serves
   // only GET and POST. Registered before the catch-all asset fallthrough.
   app.on(["GET", "POST"], "/api/auth/*", (c) => authForEnv(c.env).handler(c.req.raw));
+
+  registerMeRoute(app, authForEnv);
 
   app.doc31("/api/openapi.json", {
     openapi: "3.1.0",

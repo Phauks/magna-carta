@@ -30,6 +30,22 @@
       "database_name": "magna-carta-production-platform-control",
       "database_id": "a0982ab7-97d9-471b-8dd7-19f18aa53f04",
     },
+    // The dev firm-database pool (slice 0·4, decided #12): Miniflare cannot create D1 databases
+    // at runtime, so local dev and tests pre-declare a fixed pool the dev FirmResourceProvider
+    // claims from. A claimed firm's database_identifier IS the binding name, resolved through
+    // src/firm-binding-resolver.ts — the same seam deploy-time per-firm bindings use later.
+    // The database_ids are local-only placeholders (Miniflare keys its local SQLite off them);
+    // production per-firm databases are created and bound through the Cloudflare REST adapter.
+    {
+      "binding": "DB_FIRM_POOL_1",
+      "database_name": "magna-carta-local-firm-pool-1",
+      "database_id": "00000000-0000-4000-8000-000000000001",
+    },
+    {
+      "binding": "DB_FIRM_POOL_2",
+      "database_name": "magna-carta-local-firm-pool-2",
+      "database_id": "00000000-0000-4000-8000-000000000002",
+    },
   ],
   "r2_buckets": [{ "binding": "R2", "bucket_name": "magna-carta-production-platform-files" }],
   "queues": {

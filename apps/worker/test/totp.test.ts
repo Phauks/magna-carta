@@ -1,22 +1,20 @@
-import { env, SELF } from "cloudflare:test";
+import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import * as OTPAuth from "otpauth";
-import { newIdentifier } from "@magna-carta/identifiers/generate";
-import { createAuth } from "../src/auth.ts";
-import { createLoggingEmailAdapter } from "../src/email-port.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
+import {
+  createTestAuth,
+  liveCookie,
+  PASSWORD,
+  postJson,
+  seedCredentialedUser,
+  setCookies,
+  signIn,
+} from "./support/test-auth.ts";
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
 });
-
-// Silent email adapter, as in auth.test.ts — nothing here asserts on outbound mail.
-function createTestAuth() {
-  return createAuth(
-    env,
-    createLoggingEmailAdapter(() => {}),
-  );
-}
 
 // Better Auth's twoFactor plugin TOTP parameters (verified against the pinned 1.6.16 source,
 // plugins/two-factor/totp): HMAC-SHA1, 6 digits, 30-second period; the otpauth:// URI carries the
@@ -30,96 +28,21 @@ function createAuthenticator(secretBase32: string): OTPAuth.TOTP {
   });
 }
 
-// A six-digit code guaranteed invalid: Better Auth verifies against a ±1-period window, so any
-// candidate outside the three codes valid right now fails deterministically (no flaky near-misses).
+// A six-digit code guaranteed invalid: Better Auth verifies against a ±1-period window around ITS
+// clock, which can sit up to one period ahead of ours by the time the request lands — so any
+// candidate outside the four codes for offsets -30s through +60s fails deterministically (no
+// boundary-crossing flake).
 function invalidCodeFor(authenticator: OTPAuth.TOTP): string {
   const now = Date.now();
   const validWindow = new Set(
-    [-30_000, 0, 30_000].map((offset) => authenticator.generate({ timestamp: now + offset })),
+    [-30_000, 0, 30_000, 60_000].map((offset) =>
+      authenticator.generate({ timestamp: now + offset }),
+    ),
   );
   for (let candidate = 0; ; candidate += 1) {
     const code = String(candidate).padStart(6, "0");
     if (!validWindow.has(code)) return code;
   }
-}
-
-type ResponseCookie = { name: string; value: string; pair: string };
-
-// One entry per Set-Cookie header: `pair` is the resendable `name=value` segment. Cookie names are
-// matched by suffix because Better Auth prefixes them (`better-auth.` plus `__Secure-` over https).
-// headers.getAll is the Workers-native multi-value accessor (set-cookie only); the standard
-// getSetCookie() exists at runtime but @cloudflare/workers-types does not declare it.
-function setCookies(response: Response): ResponseCookie[] {
-  return response.headers.getAll("set-cookie").map((header) => {
-    const pair = header.split(";", 1)[0] ?? "";
-    const separator = pair.indexOf("=");
-    return { name: pair.slice(0, separator), value: pair.slice(separator + 1), pair };
-  });
-}
-
-function liveCookie(cookies: ResponseCookie[], nameSuffix: string): ResponseCookie | undefined {
-  return cookies.find((cookie) => cookie.name.endsWith(nameSuffix) && cookie.value !== "");
-}
-
-async function postJson(path: string, body: unknown, cookie?: string): Promise<Response> {
-  return SELF.fetch(`https://example.com${path}`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      // Better Auth's CSRF middleware 403s any cookie-bearing POST without an Origin (or
-      // Referer) header matching a trusted origin — a browser always sends one, so the test does.
-      origin: "https://example.com",
-      ...(cookie === undefined ? {} : { cookie }),
-    },
-    body: JSON.stringify(body),
-  });
-}
-
-const PASSWORD = "correct-horse-battery-staple";
-
-// Public signup is disabled (invitation-only) and the invitation flow is a later task, so the
-// credentialed user is seeded straight through the Better Auth adapter: a verified user plus a
-// credential account whose password hash comes from the SAME hasher sign-in verifies against
-// (context.password.hash — scrypt). requireEmailVerification is ON, hence emailVerified: true.
-async function seedCredentialedUser(email: string): Promise<{ userId: string }> {
-  const auth = createTestAuth();
-  const context = await auth.$context;
-
-  const firmId = newIdentifier("firm");
-  await env.DB_CONTROL.prepare(
-    "INSERT INTO firm (id, name, database_identifier, created_at) VALUES (?1, ?2, ?3, ?4)",
-  )
-    .bind(firmId, "TOTP Test Firm", `d1-totp-${firmId}`, new Date().toISOString())
-    .run();
-
-  const now = new Date();
-  const user = await context.adapter.create<Record<string, unknown>, { id: string }>({
-    model: "user",
-    data: {
-      name: "TOTP Test User",
-      email,
-      emailVerified: true,
-      createdAt: now,
-      updatedAt: now,
-      firmId,
-    },
-  });
-  await context.adapter.create({
-    model: "account",
-    data: {
-      accountId: user.id,
-      providerId: "credential",
-      userId: user.id,
-      password: await context.password.hash(PASSWORD),
-      createdAt: now,
-      updatedAt: now,
-    },
-  });
-  return { userId: user.id };
-}
-
-async function signIn(email: string): Promise<Response> {
-  return postJson("/api/auth/sign-in/email", { email, password: PASSWORD });
 }
 
 // Runs the full enrollment for a signed-in user: enable (password-gated) returns the totpURI,
