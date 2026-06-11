@@ -6,33 +6,89 @@
  * Names are the dashed semantic variable names without the `--mc-` prefix
  * (token `status.info-foreground` → `status-info-foreground`).
  */
+/** WCAG 2.2 minimum contrast ratio for text (1.4.3 Contrast (Minimum), AA). */
+export const WCAG_TEXT_MINIMUM_RATIO = 4.5;
+/** WCAG 2.2 minimum contrast ratio for non-text UI components (1.4.11 Non-text Contrast). */
+export const WCAG_NON_TEXT_MINIMUM_RATIO = 3;
+
 export interface ContrastPair {
   /** Semantic variable name of the foreground (text, icon, border, ring) color. */
   readonly foreground: string;
   /** Semantic variable name of the background color it renders on. */
   readonly background: string;
-  /** Minimum WCAG 2.2 relative-luminance contrast ratio: 4.5 for text (1.4.3 AA), 3 for non-text UI (1.4.11). */
-  readonly minimumRatio: number;
+  /**
+   * Minimum WCAG 2.2 relative-luminance contrast ratio. Typed as the union of the two
+   * named constants so an off-spec ratio (a workshop typo like 4.4 or 5) cannot compile.
+   */
+  readonly minimumRatio: typeof WCAG_TEXT_MINIMUM_RATIO | typeof WCAG_NON_TEXT_MINIMUM_RATIO;
 }
 
 /** Foreground/background pairings that must clear WCAG 2.2 AA in every theme x mode. */
 export const CONTRAST_PAIRS: ReadonlyArray<ContrastPair> = [
-  { foreground: "text-default", background: "surface-default", minimumRatio: 4.5 },
-  { foreground: "text-muted", background: "surface-default", minimumRatio: 4.5 },
-  { foreground: "text-default", background: "surface-raised", minimumRatio: 4.5 },
-  { foreground: "action-primary-foreground", background: "action-primary", minimumRatio: 4.5 },
-  { foreground: "action-secondary-foreground", background: "action-secondary", minimumRatio: 4.5 },
+  {
+    foreground: "text-default",
+    background: "surface-default",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
+  {
+    foreground: "text-muted",
+    background: "surface-default",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
+  {
+    foreground: "text-default",
+    background: "surface-raised",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
+  {
+    foreground: "action-primary-foreground",
+    background: "action-primary",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
+  {
+    foreground: "action-secondary-foreground",
+    background: "action-secondary",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
   {
     foreground: "action-destructive-foreground",
     background: "action-destructive",
-    minimumRatio: 4.5,
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
   },
-  { foreground: "status-info-foreground", background: "status-info", minimumRatio: 4.5 },
-  { foreground: "status-success-foreground", background: "status-success", minimumRatio: 4.5 },
-  { foreground: "status-warning-foreground", background: "status-warning", minimumRatio: 4.5 },
-  { foreground: "status-danger-foreground", background: "status-danger", minimumRatio: 4.5 },
-  { foreground: "text-link", background: "surface-default", minimumRatio: 4.5 },
+  {
+    foreground: "status-info-foreground",
+    background: "status-info",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
+  {
+    foreground: "status-success-foreground",
+    background: "status-success",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
+  {
+    foreground: "status-warning-foreground",
+    background: "status-warning",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
+  {
+    foreground: "status-danger-foreground",
+    background: "status-danger",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
+  {
+    foreground: "text-link",
+    background: "surface-default",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
   // non-text UI (borders, focus ring) per WCAG 1.4.11:
-  { foreground: "border-strong", background: "surface-default", minimumRatio: 3 },
-  { foreground: "focus-ring", background: "surface-default", minimumRatio: 3 },
+  {
+    foreground: "border-strong",
+    background: "surface-default",
+    minimumRatio: WCAG_NON_TEXT_MINIMUM_RATIO,
+  },
+  {
+    foreground: "focus-ring",
+    background: "surface-default",
+    minimumRatio: WCAG_NON_TEXT_MINIMUM_RATIO,
+  },
 ];

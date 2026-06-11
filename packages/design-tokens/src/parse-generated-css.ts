@@ -3,7 +3,9 @@ import { join } from "node:path";
 
 /**
  * Parser for the Terrazzo-generated CSS (generated/tokens.css), shared by the
- * completeness and (later) contrast gates.
+ * completeness and contrast gates. (The third gate over the generated output — the
+ * golden gate, test/golden.test.ts — compares raw bytes and deliberately bypasses
+ * this parser, so a parser bug cannot mask a generator change.)
  *
  * Policy — media blocks: the generated file nests `@media (color-gamut: p3|rec2020)`
  * refinement blocks between the base context blocks. Those refinements are color-space

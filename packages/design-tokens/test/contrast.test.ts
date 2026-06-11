@@ -12,8 +12,9 @@ import { parseGeneratedCss } from "../src/parse-generated-css.ts";
 // Semantic variables emit as `var(--mc-<primitive>)` references, so each side is resolved
 // by following the var() chain WITHIN the same context block (the primitives are defined in
 // the same block) down to a concrete oklch(...) value, then converted to sRGB with culori.
-// The base blocks are already sRGB-gamut-mapped by the build; channel clamping below guards
-// floating-point fuzz only.
+// The base blocks are pre-gamut-mapped to sRGB by Terrazzo, so any channel outside [0, 1]
+// by more than floating-point fuzz means that assumption broke — the guard below throws
+// rather than silently clamping an out-of-gamut color into a flattering contrast ratio.
 
 const VARIABLE_REFERENCE_PATTERN = /^var\((--[\w-]+)\)$/;
 
@@ -42,16 +43,31 @@ function resolveVariable(variables: Record<string, string>, variableName: string
 
 const toSrgb = converter("rgb");
 
-function clampChannel(channel: number): number {
+// Base blocks are pre-gamut-mapped by Terrazzo, so conversion to sRGB may only miss [0, 1]
+// by floating-point fuzz. Anything beyond this epsilon means that assumption broke.
+const CHANNEL_GAMUT_EPSILON = 0.001;
+
+/** Clamp a channel into [0, 1]; throw if it is out of gamut by more than the epsilon. */
+function guardChannel(channel: number, color: string, channelName: string): number {
+  if (channel < -CHANNEL_GAMUT_EPSILON || channel > 1 + CHANNEL_GAMUT_EPSILON) {
+    throw new Error(
+      `sRGB channel ${channelName} of "${color}" is ${channel}, outside [0, 1] by more than ` +
+        `${CHANNEL_GAMUT_EPSILON} — the base blocks are expected to be pre-gamut-mapped by Terrazzo`,
+    );
+  }
   return Math.min(1, Math.max(0, channel));
 }
 
-/** Parse a concrete CSS color and convert it to (clamped) sRGB channels in 0–1. */
+/** Parse a concrete CSS color and convert it to sRGB channels in 0–1 (epsilon-guarded). */
 function parseToSrgbChannels(cssColor: string): [number, number, number] {
   const parsed = parse(cssColor);
   if (parsed === undefined) throw new Error(`Unparseable color value: "${cssColor}"`);
   const srgb = toSrgb(parsed);
-  return [clampChannel(srgb.r), clampChannel(srgb.g), clampChannel(srgb.b)];
+  return [
+    guardChannel(srgb.r, cssColor, "r"),
+    guardChannel(srgb.g, cssColor, "g"),
+    guardChannel(srgb.b, cssColor, "b"),
+  ];
 }
 
 /** WCAG 2.2 relative-luminance contrast ratio (1 to 21) between two concrete CSS colors. */
@@ -117,6 +133,14 @@ describe("the contrast computation (known-ratio sanity check)", () => {
   it("rejects an unparseable color value loudly", () => {
     expect(() => wcagContrastRatio("definitely-not-a-color", "oklch(100% 0 0)")).toThrow(
       /Unparseable color/,
+    );
+  });
+
+  it("throws on a color outside the sRGB gamut instead of silently clamping it", () => {
+    // oklch(60% 0.3 30) sits well outside sRGB — if the pre-gamut-mapping assumption ever
+    // breaks, the gate must fail loudly, not flatter the ratio with a clamped channel.
+    expect(() => wcagContrastRatio("oklch(60% 0.3 30)", "oklch(100% 0 0)")).toThrow(
+      /outside \[0, 1\]/,
     );
   });
 });
