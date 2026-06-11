@@ -4,6 +4,9 @@
   "name": "magna-carta",
   "main": "./src/index.ts",
   "compatibility_date": "2026-06-05",
+  // Better Auth resolves its workerd build to the AsyncLocalStorage-backed transaction context
+  // (node:async_hooks) — without Node.js compatibility every auth route 500s at runtime.
+  "compatibility_flags": ["nodejs_compat"],
   // Explicit so deploys stop defaulting them: workers.dev serving stays on (the current
   // public URL until magnacarta.esq attaches); per-version preview URLs stay off
   // (previews are disabled until a staging environment exists — ADR-0075).
