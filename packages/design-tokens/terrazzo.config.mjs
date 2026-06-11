@@ -10,6 +10,18 @@ function variableName(token) {
   return `--mc-${token.id.replace(/\./g, "-")}`;
 }
 
+// One block per theme-and-mode permutation, derived from data: theme #2 is a
+// one-element addition here. Light first: the first permutation doubles as the
+// default set plugin-tailwind reads.
+const themes = ["slate"];
+const modes = ["light", "dark"];
+const permutations = themes.flatMap((theme) =>
+  modes.map((mode) => ({
+    input: { theme, mode },
+    prepare: (css) => `:root[data-theme="${theme}"]${mode === "dark" ? ".dark" : ""} {\n${css}\n}`,
+  })),
+);
+
 export default defineConfig({
   // The resolver document is the single entry point; it pulls in every token file.
   tokens: "./resolver.json",
@@ -18,18 +30,7 @@ export default defineConfig({
     pluginCSS({
       filename: "tokens.css",
       variableName,
-      // One block per theme-and-mode permutation. Light first: the first
-      // permutation doubles as the default set plugin-tailwind reads.
-      permutations: [
-        {
-          input: { theme: "slate", mode: "light" },
-          prepare: (css) => `:root[data-theme="slate"] {\n${css}\n}`,
-        },
-        {
-          input: { theme: "slate", mode: "dark" },
-          prepare: (css) => `:root[data-theme="slate"].dark {\n${css}\n}`,
-        },
-      ],
+      permutations,
     }),
     pluginTailwind({
       // Resolved relative to outDir, hence the leading "../".
@@ -40,9 +41,10 @@ export default defineConfig({
         // which would freeze semantic color utilities to light mode. Semantic colors
         // are hand-mapped in tailwind.template.css via @theme inline instead, and
         // primitive ramps are deliberately not exposed as Tailwind utilities.
+        // No `shadow` mapping either: elevation is hand-mapped in the template's
+        // @theme inline block onto --mc-elevation-*, keeping it mode-responsive.
         spacing: ["space.*"],
         radius: ["radius.*"],
-        shadow: ["elevation.*"],
         font: {
           sans: "font.sans",
           mono: "font.mono",

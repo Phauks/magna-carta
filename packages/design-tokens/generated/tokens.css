@@ -19,9 +19,13 @@
   --mc-border-focus: var(--mc-color-brand-600);
   --mc-border-strong: var(--mc-color-neutral-400);
   --mc-color-amber-100: oklch(94.57% 0.0577 85.01);
+  --mc-color-amber-300: oklch(83% 0.1 80);
+  --mc-color-amber-400: oklch(77% 0.12 80);
   --mc-color-amber-500: oklch(70% 0.13 80);
   --mc-color-amber-700: oklch(50.07% 0.1044 78.02);
   --mc-color-blue-100: oklch(92.75% 0.0434 230.3);
+  --mc-color-blue-300: oklch(75% 0.1 240);
+  --mc-color-blue-400: oklch(65% 0.13 240);
   --mc-color-blue-500: oklch(55.76% 0.1396 244.7);
   --mc-color-blue-700: oklch(42.75% 0.1098 246);
   --mc-color-brand-0: oklch(98% 0.0098 249.3);
@@ -37,6 +41,8 @@
   --mc-color-brand-900: oklch(27% 0.06 250);
   --mc-color-brand-1000: oklch(20% 0.04 250);
   --mc-color-green-100: oklch(94% 0.06 150);
+  --mc-color-green-300: oklch(76% 0.09 150);
+  --mc-color-green-400: oklch(66% 0.11 150);
   --mc-color-green-500: oklch(56% 0.12 150);
   --mc-color-green-700: oklch(43% 0.1 150);
   --mc-color-neutral-0: oklch(99% 0.002 250);
@@ -52,6 +58,8 @@
   --mc-color-neutral-900: oklch(22% 0.008 250);
   --mc-color-neutral-1000: oklch(13% 0.006 250);
   --mc-color-red-100: oklch(92.89% 0.0361 27.51);
+  --mc-color-red-300: oklch(75% 0.12 25);
+  --mc-color-red-400: oklch(65% 0.15 25);
   --mc-color-red-500: oklch(55% 0.18 25);
   --mc-color-red-700: oklch(44% 0.15 25);
   --mc-control-lg: 40px;
@@ -161,7 +169,7 @@
 :root[data-theme="slate"].dark {
 --mc-action-destructive: var(--mc-color-red-500);
   --mc-action-destructive-foreground: var(--mc-color-neutral-1000);
-  --mc-action-destructive-hover: var(--mc-color-red-100);
+  --mc-action-destructive-hover: var(--mc-color-red-400);
   --mc-action-disabled: var(--mc-color-neutral-800);
   --mc-action-disabled-foreground: var(--mc-color-neutral-600);
   --mc-action-primary: var(--mc-color-brand-400);
@@ -175,9 +183,13 @@
   --mc-border-focus: var(--mc-color-brand-400);
   --mc-border-strong: var(--mc-color-neutral-600);
   --mc-color-amber-100: oklch(94.57% 0.0577 85.01);
+  --mc-color-amber-300: oklch(83% 0.1 80);
+  --mc-color-amber-400: oklch(77% 0.12 80);
   --mc-color-amber-500: oklch(70% 0.13 80);
   --mc-color-amber-700: oklch(50.07% 0.1044 78.02);
   --mc-color-blue-100: oklch(92.75% 0.0434 230.3);
+  --mc-color-blue-300: oklch(75% 0.1 240);
+  --mc-color-blue-400: oklch(65% 0.13 240);
   --mc-color-blue-500: oklch(55.76% 0.1396 244.7);
   --mc-color-blue-700: oklch(42.75% 0.1098 246);
   --mc-color-brand-0: oklch(98% 0.0098 249.3);
@@ -193,6 +205,8 @@
   --mc-color-brand-900: oklch(27% 0.06 250);
   --mc-color-brand-1000: oklch(20% 0.04 250);
   --mc-color-green-100: oklch(94% 0.06 150);
+  --mc-color-green-300: oklch(76% 0.09 150);
+  --mc-color-green-400: oklch(66% 0.11 150);
   --mc-color-green-500: oklch(56% 0.12 150);
   --mc-color-green-700: oklch(43% 0.1 150);
   --mc-color-neutral-0: oklch(99% 0.002 250);
@@ -208,6 +222,8 @@
   --mc-color-neutral-900: oklch(22% 0.008 250);
   --mc-color-neutral-1000: oklch(13% 0.006 250);
   --mc-color-red-100: oklch(92.89% 0.0361 27.51);
+  --mc-color-red-300: oklch(75% 0.12 25);
+  --mc-color-red-400: oklch(65% 0.15 25);
   --mc-color-red-500: oklch(55% 0.18 25);
   --mc-color-red-700: oklch(44% 0.15 25);
   --mc-control-lg: 40px;

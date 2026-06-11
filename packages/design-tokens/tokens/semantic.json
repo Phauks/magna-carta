@@ -1,4 +1,5 @@
 {
+  "$description": "Semantic aliases onto primitives — the light/default truth (tokens/modes/* override per mode). Adding a color-bearing semantic token requires adding its @theme inline mapping in tailwind.template.css (until a gate enforces it).",
   "surface": {
     "$description": "Background colors for layered surfaces.",
     "default": { "$type": "color", "$value": "{color.neutral.0}" },

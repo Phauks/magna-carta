@@ -21,7 +21,7 @@
     "secondary-hover": { "$type": "color", "$value": "{color.neutral.700}" },
     "secondary-foreground": { "$type": "color", "$value": "{color.neutral.50}" },
     "destructive": { "$type": "color", "$value": "{color.red.500}" },
-    "destructive-hover": { "$type": "color", "$value": "{color.red.100}" },
+    "destructive-hover": { "$type": "color", "$value": "{color.red.400}" },
     "destructive-foreground": { "$type": "color", "$value": "{color.neutral.1000}" },
     "disabled": { "$type": "color", "$value": "{color.neutral.800}" },
     "disabled-foreground": { "$type": "color", "$value": "{color.neutral.600}" }

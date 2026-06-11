@@ -14,7 +14,7 @@
  * Primitive color ramps are deliberately unmapped: components must use semantic names.
  */
 
-/* Mode-invariant namespaces (spacing, radius, shadows, typography, easing) — generated. */
+/* Mode-invariant namespaces (spacing, radius, typography, easing) — generated. */
 @theme {
   --spacing-0: 0px;
   --spacing-4: 4px;
@@ -33,10 +33,6 @@
   --radius-md: 6px;
   --radius-none: 0px;
   --radius-sm: 2px;
-  --shadow-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
-  --shadow-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
-  --shadow-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
-  --shadow-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --font-sans: system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --text-xs: 12px;
@@ -58,8 +54,13 @@
   --ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
 }
 
-/* Semantic colors — hand-authored; `inline` keeps the var() reference in utilities. */
+/* Semantic colors + elevation — hand-authored; `inline` keeps the var() reference in utilities. */
 @theme inline {
+  /* Elevation: dark themes may later override --mc-elevation-* per mode; the wiring already permits it. */
+  --shadow-elevation-0: var(--mc-elevation-0);
+  --shadow-elevation-1: var(--mc-elevation-1);
+  --shadow-elevation-2: var(--mc-elevation-2);
+  --shadow-elevation-3: var(--mc-elevation-3);
   --color-surface-default: var(--mc-surface-default);
   --color-surface-raised: var(--mc-surface-raised);
   --color-surface-sunken: var(--mc-surface-sunken);

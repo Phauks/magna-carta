@@ -9,13 +9,18 @@
  * Primitive color ramps are deliberately unmapped: components must use semantic names.
  */
 
-/* Mode-invariant namespaces (spacing, radius, shadows, typography, easing) — generated. */
+/* Mode-invariant namespaces (spacing, radius, typography, easing) — generated. */
 @theme {
   @tz (theme: "slate", mode: "light");
 }
 
-/* Semantic colors — hand-authored; `inline` keeps the var() reference in utilities. */
+/* Semantic colors + elevation — hand-authored; `inline` keeps the var() reference in utilities. */
 @theme inline {
+  /* Elevation: dark themes may later override --mc-elevation-* per mode; the wiring already permits it. */
+  --shadow-elevation-0: var(--mc-elevation-0);
+  --shadow-elevation-1: var(--mc-elevation-1);
+  --shadow-elevation-2: var(--mc-elevation-2);
+  --shadow-elevation-3: var(--mc-elevation-3);
   --color-surface-default: var(--mc-surface-default);
   --color-surface-raised: var(--mc-surface-raised);
   --color-surface-sunken: var(--mc-surface-sunken);

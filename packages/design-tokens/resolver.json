@@ -1,6 +1,6 @@
 {
   "name": "Magna Carta design tokens",
-  "description": "Resolver for the Magna Carta design-token source: primitive ramps + semantic aliases, modified by theme and mode. Mode files override only semantic aliases (ramp positions), so a future theme is a pure addition: a new theme context overriding ramp values plus, if needed, its own mode overlays.",
+  "description": "Resolver for the Magna Carta design-token source: primitive ramps + semantic aliases (the light/default truth), modified by theme and mode. Mode overlays re-point semantic aliases to ramp positions and are shared across all themes; a new theme adds one context that swaps ramp values only.",
   "version": "2025.10",
   "sets": {
     "primitives": {
@@ -28,10 +28,10 @@
       "default": "slate"
     },
     "mode": {
-      "description": "Light or dark color mode; overrides color-bearing semantic aliases.",
+      "description": "Light or dark color mode, shared across all themes. Light is empty: tokens/semantic.json is the light/default truth. Dark re-points color-bearing semantic aliases to other ramp positions.",
       "contexts": {
-        "light": [{ "$ref": "tokens/themes/slate-light.json" }],
-        "dark": [{ "$ref": "tokens/themes/slate-dark.json" }]
+        "light": [],
+        "dark": [{ "$ref": "tokens/modes/dark.json" }]
       },
       "default": "light"
     }
