@@ -11,6 +11,7 @@
   },
   "scripts": {
     "build": "tz build",
+    "generate-theme": "node scripts/generate-theme.ts",
     "test": "vp test run"
   },
   "devDependencies": {
