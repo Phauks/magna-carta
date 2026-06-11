@@ -1,0 +1,40 @@
+# Motion & animation stack for the design system
+
+**Status:** Research complete (2026-06-10), verified against live primary sources (vendor docs, npm registry, MDN, caniuse). **Feeds:** the slice 0·7a design-language workshop (motion personality) and the `@magna-carta/design-system` build (motion tokens already exist in the token plan; this report decides what, if anything, joins the dependency stack). **Owner intent:** tasteful animated components as a differentiator (rare in legal software) — functional motion plus a few signature moments (animated wordmark, text "written live", polished micro-interactions).
+
+## Recommended minimal stack (core-bundle cost ~0 kB)
+
+1. **Micro-interactions + list transitions:** Svelte 5 built-ins (`transition:`, `animate:flip`, the `Spring`/`Tween` classes) driven by DTCG motion tokens (duration ladder ~75/150/250/400 ms + standard/expressive easing pair, all multiplied by a reduced-motion duration scalar). 0 kB.
+2. **Page transitions:** View Transitions API via SvelteKit `onNavigate`; `::view-transition-*` styles token-only, reduced-motion-gated. 0 kB.
+3. **Animated wordmark + "written live" text:** GSAP core + DrawSVG + SplitText, dynamically imported only on the surfaces that show them (~30–35 kB gzipped, lazy). Wordmark authored as SVG paths (calligraphy-mask technique) — no Lottie/Rive runtime.
+4. **Typewriter:** hand-rolled `TypedText` component (interval/`Tween`-driven `$state` index + CSS `steps()` caret), reduced-motion fallback renders instantly. Every npm typewriter package is stale — skip them.
+5. **Discipline:** a shared `prefersReducedMotion` reactive media query gates all JS-driven animation (CSS media queries do not stop JS engines); Playwright visual regression runs with `animations: 'disabled'` + `reducedMotion: 'reduce'`; compositor-only properties (`transform`, `opacity`, `filter`, `clip-path`) in the core app; FLIP capped on large tables (animate small result sets only, skip above ~50 rows).
+
+## Verdict table
+
+| Library | Verdict | Version / health (June 2026) | Rationale |
+| --- | --- | --- | --- |
+| Svelte 5 built-ins (`transition:`, `animate:flip`, `Spring`/`Tween`) | Recommend | Svelte 5.8+ (5.29+ for attachments), core-maintained | Free, SSR-safe, token-parameterizable; covers most functional motion |
+| View Transitions API + `onNavigate` | Recommend | Same-document Baseline (Chrome 111 / Safari 18 / Firefox 144) | Zero-dependency page transitions, progressive enhancement |
+| GSAP (+ SplitText, DrawSVG) | Recommend (lazy-loaded, scoped) | 3.15.0; 100% free incl. all formerly-paid plugins since the Webflow acquisition (April 2025); proprietary no-charge license (not OSI — fine for product use, record in decision log) | The only tool covering both signature text effects; keep out of the app core bundle |
+| Motion (motion.dev) vanilla `animate` | Recommend (narrow) | 12.40.0; healthy; still no official Svelte adapter | 2.3 kB WAAPI mini build for one-off orchestration if GSAP feels heavy |
+| `@humanspeak/svelte-motion` and other Framer-style wrappers | Watch | 0.6.5, Svelte 5 peer, active but 0.x | Promising declarative layer; too young to underpin a design system |
+| `@formkit/auto-animate` | Watch | 0.9.0, stable/slow ("done" software) | Mostly redundant vs `animate:flip`; its edge is animating children rendered by third-party libraries (opaque table internals) |
+| dotlottie-web / lottie-web | Skip (for the wordmark) | dotlottie-web 0.74.0 — ~57 kB JS **plus ~700 kB gzipped WASM**; lottie-web ~60 kB no WASM | Huge runtime to play a logo an SVG can draw itself; LottieFiles also dropped its free editor tier ($19.99/user/mo) |
+| Rive | Watch | Active; free editor tier; ~200 kB runtime, small `.riv` files | Best future bet if rich interactive illustrations/empty-states multiply; overkill for one wordmark |
+| `svelte-typewriter` and peers | Skip | 3.2.3, Snyk-rated Inactive | Hand-rolled is ~40 lines, token- and reduced-motion-aware |
+
+## Key facts (verified)
+
+- **Svelte 5 motion:** `spring()`/`tweened()` stores are deprecated; the `Spring`/`Tween` classes (Svelte 5.8+) expose `.target`/`.current`, promise-returning `.set()`, and `Spring.of()`/`Tween.of()` for runes state. `{@attach fn}` (5.29+) is the idiomatic bridge to imperative libraries, superseding `use:` actions — GSAP wiring is `{@attach (el) => { const timeline = gsap.timeline()…; return () => timeline.kill(); }}`. Built-in `transition:draw` does SVG stroke reveal with zero dependencies. Limits: no timelines/orchestration/stagger beyond per-element delay, no scroll-linked timelines, no text splitting.
+- **GSAP licensing:** Webflow acquired GSAP (October 2024) and made the entire library free including SplitText, DrawSVG, MorphSVG, ScrollSmoother (April 2025). The npm package ships under a proprietary "Standard no-charge license" — free for commercial use, not OSI open source (cannot be used to build a competing animation tool). SSR caveat: register plugins client-side only. Core is ~27–28 kB gzipped and animates on the main thread — keep it off dense data views.
+- **Motion (motion.dev):** officially supports React, vanilla JavaScript, and Vue — no official Svelte adapter as of v12.40.0. The vanilla build works via attachments: mini 2.3 kB (pure WAAPI, hardware-accelerated) or hybrid ~18 kB (timelines, independent transforms).
+- **Handwriting animation:** `stroke-dashoffset` only works on monoline strokes. Calligraphic fonts need the **mask technique** — a fat monoline "pen path" traced over each filled glyph (following the real stroke order) used as an animated mask. GSAP DrawSVG sequences the multi-path choreography best; Svelte's `transition:draw` works for simple cases. Variable-font axis animation reads as morphing, not writing — not a substitute.
+- **View Transitions (June 2026):** same-document is Baseline Newly Available (Chrome 111+, Safari 18+, Firefox 144 of October 2025; Firefox's first cut lacks view-transition types). Cross-document is Chrome 126+/Safari 18.2+ but not Firefox — irrelevant for this SPA. Canonical SvelteKit recipe: `onNavigate` wrapping `document.startViewTransition`.
+- **Visual regression:** Playwright `toHaveScreenshot` `animations: 'disabled'` fast-forwards CSS/WAAPI animations but does **not** freeze requestAnimationFrame-driven engines (GSAP) — the reduced-motion token gate must also kill JS animation, and the VRT context sets `reducedMotion: 'reduce'`.
+- **Token practice:** mainstream systems (Material 3, Carbon) use a small named duration ladder + easing pairs; guidance converges on ~150–250 ms routine UI, 250–400 ms entrances, 500 ms+ only for page-level/signature motion. The strongest reduced-motion pattern is a **duration-scalar token** every animation multiplies by (goes to ~0 under reduced motion) — compliance becomes structural.
+- **Performance:** compositor-friendly properties keep animation off the main thread; layout-triggering animation and main-thread JS engines contribute to Long Animation Frames (the primary INP diagnostic). FLIP's measure step forces synchronous layout — cap it on dense tables.
+
+## Sources
+
+svelte.dev/docs/svelte/svelte-motion · svelte.dev/docs/svelte/@attach · motion.dev/docs (+ feature-comparison, performance) · gsap.com/pricing · webflow.com/blog/gsap-becomes-free · gsap.com/docs/v3/Plugins/DrawSVGPlugin · tympanus.net/codrops/2025/05/14 (free GSAP plugin demos) · github.com/lottiefiles/dotlottie-web · lottiefiles.com/pricing · rive.app/pricing · unicornicons.com/learn/rive-vs-lottie · css-tricks.com/how-to-get-handwriting-animation-with-irregular-svg-strokes · developer.mozilla.org/docs/Mozilla/Firefox/Releases/144 · web.dev/blog/same-document-view-transitions-are-now-baseline-newly-available · caniuse.com/cross-document-view-transitions · joyofcode.xyz/sveltekit-view-transitions · playwright.dev/docs/api/class-pageassertions · m3.material.io/styles/motion/easing-and-duration/tokens-specs · carbondesignsystem.com/elements/motion/overview · developer.chrome.com/docs/web-platform/long-animation-frames · auto-animate.formkit.com · snyk.io/advisor/npm-package/svelte-typewriter
