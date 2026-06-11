@@ -13,9 +13,10 @@ import { CONTRAST_PAIRS } from "../src/contrast-pairs.ts";
  * changes the mapping. This script is also the future seam for per-firm brand palettes:
  * a firm picks a hue, the generator emits a contrast-validated theme.
  *
- * Run it with: pnpm --filter @magna-carta/design-tokens run generate-theme -- \
+ * Run it with: pnpm --filter @magna-carta/design-tokens run generate-theme \
  *   --name <theme> --brand-hue <deg> [--brand-chroma n] \
  *   [--neutral-tint-hue deg --neutral-tint-chroma n] [--write]
+ * (A leading "--" separator is tolerated — pnpm forwards it literally.)
  */
 
 /** The 12 ramp stop names of color.neutral and color.brand, light to dark. */
@@ -368,8 +369,11 @@ export interface ParsedCommandLine {
 
 /** Parse main()'s flags. Applies no defaults of its own: defaulting lives in the generator. */
 export function parseGenerateThemeCommandLine(argv: string[]): ParsedCommandLine {
+  // pnpm forwards a literal "--" separator to the script; parseArgs strict mode
+  // would reject it as a positional, so strip one leading occurrence.
+  const argumentsWithoutSeparator = argv[0] === "--" ? argv.slice(1) : argv;
   const { values } = parseArgs({
-    args: argv,
+    args: argumentsWithoutSeparator,
     strict: true,
     options: {
       name: { type: "string" },
