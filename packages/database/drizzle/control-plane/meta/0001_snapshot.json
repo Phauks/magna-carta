@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "18b281d4-82bf-4d32-b961-cb00818c90c4",
+  "id": "6ee735c5-603d-47de-961c-654a7113cc9b",
   "prevId": "683931ad-2065-4ac0-9b63-d028ceec749a",
   "tables": {
     "account": {
@@ -100,7 +100,13 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "account_user_id_index": {
+          "name": "account_user_id_index",
+          "columns": ["user_id"],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "account_user_id_user_id_fk": {
           "name": "account_user_id_user_id_fk",
@@ -443,6 +449,11 @@
           "name": "session_token_unique",
           "columns": ["token"],
           "isUnique": true
+        },
+        "session_user_id_index": {
+          "name": "session_user_id_index",
+          "columns": ["user_id"],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -500,7 +511,18 @@
           "default": true
         }
       },
-      "indexes": {},
+      "indexes": {
+        "two_factor_secret_index": {
+          "name": "two_factor_secret_index",
+          "columns": ["secret"],
+          "isUnique": false
+        },
+        "two_factor_user_id_index": {
+          "name": "two_factor_user_id_index",
+          "columns": ["user_id"],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "two_factor_user_id_user_id_fk": {
           "name": "two_factor_user_id_user_id_fk",
@@ -657,7 +679,13 @@
           "default": "(cast(unixepoch('subsecond') * 1000 as integer))"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "verification_identifier_index": {
+          "name": "verification_identifier_index",
+          "columns": ["identifier"],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},

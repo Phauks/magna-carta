@@ -45,9 +45,8 @@ describe("generated migrations (committed artifacts)", () => {
       expect(allSql, tableName).toContain(`CREATE TABLE \`${tableName}\``);
     }
     // The firm lifecycle columns arrive as additive ALTERs — NOT NULL only with a DEFAULT.
-    expect(allSql).toContain("status");
-    expect(allSql).toContain("bucket_name");
-    expect(allSql).toContain("'active'");
+    expect(allSql).toContain("ALTER TABLE `firm` ADD `status` text DEFAULT 'active' NOT NULL");
+    expect(allSql).toContain("ALTER TABLE `firm` ADD `bucket_name` text");
   });
 
   it("per-firm lineage loads and creates idempotency_key and outbox", async () => {

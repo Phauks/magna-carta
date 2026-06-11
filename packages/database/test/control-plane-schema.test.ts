@@ -57,7 +57,7 @@ describe("control-plane schema: Better Auth-owned tables (better-auth 1.6.16 ref
     expect(columnOf(user, "email_verified").getSQLType()).toBe("integer"); // boolean mode
     expect(columnOf(user, "email_verified").notNull).toBe(true);
     expect(columnOf(user, "image").notNull).toBe(false);
-    expect(columnOf(user, "created_at").getSQLType()).toBe("integer"); // epoch-ms (decided #3)
+    expect(columnOf(user, "created_at").getSQLType()).toBe("integer"); // epoch-ms — the sanctioned Better Auth exception to ADR-0055
     expect(columnOf(user, "updated_at").getSQLType()).toBe("integer");
   });
 
@@ -66,7 +66,7 @@ describe("control-plane schema: Better Auth-owned tables (better-auth 1.6.16 ref
     expect(columnOf(user, "two_factor_enabled").notNull).toBe(false); // plugin field is optional
     const firmId = columnOf(user, "firm_id");
     expect(firmId.notNull).toBe(true);
-    expect(getTableConfig(user).foreignKeys.length).toBeGreaterThanOrEqual(1); // firm_id -> firm.id
+    expect(getTableConfig(user).foreignKeys).toHaveLength(1); // firm_id -> firm.id
   });
 
   it("session matches the reference: unique token, epoch-ms instants, cascade to user", () => {
@@ -81,6 +81,7 @@ describe("control-plane schema: Better Auth-owned tables (better-auth 1.6.16 ref
     expect(columnOf(session, "user_agent").notNull).toBe(false);
     expect(columnOf(session, "user_id").notNull).toBe(true);
     expect(getTableConfig(session).foreignKeys).toHaveLength(1); // user_id -> user.id ON DELETE CASCADE
+    expect(getTableConfig(session).foreignKeys[0]?.onDelete).toBe("cascade");
   });
 
   it("account matches the reference: credential + oauth columns, nullable token expiries", () => {
@@ -98,6 +99,7 @@ describe("control-plane schema: Better Auth-owned tables (better-auth 1.6.16 ref
     expect(columnOf(account, "scope").notNull).toBe(false);
     expect(columnOf(account, "password").notNull).toBe(false); // hashed by Better Auth, never plaintext
     expect(getTableConfig(account).foreignKeys).toHaveLength(1); // user_id -> user.id ON DELETE CASCADE
+    expect(getTableConfig(account).foreignKeys[0]?.onDelete).toBe("cascade");
   });
 
   it("verification matches the reference", () => {
@@ -117,7 +119,8 @@ describe("control-plane schema: Better Auth-owned tables (better-auth 1.6.16 ref
     expect(columnOf(twoFactor, "backup_codes").notNull).toBe(true);
     expect(columnOf(twoFactor, "user_id").notNull).toBe(true);
     expect(columnOf(twoFactor, "verified").notNull).toBe(false); // optional, defaults true in the reference
-    expect(getTableConfig(twoFactor).foreignKeys).toHaveLength(1); // user_id -> user.id
+    expect(getTableConfig(twoFactor).foreignKeys).toHaveLength(1); // user_id -> user.id ON DELETE CASCADE
+    expect(getTableConfig(twoFactor).foreignKeys[0]?.onDelete).toBe("cascade");
   });
 });
 
@@ -145,6 +148,20 @@ describe("control-plane schema: outbox + idempotency_key are verbatim copies of 
       type: column.getSQLType(),
       notNull: column.notNull,
       primary: column.primary,
+      default: column.default,
+      enumValues: column.enumValues,
+    }));
+
+  const indexShapeOf = (table: SQLiteTable) =>
+    getTableConfig(table).indexes.map((tableIndex) => ({
+      name: tableIndex.config.name,
+      unique: tableIndex.config.unique,
+      columns: tableIndex.config.columns.map((column) => {
+        if (!("name" in column)) {
+          throw new Error(`expected a plain indexed column in ${tableIndex.config.name}`);
+        }
+        return column.name;
+      }),
     }));
 
   it("idempotency_key shape matches per-firm column-for-column", () => {
@@ -155,20 +172,18 @@ describe("control-plane schema: outbox + idempotency_key are verbatim copies of 
     expect(shapeOf(outbox)).toEqual(shapeOf(perFirmSchema.outbox));
   });
 
-  it("keeps the UNIQUE(key) guard and the relay-sweep index", () => {
-    const idempotencyIndexes = getTableConfig(idempotencyKey).indexes;
-    expect(
-      idempotencyIndexes.some(
-        (index) =>
-          index.config.unique &&
-          index.config.columns.some((column) => "name" in column && column.name === "key"),
-      ),
-    ).toBe(true);
-    const outboxIndexes = getTableConfig(outbox).indexes;
-    expect(
-      outboxIndexes.some((index) =>
-        index.config.columns.some((column) => "name" in column && column.name === "status"),
-      ),
-    ).toBe(true);
+  it("idempotency_key indexes match per-firm exactly — name, unique flag, ordered columns", () => {
+    expect(indexShapeOf(idempotencyKey)).toEqual(indexShapeOf(perFirmSchema.idempotencyKey));
+    expect(indexShapeOf(idempotencyKey)).toEqual([
+      { name: "idempotency_key_key_unique_index", unique: true, columns: ["key"] },
+      { name: "idempotency_key_created_at_index", unique: false, columns: ["created_at"] },
+    ]);
+  });
+
+  it("outbox indexes match per-firm exactly — name, unique flag, ordered columns", () => {
+    expect(indexShapeOf(outbox)).toEqual(indexShapeOf(perFirmSchema.outbox));
+    expect(indexShapeOf(outbox)).toEqual([
+      { name: "outbox_status_created_at_index", unique: false, columns: ["status", "created_at"] },
+    ]);
   });
 });

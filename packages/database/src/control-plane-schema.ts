@@ -62,66 +62,89 @@ export const user = sqliteTable("user", {
     .references(() => firm.id),
 });
 
-export const session = sqliteTable("session", {
-  id: text("id").primaryKey().$type<SessionId>(), // ses_ handle
-  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
-  token: text("token").notNull().unique(),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
-    .notNull()
-    .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
-  ipAddress: text("ip_address"),
-  userAgent: text("user_agent"),
-  userId: text("user_id")
-    .notNull()
-    .$type<UserId>()
-    .references(() => user.id, { onDelete: "cascade" }),
-});
+export const session = sqliteTable(
+  "session",
+  {
+    id: text("id").primaryKey().$type<SessionId>(), // ses_ handle
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    token: text("token").notNull().unique(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    userId: text("user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  // The better-auth 1.6.16 reference generator marks user_id `index: true`.
+  (table) => [index("session_user_id_index").on(table.userId)],
+);
 
-export const account = sqliteTable("account", {
-  id: text("id").primaryKey().$type<AccountId>(), // acc_ handle
-  accountId: text("account_id").notNull(), // provider-side account id; equals user id for credentials
-  providerId: text("provider_id").notNull(), // 'credential' for email-and-password
-  userId: text("user_id")
-    .notNull()
-    .$type<UserId>()
-    .references(() => user.id, { onDelete: "cascade" }),
-  accessToken: text("access_token"),
-  refreshToken: text("refresh_token"),
-  idToken: text("id_token"),
-  accessTokenExpiresAt: integer("access_token_expires_at", { mode: "timestamp_ms" }),
-  refreshTokenExpiresAt: integer("refresh_token_expires_at", { mode: "timestamp_ms" }),
-  scope: text("scope"),
-  password: text("password"), // Better Auth stores the scrypt hash, never plaintext
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
-    .notNull()
-    .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
-});
+export const account = sqliteTable(
+  "account",
+  {
+    id: text("id").primaryKey().$type<AccountId>(), // acc_ handle
+    accountId: text("account_id").notNull(), // provider-side account id; equals user id for credentials
+    providerId: text("provider_id").notNull(), // 'credential' for email-and-password
+    userId: text("user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => user.id, { onDelete: "cascade" }),
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    idToken: text("id_token"),
+    accessTokenExpiresAt: integer("access_token_expires_at", { mode: "timestamp_ms" }),
+    refreshTokenExpiresAt: integer("refresh_token_expires_at", { mode: "timestamp_ms" }),
+    scope: text("scope"),
+    password: text("password"), // Better Auth stores the scrypt hash, never plaintext
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  // The better-auth 1.6.16 reference generator marks user_id `index: true`.
+  (table) => [index("account_user_id_index").on(table.userId)],
+);
 
-export const verification = sqliteTable("verification", {
-  id: text("id").primaryKey().$type<VerificationId>(), // ver_ handle
-  identifier: text("identifier").notNull(),
-  value: text("value").notNull(),
-  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
-    .notNull()
-    .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-    .notNull()
-    .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
-});
+export const verification = sqliteTable(
+  "verification",
+  {
+    id: text("id").primaryKey().$type<VerificationId>(), // ver_ handle
+    identifier: text("identifier").notNull(),
+    value: text("value").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
+  },
+  // The better-auth 1.6.16 reference generator marks identifier `index: true`.
+  (table) => [index("verification_identifier_index").on(table.identifier)],
+);
 
-export const twoFactor = sqliteTable("two_factor", {
-  id: text("id").primaryKey().$type<TwoFactorId>(), // twf_ handle
-  secret: text("secret").notNull(), // encrypted TOTP secret (Better Auth encrypts before storing)
-  backupCodes: text("backup_codes").notNull(), // encrypted, Better Auth-managed
-  userId: text("user_id")
-    .notNull()
-    .$type<UserId>()
-    .references(() => user.id, { onDelete: "cascade" }),
-  verified: integer("verified", { mode: "boolean" }).default(true),
-});
+export const twoFactor = sqliteTable(
+  "two_factor",
+  {
+    id: text("id").primaryKey().$type<TwoFactorId>(), // twf_ handle
+    secret: text("secret").notNull(), // encrypted TOTP secret (Better Auth encrypts before storing)
+    backupCodes: text("backup_codes").notNull(), // encrypted, Better Auth-managed
+    userId: text("user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => user.id, { onDelete: "cascade" }),
+    verified: integer("verified", { mode: "boolean" }).default(true),
+  },
+  // The twoFactor plugin schema marks secret and user_id `index: true`.
+  (table) => [
+    index("two_factor_secret_index").on(table.secret),
+    index("two_factor_user_id_index").on(table.userId),
+  ],
+);
 
 // OUR CONTROL-PLANE TABLES — house conventions resume here: ISO-8601 UTC text timestamps (ADR-0055).
 

@@ -15,6 +15,7 @@ CREATE TABLE `account` (
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
+CREATE INDEX `account_user_id_index` ON `account` (`user_id`);--> statement-breakpoint
 CREATE TABLE `auth_audit` (
 	`id` text PRIMARY KEY NOT NULL,
 	`event` text NOT NULL,
@@ -61,6 +62,7 @@ CREATE TABLE `session` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `session_token_unique` ON `session` (`token`);--> statement-breakpoint
+CREATE INDEX `session_user_id_index` ON `session` (`user_id`);--> statement-breakpoint
 CREATE TABLE `two_factor` (
 	`id` text PRIMARY KEY NOT NULL,
 	`secret` text NOT NULL,
@@ -70,6 +72,8 @@ CREATE TABLE `two_factor` (
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
+CREATE INDEX `two_factor_secret_index` ON `two_factor` (`secret`);--> statement-breakpoint
+CREATE INDEX `two_factor_user_id_index` ON `two_factor` (`user_id`);--> statement-breakpoint
 CREATE TABLE `user` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
@@ -93,5 +97,6 @@ CREATE TABLE `verification` (
 	`updated_at` integer DEFAULT (cast(unixepoch('subsecond') * 1000 as integer)) NOT NULL
 );
 --> statement-breakpoint
+CREATE INDEX `verification_identifier_index` ON `verification` (`identifier`);--> statement-breakpoint
 ALTER TABLE `firm` ADD `status` text DEFAULT 'active' NOT NULL;--> statement-breakpoint
 ALTER TABLE `firm` ADD `bucket_name` text;
