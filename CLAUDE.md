@@ -18,6 +18,7 @@ Documentation is **segmented and non-duplicative.** Every fact has one authorita
 | Local rules & gotchas for a code area                    | a `CLAUDE.md` beside that code ([template](docs/conventions/area-claude-template.md)) |
 | End-user & admin guides (per feature)                    | [`docs/user/`](docs/user/)                                                            |
 | Live execution status (now / next / shipped / backlog)   | [`ROADMAP.md`](ROADMAP.md)                                                            |
+| Per-slice stage status (spec → plan → built → tested)    | [`STATUS.md`](STATUS.md)                                                              |
 | Notable changes                                          | [`CHANGELOG.md`](CHANGELOG.md)                                                        |
 | Research (trust rules, competitive analysis)             | [`docs/research/`](docs/research/)                                                    |
 

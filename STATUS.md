@@ -22,7 +22,7 @@ Per-slice progress across the build pipeline — the **stage-status home**. [`RO
 | 0·4 — Auth + RBAC skeleton + firm provisioning | [-] | [x] | [x] | [~] | [ ] | Build in progress (active session). |
 | 0·5 — API contract pipeline | [-] | [x] | [x] | [ ] | [ ] | Spec = the 2026-06-04 API-contract design (no new design cycle). |
 | 0·6 — Telemetry baseline + platform closeout | [-] | [x] | [x] | [ ] | [ ] | Backend + CI only. |
-| 0·7a — Design-system foundation | [-] | [x] | [x] | [ ] | [ ] | Token pipeline + component layer. |
+| 0·7a — Design-system foundation | [-] | [x] | [x] | [~] | [ ] | Token pipeline + component layer (build in progress). |
 | 0·7b — Auth UI + deferred surfaces | [-] | [ ] | [ ] | [ ] | [ ] | Own design cycle when it starts. |
 
 ## Phase 1 — Core domain (firm + matters)
