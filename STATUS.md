@@ -16,9 +16,9 @@ Per-slice progress across the build pipeline — the **stage-status home**. [`RO
 
 | Slice | Research | Spec | Plan | Built | Tested | Notes |
 | ----- | :------: | :--: | :--: | :---: | :----: | ----- |
-| 0·1 — Walking skeleton | [-] | [x] | [x] | [x] | [ ] | Shipped (CI → Wrangler deploy). |
-| 0·2 — Foundational data (money · identifiers · database · data-access) | [-] | [x] | [x] | [x] | [ ] | Four packages; one design + four package plans. |
-| 0·3 — Ledger core + fixtures | [-] | [x] | [x] | [x] | [ ] | Built + 10-finding adversarial pass (during build). |
+| 0·1 — Walking skeleton | [-] | [x] | [x] | [x] | [x] | Shipped (CI → Wrangler deploy). |
+| 0·2 — Foundational data (money · identifiers · database · data-access) | [-] | [x] | [x] | [x] | [x] | Four packages; one design + four package plans. |
+| 0·3 — Ledger core + fixtures | [-] | [x] | [x] | [x] | [x] | Built + 10-finding adversarial pass (during build). |
 | 0·4 — Auth + RBAC skeleton + firm provisioning | [-] | [x] | [x] | [~] | [ ] | Build in progress (active session). |
 | 0·5 — API contract pipeline | [-] | [x] | [x] | [ ] | [ ] | Spec = the 2026-06-04 API-contract design (no new design cycle). |
 | 0·6 — Telemetry baseline + platform closeout | [-] | [x] | [x] | [ ] | [ ] | Backend + CI only. |
