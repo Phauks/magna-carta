@@ -57,6 +57,7 @@ Broad principles for how we build — they apply across the work, not just one s
 ## How we work
 
 - **Build in vertical slices:** each feature complete through every layer (schema → firm-scoped data-access layer → API → UI → tests → docs), not horizontal layers — each slice ships working and is perf-tested against the load-profile fixtures as built.
+- **Build when in the area:** when a slice is open, include the cheap-from-the-getgo / expensive-to-retrofit parts up front — seams, schema columns, instrumentation. "Build when measured" gates are for heavy machinery only (golden rule 10 governs optimization, not foundations). (ADR-0078)
 - **Implementation:** autonomous and terse; comprehensive fixes over incremental patches. Design and brainstorming stay collaborative.
 - **Per-area `CLAUDE.md`:** each code area carries its own (template in [`docs/conventions/`](docs/conventions/)) for local rules and the domain invariants that apply there — keep cross-cutting rules in `docs/conventions/`, not duplicated locally.
 
