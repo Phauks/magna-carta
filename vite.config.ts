@@ -8,6 +8,9 @@ export default defineConfig({
     printWidth: 100,
     proseWrap: "preserve",
     endOfLine: "lf",
+    // Terrazzo-generated output must match a fresh `tz build` byte-for-byte (the CI drift gate
+    // regenerates and diffs); the formatter must never reflow it.
+    ignorePatterns: ["packages/design-tokens/generated/**"],
   },
   // typeCheck makes `vp check` run tsgolint TS type-checks (not just fmt+lint); a real `.ts` type error now fails the gate.
   // tsgolint does not parse `.svelte`, so the full gate (`pnpm check`) also runs svelte-check. See conventions/typescript.md.

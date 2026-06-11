@@ -18,9 +18,9 @@
     "@terrazzo/cli": "catalog:",
     "@terrazzo/plugin-css": "catalog:",
     "@terrazzo/plugin-tailwind": "catalog:",
+    "@types/culori": "catalog:",
     "@types/node": "catalog:",
     "culori": "catalog:",
-    "@types/culori": "catalog:",
     "vitest": "catalog:"
   }
 }
