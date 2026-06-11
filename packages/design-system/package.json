@@ -1,0 +1,26 @@
+{
+  "name": "@magna-carta/design-system",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./internal/merge-classes": "./src/lib/internal/merge-classes.ts",
+    "./internal/types": "./src/lib/internal/types.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/design-tokens": "workspace:*",
+    "bits-ui": "catalog:",
+    "clsx": "catalog:",
+    "tailwind-merge": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "svelte": "catalog:",
+    "vitest": "catalog:"
+  }
+}
