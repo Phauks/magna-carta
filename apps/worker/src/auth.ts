@@ -43,6 +43,18 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
       sendResetPassword: async ({ user, url }) => {
         await sendEmail({ to: user.email, subject: "Set your Magna Carta password", text: url });
       },
+      // Completing a reset proves control of the mailbox (the token only ever travels by email) —
+      // the same possession proof email verification asks for, so the flag flips here. This is
+      // also what activates invited users: the invite flow (members.invite) inserts them
+      // unverified with no credential account, and the reset link is their activation link;
+      // without this flip, requireEmailVerification would lock every invitee out at sign-in.
+      onPasswordReset: async ({ user }) => {
+        await env.DB_CONTROL.prepare(
+          'UPDATE "user" SET email_verified = 1, updated_at = ?2 WHERE id = ?1',
+        )
+          .bind(user.id, Date.now())
+          .run();
+      },
     },
     emailVerification: {
       sendVerificationEmail: async ({ user, url }) => {

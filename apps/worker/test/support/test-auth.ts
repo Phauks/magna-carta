@@ -1,4 +1,9 @@
 import { env, SELF } from "cloudflare:test";
+import { expect } from "vitest";
+import {
+  insertMemberStatement,
+  insertRoleAssignmentStatement,
+} from "@magna-carta/data-access/member-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
@@ -56,15 +61,22 @@ export async function seedCredentialedUser(
     readonly userName?: string;
     readonly firmName?: string;
     readonly firmDatabaseIdentifier?: string;
+    // Attach to an already-seeded firm instead of creating one — needed when several tests in a
+    // file share one pool firm (firm.database_identifier is UNIQUE, so re-seeding would throw).
+    readonly firmId?: FirmId;
   },
 ): Promise<SeededCredentialedUser> {
   const auth = createTestAuth();
   const context = await auth.$context;
 
-  const { firmId } = await seedFirm({
-    name: options?.firmName,
-    databaseIdentifier: options?.firmDatabaseIdentifier,
-  });
+  const firmId =
+    options?.firmId ??
+    (
+      await seedFirm({
+        name: options?.firmName,
+        databaseIdentifier: options?.firmDatabaseIdentifier,
+      })
+    ).firmId;
 
   const now = new Date();
   const user = await context.adapter.create<Record<string, unknown>, { id: string }>({
@@ -129,4 +141,35 @@ export async function postJson(path: string, body: unknown, cookie?: string): Pr
 
 export async function signIn(email: string): Promise<Response> {
   return postJson("/api/auth/sign-in/email", { email, password: PASSWORD });
+}
+
+// Signs the seeded user in and returns the resendable session cookie pair.
+export async function signInForSessionCookie(email: string): Promise<string> {
+  const signInResponse = await signIn(email);
+  expect(signInResponse.status).toBe(200);
+  const sessionCookie = liveCookie(setCookies(signInResponse), "session_token");
+  expect(sessionCookie).toBeDefined();
+  return sessionCookie?.pair ?? "";
+}
+
+// Mirrors the user into DB_FIRM_POOL_1's member table and assigns the seeded Owner/Admin role
+// (the rol_ handle is a committed literal in 0002_member-rbac.sql — read back by name).
+export async function mirrorMemberWithOwnerRole(
+  userId: UserId,
+  displayName: string,
+): Promise<void> {
+  const ownerRole = await env.DB_FIRM_POOL_1.prepare(
+    "SELECT id FROM role WHERE name = 'Owner/Admin'",
+  ).first<{ id: string }>();
+  if (ownerRole === null) throw new Error("seeded Owner/Admin role missing from DB_FIRM_POOL_1");
+  await insertMemberStatement(env.DB_FIRM_POOL_1, {
+    userId,
+    displayName,
+    now: new Date().toISOString(),
+  }).run();
+  await insertRoleAssignmentStatement(env.DB_FIRM_POOL_1, {
+    id: newIdentifier("memberRole"),
+    memberUserId: userId,
+    roleId: assertIdentifier(ownerRole.id, "role"),
+  }).run();
 }

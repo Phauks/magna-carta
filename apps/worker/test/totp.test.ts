@@ -10,6 +10,7 @@ import {
   seedCredentialedUser,
   setCookies,
   signIn,
+  signInForSessionCookie,
 } from "./support/test-auth.ts";
 
 beforeAll(async () => {
@@ -70,18 +71,14 @@ async function enrollTotp(sessionCookie: string): Promise<{ secretBase32: string
 describe("TOTP enrollment", () => {
   it("enables 2FA via enable + verify-totp, storing the secret encrypted at rest", async () => {
     const { userId } = await seedCredentialedUser("totp-enroll@example.com");
-
-    const signInResponse = await signIn("totp-enroll@example.com");
-    expect(signInResponse.status).toBe(200);
-    const sessionCookie = liveCookie(setCookies(signInResponse), "session_token");
-    expect(sessionCookie).toBeDefined();
+    const sessionCookie = await signInForSessionCookie("totp-enroll@example.com");
 
     // Enable is password-gated and returns the provisioning URI plus backup codes; the user is
     // NOT 2FA-enabled yet — that requires proving possession of the authenticator via verify-totp.
     const enableResponse = await postJson(
       "/api/auth/two-factor/enable",
       { password: PASSWORD },
-      sessionCookie?.pair,
+      sessionCookie,
     );
     expect(enableResponse.status).toBe(200);
     const enableBody = (await enableResponse.json()) as { totpURI: string; backupCodes: string[] };
@@ -111,7 +108,7 @@ describe("TOTP enrollment", () => {
     const verifyResponse = await postJson(
       "/api/auth/two-factor/verify-totp",
       { code: createAuthenticator(secretBase32).generate() },
-      sessionCookie?.pair,
+      sessionCookie,
     );
     expect(verifyResponse.status).toBe(200);
 
@@ -133,10 +130,8 @@ describe("TOTP enrollment", () => {
 describe("2FA login", () => {
   it("withholds the session at sign-in, rejects a wrong code, and completes login on a valid code", async () => {
     await seedCredentialedUser("totp-login@example.com");
-    const enrollSignIn = await signIn("totp-login@example.com");
-    const enrollSession = liveCookie(setCookies(enrollSignIn), "session_token");
-    expect(enrollSession).toBeDefined();
-    const { secretBase32 } = await enrollTotp(enrollSession?.pair ?? "");
+    const enrollSession = await signInForSessionCookie("totp-login@example.com");
+    const { secretBase32 } = await enrollTotp(enrollSession);
 
     // Fresh sign-in for the now-2FA-enabled user: the plugin's after-hook deletes the credential
     // session, answers { twoFactorRedirect: true }, and parks the pending login behind a signed

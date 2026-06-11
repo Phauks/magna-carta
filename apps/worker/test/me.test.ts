@@ -1,15 +1,12 @@
 import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
-import {
-  insertMemberStatement,
-  insertRoleAssignmentStatement,
-} from "@magna-carta/data-access/member-statements";
-import { newIdentifier } from "@magna-carta/identifiers/generate";
-import { assertIdentifier } from "@magna-carta/identifiers/validate";
-import type { UserId } from "@magna-carta/identifiers/types";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
-import { liveCookie, seedCredentialedUser, setCookies, signIn } from "./support/test-auth.ts";
+import {
+  mirrorMemberWithOwnerRole,
+  seedCredentialedUser,
+  signInForSessionCookie,
+} from "./support/test-auth.ts";
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
@@ -17,34 +14,6 @@ beforeAll(async () => {
   // lineage (0000 + 0001_ledger-core + 0002_member-rbac), which also lands the seeded roles.
   await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
 });
-
-// Signs the seeded user in and returns the resendable session cookie pair.
-async function signInForSessionCookie(email: string): Promise<string> {
-  const signInResponse = await signIn(email);
-  expect(signInResponse.status).toBe(200);
-  const sessionCookie = liveCookie(setCookies(signInResponse), "session_token");
-  expect(sessionCookie).toBeDefined();
-  return sessionCookie?.pair ?? "";
-}
-
-// Mirrors the user into the per-firm member table and assigns the seeded Owner/Admin role
-// (the rol_ handle is a committed literal in 0002_member-rbac.sql — read back by name).
-async function mirrorMemberWithOwnerRole(userId: UserId): Promise<void> {
-  const ownerRole = await env.DB_FIRM_POOL_1.prepare(
-    "SELECT id FROM role WHERE name = 'Owner/Admin'",
-  ).first<{ id: string }>();
-  if (ownerRole === null) throw new Error("seeded Owner/Admin role missing from DB_FIRM_POOL_1");
-  await insertMemberStatement(env.DB_FIRM_POOL_1, {
-    userId,
-    displayName: "Me Test User",
-    now: new Date().toISOString(),
-  }).run();
-  await insertRoleAssignmentStatement(env.DB_FIRM_POOL_1, {
-    id: newIdentifier("memberRole"),
-    memberUserId: userId,
-    roleId: assertIdentifier(ownerRole.id, "role"),
-  }).run();
-}
 
 describe("GET /api/v1/me", () => {
   it("answers an unauthenticated request with an RFC 9457 401 problem", async () => {
@@ -67,7 +36,7 @@ describe("GET /api/v1/me", () => {
       firmName: "Me Test Firm",
       firmDatabaseIdentifier: "DB_FIRM_POOL_1",
     });
-    await mirrorMemberWithOwnerRole(userId);
+    await mirrorMemberWithOwnerRole(userId, "Me Test User");
     const sessionCookie = await signInForSessionCookie("me-member@example.com");
 
     const response = await SELF.fetch("https://example.com/api/v1/me", {
@@ -119,6 +88,8 @@ describe("GET /api/v1/me", () => {
       "x-mc-operationId": "me.get",
       "x-mc-surface": "app",
       "x-mc-authenticated": true,
+      "x-mc-permission": null,
+      "x-mc-resource": "firm",
       "x-mc-audited": false,
       "x-mc-idempotency": "optional",
     });

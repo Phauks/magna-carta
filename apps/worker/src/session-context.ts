@@ -1,4 +1,8 @@
 import type { Context } from "hono";
+import { effectivePermissions } from "@magna-carta/access-control/resolver";
+import type { Permission } from "@magna-carta/access-control/registry";
+import { selectMemberPermissionsStatements } from "@magna-carta/data-access/member-statements";
+import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import type { createAuth } from "./auth.ts";
@@ -25,4 +29,23 @@ export async function resolveSession(
     userId: assertIdentifier(session.user.id, "user"),
     firmId: assertIdentifier(session.user.firmId, "firm"),
   };
+}
+
+// The session member's effective permissions, read from THEIR firm's database (the firm came from
+// the session — ADR-0052) and folded through the access-control resolver. Two parallel reads, not
+// batched — revisit at the 0·5 chokepoint.
+export async function loadEffectivePermissions(
+  firmDatabase: SqlDatabase,
+  userId: UserId,
+): Promise<ReadonlySet<Permission>> {
+  const statements = selectMemberPermissionsStatements(firmDatabase, userId);
+  const [rolePermissions, directGrants] = await Promise.all([
+    statements.rolePermissions.all<{ permission: string }>(),
+    statements.directGrants.all<{ permission: string; expires_at: string | null }>(),
+  ]);
+  return effectivePermissions(
+    rolePermissions.results,
+    directGrants.results,
+    new Date().toISOString(),
+  );
 }

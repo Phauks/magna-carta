@@ -1,4 +1,5 @@
 import { z } from "@hono/zod-openapi";
+import type { Context } from "hono";
 
 // RFC 9457 Problem Details (docs/conventions/api.md), extended with the observability errorId
 // (ADR-0017/0038). DELIBERATE SEAM: slice 0·5 builds the platform problem module — the type-URI
@@ -21,7 +22,13 @@ export type ProblemBody = z.infer<typeof Problem>;
 // Problem type URIs are a registry (api.md); these are the slice 0·4 entries.
 export const PROBLEM_TYPES = {
   unauthenticated: "https://api.magnacarta.esq/problems/unauthenticated",
+  forbidden: "https://api.magnacarta.esq/problems/forbidden",
   notFound: "https://api.magnacarta.esq/problems/not-found",
+  conflict: "https://api.magnacarta.esq/problems/conflict",
+  // invalid-request is the malformed-request 400 (e.g. a missing required header); validation is
+  // the semantically-rejected 422 (api.md: Zod failures land here once the 0·5 defaultHook exists).
+  invalidRequest: "https://api.magnacarta.esq/problems/invalid-request",
+  validation: "https://api.magnacarta.esq/problems/validation",
 } as const;
 
 // The headers argument for c.json on every problem response.
@@ -48,4 +55,49 @@ export function problemBody(input: {
   readonly instance?: string;
 }): ProblemBody {
   return { errorId: newErrorId(), ...input };
+}
+
+// Shared response helpers for the problem shapes more than one handler answers with — the
+// bodies stay identical across routes by construction.
+
+export function unauthenticatedProblemResponse(c: Context) {
+  return c.json(
+    problemBody({
+      type: PROBLEM_TYPES.unauthenticated,
+      title: "Authentication required",
+      status: 401,
+      detail: "Sign in to call this endpoint.",
+      instance: c.req.path,
+    }),
+    401,
+    PROBLEM_CONTENT_TYPE,
+  );
+}
+
+export function forbiddenProblemResponse(c: Context) {
+  return c.json(
+    problemBody({
+      type: PROBLEM_TYPES.forbidden,
+      title: "Permission denied",
+      status: 403,
+      instance: c.req.path,
+    }),
+    403,
+    PROBLEM_CONTENT_TYPE,
+  );
+}
+
+// ADR-0052: a firm (or firm-scoped resource) this deployment cannot reach is ABSENT — 404,
+// never a 500 and never an existence oracle.
+export function notFoundProblemResponse(c: Context) {
+  return c.json(
+    problemBody({
+      type: PROBLEM_TYPES.notFound,
+      title: "Not found",
+      status: 404,
+      instance: c.req.path,
+    }),
+    404,
+    PROBLEM_CONTENT_TYPE,
+  );
 }

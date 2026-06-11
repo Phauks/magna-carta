@@ -2,6 +2,7 @@ import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { createAuth } from "./auth.ts";
 import { createLoggingEmailAdapter } from "./email-port.ts";
 import { registerMeRoute } from "./routes/me.ts";
+import { registerMembersRoute } from "./routes/members.ts";
 
 // The Worker's runtime bindings, declared once here (the no-barrel single home for the app's env shape).
 // worker-env.d.ts mirrors this into the ambient `Cloudflare.Env` the vitest-pool-workers harness types `env` as.
@@ -64,6 +65,7 @@ export function createApp() {
   app.on(["GET", "POST"], "/api/auth/*", (c) => authForEnv(c.env).handler(c.req.raw));
 
   registerMeRoute(app, authForEnv);
+  registerMembersRoute(app, authForEnv);
 
   app.doc31("/api/openapi.json", {
     openapi: "3.1.0",

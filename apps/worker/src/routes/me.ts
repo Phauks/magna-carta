@@ -1,11 +1,9 @@
 import { createRoute, z, type OpenAPIHono } from "@hono/zod-openapi";
-import { effectivePermissions } from "@magna-carta/access-control/resolver";
-import { selectMemberPermissionsStatements } from "@magna-carta/data-access/member-statements";
 import type { Bindings } from "../app.ts";
 import type { createAuth } from "../auth.ts";
 import { resolveFirmDatabase } from "../firm-binding-resolver.ts";
-import { Problem, PROBLEM_CONTENT_TYPE, PROBLEM_TYPES, problemBody } from "../problem.ts";
-import { resolveSession } from "../session-context.ts";
+import { Problem, notFoundProblemResponse, unauthenticatedProblemResponse } from "../problem.ts";
+import { loadEffectivePermissions, resolveSession } from "../session-context.ts";
 
 const MeResponse = z
   .object({
@@ -66,19 +64,7 @@ export function registerMeRoute(
 ): void {
   app.openapi(meRoute, async (c) => {
     const sessionContext = await resolveSession(authForEnv(c.env), c);
-    if (sessionContext === null) {
-      return c.json(
-        problemBody({
-          type: PROBLEM_TYPES.unauthenticated,
-          title: "Authentication required",
-          status: 401,
-          detail: "Sign in to call this endpoint.",
-          instance: c.req.path,
-        }),
-        401,
-        PROBLEM_CONTENT_TYPE,
-      );
-    }
+    if (sessionContext === null) return unauthenticatedProblemResponse(c);
 
     // One control-plane read for the session user's display fields plus the firm registry row.
     // The JOIN folds a missing firm row and a missing user row onto the same absent path below.
@@ -92,28 +78,10 @@ export function registerMeRoute(
     if (row === null || firmDatabase === null) {
       // ADR-0052: a firm row this control plane does not carry, or a firm database this
       // deployment has no binding for, is ABSENT — 404, never a 500 and never an oracle.
-      return c.json(
-        problemBody({
-          type: PROBLEM_TYPES.notFound,
-          title: "Not found",
-          status: 404,
-          instance: c.req.path,
-        }),
-        404,
-        PROBLEM_CONTENT_TYPE,
-      );
+      return notFoundProblemResponse(c);
     }
 
-    const statements = selectMemberPermissionsStatements(firmDatabase, sessionContext.userId);
-    const [rolePermissions, directGrants] = await Promise.all([
-      statements.rolePermissions.all<{ permission: string }>(),
-      statements.directGrants.all<{ permission: string; expires_at: string | null }>(),
-    ]);
-    const permissions = effectivePermissions(
-      rolePermissions.results,
-      directGrants.results,
-      new Date().toISOString(),
-    );
+    const permissions = await loadEffectivePermissions(firmDatabase, sessionContext.userId);
 
     return c.json(
       {

@@ -1,0 +1,333 @@
+import { env, SELF } from "cloudflare:test";
+import { beforeAll, describe, expect, it } from "vitest";
+import { newIdentifier } from "@magna-carta/identifiers/generate";
+import type { FirmId } from "@magna-carta/identifiers/types";
+import { createAuth } from "../src/auth.ts";
+import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
+import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import {
+  mirrorMemberWithOwnerRole,
+  postJson,
+  seedCredentialedUser,
+  seedFirm,
+  signInForSessionCookie,
+} from "./support/test-auth.ts";
+
+// firm.database_identifier is UNIQUE and storage is shared within this file, so the resolvable
+// pool firm is seeded once here and every test attaches its users to it.
+let poolFirmId: FirmId;
+
+beforeAll(async () => {
+  await applyControlPlaneMigrations(env.DB_CONTROL);
+  // DB_FIRM_POOL_1 stands in for a provisioned firm's database (full per-firm lineage + role seeds).
+  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
+  poolFirmId = (await seedFirm({ name: "Members Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
+    .firmId;
+});
+
+// Mirrors the invite endpoint's own write: a user row with NO credential account row.
+async function directInsertUser(email: string, name: string): Promise<{ userId: string }> {
+  const { firmId } = await seedFirm();
+  const userId = newIdentifier("user");
+  await env.DB_CONTROL.prepare(
+    'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at, firm_id) VALUES (?1, ?2, ?3, 0, ?4, ?4, ?5)',
+  )
+    .bind(userId, name, email, Date.now(), firmId)
+    .run();
+  return { userId };
+}
+
+// The build-time verification the plan's decided #6 demands: on better-auth 1.6.16, does the
+// password-reset flow work for a user row with NO credential account row? It does — the pinned
+// resetPassword handler creates the credential account when none exists (dist/api/routes/
+// password.mjs), so PATH A (direct-insert user via the effect batch, activation via the reset
+// link) is the landed path. This test is the empirical pin; a library bump that breaks the claim
+// fails here, not in production.
+describe("invitation activation — decided #6 verification (Path A)", () => {
+  it("activates a direct-inserted user with no credential account via the password-reset flow", async () => {
+    const email = "activation-invitee@example.com";
+    const { userId } = await directInsertUser(email, "Activation Invitee");
+
+    const noAccountYet = await env.DB_CONTROL.prepare("SELECT id FROM account WHERE user_id = ?1")
+      .bind(userId)
+      .first();
+    expect(noAccountYet).toBeNull();
+
+    // The activation email must travel through the injected SendEmail port — capture it.
+    const sentEmails: Array<{ to: string; subject: string; text: string }> = [];
+    const auth = createAuth(env, (message) => {
+      sentEmails.push(message);
+      return Promise.resolve();
+    });
+
+    const requested = await auth.api.requestPasswordReset({ body: { email } });
+    expect(requested.status).toBe(true);
+    expect(sentEmails).toHaveLength(1);
+    expect(sentEmails[0]?.to).toBe(email);
+
+    const token = /\/reset-password\/([^/?]+)/.exec(sentEmails[0]?.text ?? "")?.[1];
+    if (token === undefined)
+      throw new Error(`reset email carries no token: ${sentEmails[0]?.text}`);
+
+    const newPassword = "a-sufficiently-long-password";
+    const reset = await auth.api.resetPassword({ body: { newPassword, token } });
+    expect(reset.status).toBe(true);
+
+    // Path A's crux: the reset CREATED the credential account for the account-less user.
+    const account = await env.DB_CONTROL.prepare(
+      "SELECT provider_id, password FROM account WHERE user_id = ?1",
+    )
+      .bind(userId)
+      .first<{ provider_id: string; password: string | null }>();
+    expect(account?.provider_id).toBe("credential");
+    expect(account?.password).not.toBeNull();
+
+    // Completing the reset proves mailbox possession, so the onPasswordReset hook marks the email
+    // verified — without it, requireEmailVerification would lock every invitee out at sign-in.
+    const userRow = await env.DB_CONTROL.prepare('SELECT email_verified FROM "user" WHERE id = ?1')
+      .bind(userId)
+      .first<{ email_verified: number }>();
+    expect(userRow?.email_verified).toBe(1);
+
+    // End-to-end proof: the activated invitee can sign in.
+    const signInResponse = await postJson("/api/auth/sign-in/email", {
+      email,
+      password: newPassword,
+    });
+    expect(signInResponse.status).toBe(200);
+  });
+});
+
+async function postMembers(
+  body: unknown,
+  options: { cookie?: string; idempotencyKey?: string } = {},
+): Promise<Response> {
+  return SELF.fetch("https://example.com/api/v1/members", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: "https://example.com",
+      ...(options.cookie === undefined ? {} : { cookie: options.cookie }),
+      ...(options.idempotencyKey === undefined
+        ? {}
+        : { "Idempotency-Key": options.idempotencyKey }),
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+// Seeds a credentialed user on the resolvable pool firm, grants Owner/Admin (which carries
+// firm:manageMembers), and signs in — the inviting principal for the happy paths.
+async function signInAsOwner(email: string): Promise<string> {
+  const { userId } = await seedCredentialedUser(email, { firmId: poolFirmId });
+  await mirrorMemberWithOwnerRole(userId, "Inviting Owner");
+  return signInForSessionCookie(email);
+}
+
+describe("POST /api/v1/members", () => {
+  it("answers an unauthenticated request with a 401 problem", async () => {
+    const response = await postMembers(
+      { email: "nobody@example.com", name: "Nobody" },
+      { idempotencyKey: crypto.randomUUID() },
+    );
+    expect(response.status).toBe(401);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      type: "https://api.magnacarta.esq/problems/unauthenticated",
+      status: 401,
+    });
+    expect(body["errorId"]).toMatch(/^err_/);
+  });
+
+  it("demands the Idempotency-Key header with a 400 problem (x-mc-idempotency: required)", async () => {
+    const sessionCookie = await signInAsOwner("invite-no-key@example.com");
+    const response = await postMembers(
+      { email: "keyless@example.com", name: "Keyless" },
+      { cookie: sessionCookie },
+    );
+    expect(response.status).toBe(400);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      type: "https://api.magnacarta.esq/problems/invalid-request",
+      status: 400,
+    });
+    expect(body["errorId"]).toMatch(/^err_/);
+  });
+
+  it("answers 403 when the member lacks firm:manageMembers", async () => {
+    // Credentialed and firm-resolvable, but never mirrored into the member table — no roles,
+    // no grants, no permissions.
+    await seedCredentialedUser("invite-powerless@example.com", { firmId: poolFirmId });
+    const sessionCookie = await signInForSessionCookie("invite-powerless@example.com");
+
+    const response = await postMembers(
+      { email: "blocked@example.com", name: "Blocked Invitee" },
+      { cookie: sessionCookie, idempotencyKey: crypto.randomUUID() },
+    );
+    expect(response.status).toBe(403);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      type: "https://api.magnacarta.esq/problems/forbidden",
+      status: 403,
+    });
+    expect(body["errorId"]).toMatch(/^err_/);
+  });
+
+  it("creates the user, outbox row, and audit row in one batch, then sends the activation email", async () => {
+    const sessionCookie = await signInAsOwner("invite-owner@example.com");
+
+    const response = await postMembers(
+      { email: "Invitee@Example.com", name: "Invited Member" },
+      { cookie: sessionCookie, idempotencyKey: crypto.randomUUID() },
+    );
+    expect(response.status).toBe(201);
+    const body = (await response.json()) as { id: string; email: string; name: string };
+    expect(body.id).toMatch(/^usr_/);
+    // Stored lowercased — Better Auth's email lookups lowercase their input.
+    expect(body.email).toBe("invitee@example.com");
+    expect(body.name).toBe("Invited Member");
+
+    // The user row: unverified, no credential account (activation creates it — Path A).
+    const userRow = await env.DB_CONTROL.prepare(
+      'SELECT name, email_verified FROM "user" WHERE id = ?1',
+    )
+      .bind(body.id)
+      .first<{ name: string; email_verified: number }>();
+    expect(userRow).toEqual({ name: "Invited Member", email_verified: 0 });
+
+    // The member.provision outbox row rode the same batch (canonical-JSON payload, sorted keys).
+    // Storage is shared across this file's tests, so reads are scoped by the invited user's id.
+    const outboxRow = await env.DB_CONTROL.prepare(
+      "SELECT topic, payload, status FROM outbox WHERE payload LIKE '%' || ?1 || '%'",
+    )
+      .bind(body.id)
+      .first<{ topic: string; payload: string; status: string }>();
+    expect(outboxRow?.topic).toBe("member.provision");
+    expect(outboxRow?.status).toBe("pending");
+    const payload = JSON.parse(outboxRow?.payload ?? "{}") as Record<string, unknown>;
+    expect(payload).toEqual({
+      displayName: "Invited Member",
+      firmId: poolFirmId,
+      roleName: null,
+      userId: body.id,
+    });
+
+    // The member.invited audit row names the inviting actor and the invited user.
+    const auditRow = await env.DB_CONTROL.prepare(
+      "SELECT user_id, metadata FROM auth_audit WHERE event = 'member.invited' AND metadata LIKE '%' || ?1 || '%'",
+    )
+      .bind(body.id)
+      .first<{ user_id: string; metadata: string }>();
+    expect(auditRow?.user_id).toMatch(/^usr_/);
+    expect(JSON.parse(auditRow?.metadata ?? "{}")).toMatchObject({ invitedUserId: body.id });
+
+    // requestPasswordReset ran after the commit: its reset-password verification row exists.
+    const verificationRow = await env.DB_CONTROL.prepare(
+      "SELECT identifier FROM verification WHERE value = ?1",
+    )
+      .bind(body.id)
+      .first<{ identifier: string }>();
+    expect(verificationRow?.identifier).toMatch(/^reset-password:/);
+  });
+
+  it("replays the stored response for a repeated Idempotency-Key without re-running the effect", async () => {
+    const sessionCookie = await signInAsOwner("invite-replay-owner@example.com");
+    const idempotencyKey = crypto.randomUUID();
+    const requestBody = { email: "replayed@example.com", name: "Replayed Invitee" };
+
+    const first = await postMembers(requestBody, { cookie: sessionCookie, idempotencyKey });
+    expect(first.status).toBe(201);
+    const firstBody = await first.text();
+
+    const second = await postMembers(requestBody, { cookie: sessionCookie, idempotencyKey });
+    expect(second.status).toBe(201);
+    expect(second.headers.get("Idempotency-Replayed")).toBe("true");
+    expect(await second.text()).toBe(firstBody);
+
+    // The effect ran once: one user row for the email, one outbox row, one activation email.
+    const userCount = await env.DB_CONTROL.prepare(
+      'SELECT COUNT(*) AS count FROM "user" WHERE email = ?1',
+    )
+      .bind("replayed@example.com")
+      .first<{ count: number }>();
+    expect(userCount?.count).toBe(1);
+    const invitedId = (JSON.parse(firstBody) as { id: string }).id;
+    const outboxCount = await env.DB_CONTROL.prepare(
+      "SELECT COUNT(*) AS count FROM outbox WHERE payload LIKE '%' || ?1 || '%'",
+    )
+      .bind(invitedId)
+      .first<{ count: number }>();
+    expect(outboxCount?.count).toBe(1);
+    const verificationCount = await env.DB_CONTROL.prepare(
+      "SELECT COUNT(*) AS count FROM verification WHERE value = ?1",
+    )
+      .bind(invitedId)
+      .first<{ count: number }>();
+    expect(verificationCount?.count).toBe(1);
+  });
+
+  it("answers a duplicate email with a 422 problem and commits nothing", async () => {
+    const sessionCookie = await signInAsOwner("invite-duplicate-owner@example.com");
+
+    const first = await postMembers(
+      { email: "taken@example.com", name: "First Invitee" },
+      { cookie: sessionCookie, idempotencyKey: crypto.randomUUID() },
+    );
+    expect(first.status).toBe(201);
+    const outboxCountBefore = await env.DB_CONTROL.prepare(
+      "SELECT COUNT(*) AS count FROM outbox",
+    ).first<{ count: number }>();
+
+    // A NEW Idempotency-Key (a genuinely new request) for an already-taken email: the user
+    // INSERT trips UNIQUE(user.email) inside the batch, the whole batch rolls back, and the
+    // handler maps the surfaced conflict to a 422 problem.
+    const duplicate = await postMembers(
+      { email: "taken@example.com", name: "Second Invitee" },
+      { cookie: sessionCookie, idempotencyKey: crypto.randomUUID() },
+    );
+    expect(duplicate.status).toBe(422);
+    expect(duplicate.headers.get("content-type")).toContain("application/problem+json");
+    const body = (await duplicate.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      type: "https://api.magnacarta.esq/problems/validation",
+      status: 422,
+    });
+    expect(body["errorId"]).toMatch(/^err_/);
+
+    // Nothing from the rolled-back batch survives: still one user for the email, and the
+    // duplicate attempt added no outbox row.
+    const userCount = await env.DB_CONTROL.prepare(
+      'SELECT COUNT(*) AS count FROM "user" WHERE email = ?1',
+    )
+      .bind("taken@example.com")
+      .first<{ count: number }>();
+    expect(userCount?.count).toBe(1);
+    const outboxCountAfter = await env.DB_CONTROL.prepare(
+      "SELECT COUNT(*) AS count FROM outbox",
+    ).first<{ count: number }>();
+    expect(outboxCountAfter?.count).toBe(outboxCountBefore?.count);
+  });
+
+  it("emits the route into the OpenAPI document with the native operationId and x-mc metadata", async () => {
+    const response = await SELF.fetch("https://example.com/api/openapi.json");
+    expect(response.status).toBe(200);
+    const document = (await response.json()) as {
+      paths: Record<string, { post?: Record<string, unknown> }>;
+    };
+    const operation = document.paths["/api/v1/members"]?.post;
+    expect(operation).toBeDefined();
+    expect(operation?.["operationId"]).toBe("members.invite");
+    expect(operation).toMatchObject({
+      "x-mc-operationId": "members.invite",
+      "x-mc-surface": "app",
+      "x-mc-authenticated": true,
+      "x-mc-permission": "firm:manageMembers",
+      "x-mc-resource": "firm",
+      "x-mc-audited": true,
+      "x-mc-idempotency": "required",
+    });
+  });
+});
