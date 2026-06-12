@@ -108,12 +108,27 @@ describe("member statements against real SQLite (replay no-op + read shape)", ()
     expect(rows[0]?.id).toBe(original.bindings[0]);
   });
 
+  function insertMember(
+    database: DatabaseSync,
+    userId: string,
+    status: "active" | "deactivated",
+  ): void {
+    database
+      .prepare(
+        "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, ?2, ?3, ?4)",
+      )
+      .run(userId, "Test Member", status, "2026-06-10T00:00:00.000Z");
+  }
+
   it("permission reads return rows shaped for direct pass-through to the resolver, expiry unfiltered", () => {
     const database = setupDatabase();
     const userId = newIdentifier("user");
     const otherUserId = newIdentifier("user");
     const roleId = newIdentifier("role");
     const otherRoleId = newIdentifier("role");
+    // Both members ACTIVE — the reads gate on member.status, so the rows below are reachable.
+    insertMember(database, userId, "active");
+    insertMember(database, otherUserId, "active");
     database
       .prepare("INSERT INTO role (id, name, created_at) VALUES (?1, ?2, ?3)")
       .run(roleId, "Attorney", "2026-06-10T00:00:00.000Z");
@@ -183,5 +198,46 @@ describe("member statements against real SQLite (replay no-op + read shape)", ()
       { permission: "firm:manageMembers", expires_at: null },
       { permission: "firm:provision", expires_at: "2026-01-01T00:00:00.000Z" },
     ]);
+  });
+
+  it("a deactivated member's reads both return EMPTY — roles and grants alike (the read-path gate)", () => {
+    const database = setupDatabase();
+    const userId = newIdentifier("user");
+    const roleId = newIdentifier("role");
+    insertMember(database, userId, "deactivated");
+    database
+      .prepare("INSERT INTO role (id, name, created_at) VALUES (?1, ?2, ?3)")
+      .run(roleId, "Attorney", "2026-06-10T00:00:00.000Z");
+    database
+      .prepare("INSERT INTO role_permission (id, role_id, permission) VALUES (?1, ?2, ?3)")
+      .run(newIdentifier("rolePermission"), roleId, "firm:manageMembers");
+    database
+      .prepare("INSERT INTO member_role (id, member_user_id, role_id) VALUES (?1, ?2, ?3)")
+      .run(newIdentifier("memberRole"), userId, roleId);
+    database
+      .prepare(
+        "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+      )
+      .run(
+        newIdentifier("grant"),
+        userId,
+        "firm:provision",
+        null, // unexpired — only the deactivation gate can exclude it
+        newIdentifier("user"),
+        "2025-12-01T00:00:00.000Z",
+      );
+
+    const reads = selectMemberPermissionsStatements(stubD1().database, userId as UserId);
+    const rolePermissionsRead = captured(reads.rolePermissions);
+    const directGrantsRead = captured(reads.directGrants);
+    const rolePermissionRows = database
+      .prepare(rolePermissionsRead.sql)
+      .all(...(rolePermissionsRead.bindings as string[]));
+    const directGrantRows = database
+      .prepare(directGrantsRead.sql)
+      .all(...(directGrantsRead.bindings as string[]));
+
+    expect(rolePermissionRows).toEqual([]);
+    expect(directGrantRows).toEqual([]);
   });
 });

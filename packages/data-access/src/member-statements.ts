@@ -54,6 +54,11 @@ export function insertRoleAssignmentStatement(
 // resolver owns the boundary rule (a grant expiring exactly at `now` is already expired, ADR-0068).
 // Duplicates are possible on the role-permissions join when held roles share a permission; the
 // resolver's Set dedupes — DISTINCT deliberately omitted.
+//
+// BOTH reads gate on member.status = 'active': the read path treats a deactivated member as
+// having no permissions at all — held roles and unexpired direct grants alike confer nothing.
+// A never-mirrored user (no member row yet — the outbox sweep-lag window) likewise reads empty,
+// which it already did before the gate: there is nothing to join to.
 export interface MemberPermissionsStatements {
   readonly rolePermissions: SqlStatement; // rows: { permission }
   readonly directGrants: SqlStatement; // rows: { permission, expires_at }
@@ -66,11 +71,20 @@ export function selectMemberPermissionsStatements(
   return {
     rolePermissions: database
       .prepare(
-        `SELECT ${ROLE_PERMISSION_TABLE}.permission FROM ${ROLE_PERMISSION_TABLE} JOIN ${MEMBER_ROLE_TABLE} ON ${MEMBER_ROLE_TABLE}.role_id = ${ROLE_PERMISSION_TABLE}.role_id WHERE ${MEMBER_ROLE_TABLE}.member_user_id = ?1`,
+        `SELECT ${ROLE_PERMISSION_TABLE}.permission FROM ${ROLE_PERMISSION_TABLE} JOIN ${MEMBER_ROLE_TABLE} ON ${MEMBER_ROLE_TABLE}.role_id = ${ROLE_PERMISSION_TABLE}.role_id JOIN ${MEMBER_TABLE} ON ${MEMBER_TABLE}.user_id = ${MEMBER_ROLE_TABLE}.member_user_id AND ${MEMBER_TABLE}.status = 'active' WHERE ${MEMBER_ROLE_TABLE}.member_user_id = ?1`,
       )
       .bind(userId),
     directGrants: database
-      .prepare(`SELECT permission, expires_at FROM ${DIRECT_GRANT_TABLE} WHERE member_user_id = ?1`)
+      .prepare(
+        `SELECT ${DIRECT_GRANT_TABLE}.permission, ${DIRECT_GRANT_TABLE}.expires_at FROM ${DIRECT_GRANT_TABLE} JOIN ${MEMBER_TABLE} ON ${MEMBER_TABLE}.user_id = ${DIRECT_GRANT_TABLE}.member_user_id AND ${MEMBER_TABLE}.status = 'active' WHERE ${DIRECT_GRANT_TABLE}.member_user_id = ?1`,
+      )
       .bind(userId),
   };
+}
+
+// The member row's status by user id — the read /v1/me uses to split a DEACTIVATED member (404,
+// ADR-0052 absent semantics) from a never-mirrored one (no row → 200 with empty permissions; the
+// sweep-lag window is transient and self-heals). Rows: { status }, zero rows means never mirrored.
+export function selectMemberStatusStatement(database: SqlDatabase, userId: UserId): SqlStatement {
+  return database.prepare(`SELECT status FROM ${MEMBER_TABLE} WHERE user_id = ?1`).bind(userId);
 }

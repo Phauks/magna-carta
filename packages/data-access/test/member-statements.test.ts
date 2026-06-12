@@ -4,6 +4,7 @@ import {
   insertMemberStatement,
   insertRoleAssignmentStatement,
   selectMemberPermissionsStatements,
+  selectMemberStatusStatement,
 } from "../src/member-statements.ts";
 import { captured, stubD1 } from "./support/stub-d1.ts";
 
@@ -64,17 +65,46 @@ describe("selectMemberPermissionsStatements", () => {
     expect(statement.bindings).toEqual([userId]);
   });
 
+  it("role-permissions read gates on an ACTIVE member row (a deactivated member holds nothing)", () => {
+    const stub = stubD1();
+    const userId = newIdentifier("user");
+    const { rolePermissions } = selectMemberPermissionsStatements(stub.database, userId);
+    const statement = captured(rolePermissions);
+    expect(statement.sql).toContain("JOIN member ON member.user_id = member_role.member_user_id");
+    expect(statement.sql).toContain("member.status = 'active'");
+  });
+
   it("grants read returns permission + expires_at WITHOUT filtering expiry in SQL (the resolver owns the boundary rule)", () => {
     const stub = stubD1();
     const userId = newIdentifier("user");
     const { directGrants } = selectMemberPermissionsStatements(stub.database, userId);
     const statement = captured(directGrants);
-    expect(statement.sql).toContain(
-      "SELECT permission, expires_at FROM direct_grant WHERE member_user_id = ?1",
-    );
+    expect(statement.sql).toContain("FROM direct_grant");
+    expect(statement.sql).toContain("direct_grant.permission");
+    expect(statement.sql).toContain("direct_grant.expires_at");
+    expect(statement.sql).toContain("direct_grant.member_user_id = ?1");
     // No expiry comparison and no clock binding — a grant expiring exactly at `now` is the
     // resolver's call, not SQL's.
     expect(statement.sql).not.toMatch(/expires_at\s*[<>=]/);
+    expect(statement.bindings).toEqual([userId]);
+  });
+
+  it("grants read gates on an ACTIVE member row (a deactivated member holds nothing)", () => {
+    const stub = stubD1();
+    const userId = newIdentifier("user");
+    const { directGrants } = selectMemberPermissionsStatements(stub.database, userId);
+    const statement = captured(directGrants);
+    expect(statement.sql).toContain("JOIN member ON member.user_id = direct_grant.member_user_id");
+    expect(statement.sql).toContain("member.status = 'active'");
+  });
+});
+
+describe("selectMemberStatusStatement", () => {
+  it("reads the member row's status by user id (the /v1/me absent-vs-never-mirrored split)", () => {
+    const stub = stubD1();
+    const userId = newIdentifier("user");
+    const statement = captured(selectMemberStatusStatement(stub.database, userId));
+    expect(statement.sql).toContain("SELECT status FROM member WHERE user_id = ?1");
     expect(statement.bindings).toEqual([userId]);
   });
 });

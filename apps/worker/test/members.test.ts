@@ -167,6 +167,32 @@ describe("POST /api/v1/members", () => {
     expect(body["errorId"]).toMatch(/^err_/);
   });
 
+  it("answers 403 when the inviter has been DEACTIVATED — held roles confer nothing at the read path", async () => {
+    // A full Owner/Admin whose member row was then deactivated: the permission reads gate on
+    // member.status = 'active', so firm:manageMembers evaporates and the permission gate 403s.
+    const { userId } = await seedCredentialedUser("invite-deactivated@example.com", {
+      firmId: poolFirmId,
+    });
+    await mirrorMemberWithOwnerRole(userId, "Deactivated Inviter");
+    await env.DB_FIRM_POOL_1.prepare("UPDATE member SET status = 'deactivated' WHERE user_id = ?1")
+      .bind(userId)
+      .run();
+    const sessionCookie = await signInForSessionCookie("invite-deactivated@example.com");
+
+    const response = await postMembers(
+      { email: "blocked-by-deactivation@example.com", name: "Blocked Invitee" },
+      { cookie: sessionCookie, idempotencyKey: crypto.randomUUID() },
+    );
+    expect(response.status).toBe(403);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      type: "https://api.magnacarta.esq/problems/forbidden",
+      status: 403,
+    });
+    expect(body["errorId"]).toMatch(/^err_/);
+  });
+
   it("creates the user, outbox row, and audit row in one batch, then sends the activation email", async () => {
     const sessionCookie = await signInAsOwner("invite-owner@example.com");
 

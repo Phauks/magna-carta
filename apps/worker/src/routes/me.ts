@@ -1,4 +1,5 @@
 import { createRoute, z, type OpenAPIHono } from "@hono/zod-openapi";
+import { selectMemberStatusStatement } from "@magna-carta/data-access/member-statements";
 import type { Bindings } from "../app.ts";
 import type { createAuth } from "../auth.ts";
 import { resolveFirmDatabase } from "../firm-binding-resolver.ts";
@@ -36,7 +37,8 @@ const meRoute = createRoute({
     },
     404: {
       description:
-        "The session's firm is not reachable from this deployment (ADR-0052 — absent, never an existence oracle)",
+        "The session's firm is not reachable from this deployment, or the session user is a " +
+        "deactivated member of it (ADR-0052 — absent, never an existence oracle)",
       content: { "application/problem+json": { schema: Problem } },
     },
   },
@@ -81,7 +83,23 @@ export function registerMeRoute(
       return notFoundProblemResponse(c);
     }
 
-    const permissions = await loadEffectivePermissions(firmDatabase, sessionContext.userId);
+    // Member status rides in the same parallel group as the permission reads — no extra
+    // roundtrip serialized onto the hot path.
+    const [permissions, memberStatusResult] = await Promise.all([
+      loadEffectivePermissions(firmDatabase, sessionContext.userId),
+      selectMemberStatusStatement(firmDatabase, sessionContext.userId).all<{ status: string }>(),
+    ]);
+
+    const memberStatus = memberStatusResult.results[0]?.status;
+    if (memberStatus !== undefined && memberStatus !== "active") {
+      // A DEACTIVATED member is ABSENT (ADR-0052) — the same 404 as a missing firm, never a 403
+      // that would confirm the account exists but was turned off. A NEVER-MIRRORED user (no
+      // member row at all) deliberately falls through to a 200 with empty permissions instead:
+      // that state is the transient owner-activation window before the outbox sweep lands the
+      // mirror — it self-heals, and a 404 there would break the activation UX. Deactivation is a
+      // deliberate state; sweep lag is not.
+      return notFoundProblemResponse(c);
+    }
 
     return c.json(
       {

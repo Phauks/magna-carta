@@ -19,6 +19,7 @@ import {
   insertMemberStatement,
   insertRoleAssignmentStatement,
   selectMemberPermissionsStatements,
+  selectMemberStatusStatement,
 } from "../src/member-statements.ts";
 import { OUTBOX_TABLE } from "../src/outbox-statements.ts";
 import {
@@ -146,12 +147,19 @@ describe("schema-name sync", () => {
         {
           label: "role-permissions read",
           sql: captured(reads.rolePermissions).sql,
-          tables: [rolePermission, memberRole],
+          // member rides along: the read gates on member.status = 'active'.
+          tables: [rolePermission, memberRole, member],
         },
         {
           label: "direct-grants read",
           sql: captured(reads.directGrants).sql,
-          tables: [directGrant],
+          // member rides along: the read gates on member.status = 'active'.
+          tables: [directGrant, member],
+        },
+        {
+          label: "member-status read",
+          sql: captured(selectMemberStatusStatement(stub.database, userId)).sql,
+          tables: [member],
         },
         {
           label: "auth-audit insert",
