@@ -23,6 +23,10 @@
 // per-route; they pass unvalidated until Task 8 registers the shared problem responses. Statuses
 // declared without JSON content (204, binary media types) and non-zod schemas (raw OpenAPI
 // objects, $ref'd shared responses) are skipped — there is nothing to runtime-validate.
+// Exact status keys only: OpenAPI range keys ("2XX") and "default" are not consulted — a route
+// declaring them reads as undeclared here; revisit in Task 8 with the shared problem responses.
+// JSON bodies are assumed finite and modest — clone().json() buffers the tee'd branch; streamed
+// responses belong under non-JSON media types (which are skipped).
 import type { RouteConfig } from "@hono/zod-openapi";
 import { z } from "@hono/zod-openapi";
 import type { MiddlewareHandler } from "hono";
@@ -162,7 +166,10 @@ export function createResponseValidator(
 ): MiddlewareHandler<{ Bindings: { ENVIRONMENT?: string } }> {
   return async (c, next) => {
     await next();
-    if (c.env.ENVIRONMENT !== "development") return;
+    // Optional chaining matters: Hono's two-argument app.request(path, init) passes env as
+    // undefined — an absent env is a pass-through, never a crash in the gate that decides
+    // whether to run.
+    if (c.env?.ENVIRONMENT !== "development") return;
     await assertResponseMatchesContract(route, c.res);
   };
 }

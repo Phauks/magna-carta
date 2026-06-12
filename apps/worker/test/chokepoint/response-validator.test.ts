@@ -271,4 +271,21 @@ describe("createResponseValidator — production pass-through", () => {
     expect(bodyWasRead()).toBe(false);
     expect(original.bodyUsed).toBe(false);
   });
+
+  it("passes through without crashing when env itself is undefined (two-argument app.request)", async () => {
+    // Hono's app.request(path, init) without a third argument passes env as undefined — the
+    // validator must treat that as not-development, never crash reading ENVIRONMENT off it.
+    const middleware = createResponseValidator(widgetRoute);
+    const { response, original, bodyWasRead } = bodyReadSpyJsonResponse(
+      JSON.stringify({ ok: "diverged" }),
+      200,
+    );
+    const contextWithUndefinedEnvironment = {
+      env: undefined,
+      res: response,
+    } as unknown as Context<{ Bindings: { ENVIRONMENT?: string } }>;
+    await expect(middleware(contextWithUndefinedEnvironment, noopNext)).resolves.toBeUndefined();
+    expect(bodyWasRead()).toBe(false);
+    expect(original.bodyUsed).toBe(false);
+  });
 });
