@@ -2,17 +2,20 @@ import type { Context } from "hono";
 import type { IdempotentEffectResult } from "@magna-carta/data-access/run-idempotent-effect";
 import { PROBLEM_CONTENT_TYPE, PROBLEM_TYPES, problemBody } from "./problem.ts";
 
-// The kind → problem mapping for runIdempotentEffect's two conflict outcomes, shared by every
+// THE kind → problem mapping for the two idempotency conflicts, shared by every
 // required-idempotency route (members.invite, firms.provision) so the bodies stay identical by
-// construction. These kinds only reach a handler on a race the middleware pre-check missed —
-// the middleware's own kind → status mapping is mirrored here, problem-shaped for this surface.
-// Like problem.ts's helpers, the return type is INFERRED (the two c.json typed responses): an
-// explicit `Response` annotation would erase the status typing zod-openapi handlers check.
+// construction — and shared by BOTH paths that can answer them: the data-access middleware's
+// pre-decision (its conflictResponse hook — the COMMON path) and the handler's
+// runIdempotentEffect race outcomes (the rare path). The parameter is kind-only so both callers'
+// shapes (the hook's {kind, status} conflict and the effect's result) satisfy it; one home,
+// no drift. Like problem.ts's helpers, the return type is INFERRED (the two c.json typed
+// responses): an explicit `Response` annotation would erase the status typing zod-openapi
+// handlers check.
 export function problemResponseForIdempotencyConflict(
   c: Context,
-  result: Extract<IdempotentEffectResult, { kind: "in-progress" | "fingerprint-mismatch" }>,
+  conflict: { readonly kind: "in-progress" | "fingerprint-mismatch" },
 ) {
-  if (result.kind === "in-progress") {
+  if (conflict.kind === "in-progress") {
     return c.json(
       problemBody({
         type: PROBLEM_TYPES.conflict,

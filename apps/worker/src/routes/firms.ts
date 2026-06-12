@@ -99,6 +99,10 @@ const platformScopedControlPlaneIdempotency: MiddlewareHandler<FirmsEnv> = (c, n
     requirement: "required",
     database: c.env.DB_CONTROL,
     deriveStoredKey: (clientKey) => `platform:${clientKey}`,
+    // The pre-decision 409/422 — the COMMON conflict path — answers this route's declared
+    // application/problem+json contract through the same single mapping the handler's rare
+    // race path uses (idempotency-conflict-problems.ts).
+    conflictResponse: problemResponseForIdempotencyConflict,
   }) as unknown as MiddlewareHandler<FirmsEnv>;
   return middleware(c, next);
 };

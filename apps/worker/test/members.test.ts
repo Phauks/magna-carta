@@ -1,5 +1,6 @@
 import { createExecutionContext, env, SELF, waitOnExecutionContext } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
+import { fingerprintRequest } from "@magna-carta/data-access/canonical";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import worker from "../src/index.ts";
@@ -330,6 +331,77 @@ describe("POST /api/v1/members", () => {
       "SELECT COUNT(*) AS count FROM outbox",
     ).first<{ count: number }>();
     expect(outboxCountAfter?.count).toBe(outboxCountBefore?.count);
+  });
+
+  it("answers a reused Idempotency-Key with a DIFFERENT payload as a 422 problem — the middleware pre-decision IS the common path", async () => {
+    const sessionCookie = await signInAsOwner("mismatch-common-owner@example.com");
+    const idempotencyKey = crypto.randomUUID();
+    const first = await postMembers(
+      { email: "mismatch-common-a@example.com", name: "First Payload" },
+      { cookie: sessionCookie, idempotencyKey },
+    );
+    expect(first.status).toBe(201);
+
+    // Same key, different body: the data-access middleware's pre-decision answers WITHOUT the
+    // handler running — and it must answer the route contract's application/problem+json shape
+    // (via the conflictResponse hook), never its generic JSON default.
+    const mismatch = await postMembers(
+      { email: "mismatch-common-b@example.com", name: "Second Payload" },
+      { cookie: sessionCookie, idempotencyKey },
+    );
+    expect(mismatch.status).toBe(422);
+    expect(mismatch.headers.get("content-type")).toContain("application/problem+json");
+    const body = (await mismatch.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      type: "https://api.magnacarta.esq/problems/validation",
+      title: "Idempotency-Key reused",
+      status: 422,
+      instance: "/api/v1/members",
+    });
+    expect(body["errorId"]).toMatch(/^err_/);
+
+    // The mismatching request executed nothing: no user row for the second email.
+    const userCount = await env.DB_CONTROL.prepare(
+      'SELECT COUNT(*) AS count FROM "user" WHERE email = ?1',
+    )
+      .bind("mismatch-common-b@example.com")
+      .first<{ count: number }>();
+    expect(userCount?.count).toBe(0);
+  });
+
+  it("answers an in-progress Idempotency-Key as a 409 problem on the middleware pre-decision", async () => {
+    const sessionCookie = await signInAsOwner("in-progress-owner@example.com");
+    const idempotencyKey = crypto.randomUUID();
+    const requestBody = { email: "in-progress-invitee@example.com", name: "In Progress Invitee" };
+    // Seed the reserved record a still-running first request would hold, under the firm-scoped
+    // stored key and the exact fingerprint the middleware derives for this method + path + body.
+    const fingerprint = await fingerprintRequest({
+      method: "POST",
+      path: "/api/v1/members",
+      body: requestBody,
+    });
+    await env.DB_CONTROL.prepare(
+      "INSERT INTO idempotency_key (id, key, fingerprint, status, created_at) VALUES (?1, ?2, ?3, 'in_progress', ?4)",
+    )
+      .bind(
+        crypto.randomUUID(),
+        `${poolFirmId}:${idempotencyKey}`,
+        fingerprint,
+        new Date().toISOString(),
+      )
+      .run();
+
+    const response = await postMembers(requestBody, { cookie: sessionCookie, idempotencyKey });
+    expect(response.status).toBe(409);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      type: "https://api.magnacarta.esq/problems/conflict",
+      title: "Request in progress",
+      status: 409,
+      instance: "/api/v1/members",
+    });
+    expect(body["errorId"]).toMatch(/^err_/);
   });
 
   // Auth precedes idempotency: the route's middleware chain resolves the session and the

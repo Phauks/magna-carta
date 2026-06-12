@@ -1,3 +1,4 @@
+import type { Context } from "hono";
 import { createMiddleware } from "hono/factory";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { fingerprintRequest } from "./canonical.ts";
@@ -57,6 +58,18 @@ export function idempotencyMiddleware(options: {
   // (Idempotency-Replayed: true) are unchanged. It is exposed as IdempotencyContext.key so the
   // handler's runIdempotentEffect commits the same row this pre-decision read.
   deriveStoredKey?: (clientKey: string) => string;
+  // The conflict-response seam (same shape as deriveStoredKey): the mounting surface owns the
+  // wire contract for the 409/422 pre-decision answers — the worker's routes declare RFC 9457
+  // application/problem+json for these statuses, and THIS pre-decision is the common path for
+  // both conflicts (the handler-race path through runIdempotentEffect is the rare one), so the
+  // hook lets one problem mapping serve both. Absent, the generic JSON bodies below answer.
+  conflictResponse?: (
+    context: Context,
+    conflict: {
+      readonly kind: "in-progress" | "fingerprint-mismatch";
+      readonly status: 409 | 422;
+    },
+  ) => Response;
 }) {
   return createMiddleware<{ Variables: { idempotency?: IdempotencyContext } }>(
     async (context, next) => {
@@ -99,6 +112,12 @@ export function idempotencyMiddleware(options: {
         case "in-progress":
         case "fingerprint-mismatch": {
           const conflict = IDEMPOTENCY_CONFLICT_RESPONSES[decision.kind];
+          if (options.conflictResponse !== undefined) {
+            return options.conflictResponse(context, {
+              kind: decision.kind,
+              status: conflict.status,
+            });
+          }
           return context.json(conflict.body, conflict.status);
         }
         case "execute":

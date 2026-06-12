@@ -54,6 +54,7 @@ describe("dev FirmResourceProvider (pool-claiming adapter)", () => {
 type StubCall = { url: string; method: string; headers: Record<string, string>; body: unknown };
 
 // A scripted fetch stub: each call answers the next queued response and records the request.
+// A string body answers RAW (text/html) — the edge-error-page case; anything else is JSON.
 function stubFetch(responses: Array<{ status: number; body: unknown }>) {
   const calls: StubCall[] = [];
   const fetchImplementation = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -66,6 +67,12 @@ function stubFetch(responses: Array<{ status: number; body: unknown }>) {
     });
     const next = responses.shift();
     if (next === undefined) throw new Error("stub fetch exhausted");
+    if (typeof next.body === "string") {
+      return new Response(next.body, {
+        status: next.status,
+        headers: { "content-type": "text/html" },
+      });
+    }
     return new Response(JSON.stringify(next.body), {
       status: next.status,
       headers: { "content-type": "application/json" },
@@ -89,11 +96,24 @@ function requestedName(call: StubCall | undefined): string {
   return body.name;
 }
 
+// Scripted probe answers for the find-first order (CF2): creation probes existence FIRST and
+// only creates when the probe misses.
+const EMPTY_D1_LIST = { status: 200, body: { success: true, result: [] } };
+const BUCKET_NOT_FOUND = {
+  status: 404,
+  body: {
+    success: false,
+    errors: [{ code: 10006, message: "The specified bucket does not exist." }],
+  },
+};
+
 describe("Cloudflare REST FirmResourceProvider", () => {
   const firmId = newIdentifier("firm");
 
-  it("creates a D1 database and answers its UUID, with bearer auth on the account endpoint", async () => {
+  it("probes the database name first and creates only when absent, with bearer auth on the account endpoint", async () => {
+    const databaseName = await firmResourceName(firmId);
     const stub = stubFetch([
+      EMPTY_D1_LIST,
       {
         status: 200,
         body: { success: true, result: { uuid: "11111111-2222-4333-8444-555555555555" } },
@@ -101,27 +121,25 @@ describe("Cloudflare REST FirmResourceProvider", () => {
     ]);
     const created = await restProvider(stub).createDatabase(firmId);
     expect(created).toEqual({ databaseIdentifier: "11111111-2222-4333-8444-555555555555" });
-    const call = stub.calls[0];
-    expect(call?.method).toBe("POST");
-    expect(call?.url).toBe(
+    // Find-first: the existence probe precedes the create.
+    expect(stub.calls[0]?.method).toBe("GET");
+    expect(stub.calls[0]?.url).toBe(
+      `https://api.cloudflare.com/client/v4/accounts/test-account-id/d1/database?name=${databaseName}`,
+    );
+    const create = stub.calls[1];
+    expect(create?.method).toBe("POST");
+    expect(create?.url).toBe(
       "https://api.cloudflare.com/client/v4/accounts/test-account-id/d1/database",
     );
-    expect(call?.headers["authorization"]).toBe("Bearer test-api-token");
+    expect(create?.headers["authorization"]).toBe("Bearer test-api-token");
     // Deterministic name derived from the firm id (lowercase-hex slug — D1/R2 name alphabets
     // exclude the identifier alphabet's uppercase and underscore characters).
-    expect(requestedName(call)).toMatch(/^magna-carta-production-firm-[0-9a-f]{32}$/);
+    expect(requestedName(create)).toMatch(/^magna-carta-production-firm-[0-9a-f]{32}$/);
   });
 
-  it("treats already-exists as success for idempotent resume, recovering the UUID via the list endpoint", async () => {
+  it("answers an existing database straight from the probe — idempotent resume issues NO create", async () => {
     const databaseName = await firmResourceName(firmId);
     const stub = stubFetch([
-      {
-        status: 400,
-        body: {
-          success: false,
-          errors: [{ code: 7502, message: "a database with that name already exists" }],
-        },
-      },
       {
         status: 200,
         body: {
@@ -136,13 +154,39 @@ describe("Cloudflare REST FirmResourceProvider", () => {
     await expect(restProvider(stub).createDatabase(firmId)).resolves.toEqual({
       databaseIdentifier: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
     });
-    // The recovery call filtered the list by the deterministic name.
-    expect(stub.calls[1]?.method).toBe("GET");
-    expect(stub.calls[1]?.url).toContain(`/d1/database?name=${databaseName}`);
+    expect(stub.calls).toHaveLength(1);
+    expect(stub.calls[0]?.method).toBe("GET");
+  });
+
+  it("recovers through the already-exists fallback when a concurrent create wins the probe-create race", async () => {
+    const databaseName = await firmResourceName(firmId);
+    const stub = stubFetch([
+      EMPTY_D1_LIST, // the probe misses…
+      {
+        status: 400, // …a concurrent create lands between probe and POST…
+        body: {
+          success: false,
+          errors: [{ code: 7502, message: "a database with that name already exists" }],
+        },
+      },
+      {
+        status: 200, // …and the fallback lookup recovers the UUID.
+        body: {
+          success: true,
+          result: [{ name: databaseName, uuid: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee" }],
+        },
+      },
+    ]);
+    await expect(restProvider(stub).createDatabase(firmId)).resolves.toEqual({
+      databaseIdentifier: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    });
+    expect(stub.calls.map((call) => call.method)).toEqual(["GET", "POST", "GET"]);
+    expect(stub.calls[2]?.url).toContain(`/d1/database?name=${databaseName}`);
   });
 
   it("throws on a non-already-exists HTTP error", async () => {
     const stub = stubFetch([
+      EMPTY_D1_LIST,
       {
         status: 403,
         body: { success: false, errors: [{ code: 10000, message: "authentication error" }] },
@@ -153,18 +197,49 @@ describe("Cloudflare REST FirmResourceProvider", () => {
     );
   });
 
-  it("creates an R2 bucket and answers its deterministic name", async () => {
+  it("describes a non-JSON edge error page as an operation failure, never an opaque parse error", async () => {
+    const stub = stubFetch([{ status: 502, body: "<html><body>502 Bad Gateway</body></html>" }]);
+    const failure: unknown = await restProvider(stub)
+      .createDatabase(firmId)
+      .then(() => {
+        throw new Error("createDatabase resolved against an HTML 502 — it must throw");
+      })
+      .catch((caught: unknown) => caught);
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure).not.toBeInstanceOf(SyntaxError);
+    expect((failure as Error).message).toMatch(/createDatabase failed: HTTP 502/);
+  });
+
+  it("probes the bucket first and creates only when absent, answering the deterministic name", async () => {
+    const stub = stubFetch([
+      BUCKET_NOT_FOUND,
+      { status: 200, body: { success: true, result: {} } },
+    ]);
+    const created = await restProvider(stub).createBucket(firmId);
+    expect(created.bucketName).toMatch(/^magna-carta-production-firm-[0-9a-f]{32}$/);
+    // Find-first: the existence probe precedes the create.
+    expect(stub.calls[0]?.method).toBe("GET");
+    expect(stub.calls[0]?.url).toBe(
+      `https://api.cloudflare.com/client/v4/accounts/test-account-id/r2/buckets/${created.bucketName}`,
+    );
+    expect(stub.calls[1]?.method).toBe("POST");
+    expect(stub.calls[1]?.url).toBe(
+      "https://api.cloudflare.com/client/v4/accounts/test-account-id/r2/buckets",
+    );
+    expect(requestedName(stub.calls[1])).toBe(created.bucketName);
+  });
+
+  it("answers an existing bucket straight from the probe — idempotent resume issues NO create", async () => {
     const stub = stubFetch([{ status: 200, body: { success: true, result: {} } }]);
     const created = await restProvider(stub).createBucket(firmId);
     expect(created.bucketName).toMatch(/^magna-carta-production-firm-[0-9a-f]{32}$/);
-    expect(stub.calls[0]?.url).toBe(
-      "https://api.cloudflare.com/client/v4/accounts/test-account-id/r2/buckets",
-    );
-    expect(requestedName(stub.calls[0])).toBe(created.bucketName);
+    expect(stub.calls).toHaveLength(1);
+    expect(stub.calls[0]?.method).toBe("GET");
   });
 
-  it("treats an already-owned R2 bucket as success for idempotent resume", async () => {
+  it("treats an already-owned create as success when a concurrent create wins the probe-create race", async () => {
     const stub = stubFetch([
+      BUCKET_NOT_FOUND,
       {
         status: 400,
         body: {
@@ -184,6 +259,7 @@ describe("Cloudflare REST FirmResourceProvider", () => {
 
   it("throws on a non-already-exists R2 error", async () => {
     const stub = stubFetch([
+      BUCKET_NOT_FOUND,
       {
         status: 500,
         body: { success: false, errors: [{ code: 10001, message: "internal error" }] },
@@ -196,14 +272,18 @@ describe("Cloudflare REST FirmResourceProvider", () => {
 
   it("derives the same slug for the same firm id across database and bucket", async () => {
     const databaseStub = stubFetch([
+      EMPTY_D1_LIST,
       {
         status: 200,
         body: { success: true, result: { uuid: "11111111-2222-4333-8444-555555555555" } },
       },
     ]);
-    const bucketStub = stubFetch([{ status: 200, body: { success: true, result: {} } }]);
+    const bucketStub = stubFetch([
+      BUCKET_NOT_FOUND,
+      { status: 200, body: { success: true, result: {} } },
+    ]);
     await restProvider(databaseStub).createDatabase(firmId);
     await restProvider(bucketStub).createBucket(firmId);
-    expect(requestedName(databaseStub.calls[0])).toBe(requestedName(bucketStub.calls[0]));
+    expect(requestedName(databaseStub.calls[1])).toBe(requestedName(bucketStub.calls[1]));
   });
 });

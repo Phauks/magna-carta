@@ -13,10 +13,12 @@ export const DEV_FIRM_DATABASE_POOL_BINDING_NAMES = ["DB_FIRM_POOL_1", "DB_FIRM_
 //
 // Unknown identifier → null: a firm whose database this deployment cannot reach is treated as
 // absent — the caller maps null to the ADR-0052 404, never a 500 and never an existence oracle.
+// Own-property lookup only: a plain object inherits 'constructor'/'toString'/'__proto__', which a
+// bare index would resolve to non-nullish junk and break the unknown → null contract with a 500.
 export function resolveFirmDatabase(env: Bindings, databaseIdentifier: string): D1Database | null {
   const pool: Readonly<Record<string, D1Database>> = {
     DB_FIRM_POOL_1: env.DB_FIRM_POOL_1,
     DB_FIRM_POOL_2: env.DB_FIRM_POOL_2,
   };
-  return pool[databaseIdentifier] ?? null;
+  return Object.hasOwn(pool, databaseIdentifier) ? (pool[databaseIdentifier] ?? null) : null;
 }

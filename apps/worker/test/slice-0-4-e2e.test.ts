@@ -407,6 +407,35 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
     }
   });
 
+  it("ENFORCES every declared-authenticated operation behaviorally: a credential-less request answers 401", async () => {
+    // Declarations alone are not enforcement: a route declaring x-mc-authenticated: true with its
+    // authorize middleware omitted would pass every metadata assert above while shipping publicly
+    // mutable. This sweep fires a credential-less request at every declared-authenticated
+    // operation and demands the 401 problem — firms.provision included (its platform-admin guard
+    // answers the same 401 on a missing X-Platform-Admin-Key). The slice 0·5 chokepoint migration
+    // (metadata-DRIVEN enforcement) must keep this sweep green.
+    const document = await fetchOpenApiDocument();
+    const authenticated = emittedOperations(document, ALL_METHODS).filter(
+      (entry) => entry.operation["x-mc-authenticated"] === true,
+    );
+    // Non-vacuity floor: me.get, members.invite, firms.provision at minimum.
+    expect(authenticated.length).toBeGreaterThanOrEqual(3);
+
+    for (const { path, method, label } of authenticated) {
+      // Trivial substitutes for any templated params; mutating methods carry a minimal JSON body.
+      const concretePath = path.replace(/\{[^}]+\}/g, "test");
+      const mutating = (MUTATING_METHODS as readonly string[]).includes(method);
+      const response = await SELF.fetch(`https://example.com${concretePath}`, {
+        method: method.toUpperCase(),
+        ...(mutating ? { headers: { "content-type": "application/json" }, body: "{}" } : {}),
+      });
+      // 401 exactly — never a 2xx (unenforced), and never a 404/400 that would mean some other
+      // gate answered before authentication did.
+      expect(response.status, label).toBe(401);
+      expect(response.headers.get("content-type"), label).toContain("application/problem+json");
+    }
+  });
+
   it("gives every /v1 operation a unique, well-formed operationId mirrored in x-mc-operationId", async () => {
     const document = await fetchOpenApiDocument();
     const v1Operations = emittedOperations(document, ALL_METHODS).filter((entry) =>

@@ -86,10 +86,14 @@ interface CloudflareApiEnvelope<Result> {
   readonly errors?: readonly { readonly code?: number; readonly message?: string }[];
 }
 
-// Already-exists IS success for idempotent resume (slice 0·4 plan, Task 12): a crashed
-// provisioning re-invokes createDatabase/createBucket for a resource the first run already
-// created. Detection is by message ("already exists" / "already own") plus R2's documented
-// 10004 code — the Cloudflare error catalog carries no stable cross-product duplicate code.
+// RACE-WINDOW FALLBACK ONLY — deliberately demoted from the resume linchpin it once was.
+// Idempotent resume (slice 0·4 plan, Task 12) now travels find-first: each create PROBES for the
+// resource by its deterministic name and only creates when absent, so a crashed provisioning's
+// retry never depends on this detection. It remains solely for the narrow race where a concurrent
+// create lands between the probe and the POST. Detection is by message ("already exists" /
+// "already own") plus R2's documented 10004 code — the Cloudflare error catalog carries no stable
+// cross-product duplicate code, which is exactly why a vendor copy-edit must never be able to
+// wedge a resume (it can only widen this benign race window).
 function isAlreadyExists(envelope: CloudflareApiEnvelope<unknown>): boolean {
   return (envelope.errors ?? []).some(
     (error) => error.code === 10004 || /already (exists|own)/i.test(error.message ?? ""),
@@ -124,6 +128,7 @@ export function createCloudflareRestFirmResourceProvider(
   };
 
   async function callApi<Result>(
+    operation: string,
     method: "GET" | "POST",
     url: string,
     body?: unknown,
@@ -133,27 +138,57 @@ export function createCloudflareRestFirmResourceProvider(
       headers,
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
-    const envelope = (await response.json()) as CloudflareApiEnvelope<Result>;
-    return { status: response.status, envelope };
+    // Text first, parse second: an HTML edge error page (502/520) must surface as a described
+    // failure carrying the operation and HTTP status — never an opaque JSON SyntaxError that
+    // loses both.
+    const text = await response.text();
+    try {
+      return {
+        status: response.status,
+        envelope: JSON.parse(text) as CloudflareApiEnvelope<Result>,
+      };
+    } catch {
+      throw new Error(
+        `${operation} failed: HTTP ${String(response.status)} — non-JSON response body (an edge error page?)`,
+      );
+    }
+  }
+
+  // The find-first probe: the database a prior (possibly crashed) provisioning run already
+  // created, recovered by its deterministic name — or undefined when absent. A non-success list
+  // envelope also answers undefined: the POST that follows is the authoritative error surface.
+  async function findDatabaseByName(name: string): Promise<string | undefined> {
+    const listed = await callApi<readonly { name: string; uuid: string }[]>(
+      "createDatabase",
+      "GET",
+      `${accountBase}/d1/database?name=${name}`,
+    );
+    return (listed.envelope.result ?? []).find((database) => database.name === name)?.uuid;
   }
 
   return {
+    // Find-first (idempotent resume): probe by the deterministic name, create only when absent.
+    // The crash window between a successful create and the firm row's claim UPDATE is real
+    // (separate commits) — resume must never hinge on parsing the vendor's duplicate-error prose.
     async createDatabase(firmId: FirmId): Promise<{ databaseIdentifier: string }> {
       const name = await firmResourceName(firmId);
-      const created = await callApi<{ uuid: string }>("POST", `${accountBase}/d1/database`, {
-        name,
-      });
+      const existing = await findDatabaseByName(name);
+      if (existing !== undefined) return { databaseIdentifier: existing };
+
+      const created = await callApi<{ uuid: string }>(
+        "createDatabase",
+        "POST",
+        `${accountBase}/d1/database`,
+        { name },
+      );
       if (created.envelope.success && created.envelope.result !== undefined) {
         return { databaseIdentifier: created.envelope.result.uuid };
       }
       if (isAlreadyExists(created.envelope)) {
-        // Idempotent resume: the database exists from a prior run — recover its UUID by name.
-        const listed = await callApi<readonly { name: string; uuid: string }[]>(
-          "GET",
-          `${accountBase}/d1/database?name=${name}`,
-        );
-        const existing = (listed.envelope.result ?? []).find((database) => database.name === name);
-        if (existing !== undefined) return { databaseIdentifier: existing.uuid };
+        // The probe-create race: a concurrent create landed between the probe and this POST —
+        // recover the winner's UUID by name (the benign fallback isAlreadyExists now exists for).
+        const raced = await findDatabaseByName(name);
+        if (raced !== undefined) return { databaseIdentifier: raced };
         throw new Error(
           `createDatabase failed: "${name}" reported already-exists but the list endpoint does not return it`,
         );
@@ -161,10 +196,20 @@ export function createCloudflareRestFirmResourceProvider(
       throw describeFailure("createDatabase", created.status, created.envelope);
     },
 
+    // Find-first, same shape: probe the bucket (its name IS its identifier), create only when
+    // the probe misses; already-exists on the create is the same benign probe-create race.
     async createBucket(firmId: FirmId): Promise<{ bucketName: string }> {
       const name = await firmResourceName(firmId);
-      const created = await callApi<unknown>("POST", `${accountBase}/r2/buckets`, { name });
-      // The bucket's name IS its identifier — already-exists needs no recovery lookup.
+      const probed = await callApi<unknown>(
+        "createBucket",
+        "GET",
+        `${accountBase}/r2/buckets/${name}`,
+      );
+      if (probed.envelope.success) return { bucketName: name };
+
+      const created = await callApi<unknown>("createBucket", "POST", `${accountBase}/r2/buckets`, {
+        name,
+      });
       if (created.envelope.success || isAlreadyExists(created.envelope)) {
         return { bucketName: name };
       }

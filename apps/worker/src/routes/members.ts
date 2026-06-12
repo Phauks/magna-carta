@@ -80,6 +80,10 @@ const firmScopedControlPlaneIdempotency: MiddlewareHandler<MemberEnv> = (c, next
       }
       return `${sessionContext.firmId}:${clientKey}`;
     },
+    // The pre-decision 409/422 — the COMMON conflict path — answers this route's declared
+    // application/problem+json contract through the same single mapping the handler's rare
+    // race path uses (idempotency-conflict-problems.ts).
+    conflictResponse: problemResponseForIdempotencyConflict,
   }) as unknown as MiddlewareHandler<MemberEnv>;
   return middleware(c, next);
 };
