@@ -10,7 +10,13 @@ import { createMigratedNodeDatabase, openNodeDatabaseFile } from "../src/node-sq
 // This proves both halves against the real Node API (the node:sqlite pin-test pattern).
 describe("node-sqlite file persistence", () => {
   const temporaryDirectories: string[] = [];
+  const openHandles: { close(): void }[] = [];
   afterEach(() => {
+    // Close handles before cleanup — Windows refuses to delete a file another handle still
+    // holds open, and a failing assertion must not bury itself under an EPERM cleanup error.
+    for (const handle of openHandles.splice(0)) {
+      handle.close();
+    }
     for (const directory of temporaryDirectories.splice(0)) {
       rmSync(directory, { recursive: true, force: true });
     }
@@ -22,6 +28,7 @@ describe("node-sqlite file persistence", () => {
     const filePath = join(directory, "snapshot.sqlite");
 
     const source = createMigratedNodeDatabase("per-firm");
+    openHandles.push(source.raw);
     source.raw
       .prepare(
         "INSERT INTO idempotency_key (id, key, fingerprint, status, response_code, response_body, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -31,6 +38,7 @@ describe("node-sqlite file persistence", () => {
     await backup(source.raw, filePath);
 
     const reopened = openNodeDatabaseFile(filePath);
+    openHandles.push(reopened.raw);
     const { results } = await reopened.database
       .prepare("SELECT key FROM idempotency_key WHERE key = ?1")
       .bind("key_pin")
@@ -40,9 +48,5 @@ describe("node-sqlite file persistence", () => {
     // The reopened handle is batch-capable (the D1-shaped contract the harness relies on).
     const batchResult = await reopened.database.batch([reopened.database.prepare("SELECT 1")]);
     expect(batchResult).toHaveLength(1);
-
-    // Close before cleanup — Windows refuses to delete a file another handle still holds open.
-    reopened.raw.close();
-    source.raw.close();
   });
 });
