@@ -185,7 +185,44 @@ describe("idempotencyMiddleware", () => {
     expect(bodySeen).toEqual({ a: 1 });
   });
 
-  it("in_progress record -> 409", async () => {
+  it("deriveStoredKey scopes the stored key: the pre-decision SELECT and the handler context both carry the derived key, never the raw header", async () => {
+    const stub = stubD1();
+    stub.onAll("FROM idempotency_key", []);
+    let seen: IdempotencyContext | undefined;
+    const app = new Hono<{ Variables: { idempotency?: IdempotencyContext } }>();
+    app.post(
+      "/api/payments",
+      idempotencyMiddleware({
+        requirement: "required",
+        database: stub.database as never,
+        // The control-plane convention: tenant scope from server-side context, prefixed onto the
+        // client's key. Here a fixed firm stands in for the resolved session's firm.
+        deriveStoredKey: (clientKey) => `firm_a:${clientKey}`,
+      }),
+      (context) => {
+        seen = context.get("idempotency");
+        return context.json({ ok: true }, 201);
+      },
+    );
+    const response = await app.request("/api/payments", {
+      method: "POST",
+      body: JSON.stringify({ a: 1 }),
+      headers: { "content-type": "application/json", "Idempotency-Key": "client-key-1" },
+    });
+    expect(response.status).toBe(201);
+    // The pre-decision read the DERIVED key — the tenant-scoped row, not the global client string,
+    // so another tenant's record under the same client key is unreachable from this scope.
+    const select = stub.executed.find((statement) =>
+      statement.sql.includes("FROM idempotency_key"),
+    );
+    expect(select?.bindings).toEqual(["firm_a:client-key-1"]);
+    // The handler receives the derived key too, so runIdempotentEffect commits the SAME row the
+    // pre-decision read — the two paths cannot drift apart.
+    expect(seen?.key).toBe("firm_a:client-key-1");
+    expect(seen?.fingerprint).toMatch(FINGERPRINT_PATTERN);
+  });
+
+  it("in_progress record -> 409 (the default generic JSON body, absent a conflictResponse hook)", async () => {
     const stub = stubD1();
     const { fingerprintRequest } = await import("../src/canonical.ts");
     const fingerprint = await fingerprintRequest({
@@ -209,6 +246,63 @@ describe("idempotencyMiddleware", () => {
       headers: { "content-type": "application/json", "Idempotency-Key": "client-key-1" },
     });
     expect(response.status).toBe(409);
+    expect(response.headers.get("content-type")).toContain("application/json");
+    expect(await response.json()).toMatchObject({ error: expect.stringContaining("in progress") });
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("conflictResponse hook shapes BOTH pre-decision conflict responses (the mounting surface's contract, e.g. RFC 9457 problems)", async () => {
+    const stub = stubD1();
+    const { fingerprintRequest } = await import("../src/canonical.ts");
+    const matchingFingerprint = await fingerprintRequest({
+      method: "POST",
+      path: "/api/payments",
+      body: { a: 1 },
+    });
+    // One scripted record serves both kinds: the matching body hits in-progress; a different
+    // body hits fingerprint-mismatch (mismatch wins over status in the decision table).
+    stub.onAll("FROM idempotency_key", [
+      {
+        key: "client-key-1",
+        fingerprint: matchingFingerprint,
+        status: "in_progress",
+        response_code: null,
+        response_body: null,
+      },
+    ]);
+    const handler = vi.fn((context: { json: (body: unknown, code?: number) => Response }) =>
+      context.json({ ok: true }, 201),
+    );
+    const app = new Hono<{ Variables: { idempotency?: IdempotencyContext } }>();
+    app.post(
+      "/api/payments",
+      idempotencyMiddleware({
+        requirement: "required",
+        database: stub.database as never,
+        conflictResponse: (context, conflict) =>
+          context.json({ shaped: conflict.kind, status: conflict.status }, conflict.status, {
+            "content-type": "application/problem+json",
+          }),
+      }),
+      (context) => handler(context),
+    );
+    const send = (body: unknown) =>
+      app.request("/api/payments", {
+        method: "POST",
+        body: JSON.stringify(body),
+        headers: { "content-type": "application/json", "Idempotency-Key": "client-key-1" },
+      });
+
+    const inProgress = await send({ a: 1 });
+    expect(inProgress.status).toBe(409);
+    expect(inProgress.headers.get("content-type")).toContain("application/problem+json");
+    expect(await inProgress.json()).toEqual({ shaped: "in-progress", status: 409 });
+
+    const mismatch = await send({ a: 2 });
+    expect(mismatch.status).toBe(422);
+    expect(mismatch.headers.get("content-type")).toContain("application/problem+json");
+    expect(await mismatch.json()).toEqual({ shaped: "fingerprint-mismatch", status: 422 });
+
     expect(handler).not.toHaveBeenCalled();
   });
 });

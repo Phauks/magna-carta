@@ -1,13 +1,49 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { createAuth } from "./auth.ts";
+import { createLoggingEmailAdapter } from "./email-port.ts";
+import { registerFirmsRoute } from "./routes/firms.ts";
+import { registerMeRoute } from "./routes/me.ts";
+import { registerMembersRoute } from "./routes/members.ts";
 
 // The Worker's runtime bindings, declared once here (the no-barrel single home for the app's env shape).
 // worker-env.d.ts mirrors this into the ambient `Cloudflare.Env` the vitest-pool-workers harness types `env` as.
 export type Bindings = {
   ASSETS: Fetcher;
   DB_CONTROL: D1Database;
+  // The dev firm-database pool (slice 0·4, decided #12) — pre-declared because Miniflare cannot
+  // create D1 at runtime; resolved from a firm's database_identifier by firm-binding-resolver.ts.
+  DB_FIRM_POOL_1: D1Database;
+  DB_FIRM_POOL_2: D1Database;
   R2: R2Bucket;
   QUEUE: Queue;
+  // Better Auth's signing/encryption secret. Local dev + tests load it from .dev.vars;
+  // production sets it with `wrangler secret put AUTH_SECRET`.
+  AUTH_SECRET: string;
+  // The POST /api/v1/firms guard secret (constant-time-compared against X-Platform-Admin-Key —
+  // the platform-admin principal model is a named slice 0·4 seam). Local dev + tests load the
+  // placeholder from .dev.vars; production sets it with `wrangler secret put PLATFORM_ADMIN_KEY`.
+  PLATFORM_ADMIN_KEY: string;
+  // Cloudflare REST FirmResourceProvider credentials — DEPLOY-TIME secrets only (`wrangler
+  // secret put`), deliberately absent from .dev.vars: locally the dev pool-claiming adapter runs
+  // instead, selected by these being unset (see routes/firms.ts resourceProviderForEnv).
+  CLOUDFLARE_API_TOKEN?: string;
+  CLOUDFLARE_ACCOUNT_ID?: string;
 };
+
+// One Better Auth instance per worker env: the env object is stable across requests within an
+// isolate, so a WeakMap-keyed cache builds the auth context once instead of on every request.
+// The dev logging email adapter is wired here for now; slice 0·6 swaps in real transactional
+// email behind the same SendEmail port.
+const authInstanceByEnv = new WeakMap<Bindings, ReturnType<typeof createAuth>>();
+
+function authForEnv(env: Bindings): ReturnType<typeof createAuth> {
+  let auth = authInstanceByEnv.get(env);
+  if (auth === undefined) {
+    auth = createAuth(env, createLoggingEmailAdapter());
+    authInstanceByEnv.set(env, auth);
+  }
+  return auth;
+}
 
 const Health = z
   .object({ status: z.literal("ok"), version: z.string(), time: z.string() })
@@ -33,6 +69,14 @@ export function createApp() {
     // Skeleton timestamp; Temporal.Instant adoption is a later slice.
     return c.json({ status: "ok" as const, version: "0.0.0", time: new Date().toISOString() }, 200);
   });
+
+  // Better Auth owns everything under its default basePath, /api/auth/* — its router serves
+  // only GET and POST. Registered before the catch-all asset fallthrough.
+  app.on(["GET", "POST"], "/api/auth/*", (c) => authForEnv(c.env).handler(c.req.raw));
+
+  registerMeRoute(app, authForEnv);
+  registerMembersRoute(app, authForEnv);
+  registerFirmsRoute(app, authForEnv);
 
   app.doc31("/api/openapi.json", {
     openapi: "3.1.0",

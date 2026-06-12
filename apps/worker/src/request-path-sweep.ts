@@ -1,0 +1,22 @@
+import type { Bindings } from "./app.ts";
+import { runScheduledSweep } from "./scheduled.ts";
+
+// Best-effort, request-path outbox sweep scheduled AFTER a route commits a member.provision row
+// (firms.ts owner activation, members.ts invite). Provision/invite email the activation link
+// immediately, but only the */5 cron sweeps the outbox — without this, a fast-activating owner or
+// invitee gets `permissions: []` and 403s until the next cron fire. This shortens that window to
+// the sweep's own latency.
+//
+// This is ONLY a latency optimization, never a correctness guarantee: the cron remains the
+// at-least-once relay, and sweeps may safely OVERLAP (scheduled.ts's documented invariant — every
+// status transition is guarded and every consumer dedups). Runs off the response path through
+// executionCtx.waitUntil; any failure is swallowed-and-logged (the interim telemetry seam, like
+// scheduled.ts's own console.error) so a sweep hiccup never disturbs the already-committed 201.
+export function scheduleRequestPathSweep(executionContext: ExecutionContext, env: Bindings): void {
+  executionContext.waitUntil(
+    runScheduledSweep(env).catch((caught: unknown) => {
+      const message = caught instanceof Error ? caught.message : String(caught);
+      console.error(`request-path sweep failed (cron remains the guarantee): ${message}`);
+    }),
+  );
+}

@@ -15,6 +15,13 @@
       "when": 1781046389393,
       "tag": "0001_ledger-core",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1781158345202,
+      "tag": "0002_member-rbac",
+      "breakpoints": true
     }
   ]
 }

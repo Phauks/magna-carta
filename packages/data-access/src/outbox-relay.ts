@@ -23,6 +23,10 @@ export interface OutboxSweepReport {
 // Marking first would risk losing the effect entirely (at-most-once), never acceptable here.
 // A publish failure increments attempts; reaching maxAttempts marks the row failed and hands it to
 // the dead-letter callback (surfaced to observability, ADR-0038). Failures are per-row isolated.
+// status='failed' is TERMINAL — the relay never re-dispatches a dead-lettered row on its own. The
+// recovery seam is requeueDeadLetteredMessageStatement (outbox-statements.ts): an operator flips a
+// failed row back to pending and the next sweep retries it (the documented manual intervention
+// until an admin surface exists — security.md, slice 0·4).
 //
 // Sweeps may OVERLAP (a slow run meeting the next Cron fire), so every status transition is guarded
 // with `AND status = 'pending'` and branches on meta.changes: a row another sweep already claimed is

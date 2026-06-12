@@ -35,9 +35,10 @@ describe("permission registry", () => {
     expect(permission).toBe("firm:manageMembers");
   });
 
-  it("assertPermission throws on an unknown key, naming the offending value", () => {
-    expect(() => assertPermission("firm:deleteEverything")).toThrowError(/firm:deleteEverything/);
-    expect(() => assertPermission("")).toThrowError();
+  it("assertPermission throws a TypeError naming the JSON-quoted offending value", () => {
+    expect(() => assertPermission("firm:deleteEverything")).toThrowError(TypeError);
+    expect(() => assertPermission("firm:deleteEverything")).toThrowError('"firm:deleteEverything"');
+    expect(() => assertPermission("")).toThrowError(TypeError);
   });
 
   it("permissionsForNamespace('firm') returns exactly the firm keys", () => {

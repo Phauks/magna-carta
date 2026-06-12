@@ -8,6 +8,8 @@
     "./canonical": "./src/canonical.ts",
     "./idempotency-decision": "./src/idempotency-decision.ts",
     "./idempotency-statements": "./src/idempotency-statements.ts",
+    "./member-statements": "./src/member-statements.ts",
+    "./auth-audit-statements": "./src/auth-audit-statements.ts",
     "./outbox-statements": "./src/outbox-statements.ts",
     "./effect-batch": "./src/effect-batch.ts",
     "./run-idempotent-effect": "./src/run-idempotent-effect.ts",
