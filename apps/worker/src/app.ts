@@ -7,6 +7,10 @@ export type Bindings = {
   DB_CONTROL: D1Database;
   R2: R2Bucket;
   QUEUE: Queue;
+  // "development" enables the dev-only response validator (chokepoint/response-validator.ts);
+  // unset in production (wrangler.jsonc declares no var), set locally via .dev.vars when the
+  // validator is wired into route registration (slice 0·5 Task 8).
+  ENVIRONMENT?: string;
 };
 
 const Health = z
