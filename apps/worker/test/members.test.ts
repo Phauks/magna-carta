@@ -2,10 +2,10 @@ import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId } from "@magna-carta/identifiers/types";
-import { createAuth } from "../src/auth.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 import {
+  captureResetToken,
   mirrorMemberWithOwnerRole,
   postJson,
   seedCredentialedUser,
@@ -56,20 +56,9 @@ describe("invitation activation — decided #6 verification (Path A)", () => {
     expect(noAccountYet).toBeNull();
 
     // The activation email must travel through the injected SendEmail port — capture it.
-    const sentEmails: Array<{ to: string; subject: string; text: string }> = [];
-    const auth = createAuth(env, (message) => {
-      sentEmails.push(message);
-      return Promise.resolve();
-    });
-
-    const requested = await auth.api.requestPasswordReset({ body: { email } });
-    expect(requested.status).toBe(true);
+    const { auth, token, sentEmails } = await captureResetToken(email);
     expect(sentEmails).toHaveLength(1);
     expect(sentEmails[0]?.to).toBe(email);
-
-    const token = /\/reset-password\/([^/?]+)/.exec(sentEmails[0]?.text ?? "")?.[1];
-    if (token === undefined)
-      throw new Error(`reset email carries no token: ${sentEmails[0]?.text}`);
 
     const newPassword = "a-sufficiently-long-password";
     const reset = await auth.api.resetPassword({ body: { newPassword, token } });

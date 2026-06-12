@@ -1,9 +1,8 @@
 import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
-import * as OTPAuth from "otpauth";
-import { createAuth } from "../src/auth.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
+  captureResetToken,
   liveCookie,
   PASSWORD,
   postJson,
@@ -11,6 +10,7 @@ import {
   setCookies,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
+import { createAuthenticator, secretFromTotpUri } from "./support/totp.ts";
 
 // The decided #10 audit wiring (Task 13): login.success via databaseHooks.session.create.after,
 // two_factor.enabled/disabled via the paired user.update hooks (1.6.16 exposes no dedicated
@@ -52,14 +52,7 @@ describe("auth audit hooks", () => {
     expect(await auditEvents(userId)).toEqual(["login.success"]);
 
     const { totpURI } = (await enableResponse.json()) as { totpURI: string };
-    const secretBase32 = /[?&]secret=([^&]+)/.exec(totpURI)?.[1];
-    if (secretBase32 === undefined) throw new Error(`totpURI carries no secret: ${totpURI}`);
-    const authenticator = new OTPAuth.TOTP({
-      secret: OTPAuth.Secret.fromBase32(secretBase32),
-      algorithm: "SHA1",
-      digits: 6,
-      period: 30,
-    });
+    const authenticator = createAuthenticator(secretFromTotpUri(totpURI));
 
     // verify-totp performs the transition (twoFactorEnabled false → true) and rotates the
     // session — so the audit trail gains two_factor.enabled plus the rotation's login.success.
@@ -87,19 +80,8 @@ describe("auth audit hooks", () => {
   it("writes password.reset when a reset completes (alongside the activation email-verified flip)", async () => {
     const { userId } = await seedCredentialedUser("audit-reset@example.com");
 
-    // Direct auth instance with a capturing email port — the reset link must be parsed for its token.
-    const sentEmails: Array<{ to: string; subject: string; text: string }> = [];
-    const auth = createAuth(env, (message) => {
-      sentEmails.push(message);
-      return Promise.resolve();
-    });
-    const requested = await auth.api.requestPasswordReset({
-      body: { email: "audit-reset@example.com" },
-    });
-    expect(requested.status).toBe(true);
-    const token = /\/reset-password\/([^/?]+)/.exec(sentEmails[0]?.text ?? "")?.[1];
-    if (token === undefined)
-      throw new Error(`reset email carries no token: ${sentEmails[0]?.text}`);
+    // Capturing email port — the reset link must be parsed for its token.
+    const { auth, token } = await captureResetToken("audit-reset@example.com");
 
     const reset = await auth.api.resetPassword({
       body: { newPassword: "a-sufficiently-long-password", token },

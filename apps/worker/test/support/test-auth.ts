@@ -110,6 +110,27 @@ export async function seedCredentialedUser(
   return { userId: assertIdentifier(user.id, "user"), firmId };
 }
 
+// Requests a password reset through a capturing email port and parses the reset token out of the
+// emailed link — the activation path (Path A) every invitee travels. Returns the auth instance
+// (resetPassword must run against the same control plane), the token, and the captured emails for
+// callers that assert on delivery.
+export async function captureResetToken(email: string): Promise<{
+  auth: ReturnType<typeof createAuth>;
+  token: string;
+  sentEmails: Array<{ to: string; subject: string; text: string }>;
+}> {
+  const sentEmails: Array<{ to: string; subject: string; text: string }> = [];
+  const auth = createAuth(env, (message) => {
+    sentEmails.push(message);
+    return Promise.resolve();
+  });
+  const requested = await auth.api.requestPasswordReset({ body: { email } });
+  expect(requested.status).toBe(true);
+  const token = /\/reset-password\/([^/?]+)/.exec(sentEmails[0]?.text ?? "")?.[1];
+  if (token === undefined) throw new Error(`reset email carries no token: ${sentEmails[0]?.text}`);
+  return { auth, token, sentEmails };
+}
+
 export type ResponseCookie = { name: string; value: string; pair: string };
 
 // One entry per Set-Cookie header: `pair` is the resendable `name=value` segment. Cookie names are

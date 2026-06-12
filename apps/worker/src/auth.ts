@@ -25,7 +25,9 @@ const ENTITY_TYPE_BY_MODEL: Partial<Record<string, EntityType>> = {
 // Auth audit writes are observability, not gates (ADR-0038): the INSERT failing must never break
 // the auth flow it describes — Better Auth runs databaseHooks unguarded, so a throw here would
 // surface as a 500 on the auth route. Failures are logged (event name + message only; metadata is
-// ids-only by contract and never echoed) and swallowed.
+// ids-only by contract and never echoed; the console.error is the interim telemetry seam slice
+// 0·6 replaces) and swallowed. The guarded-vs-batched audit split is documented at its one home:
+// @magna-carta/data-access auth-audit-statements.ts.
 async function writeAuthAuditGuarded(
   env: Bindings,
   input: { event: string; userId: string | null; metadata?: unknown },
@@ -55,7 +57,13 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
   // and auditing on the after-state alone would fire false two_factor.enabled events on every
   // unrelated update of an enrolled user (e.g. the verify-email flip). Better Auth passes the
   // SAME endpoint-context object to both halves of one update, so it keys the pairing; a null
-  // context (an update outside an endpoint) skips the audit rather than guessing.
+  // context (an update outside an endpoint) skips the audit rather than guessing. WeakMap over
+  // Map because an abandoned entry (a before whose after never runs) is garbage-collected with
+  // its context — no cleanup path needed. The rejected alternative, reading the prior state back
+  // from the database in the before hook, costs a SELECT on every user update on the hot path and
+  // races concurrent updates of the same user. If a library upgrade stops passing one shared
+  // context object to both halves, this pairing fails QUIET (the two_factor audit events simply
+  // stop firing) — test/auth-audit.test.ts is the canary.
   const twoFactorPatchByHookContext = new WeakMap<object, boolean>();
   return betterAuth({
     secret: env.AUTH_SECRET,

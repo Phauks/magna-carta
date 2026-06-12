@@ -2,6 +2,14 @@ import type { AuthAuditId, UserId } from "@magna-carta/identifiers/types";
 import { canonicalJsonStringify } from "./canonical.ts";
 import type { SqlDatabase, SqlStatement } from "./idempotency-statements.ts";
 
+// Guarded vs batched — the one home for the split (both callers import this seam). Hook-driven
+// audit writes (login.success, two_factor.*, password.reset — apps/worker auth.ts) fire alone and
+// are guarded/swallowed at the call site: they are observability, not gates, so their failure must
+// never break the auth flow they describe. Request-path audit writes (member.invited,
+// firm.provisioned — routes/members.ts, firm-provisioner.ts) ride the atomic effect batch and fail
+// with it: an audit row the request's own commit cannot carry means the request must not succeed.
+// The divergence is deliberate, not drift.
+
 // Table name tracked against @magna-carta/database's control-plane schema by the schema-name-sync
 // fitness test. auth_audit exists only in the control-plane database — the caller supplies that handle.
 export const AUTH_AUDIT_TABLE = "auth_audit";

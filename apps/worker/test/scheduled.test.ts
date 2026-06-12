@@ -10,7 +10,11 @@ import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import worker from "../src/index.ts";
-import { findUnprovisionedMembers, runScheduledSweep } from "../src/scheduled.ts";
+import {
+  findUnprovisionedMembers,
+  listReachableActiveFirms,
+  runScheduledSweep,
+} from "../src/scheduled.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 import {
@@ -91,7 +95,7 @@ describe("runScheduledSweep — member.provision consumption", () => {
     const invitedUserId = ((await inviteResponse.json()) as { id: string }).id;
 
     // Before the sweep the reconciliation backstop reports the un-mirrored invitee.
-    const beforeSweep = await findUnprovisionedMembers(env);
+    const beforeSweep = await findUnprovisionedMembers(env, await listReachableActiveFirms(env));
     expect(beforeSweep).toContainEqual({ userId: invitedUserId, firmId: poolFirmId });
 
     const report = await runScheduledSweep(env);
@@ -108,7 +112,7 @@ describe("runScheduledSweep — member.provision consumption", () => {
 
     // The reconciliation backstop is clean again (spec §6: control-plane users without a member
     // row in their firm database).
-    expect(await findUnprovisionedMembers(env)).toEqual([]);
+    expect(await findUnprovisionedMembers(env, await listReachableActiveFirms(env))).toEqual([]);
 
     // Re-running the sweep is a no-op: the row is dispatched, nothing duplicates.
     const secondReport = await runScheduledSweep(env);
@@ -236,6 +240,35 @@ describe("runScheduledSweep — per-firm relay and TTL purge", () => {
     expect(await outboxRowState(env.DB_FIRM_POOL_1, outboxId)).toEqual({
       status: "dispatched",
       attempts: 0,
+    });
+  });
+
+  it("publishes the queue message with the pinned field names { id, topic, payload, aggregateKey, seq }", async () => {
+    // The field names are a wire contract: future consumers dedup on id and order by
+    // (aggregateKey, seq) (ADR-0064). A capturing fake QUEUE pins the publish closure's shape.
+    const outboxId = newIdentifier("outbox");
+    await env.DB_FIRM_POOL_1.prepare(
+      `INSERT INTO outbox (id, topic, payload, aggregate_key, seq, status, attempts, created_at) VALUES (?1, 'demo.shape', '{"demo":true}', 'agg_demo', 7, 'pending', 0, ?2)`,
+    )
+      .bind(outboxId, new Date().toISOString())
+      .run();
+
+    const sent: unknown[] = [];
+    const capturingQueue = {
+      send: (message: unknown) => {
+        sent.push(message);
+        return Promise.resolve();
+      },
+    } as unknown as Queue;
+    await runScheduledSweep({ ...env, QUEUE: capturingQueue });
+
+    const message = sent.find((entry) => (entry as { id?: unknown }).id === outboxId);
+    expect(message).toEqual({
+      id: outboxId,
+      topic: "demo.shape",
+      payload: '{"demo":true}',
+      aggregateKey: "agg_demo",
+      seq: 7,
     });
   });
 

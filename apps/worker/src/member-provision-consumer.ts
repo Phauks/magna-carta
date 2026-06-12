@@ -7,36 +7,49 @@ import type { OutboxRow } from "@magna-carta/data-access/outbox-relay";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
+import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "./app.ts";
 import { resolveFirmDatabase } from "./firm-binding-resolver.ts";
 
 // The member.provision payload as the producers write it (routes/members.ts invite,
 // firm-provisioner.ts owner activation): ids + non-privileged fields only (ADR-0038).
 interface MemberProvisionPayload {
-  readonly userId: string;
-  readonly firmId: string;
+  readonly userId: UserId;
+  readonly firmId: FirmId;
   readonly displayName: string;
   readonly roleName: string | null;
 }
 
 // Malformed payloads THROW (never skip-silently): the relay increments attempts and dead-letters
-// at max, which surfaces the bug instead of quietly dropping a member mirror (ADR-0038).
+// at max, which surfaces the bug instead of quietly dropping a member mirror (ADR-0038). Both ids
+// are asserted HERE, exactly once — downstream code consumes the branded types — and every
+// malformed-payload failure carries the uniform `member.provision ${row.id}:` prefix.
 function parseMemberProvisionPayload(row: OutboxRow): MemberProvisionPayload {
-  const parsed = JSON.parse(row.payload) as Partial<MemberProvisionPayload>;
-  if (
-    typeof parsed.userId !== "string" ||
-    typeof parsed.firmId !== "string" ||
-    typeof parsed.displayName !== "string" ||
-    (parsed.roleName !== null && typeof parsed.roleName !== "string")
-  ) {
-    throw new Error(`member.provision ${row.id}: malformed payload`);
+  try {
+    const parsed = JSON.parse(row.payload) as {
+      userId?: unknown;
+      firmId?: unknown;
+      displayName?: unknown;
+      roleName?: unknown;
+    };
+    if (
+      typeof parsed.displayName !== "string" ||
+      (parsed.roleName !== null &&
+        parsed.roleName !== undefined &&
+        typeof parsed.roleName !== "string")
+    ) {
+      throw new Error("malformed payload");
+    }
+    return {
+      userId: assertIdentifier(parsed.userId, "user"),
+      firmId: assertIdentifier(parsed.firmId, "firm"),
+      displayName: parsed.displayName,
+      roleName: parsed.roleName ?? null,
+    };
+  } catch (caught) {
+    const message = caught instanceof Error ? caught.message : String(caught);
+    throw new Error(`member.provision ${row.id}: ${message}`);
   }
-  return {
-    userId: parsed.userId,
-    firmId: parsed.firmId,
-    displayName: parsed.displayName,
-    roleName: parsed.roleName ?? null,
-  };
 }
 
 // The member.provision consumer (slice 0·4 design spec §6): mirrors a control-plane user into the
@@ -69,7 +82,7 @@ export async function consumeMemberProvision(env: Bindings, row: OutboxRow): Pro
 
   const statements: SqlStatement[] = [
     insertMemberStatement(firmDatabase, {
-      userId: assertIdentifier(payload.userId, "user"),
+      userId: payload.userId,
       displayName: payload.displayName,
       now: new Date().toISOString(),
     }),
@@ -88,12 +101,14 @@ export async function consumeMemberProvision(env: Bindings, row: OutboxRow): Pro
     statements.push(
       insertRoleAssignmentStatement(firmDatabase, {
         id: newIdentifier("memberRole"),
-        memberUserId: assertIdentifier(payload.userId, "user"),
+        memberUserId: payload.userId,
         roleId: assertIdentifier(role.id, "role"),
       }),
     );
   }
   // One atomic batch: a crash can never leave the member row without its role (or vice versa).
+  // Deliberate pin: the BatchDatabase annotation proves at compile time that D1Database still
+  // satisfies the data-access batch port — a port drift fails here, not at runtime.
   const batchDatabase: BatchDatabase = firmDatabase;
   await batchDatabase.batch(statements);
 }

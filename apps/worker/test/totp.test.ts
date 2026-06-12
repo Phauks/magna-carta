@@ -12,22 +12,11 @@ import {
   signIn,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
+import { createAuthenticator, secretFromTotpUri } from "./support/totp.ts";
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
 });
-
-// Better Auth's twoFactor plugin TOTP parameters (verified against the pinned 1.6.16 source,
-// plugins/two-factor/totp): HMAC-SHA1, 6 digits, 30-second period; the otpauth:// URI carries the
-// base32 encoding of the raw secret's ASCII bytes.
-function createAuthenticator(secretBase32: string): OTPAuth.TOTP {
-  return new OTPAuth.TOTP({
-    secret: OTPAuth.Secret.fromBase32(secretBase32),
-    algorithm: "SHA1",
-    digits: 6,
-    period: 30,
-  });
-}
 
 // A six-digit code guaranteed invalid: Better Auth verifies against a ±1-period window around ITS
 // clock, which can sit up to one period ahead of ours by the time the request lands — so any
@@ -56,8 +45,7 @@ async function enrollTotp(sessionCookie: string): Promise<{ secretBase32: string
   );
   expect(enableResponse.status).toBe(200);
   const { totpURI } = (await enableResponse.json()) as { totpURI: string };
-  const secretBase32 = /[?&]secret=([^&]+)/.exec(totpURI)?.[1];
-  if (secretBase32 === undefined) throw new Error(`totpURI carries no secret: ${totpURI}`);
+  const secretBase32 = secretFromTotpUri(totpURI);
 
   const verifyResponse = await postJson(
     "/api/auth/two-factor/verify-totp",
@@ -85,8 +73,7 @@ describe("TOTP enrollment", () => {
     expect(enableBody.totpURI).toMatch(/^otpauth:\/\/totp\//);
     expect(enableBody.backupCodes.length).toBeGreaterThan(0);
 
-    const secretBase32 = /[?&]secret=([^&]+)/.exec(enableBody.totpURI)?.[1];
-    if (secretBase32 === undefined) throw new Error("totpURI carries no secret parameter");
+    const secretBase32 = secretFromTotpUri(enableBody.totpURI);
 
     // Encrypted at rest (the plan's decided #8): the stored two_factor.secret is Better Auth's
     // AUTH_SECRET-keyed symmetric encryption of the raw secret — it must match neither the base32
