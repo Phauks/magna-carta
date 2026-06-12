@@ -19,7 +19,7 @@ describe("load-profile profiles", () => {
     // Non-count parameters pass through; identity parameters are untouched.
     expect(smoke.version).toBe(ledgerVolume.version);
     expect(smoke.reversalRate).toBe(ledgerVolume.reversalRate);
-    expect(ledgerVolume.entryCount).toBeGreaterThanOrEqual(10_000); // source unchanged
+    expect(ledgerVolume.entryCount).toBe(25_000); // source unchanged
   });
 
   it("floors the scaled counts so a tiny multiplier still produces a generatable profile", () => {

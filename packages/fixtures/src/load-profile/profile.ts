@@ -1,12 +1,12 @@
 // Bump when GENERATION LOGIC changes in a way that alters produced rows for the same profile +
 // seed (new archetype, changed faker call order, …) — it participates in snapshot identity, so a
-// stale cached artifact can never be measured against silently (design §3.2). Profile parameter
-// changes bump the profile's own `version` instead.
+// stale cached artifact can never be measured against silently. Profile parameter changes bump
+// the profile's own `version` instead.
 export const GENERATOR_VERSION = 1;
 
 // Transaction archetypes, weighted (faker.helpers.weightedArrayElement). The settlement archetype
 // is the multi-line tail; the rest are two-line entries. Weights are profile PARAMETERS, never
-// generator constants (design §3.1).
+// generator constants (ADR-0083).
 export interface ArchetypeWeights {
   readonly trustDeposit: number;
   readonly trustDisbursement: number;
@@ -19,7 +19,7 @@ export interface ArchetypeWeights {
 export interface LedgerVolumeProfile {
   readonly name: "ledgerVolume";
   // Profile identity: bump on ANY parameter change — baselines measured against different data
-  // must never masquerade as comparable (design §3.1).
+  // must never masquerade as comparable.
   readonly version: number;
   readonly trustSubledgerCount: number;
   readonly entryCount: number;
