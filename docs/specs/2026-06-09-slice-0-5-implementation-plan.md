@@ -8,7 +8,7 @@
 
 **Tech Stack:** `@hono/zod-openapi` 1.4.0 + zod 4 (in place), `@hey-api/openapi-ts` + `@tanstack/svelte-query` plugin (validated by the spike), `@stoplight/spectral-cli`, `@stoplight/prism-cli`, oasdiff via its official GitHub Action, Node-native TS execution for the emit script.
 
-**Spec:** [`2026-06-04-api-contract-design.md`](2026-06-04-api-contract-design.md) (ADR-0066/0067) · spike findings in [`docs/conventions/api.md`](../conventions/api.md) · **depends on slice 0·4 being merged** (uses `resolveSession`, `@magna-carta/access-control`, the idempotency middleware, and migrates the 0·4 routes onto the chokepoint). This plan can merge any time; the build starts after 0·4 lands.
+**Spec:** [`2026-06-04-api-contract-design.md`](2026-06-04-api-contract-design.md) (ADR-0066/0067) · spike findings in [`docs/conventions/api.md`](../conventions/api.md) · **depends on slice 0·4 being merged** (uses `resolveSession`, `@magna-carta/access-control`, the idempotency middleware, and migrates the 0·4 routes onto the chokepoint). **Split-start (decided 2026-06-11):** Tasks 1–6 — the contracts layer (problem module, pagination, `RouteMeta`, rate-limiter seam, dev response validator) — build off main immediately; their only 0·4 import, the `Permission` registry, is already merged. **The build pauses after Task 6** and resumes at Task 7 (the chokepoint, which consumes 0·4's `resolveSession`) once 0·4 lands. Tasks 6/7 were swapped from the original order so the pause is a clean suffix.
 
 ## Decided up front (read before coding)
 
@@ -112,13 +112,15 @@ export interface RouteMeta {
 
 TDD. `interface RateLimiter { check(bucket: RateLimitBucket, key: string): { allowed: boolean; retryAfterSeconds?: number } }`; `BUCKETS: Record<RateLimitBucket, { limit: number; windowSeconds: number }>` (`default` 100/60s, `auth` 10/60s, `expensive` 10/60s — generous, values are the deferred seam); in-memory sliding window with injectable clock. Tests: under-limit allows; over-limit denies with retry-after; window slides; buckets isolated per key. The per-isolate limitation is a documented code comment + api.md note (Task 14). Commit `feat(worker): named rate-limit buckets behind a RateLimiter seam`.
 
-### Task 6: The chokepoint middleware (`src/chokepoint/chokepoint.ts`)
-
-TDD with fakes (fake session resolver, permission reads, limiter). The §3.4 **fixed order** — resolve session→firm → authn (`401` problem if `meta.authenticated` and no session) → RBAC (`404` problem if the resource’s firm context is absent/foreign — ADR-0052; `403` problem + `requestAccess: true` if visible-but-denied) → idempotency (apply the 0·4/0·2 Hono idempotency middleware when `meta.idempotency === "required"`) → rate-limit (`429` problem + `Retry-After` header) → handler. Reads `routeMetaOf` for the matched route; a matched `/api/v1` route **without** meta throws at startup (registration-time assertion, not per-request). Tests: each gate in isolation; the order itself (a request failing authn never touches the limiter — fakes record invocation order); `surface: "public"` routes skip cookie/CSRF assumptions. Commit `feat(worker): ADR-0067 chokepoint — ordered tenancy/authn/RBAC/idempotency/rate-limit enforcement`.
-
-### Task 7: Dev-only response validator (`src/chokepoint/response-validator.ts`)
+### Task 6: Dev-only response validator (`src/chokepoint/response-validator.ts`)
 
 TDD. Wraps the handler response when `env.ENVIRONMENT === "development"`: parses the JSON body against the matched route's response schema for that status; divergence throws with the zod issues (caught in tests; surfaces loudly in `wrangler dev`). Production (`ENVIRONMENT` unset/other) is a pass-through — test asserts zero body reads. Commit `feat(worker): dev-only response/contract divergence validator`.
+
+**=== PAUSE POINT — everything below requires slice 0·4 merged (resolveSession, the firms/members/me routes). Do not proceed until 0·4 lands on main and this branch is rebased onto it. ===**
+
+### Task 7: The chokepoint middleware (`src/chokepoint/chokepoint.ts`)
+
+TDD with fakes (fake session resolver, permission reads, limiter). The §3.4 **fixed order** — resolve session→firm → authn (`401` problem if `meta.authenticated` and no session) → RBAC (`404` problem if the resource’s firm context is absent/foreign — ADR-0052; `403` problem + `requestAccess: true` if visible-but-denied) → idempotency (apply the 0·4/0·2 Hono idempotency middleware when `meta.idempotency === "required"`) → rate-limit (`429` problem + `Retry-After` header) → handler. Reads `routeMetaOf` for the matched route; a matched `/api/v1` route **without** meta throws at startup (registration-time assertion, not per-request). Tests: each gate in isolation; the order itself (a request failing authn never touches the limiter — fakes record invocation order); `surface: "public"` routes skip cookie/CSRF assumptions. Commit `feat(worker): ADR-0067 chokepoint — ordered tenancy/authn/RBAC/idempotency/rate-limit enforcement`.
 
 ### Task 8: Migrate routes onto the pipeline (`src/routes/*`, `src/app.ts`)
 
@@ -181,4 +183,4 @@ Add steps after the existing test/build steps (verify current action refs at bui
 
 ## Self-review (spec coverage)
 
-§1 library/stack → in place (spike) + Tasks 1, 11 (client), 12 (SDK gate) · §2 endpoint/module structure → Tasks 4, 8 (`as const`, per-module composition, verbosity mitigations via contracts/common) · §3 RouteMeta + chokepoint + fitness → Tasks 4, 6, 10 (reserved seams `cache`/`planTier`/`metered` stay unpopulated by design; §3.3 exclusions honored — nothing added) · §4 error model → Tasks 2, 7 (dev validator) · §5 pagination → Task 3 · §6 auth surfaces → Tasks 4, 6, 10 (surface consistency; portal enforcement stays deferred per spec §10) · §7 versioning → decided #12 + Task 12 (oasdiff) · §8 pipeline → Tasks 9–12 · §9 test plan → Tasks 6, 8, 10, 11, 13 · §10 open items → untouched seams, as specified.
+§1 library/stack → in place (spike) + Tasks 1, 11 (client), 12 (SDK gate) · §2 endpoint/module structure → Tasks 4, 8 (`as const`, per-module composition, verbosity mitigations via contracts/common) · §3 RouteMeta + chokepoint + fitness → Tasks 4, 7, 10 (reserved seams `cache`/`planTier`/`metered` stay unpopulated by design; §3.3 exclusions honored — nothing added) · §4 error model → Tasks 2, 6 (dev validator) · §5 pagination → Task 3 · §6 auth surfaces → Tasks 4, 7, 10 (surface consistency; portal enforcement stays deferred per spec §10) · §7 versioning → decided #12 + Task 12 (oasdiff) · §8 pipeline → Tasks 9–12 · §9 test plan → Tasks 7, 8, 10, 11, 13 · §10 open items → untouched seams, as specified.
