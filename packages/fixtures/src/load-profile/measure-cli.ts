@@ -13,6 +13,10 @@ import { loadProfileSnapshot } from "./snapshot.ts";
 // Produce/refresh the committed baseline for the full-scale ledgerVolume profile. Local-only,
 // owner-run; numbers are machine-relative — compare across commits on ONE machine, never across
 // machines. First run generates the snapshot (minutes); replays are instant.
+//
+// The package.json script runs this with --experimental-transform-types: a transitive ledger
+// import uses a constructor parameter property (non-erasable TS syntax). The flag ships in
+// Node 25 and is slated for removal in Node 26 — revisit on the next Node upgrade.
 const BASELINE_SEED = "ledger-volume-baseline";
 
 const snapshot = await loadProfileSnapshot(ledgerVolume, BASELINE_SEED, { allowSeeding: true });
@@ -25,7 +29,10 @@ console.log(
 
 const scans = findFullScans(hotPathPlans(snapshot), PLAN_SCAN_ALLOWLIST);
 if (scans.length > 0) {
+  // A scan regression must never be baked into a committed baseline — fail before measuring.
   console.error(`full table scans on hot paths: ${scans.join(", ")}`);
+  snapshot.close();
+  process.exit(1);
 }
 
 const results = await runMeasurements(
