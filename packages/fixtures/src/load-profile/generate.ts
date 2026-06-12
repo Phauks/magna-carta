@@ -251,9 +251,14 @@ export async function generateLedgerVolume(
         );
         if (advancesCosts) {
           costsAdvancedMinor += expenseMinor;
-        } else if (context.faker.number.float({ min: 0, max: 1 }) < profile.reversalRate) {
+        } else if (
+          context.faker.number.int({ min: 0, max: 9_999 }) <
+          Math.round(profile.reversalRate * 10_000)
+        ) {
           // Reversals exercise the reverse path at volume. Only plain operating expenses are
           // reversed: trust and receivable archetypes would need their in-memory tracking unwound.
+          // The gate draws in integer space (basis 10 000) so it stays exact for rates like 0.02
+          // and independent of faker's float-precision behavior across versions.
           const reversal = await reverseEntry(
             database,
             {
