@@ -13,7 +13,8 @@
     "./scenarios": "./src/scenarios.ts",
     "./demo-firm": "./src/demo-firm.ts",
     "./load-profile/profile": "./src/load-profile/profile.ts",
-    "./load-profile/generate": "./src/load-profile/generate.ts"
+    "./load-profile/generate": "./src/load-profile/generate.ts",
+    "./load-profile/snapshot": "./src/load-profile/snapshot.ts"
   },
   "scripts": {
     "test": "vp test run"
