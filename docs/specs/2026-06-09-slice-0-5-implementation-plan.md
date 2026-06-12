@@ -112,6 +112,8 @@ export interface RouteMeta {
 
 TDD. `interface RateLimiter { check(bucket: RateLimitBucket, key: string): { allowed: boolean; retryAfterSeconds?: number } }`; `BUCKETS: Record<RateLimitBucket, { limit: number; windowSeconds: number }>` (`default` 100/60s, `auth` 10/60s, `expensive` 10/60s — generous, values are the deferred seam); in-memory sliding window with injectable clock. Tests: under-limit allows; over-limit denies with retry-after; window slides; buckets isolated per key. The per-isolate limitation is a documented code comment + api.md note (Task 14). Commit `feat(worker): named rate-limit buckets behind a RateLimiter seam`.
 
+**Amendment (decided during the Task 5 review):** `RateLimiter.check` returns `RateLimitVerdict | Promise<RateLimitVerdict>`, not the sync-only shape above — the future distributed adapter (Durable Objects or KV) must await I/O, and a sync-only seam would force a breaking interface change at adapter time. The in-memory implementation stays synchronous (`InMemoryRateLimiter` narrows the return back to the plain verdict); the Task 7 chokepoint always `await`s the result, which is free on a plain value.
+
 ### Task 6: Dev-only response validator (`src/chokepoint/response-validator.ts`)
 
 TDD. Wraps the handler response when `env.ENVIRONMENT === "development"`: parses the JSON body against the matched route's response schema for that status; divergence throws with the zod issues (caught in tests; surfaces loudly in `wrangler dev`). Production (`ENVIRONMENT` unset/other) is a pass-through — test asserts zero body reads. Commit `feat(worker): dev-only response/contract divergence validator`.
