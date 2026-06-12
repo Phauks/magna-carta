@@ -21,8 +21,9 @@ import { extendTailwindMerge } from "tailwind-merge";
  *   duration instant/fast/normal/slow, z base/dropdown/sticky/overlay/modal/toast.
  * Duration and z are registered via `classGroups`, not `theme`: tailwind-merge's theme
  * extension only accepts the scale keys it models (its fromTheme set — no duration, no z),
- * and the default groups validate only numerals (`duration-150`, `z-50`), so named tokens
- * from --transition-duration-* / --z-index-* would otherwise go unclassified.
+ * and the default groups validate only numeral-suffixed duration and z classes (which the
+ * off-token fitness test bans from our sources anyway), so named tokens from
+ * --transition-duration-* / --z-index-* would otherwise go unclassified.
  */
 const tailwindMergeWithTokenNamespaces = extendTailwindMerge({
   extend: {
