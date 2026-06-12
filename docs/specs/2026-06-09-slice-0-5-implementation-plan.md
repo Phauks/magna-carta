@@ -36,7 +36,7 @@ apps/worker/src/contracts/
   common.ts                # shared params/headers fragments (idempotency key header, …)
 apps/worker/src/chokepoint/
   rate-limiter.ts          # RateLimiter interface + in-memory sliding-window default + bucket table
-  chokepoint.ts            # the ordered §3.4 middleware (reads RouteMeta from the matched route)
+  chokepoint.ts            # the ordered §3.4 middleware (meta resolved at registration time from the route bundles)
   response-validator.ts    # dev-only outgoing-payload validation middleware
 apps/worker/src/routes/    # MODIFY: health (meta'd, public), firms/members/me (0·4) onto defineOpenAPIRoute
 apps/worker/src/app.ts     # MODIFY: /api/v1 composition root, doc31 emission config (servers/info), defaultHook
@@ -120,7 +120,7 @@ TDD. Wraps the handler response when `env.ENVIRONMENT === "development"`: parses
 
 ### Task 7: The chokepoint middleware (`src/chokepoint/chokepoint.ts`)
 
-TDD with fakes (fake session resolver, permission reads, limiter). The §3.4 **fixed order** — resolve session→firm → authn (`401` problem if `meta.authenticated` and no session) → RBAC (`404` problem if the resource’s firm context is absent/foreign — ADR-0052; `403` problem + `requestAccess: true` if visible-but-denied) → idempotency (apply the 0·4/0·2 Hono idempotency middleware when `meta.idempotency === "required"`) → rate-limit (`429` problem + `Retry-After` header) → handler. Reads `routeMetaOf` for the matched route; a matched `/api/v1` route **without** meta throws at startup (registration-time assertion, not per-request). Tests: each gate in isolation; the order itself (a request failing authn never touches the limiter — fakes record invocation order); `surface: "public"` routes skip cookie/CSRF assumptions. Commit `feat(worker): ADR-0067 chokepoint — ordered tenancy/authn/RBAC/idempotency/rate-limit enforcement`.
+TDD with fakes (fake session resolver, permission reads, limiter). The §3.4 **fixed order** — resolve session→firm → authn (`401` problem if `meta.authenticated` and no session) → RBAC (`404` problem if the resource’s firm context is absent/foreign — ADR-0052; `403` problem + `requestAccess: true` if visible-but-denied) → idempotency (apply the 0·4/0·2 Hono idempotency middleware when `meta.idempotency === "required"`) → rate-limit (`429` problem + `Retry-After` header) → handler. Resolves meta at registration time from the route bundles via `routeMetaOf` — app.ts iterating the bundles, or per-route middleware closing over the meta. The WeakMap key is the exact `defineOpenAPIRoute` return object; it does **not** survive into the library registry (`app.openapi()` rest-destructures the route, so the openAPIRegistry stores a shallow copy) or into Hono's request-time `matchedRoutes`, so meta can never be looked up from the matched route. A registered `/api/v1` route **without** meta throws at startup (registration-time assertion, not per-request). Tests: each gate in isolation; the order itself (a request failing authn never touches the limiter — fakes record invocation order); `surface: "public"` routes skip cookie/CSRF assumptions. Commit `feat(worker): ADR-0067 chokepoint — ordered tenancy/authn/RBAC/idempotency/rate-limit enforcement`.
 
 ### Task 8: Migrate routes onto the pipeline (`src/routes/*`, `src/app.ts`)
 
