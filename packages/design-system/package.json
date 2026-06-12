@@ -14,7 +14,8 @@
     "test": "vp test run",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "storybook": "storybook dev -p 6006",
-    "storybook-build": "storybook build"
+    "storybook-build": "storybook build",
+    "csp-spike": "vite build --config test/csp-spike/vite.config.mjs && node test/csp-spike/run-csp-spike.mjs"
   },
   "dependencies": {
     "@magna-carta/design-tokens": "workspace:*",

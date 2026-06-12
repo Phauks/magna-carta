@@ -6,5 +6,11 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "src/**/*.svelte", "test/**/*.ts", ".storybook/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.svelte",
+    "test/**/*.ts",
+    "test/**/*.svelte",
+    ".storybook/**/*.ts"
+  ]
 }
