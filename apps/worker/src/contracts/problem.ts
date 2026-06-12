@@ -4,23 +4,33 @@
 // guards the library, this module is the product).
 import { z } from "@hono/zod-openapi";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
+import { identifierPattern } from "@magna-carta/identifiers/validate";
 import type { Context } from "hono";
-import type { ContentfulStatusCode } from "hono/utils/http-status";
+import type { ClientErrorStatusCode, ServerErrorStatusCode } from "hono/utils/http-status";
 import type { ZodError } from "zod";
 import { problemType, type ProblemTypeKey } from "./problem-types";
 
-// One field-level validation failure: path is the dot-joined location in the request body/query.
+// This module replies with errors only, so only 4xx/5xx are representable — a 200 problem is a
+// compile error (negative-compile assertions: test/contracts/problem-status.ts).
+export type ProblemStatusCode = ClientErrorStatusCode | ServerErrorStatusCode;
+
+// One field-level validation failure: path is the dot-joined location in the request body/query
+// (e.g. "client.address.postcode"). A top-level failure (empty Zod issue path — the whole body is
+// wrong, e.g. a non-object) is normalized to "$", never the empty string.
 export const ProblemFieldError = z
   .object({ path: z.string(), code: z.string(), detail: z.string() })
   .openapi("ProblemFieldError");
 
+// Documents and validates error replies only (this schema feeds the dev-only response validator),
+// so status is pinned to the 4xx/5xx range and errorId to the err_ handle shape the
+// @magna-carta/identifiers generator actually emits.
 export const Problem = z
   .object({
     type: z.string(),
     title: z.string(),
-    status: z.number().int(),
+    status: z.number().int().min(400).max(599),
     detail: z.string().optional(),
-    errorId: z.string(),
+    errorId: z.string().regex(identifierPattern("error")),
     instance: z.string().optional(),
     errors: z.array(ProblemFieldError).optional(),
   })
@@ -30,7 +40,7 @@ export type ProblemBody = z.infer<typeof Problem>;
 
 export interface ProblemOptions {
   type: ProblemTypeKey;
-  status: ContentfulStatusCode;
+  status: ProblemStatusCode;
   title: string;
   detail?: string;
   errors?: z.infer<typeof ProblemFieldError>[];
@@ -64,7 +74,8 @@ export function defaultHook(
     status: 422,
     title: "Validation failed",
     errors: result.error.issues.map((issue) => ({
-      path: issue.path.join("."),
+      // An empty issue path means the whole body failed (e.g. a non-object): "$", not "".
+      path: issue.path.length === 0 ? "$" : issue.path.join("."),
       code: issue.code,
       detail: issue.message,
     })),

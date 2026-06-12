@@ -14,6 +14,10 @@ export const PROBLEM_TYPES = {
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;
 
-export function problemType(key: ProblemTypeKey): string {
+// The full `type` URI for a registered key — a template-literal type, not `string`, so the
+// registry guarantee (only registered URIs are ever emitted) carries through to consumers.
+export type ProblemTypeUri = `https://api.magnacarta.esq/problems/${ProblemTypeKey}`;
+
+export function problemType(key: ProblemTypeKey): ProblemTypeUri {
   return `https://api.magnacarta.esq/problems/${PROBLEM_TYPES[key]}`;
 }

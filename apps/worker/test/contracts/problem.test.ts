@@ -35,7 +35,7 @@ describe("Problem schema", () => {
       title: "Validation failed",
       status: 422,
       detail: "One or more fields failed validation.",
-      errorId: "err_8Kf3pQ2v",
+      errorId: "err_V1StGXR8_Z5jdHi6B-myT",
       instance: "/api/v1/matters",
       errors: [{ path: "title", code: "too_small", detail: "Too small" }],
     });
@@ -47,9 +47,36 @@ describe("Problem schema", () => {
       type: "https://api.magnacarta.esq/problems/not-found",
       title: "Not found",
       status: 404,
-      errorId: "err_8Kf3pQ2v",
+      errorId: "err_V1StGXR8_Z5jdHi6B-myT",
     });
     expect(parsed.success).toBe(true);
+  });
+
+  it("rejects a status outside the 4xx/5xx error range (the schema documents error replies only)", () => {
+    const base = {
+      type: "https://api.magnacarta.esq/problems/not-found",
+      title: "Not found",
+      errorId: "err_V1StGXR8_Z5jdHi6B-myT",
+    };
+    expect(Problem.safeParse({ ...base, status: 200 }).success).toBe(false);
+    expect(Problem.safeParse({ ...base, status: 304 }).success).toBe(false);
+    expect(Problem.safeParse({ ...base, status: 399 }).success).toBe(false);
+    expect(Problem.safeParse({ ...base, status: 600 }).success).toBe(false);
+    expect(Problem.safeParse({ ...base, status: 400 }).success).toBe(true);
+    expect(Problem.safeParse({ ...base, status: 599 }).success).toBe(true);
+  });
+
+  it("rejects an errorId that is not a well-formed err_ handle", () => {
+    const base = {
+      type: "https://api.magnacarta.esq/problems/not-found",
+      title: "Not found",
+      status: 404,
+    };
+    expect(Problem.safeParse({ ...base, errorId: "err_8Kf3pQ2v" }).success).toBe(false); // token too short
+    expect(Problem.safeParse({ ...base, errorId: "mat_V1StGXR8_Z5jdHi6B-myT" }).success).toBe(
+      false,
+    ); // wrong entity prefix
+    expect(Problem.safeParse({ ...base, errorId: "not-an-identifier" }).success).toBe(false);
   });
 
   it("rejects a problem without an errorId (observability extension is mandatory)", () => {
@@ -166,6 +193,19 @@ describe("defaultHook", () => {
       expect(typeof fieldError.code).toBe("string");
       expect(typeof fieldError.detail).toBe("string");
     }
+    expect(Problem.safeParse(body).success).toBe(true);
+  });
+
+  it('normalizes a top-level validation failure (empty Zod issue path) to path "$"', async () => {
+    const response = await appWithValidatedRoute().request("/api/v1/matters", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify("not an object"),
+    });
+    expect(response.status).toBe(422);
+    const body = (await response.json()) as Record<string, any>;
+    expect(body.errors).toHaveLength(1);
+    expect(body.errors[0].path).toBe("$");
     expect(Problem.safeParse(body).success).toBe(true);
   });
 
