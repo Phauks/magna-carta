@@ -16,11 +16,11 @@ Primary: the entity-resolution / record-linkage literature (Fellegi-Sunter, the 
 
 ## A. The domain frame — what a conflicts check must catch
 
-Conflicts is an ethics obligation, not a search box. ABA Model Rule **1.10(e)** imposes an affirmative duty to maintain *reasonable procedures to detect conflicts* — the system itself is the compliance artifact, and conflicts are the leading cause of malpractice claims (~20% of risk; automated screening drops the claim rate from 3–5% to <0.5%). What must be caught, per Rules 1.7 (current-client), 1.9 (former-client), and 1.10 (imputation):
+Conflicts is an ethics obligation, not a search box. ABA Model Rule **1.10(e)** imposes an affirmative duty to maintain _reasonable procedures to detect conflicts_ — the system itself is the compliance artifact, and conflicts are the leading cause of malpractice claims (~20% of risk; automated screening drops the claim rate from 3–5% to <0.5%). What must be caught, per Rules 1.7 (current-client), 1.9 (former-client), and 1.10 (imputation):
 
 - **Name variants and changes** — the party who married and changed surname, the entity that renamed or merged, the seven-year-old matter entered with a typo. Exact-match misses all of these → the engine must be **recall-biased** (a missed conflict is a malpractice event; a false positive is a few seconds of reviewer time).
-- **Related parties / entity relationships** — the opposing party's spouse you represented elsewhere; the adverse company *owned by* a current client; the *principals of* an org named as adverse. Matching must be **person↔organization and graph-aware**, not just name↔name.
-- **Imputed (firm-wide) conflicts** — one lawyer's conflict imputes to the whole firm (Rule 1.10), and **lateral hires carry their prior firm's adverse representations**. So the conflicts graph includes *the firm's own personnel and their employment history*, not only client/matter parties.
+- **Related parties / entity relationships** — the opposing party's spouse you represented elsewhere; the adverse company _owned by_ a current client; the _principals of_ an org named as adverse. Matching must be **person↔organization and graph-aware**, not just name↔name.
+- **Imputed (firm-wide) conflicts** — one lawyer's conflict imputes to the whole firm (Rule 1.10), and **lateral hires carry their prior firm's adverse representations**. So the conflicts graph includes _the firm's own personnel and their employment history_, not only client/matter parties.
 
 This frames every design choice below: bias toward recall, model the graph, and span the whole firm.
 
@@ -45,7 +45,7 @@ SSN/EIN/DL (and DOB with care) match by **equality on the HMAC blind index** —
 
 Names are deliberately **not** encrypted, precisely so fuzzy matching works. Two complementary blocking keys, both **precomputed at write time and indexed**:
 
-- **Phonetic codes.** Encode every name to a phonetic key and block on key equality. Algorithm findings: **Soundex is too crude** (8+ distinct surnames collide per code). **Double Metaphone** is the pragmatic default — wider pronunciation rules, multi-origin (Slavic/Germanic/Celtic/Greek/Romance/Chinese), returns primary + secondary codes. **Beider-Morse (BMPM)** is materially better for *personal surnames* (built to cut false positives across name origins; ~15× more granular than Soundex) and is the right engine for the white paper's "over-inclusive (phonetic)" strictness setting. Recommendation: **Double Metaphone as the balanced default, Beider-Morse as the over-inclusive surname option** — which is exactly the configurable-strictness knob the white paper already specifies.
+- **Phonetic codes.** Encode every name to a phonetic key and block on key equality. Algorithm findings: **Soundex is too crude** (8+ distinct surnames collide per code). **Double Metaphone** is the pragmatic default — wider pronunciation rules, multi-origin (Slavic/Germanic/Celtic/Greek/Romance/Chinese), returns primary + secondary codes. **Beider-Morse (BMPM)** is materially better for _personal surnames_ (built to cut false positives across name origins; ~15× more granular than Soundex) and is the right engine for the white paper's "over-inclusive (phonetic)" strictness setting. Recommendation: **Double Metaphone as the balanced default, Beider-Morse as the over-inclusive surname option** — which is exactly the configurable-strictness knob the white paper already specifies.
 - **Character n-grams (trigrams)** for substring / typo / transposition recall that phonetics miss (e.g. embedded typos, partial org names).
 
 Every searchable name string gets both keys: structured person names, **aliases/AKAs/maiden/former names**, and org **legal name + DBAs/trade names + former names**. Name-change history must be **queryable name rows**, not audit-log text (§F seam).
@@ -55,8 +55,8 @@ Every searchable name string gets both keys: structured person names, **aliases/
 The **Fellegi-Sunter** model is the foundational, defensible framework: for each compared field it estimates an agreement weight (`m`/`u` probabilities — how often a field agrees among true matches vs. by chance) and sums them into a match score; it is provably optimal under conditional independence and is what Splink/RecordLinkage implement. Applied here:
 
 - **Per-field comparators** over each candidate: Jaro-Winkler or Levenshtein on name parts (Jaro-Winkler favors common-prefix agreement, good for names), exact on identifiers, date proximity on DOB, edge-type weight on graph-derived relationships.
-- **Combine** into a weighted score; **map to severity bands** (e.g. *definite / probable / possible*). The white paper's "configurable matching strictness" is exactly the **threshold between bands** — balanced default, looser thresholds (and Beider-Morse + alias inclusion) for over-inclusive.
-- **Match explanation is mandatory** (defensibility): each hit records *which fields matched, with what similarity, and the graph path* that connected it — the reviewer needs the "why," and the log needs it (§G).
+- **Combine** into a weighted score; **map to severity bands** (e.g. _definite / probable / possible_). The white paper's "configurable matching strictness" is exactly the **threshold between bands** — balanced default, looser thresholds (and Beider-Morse + alias inclusion) for over-inclusive.
+- **Match explanation is mandatory** (defensibility): each hit records _which fields matched, with what similarity, and the graph path_ that connected it — the reviewer needs the "why," and the log needs it (§G).
 
 A full probabilistic-trained FS model can come later; a transparent weighted-score version is defensible and explainable from day one and is the recommended starting point (reviewers and bar auditors must understand the score).
 
@@ -84,7 +84,7 @@ Traversal **depth is configurable** (the white paper's "search depth"): 1-hop ad
 The engine is Phase 4, but the Directory build is **slice 1·3 (imminent)**, and several things are far cheaper to build into the Directory than to retrofit:
 
 1. **Phonetic-code columns on every name** (person structured names, aliases/former, org legal/DBA/former), computed at write time and indexed. Retrofitting means recomputing codes over the entire Directory — do it in-area.
-2. **Name history as first-class, queryable name rows** (with phonetic codes + temporal validity), not buried in the audit log — because conflicts must *match* former names, not just display them.
+2. **Name history as first-class, queryable name rows** (with phonetic codes + temporal validity), not buried in the audit log — because conflicts must _match_ former names, not just display them.
 3. **The blind-index identifier channel wired onto Directory identifiers** (from slice 1·2): SSN/EIN/DL carry their blind index so the exact channel exists the moment Conflicts is built.
 4. **The graph edge types Conflicts traverses** — ensure corporate **successor/parent/subsidiary**, spouse/family, and **principal-of-org** edges exist in the 1·3 edge model (it builds edges anyway; make sure these are among them).
 5. **Firm-personnel employment history** (prior firms) — the lateral/imputed-conflict dimension (Rule 1.10) is easy to miss; if Directory models the firm's own people, capture prior-firm affiliations now.
@@ -107,15 +107,11 @@ Triggers follow the standard cadence: a **preliminary** check before the initial
 ## H. Consolidated open decisions
 
 **For slice 1·3 (Directory — now):**
+
 1. Adopt the six seams in §F (phonetic-code columns, queryable name-history rows, blind-index identifier wiring, the conflict-relevant edge types, firm-personnel prior-firm history, the FTS5 trigram search substrate).
 2. Phonetic encoder choice to precompute: Double Metaphone (default) and whether to also store Beider-Morse now for the over-inclusive setting (storing both is cheap; recompute later is not).
 
-**For Phase 4 (Conflicts engine — later):**
-3. Scoring model: transparent weighted-score (recommended start, explainable) vs. trained Fellegi-Sunter; the per-field comparators and the severity-band thresholds behind the strictness setting.
-4. Graph-expansion default depth and the edge types included by default.
-5. D1-native vs. Tantivy-container for matching at scale (measure first; D1-native recommended start).
-6. The immutable conflicts-log schema (§G) and its append-only enforcement.
-7. The reviewer adjudication UX (how hits are surfaced, explained, and dispositioned).
+**For Phase 4 (Conflicts engine — later):** 3. Scoring model: transparent weighted-score (recommended start, explainable) vs. trained Fellegi-Sunter; the per-field comparators and the severity-band thresholds behind the strictness setting. 4. Graph-expansion default depth and the edge types included by default. 5. D1-native vs. Tantivy-container for matching at scale (measure first; D1-native recommended start). 6. The immutable conflicts-log schema (§G) and its append-only enforcement. 7. The reviewer adjudication UX (how hits are surfaced, explained, and dispositioned).
 
 ---
 
