@@ -11,7 +11,8 @@
     "./demo-chart-of-accounts": "./src/demo-chart-of-accounts.ts",
     "./factories": "./src/factories.ts",
     "./scenarios": "./src/scenarios.ts",
-    "./demo-firm": "./src/demo-firm.ts"
+    "./demo-firm": "./src/demo-firm.ts",
+    "./load-profile/profile": "./src/load-profile/profile.ts"
   },
   "scripts": {
     "test": "vp test run"
