@@ -5,6 +5,8 @@ dist/
 .wrangler/
 .vite/
 coverage/
+# Storybook static build (the CI/VRT artifact; built on demand via `storybook-build`)
+storybook-static/
 *.log
 .DS_Store
 # pre-existing scraping artifacts

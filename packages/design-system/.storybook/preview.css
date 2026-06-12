@@ -1,0 +1,17 @@
+/*
+ * The catalog's one stylesheet — the Tailwind v4 entry for Storybook's Vite.
+ * MIRRORS apps/web/src/app.css: same imports, same order, because order matters:
+ *   1. Tailwind v4 (declares the theme/base/components/utilities cascade layers),
+ *   2. token custom properties (per theme-and-mode, scoped by [data-theme] + .dark),
+ *   3. the @theme mapping that turns semantic tokens into Tailwind utilities,
+ *   4. the design system's component recipes (slot into the `components` layer).
+ * One entry file (not separate preview.ts imports per stylesheet) so the whole cascade is a
+ * single Tailwind compilation — @theme in tailwind-theme.css only generates utilities when it
+ * is part of the same root as `@import "tailwindcss"`.
+ * The @source pin makes Tailwind scan this package's stories and components for utility usage.
+ */
+@import "tailwindcss";
+@import "@magna-carta/design-tokens/tokens.css";
+@import "@magna-carta/design-tokens/tailwind-theme.css";
+@import "../src/lib/styles/components.css";
+@source "../src";

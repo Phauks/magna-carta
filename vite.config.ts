@@ -25,8 +25,13 @@ export default defineConfig({
     },
   },
   // Per-package test projects. apps/worker runs its tests inside Miniflare via @cloudflare/vitest-pool-workers, which only activates when its own config (apps/worker/vitest.config.ts) is loaded, so it is registered as a Vitest project here; otherwise root `vp test` would run the worker test under the default pool and `cloudflare:test` would not resolve.
+  // The design-system Storybook story tests (browser-mode Chromium via Playwright + per-story axe) are registered explicitly: Vitest ignores `test.projects` nested inside a config loaded as a project, so the glob entry alone would silently skip them at the root (the package's vitest.config.ts then only contributes its unit tests). Requires the Chromium binary: `pnpm --filter @magna-carta/design-system exec playwright install chromium` (CI too).
   test: {
-    projects: ["apps/worker/vitest.config.ts", "packages/*/vitest.config.ts"],
+    projects: [
+      "apps/worker/vitest.config.ts",
+      "packages/*/vitest.config.ts",
+      "packages/design-system/vitest.storybook.config.ts",
+    ],
   },
   // vp reads test/lint/format defaults from here; run.tasks declares the monorepo graph.
   // Task keys are plain task names with a `command`; the `package#task` form is only valid inside `dependsOn` (see viteplus.dev/config/run).

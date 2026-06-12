@@ -8,8 +8,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   applyThemePreference,
+  applyThemeToDocument,
   DEFAULT_THEME,
+  MODE_STORAGE_KEY,
   readThemePreference,
+  THEME_STORAGE_KEY,
   type Mode,
 } from "../src/lib/internal/theme-preference.ts";
 
@@ -61,40 +64,56 @@ describe("readThemePreference", () => {
   });
 });
 
-describe("applyThemePreference", () => {
-  it("persists both storage keys", () => {
-    applyThemePreference("slate", "light");
-    expect(localStorage.getItem("magna-carta.theme")).toBe("slate");
-    expect(localStorage.getItem("magna-carta.mode")).toBe("light");
-  });
-
+describe("applyThemeToDocument", () => {
   it("sets data-theme on the document element", () => {
-    applyThemePreference("midnight", "light");
+    applyThemeToDocument("midnight", "light");
     expect(document.documentElement.dataset.theme).toBe("midnight");
   });
 
   it("adds the dark class for mode dark and removes it for mode light", () => {
-    applyThemePreference("slate", "dark");
+    applyThemeToDocument("slate", "dark");
     expect(document.documentElement.classList.contains("dark")).toBe(true);
-    applyThemePreference("slate", "light");
+    applyThemeToDocument("slate", "light");
     expect(document.documentElement.classList.contains("dark")).toBe(false);
   });
 
   it("ignores the operating-system preference for explicit light/dark modes", () => {
     stubMatchMedia(true); // operating system prefers dark
-    applyThemePreference("slate", "light");
+    applyThemeToDocument("slate", "light");
     expect(document.documentElement.classList.contains("dark")).toBe(false);
   });
 
   it("resolves system mode via prefers-color-scheme: dark", () => {
     const matchMediaStub = stubMatchMedia(true);
-    applyThemePreference("slate", "system");
+    applyThemeToDocument("slate", "system");
     expect(document.documentElement.classList.contains("dark")).toBe(true);
     expect(matchMediaStub).toHaveBeenCalledWith("(prefers-color-scheme: dark)");
 
     stubMatchMedia(false);
-    applyThemePreference("slate", "system");
+    applyThemeToDocument("slate", "system");
     expect(document.documentElement.classList.contains("dark")).toBe(false);
+  });
+
+  it("persists NOTHING — the pure DOM seam the Storybook toolbar relies on", () => {
+    applyThemeToDocument("midnight", "dark");
+    expect(localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
+    expect(localStorage.getItem(MODE_STORAGE_KEY)).toBeNull();
+  });
+});
+
+describe("applyThemePreference", () => {
+  it("persists both storage keys (the exported key constants are the stored literals)", () => {
+    applyThemePreference("slate", "light");
+    expect(THEME_STORAGE_KEY).toBe("magna-carta.theme");
+    expect(MODE_STORAGE_KEY).toBe("magna-carta.mode");
+    expect(localStorage.getItem("magna-carta.theme")).toBe("slate");
+    expect(localStorage.getItem("magna-carta.mode")).toBe("light");
+  });
+
+  it("applies the theme and mode to the document", () => {
+    applyThemePreference("midnight", "dark");
+    expect(document.documentElement.dataset.theme).toBe("midnight");
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
   });
 
   it("round-trips through readThemePreference", () => {

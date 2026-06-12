@@ -11,8 +11,10 @@
 
 export type Mode = "light" | "dark" | "system";
 
-const THEME_STORAGE_KEY = "magna-carta.theme";
-const MODE_STORAGE_KEY = "magna-carta.mode";
+// Exported so the boot-script mirror test (test/boot-script-mirror.test.ts) can pin the literals
+// the inline app.html script must contain — the keys are part of the persistence contract.
+export const THEME_STORAGE_KEY = "magna-carta.theme";
+export const MODE_STORAGE_KEY = "magna-carta.mode";
 
 export const DEFAULT_THEME = "slate";
 const DEFAULT_MODE: Mode = "system";
@@ -34,16 +36,26 @@ export function readThemePreference(): { theme: string; mode: Mode } {
 }
 
 /**
- * Persists the preference and applies it to the document: sets `data-theme` on `<html>` and
- * toggles the `dark` class (`mode === "dark"`, or `mode === "system"` when the operating system
- * prefers dark). The CSS custom-property cascade in @magna-carta/design-tokens does the rest.
+ * Applies a theme and mode to the document WITHOUT persisting anything: sets `data-theme` on
+ * `<html>` and toggles the `dark` class (`mode === "dark"`, or `mode === "system"` when the
+ * operating system prefers dark). The CSS custom-property cascade in @magna-carta/design-tokens
+ * does the rest. Pure DOM application — the Storybook preview's theme/mode toolbar calls this
+ * directly so flipping themes in the catalog never writes to the reviewer's localStorage.
  */
-export function applyThemePreference(theme: string, mode: Mode): void {
-  localStorage.setItem(THEME_STORAGE_KEY, theme);
-  localStorage.setItem(MODE_STORAGE_KEY, mode);
+export function applyThemeToDocument(theme: string, mode: Mode): void {
   const root = document.documentElement;
   root.dataset.theme = theme;
   const dark =
     mode === "dark" || (mode === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
   root.classList.toggle("dark", dark);
+}
+
+/**
+ * Persists the preference (both storage keys) and applies it to the document via
+ * `applyThemeToDocument`. The app-facing entry point.
+ */
+export function applyThemePreference(theme: string, mode: Mode): void {
+  localStorage.setItem(THEME_STORAGE_KEY, theme);
+  localStorage.setItem(MODE_STORAGE_KEY, mode);
+  applyThemeToDocument(theme, mode);
 }

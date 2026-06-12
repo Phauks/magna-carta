@@ -11,7 +11,10 @@
     "./styles/components.css": "./src/lib/styles/components.css"
   },
   "scripts": {
-    "test": "vp test run"
+    "test": "vp test run",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "storybook": "storybook dev -p 6006",
+    "storybook-build": "storybook build"
   },
   "dependencies": {
     "@magna-carta/design-tokens": "workspace:*",
@@ -21,9 +24,19 @@
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",
+    "@playwright/test": "catalog:",
+    "@storybook/addon-a11y": "catalog:",
+    "@storybook/addon-svelte-csf": "catalog:",
+    "@storybook/addon-vitest": "catalog:",
+    "@storybook/svelte-vite": "catalog:",
+    "@sveltejs/vite-plugin-svelte": "catalog:",
+    "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "happy-dom": "catalog:",
+    "storybook": "catalog:",
     "svelte": "catalog:",
+    "svelte-check": "catalog:",
+    "tailwindcss": "catalog:",
     "vitest": "catalog:"
   }
 }

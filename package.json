@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "vp check && pnpm --filter @magna-carta/web check",
+    "check": "vp check && pnpm --filter @magna-carta/web check && pnpm --filter @magna-carta/design-system check",
     "dev": "vp dev",
     "build": "vp build",
     "test": "vp test"
