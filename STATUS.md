@@ -46,9 +46,9 @@ Per-slice progress across the build pipeline — the **stage-status home**. [`RO
 
 ## Cross-cutting — phase-independent slices
 
-| Slice                | Research | Spec | Plan | Built | Tested | Notes                                                                                                                                                                                                                                                                                                                                                                                                        |
-| -------------------- | :------: | :--: | :--: | :---: | :----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Load-profile harness |   [-]    | [x]  | [x]  |  [ ]  |  [ ]   | Golden rule 10's measurer; spec: [`2026-06-11-load-profile-harness-design.md`](docs/specs/2026-06-11-load-profile-harness-design.md) (ADR-0083); plan: [`2026-06-11-load-profile-harness-implementation-plan.md`](docs/specs/2026-06-11-load-profile-harness-implementation-plan.md). V1 = harness machinery + ledger volume profile; every later domain slice extends it in-area. Build: next free session. |
+| Slice                | Research | Spec | Plan | Built | Tested | Notes                                                                                                                                                   |
+| -------------------- | :------: | :--: | :--: | :---: | :----: | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Load-profile harness |   [-]    | [x]  | [x]  |  [x]  |  [ ]   | Built — `pnpm --filter @magna-carta/fixtures run measure`; v1 = harness machinery + ledger volume profile; every later domain slice extends it in-area. |
 
 ## Phases 3–7 — not yet sliced
 

@@ -18,6 +18,8 @@ valid by construction and scenarios double as integration tests.
 - `src/factories.ts` — entity factories over the real write paths
 - `src/scenarios.ts` — composed multi-step scenarios
 - `src/demo-firm.ts` — the full demo-firm seed
+- `src/load-profile/` — the volume harness (ADR-0083): profiles, generation, snapshot cache,
+  measurement runner, the v1 ledger measurement set, and the `measure` script
 
 ## Invariants that apply here
 
@@ -31,6 +33,15 @@ valid by construction and scenarios double as integration tests.
   imported by production worker code (boundary rule, ADR-0070).
 - **Demo data is demo data.** The demo chart of accounts is explicitly NOT the Phase-3 product
   chart-of-accounts template.
+- **Load-profile identity is versioned.** Changing generation logic for the same profile + seed
+  requires a `GENERATOR_VERSION` bump (profile parameter changes bump the profile's own
+  `version`) — snapshot cache keys and committed baselines depend on it.
+- **The runner's `performance.now()` is the sanctioned wall-clock read.** Timing is observation,
+  never data; nothing it returns may feed generated rows.
+- **Measurement contexts derive `${seed}:measure`.** Replaying the generation seed against a
+  snapshot replays its identifier stream → UNIQUE collisions on the first measured write.
+- **Baselines are relative.** Compare across commits on one machine; never across machines, and
+  never as production latencies.
 
 ## Dependencies & contracts
 

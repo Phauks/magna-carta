@@ -21,7 +21,7 @@
 ## Measure-first
 
 - **No speculative pre-threading or micro-optimization.** Optimize against evidence.
-- The fixtures **load profile** (white paper _Synthetic data & fixtures_) is the standing performance/scaling harness.
+- The fixtures **load profile** (white paper _Synthetic data & fixtures_; ADR-0083) is the standing performance/scaling harness: `pnpm --filter @magna-carta/fixtures run measure` produces the committed baselines; the CI smoke keeps it green. Numbers are relative (local `node:sqlite`, not production D1) — regressions and plan shapes, not absolute latencies.
 - Promote hot-path logic to Rust→WASM only when profiling demands it.
 
 ## To formalize (later)
