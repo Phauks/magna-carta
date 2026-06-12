@@ -16,6 +16,8 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "storybook": "storybook dev -p 6006",
     "storybook-build": "storybook build",
+    "visual-regression": "playwright test --config visual-regression/playwright.config.ts",
+    "visual-regression-update": "playwright test --config visual-regression/playwright.config.ts --update-snapshots",
     "csp-spike": "vite build --config test/csp-spike/vite.config.mjs && node test/csp-spike/run-csp-spike.mjs"
   },
   "dependencies": {

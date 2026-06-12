@@ -12,16 +12,10 @@ import {
   DEFAULT_THEME,
   type Mode,
 } from "../src/lib/internal/theme-preference.ts";
+// The theme x mode matrix lives in ./catalog-matrix.ts (CSS-free, so the Playwright
+// visual-regression sweep can import the same single source — see that file's header).
+import { CATALOG_MODES, CATALOG_THEMES } from "./catalog-matrix.ts";
 import "./preview.css";
-
-// The themes the catalog can switch between. Hardcoded to the provisional flagship for now —
-// the Phase B design-language workshop extends this list as showcase themes land (each new
-// theme is one entry here; the toolbar, decorator, and visual-regression matrix follow).
-export const CATALOG_THEMES: readonly string[] = [DEFAULT_THEME];
-
-// Modes the catalog toggles. "system" is deliberately absent: the catalog is a review surface,
-// so the reviewer picks an explicit mode rather than inheriting the operating system's.
-const CATALOG_MODES: readonly Mode[] = ["light", "dark"];
 
 function humanLabel(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
