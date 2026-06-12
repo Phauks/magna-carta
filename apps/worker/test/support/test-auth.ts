@@ -152,22 +152,24 @@ export async function signInForSessionCookie(email: string): Promise<string> {
   return sessionCookie?.pair ?? "";
 }
 
-// Mirrors the user into DB_FIRM_POOL_1's member table and assigns the seeded Owner/Admin role
-// (the rol_ handle is a committed literal in 0002_member-rbac.sql — read back by name).
+// Mirrors the user into a firm database's member table and assigns the seeded Owner/Admin role
+// (the rol_ handle is a committed literal in 0002_member-rbac.sql — read back by name). Defaults
+// to DB_FIRM_POOL_1; cross-firm tests pass another migrated pool binding.
 export async function mirrorMemberWithOwnerRole(
   userId: UserId,
   displayName: string,
+  firmDatabase: D1Database = env.DB_FIRM_POOL_1,
 ): Promise<void> {
-  const ownerRole = await env.DB_FIRM_POOL_1.prepare(
-    "SELECT id FROM role WHERE name = 'Owner/Admin'",
-  ).first<{ id: string }>();
-  if (ownerRole === null) throw new Error("seeded Owner/Admin role missing from DB_FIRM_POOL_1");
-  await insertMemberStatement(env.DB_FIRM_POOL_1, {
+  const ownerRole = await firmDatabase
+    .prepare("SELECT id FROM role WHERE name = 'Owner/Admin'")
+    .first<{ id: string }>();
+  if (ownerRole === null) throw new Error("seeded Owner/Admin role missing from the firm database");
+  await insertMemberStatement(firmDatabase, {
     userId,
     displayName,
     now: new Date().toISOString(),
   }).run();
-  await insertRoleAssignmentStatement(env.DB_FIRM_POOL_1, {
+  await insertRoleAssignmentStatement(firmDatabase, {
     id: newIdentifier("memberRole"),
     memberUserId: userId,
     roleId: assertIdentifier(ownerRole.id, "role"),

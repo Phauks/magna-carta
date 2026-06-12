@@ -19,8 +19,10 @@ let poolFirmId: FirmId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  // DB_FIRM_POOL_1 stands in for a provisioned firm's database (full per-firm lineage + role seeds).
+  // DB_FIRM_POOL_1 stands in for a provisioned firm's database (full per-firm lineage + role seeds);
+  // DB_FIRM_POOL_2 backs the second firm of the cross-firm idempotency-scoping test.
   await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
+  await applyPerFirmMigrations(env.DB_FIRM_POOL_2);
   poolFirmId = (await seedFirm({ name: "Members Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
     .firmId;
 });
@@ -309,6 +311,144 @@ describe("POST /api/v1/members", () => {
       "SELECT COUNT(*) AS count FROM outbox",
     ).first<{ count: number }>();
     expect(outboxCountAfter?.count).toBe(outboxCountBefore?.count);
+  });
+
+  // Auth precedes idempotency: the route's middleware chain resolves the session and the
+  // firm:manageMembers permission BEFORE any idempotency processing, so unauthenticated and
+  // unpermitted callers never touch the idempotency table — no stored-response replay, no
+  // key-existence oracle. The slice 0·5 chokepoint formalizes this ordering globally.
+  it("never replays or reveals an idempotency record to an unauthenticated caller — existing and unknown keys answer identically", async () => {
+    const sessionCookie = await signInAsOwner("oracle-owner@example.com");
+    const idempotencyKey = crypto.randomUUID();
+    const requestBody = { email: "oracle-invitee@example.com", name: "Oracle Invitee" };
+    const seeded = await postMembers(requestBody, { cookie: sessionCookie, idempotencyKey });
+    expect(seeded.status).toBe(201);
+
+    const attempts = [
+      // The leaked-key replay: exact key + exact body must NOT answer the stored 201 (which
+      // carries the invited usr_ id).
+      await postMembers(requestBody, { idempotencyKey }),
+      // The existence oracle: exact key + different body must NOT answer the 422
+      // fingerprint-mismatch that distinguishes a live key from a dead one.
+      await postMembers({ email: "oracle-probe@example.com", name: "Probe" }, { idempotencyKey }),
+      // The control: an unknown key — every unauthenticated answer must match this one.
+      await postMembers(requestBody, { idempotencyKey: crypto.randomUUID() }),
+    ];
+    for (const attempt of attempts) {
+      expect(attempt.status).toBe(401);
+      expect(attempt.headers.get("Idempotency-Replayed")).toBeNull();
+      expect(attempt.headers.get("content-type")).toContain("application/problem+json");
+      const body = (await attempt.json()) as Record<string, unknown>;
+      expect(body).toMatchObject({
+        type: "https://api.magnacarta.esq/problems/unauthenticated",
+        status: 401,
+      });
+    }
+  });
+
+  it("answers 403 to a session without firm:manageMembers regardless of idempotency-record state", async () => {
+    const ownerCookie = await signInAsOwner("mismatch-target-owner@example.com");
+    const idempotencyKey = crypto.randomUUID();
+    const requestBody = { email: "mismatch-target-invitee@example.com", name: "Mismatch Target" };
+    const seeded = await postMembers(requestBody, { cookie: ownerCookie, idempotencyKey });
+    expect(seeded.status).toBe(201);
+
+    // Credentialed on the same firm but never mirrored into the member table — no permissions.
+    await seedCredentialedUser("mismatch-powerless@example.com", { firmId: poolFirmId });
+    const powerlessCookie = await signInForSessionCookie("mismatch-powerless@example.com");
+
+    const attempts = [
+      // Exact key + exact body: no replay of the stored 201.
+      await postMembers(requestBody, { cookie: powerlessCookie, idempotencyKey }),
+      // Exact key + different body: 403, never the 422 fingerprint-mismatch leak that would
+      // confirm the key exists.
+      await postMembers(
+        { email: "mismatch-probe@example.com", name: "Probe" },
+        { cookie: powerlessCookie, idempotencyKey },
+      ),
+    ];
+    for (const attempt of attempts) {
+      expect(attempt.status).toBe(403);
+      expect(attempt.headers.get("Idempotency-Replayed")).toBeNull();
+      expect(attempt.headers.get("content-type")).toContain("application/problem+json");
+      const body = (await attempt.json()) as Record<string, unknown>;
+      expect(body).toMatchObject({
+        type: "https://api.magnacarta.esq/problems/forbidden",
+        status: 403,
+      });
+    }
+  });
+
+  it("scopes idempotency keys to the firm: another firm's key neither replays nor poisons", async () => {
+    // Firm A is the pool firm; firm B lives on the second dev-pool database.
+    const firmACookie = await signInAsOwner("cross-firm-a-owner@example.com");
+    const firmB = await seedFirm({
+      name: "Cross-Firm Test Firm",
+      databaseIdentifier: "DB_FIRM_POOL_2",
+    });
+    const { userId: firmBOwnerId } = await seedCredentialedUser("cross-firm-b-owner@example.com", {
+      firmId: firmB.firmId,
+    });
+    await mirrorMemberWithOwnerRole(firmBOwnerId, "Cross-Firm Owner", env.DB_FIRM_POOL_2);
+    const firmBCookie = await signInForSessionCookie("cross-firm-b-owner@example.com");
+
+    // Cross-firm replay: firm B presenting firm A's exact key + body must NOT receive firm A's
+    // stored 201 (the invited usr_ id). The request executes FRESH for firm B — proven by the
+    // fresh effect tripping UNIQUE(user.email) into the email-in-use 422, never a replay.
+    const replayKey = crypto.randomUUID();
+    const firmABody = { email: "cross-firm-invitee@example.com", name: "Cross-Firm Invitee" };
+    const firmAFirst = await postMembers(firmABody, {
+      cookie: firmACookie,
+      idempotencyKey: replayKey,
+    });
+    expect(firmAFirst.status).toBe(201);
+    const stolenReplay = await postMembers(firmABody, {
+      cookie: firmBCookie,
+      idempotencyKey: replayKey,
+    });
+    expect(stolenReplay.headers.get("Idempotency-Replayed")).toBeNull();
+    expect(stolenReplay.status).toBe(422);
+    expect((await stolenReplay.json()) as Record<string, unknown>).toMatchObject({
+      type: "https://api.magnacarta.esq/problems/validation",
+      title: "Email already in use",
+    });
+
+    // Cross-firm poisoning: firm A's key with firm B's own payload executes FRESH for firm B —
+    // under a global key namespace this was a 422 fingerprint-mismatch denial of service.
+    const sharedKey = crypto.randomUUID();
+    const firmASecond = await postMembers(
+      { email: "cross-firm-second@example.com", name: "Second Invitee" },
+      { cookie: firmACookie, idempotencyKey: sharedKey },
+    );
+    expect(firmASecond.status).toBe(201);
+    const firmAInvitedId = ((await firmASecond.json()) as { id: string }).id;
+    const firmBFresh = await postMembers(
+      { email: "cross-firm-b-invitee@example.com", name: "Firm B Invitee" },
+      { cookie: firmBCookie, idempotencyKey: sharedKey },
+    );
+    expect(firmBFresh.status).toBe(201);
+    expect(firmBFresh.headers.get("Idempotency-Replayed")).toBeNull();
+    const firmBInvitedId = ((await firmBFresh.json()) as { id: string }).id;
+    expect(firmBInvitedId).not.toBe(firmAInvitedId);
+
+    // The control-plane table holds one record PER FIRM SCOPE for the shared client key —
+    // the documented `${firmId}:${clientKey}` control-plane stored-key convention.
+    const storedRows = await env.DB_CONTROL.prepare(
+      "SELECT key FROM idempotency_key WHERE key IN (?1, ?2)",
+    )
+      .bind(`${poolFirmId}:${sharedKey}`, `${firmB.firmId}:${sharedKey}`)
+      .all<{ key: string }>();
+    expect(storedRows.results.map((row) => row.key).sort()).toEqual(
+      [`${poolFirmId}:${sharedKey}`, `${firmB.firmId}:${sharedKey}`].sort(),
+    );
+
+    // Within-firm semantics are unchanged: firm B retrying its own request still replays.
+    const firmBReplay = await postMembers(
+      { email: "cross-firm-b-invitee@example.com", name: "Firm B Invitee" },
+      { cookie: firmBCookie, idempotencyKey: sharedKey },
+    );
+    expect(firmBReplay.status).toBe(201);
+    expect(firmBReplay.headers.get("Idempotency-Replayed")).toBe("true");
   });
 
   it("emits the route into the OpenAPI document with the native operationId and x-mc metadata", async () => {

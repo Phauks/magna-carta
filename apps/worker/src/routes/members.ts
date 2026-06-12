@@ -21,7 +21,11 @@ import {
   problemBody,
   unauthenticatedProblemResponse,
 } from "../problem.ts";
-import { loadEffectivePermissions, resolveSession } from "../session-context.ts";
+import {
+  loadEffectivePermissions,
+  resolveSession,
+  type SessionContext,
+} from "../session-context.ts";
 
 const InviteMemberRequest = z
   .object({
@@ -38,12 +42,16 @@ const InviteMemberResponse = z
   })
   .openapi("InviteMemberResponse");
 
-type MemberEnv = { Bindings: Bindings; Variables: { idempotency?: IdempotencyContext } };
+type MemberEnv = {
+  Bindings: Bindings;
+  Variables: { idempotency?: IdempotencyContext; sessionContext?: SessionContext };
+};
 
 // `x-mc-idempotency: required` realized at the HTTP boundary: no Idempotency-Key → a 400 problem
 // before anything else runs. The data-access middleware behind it would also 400, but with its
 // generic JSON shape — the worker's surface answers RFC 9457 problems, so the requirement is
-// enforced here and the middleware only ever sees keyed requests.
+// enforced here and the middleware only ever sees keyed requests. Runs AFTER the authorization
+// middleware: even the key requirement is not discoverable pre-auth.
 const requireIdempotencyKey: MiddlewareHandler<MemberEnv> = async (c, next) => {
   const key = c.req.header("Idempotency-Key");
   if (key === undefined || key === "") {
@@ -63,76 +71,99 @@ const requireIdempotencyKey: MiddlewareHandler<MemberEnv> = async (c, next) => {
 };
 
 // The ADR-0063 HTTP boundary against the CONTROL-PLANE database (the invite writes live there).
-// NOTE (slice 0·5 chokepoint): this pre-decision runs before the handler's session/permission
-// checks, so a replay answers without re-authenticating. Replaying requires presenting the exact
-// key AND an identical fingerprint (method + path + canonical body), so nothing is learnable that
-// the caller did not already send; the ordered chokepoint middleware re-sequences this in 0·5.
-const controlPlaneIdempotency: MiddlewareHandler<MemberEnv> = (c, next) => {
+// SECURITY ORDERING (ADR-0067 chokepoint order, enforced here until the 0·5 chokepoint middleware
+// formalizes it globally): this runs AFTER authorizeMemberManagement, so the idempotency table is
+// unreachable without a session holding firm:manageMembers — a stored response can never replay
+// pre-auth, and an existing key is indistinguishable from an unknown one (both answer 401/403).
+// The stored key is firm-scoped — `${firmId}:${clientKey}`, the control-plane convention (ADR-0063
+// territory): this table is shared by every firm, so the tenant rides in the key; the per-firm
+// databases are already physically tenant-isolated and store raw client keys. The derived key is
+// server-internal — the client only ever sees its own header, and replay semantics
+// (Idempotency-Replayed: true) are unchanged.
+const firmScopedControlPlaneIdempotency: MiddlewareHandler<MemberEnv> = (c, next) => {
   // The data-access middleware is generic over its own minimal env; this route's env carries the
   // same idempotency variable plus the worker bindings, so the widening is sound.
   const middleware = idempotencyMiddleware({
     requirement: "required",
     database: c.env.DB_CONTROL,
+    deriveStoredKey: (_context, clientKey) => {
+      const sessionContext = c.get("sessionContext");
+      if (sessionContext === undefined) {
+        // Mis-ordered middleware is a security regression, not a recoverable state — fail loud.
+        throw new Error(
+          "idempotency middleware ran without a resolved session — authorizeMemberManagement must precede it",
+        );
+      }
+      return `${sessionContext.firmId}:${clientKey}`;
+    },
   }) as unknown as MiddlewareHandler<MemberEnv>;
   return middleware(c, next);
 };
 
-const inviteMemberRoute = createRoute({
-  method: "post",
-  path: "/api/v1/members",
-  operationId: "members.invite",
-  tags: ["members"],
-  description:
-    "Invites a member into the session firm: creates the (unverified, account-less) user, " +
-    "enqueues the per-firm member.provision outbox row, audits the invite — one atomic batch — " +
-    "then sends the activation email (a password-reset link; the reset creates the credential).",
-  middleware: [requireIdempotencyKey, controlPlaneIdempotency] as const,
-  request: {
-    body: {
-      content: { "application/json": { schema: InviteMemberRequest } },
-      required: true,
+function createInviteMemberRoute(authorizeMemberManagement: MiddlewareHandler<MemberEnv>) {
+  return createRoute({
+    method: "post",
+    path: "/api/v1/members",
+    operationId: "members.invite",
+    tags: ["members"],
+    description:
+      "Invites a member into the session firm: creates the (unverified, account-less) user, " +
+      "enqueues the per-firm member.provision outbox row, audits the invite — one atomic batch — " +
+      "then sends the activation email (a password-reset link; the reset creates the credential).",
+    request: {
+      body: {
+        content: { "application/json": { schema: InviteMemberRequest } },
+        required: true,
+      },
     },
-  },
-  responses: {
-    201: {
-      description: "The invited user, pending activation through the emailed reset link",
-      content: { "application/json": { schema: InviteMemberResponse } },
+    responses: {
+      201: {
+        description: "The invited user, pending activation through the emailed reset link",
+        content: { "application/json": { schema: InviteMemberResponse } },
+      },
+      400: {
+        description: "Missing Idempotency-Key (this operation requires one)",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      401: {
+        description: "No valid session",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      403: {
+        description: "The session member lacks firm:manageMembers",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      404: {
+        description:
+          "The session's firm is not reachable from this deployment (ADR-0052 — absent, never an existence oracle)",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      409: {
+        description: "A request with this Idempotency-Key is still in progress",
+        content: { "application/problem+json": { schema: Problem } },
+      },
+      422: {
+        description:
+          "The email is already in use, or the Idempotency-Key was reused with a different payload",
+        content: { "application/problem+json": { schema: Problem } },
+      },
     },
-    400: {
-      description: "Missing Idempotency-Key (this operation requires one)",
-      content: { "application/problem+json": { schema: Problem } },
-    },
-    401: {
-      description: "No valid session",
-      content: { "application/problem+json": { schema: Problem } },
-    },
-    403: {
-      description: "The session member lacks firm:manageMembers",
-      content: { "application/problem+json": { schema: Problem } },
-    },
-    404: {
-      description:
-        "The session's firm is not reachable from this deployment (ADR-0052 — absent, never an existence oracle)",
-      content: { "application/problem+json": { schema: Problem } },
-    },
-    409: {
-      description: "A request with this Idempotency-Key is still in progress",
-      content: { "application/problem+json": { schema: Problem } },
-    },
-    422: {
-      description:
-        "The email is already in use, or the Idempotency-Key was reused with a different payload",
-      content: { "application/problem+json": { schema: Problem } },
-    },
-  },
-  "x-mc-operationId": "members.invite",
-  "x-mc-surface": "app",
-  "x-mc-authenticated": true,
-  "x-mc-permission": "firm:manageMembers",
-  "x-mc-resource": "firm",
-  "x-mc-audited": true,
-  "x-mc-idempotency": "required",
-});
+    "x-mc-operationId": "members.invite",
+    "x-mc-surface": "app",
+    "x-mc-authenticated": true,
+    "x-mc-permission": "firm:manageMembers",
+    "x-mc-resource": "firm",
+    "x-mc-audited": true,
+    "x-mc-idempotency": "required",
+    // The chain in its security order: authorization first, then the key requirement, then the
+    // idempotency pre-decision — see the ordering comments on each middleware above.
+    middleware: [
+      authorizeMemberManagement,
+      requireIdempotencyKey,
+      firmScopedControlPlaneIdempotency,
+    ] as const,
+  });
+}
 
 // The losing batch's UNIQUE violation on user.email IS the duplicate-email signal: the whole
 // batch (user + outbox + audit + idempotency record) rolled back, nothing was stored, and a
@@ -152,7 +183,13 @@ export function registerMembersRoute(
   app: OpenAPIHono<{ Bindings: Bindings }>,
   authForEnv: (env: Bindings) => ReturnType<typeof createAuth>,
 ): void {
-  app.openapi(inviteMemberRoute, async (c) => {
+  // Step 1 of the route's middleware chain (the ADR-0067 chokepoint order, realized route-locally
+  // until slice 0·5): session → firm → firm:manageMembers, each failure answering its RFC 9457
+  // problem BEFORE any idempotency processing. Unauthenticated and unpermitted callers therefore
+  // never reach the idempotency table — neither the replay path nor the fingerprint-mismatch 422
+  // exists for them, so nothing about stored keys is learnable without the permission. The
+  // resolved session is stashed for the key derivation and the handler.
+  const authorizeMemberManagement: MiddlewareHandler<MemberEnv> = async (c, next) => {
     const sessionContext = await resolveSession(authForEnv(c.env), c);
     if (sessionContext === null) return unauthenticatedProblemResponse(c);
 
@@ -170,6 +207,17 @@ export function registerMembersRoute(
       return forbiddenProblemResponse(c);
     }
 
+    c.set("sessionContext", sessionContext);
+    await next();
+  };
+
+  app.openapi(createInviteMemberRoute(authorizeMemberManagement), async (c) => {
+    const sessionContext = c.get("sessionContext");
+    if (sessionContext === undefined) {
+      // Unreachable when the middleware chain ran — and if it did not, answering is a regression.
+      throw new Error("sessionContext missing — authorizeMemberManagement did not run");
+    }
+
     const request = c.req.valid("json");
     // Stored lowercased: Better Auth lowercases its email lookups (findUserByEmail), and the
     // activation flow must find the row the invite wrote.
@@ -181,6 +229,8 @@ export function registerMembersRoute(
     try {
       result = await runIdempotentEffect({
         database: c.env.DB_CONTROL,
+        // Already firm-scoped: IdempotencyContext.key is the middleware's DERIVED stored key, so
+        // this commit targets the exact row the pre-decision read.
         key: idempotency?.key,
         fingerprint: idempotency?.fingerprint ?? "",
         // Speculative effect (ADR-0063/0064): statements + outbox rows described here commit in

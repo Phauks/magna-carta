@@ -1,3 +1,4 @@
+import type { Context } from "hono";
 import { createMiddleware } from "hono/factory";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { fingerprintRequest } from "./canonical.ts";
@@ -6,6 +7,8 @@ import { selectIdempotencyRecordStatement, type SqlDatabase } from "./idempotenc
 
 // What the middleware hands the route handler (via context.get("idempotency")) when the request must
 // execute: the handler passes these straight to runIdempotentEffect, which owns the atomic commit.
+// `key` is the STORED key — after deriveStoredKey, when configured — so the handler's commit always
+// targets the exact row this middleware's pre-decision read.
 export interface IdempotencyContext {
   readonly key: string;
   readonly fingerprint: string;
@@ -43,17 +46,32 @@ function canonicalRequestPath(requestUrl: string): string {
 export function idempotencyMiddleware(options: {
   requirement: "required" | "optional";
   database: SqlDatabase;
+  // The stored-key derivation seam (ADR-0063). By default the record is keyed by the raw client
+  // header — sufficient where the table itself is tenant-isolated (the per-firm databases are,
+  // physically). A SHARED table needs the tenant in the key: the control-plane convention is
+  // `${firmId}:${clientKey}`, with the firm taken from AUTHENTICATED context (never client input),
+  // so one tenant's key can never replay or poison another tenant's record. That presumes ordering:
+  // the route's auth middleware must run BEFORE this one so the derivation can read the resolved
+  // session. The derived key is server-internal — clients only ever see their own header, and the
+  // replay semantics (Idempotency-Replayed: true) are unchanged. It is exposed as
+  // IdempotencyContext.key so the handler's runIdempotentEffect commits the same row this
+  // pre-decision read.
+  deriveStoredKey?: (context: Context, clientKey: string) => string;
 }) {
   return createMiddleware<{ Variables: { idempotency?: IdempotencyContext } }>(
     async (context, next) => {
-      const key = context.req.header("Idempotency-Key");
-      if (key === undefined || key === "") {
+      const clientKey = context.req.header("Idempotency-Key");
+      if (clientKey === undefined || clientKey === "") {
         if (options.requirement === "required") {
           return context.json({ error: "this operation requires an Idempotency-Key header" }, 400);
         }
         await next(); // optional route, no header: no record, no SQL
         return;
       }
+      const key =
+        options.deriveStoredKey === undefined
+          ? clientKey
+          : options.deriveStoredKey(context, clientKey);
 
       // Read via HonoRequest so hono caches the body for the handler's own req.json() call.
       // Downstream handlers must also read through HonoRequest methods, never context.req.raw —
