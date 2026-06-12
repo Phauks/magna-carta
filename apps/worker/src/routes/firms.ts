@@ -6,26 +6,24 @@ import {
   type IdempotencyContext,
 } from "@magna-carta/data-access/hono-idempotency-middleware";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
-import { d1MigrationTarget } from "@magna-carta/database/d1-migration-target";
-import { runPendingMigrations } from "@magna-carta/database/migration-runner";
 import type { Bindings } from "../app.ts";
 import type { createAuth } from "../auth.ts";
+import { constantTimeStringEquals } from "../constant-time.ts";
 import { isUserEmailConflict } from "../control-plane-conflicts.ts";
-import {
-  DEV_FIRM_DATABASE_POOL_BINDING_NAMES,
-  resolveFirmDatabase,
-} from "../firm-binding-resolver.ts";
 import {
   provisionFirm,
   type FirmProvisionerDependencies,
   type ProvisionFirmOutcome,
 } from "../firm-provisioner.ts";
 import {
-  createCloudflareRestFirmResourceProvider,
-  createDevFirmResourceProvider,
-  type FirmResourceProvider,
-} from "../firm-resource-provider.ts";
-import { perFirmHeadSchemaVersion, perFirmMigrations } from "../per-firm-migrations.ts";
+  migrateFirmDatabaseToHeadForEnv,
+  resourceProviderForEnv,
+} from "../firm-provisioner-wiring.ts";
+import {
+  problemResponseForIdempotencyConflict,
+  storedResponseBody,
+} from "../idempotency-conflict-problems.ts";
+import { perFirmHeadSchemaVersion } from "../per-firm-migrations.ts";
 import {
   Problem,
   PROBLEM_CONTENT_TYPE,
@@ -58,21 +56,6 @@ type FirmsEnv = {
   Bindings: Bindings;
   Variables: { idempotency?: IdempotencyContext };
 };
-
-// Constant-time string comparison for the platform-admin secret. Both sides are folded through
-// SHA-256 first so the inputs handed to timingSafeEqual are fixed-length — neither the secret's
-// length nor a length mismatch can leak through timing (timingSafeEqual itself THROWS on unequal
-// lengths). timingSafeEqual is the Workers runtime's constant-time primitive (a workerd extension
-// on SubtleCrypto, available since compatibility with the 2022 runtime — typed by
-// @cloudflare/workers-types).
-async function constantTimeStringEquals(left: string, right: string): Promise<boolean> {
-  const encoder = new TextEncoder();
-  const [leftDigest, rightDigest] = await Promise.all([
-    crypto.subtle.digest("SHA-256", encoder.encode(left)),
-    crypto.subtle.digest("SHA-256", encoder.encode(right)),
-  ]);
-  return crypto.subtle.timingSafeEqual(leftDigest, rightDigest);
-}
 
 // The platform-admin guard (slice 0·4 design spec §5): a Worker-secret header check, the
 // single-operator reality of Phase 0 — a real platform-admin principal model is a named later
@@ -172,48 +155,6 @@ const provisionFirmRoute = createRoute({
     platformScopedControlPlaneIdempotency,
   ] as const,
 });
-
-// How the provisioner's migrate step reaches a firm database: the binding resolver supplies the
-// handle, the fleet migration runner applies the bundled per-firm lineage. A database this
-// deployment cannot reach fails LOUD here (unlike the request-path ADR-0052 404): for production
-// firms created through the REST adapter, the new database's binding lands by config commit +
-// deploy — the documented manual step — and re-invoking afterwards resumes from this exact step.
-function migrateFirmDatabaseToHeadForEnv(env: Bindings) {
-  return async (databaseIdentifier: string): Promise<{ latestTag: string }> => {
-    const firmDatabase = resolveFirmDatabase(env, databaseIdentifier);
-    if (firmDatabase === null) {
-      throw new Error(
-        `firm database "${databaseIdentifier}" is not bound to this deployment — add its binding ` +
-          "(config commit + deploy), then re-invoke provisioning to resume",
-      );
-    }
-    const migrations = perFirmMigrations();
-    await runPendingMigrations(d1MigrationTarget(firmDatabase), migrations);
-    const latestTag = migrations.at(-1)?.tag;
-    if (latestTag === undefined) throw new Error("per-firm migration lineage is empty");
-    return { latestTag };
-  };
-}
-
-// Adapter selection: deploy-time credentials present → real Cloudflare REST creation; otherwise
-// the dev pool-claimer (local dev and tests — CLOUDFLARE_API_TOKEN/CLOUDFLARE_ACCOUNT_ID are
-// deploy-time secrets, deliberately absent from .dev.vars).
-function resourceProviderForEnv(env: Bindings): FirmResourceProvider {
-  const apiToken = env.CLOUDFLARE_API_TOKEN;
-  const accountId = env.CLOUDFLARE_ACCOUNT_ID;
-  if (apiToken !== undefined && apiToken !== "" && accountId !== undefined && accountId !== "") {
-    return createCloudflareRestFirmResourceProvider({ accountId, apiToken });
-  }
-  return createDevFirmResourceProvider({
-    poolBindingNames: DEV_FIRM_DATABASE_POOL_BINDING_NAMES,
-    claimedDatabaseIdentifiers: async () => {
-      const { results } = await env.DB_CONTROL.prepare(
-        "SELECT database_identifier FROM firm WHERE database_identifier IS NOT NULL",
-      ).all<{ database_identifier: string }>();
-      return results.map((row) => row.database_identifier);
-    },
-  });
-}
 
 // Sentinel for the name-conflict outcome: thrown INSIDE the idempotent effect so nothing commits
 // (the conflict response is deliberately not stored — a later retry re-evaluates the name).
@@ -328,34 +269,8 @@ export function registerFirmsRoute(
       throw caught;
     }
 
-    // The two conflict kinds only reach the handler on a race the middleware pre-check missed —
-    // its kind → status mapping is mirrored here, problem-shaped for this surface (members.ts
-    // carries the same mapping).
-    if (result.kind === "in-progress") {
-      return c.json(
-        problemBody({
-          type: PROBLEM_TYPES.conflict,
-          title: "Request in progress",
-          status: 409,
-          detail: "A request with this Idempotency-Key is still in progress.",
-          instance: c.req.path,
-        }),
-        409,
-        PROBLEM_CONTENT_TYPE,
-      );
-    }
-    if (result.kind === "fingerprint-mismatch") {
-      return c.json(
-        problemBody({
-          type: PROBLEM_TYPES.validation,
-          title: "Idempotency-Key reused",
-          status: 422,
-          detail: "This Idempotency-Key was already used with a different request payload.",
-          instance: c.req.path,
-        }),
-        422,
-        PROBLEM_CONTENT_TYPE,
-      );
+    if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+      return problemResponseForIdempotencyConflict(c, result);
     }
 
     if (result.kind === "replayed") {
@@ -368,12 +283,9 @@ export function registerFirmsRoute(
       await authForEnv(c.env).api.requestPasswordReset({ body: { email: outcome.ownerEmail } });
     }
 
-    if (result.responseBody === null) {
-      // Impossible by construction — the effect always stores a response body, and a replay
-      // returns what was stored. Answering a fabricated body would mask the corruption.
-      throw new Error("idempotent effect returned no stored response body on a 201-storing route");
-    }
-    const responseBody = JSON.parse(result.responseBody) as z.infer<typeof ProvisionFirmResponse>;
+    const responseBody = JSON.parse(storedResponseBody(result)) as z.infer<
+      typeof ProvisionFirmResponse
+    >;
     return c.json(responseBody, 201);
   });
 }

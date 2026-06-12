@@ -14,6 +14,10 @@ import type { createAuth } from "../auth.ts";
 import { isUserEmailConflict } from "../control-plane-conflicts.ts";
 import { resolveFirmDatabase } from "../firm-binding-resolver.ts";
 import {
+  problemResponseForIdempotencyConflict,
+  storedResponseBody,
+} from "../idempotency-conflict-problems.ts";
+import {
   forbiddenProblemResponse,
   notFoundProblemResponse,
   Problem,
@@ -272,33 +276,8 @@ export function registerMembersRoute(
       throw caught;
     }
 
-    // The two conflict kinds only reach the handler on a race the middleware pre-check missed —
-    // its kind → status mapping is mirrored here, problem-shaped for this surface.
-    if (result.kind === "in-progress") {
-      return c.json(
-        problemBody({
-          type: PROBLEM_TYPES.conflict,
-          title: "Request in progress",
-          status: 409,
-          detail: "A request with this Idempotency-Key is still in progress.",
-          instance: c.req.path,
-        }),
-        409,
-        PROBLEM_CONTENT_TYPE,
-      );
-    }
-    if (result.kind === "fingerprint-mismatch") {
-      return c.json(
-        problemBody({
-          type: PROBLEM_TYPES.validation,
-          title: "Idempotency-Key reused",
-          status: 422,
-          detail: "This Idempotency-Key was already used with a different request payload.",
-          instance: c.req.path,
-        }),
-        422,
-        PROBLEM_CONTENT_TYPE,
-      );
+    if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+      return problemResponseForIdempotencyConflict(c, result);
     }
 
     if (result.kind === "replayed") {
@@ -312,12 +291,9 @@ export function registerMembersRoute(
     }
     // Both arms answer the stored response: 201 by construction (this route's effect stores
     // nothing else, and the fingerprint pins replays to this method + path + body).
-    if (result.responseBody === null) {
-      // Impossible by construction — the effect above always stores a response body, and a replay
-      // returns what was stored. Answering a fabricated body would mask the corruption.
-      throw new Error("idempotent effect returned no stored response body on a 201-storing route");
-    }
-    const responseBody = JSON.parse(result.responseBody) as z.infer<typeof InviteMemberResponse>;
+    const responseBody = JSON.parse(storedResponseBody(result)) as z.infer<
+      typeof InviteMemberResponse
+    >;
     return c.json(responseBody, 201);
   });
 }

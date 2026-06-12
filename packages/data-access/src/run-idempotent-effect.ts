@@ -18,8 +18,12 @@ export interface IdempotentEffectOptions {
   // undefined = an optional route called without an Idempotency-Key: execute with no record.
   key: string | undefined;
   fingerprint: string;
-  // The handler's effect, executed SPECULATIVELY: it prepares statements and describes outbox
-  // messages but commits nothing — the commit happens here, in one atomic batch.
+  // The handler's effect. The default shape is SPECULATIVE: it prepares statements and describes
+  // outbox messages but commits nothing — the commit happens here, in one atomic batch. An effect
+  // MAY instead perform its own guarded, individually-idempotent commits along the way (the firm
+  // provisioner's resumable steps), PROVIDED the response-bearing write rides the final atomic
+  // batch with the idempotency record: a crash before that batch stores no record, so a retry
+  // re-executes the effect and its own guards resume the remaining work.
   effect: () => Promise<{ write: EffectWrite; responseCode: number; responseBody: string | null }>;
   now?: () => string;
   newRecordId?: () => IdempotencyRecordId; // injectable for deterministic tests/fixtures

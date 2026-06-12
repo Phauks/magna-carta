@@ -50,7 +50,11 @@ function fakePorts(): FakePorts {
       migrateFirmDatabaseToHead: (databaseIdentifier: string) => {
         calls.migrate += 1;
         if (failures.migrate) return Promise.reject(new Error("injected migrate crash"));
-        expect(databaseIdentifier).toMatch(/^fake-database-/);
+        if (!databaseIdentifier.startsWith("fake-database-")) {
+          throw new Error(
+            `fake migrate port received an identifier this provider never issued: "${databaseIdentifier}"`,
+          );
+        }
         return Promise.resolve({ latestTag: HEAD });
       },
       headSchemaVersion: HEAD,
@@ -237,14 +241,50 @@ describe("provisionFirm", () => {
 
     const first = await provisionAndCommit(ports, input);
     expect(first.kind).toBe("ready-to-activate");
+    if (first.kind !== "ready-to-activate") return;
 
     const second = await provisionAndCommit(ports, input);
     expect(second.kind).toBe("already-active");
     if (second.kind !== "already-active") return;
-    expect(second.firmId).toBe(first.kind === "ready-to-activate" ? first.firmId : "");
+    expect(second.firmId).toBe(first.firmId);
     expect(second.owner.email).toBe(ownerEmailFor(input.name));
     expect(second.owner.name).toBe("Owning Owner");
     expect(ports.calls).toEqual({ createDatabase: 1, migrate: 1, createBucket: 1 });
+  });
+
+  it("fails loud when a concurrent run recorded a DIFFERENT database identifier (double-claim guard)", async () => {
+    const input = inputFor("Concurrent Claim Firm");
+    // Interleaving simulated INSIDE the fake port: while this run's createDatabase is in flight,
+    // a concurrent run wins the IS NULL claim with its OWN identifier — this run's guarded UPDATE
+    // no-ops, and continuing would migrate a database no firm row records.
+    const dependencies: FirmProvisionerDependencies = {
+      controlPlaneDatabase: env.DB_CONTROL,
+      resourceProvider: {
+        async createDatabase() {
+          await env.DB_CONTROL.prepare(
+            "UPDATE firm SET database_identifier = 'concurrent-winner-database' WHERE name = ?1",
+          )
+            .bind(input.name)
+            .run();
+          return { databaseIdentifier: "this-run-database" };
+        },
+        createBucket() {
+          throw new Error("unreachable: the double-claim guard must throw before the bucket step");
+        },
+      },
+      migrateFirmDatabaseToHead: () => {
+        throw new Error("unreachable: the double-claim guard must throw before the migrate step");
+      },
+      headSchemaVersion: HEAD,
+    };
+
+    await expect(provisionFirm(dependencies, input)).rejects.toThrow(
+      /concurrent provisioning detected/,
+    );
+    // The winner's claim survives untouched — re-invoking resumes from the recorded state.
+    expect((await firmRowByName(input.name))?.database_identifier).toBe(
+      "concurrent-winner-database",
+    );
   });
 
   it("answers name-conflict when an ACTIVE firm holds the name with a different owner", async () => {

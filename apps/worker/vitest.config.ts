@@ -1,10 +1,8 @@
 import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
 import { defineConfig, type Plugin } from "vite-plus";
 
-// Plain `.sql` imports resolve to the file's text — the Vite-side half of the dual bundling
-// contract (the wrangler-side half is the `rules: [{ type: "Text", globs: ["**/*.sql"] }]` entry
-// in wrangler.jsonc): src/per-firm-migrations.ts ships migration SQL in the deploy bundle, where
-// esbuild rejects Vite's `?raw` suffix, so both builds meet on the plain import instead.
+// The Vite-side half of the dual `.sql`-as-text bundling contract — full story in
+// src/sql-modules.d.ts (the wrangler-side half is the Text module rule in wrangler.jsonc).
 function sqlAsText(): Plugin {
   return {
     name: "magna-carta:sql-as-text",

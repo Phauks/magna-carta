@@ -28,10 +28,14 @@ import type { FirmResourceProvider } from "./firm-resource-provider.ts";
 // so a retry re-executes the handler and the guards above resume the work; replay only ever
 // answers a response whose batch actually committed (ADR-0063).
 //
-// Concurrency note: crashed-run RESUME is the designed-for case. Two concurrent runs on the same
-// name are serialized by UNIQUE(firm.name) / UNIQUE(firm.database_identifier) and — for the final
-// batch — by UNIQUE(user.email) on the shared owner; the idempotency middleware's in-progress 409
-// already fences same-key concurrency at the HTTP boundary.
+// Concurrency note: crashed-run RESUME is the designed-for case. No in-progress idempotency
+// record is ever written, so same-KEY concurrency is NOT fenced at the HTTP boundary — the real
+// fence is UNIQUE(idempotency_key.key) at the final commit: a concurrent same-key loser's batch
+// rolls back whole and the loser replays the winner's stored response. It may instead trip
+// UNIQUE(user.email) first (both runs insert the shared owner) and answer 422 — self-healing,
+// since a retry finds the winner's idempotency record or the now-active firm. Same-name runs
+// under DIFFERENT keys are serialized by UNIQUE(firm.name), the step-2 claim verification below,
+// and the same final-batch UNIQUE(user.email).
 
 export interface ProvisionFirmInput {
   readonly name: string;
@@ -132,17 +136,33 @@ export async function provisionFirm(
     return { kind: "already-active", firmId, owner };
   }
 
-  // Step 2 — create (or claim) the firm's database, then record it. The guarded UPDATE plus
-  // UNIQUE(database_identifier) make the record idempotent and double-claim-proof.
+  // Step 2 — create (or claim) the firm's database, then record it. The IS NULL guard means only
+  // ONE run's identifier ever lands, but a guarded UPDATE that no-ops never trips
+  // UNIQUE(database_identifier) — a concurrent run may have recorded a DIFFERENT identifier, and
+  // continuing would migrate a database no firm row records. So the claim is VERIFIED: a no-op
+  // UPDATE re-reads the row and fails loud unless the recorded identifier is this run's own.
   let databaseIdentifier = firmRow.database_identifier;
   if (databaseIdentifier === null) {
     ({ databaseIdentifier } = await dependencies.resourceProvider.createDatabase(firmId));
-    await database
+    const claim = await database
       .prepare(
         "UPDATE firm SET database_identifier = ?2 WHERE id = ?1 AND database_identifier IS NULL",
       )
       .bind(firmId, databaseIdentifier)
       .run();
+    if (claim.meta.changes !== 1) {
+      const recorded = await database
+        .prepare("SELECT database_identifier FROM firm WHERE id = ?1")
+        .bind(firmId)
+        .first<{ database_identifier: string | null }>();
+      if (recorded?.database_identifier !== databaseIdentifier) {
+        throw new Error(
+          `concurrent provisioning detected for firm ${firmId}: this run obtained database ` +
+            `"${databaseIdentifier}" but the firm row records ` +
+            `"${recorded?.database_identifier ?? "(none)"}" — re-invoke to resume from the recorded state`,
+        );
+      }
+    }
   }
 
   // Step 3 — migrate the firm database to head, then mirror the version (ADR-0065). The mirror

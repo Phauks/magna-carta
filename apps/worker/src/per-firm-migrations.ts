@@ -6,10 +6,8 @@ import memberRbacSql from "@magna-carta/database/drizzle/per-firm/0002_member-rb
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the firm
 // provisioner migrates a freshly created firm database to head at provisioning time, so the SQL
-// must ship in the bundle, not only in test support. PLAIN `.sql` imports, not Vite `?raw` —
-// `wrangler deploy` bundles with esbuild, which rejects the `?raw` suffix; the two builds meet on
-// the plain import instead: wrangler.jsonc's `rules: [{ type: "Text", globs: ["**/*.sql"] }]`
-// for the deploy bundle, and the sql-as-text plugin in vitest.config.ts for the Vitest pool.
+// must ship in the bundle, not only in test support. Plain `.sql` imports — the dual
+// Vite/wrangler bundling contract lives in src/sql-modules.d.ts.
 // migrationsFromJournal fails loud when the journal gains a migration this map does not carry:
 // add the new import alongside its journal entry (apply-per-firm-migrations.ts reuses this module).
 export function perFirmMigrations(): Migration[] {

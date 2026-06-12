@@ -79,6 +79,52 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     expect(results[0]?.n).toBe(0); // nothing committed
   });
 
+  it("control-plane 0001 rebuild backfills a 0000-era firm row and lands the new constraints", () => {
+    const raw = new DatabaseSync(":memory:");
+    const [firmRegistry, authAndProvisioning] = loadMigrationsFromDisk("control-plane");
+    if (firmRegistry === undefined || authAndProvisioning === undefined)
+      throw new Error("control-plane lineage is shorter than the two migrations this test pins");
+    applyMigrations(raw, [firmRegistry]);
+    raw
+      .prepare(
+        "INSERT INTO firm (id, name, database_identifier, per_firm_schema_version, created_at) VALUES (?, ?, ?, ?, ?)",
+      )
+      .run(
+        "firm_aaaaaaaaaaaaaaaaaaaaa",
+        "Legacy Firm",
+        "legacy-database",
+        null,
+        "2026-01-05T09:00:00.000Z",
+      );
+    applyMigrations(raw, [authAndProvisioning]);
+    // The pre-lifecycle row survives the rebuild with the expand-contract backfill values.
+    const row = raw
+      .prepare("SELECT status, bucket_name, database_identifier FROM firm WHERE name = ?")
+      .get("Legacy Firm") as {
+      status: string;
+      bucket_name: string | null;
+      database_identifier: string;
+    };
+    expect(row).toEqual({
+      status: "active",
+      bucket_name: null,
+      database_identifier: "legacy-database",
+    });
+    // UNIQUE(name) holds post-rebuild, and database_identifier is now nullable (the provisioning
+    // lifecycle inserts the firm row before a database exists).
+    const insertNameOnly = raw.prepare(
+      "INSERT INTO firm (id, name, status, created_at) VALUES (?, ?, 'provisioning', ?)",
+    );
+    expect(() =>
+      insertNameOnly.run("firm_bbbbbbbbbbbbbbbbbbbbb", "Legacy Firm", "2026-01-05T09:00:00.000Z"),
+    ).toThrow(/UNIQUE/);
+    insertNameOnly.run(
+      "firm_ccccccccccccccccccccc",
+      "Provisioning Firm",
+      "2026-01-05T09:00:00.000Z",
+    );
+  });
+
   it("run() outside a batch autocommits independently", async () => {
     const raw = freshPerFirmDatabase();
     const database = nodeSqliteBatchDatabase(raw);
