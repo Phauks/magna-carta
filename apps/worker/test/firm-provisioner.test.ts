@@ -2,6 +2,7 @@ import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { FirmId } from "@magna-carta/identifiers/types";
+import { isFirmActivationConflict } from "../src/control-plane-conflicts.ts";
 import {
   provisionFirm,
   type FirmProvisionerDependencies,
@@ -64,7 +65,7 @@ function fakePorts(): FakePorts {
 
 async function firmRowByName(name: string) {
   return env.DB_CONTROL.prepare(
-    "SELECT id, status, database_identifier, per_firm_schema_version, bucket_name FROM firm WHERE name = ?1",
+    "SELECT id, status, database_identifier, per_firm_schema_version, bucket_name, owner_user_id FROM firm WHERE name = ?1",
   )
     .bind(name)
     .first<{
@@ -73,6 +74,7 @@ async function firmRowByName(name: string) {
       database_identifier: string | null;
       per_firm_schema_version: string | null;
       bucket_name: string | null;
+      owner_user_id: string | null;
     }>();
 }
 
@@ -116,6 +118,7 @@ describe("provisionFirm", () => {
       database_identifier: `fake-database-${outcome.firmId}`,
       per_firm_schema_version: HEAD,
       bucket_name: `fake-bucket-${outcome.firmId}`,
+      owner_user_id: outcome.ownerUserId, // recorded by the activation batch — the owner of record
     });
 
     // Owner user: unverified, account-less, attached to the firm (activation via reset — Path A).
@@ -298,5 +301,88 @@ describe("provisionFirm", () => {
       owner: { email: "someone-else@example.com", name: "Someone Else" },
     });
     expect(conflicting.kind).toBe("name-conflict");
+  });
+
+  it("answers name-conflict — NOT already-active — when the requested owner is a mere member of the firm", async () => {
+    const ports = fakePorts();
+    const input = inputFor("Member Impersonation Firm");
+    const first = await provisionAndCommit(ports, input);
+    expect(first.kind).toBe("ready-to-activate");
+    if (first.kind !== "ready-to-activate") return;
+
+    // Bob: an invited (non-owner) member of the firm — a user row with the same firm_id, exactly
+    // what members.invite commits. His email must not pass the already-active owner match.
+    await env.DB_CONTROL.prepare(
+      'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at, firm_id) VALUES (?1, ?2, ?3, 0, ?4, ?4, ?5)',
+    )
+      .bind(
+        "usr_bbbbbbbbbbbbbbbbbbbbb",
+        "Invited Bob",
+        "invited-bob@example.com",
+        Date.now(),
+        first.firmId,
+      )
+      .run();
+
+    const asMember = await provisionFirm(ports.dependencies, {
+      name: input.name,
+      owner: { email: "invited-bob@example.com", name: "Invited Bob" },
+    });
+    expect(asMember.kind).toBe("name-conflict");
+  });
+
+  it("aborts the LOSER's activation batch when a concurrent different-owner run activated first", async () => {
+    // The most serious interleaving: run A (alice) pauses before its final batch; run B (bob, the
+    // SAME name under a different Idempotency-Key) reads status='provisioning', adopts A's durable
+    // step 2-4 claims, and commits its activation. A's batch must then ABORT whole — without the
+    // activation fence it would commit cleanly (different email, 0-row status flip) and leave TWO
+    // Owner/Admins.
+    const portsA = fakePorts();
+    const name = "Interleaved Activation Firm";
+    const runA = await provisionFirm(portsA.dependencies, {
+      name,
+      owner: { email: "interleaved-alice@example.com", name: "Alice" },
+    });
+    expect(runA.kind).toBe("ready-to-activate");
+    if (runA.kind !== "ready-to-activate") return;
+
+    const portsB = fakePorts();
+    const runB = await provisionAndCommit(portsB, {
+      name,
+      owner: { email: "interleaved-bob@example.com", name: "Bob" },
+    });
+    expect(runB.kind).toBe("ready-to-activate");
+    if (runB.kind !== "ready-to-activate") return;
+    // B adopted A's recorded resources — no port re-ran.
+    expect(portsB.calls).toEqual({ createDatabase: 0, migrate: 0, createBucket: 0 });
+
+    // Resume A: its activation batch must abort (the fence's PRIMARY KEY collision), and the
+    // error must be the one the route maps to its concurrent-provisioning 409 problem.
+    const caught = await commitEffectBatch(env.DB_CONTROL, runA.finalWrite, {
+      now: () => new Date().toISOString(),
+    }).then(
+      () => null,
+      (error: unknown) => error,
+    );
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain("UNIQUE constraint failed: firm.id");
+    expect(isFirmActivationConflict(caught)).toBe(true);
+
+    // Exactly ONE owner of record: B's user, B's outbox row, B recorded as owner_user_id.
+    const firmRow = await firmRowByName(name);
+    expect(firmRow?.status).toBe("active");
+    expect(firmRow?.owner_user_id).toBe(runB.ownerUserId);
+    const userCount = await env.DB_CONTROL.prepare(
+      'SELECT COUNT(*) AS count FROM "user" WHERE firm_id = ?1',
+    )
+      .bind(firmRow?.id)
+      .first<{ count: number }>();
+    expect(userCount?.count).toBe(1);
+    const outboxCount = await env.DB_CONTROL.prepare(
+      "SELECT COUNT(*) AS count FROM outbox WHERE topic = 'member.provision' AND payload LIKE '%' || ?1 || '%'",
+    )
+      .bind(firmRow?.id)
+      .first<{ count: number }>();
+    expect(outboxCount?.count).toBe(1);
   });
 });

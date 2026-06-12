@@ -36,6 +36,12 @@ export const firm = sqliteTable("firm", {
   status: text("status").notNull().default("active"),
   // The per-firm R2 bucket backing this firm. Null = the bucket has not been provisioned yet.
   bucketName: text("bucket_name"),
+  // WHO owns the firm: set in the same activation batch that inserts the owner user (slice 0·4 §5)
+  // — the provisioner's already-active no-op matches the REQUESTED owner against this column, so a
+  // mere invited member's email cannot impersonate the owner. Null while provisioning and for
+  // pre-lifecycle rows. Deliberately NOT a foreign key: user.firm_id already references firm.id,
+  // and the reverse edge would make the firm<->user pair circular.
+  ownerUserId: text("owner_user_id").$type<UserId>(),
   // ISO-8601 UTC instant (ADR-0055).
   createdAt: text("created_at").notNull(),
 });

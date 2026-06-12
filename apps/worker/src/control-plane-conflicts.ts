@@ -19,3 +19,10 @@ export function isUserEmailConflict(error: unknown): boolean {
 export function isFirmNameConflict(error: unknown): boolean {
   return isUniqueConstraintConflict(error, "firm.name");
 }
+
+// The activation-fence signal of the provisioner's final batch: the fence INSERT collides with
+// the firm row's own PRIMARY KEY when another run already activated the firm — the loser's whole
+// batch rolled back, and a retry observes the active firm (firm-provisioner.ts, concurrency note).
+export function isFirmActivationConflict(error: unknown): boolean {
+  return isUniqueConstraintConflict(error, "firm.id");
+}

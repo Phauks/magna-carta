@@ -9,7 +9,7 @@ import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-eff
 import type { Bindings } from "../app.ts";
 import type { createAuth } from "../auth.ts";
 import { constantTimeStringEquals } from "../constant-time.ts";
-import { isUserEmailConflict } from "../control-plane-conflicts.ts";
+import { isFirmActivationConflict, isUserEmailConflict } from "../control-plane-conflicts.ts";
 import {
   provisionFirm,
   type FirmProvisionerDependencies,
@@ -35,7 +35,15 @@ import { requireIdempotencyKey } from "../require-idempotency-key.ts";
 
 const ProvisionFirmRequest = z
   .object({
-    name: z.string().min(1),
+    // Canonicalized HERE (trim + Unicode NFC, rejecting names that trim to empty): the
+    // provisioner's resume identity is the byte-exact UNIQUE firm.name, so 'Acme Legal ' or an
+    // NFD variant must resume the existing row, never insert a second firm. The route owns this
+    // normalization — firm-provisioner.ts documents the dependency on its resume-identity note.
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .transform((value) => value.normalize("NFC")),
     owner: z.object({
       email: z.email(),
       name: z.string().min(1),
@@ -124,8 +132,9 @@ const provisionFirmRoute = createRoute({
     },
     409: {
       description:
-        "An active firm already holds this name with a different owner, or a request with this " +
-        "Idempotency-Key is still in progress",
+        "An active firm already holds this name with a different owner, a request with this " +
+        "Idempotency-Key is still in progress, or a concurrent provisioning of the same name " +
+        "completed first (retry to observe it)",
       content: { "application/problem+json": { schema: Problem } },
     },
     422: {
@@ -244,6 +253,22 @@ export function registerFirmsRoute(
             title: "Firm name already in use",
             status: 409,
             detail: "An active firm already holds this name.",
+            instance: c.req.path,
+          }),
+          409,
+          PROBLEM_CONTENT_TYPE,
+        );
+      }
+      if (isFirmActivationConflict(caught)) {
+        // The activation fence fired: a concurrent provisioning of the same name committed its
+        // activation first, and this run's whole batch rolled back (firm-provisioner.ts,
+        // concurrency note). Nothing was stored — a retry observes the now-active firm.
+        return c.json(
+          problemBody({
+            type: PROBLEM_TYPES.conflict,
+            title: "Concurrent provisioning completed",
+            status: 409,
+            detail: "A concurrent provisioning of this firm completed first — retry to observe it.",
             instance: c.req.path,
           }),
           409,

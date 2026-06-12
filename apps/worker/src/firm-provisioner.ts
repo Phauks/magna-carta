@@ -18,7 +18,10 @@ import type { FirmResourceProvider } from "./firm-resource-provider.ts";
 // RESUME IDENTITY: the firm NAME, which is UNIQUE on the firm table. Firm ids are CSPRNG handles
 // minted per attempt, and the idempotency record stores only a response — neither survives a
 // crash as a lookup key, so the client-supplied name is the one stable handle a re-invocation can
-// find its partial row by. Platform-admin-controlled input on a fleet of ~1 (the endpoint is
+// find its partial row by. The match is BYTE-EXACT (WHERE name = ?1), so the ROUTE owns name
+// normalization: routes/firms.ts canonicalizes (trim + Unicode NFC) in its request schema before
+// the name reaches this module — a trailing space or an NFD variant must resume the same row, not
+// insert a second one. Platform-admin-controlled input on a fleet of ~1 (the endpoint is
 // secret-gated); revisit if firm creation ever becomes self-serve.
 //
 // THE FINAL STEP IS RETURNED, NOT COMMITTED: steps 1-4 each commit their own guarded write (they
@@ -34,8 +37,14 @@ import type { FirmResourceProvider } from "./firm-resource-provider.ts";
 // rolls back whole and the loser replays the winner's stored response. It may instead trip
 // UNIQUE(user.email) first (both runs insert the shared owner) and answer 422 — self-healing,
 // since a retry finds the winner's idempotency record or the now-active firm. Same-name runs
-// under DIFFERENT keys are serialized by UNIQUE(firm.name), the step-2 claim verification below,
-// and the same final-batch UNIQUE(user.email).
+// under DIFFERENT keys: UNIQUE(firm.name) collapses step 1 onto one row and the step-2 claim
+// verification kills a run whose created database was never recorded, but neither stops a run
+// that ADOPTED the other's recorded claims — and with DIFFERENT owner emails no UNIQUE trips in
+// the final batch, whose status flip is a guarded UPDATE that no-ops silently at 0 rows. The real
+// final-step fence is the ACTIVATION FENCE in the batch below: an INSERT ... SELECT that collides
+// with the firm's own PRIMARY KEY unless status is still 'provisioning', so the first activation
+// to commit wins and every later activation batch aborts whole (the route maps the abort to a
+// 409; a retry then observes the active firm).
 
 export interface ProvisionFirmInput {
   readonly name: string;
@@ -127,9 +136,14 @@ export async function provisionFirm(
 
   if (firmRow.status === "active") {
     // Fully provisioned already. Same owner → idempotent no-op answering the existing firm;
-    // different owner → the name is genuinely taken.
+    // anyone else → the name is genuinely taken. The match is against the firm's RECORDED owner
+    // (owner_user_id, written by the activation batch) — matching any user row in the firm would
+    // let a mere invited member's email pass and be presented (and stored for replay) as owner.
     const owner = await database
-      .prepare('SELECT id, email, name FROM "user" WHERE firm_id = ?1 AND email = ?2')
+      .prepare(
+        'SELECT "user".id AS id, "user".email AS email, "user".name AS name FROM firm ' +
+          'JOIN "user" ON "user".id = firm.owner_user_id WHERE firm.id = ?1 AND "user".email = ?2',
+      )
       .bind(firmId, ownerEmail)
       .first<{ id: UserId; email: string; name: string }>();
     if (owner === null) return { kind: "name-conflict", firmId };
@@ -189,8 +203,9 @@ export async function provisionFirm(
   // Step 5 — the activation batch, returned for the caller's atomic commit: the owner user
   // (unverified, account-less — activation runs through the password-reset flow, the Path A
   // members.invite verified), the firm.provisioned audit row, the member.provision outbox row
-  // carrying the Owner/Admin role, and the status flip. One batch: 'active' implies the owner
-  // exists, which is what makes status the step-5 guard.
+  // carrying the Owner/Admin role, the activation fence, and the status flip that also records
+  // the owner. One batch: 'active' implies the owner exists AND is recorded, which is what makes
+  // status the step-5 guard and owner_user_id the already-active branch's owner of record.
   const ownerUserId = newIdentifier("user");
   const nowEpochMilliseconds = Date.now();
   return {
@@ -214,9 +229,25 @@ export async function provisionFirm(
           metadata: { firmId, ownerUserId },
           now: now(),
         }),
+        // THE ACTIVATION FENCE (see the concurrency note above): a guarded UPDATE cannot abort a
+        // D1 batch at 0 rows, so this assertion makes the batch fail loud instead — when another
+        // run already flipped the firm out of 'provisioning', the SELECT yields a row whose id
+        // collides with the firm's own PRIMARY KEY and the whole batch rolls back
+        // (isFirmActivationConflict detects it). While the status is still 'provisioning' the
+        // WHERE filters everything and nothing inserts. MUST run BEFORE the status flip below —
+        // after it, this transaction's own flip would trip the fence. Empirically pinned by the
+        // interleaving test in test/firm-provisioner.test.ts.
         database
-          .prepare("UPDATE firm SET status = 'active' WHERE id = ?1 AND status = 'provisioning'")
+          .prepare(
+            "INSERT INTO firm (id, name, created_at, status) SELECT ?1, '', '', '' " +
+              "WHERE (SELECT status FROM firm WHERE id = ?1) <> 'provisioning'",
+          )
           .bind(firmId),
+        database
+          .prepare(
+            "UPDATE firm SET status = 'active', owner_user_id = ?2 WHERE id = ?1 AND status = 'provisioning'",
+          )
+          .bind(firmId, ownerUserId),
       ],
       outboxMessages: [
         {

@@ -99,15 +99,19 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     applyMigrations(raw, [authAndProvisioning]);
     // The pre-lifecycle row survives the rebuild with the expand-contract backfill values.
     const row = raw
-      .prepare("SELECT status, bucket_name, database_identifier FROM firm WHERE name = ?")
+      .prepare(
+        "SELECT status, bucket_name, owner_user_id, database_identifier FROM firm WHERE name = ?",
+      )
       .get("Legacy Firm") as {
       status: string;
       bucket_name: string | null;
+      owner_user_id: string | null;
       database_identifier: string;
     };
     expect(row).toEqual({
       status: "active",
       bucket_name: null,
+      owner_user_id: null, // pre-lifecycle rows have no recorded owner
       database_identifier: "legacy-database",
     });
     // UNIQUE(name) holds post-rebuild, and database_identifier is now nullable (the provisioning

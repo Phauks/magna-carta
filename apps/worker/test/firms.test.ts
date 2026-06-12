@@ -229,6 +229,33 @@ describe("POST /api/v1/firms", () => {
     expect(firmCount?.count).toBe(1);
   });
 
+  it("answers 409 — not the owner's 201 — when the requested owner is a mere member of the firm", async () => {
+    // Bob: an invited (non-owner) member of firm one — the user row members.invite commits. The
+    // already-active no-op must match the firm's RECORDED owner, not any member's email.
+    await env.DB_CONTROL.prepare(
+      'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at, firm_id) VALUES (?1, ?2, ?3, 0, ?4, ?4, ?5)',
+    )
+      .bind(
+        "usr_ccccccccccccccccccccc",
+        "Invited Bob",
+        "invited-bob@example.com",
+        Date.now(),
+        firmOneBody.id,
+      )
+      .run();
+
+    const asMember = await postFirms(
+      { name: FIRM_ONE_NAME, owner: { email: "invited-bob@example.com", name: "Invited Bob" } },
+      { idempotencyKey: crypto.randomUUID() },
+    );
+    expect(asMember.status).toBe(409);
+    expect((await asMember.json()) as Record<string, unknown>).toMatchObject({
+      type: "https://api.magnacarta.esq/problems/conflict",
+      title: "Firm name already in use",
+      status: 409,
+    });
+  });
+
   it("answers 422 for a taken owner email and lets a corrected re-invoke resume the SAME firm", async () => {
     // Second firm, firm one's owner email: steps 1-4 succeed (the second pool binding is
     // claimed), then the activation batch trips UNIQUE(user.email) and rolls back whole.

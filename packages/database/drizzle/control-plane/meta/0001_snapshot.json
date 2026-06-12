@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "b3ee0589-a135-4777-98ad-cd7d6d7269ae",
+  "id": "5e95f68c-fb6a-4ce4-9a53-f10fb2e1c6da",
   "prevId": "683931ad-2065-4ac0-9b63-d028ceec749a",
   "tables": {
     "account": {
@@ -208,6 +208,13 @@
         },
         "bucket_name": {
           "name": "bucket_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "owner_user_id": {
+          "name": "owner_user_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

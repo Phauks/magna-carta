@@ -45,14 +45,15 @@ describe("generated migrations (committed artifacts)", () => {
     }
     // The firm lifecycle lands as a table rebuild (database_identifier loses NOT NULL, name gains
     // UNIQUE — both provisioning-resume requirements) with the lifecycle columns in the new shape.
-    // The rebuild's copy backfills the new columns ('active'/NULL) rather than selecting them from
-    // the 0000-era table, and uses the D1-compatible defer_foreign_keys pragma — the two
+    // The rebuild's copy backfills the new columns ('active'/NULL/NULL) rather than selecting them
+    // from the 0000-era table, and uses the D1-compatible defer_foreign_keys pragma — the two
     // hand-corrections documented in the migration file itself.
     expect(allSql).toContain("`status` text DEFAULT 'active' NOT NULL");
     expect(allSql).toContain("`bucket_name` text");
+    expect(allSql).toContain("`owner_user_id` text");
     expect(allSql).toContain("CREATE UNIQUE INDEX `firm_name_unique` ON `firm` (`name`)");
     expect(allSql).toContain(
-      'SELECT "id", "name", "database_identifier", "per_firm_schema_version", \'active\', NULL, "created_at" FROM `firm`',
+      'SELECT "id", "name", "database_identifier", "per_firm_schema_version", \'active\', NULL, NULL, "created_at" FROM `firm`',
     );
     expect(allSql).toContain("PRAGMA defer_foreign_keys = on");
     expect(allSql).not.toContain("PRAGMA foreign_keys"); // not in D1's compatible-PRAGMA set

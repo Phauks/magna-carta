@@ -99,11 +99,11 @@ CREATE TABLE `verification` (
 --> statement-breakpoint
 CREATE INDEX `verification_identifier_index` ON `verification` (`identifier`);--> statement-breakpoint
 -- The firm rebuild below is drizzle-kit's recreate strategy (database_identifier loses NOT NULL,
--- name gains UNIQUE — slice 0·4 provisioning lifecycle), HAND-CORRECTED in two ways the generator
--- gets wrong for this lineage:
---   1. The copy SELECT named `status`/`bucket_name`, which do not exist in the 0000-era table
---      (this migration introduces them) — they are backfilled as 'active'/NULL instead, matching
---      the expand-contract DEFAULT for pre-lifecycle rows.
+-- name gains UNIQUE — slice 0·4 provisioning lifecycle; owner_user_id records the activation's
+-- owner), HAND-CORRECTED in two ways the generator gets wrong for this lineage:
+--   1. The copy SELECT named `status`/`bucket_name`/`owner_user_id`, which do not exist in the
+--      0000-era table (this migration introduces them) — they are backfilled as 'active'/NULL/NULL
+--      instead, matching the expand-contract DEFAULT for pre-lifecycle rows.
 --   2. the generator's foreign-key-toggle pragma pair is not in D1's compatible-PRAGMA set; the
 --      D1-supported `PRAGMA defer_foreign_keys = on` defers enforcement to the end of the migration batch
 --      (one transaction — see d1-migration-target.ts), by which time `firm` exists again.
@@ -116,10 +116,11 @@ CREATE TABLE `__new_firm` (
 	`per_firm_schema_version` text,
 	`status` text DEFAULT 'active' NOT NULL,
 	`bucket_name` text,
+	`owner_user_id` text,
 	`created_at` text NOT NULL
 );
 --> statement-breakpoint
-INSERT INTO `__new_firm`("id", "name", "database_identifier", "per_firm_schema_version", "status", "bucket_name", "created_at") SELECT "id", "name", "database_identifier", "per_firm_schema_version", 'active', NULL, "created_at" FROM `firm`;--> statement-breakpoint
+INSERT INTO `__new_firm`("id", "name", "database_identifier", "per_firm_schema_version", "status", "bucket_name", "owner_user_id", "created_at") SELECT "id", "name", "database_identifier", "per_firm_schema_version", 'active', NULL, NULL, "created_at" FROM `firm`;--> statement-breakpoint
 DROP TABLE `firm`;--> statement-breakpoint
 ALTER TABLE `__new_firm` RENAME TO `firm`;--> statement-breakpoint
 CREATE UNIQUE INDEX `firm_name_unique` ON `firm` (`name`);--> statement-breakpoint

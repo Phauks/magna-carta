@@ -51,6 +51,17 @@ describe("control-plane schema: firm registry", () => {
     expect(columnOf(firm, "bucket_name").notNull).toBe(false); // null = bucket not provisioned yet
     expect(columnOf(firm, "bucket_name").getSQLType()).toBe("text");
   });
+
+  it("records WHO owns the firm: owner_user_id nullable text, deliberately not a foreign key", () => {
+    // Null while provisioning (the owner user does not exist yet) and for pre-lifecycle rows the
+    // 0001 rebuild backfills; set in the same activation batch that inserts the owner user. No
+    // foreign key: user.firm_id already references firm.id, and the reverse edge would make the
+    // firm<->user pair circular — complicating every future rebuild of either table.
+    const ownerUserId = columnOf(firm, "owner_user_id");
+    expect(ownerUserId.notNull).toBe(false);
+    expect(ownerUserId.getSQLType()).toBe("text");
+    expect(getTableConfig(firm).foreignKeys).toHaveLength(0);
+  });
 });
 
 describe("control-plane schema: Better Auth-owned tables (better-auth 1.6.16 reference)", () => {
