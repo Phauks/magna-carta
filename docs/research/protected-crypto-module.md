@@ -26,13 +26,13 @@ Primary sources fetched and cross-checked: the Cloudflare Workers Web Crypto run
 
 All four primitive families ADR-0026 depends on are supported by `crypto.subtle` in the Workers runtime, with the operations we need:
 
-| Primitive | Operations confirmed | Use in `protected()` |
-| --------- | -------------------- | -------------------- |
-| **AES-GCM** | `generateKey`, `encrypt`, `decrypt` | payload encryption (the `pii`/`secrets` purpose keys) |
-| **AES-KW** | `wrapKey`, `unwrapKey` | wrap the per-firm key under the root KEK; wrap/unwrap the firm key on load |
-| **HKDF** | `deriveBits`, `deriveKey` | derive `pii`/`secrets`/`index` purpose keys from the firm key |
-| **HMAC** | `sign`, `verify`, `generateKey` | blind-index computation (sign, then truncate) |
-| **SHA-256/384/512** | digest | HKDF/HMAC hash, content addressing |
+| Primitive           | Operations confirmed                | Use in `protected()`                                                       |
+| ------------------- | ----------------------------------- | -------------------------------------------------------------------------- |
+| **AES-GCM**         | `generateKey`, `encrypt`, `decrypt` | payload encryption (the `pii`/`secrets` purpose keys)                      |
+| **AES-KW**          | `wrapKey`, `unwrapKey`              | wrap the per-firm key under the root KEK; wrap/unwrap the firm key on load |
+| **HKDF**            | `deriveBits`, `deriveKey`           | derive `pii`/`secrets`/`index` purpose keys from the firm key              |
+| **HMAC**            | `sign`, `verify`, `generateKey`     | blind-index computation (sign, then truncate)                              |
+| **SHA-256/384/512** | digest                              | HKDF/HMAC hash, content addressing                                         |
 
 Implementation notes that affect the design:
 
@@ -54,7 +54,7 @@ ADR-0026 mandates algorithm-versioning but does not specify the envelope. This i
 
 - **`algo_version`** — the PQC/crypto-agility discriminator ADR-0026 already requires. A later hybrid ML-KEM key-wrap or a cipher change is then a versioned rotation, not a schema change.
 - **`key_version`** — which generation of the firm key (and, separately, which `index` root key) produced this ciphertext. This is what makes rotation a dual-read migration instead of a flag day (§E). **Bake this in from day one even though rotation machinery is deferred** — it is a single byte now and a full-corpus rewrite to add later.
-- **Context binding via AES-GCM AAD — strongly indicated.** CipherSweet's threat model explicitly recommends *"use primary keys as authenticated data"* so a rogue or injected actor cannot shuffle ciphertexts between rows to correlate values. Pass AAD = a canonical encoding of `{ firm_id, table, field, row primary key, algo_version, key_version }` into `encrypt`/`decrypt`. Because our row primary keys are the `@magna-carta/identifiers` handles (stable, opaque, and already the public id), they are an ideal binding value. Effect: a ciphertext copied to another row/field/firm fails authentication on decrypt. This closes a cut-and-paste hole that at-rest D1 encryption does nothing about, and it is free at encrypt time. The design should decide the **canonical AAD serialization** (it must be byte-identical on write and read).
+- **Context binding via AES-GCM AAD — strongly indicated.** CipherSweet's threat model explicitly recommends _"use primary keys as authenticated data"_ so a rogue or injected actor cannot shuffle ciphertexts between rows to correlate values. Pass AAD = a canonical encoding of `{ firm_id, table, field, row primary key, algo_version, key_version }` into `encrypt`/`decrypt`. Because our row primary keys are the `@magna-carta/identifiers` handles (stable, opaque, and already the public id), they are an ideal binding value. Effect: a ciphertext copied to another row/field/firm fails authentication on decrypt. This closes a cut-and-paste hole that at-rest D1 encryption does nothing about, and it is free at encrypt time. The design should decide the **canonical AAD serialization** (it must be byte-identical on write and read).
 
 ---
 
@@ -64,7 +64,7 @@ CipherSweet's hierarchy is a close analogue of ADR-0026's and validates the shap
 
 - Root → per-firm key is ADR-0026's AES-KW wrap. Good.
 - Per-firm key → purpose keys via **HKDF with distinct `info` constants per purpose** (`pii`, `secrets`, `index`). CipherSweet uses HKDF with "carefully-chosen domain-separation constants" and even fixed byte tags (e.g. `0xb4`, `0x7e`) so a key derived for one context can never be repurposed for another. Our `info` strings should be explicit, versioned constants — e.g. `mc:v1:pii`, `mc:v1:secrets`, `mc:v1:index` — never reused across purposes.
-- **Per-field / per-index subkeys (the refinement).** CipherSweet does not blind-index every field with the same key; it derives a *distinct subkey per (table, field, index)* by HMAC-ing the packed `table‖field‖index` name under the index root key. We should mirror this: the `index` purpose key is a **root** for blind indexing, and each indexed field derives its own subkey from it (HKDF `info = mc:v1:index:<table>:<field>:<indexName>`). Why it matters: it means the blind index for `ssn` and the blind index for `account_number` cannot be cross-correlated, and it lets a future per-field reindex be scoped. This is a derivation-string decision — cheap now, structural later.
+- **Per-field / per-index subkeys (the refinement).** CipherSweet does not blind-index every field with the same key; it derives a _distinct subkey per (table, field, index)_ by HMAC-ing the packed `table‖field‖index` name under the index root key. We should mirror this: the `index` purpose key is a **root** for blind indexing, and each indexed field derives its own subkey from it (HKDF `info = mc:v1:index:<table>:<field>:<indexName>`). Why it matters: it means the blind index for `ssn` and the blind index for `account_number` cannot be cross-correlated, and it lets a future per-field reindex be scoped. This is a derivation-string decision — cheap now, structural later.
 
 ---
 
@@ -78,9 +78,9 @@ A blind index is `truncate( HMAC( normalize(plaintext), perFieldIndexKey ), L_bi
 
 ### D.2 Normalization before hashing is the whole game
 
-The HMAC is exact-match only, so **two values must be byte-identical after normalization to match**. The normalization transform is therefore a *correctness* decision for Conflicts, not a nicety:
+The HMAC is exact-match only, so **two values must be byte-identical after normalization to match**. The normalization transform is therefore a _correctness_ decision for Conflicts, not a nicety:
 
-- **SSN / financial IDs:** strip all formatting (dashes, spaces) to digits before hashing, so `123-45-6789` and `123456789` match. Optionally maintain a *second* blind index over **last-four only** (CipherSweet's `LastFourDigits` transform) to support the common "match on last four" workflow without exposing the full value — but see the entropy warning (D.4).
+- **SSN / financial IDs:** strip all formatting (dashes, spaces) to digits before hashing, so `123-45-6789` and `123456789` match. Optionally maintain a _second_ blind index over **last-four only** (CipherSweet's `LastFourDigits` transform) to support the common "match on last four" workflow without exposing the full value — but see the entropy warning (D.4).
 - **DOB:** normalize to a canonical `YYYY-MM-DD` before hashing.
 - **Driver's license:** uppercase + strip formatting; note these are state-namespaced, so the normalized form should include the issuing state (or it becomes a compound index, D.3) or collisions across states become false matches.
 - Unicode normalization (NFC) on any free-text-ish identifier so visually identical strings hash identically.
@@ -89,7 +89,7 @@ The design must specify a **transform per protected field**, and it must be froz
 
 ### D.3 Compound indexes hide low-entropy fields
 
-CipherSweet's strongest practical guidance: never blind-index a low-entropy field alone; combine it. A "first-initial + last-name" or "DOB + last-name" compound index leaks far less than either field's standalone index, because the observable equality class is the *combination*. Relevant here because several of our protected fields are low-entropy (next point).
+CipherSweet's strongest practical guidance: never blind-index a low-entropy field alone; combine it. A "first-initial + last-name" or "DOB + last-name" compound index leaks far less than either field's standalone index, because the observable equality class is the _combination_. Relevant here because several of our protected fields are low-entropy (next point).
 
 ### D.4 Entropy is the safety parameter — and DOB is the problem child
 
@@ -101,28 +101,28 @@ where `R` = encrypted records, `L_i` = index output bits, `K_i` = the field's in
 
 Estimated keyspaces for our protected set:
 
-| Field | Approx. entropy `K` | Standalone blind index? |
-| ----- | ------------------- | ----------------------- |
-| SSN (full, 9 digits) | ~27–30 bits | Yes — safe, tune `L` to keep `C` in range |
-| Financial / account numbers | high (varies) | Yes |
-| Driver's license | medium, state-dependent | Yes if state-namespaced |
-| SSN last-four | ~13 bits | **No** — too low alone; only as compound or accept the leak |
-| **DOB** | **~15 bits** (adult range) | **No** — fingerprintable; use compound (DOB+name) or do not blind-index |
+| Field                       | Approx. entropy `K`        | Standalone blind index?                                                 |
+| --------------------------- | -------------------------- | ----------------------------------------------------------------------- |
+| SSN (full, 9 digits)        | ~27–30 bits                | Yes — safe, tune `L` to keep `C` in range                               |
+| Financial / account numbers | high (varies)              | Yes                                                                     |
+| Driver's license            | medium, state-dependent    | Yes if state-namespaced                                                 |
+| SSN last-four               | ~13 bits                   | **No** — too low alone; only as compound or accept the leak             |
+| **DOB**                     | **~15 bits** (adult range) | **No** — fingerprintable; use compound (DOB+name) or do not blind-index |
 
-**Finding for the design:** treat the protected fields as two classes — *high-entropy identifiers get standalone blind indexes* (SSN, account numbers, DL), and *low-entropy attributes (DOB, last-four) are matched only via compound indexes or not blind-indexed at all* (Conflicts can decrypt-and-compare DOB on the small candidate set returned by a higher-entropy match, since decrypt is already a permitted, audited operation inside the engine). This keeps DOB out of the leak surface while preserving the matching workflow. Per-field `L_bits` should be derived from the `C`/`R` formula against the expected per-firm directory size, not picked by feel.
+**Finding for the design:** treat the protected fields as two classes — _high-entropy identifiers get standalone blind indexes_ (SSN, account numbers, DL), and _low-entropy attributes (DOB, last-four) are matched only via compound indexes or not blind-indexed at all_ (Conflicts can decrypt-and-compare DOB on the small candidate set returned by a higher-entropy match, since decrypt is already a permitted, audited operation inside the engine). This keeps DOB out of the leak surface while preserving the matching workflow. Per-field `L_bits` should be derived from the `C`/`R` formula against the expected per-firm directory size, not picked by feel.
 
 ### D.5 What a blind index leaks (accept knowingly)
 
-With DB-only access an attacker learns **equality** (same index value ⇒ probably same normalized plaintext, softened by truncation false-positives) and, across many rows, **distribution/frequency**. They do **not** learn plaintext, ordering, or substrings. The dangerous amplifier is *many distinct indexes on one field* or *indexes on binary/low-entropy fields* — both let frequency analysis converge. Mitigations to carry into the design: minimize index count per field, prefer compound indexes for low-entropy fields, and keep AAD/primary-key binding (§B) so rows cannot be shuffled to manufacture correlations.
+With DB-only access an attacker learns **equality** (same index value ⇒ probably same normalized plaintext, softened by truncation false-positives) and, across many rows, **distribution/frequency**. They do **not** learn plaintext, ordering, or substrings. The dangerous amplifier is _many distinct indexes on one field_ or _indexes on binary/low-entropy fields_ — both let frequency analysis converge. Mitigations to carry into the design: minimize index count per field, prefer compound indexes for low-entropy fields, and keep AAD/primary-key binding (§B) so rows cannot be shuffled to manufacture correlations.
 
 ### D.6 Hard limit — exact match only, and how Conflicts lives with it
 
 An HMAC blind index **cannot do fuzzy, phonetic, range, or prefix matching** — by design (it is a keyed hash). This cleanly partitions Conflicts matching, and the partition is worth stating explicitly for the Directory/Conflicts design:
 
-- **Encrypted identifiers (SSN, DL, account #):** exact match via blind index. This is the right semantic — you *want* an exact SSN hit, not a fuzzy one.
+- **Encrypted identifiers (SSN, DL, account #):** exact match via blind index. This is the right semantic — you _want_ an exact SSN hit, not a fuzzy one.
 - **Names and other non-encrypted fields:** these are **not** in the protected set (ADR-0026 deliberately leaves names in plaintext precisely so fuzzy/phonetic dedup and conflicts matching work). Fuzzy/phonetic/alias matching happens on plaintext columns, unaffected by `protected()`.
 
-So the blind index is *one input* to Conflicts (the exact-identifier channel), not the whole engine. The slice 1·3 Conflicts research should treat fuzzy-name matching as an entirely separate, plaintext mechanism.
+So the blind index is _one input_ to Conflicts (the exact-identifier channel), not the whole engine. The slice 1·3 Conflicts research should treat fuzzy-name matching as an entirely separate, plaintext mechanism.
 
 ---
 
@@ -133,7 +133,7 @@ ADR-0026 defers rotation machinery but says "only the seam is built now." Concre
 - **Crypto-shred** is free and immediate: destroy the firm's wrapped key in the control-plane registry and the entire AES-GCM corpus is unreadable. No machinery needed — just ensure no plaintext-cached copies and that purpose keys are only ever derived in-memory.
 - **Root-KEK rotation = rewrap only.** Unwrap each firm key under the old root, rewrap under the new root, update the registry. No field data is touched. Requires the registry row to carry a root-key-version. Cheap; can be built when first needed.
 - **Per-firm key rotation = re-encrypt the firm's small sensitive set.** Read (decrypt with old `key_version`), write (encrypt with new). The `key_version` byte in the envelope lets old and new coexist during the pass — dual-read by version. This is why the byte must exist from day one.
-- **Blind-index rotation is the expensive one and couples to plaintext.** Rotating the `index` root key (or changing a normalization transform) requires recomputing every affected blind index, which requires the plaintext, i.e. a full decrypt-then-reindex pass. Implications: (1) give blind-index storage its own `index_key_version` so a reindex can run online with dual-read; (2) treat normalization transforms as frozen contracts (D.2); (3) accept that index-key rotation is a deliberate maintenance job, not routine. Nothing to build now beyond the version column, but the design should *document* this cost so no one assumes blind-index rotation is as cheap as KEK rewrap.
+- **Blind-index rotation is the expensive one and couples to plaintext.** Rotating the `index` root key (or changing a normalization transform) requires recomputing every affected blind index, which requires the plaintext, i.e. a full decrypt-then-reindex pass. Implications: (1) give blind-index storage its own `index_key_version` so a reindex can run online with dual-read; (2) treat normalization transforms as frozen contracts (D.2); (3) accept that index-key rotation is a deliberate maintenance job, not routine. Nothing to build now beyond the version column, but the design should _document_ this cost so no one assumes blind-index rotation is as cheap as KEK rewrap.
 
 ---
 
@@ -141,13 +141,13 @@ ADR-0026 defers rotation machinery but says "only the seam is built now." Concre
 
 ADR-0026 leaves TOTP seeds as "encrypted via a Better Auth field hook into the same crypto module **or** accepted under Better Auth's at-rest handling." Research clarifies the trade and surfaces a structural tension:
 
-**What Better Auth does today.** The 2FA plugin stores the TOTP secret and backup codes in a dedicated `twoFactor` table (`secret`, `backupCodes`, `verified`), and **encrypts both at rest with the app-level auth secret** via its `symmetricEncrypt` path. Recent versions support an **`encryptionKeys` array** (an envelope format with key rotation — first entry encrypts, the rest decrypt legacy data; the singular `secret` is the legacy fallback). So Better Auth is *not* storing TOTP seeds in plaintext — it already does app-secret symmetric encryption with a rotation story. (Confidence medium on exact current internals; verify against the pinned Better Auth version at build time.)
+**What Better Auth does today.** The 2FA plugin stores the TOTP secret and backup codes in a dedicated `twoFactor` table (`secret`, `backupCodes`, `verified`), and **encrypts both at rest with the app-level auth secret** via its `symmetricEncrypt` path. Recent versions support an **`encryptionKeys` array** (an envelope format with key rotation — first entry encrypts, the rest decrypt legacy data; the singular `secret` is the legacy fallback). So Better Auth is _not_ storing TOTP seeds in plaintext — it already does app-secret symmetric encryption with a rotation story. (Confidence medium on exact current internals; verify against the pinned Better Auth version at build time.)
 
 **The structural tension.** The `protected()` chokepoint lives in the **per-firm data-access layer** and is keyed by the **per-firm** key (enabling per-firm crypto-shred + audit). But TOTP seeds live in **control-plane** Better Auth tables, keyed to a **user**, not a firm. Routing them through `protected()` would mean either (a) reaching the per-firm key from a control-plane auth path (a layering inversion — auth runs before/around firm scoping), or (b) building a parallel control-plane crypto path. Neither is free, and the payoff is thin: TOTP seeds are not firm-confidential data in the way SSNs are, and per-firm crypto-shred of an auth secret is not obviously meaningful (the user, not the firm, owns the 2FA enrolment).
 
 **Options for the design cycle (recommendation, not decision — auth/crypto is Fable's call):**
 
-1. **Accept Better Auth's at-rest encryption** (app-secret + `encryptionKeys` rotation). Lowest complexity; keeps the auth boundary clean; the seed is already enveloped and rotatable. Cost: the seed is protected by the *app* secret (a Worker secret, same trust tier as the root KEK), not a per-firm key, and not under our audit/role chokepoint. **This looks like the right default** given the layering, provided the app secret is a managed Worker secret distinct from other secrets and the `encryptionKeys` rotation array is configured.
+1. **Accept Better Auth's at-rest encryption** (app-secret + `encryptionKeys` rotation). Lowest complexity; keeps the auth boundary clean; the seed is already enveloped and rotatable. Cost: the seed is protected by the _app_ secret (a Worker secret, same trust tier as the root KEK), not a per-firm key, and not under our audit/role chokepoint. **This looks like the right default** given the layering, provided the app secret is a managed Worker secret distinct from other secrets and the `encryptionKeys` rotation array is configured.
 2. **Better Auth database hook → `protected()`-style encryption** under a dedicated control-plane purpose key (not the per-firm key). Keeps a single crypto module and audit trail, avoids the per-firm layering inversion. Medium complexity; the realistic "route through our module" interpretation of ADR-0026.
 3. Per-firm `protected()` — **rejected on layering grounds** above.
 
