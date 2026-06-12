@@ -48,10 +48,10 @@ type MemberEnv = {
 };
 
 // `x-mc-idempotency: required` realized at the HTTP boundary: no Idempotency-Key → a 400 problem
-// before anything else runs. The data-access middleware behind it would also 400, but with its
-// generic JSON shape — the worker's surface answers RFC 9457 problems, so the requirement is
-// enforced here and the middleware only ever sees keyed requests. Runs AFTER the authorization
-// middleware: even the key requirement is not discoverable pre-auth.
+// before the idempotency pre-decision runs. The data-access middleware behind it would also 400,
+// but with its generic JSON shape — the worker's surface answers RFC 9457 problems, so the
+// requirement is enforced here and the middleware only ever sees keyed requests. Runs AFTER the
+// authorization middleware: even the key requirement is not discoverable pre-auth.
 const requireIdempotencyKey: MiddlewareHandler<MemberEnv> = async (c, next) => {
   const key = c.req.header("Idempotency-Key");
   if (key === undefined || key === "") {
@@ -86,7 +86,7 @@ const firmScopedControlPlaneIdempotency: MiddlewareHandler<MemberEnv> = (c, next
   const middleware = idempotencyMiddleware({
     requirement: "required",
     database: c.env.DB_CONTROL,
-    deriveStoredKey: (_context, clientKey) => {
+    deriveStoredKey: (clientKey) => {
       const sessionContext = c.get("sessionContext");
       if (sessionContext === undefined) {
         // Mis-ordered middleware is a security regression, not a recoverable state — fail loud.
@@ -224,6 +224,13 @@ export function registerMembersRoute(
     const email = request.email.trim().toLowerCase();
     const displayName = request.name;
     const idempotency = c.get("idempotency");
+    if (idempotency === undefined) {
+      // This route declares idempotency REQUIRED: a missing context means the idempotency
+      // middleware was dropped from the chain — failing loud beats silently losing idempotency.
+      throw new Error(
+        "idempotency context missing — firmScopedControlPlaneIdempotency did not run on a required-idempotency route",
+      );
+    }
 
     let result;
     try {
@@ -231,8 +238,8 @@ export function registerMembersRoute(
         database: c.env.DB_CONTROL,
         // Already firm-scoped: IdempotencyContext.key is the middleware's DERIVED stored key, so
         // this commit targets the exact row the pre-decision read.
-        key: idempotency?.key,
-        fingerprint: idempotency?.fingerprint ?? "",
+        key: idempotency.key,
+        fingerprint: idempotency.fingerprint,
         // Speculative effect (ADR-0063/0064): statements + outbox rows described here commit in
         // ONE control-plane batch with the idempotency record — or roll back together.
         effect: () => {
@@ -338,9 +345,12 @@ export function registerMembersRoute(
     }
     // Both arms answer the stored response: 201 by construction (this route's effect stores
     // nothing else, and the fingerprint pins replays to this method + path + body).
-    const responseBody = JSON.parse(result.responseBody ?? "null") as z.infer<
-      typeof InviteMemberResponse
-    >;
+    if (result.responseBody === null) {
+      // Impossible by construction — the effect above always stores a response body, and a replay
+      // returns what was stored. Answering a fabricated body would mask the corruption.
+      throw new Error("idempotent effect returned no stored response body on a 201-storing route");
+    }
+    const responseBody = JSON.parse(result.responseBody) as z.infer<typeof InviteMemberResponse>;
     return c.json(responseBody, 201);
   });
 }

@@ -197,7 +197,7 @@ describe("idempotencyMiddleware", () => {
         database: stub.database as never,
         // The control-plane convention: tenant scope from server-side context, prefixed onto the
         // client's key. Here a fixed firm stands in for the resolved session's firm.
-        deriveStoredKey: (_context, clientKey) => `firm_a:${clientKey}`,
+        deriveStoredKey: (clientKey) => `firm_a:${clientKey}`,
       }),
       (context) => {
         seen = context.get("idempotency");

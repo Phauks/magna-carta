@@ -324,25 +324,38 @@ describe("POST /api/v1/members", () => {
     const seeded = await postMembers(requestBody, { cookie: sessionCookie, idempotencyKey });
     expect(seeded.status).toBe(201);
 
-    const attempts = [
+    // The control: an unknown key — every unauthenticated answer must be FIELD-IDENTICAL to it.
+    const control = await postMembers(requestBody, { idempotencyKey: crypto.randomUUID() });
+    expect(control.status).toBe(401);
+    expect(control.headers.get("Idempotency-Replayed")).toBeNull();
+    expect(control.headers.get("content-type")).toContain("application/problem+json");
+    const controlBody = (await control.json()) as Record<string, unknown>;
+    expect(controlBody).toMatchObject({
+      type: "https://api.magnacarta.esq/problems/unauthenticated",
+      status: 401,
+    });
+    expect(controlBody["errorId"]).toMatch(/^err_/);
+
+    const probes = [
       // The leaked-key replay: exact key + exact body must NOT answer the stored 201 (which
       // carries the invited usr_ id).
       await postMembers(requestBody, { idempotencyKey }),
       // The existence oracle: exact key + different body must NOT answer the 422
       // fingerprint-mismatch that distinguishes a live key from a dead one.
       await postMembers({ email: "oracle-probe@example.com", name: "Probe" }, { idempotencyKey }),
-      // The control: an unknown key — every unauthenticated answer must match this one.
-      await postMembers(requestBody, { idempotencyKey: crypto.randomUUID() }),
     ];
-    for (const attempt of attempts) {
-      expect(attempt.status).toBe(401);
-      expect(attempt.headers.get("Idempotency-Replayed")).toBeNull();
-      expect(attempt.headers.get("content-type")).toContain("application/problem+json");
-      const body = (await attempt.json()) as Record<string, unknown>;
-      expect(body).toMatchObject({
-        type: "https://api.magnacarta.esq/problems/unauthenticated",
-        status: 401,
-      });
+    // Field-complete comparison: status, content-type, no replay header, and the FULL body —
+    // only the per-response errorId is removed before the deep-equal. Any divergent field
+    // (title, detail, instance, an extra key, …) is an oracle distinguishing live keys from dead.
+    delete controlBody["errorId"];
+    for (const probe of probes) {
+      expect(probe.status).toBe(control.status);
+      expect(probe.headers.get("content-type")).toBe(control.headers.get("content-type"));
+      expect(probe.headers.get("Idempotency-Replayed")).toBeNull();
+      const probeBody = (await probe.json()) as Record<string, unknown>;
+      expect(probeBody["errorId"]).toMatch(/^err_/);
+      delete probeBody["errorId"];
+      expect(probeBody).toEqual(controlBody);
     }
   });
 
@@ -357,7 +370,23 @@ describe("POST /api/v1/members", () => {
     await seedCredentialedUser("mismatch-powerless@example.com", { firmId: poolFirmId });
     const powerlessCookie = await signInForSessionCookie("mismatch-powerless@example.com");
 
-    const attempts = [
+    // The control: the powerless session with an UNKNOWN key — every record-state probe must be
+    // FIELD-IDENTICAL to it.
+    const control = await postMembers(requestBody, {
+      cookie: powerlessCookie,
+      idempotencyKey: crypto.randomUUID(),
+    });
+    expect(control.status).toBe(403);
+    expect(control.headers.get("Idempotency-Replayed")).toBeNull();
+    expect(control.headers.get("content-type")).toContain("application/problem+json");
+    const controlBody = (await control.json()) as Record<string, unknown>;
+    expect(controlBody).toMatchObject({
+      type: "https://api.magnacarta.esq/problems/forbidden",
+      status: 403,
+    });
+    expect(controlBody["errorId"]).toMatch(/^err_/);
+
+    const probes = [
       // Exact key + exact body: no replay of the stored 201.
       await postMembers(requestBody, { cookie: powerlessCookie, idempotencyKey }),
       // Exact key + different body: 403, never the 422 fingerprint-mismatch leak that would
@@ -367,15 +396,17 @@ describe("POST /api/v1/members", () => {
         { cookie: powerlessCookie, idempotencyKey },
       ),
     ];
-    for (const attempt of attempts) {
-      expect(attempt.status).toBe(403);
-      expect(attempt.headers.get("Idempotency-Replayed")).toBeNull();
-      expect(attempt.headers.get("content-type")).toContain("application/problem+json");
-      const body = (await attempt.json()) as Record<string, unknown>;
-      expect(body).toMatchObject({
-        type: "https://api.magnacarta.esq/problems/forbidden",
-        status: 403,
-      });
+    // Field-complete comparison against the unknown-key control — see the unauthenticated oracle
+    // test above for the rationale; only the per-response errorId is removed before the deep-equal.
+    delete controlBody["errorId"];
+    for (const probe of probes) {
+      expect(probe.status).toBe(control.status);
+      expect(probe.headers.get("content-type")).toBe(control.headers.get("content-type"));
+      expect(probe.headers.get("Idempotency-Replayed")).toBeNull();
+      const probeBody = (await probe.json()) as Record<string, unknown>;
+      expect(probeBody["errorId"]).toMatch(/^err_/);
+      delete probeBody["errorId"];
+      expect(probeBody).toEqual(controlBody);
     }
   });
 

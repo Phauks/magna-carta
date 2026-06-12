@@ -1,4 +1,3 @@
-import type { Context } from "hono";
 import { createMiddleware } from "hono/factory";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { fingerprintRequest } from "./canonical.ts";
@@ -52,11 +51,12 @@ export function idempotencyMiddleware(options: {
   // `${firmId}:${clientKey}`, with the firm taken from AUTHENTICATED context (never client input),
   // so one tenant's key can never replay or poison another tenant's record. That presumes ordering:
   // the route's auth middleware must run BEFORE this one so the derivation can read the resolved
-  // session. The derived key is server-internal — clients only ever see their own header, and the
-  // replay semantics (Idempotency-Replayed: true) are unchanged. It is exposed as
-  // IdempotencyContext.key so the handler's runIdempotentEffect commits the same row this
-  // pre-decision read.
-  deriveStoredKey?: (context: Context, clientKey: string) => string;
+  // session — every realistic consumer is a per-request closure that already holds its own request
+  // context, which is why the hook receives only the client key. The derived key is
+  // server-internal — clients only ever see their own header, and the replay semantics
+  // (Idempotency-Replayed: true) are unchanged. It is exposed as IdempotencyContext.key so the
+  // handler's runIdempotentEffect commits the same row this pre-decision read.
+  deriveStoredKey?: (clientKey: string) => string;
 }) {
   return createMiddleware<{ Variables: { idempotency?: IdempotencyContext } }>(
     async (context, next) => {
@@ -69,9 +69,7 @@ export function idempotencyMiddleware(options: {
         return;
       }
       const key =
-        options.deriveStoredKey === undefined
-          ? clientKey
-          : options.deriveStoredKey(context, clientKey);
+        options.deriveStoredKey === undefined ? clientKey : options.deriveStoredKey(clientKey);
 
       // Read via HonoRequest so hono caches the body for the handler's own req.json() call.
       // Downstream handlers must also read through HonoRequest methods, never context.req.raw —
