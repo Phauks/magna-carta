@@ -1,0 +1,180 @@
+// Slice 0·5: the RFC 9457 problem module and the problem-type URI registry (design spec, error model).
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { describe, expect, it } from "vitest";
+import { Problem, defaultHook, problemJson } from "../../src/contracts/problem";
+import { PROBLEM_TYPES, problemType } from "../../src/contracts/problem-types";
+
+describe("problem-type URI registry", () => {
+  it("expands a key to its full type URI", () => {
+    expect(problemType("validation")).toBe("https://api.magnacarta.esq/problems/validation");
+    expect(problemType("idempotency-key-conflict")).toBe(
+      "https://api.magnacarta.esq/problems/idempotency-key-conflict",
+    );
+  });
+
+  it("registers the slice 0·5 problem types", () => {
+    expect(Object.keys(PROBLEM_TYPES).sort()).toEqual(
+      [
+        "validation",
+        "unauthenticated",
+        "permission-denied",
+        "not-found",
+        "idempotency-key-missing",
+        "idempotency-key-conflict",
+        "idempotency-fingerprint-mismatch",
+        "rate-limited",
+      ].sort(),
+    );
+  });
+});
+
+describe("Problem schema", () => {
+  it("accepts the full RFC 9457 shape including errorId and errors[]", () => {
+    const parsed = Problem.safeParse({
+      type: "https://api.magnacarta.esq/problems/validation",
+      title: "Validation failed",
+      status: 422,
+      detail: "One or more fields failed validation.",
+      errorId: "err_8Kf3pQ2v",
+      instance: "/api/v1/matters",
+      errors: [{ path: "title", code: "too_small", detail: "Too small" }],
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("accepts the minimal shape (detail, instance, errors optional)", () => {
+    const parsed = Problem.safeParse({
+      type: "https://api.magnacarta.esq/problems/not-found",
+      title: "Not found",
+      status: 404,
+      errorId: "err_8Kf3pQ2v",
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects a problem without an errorId (observability extension is mandatory)", () => {
+    const parsed = Problem.safeParse({
+      type: "https://api.magnacarta.esq/problems/not-found",
+      title: "Not found",
+      status: 404,
+    });
+    expect(parsed.success).toBe(false);
+  });
+});
+
+describe("problemJson", () => {
+  function appWithNotFoundRoute() {
+    const app = new OpenAPIHono();
+    app.get("/api/v1/matters/:matterId", (c) =>
+      problemJson(c, {
+        type: "not-found",
+        status: 404,
+        title: "Matter not found",
+        detail: "No such matter in this firm.",
+      }),
+    );
+    return app;
+  }
+
+  it("replies with application/problem+json and the registry type URI", async () => {
+    const response = await appWithNotFoundRoute().request("/api/v1/matters/mat_unknown00");
+    expect(response.status).toBe(404);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body.type).toBe("https://api.magnacarta.esq/problems/not-found");
+    expect(body.title).toBe("Matter not found");
+    expect(body.status).toBe(404);
+    expect(body.detail).toBe("No such matter in this firm.");
+  });
+
+  it("generates a fresh err_-prefixed errorId per reply", async () => {
+    const app = appWithNotFoundRoute();
+    const first = (await (await app.request("/api/v1/matters/mat_a")).json()) as Record<
+      string,
+      unknown
+    >;
+    const second = (await (await app.request("/api/v1/matters/mat_b")).json()) as Record<
+      string,
+      unknown
+    >;
+    expect(first.errorId).toMatch(/^err_[A-Za-z0-9_-]{21}$/);
+    expect(second.errorId).toMatch(/^err_[A-Za-z0-9_-]{21}$/);
+    expect(first.errorId).not.toBe(second.errorId);
+  });
+
+  it("includes instance from the request path", async () => {
+    const response = await appWithNotFoundRoute().request("/api/v1/matters/mat_unknown00");
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body.instance).toBe("/api/v1/matters/mat_unknown00");
+  });
+
+  it("emitted problems conform to the Problem schema", async () => {
+    const response = await appWithNotFoundRoute().request("/api/v1/matters/mat_unknown00");
+    expect(Problem.safeParse(await response.json()).success).toBe(true);
+  });
+});
+
+describe("defaultHook", () => {
+  function appWithValidatedRoute() {
+    const app = new OpenAPIHono({ defaultHook });
+    const createMatterRoute = createRoute({
+      method: "post",
+      path: "/api/v1/matters",
+      request: {
+        body: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: z.object({ title: z.string().min(1), openedAt: z.iso.datetime() }),
+            },
+          },
+        },
+      },
+      responses: {
+        201: {
+          description: "Created",
+          content: { "application/json": { schema: z.object({ title: z.string() }) } },
+        },
+        422: {
+          description: "Validation failure",
+          content: { "application/problem+json": { schema: Problem } },
+        },
+      },
+    });
+    app.openapi(createMatterRoute, (c) => c.json({ title: c.req.valid("json").title }, 201));
+    return app;
+  }
+
+  it("maps a zod validation failure to the 422 problem shape with field-level errors[]", async () => {
+    const response = await appWithValidatedRoute().request("/api/v1/matters", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "", openedAt: "not-a-datetime" }),
+    });
+    expect(response.status).toBe(422);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+    const body = (await response.json()) as Record<string, any>;
+    expect(body.type).toBe("https://api.magnacarta.esq/problems/validation");
+    expect(body.title).toBe("Validation failed");
+    expect(body.status).toBe(422);
+    expect(body.errorId).toMatch(/^err_[A-Za-z0-9_-]{21}$/);
+    expect(body.instance).toBe("/api/v1/matters");
+    const paths = body.errors.map((error: { path: string }) => error.path);
+    expect(paths).toContain("title");
+    expect(paths).toContain("openedAt");
+    for (const fieldError of body.errors) {
+      expect(typeof fieldError.code).toBe("string");
+      expect(typeof fieldError.detail).toBe("string");
+    }
+    expect(Problem.safeParse(body).success).toBe(true);
+  });
+
+  it("does not interfere with a valid request", async () => {
+    const response = await appWithValidatedRoute().request("/api/v1/matters", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "Smith v. Jones", openedAt: "2026-06-12T00:00:00Z" }),
+    });
+    expect(response.status).toBe(201);
+  });
+});
