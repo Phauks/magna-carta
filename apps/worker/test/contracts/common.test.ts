@@ -51,6 +51,20 @@ describe("idempotencyKeyHeader", () => {
   it("rejects an empty header value", () => {
     expect(idempotencyKeyHeader.safeParse({ "idempotency-key": "" }).success).toBe(false);
   });
+
+  it("emits as a header parameter with required: false (the schema-layer truth; defineOpenAPIRoute flips it to true on idempotency-required routes — Task 4)", () => {
+    const document = appWithHeaderRoute().getOpenAPI31Document({
+      openapi: "3.1.0",
+      info: { title: "test", version: "0.0.0" },
+    }) as Record<string, any>;
+    const parameters = document.paths["/api/v1/echo"].post.parameters;
+    const headerParameter = parameters.find(
+      (parameter: { name: string }) => parameter.name === "idempotency-key",
+    );
+    expect(headerParameter).toBeDefined();
+    expect(headerParameter.in).toBe("header");
+    expect(headerParameter.required).toBe(false);
+  });
 });
 
 describe("identifierPathParam", () => {
@@ -107,6 +121,23 @@ describe("identifierPathParam", () => {
     expect(body.type).toBe("https://api.magnacarta.esq/problems/validation");
     const paths = body.errors.map((error: { path: string }) => error.path);
     expect(paths).toContain("matterId");
+  });
+
+  it("fails loud at document-emission time when the schema-level param name and the binding key mismatch (zod-to-openapi ConflictError)", () => {
+    const app = new OpenAPIHono();
+    const mismatchedRoute = createRoute({
+      method: "get",
+      path: "/api/v1/matters/{matterIdentifier}",
+      request: {
+        // Binding key `matterIdentifier` disagrees with the schema-level name `matterId`.
+        params: z.object({ matterIdentifier: identifierPathParam("matter", "matterId") }),
+      },
+      responses: { 200: { description: "Never emitted — the document throws first" } },
+    });
+    app.openapi(mismatchedRoute, (c) => c.body(null, 200));
+    expect(() =>
+      app.getOpenAPI31Document({ openapi: "3.1.0", info: { title: "test", version: "0.0.0" } }),
+    ).toThrowError(/[Cc]onflict/);
   });
 
   it("emits the path parameter into the OpenAPI document with the handle pattern", () => {

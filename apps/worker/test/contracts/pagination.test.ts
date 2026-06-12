@@ -76,4 +76,33 @@ describe("cursorQuery", () => {
   it("exposes only the cursor key — never offset or page (design spec, pagination)", () => {
     expect(Object.keys(cursorQuery.shape)).toEqual(["cursor"]);
   });
+
+  it("emits as an optional query parameter (name cursor, in query, required false)", () => {
+    const app = new OpenAPIHono();
+    const listWidgetsRoute = createRoute({
+      method: "get",
+      path: "/api/v1/widgets",
+      request: { query: cursorQuery },
+      responses: {
+        200: {
+          description: "Widgets page",
+          content: {
+            "application/json": { schema: paginated(Widget) },
+          },
+        },
+      },
+    });
+    app.openapi(listWidgetsRoute, (c) => c.json({ data: [], nextCursor: null }, 200));
+    const document = app.getOpenAPI31Document({
+      openapi: "3.1.0",
+      info: { title: "test", version: "0.0.0" },
+    }) as Record<string, any>;
+    const parameters = document.paths["/api/v1/widgets"].get.parameters;
+    const cursorParameter = parameters.find(
+      (parameter: { name: string }) => parameter.name === "cursor",
+    );
+    expect(cursorParameter).toBeDefined();
+    expect(cursorParameter.in).toBe("query");
+    expect(cursorParameter.required).toBe(false);
+  });
 });

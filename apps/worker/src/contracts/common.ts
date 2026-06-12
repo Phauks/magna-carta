@@ -21,7 +21,10 @@ export const idempotencyKeyHeader = z.object({
 // the parsed value as the entity's branded identifier. The brand is compile-time only — the
 // runtime schema is a plain pattern-checked string, which the spike proved emits cleanly.
 // `name` must match the key the caller binds in the params object:
-// `z.object({ matterId: identifierPathParam("matter", "matterId") })`.
+// `z.object({ matterId: identifierPathParam("matter", "matterId") })`. A mismatch between the
+// schema-level `param.name` and the binding object key fails loud with a ConflictError at
+// document-emission time (zod-to-openapi behavior, pinned in common.test.ts) — never a silently
+// wrong document.
 export function identifierPathParam<T extends EntityType>(
   type: T,
   name: string,
