@@ -141,7 +141,7 @@ Port the spike's sweep pattern to the real document — the full §3.5 set: ever
 
 ### Task 11: Generated client (`packages/api-client`)
 
-- [ ] `openapi-ts.config.mjs` (plain object — spike finding): input `../../apps/worker/openapi/openapi.json`, output `./src`, plugins `["@tanstack/svelte-query"]`. Root script `"generate-client": "pnpm --filter @magna-carta/api-client exec openapi-ts"`. Generate; commit the `.gen.ts` output.
+- [ ] `openapi-ts.config.mjs` (plain object — spike finding): input `../../apps/worker/openapi/openapi.json`, output `./src`, plugins `["@tanstack/svelte-query"]`. Root script `"generate-client": "pnpm --filter @magna-carta/api-client exec openapi-ts"`. Generate; commit the `.gen.ts` output. (Task 1 review notes: set `exportFromIndex: true` so the svelte-query factories are reachable through the package's single `"."` export — the plugin otherwise emits them outside the index barrel; and move `@tanstack/svelte-query` from devDependencies to dependencies once generated code imports it at runtime. The `openapi-ts` CLI resolves from `apps/worker` devDependencies while the config lives here — wire the generation command across that split deliberately.)
 - [ ] Compile-check test: a `.test-d`/compile file instantiates one query-options call (`meGetOptions()` style — name per generated output) and `tsc` passes via `vp check`; this is the spec §9 "generated client compiles" gate (the `tsc`-stays-flat guarantee is structural — no `hc`, ADR-0066).
 - [ ] Commit `feat(api-client): committed Hey API + Svelte Query client generated from the snapshot`.
 
