@@ -12,3 +12,7 @@ coverage/
 docs/research/trust-rules/_tmp_*
 # tooling artifacts
 .superpowers/
+# Session worktrees: foreign duplicate checkouts that validate themselves in their own session.
+# Ignoring them keeps gitignore-respecting walkers (oxlint/oxfmt/tsgolint via vp check) out of
+# their mid-build states, which used to fail the main tree's quality gate.
+.claude/worktrees/
