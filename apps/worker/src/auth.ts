@@ -2,9 +2,11 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { twoFactor } from "better-auth/plugins";
 import { drizzle } from "drizzle-orm/d1";
+import { insertAuthAuditStatement } from "@magna-carta/data-access/auth-audit-statements";
 import * as controlPlaneSchema from "@magna-carta/database/control-plane-schema";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { EntityType } from "@magna-carta/identifiers/registry";
+import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type { Bindings } from "./app.ts";
 import type { SendEmail } from "./email-port.ts";
 
@@ -20,11 +22,41 @@ const ENTITY_TYPE_BY_MODEL: Partial<Record<string, EntityType>> = {
   twoFactor: "twoFactor",
 };
 
+// Auth audit writes are observability, not gates (ADR-0038): the INSERT failing must never break
+// the auth flow it describes — Better Auth runs databaseHooks unguarded, so a throw here would
+// surface as a 500 on the auth route. Failures are logged (event name + message only; metadata is
+// ids-only by contract and never echoed) and swallowed.
+async function writeAuthAuditGuarded(
+  env: Bindings,
+  input: { event: string; userId: string | null; metadata?: unknown },
+): Promise<void> {
+  try {
+    await insertAuthAuditStatement(env.DB_CONTROL, {
+      id: newIdentifier("authAudit"),
+      event: input.event,
+      userId: input.userId === null ? null : assertIdentifier(input.userId, "user"),
+      metadata: input.metadata ?? null,
+      now: new Date().toISOString(),
+    }).run();
+  } catch (caught) {
+    const message = caught instanceof Error ? caught.message : String(caught);
+    console.error(`auth_audit write failed: event=${input.event} error=${message}`);
+  }
+}
+
 // The ONE home for the Better Auth integration shape (slice 0·4 design spec). app.ts caches one
 // instance per worker env; tests construct directly against the Miniflare control-plane D1.
 // Routes mount at Better Auth's default basePath, /api/auth.
 export function createAuth(env: Bindings, sendEmail: SendEmail) {
   const database = drizzle(env.DB_CONTROL, { schema: controlPlaneSchema });
+  // Pairs user.update.before (which sees the PATCH) with user.update.after (which sees only the
+  // updated row) so the two_factor audit is TRANSITION-exact: the pinned 1.6.16 flips
+  // user.twoFactorEnabled through internalAdapter.updateUser (no dedicated plugin hook exists),
+  // and auditing on the after-state alone would fire false two_factor.enabled events on every
+  // unrelated update of an enrolled user (e.g. the verify-email flip). Better Auth passes the
+  // SAME endpoint-context object to both halves of one update, so it keys the pairing; a null
+  // context (an update outside an endpoint) skips the audit rather than guessing.
+  const twoFactorPatchByHookContext = new WeakMap<object, boolean>();
   return betterAuth({
     secret: env.AUTH_SECRET,
     // transaction: false — D1 has no interactive transactions (BEGIN is rejected), so the
@@ -54,6 +86,9 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
         )
           .bind(user.id, Date.now())
           .run();
+        // password.reset audit (decided #10): 1.6.16 exposes no password-reset databaseHook, so
+        // this server hook — which receives the user post-reset — is the natural home.
+        await writeAuthAuditGuarded(env, { event: "password.reset", userId: user.id });
       },
     },
     emailVerification: {
@@ -81,8 +116,42 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
         },
       },
     },
-    // databaseHooks is deliberately absent: the session.create.after audit write (login.success)
-    // is wired in Task 13 alongside the auth_audit statement builder.
+    databaseHooks: {
+      session: {
+        create: {
+          // login.success approximates session establishment: it fires on credential sign-in and
+          // on the 2FA verify-totp completion — and ALSO on the session rotation Better Auth
+          // performs when 2FA is enabled mid-session (pinned 1.6.16 behavior). Accepted: the
+          // rotation is a fresh proof of the same principal's session, and 1.6.16 exposes no way
+          // to distinguish it inside this hook (decided #10).
+          after: async (session) => {
+            await writeAuthAuditGuarded(env, { event: "login.success", userId: session.userId });
+          },
+        },
+      },
+      user: {
+        update: {
+          // The transition detector — see twoFactorPatchByHookContext above.
+          before: (user, hookContext) => {
+            const patchValue = user["twoFactorEnabled"];
+            if (hookContext !== null && typeof patchValue === "boolean") {
+              twoFactorPatchByHookContext.set(hookContext, patchValue);
+            }
+            return Promise.resolve();
+          },
+          after: async (user, hookContext) => {
+            if (hookContext === null) return;
+            const enabled = twoFactorPatchByHookContext.get(hookContext);
+            if (enabled === undefined) return;
+            twoFactorPatchByHookContext.delete(hookContext);
+            await writeAuthAuditGuarded(env, {
+              event: enabled ? "two_factor.enabled" : "two_factor.disabled",
+              userId: user.id,
+            });
+          },
+        },
+      },
+    },
     plugins: [twoFactor()],
   });
 }

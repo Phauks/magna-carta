@@ -54,4 +54,9 @@
   "queues": {
     "producers": [{ "binding": "QUEUE", "queue": "magna-carta-production-platform-jobs" }],
   },
+  // The scheduled sweep (src/scheduled.ts): outbox relay over the control-plane + per-firm
+  // lineages and the idempotency TTL purge, every 5 minutes (closes the slice 0·2 deferral).
+  "triggers": {
+    "crons": ["*/5 * * * *"],
+  },
 }
