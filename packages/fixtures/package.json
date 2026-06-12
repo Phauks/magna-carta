@@ -19,6 +19,7 @@
     "./load-profile/ledger-measurements": "./src/load-profile/ledger-measurements.ts"
   },
   "scripts": {
+    "measure": "node --experimental-transform-types src/load-profile/measure-cli.ts",
     "test": "vp test run"
   },
   "dependencies": {
