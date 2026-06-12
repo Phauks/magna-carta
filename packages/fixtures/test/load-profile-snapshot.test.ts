@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -89,9 +89,15 @@ describe("load-profile snapshots", () => {
     const cacheDirectory = newCacheDirectory();
     const options = { allowSeeding: true as const, cacheDirectory };
     const first = track(await loadProfileSnapshot(TINY, "copy-seed", options));
+    const artifactPath = join(cacheDirectory, `${first.cacheKey}.sqlite`);
+    const artifactBefore = statSync(artifactPath);
     // Mutate the working copy directly (sanctioned: deliberate corruption in tests).
     first.raw.prepare("DELETE FROM outbox").run();
     first.close();
+    // Physical proof the cached artifact was untouched, not just that the replay looks intact.
+    const artifactAfter = statSync(artifactPath);
+    expect(artifactAfter.size).toBe(artifactBefore.size);
+    expect(artifactAfter.mtimeMs).toBe(artifactBefore.mtimeMs);
     const second = track(await loadProfileSnapshot(TINY, "copy-seed", options));
     const { results } = await second.database
       .prepare("SELECT COUNT(*) AS n FROM outbox")

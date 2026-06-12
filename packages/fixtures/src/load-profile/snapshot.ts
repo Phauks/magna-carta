@@ -5,6 +5,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -58,7 +59,18 @@ const DEFAULT_CACHE_DIRECTORY = join(
 );
 
 export function snapshotCacheKey(profile: LedgerVolumeProfile, seed: string): string {
-  const schemaTags = loadMigrationsFromDisk("per-firm").map((migration) => migration.tag);
+  return snapshotCacheKeyFromTags(profile, seed, loadCurrentSchemaTags());
+}
+
+function loadCurrentSchemaTags(): readonly string[] {
+  return loadMigrationsFromDisk("per-firm").map((migration) => migration.tag);
+}
+
+function snapshotCacheKeyFromTags(
+  profile: LedgerVolumeProfile,
+  seed: string,
+  schemaTags: readonly string[],
+): string {
   const identity = canonicalJsonStringify({
     generatorVersion: GENERATOR_VERSION,
     profile,
@@ -79,7 +91,9 @@ export async function loadProfileSnapshot(
   assertSeedingAllowed(options);
   const cacheDirectory = options.cacheDirectory ?? DEFAULT_CACHE_DIRECTORY;
   mkdirSync(cacheDirectory, { recursive: true });
-  const cacheKey = snapshotCacheKey(profile, seed);
+  // One schema-tag read feeds both the cache key and the manifest — the two can never disagree.
+  const schemaTags = loadCurrentSchemaTags();
+  const cacheKey = snapshotCacheKeyFromTags(profile, seed, schemaTags);
   const artifactPath = join(cacheDirectory, `${cacheKey}.sqlite`);
   const manifestPath = join(cacheDirectory, `${cacheKey}.json`);
 
@@ -96,7 +110,7 @@ export async function loadProfileSnapshot(
       const manifest: SnapshotManifest = {
         profile,
         seed,
-        schemaTags: loadMigrationsFromDisk("per-firm").map((migration) => migration.tag),
+        schemaTags,
         generatorVersion: GENERATOR_VERSION,
         entryCount: result.entryCount,
         probes: result.probes,
@@ -110,11 +124,20 @@ export async function loadProfileSnapshot(
     }
   }
 
+  // The manifest is trusted, not verified, against the artifact: both files are written by the
+  // same generation run under the same content key, so a key match implies a matching pair.
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as SnapshotManifest;
   const workingDirectory = mkdtempSync(join(tmpdir(), "mc-load-profile-"));
   const workingPath = join(workingDirectory, "working.sqlite");
-  copyFileSync(artifactPath, workingPath);
-  const opened = openNodeDatabaseFile(workingPath);
+  let opened: MigratedNodeDatabase;
+  try {
+    copyFileSync(artifactPath, workingPath);
+    opened = openNodeDatabaseFile(workingPath);
+  } catch (error) {
+    // Opening can fail (for example a corrupt artifact) — do not leak the working directory.
+    rmSync(workingDirectory, { recursive: true, force: true });
+    throw error;
+  }
   let closed = false;
   return {
     ...opened,
