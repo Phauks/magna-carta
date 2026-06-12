@@ -80,9 +80,17 @@ describe("createInMemoryRateLimiter", () => {
     clock.advanceTo(30_000);
     expect(rateLimiter.check("auth", "user-1")).toEqual({ allowed: true });
     expect(rateLimiter.check("auth", "user-1").allowed).toBe(false);
-    // At t=60s the nine t=0 timestamps exit; the t=30s one is still inside the window.
+    // At t=60s the nine t=0 timestamps exit; the t=30s one is still inside the window, so only
+    // limit - 1 more checks fit. A fixed-window counter resetting at t=60s would forget the
+    // t=30s timestamp, allow a full `limit` more, and report retry-after toward t=120s — this
+    // sequence discriminates the true sliding-window log from that.
     clock.advanceTo(60_000);
-    expect(rateLimiter.check("auth", "user-1")).toEqual({ allowed: true });
+    for (let request = 0; request < BUCKETS.auth.limit - 1; request++) {
+      expect(rateLimiter.check("auth", "user-1")).toEqual({ allowed: true });
+    }
+    // The window now holds the t=30s timestamp plus the nine t=60s ones — full. The oldest
+    // (t=30s) exits at t=90s: 30 seconds from now.
+    expect(rateLimiter.check("auth", "user-1")).toEqual({ allowed: false, retryAfterSeconds: 30 });
   });
 
   it("does not record denied checks, so a denied caller's retry-after never extends itself", () => {
@@ -118,6 +126,24 @@ describe("createInMemoryRateLimiter", () => {
     }
     expect(rateLimiter.check("auth", "user-1").allowed).toBe(false);
     expect(rateLimiter.check("auth", "user-2")).toEqual({ allowed: true });
+  });
+
+  it("stays conservative under a backwards-jumping clock: denied with positive retry-after", () => {
+    // The limiter assumes a monotone now() (Workers' request-scoped clock is non-decreasing
+    // within an isolate); if the clock jumps backwards anyway, retry-after must over-report
+    // conservatively — never go negative or NaN.
+    const clock = controllableClock(50_000);
+    const rateLimiter = createInMemoryRateLimiter({ now: clock.now });
+    for (let request = 0; request < BUCKETS.auth.limit; request++) {
+      rateLimiter.check("auth", "user-1");
+    }
+    clock.advanceTo(10_000);
+    // All ten t=50s timestamps are still inside the window seen from t=10s; the oldest exits at
+    // t=110s — 100 seconds from the (rewound) now. Over-reported, but positive and finite.
+    expect(rateLimiter.check("auth", "user-1")).toEqual({
+      allowed: false,
+      retryAfterSeconds: 100,
+    });
   });
 
   it("drops a stale key's state once its window has passed (no per-key memory leak)", () => {

@@ -19,6 +19,24 @@ export const BUCKETS: Record<RateLimitBucket, { limit: number; windowSeconds: nu
   expensive: { limit: 10, windowSeconds: 60 },
 };
 
+// Definition-time guard: the deny branch reads the oldest in-window timestamp assuming a full
+// window holds at least one entry, which is only true while every bucket's limit >= 1; a
+// windowSeconds < 1 would make the sweep cadence and retry-after arithmetic degenerate. Validate
+// once at module scope so a future bucket edit (e.g. limit: 0) fails loudly at startup instead
+// of silently producing a NaN retry-after.
+for (const [bucketName, bucket] of Object.entries(BUCKETS)) {
+  if (!Number.isInteger(bucket.limit) || bucket.limit < 1) {
+    throw new Error(
+      `BUCKETS.${bucketName}.limit must be an integer >= 1 (got ${String(bucket.limit)})`,
+    );
+  }
+  if (!Number.isInteger(bucket.windowSeconds) || bucket.windowSeconds < 1) {
+    throw new Error(
+      `BUCKETS.${bucketName}.windowSeconds must be an integer >= 1 (got ${String(bucket.windowSeconds)})`,
+    );
+  }
+}
+
 export interface RateLimitVerdict {
   allowed: boolean;
   // Present only when denied: whole seconds (rounded up, never 0) until the oldest in-window
@@ -27,14 +45,21 @@ export interface RateLimitVerdict {
 }
 
 // The seam the chokepoint depends on. check() returns the verdict only; replying with the 429
-// rate-limited problem is the chokepoint's job.
+// rate-limited problem is the chokepoint's job. The return is sync-or-promise (decided during
+// the Task 5 review): the distributed adapter (Durable Objects or KV) must await I/O, so a
+// sync-only signature would force a breaking seam change at adapter time. The chokepoint
+// always awaits the result — awaiting a plain value is free — so the in-memory implementation
+// stays synchronous with no overhead.
 export interface RateLimiter {
-  check(bucket: RateLimitBucket, key: string): RateLimitVerdict;
+  check(bucket: RateLimitBucket, key: string): RateLimitVerdict | Promise<RateLimitVerdict>;
 }
 
 // The in-memory limiter additionally exposes its tracked-key count so tests (and diagnostics)
-// can prove stale state is dropped; the chokepoint depends on RateLimiter only.
+// can prove stale state is dropped; the chokepoint depends on RateLimiter only. check() is
+// narrowed back to synchronous: this implementation never awaits, and tests read the verdict
+// directly.
 export interface InMemoryRateLimiter extends RateLimiter {
+  check(bucket: RateLimitBucket, key: string): RateLimitVerdict;
   trackedKeyCount(): number;
 }
 
@@ -57,6 +82,12 @@ const SWEEP_INTERVAL_MILLISECONDS =
 // key whenever it is checked) plus a periodic sweep (at most once per SWEEP_INTERVAL, the next
 // check walks all keys, prunes, and deletes empty entries) — so a key hit once does not occupy
 // memory forever after its window passes.
+//
+// Bounds (golden rule 10 honesty): between sweeps the map grows with the number of unique
+// (bucket, key) pairs checked, each holding at most `limit` timestamps; the one request that
+// triggers a sweep pays O(tracked keys x limit) for the walk. Both are bounded by what a single
+// isolate serves within one sweep interval — acceptable for the Phase 0 per-isolate backstop
+// with these generous limits, revisited when the distributed adapter lands.
 export function createInMemoryRateLimiter(
   options: InMemoryRateLimiterOptions = {},
 ): InMemoryRateLimiter {
@@ -103,6 +134,12 @@ export function createInMemoryRateLimiter(
 
       if (inWindow.length >= limit) {
         timestampsByKey.set(key, inWindow);
+        // The cast is safe because limit >= 1 (the definition-time guard on BUCKETS above), so a
+        // full window holds at least one timestamp. Treating inWindow[0] as the oldest assumes a
+        // monotone (non-decreasing) clock keeps the log append-sorted; under a backwards-jumping
+        // now() the log may be unsorted and retry-after over-reports — conservatively, never
+        // negative (every kept timestamp satisfies timestamp + window > now). Workers'
+        // request-scoped clock is non-decreasing within an isolate.
         const oldestTimestamp = inWindow[0] as number;
         return {
           allowed: false,
