@@ -43,6 +43,29 @@ valid by construction and scenarios double as integration tests.
 - **Baselines are relative.** Compare across commits on one machine; never across machines, and
   never as production latencies.
 
+## Extending the load profile (per-slice accretion)
+
+Every domain slice extends the harness while the slice is open (the accretion rule, ADR-0078 /
+ADR-0083); `STATUS.md`'s **Load profile** column audits it per slice. The v1 mechanics:
+
+1. **Generation.** Add the slice's volume to the generator — a sibling per-domain module beside
+   `src/load-profile/generate.ts` on its pattern (or extend it directly while it stays small).
+   Real write paths only; all randomness from the one `FixtureContext`. Record probe identifiers
+   (the rows measurements will target, e.g. the busiest entity) in the returned probes — they land
+   in the snapshot manifest for the measurement layer.
+2. **Profile.** New counts/distributions are profile fields, never generator constants. Extending
+   the profile's parameters bumps the profile's own `version`; changing generation logic for
+   unchanged parameters bumps `GENERATOR_VERSION`. Either invalidates cached snapshots by design.
+   Volume must stay plausible — size entity counts like a real established firm, not a stress test.
+3. **Measured set.** Add a per-domain measurement module on the `ledger-measurements.ts` pattern:
+   `Measurement` objects (use the untimed `prepare` hook for non-repeatable operations), EXPLAIN
+   probes in a `hotPathPlans`-style function, and scans allowlisted only for table-wide-by-nature
+   operations (with a comment naming why). Measure **volume-shaped** operations — cost that depends
+   on data shape; constant-time operations belong in plain unit benchmarks, not here.
+4. **Smoke + baseline.** Wire new operations into the smoke test's expected-name list, then run
+   `pnpm --filter @magna-carta/fixtures run measure` and commit the regenerated baseline (a profile
+   version bump renames the baseline file).
+
 ## Dependencies & contracts
 
 - Depends on: `@magna-carta/ledger` (the write paths), `@magna-carta/data-access`
