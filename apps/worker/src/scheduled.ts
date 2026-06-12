@@ -75,28 +75,45 @@ export async function listReachableActiveFirms(env: Bindings): Promise<Reachable
 }
 
 // The reconciliation backstop (slice 0·4 design spec §6): control-plane users with no member row
-// in their firm's per-firm database. Detection only — the outbox relay is the repair mechanism
-// (a missing mirror means a pending/dead-lettered member.provision row to chase, never a write
-// from here). Takes the pass's listReachableActiveFirms result, so unreachable firms are skipped
-// the same way the sweep skips them.
+// in their firm's per-firm database. Detection only — repair runs through the relay: a PENDING
+// member.provision row is dispatched by the next sweep, and a DEAD-LETTERED one is revived by
+// requeueDeadLetteredMessageStatement (the documented operator seam — see sweepOutbox); the
+// backstop never writes a member row from here. Takes the pass's listReachableActiveFirms result,
+// so unreachable firms are skipped the same way the sweep skips them.
+//
+// The control-plane users are read in ONE grouped query (not per firm — that was an N+1 across the
+// fleet), bucketed by firm_id in JS; the per-firm member reads stay per firm (irreducible — the
+// firm databases are separate physical D1 instances).
 export async function findUnprovisionedMembers(
   env: Bindings,
   firms: readonly ReachableActiveFirm[],
 ): Promise<UnprovisionedMember[]> {
+  const allUsers = await env.DB_CONTROL.prepare('SELECT id, firm_id FROM "user"').all<{
+    id: string;
+    firm_id: string;
+  }>();
+  const userIdsByFirm = new Map<string, string[]>();
+  for (const user of allUsers.results) {
+    const bucket = userIdsByFirm.get(user.firm_id);
+    if (bucket === undefined) {
+      userIdsByFirm.set(user.firm_id, [user.id]);
+    } else {
+      bucket.push(user.id);
+    }
+  }
+
   const unprovisioned: UnprovisionedMember[] = [];
   for (const firm of firms) {
-    const users = await env.DB_CONTROL.prepare('SELECT id FROM "user" WHERE firm_id = ?1')
-      .bind(firm.firmId)
-      .all<{ id: string }>();
-    if (users.results.length === 0) continue;
+    const firmUserIds = userIdsByFirm.get(firm.firmId);
+    if (firmUserIds === undefined || firmUserIds.length === 0) continue;
 
     const members = await firm.database.prepare("SELECT user_id FROM member").all<{
       user_id: string;
     }>();
     const memberUserIds = new Set(members.results.map((row) => row.user_id));
-    for (const user of users.results) {
-      if (!memberUserIds.has(user.id)) {
-        unprovisioned.push({ userId: user.id, firmId: firm.firmId });
+    for (const userId of firmUserIds) {
+      if (!memberUserIds.has(userId)) {
+        unprovisioned.push({ userId, firmId: firm.firmId });
       }
     }
   }
@@ -139,8 +156,14 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
         publish: async (row) => {
           // The Queue message mirrors the outbox row (consumers dedup on id, order by
           // (aggregateKey, seq) — ADR-0064); the payload is already redacted canonical JSON.
+          // firmId tags the originating tenant: per-firm messages cross the single SHARED env.QUEUE,
+          // so the first per-firm consumer (slice 0·5+) resolves the firm from the message — it has
+          // no other handle on which physical database the row came from. (Control-plane outbox
+          // topics are consumed DIRECTLY in this worker, never over the queue, so they need no such
+          // tag.)
           await env.QUEUE.send({
             id: row.id,
+            firmId: firm.firmId,
             topic: row.topic,
             payload: row.payload,
             aggregateKey: row.aggregate_key,

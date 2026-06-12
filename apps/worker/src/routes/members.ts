@@ -27,6 +27,7 @@ import {
   unauthenticatedProblemResponse,
 } from "../problem.ts";
 import { requireIdempotencyKey } from "../require-idempotency-key.ts";
+import { scheduleRequestPathSweep } from "../request-path-sweep.ts";
 import {
   loadEffectivePermissions,
   resolveSession,
@@ -288,6 +289,11 @@ export function registerMembersRoute(
       // Accepted seam: a send that throws here leaves the committed 201 replayable WITHOUT the
       // email having gone out — the recovery is requesting a fresh reset link for the address.
       await authForEnv(c.env).api.requestPasswordReset({ body: { email } });
+      // Best-effort latency optimization: close the up-to-5-minute window where the invitee could
+      // activate before the next */5 cron sweeps the member.provision row into the firm database
+      // (permissions: [] until then). The cron remains the at-least-once guarantee; overlapping
+      // sweeps are safe by scheduled.ts's documented invariant. Off the response path via waitUntil.
+      scheduleRequestPathSweep(c.executionCtx, c.env);
     }
     // Both arms answer the stored response: 201 by construction (this route's effect stores
     // nothing else, and the fingerprint pins replays to this method + path + body).

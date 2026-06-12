@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { insertOutboxMessageStatement } from "../src/outbox-statements.ts";
+import {
+  insertOutboxMessageStatement,
+  requeueDeadLetteredMessageStatement,
+} from "../src/outbox-statements.ts";
 import { captured, stubD1 } from "./support/stub-d1.ts";
 
 describe("insertOutboxMessageStatement", () => {
@@ -42,5 +45,18 @@ describe("insertOutboxMessageStatement", () => {
       ),
     );
     expect(unordered.bindings[3]).toBeNull(); // no aggregate -> NULL seq via the CASE arm
+  });
+});
+
+describe("requeueDeadLetteredMessageStatement", () => {
+  it("flips a row back to pending and zeroes attempts, guarded to only-failed rows", () => {
+    const stub = stubD1();
+    const statement = captured(
+      requeueDeadLetteredMessageStatement(stub.database, { id: "obx_dead" }),
+    );
+    expect(statement.sql).toContain("UPDATE outbox SET status = 'pending', attempts = 0");
+    // The guard is what makes this safe to fire blindly: a non-failed row is untouched.
+    expect(statement.sql).toContain("WHERE id = ?1 AND status = 'failed'");
+    expect(statement.bindings).toEqual(["obx_dead"]);
   });
 });

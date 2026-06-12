@@ -94,8 +94,13 @@ describe("slice 0·4 end-to-end", () => {
   });
 
   it("mirrors both owners into their own firm databases with Owner/Admin via the sweep", async () => {
+    // This explicit sweep is kept for DETERMINISM: it is awaited, so the owner mirrors below are
+    // guaranteed present when asserted. In production each provision ALSO fires a best-effort
+    // request-path sweep on commit (the R1 latency optimization), which over the SELF surface may
+    // already have dispatched both owner rows — so this sweep's own dispatched count is incidental
+    // (it can be 0 when the request-path sweeps won the race) and is deliberately not asserted; the
+    // member-row checks below are the real proof.
     const report = await runScheduledSweep(env);
-    expect(report.controlPlane.dispatched).toBeGreaterThanOrEqual(2);
     expect(report.controlPlane.failed).toBe(0);
 
     for (const [owner, firmDatabase] of [

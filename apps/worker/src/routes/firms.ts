@@ -24,6 +24,7 @@ import {
   storedResponseBody,
 } from "../idempotency-conflict-problems.ts";
 import { perFirmHeadSchemaVersion } from "../per-firm-migrations.ts";
+import { scheduleRequestPathSweep } from "../request-path-sweep.ts";
 import {
   Problem,
   PROBLEM_CONTENT_TYPE,
@@ -306,6 +307,12 @@ export function registerFirmsRoute(
       // SendEmail port. After-commit by design; same accepted seam as members.invite — a send
       // that throws leaves the committed 201 replayable, recovered by requesting a fresh link.
       await authForEnv(c.env).api.requestPasswordReset({ body: { email: outcome.ownerEmail } });
+      // Best-effort latency optimization (same seam as members.invite): close the up-to-5-minute
+      // window where the owner could activate before the next */5 cron sweeps the member.provision
+      // row (Owner/Admin) into the firm database — without it the owner reads permissions: [] and
+      // 403s until the cron fires. The cron stays the at-least-once guarantee; overlapping sweeps
+      // are safe per scheduled.ts's documented invariant. Off the response path via waitUntil.
+      scheduleRequestPathSweep(c.executionCtx, c.env);
     }
 
     const responseBody = JSON.parse(storedResponseBody(result)) as z.infer<

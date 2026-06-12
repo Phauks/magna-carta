@@ -1,7 +1,8 @@
-import { env, SELF } from "cloudflare:test";
+import { createExecutionContext, env, SELF, waitOnExecutionContext } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId } from "@magna-carta/identifiers/types";
+import worker from "../src/index.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 import {
@@ -223,7 +224,10 @@ describe("POST /api/v1/members", () => {
       .bind(body.id)
       .first<{ topic: string; payload: string; status: string }>();
     expect(outboxRow?.topic).toBe("member.provision");
-    expect(outboxRow?.status).toBe("pending");
+    // pending OR dispatched: the invite fires a best-effort request-path sweep on commit (the R1
+    // latency optimization), which may consume this row before the assertion reads it. Its status
+    // is incidental here — the row's enqueued topic + payload is what this test pins.
+    expect(["pending", "dispatched"]).toContain(outboxRow?.status);
     const payload = JSON.parse(outboxRow?.payload ?? "{}") as Record<string, unknown>;
     expect(payload).toEqual({
       displayName: "Invited Member",
@@ -495,6 +499,44 @@ describe("POST /api/v1/members", () => {
     );
     expect(firmBReplay.status).toBe(201);
     expect(firmBReplay.headers.get("Idempotency-Replayed")).toBe("true");
+  });
+
+  it("mirrors the invitee through the request-path waitUntil sweep, with NO manual cron sweep", async () => {
+    // R1: the route schedules a best-effort sweep on its executionCtx after committing the invite,
+    // so a fast-activating invitee doesn't sit at permissions: [] until the next */5 cron. Driving
+    // the worker through worker.fetch + a captured execution context lets the test await that
+    // waitUntil (waitOnExecutionContext) — proving the member row lands WITHOUT runScheduledSweep
+    // ever being called by the test. (The e2e keeps its explicit sweeps for determinism; production
+    // gets both the cron AND this request-path sweep.)
+    const sessionCookie = await signInAsOwner("request-path-sweep-owner@example.com");
+    const executionContext = createExecutionContext();
+    const request = new Request("https://example.com/api/v1/members", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "https://example.com",
+        cookie: sessionCookie,
+        "Idempotency-Key": crypto.randomUUID(),
+      },
+      body: JSON.stringify({
+        email: "request-path-sweep-invitee@example.com",
+        name: "Request Path Invitee",
+      }),
+    });
+
+    const response = await worker.fetch(request, env, executionContext);
+    expect(response.status).toBe(201);
+    const invitedUserId = ((await response.json()) as { id: string }).id;
+
+    // Await the route's waitUntil(runScheduledSweep) — no manual sweep call anywhere in this test.
+    await waitOnExecutionContext(executionContext);
+
+    const memberRow = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT display_name, status FROM member WHERE user_id = ?1",
+    )
+      .bind(invitedUserId)
+      .first<{ display_name: string; status: string }>();
+    expect(memberRow).toEqual({ display_name: "Request Path Invitee", status: "active" });
   });
 
   it("emits the route into the OpenAPI document with the native operationId and x-mc metadata", async () => {

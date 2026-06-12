@@ -2,7 +2,6 @@ import {
   createExecutionContext,
   createScheduledController,
   env,
-  SELF,
   waitOnExecutionContext,
 } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -17,12 +16,7 @@ import {
 } from "../src/scheduled.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
-import {
-  mirrorMemberWithOwnerRole,
-  seedCredentialedUser,
-  seedFirm,
-  signInForSessionCookie,
-} from "./support/test-auth.ts";
+import { seedFirm } from "./support/test-auth.ts";
 
 // firm.database_identifier is UNIQUE and the pool firm is shared by this file's tests (the
 // members.test.ts pattern): seeded once here, per-test writes are isolated by the harness.
@@ -74,25 +68,20 @@ async function outboxRowState(
 }
 
 describe("runScheduledSweep — member.provision consumption", () => {
-  it("mirrors the invited user into the firm database after the Task 11 invite flow, idempotently", async () => {
-    // The full invite path: owner with firm:manageMembers invites through POST /api/v1/members.
-    const { userId: ownerUserId } = await seedCredentialedUser("sweep-invite-owner@example.com", {
+  it("mirrors an invited user's outbox row into the firm database, idempotently", async () => {
+    // The invite write as routes/members.ts commits it — the control-plane user row plus the
+    // pending member.provision row (roleName null). Inserted DIRECTLY here, not through the invite
+    // endpoint: POST /api/v1/members now fires its own best-effort request-path sweep on commit
+    // (the R1 latency optimization), which would mirror the invitee before this test could observe
+    // the pre-sweep state. The invite-endpoint → request-path-sweep → mirror path has its own
+    // deterministic coverage in members.test.ts; this test isolates runScheduledSweep itself.
+    const invitedUserId = await directInsertUser("sweep-invitee@example.com", "Sweep Invitee");
+    await insertMemberProvisionOutboxRow(env.DB_CONTROL, {
+      userId: invitedUserId,
       firmId: poolFirmId,
+      displayName: "Sweep Invitee",
+      roleName: null,
     });
-    await mirrorMemberWithOwnerRole(ownerUserId, "Sweep Owner");
-    const sessionCookie = await signInForSessionCookie("sweep-invite-owner@example.com");
-    const inviteResponse = await SELF.fetch("https://example.com/api/v1/members", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        origin: "https://example.com",
-        cookie: sessionCookie,
-        "Idempotency-Key": crypto.randomUUID(),
-      },
-      body: JSON.stringify({ email: "sweep-invitee@example.com", name: "Sweep Invitee" }),
-    });
-    expect(inviteResponse.status).toBe(201);
-    const invitedUserId = ((await inviteResponse.json()) as { id: string }).id;
 
     // Before the sweep the reconciliation backstop reports the un-mirrored invitee.
     const beforeSweep = await findUnprovisionedMembers(env, await listReachableActiveFirms(env));
@@ -209,6 +198,38 @@ describe("runScheduledSweep — member.provision consumption", () => {
     });
   });
 
+  it("treats a payload with roleName ABSENT as malformed (fails, never mirrors a roleless member)", async () => {
+    // A producer that DROPS the roleName field must not silently mirror a roleless owner (a
+    // locked-out firm). roleName must be explicitly present as string | null; an absent field is
+    // malformed → the consumer throws → the relay fails the row (and dead-letters at max attempts).
+    const userId = await directInsertUser("sweep-roleless-absent@example.com", "Absent Role");
+    const outboxId = newIdentifier("outbox");
+    // Inserted WITHOUT the roleName key — canonical JSON of a 3-field payload.
+    await env.DB_CONTROL.prepare(
+      "INSERT INTO outbox (id, topic, payload, aggregate_key, seq, status, attempts, created_at) VALUES (?1, 'member.provision', ?2, NULL, NULL, 'pending', 0, ?3)",
+    )
+      .bind(
+        outboxId,
+        canonicalJsonStringify({ userId, firmId: poolFirmId, displayName: "Absent Role" }),
+        new Date().toISOString(),
+      )
+      .run();
+
+    const report = await runScheduledSweep(env);
+    expect(report.controlPlane.failed).toBeGreaterThanOrEqual(1);
+    expect(await outboxRowState(env.DB_CONTROL, outboxId)).toEqual({
+      status: "pending",
+      attempts: 1,
+    });
+    // No member row was written for the dropped-field payload.
+    const memberRow = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT user_id FROM member WHERE user_id = ?1",
+    )
+      .bind(userId)
+      .first();
+    expect(memberRow).toBeNull();
+  });
+
   it("dead-letters a message whose topic has no registered consumer", async () => {
     const outboxId = newIdentifier("outbox");
     await env.DB_CONTROL.prepare(
@@ -243,9 +264,11 @@ describe("runScheduledSweep — per-firm relay and TTL purge", () => {
     });
   });
 
-  it("publishes the queue message with the pinned field names { id, topic, payload, aggregateKey, seq }", async () => {
+  it("publishes the queue message with the pinned field names { id, firmId, topic, payload, aggregateKey, seq }", async () => {
     // The field names are a wire contract: future consumers dedup on id and order by
-    // (aggregateKey, seq) (ADR-0064). A capturing fake QUEUE pins the publish closure's shape.
+    // (aggregateKey, seq) (ADR-0064), and firmId resolves the originating tenant because per-firm
+    // messages cross the single SHARED queue (the first per-firm consumer, slice 0·5+, has no other
+    // handle on which physical database the row came from). A capturing fake QUEUE pins the shape.
     const outboxId = newIdentifier("outbox");
     await env.DB_FIRM_POOL_1.prepare(
       `INSERT INTO outbox (id, topic, payload, aggregate_key, seq, status, attempts, created_at) VALUES (?1, 'demo.shape', '{"demo":true}', 'agg_demo', 7, 'pending', 0, ?2)`,
@@ -265,6 +288,7 @@ describe("runScheduledSweep — per-firm relay and TTL purge", () => {
     const message = sent.find((entry) => (entry as { id?: unknown }).id === outboxId);
     expect(message).toEqual({
       id: outboxId,
+      firmId: poolFirmId,
       topic: "demo.shape",
       payload: '{"demo":true}',
       aggregateKey: "agg_demo",

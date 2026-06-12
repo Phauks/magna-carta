@@ -159,7 +159,10 @@ describe("POST /api/v1/firms", () => {
       .bind(firmOneBody.owner.id)
       .first<{ topic: string; payload: string; status: string }>();
     expect(outboxRow?.topic).toBe("member.provision");
-    expect(outboxRow?.status).toBe("pending");
+    // pending OR dispatched: provisioning fires a best-effort request-path sweep on commit (the R1
+    // latency optimization), which may consume this row before the assertion reads it. Its status
+    // is incidental here — the row's enqueued topic + Owner/Admin payload is what this test pins.
+    expect(["pending", "dispatched"]).toContain(outboxRow?.status);
     expect(JSON.parse(outboxRow?.payload ?? "{}")).toEqual({
       displayName: "Firm Owner",
       firmId: firmOneBody.id,

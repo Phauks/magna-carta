@@ -24,6 +24,12 @@ interface MemberProvisionPayload {
 // at max, which surfaces the bug instead of quietly dropping a member mirror (ADR-0038). Both ids
 // are asserted HERE, exactly once — downstream code consumes the branded types — and every
 // malformed-payload failure carries the uniform `member.provision ${row.id}:` prefix.
+//
+// roleName must be EXPLICITLY present as `string | null` — an ABSENT field (undefined after
+// JSON.parse) is malformed and dead-letters. Coercing a missing roleName to null would silently
+// mirror a ROLELESS owner (a locked-out firm — no firm:manageMembers), which the reconciliation
+// backstop can't catch (it only detects missing member ROWS). Both real producers always write the
+// field explicitly: members.ts sends `roleName: null`, firm-provisioner sends `roleName: "Owner/Admin"`.
 function parseMemberProvisionPayload(row: OutboxRow): MemberProvisionPayload {
   try {
     const parsed = JSON.parse(row.payload) as {
@@ -34,9 +40,7 @@ function parseMemberProvisionPayload(row: OutboxRow): MemberProvisionPayload {
     };
     if (
       typeof parsed.displayName !== "string" ||
-      (parsed.roleName !== null &&
-        parsed.roleName !== undefined &&
-        typeof parsed.roleName !== "string")
+      (parsed.roleName !== null && typeof parsed.roleName !== "string")
     ) {
       throw new Error("malformed payload");
     }
@@ -44,7 +48,7 @@ function parseMemberProvisionPayload(row: OutboxRow): MemberProvisionPayload {
       userId: assertIdentifier(parsed.userId, "user"),
       firmId: assertIdentifier(parsed.firmId, "firm"),
       displayName: parsed.displayName,
-      roleName: parsed.roleName ?? null,
+      roleName: parsed.roleName,
     };
   } catch (caught) {
     const message = caught instanceof Error ? caught.message : String(caught);
