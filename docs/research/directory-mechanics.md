@@ -3,7 +3,8 @@
 **Date:** 2026-06-12
 **Scope:** The three Directory-internal areas slice 1·3's design cycle would otherwise hit unresearched: the **shared custom-fields engine** (deferred from slice 1·1 so it is designed once for matters _and_ Directory entities), **merge/unmerge mechanics** (the white paper promises relink-every-reference merge with both histories preserved and an unmerge safety net — the surgery, not the detection), and **phonetic-encoder implementation feasibility** (the conflicts research prescribes write-time Double Metaphone / Beider-Morse columns without verifying what runs on the stack). Input to the slice 1·3 **design** cycle, not a design.
 **Companions:** [`conflicts-matching-engine.md`](conflicts-matching-engine.md) (the conflicts seams 1·3 carries) · [`protected-crypto-module.md`](protected-crypto-module.md) (the encrypted-identifier channel).
-**Purpose:** Verify the mechanics on the current stack (golden rule 11) and resolve each area into a concrete recommended shape the design cycle can ratify or amend.
+**Purpose:** Verify the mechanics on the current stack (golden rule 11) and resolve each area into a concrete candidate shape.
+**Status (owner, 2026-06-12): all three areas are marked _needs further owner input_.** Whether each item should be built **at all**, and whether its benefit justifies its cost, is an explicit open gate for the slice 1·3 design cycle — none of the shapes below is adopted. Each section therefore states the candidate shape _and_ the go/no-go question with its cost and claimed benefit, so the gate can be decided on evidence rather than momentum. Where an item traces to a white-paper Directory promise, the gate decision is build-in-1·3 vs defer-with-seam vs descope (a white-paper amendment).
 
 ## Relationship to what is already decided
 
@@ -37,14 +38,14 @@ Three patterns for dynamic attributes:
 
 **The deciding constraints are ours, not generic.** Two platform invariants break the JSON option: (1) **merge relinking** — the white paper requires merge to relink _every_ reference; reference-kind custom fields stored in JSON blobs cannot be found by index, only by scanning every document (and the no-dangling-references discipline can't be a FK); (2) **field-level audit and temporal validity** — Directory key fields are time-bounded and audited per change, which maps to rows, not blob diffs. The JSON pattern's strength (read-assembly speed) is recoverable with a join; its weaknesses are structural for us.
 
-**Recommendation — typed EAV with per-kind value columns:**
+**Candidate shape (NOT adopted — owner gate pending) — typed EAV with per-kind value columns:**
 
 - `custom_field` (definition, per-firm data): name, kind (the A.2 catalog as a CHECK), target (`matter` | `entity`), attachment (matter-type id / entity-category id, nullable = all), required flag, archived flag, position. Picklist options as a child table (option rows are referenceable, renamable without breaking stored values).
 - `custom_field_value`: target row id, field id, **typed value columns** (`value_text`, `value_number` INTEGER/minor-units for currency per ADR-0061, `value_date`, `value_option_id` FK → picklist option, `value_reference_id` — an identifier handle validated against the field's kind), UNIQUE(target row, field). Exactly one value column non-null, enforced by CHECK.
 - **Reference kinds get real, indexed columns** — merge relinking becomes one indexed UPDATE; the LEAP import writes auditable rows; conflicts/document-automation read typed values.
 - Indexes: (field id, each value column) — covers "filter matters where field X = Y" without FTS; list-screen assembly is one join, paginated.
 
-The engine is one design serving both consumers; 1·3 builds it (Directory needs it for categories) and retro-attaches matter types to it in the same slice — the 1·1 seam (`matter_type` exists, fields deferred) was left exactly for this.
+**The go/no-go question (owner gate):** does the firm actually need firm-defined custom fields at launch — or at all? **Cost:** a real sub-engine (definitions admin UI, typed value storage, validation, list filtering, document-automation wiring, LEAP mapping) — plausibly the largest single component in 1·3. **Claimed benefit:** capturing practice-specific data (white paper promises it for both matter types and entity categories) and a landing zone for LEAP custom fields at migration. **Cheaper alternatives if descoped or deferred:** ship the fixed standard fields only (categories still add their standard fields — bar number, jurisdiction, specialty — as ordinary columns, no engine needed) and revisit when a concrete field the firm can name has nowhere to live; or defer to the LEAP-migration slice where the real custom-field inventory is known. The trade study above stands either way — _if_ the engine is ever built, typed-EAV is the shape; whether to build it is the open question.
 
 ## B. Merge/unmerge mechanics
 
@@ -56,7 +57,7 @@ The engine is one design serving both consumers; 1·3 builds it (Directory needs
 
 **Finding:** nobody in the mainstream does real unmerge; "unmerge" in the wild means restore-from-backup. The white paper's unmerge safety net therefore has to be **designed in**, not assumed — and the ingredients are exactly our existing disciplines: never hard-delete, append-only event records, and findable references (A.3).
 
-### B.2 Recommended model — non-destructive merge + a first-class merge event
+### B.2 Candidate model (NOT adopted — owner gate pending) — non-destructive merge + a first-class merge event
 
 1. **Subordinate survives, archived** (Dynamics-style, matching our soft-delete discipline): status `merged_into` + master id. It vanishes from lists/search-as-itself but its row, names, and history remain.
 2. **References are relinked, and every relink is recorded.** All inbound references (matter-party links, edges, custom-field reference values, role assignments) are repointed to the master — each one findable by index because references are real columns everywhere (A.3). The merge writes a **`entity_merge` event** (append-only): subordinate, master, the field-survivorship choices made, and **the exact list of repointed references** (table, row, old → new).
@@ -66,6 +67,8 @@ The engine is one design serving both consumers; 1·3 builds it (Directory needs
 
 Audit: the merge/unmerge events are themselves `audit_log` entries plus the dedicated event row (the event row is load-bearing data — the unmerge input — not just history).
 
+**The go/no-go question (owner gate):** how much merge machinery does a small trusted firm need at launch? Three descending tiers, each a real option: (a) the full candidate model above (merge + recorded event + true unmerge); (b) **merge without unmerge** — still non-destructive (subordinate archived, references repointed, event recorded for audit), but no inverse-replay machinery, matching what every mainstream CRM actually ships; (c) **no merge at launch** — duplicate _prevention_ only (the detect-on-entry "possible duplicate?" warning), with merge deferred until the LEAP import makes duplicates real at volume. **Cost gradient:** (c) is nearly free, (b) is moderate, (a) adds the inverse-replay machinery and its tests. **Claimed benefit:** the white paper promises merge + unmerge for the SSOT discipline and the LEAP import; the counterpoint is that the LEAP import is also the first moment merge is truly needed — building (a) in 1·3 may be ahead of need. The conflicts-corpus rule (a merged-away alias must still match) binds any tier that merges.
+
 ## C. Phonetic encoders — implementation feasibility
 
 ### C.1 The landscape, verified
@@ -74,7 +77,7 @@ Audit: the merge/unmerge events are themselves `audit_log` entries plus the dedi
 - **Beider-Morse: no mature JavaScript/TypeScript implementation exists.** The reference implementations are PHP (stevemorse.org; the Haran/BMDMSoundex fork is PHP-only and **GPL-3** — license-incompatible with our distribution posture anyway); the one npm TypeScript package is v0.4.x, single-maintainer, months old — not a foundation for an ethics-critical matching channel. The serious implementations are Apache **commons-codec** (Java) and its Rust port **`rphonetic`** (BeiderMorse + Daitch-Mokotoff + Double Metaphone, embedded commons-codec rules, on crates.io) — which fits the stack's **shared Rust core → WASM** path (white paper, _Delivery model_; the conflicts research already places scoring comparators there). Verify rphonetic's license + rule-file completeness at adoption (flagged; commons-codec rules are Apache-2.0).
 - Daitch-Mokotoff (the genealogy-grade over-inclusive alternative) comes free with rphonetic if that path is taken.
 
-### C.2 Recommendation — scheme-keyed phonetic rows, Double Metaphone now, Beider-Morse additive later
+### C.2 Candidate shape (NOT adopted — owner gate pending) — scheme-keyed phonetic rows, Double Metaphone now, Beider-Morse additive later
 
 This **refines the conflicts research's "phonetic-code columns"** into a shape that makes the encoder set growable:
 
@@ -82,14 +85,18 @@ This **refines the conflicts research's "phonetic-code columns"** into a shape t
 - **Launch with Double Metaphone only** (`words/double-metaphone`, pinned, in the Worker write path). The white paper's "over-inclusive" strictness setting ships at launch as _alias-inclusive + trigram_ matching; the **Beider-Morse surname channel arrives with the Phase 4 conflicts engine**, where the Rust/WASM core is being stood up for scoring comparators anyway — one WASM artifact, not two integration efforts.
 - The FTS5 trigram substrate (conflicts research seam 6) is unaffected and complements: trigram catches typos/substrings, phonetics catch sound-alikes.
 
+**The go/no-go question (owner gate):** does 1·3 need write-time phonetic codes at all, given the conflicts _engine_ is Phase 4? **Cost:** small at write time (one pinned library, one child table, codes computed alongside the row), but it is speculative inventory carried for several phases. **Claimed benefit:** the conflicts research's retrofit argument — adding codes later means recomputing over the entire Directory corpus — which is real but **weakened by this research's own sweep precedent**: the 1·2-style backfill sweep makes a later recompute a routine one-off job, not a crisis. The honest framing: this seam is _convenient_ now, not _expensive-to-retrofit_ in the way content hashes were (no byte re-reads — names are plaintext rows). A defensible alternative is to ship only the FTS5 trigram substrate in 1·3 (it serves ordinary Directory search day one) and add phonetic codes by sweep when Phase 4 opens.
+
 ---
 
-## D. Consolidated recommendations for the slice 1·3 design cycle
+## D. Consolidated owner gates for the slice 1·3 design cycle
 
-1. **Custom-fields engine:** typed-EAV shape (A.3) — definitions + picklist options + typed value rows with real reference columns; the Clio 12-kind catalog as launch superset; one engine attached to entity categories _and_ matter types in the same slice. JSON storage rejected on merge-relinking and field-audit grounds (recorded trade study).
-2. **Merge:** non-destructive Dynamics-style merge with the `entity_merge` event recording survivorship + every repointed reference; subordinate's names/identifiers stay in the matching corpus master-resolved; unmerge = recorded-event inverse replay with the post-merge-edits-stay-with-master policy. (B.2)
-3. **Phonetics:** scheme-keyed `name_phonetic_code` rows; `words/double-metaphone` (pinned) at launch; Beider-Morse deferred to the Phase 4 Rust/WASM core via `rphonetic` (verify license/rules then); Daitch-Mokotoff noted as a free rider on that path. (C.2)
-4. **Carried unchanged:** the six conflicts seams ([`conflicts-matching-engine.md`](conflicts-matching-engine.md) §F) and the ADR-0084 identifier policy table — this research adds no new obligations to them, only the implementation shapes above.
+**None of the three areas is adopted (owner, 2026-06-12).** Each enters the 1·3 design cycle as a go/no-go decision — _should this be built at all, and does the benefit justify the cost?_ — with the candidate shape on file only so a "go" is immediately actionable. The design cycle must put each gate to the owner explicitly, with the cost/benefit/alternative framing from its section, before any of these shapes appears in the spec.
+
+1. **Custom-fields engine — gate open.** Build the engine in 1·3, defer it (fixed standard fields only; revisit at LEAP migration when the real field inventory exists), or descope (white-paper amendment)? Candidate shape if "go": typed-EAV (A.3). The deferral option costs little: categories' _standard_ fields are ordinary columns and need no engine.
+2. **Merge/unmerge — gate open.** Pick a tier: full merge + true unmerge (a), merge without unmerge (b — the industry norm), or duplicate-prevention only with merge deferred to the LEAP import (c). Candidate model if (a) or (b): non-destructive merge + the `entity_merge` event (B.2). The conflicts-corpus rule (merged-away aliases must still match) binds any merging tier.
+3. **Phonetic codes at write time — gate open.** Ship them in 1·3, or ship only the FTS5 trigram search substrate and add phonetic codes by backfill sweep when Phase 4 actually builds the conflicts engine? The retrofit-cost argument is weaker than first stated (C.2) — a sweep makes later addition routine. Candidate shape if "go": scheme-keyed rows + `words/double-metaphone`.
+4. **Carried unchanged (not gated by this doc):** the six conflicts seams ([`conflicts-matching-engine.md`](conflicts-matching-engine.md) §F) and the ADR-0084 identifier policy table — though gate 3 directly tempers conflicts seam 1 (phonetic-code columns), and the 1·3 design should resolve them together.
 
 ## Sources
 
