@@ -83,7 +83,7 @@ ADR-0027 fixes the approach; the implementation findings:
 ### Open decisions (download)
 
 - Adopt `client-zip` vs a ~200-line in-house store-mode ZIP64 writer (control vs dependency; client-zip is small and focused — lean adopt, pinned).
-- The live→async threshold values and the async-artifact lifecycle (TTL, cleanup, dedup of identical bundle requests).
+- The live→async threshold values and the async-artifact lifecycle (TTL, cleanup, dedup of identical bundle requests). **Resolved 2026-06-12 — see [`async-bulk-download-jobs.md`](async-bulk-download-jobs.md)** (threshold as config knobs; DO-coordinated Worker build; R2 lifecycle-rule TTL; manifest-hash dedup).
 
 ---
 
