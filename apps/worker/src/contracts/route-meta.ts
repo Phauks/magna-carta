@@ -26,7 +26,7 @@ export interface RouteMeta {
   audited: boolean; // writes an immutable audit entry (ADR-0017/0038)
   idempotency: "required" | "optional"; // ADR-0063 — required on money/trust/payment/outbound-comms
   rateLimit: RateLimitBucket;
-  tags?: string[]; // default: [operationId namespace]
+  tags?: string[]; // default: [operationId namespace] — applied when absent OR empty
   deprecated?: boolean;
 }
 
@@ -45,6 +45,15 @@ const OPERATION_ID_PATTERN = /^[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*$/;
 const routeMetaByRoute = new WeakMap<object, ResolvedRouteMeta>();
 
 // The chokepoint accessor: the resolved meta for a route returned by defineOpenAPIRoute.
+//
+// Keying constraint: the argument must be the EXACT object defineOpenAPIRoute returned — the
+// WeakMap key does not survive past registration. app.openapi({ middleware, hide, ...route },
+// handler) rest-destructures the route config (verified in @hono/zod-openapi 1.4.0), so the
+// library's openAPIRegistry stores a shallow COPY (routeMetaOf on a registry definition returns
+// undefined), and Hono's request-time c.req.matchedRoutes never references the createRoute
+// object at all. Consequence: meta must be resolved at REGISTRATION time — app.ts iterating the
+// route bundles, or per-route middleware closing over the meta — never looked up from the
+// matched route at request time.
 export function routeMetaOf(route: object): ResolvedRouteMeta | undefined {
   return routeMetaByRoute.get(route);
 }
@@ -63,23 +72,32 @@ type DescribedRouteConfig<P extends string> = Omit<RouteConfig, "path"> & {
 // but the emitted document must advertise required: true so the generated client types the header
 // required and Prism models it. zod-to-openapi spreads `.openapi({ param })` metadata over the
 // optionality-derived `required`, and `.openapi()` clones the field schema — the shared fragment
-// is never mutated and runtime validation is unchanged.
+// is never mutated. The wrap goes through `.extend()`, which preserves the object-level schema
+// state (catchall, strict/strip mode, object-level refinements and .openapi metadata) and throws
+// loudly if it would overwrite a key on a refined object; the wrapped field's own runtime parse
+// is unchanged.
 function withRequiredIdempotencyKeyHeaderDocumentation<
   P extends string,
   R extends DescribedRouteConfig<P>,
 >(routeConfig: R, operationId: string): R {
   const headersSchema = routeConfig.request?.headers;
-  const headerShape = headersSchema instanceof z.ZodObject ? headersSchema.shape : undefined;
-  const idempotencyKeyField = headerShape?.["idempotency-key"];
-  if (idempotencyKeyField === undefined) {
+  if (headersSchema !== undefined && !(headersSchema instanceof z.ZodObject)) {
+    throw new TypeError(
+      `Route ${JSON.stringify(operationId)} declares idempotency: "required" but its ` +
+        `request.headers is not a single z.object — array and intersection header shapes are ` +
+        `unsupported by the idempotency-key documentation flip; declare one z.object that ` +
+        `includes the shared idempotencyKeyHeader fragment from contracts/common.`,
+    );
+  }
+  const idempotencyKeyField = headersSchema?.shape["idempotency-key"];
+  if (headersSchema === undefined || idempotencyKeyField === undefined) {
     throw new TypeError(
       `Route ${JSON.stringify(operationId)} declares idempotency: "required" but its ` +
         `request.headers does not declare the "idempotency-key" header — include the shared ` +
         `idempotencyKeyHeader fragment from contracts/common.`,
     );
   }
-  const documentedHeaders = z.object({
-    ...headerShape,
+  const documentedHeaders = headersSchema.extend({
     "idempotency-key": idempotencyKeyField.openapi({ param: { required: true } }),
   });
   return {
@@ -90,10 +108,12 @@ function withRequiredIdempotencyKeyHeaderDocumentation<
 
 // The platform route definer: validates the operationId shape at definition time (fails at
 // startup, like the chokepoint's registration-time assertions), defaults tags from the
-// operationId namespace, sets the OpenAPI-native operationId/tags/deprecated (generators key SDK
-// method names off the native operationId — spike finding, docs/conventions/api.md), emits every
-// meta field as an x-mc-* extension for the conformance fitness functions, and attaches the
-// resolved meta for the chokepoint via routeMetaOf.
+// operationId namespace (an absent OR empty tags list — no route may reach the document
+// untagged), sets the OpenAPI-native operationId/tags/deprecated (generators key SDK method
+// names off the native operationId — spike finding, docs/conventions/api.md), emits every meta
+// field as an x-mc-* extension for the conformance fitness functions, and attaches the resolved
+// meta for the chokepoint via routeMetaOf — keyed on the exact returned object; see the keying
+// constraint on routeMetaOf (resolve meta at registration time, never from the matched route).
 export function defineOpenAPIRoute<P extends string, R extends DescribedRouteConfig<P>>(
   meta: RouteMeta,
   routeConfig: R,
@@ -107,7 +127,7 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
   const namespace = meta.operationId.slice(0, meta.operationId.indexOf("."));
   const resolvedMeta: ResolvedRouteMeta = {
     ...meta,
-    tags: meta.tags ?? [namespace],
+    tags: meta.tags?.length ? meta.tags : [namespace],
     deprecated: meta.deprecated ?? false,
   };
   const documentedConfig =

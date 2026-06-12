@@ -73,6 +73,19 @@ describe("defineOpenAPIRoute — native fields and x-mc-* extensions in the emit
     expect(operation["x-mc-tags"]).toEqual(["matters", "search"]);
   });
 
+  it("falls back to the namespace default when tags is an empty array — an empty list never reaches the document", () => {
+    const route = defineOpenAPIRoute(sampleMeta({ tags: [] }), {
+      method: "get",
+      path: "/api/v1/matters",
+      description: "Lists matters.",
+      responses: okJsonResponse,
+    });
+    const operation = emitDocumentFor(route).paths["/api/v1/matters"].get;
+    expect(operation.tags).toEqual(["matters"]);
+    expect(operation["x-mc-tags"]).toEqual(["matters"]);
+    expect(routeMetaOf(route)?.tags).toEqual(["matters"]);
+  });
+
   it("emits x-mc-permission as null on an unauthenticated route", () => {
     const route = defineOpenAPIRoute(
       sampleMeta({ operationId: "health.check", authenticated: false, permission: null }),
@@ -197,6 +210,32 @@ describe("idempotency-required header documentation flip", () => {
     const response = await app.request("/api/v1/matters", { method: "POST" });
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true });
+  });
+
+  it("still accepts a request WITH a valid idempotency-key header on an idempotency-required route — the documentation flip must never tighten runtime validation", async () => {
+    const app = new OpenAPIHono();
+    app.openapi(createMatterRoute("required"), (c) => c.json({ ok: true }, 200));
+    const response = await app.request("/api/v1/matters", {
+      method: "POST",
+      headers: { "idempotency-key": "0192f0c1-2345-7890-abcd-ef0123456789" },
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+  });
+
+  it("throws at definition time when request.headers is an array shape — the flip requires a single z.object", () => {
+    expect(() =>
+      defineOpenAPIRoute(
+        sampleMeta({ operationId: "matters.create", idempotency: "required", audited: true }),
+        {
+          method: "post",
+          path: "/api/v1/matters",
+          description: "Creates a matter.",
+          request: { headers: [idempotencyKeyHeader] },
+          responses: okJsonResponse,
+        },
+      ),
+    ).toThrowError(/single z\.object/);
   });
 
   it("throws at definition time when an idempotency-required route does not declare the idempotency-key header", () => {
