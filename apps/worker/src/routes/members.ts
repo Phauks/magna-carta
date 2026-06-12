@@ -11,6 +11,7 @@ import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-eff
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { Bindings } from "../app.ts";
 import type { createAuth } from "../auth.ts";
+import { isUserEmailConflict } from "../control-plane-conflicts.ts";
 import { resolveFirmDatabase } from "../firm-binding-resolver.ts";
 import {
   forbiddenProblemResponse,
@@ -21,6 +22,7 @@ import {
   problemBody,
   unauthenticatedProblemResponse,
 } from "../problem.ts";
+import { requireIdempotencyKey } from "../require-idempotency-key.ts";
 import {
   loadEffectivePermissions,
   resolveSession,
@@ -45,29 +47,6 @@ const InviteMemberResponse = z
 type MemberEnv = {
   Bindings: Bindings;
   Variables: { idempotency?: IdempotencyContext; sessionContext?: SessionContext };
-};
-
-// `x-mc-idempotency: required` realized at the HTTP boundary: no Idempotency-Key → a 400 problem
-// before the idempotency pre-decision runs. The data-access middleware behind it would also 400,
-// but with its generic JSON shape — the worker's surface answers RFC 9457 problems, so the
-// requirement is enforced here and the middleware only ever sees keyed requests. Runs AFTER the
-// authorization middleware: even the key requirement is not discoverable pre-auth.
-const requireIdempotencyKey: MiddlewareHandler<MemberEnv> = async (c, next) => {
-  const key = c.req.header("Idempotency-Key");
-  if (key === undefined || key === "") {
-    return c.json(
-      problemBody({
-        type: PROBLEM_TYPES.invalidRequest,
-        title: "Idempotency-Key required",
-        status: 400,
-        detail: "This operation requires an Idempotency-Key header.",
-        instance: c.req.path,
-      }),
-      400,
-      PROBLEM_CONTENT_TYPE,
-    );
-  }
-  await next();
 };
 
 // The ADR-0063 HTTP boundary against the CONTROL-PLANE database (the invite writes live there).
@@ -163,18 +142,6 @@ function createInviteMemberRoute(authorizeMemberManagement: MiddlewareHandler<Me
       firmScopedControlPlaneIdempotency,
     ] as const,
   });
-}
-
-// The losing batch's UNIQUE violation on user.email IS the duplicate-email signal: the whole
-// batch (user + outbox + audit + idempotency record) rolled back, nothing was stored, and a
-// retry safely re-executes. Same detection idiom as isIdempotencyKeyConflict — D1 surfaces
-// SQLite's message text.
-function isUserEmailConflict(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    error.message.includes("UNIQUE constraint failed") &&
-    error.message.includes("user.email")
-  );
 }
 
 // The auth accessor is injected by app.ts (which owns the per-env Better Auth cache) so the route

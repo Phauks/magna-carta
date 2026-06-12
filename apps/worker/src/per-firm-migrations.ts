@@ -1,0 +1,29 @@
+import { migrationsFromJournal, type Migration } from "@magna-carta/database/migration";
+import perFirmJournal from "@magna-carta/database/drizzle/per-firm/meta/_journal.json";
+import foundationalTablesSql from "@magna-carta/database/drizzle/per-firm/0000_foundational-tables.sql";
+import ledgerCoreSql from "@magna-carta/database/drizzle/per-firm/0001_ledger-core.sql";
+import memberRbacSql from "@magna-carta/database/drizzle/per-firm/0002_member-rbac.sql";
+
+// The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the firm
+// provisioner migrates a freshly created firm database to head at provisioning time, so the SQL
+// must ship in the bundle, not only in test support. PLAIN `.sql` imports, not Vite `?raw` —
+// `wrangler deploy` bundles with esbuild, which rejects the `?raw` suffix; the two builds meet on
+// the plain import instead: wrangler.jsonc's `rules: [{ type: "Text", globs: ["**/*.sql"] }]`
+// for the deploy bundle, and the sql-as-text plugin in vitest.config.ts for the Vitest pool.
+// migrationsFromJournal fails loud when the journal gains a migration this map does not carry:
+// add the new import alongside its journal entry (apply-per-firm-migrations.ts reuses this module).
+export function perFirmMigrations(): Migration[] {
+  return migrationsFromJournal(perFirmJournal, {
+    "0000_foundational-tables": foundationalTablesSql,
+    "0001_ledger-core": ledgerCoreSql,
+    "0002_member-rbac": memberRbacSql,
+  });
+}
+
+// The lineage head (latest journal tag) — the provisioner's migrate-step guard compares the firm
+// row's mirrored per_firm_schema_version against this without touching the firm database.
+export function perFirmHeadSchemaVersion(): string {
+  const lastEntry = [...perFirmJournal.entries].sort((a, b) => a.idx - b.idx).at(-1);
+  if (lastEntry === undefined) throw new Error("per-firm migration journal is empty");
+  return lastEntry.tag;
+}

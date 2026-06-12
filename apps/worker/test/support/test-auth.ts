@@ -41,7 +41,13 @@ export async function seedFirm(options?: {
   await env.DB_CONTROL.prepare(
     "INSERT INTO firm (id, name, database_identifier, created_at) VALUES (?1, ?2, ?3, ?4)",
   )
-    .bind(firmId, options?.name ?? "Test Firm", databaseIdentifier, new Date().toISOString())
+    // firm.name is UNIQUE (the provisioner's resume identity), so the default is per-seed unique.
+    .bind(
+      firmId,
+      options?.name ?? `Test Firm ${firmId}`,
+      databaseIdentifier,
+      new Date().toISOString(),
+    )
     .run();
   return { firmId, databaseIdentifier };
 }

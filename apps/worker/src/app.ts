@@ -1,6 +1,7 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { createAuth } from "./auth.ts";
 import { createLoggingEmailAdapter } from "./email-port.ts";
+import { registerFirmsRoute } from "./routes/firms.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 
@@ -18,6 +19,15 @@ export type Bindings = {
   // Better Auth's signing/encryption secret. Local dev + tests load it from .dev.vars;
   // production sets it with `wrangler secret put AUTH_SECRET`.
   AUTH_SECRET: string;
+  // The POST /api/v1/firms guard secret (constant-time-compared against X-Platform-Admin-Key —
+  // the platform-admin principal model is a named slice 0·4 seam). Local dev + tests load the
+  // placeholder from .dev.vars; production sets it with `wrangler secret put PLATFORM_ADMIN_KEY`.
+  PLATFORM_ADMIN_KEY: string;
+  // Cloudflare REST FirmResourceProvider credentials — DEPLOY-TIME secrets only (`wrangler
+  // secret put`), deliberately absent from .dev.vars: locally the dev pool-claiming adapter runs
+  // instead, selected by these being unset (see routes/firms.ts resourceProviderForEnv).
+  CLOUDFLARE_API_TOKEN?: string;
+  CLOUDFLARE_ACCOUNT_ID?: string;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
@@ -66,6 +76,7 @@ export function createApp() {
 
   registerMeRoute(app, authForEnv);
   registerMembersRoute(app, authForEnv);
+  registerFirmsRoute(app, authForEnv);
 
   app.doc31("/api/openapi.json", {
     openapi: "3.1.0",

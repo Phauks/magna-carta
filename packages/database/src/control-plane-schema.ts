@@ -18,9 +18,16 @@ import type {
 export const firm = sqliteTable("firm", {
   // The firm_ handle is both primary key and public id (ADR-0062).
   id: text("id").primaryKey().$type<FirmId>(),
-  name: text("name").notNull(),
-  // The Cloudflare D1 database backing this firm (the database UUID from the Cloudflare API).
-  databaseIdentifier: text("database_identifier").notNull().unique(),
+  // UNIQUE: the firm name is the provisioner's RESUME IDENTITY (slice 0·4 §5) — a crashed
+  // provisioning run re-invoked with the same name must find its own partial row, and firm ids
+  // are CSPRNG handles minted per attempt, so the name is the only stable client-supplied handle.
+  // Platform-admin-controlled input on a fleet of ~1; revisit if self-serve signup ever exists.
+  name: text("name").notNull().unique(),
+  // The Cloudflare D1 database backing this firm (the database UUID from the Cloudflare API;
+  // locally a dev-pool binding name). Null = the provisioner has not created/claimed it yet —
+  // the firm row is inserted FIRST so the firm id is stable across provisioning resumes.
+  // UNIQUE still holds (SQLite unique indexes admit multiple NULLs).
+  databaseIdentifier: text("database_identifier").unique(),
   // Mirror of the firm database's latest applied migration tag (fleet-wide visibility, ADR-0065).
   // Null = the firm database has not been provisioned yet. Tags order lexicographically (NNNN_ prefix).
   perFirmSchemaVersion: text("per_firm_schema_version"),

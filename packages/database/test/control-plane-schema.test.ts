@@ -29,8 +29,15 @@ describe("control-plane schema: firm registry", () => {
     expect(columnOf(firm, "id").getSQLType()).toBe("text");
   });
 
+  it("keeps the firm name unique — the provisioner's resume identity (slice 0·4 §5)", () => {
+    expect(columnOf(firm, "name").notNull).toBe(true);
+    expect(columnOf(firm, "name").isUnique).toBe(true);
+  });
+
   it("tracks the backing D1 database and the mirrored per-firm schema version", () => {
-    expect(columnOf(firm, "database_identifier").notNull).toBe(true);
+    // Nullable: the provisioning row exists BEFORE its database does, so the firm id stays
+    // stable across provisioning resumes. UNIQUE admits multiple NULLs in SQLite.
+    expect(columnOf(firm, "database_identifier").notNull).toBe(false);
     expect(columnOf(firm, "database_identifier").isUnique).toBe(true);
     expect(columnOf(firm, "per_firm_schema_version").notNull).toBe(false); // null = not yet provisioned
     expect(columnOf(firm, "created_at").getSQLType()).toBe("text"); // ISO-8601 instant (ADR-0055)

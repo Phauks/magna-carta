@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "6ee735c5-603d-47de-961c-654a7113cc9b",
+  "id": "b3ee0589-a135-4777-98ad-cd7d6d7269ae",
   "prevId": "683931ad-2065-4ac0-9b63-d028ceec749a",
   "tables": {
     "account": {
@@ -188,7 +188,7 @@
           "name": "database_identifier",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "per_firm_schema_version": {
@@ -222,6 +222,11 @@
         }
       },
       "indexes": {
+        "firm_name_unique": {
+          "name": "firm_name_unique",
+          "columns": ["name"],
+          "isUnique": true
+        },
         "firm_database_identifier_unique": {
           "name": "firm_database_identifier_unique",
           "columns": ["database_identifier"],
