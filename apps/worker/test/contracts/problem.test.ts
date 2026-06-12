@@ -26,6 +26,14 @@ describe("problem-type URI registry", () => {
       ].sort(),
     );
   });
+
+  it("stays an identity map — the ProblemTypeUri template type interpolates the KEY, the runtime the VALUE", () => {
+    // If a key ever maps to a different value, the compile-time URI type and the runtime URI
+    // silently desynchronize; this pin makes that divergence loud.
+    for (const [key, value] of Object.entries(PROBLEM_TYPES)) {
+      expect(value).toBe(key);
+    }
+  });
 });
 
 describe("Problem schema", () => {
