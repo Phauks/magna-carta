@@ -76,6 +76,12 @@ export default defineConfig({
           decelerate: "easing.decelerate",
           accelerate: "easing.accelerate",
         },
+        // Tailwind v4 namespace names verified against the installed tailwindcss 4.3.0:
+        // `duration-*` utilities resolve the --transition-duration-* theme keys and
+        // `z-*` utilities resolve --z-index-* — NOT --duration-*/--z-*, which would emit
+        // dead variables and no utilities.
+        "transition-duration": ["duration.*"],
+        "z-index": ["z.*"],
       },
     }),
   ],

@@ -9,7 +9,7 @@
  * Primitive color ramps are deliberately unmapped: components must use semantic names.
  */
 
-/* Mode-invariant namespaces (spacing, radius, typography, easing) — generated. */
+/* Mode-invariant namespaces (spacing, radius, typography, easing, durations, z-index) — generated. */
 @theme {
   @tz (theme: "slate", mode: "light");
 }

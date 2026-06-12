@@ -46,6 +46,7 @@ const GENERATED_THEME_PATH = join(
  * Source: Tailwind v4 theme variable namespace table.
  */
 const TAILWIND_THEME_NAMESPACES = [
+  "transition-duration",
   "font-weight",
   "inset-shadow",
   "drop-shadow",
@@ -54,6 +55,7 @@ const TAILWIND_THEME_NAMESPACES = [
   "container",
   "perspective",
   "tracking",
+  "z-index",
   "leading",
   "spacing",
   "radius",
@@ -84,6 +86,10 @@ const NAMESPACE_CASES: Record<string, { utility: (token: string) => string; cano
   leading: { utility: (token) => `leading-${token}`, canonical: "leading-none" },
   tracking: { utility: (token) => `tracking-${token}`, canonical: "tracking-widest" },
   ease: { utility: (token) => `ease-${token}`, canonical: "ease-linear" },
+  // --transition-duration-* feeds `duration-*` utilities; --z-index-* feeds `z-*`
+  // (Tailwind v4 theme-key names, verified against tailwindcss 4.3.0).
+  "transition-duration": { utility: (token) => `duration-${token}`, canonical: "duration-150" },
+  "z-index": { utility: (token) => `z-${token}`, canonical: "z-50" },
 };
 
 function parseThemeTokensByNamespace(css: string): Map<string, string[]> {

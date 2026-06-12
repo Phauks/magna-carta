@@ -17,7 +17,12 @@ import { extendTailwindMerge } from "tailwind-merge";
  *   names — any value), text sizes (t-shirt validator covers md/2xl), font families,
  *   font-weight medium/semibold, leading, tracking.
  * Registered below because the default validators miss them:
- *   shadow elevation-0..3, ease standard/decelerate/accelerate, font-weight regular.
+ *   shadow elevation-0..3, ease standard/decelerate/accelerate, font-weight regular,
+ *   duration instant/fast/normal/slow, z base/dropdown/sticky/overlay/modal/toast.
+ * Duration and z are registered via `classGroups`, not `theme`: tailwind-merge's theme
+ * extension only accepts the scale keys it models (its fromTheme set — no duration, no z),
+ * and the default groups validate only numerals (`duration-150`, `z-50`), so named tokens
+ * from --transition-duration-* / --z-index-* would otherwise go unclassified.
  */
 const tailwindMergeWithTokenNamespaces = extendTailwindMerge({
   extend: {
@@ -25,6 +30,10 @@ const tailwindMergeWithTokenNamespaces = extendTailwindMerge({
       shadow: ["elevation-0", "elevation-1", "elevation-2", "elevation-3"],
       ease: ["standard", "decelerate", "accelerate"],
       "font-weight": ["regular"],
+    },
+    classGroups: {
+      duration: [{ duration: ["instant", "fast", "normal", "slow"] }],
+      z: [{ z: ["base", "dropdown", "sticky", "overlay", "modal", "toast"] }],
     },
   },
 });

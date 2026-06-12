@@ -14,7 +14,7 @@
  * Primitive color ramps are deliberately unmapped: components must use semantic names.
  */
 
-/* Mode-invariant namespaces (spacing, radius, typography, easing) — generated. */
+/* Mode-invariant namespaces (spacing, radius, typography, easing, durations, z-index) — generated. */
 @theme {
   --spacing-0: 0px;
   --spacing-4: 4px;
@@ -52,6 +52,16 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
   --ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --transition-duration-fast: 100ms;
+  --transition-duration-instant: 0ms;
+  --transition-duration-normal: 200ms;
+  --transition-duration-slow: 300ms;
+  --z-index-base: 0;
+  --z-index-dropdown: 1000;
+  --z-index-modal: 1300;
+  --z-index-overlay: 1200;
+  --z-index-sticky: 1100;
+  --z-index-toast: 1400;
 }
 
 /* Semantic colors + elevation — hand-authored; `inline` keeps the var() reference in utilities. */

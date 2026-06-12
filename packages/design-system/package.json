@@ -5,6 +5,7 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
+    "./internal/floating": "./src/lib/internal/floating.ts",
     "./internal/merge-classes": "./src/lib/internal/merge-classes.ts",
     "./internal/theme-preference": "./src/lib/internal/theme-preference.ts",
     "./internal/types": "./src/lib/internal/types.ts",
