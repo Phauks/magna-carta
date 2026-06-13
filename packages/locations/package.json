@@ -4,7 +4,11 @@
   "private": true,
   "type": "module",
   "sideEffects": false,
-  "exports": {},
+  "exports": {
+    "./location-service": "./src/location-service.ts",
+    "./statements": "./src/statements.ts",
+    "./validation": "./src/validation.ts"
+  },
   "scripts": {
     "test": "vp test run"
   },
