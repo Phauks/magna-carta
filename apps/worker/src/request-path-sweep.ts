@@ -1,5 +1,4 @@
-import { operationFailed } from "@magna-carta/telemetry/events";
-import { newCorrelationId, newErrorId } from "@magna-carta/telemetry/ids";
+import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "./app.ts";
 import { runScheduledSweep } from "./scheduled.ts";
@@ -18,18 +17,7 @@ import { runScheduledSweep } from "./scheduled.ts";
 export function scheduleRequestPathSweep(executionContext: ExecutionContext, env: Bindings): void {
   executionContext.waitUntil(
     runScheduledSweep(env).catch((caught: unknown) => {
-      const error = caught instanceof Error ? caught : new Error(String(caught));
-      createWorkersLogger(env.TELEMETRY).log(
-        operationFailed(
-          { correlationId: newCorrelationId(), now: new Date().toISOString() },
-          {
-            operation: "request-path-sweep",
-            errorName: error.name,
-            messageHead: error.message.slice(0, 120),
-            errorId: newErrorId(),
-          },
-        ),
-      );
+      logOperationFailed(createWorkersLogger(env.TELEMETRY), "request-path-sweep", caught);
     }),
   );
 }

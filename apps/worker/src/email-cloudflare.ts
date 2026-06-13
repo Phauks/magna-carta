@@ -30,6 +30,12 @@ export function createCloudflareEmailAdapter(
 ): SendEmail {
   return async (message) => {
     const messageClass = message.messageClass ?? "unspecified";
+    // KNOWN SEAM (review 2026-06-13, low): the email.sent event mints a FRESH correlation id rather
+    // than the triggering request's — the sendEmail port carries no id and Better Auth's env-scoped,
+    // context-free sendReset/sendVerification callbacks cannot thread one without an AsyncLocalStorage
+    // request scope. Acceptable for now: a send failure still rethrows and surfaces a request-correlated
+    // error.captured via app.onError; only this satellite email.sent is unjoinable-by-id. Threading a
+    // request id (port field + ALS) is the deferred improvement.
     const context = () => ({ correlationId: newCorrelationId(), now: new Date().toISOString() });
     try {
       await binding.send({ to: message.to, from, subject: message.subject, text: message.text });

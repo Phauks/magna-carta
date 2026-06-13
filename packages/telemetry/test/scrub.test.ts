@@ -48,6 +48,20 @@ describe("scrubStrings — the backstop tripwire (spec §1, decided #3)", () => 
     expect(event.fields.correlationId).toBe("cor_4n2K7pQ9wXb");
   });
 
+  it("EXEMPTS a whole minted handle whose body has a dash-flanked digit run — never corrupts the Error ID", () => {
+    // A real 21-char token can contain a dash-flanked 9+ digit run; without the handle exemption the
+    // digit-run pattern would scrub it to [scrubbed], destroying the correlation handle and tripping.
+    const { event, trips } = scrubStrings(eventWith({ errorId: "err_aa-123456789-bbbbbbbb" }));
+    expect(trips).toEqual([]);
+    expect(event.fields.errorId).toBe("err_aa-123456789-bbbbbbbb");
+  });
+
+  it("still scrubs a dash-flanked digit run in a NON-handle value (the exemption is precise)", () => {
+    const { event, trips } = scrubStrings(eventWith({ note: "ref-123456789-x end" }));
+    expect(event.fields.note).toBe("ref-[scrubbed]-x end");
+    expect(trips).toEqual([{ field: "note" }]);
+  });
+
   it("trips once per offending field and scrubs every match within it", () => {
     const { event, trips } = scrubStrings(
       eventWith({ a: "a@b.com and c@d.com", b: "fine", c: "ssn 111-22-3333" }),

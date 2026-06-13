@@ -7,6 +7,7 @@
   "exports": {
     "./event": "./src/event.ts",
     "./events": "./src/events.ts",
+    "./operation": "./src/operation.ts",
     "./scrub": "./src/scrub.ts",
     "./ids": "./src/ids.ts",
     "./logger": "./src/logger.ts",

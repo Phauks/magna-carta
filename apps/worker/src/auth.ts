@@ -7,8 +7,7 @@ import * as controlPlaneSchema from "@magna-carta/database/control-plane-schema"
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { EntityType } from "@magna-carta/identifiers/registry";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
-import { operationFailed } from "@magna-carta/telemetry/events";
-import { newCorrelationId, newErrorId } from "@magna-carta/telemetry/ids";
+import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "./app.ts";
 import type { SendEmail } from "./email-port.ts";
@@ -44,17 +43,10 @@ async function writeAuthAuditGuarded(
       now: new Date().toISOString(),
     }).run();
   } catch (caught) {
-    const error = caught instanceof Error ? caught : new Error(String(caught));
-    createWorkersLogger(env.TELEMETRY).log(
-      operationFailed(
-        { correlationId: newCorrelationId(), now: new Date().toISOString() },
-        {
-          operation: `auth-audit-write:${input.event}`,
-          errorName: error.name,
-          messageHead: error.message.slice(0, 120),
-          errorId: newErrorId(),
-        },
-      ),
+    logOperationFailed(
+      createWorkersLogger(env.TELEMETRY),
+      `auth-audit-write:${input.event}`,
+      caught,
     );
   }
 }

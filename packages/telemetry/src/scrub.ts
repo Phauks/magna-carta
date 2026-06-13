@@ -9,9 +9,18 @@ import type { FieldValue, TelemetryEvent } from "./event.ts";
 // String.replace resets a global regex's lastIndex, so reusing these module-level literals is safe.
 const PATTERNS: readonly RegExp[] = [
   /[\w.+-]+@[\w-]+\.[\w.-]+/g, // email addresses
-  /\b\d{3}-\d{2}-\d{4}\b/g, // SSN shapes (dashes keep these out of the digit-run pattern)
-  /\b\d{9,}\b/g, // long digit runs — account/card numbers (err_/cor_ handles mix letters, so safe)
+  /\b\d{3}-\d{2}-\d{4}\b/g, // SSN shapes
+  /\b\d{9,}\b/g, // long digit runs — account/card numbers
 ];
+
+// A whole-value minted identifier handle (`<prefix>_<21 url-safe chars>`, ADR-0062). These are
+// opaque ids the pipeline CORRELATES on (errorId/correlationId/incidentId), never user content — so
+// a value that IS one is exempt from scrubbing entirely. Without this, a token whose random body
+// happens to contain a dash-flanked 9+ digit run (or an SSN-shaped substring) would be corrupted to
+// [scrubbed], destroying the very Error ID the 500 is keyed by and firing a spurious trip. The
+// `-`/`_` in the url-safe alphabet create the word boundaries the digit-run/SSN patterns key on, so
+// "handles mix letters" was not actually a safe guarantee; this exemption is.
+const OPAQUE_HANDLE = /^[a-z]+_[A-Za-z0-9_-]{21}$/;
 
 const REPLACEMENT = "[scrubbed]";
 
@@ -27,6 +36,11 @@ export function scrubStrings(event: TelemetryEvent): ScrubResult {
   const fields: Record<string, FieldValue> = {};
   for (const [key, value] of Object.entries(event.fields)) {
     if (typeof value !== "string") {
+      fields[key] = value;
+      continue;
+    }
+    if (OPAQUE_HANDLE.test(value)) {
+      // A minted handle (an opaque correlation/error/incident id) — never content; leave it intact.
       fields[key] = value;
       continue;
     }

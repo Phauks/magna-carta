@@ -10,7 +10,10 @@ import { describe, expect, it } from "vitest";
 
 // packages/telemetry/test -> repo root.
 const REPO_ROOT = join(import.meta.dirname, "..", "..", "..");
-const CONSOLE_CALL = /\bconsole\.(log|error|warn|info|debug)\(/;
+// The FULL console surface, not a method enumeration: any console.<method>( (log/error/warn/info/
+// debug/trace/dir/table/group/count/assert/timeEnd/…) AND bracket-notation console["log"]( — a ban
+// that listed only five methods would let console.table(privileged) or console["log"](secret) pass.
+const CONSOLE_CALL = /\bconsole\s*(?:\.\s*\w+|\[[^\]]+\])\s*\(/;
 
 // The ONLY two source files permitted a console.* call, each for a deliberate reason:
 const ALLOWLIST = new Set([
@@ -63,9 +66,14 @@ describe("console ban (golden rule 4 structural — slice 0·6 spec §3)", () =>
     expect(scanned).toBeGreaterThan(20);
   });
 
-  it("the detector matches a real console.* call (it reads content, not filenames)", () => {
+  it("the detector matches the full console.* surface incl. bracket notation (reads content, not filenames)", () => {
     expect(CONSOLE_CALL.test('console.error("leak")')).toBe(true);
     expect(CONSOLE_CALL.test("console.log(x)")).toBe(true);
+    // Methods beyond the common five must also be caught.
+    expect(CONSOLE_CALL.test("console.table(rows)")).toBe(true);
+    expect(CONSOLE_CALL.test("console.trace()")).toBe(true);
+    // Bracket notation is a real call site too.
+    expect(CONSOLE_CALL.test('console["log"](secret)')).toBe(true);
     // A bare reference without a call (e.g. an injected-sink default `= console.log`) is allowed —
     // it is not an ad-hoc logging CALL site.
     expect(CONSOLE_CALL.test("const sink = console.log;")).toBe(false);

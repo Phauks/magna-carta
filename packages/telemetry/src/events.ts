@@ -22,7 +22,9 @@ export const errorCaptured = defineEvent("error.captured", [
   "messageHead",
 ] as const);
 
-// outbox.swept — the relay sweep result (one per sweep).
+// outbox.swept — the relay sweep result, one per sweep (database + dispatched/failed/deadLettered
+// counts). WIRED by the scheduled sweep: a successful pass emits this so sweep volume is observable,
+// not just failures.
 export const outboxSwept = defineEvent("outbox.swept", [
   "database",
   "dispatched",
@@ -30,7 +32,9 @@ export const outboxSwept = defineEvent("outbox.swept", [
   "deadLettered",
 ] as const);
 
-// migration.applied — a per-database migration apply.
+// migration.applied — a per-database migration apply ({ database, tag }). DEFINED-FOR-WIRING seam:
+// the producer is the provisioning migrate-to-head path (slice 0·4 firm-provisioner); this slice
+// ships the builder so provisioning wires it without a catalog change. Not yet emitted.
 export const migrationApplied = defineEvent("migration.applied", ["database", "tag"] as const);
 
 // email.sent — a transactional email send outcome (never the body).
@@ -42,9 +46,10 @@ export const incidentCreated = defineEvent("incident.created", [
   "errorIdCount",
 ] as const);
 
-// telemetry.scrubbed — the backstop tripwire fired (scrub.ts found a denylisted shape the allowlist
-// let through). A non-zero count in tests fails the suite (decided #3).
-export const telemetryScrubbed = defineEvent("telemetry.scrubbed", ["eventName", "field"] as const);
+// telemetry.scrubbed is a COUNTER, not an event (spec §1: "bumping a telemetry.scrubbed counter").
+// The Workers logger records each scrub trip via count("telemetry.scrubbed", { eventName, field })
+// — an Analytics Engine metric, the aggregatable tripwire signal. There is deliberately no event
+// builder for it (a per-trip log line would be noise on the hot path).
 
 // operation.failed — a caught error in a NON-request context (a cron sweep, a best-effort
 // post-response sweep, an unguarded auth hook). The request path uses error.captured; this is its
@@ -74,17 +79,17 @@ export const outboxDeadLettered = defineEvent("outbox.deadLettered", [
 // logged (the structural replacement for slice 0·4's interim console.error seam).
 export const authDenied = defineEvent("auth.denied", ["cause", "route", "errorId"] as const);
 
-// The catalog's event names — used by the uniqueness fitness test and as a registry of what may be
-// logged. Keep in sync with the builders above.
+// The catalog's event names — derived from the builders themselves (each carries its `eventName`),
+// so this registry cannot drift from the real builders and the uniqueness fitness test checks the
+// actual catalog, not a hand-copied parallel list. Adding a builder above adds it here.
 export const EVENT_NAMES = [
-  "request.completed",
-  "error.captured",
-  "outbox.swept",
-  "migration.applied",
-  "email.sent",
-  "incident.created",
-  "telemetry.scrubbed",
-  "auth.denied",
-  "operation.failed",
-  "outbox.deadLettered",
-] as const;
+  requestCompleted,
+  errorCaptured,
+  outboxSwept,
+  migrationApplied,
+  emailSent,
+  incidentCreated,
+  operationFailed,
+  outboxDeadLettered,
+  authDenied,
+].map((builder) => builder.eventName);

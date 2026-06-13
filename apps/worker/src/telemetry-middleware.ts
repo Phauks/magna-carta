@@ -14,12 +14,10 @@ import type { Context, MiddlewareHandler } from "hono";
 import { errorCaptured, requestCompleted } from "@magna-carta/telemetry/events";
 import { newCorrelationId, newErrorId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
+import { MESSAGE_HEAD_LENGTH } from "@magna-carta/telemetry/operation";
 import type { Bindings } from "./app.ts";
 import type { AppVariables } from "./chokepoint/ports.ts";
 import { problemJson } from "./contracts/problem.ts";
-
-// error.message can carry user content; cap the logged head and let scrub.ts backstop the rest.
-const MESSAGE_HEAD_LENGTH = 120;
 
 type TelemetryEnv = { Bindings: Bindings; Variables: AppVariables };
 

@@ -251,6 +251,12 @@ function componentNameCollisions(app: ReturnType<typeof createApp>): string[] {
 
 // Resolve a response schema, following a single `$ref` into components/schemas (the shape
 // zod-to-openapi emits for a named .openapi() schema like Problem).
+//
+// KNOWN SEAM (review 2026-06-13, low): this follows ONE top-level $ref and does NOT recurse through
+// composition (allOf/oneOf/anyOf) or a $ref chain. Acceptable: every error response points directly
+// at the single Problem component ("the one error shape platform-wide"), and a future composed error
+// schema would FALSE-POSITIVE (a loud CI failure), never silently let a non-conforming route through
+// — the safe direction. Recurse through composition here if composed error schemas are ever adopted.
 function resolveSchema(
   schema: unknown,
   schemas: Record<string, { properties?: Record<string, unknown> }>,

@@ -28,14 +28,18 @@ export interface EventContext {
 // tuple to its literals so `Keys[number]` is the exact union of declared field names.
 export function defineEvent<const Keys extends readonly string[]>(name: string, allowedKeys: Keys) {
   const allowed = new Set<string>(allowedKeys);
-  return function build(
+  const build = (
     context: EventContext,
     fields: { [K in Keys[number]]: FieldValue },
-  ): TelemetryEvent {
+  ): TelemetryEvent => {
     const kept: Record<string, FieldValue> = {};
     for (const [key, value] of Object.entries(fields as Record<string, FieldValue>)) {
       if (allowed.has(key)) kept[key] = value;
     }
     return { name, at: context.now, correlationId: context.correlationId, fields: kept };
   };
+  // The builder carries its own event name, so the catalog (EVENT_NAMES) derives from the builders
+  // rather than a hand-copied parallel list that can drift (the uniqueness fitness test then checks
+  // the real builders, not literals).
+  return Object.assign(build, { eventName: name });
 }

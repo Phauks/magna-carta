@@ -4,9 +4,10 @@ import {
   type OutboxRow,
   type OutboxSweepReport,
 } from "@magna-carta/data-access/outbox-relay";
-import { operationFailed, outboxDeadLettered } from "@magna-carta/telemetry/events";
-import { newCorrelationId, newErrorId } from "@magna-carta/telemetry/ids";
+import { outboxDeadLettered, outboxSwept } from "@magna-carta/telemetry/events";
+import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
+import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "./app.ts";
 import { resolveFirmDatabase } from "./firm-binding-resolver.ts";
@@ -160,6 +161,18 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
     },
     deadLetter: logDeadLetter(logger, correlationId, "control-plane"),
   });
+  // A successful sweep is observable, not just its failures (outbox.swept, one per sweep).
+  logger.log(
+    outboxSwept(
+      { correlationId, now: new Date().toISOString() },
+      {
+        database: "control-plane",
+        dispatched: controlPlane.dispatched,
+        failed: controlPlane.failed,
+        deadLettered: controlPlane.deadLettered,
+      },
+    ),
+  );
 
   const firms = await listReachableActiveFirms(env);
   const idempotencyCutoff = new Date(
@@ -169,7 +182,7 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
   let firmSweeps = 0;
   for (const firm of firms) {
     try {
-      await sweepOutbox({
+      const firmReport = await sweepOutbox({
         database: firm.database,
         publish: async (row) => {
           // The Queue message mirrors the outbox row (consumers dedup on id, order by
@@ -192,22 +205,21 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
       });
       await purgeExpiredIdempotencyRecordsStatement(firm.database, idempotencyCutoff).run();
       firmSweeps++;
-    } catch (caught) {
-      // One firm's broken database must not starve the rest of the fleet; the failure is logged
-      // (operation + redacted message, firm handle in the operation label) and the next Cron fire
-      // retries.
-      const error = caught instanceof Error ? caught : new Error(String(caught));
       logger.log(
-        operationFailed(
+        outboxSwept(
           { correlationId, now: new Date().toISOString() },
           {
-            operation: `cron:per-firm-sweep:${firm.firmId}`,
-            errorName: error.name,
-            messageHead: error.message.slice(0, 120),
-            errorId: newErrorId(),
+            database: firm.firmId,
+            dispatched: firmReport.dispatched,
+            failed: firmReport.failed,
+            deadLettered: firmReport.deadLettered,
           },
         ),
       );
+    } catch (caught) {
+      // One firm's broken database must not starve the rest of the fleet; the failure is logged
+      // through the one pipeline (firm handle in the operation label) and the next Cron fire retries.
+      logOperationFailed(logger, `cron:per-firm-sweep:${firm.firmId}`, caught, correlationId);
     }
   }
 

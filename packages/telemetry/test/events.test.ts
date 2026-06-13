@@ -10,7 +10,6 @@ import {
   outboxDeadLettered,
   outboxSwept,
   requestCompleted,
-  telemetryScrubbed,
 } from "../src/events.ts";
 
 const context = { correlationId: "cor_abc123", now: "2026-06-13T00:00:00.000Z" };
@@ -67,11 +66,6 @@ describe("event catalog (spec §1)", () => {
   it("incidentCreated carries incidentId/errorIdCount", () => {
     const event = incidentCreated(context, { incidentId: "inc_1", errorIdCount: 2 });
     expect(event.name).toBe("incident.created");
-  });
-
-  it("telemetryScrubbed carries eventName/field", () => {
-    const event = telemetryScrubbed(context, { eventName: "error.captured", field: "messageHead" });
-    expect(event.name).toBe("telemetry.scrubbed");
   });
 
   it("authDenied carries cause/route/errorId — and has NO slot for a key (structural redaction)", () => {
