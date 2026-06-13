@@ -7,6 +7,13 @@
 // without import attributes) and never loads under plain Node ESM, so the document is built through
 // a programmatic Vite SSR pipeline — the same transforms tests and `wrangler` build use — guaranteeing
 // the emitted document matches what the running Worker serves.
+//
+// Outside the worker's typecheck boundary by design: the worker tsconfig pins `types:
+// [@cloudflare/workers-types]` so that `node:fs` is correctly a type error in `src/`, and the repo
+// type-checks one tsconfig per package — there is no node-typed program for this node-side script to
+// join without that hygiene loss. The gap is covered: CI runs `emit-openapi` every build (a broken
+// script crashes the job before the diff gate), and the typechecked snapshot test imports
+// `serializeOpenAPIDocument` from app.ts, so a renamed/removed export fails the type gate at once.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { createServer, isRunnableDevEnvironment, type Plugin } from "vite-plus";

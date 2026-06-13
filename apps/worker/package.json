@@ -30,6 +30,7 @@
     "@stoplight/prism-cli": "catalog:",
     "@stoplight/spectral-cli": "catalog:",
     "otpauth": "catalog:",
+    "vite-plus": "catalog:",
     "vitest": "catalog:",
     "wrangler": "catalog:"
   }
