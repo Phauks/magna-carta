@@ -39,3 +39,5 @@ export type MemberRoleId = Identifier<"memberRole">;
 export type GrantId = Identifier<"grant">;
 export type AuthAuditId = Identifier<"authAudit">;
 export type ErrorId = Identifier<"error">;
+export type CorrelationId = Identifier<"correlation">;
+export type IncidentId = Identifier<"incident">;

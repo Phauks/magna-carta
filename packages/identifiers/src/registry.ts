@@ -26,6 +26,8 @@ export const ENTITY_PREFIXES = {
   grant: "gnt",
   authAudit: "aud",
   error: "err",
+  correlation: "cor",
+  incident: "inc",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

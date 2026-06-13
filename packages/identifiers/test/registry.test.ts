@@ -25,6 +25,11 @@ describe("prefix registry", () => {
     expect(prefixFor("error")).toBe("err");
   });
 
+  it("maps the telemetry entity types to their prefixes (slice 0·6)", () => {
+    expect(prefixFor("correlation")).toBe("cor");
+    expect(prefixFor("incident")).toBe("inc");
+  });
+
   it("has no duplicate prefixes (prefix space partitions the id space)", () => {
     const prefixes = Object.values(ENTITY_PREFIXES);
     expect(new Set(prefixes).size).toBe(prefixes.length);
