@@ -32,12 +32,13 @@
   }}
 >
   {#snippet template(args: SeparatorStoryArgs)}
-    <!-- Constrained width: a horizontal separator spans its container, so the demo gives it one
-         (left unconstrained it would stretch the whole canvas and dwarf the vertical demo). -->
-    <div class="flex max-w-xs flex-col gap-3">
-      <div>Recent matters</div>
+    <!-- A 128px-wide container so this rule is the SAME length as the vertical demo's 128px-tall
+         rule — both are 1px thick (the border-width token), just rotated. The separator imposes no
+         length of its own; it spans whatever its container gives it. -->
+    <div class="flex w-32 flex-col gap-3">
+      <span>Recent matters</span>
       <Separator {...args} />
-      <div>Archived matters</div>
+      <span>Archived matters</span>
     </div>
   {/snippet}
 </Story>
@@ -52,7 +53,9 @@
   }}
 >
   {#snippet template(args: SeparatorStoryArgs)}
-    <div class="flex h-6 items-center gap-3">
+    <!-- A 128px-tall container — same length as the horizontal demo, so the two read as identical
+         1px rules in different orientations. -->
+    <div class="flex h-32 items-center gap-3">
       <span>Edit</span>
       <Separator {...args} />
       <span>Archive</span>

@@ -5,7 +5,7 @@
  * lookup is clearer and fully type-checked. Sibling components copy this exact shape.
  */
 
-export type ButtonVariant = "primary" | "secondary" | "destructive" | "ghost" | "link";
+export type ButtonVariant = "primary" | "secondary" | "destructive" | "ghost";
 export type ButtonSize = "sm" | "default" | "lg" | "icon";
 
 const VARIANT: Record<ButtonVariant, string> = {
@@ -13,7 +13,6 @@ const VARIANT: Record<ButtonVariant, string> = {
   secondary: "mc-button-secondary",
   destructive: "mc-button-destructive",
   ghost: "mc-button-ghost",
-  link: "mc-button-link",
 };
 
 const SIZE: Record<ButtonSize, string> = {

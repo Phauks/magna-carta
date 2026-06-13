@@ -92,13 +92,6 @@
     background-color: var(--mc-action-secondary);
   }
 
-  .mc-button-link {
-    background-color: transparent;
-    color: var(--mc-text-link);
-    text-decoration-line: underline;
-    text-underline-offset: var(--mc-space-4);
-  }
-
   /* Sizes — heights map to the control scale; icon is a square at the default height. */
   .mc-button-sm {
     block-size: var(--mc-control-sm);
@@ -184,11 +177,12 @@
     color: var(--mc-action-disabled-foreground);
     cursor: not-allowed;
   }
-  /* File input: centre the native selector button and style it as a secondary control so a
-   * file field reads as intentional rather than browser-default. */
+  /* File input: style the native selector button as a secondary control, and size the field by
+   * padding (block-size auto) rather than a fixed height — symmetric padding centres the button
+   * and filename vertically, where a fixed height left them kissing the top. */
   .mc-input[type="file"] {
-    display: inline-flex;
-    align-items: center;
+    block-size: auto;
+    padding-block: var(--mc-space-8);
   }
   .mc-input[type="file"]::file-selector-button {
     margin-inline-end: var(--mc-space-12);

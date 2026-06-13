@@ -1,8 +1,10 @@
 <script module lang="ts">
   /*
-   * Label — Tier 1 batch. A single story showing the label in its real context (bound to a control
-   * via for/id). Both checks ride the play function (run automatically): the element is a native
-   * <label>, and clicking it focuses the control it names. Per-story axe runs clean. svelte-csf v5.
+   * Label — Tier 1 batch. Use case: a Label captions a form control; its job is the native for/id
+   * link, so the showcase pairs it with the control it names — here on a single inline row (a
+   * Label is one line of text, it does not need its own column). Both checks ride the play
+   * function: the element is a native <label>, and clicking it focuses the control. Per-story axe
+   * runs clean. svelte-csf v5.
    */
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import { expect, userEvent } from "storybook/test";
@@ -25,8 +27,8 @@
     await expect(field).toHaveFocus();
   }}
 >
-  <div class="flex flex-col gap-2">
+  <div class="flex items-center gap-3">
     <Label for="matter-reference">Matter reference</Label>
-    <input id="matter-reference" type="text" class="mc-input w-full max-w-xs" />
+    <input id="matter-reference" type="text" class="mc-input max-w-xs" />
   </div>
 </Story>

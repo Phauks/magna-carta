@@ -27,7 +27,7 @@
     argTypes: {
       variant: {
         control: "select",
-        options: ["primary", "secondary", "destructive", "ghost", "link"],
+        options: ["primary", "secondary", "destructive", "ghost"],
       },
       size: { control: "select", options: ["sm", "default", "lg", "icon"] },
     },
@@ -84,11 +84,6 @@
 <Story name="Ghost / lg" args={{ variant: "ghost", size: "lg" }} {template} />
 <Story name="Ghost / icon" args={{ variant: "ghost", size: "icon" }} {template} />
 
-<Story name="Link / sm" args={{ variant: "link", size: "sm" }} {template} />
-<Story name="Link / default" args={{ variant: "link", size: "default" }} {template} />
-<Story name="Link / lg" args={{ variant: "link", size: "lg" }} {template} />
-<Story name="Link / icon" args={{ variant: "link", size: "icon" }} {template} />
-
 <!-- Disabled: the recipe greys the control; its play proves the native disabled attribute blocks
      the click handler (not merely the recipe's pointer-events:none). -->
 <Story
@@ -108,8 +103,9 @@
 </Story>
 
 <!-- Given an `href`, the same styled control renders as a real <a> instead of a <button> — so a
-     primary call-to-action can navigate. (Distinct from the `link` VARIANT above, which is the
-     underlined text-link look.) The play asserts it is an anchor with the href and no button type. -->
+     button-styled call-to-action can navigate. (A button always looks like a button; there is no
+     text-link "variant" — inline text links are a separate concern.) The play asserts it is an
+     anchor with the href and no button type. -->
 <Story
   name="As a link (href renders an anchor)"
   args={{ variant: "primary", size: "default" }}
