@@ -165,6 +165,111 @@ describe("operationId registration-time validation", () => {
   });
 });
 
+describe("fail-closed access-control guard at definition time", () => {
+  it("throws when a public route (authenticated: false) names a capability — the chokepoint ignores it, so naming one is a confused contract", () => {
+    expect(() =>
+      defineOpenAPIRoute(
+        sampleMeta({
+          operationId: "health.check",
+          authenticated: false,
+          permission: "firm:manageMembers",
+        }),
+        {
+          method: "get",
+          path: "/api/v1/health",
+          description: "Liveness probe.",
+          responses: okJsonResponse,
+        },
+      ),
+    ).toThrowError(/health\.check/);
+    expect(() =>
+      defineOpenAPIRoute(
+        sampleMeta({
+          operationId: "health.check",
+          authenticated: false,
+          permission: "firm:manageMembers",
+        }),
+        {
+          method: "get",
+          path: "/api/v1/health",
+          description: "Liveness probe.",
+          responses: okJsonResponse,
+        },
+      ),
+    ).toThrowError(/permission/);
+  });
+
+  it("throws when an authenticated mutating route names a null permission — the chokepoint reads null as any-authenticated-user (privilege escalation by omission)", () => {
+    for (const method of ["post", "put", "patch", "delete"] as const) {
+      expect(() =>
+        defineOpenAPIRoute(sampleMeta({ operationId: "matters.create", permission: null }), {
+          method,
+          path: "/api/v1/matters",
+          description: "Mutates matters.",
+          responses: okJsonResponse,
+        }),
+      ).toThrowError(/matters\.create/);
+    }
+  });
+
+  it("throws for an uppercase mutating method (case-insensitive method check)", () => {
+    expect(() =>
+      defineOpenAPIRoute(sampleMeta({ operationId: "matters.create", permission: null }), {
+        method: "POST" as unknown as "post",
+        path: "/api/v1/matters",
+        description: "Mutates matters.",
+        responses: okJsonResponse,
+      }),
+    ).toThrowError(/permission/);
+  });
+
+  it("allows a public route with a null permission (the legitimate public case)", () => {
+    expect(() =>
+      defineOpenAPIRoute(
+        sampleMeta({ operationId: "health.check", authenticated: false, permission: null }),
+        {
+          method: "get",
+          path: "/api/v1/health",
+          description: "Liveness probe.",
+          responses: okJsonResponse,
+        },
+      ),
+    ).not.toThrow();
+  });
+
+  it("allows an authenticated GET with a null permission — the legitimate any-authenticated-user read case (e.g. GET /v1/me)", () => {
+    expect(() =>
+      defineOpenAPIRoute(
+        sampleMeta({ operationId: "me.read", authenticated: true, permission: null }),
+        {
+          method: "get",
+          path: "/api/v1/me",
+          description: "The current user.",
+          responses: okJsonResponse,
+        },
+      ),
+    ).not.toThrow();
+  });
+
+  it("allows an authenticated mutating route with a real permission", () => {
+    expect(() =>
+      defineOpenAPIRoute(
+        sampleMeta({
+          operationId: "matters.create",
+          authenticated: true,
+          permission: "firm:manageMembers",
+        }),
+        {
+          method: "post",
+          path: "/api/v1/matters",
+          description: "Creates a matter.",
+          responses: okJsonResponse,
+        },
+      ),
+    ).not.toThrow();
+  });
+});
+
 describe("idempotency-required header documentation flip", () => {
   function createMatterRoute(idempotency: "required" | "optional") {
     return defineOpenAPIRoute(

@@ -124,6 +124,43 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
         `matching ${OPERATION_ID_PATTERN}.`,
     );
   }
+
+  // Fail-closed access-control guards, asserted at definition time (startup), enforcing the spec's
+  // access-control invariants the chokepoint (slice 0·5b) will TRUST without re-deriving. These are
+  // RUNTIME asserts, not a type-level discriminated union on RouteMeta, BECAUSE the dangerous
+  // invariant (#2 below) depends on the HTTP method — which lives in routeConfig.method, not on
+  // RouteMeta — and on the mutating/non-mutating distinction. A discriminated union over RouteMeta
+  // alone cannot see the method, so it cannot express the rule. Task 10's fitness function over the
+  // emitted document remains the CI defense-in-depth backstop for the same invariants.
+  //
+  // #1 Public routes cannot name a capability: the chokepoint never reads a public route's
+  // permission, so naming one is a confused contract that misleads the next reader.
+  if (meta.authenticated === false && meta.permission !== null) {
+    throw new TypeError(
+      `Route ${JSON.stringify(meta.operationId)} is public (authenticated: false) but names a ` +
+        `permission ${JSON.stringify(meta.permission)} — the chokepoint ignores a public route's ` +
+        `permission; set permission: null, or set authenticated: true if a capability is required.`,
+    );
+  }
+  // #2 Authenticated mutating routes must name a non-null permission. The chokepoint reads
+  // permission: null as "any authenticated user," so a mutating route authored with null permission
+  // would let any logged-in user of any firm perform it — privilege escalation by omission. The
+  // legitimate authenticated-null case is a NON-mutating read (e.g. GET /v1/me), so only mutating
+  // methods trip this guard.
+  const MUTATING_METHODS = new Set(["post", "put", "patch", "delete"]);
+  if (
+    MUTATING_METHODS.has(routeConfig.method.toLowerCase()) &&
+    meta.authenticated === true &&
+    meta.permission === null
+  ) {
+    throw new TypeError(
+      `Route ${JSON.stringify(meta.operationId)} is an authenticated ${routeConfig.method.toUpperCase()} ` +
+        `(mutating) route but names permission: null — the chokepoint would read that as ` +
+        `"any authenticated user," letting any logged-in user perform it (privilege escalation by ` +
+        `omission); name the capability this mutation requires from the access-control registry.`,
+    );
+  }
+
   const namespace = meta.operationId.slice(0, meta.operationId.indexOf("."));
   const resolvedMeta: ResolvedRouteMeta = {
     ...meta,
