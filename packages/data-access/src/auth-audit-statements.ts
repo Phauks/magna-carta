@@ -1,6 +1,7 @@
 import type { AuthAuditId, UserId } from "@magna-carta/identifiers/types";
 import { canonicalJsonStringify } from "./canonical.ts";
 import type { SqlDatabase, SqlStatement } from "./idempotency-statements.ts";
+import { refuseUnredactedMetadata } from "./metadata-redaction.ts";
 
 // Guarded vs batched — the one home for the split (both callers import this seam). Hook-driven
 // audit writes (login.success, two_factor.*, password.reset — apps/worker auth.ts) fire alone and
@@ -23,15 +24,15 @@ export interface AuthAuditInput {
 }
 
 // The builder is dumb: it canonical-stringifies whatever it is given, so redaction discipline lives
-// at the call sites. The password-key tripwire below is a canary for the most obvious
-// leak, not a guarantee.
+// at the call sites. The shared password-key tripwire (metadata-redaction.ts) is a canary for the
+// most obvious leak, not a guarantee.
 export function insertAuthAuditStatement(
   database: SqlDatabase,
   input: AuthAuditInput,
 ): SqlStatement {
   let metadata: string | null = null;
   if (input.metadata !== null && input.metadata !== undefined) {
-    refuseUnredactedMetadata(input.metadata);
+    refuseUnredactedMetadata(input.metadata, AUTH_AUDIT_TABLE);
     metadata = canonicalJsonStringify(input.metadata);
   }
   return database
@@ -39,25 +40,4 @@ export function insertAuthAuditStatement(
       `INSERT INTO ${AUTH_AUDIT_TABLE} (id, event, user_id, metadata, created_at) VALUES (?1, ?2, ?3, ?4, ?5)`,
     )
     .bind(input.id, input.event, input.userId, metadata, input.now);
-}
-
-// Canary: refuse any key CONTAINING `password` as a substring, anywhere in the metadata
-// (case-insensitive, nested) — catches `newPassword`, `currentPassword`, `passwordHash`, not just
-// the bare word. Values mentioning the word are fine — only a key trips it. No benign key
-// currently contains the substring; if one ever legitimately does, add an explicit allowlist here.
-function refuseUnredactedMetadata(value: unknown): void {
-  if (Array.isArray(value)) {
-    for (const entry of value) refuseUnredactedMetadata(entry);
-    return;
-  }
-  if (value !== null && typeof value === "object") {
-    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-      if (key.toLowerCase().includes("password")) {
-        throw new Error(
-          `auth_audit metadata key '${key}' contains 'password' — redact at the call site before logging`,
-        );
-      }
-      refuseUnredactedMetadata(entry);
-    }
-  }
 }

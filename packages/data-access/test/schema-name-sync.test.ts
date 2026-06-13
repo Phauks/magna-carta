@@ -2,6 +2,7 @@ import { getTableConfig } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
 import { authAudit } from "@magna-carta/database/control-plane-schema";
 import {
+  auditLog,
   directGrant,
   idempotencyKey,
   member,
@@ -9,6 +10,7 @@ import {
   outbox,
   rolePermission,
 } from "@magna-carta/database/per-firm-schema";
+import { AUDIT_LOG_TABLE, insertAuditLogStatement } from "../src/audit-statements.ts";
 import { AUTH_AUDIT_TABLE, insertAuthAuditStatement } from "../src/auth-audit-statements.ts";
 import { IDEMPOTENCY_TABLE } from "../src/idempotency-statements.ts";
 import {
@@ -69,6 +71,7 @@ const sqlKeywords = new Set([
   ROLE_PERMISSION_TABLE,
   DIRECT_GRANT_TABLE,
   AUTH_AUDIT_TABLE,
+  AUDIT_LOG_TABLE,
 ]);
 
 describe("schema-name sync", () => {
@@ -80,6 +83,7 @@ describe("schema-name sync", () => {
     expect(ROLE_PERMISSION_TABLE).toBe(getTableConfig(rolePermission).name);
     expect(DIRECT_GRANT_TABLE).toBe(getTableConfig(directGrant).name);
     expect(AUTH_AUDIT_TABLE).toBe(getTableConfig(authAudit).name);
+    expect(AUDIT_LOG_TABLE).toBe(getTableConfig(auditLog).name);
   });
 
   it("every column the SQL statements name exists in the schema", () => {
@@ -173,6 +177,20 @@ describe("schema-name sync", () => {
             }),
           ).sql,
           tables: [authAudit],
+        },
+        {
+          label: "audit-log insert",
+          sql: captured(
+            insertAuditLogStatement(stub.database, {
+              id: "auditLog_x" as never,
+              event: "e",
+              actorUserId: null,
+              subjectId: null,
+              metadata: null,
+              now: "t",
+            }),
+          ).sql,
+          tables: [auditLog],
         },
       ];
 
