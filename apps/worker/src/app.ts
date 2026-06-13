@@ -88,7 +88,9 @@ export function createApp() {
   registerMembersRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
 
-  app.doc31("/api/openapi.json", openAPIDocumentConfig);
+  // Serve the same document the committed snapshot carries (root tags included), so the live endpoint
+  // and the snapshot never diverge. A plain route, so it does not appear in the document itself.
+  app.get("/api/openapi.json", (c) => c.json(emitOpenAPIDocument(app)));
 
   // Everything not handled above falls through to the static-asset SPA (Workers Static Assets binding).
   app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));
@@ -115,11 +117,31 @@ export const openAPIDocumentConfig = {
   ],
 };
 
+// Emits the 3.1 document and declares every operation tag at the document root. Derived from the
+// operations, the root tag list can never drift from the routes (registry-first; an operation's tags
+// default from its operationId namespace in defineOpenAPIRoute) — it makes the contract self-describing
+// (the generated SDK/docs group by tag) and satisfies Spectral's operation-tag-defined. The single
+// emit path shared by the committed snapshot and the live /api/openapi.json route, so they never
+// diverge. getOpenAPI31Document is pure (no request, no env), so this needs no bindings.
+function emitOpenAPIDocument(app: ReturnType<typeof createApp>) {
+  const document = app.getOpenAPI31Document(openAPIDocumentConfig);
+  const methods = ["get", "put", "post", "delete", "patch", "options", "head", "trace"] as const;
+  const tagNames = new Set<string>();
+  for (const pathItem of Object.values(document.paths ?? {})) {
+    for (const method of methods) {
+      const operation = pathItem[method];
+      if (operation?.tags) for (const tag of operation.tags) tagNames.add(tag);
+    }
+  }
+  document.tags = [...tagNames].sort().map((name) => ({ name }));
+  return document;
+}
+
 // Builds the committed-contract document with no bindings: createApp() registers every route at
-// construction time and getOpenAPI31Document is pure (no request, no env). The emit script loads
-// this through the Vite pipeline; the snapshot sanity test calls it in-pool. (Task 9.)
+// construction time. The emit script loads this through the Vite pipeline; the snapshot sanity test
+// calls it in-pool. (Task 9.)
 export function buildOpenAPIDocument() {
-  return createApp().getOpenAPI31Document(openAPIDocumentConfig);
+  return emitOpenAPIDocument(createApp());
 }
 
 // Canonical serialization — pretty-printed (two-space), single trailing newline. The one byte-exact

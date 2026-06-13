@@ -590,5 +590,19 @@
       }
     }
   },
-  "webhooks": {}
+  "webhooks": {},
+  "tags": [
+    {
+      "name": "firms"
+    },
+    {
+      "name": "health"
+    },
+    {
+      "name": "me"
+    },
+    {
+      "name": "members"
+    }
+  ]
 }

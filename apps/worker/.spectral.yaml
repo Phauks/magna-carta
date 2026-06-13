@@ -1,0 +1,14 @@
+# Spectral hygiene ruleset for the emitted OpenAPI document (decided #3 / docs/conventions/api.md).
+# The §3.5 logic-bearing conformance checks are Vitest fitness functions over the document
+# (test/conformance.test.ts), NOT Spectral custom functions — Spectral carries only the hygiene
+# ruleset. CI runs `spectral lint openapi/openapi.json --fail-severity warn`, so the warn-level
+# base rules are enforced: the spike found the base ruleset flags missing servers/contact/description,
+# which the emission config (app.ts openAPIDocumentConfig) now populates — keep them failing-on-regress.
+extends: ["spectral:oas"]
+rules:
+  # Workaround (ADR-0066 amendment, Task 12): Spectral 6.16 / nimma crashes traversing this 3.1
+  # document — "Cannot read properties of null (reading 'enum')" — because the conformance contract
+  # emits null-valued extensions (x-mc-permission: null on public/no-capability routes) and this rule's
+  # JSONPath dereferences them. Our enums are trivial single-value literals (Health.status, firm
+  # status), so the rule carries near-zero value; disabling it unblocks the whole hygiene gate.
+  duplicated-entry-in-enum: off
