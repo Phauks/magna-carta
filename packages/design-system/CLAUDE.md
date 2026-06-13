@@ -34,7 +34,10 @@ properties; off-token values are machine-rejected.
   file:line. The documented escape (`fitness-allow: <justification>`) feeds an asserted inventory;
   every allowance is a reviewed test edit.
 - **`components.css` values are `var(--mc-…)` or structural keywords — no literals, no escape
-  valve (deliberate).** Recipes must tokenize lengths (see Gotchas: focus-ring width).
+  valve (deliberate).** Recipes must tokenize lengths: focus-ring width/offset and the 1px
+  **`--mc-border-width-default`** hairline are dimension primitives added to design-tokens for
+  exactly this reason — when a recipe needs a length with no token, add the token (regenerate +
+  re-pin the golden in the same commit), do not reach for a literal or a keyword like `thin`.
 - **`bits-ui` is imported only inside `src/`** (and the csp-spike probe) — gated.
 - **Lucide deep imports only** (`@lucide/svelte/icons/<name>`) — gated.
 - **Z and presence live in `floating.ts` only.** Apply `floatingContentClasses()` output to the
@@ -82,10 +85,18 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
   local Windows renders must never be committed.
 - **`.cmd` files are ASCII-only** — multibyte characters (em-dashes) shear cmd.exe's parser under
   the UTF-8 codepage. `.gitattributes` pins `*.cmd` to CRLF.
-- **Before the Tier 1 Button lands:** focus-ring width/offset must become tokens (the plan's
-  exemplar recipe `outline-offset: 2px` fails the components.css gate — correctly). Bare `0`,
-  `calc(…)`, and `content: ""` in recipes likewise need tokens or a deliberate, reviewed gate
-  widening.
+- **Tokenize recipe lengths (focus-ring + border-width done):** the Button needed focus-ring
+  width/offset tokens; the Tier 1 batch (Input/Card/Separator/Alert/Kbd) needed
+  `--mc-border-width-default`. Bare `0`, `calc(…)`, and `content: ""` in recipes likewise need
+  tokens or a deliberate, reviewed gate widening.
+- **Component-build conventions (Tier 1 batch, the loop every later component copies):**
+  - **Single-element wrappers** are `WithElementRef<HTMLXAttributes, HTMLXElement>` + `mergeClasses("mc-x", className)`; **variant** components add the house `variants.ts` record (no DSL), as in button/badge/alert.
+  - **Multi-part** components (Card, Alert) ship an index that exports the **house namespace shape** — bare part names (`Root`, `Header`, …) _plus_ prefixed aliases (`Card`, `CardHeader`, …) — so both `import * as Card` and `{ Card, CardHeader }` work.
+  - **svelte-csf `defineMeta({ component })` needs a directly imported component identifier**, not a namespace member: import the root component file alongside `import * as X` for multi-part stories (Card/Alert stories show this).
+  - **Layout width is a utility, not the recipe:** `inline-size: 100%` is not tokenizable (and `%` fails the purity gate), so form controls (Input/Textarea) and Separator carry `w-full`/`h-full` in the component class; the recipe owns visual design only.
+  - **Input file-type narrowing:** the narrow discriminated union `Omit<…,"type"> & ({type:"file";files?} | {type?:…;files?})` type-checks cleanly (unlike the Button's full button|anchor union — see relaxed-intersection note); `value`/`files` are `$bindable`.
+  - **Status surfaces use the gated solid pairing:** an Alert is a solid `status.<v>` panel with `status.<v>-foreground` (the AA-gated pair); a status colour as **text on a light surface is ungated and can fail AA** — do not use it until `status.*-subtle` tokens exist.
+  - **Animations pulse between token colours, not opacity** (no opacity token; opacity literals are banned) and carry a `prefers-reduced-motion` guard (Skeleton).
 - **`#NNNN` issue references in `src/` comments trip the raw-hex gate** (four hex digits) — cite
   issues in full URL form or use a justified `fitness-allow`.
 - **Open spec item:** the no-emoji fitness gate is specced but unimplemented (decide at CI wiring,
