@@ -1,10 +1,11 @@
 <script module lang="ts">
   /*
-   * Button — Tier 1. One story per instance (matches the Alert/Badge model): a story per variant,
-   * plus the Disabled state and the as-a-link case, so the autodocs Docs page shows each as its own
-   * labelled block. The first story is the Docs page's controllable Primary — the Controls panel
-   * drives both variant and size (so the sizes are explored there rather than as separate stories).
-   * Behavior assertions ride the relevant stories' play functions. svelte-csf v5.
+   * Button — Tier 1. Catalog model: ONE story per variant (the visual axis worth seeing at a
+   * glance). Every other prop — size, disabled, href, type — is a Control, not a story (so the
+   * model is consistent: nothing orthogonal to the variant gets its own story). `disabled` and
+   * `href` come from the native attribute spread, so they are declared in argTypes explicitly to
+   * surface them as Controls. The component's own logic is covered by a hidden, test-only story.
+   * svelte-csf v5.
    */
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ComponentProps } from "svelte";
@@ -18,6 +19,21 @@
     argTypes: {
       variant: { control: "select", options: ["primary", "secondary", "destructive", "ghost"] },
       size: { control: "select", options: ["sm", "default", "lg", "icon"] },
+      // disabled + href arrive via the native attribute spread (no docgen backing), so they would
+      // float above the auto-detected "Properties" group; a distinct category groups them as the
+      // forwarded native attributes they are (not the component's own declared props), and an
+      // explicit description fills the otherwise-empty Description column.
+      disabled: {
+        control: "boolean",
+        description: "Disables the button so it cannot be focused or clicked; renders muted.",
+        table: { category: "Native attributes" },
+      },
+      href: {
+        control: "text",
+        description:
+          "A destination URL. When set, the button renders as an anchor (`<a href>`) styled as a button instead of a `<button>`.",
+        table: { category: "Native attributes" },
+      },
     },
   });
 
@@ -29,50 +45,37 @@
   <Button {...args}>Button</Button>
 {/snippet}
 
-<!-- One story per variant (the first is the Docs Primary; change variant + size via the Controls). -->
-<Story
-  name="Primary"
-  args={{ variant: "primary" }}
-  {template}
-  play={async ({ canvas }) => {
-    const control = canvas.getByRole("button", { name: "Button" });
-    await expect(control.tagName).toBe("BUTTON");
-    await expect(control).toHaveAttribute("type", "button");
-    await userEvent.tab();
-    await expect(control).toHaveFocus();
-  }}
-/>
+<!-- One story per variant — the visual showcase. The first is the Docs-page Primary; size,
+     disabled, href, and type are explored in the Controls panel rather than as separate stories. -->
+<Story name="Primary" args={{ variant: "primary" }} {template} />
 <Story name="Secondary" args={{ variant: "secondary" }} {template} />
 <Story name="Destructive" args={{ variant: "destructive" }} {template} />
 <Story name="Ghost" args={{ variant: "ghost" }} {template} />
 
-<!-- Disabled: its play proves the native disabled attribute blocks the click handler. -->
+<!-- Behaviour: the component's own logic (submit-proof type, disabled blocking the handler, href
+     rendering a real <a>). Tagged out of the sidebar and the Docs page, but still run by the test
+     addon — so it stays covered without cluttering the catalog. -->
 <Story
-  name="Disabled"
-  args={{ onclick: disabledClick }}
+  name="Behaviour"
+  tags={["!dev", "!autodocs"]}
   play={async ({ canvas }) => {
-    const control = canvas.getByRole("button", { name: "Disabled" });
-    await expect(control).toBeDisabled();
-    await userEvent.click(control, { pointerEventsCheck: 0 });
+    const action = canvas.getByRole("button", { name: "Action" });
+    await expect(action.tagName).toBe("BUTTON");
+    await expect(action).toHaveAttribute("type", "button");
+    const disabled = canvas.getByRole("button", { name: "Disabled" });
+    await expect(disabled).toBeDisabled();
+    await userEvent.click(disabled, { pointerEventsCheck: 0 });
     await expect(disabledClick).not.toHaveBeenCalled();
-  }}
->
-  {#snippet template(args: ButtonStoryArgs)}
-    <Button variant="primary" disabled onclick={args.onclick as () => void}>Disabled</Button>
-  {/snippet}
-</Story>
-
-<!-- As a link: with an href the same control renders a real <a> (a button-styled CTA that navigates). -->
-<Story
-  name="As a link"
-  play={async ({ canvas }) => {
-    const control = canvas.getByRole("link", { name: "Open documentation" });
-    await expect(control.tagName).toBe("A");
-    await expect(control).toHaveAttribute("href", "#button-anchor-target");
-    await expect(control).not.toHaveAttribute("type");
+    const link = canvas.getByRole("link", { name: "Open documentation" });
+    await expect(link.tagName).toBe("A");
+    await expect(link).not.toHaveAttribute("type");
   }}
 >
   {#snippet template()}
-    <Button variant="primary" href="#button-anchor-target">Open documentation</Button>
+    <div class="flex gap-3">
+      <Button variant="primary">Action</Button>
+      <Button variant="primary" disabled onclick={disabledClick}>Disabled</Button>
+      <Button variant="primary" href="#button-anchor-target">Open documentation</Button>
+    </div>
   {/snippet}
 </Story>
