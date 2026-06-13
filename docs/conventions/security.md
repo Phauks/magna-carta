@@ -1,6 +1,6 @@
 # Security conventions
 
-**Status:** Stub — to be written alongside auth + the data-access layer (white paper, _Tenancy_ and _Authentication, access control & encryption_; Phase 0).
+**Status:** Active in part — the _Auth & secrets — operational facts_, _Untrusted file handling_, and _Post-quantum & crypto-agility_ sections bind now; the remaining scope below is filled in as the corresponding subsystems are built (white paper, _Tenancy_ and _Authentication, access control & encryption_; Phase 0).
 
 **Scope (single home for):** the practitioner's how-to for building securely — isolation, access control, encryption usage, secrets handling, telemetry redaction, and payment scope.
 
@@ -17,6 +17,20 @@
 - Auth hardening: Argon2id, rate limiting, lockout, the immutable auth audit log.
 
 > Firm-scoping and redact-by-default logging are **golden rules** (root [`CLAUDE.md`](../../CLAUDE.md)); `protected()`, secrets-isolation, and the trust/fee rules are **domain invariants** ([`invariants.md`](invariants.md)).
+
+## Auth & secrets — operational facts (slice 0·4)
+
+These bind now. The integration shape, rationale, and build findings live in **ADR-0073** (as amended) and the white paper (_Authentication, access control & encryption_; _Tenancy & data isolation_) — don't restate them here.
+
+- **Membership is invitation-only.** There is no open signup: Better Auth runs with signup disabled (the public route always 4xxes — fitness-tested), so every user creation enters through the invitation flow and rides the idempotent write path.
+- **Worker secrets — `wrangler secret put`, never `vars`.** Production secrets: `AUTH_SECRET` (Better Auth signing + at-rest encryption), `PLATFORM_ADMIN_KEY` (guards `POST /api/v1/firms`), and the `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` pair for the Cloudflare REST `FirmResourceProvider` adapter. `apps/worker/.dev.vars` is **committed with placeholder-only values** — enforced by a byte-identity fitness test (`apps/worker/test/dev-vars.test.ts`), so a real credential dropped into the file fails the suite. The Cloudflare pair is deliberately absent locally; its absence selects the dev pool-claiming adapter.
+- **Dev email stub.** Verification and reset links land in the terminal via the logging adapter behind the `sendEmail` port (nothing beyond the message fields is logged); slice 0·6 swaps in Cloudflare Email Service behind the same port (ADR-0074).
+- **Dev firm-database binding pool.** Miniflare cannot create D1 databases at runtime, so local dev and tests claim from the pre-declared `DB_FIRM_POOL_*` bindings; a claimed firm's `database_identifier` **is** the binding name. Adding a pool member touches three places in lockstep: `wrangler.jsonc`, the `Bindings` type, and the resolver table in `apps/worker/src/firm-binding-resolver.ts`. An unknown identifier resolves to null → 404, never a 500 and never an existence oracle (ADR-0052).
+- **TOTP seed handling.** Seeds are encrypted at rest by Better Auth using `AUTH_SECRET`; the upgrade to the data-access `protected()` crypto module is a named seam (slice 1·2, [`../../ROADMAP.md`](../../ROADMAP.md)).
+- **Idempotency is auth-gated and tenant-scoped.** Session + permission checks run **before** the idempotency pre-decision (an unauthenticated caller can never replay a stored response or probe key existence), and stored keys are scoped `${firmId}:${clientKey}` (`platform:${clientKey}` on platform-admin routes), so a key can never replay or poison across firms (ADR-0073 amendment).
+- **Deactivated members lose all permissions at the read path.** Both permission reads (role permissions and direct grants) gate on `member.status = 'active'` in SQL, so a deactivated member with a live session holds nothing anywhere the resolver is consulted; `GET /api/v1/me` answers a deactivated member with the ADR-0052 404 (absent — never a 403 that confirms the account exists but was switched off), while a never-mirrored user (the transient outbox sweep-lag window) still bootstraps 200 with empty permissions. The deactivation API itself is a later slice — the read path is correct ahead of it.
+- **Platform-admin key comparison is constant-time.** `X-Platform-Admin-Key` is compared via SHA-256-folded `timingSafeEqual` (`apps/worker/src/constant-time.ts`) so neither content nor length leaks through timing; the secret guard itself is a named seam until a real platform-admin principal model exists (ADR-0073).
+- **Dead-lettered outbox rows are revived by the requeue statement.** The relay marks a row `status='failed'` (dead-letter) terminally after max attempts — nothing re-dispatches it automatically. Recovery is an operator action: `requeueDeadLetteredMessageStatement` (`@magna-carta/data-access/outbox-statements`) flips a failed row back to `pending` (attempts reset) so the next sweep retries it. The guarded UPDATE only ever revives a genuinely failed row. A self-service admin surface is a later slice.
 
 ## Untrusted file handling (uploads, processing & preview)
 

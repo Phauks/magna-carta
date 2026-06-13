@@ -244,6 +244,9 @@ importers:
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 4.20260604.1
+      '@magna-carta/access-control':
+        specifier: workspace:*
+        version: link:../access-control
       '@magna-carta/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig

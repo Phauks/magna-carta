@@ -111,13 +111,7 @@ Triggers follow the standard cadence: a **preliminary** check before the initial
 1. Adopt the six seams in §F (phonetic-code columns, queryable name-history rows, blind-index identifier wiring, the conflict-relevant edge types, firm-personnel prior-firm history, the FTS5 trigram search substrate).
 2. Phonetic encoder choice to precompute: Double Metaphone (default) and whether to also store Beider-Morse now for the over-inclusive setting (storing both is cheap; recompute later is not).
 
-**For Phase 4 (Conflicts engine — later):**
-
-3. Scoring model: transparent weighted-score (recommended start, explainable) vs. trained Fellegi-Sunter; the per-field comparators and the severity-band thresholds behind the strictness setting.
-4. Graph-expansion default depth and the edge types included by default.
-5. D1-native vs. Tantivy-container for matching at scale (measure first; D1-native recommended start).
-6. The immutable conflicts-log schema (§G) and its append-only enforcement.
-7. The reviewer adjudication UX (how hits are surfaced, explained, and dispositioned).
+**For Phase 4 (Conflicts engine — later):** 3. Scoring model: transparent weighted-score (recommended start, explainable) vs. trained Fellegi-Sunter; the per-field comparators and the severity-band thresholds behind the strictness setting. 4. Graph-expansion default depth and the edge types included by default. 5. D1-native vs. Tantivy-container for matching at scale (measure first; D1-native recommended start). 6. The immutable conflicts-log schema (§G) and its append-only enforcement. 7. The reviewer adjudication UX (how hits are surfaced, explained, and dispositioned).
 
 ---
 

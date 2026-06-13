@@ -84,6 +84,14 @@ export function createMigratedNodeDatabase(
   return { database: nodeSqliteBatchDatabase(raw), raw };
 }
 
+// Open an EXISTING database file as the D1-shaped adapter — no migrations applied (the file is
+// already at some schema; callers own staleness, e.g. the fixtures snapshot manifest). Node-only,
+// like everything in this module.
+export function openNodeDatabaseFile(path: string): MigratedNodeDatabase {
+  const raw = new DatabaseSync(path);
+  return { database: nodeSqliteBatchDatabase(raw), raw };
+}
+
 // Load the committed migration artifacts from this package's drizzle/ directory (filesystem — hence
 // node-only; the Worker path imports SQL as ?raw text instead, see migration.ts).
 export function loadMigrationsFromDisk(lineage: "control-plane" | "per-firm"): Migration[] {

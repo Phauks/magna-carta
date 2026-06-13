@@ -11,9 +11,15 @@
     "./demo-chart-of-accounts": "./src/demo-chart-of-accounts.ts",
     "./factories": "./src/factories.ts",
     "./scenarios": "./src/scenarios.ts",
-    "./demo-firm": "./src/demo-firm.ts"
+    "./demo-firm": "./src/demo-firm.ts",
+    "./load-profile/profile": "./src/load-profile/profile.ts",
+    "./load-profile/generate": "./src/load-profile/generate.ts",
+    "./load-profile/snapshot": "./src/load-profile/snapshot.ts",
+    "./load-profile/runner": "./src/load-profile/runner.ts",
+    "./load-profile/ledger-measurements": "./src/load-profile/ledger-measurements.ts"
   },
   "scripts": {
+    "measure": "node --experimental-transform-types src/load-profile/measure-cli.ts",
     "test": "vp test run"
   },
   "dependencies": {
