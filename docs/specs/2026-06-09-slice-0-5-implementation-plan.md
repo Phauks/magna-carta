@@ -118,7 +118,14 @@ TDD. `interface RateLimiter { check(bucket: RateLimitBucket, key: string): { all
 
 TDD. Wraps the handler response when `env.ENVIRONMENT === "development"`: parses the JSON body against the route's declared response schema for that status (resolved at registration time — the route definition is closed over by per-route middleware, per the Task 7 keying constraint; never looked up from the matched route). Divergence throws with the zod issues (caught in tests; surfaces loudly in `wrangler dev`). Production (`ENVIRONMENT` unset/other) is a pass-through — test asserts zero body reads. Commit `feat(worker): dev-only response/contract divergence validator`.
 
-**=== PAUSE POINT — everything below requires slice 0·4 merged (resolveSession, the firms/members/me routes). Do not proceed until 0·4 lands on main and this branch is rebased onto it. ===**
+**=== SLICE BOUNDARY (split 2026-06-12) — Tasks 1–6 above are slice 0·5a (API contract foundation), BUILT; Tasks 7–14 below are slice 0·5b (enforcement + pipeline). Everything below requires slice 0·4 merged (resolveSession, the firms/members/me routes). 0·4 has landed on main — integrate this branch with main before proceeding. ===**
+
+**0·5b forward-obligations (from the 0·5a adversarial pass, 2026-06-12) — fold into the tasks below:**
+
+- **Component-name uniqueness fitness function (Task 8/10).** zod-to-openapi 1.4.0 does NOT throw on duplicate `.openapi(name)` registration — it silently first-write-wins, so two components (e.g. two `paginated(X).openapi("…")` list pages) registered under a colliding name produce a document where one masquerades as the other. Add a conformance fitness function asserting every registered component name is unique. (The "fail loud at emission" promise the contracts layer makes does not hold for this case without it.)
+- **Tenant-scope the rate-limit key (Task 7).** `RateLimiter.check(bucket, key)` takes a caller-supplied key; the chokepoint MUST derive it as `firmId`-scoped (and IP/session-scoped for `auth`/unauthenticated buckets) or one firm's traffic could consume/evade another's bucket.
+- **Migrate the data-access idempotency middleware to `problemJson` (Task 8).** `@magna-carta/data-access`'s Hono idempotency middleware still replies with bare `{ error: "…" }` JSON; the `idempotency-key-missing`/`-conflict`/`-fingerprint-mismatch` problem types exist to replace those — migrate so the one-error-shape claim holds.
+- **Posture note for `api.md` (Task 14):** record "no secret-bearing field is validated through the body/query/header validators that feed `defaultHook`" — `defaultHook` reflects `issue.message` into `errors[].detail`, so a future secret-bearing schema field could leak its value back to the caller on a validation failure.
 
 ### Task 7: The chokepoint middleware (`src/chokepoint/chokepoint.ts`)
 
