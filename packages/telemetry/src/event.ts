@@ -1,16 +1,16 @@
-// The telemetry event model (slice 0·6 spec §1). Redaction is STRUCTURAL: an event is built only
-// through a typed allowlist builder whose schema enumerates exactly the loggable fields. A field
-// that was never declared has no slot to be logged in — rejected at the type level and stripped at
-// runtime. This is the primary golden-rule-4 defense; the scrubber (scrub.ts) is only a backstop.
+// The telemetry event model. Redaction is STRUCTURAL: an event is built only through a typed
+// allowlist builder whose schema enumerates exactly the loggable fields. A field that was never
+// declared has no slot to be logged in — rejected at the type level and stripped at runtime. This
+// is the primary redact-by-default defense; the scrubber (scrub.ts) is only a backstop.
 
-// Field values are flat primitives — no nested objects (decided #1). With no structure to recurse
-// into, the allowlist is airtight and the Analytics Engine / Logpush consumers stay simple. A
-// builder that needs structure is a design smell: add explicit fields instead.
+// Field values are flat primitives — no nested objects. With no structure to recurse into, the
+// allowlist is airtight and the Analytics Engine / Logpush consumers stay simple. A builder that
+// needs structure is a design smell: add explicit fields instead.
 export type FieldValue = string | number | boolean | null;
 
 export interface TelemetryEvent {
   readonly name: string;
-  readonly at: string; // ISO-8601 UTC instant (ADR-0055)
+  readonly at: string; // ISO-8601 UTC instant
   readonly correlationId: string;
   readonly fields: Readonly<Record<string, FieldValue>>;
 }

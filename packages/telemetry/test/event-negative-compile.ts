@@ -8,7 +8,7 @@ import { defineEvent, type FieldValue } from "../src/event.ts";
 const context = { correlationId: "cor_x", now: "2026-06-13T00:00:00.000Z" };
 const build = defineEvent("test.negative", ["allowed"] as const);
 
-// A nested object is not a FieldValue — events are flat primitives only (decided #1).
+// A nested object is not a FieldValue — events are flat primitives only.
 // @ts-expect-error nested object is not assignable to FieldValue
 build(context, { allowed: { nested: 1 } });
 

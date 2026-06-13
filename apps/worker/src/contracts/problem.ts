@@ -31,9 +31,9 @@ export const Problem = z
     detail: z.string().optional(),
     errorId: z.string().regex(identifierPattern("error")),
     // The per-request correlation id (cor_) the telemetry middleware mints and rides on every event.
-    // Stamped on every problem reply so a user-visible failure joins its redacted server trace
-    // (slice 0·6 spec §2; ADR-0017). Optional in the schema because a problem built outside a
-    // request context (none today) would have none.
+    // Stamped on every problem reply so a user-visible failure joins its redacted server trace.
+    // Optional in the schema because a problem built outside a request context (none today) would
+    // have none.
     correlationId: z.string().optional(),
     instance: z.string().optional(),
     errors: z.array(ProblemFieldError).optional(),

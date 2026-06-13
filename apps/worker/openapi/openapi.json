@@ -740,7 +740,7 @@
             }
           },
           "404": {
-            "description": "The session's firm is not reachable, or the session member is deactivated (ADR-0052)",
+            "description": "The session's firm is not reachable, or the session member is deactivated — absent, never an existence oracle",
             "content": {
               "application/problem+json": {
                 "schema": {

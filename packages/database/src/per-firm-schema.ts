@@ -249,12 +249,11 @@ export const accountBalance = sqliteTable(
   ],
 );
 
-// User-initiated incident reports (slice 0·6 spec §4). The "bug-report Worker" of the white paper,
-// realized as a row written by POST /api/v1/incidents (ADR-0074). Structure only — the route and its
-// outbox→Queue seam (`incident.created`, no consumer yet) live in apps/worker. JSON columns are
-// redacted by construction: error_ids and breadcrumbs are id-and-action shaped, never content. The
-// `description` is the user's words — it sits inside the firm-isolation boundary today; moving it
-// under protected() with access-gated, audited reads is a named seam for the crypto-module slice.
+// User-initiated incident reports — the row written by POST /api/v1/incidents. Structure only — the
+// route and its outbox→Queue seam (`incident.created`, no consumer yet) live in apps/worker. JSON
+// columns are redacted by construction: error_ids and breadcrumbs are id-and-action shaped, never
+// content. The `description` is the user's words — it sits inside the firm-isolation boundary today;
+// the protected() crypto module encrypts it (access-gated, audited reads) when it lands.
 export const incident = sqliteTable("incident", {
   id: text("id").primaryKey().$type<IncidentId>(), // inc_ handle
   errorIds: text("error_ids").notNull(), // JSON array of err_ handles (may be empty — "nothing crashed but…")
@@ -265,6 +264,6 @@ export const incident = sqliteTable("incident", {
   // Lifecycle stays open text (not an enum): the diagnostics agent defines the states it transitions
   // through later — constraining now would be premature (no consumer exists yet).
   status: text("status").notNull().default("open"),
-  reportedBy: text("reported_by").notNull().$type<UserId>(), // global usr_ handle; no FK (ADR-0003)
-  createdAt: text("created_at").notNull(), // ISO-8601 instant (ADR-0055)
+  reportedBy: text("reported_by").notNull().$type<UserId>(), // global usr_ handle; no cross-plane FK
+  createdAt: text("created_at").notNull(), // ISO-8601 instant
 });

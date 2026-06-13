@@ -6,7 +6,7 @@ function eventWith(fields: TelemetryEvent["fields"]): TelemetryEvent {
   return { name: "test.event", at: "2026-06-13T00:00:00.000Z", correlationId: "cor_abc", fields };
 }
 
-describe("scrubStrings — the backstop tripwire (spec §1, decided #3)", () => {
+describe("scrubStrings — the backstop tripwire", () => {
   it("scrubs a planted email address and trips on its field", () => {
     const { event, trips } = scrubStrings(
       eventWith({ messageHead: "contact jane.doe+x@example.co.uk now" }),

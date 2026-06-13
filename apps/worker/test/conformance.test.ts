@@ -269,10 +269,9 @@ function resolveSchema(
   return schema as { properties?: Record<string, unknown> };
 }
 
-// Rule (slice 0·6 spec §3): every error response (4xx/5xx) declares the observability errorId — the
-// public key joining a user-visible failure to its redacted server trace (extends the 0·5
-// conformance suite; ADR-0017/0038). An error response with no schema, or one whose schema omits
-// errorId, fails: the client must always have an Error ID to quote.
+// Rule: every error response (4xx/5xx) declares the observability errorId — the public key joining a
+// user-visible failure to its redacted server trace. An error response with no schema, or one whose
+// schema omits errorId, fails: the client must always have an Error ID to quote.
 function errorIdCoverageViolations(document: ReturnType<typeof buildOpenAPIDocument>): string[] {
   const schemas = (document.components?.schemas ?? {}) as Record<
     string,
@@ -293,7 +292,7 @@ function errorIdCoverageViolations(document: ReturnType<typeof buildOpenAPIDocum
           (media) => resolveSchema(media.schema, schemas)?.properties?.["errorId"] !== undefined,
         );
       if (!declaresErrorId) {
-        violations.push(`${label}: error response must declare an errorId (RFC 9457 + ADR-0017)`);
+        violations.push(`${label}: error response must declare an errorId (RFC 9457)`);
       }
     }
   }
@@ -525,7 +524,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
     });
   });
 
-  describe("every error response declares an errorId (slice 0·6 spec §3)", () => {
+  describe("every error response declares an errorId", () => {
     it("the committed contract satisfies it", () => {
       expect(errorIdCoverageViolations(document)).toEqual([]);
     });

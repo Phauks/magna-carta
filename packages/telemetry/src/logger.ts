@@ -1,4 +1,4 @@
-// The Logger seam (spec §1). The interface is pure — log(event) emits a structured event; count()
+// The Logger seam. The interface is pure — log(event) emits a structured event; count()
 // records a metric. The Workers adapter (workers-logger.ts) is the production implementation and the
 // ONLY legal console.* site; this module is the interface plus the in-memory test adapter.
 import type { TelemetryEvent } from "./event.ts";

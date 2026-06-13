@@ -1,8 +1,8 @@
 // The Workers Logger adapter — THE one legal console.* call site (the console-ban fitness function,
 // Task 7, allow-lists exactly this file). It scrubs every event on the way out (scrub.ts backstop),
 // emits one structured-JSON line (Workers Logs captures it), counts scrub trips, and mirrors
-// counters to an Analytics Engine dataset binding. AE writes are fire-and-forget (decided #5):
-// writeDataPoint is sync and non-blocking, never awaited, and a missing binding degrades silently.
+// counters to an Analytics Engine dataset binding. AE writes are fire-and-forget: writeDataPoint is
+// sync and non-blocking, never awaited, and a missing binding degrades silently.
 import type { TelemetryEvent } from "./event.ts";
 import type { Logger } from "./logger.ts";
 import { scrubStrings } from "./scrub.ts";

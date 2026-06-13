@@ -1,5 +1,5 @@
-// The scrubbing backstop (spec §1, decided #3). A boundary pass over every STRING field that
-// replaces denylisted shapes with [scrubbed] and reports which fields tripped. This is a TRIPWIRE,
+// The scrubbing backstop. A boundary pass over every STRING field that replaces denylisted shapes
+// with [scrubbed] and reports which fields tripped. This is a TRIPWIRE,
 // not the guarantee: the allowlist event builders (event.ts) are the defense — a non-zero trip
 // count means a builder declared a field that carried content it should not have, which a test
 // fails on. The Workers logger counts trips into the `telemetry.scrubbed` metric.
@@ -13,7 +13,7 @@ const PATTERNS: readonly RegExp[] = [
   /\b\d{9,}\b/g, // long digit runs — account/card numbers
 ];
 
-// A whole-value minted identifier handle (`<prefix>_<21 url-safe chars>`, ADR-0062). These are
+// A whole-value minted identifier handle (`<prefix>_<21 url-safe chars>`). These are
 // opaque ids the pipeline CORRELATES on (errorId/correlationId/incidentId), never user content — so
 // a value that IS one is exempt from scrubbing entirely. Without this, a token whose random body
 // happens to contain a dash-flanked 9+ digit run (or an SSN-shaped substring) would be corrupted to

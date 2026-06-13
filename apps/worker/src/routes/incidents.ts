@@ -14,10 +14,10 @@ import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { Problem } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 
-// The user-initiated incident report (slice 0·6 spec §4; ADR-0074) — the white paper's "bug-report
-// Worker" realized as this route in the single Worker. Body fields are id-and-action shaped
-// (redacted by construction) except `description`, the user's words (firm boundary now, protected()
-// later). Bounded everywhere so a report cannot become an unbounded write.
+// The user-initiated incident report — the "bug-report Worker" realized as one route in the single
+// Worker. Body fields are id-and-action shaped (redacted by construction) except `description`, the
+// user's words (firm boundary now; the protected() crypto module encrypts it when it lands).
+// Bounded everywhere so a report cannot become an unbounded write.
 const ReportIncidentRequest = z
   .object({
     // err_ handles the client correlates to its crash(es); may be empty ("nothing crashed but…").
@@ -85,7 +85,7 @@ export const reportIncidentRoute = defineOpenAPIRoute(reportIncidentMeta, {
     },
     404: {
       description:
-        "The session's firm is not reachable, or the session member is deactivated (ADR-0052)",
+        "The session's firm is not reachable, or the session member is deactivated — absent, never an existence oracle",
       content: { "application/problem+json": { schema: Problem } },
     },
     422: {

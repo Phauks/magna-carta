@@ -14,7 +14,7 @@ import {
 
 const context = { correlationId: "cor_abc123", now: "2026-06-13T00:00:00.000Z" };
 
-describe("event catalog (spec §1)", () => {
+describe("event catalog", () => {
   it("requestCompleted carries route/method/status/durationMs", () => {
     const event = requestCompleted(context, {
       route: "/api/v1/matters/:id",

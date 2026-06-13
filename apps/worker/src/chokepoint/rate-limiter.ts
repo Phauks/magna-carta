@@ -17,7 +17,7 @@ export const BUCKETS: Record<RateLimitBucket, { limit: number; windowSeconds: nu
   default: { limit: 100, windowSeconds: 60 },
   auth: { limit: 10, windowSeconds: 60 },
   expensive: { limit: 10, windowSeconds: 60 },
-  // Incident reports accept user-authored content; a tight bucket (slice 0·6 spec §4) bounds abuse.
+  // Incident reports accept user-authored content; a tight bucket bounds abuse.
   "incident-report": { limit: 5, windowSeconds: 300 },
 };
 

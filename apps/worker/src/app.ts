@@ -49,7 +49,7 @@ export type Bindings = {
   // missing binding (dev/test, or a deployment without it) degrades to console-only logging, never
   // throws (createWorkersLogger handles undefined).
   TELEMETRY?: AnalyticsEngineDataset;
-  // Cloudflare Email Service (slice 0·6, ADR-0074). Both optional: the Cloudflare adapter is selected
+  // Cloudflare Email Service. Both optional: the Cloudflare adapter is selected
   // only when the send_email binding AND EMAIL_FROM are present (production); dev/test leave EMAIL_FROM
   // unset and keep the logging adapter, so no real email is sent and no domain onboarding is required.
   SEND_EMAIL?: CloudflareEmailBinding;

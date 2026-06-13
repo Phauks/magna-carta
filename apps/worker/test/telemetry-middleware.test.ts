@@ -21,7 +21,7 @@ function appWithMemoryLogger(): { app: ReturnType<typeof createApp>; logger: Mem
   return { app, logger };
 }
 
-describe("telemetry middleware (slice 0·6 spec §2)", () => {
+describe("telemetry middleware", () => {
   it("logs request.completed with a cor_ correlation id, the route TEMPLATE, status, and duration", async () => {
     const { app, logger } = appWithMemoryLogger();
     const response = await app.request(
@@ -34,7 +34,7 @@ describe("telemetry middleware (slice 0·6 spec §2)", () => {
     const completed = logger.events.find((event) => event.name === "request.completed");
     expect(completed).toBeDefined();
     expect(completed?.correlationId).toMatch(/^cor_/);
-    // The TEMPLATE, never the concrete id (decided #2): :probeId, not abc123.
+    // The TEMPLATE, never the concrete id: :probeId, not abc123.
     expect(completed?.fields.route).toBe("/api/v1/__telemetry-probe/:probeId");
     expect(completed?.fields.method).toBe("GET");
     expect(completed?.fields.status).toBe(200);

@@ -11,7 +11,7 @@ import {
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
-// POST /api/v1/incidents (slice 0·6 §4): the user-initiated incident write through the chokepoint.
+// POST /api/v1/incidents: the user-initiated incident write through the chokepoint.
 // Firm A (DB_FIRM_POOL_1) carries the happy path / DB assertions / validation; firm B
 // (DB_FIRM_POOL_2) is reserved for the rate-limit test so its own per-firm bucket is not consumed by
 // the other tests (the rate-limit key is tenant-scoped).
@@ -80,7 +80,7 @@ describe("POST /api/v1/incidents", () => {
     expect(row?.status).toBe("open");
 
     // The incident.created outbox row rode the same batch; the relay sweep dispatches it to the
-    // Queue and marks it dispatched — never dead-lettered by mere non-consumption (decided #12).
+    // Queue and marks it dispatched — never dead-lettered by mere non-consumption.
     const pending = await env.DB_FIRM_POOL_1.prepare(
       "SELECT status FROM outbox WHERE topic = 'incident.created'",
     ).first<{ status: string }>();

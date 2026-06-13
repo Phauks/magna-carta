@@ -11,7 +11,7 @@ import {
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
-// The slice 0·6 correlation story end to end (white paper, Observability & diagnostics): a request
+// The telemetry correlation story end to end: a request
 // fails → the telemetry boundary mints an Error ID, logs error.captured, and returns the RFC 9457
 // 500 carrying that Error ID and the correlation ID → the user quotes the Error ID in an incident
 // report → it lands a firm-scoped row + an incident.created outbox row. One app instance with a

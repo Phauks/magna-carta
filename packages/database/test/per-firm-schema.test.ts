@@ -143,8 +143,8 @@ describe("per-firm schema: direct_grant (per-member permission, optionally expir
   });
 });
 
-describe("per-firm schema: incident (slice 0·6 — user-initiated incident intake, spec §4)", () => {
-  it("matches the spec columns", () => {
+describe("per-firm schema: incident (user-initiated incident intake)", () => {
+  it("matches the column shape", () => {
     const config = getTableConfig(incident);
     expect(config.name).toBe("incident");
     expect(columnOf(incident, "id").primary).toBe(true);
@@ -159,12 +159,12 @@ describe("per-firm schema: incident (slice 0·6 — user-initiated incident inta
     expect(status.default).toBe("open");
     expect(columnOf(incident, "reported_by").notNull).toBe(true);
     expect(columnOf(incident, "reported_by").getSQLType()).toBe("text"); // usr_ handle
-    expect(columnOf(incident, "created_at").getSQLType()).toBe("text"); // ISO-8601 instant (ADR-0055)
+    expect(columnOf(incident, "created_at").getSQLType()).toBe("text"); // ISO-8601 instant
   });
 
   it("has no foreign keys — reported_by is a usr_ handle the per-firm plane does not own", () => {
     // Like granted_by on direct_grant: the reporter handle is the global control-plane user id; the
-    // per-firm plane carries no auth state to FK against (ADR-0003).
+    // per-firm plane carries no auth state to FK against.
     expect(getTableConfig(incident).foreignKeys).toHaveLength(0);
   });
 });

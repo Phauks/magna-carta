@@ -2,11 +2,12 @@ import { readdir, readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// The console ban (slice 0·6 spec §3) — golden rule 4 made structural. Application code logs ONLY
-// through the telemetry Logger; a raw console.* anywhere in apps/worker/src or packages/*/src fails
-// CI. This scan lives here because the telemetry package owns the one logging path, runs in the node
-// pool (fs available, unlike the worker's workerd pool), and reads every package's source from the
-// repo root. (decided #4: scripts/ and test/ are out of scope — tooling may print.)
+// The console ban — the one-logging-path rule (docs/conventions/error-logging.md) made structural.
+// Application code logs ONLY through the telemetry Logger; a raw console.* anywhere in
+// apps/worker/src or packages/*/src fails CI. This scan lives here because the telemetry package
+// owns the one logging path, runs in the node pool (fs available, unlike the worker's workerd pool),
+// and reads every package's source from the repo root. (scripts/ and test/ are out of scope —
+// tooling may print.)
 
 // packages/telemetry/test -> repo root.
 const REPO_ROOT = join(import.meta.dirname, "..", "..", "..");
@@ -48,7 +49,7 @@ async function sourceFiles(): Promise<string[]> {
   return files;
 }
 
-describe("console ban (golden rule 4 structural — slice 0·6 spec §3)", () => {
+describe("console ban (the one-logging-path rule, made structural)", () => {
   it("console.* appears ONLY in the allowlisted source files", async () => {
     const offenders: string[] = [];
     let scanned = 0;

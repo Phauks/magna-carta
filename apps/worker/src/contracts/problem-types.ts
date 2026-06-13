@@ -27,7 +27,7 @@ export const PROBLEM_TYPES = {
   "email-in-use": "email-in-use",
   // An unexpected, unhandled server error (HTTP 500). The telemetry middleware's final catch maps
   // any escaped exception to this — the one error type the client cannot have caused, carrying only
-  // the Error ID to quote (slice 0·6; ADR-0017/ADR-0038).
+  // the Error ID to quote.
   internal: "internal",
 } as const;
 

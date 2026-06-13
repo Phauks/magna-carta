@@ -1,6 +1,6 @@
-// The Cloudflare Email Service adapter (slice 0·6 spec §5; ADR-0074) — implements the slice 0·4
-// sendEmail port over the native `send_email` binding (env.SEND_EMAIL.send({...}); public beta,
-// verified against developers.cloudflare.com/email-service/api/send-emails/workers-api at build).
+// The Cloudflare Email Service adapter — implements the sendEmail port (email-port.ts) over the
+// native `send_email` binding (env.SEND_EMAIL.send({...}); public beta, verified against
+// developers.cloudflare.com/email-service/api/send-emails/workers-api at build).
 // No API keys: same-vendor custody, binding-not-secrets. Every send logs email.sent (message class +
 // outcome — NEVER body content; the allowlist event has no body slot). A send failure logs the
 // failure outcome and RETHROWS: silent email loss is the one unacceptable outcome — the caller
