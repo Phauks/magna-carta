@@ -9,11 +9,27 @@ import { OpenAPIHono, z } from "@hono/zod-openapi";
 import { PERMISSIONS } from "@magna-carta/access-control/registry";
 import { describe, expect, it } from "vitest";
 import { buildOpenAPIDocument, createApp } from "../src/app.ts";
-import { defineOpenAPIRoute, type RouteMeta } from "../src/contracts/route-meta.ts";
+import {
+  defineOpenAPIRoute,
+  isMutatingMethod,
+  MUTATING_METHODS,
+  type RouteMeta,
+} from "../src/contracts/route-meta.ts";
 
 type Operation = Record<string, unknown>;
-const MUTATING_METHODS = ["post", "put", "patch", "delete"] as const;
 const OPERATION_ID_SHAPE = /^[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*$/;
+
+// Subsystem keywords that designate a money/trust/payment/outbound-comms namespace. The safety net
+// below asserts every committed route whose namespace is one of these is registered in
+// MONEY_NAMESPACES — so a money route added without registering it (which would silently escape the
+// idempotency-required gate) fails CI, rather than relying on each slice author's memory.
+const MONEY_SUBSYSTEM_KEYWORDS = new Set([
+  "trust",
+  "billing",
+  "payments",
+  "disbursements",
+  "communications",
+]);
 
 // authenticated: false is never implicit — every anonymous route is allow-listed here with the reason
 // it carries no firm data behind no session. Adding an anonymous route without an entry fails the gate
@@ -37,7 +53,7 @@ function operationIdOf(operation: Operation): string {
 
 // Yields every operation in the document with its path/method, operationId, and namespace.
 function* operations(document: ReturnType<typeof buildOpenAPIDocument>) {
-  const methods = ["get", ...MUTATING_METHODS] as const;
+  const methods = ["get", ...MUTATING_METHODS];
   for (const [path, item] of Object.entries(document.paths ?? {})) {
     for (const method of methods) {
       const operation = (item as Record<string, Operation | undefined>)[method];
@@ -48,15 +64,12 @@ function* operations(document: ReturnType<typeof buildOpenAPIDocument>) {
   }
 }
 
-const isMutating = (method: string): boolean =>
-  (MUTATING_METHODS as readonly string[]).includes(method);
-
 // Rule: every authenticated mutating route is audited AND names a permission; an unauthenticated
 // mutating route (allow-listed public) is still audited (spec §3.5).
 function auditedMutatingViolations(document: ReturnType<typeof buildOpenAPIDocument>): string[] {
   const violations: string[] = [];
   for (const { path, method, operation } of operations(document)) {
-    if (!isMutating(method)) continue;
+    if (!isMutatingMethod(method)) continue;
     const label = `${method.toUpperCase()} ${path}`;
     if (operation["x-mc-audited"] !== true) {
       violations.push(`${label}: mutating route must be x-mc-audited: true`);
@@ -74,6 +87,10 @@ function auditedMutatingViolations(document: ReturnType<typeof buildOpenAPIDocum
 // — the resource it governs, NOT the operationId tag. Route modules `members`/`firms` both belong to
 // the `firm` subsystem, so the permission namespace binds to x-mc-resource (the per-subsystem registry
 // of ADR-0068), which is the coherent reading of spec §3.5's "namespace matches the route's module".
+// Assumption (holds under the registry's `<subsystem>:<action>` convention and the resource taxonomy
+// matter|firm|location|directoryEntity|portalShare being that same subsystem axis): a permission's
+// namespace equals the resource it governs. A future slice introducing a permission whose subsystem
+// legitimately differs from the route's resource must revisit this binding, not just suppress it.
 function permissionRegistryViolations(document: ReturnType<typeof buildOpenAPIDocument>): string[] {
   const registry = new Set<string>(PERMISSIONS);
   const violations: string[] = [];
@@ -109,6 +126,26 @@ function moneyIdempotencyViolations(
     if (operation["x-mc-idempotency"] !== "required") {
       violations.push(
         `${method.toUpperCase()} ${path}: ${namespace} is a money subsystem — x-mc-idempotency must be "required"`,
+      );
+    }
+  }
+  return violations;
+}
+
+// Safety net for the empty MONEY_NAMESPACES: a money-looking route (namespace ∈ keywords) that is not
+// registered in MONEY_NAMESPACES would silently escape moneyIdempotencyViolations. Flag it so a money
+// slice cannot add a route without wiring it into the idempotency gate (catches the forgotten
+// registration mechanically, rather than relying on the author's memory).
+function moneyRegistrationGapViolations(
+  document: ReturnType<typeof buildOpenAPIDocument>,
+  keywords: ReadonlySet<string>,
+  moneyNamespaces: ReadonlySet<string>,
+): string[] {
+  const violations: string[] = [];
+  for (const { path, method, namespace } of operations(document)) {
+    if (keywords.has(namespace) && !moneyNamespaces.has(namespace)) {
+      violations.push(
+        `${method.toUpperCase()} ${path}: "${namespace}" is a money subsystem — add it to MONEY_NAMESPACES so the idempotency-required gate covers it`,
       );
     }
   }
@@ -341,9 +378,23 @@ describe("§3.5 conformance — the committed contract holds, and each rule catc
     });
   });
 
-  describe("money-subsystem routes require idempotency (machinery; set empty today)", () => {
-    it("the committed contract satisfies it", () => {
-      expect(moneyIdempotencyViolations(document, MONEY_NAMESPACES)).toEqual([]);
+  describe("money-subsystem routes require idempotency (machinery; namespace set empty today)", () => {
+    it("no committed money-looking route escaped MONEY_NAMESPACES (the registration safety net)", () => {
+      expect(
+        moneyRegistrationGapViolations(document, MONEY_SUBSYSTEM_KEYWORDS, MONEY_NAMESPACES),
+      ).toEqual([]);
+    });
+    it("flags a money-looking route that was not registered in MONEY_NAMESPACES", () => {
+      const bad = documentWithOperations([
+        {
+          method: "post",
+          path: "/api/v1/trust",
+          operation: rawOperation({ "x-mc-operationId": "trust.disburse" }),
+        },
+      ]);
+      expect(
+        moneyRegistrationGapViolations(bad, MONEY_SUBSYSTEM_KEYWORDS, MONEY_NAMESPACES).length,
+      ).toBeGreaterThan(0);
     });
     it("flags a money-subsystem route declaring idempotency optional", () => {
       const bad = documentForRoute(

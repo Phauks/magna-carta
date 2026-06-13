@@ -39,6 +39,13 @@ export interface ResolvedRouteMeta extends RouteMeta {
 
 const OPERATION_ID_PATTERN = /^[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*$/;
 
+// The HTTP methods that mutate state — the single home shared by defineOpenAPIRoute's
+// authenticated-null guard (below) and the §3.5 conformance fitness functions, so "what counts as
+// mutating" cannot drift between the registration guard and the contract gate.
+export const MUTATING_METHODS: ReadonlySet<string> = new Set(["post", "put", "patch", "delete"]);
+export const isMutatingMethod = (method: string): boolean =>
+  MUTATING_METHODS.has(method.toLowerCase());
+
 // Meta rides on the returned route object via a WeakMap, not a magic property, so the route
 // config stays exactly what @hono/zod-openapi expects and the association cannot leak into the
 // emitted document or serialization.
@@ -148,9 +155,8 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
   // would let any logged-in user of any firm perform it — privilege escalation by omission. The
   // legitimate authenticated-null case is a NON-mutating read (e.g. GET /v1/me), so only mutating
   // methods trip this guard.
-  const MUTATING_METHODS = new Set(["post", "put", "patch", "delete"]);
   if (
-    MUTATING_METHODS.has(routeConfig.method.toLowerCase()) &&
+    isMutatingMethod(routeConfig.method) &&
     meta.authenticated === true &&
     meta.permission === null
   ) {
