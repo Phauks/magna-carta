@@ -107,6 +107,28 @@ describe("Problem schema", () => {
     });
     expect(parsed.success).toBe(false);
   });
+
+  it("accepts the optional requestAccess extension (the ADR-0068 403 seam)", () => {
+    const parsed = Problem.safeParse({
+      type: "https://api.magnacarta.esq/problems/permission-denied",
+      title: "Permission denied",
+      status: 403,
+      errorId: "err_V1StGXR8_Z5jdHi6B-myT",
+      requestAccess: true,
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("requestAccess is a typed optional, not an open passthrough — a non-boolean is rejected", () => {
+    const parsed = Problem.safeParse({
+      type: "https://api.magnacarta.esq/problems/permission-denied",
+      title: "Permission denied",
+      status: 403,
+      errorId: "err_V1StGXR8_Z5jdHi6B-myT",
+      requestAccess: "yes",
+    });
+    expect(parsed.success).toBe(false);
+  });
 });
 
 describe("problemJson", () => {
@@ -186,6 +208,29 @@ describe("problemJson", () => {
   it("emitted problems conform to the Problem schema", async () => {
     const response = await appWithNotFoundRoute().request("/api/v1/matters/mat_unknown00");
     expect(Problem.safeParse(await response.json()).success).toBe(true);
+  });
+
+  it("emits requestAccess into the body only when the option is set (the ADR-0068 403 seam)", async () => {
+    const app = new OpenAPIHono();
+    app.get("/api/v1/matters/:matterId/denied", (c) =>
+      problemJson(c, {
+        type: "permission-denied",
+        status: 403,
+        title: "Permission denied",
+        requestAccess: true,
+      }),
+    );
+    const response = await app.request("/api/v1/matters/mat_x/denied");
+    expect(response.status).toBe(403);
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body.requestAccess).toBe(true);
+    expect(Problem.safeParse(body).success).toBe(true);
+  });
+
+  it("omits requestAccess from the body when the option is absent", async () => {
+    const response = await appWithNotFoundRoute().request("/api/v1/matters/mat_unknown00");
+    const body = (await response.json()) as Record<string, unknown>;
+    expect("requestAccess" in body).toBe(false);
   });
 });
 

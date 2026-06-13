@@ -33,6 +33,11 @@ export const Problem = z
     errorId: z.string().regex(identifierPattern("error")),
     instance: z.string().optional(),
     errors: z.array(ProblemFieldError).optional(),
+    // ADR-0068 within-firm denial seam: a typed optional extension (NOT an open passthrough), set
+    // only on the chokepoint's 403 to signal the trusted-insider may request a grant. The
+    // request→grant flow is out of scope this slice — this field is the wire seam for it. Kept a
+    // strict boolean so a non-boolean is rejected, never coerced.
+    requestAccess: z.boolean().optional(),
   })
   .openapi("Problem");
 
@@ -44,6 +49,9 @@ export interface ProblemOptions {
   title: string;
   detail?: string;
   errors?: z.infer<typeof ProblemFieldError>[];
+  // ADR-0068: emitted into the body only when set (the chokepoint sets it true on its 403). A
+  // typed optional, not an open extension bag — the only extension this slice admits.
+  requestAccess?: boolean;
 }
 
 // Reply with an RFC 9457 problem document: expands the registry key to its type URI, mints a fresh
@@ -67,6 +75,7 @@ export function problemJson(c: Context, options: ProblemOptions): Response {
     errorId: newIdentifier("error"),
     instance: c.req.path,
     ...(options.errors !== undefined && { errors: options.errors }),
+    ...(options.requestAccess !== undefined && { requestAccess: options.requestAccess }),
   };
   return c.json(body, options.status, { "content-type": "application/problem+json" });
 }
