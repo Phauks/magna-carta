@@ -45,7 +45,34 @@ describe("permission registry", () => {
     expect(permissionsForNamespace("firm")).toEqual(["firm:manageMembers", "firm:provision"]);
   });
 
+  it("permissionsForNamespace('matters') returns exactly the matters keys, in registry order", () => {
+    expect(permissionsForNamespace("matters")).toEqual([
+      "matters:create",
+      "matters:open",
+      "matters:close",
+      "matters:reopen",
+      "matters:edit",
+      "matters:renumber",
+      "matters:manageTypes",
+      "matters:manageNumbering",
+    ]);
+  });
+
+  it("permissionsForNamespace('locations') returns exactly the locations keys", () => {
+    expect(permissionsForNamespace("locations")).toEqual(["locations:manage"]);
+  });
+
+  it("permissionsForNamespace('files') returns exactly the files keys, in registry order", () => {
+    expect(permissionsForNamespace("files")).toEqual([
+      "files:upload",
+      "files:organize",
+      "files:delete",
+      "files:manageDocumentTypes",
+    ]);
+  });
+
   it("permissionsForNamespace returns an empty list for an unknown namespace", () => {
+    // 'matter' (singular) is NOT the matters namespace — the keys live under 'matters'.
     expect(permissionsForNamespace("matter")).toEqual([]);
   });
 
