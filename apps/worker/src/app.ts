@@ -88,25 +88,43 @@ export function createApp() {
   registerMembersRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
 
-  app.doc31("/api/openapi.json", {
-    openapi: "3.1.0",
-    info: {
-      title: "Magna Carta API",
-      version: "0.0.0",
-      description:
-        "The Magna Carta legal practice-management API. Every operation is enforced at the one " +
-        "ADR-0067 chokepoint (tenancy → authn → RBAC → idempotency → rate-limit); errors are " +
-        "RFC 9457 problem documents.",
-      contact: { name: "Magna Carta", url: "https://magnacarta.esq" },
-    },
-    servers: [
-      { url: "https://api.magnacarta.esq/v1", description: "Production API surface (ADR-0052)" },
-      { url: "https://app.magnacarta.esq/api", description: "App same-origin surface" },
-    ],
-  });
+  app.doc31("/api/openapi.json", openAPIDocumentConfig);
 
   // Everything not handled above falls through to the static-asset SPA (Workers Static Assets binding).
   app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 
   return app;
+}
+
+// The OpenAPI 3.1 document config — the single home for info/servers/version, consumed both by the
+// live /api/openapi.json route (above) and by the offline snapshot emitter (scripts/emit-openapi.mts).
+export const openAPIDocumentConfig = {
+  openapi: "3.1.0",
+  info: {
+    title: "Magna Carta API",
+    version: "0.0.0",
+    description:
+      "The Magna Carta legal practice-management API. Every operation is enforced at the one " +
+      "ADR-0067 chokepoint (tenancy → authn → RBAC → idempotency → rate-limit); errors are " +
+      "RFC 9457 problem documents.",
+    contact: { name: "Magna Carta", url: "https://magnacarta.esq" },
+  },
+  servers: [
+    { url: "https://api.magnacarta.esq/v1", description: "Production API surface (ADR-0052)" },
+    { url: "https://app.magnacarta.esq/api", description: "App same-origin surface" },
+  ],
+};
+
+// Builds the committed-contract document with no bindings: createApp() registers every route at
+// construction time and getOpenAPI31Document is pure (no request, no env). The emit script loads
+// this through the Vite pipeline; the snapshot sanity test calls it in-pool. (Task 9.)
+export function buildOpenAPIDocument() {
+  return createApp().getOpenAPI31Document(openAPIDocumentConfig);
+}
+
+// Canonical serialization — pretty-printed (two-space), single trailing newline. The one byte-exact
+// definition the emitter writes and the sanity test compares against, so the committed snapshot and
+// a fresh emission can be diffed byte-for-byte (the local mirror of the CI code-as-contract gate).
+export function serializeOpenAPIDocument(): string {
+  return `${JSON.stringify(buildOpenAPIDocument(), null, 2)}\n`;
 }

@@ -8,6 +8,10 @@ export default defineConfig({
     printWidth: 100,
     proseWrap: "preserve",
     endOfLine: "lf",
+    // The committed OpenAPI snapshot is a generated artifact (apps/worker/scripts/emit-openapi.mts)
+    // whose exact bytes are fixed by the emitter and re-derived/diff-gated by CI (code-as-contract);
+    // never hand-edit it, and never let the formatter reflow it out from under the emit/diff contract.
+    ignorePatterns: ["apps/worker/openapi/openapi.json"],
   },
   // typeCheck makes `vp check` run tsgolint TS type-checks (not just fmt+lint); a real `.ts` type error now fails the gate.
   // tsgolint does not parse `.svelte`, so the full gate (`pnpm check`) also runs svelte-check. See conventions/typescript.md.
