@@ -232,6 +232,63 @@ describe("createResponseValidator — development", () => {
     expect(response.bodyUsed).toBe(false);
     expect(await response.json()).toEqual({ ok: true, count: 2 });
   });
+
+  // A route declaring application/problem+json content for a 2xx — the +json suffix branch of
+  // isJsonMediaType and the declaredJsonMediaTypes fallback path, the path that validates problem
+  // bodies once Task 8 registers shared problem responses. application/json-only routes never
+  // exercise it.
+  const ProblemLike = z.object({ type: z.string(), title: z.string(), status: z.number().int() });
+  const problemContentRoute = defineOpenAPIRoute(sampleMeta({ operationId: "widgets.problem" }), {
+    method: "get",
+    path: "/api/v1/widgets/problem",
+    description: "Returns a problem-shaped body.",
+    responses: {
+      200: {
+        description: "A problem-shaped 200",
+        content: { "application/problem+json": { schema: ProblemLike } },
+      },
+    },
+  });
+
+  it("validates an application/problem+json declared body — conforming passes", async () => {
+    const middleware = createResponseValidator(problemContentRoute);
+    const response = jsonResponse(
+      { type: "about:blank", title: "ok", status: 200 },
+      200,
+      "application/problem+json",
+    );
+    await expect(
+      middleware(contextWithResponse("development", response), noopNext),
+    ).resolves.toBeUndefined();
+  });
+
+  it("validates an application/problem+json declared body — divergent throws", async () => {
+    const middleware = createResponseValidator(problemContentRoute);
+    const response = jsonResponse(
+      { type: "about:blank", title: 42, status: "nope" } as unknown,
+      200,
+      "application/problem+json",
+    );
+    await expect(
+      middleware(contextWithResponse("development", response), noopNext),
+    ).rejects.toThrow(ResponseContractDivergenceError);
+  });
+
+  it("normalizes a content-type with charset parameters (application/json; charset=utf-8) before matching", async () => {
+    const middleware = createResponseValidator(widgetRoute);
+    const response = jsonResponse({ ok: true, count: 7 }, 200, "application/json; charset=utf-8");
+    await expect(
+      middleware(contextWithResponse("development", response), noopNext),
+    ).resolves.toBeUndefined();
+  });
+
+  it("normalizes an uppercase content-type (Application/JSON) before matching", async () => {
+    const middleware = createResponseValidator(widgetRoute);
+    const response = jsonResponse({ ok: true, count: 9 }, 200, "Application/JSON");
+    await expect(
+      middleware(contextWithResponse("development", response), noopNext),
+    ).resolves.toBeUndefined();
+  });
 });
 
 describe("createResponseValidator — production pass-through", () => {

@@ -237,10 +237,14 @@ describe("defaultHook", () => {
     const paths = body.errors.map((error: { path: string }) => error.path);
     expect(paths).toContain("title");
     expect(paths).toContain("openedAt");
-    for (const fieldError of body.errors) {
-      expect(typeof fieldError.code).toBe("string");
-      expect(typeof fieldError.detail).toBe("string");
-    }
+    // Discriminate code vs detail so a mutation swapping the two fields is caught: title: "" fails
+    // the min(1) check, whose Zod issue code is "too_small" and whose message is human-readable and
+    // distinct from the code.
+    const titleError = body.errors.find((error: { path: string }) => error.path === "title");
+    expect(titleError).toBeDefined();
+    expect(titleError.code).toBe("too_small");
+    expect(titleError.detail).not.toBe(titleError.code);
+    expect(titleError.detail.toLowerCase()).toContain("small");
     expect(Problem.safeParse(body).success).toBe(true);
   });
 
