@@ -177,26 +177,6 @@
     color: var(--mc-action-disabled-foreground);
     cursor: not-allowed;
   }
-  /* File input: style the native selector button as a secondary control, and size the field by
-   * padding (block-size auto) rather than a fixed height — symmetric padding centres the button
-   * and filename vertically, where a fixed height left them kissing the top. */
-  .mc-input[type="file"] {
-    block-size: auto;
-    padding-block: var(--mc-space-8);
-  }
-  .mc-input[type="file"]::file-selector-button {
-    margin-inline-end: var(--mc-space-12);
-    border-style: none;
-    border-radius: var(--mc-radius-sm);
-    background-color: var(--mc-action-secondary);
-    color: var(--mc-action-secondary-foreground);
-    font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-xs);
-    font-weight: var(--mc-weight-medium);
-    padding-block: var(--mc-space-4);
-    padding-inline: var(--mc-space-8);
-    cursor: pointer;
-  }
 
   /*
    * Textarea (Tier 1). The multi-line Input: same border, focus, and disabled treatment, with a

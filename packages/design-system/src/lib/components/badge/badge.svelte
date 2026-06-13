@@ -17,6 +17,7 @@
     children,
     ...restProps
   }: WithElementRef<HTMLAttributes<HTMLSpanElement>, HTMLSpanElement> & {
+    /** Visual style of the badge. */
     variant?: BadgeVariant;
   } = $props();
 </script>

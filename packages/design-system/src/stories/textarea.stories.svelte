@@ -1,8 +1,10 @@
 <script module lang="ts">
   /*
-   * Textarea — Tier 1 batch. One story per distinct state (empty, disabled). Each carries an
-   * aria-label so it has an accessible name (axe). The native-element + typed-input checks ride
-   * Default's play; the disabled check rides Disabled's. svelte-csf v5.
+   * Textarea — Tier 1 (form control). Catalog model (matches Input/Button): ONE showcase story; the
+   * disabled state is a Control, not a story. `placeholder` and `disabled` are forwarded native
+   * attributes declared in argTypes with a "Native attributes" category + description so they don't
+   * float above the docgen "Properties" group. Behaviour (typed input, disabled blocking) rides a
+   * hidden test-only story. svelte-csf v5.
    */
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ComponentProps } from "svelte";
@@ -12,16 +14,21 @@
   const { Story } = defineMeta({
     title: "Components/Textarea",
     component: Textarea,
-    args: { placeholder: "Attendance note…", "aria-label": "Attendance note" },
+    args: { placeholder: "Attendance note…" },
+    // placeholder + disabled are declared (with JSDoc) on the component, so docgen surfaces them
+    // under "Properties" with descriptions — no story-level argTypes needed.
   });
 
   type TextareaStoryArgs = ComponentProps<typeof Textarea>;
 </script>
 
 {#snippet template(args: TextareaStoryArgs)}
-  <Textarea {...args} />
+  <div class="max-w-md">
+    <Textarea aria-label="Attendance note" {...args} />
+  </div>
 {/snippet}
 
+<!-- The showcase + Docs Primary; toggle disabled / set value via the Controls panel. -->
 <Story
   name="Default"
   {template}
@@ -33,11 +40,18 @@
   }}
 />
 
+<!-- Behaviour: disabled blocks input. Hidden from the catalog, still run by the test addon. -->
 <Story
-  name="Disabled"
-  args={{ disabled: true, value: "Telephone attendance on the client." }}
-  {template}
+  name="Behaviour"
+  tags={["!dev", "!autodocs"]}
   play={async ({ canvas }) => {
-    await expect(canvas.getByRole("textbox", { name: "Attendance note" })).toBeDisabled();
+    const field = canvas.getByRole("textbox", { name: "Disabled note" });
+    await expect(field).toBeDisabled();
+    await userEvent.type(field, "nope", { pointerEventsCheck: 0 });
+    await expect(field).toHaveValue("Read only");
   }}
-/>
+>
+  {#snippet template()}
+    <Textarea aria-label="Disabled note" disabled value="Read only" />
+  {/snippet}
+</Story>

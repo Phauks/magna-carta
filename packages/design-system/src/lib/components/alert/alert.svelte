@@ -17,6 +17,7 @@
     children,
     ...restProps
   }: WithElementRef<HTMLAttributes<HTMLDivElement>, HTMLDivElement> & {
+    /** Status the alert conveys; also sets the ARIA role (danger/warning announce assertively, info/success politely). */
     variant?: AlertVariant;
   } = $props();
 </script>

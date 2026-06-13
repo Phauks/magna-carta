@@ -1,10 +1,11 @@
 <script module lang="ts">
   /*
-   * Input — Tier 1 batch. One story per distinct STATE (empty, disabled, file) — no separate
-   * behavior-only stories re-rendering the same field. Each input carries an aria-label (meta
-   * args) because a placeholder is not an accessible name and a nameless control fails the
-   * per-story axe check. The native-element + typed-input checks ride Default's play; the disabled
-   * check rides Disabled's. svelte-csf v5.
+   * Input — Tier 1 (form control). Catalog model (matches Button): ONE showcase story; the states
+   * (disabled, filled) are Controls, not stories. `placeholder` and `disabled` are forwarded native
+   * attributes (the spread, no docgen), so they are declared in argTypes with a "Native attributes"
+   * category + description so they don't float above the docgen "Properties" group. The component's
+   * behaviour (typed input, disabled blocking) rides a hidden test-only story. File uploads are a
+   * separate component (slice 2·1) — Input is text-like only. svelte-csf v5.
    */
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ComponentProps } from "svelte";
@@ -14,16 +15,21 @@
   const { Story } = defineMeta({
     title: "Components/Input",
     component: Input,
-    args: { placeholder: "ACME-2026-014", "aria-label": "Matter reference" },
+    args: { placeholder: "Matter reference" },
+    // placeholder + disabled are declared (with JSDoc) on the component, so docgen surfaces them
+    // under "Properties" with descriptions — no story-level argTypes needed.
   });
 
   type InputStoryArgs = ComponentProps<typeof Input>;
 </script>
 
 {#snippet template(args: InputStoryArgs)}
-  <Input {...args} />
+  <div class="max-w-xs">
+    <Input aria-label="Matter reference" {...args} />
+  </div>
 {/snippet}
 
+<!-- The showcase + Docs Primary; toggle disabled / set value via the Controls panel. -->
 <Story
   name="Default"
   {template}
@@ -35,14 +41,18 @@
   }}
 />
 
+<!-- Behaviour: disabled blocks input. Hidden from the catalog, still run by the test addon. -->
 <Story
-  name="Disabled"
-  args={{ disabled: true, value: "ACME-2026-014" }}
-  {template}
+  name="Behaviour"
+  tags={["!dev", "!autodocs"]}
   play={async ({ canvas }) => {
-    await expect(canvas.getByRole("textbox", { name: "Matter reference" })).toBeDisabled();
+    const field = canvas.getByRole("textbox", { name: "Disabled field" });
+    await expect(field).toBeDisabled();
+    await userEvent.type(field, "nope", { pointerEventsCheck: 0 });
+    await expect(field).toHaveValue("Read only");
   }}
-/>
-
-<!-- File input: the type discriminates the files binding; the native selector button is styled. -->
-<Story name="File" args={{ type: "file" }} {template} />
+>
+  {#snippet template()}
+    <Input aria-label="Disabled field" disabled value="Read only" />
+  {/snippet}
+</Story>

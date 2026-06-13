@@ -19,21 +19,8 @@
     argTypes: {
       variant: { control: "select", options: ["primary", "secondary", "destructive", "ghost"] },
       size: { control: "select", options: ["sm", "default", "lg", "icon"] },
-      // disabled + href arrive via the native attribute spread (no docgen backing), so they would
-      // float above the auto-detected "Properties" group; a distinct category groups them as the
-      // forwarded native attributes they are (not the component's own declared props), and an
-      // explicit description fills the otherwise-empty Description column.
-      disabled: {
-        control: "boolean",
-        description: "Disables the button so it cannot be focused or clicked; renders muted.",
-        table: { category: "Native attributes" },
-      },
-      href: {
-        control: "text",
-        description:
-          "A destination URL. When set, the button renders as an anchor (`<a href>`) styled as a button instead of a `<button>`.",
-        table: { category: "Native attributes" },
-      },
+      // disabled + href are declared (with JSDoc) on the component, so docgen surfaces them under
+      // "Properties" with their descriptions — no story-level argTypes needed for them.
     },
   });
 

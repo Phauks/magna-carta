@@ -14,7 +14,9 @@
   import type { WithElementRef } from "../../internal/types.ts";
 
   type Props = WithElementRef<HTMLAttributes<HTMLDivElement>, HTMLDivElement> & {
+    /** Orientation of the rule. */
     orientation?: "horizontal" | "vertical";
+    /** When true (default) the rule is decorative (role="none", hidden from assistive tech); when false it is a semantic separator. */
     decorative?: boolean;
   };
 
