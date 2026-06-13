@@ -48,7 +48,7 @@ describe("insertAuthAuditStatement", () => {
     ]);
   });
 
-  it("refuses to stringify metadata carrying a `password` key — an ADR-0038 canary, not a guarantee", () => {
+  it("refuses to stringify metadata carrying a `password` key — a canary, not a guarantee", () => {
     const stub = stubD1();
     const build = (metadata: unknown) =>
       insertAuthAuditStatement(stub.database, {

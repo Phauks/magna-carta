@@ -99,8 +99,8 @@ describe("runScheduledSweep — member.provision consumption", () => {
       .first<{ display_name: string; status: string }>();
     expect(memberRow).toEqual({ display_name: "Sweep Invitee", status: "active" });
 
-    // The reconciliation backstop is clean again (spec §6: control-plane users without a member
-    // row in their firm database).
+    // The reconciliation backstop is clean again (control-plane users without a member row in their
+    // firm database).
     expect(await findUnprovisionedMembers(env, await listReachableActiveFirms(env))).toEqual([]);
 
     // Re-running the sweep is a no-op: the row is dispatched, nothing duplicates.
@@ -266,7 +266,7 @@ describe("runScheduledSweep — per-firm relay and TTL purge", () => {
 
   it("publishes the queue message with the pinned field names { id, firmId, topic, payload, aggregateKey, seq }", async () => {
     // The field names are a wire contract: future consumers dedup on id and order by
-    // (aggregateKey, seq) (ADR-0064), and firmId resolves the originating tenant because per-firm
+    // (aggregateKey, seq), and firmId resolves the originating tenant because per-firm
     // messages cross the single SHARED queue (the first per-firm consumer, slice 0·5+, has no other
     // handle on which physical database the row came from). A capturing fake QUEUE pins the shape.
     const outboxId = newIdentifier("outbox");

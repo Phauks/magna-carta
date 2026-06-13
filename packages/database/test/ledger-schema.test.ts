@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { applyMigrations, loadMigrationsFromDisk } from "../src/node-sqlite.ts";
 import { accountBalance, ledgerAccount, ledgerEntry, ledgerLine } from "../src/per-firm-schema.ts";
 
-describe("ledger tables (ADR-0072)", () => {
+describe("ledger tables", () => {
   it("ledger_account: TEXT handle PK, type enum + CHECK, parent seam, active flag", () => {
     const config = getTableConfig(ledgerAccount);
     expect(config.name).toBe("ledger_account");

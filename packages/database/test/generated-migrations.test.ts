@@ -100,7 +100,7 @@ describe("generated migrations (committed artifacts)", () => {
     for (const seed of roleSeeds) {
       // Seeded handles are committed literals — see drizzle/per-firm/0002_member-rbac.sql.
       expect(isIdentifier(seed.id, "role"), String(seed.id)).toBe(true);
-      expect(seed.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/); // ADR-0055
+      expect(seed.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/); // ISO-8601 instant
     }
     const ownerAdmin = roleSeeds.find((seed) => seed.name === "Owner/Admin");
     const permissionSeeds = statements

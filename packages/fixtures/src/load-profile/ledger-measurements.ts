@@ -53,7 +53,7 @@ async function postMeasurementEntry(handle: LedgerMeasurementHandle): Promise<Le
   return posted.entryId;
 }
 
-// The v1 measured set = the slice 0·3 deferred efficiency candidates + the hot reads:
+// The v1 measured set = the deferred efficiency candidates + the hot reads:
 // read coalescing in reverseEntry/createAccount, the posting write path, the materialized
 // balance read, and the table-wide fitness sweep at volume.
 export const ledgerMeasurements: readonly Measurement<LedgerMeasurementHandle, unknown>[] = [

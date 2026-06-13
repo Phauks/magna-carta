@@ -4,7 +4,7 @@
 declare const permissionBrand: unique symbol;
 export type Permission = string & { readonly [permissionBrand]: true };
 
-// The platform permission registry (ADR-0068): one namespace per subsystem, `<subsystem>:<action>`.
+// The platform permission registry: one namespace per subsystem, `<subsystem>:<action>`.
 // Grows one block per subsystem slice; the fitness tests cross-check every referenced key against this.
 export const PERMISSIONS = [
   "firm:manageMembers", // invite/deactivate members, assign roles

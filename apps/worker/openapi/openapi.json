@@ -3,7 +3,7 @@
   "info": {
     "title": "Magna Carta API",
     "version": "0.0.0",
-    "description": "The Magna Carta legal practice-management API. Every operation is enforced at the one ADR-0067 chokepoint (tenancy → authn → RBAC → idempotency → rate-limit); errors are RFC 9457 problem documents.",
+    "description": "The Magna Carta legal practice-management API. Every operation is enforced at one chokepoint (tenancy → authn → RBAC → idempotency → rate-limit); errors are RFC 9457 problem documents.",
     "contact": {
       "name": "Magna Carta",
       "url": "https://magnacarta.esq"
@@ -12,7 +12,7 @@
   "servers": [
     {
       "url": "https://api.magnacarta.esq/v1",
-      "description": "Production API surface (ADR-0052)"
+      "description": "Production API surface"
     },
     {
       "url": "https://app.magnacarta.esq/api",
@@ -429,7 +429,7 @@
             }
           },
           "404": {
-            "description": "The session's firm is not reachable from this deployment, or the session user is a deactivated member of it (ADR-0052 — absent, never an existence oracle)",
+            "description": "The session's firm is not reachable from this deployment, or the session user is a deactivated member of it (absent, never an existence oracle)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -533,7 +533,7 @@
             }
           },
           "404": {
-            "description": "The session's firm is not reachable from this deployment, or the session member is deactivated (ADR-0052 — absent, never an existence oracle)",
+            "description": "The session's firm is not reachable from this deployment, or the session member is deactivated (absent, never an existence oracle)",
             "content": {
               "application/problem+json": {
                 "schema": {

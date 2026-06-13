@@ -40,7 +40,7 @@ export const MONEY_SCALE = 2;
 const RATE_SCALE = 4;
 
 // Fail loud at the boundary: the number calculator is exact only for safe integers (< 2^53). If this
-// ever fires in practice, the engine must move to the decimal.js custom calculator (ADR-0061).
+// ever fires in practice, the engine must move to the decimal.js custom calculator.
 // Exported so the rounding helpers can re-check a grown intermediate's raw amount before it collapses.
 // `what` names the offending value in the error so the caller is blamed, not "money" generically.
 export function assertSafeInteger(value: number, what = "money amount"): void {
@@ -56,7 +56,7 @@ export function assertNonEmpty(values: readonly unknown[], message: string): voi
   }
 }
 
-// The code → currency registry: THE home of which currencies the platform knows (ADR-0061).
+// The code → currency registry: THE home of which currencies the platform knows.
 // Consumers that store codes (the ledger's per-account currency) resolve them here — an unknown
 // code throws rather than guesses, so a typo can never mint mislabeled Money. A new currency is a
 // one-line addition here and nowhere else.

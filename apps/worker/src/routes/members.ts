@@ -37,13 +37,13 @@ const InviteMemberResponse = z
   })
   .openapi("InviteMemberResponse");
 
-// The route metadata (ADR-0067). The chokepoint, reading this at registration, enforces the WHOLE
+// The route metadata. The chokepoint, reading this at registration, enforces the WHOLE
 // security order: session → firm (404 on absence/deactivation) → firm:manageMembers (403 +
 // requestAccess) → Idempotency-Key requirement + the firm-scoped idempotency pre-decision → rate
-// limit. The handler runs only past all of it. The 0·4 route-local middleware chain
+// limit. The handler runs only past all of it. The earlier route-local middleware chain
 // (authorizeMemberManagement + requireIdempotencyKey + firmScopedControlPlaneIdempotency) is GONE —
-// the chokepoint owns every one of those gates now, the §3.4 per-handler-discipline failure mode
-// retired.
+// the chokepoint owns every one of those gates now, retiring the per-handler-discipline failure
+// mode where one route could forget a gate.
 export const membersInviteMeta: RouteMeta = {
   operationId: "members.invite",
   surface: "app",
@@ -89,7 +89,7 @@ export const inviteMemberRoute = defineOpenAPIRoute(membersInviteMeta, {
     404: {
       description:
         "The session's firm is not reachable from this deployment, or the session member is " +
-        "deactivated (ADR-0052 — absent, never an existence oracle)",
+        "deactivated (absent, never an existence oracle)",
       content: { "application/problem+json": { schema: Problem } },
     },
     409: {
@@ -150,7 +150,7 @@ export function registerMembersRoute(
           // so this commit targets the exact row the pre-decision read.
           key: idempotency.key,
           fingerprint: idempotency.fingerprint,
-          // Speculative effect (ADR-0063/0064): statements + outbox rows described here commit in
+          // Speculative effect: statements + outbox rows described here commit in
           // ONE control-plane batch with the idempotency record — or roll back together.
           effect: () => {
             const invitedUserId = newIdentifier("user");
@@ -163,7 +163,8 @@ export function registerMembersRoute(
                   // signup route is disabled): unverified, no credential account. Activation runs
                   // through the password-reset flow, which creates the credential (Path A,
                   // verified against the pinned 1.6.16 source by members.test.ts). Epoch-ms
-                  // timestamps: the Better Auth tables' sanctioned ADR-0055 exception.
+                  // timestamps: the Better Auth tables' sanctioned exception to the platform's
+                  // instants-as-ISO time convention.
                   c.env.DB_CONTROL.prepare(
                     'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at, firm_id) VALUES (?1, ?2, ?3, 0, ?4, ?4, ?5)',
                   ).bind(invitedUserId, displayName, email, nowEpochMilliseconds, firmId),

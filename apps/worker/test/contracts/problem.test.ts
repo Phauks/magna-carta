@@ -1,4 +1,4 @@
-// Slice 0·5: the RFC 9457 problem module and the problem-type URI registry (design spec, error model).
+// The RFC 9457 problem module and the problem-type URI registry.
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import type { Context } from "hono";
 import type { ZodError } from "zod";
@@ -27,7 +27,7 @@ describe("problem-type URI registry", () => {
     );
   });
 
-  it("registers the slice 0·5 problem types plus the slice 0·6 internal-error type", () => {
+  it("registers the problem types", () => {
     expect(Object.keys(PROBLEM_TYPES).sort()).toEqual(
       [
         "validation",
@@ -114,7 +114,7 @@ describe("Problem schema", () => {
     expect(parsed.success).toBe(false);
   });
 
-  it("accepts the optional requestAccess extension (the ADR-0068 403 seam)", () => {
+  it("accepts the optional requestAccess extension (the 403 seam)", () => {
     const parsed = Problem.safeParse({
       type: "https://api.magnacarta.esq/problems/permission-denied",
       title: "Permission denied",
@@ -216,7 +216,7 @@ describe("problemJson", () => {
     expect(Problem.safeParse(await response.json()).success).toBe(true);
   });
 
-  it("emits requestAccess into the body only when the option is set (the ADR-0068 403 seam)", async () => {
+  it("emits requestAccess into the body only when the option is set (the 403 seam)", async () => {
     const app = new OpenAPIHono();
     app.get("/api/v1/matters/:matterId/denied", (c) =>
       problemJson(c, {

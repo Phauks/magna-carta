@@ -1,9 +1,8 @@
-// RouteMeta + defineOpenAPIRoute (design spec, route-metadata model; ADR-0067): every route
-// carries machine-readable metadata so each cross-cutting concern is a property of the traversed
-// path — enforced at the one chokepoint middleware and provable in CI over the emitted document,
-// never per-handler discipline. A field belongs here only if the chokepoint, a fitness function,
-// or codegen consumes it; the reserved seams (cache, planTier, metered) stay unpopulated until
-// their owning feature is built.
+// RouteMeta + defineOpenAPIRoute: every route carries machine-readable metadata so each
+// cross-cutting concern is a property of the traversed path — enforced at the one chokepoint
+// middleware and provable in CI over the emitted document, never per-handler discipline. A field
+// belongs here only if the chokepoint, a fitness function, or codegen consumes it; the reserved
+// seams (cache, planTier, metered) stay unpopulated until their owning feature is built.
 //
 // Note: @hono/zod-openapi exports its own (unrelated) defineOpenAPIRoute helper for route+handler
 // bundles; this module's defineOpenAPIRoute is the platform wrapper around createRoute and is the
@@ -18,13 +17,13 @@ export interface RouteMeta {
   operationId: string; // 'subsystem.action' — ^[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*$
   surface: "app" | "public" | "portal";
   authenticated: boolean;
-  // Capability required (ADR-0068 registry); null only when authenticated: false. KnownPermission
-  // admits compile-checked literals (the registry's documented authoring type — a branded
-  // Permission cannot be written literally); Permission admits runtime-validated values.
+  // Capability required from the access-control registry; null only when authenticated: false.
+  // KnownPermission admits compile-checked literals (the registry's documented authoring type — a
+  // branded Permission cannot be written literally); Permission admits runtime-validated values.
   permission: KnownPermission | Permission | null;
   resource: "matter" | "firm" | "location" | "directoryEntity" | "portalShare";
-  audited: boolean; // writes an immutable audit entry (ADR-0017/0038)
-  idempotency: "required" | "optional"; // ADR-0063 — required on money/trust/payment/outbound-comms
+  audited: boolean; // writes an immutable audit entry
+  idempotency: "required" | "optional"; // required on money/trust/payment/outbound-comms
   rateLimit: RateLimitBucket;
   tags?: string[]; // default: [operationId namespace] — applied when absent OR empty
   deprecated?: boolean;
@@ -40,7 +39,7 @@ export interface ResolvedRouteMeta extends RouteMeta {
 const OPERATION_ID_PATTERN = /^[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*$/;
 
 // The HTTP methods that mutate state — the single home shared by defineOpenAPIRoute's
-// authenticated-null guard (below) and the §3.5 conformance fitness functions, so "what counts as
+// authenticated-null guard (below) and the conformance fitness functions, so "what counts as
 // mutating" cannot drift between the registration guard and the contract gate.
 export const MUTATING_METHODS: ReadonlySet<string> = new Set(["post", "put", "patch", "delete"]);
 export const isMutatingMethod = (method: string): boolean =>
@@ -73,7 +72,7 @@ type DescribedRouteConfig<P extends string> = Omit<RouteConfig, "path"> & {
   description: string;
 };
 
-// Documentation-only flip for idempotency-required routes (ADR-0063): the shared
+// Documentation-only flip for idempotency-required routes: the shared
 // idempotencyKeyHeader fragment is optional at the schema layer (presence enforcement belongs to
 // the chokepoint middleware, which replies with the registered idempotency-key-missing problem),
 // but the emitted document must advertise required: true so the generated client types the header
@@ -118,7 +117,7 @@ function withRequiredIdempotencyKeyHeaderDocumentation<
 // startup, like the chokepoint's registration-time assertions), defaults tags from the
 // operationId namespace (an absent OR empty tags list — no route may reach the document
 // untagged), sets the OpenAPI-native operationId/tags/deprecated (generators key SDK method
-// names off the native operationId — spike finding, docs/conventions/api.md), emits every meta
+// names off the native operationId — docs/conventions/api.md), emits every meta
 // field as an x-mc-* extension for the conformance fitness functions, and attaches the resolved
 // meta for the chokepoint via routeMetaOf — keyed on the exact returned object; see the keying
 // constraint on routeMetaOf (resolve meta at registration time, never from the matched route).
@@ -133,12 +132,12 @@ export function defineOpenAPIRoute<P extends string, R extends DescribedRouteCon
     );
   }
 
-  // Fail-closed access-control guards, asserted at definition time (startup), enforcing the spec's
-  // access-control invariants the chokepoint (slice 0·5b) will TRUST without re-deriving. These are
+  // Fail-closed access-control guards, asserted at definition time (startup), enforcing the
+  // access-control invariants the chokepoint will TRUST without re-deriving. These are
   // RUNTIME asserts, not a type-level discriminated union on RouteMeta, BECAUSE the dangerous
   // invariant (#2 below) depends on the HTTP method — which lives in routeConfig.method, not on
   // RouteMeta — and on the mutating/non-mutating distinction. A discriminated union over RouteMeta
-  // alone cannot see the method, so it cannot express the rule. Task 10's fitness function over the
+  // alone cannot see the method, so it cannot express the rule. The fitness function over the
   // emitted document remains the CI defense-in-depth backstop for the same invariants.
   //
   // #1 Public routes cannot name a capability: the chokepoint never reads a public route's

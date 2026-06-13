@@ -13,7 +13,7 @@ import type { Bindings } from "./app.ts";
 import type { SendEmail } from "./email-port.ts";
 
 // Better Auth model name -> identifiers-registry entity type, for minting prefixed handles
-// (usr_/ses_/acc_/ver_/twf_, ADR-0062). Unknown models fail loud below: silently minting some
+// (usr_/ses_/acc_/ver_/twf_). Unknown models fail loud below: silently minting some
 // other prefix would defeat self-describing ids. Adding a Better Auth plugin that stores rows =
 // one entry here + a registry prefix + a control-plane migration.
 const ENTITY_TYPE_BY_MODEL: Partial<Record<string, EntityType>> = {
@@ -24,7 +24,7 @@ const ENTITY_TYPE_BY_MODEL: Partial<Record<string, EntityType>> = {
   twoFactor: "twoFactor",
 };
 
-// Auth audit writes are observability, not gates (ADR-0038): the INSERT failing must never break
+// Auth audit writes are observability, not gates: the INSERT failing must never break
 // the auth flow it describes — Better Auth runs databaseHooks unguarded, so a throw here would
 // surface as a 500 on the auth route. A failure is logged through the telemetry pipeline
 // (operation.failed, the audit event name in the operation label; metadata is ids-only by contract
@@ -51,7 +51,7 @@ async function writeAuthAuditGuarded(
   }
 }
 
-// The ONE home for the Better Auth integration shape (slice 0·4 design spec). app.ts caches one
+// The ONE home for the Better Auth integration shape. app.ts caches one
 // instance per worker env; tests construct directly against the Miniflare control-plane D1.
 // Routes mount at Better Auth's default basePath, /api/auth.
 export function createAuth(env: Bindings, sendEmail: SendEmail) {
@@ -81,7 +81,7 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
     }),
     emailAndPassword: {
       enabled: true,
-      // Membership is invitation-only (slice 0·4 design spec): the public signup route always
+      // Membership is invitation-only: the public signup route always
       // 4xxes; users are provisioned through the invitation flow instead.
       disableSignUp: true,
       requireEmailVerification: true,
@@ -104,7 +104,7 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
         )
           .bind(user.id, Date.now())
           .run();
-        // password.reset audit (decided #10): 1.6.16 exposes no password-reset databaseHook, so
+        // password.reset audit: 1.6.16 exposes no password-reset databaseHook, so
         // this server hook — which receives the user post-reset — is the natural home.
         await writeAuthAuditGuarded(env, { event: "password.reset", userId: user.id });
       },
@@ -146,7 +146,7 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
           // on the 2FA verify-totp completion — and ALSO on the session rotation Better Auth
           // performs when 2FA is enabled mid-session (pinned 1.6.16 behavior). Accepted: the
           // rotation is a fresh proof of the same principal's session, and 1.6.16 exposes no way
-          // to distinguish it inside this hook (decided #10).
+          // to distinguish it inside this hook.
           after: async (session) => {
             await writeAuthAuditGuarded(env, { event: "login.success", userId: session.userId });
           },

@@ -3,7 +3,7 @@ import { normalBalanceFor } from "./normal-balance.ts";
 import { ACCOUNT_BALANCE_TABLE, LEDGER_ACCOUNT_TABLE, LEDGER_LINE_TABLE } from "./statements.ts";
 import { ACCOUNT_TYPES } from "./types.ts";
 
-// Fitness queries (ADR-0051): re-prove the invariants over the WHOLE table. Zero rows = healthy.
+// Fitness queries: re-prove the invariants over the WHOLE table. Zero rows = healthy.
 // Run via assertLedgerFitness after every scenario; later wired into CI / an admin diagnostic.
 
 // The SQL's debit-normal type list is GENERATED from normal-balance.ts (the only home of the

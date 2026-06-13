@@ -14,8 +14,8 @@ import {
 import { assertNonEmpty, type Money } from "./money.ts";
 
 // Comparisons and sign predicates over Money. Mixing currencies throws (Dinero enforces same-currency),
-// mirroring add/subtract. The ledger sum-to-zero (ADR-0008) and no-negative-trust (ADR-0009) invariants
-// are expressed with these: e.g. a disbursement is rejected unless `greaterThanOrEqual(balance, amount)`.
+// mirroring add/subtract. The ledger sum-to-zero and no-negative-trust invariants are expressed with
+// these: e.g. a disbursement is rejected unless `greaterThanOrEqual(balance, amount)`.
 
 export function equal(a: Money, b: Money): boolean {
   return equalDinero(a, b);

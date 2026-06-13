@@ -189,7 +189,7 @@ describe("POST /api/v1/firms", () => {
     });
 
     // The claimed firm database really is migrated to head — the mirror column MATCHES the
-    // firm database's own _migrations truth (ADR-0065), and the 0002 role seeds exist.
+    // firm database's own _migrations truth, and the 0002 role seeds exist.
     const latestApplied = await env.DB_FIRM_POOL_1.prepare(
       "SELECT tag FROM _migrations ORDER BY tag DESC LIMIT 1",
     ).first<{ tag: string }>();

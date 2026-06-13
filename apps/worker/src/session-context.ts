@@ -12,9 +12,9 @@ export interface SessionContext {
   readonly firmId: FirmId;
 }
 
-// The first link of the ADR-0067 chokepoint chain (API contract spec, chokepoint order step 1):
+// The first link of the chokepoint chain (chokepoint order step 1):
 // session cookie → Better Auth control-plane lookup → { userId, firmId }. The firm comes from the
-// session, never the URL (ADR-0052). This slice it is a plain function handlers call — the full
+// session, never the URL. This slice it is a plain function handlers call — the full
 // ordered middleware (RBAC per route metadata, rate limits) is slice 0·5. Null means no valid
 // session; the caller answers with the RFC 9457 401 problem.
 export async function resolveSession(
@@ -32,7 +32,7 @@ export async function resolveSession(
 }
 
 // The session member's effective permissions, read from THEIR firm's database (the firm came from
-// the session — ADR-0052) and folded through the access-control resolver. Two parallel reads, not
+// the session) and folded through the access-control resolver. Two parallel reads, not
 // batched — revisit at the 0·5 chokepoint.
 export async function loadEffectivePermissions(
   firmDatabase: SqlDatabase,

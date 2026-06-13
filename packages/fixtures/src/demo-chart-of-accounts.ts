@@ -5,9 +5,8 @@ import type { AccountType } from "@magna-carta/ledger/types";
 import type { FixtureContext } from "./context.ts";
 
 // DEMO DATA ONLY — a tiny small-law-firm chart so scenarios read realistically. This is explicitly
-// NOT the Phase-3 product chart-of-accounts template; the product chart gets designed in Phase 3
-// (ADR-0072, demo-chart boundary). ~14 accounts, stable keys, seeded in declaration order for
-// determinism.
+// NOT the Phase-3 product chart-of-accounts template; the product chart gets designed in Phase 3.
+// ~14 accounts, stable keys, seeded in declaration order for determinism.
 interface DemoAccount {
   readonly key: string;
   readonly name: string;

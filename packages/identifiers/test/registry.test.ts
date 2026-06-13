@@ -9,7 +9,7 @@ describe("prefix registry", () => {
     expect(prefixFor("idempotencyRecord")).toBe("idr");
   });
 
-  it("maps the auth and access-control entity types to their prefixes (slice 0·4)", () => {
+  it("maps the auth and access-control entity types to their prefixes", () => {
     expect(prefixFor("session")).toBe("ses");
     expect(prefixFor("account")).toBe("acc");
     expect(prefixFor("verification")).toBe("ver");
@@ -21,7 +21,7 @@ describe("prefix registry", () => {
     expect(prefixFor("authAudit")).toBe("aud");
   });
 
-  it("maps the error-report entity type to its prefix (slice 0·5)", () => {
+  it("maps the error-report entity type to its prefix", () => {
     expect(prefixFor("error")).toBe("err");
   });
 

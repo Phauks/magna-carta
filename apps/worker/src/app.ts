@@ -24,8 +24,8 @@ import { telemetryErrorHandler, telemetryMiddleware } from "./telemetry-middlewa
 export type Bindings = {
   ASSETS: Fetcher;
   DB_CONTROL: D1Database;
-  // The dev firm-database pool (slice 0·4, decided #12) — pre-declared because Miniflare cannot
-  // create D1 at runtime; resolved from a firm's database_identifier by firm-binding-resolver.ts.
+  // The dev firm-database pool — pre-declared because Miniflare cannot create D1 at runtime;
+  // resolved from a firm's database_identifier by firm-binding-resolver.ts.
   DB_FIRM_POOL_1: D1Database;
   DB_FIRM_POOL_2: D1Database;
   R2: R2Bucket;
@@ -33,8 +33,8 @@ export type Bindings = {
   // Better Auth's signing/encryption secret. Local dev + tests load it from .dev.vars;
   // production sets it with `wrangler secret put AUTH_SECRET`.
   AUTH_SECRET: string;
-  // The POST /api/v1/firms guard secret (constant-time-compared against X-Platform-Admin-Key —
-  // the platform-admin principal model is a named slice 0·4 seam). Local dev + tests load the
+  // The POST /api/v1/firms guard secret (constant-time-compared against X-Platform-Admin-Key — a
+  // stand-in seam until a real platform-admin principal model exists). Local dev + tests load the
   // placeholder from .dev.vars; production sets it with `wrangler secret put PLATFORM_ADMIN_KEY`.
   PLATFORM_ADMIN_KEY: string;
   // Cloudflare REST FirmResourceProvider credentials — DEPLOY-TIME secrets only (`wrangler
@@ -95,10 +95,10 @@ function defaultLoggerForEnv(env: Bindings): Logger {
   return logger;
 }
 
-// createApp options exist for tests (golden rule 11 — the seam is ours): a memory logger to assert
-// emitted events, an injectable clock for deterministic durations, and the telemetry probe routes
-// that exercise the error boundary and the route-template behavior. Production (index.ts) calls
-// createApp() with no options — the Workers logger, the real clock, no probes.
+// createApp options exist for tests (the seam is ours): a memory logger to assert emitted events, an
+// injectable clock for deterministic durations, and the telemetry probe routes that exercise the
+// error boundary and the route-template behavior. Production (index.ts) calls createApp() with no
+// options — the Workers logger, the real clock, no probes.
 export interface CreateAppOptions {
   loggerForEnv?: (env: Bindings) => Logger;
   clock?: () => number;
@@ -108,18 +108,18 @@ export interface CreateAppOptions {
 export function createApp(options: CreateAppOptions = {}) {
   const loggerForEnv = options.loggerForEnv ?? defaultLoggerForEnv;
 
-  // defaultHook (0·5a): every Zod request-validation failure becomes the 422 problem with
+  // defaultHook: every Zod request-validation failure becomes the 422 problem with
   // field-level errors[] — installed app-wide so no route re-derives it.
   const app = new OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>({ defaultHook });
 
-  // Telemetry FIRST (spec §2): before the chokepoint and every route, so it mints the correlation
-  // id, stashes the request-scoped logger, and times the request. app.use registered here applies to
-  // every route below. The error boundary is the onError handler (Hono's compose routes a thrown
-  // handler there, not back up through middleware) — it logs error.captured and returns the 500.
+  // Telemetry FIRST: before the chokepoint and every route, so it mints the correlation id, stashes
+  // the request-scoped logger, and times the request. app.use registered here applies to every route
+  // below. The error boundary is the onError handler (Hono's compose routes a thrown handler there,
+  // not back up through middleware) — it logs error.captured and returns the 500.
   app.onError(telemetryErrorHandler(options.clock));
   app.use("*", telemetryMiddleware(loggerForEnv, options.clock));
 
-  // The chokepoint (ADR-0067): built once over the REAL ports — session resolution, firm-context
+  // The chokepoint: built once over the REAL ports — session resolution, firm-context
   // resolution (control-plane lookup + firm-binding-resolver + member-active check), permission
   // loading, the platform-scoped/firm-scoped idempotency gate, and a per-isolate in-memory rate
   // limiter (one limiter per app instance, never per request). This is THE single
@@ -179,13 +179,13 @@ export const openAPIDocumentConfig = {
     title: "Magna Carta API",
     version: "0.0.0",
     description:
-      "The Magna Carta legal practice-management API. Every operation is enforced at the one " +
-      "ADR-0067 chokepoint (tenancy → authn → RBAC → idempotency → rate-limit); errors are " +
+      "The Magna Carta legal practice-management API. Every operation is enforced at one " +
+      "chokepoint (tenancy → authn → RBAC → idempotency → rate-limit); errors are " +
       "RFC 9457 problem documents.",
     contact: { name: "Magna Carta", url: "https://magnacarta.esq" },
   },
   servers: [
-    { url: "https://api.magnacarta.esq/v1", description: "Production API surface (ADR-0052)" },
+    { url: "https://api.magnacarta.esq/v1", description: "Production API surface" },
     { url: "https://app.magnacarta.esq/api", description: "App same-origin surface" },
   ],
 };

@@ -1,4 +1,4 @@
-// The per-route middleware composition (slice 0·5b Task 8): every /api route is registered with
+// The per-route middleware composition: every /api route is registered with
 // this exact chain, so the wiring lives in ONE home and no route module re-derives the order. It
 // also runs the registration-time fail-closed assertion (assertRouteHasMeta) — a route mounted
 // without metadata, or naming an unregistered permission, throws HERE at startup, never reaching a

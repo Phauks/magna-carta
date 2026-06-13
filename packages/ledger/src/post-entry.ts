@@ -32,7 +32,7 @@ export const LEDGER_AGGREGATE_KEY = "ledger";
 
 export interface PostEntryOptions {
   readonly clock: ClockPort;
-  readonly randomSource?: RandomSource; // fixtures pass the seeded source (ADR-0034)
+  readonly randomSource?: RandomSource; // fixtures pass the seeded source
 }
 
 export interface PostedEntry {
@@ -74,7 +74,7 @@ export async function loadAccountSnapshots(
 }
 
 // Validate in memory, then COMPOSE statements — no logic runs mid-transaction (D1 single-batch
-// reality, ADR-0063/0064 amendments). The caller commits via the data-access chokepoint
+// reality). The caller commits via the data-access chokepoint
 // (commitEffectBatch / runIdempotentEffect), which is what makes the write idempotency-capable.
 export async function postEntry(
   database: SqlDatabase,

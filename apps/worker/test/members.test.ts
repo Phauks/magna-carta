@@ -41,13 +41,13 @@ async function directInsertUser(email: string, name: string): Promise<{ userId: 
   return { userId };
 }
 
-// The build-time verification the plan's decided #6 demands: on better-auth 1.6.16, does the
-// password-reset flow work for a user row with NO credential account row? It does — the pinned
+// The build-time verification: on better-auth 1.6.16, does the password-reset flow work for a user
+// row with NO credential account row? It does — the pinned
 // resetPassword handler creates the credential account when none exists (dist/api/routes/
 // password.mjs), so PATH A (direct-insert user via the effect batch, activation via the reset
 // link) is the landed path. This test is the empirical pin; a library bump that breaks the claim
 // fails here, not in production.
-describe("invitation activation — decided #6 verification (Path A)", () => {
+describe("invitation activation — Path A verification", () => {
   it("activates a direct-inserted user with no credential account via the password-reset flow", async () => {
     const email = "activation-invitee@example.com";
     const { userId } = await directInsertUser(email, "Activation Invitee");
@@ -166,19 +166,19 @@ describe("POST /api/v1/members", () => {
       type: "https://api.magnacarta.esq/problems/permission-denied",
       status: 403,
     });
-    // The within-firm denial (a trusted insider, visible-but-denied) carries the ADR-0068
-    // request→grant seam — distinct from the silent 404 structural absence above.
+    // The within-firm denial (a trusted insider, visible-but-denied) carries the request→grant
+    // seam — distinct from the silent 404 structural absence above.
     expect(body["requestAccess"]).toBe(true);
     expect(body["errorId"]).toMatch(/^err_/);
   });
 
-  it("answers 404 when the inviter has been DEACTIVATED — absent at the chokepoint, never a 403 oracle (ADR-0052)", async () => {
-    // A full Owner/Admin whose member row was then deactivated. Under the ADR-0067 chokepoint a
-    // DEACTIVATED member is structural ABSENCE (ADR-0052): the firm-context gate (step 3a) returns
-    // null → 404, BEFORE the permission gate runs — so a deactivated insider is indistinguishable
-    // from no such firm/member, never a 403 confirming the account exists but was turned off. (This
-    // is the unified semantics /v1/me already had for a deactivated member; the chokepoint now gives
-    // every authenticated route the same 404, retiring the 0·4 route-local 403.)
+  it("answers 404 when the inviter has been DEACTIVATED — absent at the chokepoint, never a 403 oracle", async () => {
+    // A full Owner/Admin whose member row was then deactivated. Under the chokepoint a DEACTIVATED
+    // member is structural ABSENCE: the firm-context gate (step 3a) returns null → 404, BEFORE the
+    // permission gate runs — so a deactivated insider is indistinguishable from no such firm/member,
+    // never a 403 confirming the account exists but was turned off. (This is the unified semantics
+    // /v1/me already had for a deactivated member; the chokepoint now gives every authenticated route
+    // the same 404, retiring the route-local 403.)
     const { userId } = await seedCredentialedUser("invite-deactivated@example.com", {
       firmId: poolFirmId,
     });

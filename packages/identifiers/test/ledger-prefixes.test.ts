@@ -3,7 +3,7 @@ import { newIdentifier } from "../src/generate.ts";
 import { ENTITY_PREFIXES } from "../src/registry.ts";
 import type { LedgerAccountId, LedgerLineId } from "../src/types.ts";
 
-describe("ledger identifier prefixes (slice 0·3, ADR-0072)", () => {
+describe("ledger identifier prefixes", () => {
   it("registers acct and lln prefixes", () => {
     expect(ENTITY_PREFIXES.ledgerAccount).toBe("acct");
     expect(ENTITY_PREFIXES.ledgerLine).toBe("lln");

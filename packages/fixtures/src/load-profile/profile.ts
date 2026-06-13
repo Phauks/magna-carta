@@ -6,7 +6,7 @@ export const GENERATOR_VERSION = 1;
 
 // Transaction archetypes, weighted (faker.helpers.weightedArrayElement). The settlement archetype
 // is the multi-line tail; the rest are two-line entries. Weights are profile PARAMETERS, never
-// generator constants (ADR-0083).
+// generator constants.
 export interface ArchetypeWeights {
   readonly trustDeposit: number;
   readonly trustDisbursement: number;

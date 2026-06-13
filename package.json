@@ -7,6 +7,7 @@
     "dev": "vp dev",
     "build": "vp build",
     "generate-client": "pnpm --filter @magna-carta/api-client run generate",
+    "lint:process-refs": "node tooling/lint-process-references.mjs",
     "test": "vp test"
   },
   "devDependencies": {

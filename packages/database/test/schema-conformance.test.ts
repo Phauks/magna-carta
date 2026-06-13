@@ -19,7 +19,7 @@ describe("schema conformance (fitness functions)", () => {
   });
 
   it("auth tables exist ONLY in the control-plane lineage — never in the per-firm schema", () => {
-    // Tenancy boundary (ADR-0003): credentials and sessions live in the control plane; each firm's
+    // Tenancy boundary: credentials and sessions live in the control plane; each firm's
     // D1 carries only the member MIRROR (keyed by the global user handle), never auth state.
     const perFirmTableNames = new Set(
       (Object.values(perFirmSchema) as unknown[])
@@ -31,12 +31,12 @@ describe("schema conformance (fitness functions)", () => {
     }
   });
 
-  it("every table's primary key is a TEXT identifier handle named id (ADR-0062)", () => {
+  it("every table's primary key is a TEXT identifier handle named id", () => {
     // Sanctioned exceptions: 1:1 extension tables keyed by the OWNING entity's handle. The primary
-    // key is still a TEXT identifier handle (ADR-0062) — it is the owner's, not a fresh one.
-    // account_balance is the materialized balance row of its ledger_account (ADR-0072).
+    // key is still a TEXT identifier handle — it is the owner's, not a fresh one.
+    // account_balance is the materialized balance row of its ledger_account.
     // member is the per-firm mirror of the control-plane user — keyed by the GLOBAL usr_ handle,
-    // the join key across planes (white paper, Core domain).
+    // the join key across planes.
     const extensionTablePrimaryKeyNames: Record<string, string> = {
       account_balance: "account_id",
       member: "user_id",
@@ -52,7 +52,7 @@ describe("schema conformance (fitness functions)", () => {
     }
   });
 
-  it("no money column is a float: *_minor and *_rate_e4 must be INTEGER (ADR-0061)", () => {
+  it("no money column is a float: *_minor and *_rate_e4 must be INTEGER", () => {
     for (const table of ALL_TABLES) {
       const config = getTableConfig(table);
       for (const column of config.columns) {
@@ -74,7 +74,7 @@ describe("schema conformance (fitness functions)", () => {
     }
   });
 
-  it("timestamp columns are ISO-8601 TEXT in our tables; epoch-ms INTEGER in Better Auth's (ADR-0055)", () => {
+  it("timestamp columns are ISO-8601 TEXT in our tables; epoch-ms INTEGER in Better Auth's", () => {
     // *_at catches every timestamp column either lineage uses (created_at, updated_at, expires_at,
     // dispatched_at, recorded_at, …). Better Auth-owned tables are the scoped exception — their
     // drizzle adapter reads and writes epoch-millisecond integers (mode "timestamp_ms").

@@ -59,7 +59,7 @@ describe("GET /api/v1/me", () => {
     });
   });
 
-  it("answers 404 when the session member is DEACTIVATED in the firm database (ADR-0052 absent — the spec's deactivated-context promise)", async () => {
+  it("answers 404 when the session member is DEACTIVATED in the firm database (absent — the deactivated-context promise)", async () => {
     const { userId } = await seedCredentialedUser("me-deactivated@example.com", {
       userName: "Deactivated Member",
       firmId: poolFirmId,
@@ -107,7 +107,7 @@ describe("GET /api/v1/me", () => {
     });
   });
 
-  it("answers 404 when the session firm's database resolves to no binding (ADR-0052 cross-firm reserve)", async () => {
+  it("answers 404 when the session firm's database resolves to no binding (cross-firm reserve)", async () => {
     // The firm row exists, but its database_identifier matches no binding in this deployment —
     // indistinguishable from the firm being absent: 404, never a 500 and never an existence oracle.
     await seedCredentialedUser("me-foreign@example.com", {
@@ -138,7 +138,7 @@ describe("GET /api/v1/me", () => {
     const operation = document.paths["/api/v1/me"]?.get;
     expect(operation).toBeDefined();
     // Native operationId, not only x-mc-operationId — SDK generators key method names off it
-    // (api.md spike finding #1).
+    // (docs/conventions/api.md).
     expect(operation?.["operationId"]).toBe("me.get");
     expect(operation).toMatchObject({
       "x-mc-operationId": "me.get",

@@ -20,7 +20,7 @@ const MeResponse = z
   })
   .openapi("MeResponse");
 
-// The route metadata (ADR-0067): the chokepoint reads it at registration to enforce
+// The route metadata: the chokepoint reads it at registration to enforce
 // tenancy/authn/RBAC/idempotency/rate-limit; the document emits each field as an x-mc-* extension.
 // permission: null — any authenticated member may read their OWN bootstrap (a non-mutating read,
 // the legitimate authenticated-null case the route-meta guard permits); the chokepoint resolves the
@@ -54,7 +54,7 @@ export const meRoute = defineOpenAPIRoute(meMeta, {
     404: {
       description:
         "The session's firm is not reachable from this deployment, or the session user is a " +
-        "deactivated member of it (ADR-0052 — absent, never an existence oracle)",
+        "deactivated member of it (absent, never an existence oracle)",
       content: { "application/problem+json": { schema: Problem } },
     },
     429: {
@@ -66,9 +66,9 @@ export const meRoute = defineOpenAPIRoute(meMeta, {
 
 // Registers GET /api/v1/me through the chokepoint. The handler runs ONLY after the chokepoint
 // passed it (session resolved, firm present, member not deactivated). The inline
-// session/firm/member-active checks the 0·4 handler carried are GONE — the chokepoint owns them now
-// (ADR-0067). The handler reads the resolved tenancy from the chokepoint context and does business
-// logic only: the user's display fields plus the effective permissions in their firm. A
+// session/firm/member-active checks an earlier version of this handler carried are GONE — the
+// chokepoint owns them now. The handler reads the resolved tenancy from the chokepoint context and
+// does business logic only: the user's display fields plus the effective permissions in their firm. A
 // never-mirrored user (sweep-lag window) reads empty permissions — the chokepoint let them through
 // (only a DEACTIVATED member is absent), and the permission statements join nothing.
 export function registerMeRoute(

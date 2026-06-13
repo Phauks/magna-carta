@@ -1,6 +1,6 @@
 import type { Bindings } from "./app.ts";
 
-// The dev firm-database pool, in claim order (slice 0·4, decided #12): wrangler.jsonc pre-declares
+// The dev firm-database pool, in claim order: wrangler.jsonc pre-declares
 // a fixed pool of firm databases because Miniflare cannot create D1 at runtime, and a claimed
 // firm's database_identifier IS the pool binding name. The dev FirmResourceProvider claims from
 // this list. Adding a pool member touches three places in lockstep: wrangler.jsonc, the Bindings
@@ -12,7 +12,7 @@ export const DEV_FIRM_DATABASE_POOL_BINDING_NAMES = ["DB_FIRM_POOL_1", "DB_FIRM_
 // deploys bind them under the same lookup).
 //
 // Unknown identifier → null: a firm whose database this deployment cannot reach is treated as
-// absent — the caller maps null to the ADR-0052 404, never a 500 and never an existence oracle.
+// absent — the caller maps null to a 404, never a 500 and never an existence oracle.
 // Own-property lookup only: a plain object inherits 'constructor'/'toString'/'__proto__', which a
 // bare index would resolve to non-nullish junk and break the unknown → null contract with a 500.
 export function resolveFirmDatabase(env: Bindings, databaseIdentifier: string): D1Database | null {

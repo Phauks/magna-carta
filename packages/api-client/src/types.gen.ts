@@ -99,7 +99,7 @@ export type MeGetErrors = {
      */
     401: Problem;
     /**
-     * The session's firm is not reachable from this deployment, or the session user is a deactivated member of it (ADR-0052 — absent, never an existence oracle)
+     * The session's firm is not reachable from this deployment, or the session user is a deactivated member of it (absent, never an existence oracle)
      */
     404: Problem;
     /**
@@ -143,7 +143,7 @@ export type MembersInviteErrors = {
      */
     403: Problem;
     /**
-     * The session's firm is not reachable from this deployment, or the session member is deactivated (ADR-0052 — absent, never an existence oracle)
+     * The session's firm is not reachable from this deployment, or the session member is deactivated (absent, never an existence oracle)
      */
     404: Problem;
     /**

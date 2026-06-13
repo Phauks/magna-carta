@@ -1,17 +1,17 @@
-// Rate-limiter seam (design spec, decided up front #4): named buckets as data, enforcement
+// Rate-limiter seam: named buckets as data, enforcement
 // behind the RateLimiter interface. The chokepoint position and the 429 problem shape are the
-// contract being locked in slice 0·5; the limiter implementation is swappable. The Phase 0
+// contract; the limiter implementation is swappable. The current
 // implementation below is a per-isolate in-memory sliding-window log.
 //
 // Honest limitation: state is PER WORKERS ISOLATE — it resets on isolate eviction/redeploy and
 // is not shared across isolates, so the effective global limit is (limit x live isolates). That
-// is acceptable for the Phase 0 abuse backstop these generous defaults are; a distributed
+// is acceptable for the abuse backstop these generous defaults are; a distributed
 // limiter (Durable Objects or KV) is a later adapter behind this same interface, swapped at the
 // chokepoint with no route or contract change.
 import type { RateLimitBucket } from "../contracts/route-meta";
 
 // Bucket names are data (RateLimitBucket, contracts/route-meta.ts — declared per route as
-// meta.rateLimit). The values here are the deferred seam: generous Phase 0 defaults, tightened
+// meta.rateLimit). The values here are the deferred seam: generous defaults, tightened
 // per bucket when real traffic shapes them — not a product decision being made now.
 export const BUCKETS: Record<RateLimitBucket, { limit: number; windowSeconds: number }> = {
   default: { limit: 100, windowSeconds: 60 },
@@ -47,8 +47,8 @@ export interface RateLimitVerdict {
 }
 
 // The seam the chokepoint depends on. check() returns the verdict only; replying with the 429
-// rate-limited problem is the chokepoint's job. The return is sync-or-promise (decided during
-// the Task 5 review): the distributed adapter (Durable Objects or KV) must await I/O, so a
+// rate-limited problem is the chokepoint's job. The return is sync-or-promise:
+// the distributed adapter (Durable Objects or KV) must await I/O, so a
 // sync-only signature would force a breaking seam change at adapter time. The chokepoint
 // always awaits the result — awaiting a plain value is free — so the in-memory implementation
 // stays synchronous with no overhead.
@@ -80,7 +80,7 @@ const SWEEP_INTERVAL_MILLISECONDS =
 // requests inside the window. Denied checks are NOT recorded — recording them would let a
 // hammering client extend its own retry-after indefinitely.
 //
-// Memory strategy (documented per the slice plan): prune-on-touch (stale timestamps drop from a
+// Memory strategy: prune-on-touch (stale timestamps drop from a
 // key whenever it is checked) plus a periodic sweep (at most once per SWEEP_INTERVAL, the next
 // check walks all keys, prunes, and deletes empty entries) — so a key hit once does not occupy
 // memory forever after its window passes.
@@ -88,7 +88,7 @@ const SWEEP_INTERVAL_MILLISECONDS =
 // Bounds (golden rule 10 honesty): between sweeps the map grows with the number of unique
 // (bucket, key) pairs checked, each holding at most `limit` timestamps; the one request that
 // triggers a sweep pays O(tracked keys x limit) for the walk. Both are bounded by what a single
-// isolate serves within one sweep interval — acceptable for the Phase 0 per-isolate backstop
+// isolate serves within one sweep interval — acceptable for the per-isolate backstop
 // with these generous limits, revisited when the distributed adapter lands.
 export function createInMemoryRateLimiter(
   options: InMemoryRateLimiterOptions = {},

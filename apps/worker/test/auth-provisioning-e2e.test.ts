@@ -13,7 +13,7 @@ import {
 } from "./support/test-auth.ts";
 import { createAuthenticator, secretFromTotpUri } from "./support/totp.ts";
 
-// The slice 0·4 capstone: one journey composed over the REAL HTTP surface (SELF fetch) —
+// The end-to-end capstone: one journey composed over the REAL HTTP surface (SELF fetch) —
 // provision two firms → sweep mirrors the owners → owner A activates through the emailed reset
 // link → signs in → enrolls TOTP → completes a full 2FA login → reads /api/v1/me → invites the
 // future paralegal → sweep mirrors the invitee — then the tenant-isolation asserts: firm B's
@@ -66,7 +66,7 @@ async function postFirms(body: unknown): Promise<Response> {
   });
 }
 
-describe("slice 0·4 end-to-end", () => {
+describe("end-to-end", () => {
   it("provisions firm A and firm B, each claiming its own dev-pool database", async () => {
     const responseA = await postFirms(FIRM_A_INPUT);
     expect(responseA.status).toBe(201);
@@ -295,8 +295,8 @@ describe("slice 0·4 end-to-end", () => {
 });
 
 // ---------------------------------------------------------------------------------------------
-// Conformance fitness over the emitted OpenAPI document (the api-contract design spec's §3.5
-// assertions, the spike's conformance-sweep pattern now running over the REAL /v1 routes).
+// Conformance fitness over the emitted OpenAPI document (the conformance-sweep assertions now
+// running over the REAL /v1 routes).
 
 type OpenApiOperation = Record<string, unknown>;
 interface OpenApiDocument {
@@ -448,7 +448,7 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
     for (const { operation, label } of v1Operations) {
       const operationId = operation["operationId"];
       expect(typeof operationId, label).toBe("string");
-      // The §3.5 shape: `<module>.<action>` in camelCase halves.
+      // The shape: `<module>.<action>` in camelCase halves.
       expect(operationId, label).toMatch(/^[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*$/);
       expect(operation["x-mc-operationId"], label).toBe(operationId);
       expect(seenOperationIds.has(operationId as string), `duplicate operationId at ${label}`).toBe(

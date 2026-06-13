@@ -1,25 +1,25 @@
-// The chokepoint middleware (design spec, ADR-0067): the single ordered enforcement point every
+// The chokepoint middleware: the single ordered enforcement point every
 // /api/v1 route traverses. Cross-cutting concerns are properties of the route's metadata
 // (contracts/route-meta.ts), not per-handler discipline — the chokepoint reads that metadata and
 // enforces, in ONE fixed order, what the route declared. The order IS the security contract:
 //
 //   1. resolve session → firm        (cookie → Better Auth → { userId, firmId }; firm from the
-//                                      session, never the URL — ADR-0052)
+//                                      session, never the URL)
 //   2. authn                          (meta.authenticated && no session → 401)
-//   3. RBAC, two failure modes (ADR-0052 / ADR-0068):
+//   3. RBAC, two failure modes:
 //        a. structural absence → 404  (firm row missing / firm DB unbound / member deactivated —
 //                                      no existence oracle, indistinguishable from "no such firm")
 //        b. within-firm denial → 403  (visible-but-denied trusted insider; carries
 //                                      requestAccess: true — the request→grant seam)
 //   4. idempotency                    (meta.idempotency === "required" → apply the idempotency
-//                                      middleware; Task 8 wires the real one — see the seam below)
+//                                      middleware — see the seam below)
 //   5. rate-limit                     (over the bucket → 429 + Retry-After), keyed TENANT-SCOPED
 //   6. handler
 //
 // A request failing an earlier gate NEVER touches a later port (fail-closed, short-circuit at the
 // first failure). The chokepoint is a factory over injected ports so it is testable with fakes
-// (chokepoint.test.ts records port invocation order and asserts it); Task 8 wires the ports to the
-// 0·4 implementations (session-context.ts, firm-binding-resolver.ts, the idempotency middleware).
+// (chokepoint.test.ts records port invocation order and asserts it); the ports are wired to the
+// implementations (session-context.ts, firm-binding-resolver.ts, the idempotency middleware).
 import type { Context, MiddlewareHandler } from "hono";
 import { assertPermission, isPermission } from "@magna-carta/access-control/registry";
 import type { Permission } from "@magna-carta/access-control/registry";
@@ -30,30 +30,30 @@ import type { RateLimiter } from "./rate-limiter.ts";
 
 // What resolveSession yields: the authenticated principal and the firm it is scoped to (from the
 // session cookie — never the URL). Mirrors session-context.ts's SessionContext; redeclared here so
-// the chokepoint depends on the port shape, not the 0·4 module (Task 8 supplies the real resolver).
+// the chokepoint depends on the port shape, not the module that supplies the real resolver.
 export interface ResolvedSession {
   readonly userId: UserId;
   readonly firmId: FirmId;
 }
 
 // The ports the chokepoint is built over. FirmContext is generic and opaque to the chokepoint: the
-// resolveFirmContext port returns whatever the handler needs (the per-firm D1 handle, in Task 8's
-// real wiring), and the chokepoint only threads it to loadPermissions — it never inspects it.
+// resolveFirmContext port returns whatever the handler needs (the per-firm D1 handle, in the real
+// wiring), and the chokepoint only threads it to loadPermissions — it never inspects it.
 export interface ChokepointPorts<FirmContext> {
   // Step 1: cookie → { userId, firmId } or null (no valid session). The chokepoint maps null to the
   // 401 only when the route declares authenticated: true.
   resolveSession: (c: Context) => Promise<ResolvedSession | null>;
   // Step 3a: the session's firm → the firm's context, or null for STRUCTURAL ABSENCE (firm row
-  // missing, firm DB unbound, member deactivated — ADR-0052). null → 404, no existence oracle.
-  // Encapsulates the control-plane lookup + resolveFirmDatabase + member-active check (Task 8). The
+  // missing, firm DB unbound, member deactivated). null → 404, no existence oracle.
+  // Encapsulates the control-plane lookup + resolveFirmDatabase + member-active check. The
   // WHOLE session is passed (not just firmId) so the port can run the member-active check against
-  // the session's userId — a deactivated member is absent (ADR-0052), folded in HERE so the same
+  // the session's userId — a deactivated member is absent, folded in HERE so the same
   // 404 covers a missing firm and a deactivated member with no per-handler discipline.
   resolveFirmContext: (c: Context, session: ResolvedSession) => Promise<FirmContext | null>;
   // Step 3b: the principal's effective permissions in THEIR firm. A missing required permission is
   // a within-firm denial → 403 + requestAccess (the trusted insider may request a grant).
   loadPermissions: (firmContext: FirmContext, userId: UserId) => Promise<ReadonlySet<Permission>>;
-  // Step 4: idempotency (ADR-0063). For a route whose meta.idempotency === "required" the
+  // Step 4: idempotency. For a route whose meta.idempotency === "required" the
   // chokepoint owns the WHOLE idempotency gate — the Idempotency-Key requirement (missing → 400)
   // AND the pre-decision (replay / 409 in-progress / 422 fingerprint-mismatch) — at the ONE point,
   // never double-applied by a route's own middleware. The port returns the composed idempotency
@@ -76,13 +76,13 @@ export interface ChokepointIdempotency {
 
 // The chokepoint, after construction: a per-route middleware factory plus the registration-time
 // meta assertion. forRoute closes over the route's resolved meta; the app wires it in front of the
-// handler at registration (Task 8) — meta is resolved at REGISTRATION time, never from the matched
+// handler at registration — meta is resolved at REGISTRATION time, never from the matched
 // route at request time (routeMetaOf's keying constraint).
 export interface Chokepoint {
   // The per-route middleware. Pass the route's RouteMeta (the chokepoint resolves its defaults to
   // the same shape ResolvedRouteMeta carries — only the gate-relevant fields are read).
   forRoute(meta: RouteMeta): MiddlewareHandler;
-  // Startup assertion (step 5 of the task): a registered /api/v1 route whose routeMetaOf returns
+  // Startup assertion: a registered /api/v1 route whose routeMetaOf returns
   // undefined throws HERE, at registration, not per-request. Returns the resolved meta so the
   // caller can hand it straight to forRoute.
   assertRouteHasMeta(route: object, path: string): ResolvedRouteMeta;
@@ -163,7 +163,7 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
 
         if (session !== null) {
           // Step 3a: resolve the firm context. null = structural absence (cross-firm / firm row
-          // missing / DB unbound / member deactivated) → 404, no existence oracle (ADR-0052).
+          // missing / DB unbound / member deactivated) → 404, no existence oracle.
           const firmContext = await ports.resolveFirmContext(c, session);
           if (firmContext === null) {
             return problemJson(c, {
@@ -176,7 +176,7 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
 
           // Step 3b: RBAC within the firm. A route naming a permission requires it; a missing
           // permission is a within-firm denial (trusted insider, visible-but-denied) → 403 with
-          // requestAccess: true (ADR-0068 — the request→grant seam). permission: null means "any
+          // requestAccess: true (the request→grant seam). permission: null means "any
           // authenticated user" (a non-mutating read; the definition-time guard in route-meta.ts
           // forbids null on authenticated mutations), so it skips the capability check.
           if (meta.permission !== null) {
@@ -193,21 +193,21 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
             }
           }
 
-          // Stash the resolved tenancy for the handler and the rate-limit key (Task 8 formalizes
-          // the context variables the handler reads; here it scopes the limiter key).
+          // Stash the resolved tenancy for the handler and the rate-limit key (the context
+          // variables the handler reads are formalized elsewhere; here it scopes the limiter key).
           c.set("chokepointFirmId", session.firmId);
           c.set("chokepointUserId", session.userId);
           c.set("chokepointFirmContext", firmContext);
         }
       }
 
-      // Step 4: idempotency (ADR-0063). For a required-idempotency route the chokepoint owns the
+      // Step 4: idempotency. For a required-idempotency route the chokepoint owns the
       // whole gate — the key requirement and the pre-decision — at the ONE point. The port returns
       // the composed middleware (reading the tenant-scoped stored key from the firm context stashed
       // above, or the platform scope for the public surface); the gate runs HERE, after RBAC and
       // before rate-limit, wrapping the rate-limit + handler tail in idempotencyTail. For an
       // optional-idempotency route the port returns null and the tail runs directly. There is no
-      // route-mounted idempotency middleware any more (Task 8 deleted them) — exactly one
+      // route-mounted idempotency middleware any more — exactly one
       // application, never two.
       const idempotencyMiddleware = ports.idempotency.middlewareFor(c, meta);
 
@@ -218,8 +218,8 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
       // response is already an accounted-for request; re-charging the limiter on a replay would be a
       // second debit for one logical request).
       const idempotencyTail = async (): Promise<void> => {
-        // Step 5: rate-limit. The key is TENANT-SCOPED and server-derived — never caller-supplied
-        // (forward obligation from the 0·5a limiter pass): a firm-scoped key for authenticated
+        // Step 5: rate-limit. The key is TENANT-SCOPED and server-derived — never caller-supplied:
+        // a firm-scoped key for authenticated
         // traffic so one firm cannot consume or evade another's bucket, and an IP-scoped key for
         // the public/unauthenticated surface (no firm context exists). A client cannot pick or
         // rotate its bucket.

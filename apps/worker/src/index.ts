@@ -6,11 +6,11 @@ import { runScheduledSweep } from "./scheduled.ts";
 const app = createApp();
 
 // fetch + scheduled: the Hono app serves requests; the Cron trigger (wrangler.jsonc
-// triggers.crons, every 5 minutes) runs the outbox relay sweeps and the idempotency TTL purge —
-// the scheduled plumbing slice 0·2 deferred. waitUntil keeps the sweep alive past the handler
-// return (the Workers scheduled-handler idiom). A control-plane sweep/purge failure rejects the
-// pass; route it through the one telemetry pipeline (operation.failed) — the same boundary the
-// request-path sweep uses — so a cron failure is never silently dropped (golden rule 4).
+// triggers.crons, every 5 minutes) runs the outbox relay sweeps and the idempotency TTL purge.
+// waitUntil keeps the sweep alive past the handler return (the Workers scheduled-handler idiom). A
+// control-plane sweep/purge failure rejects the pass; route it through the one telemetry pipeline
+// (operation.failed) — the same boundary the request-path sweep uses — so a cron failure is never
+// silently dropped.
 export default {
   fetch: app.fetch,
   scheduled(_controller, env, executionContext) {

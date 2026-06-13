@@ -39,10 +39,10 @@ describe("better-auth mount", () => {
   });
 });
 
-// The decided-#2 tripwire for better-auth version bumps: write + read every Better Auth-owned
-// table through the REAL adapter against a Miniflare-migrated control-plane D1. A column Better
-// Auth expects that the committed migrations do not provide (or vice versa) throws HERE, not in
-// production. Created ids double as the ADR-0062 handle pin (generateId wiring).
+// The tripwire for better-auth version bumps: write + read every Better Auth-owned table through
+// the REAL adapter against a Miniflare-migrated control-plane D1. A column Better Auth expects
+// that the committed migrations do not provide (or vice versa) throws HERE, not in production.
+// Created ids double as the handle pin (generateId wiring).
 describe("schema-sync fitness: better-auth against the committed control-plane migrations", () => {
   type CreatedRow = { id: string };
 

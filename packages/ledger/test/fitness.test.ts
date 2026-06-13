@@ -45,7 +45,7 @@ async function setupHealthyLedger() {
   return { raw, database };
 }
 
-describe("ledger fitness queries (ADR-0051) — prove the whole table, not one write", () => {
+describe("ledger fitness queries — prove the whole table, not one write", () => {
   it("a healthy ledger yields zero rows from every query", async () => {
     const { database } = await setupHealthyLedger();
     expect((await unbalancedEntriesStatement(database).all()).results).toEqual([]);

@@ -1,6 +1,6 @@
-// Generation can NEVER run in production (white paper _Synthetic data & fixtures_). Two layers:
+// Generation can NEVER run in production. Two layers:
 // the explicit opt-in below, and the boundary rule that production worker code never imports this
-// package (ADR-0070). NODE_ENV is checked when present (Node contexts); Workers have no process.
+// package. NODE_ENV is checked when present (Node contexts); Workers have no process.
 export interface SeedingOptions {
   readonly allowSeeding: boolean;
 }

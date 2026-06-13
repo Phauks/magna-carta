@@ -41,7 +41,7 @@ async function setupWithPostedEntry() {
   return { database, bank: bank.accountId, smith: smith.accountId, originalId: posted.entryId };
 }
 
-describe("reverseEntry — first-class corrections (ADR-0072)", () => {
+describe("reverseEntry — first-class corrections", () => {
   it("posts the exact mirror, links it, and balances return to zero", async () => {
     const { database, originalId } = await setupWithPostedEntry();
     const reversal = await reverseEntry(
@@ -80,7 +80,7 @@ describe("reverseEntry — first-class corrections (ADR-0072)", () => {
     ).results;
     expect(balances.every((row) => row.balance_minor === 0)).toBe(true);
 
-    // The outbox payload for a reversal names BOTH ids (ids only — ADR-0038).
+    // The outbox payload for a reversal names BOTH ids (ids only).
     const outbox = (
       await database
         .prepare("SELECT payload FROM outbox ORDER BY seq DESC LIMIT 1")
@@ -160,7 +160,7 @@ describe("reverseEntry — first-class corrections (ADR-0072)", () => {
   });
 
   it("a reversal violating a balance bound is refused at COMMIT, not by reverseEntry itself", async () => {
-    // The production trust scenario (ADR-0009): deposit received, funds disbursed, then someone
+    // The production trust scenario: deposit received, funds disbursed, then someone
     // attempts to reverse the original deposit — that would overdraw the client's trust ledger.
     const { database, bank, smith, originalId } = await setupWithPostedEntry();
     const { setAccountBoundsStatement } = await import("../src/statements.ts");

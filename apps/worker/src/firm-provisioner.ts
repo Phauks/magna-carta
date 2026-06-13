@@ -5,7 +5,7 @@ import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { isFirmNameConflict } from "./control-plane-conflicts.ts";
 import type { FirmResourceProvider } from "./firm-resource-provider.ts";
 
-// The resumable provisioning orchestration (slice 0·4 design spec §5). Each step is guarded by
+// The resumable provisioning orchestration. Each step is guarded by
 // the firm row's CURRENT state, so a crashed run resumes by re-invoking and completed steps no-op:
 //
 //   1. find-or-insert the firm row, status 'provisioning'   guard: row existence (UNIQUE name)
@@ -29,7 +29,7 @@ import type { FirmResourceProvider } from "./firm-resource-provider.ts";
 // but step 5 is handed back as an EffectWrite so the route commits it through runIdempotentEffect
 // in ONE atomic batch with the idempotency record. A crash before that commit stores no record,
 // so a retry re-executes the handler and the guards above resume the work; replay only ever
-// answers a response whose batch actually committed (ADR-0063).
+// answers a response whose batch actually committed.
 //
 // Concurrency note: crashed-run RESUME is the designed-for case. No in-progress idempotency
 // record is ever written, so same-KEY concurrency is NOT fenced at the HTTP boundary — the real
@@ -55,7 +55,7 @@ export interface FirmProvisionerDependencies {
   readonly controlPlaneDatabase: D1Database;
   readonly resourceProvider: FirmResourceProvider;
   // Bring the firm's database to the current per-firm schema head; answers the tag the mirror
-  // column records (ADR-0065). The worker wiring resolves the binding and runs the fleet
+  // column records. The worker wiring resolves the binding and runs the fleet
   // migration runner; tests inject a counting fake.
   readonly migrateFirmDatabaseToHead: (
     databaseIdentifier: string,
@@ -179,7 +179,7 @@ export async function provisionFirm(
     }
   }
 
-  // Step 3 — migrate the firm database to head, then mirror the version (ADR-0065). The mirror
+  // Step 3 — migrate the firm database to head, then mirror the version. The mirror
   // updates in a separate commit from the migration itself (cross-database — no shared
   // transaction exists); a crash between them only costs a no-op re-run, exactly like the fleet
   // rollout's stale-mirror tolerance.
@@ -223,8 +223,8 @@ export async function provisionFirm(
         insertAuthAuditStatement(database, {
           id: newIdentifier("authAudit"),
           event: "firm.provisioned",
-          // The actor is the platform admin — a secret-gated principal with no user row (the
-          // named slice 0·4 seam), so the audit row is actor-less and the ids ride the metadata.
+          // The actor is the platform admin — a secret-gated principal with no user row,
+          // so the audit row is actor-less and the ids ride the metadata.
           userId: null,
           metadata: { firmId, ownerUserId },
           now: now(),

@@ -12,7 +12,7 @@ import {
 } from "./support/test-auth.ts";
 import { createAuthenticator, secretFromTotpUri } from "./support/totp.ts";
 
-// The decided #10 audit wiring (Task 13): login.success via databaseHooks.session.create.after,
+// The audit wiring: login.success via databaseHooks.session.create.after,
 // two_factor.enabled/disabled via the paired user.update hooks (1.6.16 exposes no dedicated
 // twoFactor hook — the flip rides internalAdapter.updateUser), password.reset via the
 // emailAndPassword.onPasswordReset server hook. All writes land in control-plane auth_audit

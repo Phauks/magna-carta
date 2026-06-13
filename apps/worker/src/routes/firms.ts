@@ -64,10 +64,10 @@ type FirmsEnv = {
   Variables: AppVariables;
 };
 
-// The platform-admin guard (slice 0·4 design spec §5): a Worker-secret header check, the
-// single-operator reality of Phase 0 — a real platform-admin principal model is a named later
-// seam. Fail closed: an unset/empty PLATFORM_ADMIN_KEY rejects every request, and a missing key,
-// a wrong key, and an unconfigured deployment all answer the SAME 401 problem (no probe surface).
+// The platform-admin guard: a Worker-secret header check, the single-operator reality for now — a
+// real platform-admin principal model is a later seam. Fail closed: an unset/empty
+// PLATFORM_ADMIN_KEY rejects every request, and a missing key, a wrong key, and an unconfigured
+// deployment all answer the SAME 401 problem (no probe surface).
 // This stays a ROUTE-SPECIFIC middleware (NOT the chokepoint's RBAC): firms.provision is the
 // documented public-surface exception, so the chokepoint skips its session/firm/RBAC gates and this
 // secret guard does the auth. chokepoint/register.ts composes it BEFORE the chokepoint enforcement
@@ -112,10 +112,10 @@ export const platformAdminGuard: MiddlewareHandler<FirmsEnv> = async (c, next) =
   await next();
 };
 
-// The route metadata (ADR-0067). surface: "public" is the documented platform-admin exception (a
+// The route metadata. surface: "public" is the documented platform-admin exception (a
 // header-token guard, no session cookie) — so the chokepoint skips its session/firm/RBAC gates and
 // the platformAdminGuard above does the auth, while the chokepoint still owns the rate-limit gate
-// AND the (platform-scoped) idempotency gate. The 0·4 route-mounted requireIdempotencyKey +
+// AND the (platform-scoped) idempotency gate. The earlier route-mounted requireIdempotencyKey +
 // platformScopedControlPlaneIdempotency are GONE — the chokepoint applies idempotency once.
 export const provisionFirmMeta: RouteMeta = {
   operationId: "firms.provision",

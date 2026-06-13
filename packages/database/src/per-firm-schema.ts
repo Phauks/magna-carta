@@ -24,10 +24,10 @@ import type {
 } from "@magna-carta/identifiers/types";
 
 // PER-FIRM LINEAGE. Every tenant firm's D1 carries these tables; drizzle-kit generates per-firm
-// migrations from this file (ADR-0065). The BEHAVIOR over these tables (middleware, relay) lives in
+// migrations from this file. The BEHAVIOR over these tables (middleware, relay) lives in
 // @magna-carta/data-access — this package only defines the structure.
 
-// Idempotency records (ADR-0063). The UNIQUE(key) insert inside the effect's transaction IS the
+// Idempotency records. The UNIQUE(key) insert inside the effect's transaction IS the
 // concurrency guard — exactly-once with no separate lock.
 export const idempotencyKey = sqliteTable(
   "idempotency_key",
@@ -37,8 +37,8 @@ export const idempotencyKey = sqliteTable(
     fingerprint: text("fingerprint").notNull(), // hash(method + path + canonical body)
     status: text("status", { enum: ["in_progress", "completed"] }).notNull(),
     responseCode: integer("response_code"), // captured on completion
-    responseBody: text("response_body"), // captured on completion, redacted per ADR-0038
-    createdAt: text("created_at").notNull(), // ISO-8601 instant (ADR-0055); TTL purge keys off this
+    responseBody: text("response_body"), // captured on completion, redacted (no privileged content)
+    createdAt: text("created_at").notNull(), // ISO-8601 instant; TTL purge keys off this
   },
   (table) => [
     uniqueIndex("idempotency_key_key_unique_index").on(table.key),
@@ -46,14 +46,14 @@ export const idempotencyKey = sqliteTable(
   ],
 );
 
-// Transactional outbox (ADR-0064): the effect row commits in the SAME D1 transaction as the business
+// Transactional outbox: the effect row commits in the SAME D1 transaction as the business
 // change; the relay sweeps pending rows to Queues.
 export const outbox = sqliteTable(
   "outbox",
   {
     id: text("id").primaryKey().$type<OutboxId>(), // obx_ handle
     topic: text("topic").notNull(), // e.g. 'payment.capture', 'comms.send'
-    payload: text("payload").notNull(), // JSON: ids + non-privileged fields ONLY (ADR-0038)
+    payload: text("payload").notNull(), // JSON: ids + non-privileged fields ONLY (never privileged content)
     aggregateKey: text("aggregate_key"), // ordering scope for ordered topics
     seq: integer("seq"), // monotonic within aggregate_key
     status: text("status", { enum: ["pending", "dispatched", "failed"] }).notNull(),
@@ -64,19 +64,19 @@ export const outbox = sqliteTable(
   (table) => [index("outbox_status_created_at_index").on(table.status, table.createdAt)],
 );
 
-// Per-firm RBAC (ADR-0068): roles are DATA, permissions are registry keys. The permission registry
+// Per-firm RBAC: roles are DATA, permissions are registry keys. The permission registry
 // and the effective-permissions resolver live in @magna-carta/access-control — this package only
 // defines the structure. Auth state (credentials, sessions) never lives here: it is control-plane only.
 
 // The per-firm mirror of the control-plane user. Keyed by the GLOBAL usr_ handle — the join key
-// across planes (white paper, Core domain) — never a fresh per-firm id.
+// across planes — never a fresh per-firm id.
 export const member = sqliteTable("member", {
-  userId: text("user_id").primaryKey().$type<UserId>(), // the global join key (white paper)
+  userId: text("user_id").primaryKey().$type<UserId>(), // the global join key
   displayName: text("display_name").notNull(),
   status: text("status", { enum: ["active", "deactivated"] })
     .notNull()
     .default("active"),
-  createdAt: text("created_at").notNull(), // ISO-8601 instant (ADR-0055)
+  createdAt: text("created_at").notNull(), // ISO-8601 instant
 });
 
 // A named bundle of permissions. Five defaults are seeded by migration — the seeded handles are
@@ -133,7 +133,7 @@ export const directGrant = sqliteTable(
       .$type<UserId>()
       .references(() => member.userId),
     permission: text("permission").notNull(),
-    expiresAt: text("expires_at"), // null = no expiry; ISO-8601 instant (ADR-0055)
+    expiresAt: text("expires_at"), // null = no expiry; ISO-8601 instant
     grantedBy: text("granted_by").notNull().$type<UserId>(),
     createdAt: text("created_at").notNull(),
   },
@@ -143,7 +143,7 @@ export const directGrant = sqliteTable(
   ],
 );
 
-// Append-only double-entry ledger (ADR-0008, posting model ADR-0072). Structure only — the posting
+// Append-only double-entry ledger. Structure only — the posting
 // service, validation, and balance composition live in @magna-carta/ledger.
 
 // The structural account model — no chart-of-accounts product (Phase 3 adds it on this schema).
@@ -156,12 +156,12 @@ export const ledgerAccount = sqliteTable(
     type: text("type", {
       enum: ["asset", "liability", "equity", "income", "expense"],
     }).notNull(),
-    currency: text("currency").notNull(), // ISO-4217; always USD now; lines inherit (ADR-0061)
+    currency: text("currency").notNull(), // ISO-4217; always USD now; lines inherit
     parentAccountId: text("parent_account_id")
       .$type<LedgerAccountId>()
       .references((): AnySQLiteColumn => ledgerAccount.id), // subledger seam; children share type+currency
     active: integer("active").notNull().default(1), // soft close — accounts are never deleted
-    createdAt: text("created_at").notNull(), // UTC instant (ADR-0055)
+    createdAt: text("created_at").notNull(), // UTC instant
   },
   (table) => [
     index("ledger_account_parent_account_id_index").on(table.parentAccountId),
@@ -198,8 +198,8 @@ export const ledgerEntry = sqliteTable(
   ],
 );
 
-// The money. Direction is DATA + amounts are always positive: a sign-flip cannot be expressed
-// (ADR-0072 — the line-encoding decision). Currency is inherited from the account.
+// The money. Direction is DATA + amounts are always positive: a sign-flip cannot be expressed.
+// Currency is inherited from the account.
 export const ledgerLine = sqliteTable(
   "ledger_line",
   {
@@ -214,21 +214,21 @@ export const ledgerLine = sqliteTable(
       .references(() => ledgerAccount.id),
     lineIndex: integer("line_index").notNull(), // stable display/export order
     direction: text("direction", { enum: ["debit", "credit"] }).notNull(),
-    amountMinor: integer("amount_minor").notNull(), // 2dp minor units (ADR-0061)
+    amountMinor: integer("amount_minor").notNull(), // 2dp minor units
   },
   (table) => [
     uniqueIndex("ledger_line_entry_id_line_index_unique_index").on(table.entryId, table.lineIndex),
     index("ledger_line_account_id_index").on(table.accountId),
     check("ledger_line_amount_minor_positive_check", sql`${table.amountMinor} > 0`),
     // Drizzle text enums are type-level only — the direction constraint is stated as an explicit
-    // CHECK so the DDL enforces it (defense in depth on permanent rows — ADR-0072, line encoding).
+    // CHECK so the DDL enforces it (defense in depth on permanent rows).
     check("ledger_line_direction_check", sql`${table.direction} IN ('debit', 'credit')`),
   ],
 );
 
 // Materialized balance in NORMAL-BALANCE terms (positive = normal), one row per account, created in
 // the same batch as the account. The CHECK is the enforcement mechanism: a bounds violation inside a
-// posting batch aborts the WHOLE transaction — D1's only batch-abort primitive (ADR-0072/ADR-0009).
+// posting batch aborts the WHOLE transaction — D1's only batch-abort primitive.
 export const accountBalance = sqliteTable(
   "account_balance",
   {

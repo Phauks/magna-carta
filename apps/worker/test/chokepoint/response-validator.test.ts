@@ -1,8 +1,8 @@
-// Slice 0·5: the dev-only response validator (design spec, error model — "a dev-only
-// response-validation middleware parses outgoing payloads against the route's response schema to
-// catch handler/contract divergence before it reaches a client"). Enabled only when
-// c.env.ENVIRONMENT === "development" (Miniflare / wrangler dev and tests); production is a strict
-// pass-through with ZERO body reads — proven here with a body-access-spied Response.
+// The dev-only response validator: a dev-only response-validation middleware parses outgoing
+// payloads against the route's response schema to catch handler/contract divergence before it
+// reaches a client. Enabled only when c.env.ENVIRONMENT === "development" (Miniflare / wrangler
+// dev and tests); production is a strict pass-through with ZERO body reads — proven here with a
+// body-access-spied Response.
 import { OpenAPIHono, z } from "@hono/zod-openapi";
 import type { Context, Next } from "hono";
 import { describe, expect, it } from "vitest";
@@ -100,7 +100,7 @@ describe("createResponseValidator — development", () => {
   it("passes a valid declared JSON response through with the body intact for the client", async () => {
     const app = new OpenAPIHono<{ Bindings: { ENVIRONMENT?: string } }>();
     // Registration-time composition through the library's own per-route middleware slot —
-    // the shape Task 8's wiring uses (meta/config resolved from the route object, never from
+    // the shape the wiring uses (meta/config resolved from the route object, never from
     // the matched route at request time; see routeMetaOf's keying constraint).
     app.openapi(
       { ...widgetRoute, middleware: [createResponseValidator(widgetRoute)] as const },
@@ -146,9 +146,9 @@ describe("createResponseValidator — development", () => {
     ).rejects.toThrow(/undeclared status 201/);
   });
 
-  it("lets an undeclared 4xx/5xx pass — shared problem responses register in Task 8", async () => {
-    // The defaultHook/problemJson replies (422, 500, …) are not declared per-route until Task 8
-    // registers them as shared responses; until then only 2xx statuses must be declared.
+  it("lets an undeclared 4xx/5xx pass — shared problem responses register separately", async () => {
+    // The defaultHook/problemJson replies (422, 500, …) are not declared per-route until they are
+    // registered as shared responses; until then only 2xx statuses must be declared.
     const middleware = createResponseValidator(widgetRoute);
     const problemBody = { type: "about:blank", title: "Validation failed", status: 422 };
     await expect(
@@ -235,7 +235,7 @@ describe("createResponseValidator — development", () => {
 
   // A route declaring application/problem+json content for a 2xx — the +json suffix branch of
   // isJsonMediaType and the declaredJsonMediaTypes fallback path, the path that validates problem
-  // bodies once Task 8 registers shared problem responses. application/json-only routes never
+  // bodies once shared problem responses are registered. application/json-only routes never
   // exercise it.
   const ProblemLike = z.object({ type: z.string(), title: z.string(), status: z.number().int() });
   const problemContentRoute = defineOpenAPIRoute(sampleMeta({ operationId: "widgets.problem" }), {

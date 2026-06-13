@@ -14,9 +14,9 @@ export interface FleetRolloutOptions {
   readonly migrations: readonly Migration[];
   // How SQL reaches one firm's database — in production a d1MigrationTarget over the firm's binding.
   targetForFirm(firmId: FirmId): MigrationTarget;
-  // Mirror the new version onto the control-plane registry row (ADR-0065 fleet visibility).
+  // Mirror the new version onto the control-plane registry row (fleet visibility).
   recordFirmSchemaVersion(firmId: FirmId, latestTag: string): Promise<void>;
-  // Bounded fan-out (ADR-0065). Default 1 — a fleet of one needs no parallelism yet.
+  // Bounded fan-out. Default 1 — a fleet of one needs no parallelism yet.
   readonly concurrency?: number;
 }
 
@@ -26,7 +26,7 @@ export interface FleetRolloutReport {
   readonly failedFirms: { firmId: FirmId; error: Error }[];
 }
 
-// The fleet rollout (ADR-0065): skip current firms, migrate the rest with bounded concurrency,
+// The fleet rollout: skip current firms, migrate the rest with bounded concurrency,
 // quarantine failures (the fleet continues), and report. Idempotent — re-running skips firms already
 // at the target version, so a partially-failed rollout resumes by re-running.
 //
@@ -58,7 +58,7 @@ export async function rolloutMigrationsAcrossFleet(
         }
         report.migratedFirms.push({ firmId: firm.firmId, appliedTags: run.appliedTags });
       } catch (caught) {
-        // Failure isolation: quarantine this firm, keep the fleet moving (ADR-0065).
+        // Failure isolation: quarantine this firm, keep the fleet moving.
         const error = caught instanceof Error ? caught : new Error(String(caught));
         report.failedFirms.push({ firmId: firm.firmId, error });
       }

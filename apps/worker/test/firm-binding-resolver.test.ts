@@ -13,7 +13,7 @@ describe("resolveFirmDatabase", () => {
     expect(resolveFirmDatabase(env, "DB_FIRM_POOL_2")).toBe(POOL_2);
   });
 
-  it("answers null for an unknown identifier (the ADR-0052 absent path)", () => {
+  it("answers null for an unknown identifier (the absent path)", () => {
     expect(resolveFirmDatabase(env, "11111111-2222-4333-8444-555555555555")).toBeNull();
     expect(resolveFirmDatabase(env, "")).toBeNull();
   });

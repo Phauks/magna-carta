@@ -1,5 +1,5 @@
-// Shared contract fragments used across route modules (design spec, endpoint definition):
-// the idempotency-key header and identifier-typed path params.
+// Shared contract fragments used across route modules: the idempotency-key header and
+// identifier-typed path params.
 import { z } from "@hono/zod-openapi";
 import type { EntityType } from "@magna-carta/identifiers/registry";
 import type { Identifier } from "@magna-carta/identifiers/types";
@@ -8,7 +8,7 @@ import { identifierPattern } from "@magna-carta/identifiers/validate";
 // The Idempotency-Key request-header fragment, for `request.headers` on mutating routes.
 // The key MUST stay lowercase: @hono/zod-openapi matches header schema keys case-sensitively
 // against the incoming header map, which Hono lowercases — an uppercase key here would never
-// match a real request (the documented library gotcha; design spec, endpoint definition).
+// match a real request (the documented library gotcha).
 // The value is optional at the schema layer: presence on idempotency-required routes is
 // enforced by the chokepoint idempotency middleware, which replies with the registered
 // idempotency-key-missing problem — a required schema key would preempt that with a generic 422.
@@ -19,7 +19,7 @@ export const idempotencyKeyHeader = z.object({
 // A path-param fragment for an identifier-typed segment: validates the well-formed-handle shape
 // for the entity type (pattern sourced from @magna-carta/identifiers, never hardcoded) and types
 // the parsed value as the entity's branded identifier. The brand is compile-time only — the
-// runtime schema is a plain pattern-checked string, which the spike proved emits cleanly.
+// runtime schema is a plain pattern-checked string, which emits cleanly.
 // `name` must match the key the caller binds in the params object:
 // `z.object({ matterId: identifierPathParam("matter", "matterId") })`. A mismatch between the
 // schema-level `param.name` and the binding object key fails loud with a ConflictError at

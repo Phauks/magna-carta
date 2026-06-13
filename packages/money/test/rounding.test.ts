@@ -28,7 +28,7 @@ describe("named rounding helpers", () => {
     expect(toMinor(roundLedger(negHalf))).toBe(-2);
   });
 
-  it("fails loud when a grown intermediate breaches the 2^53 safe range (ADR-0061 choke point)", () => {
+  it("fails loud when a grown intermediate breaches the 2^53 safe range (collapse choke point)", () => {
     // 2^52 x 4 = 2^54: integer-valued (so Dinero's multiply accepts it) but past the safe range —
     // only the collapse guard can catch it before it becomes untrustworthy Money.
     expect(() => roundLedger(multiplyByQuantity(rate(2 ** 52, USD), 4))).toThrow(RangeError);

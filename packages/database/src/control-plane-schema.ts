@@ -14,11 +14,11 @@ import type {
 
 // CONTROL-PLANE LINEAGE. The firm registry: one row per tenant firm, in the single control-plane D1.
 // This file is the source of truth drizzle-kit generates control-plane migrations from — schema changes
-// happen HERE, never by hand-editing SQL (ADR-0065).
+// happen HERE, never by hand-editing SQL.
 export const firm = sqliteTable("firm", {
-  // The firm_ handle is both primary key and public id (ADR-0062).
+  // The firm_ handle is both primary key and public id.
   id: text("id").primaryKey().$type<FirmId>(),
-  // UNIQUE: the firm name is the provisioner's RESUME IDENTITY (slice 0·4 §5) — a crashed
+  // UNIQUE: the firm name is the provisioner's RESUME IDENTITY — a crashed
   // provisioning run re-invoked with the same name must find its own partial row, and firm ids
   // are CSPRNG handles minted per attempt, so the name is the only stable client-supplied handle.
   // Platform-admin-controlled input on a fleet of ~1; revisit if self-serve signup ever exists.
@@ -28,21 +28,21 @@ export const firm = sqliteTable("firm", {
   // the firm row is inserted FIRST so the firm id is stable across provisioning resumes.
   // UNIQUE still holds (SQLite unique indexes admit multiple NULLs).
   databaseIdentifier: text("database_identifier").unique(),
-  // Mirror of the firm database's latest applied migration tag (fleet-wide visibility, ADR-0065).
+  // Mirror of the firm database's latest applied migration tag (fleet-wide visibility).
   // Null = the firm database has not been provisioned yet. Tags order lexicographically (NNNN_ prefix).
   perFirmSchemaVersion: text("per_firm_schema_version"),
   // Provisioning lifecycle: the provisioner writes 'provisioning' first and flips to 'active' once
-  // the firm's resources exist. The DEFAULT keeps pre-lifecycle rows valid (expand-contract, ADR-0065).
+  // the firm's resources exist. The DEFAULT keeps pre-lifecycle rows valid (expand-contract).
   status: text("status").notNull().default("active"),
   // The per-firm R2 bucket backing this firm. Null = the bucket has not been provisioned yet.
   bucketName: text("bucket_name"),
-  // WHO owns the firm: set in the same activation batch that inserts the owner user (slice 0·4 §5)
+  // WHO owns the firm: set in the same activation batch that inserts the owner user
   // — the provisioner's already-active no-op matches the REQUESTED owner against this column, so a
   // mere invited member's email cannot impersonate the owner. Null while provisioning and for
   // pre-lifecycle rows. Deliberately NOT a foreign key: user.firm_id already references firm.id,
   // and the reverse edge would make the firm<->user pair circular.
   ownerUserId: text("owner_user_id").$type<UserId>(),
-  // ISO-8601 UTC instant (ADR-0055).
+  // ISO-8601 UTC instant.
   createdAt: text("created_at").notNull(),
 });
 
@@ -50,9 +50,9 @@ export const firm = sqliteTable("firm", {
 // with emailAndPassword + the twoFactor plugin + our firmId additional field) — Better Auth NEVER runs
 // migrations; this file stays the source of truth and the generate output is reference material only.
 // Storage is what Better Auth's drizzle adapter expects: snake_case columns, epoch-MILLISECOND integer
-// timestamps (mode "timestamp_ms"), boolean-mode integers — the one sanctioned exception to ADR-0055,
-// scoped to these five tables. Ids are still our prefixed handles: the auth config's generateId hook
-// mints them (ADR-0062).
+// timestamps (mode "timestamp_ms"), boolean-mode integers — the one sanctioned exception to the
+// house ISO-8601 text-timestamp convention, scoped to these five tables. Ids are still our prefixed
+// handles: the auth config's generateId hook mints them.
 
 export const user = sqliteTable("user", {
   id: text("id").primaryKey().$type<UserId>(), // usr_ handle
@@ -159,7 +159,7 @@ export const twoFactor = sqliteTable(
   ],
 );
 
-// OUR CONTROL-PLANE TABLES — house conventions resume here: ISO-8601 UTC text timestamps (ADR-0055).
+// OUR CONTROL-PLANE TABLES — house conventions resume here: ISO-8601 UTC text timestamps.
 
 // Auth audit trail: sign-in/sign-out/2FA lifecycle events. user_id is deliberately NOT a foreign key —
 // audit rows must outlive the user row they describe, and pre-identification events (e.g. a failed
@@ -168,14 +168,14 @@ export const authAudit = sqliteTable("auth_audit", {
   id: text("id").primaryKey().$type<AuthAuditId>(), // aud_ handle
   event: text("event").notNull(), // e.g. 'sign_in.success', 'two_factor.enabled'
   userId: text("user_id").$type<UserId>(), // null for pre-identification events
-  metadata: text("metadata"), // JSON: ids + non-privileged fields ONLY, redacted (ADR-0038)
-  createdAt: text("created_at").notNull(), // ISO-8601 instant (ADR-0055)
+  metadata: text("metadata"), // JSON: ids + non-privileged fields ONLY, redacted (never privileged content)
+  createdAt: text("created_at").notNull(), // ISO-8601 instant
 });
 
 // Control-plane copies of the reliability tables — same shapes as the per-firm lineage so the
-// data-access middleware and relay run identically against either database (ADR-0063/0064).
+// data-access middleware and relay run identically against either database.
 
-// Idempotency records (ADR-0063). The UNIQUE(key) insert inside the effect's transaction IS the
+// Idempotency records. The UNIQUE(key) insert inside the effect's transaction IS the
 // concurrency guard — exactly-once with no separate lock.
 export const idempotencyKey = sqliteTable(
   "idempotency_key",
@@ -185,8 +185,8 @@ export const idempotencyKey = sqliteTable(
     fingerprint: text("fingerprint").notNull(), // hash(method + path + canonical body)
     status: text("status", { enum: ["in_progress", "completed"] }).notNull(),
     responseCode: integer("response_code"), // captured on completion
-    responseBody: text("response_body"), // captured on completion, redacted per ADR-0038
-    createdAt: text("created_at").notNull(), // ISO-8601 instant (ADR-0055); TTL purge keys off this
+    responseBody: text("response_body"), // captured on completion, redacted (no privileged content)
+    createdAt: text("created_at").notNull(), // ISO-8601 instant; TTL purge keys off this
   },
   (table) => [
     uniqueIndex("idempotency_key_key_unique_index").on(table.key),
@@ -194,14 +194,14 @@ export const idempotencyKey = sqliteTable(
   ],
 );
 
-// Transactional outbox (ADR-0064): the effect row commits in the SAME D1 transaction as the business
+// Transactional outbox: the effect row commits in the SAME D1 transaction as the business
 // change; the relay sweeps pending rows to Queues.
 export const outbox = sqliteTable(
   "outbox",
   {
     id: text("id").primaryKey().$type<OutboxId>(), // obx_ handle
     topic: text("topic").notNull(), // e.g. 'payment.capture', 'comms.send'
-    payload: text("payload").notNull(), // JSON: ids + non-privileged fields ONLY (ADR-0038)
+    payload: text("payload").notNull(), // JSON: ids + non-privileged fields ONLY (never privileged content)
     aggregateKey: text("aggregate_key"), // ordering scope for ordered topics
     seq: integer("seq"), // monotonic within aggregate_key
     status: text("status", { enum: ["pending", "dispatched", "failed"] }).notNull(),

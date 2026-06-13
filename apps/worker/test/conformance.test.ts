@@ -1,5 +1,4 @@
-// Slice 0·5b Task 10: the §3.5 conformance fitness functions (design spec, conformance fitness
-// functions; ADR-0051/0067/0068). The route table is a security registry — these run structurally
+// The conformance fitness functions. The route table is a security registry — these run structurally
 // over the EMITTED document (not source text), so a route that drifts out of the posture fails CI.
 //
 // Each fitness function returns a list of human-readable violations; a clean contract returns []. Every
@@ -33,15 +32,14 @@ const MONEY_SUBSYSTEM_KEYWORDS = new Set([
 
 // authenticated: false is never implicit — every anonymous route is allow-listed here with the reason
 // it carries no firm data behind no session. Adding an anonymous route without an entry fails the gate
-// (decided #5 / spec §3.5 "no route is silently public").
+// — no route is silently public.
 const PUBLIC_ALLOW_LIST: Record<string, string> = {
-  "health.read":
-    "Liveness/readiness probe — platform plumbing, no firm data, no session (white paper Observability & diagnostics).",
+  "health.read": "Liveness/readiness probe — platform plumbing, no firm data, no session.",
 };
 
 // Subsystems whose every route must be idempotency: required (money/trust/payment/outbound-comms).
 // Empty until the trust/billing/payments/comms slices land — the assertion machinery is what ships now;
-// each of those slices adds its operationId namespace here as it builds (spec §3.5).
+// each of those slices adds its operationId namespace here as it builds.
 const MONEY_NAMESPACES = new Set<string>();
 
 // x-mc-operationId is a string in every emitted operation; read it defensively (the value is typed
@@ -65,7 +63,7 @@ function* operations(document: ReturnType<typeof buildOpenAPIDocument>) {
 }
 
 // Rule: every authenticated mutating route is audited AND names a permission; an unauthenticated
-// mutating route (allow-listed public) is still audited (spec §3.5).
+// mutating route (allow-listed public) is still audited.
 function auditedMutatingViolations(document: ReturnType<typeof buildOpenAPIDocument>): string[] {
   const violations: string[] = [];
   for (const { path, method, operation } of operations(document)) {
@@ -85,8 +83,8 @@ function auditedMutatingViolations(document: ReturnType<typeof buildOpenAPIDocum
 
 // Rule: every named permission exists in the registry, and its namespace matches the route's subsystem
 // — the resource it governs, NOT the operationId tag. Route modules `members`/`firms` both belong to
-// the `firm` subsystem, so the permission namespace binds to x-mc-resource (the per-subsystem registry
-// of ADR-0068), which is the coherent reading of spec §3.5's "namespace matches the route's module".
+// the `firm` subsystem, so the permission namespace binds to x-mc-resource (the per-subsystem permission
+// registry), the coherent reading of "namespace matches the route's module".
 // Assumption (holds under the registry's `<subsystem>:<action>` convention and the resource taxonomy
 // matter|firm|location|directoryEntity|portalShare being that same subsystem axis): a permission's
 // namespace equals the resource it governs. A future slice introducing a permission whose subsystem
@@ -115,7 +113,7 @@ function permissionRegistryViolations(document: ReturnType<typeof buildOpenAPIDo
   return violations;
 }
 
-// Rule: every route in a money/trust/payment/comms subsystem declares idempotency: required (spec §3.5).
+// Rule: every route in a money/trust/payment/comms subsystem declares idempotency: required.
 function moneyIdempotencyViolations(
   document: ReturnType<typeof buildOpenAPIDocument>,
   moneyNamespaces: ReadonlySet<string>,
@@ -152,7 +150,7 @@ function moneyRegistrationGapViolations(
   return violations;
 }
 
-// Rule: authenticated: false requires an explicit PUBLIC_ALLOW_LIST entry with a justification (spec §3.5).
+// Rule: authenticated: false requires an explicit PUBLIC_ALLOW_LIST entry with a justification.
 function publicAllowListViolations(
   document: ReturnType<typeof buildOpenAPIDocument>,
   allowList: Record<string, string>,
@@ -171,9 +169,9 @@ function publicAllowListViolations(
 }
 
 // Rule: `surface` is internally consistent — valid value, and the app (cookie-session) surface is never
-// anonymous (spec §3.5/§6). The mechanism-level assertion (an `app` route never bearer, a `public` route
-// never cookie) attaches when the auth surfaces emit OpenAPI security schemes — deferred (ADR-0068); the
-// boolean coherence is what the emitted document can enforce today.
+// anonymous. The mechanism-level assertion (an `app` route never bearer, a `public` route never cookie)
+// attaches when the auth surfaces emit OpenAPI security schemes — deferred; the boolean coherence is
+// what the emitted document can enforce today.
 function surfaceConsistencyViolations(document: ReturnType<typeof buildOpenAPIDocument>): string[] {
   const valid = new Set(["app", "public", "portal"]);
   const violations: string[] = [];
@@ -193,7 +191,7 @@ function surfaceConsistencyViolations(document: ReturnType<typeof buildOpenAPIDo
   return violations;
 }
 
-// Rule: every operationId is unique and matches subsystem.action (spec §3.5).
+// Rule: every operationId is unique and matches subsystem.action.
 function operationIdViolations(document: ReturnType<typeof buildOpenAPIDocument>): string[] {
   const violations: string[] = [];
   const seen = new Map<string, string>();
@@ -216,7 +214,7 @@ function operationIdViolations(document: ReturnType<typeof buildOpenAPIDocument>
   return violations;
 }
 
-// Rule (0·5a forward-obligation): every registered component NAME maps to exactly one schema shape.
+// Rule: every registered component NAME maps to exactly one schema shape.
 // zod-to-openapi 1.4.0 silently first-write-wins on a duplicate .openapi(name), so two distinct schemas
 // under one name produce a document where one masquerades as the other — invisible in the deduped
 // document. We re-emit each route in isolation and compare the JSON-Schema each component name produces:
@@ -375,7 +373,7 @@ function rawOperation(overrides: Record<string, unknown> = {}): Record<string, u
   };
 }
 
-describe("§3.5 conformance — the committed contract holds, and each rule catches a bad route", () => {
+describe("conformance — the committed contract holds, and each rule catches a bad route", () => {
   const document = buildOpenAPIDocument();
 
   // Guards the suite against vacuity: if operations() yielded nothing, every `toEqual([])` below would

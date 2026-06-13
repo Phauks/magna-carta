@@ -34,10 +34,13 @@ jobs:
       - name: Quality gate (fmt + lint + TS type-check + svelte-check)
         run: pnpm check
 
+      - name: Governance — no process-artifact references in code (golden rule 13)
+        run: pnpm run lint:process-refs
+
       - name: Tests (Miniflare worker integration)
         run: vp test
 
-      # --- API contract gates (slice 0·5b) — the committed snapshot is the source of truth; CI
+      # --- API contract gates — the committed snapshot is the source of truth; CI
       # re-derives every downstream artifact and fails on drift (code-as-contract). ---
 
       - name: Contract — snapshot drift (code-as-contract)
@@ -78,7 +81,7 @@ jobs:
           review: false
 
       # Forward-obligation: /api/v1/me mocks 200 today because the document declares no security
-      # schemes. When the auth surfaces emit OpenAPI security (the deferred ADR-0068 task), Prism will
+      # schemes. When the auth surfaces emit OpenAPI security, Prism will
       # 401 this probe — switch it to GET /api/health (unauthenticated) or pass a credential then.
       - name: Contract — Prism mock smoke
         run: |

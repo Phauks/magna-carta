@@ -1,7 +1,5 @@
-// RFC 9457 Problem Details (design spec, error model): the one error shape platform-wide,
-// extended with the observability errorId (ADR-0017/ADR-0038) and field-level errors[] for 422s.
-// Ported from the Phase 0 spike (test/support/api-contract-spike-app.ts keeps its own copy — it
-// guards the library, this module is the product).
+// RFC 9457 Problem Details: the one error shape platform-wide, extended with the observability
+// errorId and field-level errors[] for 422s.
 import { z } from "@hono/zod-openapi";
 import { identifierPattern } from "@magna-carta/identifiers/validate";
 import { newErrorId } from "@magna-carta/telemetry/ids";
@@ -39,7 +37,7 @@ export const Problem = z
     correlationId: z.string().optional(),
     instance: z.string().optional(),
     errors: z.array(ProblemFieldError).optional(),
-    // ADR-0068 within-firm denial seam: a typed optional extension (NOT an open passthrough), set
+    // Within-firm denial seam: a typed optional extension (NOT an open passthrough), set
     // only on the chokepoint's 403 to signal the trusted-insider may request a grant. The
     // request→grant flow is out of scope this slice — this field is the wire seam for it. Kept a
     // strict boolean so a non-boolean is rejected, never coerced.
@@ -55,13 +53,13 @@ export interface ProblemOptions {
   title: string;
   detail?: string;
   errors?: z.infer<typeof ProblemFieldError>[];
-  // ADR-0068: emitted into the body only when set (the chokepoint sets it true on its 403). A
+  // Emitted into the body only when set (the chokepoint sets it true on its 403). A
   // typed optional, not an open extension bag — the only extension this slice admits.
   requestAccess?: boolean;
   // An already-minted err_ handle to stamp into the body instead of minting a fresh one. The
   // caller wants the SAME Error ID it has already correlated elsewhere — e.g. the platform-admin
-  // guard logs a denial cause against the id it then returns to the client (slice 0·4 feature,
-  // reworked onto the telemetry pipeline in slice 0·6). Defaults to a fresh mint when omitted.
+  // guard logs a denial cause against the id it then returns to the client (reworked onto the
+  // telemetry pipeline in slice 0·6). Defaults to a fresh mint when omitted.
   errorId?: string;
 }
 
@@ -72,13 +70,13 @@ export interface ProblemOptions {
 // `Response & TypedResponse<JSONParsed<ProblemBody>, S, "json">`; mirroring that here — generic over
 // the status literal S — preserves the narrowing a bare `: Response` annotation would erase. The
 // `application/problem+json` content-type rides in the runtime headers; zod-openapi matches the
-// declared response on status, and (like 0·4's `c.json(problemBody(...), 409, …)`) accepts the
-// `"json"` format against a `application/problem+json` declaration.
+// declared response on status, and accepts the `"json"` format against a
+// `application/problem+json` declaration.
 export type ProblemResponse<S extends ProblemStatusCode> = Response &
   TypedResponse<JSONParsed<ProblemBody>, S, "json">;
 
 // Reply with an RFC 9457 problem document: expands the registry key to its type URI, mints a fresh
-// err_ correlation id (shown to the user, maps to the redacted log — ADR-0017/ADR-0038), and stamps
+// err_ correlation id (shown to the user, maps to the redacted log), and stamps
 // instance with the request path. Generic over the status literal so the returned response stays
 // status-typed for `app.openapi` handlers (see ProblemResponse).
 export function problemJson<S extends ProblemStatusCode>(

@@ -1,6 +1,6 @@
 import type { AccountType, Direction } from "./types.ts";
 
-// THE home of the normal-balance rule (ADR-0072): derived in code, never a column.
+// THE home of the normal-balance rule: derived in code, never a column.
 export function normalBalanceFor(type: AccountType): Direction {
   return type === "asset" || type === "expense" ? "debit" : "credit";
 }
