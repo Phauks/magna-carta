@@ -3,8 +3,8 @@
 // Ported from the Phase 0 spike (test/support/api-contract-spike-app.ts keeps its own copy — it
 // guards the library, this module is the product).
 import { z } from "@hono/zod-openapi";
-import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { identifierPattern } from "@magna-carta/identifiers/validate";
+import { newErrorId } from "@magna-carta/telemetry/ids";
 import type { Context, TypedResponse } from "hono";
 import type { ClientErrorStatusCode, ServerErrorStatusCode } from "hono/utils/http-status";
 import type { JSONParsed } from "hono/utils/types";
@@ -32,6 +32,11 @@ export const Problem = z
     status: z.number().int().min(400).max(599),
     detail: z.string().optional(),
     errorId: z.string().regex(identifierPattern("error")),
+    // The per-request correlation id (cor_) the telemetry middleware mints and rides on every event.
+    // Stamped on every problem reply so a user-visible failure joins its redacted server trace
+    // (slice 0·6 spec §2; ADR-0017). Optional in the schema because a problem built outside a
+    // request context (none today) would have none.
+    correlationId: z.string().optional(),
     instance: z.string().optional(),
     errors: z.array(ProblemFieldError).optional(),
     // ADR-0068 within-firm denial seam: a typed optional extension (NOT an open passthrough), set
@@ -89,12 +94,17 @@ export function problemJson<S extends ProblemStatusCode>(
         `4xx/5xx range (400–599); the error path never emits a 2xx/3xx problem.`,
     );
   }
+  // The telemetry middleware (installed first) stashes the per-request correlation id; stamp it so
+  // the problem joins its redacted server trace. Read defensively (unknown context type) — absent
+  // only outside a request, which no caller is today.
+  const correlationId = c.get("correlationId") as string | undefined;
   const body: ProblemBody = {
     type: problemType(options.type),
     title: options.title,
     status: options.status,
     ...(options.detail !== undefined && { detail: options.detail }),
-    errorId: options.errorId ?? newIdentifier("error"),
+    errorId: options.errorId ?? newErrorId(),
+    ...(correlationId !== undefined && { correlationId }),
     instance: c.req.path,
     ...(options.errors !== undefined && { errors: options.errors }),
     ...(options.requestAccess !== undefined && { requestAccess: options.requestAccess }),

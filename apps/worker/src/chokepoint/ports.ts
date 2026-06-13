@@ -8,6 +8,7 @@ import type { Permission } from "@magna-carta/access-control/registry";
 import type { IdempotencyContext } from "@magna-carta/data-access/hono-idempotency-middleware";
 import { selectMemberStatusStatement } from "@magna-carta/data-access/member-statements";
 import type { FirmId } from "@magna-carta/identifiers/types";
+import type { Logger } from "@magna-carta/telemetry/logger";
 import type { Bindings } from "../app.ts";
 import type { createAuth } from "../auth.ts";
 import { resolveFirmDatabase } from "../firm-binding-resolver.ts";
@@ -40,7 +41,16 @@ export interface ChokepointVariables {
 // chokepoint's idempotency gate sets (read by the required-idempotency handlers). One home so the
 // OpenAPIHono instance and every route's c.get(...) type against the same shape — and so the route
 // modules type their `app` parameter without importing app.ts at value level.
-export type AppVariables = ChokepointVariables & { idempotency?: IdempotencyContext };
+//
+// correlationId + logger are stashed by the telemetry middleware (installed first, ahead of the
+// chokepoint): every downstream guard/handler emits events through the request-scoped `logger`
+// against the request's `correlationId`, and problemJson reads correlationId to stamp every reply.
+// Both optional: a code path running before the middleware (none today) would see neither.
+export type AppVariables = ChokepointVariables & {
+  idempotency?: IdempotencyContext;
+  correlationId?: string;
+  logger?: Logger;
+};
 
 // resolveSession port: the cookie → { userId, firmId } resolver, bound to the per-env Better Auth
 // instance app.ts owns. SessionContext IS the ResolvedSession shape (both { userId, firmId }).

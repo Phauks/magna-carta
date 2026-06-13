@@ -1,0 +1,90 @@
+// Telemetry wiring (slice 0·6 spec §2), in two halves that share the request-scoped context the
+// first stashes:
+//   • telemetryMiddleware — installed FIRST in app.ts. Mints the correlation id (cor_), stashes it
+//     + a request-scoped Logger so every downstream guard/handler/problemJson reads them, times the
+//     request, and on NORMAL completion logs request.completed (route TEMPLATE, never the concrete
+//     path — decided #2). It does NOT try/catch the chain: Hono's compose catches a thrown handler
+//     at the throwing layer and routes it to app.onError, so an upstream try/catch would only ever
+//     see the already-handled response. The error path is therefore the onError handler below.
+//   • telemetryErrorHandler — registered with app.onError. The real error boundary: mints an err_
+//     Error ID, logs error.captured (message head, which the Workers logger scrubs), and returns the
+//     RFC 9457 500 carrying that same Error ID. The middleware then skips request.completed (c.error
+//     is set), so a failed request emits error.captured as its single terminal event.
+import type { Context, MiddlewareHandler } from "hono";
+import { errorCaptured, requestCompleted } from "@magna-carta/telemetry/events";
+import { newCorrelationId, newErrorId } from "@magna-carta/telemetry/ids";
+import type { Logger } from "@magna-carta/telemetry/logger";
+import type { Bindings } from "./app.ts";
+import type { AppVariables } from "./chokepoint/ports.ts";
+import { problemJson } from "./contracts/problem.ts";
+
+// error.message can carry user content; cap the logged head and let scrub.ts backstop the rest.
+const MESSAGE_HEAD_LENGTH = 120;
+
+type TelemetryEnv = { Bindings: Bindings; Variables: AppVariables };
+
+export function telemetryMiddleware(
+  loggerForEnv: (env: Bindings) => Logger,
+  // One injected epoch-ms clock: duration is the delta. Defaults to Date.now (valid in the Workers
+  // runtime); tests inject a counter.
+  clock: () => number = () => Date.now(),
+): MiddlewareHandler<TelemetryEnv> {
+  return async (c, next) => {
+    const correlationId = newCorrelationId();
+    c.set("correlationId", correlationId);
+    c.set("logger", loggerForEnv(c.env));
+
+    const startMs = clock();
+    await next();
+
+    // An exception was caught by Hono's compose and handled by telemetryErrorHandler (which logged
+    // error.captured and produced the 500) — c.error is set. Do not also log request.completed: a
+    // failed request has exactly one terminal event.
+    if (c.error !== undefined) return;
+
+    const endMs = clock();
+    c.get("logger")?.log(
+      requestCompleted(
+        { correlationId, now: new Date(endMs).toISOString() },
+        {
+          route: c.req.routePath,
+          method: c.req.method,
+          status: c.res.status,
+          durationMs: endMs - startMs,
+        },
+      ),
+    );
+  };
+}
+
+// The app.onError handler — the outermost error boundary. Reads the correlation id + logger the
+// middleware stashed (falling back to a fresh correlation id only if onError somehow fires before
+// the middleware ran, which it cannot today).
+export function telemetryErrorHandler(
+  clock: () => number = () => Date.now(),
+): (error: Error, c: Context<TelemetryEnv>) => Response {
+  return (caught, c) => {
+    const error = caught instanceof Error ? caught : new Error(String(caught));
+    const correlationId = c.get("correlationId") ?? newCorrelationId();
+    const errorId = newErrorId();
+    c.get("logger")?.log(
+      errorCaptured(
+        { correlationId, now: new Date(clock()).toISOString() },
+        {
+          errorId,
+          route: c.req.routePath,
+          method: c.req.method,
+          errorName: error.name,
+          messageHead: error.message.slice(0, MESSAGE_HEAD_LENGTH),
+        },
+      ),
+    );
+    return problemJson(c, {
+      type: "internal",
+      status: 500,
+      title: "Internal server error",
+      detail: "An unexpected error occurred. Quote the Error ID when reporting it.",
+      errorId,
+    });
+  };
+}

@@ -66,6 +66,16 @@
   "queues": {
     "producers": [{ "binding": "QUEUE", "queue": "magna-carta-production-platform-jobs" }],
   },
+  // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines
+  // the telemetry Workers logger emits land here). Logpush → R2 is a deploy-time runbook step
+  // (docs/conventions/operations.md), not code — it is account configuration (slice 0·6, ADR-0074).
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  // The Analytics Engine dataset the telemetry Workers logger mirrors counters to (slice 0·6). The
+  // TELEMETRY binding is optional in code (a missing binding degrades to console-only); declaring it
+  // here wires the real dataset in production and a local stub under Miniflare.
+  "analytics_engine_datasets": [
+    { "binding": "TELEMETRY", "dataset": "magna-carta-production-telemetry" },
+  ],
   // The scheduled sweep (src/scheduled.ts): outbox relay over the control-plane + per-firm
   // lineages and the idempotency TTL purge, every 5 minutes (closes the slice 0·2 deferral).
   "triggers": {

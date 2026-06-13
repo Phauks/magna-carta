@@ -25,6 +25,10 @@ export const PROBLEM_TYPES = {
   // (which the app-level defaultHook owns for Zod request-shape failures): this is a semantic
   // uniqueness clash surfaced from a committed write, not a request-shape rejection.
   "email-in-use": "email-in-use",
+  // An unexpected, unhandled server error (HTTP 500). The telemetry middleware's final catch maps
+  // any escaped exception to this — the one error type the client cannot have caused, carrying only
+  // the Error ID to quote (slice 0·6; ADR-0017/ADR-0038).
+  internal: "internal",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;

@@ -7,10 +7,13 @@ import { Problem, defaultHook, problemJson } from "../../src/contracts/problem";
 import { PROBLEM_TYPES, problemType } from "../../src/contracts/problem-types";
 
 // A minimal Context stub whose .json mirrors Hono's: serializes the body and stamps status +
-// headers. Enough to exercise problemJson/defaultHook off the request lifecycle.
+// headers. .get returns undefined (no telemetry middleware ran off the request lifecycle, so there
+// is no stashed correlation id — problemJson omits the field). Enough to exercise
+// problemJson/defaultHook directly.
 function fakeContext(path: string): Context {
   return {
     req: { path },
+    get: () => undefined,
     json: (body: unknown, status?: number, headers?: Record<string, string>) =>
       new Response(JSON.stringify(body), { status: status ?? 200, headers }),
   } as unknown as Context;
@@ -24,7 +27,7 @@ describe("problem-type URI registry", () => {
     );
   });
 
-  it("registers the slice 0·5 problem types", () => {
+  it("registers the slice 0·5 problem types plus the slice 0·6 internal-error type", () => {
     expect(Object.keys(PROBLEM_TYPES).sort()).toEqual(
       [
         "validation",
@@ -37,6 +40,7 @@ describe("problem-type URI registry", () => {
         "rate-limited",
         "conflict",
         "email-in-use",
+        "internal",
       ].sort(),
     );
   });

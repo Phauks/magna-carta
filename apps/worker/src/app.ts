@@ -1,4 +1,9 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
+import type { Logger } from "@magna-carta/telemetry/logger";
+import {
+  createWorkersLogger,
+  type AnalyticsEngineDataset,
+} from "@magna-carta/telemetry/workers-logger";
 import { createAuth } from "./auth.ts";
 import { createChokepoint } from "./chokepoint/chokepoint.ts";
 import { createChokepointIdempotency } from "./chokepoint/idempotency-port.ts";
@@ -10,6 +15,7 @@ import { createLoggingEmailAdapter } from "./email-port.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
+import { telemetryErrorHandler, telemetryMiddleware } from "./telemetry-middleware.ts";
 
 // The Worker's runtime bindings, declared once here (the no-barrel single home for the app's env shape).
 // worker-env.d.ts mirrors this into the ambient `Cloudflare.Env` the vitest-pool-workers harness types `env` as.
@@ -37,6 +43,10 @@ export type Bindings = {
   // "development" enables the dev-only response validator (chokepoint/response-validator.ts);
   // unset in production (wrangler.jsonc declares no var), set locally via .dev.vars.
   ENVIRONMENT?: string;
+  // The Analytics Engine dataset the Workers logger mirrors counters to (slice 0·6). Optional: a
+  // missing binding (dev/test, or a deployment without it) degrades to console-only logging, never
+  // throws (createWorkersLogger handles undefined).
+  TELEMETRY?: AnalyticsEngineDataset;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
@@ -54,10 +64,41 @@ function authForEnv(env: Bindings): ReturnType<typeof createAuth> {
   return auth;
 }
 
-export function createApp() {
+// One Workers logger per env (the env object is stable within an isolate), built over the optional
+// TELEMETRY Analytics Engine binding. The single production wiring of createWorkersLogger.
+const loggerInstanceByEnv = new WeakMap<Bindings, Logger>();
+function defaultLoggerForEnv(env: Bindings): Logger {
+  let logger = loggerInstanceByEnv.get(env);
+  if (logger === undefined) {
+    logger = createWorkersLogger(env.TELEMETRY);
+    loggerInstanceByEnv.set(env, logger);
+  }
+  return logger;
+}
+
+// createApp options exist for tests (golden rule 11 — the seam is ours): a memory logger to assert
+// emitted events, an injectable clock for deterministic durations, and the telemetry probe routes
+// that exercise the error boundary and the route-template behavior. Production (index.ts) calls
+// createApp() with no options — the Workers logger, the real clock, no probes.
+export interface CreateAppOptions {
+  loggerForEnv?: (env: Bindings) => Logger;
+  clock?: () => number;
+  includeTelemetryProbes?: boolean;
+}
+
+export function createApp(options: CreateAppOptions = {}) {
+  const loggerForEnv = options.loggerForEnv ?? defaultLoggerForEnv;
+
   // defaultHook (0·5a): every Zod request-validation failure becomes the 422 problem with
   // field-level errors[] — installed app-wide so no route re-derives it.
   const app = new OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>({ defaultHook });
+
+  // Telemetry FIRST (spec §2): before the chokepoint and every route, so it mints the correlation
+  // id, stashes the request-scoped logger, and times the request. app.use registered here applies to
+  // every route below. The error boundary is the onError handler (Hono's compose routes a thrown
+  // handler there, not back up through middleware) — it logs error.captured and returns the 500.
+  app.onError(telemetryErrorHandler(options.clock));
+  app.use("*", telemetryMiddleware(loggerForEnv, options.clock));
 
   // The chokepoint (ADR-0067): built once over the REAL ports — session resolution, firm-context
   // resolution (control-plane lookup + firm-binding-resolver + member-active check), permission
@@ -91,6 +132,18 @@ export function createApp() {
   // Serve the same document the committed snapshot carries (root tags included), so the live endpoint
   // and the snapshot never diverge. A plain route, so it does not appear in the document itself.
   app.get("/api/openapi.json", (c) => c.json(emitOpenAPIDocument(app)));
+
+  // Test-only probes (never in production: gated on the option, and bare app.get so they never enter
+  // the OpenAPI contract). They sit inside the global telemetry middleware but outside the chokepoint
+  // and BEFORE the asset fallthrough so they match first. One proves the route-TEMPLATE behavior (a
+  // parameterized path logged as its pattern, not the concrete id); one throws to exercise the
+  // error boundary (the message carries an email to prove the scrubber backstops error.captured).
+  if (options.includeTelemetryProbes) {
+    app.get("/api/v1/__telemetry-probe/:probeId", (c) => c.json({ ok: true }));
+    app.get("/api/v1/__telemetry-throw", () => {
+      throw new Error("telemetry probe boom for leak@example.com");
+    });
+  }
 
   // Everything not handled above falls through to the static-asset SPA (Workers Static Assets binding).
   app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));

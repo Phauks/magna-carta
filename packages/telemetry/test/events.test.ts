@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   EVENT_NAMES,
+  authDenied,
   emailSent,
   errorCaptured,
   incidentCreated,
@@ -69,6 +70,16 @@ describe("event catalog (spec §1)", () => {
   it("telemetryScrubbed carries eventName/field", () => {
     const event = telemetryScrubbed(context, { eventName: "error.captured", field: "messageHead" });
     expect(event.name).toBe("telemetry.scrubbed");
+  });
+
+  it("authDenied carries cause/route/errorId — and has NO slot for a key (structural redaction)", () => {
+    const event = authDenied(context, {
+      cause: "mismatch",
+      route: "/api/v1/firms",
+      errorId: "err_1",
+    });
+    expect(event.name).toBe("auth.denied");
+    expect(event.fields).toEqual({ cause: "mismatch", route: "/api/v1/firms", errorId: "err_1" });
   });
 
   it("every catalog event name is unique", () => {
