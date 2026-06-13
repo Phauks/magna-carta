@@ -8,6 +8,7 @@
     "./button": "./src/lib/components/button/index.ts",
     "./input": "./src/lib/components/input/index.ts",
     "./label": "./src/lib/components/label/index.ts",
+    "./textarea": "./src/lib/components/textarea/index.ts",
     "./internal/floating": "./src/lib/internal/floating.ts",
     "./internal/merge-classes": "./src/lib/internal/merge-classes.ts",
     "./internal/theme-preference": "./src/lib/internal/theme-preference.ts",
