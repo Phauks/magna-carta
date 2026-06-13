@@ -6,9 +6,9 @@
 
 ## The reframe that drives everything
 
-**The cryptographic signing — private key → PKCS#7/CMS — stays host-side in every option.** The firm's signing key (or HSM) never goes into a WASM engine. So "add signing to EmbedPDF" does **not** mean PDFium does the crypto; it means PDFium owns the *PDF structure* (signature dictionary, `/ByteRange`, `/Contents` placeholder, incremental save) and hands our code a digest to sign. That distinction separates the two options below.
+**The cryptographic signing — private key → PKCS#7/CMS — stays host-side in every option.** The firm's signing key (or HSM) never goes into a WASM engine. So "add signing to EmbedPDF" does **not** mean PDFium does the crypto; it means PDFium owns the _PDF structure_ (signature dictionary, `/ByteRange`, `/Contents` placeholder, incremental save) and hands our code a digest to sign. That distinction separates the two options below.
 
-Spike #2 (on file, `pdf-tooling.md`): EmbedPDF/PDFium *verifies* signatures (`FPDF_GetSignatureCount`/`…Obj_Get*`) but has **no creation API**.
+Spike #2 (on file, `pdf-tooling.md`): EmbedPDF/PDFium _verifies_ signatures (`FPDF_GetSignatureCount`/`…Obj_Get*`) but has **no creation API**.
 
 ## Option A — external library (`@signpdf`) over EmbedPDF-produced bytes
 
@@ -32,7 +32,7 @@ A **prepare → (host signs) → embed** split, because the crypto stays host-si
 
 ```ts
 const { bytesToSign, handle } = await engine.prepareSignature(doc, { reason, fieldRect });
-const cms = await firmSigner.signDetachedCMS(bytesToSign);   // OUR code: WebCrypto / HSM
+const cms = await firmSigner.signDetachedCMS(bytesToSign); // OUR code: WebCrypto / HSM
 const sealed = await engine.embedSignature(handle, cms);
 ```
 
@@ -47,7 +47,7 @@ Backing it: two new `EPDF_*` exports — `EPDF_PrepareSignature` (write sig dict
 Per ADR-0088 §J we run our fork regardless of merge ("never gate on the merge; rejected/stalled → keep the patch indefinitely, MIT permits it"). So **merge-acceptance is not a decision factor.** The decision reduces to **in-engine (B) vs. external library (A) on engineering merit**, with the fork as a given. Two consequences:
 
 1. **Fork-maintenance cost is a design choice, not inherent.** If B modifies PDFium's core save path, it rebases painfully on every PDFium re-sync (security-sensitive area upstream changes often). But shaped as an **isolated incremental-append** — append the signature dict as an incremental update to the already-saved bytes, exactly what `@signpdf` does in JS — it barely touches PDFium core → low rebase cost. Prefer the isolated-append shape.
-2. **The dependency-elimination motive weakens.** Without counting on a merge, B only ever *partially* drops `@signpdf` (the PDF-structure part; a thin host signer remains). So the real reason to do B is **"one engine owns the PDF bytes"** (no fragmentation), not "eliminate a dependency." Sharpen the §J framing: "drop `@signpdf`'s PDF-manipulation; keep a thin host signer," not "drop `@signpdf` entirely."
+2. **The dependency-elimination motive weakens.** Without counting on a merge, B only ever _partially_ drops `@signpdf` (the PDF-structure part; a thin host signer remains). So the real reason to do B is **"one engine owns the PDF bytes"** (no fragmentation), not "eliminate a dependency." Sharpen the §J framing: "drop `@signpdf`'s PDF-manipulation; keep a thin host signer," not "drop `@signpdf` entirely."
 
 ## Placement and product layer (unchanged either way)
 
