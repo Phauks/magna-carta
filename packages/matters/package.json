@@ -6,7 +6,12 @@
   "sideEffects": false,
   "exports": {
     "./numbering/segments": "./src/numbering/segments.ts",
-    "./numbering/render": "./src/numbering/render.ts"
+    "./numbering/render": "./src/numbering/render.ts",
+    "./numbering/counter-statements": "./src/numbering/counter-statements.ts",
+    "./matter-statements": "./src/matter-statements.ts",
+    "./matter-service": "./src/matter-service.ts",
+    "./close-preconditions": "./src/close-preconditions.ts",
+    "./validation": "./src/validation.ts"
   },
   "scripts": {
     "test": "vp test run"
