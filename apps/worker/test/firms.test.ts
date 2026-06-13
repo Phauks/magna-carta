@@ -161,7 +161,7 @@ describe("POST /api/v1/firms", () => {
     expect(firmRow).toEqual({
       status: "active",
       database_identifier: "DB_FIRM_POOL_1",
-      per_firm_schema_version: "0002_member-rbac",
+      per_firm_schema_version: "0003_matters-locations-file-manager",
       bucket_name: "R2",
     });
 
@@ -314,7 +314,7 @@ describe("POST /api/v1/firms", () => {
     expect(partialRow).toEqual({
       status: "provisioning",
       database_identifier: "DB_FIRM_POOL_2",
-      per_firm_schema_version: "0002_member-rbac",
+      per_firm_schema_version: "0003_matters-locations-file-manager",
     });
 
     // Re-invoking with a FREE owner email (new key — a corrected request) resumes the partial

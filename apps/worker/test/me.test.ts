@@ -53,8 +53,24 @@ describe("GET /api/v1/me", () => {
     expect(await response.json()).toEqual({
       user: { id: userId, name: "Me Test User", email: "me-member@example.com" },
       firm: { id: firmId, name: "Me Test Firm" },
-      // Owner/Admin's seeded role_permission rows (0002_member-rbac.sql).
-      permissions: ["firm:manageMembers"],
+      // Owner/Admin's seeded role_permission rows: firm:manageMembers (0002_member-rbac.sql) plus
+      // the slice 1·1 matters/locations/files grants (0003_matters-locations-file-manager.sql).
+      permissions: [
+        "files:delete",
+        "files:manageDocumentTypes",
+        "files:organize",
+        "files:upload",
+        "firm:manageMembers",
+        "locations:manage",
+        "matters:close",
+        "matters:create",
+        "matters:edit",
+        "matters:manageNumbering",
+        "matters:manageTypes",
+        "matters:open",
+        "matters:renumber",
+        "matters:reopen",
+      ],
     });
   });
 
