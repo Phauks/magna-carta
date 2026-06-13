@@ -17,9 +17,11 @@ export default defineConfig({
   // typeCheck makes `vp check` run tsgolint TS type-checks (not just fmt+lint); a real `.ts` type error now fails the gate.
   // tsgolint does not parse `.svelte`, so the full gate (`pnpm check`) also runs svelte-check. See conventions/typescript.md.
   lint: {
-    // The Hey API generated client is not our code to style-lint; exclude it from the lint rules (its
-    // tsc type-check still runs, so the "generated client compiles" gate holds, and the compile-check
-    // test exercises the public surface). The OpenAPI snapshot is data, not linted source.
+    // The Hey API generated client is not our code to lint (its barrel index and codegen idioms trip
+    // our rules); exclude it. NOTE: vp's type-check runs through this lint pass, so excluding the
+    // generated client here also drops it from tsgolint — so the "generated client compiles" gate is
+    // provided separately by the api-client `typecheck` script (a dedicated `tsc -p`, wired into the
+    // root `check`), which type-checks every generated file. The OpenAPI snapshot is data, not source.
     ignorePatterns: ["packages/api-client/src/**"],
     options: {
       typeAware: true,
