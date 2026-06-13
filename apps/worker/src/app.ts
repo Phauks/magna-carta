@@ -28,6 +28,10 @@ export type Bindings = {
   // instead, selected by these being unset (see routes/firms.ts resourceProviderForEnv).
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
+  // "development" enables the dev-only response validator (chokepoint/response-validator.ts);
+  // unset in production (wrangler.jsonc declares no var), set locally via .dev.vars when the
+  // validator is wired into route registration (slice 0·5b chokepoint + route migration).
+  ENVIRONMENT?: string;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an

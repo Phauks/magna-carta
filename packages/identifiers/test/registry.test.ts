@@ -21,6 +21,10 @@ describe("prefix registry", () => {
     expect(prefixFor("authAudit")).toBe("aud");
   });
 
+  it("maps the error-report entity type to its prefix (slice 0·5)", () => {
+    expect(prefixFor("error")).toBe("err");
+  });
+
   it("has no duplicate prefixes (prefix space partitions the id space)", () => {
     const prefixes = Object.values(ENTITY_PREFIXES);
     expect(new Set(prefixes).size).toBe(prefixes.length);

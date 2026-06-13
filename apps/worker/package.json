@@ -24,7 +24,10 @@
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "catalog:",
     "@cloudflare/workers-types": "catalog:",
+    "@hey-api/openapi-ts": "catalog:",
     "@magna-carta/tsconfig": "workspace:*",
+    "@stoplight/prism-cli": "catalog:",
+    "@stoplight/spectral-cli": "catalog:",
     "otpauth": "catalog:",
     "vitest": "catalog:",
     "wrangler": "catalog:"
