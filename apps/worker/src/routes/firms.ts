@@ -26,6 +26,7 @@ import {
 import { perFirmHeadSchemaVersion } from "../per-firm-migrations.ts";
 import { scheduleRequestPathSweep } from "../request-path-sweep.ts";
 import {
+  newErrorId,
   Problem,
   PROBLEM_CONTENT_TYPE,
   PROBLEM_TYPES,
@@ -75,14 +76,27 @@ type FirmsEnv = {
 const platformAdminGuard: MiddlewareHandler<FirmsEnv> = async (c, next) => {
   const configuredKey = c.env.PLATFORM_ADMIN_KEY;
   const presentedKey = c.req.header("X-Platform-Admin-Key");
-  if (
-    configuredKey === undefined ||
-    configuredKey === "" ||
-    presentedKey === undefined ||
-    presentedKey === "" ||
-    !(await constantTimeStringEquals(presentedKey, configuredKey))
-  ) {
-    return unauthenticatedProblemResponse(c);
+  // The CLIENT sees one opaque 401 for all three causes (no enumeration oracle — see the route
+  // comment); this branch decides only what the OPERATOR sees. The order preserves the original
+  // short-circuit, so the constant-time compare still runs only when a non-empty key was presented.
+  let denialCause: "unconfigured" | "missing-header" | "mismatch" | undefined;
+  if (configuredKey === undefined || configuredKey === "") {
+    denialCause = "unconfigured";
+  } else if (presentedKey === undefined || presentedKey === "") {
+    denialCause = "missing-header";
+  } else if (!(await constantTimeStringEquals(presentedKey, configuredKey))) {
+    denialCause = "mismatch";
+  }
+  if (denialCause !== undefined) {
+    const errorId = newErrorId();
+    // Interim telemetry seam (slice 0·6 replaces it with the standard redacting logging pipeline,
+    // which also owns severity/sampling): ids and the cause label only — NEVER the presented or
+    // configured key. Correlated to the Error ID the client receives so an operator can tell a
+    // deployment misconfiguration ('unconfigured') apart from a denied caller.
+    console.error(
+      `platform_admin_guard denied: cause=${denialCause} errorId=${errorId} path=${c.req.path}`,
+    );
+    return unauthenticatedProblemResponse(c, errorId);
   }
   await next();
 };

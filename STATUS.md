@@ -13,6 +13,8 @@ Per-slice progress across the build pipeline — the **stage-status home**. [`RO
 
 **Markers:** `[x]` complete · `[~]` in progress · `[ ]` not started · `[-]` not applicable.
 
+**Model attribution.** An untagged completed cell was built and verified by **Fable 5** — the baseline for everything landed to date. When another model does the work, suffix the marker with the full model name and version (e.g. `[x] Opus 4.8`), never an abbreviation — capability shifts between point releases, so the exact version is the fact worth keeping. Append `↻` when the cell still awaits an independent **Fable 5** pass (`[x] Opus 4.8 ↻`); drop it back to a plain `[x]` once Fable 5 has re-confirmed. This is primarily a **Tested**-column signal: Opus-verified work is re-tested on Fable 5 once it is available again. (Model-split rationale lives with the build workflow, not here.)
+
 ## Phase 0 — Foundation
 
 | Slice                                                                  | Research | Spec | Plan | Built | Load profile | Tested | Notes                                                                                                                                      |

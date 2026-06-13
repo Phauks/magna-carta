@@ -1,5 +1,5 @@
 import { env, SELF } from "cloudflare:test";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 
 // POST /api/v1/firms end-to-end (Miniflare): the platform-admin guard, the resumable provisioner
@@ -85,6 +85,42 @@ describe("POST /api/v1/firms", () => {
       count: number;
     }>();
     expect(firmCount?.count).toBe(0);
+  });
+
+  it("logs a redacted, Error-ID-correlated denial cause — never the key (interim 0·6 telemetry seam)", async () => {
+    // The client contract (field-identical 401 across missing/wrong/unset) is pinned by the test
+    // above. THIS test pins the operator-facing half: the guard distinguishes the denial cause in a
+    // log line correlated to the SAME Error ID the client receives, and never writes a key value
+    // (redact-by-default, golden rule 4). The unconfigured branch is a deploy-time failure now
+    // (wrangler `secrets.required`), so the two reachable causes here are missing-header and mismatch.
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      errorSpy.mockClear();
+      const missing = await postFirms(FIRM_ONE_INPUT, {
+        adminKey: null,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      const missingErrorId = ((await missing.json()) as { errorId: string }).errorId;
+      const missingLog = errorSpy.mock.calls.map((call) => String(call[0])).join("\n");
+      expect(missingLog).toContain("cause=missing-header");
+      expect(missingLog).toContain(`errorId=${missingErrorId}`);
+
+      errorSpy.mockClear();
+      const presentedWrongKey = `${env.PLATFORM_ADMIN_KEY}-tampered`;
+      const wrong = await postFirms(FIRM_ONE_INPUT, {
+        adminKey: presentedWrongKey,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      const wrongErrorId = ((await wrong.json()) as { errorId: string }).errorId;
+      const wrongLog = errorSpy.mock.calls.map((call) => String(call[0])).join("\n");
+      expect(wrongLog).toContain("cause=mismatch");
+      expect(wrongLog).toContain(`errorId=${wrongErrorId}`);
+      // Redaction: neither the presented key nor the configured secret leaks into the log line.
+      expect(wrongLog).not.toContain(presentedWrongKey);
+      expect(wrongLog).not.toContain(env.PLATFORM_ADMIN_KEY);
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it("demands the Idempotency-Key header with a 400 problem (x-mc-idempotency: required)", async () => {

@@ -53,14 +53,18 @@ export function problemBody(input: {
   readonly status: number;
   readonly detail?: string;
   readonly instance?: string;
+  // Pass a pre-minted id when the same Error ID must also appear in a correlated log line (e.g. the
+  // platform-admin guard); omit it and the body mints its own. Either way every body carries one.
+  readonly errorId?: string;
 }): ProblemBody {
-  return { errorId: newErrorId(), ...input };
+  const { errorId, ...rest } = input;
+  return { errorId: errorId ?? newErrorId(), ...rest };
 }
 
 // Shared response helpers for the problem shapes more than one handler answers with — the
 // bodies stay identical across routes by construction.
 
-export function unauthenticatedProblemResponse(c: Context) {
+export function unauthenticatedProblemResponse(c: Context, errorId?: string) {
   return c.json(
     problemBody({
       type: PROBLEM_TYPES.unauthenticated,
@@ -68,6 +72,7 @@ export function unauthenticatedProblemResponse(c: Context) {
       status: 401,
       detail: "Sign in to call this endpoint.",
       instance: c.req.path,
+      errorId,
     }),
     401,
     PROBLEM_CONTENT_TYPE,

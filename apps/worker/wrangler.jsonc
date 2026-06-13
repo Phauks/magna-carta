@@ -54,6 +54,14 @@
       "database_id": "eb1b184e-a181-42c7-9895-3ec6d8e8321a",
     },
   ],
+  // Runtime secrets this Worker requires — set in the Cloudflare dashboard (Worker → Settings →
+  // Variables and Secrets) or with `wrangler secret put`. Declaring them here makes `wrangler deploy`
+  // fail loudly with a missing-secret list rather than letting auth routes 500 by design at runtime.
+  // CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID are NOT listed: they are optional deploy-time
+  // credentials for the REST FirmResourceProvider (the dev pool-claiming adapter runs without them).
+  "secrets": {
+    "required": ["AUTH_SECRET", "PLATFORM_ADMIN_KEY"],
+  },
   "r2_buckets": [{ "binding": "R2", "bucket_name": "magna-carta-production-platform-files" }],
   "queues": {
     "producers": [{ "binding": "QUEUE", "queue": "magna-carta-production-platform-jobs" }],
