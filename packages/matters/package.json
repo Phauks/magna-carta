@@ -10,7 +10,11 @@
     "./numbering/counter-statements": "./src/numbering/counter-statements.ts",
     "./matter-statements": "./src/matter-statements.ts",
     "./matter-service": "./src/matter-service.ts",
+    "./matter-type-statements": "./src/matter-type-statements.ts",
+    "./matter-type-service": "./src/matter-type-service.ts",
+    "./queries": "./src/queries.ts",
     "./close-preconditions": "./src/close-preconditions.ts",
+    "./audit": "./src/audit.ts",
     "./validation": "./src/validation.ts"
   },
   "scripts": {

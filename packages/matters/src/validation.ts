@@ -7,7 +7,12 @@ export type MatterValidationCode =
   | "matter-not-closed"
   | "scheme-missing"
   | "matter-number-not-url-safe"
-  | "matter-number-taken";
+  | "matter-number-taken"
+  // Matter types (one error type for the whole matters module).
+  | "empty-type-name"
+  | "type-name-taken"
+  | "type-code-taken"
+  | "unknown-matter-type";
 
 export class MatterValidationError extends Error {
   constructor(

@@ -3,9 +3,20 @@ import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempot
 import {
   matter,
   matterNumberCounter,
+  matterType,
   numberingScheme,
 } from "@magna-carta/database/per-firm-schema";
 import { describe, expect, it } from "vitest";
+import {
+  MATTER_TYPE_TABLE,
+  deactivateMatterTypeStatement,
+  insertMatterTypeStatement,
+  selectMatterTypeIdByCodeStatement,
+  selectMatterTypeIdByNameStatement,
+  selectMatterTypeStatement,
+  updateMatterTypeStatement,
+} from "../src/matter-type-statements.ts";
+import { listConsultationsStatement, listMattersStatement } from "../src/queries.ts";
 import {
   MATTER_TABLE,
   NUMBERING_SCHEME_TABLE,
@@ -111,5 +122,44 @@ describe("schema name sync (matters SQL pinned to @magna-carta/database)", () =>
       new Set([MATTER_NUMBER_COUNTER_TABLE, ...columnsOf(matterNumberCounter)]),
       "counter",
     );
+  });
+
+  it("every column the matter-type SQL names exists in the schema", () => {
+    const stub = stubDatabase();
+    const typeId = "matterType_x" as never;
+    const sql = [
+      sqlOf(insertMatterTypeStatement(stub, { id: typeId, name: "n", code: "c", createdAt: "t" })),
+      sqlOf(updateMatterTypeStatement(stub, typeId, "n", "c", "t")),
+      sqlOf(deactivateMatterTypeStatement(stub, typeId, "t")),
+      sqlOf(selectMatterTypeStatement(stub, typeId)),
+      sqlOf(selectMatterTypeIdByNameStatement(stub, "n")),
+      sqlOf(selectMatterTypeIdByCodeStatement(stub, "c")),
+    ].join("\n");
+    expectOnlyKnownIdentifiers(sql, new Set([MATTER_TYPE_TABLE, ...columnsOf(matterType)]), "type");
+  });
+
+  it("every column the list queries name exists in the schema", () => {
+    const stub = stubDatabase();
+    // Every filter set, so the SQL names every column the list queries can reference.
+    const sql = [
+      sqlOf(
+        listMattersStatement(
+          stub,
+          {
+            status: "open",
+            matterTypeId: "matterType_x" as never,
+            locationId: "location_x" as never,
+            responsibleMemberId: "user_x" as never,
+            search: "term",
+          },
+          { createdAt: "t", id: "matter_x" },
+          10,
+        ),
+      ),
+      sqlOf(
+        listConsultationsStatement(stub, "user_x" as never, { createdAt: "t", id: "matter_x" }, 10),
+      ),
+    ].join("\n");
+    expectOnlyKnownIdentifiers(sql, new Set([MATTER_TABLE, ...columnsOf(matter)]), "queries");
   });
 });

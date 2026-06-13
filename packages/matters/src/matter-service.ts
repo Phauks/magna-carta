@@ -1,4 +1,3 @@
-import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import {
   commitEffectBatch,
   type BatchDatabase,
@@ -11,6 +10,7 @@ import type {
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { LocationId, MatterId, MatterTypeId, UserId } from "@magna-carta/identifiers/types";
+import { matterAuditStatement } from "./audit.ts";
 import { runClosePreconditions, ClosePreconditionError } from "./close-preconditions.ts";
 import {
   closeMatterStatement,
@@ -65,21 +65,7 @@ export interface MatterServiceOptions {
 // (decided: the renderer never reads those tables). openedDate is filled by the service from the clock.
 export type NumberContext = Omit<RenderContext, "openedDate">;
 
-function auditStatement(
-  database: SqlDatabase,
-  options: MatterServiceOptions,
-  event: string,
-  subjectId: string,
-) {
-  return insertAuditLogStatement(database, {
-    id: newIdentifier("auditLog", options.randomSource),
-    event,
-    actorUserId: options.actorUserId,
-    subjectId,
-    metadata: null,
-    now: options.clock.now(),
-  });
-}
+const auditStatement = matterAuditStatement;
 
 function requireNonEmptyTitle(title: string): void {
   if (title.trim().length === 0) {
