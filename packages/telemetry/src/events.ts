@@ -46,6 +46,27 @@ export const incidentCreated = defineEvent("incident.created", [
 // let through). A non-zero count in tests fails the suite (decided #3).
 export const telemetryScrubbed = defineEvent("telemetry.scrubbed", ["eventName", "field"] as const);
 
+// operation.failed — a caught error in a NON-request context (a cron sweep, a best-effort
+// post-response sweep, an unguarded auth hook). The request path uses error.captured; this is its
+// background counterpart, carrying the operation label instead of a route/method. messageHead is
+// scrubbed by the logger.
+export const operationFailed = defineEvent("operation.failed", [
+  "operation",
+  "errorName",
+  "messageHead",
+  "errorId",
+] as const);
+
+// outbox.deadLettered — the relay exhausted a message's delivery attempts and parked it (an
+// operational outcome, not an error). ids + topic + attempts only — payloads are never logged
+// (ADR-0038 redaction; the allowlist has no payload slot anyway).
+export const outboxDeadLettered = defineEvent("outbox.deadLettered", [
+  "scope",
+  "outboxId",
+  "topic",
+  "attempts",
+] as const);
+
 // auth.denied — a route-specific auth guard refused a request. The platform-admin guard logs the
 // denial CAUSE (the operator signal — `unconfigured`/`missing-header`/`mismatch`) against the same
 // errorId the client receives, while the client still sees one field-identical 401. The allowlist is
@@ -64,4 +85,6 @@ export const EVENT_NAMES = [
   "incident.created",
   "telemetry.scrubbed",
   "auth.denied",
+  "operation.failed",
+  "outbox.deadLettered",
 ] as const;

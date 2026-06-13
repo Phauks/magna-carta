@@ -1,3 +1,6 @@
+import { operationFailed } from "@magna-carta/telemetry/events";
+import { newCorrelationId, newErrorId } from "@magna-carta/telemetry/ids";
+import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "./app.ts";
 import { runScheduledSweep } from "./scheduled.ts";
 
@@ -10,13 +13,23 @@ import { runScheduledSweep } from "./scheduled.ts";
 // This is ONLY a latency optimization, never a correctness guarantee: the cron remains the
 // at-least-once relay, and sweeps may safely OVERLAP (scheduled.ts's documented invariant — every
 // status transition is guarded and every consumer dedups). Runs off the response path through
-// executionCtx.waitUntil; any failure is swallowed-and-logged (the interim telemetry seam, like
-// scheduled.ts's own console.error) so a sweep hiccup never disturbs the already-committed 201.
+// executionCtx.waitUntil; any failure is swallowed and logged through the telemetry pipeline
+// (operation.failed) so a sweep hiccup never disturbs the already-committed 201.
 export function scheduleRequestPathSweep(executionContext: ExecutionContext, env: Bindings): void {
   executionContext.waitUntil(
     runScheduledSweep(env).catch((caught: unknown) => {
-      const message = caught instanceof Error ? caught.message : String(caught);
-      console.error(`request-path sweep failed (cron remains the guarantee): ${message}`);
+      const error = caught instanceof Error ? caught : new Error(String(caught));
+      createWorkersLogger(env.TELEMETRY).log(
+        operationFailed(
+          { correlationId: newCorrelationId(), now: new Date().toISOString() },
+          {
+            operation: "request-path-sweep",
+            errorName: error.name,
+            messageHead: error.message.slice(0, 120),
+            errorId: newErrorId(),
+          },
+        ),
+      );
     }),
   );
 }

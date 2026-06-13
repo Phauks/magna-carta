@@ -6,6 +6,8 @@ import {
   errorCaptured,
   incidentCreated,
   migrationApplied,
+  operationFailed,
+  outboxDeadLettered,
   outboxSwept,
   requestCompleted,
   telemetryScrubbed,
@@ -80,6 +82,27 @@ describe("event catalog (spec §1)", () => {
     });
     expect(event.name).toBe("auth.denied");
     expect(event.fields).toEqual({ cause: "mismatch", route: "/api/v1/firms", errorId: "err_1" });
+  });
+
+  it("operationFailed carries operation/errorName/messageHead/errorId (the background error counterpart)", () => {
+    const event = operationFailed(context, {
+      operation: "cron:per-firm-sweep",
+      errorName: "Error",
+      messageHead: "boom",
+      errorId: "err_1",
+    });
+    expect(event.name).toBe("operation.failed");
+    expect(event.fields.operation).toBe("cron:per-firm-sweep");
+  });
+
+  it("outboxDeadLettered carries scope/outboxId/topic/attempts", () => {
+    const event = outboxDeadLettered(context, {
+      scope: "control-plane",
+      outboxId: "obx_1",
+      topic: "member.provision",
+      attempts: 5,
+    });
+    expect(event.name).toBe("outbox.deadLettered");
   });
 
   it("every catalog event name is unique", () => {

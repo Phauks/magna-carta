@@ -7,6 +7,9 @@ import * as controlPlaneSchema from "@magna-carta/database/control-plane-schema"
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { EntityType } from "@magna-carta/identifiers/registry";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
+import { operationFailed } from "@magna-carta/telemetry/events";
+import { newCorrelationId, newErrorId } from "@magna-carta/telemetry/ids";
+import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "./app.ts";
 import type { SendEmail } from "./email-port.ts";
 
@@ -24,10 +27,10 @@ const ENTITY_TYPE_BY_MODEL: Partial<Record<string, EntityType>> = {
 
 // Auth audit writes are observability, not gates (ADR-0038): the INSERT failing must never break
 // the auth flow it describes — Better Auth runs databaseHooks unguarded, so a throw here would
-// surface as a 500 on the auth route. Failures are logged (event name + message only; metadata is
-// ids-only by contract and never echoed; the console.error is the interim telemetry seam slice
-// 0·6 replaces) and swallowed. The guarded-vs-batched audit split is documented at its one home:
-// @magna-carta/data-access auth-audit-statements.ts.
+// surface as a 500 on the auth route. A failure is logged through the telemetry pipeline
+// (operation.failed, the audit event name in the operation label; metadata is ids-only by contract
+// and never echoed) and swallowed. The guarded-vs-batched audit split is documented at its one
+// home: @magna-carta/data-access auth-audit-statements.ts.
 async function writeAuthAuditGuarded(
   env: Bindings,
   input: { event: string; userId: string | null; metadata?: unknown },
@@ -41,8 +44,18 @@ async function writeAuthAuditGuarded(
       now: new Date().toISOString(),
     }).run();
   } catch (caught) {
-    const message = caught instanceof Error ? caught.message : String(caught);
-    console.error(`auth_audit write failed: event=${input.event} error=${message}`);
+    const error = caught instanceof Error ? caught : new Error(String(caught));
+    createWorkersLogger(env.TELEMETRY).log(
+      operationFailed(
+        { correlationId: newCorrelationId(), now: new Date().toISOString() },
+        {
+          operation: `auth-audit-write:${input.event}`,
+          errorName: error.name,
+          messageHead: error.message.slice(0, 120),
+          errorId: newErrorId(),
+        },
+      ),
+    );
   }
 }
 
