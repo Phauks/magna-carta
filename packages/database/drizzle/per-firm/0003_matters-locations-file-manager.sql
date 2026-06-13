@@ -214,4 +214,34 @@ CREATE TABLE `upload_session` (
 	CONSTRAINT "upload_session_status_check" CHECK("upload_session"."status" IN ('open', 'completed', 'aborted', 'expired'))
 );
 --> statement-breakpoint
-CREATE INDEX `upload_session_status_expires_at_index` ON `upload_session` (`status`,`expires_at`);
+CREATE INDEX `upload_session_status_expires_at_index` ON `upload_session` (`status`,`expires_at`);--> statement-breakpoint
+-- Default-role grants for the matters/locations/files permissions (extending the 0002 role seeds).
+-- rolePermission ids are pre-generated with @magna-carta/identifiers and committed as literals so
+-- every firm's defaults match byte-for-byte. Permission values are registry keys from
+-- @magna-carta/access-control; the seed-vs-registry fitness test cross-checks each. Distribution:
+-- Owner/Admin gets all new permissions; Attorney gets matters create/open/close/edit + files
+-- upload/organize/delete; Paralegal gets matters:create + files upload/organize; Billing and
+-- Read-only get none. Roles are adjustable data.
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_R50ydXlOD-szeHUI16fRm', 'role_Gw-zKO8hOHQuNv2bWokMp', 'matters:create');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_eUh-wBCG4tllOHcZjgN1z', 'role_Gw-zKO8hOHQuNv2bWokMp', 'matters:open');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_QgtEgajET5PdlFyvVb9-b', 'role_Gw-zKO8hOHQuNv2bWokMp', 'matters:close');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_mO7X_wgJU_IZqZvzmgVDj', 'role_Gw-zKO8hOHQuNv2bWokMp', 'matters:reopen');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_DKPoMjLHEexGVPxJwZVmG', 'role_Gw-zKO8hOHQuNv2bWokMp', 'matters:edit');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_HlZfZnyK_-6GtO7CEWwe0', 'role_Gw-zKO8hOHQuNv2bWokMp', 'matters:renumber');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_kAYpEKy9TxxcWkdjjGPGz', 'role_Gw-zKO8hOHQuNv2bWokMp', 'matters:manageTypes');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_ossj_fXCyLnKP7Hcm-dQz', 'role_Gw-zKO8hOHQuNv2bWokMp', 'matters:manageNumbering');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_N9Es0aSITB-IosKfzZLuO', 'role_Gw-zKO8hOHQuNv2bWokMp', 'locations:manage');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_JtQITveEDYoyzggKv160N', 'role_Gw-zKO8hOHQuNv2bWokMp', 'files:upload');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_5D8f_IJMNtdrKmMXInDiT', 'role_Gw-zKO8hOHQuNv2bWokMp', 'files:organize');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_n_TyLTzre42ToQQPlVz4o', 'role_Gw-zKO8hOHQuNv2bWokMp', 'files:delete');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_BRL7AX95F8Z0JQjZXsr8z', 'role_Gw-zKO8hOHQuNv2bWokMp', 'files:manageDocumentTypes');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_0ZIYDm7yo1-EM1XmP-wp1', 'role_gEyJ_YqL1_RI_yDqSa28Y', 'matters:create');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_QDmTPyP9n2T7PaONM8TH4', 'role_gEyJ_YqL1_RI_yDqSa28Y', 'matters:open');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_X5r2xbNOYp-1JR3TEt-Qy', 'role_gEyJ_YqL1_RI_yDqSa28Y', 'matters:close');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_SP5jz8iTyncPVaMYz-uHb', 'role_gEyJ_YqL1_RI_yDqSa28Y', 'matters:edit');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_Xeo0sUbEaI9hX_RYRw_Ko', 'role_gEyJ_YqL1_RI_yDqSa28Y', 'files:upload');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_OKER3B_1wG2nUTXZixegp', 'role_gEyJ_YqL1_RI_yDqSa28Y', 'files:organize');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_X-s52_1SXPkLxC9QCgs8O', 'role_gEyJ_YqL1_RI_yDqSa28Y', 'files:delete');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_vwbI5VZ5l-6Iu4DU9NAs9', 'role_917LCQyRKP50Z9bW89vXl', 'matters:create');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_6R_8QpzVF9pTPhsKyXgTI', 'role_917LCQyRKP50Z9bW89vXl', 'files:upload');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_zAvgogzr0p1bVxZCXZly1', 'role_917LCQyRKP50Z9bW89vXl', 'files:organize');

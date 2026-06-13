@@ -36,7 +36,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     }
   });
 
-  it("the role seed actually executes: five default roles, manage-members on Owner/Admin only", () => {
+  it("the role seeds actually execute: five default roles with their default grants", () => {
     const raw = freshPerFirmDatabase();
     const roles = raw.prepare("SELECT id, name FROM role ORDER BY name").all() as {
       id: string;
@@ -53,8 +53,20 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
       role_id: string;
       permission: string;
     }[];
-    const ownerAdmin = roles.find((row) => row.name === "Owner/Admin");
-    expect(grants).toEqual([{ role_id: ownerAdmin?.id, permission: "firm:manageMembers" }]);
+    const grantsFor = (name: string) => {
+      const roleId = roles.find((row) => row.name === name)?.id;
+      return grants.filter((grant) => grant.role_id === roleId).map((grant) => grant.permission);
+    };
+    // firm:manageMembers stays Owner/Admin-only; the matters/locations/files grants extend the seed.
+    expect(grantsFor("Owner/Admin")).toContain("firm:manageMembers");
+    expect(grantsFor("Attorney")).not.toContain("firm:manageMembers");
+    expect(grantsFor("Owner/Admin")).toContain("matters:create");
+    expect(grantsFor("Paralegal").sort()).toEqual(
+      ["files:organize", "files:upload", "matters:create"].sort(),
+    );
+    // Billing and Read-only stay permissionless by default (adjustable data).
+    expect(grantsFor("Billing")).toEqual([]);
+    expect(grantsFor("Read-only")).toEqual([]);
   });
 
   it("prepare/bind/run/all round-trips and batch() is atomic (all-or-nothing)", async () => {

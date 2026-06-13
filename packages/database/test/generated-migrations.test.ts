@@ -148,6 +148,72 @@ describe("generated migrations (committed artifacts)", () => {
     expect(sql).not.toContain("DROP TABLE `ledger_account`");
   });
 
+  it("per-firm 0003 seeds the matters/locations/files role grants per the default-role policy", async () => {
+    const migrations = await loadLineage("per-firm");
+    const statements0002 = migrations[2]?.statements ?? [];
+    const statements0003 = migrations[3]?.statements ?? [];
+
+    // Role ids are seeded in 0002; map name -> id so the 0003 grant assertions read by role NAME.
+    const roleIdByName = new Map<string, string>(
+      statements0002
+        .filter((statement) => statement.includes("INSERT INTO `role`"))
+        .map(parseSingleRowInsert)
+        .map((seed) => [String(seed.name), String(seed.id)]),
+    );
+
+    // Collect 0003's role_permission grants, grouped by role name.
+    const grantsByRole = new Map<string, Set<string>>();
+    for (const statement of statements0003) {
+      if (!statement.includes("INSERT INTO `role_permission`")) continue;
+      const seed = parseSingleRowInsert(statement);
+      expect(isIdentifier(seed.id, "rolePermission"), String(seed.id)).toBe(true);
+      const roleName = [...roleIdByName].find(([, id]) => id === seed.role_id)?.[0];
+      expect(
+        roleName,
+        `grant role_id ${String(seed.role_id)} resolves to a seeded role`,
+      ).toBeDefined();
+      const set = grantsByRole.get(roleName as string) ?? new Set<string>();
+      set.add(String(seed.permission));
+      grantsByRole.set(roleName as string, set);
+    }
+
+    const sorted = (name: string) => [...(grantsByRole.get(name) ?? new Set())].sort();
+    // Owner/Admin gets every new permission; Attorney/Paralegal a curated subset; Billing/Read-only none.
+    expect(sorted("Owner/Admin")).toEqual(
+      [
+        "files:delete",
+        "files:manageDocumentTypes",
+        "files:organize",
+        "files:upload",
+        "locations:manage",
+        "matters:close",
+        "matters:create",
+        "matters:edit",
+        "matters:manageNumbering",
+        "matters:manageTypes",
+        "matters:open",
+        "matters:renumber",
+        "matters:reopen",
+      ].sort(),
+    );
+    expect(sorted("Attorney")).toEqual(
+      [
+        "matters:create",
+        "matters:open",
+        "matters:close",
+        "matters:edit",
+        "files:upload",
+        "files:organize",
+        "files:delete",
+      ].sort(),
+    );
+    expect(sorted("Paralegal")).toEqual(
+      ["matters:create", "files:upload", "files:organize"].sort(),
+    );
+    expect(grantsByRole.get("Billing")).toBeUndefined();
+    expect(grantsByRole.get("Read-only")).toBeUndefined();
+  });
+
   it("per-firm lineage never creates the auth tables — they are control-plane only", async () => {
     const migrations = await loadLineage("per-firm");
     const allSql = migrations.flatMap((migration) => migration.statements).join("\n");
