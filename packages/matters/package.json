@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "sideEffects": false,
-  "exports": {},
+  "exports": {
+    "./numbering/segments": "./src/numbering/segments.ts",
+    "./numbering/render": "./src/numbering/render.ts"
+  },
   "scripts": {
     "test": "vp test run"
   },
