@@ -50,6 +50,15 @@ export interface ProblemOptions {
 // err_ correlation id (shown to the user, maps to the redacted log — ADR-0017/ADR-0038), and stamps
 // instance with the request path.
 export function problemJson(c: Context, options: ProblemOptions): Response {
+  // Defense-in-depth (matches the definition-time-guard philosophy): the platform-wide error path
+  // must never emit a 2xx/3xx "problem." status is typed to the 4xx/5xx range, so a caller reaching
+  // a non-error status has cast around the type; fail loudly rather than emit a contradictory reply.
+  if (!Number.isInteger(options.status) || options.status < 400 || options.status > 599) {
+    throw new RangeError(
+      `problemJson called with status ${String(options.status)} — a problem reply must be in the ` +
+        `4xx/5xx range (400–599); the error path never emits a 2xx/3xx problem.`,
+    );
+  }
   const body: ProblemBody = {
     type: problemType(options.type),
     title: options.title,
@@ -75,7 +84,10 @@ export function defaultHook(
     title: "Validation failed",
     errors: result.error.issues.map((issue) => ({
       // An empty issue path means the whole body failed (e.g. a non-object): "$", not "".
-      path: issue.path.length === 0 ? "$" : issue.path.join("."),
+      // Coerce each segment with String(): a symbol segment (from a future z.map/z.record with
+      // symbol keys) would throw "Cannot convert a Symbol value to a string" in a bare join(),
+      // collapsing the 422 into an unhandled 500.
+      path: issue.path.length === 0 ? "$" : issue.path.map(String).join("."),
       code: issue.code,
       detail: issue.message,
     })),

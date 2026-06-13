@@ -1,8 +1,20 @@
 // Slice 0·5: the RFC 9457 problem module and the problem-type URI registry (design spec, error model).
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import type { Context } from "hono";
+import type { ZodError } from "zod";
 import { describe, expect, it } from "vitest";
 import { Problem, defaultHook, problemJson } from "../../src/contracts/problem";
 import { PROBLEM_TYPES, problemType } from "../../src/contracts/problem-types";
+
+// A minimal Context stub whose .json mirrors Hono's: serializes the body and stamps status +
+// headers. Enough to exercise problemJson/defaultHook off the request lifecycle.
+function fakeContext(path: string): Context {
+  return {
+    req: { path },
+    json: (body: unknown, status?: number, headers?: Record<string, string>) =>
+      new Response(JSON.stringify(body), { status: status ?? 200, headers }),
+  } as unknown as Context;
+}
 
 describe("problem-type URI registry", () => {
   it("expands a key to its full type URI", () => {
@@ -143,6 +155,34 @@ describe("problemJson", () => {
     expect(body.instance).toBe("/api/v1/matters/mat_unknown00");
   });
 
+  it("throws when the status is outside the 4xx/5xx range — a problem is never a 2xx/3xx reply", () => {
+    const context = fakeContext("/api/v1/matters/mat_x");
+    for (const status of [200, 204, 301, 399, 600]) {
+      expect(() =>
+        problemJson(context, {
+          type: "not-found",
+          // The platform error path must never emit a non-error status; status is typed to the
+          // error range, so a caller reaching this has cast around the type.
+          status: status as never,
+          title: "Not found",
+        }),
+      ).toThrowError(/400.*599|range/i);
+    }
+    // In-range error statuses are accepted (the 400 and 599 range boundaries are exercised via the
+    // never-cast path below, since the ProblemStatusCode union omits some literals like 599).
+    for (const status of [400, 500] as const) {
+      expect(() =>
+        problemJson(context, { type: "not-found", status, title: "Not found" }),
+      ).not.toThrow();
+    }
+    // The literal range boundaries 400 and 599 are both accepted by the runtime guard.
+    for (const status of [400, 599]) {
+      expect(() =>
+        problemJson(context, { type: "not-found", status: status as never, title: "Not found" }),
+      ).not.toThrow();
+    }
+  });
+
   it("emitted problems conform to the Problem schema", async () => {
     const response = await appWithNotFoundRoute().request("/api/v1/matters/mat_unknown00");
     expect(Problem.safeParse(await response.json()).success).toBe(true);
@@ -224,5 +264,27 @@ describe("defaultHook", () => {
       body: JSON.stringify({ title: "Smith v. Jones", openedAt: "2026-06-12T00:00:00Z" }),
     });
     expect(response.status).toBe(201);
+  });
+
+  it("renders (does not throw) when an issue path contains a symbol segment", async () => {
+    // A future z.map/z.record-with-symbol-keys schema can produce a symbol path segment.
+    // issue.path.join(".") would throw "Cannot convert a Symbol value to a string" inside the
+    // hook, collapsing a 422 into an unhandled 500. Feed a synthetic issue list directly.
+    const context = fakeContext("/api/v1/matters");
+    const symbolKey = Symbol("trustLedgerKey");
+    const syntheticError = {
+      issues: [
+        { code: "custom", message: "Symbol-keyed entry failed", path: [symbolKey, "amount"] },
+      ],
+    } as unknown as ZodError;
+
+    let response: Response | undefined;
+    expect(() => {
+      response = defaultHook({ success: false, error: syntheticError }, context);
+    }).not.toThrow();
+    expect(response).toBeDefined();
+    const body = (await response!.json()) as Record<string, any>;
+    expect(body.status).toBe(422);
+    expect(body.errors[0].path).toBe("Symbol(trustLedgerKey).amount");
   });
 });
