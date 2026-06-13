@@ -53,6 +53,15 @@ Per ADR-0088 §J we run our fork regardless of merge ("never gate on the merge; 
 
 Server-tier (the platform seal uses the firm's server key, ADR-0045) — EmbedPDF-in-Node in a Worker/Container. The **ESIGN/UETA attribution workflow + Certificate of Completion + signature verification** stay **ours** in-tree (the product layer, like the redaction verification gate) regardless of A vs B.
 
+## Packaging — signing is its own package (decided 2026-06-13)
+
+Signing lives in a **dedicated package**, not folded into the engine/sanitization code:
+
+- **Our side:** a `@magna-carta/signing` package — the product layer (ESIGN/UETA attribution + Certificate of Completion + signer orchestration + verification), isolated from general PDF/document handling. It is the natural unit for Fable to own/review.
+- **Engine side (only if Option B):** a separate EmbedPDF **plugin** (`@embedpdf/plugin-signature`), not engines-core — matches EmbedPDF's plugin architecture and keeps signing off the sanitization code path.
+
+**Why this matters most:** the package boundary **decouples the A-vs-B choice from the rest of the system.** The package exposes a stable interface (e.g. `sealDocument(bytes, options) → sealedBytes`, plus the ESIGN/UETA workflow); whether the internals are `@signpdf` (A) or in-engine `prepareSignature`/`embedSignature` (B) is invisible to consumers. So we **ship A now behind the package interface and swap to B internally later** with zero consumer churn — making the A→B path low-risk and reversible, and the feasibility spike non-blocking.
+
 ## Rigor
 
 Signing is legal e-signatures, not a delete-a-key vector → **foundational/financial: Fable builds AND reviews**, with extra rigor (model-split policy).
