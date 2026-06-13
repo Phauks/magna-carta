@@ -93,7 +93,7 @@ describe("POST /api/v1/firms", () => {
     expect(response.headers.get("content-type")).toContain("application/problem+json");
     const body = (await response.json()) as Record<string, unknown>;
     expect(body).toMatchObject({
-      type: "https://api.magnacarta.esq/problems/invalid-request",
+      type: "https://api.magnacarta.esq/problems/idempotency-key-missing",
       status: 400,
     });
     expect(body["errorId"]).toMatch(/^err_/);
@@ -268,7 +268,7 @@ describe("POST /api/v1/firms", () => {
     );
     expect(clashing.status).toBe(422);
     expect((await clashing.json()) as Record<string, unknown>).toMatchObject({
-      type: "https://api.magnacarta.esq/problems/validation",
+      type: "https://api.magnacarta.esq/problems/email-in-use",
       title: "Owner email already in use",
       status: 422,
     });

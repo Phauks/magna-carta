@@ -25,13 +25,7 @@ import {
 } from "../idempotency-conflict-problems.ts";
 import { perFirmHeadSchemaVersion } from "../per-firm-migrations.ts";
 import { scheduleRequestPathSweep } from "../request-path-sweep.ts";
-import {
-  Problem,
-  PROBLEM_CONTENT_TYPE,
-  PROBLEM_TYPES,
-  problemBody,
-  unauthenticatedProblemResponse,
-} from "../problem.ts";
+import { Problem, problemJson } from "../contracts/problem.ts";
 import { requireIdempotencyKey } from "../require-idempotency-key.ts";
 
 const ProvisionFirmRequest = z
@@ -82,7 +76,12 @@ const platformAdminGuard: MiddlewareHandler<FirmsEnv> = async (c, next) => {
     presentedKey === "" ||
     !(await constantTimeStringEquals(presentedKey, configuredKey))
   ) {
-    return unauthenticatedProblemResponse(c);
+    return problemJson(c, {
+      type: "unauthenticated",
+      title: "Authentication required",
+      status: 401,
+      detail: "Sign in to call this endpoint.",
+    });
   }
   await next();
 };
@@ -252,49 +251,34 @@ export function registerFirmsRoute(
       });
     } catch (caught) {
       if (caught instanceof FirmNameConflictError) {
-        return c.json(
-          problemBody({
-            type: PROBLEM_TYPES.conflict,
-            title: "Firm name already in use",
-            status: 409,
-            detail: "An active firm already holds this name.",
-            instance: c.req.path,
-          }),
-          409,
-          PROBLEM_CONTENT_TYPE,
-        );
+        return problemJson(c, {
+          type: "conflict",
+          title: "Firm name already in use",
+          status: 409,
+          detail: "An active firm already holds this name.",
+        });
       }
       if (isFirmActivationConflict(caught)) {
         // The activation fence fired: a concurrent provisioning of the same name committed its
         // activation first, and this run's whole batch rolled back (firm-provisioner.ts,
         // concurrency note). Nothing was stored — a retry observes the now-active firm.
-        return c.json(
-          problemBody({
-            type: PROBLEM_TYPES.conflict,
-            title: "Concurrent provisioning completed",
-            status: 409,
-            detail: "A concurrent provisioning of this firm completed first — retry to observe it.",
-            instance: c.req.path,
-          }),
-          409,
-          PROBLEM_CONTENT_TYPE,
-        );
+        return problemJson(c, {
+          type: "conflict",
+          title: "Concurrent provisioning completed",
+          status: 409,
+          detail: "A concurrent provisioning of this firm completed first — retry to observe it.",
+        });
       }
       if (isUserEmailConflict(caught)) {
         // The activation batch rolled back whole (owner user + audit + outbox + status flip +
         // idempotency record): steps 1-4 stay durable, the firm stays 'provisioning', and a
         // retry with a free email resumes from the activation step.
-        return c.json(
-          problemBody({
-            type: PROBLEM_TYPES.validation,
-            title: "Owner email already in use",
-            status: 422,
-            detail: "A user with this email address already exists.",
-            instance: c.req.path,
-          }),
-          422,
-          PROBLEM_CONTENT_TYPE,
-        );
+        return problemJson(c, {
+          type: "email-in-use",
+          title: "Owner email already in use",
+          status: 422,
+          detail: "A user with this email address already exists.",
+        });
       }
       throw caught;
     }

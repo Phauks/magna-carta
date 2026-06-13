@@ -143,7 +143,7 @@ describe("POST /api/v1/members", () => {
     expect(response.headers.get("content-type")).toContain("application/problem+json");
     const body = (await response.json()) as Record<string, unknown>;
     expect(body).toMatchObject({
-      type: "https://api.magnacarta.esq/problems/invalid-request",
+      type: "https://api.magnacarta.esq/problems/idempotency-key-missing",
       status: 400,
     });
     expect(body["errorId"]).toMatch(/^err_/);
@@ -163,7 +163,7 @@ describe("POST /api/v1/members", () => {
     expect(response.headers.get("content-type")).toContain("application/problem+json");
     const body = (await response.json()) as Record<string, unknown>;
     expect(body).toMatchObject({
-      type: "https://api.magnacarta.esq/problems/forbidden",
+      type: "https://api.magnacarta.esq/problems/permission-denied",
       status: 403,
     });
     expect(body["errorId"]).toMatch(/^err_/);
@@ -189,7 +189,7 @@ describe("POST /api/v1/members", () => {
     expect(response.headers.get("content-type")).toContain("application/problem+json");
     const body = (await response.json()) as Record<string, unknown>;
     expect(body).toMatchObject({
-      type: "https://api.magnacarta.esq/problems/forbidden",
+      type: "https://api.magnacarta.esq/problems/permission-denied",
       status: 403,
     });
     expect(body["errorId"]).toMatch(/^err_/);
@@ -314,7 +314,7 @@ describe("POST /api/v1/members", () => {
     expect(duplicate.headers.get("content-type")).toContain("application/problem+json");
     const body = (await duplicate.json()) as Record<string, unknown>;
     expect(body).toMatchObject({
-      type: "https://api.magnacarta.esq/problems/validation",
+      type: "https://api.magnacarta.esq/problems/email-in-use",
       status: 422,
     });
     expect(body["errorId"]).toMatch(/^err_/);
@@ -353,7 +353,7 @@ describe("POST /api/v1/members", () => {
     expect(mismatch.headers.get("content-type")).toContain("application/problem+json");
     const body = (await mismatch.json()) as Record<string, unknown>;
     expect(body).toMatchObject({
-      type: "https://api.magnacarta.esq/problems/validation",
+      type: "https://api.magnacarta.esq/problems/idempotency-fingerprint-mismatch",
       title: "Idempotency-Key reused",
       status: 422,
       instance: "/api/v1/members",
@@ -396,7 +396,7 @@ describe("POST /api/v1/members", () => {
     expect(response.headers.get("content-type")).toContain("application/problem+json");
     const body = (await response.json()) as Record<string, unknown>;
     expect(body).toMatchObject({
-      type: "https://api.magnacarta.esq/problems/conflict",
+      type: "https://api.magnacarta.esq/problems/idempotency-key-conflict",
       title: "Request in progress",
       status: 409,
       instance: "/api/v1/members",
@@ -472,7 +472,7 @@ describe("POST /api/v1/members", () => {
     expect(control.headers.get("content-type")).toContain("application/problem+json");
     const controlBody = (await control.json()) as Record<string, unknown>;
     expect(controlBody).toMatchObject({
-      type: "https://api.magnacarta.esq/problems/forbidden",
+      type: "https://api.magnacarta.esq/problems/permission-denied",
       status: 403,
     });
     expect(controlBody["errorId"]).toMatch(/^err_/);
@@ -531,7 +531,7 @@ describe("POST /api/v1/members", () => {
     expect(stolenReplay.headers.get("Idempotency-Replayed")).toBeNull();
     expect(stolenReplay.status).toBe(422);
     expect((await stolenReplay.json()) as Record<string, unknown>).toMatchObject({
-      type: "https://api.magnacarta.esq/problems/validation",
+      type: "https://api.magnacarta.esq/problems/email-in-use",
       title: "Email already in use",
     });
 

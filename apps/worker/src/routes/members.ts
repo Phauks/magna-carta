@@ -17,15 +17,7 @@ import {
   problemResponseForIdempotencyConflict,
   storedResponseBody,
 } from "../idempotency-conflict-problems.ts";
-import {
-  forbiddenProblemResponse,
-  notFoundProblemResponse,
-  Problem,
-  PROBLEM_CONTENT_TYPE,
-  PROBLEM_TYPES,
-  problemBody,
-  unauthenticatedProblemResponse,
-} from "../problem.ts";
+import { Problem, problemJson } from "../contracts/problem.ts";
 import { requireIdempotencyKey } from "../require-idempotency-key.ts";
 import { scheduleRequestPathSweep } from "../request-path-sweep.ts";
 import {
@@ -167,7 +159,14 @@ export function registerMembersRoute(
   // resolved session is stashed for the key derivation and the handler.
   const authorizeMemberManagement: MiddlewareHandler<MemberEnv> = async (c, next) => {
     const sessionContext = await resolveSession(authForEnv(c.env), c);
-    if (sessionContext === null) return unauthenticatedProblemResponse(c);
+    if (sessionContext === null) {
+      return problemJson(c, {
+        type: "unauthenticated",
+        title: "Authentication required",
+        status: 401,
+        detail: "Sign in to call this endpoint.",
+      });
+    }
 
     const firmRow = await c.env.DB_CONTROL.prepare(
       "SELECT database_identifier FROM firm WHERE id = ?1",
@@ -176,11 +175,13 @@ export function registerMembersRoute(
       .first<{ database_identifier: string }>();
     const firmDatabase =
       firmRow === null ? null : resolveFirmDatabase(c.env, firmRow.database_identifier);
-    if (firmDatabase === null) return notFoundProblemResponse(c);
+    if (firmDatabase === null) {
+      return problemJson(c, { type: "not-found", title: "Not found", status: 404 });
+    }
 
     const permissions = await loadEffectivePermissions(firmDatabase, sessionContext.userId);
     if (!permissions.has(assertPermission("firm:manageMembers"))) {
-      return forbiddenProblemResponse(c);
+      return problemJson(c, { type: "permission-denied", title: "Permission denied", status: 403 });
     }
 
     c.set("sessionContext", sessionContext);
@@ -266,17 +267,12 @@ export function registerMembersRoute(
       });
     } catch (caught) {
       if (isUserEmailConflict(caught)) {
-        return c.json(
-          problemBody({
-            type: PROBLEM_TYPES.validation,
-            title: "Email already in use",
-            status: 422,
-            detail: "A user with this email address already exists.",
-            instance: c.req.path,
-          }),
-          422,
-          PROBLEM_CONTENT_TYPE,
-        );
+        return problemJson(c, {
+          type: "email-in-use",
+          title: "Email already in use",
+          status: 422,
+          detail: "A user with this email address already exists.",
+        });
       }
       throw caught;
     }

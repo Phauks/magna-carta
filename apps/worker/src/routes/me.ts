@@ -3,7 +3,7 @@ import { selectMemberStatusStatement } from "@magna-carta/data-access/member-sta
 import type { Bindings } from "../app.ts";
 import type { createAuth } from "../auth.ts";
 import { resolveFirmDatabase } from "../firm-binding-resolver.ts";
-import { Problem, notFoundProblemResponse, unauthenticatedProblemResponse } from "../problem.ts";
+import { Problem, problemJson } from "../contracts/problem.ts";
 import { loadEffectivePermissions, resolveSession } from "../session-context.ts";
 
 const MeResponse = z
@@ -66,7 +66,14 @@ export function registerMeRoute(
 ): void {
   app.openapi(meRoute, async (c) => {
     const sessionContext = await resolveSession(authForEnv(c.env), c);
-    if (sessionContext === null) return unauthenticatedProblemResponse(c);
+    if (sessionContext === null) {
+      return problemJson(c, {
+        type: "unauthenticated",
+        title: "Authentication required",
+        status: 401,
+        detail: "Sign in to call this endpoint.",
+      });
+    }
 
     // One control-plane read for the session user's display fields plus the firm registry row.
     // The JOIN folds a missing firm row and a missing user row onto the same absent path below.
@@ -80,7 +87,7 @@ export function registerMeRoute(
     if (row === null || firmDatabase === null) {
       // ADR-0052: a firm row this control plane does not carry, or a firm database this
       // deployment has no binding for, is ABSENT — 404, never a 500 and never an oracle.
-      return notFoundProblemResponse(c);
+      return problemJson(c, { type: "not-found", title: "Not found", status: 404 });
     }
 
     // Member status rides in the same parallel group as the permission reads — no extra
@@ -98,7 +105,7 @@ export function registerMeRoute(
       // that state is the transient owner-activation window before the outbox sweep lands the
       // mirror — it self-heals, and a 404 there would break the activation UX. Deactivation is a
       // deliberate state; sweep lag is not.
-      return notFoundProblemResponse(c);
+      return problemJson(c, { type: "not-found", title: "Not found", status: 404 });
     }
 
     return c.json(
