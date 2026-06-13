@@ -6,6 +6,7 @@
     "check": "vp check && pnpm --filter @magna-carta/web check",
     "dev": "vp dev",
     "build": "vp build",
+    "generate-client": "pnpm --filter @magna-carta/api-client run generate",
     "test": "vp test"
   },
   "devDependencies": {

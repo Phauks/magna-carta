@@ -7,8 +7,14 @@
   "exports": {
     ".": "./src/index.ts"
   },
-  "devDependencies": {
-    "@magna-carta/tsconfig": "workspace:*",
+  "scripts": {
+    "generate": "openapi-ts"
+  },
+  "dependencies": {
     "@tanstack/svelte-query": "catalog:"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "catalog:",
+    "@magna-carta/tsconfig": "workspace:*"
   }
 }

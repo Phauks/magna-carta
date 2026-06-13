@@ -8,14 +8,19 @@ export default defineConfig({
     printWidth: 100,
     proseWrap: "preserve",
     endOfLine: "lf",
-    // The committed OpenAPI snapshot is a generated artifact (apps/worker/scripts/emit-openapi.mts)
-    // whose exact bytes are fixed by the emitter and re-derived/diff-gated by CI (code-as-contract);
-    // never hand-edit it, and never let the formatter reflow it out from under the emit/diff contract.
-    ignorePatterns: ["apps/worker/openapi/openapi.json"],
+    // Generated artifacts whose exact bytes are fixed by their generator and re-derived/diff-gated by
+    // CI (code-as-contract): the OpenAPI snapshot (apps/worker/scripts/emit-openapi.mts) and the Hey
+    // API client (packages/api-client/openapi-ts.config.mjs). Never hand-edit them, and never let the
+    // formatter reflow them out from under the generate/diff contract.
+    ignorePatterns: ["apps/worker/openapi/openapi.json", "packages/api-client/src/**"],
   },
   // typeCheck makes `vp check` run tsgolint TS type-checks (not just fmt+lint); a real `.ts` type error now fails the gate.
   // tsgolint does not parse `.svelte`, so the full gate (`pnpm check`) also runs svelte-check. See conventions/typescript.md.
   lint: {
+    // The Hey API generated client is not our code to style-lint; exclude it from the lint rules (its
+    // tsc type-check still runs, so the "generated client compiles" gate holds, and the compile-check
+    // test exercises the public surface). The OpenAPI snapshot is data, not linted source.
+    ignorePatterns: ["packages/api-client/src/**"],
     options: {
       typeAware: true,
       typeCheck: true,
