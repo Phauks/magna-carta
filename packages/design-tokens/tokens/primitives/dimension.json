@@ -32,5 +32,9 @@
     "$description": "Focus-ring outline geometry — mode-invariant lengths consumed directly by recipes (the focus-ring COLOR is the semantic focus.ring token). Tokenized so components.css carries no literal lengths (design-system area CLAUDE.md: focus-ring width/offset must become tokens before the Tier 1 Button lands).",
     "width": { "$type": "dimension", "$value": { "value": 2, "unit": "px" } },
     "offset": { "$type": "dimension", "$value": { "value": 2, "unit": "px" } }
+  },
+  "border-width": {
+    "$description": "Border widths — mode-invariant lengths consumed directly by recipes (the border COLOR is the semantic border.* token). Design language §6: structure is 1px hairline rules and surface tints, shadow reserved for floating layers. Tokenized so components.css carries no literal lengths, exactly as focus-ring width/offset were before the Tier 1 control recipes (Input, Card, Separator, ...) landed.",
+    "default": { "$type": "dimension", "$value": { "value": 1, "unit": "px" } }
   }
 }

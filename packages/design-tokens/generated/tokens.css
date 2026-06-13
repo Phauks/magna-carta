@@ -21,6 +21,7 @@
   --mc-border-default: var(--mc-color-neutral-200);
   --mc-border-focus: var(--mc-color-brand-600);
   --mc-border-strong: var(--mc-color-neutral-500);
+  --mc-border-width-default: 1px;
   --mc-color-accent-100: oklch(95% 0.0378 85);
   --mc-color-accent-300: oklch(83% 0.0896 85);
   --mc-color-accent-400: oklch(72% 0.1148 85);
@@ -191,6 +192,7 @@
   --mc-border-default: var(--mc-color-neutral-800);
   --mc-border-focus: var(--mc-color-brand-400);
   --mc-border-strong: var(--mc-color-neutral-600);
+  --mc-border-width-default: 1px;
   --mc-color-accent-100: oklch(95% 0.0378 85);
   --mc-color-accent-300: oklch(83% 0.0896 85);
   --mc-color-accent-400: oklch(72% 0.1148 85);
@@ -361,6 +363,7 @@
   --mc-border-default: var(--mc-color-neutral-200);
   --mc-border-focus: var(--mc-color-brand-600);
   --mc-border-strong: var(--mc-color-neutral-500);
+  --mc-border-width-default: 1px;
   --mc-color-accent-100: oklch(95% 0.0378 85);
   --mc-color-accent-300: oklch(83% 0.0896 85);
   --mc-color-accent-400: oklch(72% 0.1148 85);
@@ -531,6 +534,7 @@
   --mc-border-default: var(--mc-color-neutral-800);
   --mc-border-focus: var(--mc-color-brand-400);
   --mc-border-strong: var(--mc-color-neutral-600);
+  --mc-border-width-default: 1px;
   --mc-color-accent-100: oklch(95% 0.0378 85);
   --mc-color-accent-300: oklch(83% 0.0896 85);
   --mc-color-accent-400: oklch(72% 0.1148 85);
@@ -701,6 +705,7 @@
   --mc-border-default: var(--mc-color-neutral-200);
   --mc-border-focus: var(--mc-color-brand-600);
   --mc-border-strong: var(--mc-color-neutral-500);
+  --mc-border-width-default: 1px;
   --mc-color-accent-100: oklch(95% 0.0378 85);
   --mc-color-accent-300: oklch(83% 0.0896 85);
   --mc-color-accent-400: oklch(72% 0.1148 85);
@@ -871,6 +876,7 @@
   --mc-border-default: var(--mc-color-neutral-800);
   --mc-border-focus: var(--mc-color-brand-400);
   --mc-border-strong: var(--mc-color-neutral-600);
+  --mc-border-width-default: 1px;
   --mc-color-accent-100: oklch(95% 0.0378 85);
   --mc-color-accent-300: oklch(83% 0.0896 85);
   --mc-color-accent-400: oklch(72% 0.1148 85);
@@ -1041,6 +1047,7 @@
   --mc-border-default: var(--mc-color-neutral-200);
   --mc-border-focus: var(--mc-color-brand-600);
   --mc-border-strong: var(--mc-color-neutral-500);
+  --mc-border-width-default: 1px;
   --mc-color-accent-100: oklch(95% 0.0378 85);
   --mc-color-accent-300: oklch(83% 0.0896 85);
   --mc-color-accent-400: oklch(72% 0.1148 85);
@@ -1211,6 +1218,7 @@
   --mc-border-default: var(--mc-color-neutral-800);
   --mc-border-focus: var(--mc-color-brand-400);
   --mc-border-strong: var(--mc-color-neutral-600);
+  --mc-border-width-default: 1px;
   --mc-color-accent-100: oklch(95% 0.0378 85);
   --mc-color-accent-300: oklch(83% 0.0896 85);
   --mc-color-accent-400: oklch(72% 0.1148 85);
@@ -1381,6 +1389,7 @@
   --mc-border-default: var(--mc-color-neutral-200);
   --mc-border-focus: var(--mc-color-brand-600);
   --mc-border-strong: var(--mc-color-neutral-500);
+  --mc-border-width-default: 1px;
   --mc-color-accent-100: oklch(95% 0.0378 85);
   --mc-color-accent-300: oklch(83% 0.0896 85);
   --mc-color-accent-400: oklch(72% 0.1148 85);
@@ -1551,6 +1560,7 @@
   --mc-border-default: var(--mc-color-neutral-800);
   --mc-border-focus: var(--mc-color-brand-400);
   --mc-border-strong: var(--mc-color-neutral-600);
+  --mc-border-width-default: 1px;
   --mc-color-accent-100: oklch(95% 0.0378 85);
   --mc-color-accent-300: oklch(83% 0.0896 85);
   --mc-color-accent-400: oklch(72% 0.1148 85);
@@ -1721,6 +1731,7 @@
   --mc-border-default: var(--mc-color-neutral-200);
   --mc-border-focus: var(--mc-color-brand-600);
   --mc-border-strong: var(--mc-color-neutral-500);
+  --mc-border-width-default: 1px;
   --mc-color-accent-100: oklch(95% 0.0378 85);
   --mc-color-accent-300: oklch(83% 0.0896 85);
   --mc-color-accent-400: oklch(72% 0.1148 85);
@@ -1891,6 +1902,7 @@
   --mc-border-default: var(--mc-color-neutral-800);
   --mc-border-focus: var(--mc-color-brand-400);
   --mc-border-strong: var(--mc-color-neutral-600);
+  --mc-border-width-default: 1px;
   --mc-color-accent-100: oklch(95% 0.0378 85);
   --mc-color-accent-300: oklch(83% 0.0896 85);
   --mc-color-accent-400: oklch(72% 0.1148 85);
