@@ -13,6 +13,7 @@ import { defaultHook } from "./contracts/problem.ts";
 import { registerHealthRoute } from "./routes/health.ts";
 import { createLoggingEmailAdapter } from "./email-port.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
+import { registerIncidentsRoute } from "./routes/incidents.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 import { telemetryErrorHandler, telemetryMiddleware } from "./telemetry-middleware.ts";
@@ -128,6 +129,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerMeRoute(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
+  registerIncidentsRoute(app, chokepoint);
 
   // Serve the same document the committed snapshot carries (root tags included), so the live endpoint
   // and the snapshot never diverge. A plain route, so it does not appear in the document itself.

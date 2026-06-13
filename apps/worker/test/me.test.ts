@@ -53,8 +53,9 @@ describe("GET /api/v1/me", () => {
     expect(await response.json()).toEqual({
       user: { id: userId, name: "Me Test User", email: "me-member@example.com" },
       firm: { id: firmId, name: "Me Test Firm" },
-      // Owner/Admin's seeded role_permission rows (0002_member-rbac.sql).
-      permissions: ["firm:manageMembers"],
+      // Owner/Admin's seeded role_permission rows: firm:manageMembers (0002_member-rbac.sql) +
+      // firm:reportIncident (0003_incident-intake.sql, seeded onto every default role). Sorted.
+      permissions: ["firm:manageMembers", "firm:reportIncident"],
     });
   });
 

@@ -9,6 +9,7 @@ export type Permission = string & { readonly [permissionBrand]: true };
 export const PERMISSIONS = [
   "firm:manageMembers", // invite/deactivate members, assign roles
   "firm:provision", // reserved: platform-level firm creation (guarded by secret this slice)
+  "firm:reportIncident", // file a diagnostic incident (slice 0·6) — seeded to every default role
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

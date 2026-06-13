@@ -42,7 +42,11 @@ describe("permission registry", () => {
   });
 
   it("permissionsForNamespace('firm') returns exactly the firm keys", () => {
-    expect(permissionsForNamespace("firm")).toEqual(["firm:manageMembers", "firm:provision"]);
+    expect(permissionsForNamespace("firm")).toEqual([
+      "firm:manageMembers",
+      "firm:provision",
+      "firm:reportIncident",
+    ]);
   });
 
   it("permissionsForNamespace returns an empty list for an unknown namespace", () => {

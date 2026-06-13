@@ -220,8 +220,9 @@ describe("slice 0·4 end-to-end", () => {
         email: FIRM_A_INPUT.owner.email,
       },
       firm: { id: firmA.id, name: FIRM_A_INPUT.name },
-      // Owner/Admin's seeded role_permission rows (0002_member-rbac.sql).
-      permissions: ["firm:manageMembers"],
+      // Owner/Admin's seeded role_permission rows: firm:manageMembers (0002) + firm:reportIncident
+      // (0003, seeded onto every default role). Sorted.
+      permissions: ["firm:manageMembers", "firm:reportIncident"],
     });
   });
 

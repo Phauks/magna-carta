@@ -376,7 +376,13 @@ describe("§3.5 conformance — the committed contract holds, and each rule catc
   // pass trivially. Assert the document exposes exactly the operations we expect to enforce over.
   it("exposes the known committed operations (so the positive assertions are not vacuous)", () => {
     const ids = [...operations(document)].map((entry) => entry.operationId).sort();
-    expect(ids).toEqual(["firms.provision", "health.read", "me.get", "members.invite"]);
+    expect(ids).toEqual([
+      "firms.provision",
+      "health.read",
+      "incidents.report",
+      "me.get",
+      "members.invite",
+    ]);
   });
 
   describe("authenticated mutating routes are audited and name a permission", () => {

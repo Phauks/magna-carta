@@ -54,7 +54,18 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
       permission: string;
     }[];
     const ownerAdmin = roles.find((row) => row.name === "Owner/Admin");
-    expect(grants).toEqual([{ role_id: ownerAdmin?.id, permission: "firm:manageMembers" }]);
+    // firm:manageMembers is seeded onto Owner/Admin ONLY (0002_member-rbac.sql).
+    expect(grants.filter((grant) => grant.permission === "firm:manageMembers")).toEqual([
+      { role_id: ownerAdmin?.id, permission: "firm:manageMembers" },
+    ]);
+    // firm:reportIncident is seeded onto EVERY default role (0003_incident-intake.sql) — any member
+    // may file a diagnostic incident.
+    expect(
+      grants
+        .filter((grant) => grant.permission === "firm:reportIncident")
+        .map((grant) => grant.role_id)
+        .sort(),
+    ).toEqual(roles.map((row) => row.id).sort());
   });
 
   it("prepare/bind/run/all round-trips and batch() is atomic (all-or-nothing)", async () => {

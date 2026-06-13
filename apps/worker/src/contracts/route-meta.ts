@@ -12,7 +12,7 @@ import { createRoute, z } from "@hono/zod-openapi";
 import type { RouteConfig } from "@hono/zod-openapi";
 import type { KnownPermission, Permission } from "@magna-carta/access-control/registry";
 
-export type RateLimitBucket = "default" | "auth" | "expensive";
+export type RateLimitBucket = "default" | "auth" | "expensive" | "incident-report";
 
 export interface RouteMeta {
   operationId: string; // 'subsystem.action' — ^[a-z][a-zA-Z0-9]*\.[a-z][a-zA-Z0-9]*$

@@ -263,6 +263,93 @@
           "name",
           "owner"
         ]
+      },
+      "ReportIncidentResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ]
+      },
+      "ReportIncidentRequest": {
+        "type": "object",
+        "properties": {
+          "errorIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^err_[A-Za-z0-9_-]{21}$"
+            },
+            "maxItems": 10
+          },
+          "breadcrumbs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                "action": {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                "route": {
+                  "type": "string",
+                  "maxLength": 200
+                }
+              },
+              "required": [
+                "at",
+                "action",
+                "route"
+              ]
+            },
+            "maxItems": 50
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000
+          },
+          "context": {
+            "type": "object",
+            "properties": {
+              "route": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "appVersion": {
+                "type": "string",
+                "maxLength": 60
+              },
+              "clientAt": {
+                "type": "string",
+                "maxLength": 40
+              }
+            },
+            "required": [
+              "route",
+              "appVersion",
+              "clientAt"
+            ]
+          }
+        },
+        "required": [
+          "errorIds",
+          "breadcrumbs",
+          "description",
+          "context"
+        ]
       }
     },
     "parameters": {}
@@ -591,6 +678,99 @@
           }
         }
       }
+    },
+    "/api/v1/incidents": {
+      "post": {
+        "description": "Files a diagnostic incident from the session firm: writes the per-firm incident row and the incident.created outbox row in one atomic batch (the diagnostics agent's future feed). Any member may report; the description is the user's words, the rest is id-and-action shaped.",
+        "operationId": "incidents.report",
+        "tags": [
+          "incidents"
+        ],
+        "x-mc-operationId": "incidents.report",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:reportIncident",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "incident-report",
+        "x-mc-tags": [
+          "incidents"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportIncidentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The recorded incident",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportIncidentResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:reportIncident",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The session's firm is not reachable, or the session member is deactivated (ADR-0052)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The body failed validation (over-cap breadcrumbs/errorIds, empty description, …)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "webhooks": {},
@@ -600,6 +780,9 @@
     },
     {
       "name": "health"
+    },
+    {
+      "name": "incidents"
     },
     {
       "name": "me"

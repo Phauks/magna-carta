@@ -23,6 +23,7 @@ describe("BUCKETS", () => {
       default: { limit: 100, windowSeconds: 60 },
       auth: { limit: 10, windowSeconds: 60 },
       expensive: { limit: 10, windowSeconds: 60 },
+      "incident-report": { limit: 5, windowSeconds: 300 },
     });
   });
 });
@@ -152,9 +153,10 @@ describe("createInMemoryRateLimiter", () => {
     rateLimiter.check("auth", "hit-once");
     rateLimiter.check("default", "also-hit-once");
     expect(rateLimiter.trackedKeyCount()).toBe(2);
-    // Past both windows AND the sweep interval: a check on an unrelated key must sweep the
-    // stale ones out — a route hit once must not occupy memory forever.
-    clock.advanceTo(120_001);
+    // Past both windows AND the sweep interval (the widest bucket window — now 300s, the
+    // incident-report bucket): a check on an unrelated key must sweep the stale ones out — a route
+    // hit once must not occupy memory forever.
+    clock.advanceTo(300_001);
     rateLimiter.check("auth", "active");
     expect(rateLimiter.trackedKeyCount()).toBe(1);
   });
