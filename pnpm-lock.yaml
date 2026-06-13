@@ -141,9 +141,18 @@ importers:
       '@magna-carta/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@magna-carta/file-manager':
+        specifier: workspace:*
+        version: link:../../packages/file-manager
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../../packages/identifiers
+      '@magna-carta/locations':
+        specifier: workspace:*
+        version: link:../../packages/locations
+      '@magna-carta/matters':
+        specifier: workspace:*
+        version: link:../../packages/matters
       better-auth:
         specifier: 'catalog:'
         version: 1.6.16(@cloudflare/workers-types@4.20260604.1)(@sveltejs/kit@2.63.0(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.2)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0)))(svelte@5.56.2)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0)))(@voidzero-dev/vite-plus-test@0.1.24(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))(yaml@2.9.0))(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@cloudflare/workers-types@4.20260604.1)(kysely@0.29.2))(svelte@5.56.2)
