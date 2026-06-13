@@ -113,6 +113,41 @@ describe("generated migrations (committed artifacts)", () => {
     expect(isIdentifier(permissionSeeds[0]?.id, "rolePermission")).toBe(true);
   });
 
+  it("per-firm 0003 creates the matters/locations/file-manager tables with their CHECKs, and leaves ledger_account alone", async () => {
+    const migrations = await loadLineage("per-firm");
+    expect(migrations.length).toBeGreaterThanOrEqual(4);
+    expect(migrations[3]?.tag).toMatch(/^0003_/);
+    const sql = (migrations[3]?.statements ?? []).join("\n");
+    for (const tableName of [
+      "location",
+      "location_address",
+      "member_location",
+      "matter_type",
+      "document_type",
+      "numbering_scheme",
+      "matter_number_counter",
+      "matter",
+      "folder",
+      "file",
+      "file_version",
+      "upload_session",
+      "storage_meter",
+      "setting",
+      "audit_log",
+    ]) {
+      expect(sql, tableName).toContain(`CREATE TABLE \`${tableName}\``);
+    }
+    // The CHECKs are the point — the status gates must exist in the DDL.
+    expect(sql).toContain("matter_status_check");
+    expect(sql).toContain("file_version_status_check");
+    expect(sql).toContain("location_status_check");
+    // The frozen-number partial UNIQUE index (a duplicate number within a firm is impossible).
+    expect(sql).toContain(`WHERE "matter"."matter_number" IS NOT NULL`);
+    // The hand-correction stripped the spurious ledger_account table-rebuild: 0003 never touches it.
+    expect(sql).not.toContain("__new_ledger_account");
+    expect(sql).not.toContain("DROP TABLE `ledger_account`");
+  });
+
   it("per-firm lineage never creates the auth tables — they are control-plane only", async () => {
     const migrations = await loadLineage("per-firm");
     const allSql = migrations.flatMap((migration) => migration.statements).join("\n");
