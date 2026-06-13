@@ -1,10 +1,16 @@
-import { createRoute, z, type OpenAPIHono } from "@hono/zod-openapi";
-import { selectMemberStatusStatement } from "@magna-carta/data-access/member-statements";
+import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import type { Bindings } from "../app.ts";
-import type { createAuth } from "../auth.ts";
-import { resolveFirmDatabase } from "../firm-binding-resolver.ts";
-import { Problem, notFoundProblemResponse, unauthenticatedProblemResponse } from "../problem.ts";
-import { loadEffectivePermissions, resolveSession } from "../session-context.ts";
+import type { Chokepoint } from "../chokepoint/chokepoint.ts";
+import { chokepointMiddleware } from "../chokepoint/register.ts";
+import {
+  requireChokepointFirmContext,
+  requireChokepointFirmId,
+  requireChokepointUserId,
+} from "../chokepoint/context-accessors.ts";
+import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import type { AppVariables } from "../chokepoint/ports.ts";
+import { Problem } from "../contracts/problem.ts";
+import { loadEffectivePermissions } from "../session-context.ts";
 
 const MeResponse = z
   .object({
@@ -14,16 +20,26 @@ const MeResponse = z
   })
   .openapi("MeResponse");
 
-// Route metadata is declared twice on purpose (docs/conventions/api.md): the x-mc-* extensions
-// feed the ADR-0067 chokepoint + CI fitness functions (slice 0·5); the OpenAPI-native operationId
-// is what SDK generators key method names off (spike finding #1). x-mc-rateLimit is omitted until
-// named buckets exist (slice 0·5); x-mc-permission is null — any authenticated member may read
-// their own bootstrap.
-const meRoute = createRoute({
+// The route metadata (ADR-0067): the chokepoint reads it at registration to enforce
+// tenancy/authn/RBAC/idempotency/rate-limit; the document emits each field as an x-mc-* extension.
+// permission: null — any authenticated member may read their OWN bootstrap (a non-mutating read,
+// the legitimate authenticated-null case the route-meta guard permits); the chokepoint resolves the
+// session and firm (404 on structural absence / deactivation) and skips the permission gate, and
+// this handler loads the effective permissions itself.
+export const meMeta: RouteMeta = {
+  operationId: "me.get",
+  surface: "app",
+  authenticated: true,
+  permission: null,
+  resource: "firm",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+export const meRoute = defineOpenAPIRoute(meMeta, {
   method: "get",
   path: "/api/v1/me",
-  operationId: "me.get",
-  tags: ["me"],
   description:
     "The session user, their firm, and their effective permissions — the SPA's bootstrap call.",
   responses: {
@@ -41,74 +57,53 @@ const meRoute = createRoute({
         "deactivated member of it (ADR-0052 — absent, never an existence oracle)",
       content: { "application/problem+json": { schema: Problem } },
     },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
   },
-  "x-mc-operationId": "me.get",
-  "x-mc-surface": "app",
-  "x-mc-authenticated": true,
-  "x-mc-permission": null,
-  "x-mc-resource": "firm",
-  "x-mc-audited": false,
-  "x-mc-idempotency": "optional",
 });
 
-interface UserAndFirmRow {
-  readonly user_name: string;
-  readonly user_email: string;
-  readonly firm_name: string;
-  readonly database_identifier: string;
-}
-
-// The auth accessor is injected by app.ts (which owns the per-env Better Auth cache) so the route
-// module never imports app.ts at value level — types only, no module cycle.
+// Registers GET /api/v1/me through the chokepoint. The handler runs ONLY after the chokepoint
+// passed it (session resolved, firm present, member not deactivated). The inline
+// session/firm/member-active checks the 0·4 handler carried are GONE — the chokepoint owns them now
+// (ADR-0067). The handler reads the resolved tenancy from the chokepoint context and does business
+// logic only: the user's display fields plus the effective permissions in their firm. A
+// never-mirrored user (sweep-lag window) reads empty permissions — the chokepoint let them through
+// (only a DEACTIVATED member is absent), and the permission statements join nothing.
 export function registerMeRoute(
-  app: OpenAPIHono<{ Bindings: Bindings }>,
-  authForEnv: (env: Bindings) => ReturnType<typeof createAuth>,
+  app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
+  chokepoint: Chokepoint,
 ): void {
-  app.openapi(meRoute, async (c) => {
-    const sessionContext = await resolveSession(authForEnv(c.env), c);
-    if (sessionContext === null) return unauthenticatedProblemResponse(c);
+  app.openapi(
+    { ...meRoute, middleware: chokepointMiddleware(chokepoint, meMeta, meRoute) },
+    async (c) => {
+      const userId = requireChokepointUserId(c);
+      const firmId = requireChokepointFirmId(c);
+      const firmContext = requireChokepointFirmContext(c);
 
-    // One control-plane read for the session user's display fields plus the firm registry row.
-    // The JOIN folds a missing firm row and a missing user row onto the same absent path below.
-    const row = await c.env.DB_CONTROL.prepare(
-      'SELECT "user".name AS user_name, "user".email AS user_email, firm.name AS firm_name, firm.database_identifier AS database_identifier FROM "user" JOIN firm ON firm.id = "user".firm_id WHERE "user".id = ?1 AND firm.id = ?2',
-    )
-      .bind(sessionContext.userId, sessionContext.firmId)
-      .first<UserAndFirmRow>();
+      const userRow = await c.env.DB_CONTROL.prepare('SELECT name, email FROM "user" WHERE id = ?1')
+        .bind(userId)
+        .first<{ name: string; email: string }>();
+      // The session resolved a user id the control plane carries (the chokepoint read the same firm
+      // row); an absent user row here would be control-plane corruption, not a routine 404.
+      if (userRow === null) {
+        throw new Error(
+          `session user ${userId} resolved by the chokepoint but absent from the control plane`,
+        );
+      }
 
-    const firmDatabase = row === null ? null : resolveFirmDatabase(c.env, row.database_identifier);
-    if (row === null || firmDatabase === null) {
-      // ADR-0052: a firm row this control plane does not carry, or a firm database this
-      // deployment has no binding for, is ABSENT — 404, never a 500 and never an oracle.
-      return notFoundProblemResponse(c);
-    }
+      const permissions = await loadEffectivePermissions(firmContext.firmDatabase, userId);
 
-    // Member status rides in the same parallel group as the permission reads — no extra
-    // roundtrip serialized onto the hot path.
-    const [permissions, memberStatusResult] = await Promise.all([
-      loadEffectivePermissions(firmDatabase, sessionContext.userId),
-      selectMemberStatusStatement(firmDatabase, sessionContext.userId).all<{ status: string }>(),
-    ]);
-
-    const memberStatus = memberStatusResult.results[0]?.status;
-    if (memberStatus !== undefined && memberStatus !== "active") {
-      // A DEACTIVATED member is ABSENT (ADR-0052) — the same 404 as a missing firm, never a 403
-      // that would confirm the account exists but was turned off. A NEVER-MIRRORED user (no
-      // member row at all) deliberately falls through to a 200 with empty permissions instead:
-      // that state is the transient owner-activation window before the outbox sweep lands the
-      // mirror — it self-heals, and a 404 there would break the activation UX. Deactivation is a
-      // deliberate state; sweep lag is not.
-      return notFoundProblemResponse(c);
-    }
-
-    return c.json(
-      {
-        user: { id: sessionContext.userId, name: row.user_name, email: row.user_email },
-        firm: { id: sessionContext.firmId, name: row.firm_name },
-        // Sorted for a deterministic wire shape (a Set has insertion order, not a contract).
-        permissions: [...permissions].sort(),
-      },
-      200,
-    );
-  });
+      return c.json(
+        {
+          user: { id: userId, name: userRow.name, email: userRow.email },
+          firm: { id: firmId, name: firmContext.firmName },
+          // Sorted for a deterministic wire shape (a Set has insertion order, not a contract).
+          permissions: [...permissions].sort(),
+        },
+        200,
+      );
+    },
+  );
 }

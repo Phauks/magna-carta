@@ -1,5 +1,11 @@
-import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { createAuth } from "./auth.ts";
+import { createChokepoint } from "./chokepoint/chokepoint.ts";
+import { createChokepointIdempotency } from "./chokepoint/idempotency-port.ts";
+import { createChokepointPorts, type AppVariables, type FirmContext } from "./chokepoint/ports.ts";
+import { createInMemoryRateLimiter } from "./chokepoint/rate-limiter.ts";
+import { defaultHook } from "./contracts/problem.ts";
+import { registerHealthRoute } from "./routes/health.ts";
 import { createLoggingEmailAdapter } from "./email-port.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
 import { registerMeRoute } from "./routes/me.ts";
@@ -28,6 +34,9 @@ export type Bindings = {
   // instead, selected by these being unset (see routes/firms.ts resourceProviderForEnv).
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
+  // "development" enables the dev-only response validator (chokepoint/response-validator.ts);
+  // unset in production (wrangler.jsonc declares no var), set locally via .dev.vars.
+  ENVIRONMENT?: string;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
@@ -45,46 +54,99 @@ function authForEnv(env: Bindings): ReturnType<typeof createAuth> {
   return auth;
 }
 
-const Health = z
-  .object({ status: z.literal("ok"), version: z.string(), time: z.string() })
-  .openapi("Health");
-
-const healthRoute = createRoute({
-  method: "get",
-  path: "/api/health",
-  responses: {
-    200: {
-      description: "Service health",
-      content: { "application/json": { schema: Health } },
-    },
-  },
-});
-
 export function createApp() {
-  const app = new OpenAPIHono<{ Bindings: Bindings }>();
+  // defaultHook (0·5a): every Zod request-validation failure becomes the 422 problem with
+  // field-level errors[] — installed app-wide so no route re-derives it.
+  const app = new OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>({ defaultHook });
 
-  app.openapi(healthRoute, async (c) => {
-    // Prove the control-plane D1 binding works end-to-end (the walking-skeleton's round trip).
-    await c.env.DB_CONTROL.prepare("SELECT 1").first();
-    // Skeleton timestamp; Temporal.Instant adoption is a later slice.
-    return c.json({ status: "ok" as const, version: "0.0.0", time: new Date().toISOString() }, 200);
+  // The chokepoint (ADR-0067): built once over the REAL ports — session resolution, firm-context
+  // resolution (control-plane lookup + firm-binding-resolver + member-active check), permission
+  // loading, the platform-scoped/firm-scoped idempotency gate, and a per-isolate in-memory rate
+  // limiter (one limiter per app instance, never per request). This is THE single
+  // tenancy/authn/RBAC/idempotency/rate-limit enforcement point every /api/v1 route traverses.
+  const rateLimiter = createInMemoryRateLimiter();
+  const ports = createChokepointPorts(authForEnv, rateLimiter);
+  const chokepoint = createChokepoint<FirmContext>({
+    ...ports,
+    idempotency: createChokepointIdempotency(),
   });
+
+  // Health is platform plumbing: public, unauthenticated, no /api/v1 surface — it still rides the
+  // chokepoint (rate-limit only, no session/firm/RBAC) so EVERY declared route is enforced through
+  // the one seam, none reachable that skips it.
+  registerHealthRoute(app, chokepoint);
 
   // Better Auth owns everything under its default basePath, /api/auth/* — its router serves
-  // only GET and POST. Registered before the catch-all asset fallthrough.
+  // only GET and POST. Registered before the catch-all asset fallthrough, OUTSIDE the chokepoint
+  // (it is its own authentication surface, not a /api/v1 route).
   app.on(["GET", "POST"], "/api/auth/*", (c) => authForEnv(c.env).handler(c.req.raw));
 
-  registerMeRoute(app, authForEnv);
-  registerMembersRoute(app, authForEnv);
-  registerFirmsRoute(app, authForEnv);
+  // The /api/v1 routes, each composed through the chokepoint (the one enforcement point). The
+  // public firms route additionally mounts the platform-admin secret guard as route-specific
+  // middleware, run before the chokepoint's idempotency/rate-limit gates (see routes/firms.ts).
+  registerMeRoute(app, chokepoint);
+  registerMembersRoute(app, chokepoint, authForEnv);
+  registerFirmsRoute(app, chokepoint, authForEnv);
 
-  app.doc31("/api/openapi.json", {
-    openapi: "3.1.0",
-    info: { title: "Magna Carta API", version: "0.0.0" },
-  });
+  // Serve the same document the committed snapshot carries (root tags included), so the live endpoint
+  // and the snapshot never diverge. A plain route, so it does not appear in the document itself.
+  app.get("/api/openapi.json", (c) => c.json(emitOpenAPIDocument(app)));
 
   // Everything not handled above falls through to the static-asset SPA (Workers Static Assets binding).
   app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));
 
   return app;
+}
+
+// The OpenAPI 3.1 document config — the single home for info/servers/version, consumed both by the
+// live /api/openapi.json route (above) and by the offline snapshot emitter (scripts/emit-openapi.mts).
+export const openAPIDocumentConfig = {
+  openapi: "3.1.0",
+  info: {
+    title: "Magna Carta API",
+    version: "0.0.0",
+    description:
+      "The Magna Carta legal practice-management API. Every operation is enforced at the one " +
+      "ADR-0067 chokepoint (tenancy → authn → RBAC → idempotency → rate-limit); errors are " +
+      "RFC 9457 problem documents.",
+    contact: { name: "Magna Carta", url: "https://magnacarta.esq" },
+  },
+  servers: [
+    { url: "https://api.magnacarta.esq/v1", description: "Production API surface (ADR-0052)" },
+    { url: "https://app.magnacarta.esq/api", description: "App same-origin surface" },
+  ],
+};
+
+// Emits the 3.1 document and declares every operation tag at the document root. Derived from the
+// operations, the root tag list can never drift from the routes (registry-first; an operation's tags
+// default from its operationId namespace in defineOpenAPIRoute) — it makes the contract self-describing
+// (the generated SDK/docs group by tag) and satisfies Spectral's operation-tag-defined. The single
+// emit path shared by the committed snapshot and the live /api/openapi.json route, so they never
+// diverge. getOpenAPI31Document is pure (no request, no env), so this needs no bindings.
+function emitOpenAPIDocument(app: ReturnType<typeof createApp>) {
+  const document = app.getOpenAPI31Document(openAPIDocumentConfig);
+  const methods = ["get", "put", "post", "delete", "patch", "options", "head", "trace"] as const;
+  const tagNames = new Set<string>();
+  for (const pathItem of Object.values(document.paths ?? {})) {
+    for (const method of methods) {
+      const operation = pathItem[method];
+      if (operation?.tags) for (const tag of operation.tags) tagNames.add(tag);
+    }
+  }
+  document.tags = [...tagNames].sort().map((name) => ({ name }));
+  return document;
+}
+
+// Builds the committed-contract document with no bindings: createApp() registers every route at
+// construction time. The emit script loads this through the Vite pipeline; the snapshot sanity test
+// calls it in-pool. (Task 9.)
+export function buildOpenAPIDocument() {
+  return emitOpenAPIDocument(createApp());
+}
+
+// Canonical serialization — pretty-printed (two-space), single trailing newline. The one byte-exact
+// definition the emitter writes and the sanity test compares against, so the committed snapshot and
+// a fresh emission can be diffed byte-for-byte (the local mirror of the CI code-as-contract gate).
+export function serializeOpenAPIDocument(): string {
+  return `${JSON.stringify(buildOpenAPIDocument(), null, 2)}\n`;
 }

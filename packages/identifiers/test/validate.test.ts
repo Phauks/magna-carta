@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { newIdentifier } from "../src/generate.ts";
-import { assertIdentifier, isIdentifier } from "../src/validate.ts";
+import { assertIdentifier, identifierPattern, isIdentifier } from "../src/validate.ts";
 import type { MatterId } from "../src/types.ts";
 
 describe("isIdentifier", () => {
@@ -32,6 +32,18 @@ describe("isIdentifier", () => {
       const matterId: MatterId = value; // must compile — narrowed to MatterId
       expect(matterId).toMatch(/^mat_/);
     }
+  });
+});
+
+describe("identifierPattern", () => {
+  it("returns the per-type pattern that matches freshly minted handles", () => {
+    expect(identifierPattern("error").test(newIdentifier("error"))).toBe(true);
+    expect(identifierPattern("matter").test(newIdentifier("matter"))).toBe(true);
+  });
+
+  it("rejects handles of the wrong entity type and malformed handles", () => {
+    expect(identifierPattern("error").test(newIdentifier("matter"))).toBe(false);
+    expect(identifierPattern("error").test("err_tooshort")).toBe(false);
   });
 });
 

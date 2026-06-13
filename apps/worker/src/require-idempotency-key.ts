@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from "hono";
-import { PROBLEM_CONTENT_TYPE, PROBLEM_TYPES, problemBody } from "./problem.ts";
+import { problemJson } from "./contracts/problem.ts";
 
 // `x-mc-idempotency: required` realized at the HTTP boundary: no Idempotency-Key → a 400 problem
 // before the idempotency pre-decision runs. The data-access middleware behind it would also 400,
@@ -11,17 +11,16 @@ import { PROBLEM_CONTENT_TYPE, PROBLEM_TYPES, problemBody } from "./problem.ts";
 export const requireIdempotencyKey: MiddlewareHandler = async (c, next) => {
   const key = c.req.header("Idempotency-Key");
   if (key === undefined || key === "") {
-    return c.json(
-      problemBody({
-        type: PROBLEM_TYPES.invalidRequest,
-        title: "Idempotency-Key required",
-        status: 400,
-        detail: "This operation requires an Idempotency-Key header.",
-        instance: c.req.path,
-      }),
-      400,
-      PROBLEM_CONTENT_TYPE,
-    );
+    return problemJson(c, {
+      type: "idempotency-key-missing",
+      title: "Idempotency-Key required",
+      status: 400,
+      detail: "This operation requires an Idempotency-Key header.",
+    });
   }
-  await next();
+  // Return next()'s result so a downstream short-circuit reply (the chokepoint's idempotency
+  // pre-decision returns a 409/422/replay Response) propagates back up to the caller — required when
+  // this runs composed under a manually-invoked middleware (the chokepoint), where the return is the
+  // only short-circuit signal Hono finalizes the context with.
+  return next();
 };

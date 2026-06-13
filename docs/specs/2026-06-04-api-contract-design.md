@@ -109,7 +109,7 @@ The route table is thus a **registry** (registry-first): introspectable, uniform
   "title": "Insufficient trust balance",
   "status": 422,
   "detail": "Disbursement exceeds the matter's available trust funds.",
-  "errorId": "err_8Kf3pQ2v", // correlation ID (ADR-0017/0038); shown to the user, maps to the redacted log
+  "errorId": "err_V1StGXR8_Z5jdHi6B-myT", // correlation ID (ADR-0017/0038); shown to the user, maps to the redacted log
   "instance": "/v1/matters/8181-3/trust/disbursements",
   "errors": [
     // field-level, for 422 validation failures

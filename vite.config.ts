@@ -8,10 +8,21 @@ export default defineConfig({
     printWidth: 100,
     proseWrap: "preserve",
     endOfLine: "lf",
+    // Generated artifacts whose exact bytes are fixed by their generator and re-derived/diff-gated by
+    // CI (code-as-contract): the OpenAPI snapshot (apps/worker/scripts/emit-openapi.mts) and the Hey
+    // API client (packages/api-client/openapi-ts.config.mjs). Never hand-edit them, and never let the
+    // formatter reflow them out from under the generate/diff contract.
+    ignorePatterns: ["apps/worker/openapi/openapi.json", "packages/api-client/src/**"],
   },
   // typeCheck makes `vp check` run tsgolint TS type-checks (not just fmt+lint); a real `.ts` type error now fails the gate.
   // tsgolint does not parse `.svelte`, so the full gate (`pnpm check`) also runs svelte-check. See conventions/typescript.md.
   lint: {
+    // The Hey API generated client is not our code to lint (its barrel index and codegen idioms trip
+    // our rules); exclude it. NOTE: vp's type-check runs through this lint pass, so excluding the
+    // generated client here also drops it from tsgolint — so the "generated client compiles" gate is
+    // provided separately by the api-client `typecheck` script (a dedicated `tsc -p`, wired into the
+    // root `check`), which type-checks every generated file. The OpenAPI snapshot is data, not source.
+    ignorePatterns: ["packages/api-client/src/**"],
     options: {
       typeAware: true,
       typeCheck: true,

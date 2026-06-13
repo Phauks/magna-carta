@@ -143,7 +143,7 @@ describe("POST /api/v1/members", () => {
     expect(response.headers.get("content-type")).toContain("application/problem+json");
     const body = (await response.json()) as Record<string, unknown>;
     expect(body).toMatchObject({
-      type: "https://api.magnacarta.esq/problems/invalid-request",
+      type: "https://api.magnacarta.esq/problems/idempotency-key-missing",
       status: 400,
     });
     expect(body["errorId"]).toMatch(/^err_/);
@@ -163,15 +163,22 @@ describe("POST /api/v1/members", () => {
     expect(response.headers.get("content-type")).toContain("application/problem+json");
     const body = (await response.json()) as Record<string, unknown>;
     expect(body).toMatchObject({
-      type: "https://api.magnacarta.esq/problems/forbidden",
+      type: "https://api.magnacarta.esq/problems/permission-denied",
       status: 403,
     });
+    // The within-firm denial (a trusted insider, visible-but-denied) carries the ADR-0068
+    // request→grant seam — distinct from the silent 404 structural absence above.
+    expect(body["requestAccess"]).toBe(true);
     expect(body["errorId"]).toMatch(/^err_/);
   });
 
-  it("answers 403 when the inviter has been DEACTIVATED — held roles confer nothing at the read path", async () => {
-    // A full Owner/Admin whose member row was then deactivated: the permission reads gate on
-    // member.status = 'active', so firm:manageMembers evaporates and the permission gate 403s.
+  it("answers 404 when the inviter has been DEACTIVATED — absent at the chokepoint, never a 403 oracle (ADR-0052)", async () => {
+    // A full Owner/Admin whose member row was then deactivated. Under the ADR-0067 chokepoint a
+    // DEACTIVATED member is structural ABSENCE (ADR-0052): the firm-context gate (step 3a) returns
+    // null → 404, BEFORE the permission gate runs — so a deactivated insider is indistinguishable
+    // from no such firm/member, never a 403 confirming the account exists but was turned off. (This
+    // is the unified semantics /v1/me already had for a deactivated member; the chokepoint now gives
+    // every authenticated route the same 404, retiring the 0·4 route-local 403.)
     const { userId } = await seedCredentialedUser("invite-deactivated@example.com", {
       firmId: poolFirmId,
     });
@@ -185,13 +192,15 @@ describe("POST /api/v1/members", () => {
       { email: "blocked-by-deactivation@example.com", name: "Blocked Invitee" },
       { cookie: sessionCookie, idempotencyKey: crypto.randomUUID() },
     );
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(404);
     expect(response.headers.get("content-type")).toContain("application/problem+json");
     const body = (await response.json()) as Record<string, unknown>;
     expect(body).toMatchObject({
-      type: "https://api.magnacarta.esq/problems/forbidden",
-      status: 403,
+      type: "https://api.magnacarta.esq/problems/not-found",
+      status: 404,
     });
+    // No requestAccess on a 404 — structural absence is silent, never the within-firm 403 seam.
+    expect("requestAccess" in body).toBe(false);
     expect(body["errorId"]).toMatch(/^err_/);
   });
 
@@ -314,7 +323,7 @@ describe("POST /api/v1/members", () => {
     expect(duplicate.headers.get("content-type")).toContain("application/problem+json");
     const body = (await duplicate.json()) as Record<string, unknown>;
     expect(body).toMatchObject({
-      type: "https://api.magnacarta.esq/problems/validation",
+      type: "https://api.magnacarta.esq/problems/email-in-use",
       status: 422,
     });
     expect(body["errorId"]).toMatch(/^err_/);
@@ -353,7 +362,7 @@ describe("POST /api/v1/members", () => {
     expect(mismatch.headers.get("content-type")).toContain("application/problem+json");
     const body = (await mismatch.json()) as Record<string, unknown>;
     expect(body).toMatchObject({
-      type: "https://api.magnacarta.esq/problems/validation",
+      type: "https://api.magnacarta.esq/problems/idempotency-fingerprint-mismatch",
       title: "Idempotency-Key reused",
       status: 422,
       instance: "/api/v1/members",
@@ -396,7 +405,7 @@ describe("POST /api/v1/members", () => {
     expect(response.headers.get("content-type")).toContain("application/problem+json");
     const body = (await response.json()) as Record<string, unknown>;
     expect(body).toMatchObject({
-      type: "https://api.magnacarta.esq/problems/conflict",
+      type: "https://api.magnacarta.esq/problems/idempotency-key-conflict",
       title: "Request in progress",
       status: 409,
       instance: "/api/v1/members",
@@ -472,7 +481,7 @@ describe("POST /api/v1/members", () => {
     expect(control.headers.get("content-type")).toContain("application/problem+json");
     const controlBody = (await control.json()) as Record<string, unknown>;
     expect(controlBody).toMatchObject({
-      type: "https://api.magnacarta.esq/problems/forbidden",
+      type: "https://api.magnacarta.esq/problems/permission-denied",
       status: 403,
     });
     expect(controlBody["errorId"]).toMatch(/^err_/);
@@ -531,7 +540,7 @@ describe("POST /api/v1/members", () => {
     expect(stolenReplay.headers.get("Idempotency-Replayed")).toBeNull();
     expect(stolenReplay.status).toBe(422);
     expect((await stolenReplay.json()) as Record<string, unknown>).toMatchObject({
-      type: "https://api.magnacarta.esq/problems/validation",
+      type: "https://api.magnacarta.esq/problems/email-in-use",
       title: "Email already in use",
     });
 

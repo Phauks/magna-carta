@@ -1,0 +1,21 @@
+{
+  "name": "@magna-carta/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generate": "openapi-ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@tanstack/svelte-query": "catalog:"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "catalog:",
+    "@magna-carta/tsconfig": "workspace:*"
+  }
+}

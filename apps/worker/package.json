@@ -8,6 +8,7 @@
     "build": "wrangler deploy --dry-run --outdir dist",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
+    "emit-openapi": "node scripts/emit-openapi.mts",
     "test": "vp test run"
   },
   "dependencies": {
@@ -24,8 +25,12 @@
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "catalog:",
     "@cloudflare/workers-types": "catalog:",
+    "@hey-api/openapi-ts": "catalog:",
     "@magna-carta/tsconfig": "workspace:*",
+    "@stoplight/prism-cli": "catalog:",
+    "@stoplight/spectral-cli": "catalog:",
     "otpauth": "catalog:",
+    "vite-plus": "catalog:",
     "vitest": "catalog:",
     "wrangler": "catalog:"
   }

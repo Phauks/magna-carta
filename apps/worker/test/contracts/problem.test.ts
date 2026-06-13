@@ -1,0 +1,341 @@
+// Slice 0·5: the RFC 9457 problem module and the problem-type URI registry (design spec, error model).
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import type { Context } from "hono";
+import type { ZodError } from "zod";
+import { describe, expect, it } from "vitest";
+import { Problem, defaultHook, problemJson } from "../../src/contracts/problem";
+import { PROBLEM_TYPES, problemType } from "../../src/contracts/problem-types";
+
+// A minimal Context stub whose .json mirrors Hono's: serializes the body and stamps status +
+// headers. Enough to exercise problemJson/defaultHook off the request lifecycle.
+function fakeContext(path: string): Context {
+  return {
+    req: { path },
+    json: (body: unknown, status?: number, headers?: Record<string, string>) =>
+      new Response(JSON.stringify(body), { status: status ?? 200, headers }),
+  } as unknown as Context;
+}
+
+describe("problem-type URI registry", () => {
+  it("expands a key to its full type URI", () => {
+    expect(problemType("validation")).toBe("https://api.magnacarta.esq/problems/validation");
+    expect(problemType("idempotency-key-conflict")).toBe(
+      "https://api.magnacarta.esq/problems/idempotency-key-conflict",
+    );
+  });
+
+  it("registers the slice 0·5 problem types", () => {
+    expect(Object.keys(PROBLEM_TYPES).sort()).toEqual(
+      [
+        "validation",
+        "unauthenticated",
+        "permission-denied",
+        "not-found",
+        "idempotency-key-missing",
+        "idempotency-key-conflict",
+        "idempotency-fingerprint-mismatch",
+        "rate-limited",
+        "conflict",
+        "email-in-use",
+      ].sort(),
+    );
+  });
+
+  it("stays an identity map — the ProblemTypeUri template type interpolates the KEY, the runtime the VALUE", () => {
+    // If a key ever maps to a different value, the compile-time URI type and the runtime URI
+    // silently desynchronize; this pin makes that divergence loud.
+    for (const [key, value] of Object.entries(PROBLEM_TYPES)) {
+      expect(value).toBe(key);
+    }
+  });
+});
+
+describe("Problem schema", () => {
+  it("accepts the full RFC 9457 shape including errorId and errors[]", () => {
+    const parsed = Problem.safeParse({
+      type: "https://api.magnacarta.esq/problems/validation",
+      title: "Validation failed",
+      status: 422,
+      detail: "One or more fields failed validation.",
+      errorId: "err_V1StGXR8_Z5jdHi6B-myT",
+      instance: "/api/v1/matters",
+      errors: [{ path: "title", code: "too_small", detail: "Too small" }],
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("accepts the minimal shape (detail, instance, errors optional)", () => {
+    const parsed = Problem.safeParse({
+      type: "https://api.magnacarta.esq/problems/not-found",
+      title: "Not found",
+      status: 404,
+      errorId: "err_V1StGXR8_Z5jdHi6B-myT",
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("rejects a status outside the 4xx/5xx error range (the schema documents error replies only)", () => {
+    const base = {
+      type: "https://api.magnacarta.esq/problems/not-found",
+      title: "Not found",
+      errorId: "err_V1StGXR8_Z5jdHi6B-myT",
+    };
+    expect(Problem.safeParse({ ...base, status: 200 }).success).toBe(false);
+    expect(Problem.safeParse({ ...base, status: 304 }).success).toBe(false);
+    expect(Problem.safeParse({ ...base, status: 399 }).success).toBe(false);
+    expect(Problem.safeParse({ ...base, status: 600 }).success).toBe(false);
+    expect(Problem.safeParse({ ...base, status: 400 }).success).toBe(true);
+    expect(Problem.safeParse({ ...base, status: 599 }).success).toBe(true);
+  });
+
+  it("rejects an errorId that is not a well-formed err_ handle", () => {
+    const base = {
+      type: "https://api.magnacarta.esq/problems/not-found",
+      title: "Not found",
+      status: 404,
+    };
+    expect(Problem.safeParse({ ...base, errorId: "err_8Kf3pQ2v" }).success).toBe(false); // token too short
+    expect(Problem.safeParse({ ...base, errorId: "mat_V1StGXR8_Z5jdHi6B-myT" }).success).toBe(
+      false,
+    ); // wrong entity prefix
+    expect(Problem.safeParse({ ...base, errorId: "not-an-identifier" }).success).toBe(false);
+  });
+
+  it("rejects a problem without an errorId (observability extension is mandatory)", () => {
+    const parsed = Problem.safeParse({
+      type: "https://api.magnacarta.esq/problems/not-found",
+      title: "Not found",
+      status: 404,
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("accepts the optional requestAccess extension (the ADR-0068 403 seam)", () => {
+    const parsed = Problem.safeParse({
+      type: "https://api.magnacarta.esq/problems/permission-denied",
+      title: "Permission denied",
+      status: 403,
+      errorId: "err_V1StGXR8_Z5jdHi6B-myT",
+      requestAccess: true,
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("requestAccess is a typed optional, not an open passthrough — a non-boolean is rejected", () => {
+    const parsed = Problem.safeParse({
+      type: "https://api.magnacarta.esq/problems/permission-denied",
+      title: "Permission denied",
+      status: 403,
+      errorId: "err_V1StGXR8_Z5jdHi6B-myT",
+      requestAccess: "yes",
+    });
+    expect(parsed.success).toBe(false);
+  });
+});
+
+describe("problemJson", () => {
+  function appWithNotFoundRoute() {
+    const app = new OpenAPIHono();
+    app.get("/api/v1/matters/:matterId", (c) =>
+      problemJson(c, {
+        type: "not-found",
+        status: 404,
+        title: "Matter not found",
+        detail: "No such matter in this firm.",
+      }),
+    );
+    return app;
+  }
+
+  it("replies with application/problem+json and the registry type URI", async () => {
+    const response = await appWithNotFoundRoute().request("/api/v1/matters/mat_unknown00");
+    expect(response.status).toBe(404);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body.type).toBe("https://api.magnacarta.esq/problems/not-found");
+    expect(body.title).toBe("Matter not found");
+    expect(body.status).toBe(404);
+    expect(body.detail).toBe("No such matter in this firm.");
+  });
+
+  it("generates a fresh err_-prefixed errorId per reply", async () => {
+    const app = appWithNotFoundRoute();
+    const first = (await (await app.request("/api/v1/matters/mat_a")).json()) as Record<
+      string,
+      unknown
+    >;
+    const second = (await (await app.request("/api/v1/matters/mat_b")).json()) as Record<
+      string,
+      unknown
+    >;
+    expect(first.errorId).toMatch(/^err_[A-Za-z0-9_-]{21}$/);
+    expect(second.errorId).toMatch(/^err_[A-Za-z0-9_-]{21}$/);
+    expect(first.errorId).not.toBe(second.errorId);
+  });
+
+  it("includes instance from the request path", async () => {
+    const response = await appWithNotFoundRoute().request("/api/v1/matters/mat_unknown00");
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body.instance).toBe("/api/v1/matters/mat_unknown00");
+  });
+
+  it("throws when the status is outside the 4xx/5xx range — a problem is never a 2xx/3xx reply", () => {
+    const context = fakeContext("/api/v1/matters/mat_x");
+    for (const status of [200, 204, 301, 399, 600]) {
+      expect(() =>
+        problemJson(context, {
+          type: "not-found",
+          // The platform error path must never emit a non-error status; status is typed to the
+          // error range, so a caller reaching this has cast around the type.
+          status: status as never,
+          title: "Not found",
+        }),
+      ).toThrowError(/400.*599|range/i);
+    }
+    // In-range error statuses are accepted (the 400 and 599 range boundaries are exercised via the
+    // never-cast path below, since the ProblemStatusCode union omits some literals like 599).
+    for (const status of [400, 500] as const) {
+      expect(() =>
+        problemJson(context, { type: "not-found", status, title: "Not found" }),
+      ).not.toThrow();
+    }
+    // The literal range boundaries 400 and 599 are both accepted by the runtime guard.
+    for (const status of [400, 599]) {
+      expect(() =>
+        problemJson(context, { type: "not-found", status: status as never, title: "Not found" }),
+      ).not.toThrow();
+    }
+  });
+
+  it("emitted problems conform to the Problem schema", async () => {
+    const response = await appWithNotFoundRoute().request("/api/v1/matters/mat_unknown00");
+    expect(Problem.safeParse(await response.json()).success).toBe(true);
+  });
+
+  it("emits requestAccess into the body only when the option is set (the ADR-0068 403 seam)", async () => {
+    const app = new OpenAPIHono();
+    app.get("/api/v1/matters/:matterId/denied", (c) =>
+      problemJson(c, {
+        type: "permission-denied",
+        status: 403,
+        title: "Permission denied",
+        requestAccess: true,
+      }),
+    );
+    const response = await app.request("/api/v1/matters/mat_x/denied");
+    expect(response.status).toBe(403);
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body.requestAccess).toBe(true);
+    expect(Problem.safeParse(body).success).toBe(true);
+  });
+
+  it("omits requestAccess from the body when the option is absent", async () => {
+    const response = await appWithNotFoundRoute().request("/api/v1/matters/mat_unknown00");
+    const body = (await response.json()) as Record<string, unknown>;
+    expect("requestAccess" in body).toBe(false);
+  });
+});
+
+describe("defaultHook", () => {
+  function appWithValidatedRoute() {
+    const app = new OpenAPIHono({ defaultHook });
+    const createMatterRoute = createRoute({
+      method: "post",
+      path: "/api/v1/matters",
+      request: {
+        body: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: z.object({ title: z.string().min(1), openedAt: z.iso.datetime() }),
+            },
+          },
+        },
+      },
+      responses: {
+        201: {
+          description: "Created",
+          content: { "application/json": { schema: z.object({ title: z.string() }) } },
+        },
+        422: {
+          description: "Validation failure",
+          content: { "application/problem+json": { schema: Problem } },
+        },
+      },
+    });
+    app.openapi(createMatterRoute, (c) => c.json({ title: c.req.valid("json").title }, 201));
+    return app;
+  }
+
+  it("maps a zod validation failure to the 422 problem shape with field-level errors[]", async () => {
+    const response = await appWithValidatedRoute().request("/api/v1/matters", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "", openedAt: "not-a-datetime" }),
+    });
+    expect(response.status).toBe(422);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+    const body = (await response.json()) as Record<string, any>;
+    expect(body.type).toBe("https://api.magnacarta.esq/problems/validation");
+    expect(body.title).toBe("Validation failed");
+    expect(body.status).toBe(422);
+    expect(body.errorId).toMatch(/^err_[A-Za-z0-9_-]{21}$/);
+    expect(body.instance).toBe("/api/v1/matters");
+    const paths = body.errors.map((error: { path: string }) => error.path);
+    expect(paths).toContain("title");
+    expect(paths).toContain("openedAt");
+    // Discriminate code vs detail so a mutation swapping the two fields is caught: title: "" fails
+    // the min(1) check, whose Zod issue code is "too_small" and whose message is human-readable and
+    // distinct from the code.
+    const titleError = body.errors.find((error: { path: string }) => error.path === "title");
+    expect(titleError).toBeDefined();
+    expect(titleError.code).toBe("too_small");
+    expect(titleError.detail).not.toBe(titleError.code);
+    expect(titleError.detail.toLowerCase()).toContain("small");
+    expect(Problem.safeParse(body).success).toBe(true);
+  });
+
+  it('normalizes a top-level validation failure (empty Zod issue path) to path "$"', async () => {
+    const response = await appWithValidatedRoute().request("/api/v1/matters", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify("not an object"),
+    });
+    expect(response.status).toBe(422);
+    const body = (await response.json()) as Record<string, any>;
+    expect(body.errors).toHaveLength(1);
+    expect(body.errors[0].path).toBe("$");
+    expect(Problem.safeParse(body).success).toBe(true);
+  });
+
+  it("does not interfere with a valid request", async () => {
+    const response = await appWithValidatedRoute().request("/api/v1/matters", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "Smith v. Jones", openedAt: "2026-06-12T00:00:00Z" }),
+    });
+    expect(response.status).toBe(201);
+  });
+
+  it("renders (does not throw) when an issue path contains a symbol segment", async () => {
+    // A future z.map/z.record-with-symbol-keys schema can produce a symbol path segment.
+    // issue.path.join(".") would throw "Cannot convert a Symbol value to a string" inside the
+    // hook, collapsing a 422 into an unhandled 500. Feed a synthetic issue list directly.
+    const context = fakeContext("/api/v1/matters");
+    const symbolKey = Symbol("trustLedgerKey");
+    const syntheticError = {
+      issues: [
+        { code: "custom", message: "Symbol-keyed entry failed", path: [symbolKey, "amount"] },
+      ],
+    } as unknown as ZodError;
+
+    let response: Response | undefined;
+    expect(() => {
+      response = defaultHook({ success: false, error: syntheticError }, context);
+    }).not.toThrow();
+    expect(response).toBeDefined();
+    const body = (await response!.json()) as Record<string, any>;
+    expect(body.status).toBe(422);
+    expect(body.errors[0].path).toBe("Symbol(trustLedgerKey).amount");
+  });
+});

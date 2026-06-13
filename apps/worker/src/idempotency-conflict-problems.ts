@@ -1,6 +1,6 @@
 import type { Context } from "hono";
 import type { IdempotentEffectResult } from "@magna-carta/data-access/run-idempotent-effect";
-import { PROBLEM_CONTENT_TYPE, PROBLEM_TYPES, problemBody } from "./problem.ts";
+import { problemJson, type ProblemResponse } from "./contracts/problem.ts";
 
 // THE kind → problem mapping for the two idempotency conflicts, shared by every
 // required-idempotency route (members.invite, firms.provision) so the bodies stay identical by
@@ -8,37 +8,26 @@ import { PROBLEM_CONTENT_TYPE, PROBLEM_TYPES, problemBody } from "./problem.ts";
 // pre-decision (its conflictResponse hook — the COMMON path) and the handler's
 // runIdempotentEffect race outcomes (the rare path). The parameter is kind-only so both callers'
 // shapes (the hook's {kind, status} conflict and the effect's result) satisfy it; one home,
-// no drift. Like problem.ts's helpers, the return type is INFERRED (the two c.json typed
-// responses): an explicit `Response` annotation would erase the status typing zod-openapi
-// handlers check.
+// no drift. problemJson returns a status-typed ProblemResponse (the union of the two arms' status
+// literals), preserving the narrowing zod-openapi handlers check.
 export function problemResponseForIdempotencyConflict(
   c: Context,
   conflict: { readonly kind: "in-progress" | "fingerprint-mismatch" },
-) {
+): ProblemResponse<409> | ProblemResponse<422> {
   if (conflict.kind === "in-progress") {
-    return c.json(
-      problemBody({
-        type: PROBLEM_TYPES.conflict,
-        title: "Request in progress",
-        status: 409,
-        detail: "A request with this Idempotency-Key is still in progress.",
-        instance: c.req.path,
-      }),
-      409,
-      PROBLEM_CONTENT_TYPE,
-    );
+    return problemJson(c, {
+      type: "idempotency-key-conflict",
+      title: "Request in progress",
+      status: 409,
+      detail: "A request with this Idempotency-Key is still in progress.",
+    });
   }
-  return c.json(
-    problemBody({
-      type: PROBLEM_TYPES.validation,
-      title: "Idempotency-Key reused",
-      status: 422,
-      detail: "This Idempotency-Key was already used with a different request payload.",
-      instance: c.req.path,
-    }),
-    422,
-    PROBLEM_CONTENT_TYPE,
-  );
+  return problemJson(c, {
+    type: "idempotency-fingerprint-mismatch",
+    title: "Idempotency-Key reused",
+    status: 422,
+    detail: "This Idempotency-Key was already used with a different request payload.",
+  });
 }
 
 // The null-body guard the 201-storing routes share: a null stored body is impossible by

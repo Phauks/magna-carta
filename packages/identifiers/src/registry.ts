@@ -25,6 +25,7 @@ export const ENTITY_PREFIXES = {
   memberRole: "mrl",
   grant: "gnt",
   authAudit: "aud",
+  error: "err",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;
