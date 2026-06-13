@@ -71,6 +71,9 @@ jobs:
           fail-on: ERR
           review: false
 
+      # Forward-obligation: /api/v1/me mocks 200 today because the document declares no security
+      # schemes. When the auth surfaces emit OpenAPI security (the deferred ADR-0068 task), Prism will
+      # 401 this probe — switch it to GET /api/health (unauthenticated) or pass a credential then.
       - name: Contract — Prism mock smoke
         run: |
           pnpm --filter @magna-carta/worker exec prism mock openapi/openapi.json --port 4010 &
