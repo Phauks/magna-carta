@@ -88,6 +88,8 @@
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-500);
+  --mc-focus-ring-offset: 2px;
+  --mc-focus-ring-width: 2px;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
@@ -256,6 +258,8 @@
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-400);
+  --mc-focus-ring-offset: 2px;
+  --mc-focus-ring-width: 2px;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
@@ -424,6 +428,8 @@
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-500);
+  --mc-focus-ring-offset: 2px;
+  --mc-focus-ring-width: 2px;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
@@ -592,6 +598,8 @@
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-400);
+  --mc-focus-ring-offset: 2px;
+  --mc-focus-ring-width: 2px;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
@@ -760,6 +768,8 @@
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-500);
+  --mc-focus-ring-offset: 2px;
+  --mc-focus-ring-width: 2px;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
@@ -928,6 +938,8 @@
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-400);
+  --mc-focus-ring-offset: 2px;
+  --mc-focus-ring-width: 2px;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
@@ -1096,6 +1108,8 @@
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-500);
+  --mc-focus-ring-offset: 2px;
+  --mc-focus-ring-width: 2px;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
@@ -1264,6 +1278,8 @@
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-400);
+  --mc-focus-ring-offset: 2px;
+  --mc-focus-ring-width: 2px;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
@@ -1432,6 +1448,8 @@
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-500);
+  --mc-focus-ring-offset: 2px;
+  --mc-focus-ring-width: 2px;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
@@ -1600,6 +1618,8 @@
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-400);
+  --mc-focus-ring-offset: 2px;
+  --mc-focus-ring-width: 2px;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
@@ -1768,6 +1788,8 @@
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-500);
+  --mc-focus-ring-offset: 2px;
+  --mc-focus-ring-width: 2px;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
@@ -1936,6 +1958,8 @@
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
   --mc-elevation-3: 0px 2px 4px -1px oklch(13% 0.006 250 / 0.06), 0px 8px 24px -4px oklch(13% 0.006 250 / 0.14);
   --mc-focus-ring: var(--mc-color-brand-400);
+  --mc-focus-ring-offset: 2px;
+  --mc-focus-ring-width: 2px;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;

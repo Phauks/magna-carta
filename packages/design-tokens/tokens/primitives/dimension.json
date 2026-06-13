@@ -27,5 +27,10 @@
     "sm": { "$type": "dimension", "$value": { "value": 32, "unit": "px" } },
     "md": { "$type": "dimension", "$value": { "value": 36, "unit": "px" } },
     "lg": { "$type": "dimension", "$value": { "value": 40, "unit": "px" } }
+  },
+  "focus-ring": {
+    "$description": "Focus-ring outline geometry — mode-invariant lengths consumed directly by recipes (the focus-ring COLOR is the semantic focus.ring token). Tokenized so components.css carries no literal lengths (design-system area CLAUDE.md: focus-ring width/offset must become tokens before the Tier 1 Button lands).",
+    "width": { "$type": "dimension", "$value": { "value": 2, "unit": "px" } },
+    "offset": { "$type": "dimension", "$value": { "value": 2, "unit": "px" } }
   }
 }
