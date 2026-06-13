@@ -10,6 +10,7 @@
     "./idempotency-statements": "./src/idempotency-statements.ts",
     "./member-statements": "./src/member-statements.ts",
     "./auth-audit-statements": "./src/auth-audit-statements.ts",
+    "./setting-statements": "./src/setting-statements.ts",
     "./outbox-statements": "./src/outbox-statements.ts",
     "./effect-batch": "./src/effect-batch.ts",
     "./run-idempotent-effect": "./src/run-idempotent-effect.ts",
@@ -22,7 +23,8 @@
   "dependencies": {
     "@magna-carta/database": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
-    "hono": "catalog:"
+    "hono": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",

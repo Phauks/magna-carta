@@ -228,6 +228,9 @@ importers:
       hono:
         specifier: 'catalog:'
         version: 4.12.23
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@cloudflare/workers-types':
         specifier: 'catalog:'
