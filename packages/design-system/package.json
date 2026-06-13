@@ -7,6 +7,7 @@
   "exports": {
     "./badge": "./src/lib/components/badge/index.ts",
     "./button": "./src/lib/components/button/index.ts",
+    "./card": "./src/lib/components/card/index.ts",
     "./input": "./src/lib/components/input/index.ts",
     "./label": "./src/lib/components/label/index.ts",
     "./textarea": "./src/lib/components/textarea/index.ts",
