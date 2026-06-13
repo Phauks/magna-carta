@@ -37,9 +37,11 @@
     "tailwind-merge": "catalog:"
   },
   "devDependencies": {
+    "@chromatic-com/storybook": "catalog:",
     "@magna-carta/tsconfig": "workspace:*",
     "@playwright/test": "catalog:",
     "@storybook/addon-a11y": "catalog:",
+    "@storybook/addon-docs": "catalog:",
     "@storybook/addon-svelte-csf": "catalog:",
     "@storybook/addon-vitest": "catalog:",
     "@storybook/svelte-vite": "catalog:",

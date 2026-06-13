@@ -20,8 +20,16 @@ const config: StorybookConfig = {
     "@storybook/addon-svelte-csf",
     // Axe per story; parameters.a11y.test = "error" in preview.ts makes violations FAIL tests.
     "@storybook/addon-a11y",
+    // Autodocs + the Docs tab (docgen). Autodocs is enabled globally via the "autodocs" tag in
+    // preview.ts, so each component gets a generated Docs page from its stories.
+    "@storybook/addon-docs",
     // Runs stories as browser-mode Vitest tests (the "storybook" project in ../vitest.config.ts).
     "@storybook/addon-vitest",
+    // The Visual Tests panel (Chromatic). NOTE: the repo's primary visual regression is the
+    // self-hosted Playwright harness in visual-regression/ (recorded direction: Argos as the named
+    // SaaS upgrade). This addon is the in-Storybook visual-testing surface and is inert until a
+    // Chromatic project token is configured — revisit which SaaS (Chromatic vs Argos) is adopted.
+    "@chromatic-com/storybook",
   ],
   async viteFinal(viteConfiguration) {
     viteConfiguration.plugins ??= [];

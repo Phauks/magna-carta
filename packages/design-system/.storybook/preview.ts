@@ -59,6 +59,9 @@ const preview: Preview = {
       test: "error",
     },
   },
+  // Enable autodocs (addon-docs) for every component: each gets a generated Docs tab from its
+  // stories. With one story per distinct display, that page reads as a clean spec, not duplicates.
+  tags: ["autodocs"],
 };
 
 export default preview;
