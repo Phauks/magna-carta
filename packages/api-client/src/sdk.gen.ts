@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { FirmsProvisionData, FirmsProvisionErrors, FirmsProvisionResponses, HealthReadData, HealthReadResponses, MeGetData, MeGetErrors, MeGetResponses, MembersInviteData, MembersInviteErrors, MembersInviteResponses } from './types.gen';
+import type { FirmsProvisionData, FirmsProvisionErrors, FirmsProvisionResponses, HealthReadData, HealthReadResponses, MeGetData, MeGetErrors, MeGetResponses, MembersInviteData, MembersInviteErrors, MembersInviteResponses, UploadsAbortData, UploadsAbortErrors, UploadsAbortResponses, UploadsCompleteData, UploadsCompleteErrors, UploadsCompleteResponses, UploadsInitiateData, UploadsInitiateErrors, UploadsInitiateResponses, UploadsSignPartData, UploadsSignPartErrors, UploadsSignPartResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -51,3 +51,37 @@ export const firmsProvision = <ThrowOnError extends boolean = false>(options: Op
         ...options.headers
     }
 });
+
+/**
+ * Begins a direct-to-R2 upload: mints the pending file/version/upload-session rows and returns either a single-shot presigned PUT (at or below the firm's mode threshold) or a multipart session (above it). The bytes never transit the Worker.
+ */
+export const uploadsInitiate = <ThrowOnError extends boolean = false>(options: Options<UploadsInitiateData, ThrowOnError>): RequestResult<UploadsInitiateResponses, UploadsInitiateErrors, ThrowOnError> => (options.client ?? client).post<UploadsInitiateResponses, UploadsInitiateErrors, ThrowOnError>({
+    url: '/api/v1/uploads',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Signs one part of an open multipart upload session, returning a short-TTL presigned PUT URL the client uploads the part to. The session must be open and multipart.
+ */
+export const uploadsSignPart = <ThrowOnError extends boolean = false>(options: Options<UploadsSignPartData, ThrowOnError>): RequestResult<UploadsSignPartResponses, UploadsSignPartErrors, ThrowOnError> => (options.client ?? client).get<UploadsSignPartResponses, UploadsSignPartErrors, ThrowOnError>({ url: '/api/v1/uploads/{id}/parts/{partNumber}', ...options });
+
+/**
+ * Finalizes an open upload session: completes the multipart upload at R2 (when multipart) and marks the session completed. The version stays pending until ingest commits or quarantines it.
+ */
+export const uploadsComplete = <ThrowOnError extends boolean = false>(options: Options<UploadsCompleteData, ThrowOnError>): RequestResult<UploadsCompleteResponses, UploadsCompleteErrors, ThrowOnError> => (options.client ?? client).post<UploadsCompleteResponses, UploadsCompleteErrors, ThrowOnError>({
+    url: '/api/v1/uploads/{id}/complete',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Aborts an open upload session: aborts the multipart upload at R2 (when multipart), marks the session aborted, and abandons the pending version.
+ */
+export const uploadsAbort = <ThrowOnError extends boolean = false>(options: Options<UploadsAbortData, ThrowOnError>): RequestResult<UploadsAbortResponses, UploadsAbortErrors, ThrowOnError> => (options.client ?? client).post<UploadsAbortResponses, UploadsAbortErrors, ThrowOnError>({ url: '/api/v1/uploads/{id}/abort', ...options });

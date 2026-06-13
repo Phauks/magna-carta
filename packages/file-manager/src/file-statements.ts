@@ -211,6 +211,47 @@ export function setUploadSessionStatusStatement(
     .bind(fileVersionId, status);
 }
 
+// The session by its own id, joined to its version's r2 key — the read the upload routes use to drive
+// part-signing, completion, and abort (the route holds the session id, not the version id). The join
+// to file_version reads the key of the still-pending version being uploaded TO (presigning its key is
+// the whole point), so it legitimately spans version statuses.
+// fitness:allow-no-status
+export function selectUploadSessionStatement(
+  database: SqlDatabase,
+  sessionId: UploadSessionId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT s.id, s.file_version_id, s.mode, s.r2_upload_id, s.status, s.declared_content_type, v.r2_key ` +
+        `FROM ${UPLOAD_SESSION_TABLE} s JOIN ${FILE_VERSION_TABLE} v ON v.id = s.file_version_id WHERE s.id = ?1`,
+    )
+    .bind(sessionId);
+}
+
+// Records R2's multipart upload id on the open session after createMultipartUpload — composed into
+// the same initiate batch so the response and the stored id commit atomically.
+export function setUploadSessionR2UploadIdStatement(
+  database: SqlDatabase,
+  sessionId: UploadSessionId,
+  r2UploadId: string,
+): SqlStatement {
+  return database
+    .prepare(`UPDATE ${UPLOAD_SESSION_TABLE} SET r2_upload_id = ?2 WHERE id = ?1`)
+    .bind(sessionId, r2UploadId);
+}
+
+// Transitions a session by its id, guarded on status = 'open': a replayed complete/abort matches no
+// row, so the transition happens exactly once.
+export function setUploadSessionStatusByIdStatement(
+  database: SqlDatabase,
+  sessionId: UploadSessionId,
+  status: "completed" | "aborted" | "expired",
+): SqlStatement {
+  return database
+    .prepare(`UPDATE ${UPLOAD_SESSION_TABLE} SET status = ?2 WHERE id = ?1 AND status = 'open'`)
+    .bind(sessionId, status);
+}
+
 export function selectFileStatement(database: SqlDatabase, id: FileId): SqlStatement {
   return database
     .prepare(

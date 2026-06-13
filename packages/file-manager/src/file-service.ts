@@ -7,6 +7,7 @@ import type {
   FileVersionId,
   FolderId,
   MatterId,
+  UploadSessionId,
   UserId,
 } from "@magna-carta/identifiers/types";
 import { fileAuditStatement, type AuditContext } from "./audit.ts";
@@ -27,6 +28,8 @@ import {
   selectFileStatement,
   selectMaxVersionNumberStatement,
   selectPendingVersionStatement,
+  selectUploadSessionStatement,
+  setUploadSessionStatusByIdStatement,
   setUploadSessionStatusStatement,
   softDeleteFileStatement,
 } from "./file-statements.ts";
@@ -362,6 +365,112 @@ export async function softDeleteFile(
       statements: [
         softDeleteFileStatement(database, fileId, options.clock.now()),
         fileAuditStatement(database, options, "file.deleted", fileId),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+// The open upload session joined to its version's r2 key — what the upload routes read to sign parts,
+// complete, or abort (they hold the session id, never the version id or key).
+export interface UploadSessionRecord {
+  readonly id: UploadSessionId;
+  readonly fileVersionId: FileVersionId;
+  readonly mode: "put" | "multipart";
+  readonly r2UploadId: string | null;
+  readonly status: "open" | "completed" | "aborted" | "expired";
+  readonly declaredContentType: string | null;
+  readonly r2Key: string;
+}
+
+export async function loadUploadSession(
+  database: SqlDatabase,
+  sessionId: UploadSessionId,
+): Promise<UploadSessionRecord | undefined> {
+  const { results } = await selectUploadSessionStatement(database, sessionId).all<{
+    id: UploadSessionId;
+    file_version_id: FileVersionId;
+    mode: "put" | "multipart";
+    r2_upload_id: string | null;
+    status: "open" | "completed" | "aborted" | "expired";
+    declared_content_type: string | null;
+    r2_key: string;
+  }>();
+  const row = results[0];
+  if (row === undefined) return undefined;
+  return {
+    id: row.id,
+    fileVersionId: row.file_version_id,
+    mode: row.mode,
+    r2UploadId: row.r2_upload_id,
+    status: row.status,
+    declaredContentType: row.declared_content_type,
+    r2Key: row.r2_key,
+  };
+}
+
+async function requireOpenSession(
+  database: SqlDatabase,
+  sessionId: UploadSessionId,
+): Promise<UploadSessionRecord> {
+  const session = await loadUploadSession(database, sessionId);
+  if (session === undefined) {
+    throw new FileManagerValidationError(
+      "unknown-upload-session",
+      `no such upload session: ${sessionId}`,
+    );
+  }
+  if (session.status !== "open") {
+    throw new FileManagerValidationError(
+      "upload-session-not-open",
+      `upload session is ${session.status}, not open: ${sessionId}`,
+    );
+  }
+  return session;
+}
+
+// Closes an open session: the bytes are in R2 (single-shot PUT done, or multipart completed). The
+// version stays 'pending' — ingest (the queue consumer over the R2 event) commits or quarantines it.
+export async function completeUploadSession(
+  database: SqlDatabase,
+  sessionId: UploadSessionId,
+  options: FileServiceOptions,
+): Promise<{ session: UploadSessionRecord; effect: EffectWrite }> {
+  const session = await requireOpenSession(database, sessionId);
+  return {
+    session,
+    effect: {
+      statements: [
+        setUploadSessionStatusByIdStatement(database, sessionId, "completed"),
+        fileAuditStatement(database, options, "file.upload_completed", session.fileVersionId),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+// Aborts an open session and abandons its pending version. Returns the R2 coordinates so the route
+// can abort the multipart upload at R2 (a single-shot PUT has none).
+export async function abortUploadSession(
+  database: SqlDatabase,
+  sessionId: UploadSessionId,
+  options: FileServiceOptions,
+): Promise<{
+  mode: "put" | "multipart";
+  r2Key: string;
+  r2UploadId: string | null;
+  effect: EffectWrite;
+}> {
+  const session = await requireOpenSession(database, sessionId);
+  return {
+    mode: session.mode,
+    r2Key: session.r2Key,
+    r2UploadId: session.r2UploadId,
+    effect: {
+      statements: [
+        setUploadSessionStatusByIdStatement(database, sessionId, "aborted"),
+        abandonVersionStatement(database, session.fileVersionId),
+        fileAuditStatement(database, options, "file.upload_aborted", session.fileVersionId),
       ],
       outboxMessages: [],
     },

@@ -34,3 +34,11 @@ export function identifierPathParam<T extends EntityType>(
     .regex(identifierPattern(type))
     .openapi({ param: { name, in: "path" } }) as unknown as z.ZodType<Identifier<T>, string>;
 }
+
+// A request-BODY field carrying an identifier-typed handle: the same well-formed-handle pattern check
+// as identifierPathParam, branded to the entity's identifier so a handler can pass it straight to a
+// domain service that demands the branded type — without the path-param `.openapi({ param })` (a body
+// field is not a path parameter). Emits as a plain constrained string (the brand is compile-time only).
+export function identifierField<T extends EntityType>(type: T): z.ZodType<Identifier<T>, string> {
+  return z.string().regex(identifierPattern(type)) as unknown as z.ZodType<Identifier<T>, string>;
+}

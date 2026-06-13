@@ -81,14 +81,26 @@ function auditedMutatingViolations(document: ReturnType<typeof buildOpenAPIDocum
   return violations;
 }
 
-// Rule: every named permission exists in the registry, and its namespace matches the route's subsystem
-// — the resource it governs, NOT the operationId tag. Route modules `members`/`firms` both belong to
-// the `firm` subsystem, so the permission namespace binds to x-mc-resource (the per-subsystem permission
-// registry), the coherent reading of "namespace matches the route's module".
-// Assumption (holds under the registry's `<subsystem>:<action>` convention and the resource taxonomy
-// matter|firm|location|directoryEntity|portalShare being that same subsystem axis): a permission's
-// namespace equals the resource it governs. A future slice introducing a permission whose subsystem
-// legitimately differs from the route's resource must revisit this binding, not just suppress it.
+// The legitimate permission-namespace → x-mc-resource bindings. Permission namespace (the capability
+// subsystem) and resource (the tenancy/ownership root the route operates on) are DISTINCT axes: they
+// coincide for `firm`, but a capability can govern a resource rooted elsewhere — `files:*` operates on
+// matter-rooted file objects, so its routes carry resource "matter". This map is the explicit binding
+// the original strict-equality rule's comment anticipated would need revisiting once such a permission
+// landed (slice 1·1's files/matters/locations). It stays a guard, not a suppression: each namespace
+// maps to EXACTLY ONE allowed resource, so a route naming a permission from an unrelated subsystem
+// still fails. A new permission subsystem adds its row here (and a genuinely multi-resource subsystem
+// would widen the value to a set — revisit deliberately, never delete the check).
+const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string> = {
+  firm: "firm",
+  matters: "matter",
+  locations: "location",
+  files: "matter",
+};
+
+// Rule: every named permission exists in the registry, and its namespace binds to the route's
+// x-mc-resource through RESOURCE_BY_PERMISSION_NAMESPACE (the capability subsystem governs that
+// tenancy resource). An unregistered permission, an unknown namespace, or a resource that does not
+// match the namespace's allowed binding is a violation.
 function permissionRegistryViolations(document: ReturnType<typeof buildOpenAPIDocument>): string[] {
   const registry = new Set<string>(PERMISSIONS);
   const violations: string[] = [];
@@ -102,11 +114,18 @@ function permissionRegistryViolations(document: ReturnType<typeof buildOpenAPIDo
       );
       continue;
     }
-    const namespace = permission.split(":")[0];
+    const namespace = permission.split(":")[0] ?? "";
     const resource = operation["x-mc-resource"];
-    if (namespace !== resource) {
+    const expectedResource = RESOURCE_BY_PERMISSION_NAMESPACE[namespace];
+    if (expectedResource === undefined) {
       violations.push(
-        `${label}: permission namespace "${namespace}" must match x-mc-resource "${String(resource)}"`,
+        `${label}: permission namespace "${namespace}" has no RESOURCE_BY_PERMISSION_NAMESPACE binding`,
+      );
+      continue;
+    }
+    if (resource !== expectedResource) {
+      violations.push(
+        `${label}: permission namespace "${namespace}" must bind to x-mc-resource "${expectedResource}", got "${String(resource)}"`,
       );
     }
   }
@@ -327,7 +346,16 @@ describe("conformance — the committed contract holds, and each rule catches a 
   // pass trivially. Assert the document exposes exactly the operations we expect to enforce over.
   it("exposes the known committed operations (so the positive assertions are not vacuous)", () => {
     const ids = [...operations(document)].map((entry) => entry.operationId).sort();
-    expect(ids).toEqual(["firms.provision", "health.read", "me.get", "members.invite"]);
+    expect(ids).toEqual([
+      "firms.provision",
+      "health.read",
+      "me.get",
+      "members.invite",
+      "uploads.abort",
+      "uploads.complete",
+      "uploads.initiate",
+      "uploads.signPart",
+    ]);
   });
 
   describe("authenticated mutating routes are audited and name a permission", () => {

@@ -3,8 +3,8 @@
 import { type DefaultError, type MutationOptions, queryOptions } from '@tanstack/svelte-query';
 
 import { client } from '../client.gen';
-import { firmsProvision, healthRead, meGet, membersInvite, type Options } from '../sdk.gen';
-import type { FirmsProvisionData, FirmsProvisionError, FirmsProvisionResponse, HealthReadData, HealthReadResponse, MeGetData, MeGetError, MeGetResponse, MembersInviteData, MembersInviteError, MembersInviteResponse } from '../types.gen';
+import { firmsProvision, healthRead, meGet, membersInvite, type Options, uploadsAbort, uploadsComplete, uploadsInitiate, uploadsSignPart } from '../sdk.gen';
+import type { FirmsProvisionData, FirmsProvisionError, FirmsProvisionResponse, HealthReadData, HealthReadResponse, MeGetData, MeGetError, MeGetResponse, MembersInviteData, MembersInviteError, MembersInviteResponse, UploadsAbortData, UploadsAbortError, UploadsAbortResponse, UploadsCompleteData, UploadsCompleteError, UploadsCompleteResponse, UploadsInitiateData, UploadsInitiateError, UploadsInitiateResponse, UploadsSignPartData, UploadsSignPartError, UploadsSignPartResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -99,6 +99,75 @@ export const firmsProvisionMutation = (options?: Partial<Options<FirmsProvisionD
     const mutationOptions: MutationOptions<FirmsProvisionResponse, FirmsProvisionError, Options<FirmsProvisionData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await firmsProvision({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Begins a direct-to-R2 upload: mints the pending file/version/upload-session rows and returns either a single-shot presigned PUT (at or below the firm's mode threshold) or a multipart session (above it). The bytes never transit the Worker.
+ */
+export const uploadsInitiateMutation = (options?: Partial<Options<UploadsInitiateData>>): MutationOptions<UploadsInitiateResponse, UploadsInitiateError, Options<UploadsInitiateData>> => {
+    const mutationOptions: MutationOptions<UploadsInitiateResponse, UploadsInitiateError, Options<UploadsInitiateData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await uploadsInitiate({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const uploadsSignPartQueryKey = (options: Options<UploadsSignPartData>) => createQueryKey('uploadsSignPart', options);
+
+/**
+ * Signs one part of an open multipart upload session, returning a short-TTL presigned PUT URL the client uploads the part to. The session must be open and multipart.
+ */
+export const uploadsSignPartOptions = (options: Options<UploadsSignPartData>) => queryOptions<UploadsSignPartResponse, UploadsSignPartError, UploadsSignPartResponse, ReturnType<typeof uploadsSignPartQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await uploadsSignPart({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: uploadsSignPartQueryKey(options)
+});
+
+/**
+ * Finalizes an open upload session: completes the multipart upload at R2 (when multipart) and marks the session completed. The version stays pending until ingest commits or quarantines it.
+ */
+export const uploadsCompleteMutation = (options?: Partial<Options<UploadsCompleteData>>): MutationOptions<UploadsCompleteResponse, UploadsCompleteError, Options<UploadsCompleteData>> => {
+    const mutationOptions: MutationOptions<UploadsCompleteResponse, UploadsCompleteError, Options<UploadsCompleteData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await uploadsComplete({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Aborts an open upload session: aborts the multipart upload at R2 (when multipart), marks the session aborted, and abandons the pending version.
+ */
+export const uploadsAbortMutation = (options?: Partial<Options<UploadsAbortData>>): MutationOptions<UploadsAbortResponse, UploadsAbortError, Options<UploadsAbortData>> => {
+    const mutationOptions: MutationOptions<UploadsAbortResponse, UploadsAbortError, Options<UploadsAbortData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await uploadsAbort({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

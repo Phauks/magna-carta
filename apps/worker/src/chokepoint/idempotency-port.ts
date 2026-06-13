@@ -67,20 +67,44 @@ export function createChokepointIdempotency(): ChokepointIdempotency {
         return composedIdempotencyGate(env.DB_CONTROL, (clientKey) => `platform:${clientKey}`);
       }
 
-      // An app/portal surface: the SESSION firm scopes the key. A required-idempotency mutating
-      // route is authenticated: true (the route-meta guard forbids null permission on it), so the
-      // chokepoint always resolved the session firm and either stashed chokepointFirmId or already
-      // 404'd at step 3a before this gate runs. An undefined firm id here therefore means a broken
-      // chokepoint invariant — fail loud (fail-closed) rather than derive an unscoped, cross-tenant-
-      // collidable key.
-      const firmId = c.get("chokepointFirmId") as FirmId | undefined;
-      if (firmId === undefined) {
+      // An app/portal surface. The record MUST land in the same database the handler writes its
+      // business to (so they ride one atomic batch — the slice 0·2 idempotent write path). The route
+      // declares which via meta.idempotencyStore; the default is "firm".
+      //
+      // A required-idempotency mutating route is authenticated: true (the route-meta guard forbids
+      // null permission on it), so the chokepoint always resolved the session firm and either stashed
+      // the firm context/id or already 404'd at step 3a before this gate runs. An undefined value here
+      // therefore means a broken chokepoint invariant — fail loud (fail-closed) rather than derive an
+      // unscoped, cross-tenant-collidable key or target the wrong database.
+      const store = meta.idempotencyStore ?? "firm";
+      if (store === "control") {
+        // The rare app-surface route whose business is itself control-plane (members.invite creates a
+        // control-plane user): record in the SHARED control-plane table, the session firm in the key
+        // (from authenticated context, never client input) so one firm cannot collide with another.
+        const firmId = c.get("chokepointFirmId") as FirmId | undefined;
+        if (firmId === undefined) {
+          throw new Error(
+            "chokepoint idempotency gate reached a control-store app route without a resolved " +
+              "session firm — the session/firm gates must precede the idempotency gate",
+          );
+        }
+        return composedIdempotencyGate(env.DB_CONTROL, (clientKey) => `${firmId}:${clientKey}`);
+      }
+
+      // store === "firm": the session firm's per-firm idempotency_key table. It is PHYSICALLY isolated
+      // (a separate D1 per firm), so the raw client key suffices — no tenant prefix, and one firm's
+      // record can never read or poison another's. The handler commits record + business + outbox in
+      // one batch on this same database.
+      const firmContext = c.get("chokepointFirmContext") as
+        | { firmDatabase: D1Database }
+        | undefined;
+      if (firmContext === undefined) {
         throw new Error(
-          "chokepoint idempotency gate reached an app-surface required-idempotency route without a " +
-            "resolved session firm — the session/firm gates must precede the idempotency gate",
+          "chokepoint idempotency gate reached a firm-store app route without a resolved firm " +
+            "context — the session/firm gates must precede the idempotency gate",
         );
       }
-      return composedIdempotencyGate(env.DB_CONTROL, (clientKey) => `${firmId}:${clientKey}`);
+      return composedIdempotencyGate(firmContext.firmDatabase, (clientKey) => clientKey);
     },
   };
 }

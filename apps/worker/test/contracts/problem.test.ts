@@ -37,6 +37,7 @@ describe("problem-type URI registry", () => {
         "rate-limited",
         "conflict",
         "email-in-use",
+        "upload-not-allowed",
       ].sort(),
     );
   });

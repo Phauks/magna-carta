@@ -52,6 +52,10 @@ export const membersInviteMeta: RouteMeta = {
   resource: "firm",
   audited: true,
   idempotency: "required",
+  // This route's business batch is control-plane (it creates the Better Auth user + the
+  // member.provision outbox row in DB_CONTROL), so its idempotency record commits there too —
+  // atomic with the business. The firm-scoped routes (matters/files) default to the per-firm store.
+  idempotencyStore: "control",
   rateLimit: "default",
 };
 

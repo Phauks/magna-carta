@@ -24,6 +24,15 @@ export interface RouteMeta {
   resource: "matter" | "firm" | "location" | "directoryEntity" | "portalShare";
   audited: boolean; // writes an immutable audit entry
   idempotency: "required" | "optional"; // required on money/trust/payment/outbound-comms
+  // Where a required-idempotency route's record commits — it MUST be the same database the handler
+  // writes its business effect to, so the record + business + outbox ride one atomic batch (the
+  // slice 0·2 idempotent write path). "firm" (the default for app/portal surfaces) uses the session
+  // firm's physically-isolated per-firm idempotency_key table, keyed by the raw client key. "control"
+  // is for the rare app-surface route whose business is itself control-plane (members.invite creates
+  // a control-plane user) and for the public platform surface (firms.provision) — the shared
+  // control-plane table, tenant-scoped in the key. Read only by the chokepoint idempotency port;
+  // not emitted into the contract (an internal routing fact, not part of the public API surface).
+  idempotencyStore?: "firm" | "control";
   rateLimit: RateLimitBucket;
   tags?: string[]; // default: [operationId namespace] — applied when absent OR empty
   deprecated?: boolean;

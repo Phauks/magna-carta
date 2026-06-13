@@ -20,6 +20,7 @@
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/locations": "workspace:*",
     "@magna-carta/matters": "workspace:*",
+    "aws4fetch": "catalog:",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
     "hono": "catalog:",

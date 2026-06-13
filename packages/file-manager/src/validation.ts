@@ -13,6 +13,9 @@ export type FileManagerValidationCode =
   // Upload policy (re-checked against real bytes at the ingest gate too)
   | "upload-policy-size"
   | "upload-policy-type"
+  // Upload sessions
+  | "unknown-upload-session"
+  | "upload-session-not-open"
   // Document types
   | "empty-document-type-name"
   | "document-type-name-taken"

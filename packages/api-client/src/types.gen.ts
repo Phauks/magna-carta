@@ -70,6 +70,55 @@ export type ProvisionFirmRequest = {
     };
 };
 
+export type InitiateUploadResponse = {
+    mode: 'put';
+    uploadId: string;
+    fileId: string;
+    versionId: string;
+    key: string;
+    method: 'PUT';
+    url: string;
+    headers: {
+        [key: string]: string;
+    };
+} | {
+    mode: 'multipart';
+    uploadId: string;
+    fileId: string;
+    versionId: string;
+    key: string;
+};
+
+export type InitiateUploadRequest = {
+    matterId: string;
+    folderId?: string | null;
+    name: string;
+    declaredSize: number | null;
+    declaredContentType: string | null;
+    documentTypeId?: string | null;
+    fileId?: string;
+};
+
+export type SignUploadPartResponse = {
+    url: string;
+};
+
+export type CompleteUploadResponse = {
+    key: string;
+    location: string;
+};
+
+export type CompleteUploadRequest = {
+    parts?: Array<{
+        partNumber: number;
+        etag: string;
+    }>;
+};
+
+export type AbortUploadResponse = {
+    status: 'aborted';
+};
+
 export type HealthReadData = {
     body?: never;
     path?: never;
@@ -214,3 +263,185 @@ export type FirmsProvisionResponses = {
 };
 
 export type FirmsProvisionResponse = FirmsProvisionResponses[keyof FirmsProvisionResponses];
+
+export type UploadsInitiateData = {
+    body: InitiateUploadRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/uploads';
+};
+
+export type UploadsInitiateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:upload
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the target file is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The firm policy refuses this upload, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type UploadsInitiateError = UploadsInitiateErrors[keyof UploadsInitiateErrors];
+
+export type UploadsInitiateResponses = {
+    /**
+     * The upload was initiated; use the returned URL (PUT) or session (multipart)
+     */
+    201: InitiateUploadResponse;
+};
+
+export type UploadsInitiateResponse = UploadsInitiateResponses[keyof UploadsInitiateResponses];
+
+export type UploadsSignPartData = {
+    body?: never;
+    path: {
+        id: string;
+        partNumber: string;
+    };
+    query?: never;
+    url: '/api/v1/uploads/{id}/parts/{partNumber}';
+};
+
+export type UploadsSignPartErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:upload
+     */
+    403: Problem;
+    /**
+     * No such upload session in this firm
+     */
+    404: Problem;
+    /**
+     * The session is not open, or is not a multipart session
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type UploadsSignPartError = UploadsSignPartErrors[keyof UploadsSignPartErrors];
+
+export type UploadsSignPartResponses = {
+    /**
+     * A presigned PUT URL for the requested part
+     */
+    200: SignUploadPartResponse;
+};
+
+export type UploadsSignPartResponse = UploadsSignPartResponses[keyof UploadsSignPartResponses];
+
+export type UploadsCompleteData = {
+    body?: CompleteUploadRequest;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/uploads/{id}/complete';
+};
+
+export type UploadsCompleteErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:upload
+     */
+    403: Problem;
+    /**
+     * No such upload session in this firm
+     */
+    404: Problem;
+    /**
+     * The session is not open, or a multipart completion was sent without parts
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type UploadsCompleteError = UploadsCompleteErrors[keyof UploadsCompleteErrors];
+
+export type UploadsCompleteResponses = {
+    /**
+     * The session was completed; the object is in R2 awaiting ingest
+     */
+    200: CompleteUploadResponse;
+};
+
+export type UploadsCompleteResponse = UploadsCompleteResponses[keyof UploadsCompleteResponses];
+
+export type UploadsAbortData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/uploads/{id}/abort';
+};
+
+export type UploadsAbortErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:upload
+     */
+    403: Problem;
+    /**
+     * No such upload session in this firm
+     */
+    404: Problem;
+    /**
+     * The session is not open
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type UploadsAbortError = UploadsAbortErrors[keyof UploadsAbortErrors];
+
+export type UploadsAbortResponses = {
+    /**
+     * The session was aborted and its pending version abandoned
+     */
+    200: AbortUploadResponse;
+};
+
+export type UploadsAbortResponse = UploadsAbortResponses[keyof UploadsAbortResponses];
