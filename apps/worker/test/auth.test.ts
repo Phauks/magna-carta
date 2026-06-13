@@ -71,7 +71,7 @@ describe("schema-sync fitness: better-auth against the committed control-plane m
         firmId,
       },
     });
-    expect(user.id).toMatch(/^usr_/);
+    expect(user.id).toMatch(/^user_/);
 
     const session = await adapter.create<Record<string, unknown>, CreatedRow>({
       model: "session",
@@ -83,7 +83,7 @@ describe("schema-sync fitness: better-auth against the committed control-plane m
         updatedAt: now,
       },
     });
-    expect(session.id).toMatch(/^ses_/);
+    expect(session.id).toMatch(/^session_/);
 
     const account = await adapter.create<Record<string, unknown>, CreatedRow>({
       model: "account",
@@ -96,7 +96,7 @@ describe("schema-sync fitness: better-auth against the committed control-plane m
         updatedAt: now,
       },
     });
-    expect(account.id).toMatch(/^acc_/);
+    expect(account.id).toMatch(/^account_/);
 
     const verification = await adapter.create<Record<string, unknown>, CreatedRow>({
       model: "verification",
@@ -108,7 +108,7 @@ describe("schema-sync fitness: better-auth against the committed control-plane m
         updatedAt: now,
       },
     });
-    expect(verification.id).toMatch(/^ver_/);
+    expect(verification.id).toMatch(/^verification_/);
 
     const twoFactorRow = await adapter.create<Record<string, unknown>, CreatedRow>({
       model: "twoFactor",
@@ -119,7 +119,7 @@ describe("schema-sync fitness: better-auth against the committed control-plane m
         verified: false,
       },
     });
-    expect(twoFactorRow.id).toMatch(/^twf_/);
+    expect(twoFactorRow.id).toMatch(/^twoFactor_/);
 
     // Read side: the adapter's field transforms must line up with the stored columns too —
     // read every one of the five models back, querying by a non-id field where one exists so

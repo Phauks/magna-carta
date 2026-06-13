@@ -263,7 +263,7 @@ describe("end-to-end", () => {
     const paralegalRole = await env.DB_FIRM_POOL_1.prepare(
       "SELECT id FROM role WHERE name = 'Paralegal'",
     ).first<{ id: string }>();
-    expect(paralegalRole?.id).toMatch(/^rol_/);
+    expect(paralegalRole?.id).toMatch(/^role_/);
   });
 
   it("leaves no trace of firm A's activity in firm B (tenant isolation)", async () => {

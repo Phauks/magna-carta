@@ -11,17 +11,17 @@ describe("insertOutboxMessageStatement", () => {
     const statement = captured(
       insertOutboxMessageStatement(
         stub.database,
-        { topic: "payment.capture", payload: { b: 2, a: 1 }, aggregateKey: "led_x" },
+        { topic: "payment.capture", payload: { b: 2, a: 1 }, aggregateKey: "ledgerEntry_x" },
         "2026-06-09T00:00:00.000Z",
       ),
     );
     expect(statement.sql).toContain("INSERT INTO outbox");
     expect(statement.sql).toContain("'pending'");
     const [id, topic, payload, aggregateKey, createdAt] = statement.bindings;
-    expect(id).toMatch(/^obx_[A-Za-z0-9_-]{21}$/);
+    expect(id).toMatch(/^outbox_[A-Za-z0-9_-]{21}$/);
     expect(topic).toBe("payment.capture");
     expect(payload).toBe('{"a":1,"b":2}'); // canonical JSON — key order normalized
-    expect(aggregateKey).toBe("led_x");
+    expect(aggregateKey).toBe("ledgerEntry_x");
     expect(createdAt).toBe("2026-06-09T00:00:00.000Z");
   });
 
@@ -30,7 +30,7 @@ describe("insertOutboxMessageStatement", () => {
     const ordered = captured(
       insertOutboxMessageStatement(
         stub.database,
-        { topic: "t", payload: {}, aggregateKey: "mat_x" },
+        { topic: "t", payload: {}, aggregateKey: "matter_x" },
         "2026-06-09T00:00:00.000Z",
       ),
     );
@@ -52,11 +52,11 @@ describe("requeueDeadLetteredMessageStatement", () => {
   it("flips a row back to pending and zeroes attempts, guarded to only-failed rows", () => {
     const stub = stubD1();
     const statement = captured(
-      requeueDeadLetteredMessageStatement(stub.database, { id: "obx_dead" }),
+      requeueDeadLetteredMessageStatement(stub.database, { id: "outbox_dead" }),
     );
     expect(statement.sql).toContain("UPDATE outbox SET status = 'pending', attempts = 0");
     // The guard is what makes this safe to fire blindly: a non-failed row is untouched.
     expect(statement.sql).toContain("WHERE id = ?1 AND status = 'failed'");
-    expect(statement.bindings).toEqual(["obx_dead"]);
+    expect(statement.bindings).toEqual(["outbox_dead"]);
   });
 });

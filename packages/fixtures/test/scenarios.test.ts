@@ -29,14 +29,14 @@ describe("named scenarios — short stories through the real write paths, assert
   it("retainerDeposit: trust bank and client subledger both grow by the deposit", async () => {
     const { database, context, accounts } = await setup();
     const result = await retainerDeposit(database, context, accounts);
-    expect(result.entryId).toMatch(/^led_/);
+    expect(result.entryId).toMatch(/^ledgerEntry_/);
     await expectFitnessClean(database);
   });
 
   it("trustCorrection: post + reverse restores both balances and links the pair", async () => {
     const { database, context, accounts } = await setup();
     const result = await trustCorrection(database, context, accounts);
-    expect(result.reversalEntryId).toMatch(/^led_/);
+    expect(result.reversalEntryId).toMatch(/^ledgerEntry_/);
     await expectFitnessClean(database);
   });
 

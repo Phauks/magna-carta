@@ -125,7 +125,7 @@ describe("reverseEntry — first-class corrections", () => {
       reverseEntry(
         database,
         {
-          entryId: "led_doesnotexist00000000" as never,
+          entryId: "ledgerEntry_doesnotexist00000000" as never,
           description: "x",
           effectiveDate: "2026-06-09",
         },

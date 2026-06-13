@@ -54,7 +54,7 @@ describe("createAccount", () => {
           name: "Ghost child",
           type: "liability",
           currency: "USD",
-          parentAccountId: "acct_doesnotexist000000000" as never,
+          parentAccountId: "ledgerAccount_doesnotexist000000000" as never,
         },
         { clock },
       ),

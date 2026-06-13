@@ -21,7 +21,7 @@ export const wrongBrand: MatterId = documentId;
 export const wrongBrand2: MatterId = firmId;
 
 // @ts-expect-error - a raw string must not be assignable to a MatterId without validation
-export const rawString: MatterId = "mat_V1StGXR8Z5jdHiopq2Cf";
+export const rawString: MatterId = "matter_V1StGXR8Z5jdHiopq2Cf";
 
 // @ts-expect-error - a LedgerAccountId must not be assignable to a LedgerLineId (distinct brands)
 export const wrongLedgerBrand: LedgerLineId = ledgerAccountId;

@@ -58,6 +58,6 @@ describe("chokepoint rate-limit gate (429 + Retry-After) through the wired app",
       type: "https://api.magnacarta.esq/problems/rate-limited",
       status: 429,
     });
-    expect(body["errorId"]).toMatch(/^err_/);
+    expect(body["errorId"]).toMatch(/^error_/);
   });
 });

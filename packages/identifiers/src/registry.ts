@@ -1,44 +1,50 @@
 // The single source of truth mapping each entity type to its handle prefix. A handle is
-// `<prefix>_<token>` (e.g. mat_V1StGXR8Z5jdHiopq2Cf): the prefix here carries NO trailing underscore —
-// the `_` is the separator added at generation time. Adding an entity = one row here + one alias in types.ts.
-// Self-describing prefixes make ids debuggable in logs and defend against id-type confusion.
+// `<prefix>_<token>` (e.g. matter_V1StGXR8Z5jdHiopq2Cf): the prefix carries NO trailing underscore —
+// the `_` is the separator added at generation time, and the single `_` is what splits the prefix
+// from the token (the token alphabet `[A-Za-z0-9_-]` may itself contain `_`, so word boundaries in
+// the prefix come from camelCase, never an underscore). The prefix is the entity type spelled out in
+// full — identical to the key — so names are never abbreviated and the prefix can never drift from
+// the key. Self-describing prefixes make ids debuggable in logs and defend against id-type confusion.
+// Adding an entity = one row here (prefix = the key) + one alias in types.ts.
 export const ENTITY_PREFIXES = {
-  matter: "mat",
-  document: "doc",
-  directory: "dir",
-  invoice: "inv",
-  event: "evt",
-  portalGrant: "pgr",
-  ledgerEntry: "led",
-  ledgerAccount: "acct",
-  ledgerLine: "lln",
-  outbox: "obx",
-  idempotencyRecord: "idr",
-  user: "usr",
+  matter: "matter",
+  document: "document",
+  directory: "directory",
+  invoice: "invoice",
+  event: "event",
+  portalGrant: "portalGrant",
+  ledgerEntry: "ledgerEntry",
+  ledgerAccount: "ledgerAccount",
+  ledgerLine: "ledgerLine",
+  outbox: "outbox",
+  idempotencyRecord: "idempotencyRecord",
+  user: "user",
   firm: "firm",
-  session: "ses",
-  account: "acc",
-  verification: "ver",
-  twoFactor: "twf",
-  role: "rol",
-  rolePermission: "rpm",
-  memberRole: "mrl",
-  grant: "gnt",
-  authAudit: "aud",
-  error: "err",
+  session: "session",
+  account: "account",
+  verification: "verification",
+  twoFactor: "twoFactor",
+  role: "role",
+  rolePermission: "rolePermission",
+  memberRole: "memberRole",
+  grant: "grant",
+  authAudit: "authAudit",
+  error: "error",
   // Matters, Locations & File Manager. `matterType`/`documentType` are the per-firm classification
   // catalogs (distinct from `document`, a stored object); `numberingScheme` is the matter-number
   // template; `file`/`fileVersion` are the versioned object metadata; `uploadSession` tracks an
   // in-flight direct-to-R2 upload; `auditLog` is the per-firm append-only mutation record.
-  location: "loc",
-  matterType: "mtt",
-  documentType: "dty",
-  numberingScheme: "nsc",
-  folder: "fld",
-  file: "fil",
-  fileVersion: "fvr",
-  uploadSession: "upl",
-  auditLog: "alg",
+  location: "location",
+  locationAddress: "locationAddress",
+  memberLocation: "memberLocation",
+  matterType: "matterType",
+  documentType: "documentType",
+  numberingScheme: "numberingScheme",
+  folder: "folder",
+  file: "file",
+  fileVersion: "fileVersion",
+  uploadSession: "uploadSession",
+  auditLog: "auditLog",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

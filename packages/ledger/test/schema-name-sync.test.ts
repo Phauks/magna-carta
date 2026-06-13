@@ -70,10 +70,10 @@ function expectOnlyKnownIdentifiers(sql: string, allowed: ReadonlySet<string>, l
   }
 }
 
-const ACCOUNT_ID = "acct_x" as never;
-const PARENT_ID = "acct_p" as never;
-const ENTRY_ID = "led_x" as never;
-const LINE_ID = "lln_x" as never;
+const ACCOUNT_ID = "ledgerAccount_x" as never;
+const PARENT_ID = "ledgerAccount_p" as never;
+const ENTRY_ID = "ledgerEntry_x" as never;
+const LINE_ID = "ledgerLine_x" as never;
 
 describe("schema name sync (ledger SQL pinned to @magna-carta/database)", () => {
   it("table names match the drizzle schema", () => {

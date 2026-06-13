@@ -108,7 +108,7 @@ describe("provisionFirm", () => {
     expect(outcome.kind).toBe("ready-to-activate");
     if (outcome.kind !== "ready-to-activate") return;
     expect(outcome.firmId).toMatch(/^firm_/);
-    expect(outcome.ownerUserId).toMatch(/^usr_/);
+    expect(outcome.ownerUserId).toMatch(/^user_/);
     expect(outcome.ownerEmail).toBe(ownerEmailFor(input.name)); // lowercased from the uppercase input
 
     const firmRow = await firmRowByName(input.name);
@@ -316,7 +316,7 @@ describe("provisionFirm", () => {
       'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at, firm_id) VALUES (?1, ?2, ?3, 0, ?4, ?4, ?5)',
     )
       .bind(
-        "usr_bbbbbbbbbbbbbbbbbbbbb",
+        "user_bbbbbbbbbbbbbbbbbbbbb",
         "Invited Bob",
         "invited-bob@example.com",
         Date.now(),

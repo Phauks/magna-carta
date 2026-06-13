@@ -41,8 +41,8 @@ describe("outbox seq against real SQLite (in-transaction visibility)", () => {
 
   it("two same-aggregate inserts in one transaction get consecutive seq (0 then 1)", () => {
     const database = setupDatabase();
-    const first = productionInsert("mat_x");
-    const second = productionInsert("mat_x");
+    const first = productionInsert("matter_x");
+    const second = productionInsert("matter_x");
     database.exec("BEGIN");
     database.prepare(first.sql).run(...first.bindings);
     database.prepare(second.sql).run(...second.bindings);
@@ -55,8 +55,8 @@ describe("outbox seq against real SQLite (in-transaction visibility)", () => {
 
   it("different aggregates each start at 0; no aggregate key yields NULL seq", () => {
     const database = setupDatabase();
-    const a = productionInsert("mat_a");
-    const b = productionInsert("mat_b");
+    const a = productionInsert("matter_a");
+    const b = productionInsert("matter_b");
     const unordered = productionInsert(undefined);
     database.exec("BEGIN");
     database.prepare(a.sql).run(...a.bindings);
@@ -67,8 +67,8 @@ describe("outbox seq against real SQLite (in-transaction visibility)", () => {
       aggregate_key: string | null;
       seq: number | null;
     }[];
-    expect(rows.find((row) => row.aggregate_key === "mat_a")?.seq).toBe(0);
-    expect(rows.find((row) => row.aggregate_key === "mat_b")?.seq).toBe(0);
+    expect(rows.find((row) => row.aggregate_key === "matter_a")?.seq).toBe(0);
+    expect(rows.find((row) => row.aggregate_key === "matter_b")?.seq).toBe(0);
     expect(rows.find((row) => row.aggregate_key === null)?.seq).toBeNull();
   });
 });

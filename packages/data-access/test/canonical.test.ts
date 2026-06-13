@@ -19,12 +19,12 @@ describe("fingerprintRequest", () => {
     const one = await fingerprintRequest({
       method: "POST",
       path: "/api/payments",
-      body: { amountMinor: 100, matterId: "mat_x" },
+      body: { amountMinor: 100, matterId: "matter_x" },
     });
     const two = await fingerprintRequest({
       method: "post",
       path: "/api/payments",
-      body: { matterId: "mat_x", amountMinor: 100 },
+      body: { matterId: "matter_x", amountMinor: 100 },
     });
     expect(one).toMatch(/^[0-9a-f]{64}$/);
     expect(two).toBe(one); // method case-insensitive, body key order irrelevant

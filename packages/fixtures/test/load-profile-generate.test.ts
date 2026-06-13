@@ -31,10 +31,10 @@ describe("load-profile generation", () => {
     expect(result.entryCount).toBe(entryCountRows[0]!.entry_count);
 
     // Probes point at real rows.
-    expect(result.probes.busySubledgerAccountId).toMatch(/^acct_/);
-    expect(result.probes.operatingBankAccountId).toMatch(/^acct_/);
-    expect(result.probes.feeIncomeAccountId).toMatch(/^acct_/);
-    expect(result.probes.sampleEntryId).toMatch(/^led_/); // the registry's ledgerEntry prefix
+    expect(result.probes.busySubledgerAccountId).toMatch(/^ledgerAccount_/);
+    expect(result.probes.operatingBankAccountId).toMatch(/^ledgerAccount_/);
+    expect(result.probes.feeIncomeAccountId).toMatch(/^ledgerAccount_/);
+    expect(result.probes.sampleEntryId).toMatch(/^ledgerEntry_/); // the registry's ledgerEntry prefix
 
     // The whole generated book satisfies every table-wide ledger invariant.
     await assertLedgerFitness(local.database);

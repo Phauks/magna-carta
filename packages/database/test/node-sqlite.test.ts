@@ -64,13 +64,13 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
       .prepare(
         "INSERT INTO ledger_account (id, name, type, currency, active, created_at) VALUES (?1, ?2, 'asset', 'USD', 1, ?3)",
       )
-      .bind("acct_aaaaaaaaaaaaaaaaaaaaa", "Operating Bank", "2026-01-05T09:00:00.000Z");
+      .bind("ledgerAccount_aaaaaaaaaaaaaaaaaaaaa", "Operating Bank", "2026-01-05T09:00:00.000Z");
     // Second statement violates the name CHECK — the whole batch must roll back.
     const badInsert = database
       .prepare(
         "INSERT INTO ledger_account (id, name, type, currency, active, created_at) VALUES (?1, ?2, 'asset', 'USD', 1, ?3)",
       )
-      .bind("acct_bbbbbbbbbbbbbbbbbbbbb", "", "2026-01-05T09:00:00.000Z");
+      .bind("ledgerAccount_bbbbbbbbbbbbbbbbbbbbb", "", "2026-01-05T09:00:00.000Z");
     await expect(database.batch([goodInsert, badInsert])).rejects.toThrow(/CHECK/);
     const { results } = await database
       .prepare("SELECT COUNT(*) AS n FROM ledger_account")
@@ -136,13 +136,13 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
       .prepare(
         "INSERT INTO ledger_account (id, name, type, currency, active, created_at) VALUES (?1, ?2, 'asset', 'USD', 1, ?3)",
       )
-      .bind("acct_ccccccccccccccccccccc", "Trust Bank", "2026-01-05T09:00:00.000Z")
+      .bind("ledgerAccount_ccccccccccccccccccccc", "Trust Bank", "2026-01-05T09:00:00.000Z")
       .run();
     expect(meta.changes).toBe(1);
     // Visible immediately through the raw handle — committed, not held in an open transaction.
     const row = raw
       .prepare("SELECT name FROM ledger_account WHERE id = ?")
-      .get("acct_ccccccccccccccccccccc") as { name: string };
+      .get("ledgerAccount_ccccccccccccccccccccc") as { name: string };
     expect(row.name).toBe("Trust Bank");
   });
 });

@@ -93,7 +93,7 @@ describe("schema-name sync", () => {
       captured(selectIdempotencyRecordStatement(stub.database, "k")).sql,
       captured(
         insertCompletedIdempotencyRecordStatement(stub.database, {
-          id: "idr_x" as never,
+          id: "idempotencyRecord_x" as never,
           key: "k",
           fingerprint: "f",
           responseCode: 200,
@@ -120,7 +120,7 @@ describe("schema-name sync", () => {
 
   it("every column the member-mirror and auth-audit SQL names exists in the schema", () => {
     const stub = stubD1();
-    const userId = "usr_x" as never;
+    const userId = "user_x" as never;
     const reads = selectMemberPermissionsStatements(stub.database, userId);
 
     // Each statement is checked against the union of columns of EXACTLY the tables it touches.
@@ -137,9 +137,9 @@ describe("schema-name sync", () => {
           label: "role assignment insert",
           sql: captured(
             insertRoleAssignmentStatement(stub.database, {
-              id: "mrl_x" as never,
+              id: "memberRole_x" as never,
               memberUserId: userId,
-              roleId: "rol_x" as never,
+              roleId: "role_x" as never,
             }),
           ).sql,
           tables: [memberRole],
@@ -165,7 +165,7 @@ describe("schema-name sync", () => {
           label: "auth-audit insert",
           sql: captured(
             insertAuthAuditStatement(stub.database, {
-              id: "aud_x" as never,
+              id: "authAudit_x" as never,
               event: "e",
               userId: null,
               metadata: null,

@@ -112,7 +112,7 @@
           },
           "errorId": {
             "type": "string",
-            "pattern": "^err_[A-Za-z0-9_-]{21}$"
+            "pattern": "^error_[A-Za-z0-9_-]{21}$"
           },
           "instance": {
             "type": "string"

@@ -88,7 +88,7 @@ describe("idempotencyMiddleware", () => {
         fingerprint: storedFingerprint,
         status: "completed",
         response_code: 201,
-        response_body: '{"id":"inv_stored"}',
+        response_body: '{"id":"invoice_stored"}',
       },
     ]);
     const { app, handler } = appWith("required", stub);
@@ -113,7 +113,7 @@ describe("idempotencyMiddleware", () => {
       headers: { "content-type": "application/json", "Idempotency-Key": "client-key-1" },
     });
     expect(replay.status).toBe(201);
-    expect(await replay.json()).toEqual({ id: "inv_stored" });
+    expect(await replay.json()).toEqual({ id: "invoice_stored" });
     expect(replay.headers.get("Idempotency-Replayed")).toBe("true");
     expect(handler).not.toHaveBeenCalled();
   });
@@ -128,7 +128,7 @@ describe("idempotencyMiddleware", () => {
         fingerprint: storedFingerprint,
         status: "completed",
         response_code: 201,
-        response_body: '{"id":"inv_stored"}',
+        response_body: '{"id":"invoice_stored"}',
       },
     ]);
     const { app, handler } = appWith("required", stub);

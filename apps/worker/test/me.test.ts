@@ -35,7 +35,7 @@ describe("GET /api/v1/me", () => {
       status: 401,
       instance: "/api/v1/me",
     });
-    expect(body["errorId"]).toMatch(/^err_/);
+    expect(body["errorId"]).toMatch(/^error_/);
   });
 
   it("returns the session user, firm, and effective permissions including the role seeds", async () => {
@@ -82,7 +82,7 @@ describe("GET /api/v1/me", () => {
       title: "Not found",
       status: 404,
     });
-    expect(body["errorId"]).toMatch(/^err_/);
+    expect(body["errorId"]).toMatch(/^error_/);
   });
 
   it("answers 200 with EMPTY permissions for a never-mirrored user (sweep lag is transient and self-heals)", async () => {
@@ -125,7 +125,7 @@ describe("GET /api/v1/me", () => {
       title: "Not found",
       status: 404,
     });
-    expect(body["errorId"]).toMatch(/^err_/);
+    expect(body["errorId"]).toMatch(/^error_/);
   });
 
   it("emits the route into the OpenAPI document with the native operationId and x-mc metadata", async () => {

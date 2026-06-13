@@ -70,18 +70,18 @@ describe("idempotencyKeyHeader", () => {
 describe("identifierPathParam", () => {
   it("accepts a well-formed handle for the entity type, including freshly generated ones", () => {
     const schema = identifierPathParam("matter", "matterId");
-    expect(schema.safeParse("mat_V1StGXR8_Z5jdHi6B-myT").success).toBe(true);
+    expect(schema.safeParse("matter_V1StGXR8_Z5jdHi6B-myT").success).toBe(true);
     expect(schema.safeParse(newIdentifier("matter")).success).toBe(true);
   });
 
   it("rejects a handle with the wrong entity prefix", () => {
     const schema = identifierPathParam("matter", "matterId");
-    expect(schema.safeParse("doc_V1StGXR8_Z5jdHi6B-myT").success).toBe(false);
+    expect(schema.safeParse("document_V1StGXR8_Z5jdHi6B-myT").success).toBe(false);
   });
 
   it("rejects a malformed handle (short token, no prefix)", () => {
     const schema = identifierPathParam("matter", "matterId");
-    expect(schema.safeParse("mat_short").success).toBe(false);
+    expect(schema.safeParse("matter_short").success).toBe(false);
     expect(schema.safeParse("not-an-identifier").success).toBe(false);
   });
 
@@ -108,10 +108,10 @@ describe("identifierPathParam", () => {
 
   it("admits a well-formed handle through route validation", async () => {
     const response = await appWithMatterRoute().request(
-      "/api/v1/matters/mat_V1StGXR8_Z5jdHi6B-myT",
+      "/api/v1/matters/matter_V1StGXR8_Z5jdHi6B-myT",
     );
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ matterId: "mat_V1StGXR8_Z5jdHi6B-myT" });
+    expect(await response.json()).toEqual({ matterId: "matter_V1StGXR8_Z5jdHi6B-myT" });
   });
 
   it("rejects a malformed handle with the 422 validation problem", async () => {
@@ -152,6 +152,6 @@ describe("identifierPathParam", () => {
     expect(matterIdParameter).toBeDefined();
     expect(matterIdParameter.in).toBe("path");
     expect(matterIdParameter.required).toBe(true);
-    expect(matterIdParameter.schema.pattern).toContain("mat_");
+    expect(matterIdParameter.schema.pattern).toContain("matter_");
   });
 });

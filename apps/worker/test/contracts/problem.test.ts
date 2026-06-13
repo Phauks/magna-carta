@@ -57,7 +57,7 @@ describe("Problem schema", () => {
       title: "Validation failed",
       status: 422,
       detail: "One or more fields failed validation.",
-      errorId: "err_V1StGXR8_Z5jdHi6B-myT",
+      errorId: "error_V1StGXR8_Z5jdHi6B-myT",
       instance: "/api/v1/matters",
       errors: [{ path: "title", code: "too_small", detail: "Too small" }],
     });
@@ -69,7 +69,7 @@ describe("Problem schema", () => {
       type: "https://api.magnacarta.esq/problems/not-found",
       title: "Not found",
       status: 404,
-      errorId: "err_V1StGXR8_Z5jdHi6B-myT",
+      errorId: "error_V1StGXR8_Z5jdHi6B-myT",
     });
     expect(parsed.success).toBe(true);
   });
@@ -78,7 +78,7 @@ describe("Problem schema", () => {
     const base = {
       type: "https://api.magnacarta.esq/problems/not-found",
       title: "Not found",
-      errorId: "err_V1StGXR8_Z5jdHi6B-myT",
+      errorId: "error_V1StGXR8_Z5jdHi6B-myT",
     };
     expect(Problem.safeParse({ ...base, status: 200 }).success).toBe(false);
     expect(Problem.safeParse({ ...base, status: 304 }).success).toBe(false);
@@ -94,8 +94,8 @@ describe("Problem schema", () => {
       title: "Not found",
       status: 404,
     };
-    expect(Problem.safeParse({ ...base, errorId: "err_8Kf3pQ2v" }).success).toBe(false); // token too short
-    expect(Problem.safeParse({ ...base, errorId: "mat_V1StGXR8_Z5jdHi6B-myT" }).success).toBe(
+    expect(Problem.safeParse({ ...base, errorId: "error_8Kf3pQ2v" }).success).toBe(false); // token too short
+    expect(Problem.safeParse({ ...base, errorId: "matter_V1StGXR8_Z5jdHi6B-myT" }).success).toBe(
       false,
     ); // wrong entity prefix
     expect(Problem.safeParse({ ...base, errorId: "not-an-identifier" }).success).toBe(false);
@@ -115,7 +115,7 @@ describe("Problem schema", () => {
       type: "https://api.magnacarta.esq/problems/permission-denied",
       title: "Permission denied",
       status: 403,
-      errorId: "err_V1StGXR8_Z5jdHi6B-myT",
+      errorId: "error_V1StGXR8_Z5jdHi6B-myT",
       requestAccess: true,
     });
     expect(parsed.success).toBe(true);
@@ -126,7 +126,7 @@ describe("Problem schema", () => {
       type: "https://api.magnacarta.esq/problems/permission-denied",
       title: "Permission denied",
       status: 403,
-      errorId: "err_V1StGXR8_Z5jdHi6B-myT",
+      errorId: "error_V1StGXR8_Z5jdHi6B-myT",
       requestAccess: "yes",
     });
     expect(parsed.success).toBe(false);
@@ -168,8 +168,8 @@ describe("problemJson", () => {
       string,
       unknown
     >;
-    expect(first.errorId).toMatch(/^err_[A-Za-z0-9_-]{21}$/);
-    expect(second.errorId).toMatch(/^err_[A-Za-z0-9_-]{21}$/);
+    expect(first.errorId).toMatch(/^error_[A-Za-z0-9_-]{21}$/);
+    expect(second.errorId).toMatch(/^error_[A-Za-z0-9_-]{21}$/);
     expect(first.errorId).not.toBe(second.errorId);
   });
 
@@ -279,7 +279,7 @@ describe("defaultHook", () => {
     expect(body.type).toBe("https://api.magnacarta.esq/problems/validation");
     expect(body.title).toBe("Validation failed");
     expect(body.status).toBe(422);
-    expect(body.errorId).toMatch(/^err_[A-Za-z0-9_-]{21}$/);
+    expect(body.errorId).toMatch(/^error_[A-Za-z0-9_-]{21}$/);
     expect(body.instance).toBe("/api/v1/matters");
     const paths = body.errors.map((error: { path: string }) => error.path);
     expect(paths).toContain("title");

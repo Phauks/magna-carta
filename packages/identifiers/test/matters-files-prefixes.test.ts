@@ -1,33 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { newIdentifier } from "../src/generate.ts";
-import { ENTITY_PREFIXES } from "../src/registry.ts";
 import type {
   AuditLogId,
   DocumentTypeId,
   FileId,
   FileVersionId,
   FolderId,
+  LocationAddressId,
   LocationId,
   MatterTypeId,
+  MemberLocationId,
   NumberingSchemeId,
   UploadSessionId,
 } from "../src/types.ts";
 
 describe("matters / locations / file-manager identifier prefixes", () => {
-  it("registers the new prefixes without colliding with existing ones", () => {
-    expect(ENTITY_PREFIXES.location).toBe("loc");
-    expect(ENTITY_PREFIXES.matterType).toBe("mtt");
-    expect(ENTITY_PREFIXES.documentType).toBe("dty");
-    expect(ENTITY_PREFIXES.numberingScheme).toBe("nsc");
-    expect(ENTITY_PREFIXES.folder).toBe("fld");
-    expect(ENTITY_PREFIXES.file).toBe("fil");
-    expect(ENTITY_PREFIXES.fileVersion).toBe("fvr");
-    expect(ENTITY_PREFIXES.uploadSession).toBe("upl");
-    expect(ENTITY_PREFIXES.auditLog).toBe("alg");
-  });
-
-  it("mints handles with the new prefixes and the branded aliases compile", () => {
+  it("mints handles with the full-name prefixes and the branded aliases compile", () => {
     const locationId: LocationId = newIdentifier("location");
+    const locationAddressId: LocationAddressId = newIdentifier("locationAddress");
+    const memberLocationId: MemberLocationId = newIdentifier("memberLocation");
     const matterTypeId: MatterTypeId = newIdentifier("matterType");
     const documentTypeId: DocumentTypeId = newIdentifier("documentType");
     const numberingSchemeId: NumberingSchemeId = newIdentifier("numberingScheme");
@@ -37,14 +28,16 @@ describe("matters / locations / file-manager identifier prefixes", () => {
     const uploadSessionId: UploadSessionId = newIdentifier("uploadSession");
     const auditLogId: AuditLogId = newIdentifier("auditLog");
 
-    expect(locationId).toMatch(/^loc_[A-Za-z0-9_-]{21}$/);
-    expect(matterTypeId).toMatch(/^mtt_[A-Za-z0-9_-]{21}$/);
-    expect(documentTypeId).toMatch(/^dty_[A-Za-z0-9_-]{21}$/);
-    expect(numberingSchemeId).toMatch(/^nsc_[A-Za-z0-9_-]{21}$/);
-    expect(folderId).toMatch(/^fld_[A-Za-z0-9_-]{21}$/);
-    expect(fileId).toMatch(/^fil_[A-Za-z0-9_-]{21}$/);
-    expect(fileVersionId).toMatch(/^fvr_[A-Za-z0-9_-]{21}$/);
-    expect(uploadSessionId).toMatch(/^upl_[A-Za-z0-9_-]{21}$/);
-    expect(auditLogId).toMatch(/^alg_[A-Za-z0-9_-]{21}$/);
+    expect(locationId).toMatch(/^location_[A-Za-z0-9_-]{21}$/);
+    expect(locationAddressId).toMatch(/^locationAddress_[A-Za-z0-9_-]{21}$/);
+    expect(memberLocationId).toMatch(/^memberLocation_[A-Za-z0-9_-]{21}$/);
+    expect(matterTypeId).toMatch(/^matterType_[A-Za-z0-9_-]{21}$/);
+    expect(documentTypeId).toMatch(/^documentType_[A-Za-z0-9_-]{21}$/);
+    expect(numberingSchemeId).toMatch(/^numberingScheme_[A-Za-z0-9_-]{21}$/);
+    expect(folderId).toMatch(/^folder_[A-Za-z0-9_-]{21}$/);
+    expect(fileId).toMatch(/^file_[A-Za-z0-9_-]{21}$/);
+    expect(fileVersionId).toMatch(/^fileVersion_[A-Za-z0-9_-]{21}$/);
+    expect(uploadSessionId).toMatch(/^uploadSession_[A-Za-z0-9_-]{21}$/);
+    expect(auditLogId).toMatch(/^auditLog_[A-Za-z0-9_-]{21}$/);
   });
 });
