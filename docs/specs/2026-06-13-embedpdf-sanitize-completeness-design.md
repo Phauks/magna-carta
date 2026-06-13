@@ -152,7 +152,7 @@ The approval-latency pilot. Built and validated green in our fork CI (run #6, fu
 | --- | --- | --- |
 | Enhancement issue (**pilot t=0**) | [embedpdf/embed-pdf-viewer#673](https://github.com/embedpdf/embed-pdf-viewer/issues/673) | 2026-06-13 |
 | PR A — `EPDF_*` C++ (XMP, thumbnails, JavaScript) | [embedpdf/pdfium#27](https://github.com/embedpdf/pdfium/pull/27) | 2026-06-13 |
-| PR B — `sanitizeDocument` TS + tests + vendored wasm | pending (gated on PR A merge: submodule re-point; fork-CI scaffolding stripped) | — |
+| PR B — `sanitizeDocument` TS + tests + vendored wasm | [embedpdf/embed-pdf-viewer#674](https://github.com/embedpdf/embed-pdf-viewer/pull/674) (depends on PR A; submodule re-points to the merged SHA) | 2026-06-13 |
 | Maintainer first response | — | — |
 | Merge / close (**the latency datapoint**) | — | — |
 
