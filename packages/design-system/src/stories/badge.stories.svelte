@@ -12,11 +12,11 @@
   const { Story } = defineMeta({
     title: "Components/Badge",
     component: Badge,
-    args: { variant: "default" },
+    args: { variant: "primary" },
     argTypes: {
       variant: {
         control: "select",
-        options: ["default", "secondary", "destructive", "outline"],
+        options: ["primary", "secondary", "destructive", "outline"],
       },
     },
   });
@@ -29,8 +29,8 @@
 {/snippet}
 
 <Story
-  name="Default"
-  args={{ variant: "default" }}
+  name="Primary"
+  args={{ variant: "primary" }}
   {template}
   play={async ({ canvas }) => {
     const badge = canvas.getByText("Active");

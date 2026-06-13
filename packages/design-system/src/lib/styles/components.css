@@ -43,9 +43,11 @@
     outline-width: var(--mc-space-0);
     outline-offset: var(--mc-focus-ring-offset);
   }
+  /* Flush focus edge (offset 0), consistent with the bordered controls — no detached ring. */
   .mc-button:focus-visible {
     outline-color: var(--mc-focus-ring);
     outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
   }
   .mc-button:disabled {
     background-color: var(--mc-action-disabled);
@@ -232,10 +234,12 @@
   .mc-textarea::placeholder {
     color: var(--mc-text-muted);
   }
+  /* Merged-edge focus, same as Input (no detached offset ring). */
   .mc-textarea:focus-visible {
-    border-color: var(--mc-border-focus);
+    border-color: var(--mc-focus-ring);
     outline-color: var(--mc-focus-ring);
     outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
   }
   .mc-textarea:disabled {
     background-color: var(--mc-action-disabled);
@@ -265,7 +269,7 @@
     line-height: var(--mc-leading-tight);
     white-space: nowrap;
   }
-  .mc-badge-default {
+  .mc-badge-primary {
     background-color: var(--mc-action-primary);
     color: var(--mc-action-primary-foreground);
   }
@@ -354,7 +358,7 @@
    * slice 0·7b).
    */
   .mc-skeleton {
-    background-color: var(--mc-action-secondary);
+    background-color: var(--mc-action-disabled);
     border-radius: var(--mc-radius-md);
     animation-name: mc-skeleton-pulse;
     animation-duration: var(--mc-duration-slow);
@@ -364,7 +368,7 @@
   }
   @keyframes mc-skeleton-pulse {
     from {
-      background-color: var(--mc-action-secondary);
+      background-color: var(--mc-action-disabled);
     }
     to {
       background-color: var(--mc-surface-sunken);

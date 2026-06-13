@@ -107,18 +107,20 @@
   {/snippet}
 </Story>
 
-<!-- Href: renders an <a>, not a <button>; its play asserts the anchor + href and no button type. -->
+<!-- Given an `href`, the same styled control renders as a real <a> instead of a <button> — so a
+     primary call-to-action can navigate. (Distinct from the `link` VARIANT above, which is the
+     underlined text-link look.) The play asserts it is an anchor with the href and no button type. -->
 <Story
-  name="Link (href)"
-  args={{ variant: "link", size: "default" }}
+  name="As a link (href renders an anchor)"
+  args={{ variant: "primary", size: "default" }}
   play={async ({ canvas }) => {
-    const control = canvas.getByRole("link", { name: "Documentation" });
+    const control = canvas.getByRole("link", { name: "Open documentation" });
     await expect(control.tagName).toBe("A");
     await expect(control).toHaveAttribute("href", "#button-anchor-target");
     await expect(control).not.toHaveAttribute("type");
   }}
 >
   {#snippet template(args: ButtonStoryArgs)}
-    <Button {...args} href="#button-anchor-target">Documentation</Button>
+    <Button {...args} href="#button-anchor-target">Open documentation</Button>
   {/snippet}
 </Story>

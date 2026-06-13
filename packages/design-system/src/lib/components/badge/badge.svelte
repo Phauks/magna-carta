@@ -11,7 +11,7 @@
   import { badgeClasses, type BadgeVariant } from "./variants.ts";
 
   let {
-    variant = "default",
+    variant = "primary",
     ref = $bindable(null),
     class: className,
     children,

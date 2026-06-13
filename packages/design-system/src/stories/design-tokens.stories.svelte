@@ -116,19 +116,19 @@
       <div class="flex flex-wrap items-center gap-12">
         <button
           type="button"
-          class="bg-action-primary text-action-primary-foreground hover:bg-action-primary-hover active:bg-action-primary-active focus-visible:outline-focus-ring rounded-md px-16 py-8 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2"
+          class="bg-action-primary text-action-primary-foreground hover:bg-action-primary-hover active:bg-action-primary-active focus-visible:outline-focus-ring rounded-md px-16 py-8 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-0"
         >
           Primary action
         </button>
         <button
           type="button"
-          class="bg-action-secondary text-action-secondary-foreground hover:bg-action-secondary-hover border-border-default focus-visible:outline-focus-ring rounded-md border px-16 py-8 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2"
+          class="bg-action-secondary text-action-secondary-foreground hover:bg-action-secondary-hover border-border-default focus-visible:outline-focus-ring rounded-md border px-16 py-8 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-0"
         >
           Secondary action
         </button>
         <button
           type="button"
-          class="bg-action-destructive text-action-destructive-foreground hover:bg-action-destructive-hover focus-visible:outline-focus-ring rounded-md px-16 py-8 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2"
+          class="bg-action-destructive text-action-destructive-foreground hover:bg-action-destructive-hover focus-visible:outline-focus-ring rounded-md px-16 py-8 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-0"
         >
           Destructive action
         </button>
@@ -139,9 +139,11 @@
         >
           Disabled action
         </button>
-        <!-- The focus ring made always-visible for review (a real control only shows it on :focus-visible). -->
+        <!-- The focus state made always-visible for review (a real control only shows it on
+             :focus-visible): the current treatment is a flush MERGED EDGE — the border and the
+             ring both take the focus-ring colour at zero offset, one shape, not a detached ring. -->
         <span
-          class="outline-focus-ring border-border-default rounded-md border px-16 py-8 text-sm outline-2 outline-offset-2"
+          class="border-focus-ring outline-focus-ring rounded-md border px-16 py-8 text-sm outline-2 outline-offset-0"
         >
           focus-ring
         </span>

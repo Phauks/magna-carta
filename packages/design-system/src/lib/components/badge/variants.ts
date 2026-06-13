@@ -5,10 +5,10 @@
  * chip, etc.) register here as their slices land — they are not invented ahead of need.
  */
 
-export type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
+export type BadgeVariant = "primary" | "secondary" | "destructive" | "outline";
 
 const VARIANT: Record<BadgeVariant, string> = {
-  default: "mc-badge-default",
+  primary: "mc-badge-primary",
   secondary: "mc-badge-secondary",
   destructive: "mc-badge-destructive",
   outline: "mc-badge-outline",

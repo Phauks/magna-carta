@@ -32,7 +32,9 @@
   }}
 >
   {#snippet template(args: SeparatorStoryArgs)}
-    <div class="flex flex-col gap-3">
+    <!-- Constrained width: a horizontal separator spans its container, so the demo gives it one
+         (left unconstrained it would stretch the whole canvas and dwarf the vertical demo). -->
+    <div class="flex max-w-xs flex-col gap-3">
       <div>Recent matters</div>
       <Separator {...args} />
       <div>Archived matters</div>
