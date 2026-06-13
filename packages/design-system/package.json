@@ -5,6 +5,7 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
+    "./alert": "./src/lib/components/alert/index.ts",
     "./badge": "./src/lib/components/badge/index.ts",
     "./button": "./src/lib/components/button/index.ts",
     "./card": "./src/lib/components/card/index.ts",

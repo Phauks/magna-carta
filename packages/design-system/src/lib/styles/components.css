@@ -349,4 +349,48 @@
       animation: none;
     }
   }
+
+  /*
+   * Alert (Tier 1). A status callout as a SOLID status panel: each variant pairs status.<v> with
+   * status.<v>-foreground, the one status pairing the contrast gate guarantees AA in every theme
+   * x mode (a status colour as text on a light surface is ungated and can fail). Title and
+   * description inherit the panel foreground, so both stay on the safe pairing — the title is
+   * distinguished by weight, not colour. The ARIA role (assertive vs polite) is set by the
+   * component from the variant.
+   */
+  .mc-alert {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    padding-block: var(--mc-space-12);
+    padding-inline: var(--mc-space-16);
+    border-radius: var(--mc-radius-md);
+  }
+  .mc-alert-info {
+    background-color: var(--mc-status-info);
+    color: var(--mc-status-info-foreground);
+  }
+  .mc-alert-success {
+    background-color: var(--mc-status-success);
+    color: var(--mc-status-success-foreground);
+  }
+  .mc-alert-warning {
+    background-color: var(--mc-status-warning);
+    color: var(--mc-status-warning-foreground);
+  }
+  .mc-alert-danger {
+    background-color: var(--mc-status-danger);
+    color: var(--mc-status-danger-foreground);
+  }
+  .mc-alert-title {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-sm);
+    font-weight: var(--mc-weight-semibold);
+    line-height: var(--mc-leading-tight);
+  }
+  .mc-alert-description {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-sm);
+    line-height: var(--mc-leading-normal);
+  }
 }
