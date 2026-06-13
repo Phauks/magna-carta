@@ -2,7 +2,7 @@ import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 
-// Firm-name normalization at the route boundary (slice 0·4 hardening). The provisioner's resume
+// Firm-name normalization at the route boundary. The provisioner's resume
 // identity is the byte-exact UNIQUE firm.name (WHERE name = ?1), so the route canonicalizes the
 // name (trim + Unicode NFC) before the provisioner sees it — otherwise 'Acme Legal ' or an NFD
 // variant of an existing name misses the row, inserts a SECOND provisioning firm, and claims a
@@ -76,7 +76,7 @@ describe("POST /api/v1/firms firm-name normalization", () => {
 
   it("rejects a name that trims to empty with a 422 validation problem", async () => {
     // A name that trims to empty fails the `.min(1)` request schema. With the app-level defaultHook
-    // (slice 0·5a) installed, a Zod request-validation failure is the RFC 9457 422 problem — not
+    // installed, a Zod request-validation failure is the RFC 9457 422 problem — not
     // Hono's bare 400. (The admin key + Idempotency-Key are present, so this reaches validation:
     // the chokepoint's secret guard and idempotency gate passed; only the body shape is rejected.)
     const response = await postFirms({ name: "   ", owner: OWNER });

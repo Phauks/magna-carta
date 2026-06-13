@@ -14,7 +14,7 @@ function record(overrides: Partial<IdempotencyRecordRow> = {}): IdempotencyRecor
   };
 }
 
-describe("decideIdempotency (ADR-0063 decision table)", () => {
+describe("decideIdempotency (decision table)", () => {
   it("no record -> execute", () => {
     expect(decideIdempotency(undefined, FINGERPRINT)).toEqual({ kind: "execute" });
   });

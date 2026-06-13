@@ -33,7 +33,7 @@ import {
 } from "../src/statements.ts";
 
 // Fitness function: the raw SQL in this package must track @magna-carta/database's schema — the
-// single source of truth (ADR-0065). Renaming a table/column there fails here, not in production.
+// single source of truth. Renaming a table/column there fails here, not in production.
 
 // SQL-capturing stub: the builders only need prepare/bind, and SqlStatement carries the SQL text.
 function stubDatabase(): SqlDatabase {

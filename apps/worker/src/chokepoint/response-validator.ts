@@ -1,4 +1,4 @@
-// Dev-only response validator (design spec, error model; slice 0·5 decided up front #7): parses
+// Dev-only response validator: parses
 // outgoing JSON against the route's declared response schema and throws on divergence, so a
 // handler that drifts from its contract fails loudly in `wrangler dev` and in tests — before a
 // generated client ever sees the lie. Enabled only when c.env.ENVIRONMENT === "development",
@@ -17,14 +17,14 @@
 // (Spreading at registration is safe: meta is resolved from the original route object before the
 // spread, and the library itself rest-destructures the config anyway.)
 //
-// Undeclared-status policy (documented scope, revisited in Task 8): a 2xx status the route does
+// Undeclared-status policy: a 2xx status the route does
 // not declare throws — success shapes are exactly what the generated clients type against. The
-// 4xx/5xx problem replies (defaultHook, problemJson, the future chokepoint) are NOT yet declared
-// per-route; they pass unvalidated until Task 8 registers the shared problem responses. Statuses
+// 4xx/5xx problem replies (defaultHook, problemJson, the chokepoint) are NOT yet declared
+// per-route; they pass unvalidated until the shared problem responses are registered. Statuses
 // declared without JSON content (204, binary media types) and non-zod schemas (raw OpenAPI
 // objects, $ref'd shared responses) are skipped — there is nothing to runtime-validate.
 // Exact status keys only: OpenAPI range keys ("2XX") and "default" are not consulted — a route
-// declaring them reads as undeclared here; revisit in Task 8 with the shared problem responses.
+// declaring them reads as undeclared here; revisit with the shared problem responses.
 // JSON bodies are assumed finite and modest — clone().json() buffers the tee'd branch; streamed
 // responses belong under non-JSON media types (which are skipped).
 import type { RouteConfig } from "@hono/zod-openapi";
@@ -100,8 +100,8 @@ async function assertResponseMatchesContract(
           `declare it in the route's responses or fix the handler.`,
       );
     }
-    // Undeclared 4xx/5xx: the problem replies are not declared per-route until Task 8 registers
-    // the shared problem responses — pass until then (documented scope, module header).
+    // Undeclared 4xx/5xx: the problem replies are not declared per-route until the shared problem
+    // responses are registered — pass until then (documented scope, module header).
     return;
   }
 

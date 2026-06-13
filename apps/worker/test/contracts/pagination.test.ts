@@ -1,4 +1,4 @@
-// Slice 0·5: the cursor-paginated list envelope and cursor query fragment (design spec, pagination).
+// The cursor-paginated list envelope and cursor query fragment.
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { describe, expect, it } from "vitest";
 import { cursorQuery, paginated } from "../../src/contracts/pagination";
@@ -73,7 +73,7 @@ describe("cursorQuery", () => {
     expect(cursorQuery.safeParse({ cursor: "b3BhcXVlLWN1cnNvcg" }).success).toBe(true);
   });
 
-  it("exposes only the cursor key — never offset or page (design spec, pagination)", () => {
+  it("exposes only the cursor key — never offset or page", () => {
     expect(Object.keys(cursorQuery.shape)).toEqual(["cursor"]);
   });
 

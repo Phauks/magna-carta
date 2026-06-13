@@ -2,7 +2,7 @@
 // Everything else uses the branded Money/Rate/Ratio types and the in-house operations re-exported here.
 // We use Dinero's default NUMBER calculator: amounts are JS safe-integer numbers (exact below 2^53 =
 // $90T at cents). If amounts ever needed to exceed 2^53, swap to a decimal.js custom calculator via
-// createDinero({ calculator }) — a one-file change here (verified working on 2026-06-08). See ADR-0061.
+// createDinero({ calculator }) — a one-file change here (verified working on 2026-06-08).
 import {
   add as addDinero,
   allocate as allocateDinero,

@@ -12,7 +12,7 @@ import type { Bindings } from "./app.ts";
 import { resolveFirmDatabase } from "./firm-binding-resolver.ts";
 
 // The member.provision payload as the producers write it (routes/members.ts invite,
-// firm-provisioner.ts owner activation): ids + non-privileged fields only (ADR-0038).
+// firm-provisioner.ts owner activation): ids + non-privileged fields only.
 interface MemberProvisionPayload {
   readonly userId: UserId;
   readonly firmId: FirmId;
@@ -21,7 +21,7 @@ interface MemberProvisionPayload {
 }
 
 // Malformed payloads THROW (never skip-silently): the relay increments attempts and dead-letters
-// at max, which surfaces the bug instead of quietly dropping a member mirror (ADR-0038). Both ids
+// at max, which surfaces the bug instead of quietly dropping a member mirror. Both ids
 // are asserted HERE, exactly once — downstream code consumes the branded types — and every
 // malformed-payload failure carries the uniform `member.provision ${row.id}:` prefix.
 //
@@ -56,7 +56,7 @@ function parseMemberProvisionPayload(row: OutboxRow): MemberProvisionPayload {
   }
 }
 
-// The member.provision consumer (slice 0·4 design spec §6): mirrors a control-plane user into the
+// The member.provision consumer: mirrors a control-plane user into the
 // firm's per-firm member table and assigns the named seeded role. At-least-once safe end to end —
 // insertMemberStatement is ON CONFLICT DO NOTHING and the role assignment dedups on
 // UNIQUE(member_user_id, role_id) — so a redelivery (or an overlapping sweep) is a no-op.

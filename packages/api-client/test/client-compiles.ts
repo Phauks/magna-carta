@@ -1,8 +1,8 @@
-// Slice 0·5b Task 11 — the spec §9 "generated client compiles" gate. This file is compile-only: it
+// The "generated client compiles" gate. This file is compile-only: it
 // has no runtime assertions and is never executed (api-client has no test runner); `vp check`'s tsc
 // is the gate. It imports the generated Svelte Query factories through the package's single "."
 // export and instantiates them, so a regeneration that breaks the public surface fails CI here — and
-// it proves the tsc-stays-flat guarantee (no Hono `hc` whole-app inference; ADR-0066): the factory
+// it proves the tsc-stays-flat guarantee (no Hono `hc` whole-app inference): the factory
 // names are stable domain methods (meGet…, membersInvite…), keyed off the native operationId.
 import { meGetOptions, membersInviteMutation, type MeResponse } from "@magna-carta/api-client";
 

@@ -44,7 +44,7 @@ async function setup() {
   return { database, trustBank, smith };
 }
 
-describe("postEntry — the posting write path (ADR-0072)", () => {
+describe("postEntry — the posting write path", () => {
   it("commits entry + lines + balance updates + outbox row in one batch", async () => {
     const { database, trustBank, smith } = await setup();
     const { entryId, effect } = await postEntry(

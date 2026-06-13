@@ -26,8 +26,8 @@ export function selectIdempotencyRecordStatement(database: SqlDatabase, key: str
 }
 
 // The batch path writes the record directly as completed, WITH the captured response, in the same
-// batch as the effect (ADR-0063 batch realization): record and effect commit or roll back together.
-// response_body must already be redacted per ADR-0038 — never store privileged content.
+// batch as the effect: record and effect commit or roll back together.
+// response_body must already be redacted — never store privileged content.
 export interface CompletedIdempotencyRecord {
   readonly id: IdempotencyRecordId;
   readonly key: string;
@@ -55,7 +55,7 @@ export function insertCompletedIdempotencyRecordStatement(
     );
 }
 
-// TTL purge (ADR-0063): the record is ephemeral dedup state, not the record of truth. The schedule
+// TTL purge: the record is ephemeral dedup state, not the record of truth. The schedule
 // (Cron) lives with apps/worker; the cutoff is an ISO-8601 instant.
 export function purgeExpiredIdempotencyRecordsStatement(
   database: SqlDatabase,

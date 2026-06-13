@@ -17,7 +17,7 @@ import { perFirmMigrations } from "./per-firm-migrations.ts";
 
 // How the provisioner's migrate step reaches a firm database: the binding resolver supplies the
 // handle, the fleet migration runner applies the bundled per-firm lineage. A database this
-// deployment cannot reach fails LOUD here (unlike the request-path ADR-0052 404): for production
+// deployment cannot reach fails LOUD here (unlike the request-path 404): for production
 // firms created through the REST adapter, the new database's binding lands by config commit +
 // deploy — the documented manual step — and re-invoking afterwards resumes from this exact step.
 export function migrateFirmDatabaseToHeadForEnv(env: Bindings) {

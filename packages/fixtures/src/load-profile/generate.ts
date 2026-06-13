@@ -50,7 +50,7 @@ const EXPENSE_NAMES = [
 
 type ArchetypeName = keyof ArchetypeWeights;
 
-// Volume generation: the load-profile entry point (ADR-0083). Every write rides the real domain
+// Volume generation: the load-profile entry point. Every write rides the real domain
 // services — valid at any scale by construction.
 export async function generateLedgerVolume(
   database: BatchDatabase,

@@ -10,9 +10,9 @@ import {
 import { money, USD } from "@magna-carta/money/money";
 import type { FixtureContext } from "./context.ts";
 
-// Named scenarios (ADR-0034/ADR-0072): deterministic short stories told through the REAL write
-// paths, with assertions baked in — running them IS integration coverage. They throw plain Errors
-// (not vitest) so they also run as seeding code outside a test runner.
+// Named scenarios: deterministic short stories told through the REAL write paths, with assertions
+// baked in — running them IS integration coverage. They throw plain Errors (not vitest) so they
+// also run as seeding code outside a test runner.
 
 type DemoAccounts = ReadonlyMap<string, LedgerAccountId>;
 
@@ -149,8 +149,8 @@ export async function trustCorrection(
   };
 }
 
-// The ADR-0009 mechanism, proven: bound Smith's subledger at min 0, attempt an overdraw, and the
-// WHOLE batch must be rejected with the ledger untouched.
+// The no-negative-trust balance-bound mechanism, proven: bound Smith's subledger at min 0, attempt
+// an overdraw, and the WHOLE batch must be rejected with the ledger untouched.
 export async function boundsRejection(
   database: BatchDatabase,
   context: FixtureContext,
@@ -180,8 +180,8 @@ export async function boundsRejection(
     await commitEffectBatch(database, overdraw.effect, { now: () => context.clock.now() });
   } catch (error) {
     // Only the bounds CHECK counts as the proof — a bare catch would let an unrelated commit
-    // failure (malformed statement, adapter bug) masquerade as ADR-0009 enforcement. Same pattern
-    // the ledger's own bounds test pins.
+    // failure (malformed statement, adapter bug) masquerade as balance-bound enforcement. Same
+    // pattern the ledger's own bounds test pins.
     rejected = /CHECK|account_balance_bounds_check/.test(
       error instanceof Error ? error.message : String(error),
     );

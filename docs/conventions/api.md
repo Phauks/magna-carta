@@ -1,6 +1,6 @@
 # API conventions
 
-**Status:** Active — toolchain decided (ADR-0066/ADR-0067), **empirically validated** by the Phase 0 spike (2026-06-09, `apps/worker/test/api-contract-spike.test.ts`), and **built** in slice 0·5 ([`ROADMAP.md`](../../ROADMAP.md)): the chokepoint, the committed OpenAPI snapshot, the conformance fitness suite, the CI contract gates, and the generated client are all live. The operational surface is documented below.
+**Status:** Active — toolchain decided (ADR-0066/ADR-0067), **empirically validated** by the Phase 0 spike (2026-06-09; its emission guards retained as `apps/worker/test/openapi-emission.test.ts`), and **built** in slice 0·5 ([`ROADMAP.md`](../../ROADMAP.md)): the chokepoint, the committed OpenAPI snapshot, the conformance fitness suite, the CI contract gates, and the generated client are all live. The operational surface is documented below.
 
 **Scope (single home for):** how HTTP APIs are defined, evolved, and consumed — the contract toolchain, versioning, error shape, and internal vs. public calls. The implementation-grade design (route-metadata model, chokepoint order, auth surfaces, pagination, CI pipeline) lives in the spec: [`docs/specs/2026-06-04-api-contract-design.md`](../specs/2026-06-04-api-contract-design.md) — this file states the working rules and what the spike verified, and does not restate that design.
 
@@ -32,7 +32,7 @@
 1. **`operationId` must be set natively, not only as `x-mc-operationId`** — Hey API falls back to path-derived names (`getApiV1Matters`) otherwise. Derive the OpenAPI `operationId` from `RouteMeta.operationId` at route-registration time so SDK methods get stable domain names.
 2. **Spectral's default ruleset flags missing `servers`, `info.contact`/`description`, `operation-description`/`tags`** — the slice 0·5 emission config populates these; the custom ruleset then adds the `x-mc-*` conformance assertions (spec, fitness functions).
 3. **Hey API config:** plain-object config file (`openapi-ts.config.mjs`); importing `defineConfig` from `@hey-api/openapi-ts` fails under its jiti config loader (`ERR_PACKAGE_PATH_NOT_EXPORTED`).
-4. The spike's guard suite stays in the tree (`apps/worker/test/api-contract-spike.test.ts`) — a library bump that breaks any emission claim fails the build.
+4. The emission-contract guard suite stays in the tree (`apps/worker/test/openapi-emission.test.ts`) — a library bump that breaks any emission claim fails the build. (Originally the Phase 0 spike's suite; retained as a permanent guard after the throwaway spike app was removed.)
 
 ## Pipeline operations (slice 0·5, built)
 

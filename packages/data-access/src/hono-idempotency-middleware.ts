@@ -27,7 +27,7 @@ export const IDEMPOTENCY_CONFLICT_RESPONSES = {
   },
 } as const;
 
-// The fingerprint must distinguish DIFFERENT requests sharing one key (ADR-0063 -> 422). The query
+// The fingerprint must distinguish DIFFERENT requests sharing one key (mismatch -> 422). The query
 // string is part of the request identity on a mutating endpoint, so it is included — canonically
 // sorted, so parameter order never changes the fingerprint. context.req.path EXCLUDES the query,
 // which is why this builds from the full URL.
@@ -37,7 +37,7 @@ function canonicalRequestPath(requestUrl: string): string {
   return url.pathname + url.search;
 }
 
-// The HTTP boundary of ADR-0063. Each mutating route declares its requirement (spec route metadata):
+// The HTTP boundary of the idempotency contract. Each mutating route declares its requirement:
 // required + missing header -> 400; optional + missing header -> pass through untouched. With a
 // header: fingerprint the request and pre-decide — replay (stored response + Idempotency-Replayed
 // header), 409 (in progress), or 422 (key reused for a different payload) WITHOUT invoking the
@@ -46,7 +46,7 @@ function canonicalRequestPath(requestUrl: string): string {
 export function idempotencyMiddleware(options: {
   requirement: "required" | "optional";
   database: SqlDatabase;
-  // The stored-key derivation seam (ADR-0063). By default the record is keyed by the raw client
+  // The stored-key derivation seam. By default the record is keyed by the raw client
   // header — sufficient where the table itself is tenant-isolated (the per-firm databases are,
   // physically). A SHARED table needs the tenant in the key: the control-plane convention is
   // `${firmId}:${clientKey}`, with the firm taken from AUTHENTICATED context (never client input),

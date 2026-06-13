@@ -2,7 +2,7 @@ import { writeFileSync } from "node:fs";
 import type { DatabaseSync } from "node:sqlite";
 
 // THE SANCTIONED WALL-CLOCK READ. The fixtures determinism rule bans wall-clock reads in DATA
-// generation (ADR-0034); the runner only OBSERVES — timing samples never feed generated rows.
+// generation; the runner only OBSERVES — timing samples never feed generated rows.
 // performance.now() is monotonic, which Date.now() is not (NTP steps would corrupt samples).
 const nowMs = (): number => performance.now();
 

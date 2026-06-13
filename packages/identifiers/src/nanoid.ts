@@ -5,7 +5,7 @@ import { customRandom, urlAlphabet } from "nanoid";
 import type { RandomSource } from "./random.ts";
 
 // The URL-safe alphabet (64 symbols: A-Za-z0-9_-) and a 21-char token give ~126 bits of entropy —
-// UUIDv4-class collision/guess resistance, the IDOR/unguessability bar of ADR-0062.
+// UUIDv4-class collision/guess resistance, the IDOR/unguessability bar.
 export const TOKEN_ALPHABET = urlAlphabet;
 export const TOKEN_SIZE = 21;
 

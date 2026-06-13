@@ -13,7 +13,7 @@ export type IdempotencyDecision =
   | { kind: "in-progress" } // -> 409. Reserved state: the batch path writes completed directly
   | { kind: "fingerprint-mismatch" }; // -> 422 (key reused for a different payload)
 
-// The ADR-0063 decision table over an existing record. Mismatch wins over status: a key reused for a
+// The idempotency decision table over an existing record. Mismatch wins over status: a key reused for a
 // different payload is a client bug regardless of what the original request is doing.
 export function decideIdempotency(
   record: IdempotencyRecordRow | undefined,

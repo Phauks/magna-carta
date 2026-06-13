@@ -1,8 +1,7 @@
-// Slice 0·5b Task 7: the chokepoint middleware (ADR-0067) — the single ordered enforcement point
-// for tenancy/authn/RBAC/idempotency/rate-limit. These tests prove each gate's reply AND the
-// fixed order: a request failing an earlier gate must never touch a later port. The ports are
-// injected fakes that RECORD their invocation order, so "order is the contract" is asserted, not
-// assumed. Real wiring of these ports to the 0·4 implementations is Task 8.
+// The chokepoint middleware — the single ordered enforcement point for
+// tenancy/authn/RBAC/idempotency/rate-limit. These tests prove each gate's reply AND the fixed
+// order: a request failing an earlier gate must never touch a later port. The ports are injected
+// fakes that RECORD their invocation order, so "order is the contract" is asserted, not assumed.
 import { Hono } from "hono";
 import type { Context, MiddlewareHandler } from "hono";
 import { z } from "@hono/zod-openapi";
@@ -73,7 +72,7 @@ function buildChokepoint(
       trace.steps.push("loadPermissions");
       return permissions;
     },
-    // No idempotency gate in these order/gate fakes — Task 8's real idempotency wiring is exercised
+    // No idempotency gate in these order/gate fakes — the real idempotency wiring is exercised
     // through the Miniflare integration suites (members/firms), not these unit fakes.
     idempotency: { middlewareFor: () => null },
     rateLimiter: {
@@ -121,7 +120,7 @@ const authedMeta: RouteMeta = {
   rateLimit: "default",
 };
 
-describe("createChokepoint — fixed gate order (ADR-0067)", () => {
+describe("createChokepoint — fixed gate order", () => {
   it("runs every gate in order for an allowed authenticated request, then the handler", async () => {
     const { chokepoint, trace } = buildChokepoint();
     const app = mountedApp(chokepoint, authedMeta, trace);
@@ -156,7 +155,7 @@ describe("createChokepoint — authn gate (401)", () => {
   });
 });
 
-describe("createChokepoint — RBAC structural absence (404, ADR-0052)", () => {
+describe("createChokepoint — RBAC structural absence (404)", () => {
   it("replies 404 not-found when the firm context is absent (cross-firm / structural)", async () => {
     const { chokepoint, trace } = buildChokepoint({ firmContext: null });
     const app = mountedApp(chokepoint, authedMeta, trace);
@@ -176,7 +175,7 @@ describe("createChokepoint — RBAC structural absence (404, ADR-0052)", () => {
   });
 });
 
-describe("createChokepoint — RBAC within-firm denial (403 + requestAccess, ADR-0068)", () => {
+describe("createChokepoint — RBAC within-firm denial (403 + requestAccess)", () => {
   it("replies 403 permission-denied with requestAccess:true when visible-but-denied", async () => {
     const { chokepoint, trace } = buildChokepoint({ permissions: new Set<Permission>() });
     const app = mountedApp(chokepoint, authedMeta, trace);

@@ -1,4 +1,4 @@
-// The chokepoint context accessors (slice 0·5b hardening): the fail-closed reads an authenticated
+// The chokepoint context accessors: the fail-closed reads an authenticated
 // handler uses instead of a raw c.get("chokepoint…"). The chokepoint stashes the tenancy variables
 // (chokepointUserId / chokepointFirmId / chokepointFirmContext) ONLY on the non-public,
 // session-present path (chokepoint.ts step 3a). On the CURRENT route set every authenticated handler

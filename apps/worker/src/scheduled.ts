@@ -11,12 +11,12 @@ import { consumeMemberProvision } from "./member-provision-consumer.ts";
 // Every console.error in this file is the interim telemetry seam — the slice 0·6 error-logging
 // pipeline replaces them.
 
-// Idempotency records are ephemeral dedup state with a ~24h TTL (ADR-0063); the purge cutoff is
+// Idempotency records are ephemeral dedup state with a ~24h TTL; the purge cutoff is
 // everything older than this.
 const IDEMPOTENCY_RECORD_TTL_MILLISECONDS = 24 * 60 * 60 * 1000;
 
-// Control-plane outbox topics are consumed DIRECTLY in the sweep — no Queue hop (slice 0·4
-// decided #11): the consumers are local to this worker and idempotent, so a Queue round trip
+// Control-plane outbox topics are consumed DIRECTLY in the sweep — no Queue hop:
+// the consumers are local to this worker and idempotent, so a Queue round trip
 // would only add latency and a second at-least-once layer. An unregistered topic throws, which
 // the relay turns into attempts → dead-letter — a producer/consumer drift fails loud.
 const CONTROL_PLANE_CONSUMERS: Readonly<
@@ -26,7 +26,7 @@ const CONTROL_PLANE_CONSUMERS: Readonly<
 };
 
 // A control-plane user whose firm database carries no member row — the reconciliation backstop's
-// finding (slice 0·4 design spec §6).
+// finding.
 export interface UnprovisionedMember {
   readonly userId: string;
   readonly firmId: string;
@@ -40,7 +40,7 @@ export interface ScheduledSweepReport {
 }
 
 // Dead-letter surfacing: ids + topic + attempts + our own error message only — payloads are never
-// logged (ADR-0038 redaction).
+// logged.
 function logDeadLetter(scope: string): (row: OutboxRow, error: Error) => Promise<void> {
   return (row, error) => {
     console.error(
@@ -74,7 +74,7 @@ export async function listReachableActiveFirms(env: Bindings): Promise<Reachable
   return reachable;
 }
 
-// The reconciliation backstop (slice 0·4 design spec §6): control-plane users with no member row
+// The reconciliation backstop: control-plane users with no member row
 // in their firm's per-firm database. Detection only — repair runs through the relay: a PENDING
 // member.provision row is dispatched by the next sweep, and a DEAD-LETTERED one is revived by
 // requeueDeadLetteredMessageStatement (the documented operator seam — see sweepOutbox); the
@@ -120,7 +120,7 @@ export async function findUnprovisionedMembers(
   return unprovisioned;
 }
 
-// The Cron entry point (closes the slice 0·2 deferral): one pass =
+// The Cron entry point: one pass =
 //   1. control-plane outbox sweep — the consumer map applies member mirrors directly;
 //   2. per-firm outbox sweep over active firms — rows publish to env.QUEUE (nothing consumes the
 //      per-firm queue yet this slice; publishing realizes the relay contract and the consumer
@@ -155,7 +155,7 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
         database: firm.database,
         publish: async (row) => {
           // The Queue message mirrors the outbox row (consumers dedup on id, order by
-          // (aggregateKey, seq) — ADR-0064); the payload is already redacted canonical JSON.
+          // (aggregateKey, seq)); the payload is already redacted canonical JSON.
           // firmId tags the originating tenant: per-firm messages cross the single SHARED env.QUEUE,
           // so the first per-firm consumer (slice 0·5+) resolves the firm from the message — it has
           // no other handle on which physical database the row came from. (Control-plane outbox

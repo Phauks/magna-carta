@@ -1,6 +1,6 @@
-// Slice 0·5: the rate-limiter seam (design spec, decided up front #4) — named buckets as data,
-// an in-memory sliding-window limiter behind the RateLimiter interface. The chokepoint 429
-// problem reply is Task 7's job; this module only returns the check verdict.
+// The rate-limiter seam — named buckets as data, an in-memory sliding-window limiter behind the
+// RateLimiter interface. The chokepoint owns the 429 problem reply; this module only returns the
+// check verdict.
 import { describe, expect, it } from "vitest";
 import { BUCKETS, createInMemoryRateLimiter } from "../../src/chokepoint/rate-limiter";
 
@@ -18,7 +18,7 @@ function controllableClock(startMilliseconds = 0) {
 }
 
 describe("BUCKETS", () => {
-  it("registers the slice 0·5 buckets with their deferred-seam defaults", () => {
+  it("registers the buckets with their deferred-seam defaults", () => {
     expect(BUCKETS).toEqual({
       default: { limit: 100, windowSeconds: 60 },
       auth: { limit: 10, windowSeconds: 60 },

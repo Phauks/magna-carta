@@ -1,6 +1,6 @@
 import type { FirmId } from "@magna-carta/identifiers/types";
 
-// The provisioning port (slice 0·4 design spec §5): how the firm provisioner obtains a firm's
+// The provisioning port: how the firm provisioner obtains a firm's
 // physical resources. Two adapters below — the dev pool-claimer (Miniflare cannot create D1/R2 at
 // runtime) and the Cloudflare REST adapter (real resource creation, deploy-time credentials).
 export interface FirmResourceProvider {
@@ -65,7 +65,7 @@ export interface CloudflareRestFirmResourceProviderOptions {
 
 const CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4";
 
-// ADR-0075 naming: magna-carta-<environment>-<scope>[-<purpose-or-slug>]. The slug must be
+// Resource naming: magna-carta-<environment>-<scope>[-<purpose-or-slug>]. The slug must be
 // deterministic per firm (idempotent resume re-creates the SAME resource and hits already-exists)
 // and valid in both the D1 and R2 name alphabets, which exclude the identifier alphabet's
 // uppercase and underscore characters — so the firm id is folded through SHA-256 and the first
@@ -87,7 +87,7 @@ interface CloudflareApiEnvelope<Result> {
 }
 
 // RACE-WINDOW FALLBACK ONLY — deliberately demoted from the resume linchpin it once was.
-// Idempotent resume (slice 0·4 plan, Task 12) now travels find-first: each create PROBES for the
+// Idempotent resume now travels find-first: each create PROBES for the
 // resource by its deterministic name and only creates when absent, so a crashed provisioning's
 // retry never depends on this detection. It remains solely for the narrow race where a concurrent
 // create lands between the probe and the POST. Detection is by message ("already exists" /
@@ -115,7 +115,7 @@ function describeFailure(
 
 // Real resource creation through the Cloudflare REST API. The new database still needs its
 // per-firm BINDING added by a config commit + deploy — the documented manual step for a fleet of
-// one (slice 0·4 design spec §5); this adapter only guarantees the resource exists and is
+// one; this adapter only guarantees the resource exists and is
 // recorded on the firm row.
 export function createCloudflareRestFirmResourceProvider(
   options: CloudflareRestFirmResourceProviderOptions,

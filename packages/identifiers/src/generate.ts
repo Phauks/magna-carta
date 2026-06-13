@@ -9,7 +9,7 @@ import type { BrandFor } from "./types.ts";
 const defaultTokenGenerator = makeTokenGenerator(cryptoRandomSource);
 
 // Mint a new handle for an entity type: <prefix>_<token>. Uses the CSPRNG by default; fixtures pass a
-// seededRandomSource for byte-deterministic ids (ADR-0034).
+// seededRandomSource for byte-deterministic ids.
 export function newIdentifier<T extends EntityType>(
   type: T,
   randomSource: RandomSource = cryptoRandomSource,
@@ -28,7 +28,7 @@ export interface GenerateUniqueOptions {
   maxAttempts?: number;
 }
 
-// The UNIQUE-insert idiom (ADR-0062), reused by idempotency (ADR-0063) and the outbox (ADR-0064):
+// The UNIQUE-insert idiom, reused by idempotency and the outbox:
 // generate a candidate and hand it to tryInsert, which performs the real INSERT … ON CONFLICT and returns
 // true on success / false on a primary-key collision. Retry with a FRESH candidate up to maxAttempts.
 // A thrown error from tryInsert is fatal and propagates un-retried — only a `false` return signals a

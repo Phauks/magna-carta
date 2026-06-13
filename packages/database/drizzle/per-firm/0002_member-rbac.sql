@@ -40,7 +40,7 @@ CREATE TABLE `role_permission` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `role_permission_role_id_permission_unique` ON `role_permission` (`role_id`,`permission`);--> statement-breakpoint
--- Seeded default roles (hand-appended; ADR-0068). The rol_/rpm_ handles below were minted ONCE with
+-- Seeded default roles (hand-appended). The rol_/rpm_ handles below were minted ONCE with
 -- @magna-carta/identifiers and committed as literals, so every firm's defaults match byte-for-byte.
 -- created_at is the migration's authoring instant — a fixed literal, never a runtime expression.
 -- Permission values are registry keys from @magna-carta/access-control; a fitness test cross-checks

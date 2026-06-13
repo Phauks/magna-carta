@@ -14,7 +14,7 @@ export const DIRECT_GRANT_TABLE = "direct_grant";
 export interface MemberMirrorInput {
   readonly userId: UserId;
   readonly displayName: string;
-  readonly now: string; // ISO-8601 instant (ADR-0055)
+  readonly now: string; // ISO-8601 instant
 }
 
 export function insertMemberStatement(
@@ -51,7 +51,7 @@ export function insertRoleAssignmentStatement(
 // The two authorization reads the /v1/me handler (and the future permission chokepoint) feed to
 // @magna-carta/access-control's effectivePermissions resolver. Rows pass through structurally:
 // { permission } and { permission, expires_at }. Expiry is deliberately NOT filtered in SQL — the
-// resolver owns the boundary rule (a grant expiring exactly at `now` is already expired, ADR-0068).
+// resolver owns the boundary rule (a grant expiring exactly at `now` is already expired).
 // Duplicates are possible on the role-permissions join when held roles share a permission; the
 // resolver's Set dedupes — DISTINCT deliberately omitted.
 //
@@ -83,7 +83,7 @@ export function selectMemberPermissionsStatements(
 }
 
 // The member row's status by user id — the read /v1/me uses to split a DEACTIVATED member (404,
-// ADR-0052 absent semantics) from a never-mirrored one (no row → 200 with empty permissions; the
+// absent semantics) from a never-mirrored one (no row → 200 with empty permissions; the
 // sweep-lag window is transient and self-heals). Rows: { status }, zero rows means never mirrored.
 export function selectMemberStatusStatement(database: SqlDatabase, userId: UserId): SqlStatement {
   return database.prepare(`SELECT status FROM ${MEMBER_TABLE} WHERE user_id = ?1`).bind(userId);

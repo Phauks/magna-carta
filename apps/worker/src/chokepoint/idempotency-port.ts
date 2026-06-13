@@ -1,8 +1,8 @@
-// The chokepoint's idempotency port (slice 0·5b Task 8): the ONE place required-idempotency is
-// applied (ADR-0063). It replaces the per-route idempotency middleware members.ts and firms.ts
-// mounted in 0·4 — the chokepoint now owns the key requirement AND the pre-decision, derived once
-// from the route's resolved meta and the chokepoint-stashed firm context. Exactly one application
-// per required route, never chokepoint + route-mounted.
+// The chokepoint's idempotency port: the ONE place required-idempotency is
+// applied. It replaces the per-route idempotency middleware members.ts and firms.ts
+// previously mounted — the chokepoint now owns the key requirement AND the pre-decision, derived
+// once from the route's resolved meta and the chokepoint-stashed firm context. Exactly one
+// application per required route, never chokepoint + route-mounted.
 //
 // The stored-key derivation is the SURFACE's tenant scope (the control-plane idempotency table is
 // shared across firms and the platform, so the scope rides in the stored key — members.ts/firms.ts

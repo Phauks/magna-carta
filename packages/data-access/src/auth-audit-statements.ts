@@ -18,12 +18,12 @@ export interface AuthAuditInput {
   readonly id: AuthAuditId;
   readonly event: string; // e.g. 'sign_in.success', 'two_factor.enabled'
   readonly userId: UserId | null; // null for pre-identification events (e.g. a failed sign-in)
-  readonly metadata: unknown; // ids + non-privileged fields ONLY (ADR-0038); null/undefined = no metadata
-  readonly now: string; // ISO-8601 instant (ADR-0055)
+  readonly metadata: unknown; // ids + non-privileged fields ONLY; null/undefined = no metadata
+  readonly now: string; // ISO-8601 instant
 }
 
 // The builder is dumb: it canonical-stringifies whatever it is given, so redaction discipline lives
-// at the call sites (ADR-0038). The password-key tripwire below is a canary for the most obvious
+// at the call sites. The password-key tripwire below is a canary for the most obvious
 // leak, not a guarantee.
 export function insertAuthAuditStatement(
   database: SqlDatabase,
@@ -54,7 +54,7 @@ function refuseUnredactedMetadata(value: unknown): void {
     for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
       if (key.toLowerCase().includes("password")) {
         throw new Error(
-          `auth_audit metadata key '${key}' contains 'password' — redact at the call site before logging (ADR-0038)`,
+          `auth_audit metadata key '${key}' contains 'password' — redact at the call site before logging`,
         );
       }
       refuseUnredactedMetadata(entry);

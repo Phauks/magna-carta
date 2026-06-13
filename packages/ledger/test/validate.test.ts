@@ -43,7 +43,7 @@ function codeOf(run: () => void): string {
   throw new Error("expected validateEntry to throw");
 }
 
-describe("validateEntry — the ledger invariants (ADR-0072)", () => {
+describe("validateEntry — the ledger invariants", () => {
   it("accepts a balanced two-line single-currency entry on active leaf accounts", () => {
     const a = account();
     const b = account({ type: "liability" });

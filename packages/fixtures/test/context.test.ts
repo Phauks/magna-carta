@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { fixtureContext } from "../src/context.ts";
 import { assertSeedingAllowed } from "../src/guard.ts";
 
-describe("FixtureContext — one seed carries all determinism (ADR-0034)", () => {
+describe("FixtureContext — one seed carries all determinism", () => {
   it("same seed → identical ids, names, and clock readings", () => {
     const a = fixtureContext("demo-llp-1");
     const b = fixtureContext("demo-llp-1");

@@ -29,7 +29,7 @@ describe("control-plane schema: firm registry", () => {
     expect(columnOf(firm, "id").getSQLType()).toBe("text");
   });
 
-  it("keeps the firm name unique — the provisioner's resume identity (slice 0·4 §5)", () => {
+  it("keeps the firm name unique — the provisioner's resume identity", () => {
     expect(columnOf(firm, "name").notNull).toBe(true);
     expect(columnOf(firm, "name").isUnique).toBe(true);
   });
@@ -40,7 +40,7 @@ describe("control-plane schema: firm registry", () => {
     expect(columnOf(firm, "database_identifier").notNull).toBe(false);
     expect(columnOf(firm, "database_identifier").isUnique).toBe(true);
     expect(columnOf(firm, "per_firm_schema_version").notNull).toBe(false); // null = not yet provisioned
-    expect(columnOf(firm, "created_at").getSQLType()).toBe("text"); // ISO-8601 instant (ADR-0055)
+    expect(columnOf(firm, "created_at").getSQLType()).toBe("text"); // ISO-8601 instant
   });
 
   it("carries the provisioning lifecycle: status defaults 'active', bucket_name nullable", () => {
@@ -75,7 +75,7 @@ describe("control-plane schema: Better Auth-owned tables (better-auth 1.6.16 ref
     expect(columnOf(user, "email_verified").getSQLType()).toBe("integer"); // boolean mode
     expect(columnOf(user, "email_verified").notNull).toBe(true);
     expect(columnOf(user, "image").notNull).toBe(false);
-    expect(columnOf(user, "created_at").getSQLType()).toBe("integer"); // epoch-ms — the sanctioned Better Auth exception to ADR-0055
+    expect(columnOf(user, "created_at").getSQLType()).toBe("integer"); // epoch-ms — the sanctioned Better Auth exception to our ISO-8601 text instants
     expect(columnOf(user, "updated_at").getSQLType()).toBe("integer");
   });
 
@@ -143,15 +143,15 @@ describe("control-plane schema: Better Auth-owned tables (better-auth 1.6.16 ref
 });
 
 describe("control-plane schema: auth_audit (our table — house conventions)", () => {
-  it("matches the spec columns", () => {
+  it("matches the expected columns", () => {
     expect(getTableConfig(authAudit).name).toBe("auth_audit");
     expect(columnOf(authAudit, "id").primary).toBe(true);
     expect(columnOf(authAudit, "id").getSQLType()).toBe("text"); // aud_ handle
     expect(columnOf(authAudit, "event").notNull).toBe(true);
     expect(columnOf(authAudit, "user_id").notNull).toBe(false); // null for pre-identification events
-    expect(columnOf(authAudit, "metadata").notNull).toBe(false); // redacted JSON (ADR-0038)
+    expect(columnOf(authAudit, "metadata").notNull).toBe(false); // redacted JSON
     expect(columnOf(authAudit, "created_at").notNull).toBe(true);
-    expect(columnOf(authAudit, "created_at").getSQLType()).toBe("text"); // ISO-8601 instant (ADR-0055)
+    expect(columnOf(authAudit, "created_at").getSQLType()).toBe("text"); // ISO-8601 instant
   });
 
   it("does NOT foreign-key user_id — audit rows must outlive the user row they describe", () => {
@@ -159,7 +159,7 @@ describe("control-plane schema: auth_audit (our table — house conventions)", (
   });
 });
 
-describe("control-plane schema: outbox + idempotency_key are verbatim copies of per-firm (ADR-0063/0064)", () => {
+describe("control-plane schema: outbox + idempotency_key are verbatim copies of per-firm", () => {
   const shapeOf = (table: SQLiteTable) =>
     getTableConfig(table).columns.map((column) => ({
       name: column.name,

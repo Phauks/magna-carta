@@ -23,8 +23,8 @@ const uniqueConstraintColumnsOf = (table: SQLiteTable) =>
     constraint.columns.map((column) => column.name),
   );
 
-describe("per-firm schema: idempotency_key (ADR-0063)", () => {
-  it("matches the spec columns", () => {
+describe("per-firm schema: idempotency_key", () => {
+  it("matches the expected columns", () => {
     const config = getTableConfig(idempotencyKey);
     expect(config.name).toBe("idempotency_key");
     expect(columnOf(idempotencyKey, "id").primary).toBe(true);
@@ -47,8 +47,8 @@ describe("per-firm schema: idempotency_key (ADR-0063)", () => {
   });
 });
 
-describe("per-firm schema: outbox (ADR-0064)", () => {
-  it("matches the spec columns", () => {
+describe("per-firm schema: outbox", () => {
+  it("matches the expected columns", () => {
     const config = getTableConfig(outbox);
     expect(config.name).toBe("outbox");
     expect(columnOf(outbox, "id").primary).toBe(true);
@@ -77,17 +77,17 @@ describe("per-firm schema: member (the per-firm mirror of the control-plane user
     expect(columnOf(member, "user_id").getSQLType()).toBe("text"); // usr_ handle
   });
 
-  it("matches the spec columns", () => {
+  it("matches the expected columns", () => {
     expect(columnOf(member, "display_name").notNull).toBe(true);
     const status = columnOf(member, "status");
     expect(status.notNull).toBe(true);
     expect(status.default).toBe("active");
-    expect(columnOf(member, "created_at").getSQLType()).toBe("text"); // ISO-8601 instant (ADR-0055)
+    expect(columnOf(member, "created_at").getSQLType()).toBe("text"); // ISO-8601 instant
   });
 });
 
-describe("per-firm schema: role + role_permission (roles as data, ADR-0068)", () => {
-  it("role matches the spec columns with a unique name", () => {
+describe("per-firm schema: role + role_permission (roles as data)", () => {
+  it("role matches the expected columns with a unique name", () => {
     const config = getTableConfig(role);
     expect(config.name).toBe("role");
     expect(columnOf(role, "id").primary).toBe(true);
@@ -110,7 +110,7 @@ describe("per-firm schema: role + role_permission (roles as data, ADR-0068)", ()
 });
 
 describe("per-firm schema: member_role (assignment, unique per member+role)", () => {
-  it("matches the spec columns and foreign keys", () => {
+  it("matches the expected columns and foreign keys", () => {
     const config = getTableConfig(memberRole);
     expect(config.name).toBe("member_role");
     expect(columnOf(memberRole, "id").primary).toBe(true);
@@ -123,7 +123,7 @@ describe("per-firm schema: member_role (assignment, unique per member+role)", ()
 });
 
 describe("per-firm schema: direct_grant (per-member permission, optionally expiring)", () => {
-  it("matches the spec columns", () => {
+  it("matches the expected columns", () => {
     const config = getTableConfig(directGrant);
     expect(config.name).toBe("direct_grant");
     expect(columnOf(directGrant, "id").primary).toBe(true);
@@ -131,7 +131,7 @@ describe("per-firm schema: direct_grant (per-member permission, optionally expir
     expect(columnOf(directGrant, "member_user_id").notNull).toBe(true);
     expect(columnOf(directGrant, "permission").notNull).toBe(true);
     expect(columnOf(directGrant, "expires_at").notNull).toBe(false); // null = no expiry
-    expect(columnOf(directGrant, "expires_at").getSQLType()).toBe("text"); // ISO-8601 instant (ADR-0055)
+    expect(columnOf(directGrant, "expires_at").getSQLType()).toBe("text"); // ISO-8601 instant
     expect(columnOf(directGrant, "granted_by").notNull).toBe(true);
     expect(columnOf(directGrant, "created_at").notNull).toBe(true);
   });

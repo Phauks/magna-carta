@@ -76,8 +76,8 @@ export async function reverseEntry(
     effectiveDate: input.effectiveDate,
     lines: mirroredLines,
   };
-  // validateEntry enforces structural invariants only (ADR-0072). Balance-bound enforcement
-  // (trust min bounds — ADR-0009) is deliberately deferred to the batch commit: if the mirror
+  // validateEntry enforces structural invariants only. Balance-bound enforcement
+  // (trust min bounds) is deliberately deferred to the batch commit: if the mirror
   // would violate a bound (reversing a deposit whose funds were since disbursed), the CHECK
   // fires there and the whole batch rolls back — correct, but the error arrives from
   // commitEffectBatch, not from this function. Callers handle both error paths.

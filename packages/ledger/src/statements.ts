@@ -9,7 +9,7 @@ export const LEDGER_ENTRY_TABLE = "ledger_entry";
 export const LEDGER_LINE_TABLE = "ledger_line";
 export const ACCOUNT_BALANCE_TABLE = "account_balance";
 
-// Money columns are integer minor units (ADR-0061). SQLite would happily store a float or NaN as
+// Money columns are integer minor units. SQLite would happily store a float or NaN as
 // REAL in an INTEGER column, silently corrupting balances — so every minor-unit number is asserted
 // at the last boundary before SQL, via the money package's guard (ONE home for the safe-integer
 // rule: if the money engine's notion of a valid amount ever tightens, this boundary follows).
@@ -89,7 +89,8 @@ export function insertLineStatement(database: SqlDatabase, row: InsertLineRow): 
 }
 
 // The in-batch balance write. A bounds violation makes the CHECK fire and the WHOLE batch roll
-// back — the enforcement mechanism of ADR-0072/ADR-0009. delta is in normal-balance terms.
+// back — the enforcement mechanism for the ledger and trust balance-bound invariants. delta is in
+// normal-balance terms.
 // PRECONDITION: the caller must have confirmed the balance row exists (selectAccountSnapshotsStatement,
 // hasBalanceRow) — against a missing row this UPDATE affects 0 rows and the batch SUCCEEDS with the
 // balance silently unwritten. The CHECK cannot fire on a no-op.
@@ -106,7 +107,7 @@ export function applyBalanceDeltaStatement(
     .bind(accountId, assertMinorUnits(deltaMinor, "balance delta"), updatedAt);
 }
 
-// The Phase-3 trust seam primitive (ADR-0009): setting bounds on an account whose current balance
+// The trust seam primitive: setting bounds on an account whose current balance
 // already violates them fails the CHECK immediately — bounds can never be born violated.
 // PRECONDITION: same silent-no-op hazard as applyBalanceDeltaStatement — confirm the balance row
 // exists before composing this against an unknown account.
@@ -135,7 +136,7 @@ export function setAccountBoundsStatement(
 // and loadAccountSnapshots chunks at this size.
 export const MAX_BOUND_PARAMETERS = 100;
 
-// Pre-batch reads (ADR-0063 pre-check pattern). has_children: parents take no postings.
+// Pre-batch reads (the pre-check pattern). has_children: parents take no postings.
 // has_balance_row: a missing row would make the in-batch UPDATE a silent no-op — refused upstream.
 export function selectAccountSnapshotsStatement(
   database: SqlDatabase,

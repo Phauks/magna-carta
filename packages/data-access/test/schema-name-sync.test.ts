@@ -30,7 +30,7 @@ import { insertOutboxMessageStatement } from "../src/outbox-statements.ts";
 import { captured, stubD1 } from "./support/stub-d1.ts";
 
 // Fitness function: the raw SQL in this package must track @magna-carta/database's schema — the
-// single source of truth (ADR-0065). Renaming a table/column there fails here, not in production.
+// single source of truth. Renaming a table/column there fails here, not in production.
 
 // Column lists appear inside ( ... ) after the table name and in SELECT/WHERE clauses; extract
 // bare lowercase identifiers (SQL keywords are uppercase in the builders) and check each against

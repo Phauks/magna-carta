@@ -2,10 +2,10 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// The append-only invariant's source scan (design spec, Enforcement & fitness functions; the
-// package CLAUDE.md invariant): no UPDATE or DELETE statement may target the immutable ledger
-// tables anywhere in package source. Corrections are reversing entries, never mutations.
-// Sanctioned today: UPDATE account_balance (the in-batch delta — ADR-0072). When the
+// The append-only invariant's source scan (the package CLAUDE.md invariant): no UPDATE or DELETE
+// statement may target the immutable ledger tables anywhere in package source. Corrections are
+// reversing entries, never mutations.
+// Sanctioned today: UPDATE account_balance (the in-batch delta). When the
 // account-closing service ships, UPDATE ledger_account gains a sanctioned site and this scan is
 // loosened DELIBERATELY, in the same commit.
 const PACKAGES_DIRECTORY = join(import.meta.dirname, "..", "..");
@@ -44,7 +44,7 @@ const FORBIDDEN: { label: string; pattern: RegExp }[] = [
   },
 ];
 
-describe("append-only source scan (ADR-0072)", () => {
+describe("append-only source scan", () => {
   it("the patterns catch literal, backticked, and constant-interpolated table names", () => {
     const offender = (sql: string) => FORBIDDEN.some(({ pattern }) => pattern.test(sql));
     expect(offender("UPDATE ledger_entry SET effective_date = ?1")).toBe(true);

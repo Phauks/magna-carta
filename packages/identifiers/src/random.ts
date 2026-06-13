@@ -6,7 +6,7 @@ export type RandomSource = (bytes: number) => Uint8Array;
 export const cryptoRandomSource: RandomSource = (bytes) =>
   crypto.getRandomValues(new Uint8Array(bytes));
 
-// Deterministic source for fixtures (ADR-0034): the same seed yields the same byte sequence, so fixture
+// Deterministic source for fixtures: the same seed yields the same byte sequence, so fixture
 // ids are byte-identical run to run. NOT cryptographic — fixtures only — it exists for reproducibility.
 // mulberry32 (a tiny, well-known seedable PRNG) drives the bytes; the seed string is folded to 32-bit
 // state with FNV-1a so a human-readable seed ("contingency-scenario") works as well as a number.

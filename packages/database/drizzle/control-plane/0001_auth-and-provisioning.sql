@@ -99,7 +99,7 @@ CREATE TABLE `verification` (
 --> statement-breakpoint
 CREATE INDEX `verification_identifier_index` ON `verification` (`identifier`);--> statement-breakpoint
 -- The firm rebuild below is drizzle-kit's recreate strategy (database_identifier loses NOT NULL,
--- name gains UNIQUE — slice 0·4 provisioning lifecycle; owner_user_id records the activation's
+-- name gains UNIQUE for the provisioning lifecycle; owner_user_id records the activation's
 -- owner), HAND-CORRECTED in two ways the generator gets wrong for this lineage:
 --   1. The copy SELECT named `status`/`bucket_name`/`owner_user_id`, which do not exist in the
 --      0000-era table (this migration introduces them) — they are backfilled as 'active'/NULL/NULL

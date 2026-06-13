@@ -1,7 +1,7 @@
 // The single source of truth mapping each entity type to its handle prefix. A handle is
 // `<prefix>_<token>` (e.g. mat_V1StGXR8Z5jdHiopq2Cf): the prefix here carries NO trailing underscore —
 // the `_` is the separator added at generation time. Adding an entity = one row here + one alias in types.ts.
-// Self-describing prefixes make ids debuggable in logs and defend against id-type confusion (ADR-0062).
+// Self-describing prefixes make ids debuggable in logs and defend against id-type confusion.
 export const ENTITY_PREFIXES = {
   matter: "mat",
   document: "doc",

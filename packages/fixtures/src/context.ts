@@ -2,7 +2,7 @@ import { Faker, en } from "@faker-js/faker";
 import { hashSeed, type RandomSource, seededRandomSource } from "@magna-carta/identifiers/random";
 import type { ClockPort } from "@magna-carta/ledger/types";
 
-// All fixture time flows from this anchor; wall-clock reads are banned in fixtures (ADR-0034).
+// All fixture time flows from this anchor; wall-clock reads are banned in fixtures.
 export const FIXTURE_EPOCH = "2026-01-05T09:00:00.000Z";
 
 export interface FixtureClock extends ClockPort {

@@ -2,7 +2,7 @@ import type { D1Database } from "@cloudflare/workers-types";
 import type { Migration } from "./migration.ts";
 import type { MigrationTarget } from "./migration-runner.ts";
 
-// Applied-migration tracking, per database (ADR-0065). Runner-managed, deliberately NOT a drizzle
+// Applied-migration tracking, per database. Runner-managed, deliberately NOT a drizzle
 // schema table: it must exist before any migration runs.
 const CREATE_MIGRATIONS_TABLE =
   "CREATE TABLE IF NOT EXISTS _migrations (tag TEXT PRIMARY KEY, applied_at TEXT NOT NULL)";

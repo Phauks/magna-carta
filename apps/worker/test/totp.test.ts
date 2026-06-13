@@ -75,7 +75,7 @@ describe("TOTP enrollment", () => {
 
     const secretBase32 = secretFromTotpUri(enableBody.totpURI);
 
-    // Encrypted at rest (the plan's decided #8): the stored two_factor.secret is Better Auth's
+    // Encrypted at rest: the stored two_factor.secret is Better Auth's
     // AUTH_SECRET-keyed symmetric encryption of the raw secret — it must match neither the base32
     // form from the URI nor the raw (base32-decoded) secret, and an encryption envelope is longer
     // than both.
