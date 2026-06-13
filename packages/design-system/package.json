@@ -10,6 +10,7 @@
     "./button": "./src/lib/components/button/index.ts",
     "./card": "./src/lib/components/card/index.ts",
     "./input": "./src/lib/components/input/index.ts",
+    "./kbd": "./src/lib/components/kbd/index.ts",
     "./label": "./src/lib/components/label/index.ts",
     "./separator": "./src/lib/components/separator/index.ts",
     "./skeleton": "./src/lib/components/skeleton/index.ts",
