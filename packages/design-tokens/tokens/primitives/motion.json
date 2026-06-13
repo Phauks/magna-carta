@@ -2,7 +2,7 @@
   "duration": {
     "$description": "Animation and transition durations.",
     "instant": { "$type": "duration", "$value": { "value": 0, "unit": "ms" } },
-    "fast": { "$type": "duration", "$value": { "value": 100, "unit": "ms" } },
+    "fast": { "$type": "duration", "$value": { "value": 120, "unit": "ms" } },
     "normal": { "$type": "duration", "$value": { "value": 200, "unit": "ms" } },
     "slow": { "$type": "duration", "$value": { "value": 300, "unit": "ms" } }
   },

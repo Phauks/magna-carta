@@ -1,9 +1,18 @@
 {
   "font": {
-    "$description": "Font family stacks. System stacks for now; the owner workshop may select branded faces later.",
+    "$description": "Font family stacks. `sans` defaults to Atkinson Hyperlegible (the legibility-engineered default reading font, design language §4); the user-selectable typeface axis (data-typeface) overrides --mc-font-sans at runtime in a later step. Faces are self-hosted (OFL) by the design-system/app; the stack falls back to the system UI stack until the web fonts load.",
     "sans": {
       "$type": "fontFamily",
-      "$value": ["system-ui", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"]
+      "$value": [
+        "Atkinson Hyperlegible Next",
+        "Atkinson Hyperlegible",
+        "system-ui",
+        "Segoe UI",
+        "Roboto",
+        "Helvetica Neue",
+        "Arial",
+        "sans-serif"
+      ]
     },
     "mono": {
       "$type": "fontFamily",
@@ -11,13 +20,13 @@
     }
   },
   "text": {
-    "$description": "Type size scale.",
-    "xs": { "$type": "dimension", "$value": { "value": 12, "unit": "px" } },
-    "sm": { "$type": "dimension", "$value": { "value": 14, "unit": "px" } },
-    "md": { "$type": "dimension", "$value": { "value": 16, "unit": "px" } },
-    "lg": { "$type": "dimension", "$value": { "value": 18, "unit": "px" } },
-    "xl": { "$type": "dimension", "$value": { "value": 20, "unit": "px" } },
-    "2xl": { "$type": "dimension", "$value": { "value": 24, "unit": "px" } }
+    "$description": "Type size scale, in rem so OS/browser text-size settings scale the whole UI (WCAG 1.4.4 Resize Text; design language §4). Root baseline 16px.",
+    "xs": { "$type": "dimension", "$value": { "value": 0.75, "unit": "rem" } },
+    "sm": { "$type": "dimension", "$value": { "value": 0.875, "unit": "rem" } },
+    "md": { "$type": "dimension", "$value": { "value": 1, "unit": "rem" } },
+    "lg": { "$type": "dimension", "$value": { "value": 1.125, "unit": "rem" } },
+    "xl": { "$type": "dimension", "$value": { "value": 1.25, "unit": "rem" } },
+    "2xl": { "$type": "dimension", "$value": { "value": 1.5, "unit": "rem" } }
   },
   "leading": {
     "$description": "Line-height multipliers.",
