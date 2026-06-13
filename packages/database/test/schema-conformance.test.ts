@@ -14,8 +14,8 @@ describe("schema conformance (fitness functions)", () => {
   it("found the expected tables (guards the enumeration itself)", () => {
     // control-plane: firm + the five Better Auth tables + auth_audit + outbox + idempotency_key (9);
     // per-firm: idempotency_key, outbox, ledger_account, ledger_entry, ledger_line, account_balance,
-    // member, role, role_permission, member_role, direct_grant (11).
-    expect(ALL_TABLES.length).toBeGreaterThanOrEqual(20);
+    // member, role, role_permission, member_role, direct_grant, incident (12).
+    expect(ALL_TABLES.length).toBeGreaterThanOrEqual(21);
   });
 
   it("auth tables exist ONLY in the control-plane lineage — never in the per-firm schema", () => {

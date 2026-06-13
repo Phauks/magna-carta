@@ -12,6 +12,7 @@ import { sql } from "drizzle-orm";
 import type {
   GrantId,
   IdempotencyRecordId,
+  IncidentId,
   LedgerAccountId,
   LedgerEntryId,
   LedgerLineId,
@@ -247,3 +248,23 @@ export const accountBalance = sqliteTable(
     ),
   ],
 );
+
+// User-initiated incident reports (slice 0·6 spec §4). The "bug-report Worker" of the white paper,
+// realized as a row written by POST /api/v1/incidents (ADR-0074). Structure only — the route and its
+// outbox→Queue seam (`incident.created`, no consumer yet) live in apps/worker. JSON columns are
+// redacted by construction: error_ids and breadcrumbs are id-and-action shaped, never content. The
+// `description` is the user's words — it sits inside the firm-isolation boundary today; moving it
+// under protected() with access-gated, audited reads is a named seam for the crypto-module slice.
+export const incident = sqliteTable("incident", {
+  id: text("id").primaryKey().$type<IncidentId>(), // inc_ handle
+  errorIds: text("error_ids").notNull(), // JSON array of err_ handles (may be empty — "nothing crashed but…")
+  breadcrumbs: text("breadcrumbs").notNull(), // JSON array of { at, action, route } — redacted by construction
+  description: text("description").notNull(), // user-authored; firm boundary now, protected() later
+  context: text("context").notNull(), // JSON { route, appVersion, clientAt }
+  screenshotKey: text("screenshot_key"), // R2 seam, nullable; the UI slice populates capture/upload
+  // Lifecycle stays open text (not an enum): the diagnostics agent defines the states it transitions
+  // through later — constraining now would be premature (no consumer exists yet).
+  status: text("status").notNull().default("open"),
+  reportedBy: text("reported_by").notNull().$type<UserId>(), // global usr_ handle; no FK (ADR-0003)
+  createdAt: text("created_at").notNull(), // ISO-8601 instant (ADR-0055)
+});
