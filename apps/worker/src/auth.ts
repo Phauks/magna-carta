@@ -94,7 +94,12 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
       disableSignUp: true,
       requireEmailVerification: true,
       sendResetPassword: async ({ user, url }) => {
-        await sendEmail({ to: user.email, subject: "Set your Magna Carta password", text: url });
+        await sendEmail({
+          to: user.email,
+          subject: "Set your Magna Carta password",
+          text: url,
+          messageClass: "password-reset",
+        });
       },
       // Completing a reset proves control of the mailbox (the token only ever travels by email) —
       // the same possession proof email verification asks for, so the flag flips here. This is
@@ -114,7 +119,12 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
     },
     emailVerification: {
       sendVerificationEmail: async ({ user, url }) => {
-        await sendEmail({ to: user.email, subject: "Verify your email", text: url });
+        await sendEmail({
+          to: user.email,
+          subject: "Verify your email",
+          text: url,
+          messageClass: "email-verification",
+        });
       },
     },
     // Every user belongs to exactly one tenant firm; input: false keeps the field out of every

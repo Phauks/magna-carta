@@ -76,6 +76,12 @@
   "analytics_engine_datasets": [
     { "binding": "TELEMETRY", "dataset": "magna-carta-production-telemetry" },
   ],
+  // Cloudflare Email Service send binding (slice 0·6, ADR-0074). The adapter is SELECTED only when
+  // EMAIL_FROM is also set — deliberately NOT committed as a var here: it is the activation switch
+  // the deploy-time runbook flips once magnacarta.esq is onboarded for Email Sending (DKIM/SPF —
+  // docs/conventions/operations.md). Until then the binding is present but unused and production
+  // keeps the logging adapter, so no send fails against an un-onboarded domain.
+  "send_email": [{ "name": "SEND_EMAIL" }],
   // The scheduled sweep (src/scheduled.ts): outbox relay over the control-plane + per-firm
   // lineages and the idempotency TTL purge, every 5 minutes (closes the slice 0·2 deferral).
   "triggers": {

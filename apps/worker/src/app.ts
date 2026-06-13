@@ -11,7 +11,8 @@ import { createChokepointPorts, type AppVariables, type FirmContext } from "./ch
 import { createInMemoryRateLimiter } from "./chokepoint/rate-limiter.ts";
 import { defaultHook } from "./contracts/problem.ts";
 import { registerHealthRoute } from "./routes/health.ts";
-import { createLoggingEmailAdapter } from "./email-port.ts";
+import { createCloudflareEmailAdapter, type CloudflareEmailBinding } from "./email-cloudflare.ts";
+import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
 import { registerIncidentsRoute } from "./routes/incidents.ts";
 import { registerMeRoute } from "./routes/me.ts";
@@ -48,6 +49,11 @@ export type Bindings = {
   // missing binding (dev/test, or a deployment without it) degrades to console-only logging, never
   // throws (createWorkersLogger handles undefined).
   TELEMETRY?: AnalyticsEngineDataset;
+  // Cloudflare Email Service (slice 0·6, ADR-0074). Both optional: the Cloudflare adapter is selected
+  // only when the send_email binding AND EMAIL_FROM are present (production); dev/test leave EMAIL_FROM
+  // unset and keep the logging adapter, so no real email is sent and no domain onboarding is required.
+  SEND_EMAIL?: CloudflareEmailBinding;
+  EMAIL_FROM?: string;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
@@ -56,10 +62,22 @@ export type Bindings = {
 // email behind the same SendEmail port.
 const authInstanceByEnv = new WeakMap<Bindings, ReturnType<typeof createAuth>>();
 
+// The outbound-email adapter for an env: the real Cloudflare Email Service when its binding AND
+// EMAIL_FROM are both present (production), otherwise the dev logging adapter. EMAIL_FROM is the
+// selection key — unset in dev/test (.dev.vars omits it), so tests never touch the real binding and
+// no domain onboarding is required to run locally. The Cloudflare adapter logs through the per-env
+// Workers logger (email.sent — class + outcome, never body).
+function emailAdapterForEnv(env: Bindings): SendEmail {
+  if (env.SEND_EMAIL !== undefined && env.EMAIL_FROM !== undefined && env.EMAIL_FROM !== "") {
+    return createCloudflareEmailAdapter(env.SEND_EMAIL, env.EMAIL_FROM, defaultLoggerForEnv(env));
+  }
+  return createLoggingEmailAdapter();
+}
+
 function authForEnv(env: Bindings): ReturnType<typeof createAuth> {
   let auth = authInstanceByEnv.get(env);
   if (auth === undefined) {
-    auth = createAuth(env, createLoggingEmailAdapter());
+    auth = createAuth(env, emailAdapterForEnv(env));
     authInstanceByEnv.set(env, auth);
   }
   return auth;
