@@ -268,10 +268,19 @@ describe("validateThemeAgainstContrastPairs", () => {
     }
   });
 
-  it("sweeps every declared pair in both modes (flat mid-gray ramps violate all of them)", () => {
+  it("sweeps every declared pair in both modes (flat mid-gray ramps violate every theme-dependent pair)", () => {
     // Vacuity guard for the sweep itself: with every neutral and brand stop forced to the
-    // same mid lightness, every pair (including status pairs, whose foregrounds alias the
-    // neutral ramp) must fail in both modes — exactly pairs x modes violations.
+    // same mid lightness, every pair with a neutral/brand-aliased side (including status
+    // pairs, whose foregrounds alias the neutral ramp) must fail in both modes.
+    //
+    // The lone exception is accent-subtle-foreground on accent-subtle: gold-on-gold, both
+    // sides aliasing the SHARED accent ramp (color.accent, not the theme's neutral/brand),
+    // so it is theme-INDEPENDENT — flattening the theme ramps cannot touch it. That the
+    // accent chip's contrast holds regardless of theme is a guarantee, not a gap. Hence
+    // (pairs - the theme-independent ones) x modes.
+    const THEME_INDEPENDENT_PAIRS = CONTRAST_PAIRS.filter(
+      (pair) => pair.foreground.startsWith("accent") && pair.background.startsWith("accent"),
+    ).length;
     const flat = structuredClone(slate);
     for (const rampName of ["neutral", "brand"] as const) {
       for (const stop of RAMP_STOP_NAMES) {
@@ -279,7 +288,7 @@ describe("validateThemeAgainstContrastPairs", () => {
       }
     }
     const violations = validateThemeAgainstContrastPairs(flat);
-    expect(violations).toHaveLength(CONTRAST_PAIRS.length * 2);
+    expect(violations).toHaveLength((CONTRAST_PAIRS.length - THEME_INDEPENDENT_PAIRS) * 2);
   });
 
   it("violations name the resolved ramp aliases for debuggability", () => {

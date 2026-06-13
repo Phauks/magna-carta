@@ -37,6 +37,12 @@
   "focus": {
     "ring": { "$type": "color", "$value": "{color.brand.500}" }
   },
+  "accent": {
+    "$description": "Brand accent — gold by default (the signature thread: active nav, selected, held states, the wordmark). Shared across themes, not theme-varying; a swappable anchor (the role is named, not the value).",
+    "default": { "$type": "color", "$value": "{color.accent.700}" },
+    "subtle": { "$type": "color", "$value": "{color.accent.100}" },
+    "subtle-foreground": { "$type": "color", "$value": "{color.accent.700}" }
+  },
   "status": {
     "$description": "Status and feedback colors.",
     "info": { "$type": "color", "$value": "{color.blue.700}" },

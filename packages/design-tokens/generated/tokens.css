@@ -3,7 +3,10 @@
  * ------------------------------------------- */
 
 :root[data-theme="slate"] {
---mc-action-destructive: var(--mc-color-red-500);
+--mc-accent-default: var(--mc-color-accent-700);
+  --mc-accent-subtle: var(--mc-color-accent-100);
+  --mc-accent-subtle-foreground: var(--mc-color-accent-700);
+  --mc-action-destructive: var(--mc-color-red-500);
   --mc-action-destructive-foreground: var(--mc-color-neutral-0);
   --mc-action-destructive-hover: var(--mc-color-red-700);
   --mc-action-disabled: var(--mc-color-neutral-200);
@@ -18,6 +21,11 @@
   --mc-border-default: var(--mc-color-neutral-200);
   --mc-border-focus: var(--mc-color-brand-600);
   --mc-border-strong: var(--mc-color-neutral-500);
+  --mc-color-accent-100: oklch(95% 0.0378 85);
+  --mc-color-accent-300: oklch(83% 0.0896 85);
+  --mc-color-accent-400: oklch(72% 0.1148 85);
+  --mc-color-accent-700: oklch(42% 0.086 85);
+  --mc-color-accent-900: oklch(22% 0.045 85);
   --mc-color-amber-100: oklch(94.57% 0.0577 85.01);
   --mc-color-amber-300: oklch(83% 0.1 80);
   --mc-color-amber-400: oklch(77% 0.12 80);
@@ -163,7 +171,10 @@
 }
 
 :root[data-theme="slate"].dark {
---mc-action-destructive: var(--mc-color-red-400);
+--mc-accent-default: var(--mc-color-accent-400);
+  --mc-accent-subtle: var(--mc-color-accent-900);
+  --mc-accent-subtle-foreground: var(--mc-color-accent-300);
+  --mc-action-destructive: var(--mc-color-red-400);
   --mc-action-destructive-foreground: var(--mc-color-neutral-1000);
   --mc-action-destructive-hover: var(--mc-color-red-300);
   --mc-action-disabled: var(--mc-color-neutral-800);
@@ -178,6 +189,11 @@
   --mc-border-default: var(--mc-color-neutral-800);
   --mc-border-focus: var(--mc-color-brand-400);
   --mc-border-strong: var(--mc-color-neutral-600);
+  --mc-color-accent-100: oklch(95% 0.0378 85);
+  --mc-color-accent-300: oklch(83% 0.0896 85);
+  --mc-color-accent-400: oklch(72% 0.1148 85);
+  --mc-color-accent-700: oklch(42% 0.086 85);
+  --mc-color-accent-900: oklch(22% 0.045 85);
   --mc-color-amber-100: oklch(94.57% 0.0577 85.01);
   --mc-color-amber-300: oklch(83% 0.1 80);
   --mc-color-amber-400: oklch(77% 0.12 80);

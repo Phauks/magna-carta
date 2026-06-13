@@ -46,6 +46,9 @@
   --color-border-strong: var(--mc-border-strong);
   --color-border-focus: var(--mc-border-focus);
   --color-focus-ring: var(--mc-focus-ring);
+  --color-accent-default: var(--mc-accent-default);
+  --color-accent-subtle: var(--mc-accent-subtle);
+  --color-accent-subtle-foreground: var(--mc-accent-subtle-foreground);
   --color-status-info: var(--mc-status-info);
   --color-status-info-foreground: var(--mc-status-info-foreground);
   --color-status-success: var(--mc-status-success);

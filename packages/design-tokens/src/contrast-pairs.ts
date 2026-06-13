@@ -80,7 +80,17 @@ export const CONTRAST_PAIRS: ReadonlyArray<ContrastPair> = [
     background: "surface-default",
     minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
   },
-  // non-text UI (borders, focus ring) per WCAG 1.4.11:
+  {
+    foreground: "accent-subtle-foreground",
+    background: "accent-subtle",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
+  // non-text UI (borders, focus ring, accent indicators) per WCAG 1.4.11:
+  {
+    foreground: "accent-default",
+    background: "surface-default",
+    minimumRatio: WCAG_NON_TEXT_MINIMUM_RATIO,
+  },
   {
     foreground: "border-strong",
     background: "surface-default",

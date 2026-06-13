@@ -197,6 +197,49 @@
         }
       }
     },
+    "accent": {
+      "$description": "Shared brand-accent ramp — gold by default (hue 85), the signature thread held constant across every theme (like the status ramps, not theme-varying). Gamut-safe values from the generator's ramp path. A swappable anchor: the name is the ROLE, not the value — nothing downstream hardcodes 'gold'.",
+      "100": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "oklch",
+          "components": [0.95, 0.0378, 85],
+          "alpha": 1
+        }
+      },
+      "300": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "oklch",
+          "components": [0.83, 0.0896, 85],
+          "alpha": 1
+        }
+      },
+      "400": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "oklch",
+          "components": [0.72, 0.1148, 85],
+          "alpha": 1
+        }
+      },
+      "700": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "oklch",
+          "components": [0.42, 0.086, 85],
+          "alpha": 1
+        }
+      },
+      "900": {
+        "$type": "color",
+        "$value": {
+          "colorSpace": "oklch",
+          "components": [0.22, 0.045, 85],
+          "alpha": 1
+        }
+      }
+    },
     "blue": {
       "100": {
         "$type": "color",

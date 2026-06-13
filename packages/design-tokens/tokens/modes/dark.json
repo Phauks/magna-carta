@@ -34,6 +34,11 @@
   "focus": {
     "ring": { "$type": "color", "$value": "{color.brand.400}" }
   },
+  "accent": {
+    "default": { "$type": "color", "$value": "{color.accent.400}" },
+    "subtle": { "$type": "color", "$value": "{color.accent.900}" },
+    "subtle-foreground": { "$type": "color", "$value": "{color.accent.300}" }
+  },
   "status": {
     "info": { "$type": "color", "$value": "{color.blue.400}" },
     "info-foreground": { "$type": "color", "$value": "{color.neutral.1000}" },
