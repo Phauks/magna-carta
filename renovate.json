@@ -1,0 +1,15 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "rangeStrategy": "pin",
+  "schedule": ["before 9am on monday"],
+  "prHourlyLimit": 0,
+  "packageRules": [
+    { "groupName": "non-major dependencies", "matchUpdateTypes": ["minor", "patch"] },
+    {
+      "matchPackageNames": ["drizzle-orm", "drizzle-kit"],
+      "allowedVersions": "<1.0.0",
+      "description": "Stable line only — the migration-journal format changes in the 1.0 RC (see pnpm-workspace.yaml catalog comment)"
+    }
+  ]
+}

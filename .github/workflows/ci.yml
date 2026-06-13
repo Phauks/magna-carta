@@ -25,6 +25,12 @@ jobs:
       - name: Install dependencies
         run: vp install
 
+      # Dependency audit (slice 0·6, ADR-0074): fail on a KNOWN-vulnerable dependency at high+
+      # severity; advisory/moderate findings do not block (decided #8). Registry advisories, zero
+      # extra tooling — the osv-scanner action is the documented upgrade path if coverage disappoints.
+      - name: Dependency audit (high severity)
+        run: pnpm audit --audit-level high
+
       - name: Quality gate (fmt + lint + TS type-check + svelte-check)
         run: pnpm check
 
