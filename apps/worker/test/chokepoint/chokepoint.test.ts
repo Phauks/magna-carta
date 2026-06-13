@@ -32,7 +32,7 @@ interface Trace {
 }
 
 // The injected firm context the resolveFirmContext port returns — opaque to the chokepoint, it
-// only threads it to loadPermissions and (Task 8) the handler. A marker object suffices here.
+// only threads it to loadPermissions and the handler. A marker object suffices here.
 interface FakeFirmContext {
   readonly firmId: FirmId;
 }
@@ -73,6 +73,9 @@ function buildChokepoint(
       trace.steps.push("loadPermissions");
       return permissions;
     },
+    // No idempotency gate in these order/gate fakes — Task 8's real idempotency wiring is exercised
+    // through the Miniflare integration suites (members/firms), not these unit fakes.
+    idempotency: { middlewareFor: () => null },
     rateLimiter: {
       check: (bucket, key) => {
         trace.steps.push("rateLimiter");
@@ -362,6 +365,7 @@ describe("createChokepoint — fail-closed on a throwing port (no onError → de
         if (throwAt === "loadPermissions") throw new Error("loadPermissions port exploded");
         return new Set<Permission>([MANAGE_MEMBERS]);
       },
+      idempotency: { middlewareFor: () => null },
       rateLimiter: {
         check: (_bucket, key) => {
           trace.steps.push("rateLimiter");
@@ -529,6 +533,7 @@ describe("createChokepoint — real in-memory limiter integration", () => {
       resolveSession: async () => ({ userId: USER_ONE, firmId: FIRM_ALPHA }),
       resolveFirmContext: async () => ({ firmId: FIRM_ALPHA }),
       loadPermissions: async () => new Set<Permission>([MANAGE_MEMBERS]),
+      idempotency: { middlewareFor: () => null },
       rateLimiter,
     };
     const chokepoint = createChokepoint(ports);

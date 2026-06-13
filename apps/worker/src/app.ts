@@ -1,5 +1,11 @@
-import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { createAuth } from "./auth.ts";
+import { createChokepoint } from "./chokepoint/chokepoint.ts";
+import { createChokepointIdempotency } from "./chokepoint/idempotency-port.ts";
+import { createChokepointPorts, type AppVariables, type FirmContext } from "./chokepoint/ports.ts";
+import { createInMemoryRateLimiter } from "./chokepoint/rate-limiter.ts";
+import { defaultHook } from "./contracts/problem.ts";
+import { registerHealthRoute } from "./routes/health.ts";
 import { createLoggingEmailAdapter } from "./email-port.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
 import { registerMeRoute } from "./routes/me.ts";
@@ -29,8 +35,7 @@ export type Bindings = {
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
   // "development" enables the dev-only response validator (chokepoint/response-validator.ts);
-  // unset in production (wrangler.jsonc declares no var), set locally via .dev.vars when the
-  // validator is wired into route registration (slice 0·5b chokepoint + route migration).
+  // unset in production (wrangler.jsonc declares no var), set locally via .dev.vars.
   ENVIRONMENT?: string;
 };
 
@@ -49,42 +54,55 @@ function authForEnv(env: Bindings): ReturnType<typeof createAuth> {
   return auth;
 }
 
-const Health = z
-  .object({ status: z.literal("ok"), version: z.string(), time: z.string() })
-  .openapi("Health");
-
-const healthRoute = createRoute({
-  method: "get",
-  path: "/api/health",
-  responses: {
-    200: {
-      description: "Service health",
-      content: { "application/json": { schema: Health } },
-    },
-  },
-});
-
 export function createApp() {
-  const app = new OpenAPIHono<{ Bindings: Bindings }>();
+  // defaultHook (0·5a): every Zod request-validation failure becomes the 422 problem with
+  // field-level errors[] — installed app-wide so no route re-derives it.
+  const app = new OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>({ defaultHook });
 
-  app.openapi(healthRoute, async (c) => {
-    // Prove the control-plane D1 binding works end-to-end (the walking-skeleton's round trip).
-    await c.env.DB_CONTROL.prepare("SELECT 1").first();
-    // Skeleton timestamp; Temporal.Instant adoption is a later slice.
-    return c.json({ status: "ok" as const, version: "0.0.0", time: new Date().toISOString() }, 200);
+  // The chokepoint (ADR-0067): built once over the REAL ports — session resolution, firm-context
+  // resolution (control-plane lookup + firm-binding-resolver + member-active check), permission
+  // loading, the platform-scoped/firm-scoped idempotency gate, and a per-isolate in-memory rate
+  // limiter (one limiter per app instance, never per request). This is THE single
+  // tenancy/authn/RBAC/idempotency/rate-limit enforcement point every /api/v1 route traverses.
+  const rateLimiter = createInMemoryRateLimiter();
+  const ports = createChokepointPorts(authForEnv, rateLimiter);
+  const chokepoint = createChokepoint<FirmContext>({
+    ...ports,
+    idempotency: createChokepointIdempotency(),
   });
 
+  // Health is platform plumbing: public, unauthenticated, no /api/v1 surface — it still rides the
+  // chokepoint (rate-limit only, no session/firm/RBAC) so EVERY declared route is enforced through
+  // the one seam, none reachable that skips it.
+  registerHealthRoute(app, chokepoint);
+
   // Better Auth owns everything under its default basePath, /api/auth/* — its router serves
-  // only GET and POST. Registered before the catch-all asset fallthrough.
+  // only GET and POST. Registered before the catch-all asset fallthrough, OUTSIDE the chokepoint
+  // (it is its own authentication surface, not a /api/v1 route).
   app.on(["GET", "POST"], "/api/auth/*", (c) => authForEnv(c.env).handler(c.req.raw));
 
-  registerMeRoute(app, authForEnv);
-  registerMembersRoute(app, authForEnv);
-  registerFirmsRoute(app, authForEnv);
+  // The /api/v1 routes, each composed through the chokepoint (the one enforcement point). The
+  // public firms route additionally mounts the platform-admin secret guard as route-specific
+  // middleware, run before the chokepoint's idempotency/rate-limit gates (see routes/firms.ts).
+  registerMeRoute(app, chokepoint);
+  registerMembersRoute(app, chokepoint, authForEnv);
+  registerFirmsRoute(app, chokepoint, authForEnv);
 
   app.doc31("/api/openapi.json", {
     openapi: "3.1.0",
-    info: { title: "Magna Carta API", version: "0.0.0" },
+    info: {
+      title: "Magna Carta API",
+      version: "0.0.0",
+      description:
+        "The Magna Carta legal practice-management API. Every operation is enforced at the one " +
+        "ADR-0067 chokepoint (tenancy → authn → RBAC → idempotency → rate-limit); errors are " +
+        "RFC 9457 problem documents.",
+      contact: { name: "Magna Carta", url: "https://magnacarta.esq" },
+    },
+    servers: [
+      { url: "https://api.magnacarta.esq/v1", description: "Production API surface (ADR-0052)" },
+      { url: "https://app.magnacarta.esq/api", description: "App same-origin surface" },
+    ],
   });
 
   // Everything not handled above falls through to the static-asset SPA (Workers Static Assets binding).

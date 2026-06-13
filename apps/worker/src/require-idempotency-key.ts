@@ -18,5 +18,9 @@ export const requireIdempotencyKey: MiddlewareHandler = async (c, next) => {
       detail: "This operation requires an Idempotency-Key header.",
     });
   }
-  await next();
+  // Return next()'s result so a downstream short-circuit reply (the chokepoint's idempotency
+  // pre-decision returns a 409/422/replay Response) propagates back up to the caller — required when
+  // this runs composed under a manually-invoked middleware (the chokepoint), where the return is the
+  // only short-circuit signal Hono finalizes the context with.
+  return next();
 };

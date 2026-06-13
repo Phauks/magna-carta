@@ -43,15 +43,35 @@ export interface ChokepointPorts<FirmContext> {
   // Step 1: cookie → { userId, firmId } or null (no valid session). The chokepoint maps null to the
   // 401 only when the route declares authenticated: true.
   resolveSession: (c: Context) => Promise<ResolvedSession | null>;
-  // Step 3a: session.firmId → the firm's context, or null for STRUCTURAL ABSENCE (firm row
+  // Step 3a: the session's firm → the firm's context, or null for STRUCTURAL ABSENCE (firm row
   // missing, firm DB unbound, member deactivated — ADR-0052). null → 404, no existence oracle.
-  // Encapsulates the control-plane lookup + resolveFirmDatabase + member-active check (Task 8).
-  resolveFirmContext: (c: Context, firmId: FirmId) => Promise<FirmContext | null>;
+  // Encapsulates the control-plane lookup + resolveFirmDatabase + member-active check (Task 8). The
+  // WHOLE session is passed (not just firmId) so the port can run the member-active check against
+  // the session's userId — a deactivated member is absent (ADR-0052), folded in HERE so the same
+  // 404 covers a missing firm and a deactivated member with no per-handler discipline.
+  resolveFirmContext: (c: Context, session: ResolvedSession) => Promise<FirmContext | null>;
   // Step 3b: the principal's effective permissions in THEIR firm. A missing required permission is
   // a within-firm denial → 403 + requestAccess (the trusted insider may request a grant).
   loadPermissions: (firmContext: FirmContext, userId: UserId) => Promise<ReadonlySet<Permission>>;
+  // Step 4: idempotency (ADR-0063). For a route whose meta.idempotency === "required" the
+  // chokepoint owns the WHOLE idempotency gate — the Idempotency-Key requirement (missing → 400)
+  // AND the pre-decision (replay / 409 in-progress / 422 fingerprint-mismatch) — at the ONE point,
+  // never double-applied by a route's own middleware. The port returns the composed idempotency
+  // middleware for THIS request (it reads the tenant-scoped stored key from the chokepoint-stashed
+  // firm context, or the platform scope for the public surface), or null for an optional-idempotency
+  // route (no gate). Position is fixed here: after RBAC, before rate-limit.
+  idempotency: ChokepointIdempotency;
   // Step 5: the rate-limit verdict (the chokepoint owns the 429 reply and the tenant-scoped key).
   rateLimiter: RateLimiter;
+}
+
+// The idempotency port (step 4). Given the request context and the route's resolved meta, returns
+// the composed Idempotency-Key-requirement + pre-decision middleware to wrap the handler with —
+// or null when the route does not require idempotency (meta.idempotency !== "required"). The
+// returned middleware is a standard Hono (c, next): it either short-circuits with a 400/409/422/
+// replay reply, or calls next() after stashing the IdempotencyContext for the handler.
+export interface ChokepointIdempotency {
+  middlewareFor(c: Context, meta: RouteMeta): MiddlewareHandler | null;
 }
 
 // The chokepoint, after construction: a per-route middleware factory plus the registration-time
@@ -122,10 +142,10 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
 
       // Steps 1–3 — session, authn, RBAC — apply ONLY to non-public surfaces. A public route
       // (e.g. POST /v1/firms, platform-admin-secret-guarded) carries no cookie/CSRF assumption;
-      // its OWN guard middleware does the auth, and the chokepoint must not run the session/firm/
-      // RBAC gates that don't apply (and must not break that guard). The chokepoint still enforces
-      // the rate-limit gate for every surface. (Task 8 seam: a public route's idempotency is
-      // applied by the route's own middleware chain today — see the idempotency note below.)
+      // its OWN guard middleware does the auth (composed before this chokepoint middleware), and the
+      // chokepoint must not run the session/firm/RBAC gates that don't apply (and must not break
+      // that guard). The chokepoint still enforces the idempotency and rate-limit gates for every
+      // surface (a public route's idempotency is platform-scoped — see the idempotency port).
       if (!isPublicSurface) {
         // Step 1: resolve the session → firm.
         const session = await ports.resolveSession(c);
@@ -144,7 +164,7 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
         if (session !== null) {
           // Step 3a: resolve the firm context. null = structural absence (cross-firm / firm row
           // missing / DB unbound / member deactivated) → 404, no existence oracle (ADR-0052).
-          const firmContext = await ports.resolveFirmContext(c, session.firmId);
+          const firmContext = await ports.resolveFirmContext(c, session);
           if (firmContext === null) {
             return problemJson(c, {
               type: "not-found",
@@ -181,46 +201,71 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
         }
       }
 
-      // Step 4: idempotency. SEAM (Task 8): meta.idempotency === "required" must apply the
-      // @magna-carta/data-access idempotency middleware. It is NOT wired here because that
-      // middleware needs the firm/control-plane database handle and the tenant-scoped stored-key
-      // derivation, which are Task 8's real-port concerns — and today the only required-idempotency
-      // route (firms.provision) mounts its own idempotency middleware in its route chain, so
-      // double-applying here would conflict. Task 8 moves that into the chokepoint behind an
-      // injected idempotency port. The gate's POSITION (after RBAC, before rate-limit) is fixed
-      // here; the wiring is the deferred part.
+      // Step 4: idempotency (ADR-0063). For a required-idempotency route the chokepoint owns the
+      // whole gate — the key requirement and the pre-decision — at the ONE point. The port returns
+      // the composed middleware (reading the tenant-scoped stored key from the firm context stashed
+      // above, or the platform scope for the public surface); the gate runs HERE, after RBAC and
+      // before rate-limit, wrapping the rate-limit + handler tail in idempotencyTail. For an
+      // optional-idempotency route the port returns null and the tail runs directly. There is no
+      // route-mounted idempotency middleware any more (Task 8 deleted them) — exactly one
+      // application, never two.
+      const idempotencyMiddleware = ports.idempotency.middlewareFor(c, meta);
 
-      // Step 5: rate-limit. The key is TENANT-SCOPED and server-derived — never caller-supplied
-      // (forward obligation from the 0·5a limiter pass): a firm-scoped key for authenticated
-      // traffic so one firm cannot consume or evade another's bucket, and an IP-scoped key for the
-      // public/unauthenticated surface (no firm context exists). A client cannot pick or rotate
-      // its bucket.
-      const firmId = c.get("chokepointFirmId") as FirmId | undefined;
-      const rateLimitKey = firmId !== undefined ? `firm:${firmId}` : clientRateLimitKey(c);
-      const verdict = await ports.rateLimiter.check(meta.rateLimit, rateLimitKey);
-      if (!verdict.allowed) {
-        const response = problemJson(c, {
-          type: "rate-limited",
-          status: 429,
-          title: "Too many requests",
-          detail: "Rate limit exceeded; retry after the interval in the Retry-After header.",
-        });
-        if (verdict.retryAfterSeconds !== undefined) {
-          response.headers.set("retry-after", String(verdict.retryAfterSeconds));
+      // The tail after the idempotency gate: rate-limit, then the handler. Hoisted into a closure so
+      // it can run either directly (optional idempotency) or as the idempotency middleware's next()
+      // (required idempotency) — the rate-limit gate is enforced on the EXECUTE path either way, and
+      // a replay/conflict short-circuit in the idempotency middleware never reaches it (the stored
+      // response is already an accounted-for request; re-charging the limiter on a replay would be a
+      // second debit for one logical request).
+      const idempotencyTail = async (): Promise<void> => {
+        // Step 5: rate-limit. The key is TENANT-SCOPED and server-derived — never caller-supplied
+        // (forward obligation from the 0·5a limiter pass): a firm-scoped key for authenticated
+        // traffic so one firm cannot consume or evade another's bucket, and an IP-scoped key for
+        // the public/unauthenticated surface (no firm context exists). A client cannot pick or
+        // rotate its bucket.
+        const firmId = c.get("chokepointFirmId") as FirmId | undefined;
+        const rateLimitKey = firmId !== undefined ? `firm:${firmId}` : clientRateLimitKey(c);
+        const verdict = await ports.rateLimiter.check(meta.rateLimit, rateLimitKey);
+        if (!verdict.allowed) {
+          const response = problemJson(c, {
+            type: "rate-limited",
+            status: 429,
+            title: "Too many requests",
+            detail: "Rate limit exceeded; retry after the interval in the Retry-After header.",
+          });
+          if (verdict.retryAfterSeconds !== undefined) {
+            response.headers.set("retry-after", String(verdict.retryAfterSeconds));
+          }
+          // Inside this tail closure (an idempotency-middleware next() OR the direct path) the
+          // verdict is published via c.res, not returned — short-circuiting the handler without
+          // calling the downstream next().
+          c.res = response;
+          return;
         }
-        return response;
-      }
 
-      // Step 6: the handler.
-      //
-      // FAIL-CLOSED CONTRACT (do not break): a port above (resolveSession/resolveFirmContext/
-      // loadPermissions/rateLimiter) throwing rejects this middleware. With NO app.onError, Hono's
-      // default converts that rejection into a 500 — the handler is never reached, which is the
-      // fail-closed behavior the chokepoint depends on. If you add an app.onError, it MUST re-raise
-      // (or reply 5xx) for an enforcement-port throw; it must NEVER convert the throw into a 2xx or
-      // call next(), which would make the chokepoint fail-OPEN. The regression guard is
-      // chokepoint.test.ts "fail-closed on a throwing port".
-      await next();
+        // Step 6: the handler.
+        //
+        // FAIL-CLOSED CONTRACT (do not break): a port above (resolveSession/resolveFirmContext/
+        // loadPermissions/rateLimiter) throwing rejects this middleware. With NO app.onError,
+        // Hono's default converts that rejection into a 500 — the handler is never reached, which
+        // is the fail-closed behavior the chokepoint depends on. If you add an app.onError, it MUST
+        // re-raise (or reply 5xx) for an enforcement-port throw; it must NEVER convert the throw
+        // into a 2xx or call next(), which would make the chokepoint fail-OPEN. The regression
+        // guard is chokepoint.test.ts "fail-closed on a throwing port".
+        await next();
+      };
+
+      // Run the idempotency gate wrapping the tail (required-idempotency route), or the tail
+      // directly (optional). When the idempotency middleware short-circuits (400/409/422/replay) it
+      // RETURNS a Response (the Hono short-circuit signal) and does NOT call its next
+      // (idempotencyTail) — so the rate-limit gate and the handler never run for a replay/conflict.
+      // That return must be propagated so Hono finalizes the context with it (returning it from this
+      // outer middleware is how a manually-invoked sub-middleware's short-circuit reply lands as the
+      // response; without it Hono throws "Context is not finalized").
+      if (idempotencyMiddleware !== null) {
+        return await idempotencyMiddleware(c, idempotencyTail);
+      }
+      return await idempotencyTail();
     };
   }
 

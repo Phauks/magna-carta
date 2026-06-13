@@ -74,9 +74,19 @@ describe("POST /api/v1/firms firm-name normalization", () => {
     await expectSingleCanonicalFirm(firmId);
   });
 
-  it("rejects a name that trims to empty", async () => {
+  it("rejects a name that trims to empty with a 422 validation problem", async () => {
+    // A name that trims to empty fails the `.min(1)` request schema. With the app-level defaultHook
+    // (slice 0·5a) installed, a Zod request-validation failure is the RFC 9457 422 problem — not
+    // Hono's bare 400. (The admin key + Idempotency-Key are present, so this reaches validation:
+    // the chokepoint's secret guard and idempotency gate passed; only the body shape is rejected.)
     const response = await postFirms({ name: "   ", owner: OWNER });
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(422);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      type: "https://api.magnacarta.esq/problems/validation",
+      status: 422,
+    });
     await expectSingleCanonicalFirm(firmId); // nothing was provisioned by it
   });
 });
