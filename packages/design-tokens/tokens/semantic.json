@@ -16,9 +16,9 @@
   },
   "action": {
     "$description": "Interactive control colors.",
-    "primary": { "$type": "color", "$value": "{color.brand.600}" },
+    "primary": { "$type": "color", "$value": "{color.brand.800}" },
     "primary-hover": { "$type": "color", "$value": "{color.brand.700}" },
-    "primary-active": { "$type": "color", "$value": "{color.brand.800}" },
+    "primary-active": { "$type": "color", "$value": "{color.brand.900}" },
     "primary-foreground": { "$type": "color", "$value": "{color.neutral.0}" },
     "secondary": { "$type": "color", "$value": "{color.neutral.100}" },
     "secondary-hover": { "$type": "color", "$value": "{color.neutral.200}" },

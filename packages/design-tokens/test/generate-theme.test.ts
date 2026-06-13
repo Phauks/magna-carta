@@ -8,7 +8,7 @@ import {
   generateThemeTokens,
   parseGenerateThemeCommandLine,
   RAMP_STOP_NAMES,
-  SLATE_THEME_OPTIONS,
+  CHANCERY_THEME_OPTIONS,
   STATUS_RAMP_STOP_NAMES,
   validateThemeAgainstContrastPairs,
 } from "../scripts/generate-theme.ts";
@@ -180,11 +180,11 @@ describe("generateStatusRamp", () => {
 });
 
 describe("generateThemeTokens", () => {
-  const slate = generateThemeTokens(SLATE_THEME_OPTIONS);
+  const chancery = generateThemeTokens(CHANCERY_THEME_OPTIONS);
 
   it("emits only neutral and brand ramp overrides (status mini-ramps stay shared)", () => {
-    expect(Object.keys(slate)).toEqual(["color"]);
-    const rampNames = Object.keys(slate.color)
+    expect(Object.keys(chancery)).toEqual(["color"]);
+    const rampNames = Object.keys(chancery.color)
       .filter((key) => !key.startsWith("$"))
       .sort();
     expect(rampNames).toEqual(["brand", "neutral"]);
@@ -192,7 +192,7 @@ describe("generateThemeTokens", () => {
 
   it("emits spec-pure DTCG: each token is exactly { $type, $value } in OKLCH object form", () => {
     for (const rampName of ["neutral", "brand"] as const) {
-      const ramp = slate.color[rampName];
+      const ramp = chancery.color[rampName];
       expect(Object.keys(ramp)).toEqual([...RAMP_STOP_NAMES]);
       for (const stop of RAMP_STOP_NAMES) {
         const token = ramp[stop]!;
@@ -210,9 +210,9 @@ describe("generateThemeTokens", () => {
   });
 
   it("carries a $description and no other $-keys (purity-gate compatible)", () => {
-    const dollarKeys = Object.keys(slate.color).filter((key) => key.startsWith("$"));
+    const dollarKeys = Object.keys(chancery.color).filter((key) => key.startsWith("$"));
     expect(dollarKeys).toEqual(["$description"]);
-    expect(typeof slate.color.$description).toBe("string");
+    expect(typeof chancery.color.$description).toBe("string");
   });
 
   it("brand uses the brand hue; neutral uses the neutral tint hue when given", () => {
@@ -226,31 +226,42 @@ describe("generateThemeTokens", () => {
   });
 
   it("defaults: omitted brandChroma and neutralTint resolve to the documented defaults", () => {
-    const defaulted = generateThemeTokens({ name: "slate", brandHue: 250 });
-    expect(JSON.stringify(defaulted)).toBe(JSON.stringify(slate));
+    // Tested independently of the flagship (whose anchors are non-default): omitting
+    // brandChroma/neutralTint must equal stating the documented defaults explicitly
+    // (DEFAULT_BRAND_PEAK_CHROMA 0.11; neutral tint at the brand hue, chroma 0.014).
+    const defaulted = generateThemeTokens({ name: "x", brandHue: 250 });
+    const explicit = generateThemeTokens({
+      name: "x",
+      brandHue: 250,
+      brandChroma: 0.11,
+      neutralTint: { hue: 250, chroma: 0.014 },
+    });
+    expect(JSON.stringify(defaulted)).toBe(JSON.stringify(explicit));
   });
 
   it("is deterministic: same options produce byte-identical output", () => {
-    expect(JSON.stringify(generateThemeTokens(SLATE_THEME_OPTIONS))).toBe(JSON.stringify(slate));
+    expect(JSON.stringify(generateThemeTokens(CHANCERY_THEME_OPTIONS))).toBe(
+      JSON.stringify(chancery),
+    );
   });
 });
 
 describe("validateThemeAgainstContrastPairs", () => {
-  const slate = generateThemeTokens(SLATE_THEME_OPTIONS);
+  const chancery = generateThemeTokens(CHANCERY_THEME_OPTIONS);
 
-  it("the default slate anchors yield no violations", () => {
-    expect(validateThemeAgainstContrastPairs(slate)).toEqual([]);
+  it("the default Chancery anchors yield no violations", () => {
+    expect(validateThemeAgainstContrastPairs(chancery)).toEqual([]);
   });
 
   it("a deliberately bad brand ramp yields named violations in both modes", () => {
     // Anchor options alone can barely break contrast (the lightness ladder is fixed and
     // OKLCH lightness tracks WCAG luminance closely — by design), so the bad input is a
-    // crafted ramp document: brand.600 far too light for light mode's white-on-brand
-    // pairings, brand.400 far too dark for dark mode's. This is also the validator's real
-    // duty: it must catch ANY bad ramp values (a future workshop hand-tweak), not only
-    // generator output.
-    const bad = structuredClone(slate);
-    bad.color.brand["600"]!.$value.components = [0.85, 0.05, 250];
+    // crafted ramp document: brand.800 (light mode's action.primary) far too light for the
+    // white-on-brand pairing, brand.400 (dark mode's action.primary) far too dark for its
+    // dark-ink-on-brand pairing. This is also the validator's real duty: it must catch ANY
+    // bad ramp values (a future workshop hand-tweak), not only generator output.
+    const bad = structuredClone(chancery);
+    bad.color.brand["800"]!.$value.components = [0.85, 0.05, 250];
     bad.color.brand["400"]!.$value.components = [0.2, 0.05, 250];
     const violations = validateThemeAgainstContrastPairs(bad);
     expect(violations.length).toBeGreaterThan(0);
@@ -281,7 +292,7 @@ describe("validateThemeAgainstContrastPairs", () => {
     const THEME_INDEPENDENT_PAIRS = CONTRAST_PAIRS.filter(
       (pair) => pair.foreground.startsWith("accent") && pair.background.startsWith("accent"),
     ).length;
-    const flat = structuredClone(slate);
+    const flat = structuredClone(chancery);
     for (const rampName of ["neutral", "brand"] as const) {
       for (const stop of RAMP_STOP_NAMES) {
         flat.color[rampName][stop]!.$value.components = [0.55, 0.05, 250];
@@ -292,8 +303,8 @@ describe("validateThemeAgainstContrastPairs", () => {
   });
 
   it("violations name the resolved ramp aliases for debuggability", () => {
-    const bad = structuredClone(slate);
-    bad.color.brand["600"]!.$value.components = [0.85, 0.05, 250];
+    const bad = structuredClone(chancery);
+    bad.color.brand["800"]!.$value.components = [0.85, 0.05, 250];
     const violation = validateThemeAgainstContrastPairs(bad).find(
       (candidate) =>
         candidate.kind === "contrast" &&
@@ -304,19 +315,20 @@ describe("validateThemeAgainstContrastPairs", () => {
     expect(violation).toBeDefined();
     if (violation?.kind !== "contrast") throw new Error("expected a contrast violation");
     expect(violation.foregroundAlias).toBe("{color.neutral.0}");
-    expect(violation.backgroundAlias).toBe("{color.brand.600}");
+    expect(violation.backgroundAlias).toBe("{color.brand.800}");
   });
 
   it("an out-of-gamut hand-tweaked stop is a named gamut violation, never a measured ratio", () => {
-    const bad = structuredClone(slate);
+    const bad = structuredClone(chancery);
     // oklch(60% 0.3 30) sits well outside sRGB — the same probe the CI gate's self-check
-    // uses (test/contrast.test.ts) — simulating a workshop hand-tweak gone wrong.
-    bad.color.brand["600"]!.$value.components = [0.6, 0.3, 30];
+    // uses (test/contrast.test.ts) — simulating a workshop hand-tweak gone wrong. brand.800
+    // is light mode's action.primary stop.
+    bad.color.brand["800"]!.$value.components = [0.6, 0.3, 30];
     const violations = validateThemeAgainstContrastPairs(bad);
     const gamutViolations = violations.filter((violation) => violation.kind === "gamut");
     expect(gamutViolations.length).toBeGreaterThan(0);
     for (const violation of gamutViolations) {
-      expect(violation.alias).toBe("{color.brand.600}");
+      expect(violation.alias).toBe("{color.brand.800}");
       expect(violation.components).toEqual([0.6, 0.3, 30]);
     }
     const identities = gamutViolations.map(
@@ -336,7 +348,7 @@ describe("validateThemeAgainstContrastPairs", () => {
   });
 
   it("an out-of-range lightness (no displayable chroma at all) is also a gamut violation", () => {
-    const bad = structuredClone(slate);
+    const bad = structuredClone(chancery);
     bad.color.brand["600"]!.$value.components = [1.2, 0, 250];
     const gamutViolations = validateThemeAgainstContrastPairs(bad).filter(
       (violation) => violation.kind === "gamut",
@@ -349,7 +361,7 @@ describe("validateThemeAgainstContrastPairs", () => {
     // Several committed status stops rely on Terrazzo's build-time gamut mapping (the CI
     // gate measures the mapped output, so it passes them): prove one such stop the pairs
     // actually resolve (blue.700, status-info-foreground in light mode) is outside the
-    // raw sRGB gamut, then prove the validator still passes slate — a theme document
+    // raw sRGB gamut, then prove the validator still passes Chancery — a theme document
     // cannot fix shared primitives and must not fail for them.
     const primitives = JSON.parse(
       readFileSync(join(PACKAGE_ROOT, "tokens", "primitives", "color.json"), "utf8"),
@@ -358,7 +370,7 @@ describe("validateThemeAgainstContrastPairs", () => {
     };
     const [lightness, chroma, hue] = primitives.color["blue"]!["700"]!.$value.components;
     expect(displayable({ mode: "oklch", l: lightness, c: chroma, h: hue })).toBe(false);
-    expect(validateThemeAgainstContrastPairs(slate)).toEqual([]);
+    expect(validateThemeAgainstContrastPairs(chancery)).toEqual([]);
   });
 
   it("fresh generator output never trips the gamut guard, even for aggressive anchors", () => {
@@ -372,21 +384,21 @@ describe("validateThemeAgainstContrastPairs", () => {
   });
 });
 
-describe("slate is generated, not hand-drifted (primitives pin)", () => {
+describe("chancery is generated, not hand-drifted (primitives pin)", () => {
   // The committed neutral and brand ramps in tokens/primitives/color.json must equal the
-  // generator's output for the slate anchors exactly — so the owner workshop can later
-  // regenerate from new anchors without first reverse-engineering hand drift.
+  // generator's output for the Chancery flagship anchors exactly — so the flagship can be
+  // re-anchored later without first reverse-engineering hand drift.
   const primitives = JSON.parse(
     readFileSync(join(PACKAGE_ROOT, "tokens", "primitives", "color.json"), "utf8"),
   ) as { color: Record<string, unknown> };
-  const slate = generateThemeTokens(SLATE_THEME_OPTIONS);
+  const chancery = generateThemeTokens(CHANCERY_THEME_OPTIONS);
 
-  it("committed color.neutral equals the generator's slate neutral ramp", () => {
-    expect(primitives.color["neutral"]).toEqual(slate.color.neutral);
+  it("committed color.neutral equals the generator's Chancery neutral ramp", () => {
+    expect(primitives.color["neutral"]).toEqual(chancery.color.neutral);
   });
 
-  it("committed color.brand equals the generator's slate brand ramp", () => {
-    expect(primitives.color["brand"]).toEqual(slate.color.brand);
+  it("committed color.brand equals the generator's Chancery brand ramp", () => {
+    expect(primitives.color["brand"]).toEqual(chancery.color.brand);
   });
 });
 

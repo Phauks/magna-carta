@@ -11,7 +11,7 @@
 
 /* Mode-invariant namespaces (spacing, radius, typography, easing, durations, z-index) — generated. */
 @theme {
-  @tz (theme: "slate", mode: "light");
+  @tz (theme: "chancery", mode: "light");
 }
 
 /* Semantic colors + elevation — hand-authored; `inline` keeps the var() reference in utilities. */

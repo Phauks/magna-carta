@@ -21,11 +21,16 @@
   },
   "modifiers": {
     "theme": {
-      "description": "Visual theme. slate is the provisional default; new themes add a context here.",
+      "description": "Visual theme (firm-picked). chancery is the flagship default (Ink & Gold, baked into the primitives); each showcase theme adds one context that swaps the neutral+brand ramp VALUES only. The shared accent (gold) and status ramps never vary by theme.",
       "contexts": {
-        "slate": []
+        "chancery": [],
+        "verdigris": [{ "$ref": "tokens/themes/verdigris.json" }],
+        "parchment": [{ "$ref": "tokens/themes/parchment.json" }],
+        "oxblood": [{ "$ref": "tokens/themes/oxblood.json" }],
+        "aubergine": [{ "$ref": "tokens/themes/aubergine.json" }],
+        "slate": [{ "$ref": "tokens/themes/slate.json" }]
       },
-      "default": "slate"
+      "default": "chancery"
     },
     "mode": {
       "description": "Light or dark color mode, shared across all themes. Light is empty: tokens/semantic.json is the light/default truth. Dark re-points color-bearing semantic aliases to other ramp positions.",
@@ -34,12 +39,20 @@
         "dark": [{ "$ref": "tokens/modes/dark.json" }]
       },
       "default": "light"
+    },
+    "contrast": {
+      "description": "Reserved high-contrast axis (design language §6; the home for stronger boundaries + OS prefers-contrast / forced-colors). Unpopulated at launch — only the no-op 'standard' context exists; a future 'high' context strengthens borders and drops subtle shadows. The plugin permutations (terrazzo.config.mjs) emit theme x mode only, so this resolves to its default and adds no output until populated.",
+      "contexts": {
+        "standard": []
+      },
+      "default": "standard"
     }
   },
   "resolutionOrder": [
     { "$ref": "#/sets/primitives" },
     { "$ref": "#/sets/semantic" },
     { "$ref": "#/modifiers/theme" },
-    { "$ref": "#/modifiers/mode" }
+    { "$ref": "#/modifiers/mode" },
+    { "$ref": "#/modifiers/contrast" }
   ]
 }

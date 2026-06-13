@@ -10,10 +10,10 @@ function variableName(token) {
   return `--mc-${token.id.replace(/\./g, "-")}`;
 }
 
-// One block per theme-and-mode permutation, derived from data: theme #2 is a
-// one-element addition here. Light first: the first permutation doubles as the
-// default set plugin-tailwind reads.
-const themes = ["slate"];
+// One block per theme-and-mode permutation, derived from data: a new theme is a
+// one-element addition here (and a resolver context). Chancery first: the flagship,
+// whose light permutation doubles as the default set plugin-tailwind reads.
+const themes = ["chancery", "verdigris", "parchment", "oxblood", "aubergine", "slate"];
 const modes = ["light", "dark"];
 const permutations = themes.flatMap((theme) =>
   modes.map((mode) => ({

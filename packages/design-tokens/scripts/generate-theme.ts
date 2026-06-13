@@ -226,16 +226,19 @@ export function generateThemeTokens(options: GenerateThemeTokensOptions): ThemeT
 }
 
 /**
- * The slate anchors: the provisional default theme, committed into
- * tokens/primitives/color.json. The pin test (test/generate-theme.test.ts) holds the
- * committed neutral and brand ramps byte-equal to this generator output, so the owner
- * workshop can regenerate from new anchors without reverse-engineering hand drift.
+ * The Chancery anchors: the flagship default theme (Ink & Gold — a warm near-black ink
+ * brand at low chroma), committed into tokens/primitives/color.json. The pin test
+ * (test/generate-theme.test.ts) holds the committed neutral and brand ramps byte-equal to
+ * this generator output, so the flagship can be re-anchored without reverse-engineering
+ * hand drift. The brand/flagship color is a swappable anchor (design language §3): change
+ * these numbers, regenerate the primitives, re-pin. The accent (gold) is separate and
+ * shared (tokens/primitives/color.json `accent`), never themed.
  */
-export const SLATE_THEME_OPTIONS = {
-  name: "slate",
-  brandHue: 250,
-  brandChroma: DEFAULT_BRAND_PEAK_CHROMA,
-  neutralTint: { hue: 250, chroma: DEFAULT_NEUTRAL_TINT_CHROMA },
+export const CHANCERY_THEME_OPTIONS = {
+  name: "chancery",
+  brandHue: 70,
+  brandChroma: 0.035,
+  neutralTint: { hue: 70, chroma: DEFAULT_NEUTRAL_TINT_CHROMA },
 } satisfies GenerateThemeTokensOptions;
 
 export interface ContrastViolation {
