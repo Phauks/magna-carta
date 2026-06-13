@@ -73,9 +73,10 @@ type DescribedRouteConfig<P extends string> = Omit<RouteConfig, "path"> & {
 // required and Prism models it. zod-to-openapi spreads `.openapi({ param })` metadata over the
 // optionality-derived `required`, and `.openapi()` clones the field schema — the shared fragment
 // is never mutated. The wrap goes through `.extend()`, which preserves the object-level schema
-// state (catchall, strict/strip mode, object-level refinements and .openapi metadata) and throws
-// loudly if it would overwrite a key on a refined object; the wrapped field's own runtime parse
-// is unchanged.
+// state (catchall, strict/strip mode, object-level refinements); the wrapped field's own runtime
+// parse is unchanged. (Whether `.extend()` carries forward object-level `.openapi` metadata is
+// untested and moot here: the shared idempotencyKeyHeader fragment carries no object-level
+// `.openapi`, only per-field param metadata.)
 function withRequiredIdempotencyKeyHeaderDocumentation<
   P extends string,
   R extends DescribedRouteConfig<P>,
