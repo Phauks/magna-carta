@@ -25,6 +25,18 @@ describe("prefix registry", () => {
     expect(prefixFor("error")).toBe("err");
   });
 
+  it("maps the matters, locations and file-manager entity types to their prefixes", () => {
+    expect(prefixFor("location")).toBe("loc");
+    expect(prefixFor("matterType")).toBe("mtt");
+    expect(prefixFor("documentType")).toBe("dty");
+    expect(prefixFor("numberingScheme")).toBe("nsc");
+    expect(prefixFor("folder")).toBe("fld");
+    expect(prefixFor("file")).toBe("fil");
+    expect(prefixFor("fileVersion")).toBe("fvr");
+    expect(prefixFor("uploadSession")).toBe("upl");
+    expect(prefixFor("auditLog")).toBe("alg");
+  });
+
   it("has no duplicate prefixes (prefix space partitions the id space)", () => {
     const prefixes = Object.values(ENTITY_PREFIXES);
     expect(new Set(prefixes).size).toBe(prefixes.length);

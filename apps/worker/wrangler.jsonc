@@ -63,8 +63,16 @@
     "required": ["AUTH_SECRET", "PLATFORM_ADMIN_KEY"],
   },
   "r2_buckets": [{ "binding": "R2", "bucket_name": "magna-carta-production-platform-files" }],
+  // FILES_INGEST carries one R2 event per uploaded object to the ingest consumer (single read:
+  // magic-byte gates + streaming SHA-256 + scan port, then commit or quarantine). It is a distinct
+  // queue from the platform job queue so upload bursts cannot starve the outbox relay, and so its
+  // consumer can be tuned and dead-lettered on its own. The matching `consumers` entry is added with
+  // the queue() handler — a declared consumer with no exported handler fails the deploy.
   "queues": {
-    "producers": [{ "binding": "QUEUE", "queue": "magna-carta-production-platform-jobs" }],
+    "producers": [
+      { "binding": "QUEUE", "queue": "magna-carta-production-platform-jobs" },
+      { "binding": "FILES_INGEST", "queue": "magna-carta-production-files-ingest" },
+    ],
   },
   // The scheduled sweep (src/scheduled.ts): outbox relay over the control-plane + per-firm
   // lineages and the idempotency TTL purge, every 5 minutes (closes the slice 0·2 deferral).

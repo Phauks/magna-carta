@@ -26,6 +26,19 @@ export const ENTITY_PREFIXES = {
   grant: "gnt",
   authAudit: "aud",
   error: "err",
+  // Matters, Locations & File Manager. `matterType`/`documentType` are the per-firm classification
+  // catalogs (distinct from `document`, a stored object); `numberingScheme` is the matter-number
+  // template; `file`/`fileVersion` are the versioned object metadata; `uploadSession` tracks an
+  // in-flight direct-to-R2 upload; `auditLog` is the per-firm append-only mutation record.
+  location: "loc",
+  matterType: "mtt",
+  documentType: "dty",
+  numberingScheme: "nsc",
+  folder: "fld",
+  file: "fil",
+  fileVersion: "fvr",
+  uploadSession: "upl",
+  auditLog: "alg",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;
