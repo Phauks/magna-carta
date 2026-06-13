@@ -1,9 +1,8 @@
 <script module lang="ts">
   /*
-   * Badge — Tier 1 batch (the Button exemplar pattern: native element + mc-* recipe keyed by a
-   * typed variant record). Stories cover every variant and double as per-story axe checks
-   * (.storybook/preview.ts sets a11y.test = "error"). The play function asserts the rendered
-   * element is a non-interactive <span> carrying its label. svelte-csf v5 API (defineMeta + Story).
+   * Badge — Tier 1 batch. One story per variant (each a genuinely different display). The
+   * non-interactive-span check rides the Default story's play function (run automatically), so
+   * there is no separate behavior-only story re-rendering the same badge. svelte-csf v5.
    */
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ComponentProps } from "svelte";
@@ -29,19 +28,15 @@
   <Badge {...args}>Active</Badge>
 {/snippet}
 
-<Story name="Default" args={{ variant: "default" }} {template} />
-<Story name="Secondary" args={{ variant: "secondary" }} {template} />
-<Story name="Destructive" args={{ variant: "destructive" }} {template} />
-<Story name="Outline" args={{ variant: "outline" }} {template} />
-
 <Story
-  name="Renders a non-interactive span"
+  name="Default"
+  args={{ variant: "default" }}
+  {template}
   play={async ({ canvas }) => {
     const badge = canvas.getByText("Active");
     await expect(badge.tagName).toBe("SPAN");
   }}
->
-  {#snippet template(args: BadgeStoryArgs)}
-    <Badge {...args}>Active</Badge>
-  {/snippet}
-</Story>
+/>
+<Story name="Secondary" args={{ variant: "secondary" }} {template} />
+<Story name="Destructive" args={{ variant: "destructive" }} {template} />
+<Story name="Outline" args={{ variant: "outline" }} {template} />

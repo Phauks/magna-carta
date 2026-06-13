@@ -165,15 +165,41 @@
   .mc-input::placeholder {
     color: var(--mc-text-muted);
   }
+  /*
+   * Focus is a SINGLE merged edge, not a detached ring: the border and the outline both take the
+   * focus-ring colour and the outline sits flush (zero offset), so a control that already has a
+   * resting border reads as one thicker colored edge rather than a box-plus-ring "double shape".
+   * (The Button has no resting border, so it keeps the detached offset ring.)
+   */
   .mc-input:focus-visible {
-    border-color: var(--mc-border-focus);
+    border-color: var(--mc-focus-ring);
     outline-color: var(--mc-focus-ring);
     outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
   }
   .mc-input:disabled {
     background-color: var(--mc-action-disabled);
     color: var(--mc-action-disabled-foreground);
     cursor: not-allowed;
+  }
+  /* File input: centre the native selector button and style it as a secondary control so a
+   * file field reads as intentional rather than browser-default. */
+  .mc-input[type="file"] {
+    display: inline-flex;
+    align-items: center;
+  }
+  .mc-input[type="file"]::file-selector-button {
+    margin-inline-end: var(--mc-space-12);
+    border-style: none;
+    border-radius: var(--mc-radius-sm);
+    background-color: var(--mc-action-secondary);
+    color: var(--mc-action-secondary-foreground);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-xs);
+    font-weight: var(--mc-weight-medium);
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+    cursor: pointer;
   }
 
   /*
@@ -395,10 +421,10 @@
   }
 
   /*
-   * Kbd (Tier 1). A keyboard-key hint: a sunken, mono, hairline-bordered chip. Flat (no key
+   * Keyboard (Tier 1). A keyboard-key hint: a sunken, mono, hairline-bordered chip. Flat (no key
    * shadow) per design language §6. The mono face keeps multi-key chords aligned.
    */
-  .mc-kbd {
+  .mc-keyboard {
     display: inline-flex;
     align-items: center;
     justify-content: center;

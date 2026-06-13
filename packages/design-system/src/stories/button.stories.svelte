@@ -50,7 +50,22 @@
 
 <!-- Variant x size matrix — names are static literals (svelte-csf requirement). -->
 <Story name="Primary / sm" args={{ variant: "primary", size: "sm" }} {template} />
-<Story name="Primary / default" args={{ variant: "primary", size: "default" }} {template} />
+<!-- The native-element, type, and focus-receipt checks ride this representative matrix cell's
+     play function (run automatically) rather than separate behavior-only stories. -->
+<Story
+  name="Primary / default"
+  args={{ variant: "primary", size: "default" }}
+  {template}
+  play={async ({ canvas }) => {
+    const control = canvas.getByRole("button", { name: "Button" });
+    await expect(control.tagName).toBe("BUTTON");
+    // A bare action button must declare type=button so it never acts as a form submit.
+    await expect(control).toHaveAttribute("type", "button");
+    // Focus RECEIPT only — not the :focus-visible heuristic (runner-dependent; VRT owns the ring).
+    await userEvent.tab();
+    await expect(control).toHaveFocus();
+  }}
+/>
 <Story name="Primary / lg" args={{ variant: "primary", size: "lg" }} {template} />
 <Story name="Primary / icon" args={{ variant: "primary", size: "icon" }} {template} />
 
@@ -74,87 +89,36 @@
 <Story name="Link / lg" args={{ variant: "link", size: "lg" }} {template} />
 <Story name="Link / icon" args={{ variant: "link", size: "icon" }} {template} />
 
-<!-- Disabled: the recipe greys the control and the click handler must not fire (asserted below). -->
-<Story name="Disabled" args={{ variant: "primary", size: "default" }}>
-  {#snippet template(args: ButtonStoryArgs)}
-    <Button {...args} disabled>Disabled</Button>
-  {/snippet}
-</Story>
-
-<!-- Href: renders an <a>, not a <button> (asserted below). -->
-<Story name="Link (href)" args={{ variant: "link", size: "default" }}>
-  {#snippet template(args: ButtonStoryArgs)}
-    <Button {...args} href="#button-anchor-target">Documentation</Button>
-  {/snippet}
-</Story>
-
-<!-- ----- behavior assertions (play functions) ------------------------------------------- -->
-
+<!-- Disabled: the recipe greys the control; its play proves the native disabled attribute blocks
+     the click handler (not merely the recipe's pointer-events:none). -->
 <Story
-  name="Renders a native button by default"
-  args={{ variant: "primary", size: "default" }}
-  play={async ({ canvas }) => {
-    const control = canvas.getByRole("button", { name: "Button" });
-    await expect(control.tagName).toBe("BUTTON");
-    // A bare action button must declare type=button so it never acts as a form submit.
-    await expect(control).toHaveAttribute("type", "button");
-  }}
->
-  {#snippet template(args: ButtonStoryArgs)}
-    <Button {...args}>Button</Button>
-  {/snippet}
-</Story>
-
-<Story
-  name="Renders an anchor when href is set"
-  args={{ variant: "link", size: "default" }}
-  play={async ({ canvas }) => {
-    const control = canvas.getByRole("link", { name: "Link" });
-    await expect(control.tagName).toBe("A");
-    await expect(control).toHaveAttribute("href", "#anchor-play-target");
-    // The anchor must NOT carry a button type attribute.
-    await expect(control).not.toHaveAttribute("type");
-  }}
->
-  {#snippet template(args: ButtonStoryArgs)}
-    <Button {...args} href="#anchor-play-target">Link</Button>
-  {/snippet}
-</Story>
-
-<Story
-  name="Disabled blocks the click handler"
+  name="Disabled"
   args={{ variant: "primary", size: "default", onclick: fn() }}
   play={async ({ canvas, args }) => {
-    const control = canvas.getByRole("button", { name: "Cannot click" });
+    const control = canvas.getByRole("button", { name: "Disabled" });
     await expect(control).toBeDisabled();
-    // pointerEventsCheck: 0 bypasses userEvent's own pointer-events:none guard, so the click
-    // reaches the element — proving the native `disabled` attribute itself blocks the handler,
-    // not merely the recipe's pointer-events:none.
+    // pointerEventsCheck: 0 bypasses userEvent's own guard so the click reaches the element.
     await userEvent.click(control, { pointerEventsCheck: 0 });
     await expect(args.onclick).not.toHaveBeenCalled();
   }}
 >
   {#snippet template(args: ButtonStoryArgs)}
-    <Button {...args} disabled onclick={args.onclick as () => void}>Cannot click</Button>
+    <Button {...args} disabled onclick={args.onclick as () => void}>Disabled</Button>
   {/snippet}
 </Story>
 
+<!-- Href: renders an <a>, not a <button>; its play asserts the anchor + href and no button type. -->
 <Story
-  name="Receives keyboard focus"
-  args={{ variant: "primary", size: "default" }}
+  name="Link (href)"
+  args={{ variant: "link", size: "default" }}
   play={async ({ canvas }) => {
-    const control = canvas.getByRole("button", { name: "Focus me" });
-    // Tab moves focus to the button; the tokenized ring is painted by the recipe's
-    // :focus-visible rule. We assert focus RECEIPT only — NOT control.matches(":focus-visible").
-    // That heuristic keys off the browser's TRUSTED input modality, which differs by runner:
-    // the Playwright-backed vitest run dispatches trusted events (it matches), but the Storybook
-    // UI's synthetic userEvent after a mouse click does not (it would not), so asserting it is
-    // non-deterministic. The ring's actual appearance is guarded by visual regression instead.
-    await userEvent.tab();
-    await expect(control).toHaveFocus();
+    const control = canvas.getByRole("link", { name: "Documentation" });
+    await expect(control.tagName).toBe("A");
+    await expect(control).toHaveAttribute("href", "#button-anchor-target");
+    await expect(control).not.toHaveAttribute("type");
   }}
 >
   {#snippet template(args: ButtonStoryArgs)}
-    <Button {...args}>Focus me</Button>
+    <Button {...args} href="#button-anchor-target">Documentation</Button>
   {/snippet}
 </Story>

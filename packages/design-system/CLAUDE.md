@@ -86,17 +86,20 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
 - **`.cmd` files are ASCII-only** — multibyte characters (em-dashes) shear cmd.exe's parser under
   the UTF-8 codepage. `.gitattributes` pins `*.cmd` to CRLF.
 - **Tokenize recipe lengths (focus-ring + border-width done):** the Button needed focus-ring
-  width/offset tokens; the Tier 1 batch (Input/Card/Separator/Alert/Kbd) needed
+  width/offset tokens; the Tier 1 batch (Input/Card/Separator/Alert/Keyboard) needed
   `--mc-border-width-default`. Bare `0`, `calc(…)`, and `content: ""` in recipes likewise need
   tokens or a deliberate, reviewed gate widening.
 - **Component-build conventions (Tier 1 batch, the loop every later component copies):**
   - **Single-element wrappers** are `WithElementRef<HTMLXAttributes, HTMLXElement>` + `mergeClasses("mc-x", className)`; **variant** components add the house `variants.ts` record (no DSL), as in button/badge/alert.
   - **Multi-part** components (Card, Alert) ship an index that exports the **house namespace shape** — bare part names (`Root`, `Header`, …) _plus_ prefixed aliases (`Card`, `CardHeader`, …) — so both `import * as Card` and `{ Card, CardHeader }` work.
+  - **Name components in full** (golden rule 12): `Keyboard`, not `Kbd` — the HTML element stays `<kbd>`, but the component, recipe class (`mc-keyboard`), export, and story are spelled out.
   - **svelte-csf `defineMeta({ component })` needs a directly imported component identifier**, not a namespace member: import the root component file alongside `import * as X` for multi-part stories (Card/Alert stories show this).
   - **Layout width is a utility, not the recipe:** `inline-size: 100%` is not tokenizable (and `%` fails the purity gate), so form controls (Input/Textarea) and Separator carry `w-full`/`h-full` in the component class; the recipe owns visual design only.
-  - **Input file-type narrowing:** the narrow discriminated union `Omit<…,"type"> & ({type:"file";files?} | {type?:…;files?})` type-checks cleanly (unlike the Button's full button|anchor union — see relaxed-intersection note); `value`/`files` are `$bindable`.
+  - **Focus is a single shape on bordered controls.** A control with a resting border (Input/Textarea) uses a **merged-edge** focus — border + outline both `focus-ring` coloured, outline at `space-0` offset — so it reads as one thicker edge, not a box-plus-detached-ring "double shape". Only the borderless Button keeps the detached offset ring.
+  - **Input file-type narrowing:** the narrow discriminated union `Omit<…,"type"> & ({type:"file";files?} | {type?:…;files?})` type-checks cleanly (unlike the Button's full button|anchor union — see relaxed-intersection note); `value`/`files` are `$bindable`; the native `::file-selector-button` is styled as a secondary control.
   - **Status surfaces use the gated solid pairing:** an Alert is a solid `status.<v>` panel with `status.<v>-foreground` (the AA-gated pair); a status colour as **text on a light surface is ungated and can fail AA** — do not use it until `status.*-subtle` tokens exist.
   - **Animations pulse between token colours, not opacity** (no opacity token; opacity literals are banned) and carry a `prefers-reduced-motion` guard (Skeleton).
+- **One story per DISTINCT display; never two stories for the same single component.** Stories are the catalog (the autodocs page stacks them all — duplicates render as repeated/overlapping components). Give each genuinely-different display one story (per variant, per state, per orientation) and **fold behavior assertions into those stories' `play` functions** (they run automatically — abstract checks like an ARIA live-region role are tests, not catalog entries). No separate behavior-only story that re-renders an already-shown component; a no-variant component (Card, Label, Skeleton) is a single story.
 - **`#NNNN` issue references in `src/` comments trip the raw-hex gate** (four hex digits) — cite
   issues in full URL form or use a justified `fitness-allow`.
 - **Open spec item:** the no-emoji fitness gate is specced but unimplemented (decide at CI wiring,

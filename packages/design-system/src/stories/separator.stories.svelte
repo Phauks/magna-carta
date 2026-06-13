@@ -1,9 +1,10 @@
 <script module lang="ts">
   /*
-   * Separator — Tier 1 batch (the Button exemplar pattern: native element + mc-* recipe). Play
-   * functions assert the two a11y modes: decorative renders role="none" (skipped by AT), and
-   * decorative={false} renders role="separator" with the right aria-orientation. Per-story axe
-   * runs clean. svelte-csf v5 API (defineMeta + Story).
+   * Separator — Tier 1 batch. Two genuinely different displays — horizontal vs vertical — which
+   * also cover the two a11y modes between them: Horizontal is decorative (role="none", skipped by
+   * AT) and Vertical is semantic (role="separator" + aria-orientation). Both demos use the same
+   * gap so the spacing reads consistently — the separator imposes no margin of its own; spacing is
+   * always the parent layout's job. Each story's check rides its play function. svelte-csf v5.
    */
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ComponentProps } from "svelte";
@@ -13,7 +14,6 @@
   const { Story } = defineMeta({
     title: "Components/Separator",
     component: Separator,
-    args: { orientation: "horizontal", decorative: true },
     argTypes: {
       orientation: { control: "select", options: ["horizontal", "vertical"] },
       decorative: { control: "boolean" },
@@ -23,50 +23,37 @@
   type SeparatorStoryArgs = ComponentProps<typeof Separator>;
 </script>
 
-<!-- Horizontal decorative divider between two stacked rows. -->
-<Story name="Horizontal" args={{ orientation: "horizontal" }}>
-  {#snippet template(args: SeparatorStoryArgs)}
-    <div>Recent matters</div>
-    <Separator {...args} />
-    <div>Archived matters</div>
-  {/snippet}
-</Story>
-
-<!-- Vertical divider inside a sized row (the parent gives it height via utility classes). -->
-<Story name="Vertical" args={{ orientation: "vertical" }}>
-  {#snippet template(args: SeparatorStoryArgs)}
-    <div class="flex h-6 items-center gap-3">
-      <span>Edit</span>
-      <Separator {...args} />
-      <span>Archive</span>
-    </div>
-  {/snippet}
-</Story>
-
-<!-- ----- behavior assertions (play functions) ------------------------------------------- -->
-
+<!-- Horizontal, decorative (the default): a visual divider AT skips (no separator role exposed). -->
 <Story
-  name="Decorative separators are hidden from assistive tech"
-  args={{ decorative: true }}
+  name="Horizontal"
+  args={{ orientation: "horizontal", decorative: true }}
   play={async ({ canvas }) => {
-    // role="none" removes it from the accessibility tree, so no separator role is exposed.
     await expect(canvas.queryByRole("separator")).toBeNull();
   }}
 >
   {#snippet template(args: SeparatorStoryArgs)}
-    <Separator {...args} />
+    <div class="flex flex-col gap-3">
+      <div>Recent matters</div>
+      <Separator {...args} />
+      <div>Archived matters</div>
+    </div>
   {/snippet}
 </Story>
 
+<!-- Vertical, semantic: announced as a real boundary with its orientation (the parent gives height). -->
 <Story
-  name="Semantic separators expose role and orientation"
-  args={{ decorative: false, orientation: "vertical" }}
+  name="Vertical"
+  args={{ orientation: "vertical", decorative: false }}
   play={async ({ canvas }) => {
     const separator = canvas.getByRole("separator");
     await expect(separator).toHaveAttribute("aria-orientation", "vertical");
   }}
 >
   {#snippet template(args: SeparatorStoryArgs)}
-    <Separator {...args} />
+    <div class="flex h-6 items-center gap-3">
+      <span>Edit</span>
+      <Separator {...args} />
+      <span>Archive</span>
+    </div>
   {/snippet}
 </Story>
