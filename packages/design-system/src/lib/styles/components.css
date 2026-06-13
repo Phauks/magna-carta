@@ -303,4 +303,19 @@
     gap: var(--mc-space-8);
     padding-inline: var(--mc-space-24);
   }
+
+  /*
+   * Separator (Tier 1). A hairline dividing rule in the border colour. Only the THICKNESS lives
+   * here (the border-width token, applied to the relevant axis); the cross-axis length is set by
+   * the component's per-orientation utility (w-full / h-full), since length is layout, not design.
+   */
+  .mc-separator {
+    background-color: var(--mc-border-default);
+  }
+  .mc-separator-horizontal {
+    block-size: var(--mc-border-width-default);
+  }
+  .mc-separator-vertical {
+    inline-size: var(--mc-border-width-default);
+  }
 }
