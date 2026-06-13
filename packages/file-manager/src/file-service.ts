@@ -1,0 +1,369 @@
+import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
+import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import { newIdentifier } from "@magna-carta/identifiers/generate";
+import type {
+  DocumentTypeId,
+  FileId,
+  FileVersionId,
+  FolderId,
+  MatterId,
+  UserId,
+} from "@magna-carta/identifiers/types";
+import { fileAuditStatement, type AuditContext } from "./audit.ts";
+import {
+  abandonVersionStatement,
+  assignDocumentTypeStatement,
+  bumpFileCurrentVersionStatement,
+  commitVersionStatement,
+  fileVersionKey,
+  FILES_PREFIX,
+  insertFileStatement,
+  insertFileVersionStatement,
+  insertUploadSessionStatement,
+  moveFileStatement,
+  quarantineVersionStatement,
+  renameFileStatement,
+  selectCurrentVersionHashStatement,
+  selectFileStatement,
+  selectMaxVersionNumberStatement,
+  selectPendingVersionStatement,
+  setUploadSessionStatusStatement,
+  softDeleteFileStatement,
+} from "./file-statements.ts";
+import { meterCommitStatements } from "./metering-statements.ts";
+import { checkUploadPolicy, readUploadPolicy } from "./upload-policy.ts";
+import { FileManagerValidationError } from "./validation.ts";
+
+export type FileServiceOptions = AuditContext;
+
+interface StoredFile {
+  readonly id: FileId;
+  readonly matterId: MatterId;
+  readonly folderId: FolderId | null;
+  readonly currentVersionId: FileVersionId | null;
+  readonly deletedAt: string | null;
+}
+
+async function loadFile(database: SqlDatabase, id: FileId): Promise<StoredFile | undefined> {
+  const { results } = await selectFileStatement(database, id).all<{
+    id: FileId;
+    matter_id: MatterId;
+    folder_id: FolderId | null;
+    current_version_id: FileVersionId | null;
+    deleted_at: string | null;
+  }>();
+  const row = results[0];
+  if (row === undefined) return undefined;
+  return {
+    id: row.id,
+    matterId: row.matter_id,
+    folderId: row.folder_id,
+    currentVersionId: row.current_version_id,
+    deletedAt: row.deleted_at,
+  };
+}
+
+async function requireFile(database: SqlDatabase, id: FileId): Promise<StoredFile> {
+  const file = await loadFile(database, id);
+  if (file === undefined) {
+    throw new FileManagerValidationError("unknown-file", `no such file: ${id}`);
+  }
+  return file;
+}
+
+export interface InitiateUploadInput {
+  readonly matterId: MatterId;
+  readonly folderId?: FolderId | null;
+  readonly name: string;
+  readonly declaredSize: number | null;
+  readonly declaredContentType: string | null;
+  readonly uploadedBy: UserId | null;
+  readonly mode: "put" | "multipart";
+  readonly documentTypeId?: DocumentTypeId | null;
+  readonly fileId?: FileId; // present = a new version on an existing file
+  readonly expiresAt?: string | null;
+}
+
+export interface InitiatedUpload {
+  readonly fileId: FileId;
+  readonly versionId: FileVersionId;
+  readonly versionNumber: number;
+  readonly r2Key: string;
+  readonly uploadSessionId: string;
+  readonly effect: EffectWrite;
+}
+
+// Composes the pending file (or a new pending version on an existing file), the pending file_version,
+// and the open upload_session. Re-checks the per-firm policy against the DECLARED size/type — the
+// gate re-checks the real bytes. The bytes never transit here; the route mints the presigned URL.
+export async function initiateUpload(
+  database: SqlDatabase,
+  input: InitiateUploadInput,
+  options: FileServiceOptions,
+): Promise<InitiatedUpload> {
+  const policy = await readUploadPolicy(database);
+  checkUploadPolicy(policy, {
+    sizeBytes: input.declaredSize,
+    contentType: input.declaredContentType,
+    fileName: input.name,
+  });
+
+  const statements: EffectWrite["statements"][number][] = [];
+  let fileId: FileId;
+  let versionNumber: number;
+  if (input.fileId !== undefined) {
+    await requireFile(database, input.fileId);
+    fileId = input.fileId;
+    const { results } = await selectMaxVersionNumberStatement(database, fileId).all<{
+      n: number;
+    }>();
+    versionNumber = (results[0]?.n ?? 0) + 1;
+  } else {
+    fileId = newIdentifier("file", options.randomSource);
+    versionNumber = 1;
+    statements.push(
+      insertFileStatement(database, {
+        id: fileId,
+        matterId: input.matterId,
+        folderId: input.folderId ?? null,
+        name: input.name,
+        documentTypeId: input.documentTypeId ?? null,
+        createdAt: options.clock.now(),
+      }),
+    );
+  }
+  const versionId = newIdentifier("fileVersion", options.randomSource);
+  const uploadSessionId = newIdentifier("uploadSession", options.randomSource);
+  const r2Key = fileVersionKey(fileId, versionId);
+  statements.push(
+    insertFileVersionStatement(database, {
+      id: versionId,
+      fileId,
+      versionNumber,
+      r2Key,
+      declaredContentType: input.declaredContentType,
+      uploadedBy: input.uploadedBy,
+      createdAt: options.clock.now(),
+    }),
+    insertUploadSessionStatement(database, {
+      id: uploadSessionId,
+      fileVersionId: versionId,
+      mode: input.mode,
+      declaredSize: input.declaredSize,
+      declaredContentType: input.declaredContentType,
+      createdAt: options.clock.now(),
+      expiresAt: input.expiresAt ?? null,
+    }),
+    fileAuditStatement(database, options, "file.upload_initiated", versionId),
+  );
+  return {
+    fileId,
+    versionId,
+    versionNumber,
+    r2Key,
+    uploadSessionId,
+    effect: { statements, outboxMessages: [] },
+  };
+}
+
+interface PendingVersion {
+  readonly id: FileVersionId;
+  readonly fileId: FileId;
+  readonly versionNumber: number;
+}
+
+async function loadPendingVersion(
+  database: SqlDatabase,
+  versionId: FileVersionId,
+): Promise<PendingVersion | undefined> {
+  const { results } = await selectPendingVersionStatement(database, versionId).all<{
+    id: FileVersionId;
+    file_id: FileId;
+    version_number: number;
+  }>();
+  const row = results[0];
+  if (row === undefined) return undefined;
+  return { id: row.id, fileId: row.file_id, versionNumber: row.version_number };
+}
+
+export interface CommitVersionInput {
+  readonly versionId: FileVersionId;
+  readonly sizeBytes: number;
+  readonly sniffedContentType: string | null;
+  readonly contentSha256: string;
+  readonly scanVerdict: "unscanned" | "clean";
+  readonly scanEngineVersion: string | null;
+  readonly now: string;
+}
+
+export interface CommittedVersion {
+  readonly skipped: boolean;
+  readonly fileId: FileId;
+  readonly effect: EffectWrite;
+}
+
+// Commits a pending version to clean: writes the size/sniffed-type/hash/scan, promotes it to the
+// file's current version, completes the session, and meters the bytes — all in one batch (idempotent
+// on the status = 'pending' guard, so a replayed ingest no-ops). A re-upload of identical bytes is a
+// no-op: the pending version is abandoned and nothing new is cut.
+export async function commitVersion(
+  database: SqlDatabase,
+  input: CommitVersionInput,
+  options: FileServiceOptions,
+): Promise<CommittedVersion> {
+  const version = await loadPendingVersion(database, input.versionId);
+  if (version === undefined) {
+    throw new FileManagerValidationError(
+      "version-not-pending",
+      `version is not pending (already committed, quarantined, or unknown): ${input.versionId}`,
+    );
+  }
+  const { results } = await selectCurrentVersionHashStatement(database, version.fileId).all<{
+    hash: string | null;
+  }>();
+  const currentHash = results[0]?.hash ?? null;
+  if (currentHash !== null && currentHash === input.contentSha256) {
+    return {
+      skipped: true,
+      fileId: version.fileId,
+      effect: {
+        statements: [
+          abandonVersionStatement(database, input.versionId),
+          setUploadSessionStatusStatement(database, input.versionId, "completed"),
+          fileAuditStatement(database, options, "file.version_skipped", input.versionId),
+        ],
+        outboxMessages: [],
+      },
+    };
+  }
+  return {
+    skipped: false,
+    fileId: version.fileId,
+    effect: {
+      statements: [
+        commitVersionStatement(database, {
+          versionId: input.versionId,
+          sizeBytes: input.sizeBytes,
+          sniffedContentType: input.sniffedContentType,
+          contentSha256: input.contentSha256,
+          scanVerdict: input.scanVerdict,
+          scanEngineVersion: input.scanEngineVersion,
+          committedAt: input.now,
+        }),
+        bumpFileCurrentVersionStatement(database, version.fileId, input.versionId, input.now),
+        setUploadSessionStatusStatement(database, input.versionId, "completed"),
+        ...meterCommitStatements(
+          database,
+          { storageClass: "standard", artifactRole: "original", prefix: FILES_PREFIX },
+          input.sizeBytes,
+        ),
+        fileAuditStatement(database, options, "file.version_committed", input.versionId),
+      ],
+      outboxMessages: [
+        {
+          topic: "file.version_committed",
+          payload: { fileId: version.fileId, versionId: input.versionId },
+        },
+      ],
+    },
+  };
+}
+
+export async function quarantineVersion(
+  database: SqlDatabase,
+  input: { versionId: FileVersionId; reason: string },
+  options: FileServiceOptions,
+): Promise<{ effect: EffectWrite }> {
+  const version = await loadPendingVersion(database, input.versionId);
+  if (version === undefined) {
+    throw new FileManagerValidationError(
+      "version-not-pending",
+      `version is not pending: ${input.versionId}`,
+    );
+  }
+  return {
+    effect: {
+      statements: [
+        quarantineVersionStatement(database, input.versionId),
+        fileAuditStatement(database, options, "file.quarantined", input.versionId),
+      ],
+      outboxMessages: [
+        {
+          topic: "file.quarantined",
+          payload: { versionId: input.versionId, reason: input.reason },
+        },
+      ],
+    },
+  };
+}
+
+export async function renameFile(
+  database: SqlDatabase,
+  fileId: FileId,
+  name: string,
+  options: FileServiceOptions,
+): Promise<{ effect: EffectWrite }> {
+  await requireFile(database, fileId);
+  return {
+    effect: {
+      statements: [
+        renameFileStatement(database, fileId, name, options.clock.now()),
+        fileAuditStatement(database, options, "file.renamed", fileId),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+export async function moveFile(
+  database: SqlDatabase,
+  fileId: FileId,
+  folderId: FolderId | null,
+  options: FileServiceOptions,
+): Promise<{ effect: EffectWrite }> {
+  await requireFile(database, fileId);
+  return {
+    effect: {
+      statements: [
+        moveFileStatement(database, fileId, folderId, options.clock.now()),
+        fileAuditStatement(database, options, "file.moved", fileId),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+export async function assignDocumentType(
+  database: SqlDatabase,
+  fileId: FileId,
+  documentTypeId: DocumentTypeId | null,
+  options: FileServiceOptions,
+): Promise<{ effect: EffectWrite }> {
+  await requireFile(database, fileId);
+  return {
+    effect: {
+      statements: [
+        assignDocumentTypeStatement(database, fileId, documentTypeId, options.clock.now()),
+        fileAuditStatement(database, options, "file.document_type_assigned", fileId),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+export async function softDeleteFile(
+  database: SqlDatabase,
+  fileId: FileId,
+  options: FileServiceOptions,
+): Promise<{ effect: EffectWrite }> {
+  await requireFile(database, fileId);
+  return {
+    effect: {
+      statements: [
+        softDeleteFileStatement(database, fileId, options.clock.now()),
+        fileAuditStatement(database, options, "file.deleted", fileId),
+      ],
+      outboxMessages: [],
+    },
+  };
+}

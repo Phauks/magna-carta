@@ -4,7 +4,19 @@
   "private": true,
   "type": "module",
   "sideEffects": false,
-  "exports": {},
+  "exports": {
+    "./folder-statements": "./src/folder-statements.ts",
+    "./folder-service": "./src/folder-service.ts",
+    "./file-statements": "./src/file-statements.ts",
+    "./file-service": "./src/file-service.ts",
+    "./document-type-statements": "./src/document-type-statements.ts",
+    "./document-type-service": "./src/document-type-service.ts",
+    "./metering-statements": "./src/metering-statements.ts",
+    "./upload-policy": "./src/upload-policy.ts",
+    "./queries": "./src/queries.ts",
+    "./audit": "./src/audit.ts",
+    "./validation": "./src/validation.ts"
+  },
   "scripts": {
     "test": "vp test run"
   },
