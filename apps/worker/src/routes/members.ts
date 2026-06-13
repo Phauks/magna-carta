@@ -7,6 +7,10 @@ import type { Bindings } from "../app.ts";
 import type { createAuth } from "../auth.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
+import {
+  requireChokepointFirmId,
+  requireChokepointUserId,
+} from "../chokepoint/context-accessors.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { isUserEmailConflict } from "../control-plane-conflicts.ts";
 import {
@@ -121,8 +125,8 @@ export function registerMembersRoute(
       middleware: chokepointMiddleware(chokepoint, membersInviteMeta, inviteMemberRoute),
     },
     async (c) => {
-      const actingUserId = c.get("chokepointUserId");
-      const firmId = c.get("chokepointFirmId");
+      const actingUserId = requireChokepointUserId(c);
+      const firmId = requireChokepointFirmId(c);
 
       const request = c.req.valid("json");
       // Stored lowercased: Better Auth lowercases its email lookups (findUserByEmail), and the

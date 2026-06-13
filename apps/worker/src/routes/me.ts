@@ -2,6 +2,11 @@ import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
+import {
+  requireChokepointFirmContext,
+  requireChokepointFirmId,
+  requireChokepointUserId,
+} from "../chokepoint/context-accessors.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { Problem } from "../contracts/problem.ts";
@@ -73,9 +78,9 @@ export function registerMeRoute(
   app.openapi(
     { ...meRoute, middleware: chokepointMiddleware(chokepoint, meMeta, meRoute) },
     async (c) => {
-      const userId = c.get("chokepointUserId");
-      const firmId = c.get("chokepointFirmId");
-      const firmContext = c.get("chokepointFirmContext");
+      const userId = requireChokepointUserId(c);
+      const firmId = requireChokepointFirmId(c);
+      const firmContext = requireChokepointFirmContext(c);
 
       const userRow = await c.env.DB_CONTROL.prepare('SELECT name, email FROM "user" WHERE id = ?1')
         .bind(userId)
