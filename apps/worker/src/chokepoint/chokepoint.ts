@@ -21,7 +21,7 @@
 // (chokepoint.test.ts records port invocation order and asserts it); Task 8 wires the ports to the
 // 0·4 implementations (session-context.ts, firm-binding-resolver.ts, the idempotency middleware).
 import type { Context, MiddlewareHandler } from "hono";
-import { assertPermission } from "@magna-carta/access-control/registry";
+import { assertPermission, isPermission } from "@magna-carta/access-control/registry";
 import type { Permission } from "@magna-carta/access-control/registry";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { problemJson } from "../contracts/problem.ts";
@@ -74,6 +74,9 @@ export interface Chokepoint {
 // open per-request bucket a client could rotate). Never a caller-pickable header.
 function clientRateLimitKey(c: Context): string {
   const ip = c.req.header("cf-connecting-ip");
+  // The `unknown` sentinel is only ever hit off-edge (tests, local dev): in production Cloudflare's
+  // edge ALWAYS sets cf-connecting-ip, so collapsing every caller into one shared `ip:unknown`
+  // bucket on absence is the safe fail-closed degradation, never a path real traffic takes.
   return `ip:${ip !== undefined && ip !== "" ? ip : "unknown"}`;
 }
 
@@ -86,6 +89,21 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
           `route must be defined via defineOpenAPIRoute so the chokepoint can enforce its ` +
           `tenancy/authn/RBAC/idempotency/rate-limit contract. (routeMetaOf returned undefined; ` +
           `meta must be resolved at registration time, never from the matched route.)`,
+      );
+    }
+    // Validate the named capability against the access-control registry HERE, at registration
+    // (startup) time — matching the fail-at-startup philosophy of defineOpenAPIRoute's other
+    // route-meta guards. A non-null permission that is not a registered key is a misconfigured
+    // route; catching it now turns what would otherwise be a per-request 500 (the per-request
+    // assertPermission below) into a loud startup failure. permission: null is legal ("any
+    // authenticated user" — a non-mutating read), so only a non-null unregistered value throws. A
+    // branded Permission already passed isPermission at its creation, so this is a no-op for it.
+    if (meta.permission !== null && !isPermission(meta.permission)) {
+      throw new Error(
+        `Route ${JSON.stringify(path)} names permission ${JSON.stringify(meta.permission)}, which ` +
+          `is not in the access-control registry (PERMISSIONS). A route may only require a ` +
+          `registered capability; register it in @magna-carta/access-control or correct the ` +
+          `route's meta.permission. (Validated at registration time, never per request.)`,
       );
     }
     return meta;
@@ -194,6 +212,14 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
       }
 
       // Step 6: the handler.
+      //
+      // FAIL-CLOSED CONTRACT (do not break): a port above (resolveSession/resolveFirmContext/
+      // loadPermissions/rateLimiter) throwing rejects this middleware. With NO app.onError, Hono's
+      // default converts that rejection into a 500 — the handler is never reached, which is the
+      // fail-closed behavior the chokepoint depends on. If you add an app.onError, it MUST re-raise
+      // (or reply 5xx) for an enforcement-port throw; it must NEVER convert the throw into a 2xx or
+      // call next(), which would make the chokepoint fail-OPEN. The regression guard is
+      // chokepoint.test.ts "fail-closed on a throwing port".
       await next();
     };
   }

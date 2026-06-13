@@ -10,7 +10,11 @@ import { assertPermission } from "@magna-carta/access-control/registry";
 import type { Permission } from "@magna-carta/access-control/registry";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
-import { createChokepoint, type ChokepointPorts } from "../../src/chokepoint/chokepoint";
+import {
+  createChokepoint,
+  type ChokepointPorts,
+  type ResolvedSession,
+} from "../../src/chokepoint/chokepoint";
 import { defineOpenAPIRoute, type RouteMeta } from "../../src/contracts/route-meta";
 import { createInMemoryRateLimiter } from "../../src/chokepoint/rate-limiter";
 
@@ -324,6 +328,196 @@ describe("createChokepoint — registration-time meta assertion", () => {
     });
     const meta = chokepoint.assertRouteHasMeta(route, "/api/v1/members");
     expect(meta.operationId).toBe("members.invite");
+  });
+});
+
+describe("createChokepoint — fail-closed on a throwing port (no onError → default 500)", () => {
+  // The single most valuable security regression guard: a throwing port (resolveSession,
+  // resolveFirmContext, loadPermissions, rateLimiter) must propagate as a rejected middleware so
+  // Hono's no-onError default yields a 5xx — fail-closed. The contract under test is: the handler
+  // NEVER runs and the error propagates (a 5xx). If a future app.onError converted the throw into a
+  // 2xx/next(), this test fails — warning the author they have made the chokepoint fail-OPEN.
+  const throwingMeta = authedMeta;
+
+  // Build ports where exactly one port throws; the others record into trace and return benign
+  // verdicts so the throwing port is the only thing that can stop the chain reaching the handler.
+  function buildThrowingChokepoint(throwAt: "resolveSession" | "loadPermissions"): {
+    chokepoint: ReturnType<typeof createChokepoint>;
+    trace: Trace;
+  } {
+    const trace: Trace = { steps: [] };
+    const session: ResolvedSession = { userId: USER_ONE, firmId: FIRM_ALPHA };
+    const ports: ChokepointPorts<FakeFirmContext> = {
+      resolveSession: async () => {
+        trace.steps.push("resolveSession");
+        if (throwAt === "resolveSession") throw new Error("resolveSession port exploded");
+        return session;
+      },
+      resolveFirmContext: async () => {
+        trace.steps.push("resolveFirmContext");
+        return { firmId: FIRM_ALPHA };
+      },
+      loadPermissions: async () => {
+        trace.steps.push("loadPermissions");
+        if (throwAt === "loadPermissions") throw new Error("loadPermissions port exploded");
+        return new Set<Permission>([MANAGE_MEMBERS]);
+      },
+      rateLimiter: {
+        check: (_bucket, key) => {
+          trace.steps.push("rateLimiter");
+          void key;
+          return { allowed: true };
+        },
+      },
+    };
+    return { chokepoint: createChokepoint(ports), trace };
+  }
+
+  it("a throwing session port: the handler never runs and the request yields a 5xx", async () => {
+    const { chokepoint, trace } = buildThrowingChokepoint("resolveSession");
+    const app = mountedApp(chokepoint, throwingMeta, trace);
+    const response = await app.request("/api/v1/members", { method: "POST" });
+    expect(response.status).toBeGreaterThanOrEqual(500);
+    expect(trace.steps).not.toContain("handler");
+    // The session port is the first gate; it threw, so nothing past it ran either.
+    expect(trace.steps).toEqual(["resolveSession"]);
+  });
+
+  it("a throwing post-session port (loadPermissions): the handler never runs and yields a 5xx", async () => {
+    const { chokepoint, trace } = buildThrowingChokepoint("loadPermissions");
+    const app = mountedApp(chokepoint, throwingMeta, trace);
+    const response = await app.request("/api/v1/members", { method: "POST" });
+    expect(response.status).toBeGreaterThanOrEqual(500);
+    expect(trace.steps).not.toContain("handler");
+    // It threw at the permission load, so the limiter and handler are never reached.
+    expect(trace.steps).toEqual(["resolveSession", "resolveFirmContext", "loadPermissions"]);
+  });
+
+  it("the throw propagates out of the middleware (not swallowed into a 2xx/next)", async () => {
+    // Assert the propagation directly: invoking the middleware with a no-op next must REJECT, so a
+    // future onError cannot silently convert the throw into a success without breaking this.
+    const { chokepoint, trace } = buildThrowingChokepoint("resolveSession");
+    const middleware = chokepoint.forRoute(throwingMeta) as MiddlewareHandler;
+    let handlerRan = false;
+    const next = async () => {
+      handlerRan = true;
+    };
+    const fakeContext = {
+      req: { header: () => undefined, path: "/api/v1/members" },
+      get: () => undefined,
+      set: () => undefined,
+    } as unknown as Context;
+    await expect(middleware(fakeContext, next)).rejects.toThrow(/resolveSession port exploded/);
+    expect(handlerRan).toBe(false);
+    expect(trace.steps).not.toContain("handler");
+  });
+});
+
+describe("createChokepoint — registration-time permission validation (unregistered → throws at registration)", () => {
+  // A route meta carrying a non-null permission string that is NOT in the access-control registry
+  // must be rejected at REGISTRATION time (assertRouteHasMeta), matching the fail-at-startup
+  // philosophy of the other route-meta guards — never deferred to a per-request 500.
+  it("assertRouteHasMeta throws when the route's meta names an unregistered permission", () => {
+    const { chokepoint } = buildChokepoint();
+    const badMeta: RouteMeta = {
+      ...authedMeta,
+      permission: "firm:notARealPermission" as Permission,
+    };
+    const route = defineOpenAPIRoute(badMeta, {
+      method: "post",
+      path: "/api/v1/members",
+      description: "Invite a member.",
+      responses: {
+        200: { description: "ok", content: { "application/json": { schema: z.object({}) } } },
+      },
+    });
+    expect(() => chokepoint.assertRouteHasMeta(route, "/api/v1/members")).toThrow(/permission/i);
+  });
+
+  it("assertRouteHasMeta accepts permission: null (any authenticated user — legal)", () => {
+    const { chokepoint } = buildChokepoint();
+    const nullPermMeta: RouteMeta = {
+      ...authedMeta,
+      operationId: "members.read",
+      permission: null,
+    };
+    const route = defineOpenAPIRoute(nullPermMeta, {
+      method: "get",
+      path: "/api/v1/members",
+      description: "List members.",
+      responses: {
+        200: { description: "ok", content: { "application/json": { schema: z.object({}) } } },
+      },
+    });
+    expect(() => chokepoint.assertRouteHasMeta(route, "/api/v1/members")).not.toThrow();
+  });
+
+  it("assertRouteHasMeta accepts a registered permission", () => {
+    const { chokepoint } = buildChokepoint();
+    const route = defineOpenAPIRoute(authedMeta, {
+      method: "post",
+      path: "/api/v1/members",
+      description: "Invite a member.",
+      responses: {
+        200: { description: "ok", content: { "application/json": { schema: z.object({}) } } },
+      },
+    });
+    expect(() => chokepoint.assertRouteHasMeta(route, "/api/v1/members")).not.toThrow();
+  });
+});
+
+describe("createChokepoint — portal surface runs the full chain (not public)", () => {
+  // isPublicSurface is `surface === "public"` exactly, so surface: "portal" is NOT public: it must
+  // run the full session/firm/RBAC chain (fail-closed), then the rate-limit gate and the handler.
+  const portalMeta: RouteMeta = {
+    operationId: "portal.viewShare",
+    surface: "portal",
+    authenticated: true,
+    permission: "firm:manageMembers",
+    resource: "portalShare",
+    audited: true,
+    idempotency: "optional",
+    rateLimit: "default",
+  };
+
+  it("a portal route runs all gates in order — it is not treated as a public surface", async () => {
+    const { chokepoint, trace } = buildChokepoint();
+    const app = mountedApp(chokepoint, portalMeta, trace, { path: "/api/v1/portal/share" });
+    const response = await app.request("/api/v1/portal/share", { method: "POST" });
+    expect(response.status).toBe(200);
+    expect(trace.steps).toEqual([
+      "resolveSession",
+      "resolveFirmContext",
+      "loadPermissions",
+      "rateLimiter",
+      "handler",
+    ]);
+  });
+});
+
+describe("createChokepoint — cf-connecting-ip absent → 'unknown' sentinel key", () => {
+  // On a public/unauthenticated route with no firm context, the rate-limit key is IP-derived. When
+  // cf-connecting-ip is absent the documented `unknown` sentinel is used (one shared fail-closed
+  // bucket), never an open per-request bucket a client could rotate.
+  const publicReadMeta: RouteMeta = {
+    operationId: "health.read",
+    surface: "public",
+    authenticated: false,
+    permission: null,
+    resource: "firm",
+    audited: false,
+    idempotency: "optional",
+    rateLimit: "default",
+  };
+
+  it("keys on ip:unknown when cf-connecting-ip is absent", async () => {
+    const { chokepoint, rateLimitKeys, trace } = buildChokepoint();
+    const app = mountedApp(chokepoint, publicReadMeta, trace, {
+      method: "get",
+      path: "/api/v1/status",
+    });
+    await app.request("/api/v1/status");
+    expect(rateLimitKeys[0]).toBe("ip:unknown");
   });
 });
 
