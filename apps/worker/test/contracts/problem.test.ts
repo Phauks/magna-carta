@@ -35,6 +35,8 @@ describe("problem-type URI registry", () => {
         "idempotency-key-conflict",
         "idempotency-fingerprint-mismatch",
         "rate-limited",
+        "conflict",
+        "email-in-use",
       ].sort(),
     );
   });

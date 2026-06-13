@@ -17,6 +17,14 @@ export const PROBLEM_TYPES = {
   "idempotency-key-conflict": "idempotency-key-conflict",
   "idempotency-fingerprint-mismatch": "idempotency-fingerprint-mismatch",
   "rate-limited": "rate-limited",
+  // A business resource clash (HTTP 409): a firm name already taken, a concurrent provisioning
+  // that won the race. DISTINCT from the idempotency-* conflicts (those are key/payload clashes on
+  // the idempotency record, not the business resource).
+  conflict: "conflict",
+  // An email / owner-email uniqueness violation (HTTP 422). A DISTINCT slug from `validation`
+  // (which the app-level defaultHook owns for Zod request-shape failures): this is a semantic
+  // uniqueness clash surfaced from a committed write, not a request-shape rejection.
+  "email-in-use": "email-in-use",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;

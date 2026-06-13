@@ -5,8 +5,9 @@
 import { z } from "@hono/zod-openapi";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { identifierPattern } from "@magna-carta/identifiers/validate";
-import type { Context } from "hono";
+import type { Context, TypedResponse } from "hono";
 import type { ClientErrorStatusCode, ServerErrorStatusCode } from "hono/utils/http-status";
+import type { JSONParsed } from "hono/utils/types";
 import type { ZodError } from "zod";
 import { problemType, type ProblemTypeKey } from "./problem-types";
 
@@ -54,10 +55,26 @@ export interface ProblemOptions {
   requestAccess?: boolean;
 }
 
+// The precisely-typed reply problemJson returns: a Response that ALSO carries the status literal in
+// its TypedResponse phantom, so a `return problemJson(c, { status: 409, … })` typechecks against an
+// `app.openapi` route declaring `409: Problem` (@hono/zod-openapi keys the handler's accepted
+// responses on the status literal). `c.json(body, status)` already produces exactly
+// `Response & TypedResponse<JSONParsed<ProblemBody>, S, "json">`; mirroring that here — generic over
+// the status literal S — preserves the narrowing a bare `: Response` annotation would erase. The
+// `application/problem+json` content-type rides in the runtime headers; zod-openapi matches the
+// declared response on status, and (like 0·4's `c.json(problemBody(...), 409, …)`) accepts the
+// `"json"` format against a `application/problem+json` declaration.
+export type ProblemResponse<S extends ProblemStatusCode> = Response &
+  TypedResponse<JSONParsed<ProblemBody>, S, "json">;
+
 // Reply with an RFC 9457 problem document: expands the registry key to its type URI, mints a fresh
 // err_ correlation id (shown to the user, maps to the redacted log — ADR-0017/ADR-0038), and stamps
-// instance with the request path.
-export function problemJson(c: Context, options: ProblemOptions): Response {
+// instance with the request path. Generic over the status literal so the returned response stays
+// status-typed for `app.openapi` handlers (see ProblemResponse).
+export function problemJson<S extends ProblemStatusCode>(
+  c: Context,
+  options: ProblemOptions & { status: S },
+): ProblemResponse<S> {
   // Defense-in-depth (matches the definition-time-guard philosophy): the platform-wide error path
   // must never emit a 2xx/3xx "problem." status is typed to the 4xx/5xx range, so a caller reaching
   // a non-error status has cast around the type; fail loudly rather than emit a contradictory reply.
@@ -77,7 +94,9 @@ export function problemJson(c: Context, options: ProblemOptions): Response {
     ...(options.errors !== undefined && { errors: options.errors }),
     ...(options.requestAccess !== undefined && { requestAccess: options.requestAccess }),
   };
-  return c.json(body, options.status, { "content-type": "application/problem+json" });
+  return c.json(body, options.status, {
+    "content-type": "application/problem+json",
+  }) as ProblemResponse<S>;
 }
 
 // The app-level defaultHook for OpenAPIHono: maps every Zod request-validation failure to the
