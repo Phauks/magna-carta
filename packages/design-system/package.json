@@ -11,6 +11,7 @@
     "./input": "./src/lib/components/input/index.ts",
     "./label": "./src/lib/components/label/index.ts",
     "./separator": "./src/lib/components/separator/index.ts",
+    "./skeleton": "./src/lib/components/skeleton/index.ts",
     "./textarea": "./src/lib/components/textarea/index.ts",
     "./internal/floating": "./src/lib/internal/floating.ts",
     "./internal/merge-classes": "./src/lib/internal/merge-classes.ts",
