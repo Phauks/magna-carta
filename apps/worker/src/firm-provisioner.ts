@@ -200,6 +200,12 @@ export async function provisionFirm(
       .run();
   }
 
+  // Step 4b — configure the bucket's object-create notification → files-ingest. Run UNCONDITIONALLY
+  // (not gated on the bucket-was-just-created branch): a run that created the bucket but crashed
+  // before this would otherwise never configure notifications on resume. Idempotent (PUT), so the
+  // re-run on a resume is harmless.
+  await dependencies.resourceProvider.configureBucketNotifications(firmId);
+
   // Step 5 — the activation batch, returned for the caller's atomic commit: the owner user
   // (unverified, account-less — activation runs through the password-reset flow, the Path A
   // members.invite verified), the firm.provisioned audit row, the member.provision outbox row

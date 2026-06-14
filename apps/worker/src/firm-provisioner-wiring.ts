@@ -44,7 +44,11 @@ export function resourceProviderForEnv(env: Bindings): FirmResourceProvider {
   const apiToken = env.CLOUDFLARE_API_TOKEN;
   const accountId = env.CLOUDFLARE_ACCOUNT_ID;
   if (apiToken !== undefined && apiToken !== "" && accountId !== undefined && accountId !== "") {
-    return createCloudflareRestFirmResourceProvider({ accountId, apiToken });
+    return createCloudflareRestFirmResourceProvider({
+      accountId,
+      apiToken,
+      eventNotificationQueueId: env.FILES_INGEST_QUEUE_ID,
+    });
   }
   return createDevFirmResourceProvider({
     poolBindingNames: DEV_FIRM_DATABASE_POOL_BINDING_NAMES,

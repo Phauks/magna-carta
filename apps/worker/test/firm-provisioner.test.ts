@@ -22,12 +22,17 @@ beforeAll(async () => {
 
 interface FakePorts {
   readonly dependencies: FirmProvisionerDependencies;
-  readonly calls: { createDatabase: number; createBucket: number; migrate: number };
+  readonly calls: {
+    createDatabase: number;
+    createBucket: number;
+    configureBucketNotifications: number;
+    migrate: number;
+  };
   failures: { createDatabase?: boolean; createBucket?: boolean; migrate?: boolean };
 }
 
 function fakePorts(): FakePorts {
-  const calls = { createDatabase: 0, createBucket: 0, migrate: 0 };
+  const calls = { createDatabase: 0, createBucket: 0, configureBucketNotifications: 0, migrate: 0 };
   const failures: FakePorts["failures"] = {};
   const resourceProvider: FirmResourceProvider = {
     createDatabase(firmId: FirmId) {
@@ -40,6 +45,10 @@ function fakePorts(): FakePorts {
       calls.createBucket += 1;
       if (failures.createBucket) return Promise.reject(new Error("injected createBucket crash"));
       return Promise.resolve({ bucketName: `fake-bucket-${firmId}` });
+    },
+    configureBucketNotifications() {
+      calls.configureBucketNotifications += 1;
+      return Promise.resolve();
     },
   };
   return {
@@ -161,7 +170,12 @@ describe("provisionFirm", () => {
       ownerUserId: outcome.ownerUserId,
     });
 
-    expect(ports.calls).toEqual({ createDatabase: 1, migrate: 1, createBucket: 1 });
+    expect(ports.calls).toEqual({
+      createDatabase: 1,
+      migrate: 1,
+      createBucket: 1,
+      configureBucketNotifications: 1,
+    });
   });
 
   it("resumes after a crash in createDatabase: the firm row survives, no step re-runs early", async () => {
@@ -181,7 +195,12 @@ describe("provisionFirm", () => {
     expect(outcome.kind).toBe("ready-to-activate");
     expect((await firmRowByName(input.name))?.status).toBe("active");
     // createDatabase never succeeded, so the resume retries it; everything else ran once.
-    expect(ports.calls).toEqual({ createDatabase: 2, migrate: 1, createBucket: 1 });
+    expect(ports.calls).toEqual({
+      createDatabase: 2,
+      migrate: 1,
+      createBucket: 1,
+      configureBucketNotifications: 1,
+    });
   });
 
   it("resumes after a crash in the migrate step without re-creating the database", async () => {
@@ -199,7 +218,12 @@ describe("provisionFirm", () => {
     ports.failures.migrate = false;
     const outcome = await provisionAndCommit(ports, input);
     expect(outcome.kind).toBe("ready-to-activate");
-    expect(ports.calls).toEqual({ createDatabase: 1, migrate: 2, createBucket: 1 });
+    expect(ports.calls).toEqual({
+      createDatabase: 1,
+      migrate: 2,
+      createBucket: 1,
+      configureBucketNotifications: 1,
+    });
   });
 
   it("resumes after a crash in createBucket without re-running database or migration", async () => {
@@ -217,7 +241,12 @@ describe("provisionFirm", () => {
     ports.failures.createBucket = false;
     const outcome = await provisionAndCommit(ports, input);
     expect(outcome.kind).toBe("ready-to-activate");
-    expect(ports.calls).toEqual({ createDatabase: 1, migrate: 1, createBucket: 2 });
+    expect(ports.calls).toEqual({
+      createDatabase: 1,
+      migrate: 1,
+      createBucket: 2,
+      configureBucketNotifications: 1,
+    });
   });
 
   it("resumes after a crash BEFORE the final commit: no port re-runs, a fresh activation batch lands", async () => {
@@ -234,8 +263,17 @@ describe("provisionFirm", () => {
     const outcome = await provisionAndCommit(ports, input);
     expect(outcome.kind).toBe("ready-to-activate");
     expect((await firmRowByName(input.name))?.status).toBe("active");
-    // All resource steps were already durable — neither run re-invoked any port a second time.
-    expect(ports.calls).toEqual({ createDatabase: 1, migrate: 1, createBucket: 1 });
+    // The guarded resource steps (createDatabase/migrate/createBucket) were already durable, so
+    // neither run re-invoked them. configureBucketNotifications is UNCONDITIONAL and idempotent —
+    // it runs once per run reaching the bucket step (twice across the two runs here), the price of
+    // its resume-safety (a run that created the bucket but died before configuring must still
+    // configure on retry).
+    expect(ports.calls).toEqual({
+      createDatabase: 1,
+      migrate: 1,
+      createBucket: 1,
+      configureBucketNotifications: 2,
+    });
   });
 
   it("answers already-active for a double full-invoke, touching no port", async () => {
@@ -252,7 +290,12 @@ describe("provisionFirm", () => {
     expect(second.firmId).toBe(first.firmId);
     expect(second.owner.email).toBe(ownerEmailFor(input.name));
     expect(second.owner.name).toBe("Owning Owner");
-    expect(ports.calls).toEqual({ createDatabase: 1, migrate: 1, createBucket: 1 });
+    expect(ports.calls).toEqual({
+      createDatabase: 1,
+      migrate: 1,
+      createBucket: 1,
+      configureBucketNotifications: 1,
+    });
   });
 
   it("fails loud when a concurrent run recorded a DIFFERENT database identifier (double-claim guard)", async () => {
@@ -273,6 +316,11 @@ describe("provisionFirm", () => {
         },
         createBucket() {
           throw new Error("unreachable: the double-claim guard must throw before the bucket step");
+        },
+        configureBucketNotifications() {
+          throw new Error(
+            "unreachable: the double-claim guard throws before the notification step",
+          );
         },
       },
       migrateFirmDatabaseToHead: () => {
@@ -353,8 +401,14 @@ describe("provisionFirm", () => {
     });
     expect(runB.kind).toBe("ready-to-activate");
     if (runB.kind !== "ready-to-activate") return;
-    // B adopted A's recorded resources — no port re-ran.
-    expect(portsB.calls).toEqual({ createDatabase: 0, migrate: 0, createBucket: 0 });
+    // B adopted A's recorded resources — the guarded creation ports never re-ran; only the
+    // unconditional, idempotent configureBucketNotifications fired (once, for B's run).
+    expect(portsB.calls).toEqual({
+      createDatabase: 0,
+      migrate: 0,
+      createBucket: 0,
+      configureBucketNotifications: 1,
+    });
 
     // Resume A: its activation batch must abort (the fence's PRIMARY KEY collision), and the
     // error must be the one the route maps to its concurrent-provisioning 409 problem.

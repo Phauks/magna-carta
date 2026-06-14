@@ -42,6 +42,10 @@ export type Bindings = {
   // call the network.
   R2_S3_ACCESS_KEY_ID?: string;
   R2_S3_SECRET_ACCESS_KEY?: string;
+  // The files-ingest queue's Cloudflare UUID — the REST FirmResourceProvider targets it when
+  // configuring a firm bucket's object-create notification. A deploy-time fact (absent locally,
+  // where the dev adapter runs and Miniflare delivers no R2 notifications).
+  FILES_INGEST_QUEUE_ID?: string;
   // "development" enables the dev-only response validator (chokepoint/response-validator.ts);
   // unset in production (wrangler.jsonc declares no var), set locally via .dev.vars.
   ENVIRONMENT?: string;

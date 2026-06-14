@@ -127,6 +127,22 @@ export function selectPendingVersionStatement(
     .bind(versionId);
 }
 
+// The pending version for ingest, found by its r2_key (the R2 event carries the key, not the
+// version id), joined to its session's declared size. status = 'pending' is the idempotency guard:
+// a replayed R2 event finds the now-clean/quarantined version absent here and no-ops.
+export function selectPendingVersionByR2KeyStatement(
+  database: SqlDatabase,
+  r2Key: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT v.id, v.declared_content_type, v.r2_key, s.declared_size ` +
+        `FROM ${FILE_VERSION_TABLE} v JOIN ${UPLOAD_SESSION_TABLE} s ON s.file_version_id = v.id ` +
+        `WHERE v.r2_key = ?1 AND v.status = 'pending'`,
+    )
+    .bind(r2Key);
+}
+
 // The current (clean) version's hash, for the no-op skip: re-uploading identical bytes must not cut a
 // new version. Reads only the committed version (status = 'clean').
 export function selectCurrentVersionHashStatement(

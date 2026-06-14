@@ -27,6 +27,7 @@ import {
   selectCurrentVersionHashStatement,
   selectFileStatement,
   selectMaxVersionNumberStatement,
+  selectPendingVersionByR2KeyStatement,
   selectPendingVersionStatement,
   selectUploadSessionStatement,
   setUploadSessionStatusByIdStatement,
@@ -187,6 +188,35 @@ async function loadPendingVersion(
   const row = results[0];
   if (row === undefined) return undefined;
   return { id: row.id, fileId: row.file_id, versionNumber: row.version_number };
+}
+
+// The facts the ingest pipeline needs about a pending version, found by its r2_key: the version id
+// (to commit/quarantine) plus the declared size/type runIngest re-checks against the real bytes.
+export interface PendingIngestVersion {
+  readonly id: FileVersionId;
+  readonly declaredSize: number | null;
+  readonly declaredContentType: string | null;
+  readonly r2Key: string;
+}
+
+export async function loadPendingVersionForIngest(
+  database: SqlDatabase,
+  r2Key: string,
+): Promise<PendingIngestVersion | undefined> {
+  const { results } = await selectPendingVersionByR2KeyStatement(database, r2Key).all<{
+    id: FileVersionId;
+    declared_content_type: string | null;
+    r2_key: string;
+    declared_size: number | null;
+  }>();
+  const row = results[0];
+  if (row === undefined) return undefined;
+  return {
+    id: row.id,
+    declaredSize: row.declared_size,
+    declaredContentType: row.declared_content_type,
+    r2Key: row.r2_key,
+  };
 }
 
 export interface CommitVersionInput {
