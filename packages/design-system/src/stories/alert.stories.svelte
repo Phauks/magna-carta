@@ -13,7 +13,7 @@
   import AlertRoot from "../lib/components/alert/alert.svelte";
 
   const { Story } = defineMeta({
-    title: "Components/Alert",
+    title: "Feedback/Alert",
     component: AlertRoot,
     args: { variant: "info" },
     argTypes: {
@@ -37,8 +37,10 @@
   name="Info"
   args={{ variant: "info" }}
   {template}
-  play={async ({ canvas }) => {
-    await expect(canvas.getByRole("status")).toHaveTextContent("Trust balance below minimum");
+  play={async ({ canvas, step }) => {
+    await step("Info renders a polite live region (role=status)", async () => {
+      await expect(canvas.getByRole("status")).toHaveTextContent("Trust balance below minimum");
+    });
   }}
 />
 <Story name="Success" args={{ variant: "success" }} {template} />
@@ -47,7 +49,9 @@
   name="Danger"
   args={{ variant: "danger" }}
   {template}
-  play={async ({ canvas }) => {
-    await expect(canvas.getByRole("alert")).toHaveTextContent("Trust balance below minimum");
+  play={async ({ canvas, step }) => {
+    await step("Danger renders an assertive live region (role=alert)", async () => {
+      await expect(canvas.getByRole("alert")).toHaveTextContent("Trust balance below minimum");
+    });
   }}
 />

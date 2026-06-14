@@ -58,6 +58,12 @@ const preview: Preview = {
       // browser run), not just warn — the catalog is a gate, not a dashboard.
       test: "error",
     },
+    // `ref` is the bindable element reference (the WithElementRef pattern) — an imperative escape
+    // hatch, not a configurable prop. Hide it from every component's Controls + Properties table.
+    // (Bits stories already curate via controls.include; this covers the native components.)
+    // `sort: "alpha"` forces a consistent property order everywhere — svelte-docgen's own order is
+    // non-deterministic across components (Textarea kept declaration order, FileInput went alpha).
+    controls: { exclude: ["ref"], sort: "alpha" },
   },
   // Enable autodocs (addon-docs) for every component: each gets a generated Docs tab from its
   // stories. With one story per distinct display, that page reads as a clean spec, not duplicates.

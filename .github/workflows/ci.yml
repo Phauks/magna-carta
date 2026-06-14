@@ -28,7 +28,14 @@ jobs:
       - name: Quality gate (fmt + lint + TS type-check + svelte-check)
         run: pnpm check
 
-      - name: Tests (Miniflare worker integration)
+      # The design-system Storybook story tests run in browser mode (Chromium via Playwright) with
+      # per-story axe checks, registered as a Vitest project in the root config — so `vp test` needs
+      # the Chromium binary (+ its OS deps on the Linux runner). Without this step those component
+      # tests cannot launch.
+      - name: Install Playwright Chromium (Storybook browser & axe tests)
+        run: pnpm --filter @magna-carta/design-system exec playwright install --with-deps chromium
+
+      - name: Tests (unit + Miniflare worker integration + Storybook browser & axe)
         run: vp test
 
       - name: Build web SPA then worker

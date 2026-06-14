@@ -177,6 +177,15 @@
     color: var(--mc-action-disabled-foreground);
     cursor: not-allowed;
   }
+  /* Drop the native number spin buttons so a number field reads the same as the text fields. */
+  .mc-input[type="number"] {
+    appearance: textfield;
+  }
+  .mc-input[type="number"]::-webkit-inner-spin-button,
+  .mc-input[type="number"]::-webkit-outer-spin-button {
+    appearance: none;
+    margin-inline: var(--mc-space-0);
+  }
 
   /*
    * Textarea (Tier 1). The multi-line Input: same border, focus, and disabled treatment, with a
@@ -216,6 +225,81 @@
     outline-offset: var(--mc-space-0);
   }
   .mc-textarea:disabled {
+    background-color: var(--mc-action-disabled);
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+
+  /*
+   * FileInput (Tier 1). A styled native <input type="file"> — Input's border/focus/disabled
+   * treatment around the file picker, at the same control-md height. Its only reliably-styleable
+   * part is `::file-selector-button`, dressed to the secondary-button look so the control reads as
+   * part of the system instead of the raw browser default. The button and the filename text are
+   * inline content the browser lays out itself (the button is NOT a flex item — `display: flex`
+   * here does not affect it), so vertical centring is `align-content: center` on the block; a
+   * fixed-height flex row would leave the button stuck on the text baseline, overlapping the top
+   * edge. The button keeps `vertical-align: baseline` so its label sits on the SAME baseline as the
+   * filename text — the two text runs then read as aligned to each other. (Centring the button box
+   * independently, e.g. `vertical-align: middle`, makes the baseline-set filename text look high
+   * beside it: its visual weight rides above the geometric centre while the descender space sits
+   * empty below.) The button is sized by its own padding, not a fixed height.
+   */
+  .mc-file-input {
+    align-content: center;
+    block-size: var(--mc-control-md);
+    padding-inline: var(--mc-space-12);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    background-color: var(--mc-surface-default);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-sm);
+    line-height: var(--mc-leading-tight);
+    cursor: pointer;
+    transition-property: border-color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-file-input::file-selector-button {
+    margin-inline-end: var(--mc-space-12);
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-12);
+    border-style: none;
+    border-radius: var(--mc-radius-md);
+    background-color: var(--mc-action-secondary);
+    color: var(--mc-action-secondary-foreground);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-xs);
+    font-weight: var(--mc-weight-medium);
+    line-height: var(--mc-leading-tight);
+    vertical-align: baseline;
+    cursor: pointer;
+    transition-property: background-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-file-input::file-selector-button:hover {
+    background-color: var(--mc-action-secondary-hover);
+  }
+  /* Merged-edge focus, same as Input (no detached offset ring). */
+  .mc-file-input:focus-visible {
+    border-color: var(--mc-focus-ring);
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-file-input:disabled {
+    background-color: var(--mc-action-disabled);
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+  .mc-file-input:disabled::file-selector-button {
     background-color: var(--mc-action-disabled);
     color: var(--mc-action-disabled-foreground);
     cursor: not-allowed;
@@ -414,6 +498,422 @@
     background-color: var(--mc-surface-sunken);
     color: var(--mc-text-muted);
     font-family: var(--mc-font-mono);
+    font-size: var(--mc-text-xs);
+    line-height: var(--mc-leading-tight);
+  }
+
+  /*
+   * Tabs (Tier 2 exemplar, Bits UI). Underlined tabs: the List carries the hairline track; each
+   * Trigger is a quiet button that emphasises (text-default) and grows a brand underline on
+   * Bits' `data-state="active"` — a box-shadow line sitting over the track (offsets are tokens, so
+   * no `calc`). Focus is the system's flush ring; a disabled trigger mutes. Content takes the same
+   * flush focus ring (Bits makes the active panel focusable).
+   */
+  .mc-tabs {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-16);
+  }
+  .mc-tabs-list {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+    border-block-end-style: solid;
+    border-block-end-width: var(--mc-border-width-default);
+    border-block-end-color: var(--mc-border-default);
+  }
+  .mc-tabs-trigger {
+    display: inline-flex;
+    align-items: center;
+    padding-block: var(--mc-space-8);
+    padding-inline: var(--mc-space-12);
+    background-color: transparent;
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-sm);
+    font-weight: var(--mc-weight-medium);
+    line-height: var(--mc-leading-tight);
+    border-style: none;
+    cursor: pointer;
+    transition-property: color, box-shadow, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-tabs-trigger:hover {
+    color: var(--mc-text-default);
+  }
+  .mc-tabs-trigger[data-state="active"] {
+    color: var(--mc-text-default);
+    box-shadow: var(--mc-space-0) var(--mc-border-width-default) var(--mc-space-0) var(--mc-space-0)
+      var(--mc-action-primary);
+  }
+  /* Flush focus ring, same shape as the Button (borderless control). */
+  .mc-tabs-trigger:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-tabs-trigger:disabled {
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+  .mc-tabs-content {
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-sm);
+    line-height: var(--mc-leading-normal);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-tabs-content:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+  }
+  /*
+   * Vertical orientation (Bits sets data-orientation from the `orientation` prop): the root lays
+   * the list beside the content, the list becomes a side rail with an inline-end track, and the
+   * active indicator moves from the bottom edge to the inline-end edge (over the rail).
+   */
+  .mc-tabs[data-orientation="vertical"] {
+    flex-direction: row;
+  }
+  .mc-tabs-list[data-orientation="vertical"] {
+    flex-direction: column;
+    align-items: stretch;
+    border-block-end-style: none;
+    border-inline-end-style: solid;
+    border-inline-end-width: var(--mc-border-width-default);
+    border-inline-end-color: var(--mc-border-default);
+  }
+  .mc-tabs-list[data-orientation="vertical"] .mc-tabs-trigger {
+    justify-content: flex-start;
+  }
+  .mc-tabs-list[data-orientation="vertical"] .mc-tabs-trigger[data-state="active"] {
+    box-shadow: var(--mc-border-width-default) var(--mc-space-0) var(--mc-space-0) var(--mc-space-0)
+      var(--mc-action-primary);
+  }
+
+  /*
+   * Switch (Tier 2, Bits UI). A pill track with a sliding thumb. Off = action-disabled track; on
+   * (data-state="checked") = action-primary. The thumb slides via a transitionable
+   * margin-inline-start (the travel — track inner width minus the thumb — equals space-16, so no
+   * calc). Borderless control, so the flush focus ring (like the Button).
+   */
+  .mc-switch {
+    display: inline-flex;
+    align-items: center;
+    inline-size: var(--mc-space-40);
+    block-size: var(--mc-space-24);
+    padding: var(--mc-space-4);
+    border-style: none;
+    border-radius: var(--mc-radius-full);
+    background-color: var(--mc-action-disabled);
+    cursor: pointer;
+    transition-property: background-color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-switch[data-state="checked"] {
+    background-color: var(--mc-action-primary);
+  }
+  .mc-switch:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-switch:disabled {
+    background-color: var(--mc-action-disabled);
+    cursor: not-allowed;
+  }
+  .mc-switch:disabled .mc-switch-thumb {
+    background-color: var(--mc-action-disabled-foreground);
+  }
+  .mc-switch-thumb {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    border-radius: var(--mc-radius-full);
+    background-color: var(--mc-surface-default);
+    transition-property: margin-inline-start;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-switch[data-state="checked"] .mc-switch-thumb {
+    margin-inline-start: var(--mc-space-16);
+  }
+
+  /*
+   * Checkbox (Tier 2, Bits UI). A square box that fills with action-primary and shows the Lucide
+   * Check (or Minus for indeterminate) when set. Resting border like the Input, so the merged-edge
+   * focus (border + flush outline both focus-ring).
+   */
+  .mc-checkbox {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--mc-space-20);
+    block-size: var(--mc-space-20);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-sm);
+    background-color: var(--mc-surface-default);
+    color: var(--mc-action-primary-foreground);
+    cursor: pointer;
+    transition-property: background-color, border-color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-checkbox[data-state="checked"],
+  .mc-checkbox[data-state="indeterminate"] {
+    background-color: var(--mc-action-primary);
+    border-color: var(--mc-action-primary);
+  }
+  .mc-checkbox:focus-visible {
+    border-color: var(--mc-focus-ring);
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-checkbox:disabled {
+    background-color: var(--mc-action-disabled);
+    border-color: var(--mc-action-disabled);
+    cursor: not-allowed;
+  }
+  .mc-checkbox-icon {
+    inline-size: var(--mc-space-12);
+    block-size: var(--mc-space-12);
+  }
+
+  /*
+   * RadioGroup (Tier 2, Bits UI). A vertical group of circular options; the selected item gets a
+   * primary border and an inner primary dot (the indicator's background fades transparent → primary
+   * on data-state="checked"). Merged-edge focus like the Input.
+   */
+  .mc-radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-8);
+  }
+  .mc-radio-item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--mc-space-20);
+    block-size: var(--mc-space-20);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-full);
+    background-color: var(--mc-surface-default);
+    cursor: pointer;
+    transition-property: border-color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-radio-item[data-state="checked"] {
+    border-color: var(--mc-action-primary);
+  }
+  .mc-radio-item:focus-visible {
+    border-color: var(--mc-focus-ring);
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-radio-indicator {
+    inline-size: var(--mc-space-8);
+    block-size: var(--mc-space-8);
+    border-radius: var(--mc-radius-full);
+    background-color: transparent;
+    transition-property: background-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-radio-item[data-state="checked"] .mc-radio-indicator {
+    background-color: var(--mc-action-primary);
+  }
+  /* Disabled comes AFTER checked so it wins at equal specificity — a disabled item reads muted at
+     rest (border + dot), even when selected, not just on hover. */
+  .mc-radio-item:disabled {
+    border-color: var(--mc-action-disabled);
+    cursor: not-allowed;
+  }
+  .mc-radio-item:disabled[data-state="checked"] .mc-radio-indicator {
+    background-color: var(--mc-action-disabled-foreground);
+  }
+
+  /*
+   * Avatar (Tier 2, Bits UI). A circular image with an initials fallback (shown while loading or on
+   * error). Default size is space-40 — override with a size utility; the image and fallback fill it
+   * (size-full on the component). The image covers; the fallback centres muted initials.
+   */
+  .mc-avatar {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--mc-space-40);
+    block-size: var(--mc-space-40);
+    border-radius: var(--mc-radius-full);
+    background-color: var(--mc-surface-sunken);
+    overflow: hidden;
+    user-select: none;
+  }
+  .mc-avatar-image {
+    border-radius: var(--mc-radius-full);
+    object-fit: cover;
+  }
+  .mc-avatar-fallback {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-sm);
+    font-weight: var(--mc-weight-medium);
+  }
+
+  /*
+   * Progress (Tier 2, Bits UI). A rounded track with a primary fill. The track is full-width
+   * (w-full on the component); the fill height matches and its width is set inline from the value
+   * (a runtime dimension), animated so updates glide.
+   */
+  .mc-progress {
+    display: block;
+    block-size: var(--mc-space-8);
+    border-radius: var(--mc-radius-full);
+    background-color: var(--mc-surface-sunken);
+    overflow: hidden;
+  }
+  .mc-progress-fill {
+    block-size: var(--mc-space-8);
+    border-radius: var(--mc-radius-full);
+    background-color: var(--mc-action-primary);
+    transition-property: inline-size;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+
+  /*
+   * Accordion (Tier 2, Bits UI). Stacked sections divided by a hairline; each header is a quiet
+   * full-width button with a chevron that rotates on open (the rotation is a Tailwind group-data
+   * utility on the icon, so no off-token angle here). Borderless control → flush focus ring. The
+   * open/close height animation is deferred (see accordion.svelte).
+   */
+  .mc-accordion {
+    display: flex;
+    flex-direction: column;
+  }
+  .mc-accordion-item {
+    border-block-end-style: solid;
+    border-block-end-width: var(--mc-border-width-default);
+    border-block-end-color: var(--mc-border-default);
+  }
+  .mc-accordion-header {
+    display: flex;
+    margin-block: var(--mc-space-0);
+  }
+  .mc-accordion-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--mc-space-8);
+    padding-block: var(--mc-space-16);
+    padding-inline: var(--mc-space-0);
+    background-color: transparent;
+    border-style: none;
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-sm);
+    font-weight: var(--mc-weight-medium);
+    line-height: var(--mc-leading-tight);
+    text-align: start;
+    cursor: pointer;
+    transition-property: color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-accordion-trigger:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-accordion-trigger:disabled {
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+  .mc-accordion-trigger:disabled .mc-accordion-chevron {
+    color: var(--mc-action-disabled-foreground);
+  }
+  .mc-accordion-chevron {
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    color: var(--mc-text-muted);
+    transition-property: transform;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-accordion-content {
+    padding-block-end: var(--mc-space-16);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-sm);
+    line-height: var(--mc-leading-normal);
+  }
+
+  /*
+   * Tooltip (Tier 2, Bits UI). The trigger is a quiet button with the flush focus ring; the bubble
+   * is a small overlay-surface panel with a hairline. Positioning (Floating UI), the z-layer, and
+   * the fade presence come from the floating module; only the bubble's look lives here.
+   */
+  .mc-tooltip-trigger {
+    background-color: transparent;
+    border-style: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-tooltip-trigger:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-tooltip {
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    background-color: var(--mc-surface-overlay);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
     font-size: var(--mc-text-xs);
     line-height: var(--mc-leading-tight);
   }

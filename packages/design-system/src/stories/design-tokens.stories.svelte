@@ -18,7 +18,7 @@
   import { defineMeta } from "@storybook/addon-svelte-csf";
 
   const { Story } = defineMeta({
-    title: "Design Tokens",
+    title: "Foundations/Design Tokens",
   });
 
   const surfaceSwatches = [

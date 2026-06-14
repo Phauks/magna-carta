@@ -12,7 +12,7 @@
   import Separator from "../lib/components/separator/index.ts";
 
   const { Story } = defineMeta({
-    title: "Components/Separator",
+    title: "Layout/Separator",
     component: Separator,
     argTypes: {
       orientation: { control: "select", options: ["horizontal", "vertical"] },
@@ -27,8 +27,10 @@
 <Story
   name="Horizontal"
   args={{ orientation: "horizontal", decorative: true }}
-  play={async ({ canvas }) => {
-    await expect(canvas.queryByRole("separator")).toBeNull();
+  play={async ({ canvas, step }) => {
+    await step("Decorative separator is hidden from assistive tech", async () => {
+      await expect(canvas.queryByRole("separator")).toBeNull();
+    });
   }}
 >
   {#snippet template(args: SeparatorStoryArgs)}
@@ -47,9 +49,11 @@
 <Story
   name="Vertical"
   args={{ orientation: "vertical", decorative: false }}
-  play={async ({ canvas }) => {
-    const separator = canvas.getByRole("separator");
-    await expect(separator).toHaveAttribute("aria-orientation", "vertical");
+  play={async ({ canvas, step }) => {
+    await step("Semantic separator exposes its orientation", async () => {
+      const separator = canvas.getByRole("separator");
+      await expect(separator).toHaveAttribute("aria-orientation", "vertical");
+    });
   }}
 >
   {#snippet template(args: SeparatorStoryArgs)}

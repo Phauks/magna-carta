@@ -10,7 +10,7 @@
   import Keyboard from "../lib/components/keyboard/index.ts";
 
   const { Story } = defineMeta({
-    title: "Components/Keyboard",
+    title: "Data Display/Keyboard",
     component: Keyboard,
   });
 
@@ -19,8 +19,10 @@
 
 <Story
   name="Default"
-  play={async ({ canvas }) => {
-    await expect(canvas.getByText("Esc").tagName).toBe("KBD");
+  play={async ({ canvas, step }) => {
+    await step("Renders a native <kbd> keycap", async () => {
+      await expect(canvas.getByText("Esc").tagName).toBe("KBD");
+    });
   }}
 >
   {#snippet template(args: KeyboardStoryArgs)}

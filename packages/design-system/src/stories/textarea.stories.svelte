@@ -12,7 +12,7 @@
   import Textarea from "../lib/components/textarea/index.ts";
 
   const { Story } = defineMeta({
-    title: "Components/Textarea",
+    title: "Inputs/Textarea",
     component: Textarea,
     args: { placeholder: "Attendance note…" },
     // placeholder + disabled are declared (with JSDoc) on the component, so docgen surfaces them
@@ -23,20 +23,24 @@
 </script>
 
 {#snippet template(args: TextareaStoryArgs)}
-  <div class="max-w-md">
-    <Textarea aria-label="Attendance note" {...args} />
-  </div>
+  <!-- No width wrapper: the field is w-full, so it fills the canvas — demonstrating that
+       width is reactive to whatever container holds it (a consumer concern, set via utility). -->
+  <Textarea aria-label="Attendance note" {...args} />
 {/snippet}
 
 <!-- The showcase + Docs Primary; toggle disabled / set value via the Controls panel. -->
 <Story
   name="Default"
   {template}
-  play={async ({ canvas }) => {
+  play={async ({ canvas, step }) => {
     const field = canvas.getByRole("textbox", { name: "Attendance note" });
-    await expect(field.tagName).toBe("TEXTAREA");
-    await userEvent.type(field, "Drafted the engagement letter.");
-    await expect(field).toHaveValue("Drafted the engagement letter.");
+    await step("Is a <textarea>", async () => {
+      await expect(field.tagName).toBe("TEXTAREA");
+    });
+    await step("Accepts typed text", async () => {
+      await userEvent.type(field, "Drafted the engagement letter.");
+      await expect(field).toHaveValue("Drafted the engagement letter.");
+    });
   }}
 />
 
@@ -44,11 +48,13 @@
 <Story
   name="Behaviour"
   tags={["!dev", "!autodocs"]}
-  play={async ({ canvas }) => {
+  play={async ({ canvas, step }) => {
     const field = canvas.getByRole("textbox", { name: "Disabled note" });
-    await expect(field).toBeDisabled();
-    await userEvent.type(field, "nope", { pointerEventsCheck: 0 });
-    await expect(field).toHaveValue("Read only");
+    await step("Disabled textarea ignores typing", async () => {
+      await expect(field).toBeDisabled();
+      await userEvent.type(field, "nope", { pointerEventsCheck: 0 });
+      await expect(field).toHaveValue("Read only");
+    });
   }}
 >
   {#snippet template()}

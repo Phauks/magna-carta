@@ -13,7 +13,7 @@
   import Button from "../lib/components/button/index.ts";
 
   const { Story } = defineMeta({
-    title: "Components/Button",
+    title: "Actions/Button",
     component: Button,
     args: { variant: "primary", size: "default" },
     argTypes: {
@@ -45,17 +45,23 @@
 <Story
   name="Behaviour"
   tags={["!dev", "!autodocs"]}
-  play={async ({ canvas }) => {
-    const action = canvas.getByRole("button", { name: "Action" });
-    await expect(action.tagName).toBe("BUTTON");
-    await expect(action).toHaveAttribute("type", "button");
-    const disabled = canvas.getByRole("button", { name: "Disabled" });
-    await expect(disabled).toBeDisabled();
-    await userEvent.click(disabled, { pointerEventsCheck: 0 });
-    await expect(disabledClick).not.toHaveBeenCalled();
-    const link = canvas.getByRole("link", { name: "Open documentation" });
-    await expect(link.tagName).toBe("A");
-    await expect(link).not.toHaveAttribute("type");
+  play={async ({ canvas, step }) => {
+    await step("Plain button is type=button (submit-proof)", async () => {
+      const action = canvas.getByRole("button", { name: "Action" });
+      await expect(action.tagName).toBe("BUTTON");
+      await expect(action).toHaveAttribute("type", "button");
+    });
+    await step("Disabled button blocks its click handler", async () => {
+      const disabled = canvas.getByRole("button", { name: "Disabled" });
+      await expect(disabled).toBeDisabled();
+      await userEvent.click(disabled, { pointerEventsCheck: 0 });
+      await expect(disabledClick).not.toHaveBeenCalled();
+    });
+    await step("href renders a real <a> with no type", async () => {
+      const link = canvas.getByRole("link", { name: "Open documentation" });
+      await expect(link.tagName).toBe("A");
+      await expect(link).not.toHaveAttribute("type");
+    });
   }}
 >
   {#snippet template()}

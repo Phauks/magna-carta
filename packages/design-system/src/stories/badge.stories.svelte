@@ -10,7 +10,7 @@
   import Badge from "../lib/components/badge/index.ts";
 
   const { Story } = defineMeta({
-    title: "Components/Badge",
+    title: "Data Display/Badge",
     component: Badge,
     args: { variant: "primary" },
     argTypes: {
@@ -32,9 +32,11 @@
   name="Primary"
   args={{ variant: "primary" }}
   {template}
-  play={async ({ canvas }) => {
-    const badge = canvas.getByText("Active");
-    await expect(badge.tagName).toBe("SPAN");
+  play={async ({ canvas, step }) => {
+    await step("Renders as a non-interactive <span>", async () => {
+      const badge = canvas.getByText("Active");
+      await expect(badge.tagName).toBe("SPAN");
+    });
   }}
 />
 <Story name="Secondary" args={{ variant: "secondary" }} {template} />
