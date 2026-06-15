@@ -85,9 +85,11 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
 - **Node 25 ships a dead `localStorage` global that happy-dom cannot replace** — stub storage via
   `vi.stubGlobal` (see `theme-preference.test.ts`).
 - **CSP (`test/csp-spike/VERDICT.md`):** Floating UI positioning is CSP-clean; Bits' scroll-lock
-  RESTORE uses `setAttribute("style", …)` — apply the documented one-line `pnpm patch`
-  (`setAttribute` → `style.cssText`) with the FIRST scroll-locking Tier 3 component. Never loosen
-  `style-src` instead. The spike asserts the verdict and fails if a bits-ui upgrade changes it.
+  RESTORE used `setAttribute("style", …)`, which strict `style-src` blocks. **Patched** with the
+  first scroll-locking Tier 3 component (Dialog): `patches/bits-ui@2.18.1.patch` rewrites the
+  restore to `style.cssText` (the CSP-clean CSSOM channel). Never loosen `style-src` instead. The
+  spike asserts the patched verdict and fails if a bits-ui upgrade regresses it — re-run on every
+  bits-ui/svelte bump (`tools/run-csp-spike.cmd`) and drop the patch if #1995 lands upstream.
 - **Visual regression baselines are authoritative ONLY from the pinned Playwright container**
   (`update-baselines.cmd`/`.sh`; no Docker on the dev machine — first baselines land via CI).
   After any local VRT run, check `git status` for stray `visual-regression/baselines/*.png` —

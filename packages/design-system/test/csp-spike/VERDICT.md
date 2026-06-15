@@ -1,6 +1,6 @@
 # CSP style-src spike — verdict
 
-- **Captured:** 2026-06-12 (probe run green across all three engines; see "How to re-run" in [`README.md`](README.md))
+- **Captured:** 2026-06-12 (unpatched verdict); **patch applied + re-verified 2026-06-15** (probe green across all three engines; see "Post-patch re-run" below and "How to re-run" in [`README.md`](README.md))
 - **Probed:** bits-ui `2.18.1`, svelte `5.56.2`, Playwright `1.60.0` — Chromium `148.0.7778.96`, Firefox `150.0.2`, WebKit `26.4`
 - **Header:** `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'report-sample'` (static build; no `unsafe-eval`, no dev-server confounds)
 - **Upstream issue:** [bits-ui #1995](https://github.com/huntabyte/bits-ui/issues/1995) — **open** as of 2026-06-12 (reported 2026-03-25; label "under review", huntabyte assigned, no maintainer response, no linked fix PR)
@@ -76,6 +76,25 @@ Sheet/DropdownMenu/Select); nothing in the package exercises `BodyScrollLock` be
 Re-run this spike after applying to confirm zero violations end-to-end (the close-path
 assertions will then need their expected-violation flipped — update this file in the same
 commit).
+
+## Post-patch re-run (2026-06-15) — patch applied, verdict now PATCHED
+
+The patch was declared (`patches/bits-ui@2.18.1.patch`, `patchedDependencies` in
+`pnpm-workspace.yaml`) when the first scroll-locking Tier 3 component — **Dialog** — shipped.
+The spike was re-run against the patched dependency across chromium, firefox and webkit:
+
+| Path                       | Before patch (setAttribute)                                  | After patch (style.cssText)                       |
+| -------------------------- | ------------------------------------------------------------ | -------------------------------------------------- |
+| Dialog close — violation   | `style-src-attr` violation, all engines                      | **none, all engines**                              |
+| Dialog close — write API   | `setAttribute("style", …)`                                   | `style.cssText = …` (`cssTextAssignment` = 1)      |
+| Body after close (Chromium/WebKit) | stays `overflow:hidden; pointer-events:none` — page locked | **recovers** (`overflow:visible`, scroll works)   |
+| Body after close (Firefox) | recovers but drops pre-existing inline styles                | **recovers, pre-existing inline styles preserved** |
+| Marker `background:rgb(1,2,3)` | dropped (Firefox) / survives-but-locked (Chromium/WebKit) | **survives, all engines**                          |
+
+The aftermath, engine-divergent while unpatched, is now **uniform**: the `cssText` write
+replaces the inline declaration block cleanly in every engine. `run-csp-spike.mjs` now asserts
+this patched verdict (no close violation; restore via `cssText` not `setAttribute`; body
+recovers; inline styles preserved) and fails loudly if a future upgrade regresses it.
 
 Options rejected:
 

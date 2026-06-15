@@ -3,6 +3,79 @@ packages:
   - "packages/*"
   - "plugins/*"
 
+# Single source of truth for dependency versions (pnpm catalog).
+# Bump a version here once; every package.json that references `catalog:` follows.
+# Keep exact pins (no ^/~) — upgrades are deliberate, one line at a time.
+catalog:
+  # Toolchain
+  "@chromatic-com/storybook": 5.2.1
+  "@cloudflare/vitest-pool-workers": 0.16.13
+  "@cloudflare/workers-types": 4.20260604.1
+  # Fixtures (packages/fixtures). Seeded via faker.seed(); locale en.
+  "@faker-js/faker": 10.4.0
+  "@hono/zod-openapi": 1.4.0
+  "@internationalized/date": 3.12.2
+  "@lucide/svelte": 1.17.0
+  "@playwright/test": 1.60.0
+  "@storybook/addon-a11y": 10.4.3
+  "@storybook/addon-docs": 10.4.3
+  "@storybook/addon-svelte-csf": 5.1.2
+  "@storybook/addon-vitest": 10.4.3
+  "@storybook/svelte-vite": 10.4.3
+  "@sveltejs/adapter-static": 3.0.10
+  "@sveltejs/kit": 2.63.0
+  "@sveltejs/vite-plugin-svelte": 7.1.2
+  "@tailwindcss/vite": 4.3.0
+  "@tanstack/table-core": 8.21.3
+  # Design tokens (packages/design-tokens)
+  "@terrazzo/cli": 2.3.0
+  "@terrazzo/plugin-css": 2.3.0
+  "@terrazzo/plugin-tailwind": 2.3.0
+  "@types/culori": 4.0.1
+  # Web (apps/web)
+  "@types/node": 25.9.1
+  apca-w3: 0.1.9
+  # Auth (apps/worker). Better Auth runs on the control-plane D1 via its drizzle adapter;
+  # otpauth is a devDependency that verifies TOTP codes in two-factor tests.
+  better-auth: 1.6.16
+  bits-ui: 2.18.1
+  clsx: 2.1.1
+  culori: 4.0.2
+  decimal.js: 10.6.0
+  # Money (packages/money). Bigint API: the consolidated `dinero.js/bigint` subpath bundles the
+  # calculator + bigint currencies, so no separate (deprecated) @dinero.js/calculator-bigint is needed.
+  "dinero.js": 2.0.2
+  drizzle-kit: 0.31.10
+  # Database (packages/database). Stable line, NOT the 1.0 RC: 0.31.x drizzle-kit emits
+  # NNNN_tag.sql + meta/_journal.json, which src/migration.ts consumes. Bump both together.
+  drizzle-orm: 0.45.2
+  formsnap: 2.0.1
+  # happy-dom is the DOM test environment for browser-facing unit tests (an optional peer of the
+  # Vite+ test distribution); opted into per test file via the `@vitest-environment happy-dom`
+  # pragma so everything else stays in the default node pool.
+  happy-dom: 20.10.2
+  # API / Worker (apps/worker)
+  hono: 4.12.23
+  # Identifiers (packages/identifiers). nanoid v5 (ESM, Web Crypto); customRandom + urlAlphabet.
+  nanoid: 5.1.11
+  otpauth: 9.5.1
+  paneforge: 1.0.2
+  storybook: 10.4.3
+  svelte: 5.56.2
+  svelte-check: 4.6.0
+  svelte-sonner: 1.1.1
+  sveltekit-superforms: 2.30.1
+  tailwind-merge: 3.6.0
+  # Design system (packages/design-system)
+  tailwindcss: 4.3.0
+  virtua: 0.49.1
+  vite-plus: 0.1.24
+  # vitest is declared by apps/worker so @cloudflare/vitest-pool-workers can resolve `vitest/worker` into the workerd VM; the `overrides` below alias the actual resolution to the Vite+ test distribution, so this version only has to satisfy the pool's `vitest@^4.1.0` peer range (it is the upstream vitest that Vite+ bundles).
+  vitest: 4.1.8
+  # Cloudflare
+  wrangler: 4.98.0
+  zod: 4.4.3
+
 # Allow postinstall build scripts for packages that require native compilation.
 # Without this, pnpm 10 blocks lifecycle scripts by default (interactive approve is
 # unavailable in CI). workerd ships a pre-built binary via the platform-specific
@@ -13,79 +86,8 @@ onlyBuiltDependencies:
   - esbuild
   - sharp
 
-# Single source of truth for dependency versions (pnpm catalog).
-# Bump a version here once; every package.json that references `catalog:` follows.
-# Keep exact pins (no ^/~) — upgrades are deliberate, one line at a time.
-catalog:
-  # Toolchain
-  vite-plus: 0.1.24
-  # Cloudflare
-  wrangler: 4.98.0
-  "@cloudflare/workers-types": 4.20260604.1
-  "@cloudflare/vitest-pool-workers": 0.16.13
-  # vitest is declared by apps/worker so @cloudflare/vitest-pool-workers can resolve `vitest/worker` into the workerd VM; the `overrides` below alias the actual resolution to the Vite+ test distribution, so this version only has to satisfy the pool's `vitest@^4.1.0` peer range (it is the upstream vitest that Vite+ bundles).
-  vitest: 4.1.8
-  # API / Worker (apps/worker)
-  hono: 4.12.23
-  "@hono/zod-openapi": 1.4.0
-  zod: 4.4.3
-  # Auth (apps/worker). Better Auth runs on the control-plane D1 via its drizzle adapter;
-  # otpauth is a devDependency that verifies TOTP codes in two-factor tests.
-  better-auth: 1.6.16
-  otpauth: 9.5.1
-  # Money (packages/money). Bigint API: the consolidated `dinero.js/bigint` subpath bundles the
-  # calculator + bigint currencies, so no separate (deprecated) @dinero.js/calculator-bigint is needed.
-  "dinero.js": 2.0.2
-  decimal.js: 10.6.0
-  # Identifiers (packages/identifiers). nanoid v5 (ESM, Web Crypto); customRandom + urlAlphabet.
-  nanoid: 5.1.11
-  # Database (packages/database). Stable line, NOT the 1.0 RC: 0.31.x drizzle-kit emits
-  # NNNN_tag.sql + meta/_journal.json, which src/migration.ts consumes. Bump both together.
-  drizzle-orm: 0.45.2
-  drizzle-kit: 0.31.10
-  # Fixtures (packages/fixtures). Seeded via faker.seed(); locale en.
-  "@faker-js/faker": 10.4.0
-  # Web (apps/web)
-  "@types/node": 25.9.1
-  svelte: 5.56.2
-  svelte-check: 4.6.0
-  "@sveltejs/kit": 2.63.0
-  "@sveltejs/adapter-static": 3.0.10
-  "@sveltejs/vite-plugin-svelte": 7.1.2
-  # Design tokens (packages/design-tokens)
-  "@terrazzo/cli": 2.3.0
-  "@terrazzo/plugin-css": 2.3.0
-  "@terrazzo/plugin-tailwind": 2.3.0
-  culori: 4.0.2
-  "@types/culori": 4.0.1
-  apca-w3: 0.1.9
-  # Design system (packages/design-system)
-  tailwindcss: 4.3.0
-  "@tailwindcss/vite": 4.3.0
-  bits-ui: 2.18.1
-  storybook: 10.4.3
-  "@storybook/addon-svelte-csf": 5.1.2
-  "@storybook/svelte-vite": 10.4.3
-  "@storybook/addon-a11y": 10.4.3
-  "@storybook/addon-docs": 10.4.3
-  "@storybook/addon-vitest": 10.4.3
-  "@chromatic-com/storybook": 5.2.1
-  "@playwright/test": 1.60.0
-  clsx: 2.1.1
-  tailwind-merge: 3.6.0
-  # happy-dom is the DOM test environment for browser-facing unit tests (an optional peer of the
-  # Vite+ test distribution); opted into per test file via the `@vitest-environment happy-dom`
-  # pragma so everything else stays in the default node pool.
-  happy-dom: 20.10.2
-  svelte-sonner: 1.1.1
-  virtua: 0.49.1
-  "@tanstack/table-core": 8.21.3
-  paneforge: 1.0.2
-  "@internationalized/date": 3.12.2
-  "@lucide/svelte": 1.17.0
-  sveltekit-superforms: 2.30.1
-  formsnap: 2.0.1
-
 overrides:
   vite: "npm:@voidzero-dev/vite-plus-core@0.1.24"
   vitest: "npm:@voidzero-dev/vite-plus-test@0.1.24"
+patchedDependencies:
+  bits-ui@2.18.1: patches/bits-ui@2.18.1.patch

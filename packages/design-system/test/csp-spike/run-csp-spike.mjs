@@ -209,8 +209,10 @@ async function runProbe(browserType, browserName) {
       scrollPositionAfterWheelWhileOpen: scrollPositionWhileOpen,
     };
 
-    // Close: bits-ui resetBodyStyle restores via document.body.setAttribute("style", ...) —
-    // the exact call strict style-src blocks. The cleanup runs ~24ms after close; wait it out.
+    // Close: bits-ui resetBodyStyle restores the body style. With the Magna Carta patch
+    // (patches/bits-ui@2.18.1.patch) this goes through document.body.style.cssText (CSSOM) —
+    // the CSP-clean channel — instead of setAttribute("style", ...), which strict style-src
+    // blocks. The cleanup runs ~24ms after close; wait it out.
     stateBefore = stateAfter;
     await page.keyboard.press("Escape");
     await page.waitForSelector("[data-dialog-content]", { state: "detached" });
@@ -292,37 +294,29 @@ function assertVerdict(findings, failures) {
     "focus stays trapped inside the dialog",
     findings.dialogOpen.focusStaysInside.every(Boolean),
   );
+  // PATCHED verdict (patches/bits-ui@2.18.1.patch applied — see VERDICT.md "Post-patch re-run").
+  // The restore path now writes through document.body.style.cssText (CSSOM), so it is CSP-clean
+  // in every engine: no style-src violation on close, and the body genuinely recovers.
   expectFinding(
-    'scroll-lock RESTORE path (document.body.setAttribute("style", ...)) IS blocked: style-src violation on close',
-    findings.dialogClose.newViolationsOnClose.some((violation) =>
-      violation.effectiveDirective.startsWith("style-src"),
-    ) && findings.dialogClose.styleWriteCountsDelta.setAttributeStyle > 0,
+    "scroll-lock RESTORE path is CSP-clean (patched): NO style-src violation on close, restored via style.cssText not setAttribute",
+    findings.dialogClose.newViolationsOnClose.every(
+      (violation) => !violation.effectiveDirective.startsWith("style-src"),
+    ) &&
+      findings.dialogClose.styleWriteCountsDelta.setAttributeStyle === 0 &&
+      findings.dialogClose.styleWriteCountsDelta.cssTextAssignment > 0,
   );
-  // The AFTERMATH of the blocked restore is engine-specific (observed 2026-06-12, see VERDICT.md):
-  //   chromium — the attribute write is rejected wholesale; the OLD declaration block survives,
-  //              so the body stays overflow:hidden + pointer-events:none → page permanently
-  //              locked after the first dialog close (severe, user-visible breakage).
-  //   firefox  — the declaration block is cleared but the new value is not applied; lock styles
-  //              vanish (page recovers) BUT pre-existing inline body styles are silently dropped.
-  //   webkit   — same as chromium: old declaration block survives, body stays locked.
-  const aftermathExpectationByBrowser = {
-    chromium: { bodyStaysLocked: true, backgroundMarkerSurvives: true },
-    firefox: { bodyStaysLocked: false, backgroundMarkerSurvives: false },
-    webkit: { bodyStaysLocked: true, backgroundMarkerSurvives: true },
-  };
-  const aftermathExpectation = aftermathExpectationByBrowser[findings.browser];
-  const bodyObservedLocked =
-    findings.dialogClose.bodyStateAfterClose.computedOverflow === "hidden" &&
-    findings.dialogClose.bodyStateAfterClose.computedPointerEvents === "none" &&
-    findings.dialogClose.scrollPositionAfterWheelAfterClose === 0;
+  // The AFTERMATH is now uniform across engines (observed post-patch 2026-06-15, see VERDICT.md):
+  // the cssText restore replaces the inline declaration block cleanly, so the body recovers
+  // (overflow + pointer-events released, scroll works) and pre-existing inline body styles are
+  // preserved — in chromium, firefox and webkit alike.
+  const bodyRecovered =
+    findings.dialogClose.bodyStateAfterClose.computedOverflow !== "hidden" &&
+    findings.dialogClose.bodyStateAfterClose.computedPointerEvents !== "none" &&
+    findings.dialogClose.scrollPositionAfterWheelAfterClose > 0;
+  expectFinding("patched-restore aftermath: body recovers (scrolls again)", bodyRecovered);
   expectFinding(
-    `blocked-restore aftermath: body ${aftermathExpectation.bodyStaysLocked ? "stays locked (page broken)" : "recovers"}`,
-    bodyObservedLocked === aftermathExpectation.bodyStaysLocked,
-  );
-  expectFinding(
-    `blocked-restore aftermath: pre-existing inline body style ${aftermathExpectation.backgroundMarkerSurvives ? "survives" : "is silently dropped"}`,
-    findings.dialogClose.bodyStateAfterClose.backgroundMarkerStillApplied ===
-      aftermathExpectation.backgroundMarkerSurvives,
+    "patched-restore aftermath: pre-existing inline body style survives the restore",
+    findings.dialogClose.bodyStateAfterClose.backgroundMarkerStillApplied === true,
   );
 }
 
