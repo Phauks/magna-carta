@@ -5,7 +5,8 @@
     "default": { "$type": "color", "$value": "{color.neutral.0}" },
     "raised": { "$type": "color", "$value": "{color.neutral.50}" },
     "sunken": { "$type": "color", "$value": "{color.neutral.100}" },
-    "overlay": { "$type": "color", "$value": "{color.neutral.0}" }
+    "overlay": { "$type": "color", "$value": "{color.neutral.0}" },
+    "scrim": { "$type": "color", "$value": "{color.scrim}" }
   },
   "text": {
     "default": { "$type": "color", "$value": "{color.neutral.900}" },

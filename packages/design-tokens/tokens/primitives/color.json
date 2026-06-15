@@ -240,6 +240,15 @@
       },
       "$description": "Shared brand-accent ramp — gold by default (hue 85), the signature thread held constant across every theme (like the status ramps, not theme-varying). Gamut-safe values from the generator's ramp path. A swappable anchor: the name is the ROLE, not the value — nothing downstream hardcodes 'gold'."
     },
+    "scrim": {
+      "$description": "Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value.",
+      "$type": "color",
+      "$value": {
+        "colorSpace": "oklch",
+        "components": [0.13, 0.005, 70],
+        "alpha": 0.25
+      }
+    },
     "blue": {
       "100": {
         "$type": "color",

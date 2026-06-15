@@ -25,6 +25,7 @@
   --color-surface-raised: var(--mc-surface-raised);
   --color-surface-sunken: var(--mc-surface-sunken);
   --color-surface-overlay: var(--mc-surface-overlay);
+  --color-surface-scrim: var(--mc-surface-scrim);
   --color-text-default: var(--mc-text-default);
   --color-text-muted: var(--mc-text-muted);
   --color-text-subtle: var(--mc-text-subtle);
