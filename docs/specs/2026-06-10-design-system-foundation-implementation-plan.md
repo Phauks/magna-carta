@@ -615,6 +615,10 @@ with `components.css` recipes targeting `.mc-tabs-trigger[data-state="active"]` 
 
 ---
 
+## Deferred follow-ups (revisit at slice completion — before Task 29)
+
+- **Reconsider splitting a component/artifact once the full set exists (owner, 2026-06-15).** The owner asked, mid Tier-3 build, to revisit "splitting this component" once all components are generally built — to be weighed at the completion of the general UI design, when the right boundaries are clear. **Referent to confirm with the owner** (candidates: a specific component, the Dialog/AlertDialog/Sheet modal family that share the Bits Dialog primitives + scroll-lock, or the monolithic `src/lib/styles/components.css` recipe file — ~1300+ lines, accreting one block per component, a natural per-component split candidate). Treat as a deferred refactor decision, not in-flight scope; raise it when every component is in.
+
 ## Self-review checklist (run before declaring the plan done)
 
 - Spec coverage: §1 packages (Tasks 1, 9) · §2 token tiers/theming/pipeline/gates (1–5) · §3 component layer (9–27) · §4 satellites (21, 23–27) · §5 design language/archetypes (7–8) · §6 catalog/testing/enforcement (11, 14–15, 28) · §7 risks (0 versions, 12 CSP, 14 Docker determinism) · §8 out-of-scope respected (no charts, no density toggle, localStorage seam documented).
