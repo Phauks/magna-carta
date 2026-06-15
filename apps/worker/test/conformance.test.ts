@@ -37,6 +37,16 @@ const PUBLIC_ALLOW_LIST: Record<string, string> = {
   "health.read": "Liveness/readiness probe — platform plumbing, no firm data, no session.",
 };
 
+// POST routes that mutate nothing — a pure computation over the request body (a preview/render) — are
+// exempt from the audited-mutating requirement: there is no state change to audit, and auditing a hot
+// read-shaped POST (the numbering live preview, fired on every keystroke) would flood audit_log. Each
+// is allow-listed by operationId with its justification, the same explicit-exemption pattern as
+// PUBLIC_ALLOW_LIST. The non-null-permission requirement still binds (these are authenticated).
+const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
+  "numbering.preview":
+    "Pure render of a candidate numbering scheme against a sample context — no write, no counter touch.",
+};
+
 // Subsystems whose every route must be idempotency: required (money/trust/payment/outbound-comms).
 // Empty until the trust/billing/payments/comms slices land — the assertion machinery is what ships now;
 // each of those slices adds its operationId namespace here as it builds.
@@ -69,7 +79,10 @@ function auditedMutatingViolations(document: ReturnType<typeof buildOpenAPIDocum
   for (const { path, method, operation } of operations(document)) {
     if (!isMutatingMethod(method)) continue;
     const label = `${method.toUpperCase()} ${path}`;
-    if (operation["x-mc-audited"] !== true) {
+    if (
+      operation["x-mc-audited"] !== true &&
+      NON_MUTATING_POST_ALLOW_LIST[operationIdOf(operation)] === undefined
+    ) {
       violations.push(`${label}: mutating route must be x-mc-audited: true`);
     }
     if (operation["x-mc-authenticated"] === true && operation["x-mc-permission"] == null) {
@@ -347,10 +360,37 @@ describe("conformance — the committed contract holds, and each rule catches a 
   it("exposes the known committed operations (so the positive assertions are not vacuous)", () => {
     const ids = [...operations(document)].map((entry) => entry.operationId).sort();
     expect(ids).toEqual([
+      "documentTypes.create",
+      "documentTypes.deactivate",
+      "documentTypes.list",
+      "documentTypes.update",
       "firms.provision",
       "health.read",
+      "locations.assignMember",
+      "locations.close",
+      "locations.create",
+      "locations.get",
+      "locations.list",
+      "locations.setAddresses",
+      "locations.update",
+      "matterTypes.create",
+      "matterTypes.deactivate",
+      "matterTypes.list",
+      "matterTypes.update",
+      "matters.close",
+      "matters.create",
+      "matters.get",
+      "matters.list",
+      "matters.listConsultations",
+      "matters.open",
+      "matters.renumber",
+      "matters.reopen",
+      "matters.update",
       "me.get",
       "members.invite",
+      "numbering.get",
+      "numbering.preview",
+      "numbering.set",
       "uploads.abort",
       "uploads.complete",
       "uploads.initiate",

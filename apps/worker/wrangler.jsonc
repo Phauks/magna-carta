@@ -93,9 +93,11 @@
       },
     ],
   },
-  // The scheduled sweep (src/scheduled.ts): outbox relay over the control-plane + per-firm
-  // lineages and the idempotency TTL purge, every 5 minutes (closes the slice 0·2 deferral).
+  // The scheduled work (src/scheduled.ts): the */5 sweep runs the outbox relay over the control-plane
+  // + per-firm lineages, the idempotency TTL purge, and the stale-pending upload sweep; the daily
+  // 03:00 UTC pass runs the storage-metering reconciliation (a full R2 LIST per firm — too heavy for
+  // every five minutes). src/index.ts routes each Cron expression to its handler.
   "triggers": {
-    "crons": ["*/5 * * * *"],
+    "crons": ["*/5 * * * *", "0 3 * * *"],
   },
 }

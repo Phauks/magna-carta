@@ -5,6 +5,7 @@ import {
   meterCorrectionStatements,
   meterHardDeleteStatements,
   meterTierChangeStatements,
+  normalizeR2StorageClass,
   prefixOf,
   reconciliationDiff,
   type MeterRow,
@@ -60,6 +61,19 @@ describe("prefixOf", () => {
   it("derives the top-level key segment", () => {
     expect(prefixOf("files/file_abc/fileVersion_xyz")).toBe("files");
     expect(prefixOf("files")).toBe("files");
+  });
+});
+
+describe("normalizeR2StorageClass", () => {
+  it("maps R2's PascalCase classes to our lowercase tokens", () => {
+    expect(normalizeR2StorageClass("Standard")).toBe("standard");
+    expect(normalizeR2StorageClass("InfrequentAccess")).toBe("infrequent_access");
+  });
+
+  it("treats an absent/empty class as the default Standard tier", () => {
+    // Miniflare reports "" and real R2 omits the class for default-tier objects — both must bucket
+    // with the meter's "standard" rows, not a phantom empty-class bucket (the reconciliation drift bug).
+    expect(normalizeR2StorageClass("")).toBe("standard");
   });
 });
 

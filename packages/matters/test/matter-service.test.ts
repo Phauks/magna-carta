@@ -189,7 +189,10 @@ describe("closeMatter / reopenMatter", () => {
   it("close runs the (empty) precondition registry and succeeds", async () => {
     const database = await setup();
     const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
-    await expect(closeMatter(database, matterId, options)).resolves.toBeUndefined();
+    await expect(closeMatter(database, matterId, options)).resolves.toMatchObject({
+      matterId,
+      idempotentReplay: false,
+    });
   });
 });
 
@@ -286,6 +289,55 @@ describe("number allocation under contention", () => {
     expect(second.matterNumber).toBe("M0002");
     // The first matter's number is untouched by the scheme change.
     expect((await readMatter(database, first.matterId))?.matter_number).toBe("2026-0001");
+  });
+});
+
+// Idempotency rides the shared runIdempotentEffect primitive (design X). An Idempotency-Key replays
+// the first response without re-executing; a key reused with a different payload / still in progress
+// surfaces the two conflict kinds; a number draw never double-allocates on retry.
+describe("matter idempotency (design X)", () => {
+  const withKey = (
+    key: string,
+    fingerprint = "fp",
+  ): typeof options & {
+    idempotency: { key: string; fingerprint: string };
+  } => ({ ...options, idempotency: { key, fingerprint } });
+
+  it("replays the stored create response — no second matter, no second number drawn", async () => {
+    const database = await setup();
+    const first = await createMatter(database, { ...baseInput, status: "open" }, withKey("k1"));
+    expect(first.idempotentReplay).toBe(false);
+    expect(first.matterNumber).toBe("2026-0001");
+
+    const replay = await createMatter(database, { ...baseInput, status: "open" }, withKey("k1"));
+    expect(replay.idempotentReplay).toBe(true);
+    expect(replay.matterId).toBe(first.matterId);
+    expect(replay.matterNumber).toBe("2026-0001");
+
+    // Exactly one matter exists, and the counter advanced only once (the next draw is 0002).
+    const { results } = await database
+      .prepare("SELECT COUNT(*) AS c FROM matter")
+      .all<{ c: number }>();
+    expect(results[0]?.c).toBe(1);
+    const next = await createMatter(database, { ...baseInput, status: "open" }, withKey("k2"));
+    expect(next.matterNumber).toBe("2026-0002");
+  });
+
+  it("a key reused with a different payload surfaces a fingerprint-mismatch conflict", async () => {
+    const database = await setup();
+    await createMatter(database, { ...baseInput, status: "open" }, withKey("k1", "fp-a"));
+    await expect(
+      createMatter(database, { ...baseInput, status: "open" }, withKey("k1", "fp-b")),
+    ).rejects.toMatchObject({ kind: "fingerprint-mismatch" });
+  });
+
+  it("replays a non-drawing mutation (close) under the same key", async () => {
+    const database = await setup();
+    const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);
+    const first = await closeMatter(database, matterId, withKey("close-1"));
+    expect(first.idempotentReplay).toBe(false);
+    const replay = await closeMatter(database, matterId, withKey("close-1"));
+    expect(replay.idempotentReplay).toBe(true);
   });
 });
 

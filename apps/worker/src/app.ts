@@ -7,9 +7,14 @@ import { createInMemoryRateLimiter } from "./chokepoint/rate-limiter.ts";
 import { defaultHook } from "./contracts/problem.ts";
 import { registerHealthRoute } from "./routes/health.ts";
 import { createLoggingEmailAdapter } from "./email-port.ts";
+import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
+import { registerLocationsRoutes } from "./routes/locations.ts";
+import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
+import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
+import { registerNumberingRoutes } from "./routes/numbering.ts";
 import { registerUploadsRoutes } from "./routes/uploads.ts";
 
 // The Worker's runtime bindings, declared once here (the no-barrel single home for the app's env shape).
@@ -100,6 +105,13 @@ export function createApp() {
   registerMembersRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
   registerUploadsRoutes(app, chokepoint);
+  // Slice 1·1: matters (shell + lifecycle), per-firm matter/document types, Locations, and the
+  // numbering-scheme surface — each composed through the same chokepoint.
+  registerMattersRoutes(app, chokepoint);
+  registerMatterTypesRoutes(app, chokepoint);
+  registerDocumentTypesRoutes(app, chokepoint);
+  registerLocationsRoutes(app, chokepoint);
+  registerNumberingRoutes(app, chokepoint);
 
   // Serve the same document the committed snapshot carries (root tags included), so the live endpoint
   // and the snapshot never diverge. A plain route, so it does not appear in the document itself.

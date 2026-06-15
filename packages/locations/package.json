@@ -7,6 +7,7 @@
   "exports": {
     "./location-service": "./src/location-service.ts",
     "./statements": "./src/statements.ts",
+    "./settings": "./src/settings.ts",
     "./validation": "./src/validation.ts"
   },
   "scripts": {
@@ -15,7 +16,8 @@
   "dependencies": {
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
-    "@magna-carta/identifiers": "workspace:*"
+    "@magna-carta/identifiers": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

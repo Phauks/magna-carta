@@ -244,6 +244,23 @@ export function selectUploadSessionStatement(
     .bind(sessionId);
 }
 
+// Open sessions whose expiry has passed — the stale-pending sweep's input. Joined to the version's
+// r2 key (needed to abort a multipart upload at R2). Spans version statuses by design: the version it
+// reads is the still-pending one being abandoned.
+// fitness:allow-no-status
+export function selectExpiredOpenSessionsStatement(
+  database: SqlDatabase,
+  now: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT s.id, s.file_version_id, s.mode, s.r2_upload_id, v.r2_key ` +
+        `FROM ${UPLOAD_SESSION_TABLE} s JOIN ${FILE_VERSION_TABLE} v ON v.id = s.file_version_id ` +
+        `WHERE s.status = 'open' AND s.expires_at IS NOT NULL AND s.expires_at < ?1`,
+    )
+    .bind(now);
+}
+
 // Records R2's multipart upload id on the open session after createMultipartUpload — composed into
 // the same initiate batch so the response and the stored id commit atomically.
 export function setUploadSessionR2UploadIdStatement(
