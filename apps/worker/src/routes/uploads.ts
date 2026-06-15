@@ -30,10 +30,10 @@ import {
   storedResponseBody,
 } from "../idempotency-conflict-problems.ts";
 
-// The direct-to-R2 upload surface (ADR-0081): the Worker never touches the bytes — it mints the
-// pending file/version/session rows and a single-key, single-method, short-TTL presigned URL the
-// client uploads to. A single-shot PUT at or below the firm's mode threshold; a resumable multipart
-// session above it. The R2 object-create event then drives ingest (Task 14: gates + hash + scan).
+// The direct-to-R2 upload surface: the Worker never touches the bytes — it mints the pending
+// file/version/session rows and a single-key, single-method, short-TTL presigned URL the client
+// uploads to. A single-shot PUT at or below the firm's mode threshold; a resumable multipart session
+// above it. The R2 object-create event then drives the ingest consumer (gates + hash + scan).
 
 const PRESIGN_TTL_SECONDS = 3600; // 1 hour to start a PUT or sign a part — well within a session's life
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24h: the stale-pending sweep aborts sessions past this

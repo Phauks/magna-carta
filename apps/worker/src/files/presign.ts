@@ -2,8 +2,9 @@ import { AwsClient } from "aws4fetch";
 
 // The R2 presigner: every byte of an upload or download flows DIRECTLY between the client and R2's
 // S3-compatible endpoint, never through the Worker (the Worker only mints the credential). Each URL
-// is single-key, single-method, short-TTL (ADR-0081 custody): one account-scoped R2 API token signs
-// PUT/GET URLs the client uses directly and the server-side multipart create/complete/abort calls.
+// is single-key, single-method, short-TTL: one account-scoped R2 API token signs PUT/GET URLs the
+// client uses directly and the server-side multipart create/complete/abort calls — the narrowest
+// credential that still lets the bytes bypass the Worker.
 //
 // presignPut/presignUploadPart return a query-signed URL string (the client uploads to it).
 // createMultipartUpload/completeMultipartUpload/abortMultipartUpload are server-side S3 calls the

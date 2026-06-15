@@ -31,7 +31,7 @@ export const ENTITY_PREFIXES = {
   authAudit: "authAudit",
   error: "error",
   // Telemetry-minted handles (correlation rides every request/event/problem; incident is the
-  // user-reported row) — full-name prefixes per the ADR-0062 amendment, same as every other entry.
+  // user-reported row) — prefixes spelled out in full, the same no-shorthand rule as every entry.
   correlation: "correlation",
   incident: "incident",
   // Matters, Locations & File Manager. `matterType`/`documentType` are the per-firm classification

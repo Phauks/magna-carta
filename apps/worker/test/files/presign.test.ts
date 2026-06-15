@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { createR2Presigner } from "../../src/files/presign.ts";
 
 // The presigner targets R2's S3-compatible endpoint. These tests assert the SigV4 URL/request SHAPE
-// over a stubbed fetch — never a real network call (decided #8): a presigned URL is a deterministic
-// signing artifact, and the multipart create/complete/abort calls are exercised against a fake fetch
+// over a stubbed fetch — never a real network call: a presigned URL is a deterministic signing
+// artifact, and the multipart create/complete/abort calls are exercised against a fake fetch
 // that records the signed request and returns canned R2 XML.
 
 const ACCOUNT_ID = "acc1234567890";

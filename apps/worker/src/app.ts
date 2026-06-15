@@ -51,8 +51,9 @@ export type Bindings = {
   // instead, selected by these being unset (see routes/firms.ts resourceProviderForEnv).
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
-  // The account-scoped R2 S3 API token (ADR-0081 custody) the presigner signs upload/download URLs
-  // with — production secrets (placeholder values in .dev.vars to satisfy the secrets.required gate).
+  // The account-scoped R2 S3 API token the presigner signs upload/download URLs with — the bytes
+  // bypass the Worker, so it holds only this signing credential. Production secrets (placeholder
+  // values in .dev.vars to satisfy the secrets.required gate).
   // Real presigning ALSO needs CLOUDFLARE_ACCOUNT_ID (the R2 S3 endpoint host), which is absent
   // locally — so local dev and tests fall back to the dev presigner (presigner-wiring.ts) and never
   // call the network.
