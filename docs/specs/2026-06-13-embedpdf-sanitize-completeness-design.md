@@ -148,13 +148,14 @@ The product-layer verification gate is tested separately in the redaction slice,
 
 The approval-latency pilot. Built and validated green in our fork CI (run #6, full Docker build; run #7, fast TS-only against the committed wasm — both: `PASS test-sanitize-document`, `PASS test-vector-isolation`).
 
-| Item | Where | Date |
-| --- | --- | --- |
-| Enhancement issue (**pilot t=0**) | [embedpdf/embed-pdf-viewer#673](https://github.com/embedpdf/embed-pdf-viewer/issues/673) | 2026-06-13 |
-| PR A — `EPDF_*` C++ (XMP, thumbnails, JavaScript) | [embedpdf/pdfium#27](https://github.com/embedpdf/pdfium/pull/27) | 2026-06-13 |
+| Item                                                 | Where                                                                                                                                           | Date       |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| Enhancement issue (**pilot t=0**)                    | [embedpdf/embed-pdf-viewer#673](https://github.com/embedpdf/embed-pdf-viewer/issues/673)                                                        | 2026-06-13 |
+| PR A — `EPDF_*` C++ (XMP, thumbnails, JavaScript)    | [embedpdf/pdfium#27](https://github.com/embedpdf/pdfium/pull/27)                                                                                | 2026-06-13 |
 | PR B — `sanitizeDocument` TS + tests + vendored wasm | [embedpdf/embed-pdf-viewer#674](https://github.com/embedpdf/embed-pdf-viewer/pull/674) (depends on PR A; submodule re-points to the merged SHA) | 2026-06-13 |
-| OCG 4th vector (`EPDF_RemoveOptionalContentGroups`) | **implemented + CI-validated** on `feat/ocg-removal` (both repos); 4-vector wasm committed; `PASS test-remove-ocg`. PR held until PR A/B get traction (separate follow-up, §4) | 2026-06-13 |
-| Maintainer first response | — | — |
-| Merge / close (**the latency datapoint**) | — | — |
+| PR C — OCG C++ (`EPDF_RemoveOptionalContentGroups`)  | [embedpdf/pdfium#28](https://github.com/embedpdf/pdfium/pull/28) (follow-up, stacked on PR A)                                                   | 2026-06-13 |
+| PR C — OCG TS (`optionalContentGroups`) + test       | [embedpdf/embed-pdf-viewer#675](https://github.com/embedpdf/embed-pdf-viewer/pull/675) (follow-up, stacked on PR B; depends on #28)             | 2026-06-13 |
+| Maintainer first response                            | —                                                                                                                                               | —          |
+| Merge / close (**the latency datapoint**)            | —                                                                                                                                               | —          |
 
-Capability is ours regardless (fork shipped); these dates measure how long upstream approval takes. OCG is a deliberate **separate** follow-up PR (§4) — built and green, but its PRs stack on PR A/B, so they are held until those draw a response rather than dumping four stacked PRs on a single maintainer at once. Signing is the other ADR-0088 §J target ([`2026-06-13-embedpdf-signing-options.md`](2026-06-13-embedpdf-signing-options.md)), deferred until this PR lands.
+Capability is ours regardless (fork shipped); these dates measure how long upstream approval takes. All four vectors are implemented, CI-validated green, and submitted: the focused sanitization PRs (A/B = #27/#674) and the OCG follow-up PRs (C = #28/#675, stacked, with notes to land A/B first). Signing is the other ADR-0088 §J target ([`2026-06-13-embedpdf-signing-options.md`](2026-06-13-embedpdf-signing-options.md)), deferred until these land. Signing is the other ADR-0088 §J target ([`2026-06-13-embedpdf-signing-options.md`](2026-06-13-embedpdf-signing-options.md)), deferred until this PR lands.

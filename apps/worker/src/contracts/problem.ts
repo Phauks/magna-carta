@@ -1,8 +1,8 @@
 // RFC 9457 Problem Details: the one error shape platform-wide, extended with the observability
 // errorId and field-level errors[] for 422s.
 import { z } from "@hono/zod-openapi";
-import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { identifierPattern } from "@magna-carta/identifiers/validate";
+import { newErrorId } from "@magna-carta/telemetry/ids";
 import type { Context, TypedResponse } from "hono";
 import type { ClientErrorStatusCode, ServerErrorStatusCode } from "hono/utils/http-status";
 import type { JSONParsed } from "hono/utils/types";
@@ -21,7 +21,7 @@ export const ProblemFieldError = z
   .openapi("ProblemFieldError");
 
 // Documents and validates error replies only (this schema feeds the dev-only response validator),
-// so status is pinned to the 4xx/5xx range and errorId to the err_ handle shape the
+// so status is pinned to the 4xx/5xx range and errorId to the error_ handle shape the
 // @magna-carta/identifiers generator actually emits.
 export const Problem = z
   .object({
@@ -30,6 +30,11 @@ export const Problem = z
     status: z.number().int().min(400).max(599),
     detail: z.string().optional(),
     errorId: z.string().regex(identifierPattern("error")),
+    // The per-request correlation id (correlation_) the telemetry middleware mints and rides on every event.
+    // Stamped on every problem reply so a user-visible failure joins its redacted server trace.
+    // Optional in the schema because a problem built outside a request context (none today) would
+    // have none.
+    correlationId: z.string().optional(),
     instance: z.string().optional(),
     errors: z.array(ProblemFieldError).optional(),
     // Within-firm denial seam: a typed optional extension (NOT an open passthrough), set
@@ -51,7 +56,7 @@ export interface ProblemOptions {
   // Emitted into the body only when set (the chokepoint sets it true on its 403). A
   // typed optional, not an open extension bag — the only extension this slice admits.
   requestAccess?: boolean;
-  // An already-minted err_ handle to stamp into the body instead of minting a fresh one. The
+  // An already-minted error_ handle to stamp into the body instead of minting a fresh one. The
   // caller wants the SAME Error ID it has already correlated elsewhere — e.g. the platform-admin
   // guard logs a denial cause against the id it then returns to the client (reworked onto the
   // telemetry pipeline in slice 0·6). Defaults to a fresh mint when omitted.
@@ -71,7 +76,7 @@ export type ProblemResponse<S extends ProblemStatusCode> = Response &
   TypedResponse<JSONParsed<ProblemBody>, S, "json">;
 
 // Reply with an RFC 9457 problem document: expands the registry key to its type URI, mints a fresh
-// err_ correlation id (shown to the user, maps to the redacted log), and stamps
+// error_ correlation id (shown to the user, maps to the redacted log), and stamps
 // instance with the request path. Generic over the status literal so the returned response stays
 // status-typed for `app.openapi` handlers (see ProblemResponse).
 export function problemJson<S extends ProblemStatusCode>(
@@ -87,12 +92,17 @@ export function problemJson<S extends ProblemStatusCode>(
         `4xx/5xx range (400–599); the error path never emits a 2xx/3xx problem.`,
     );
   }
+  // The telemetry middleware (installed first) stashes the per-request correlation id; stamp it so
+  // the problem joins its redacted server trace. Read defensively (unknown context type) — absent
+  // only outside a request, which no caller is today.
+  const correlationId = c.get("correlationId") as string | undefined;
   const body: ProblemBody = {
     type: problemType(options.type),
     title: options.title,
     status: options.status,
     ...(options.detail !== undefined && { detail: options.detail }),
-    errorId: options.errorId ?? newIdentifier("error"),
+    errorId: options.errorId ?? newErrorId(),
+    ...(correlationId !== undefined && { correlationId }),
     instance: c.req.path,
     ...(options.errors !== undefined && { errors: options.errors }),
     ...(options.requestAccess !== undefined && { requestAccess: options.requestAccess }),

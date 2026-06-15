@@ -64,9 +64,13 @@ describe("POST /api/v1/firms", () => {
       status: 401,
     });
     expect(controlBody["errorId"]).toMatch(/^error_/);
+    expect(controlBody["correlationId"]).toMatch(/^correlation_/);
 
     // Wrong key (including a near-miss prefix) answers identically to no key — no probe surface.
+    // errorId and correlationId are per-request by design, so drop both before the field-identity
+    // comparison (each request mints its own; their PRESENCE and shape are pinned above).
     delete controlBody["errorId"];
+    delete controlBody["correlationId"];
     for (const wrongKey of ["wrong-key", `${env.PLATFORM_ADMIN_KEY}x`]) {
       const probe = await postFirms(FIRM_ONE_INPUT, {
         adminKey: wrongKey,
@@ -77,6 +81,7 @@ describe("POST /api/v1/firms", () => {
       const probeBody = (await probe.json()) as Record<string, unknown>;
       expect(probeBody["errorId"]).toMatch(/^error_/);
       delete probeBody["errorId"];
+      delete probeBody["correlationId"];
       expect(probeBody).toEqual(controlBody);
     }
 
@@ -87,39 +92,57 @@ describe("POST /api/v1/firms", () => {
     expect(firmCount?.count).toBe(0);
   });
 
-  it("logs a redacted, Error-ID-correlated denial cause — never the key (interim 0·6 telemetry seam)", async () => {
+  it("emits a redacted, Error-ID-correlated auth.denied telemetry event — never the key (golden rule 4)", async () => {
     // The client contract (field-identical 401 across missing/wrong/unset) is pinned by the test
-    // above. THIS test pins the operator-facing half: the guard distinguishes the denial cause in a
-    // log line correlated to the SAME Error ID the client receives, and never writes a key value
-    // (redact-by-default, golden rule 4). The unconfigured branch is a deploy-time failure now
-    // (wrangler `secrets.required`), so the two reachable causes here are missing-header and mismatch.
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    // above. THIS test pins the operator-facing half: the guard emits an auth.denied telemetry event
+    // distinguishing the cause, correlated to the SAME Error ID the client receives. The allowlist
+    // IS the redaction — the event has no slot for a key, so neither the presented nor configured
+    // key can be logged. The production Workers logger emits events as JSON lines via console.log;
+    // the unconfigured branch is a deploy-time failure now (secrets.required), so the two reachable
+    // causes are missing-header and mismatch.
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const lastAuthDenied = () =>
+      logSpy.mock.calls
+        .map((call) => {
+          try {
+            return JSON.parse(String(call[0])) as {
+              name?: string;
+              fields?: Record<string, unknown>;
+            };
+          } catch {
+            return null;
+          }
+        })
+        .filter((event) => event?.name === "auth.denied")
+        .at(-1);
     try {
-      errorSpy.mockClear();
+      logSpy.mockClear();
       const missing = await postFirms(FIRM_ONE_INPUT, {
         adminKey: null,
         idempotencyKey: crypto.randomUUID(),
       });
       const missingErrorId = ((await missing.json()) as { errorId: string }).errorId;
-      const missingLog = errorSpy.mock.calls.map((call) => String(call[0])).join("\n");
-      expect(missingLog).toContain("cause=missing-header");
-      expect(missingLog).toContain(`errorId=${missingErrorId}`);
+      const missingEvent = lastAuthDenied();
+      expect(missingEvent?.fields?.["cause"]).toBe("missing-header");
+      expect(missingEvent?.fields?.["errorId"]).toBe(missingErrorId);
 
-      errorSpy.mockClear();
+      logSpy.mockClear();
       const presentedWrongKey = `${env.PLATFORM_ADMIN_KEY}-tampered`;
       const wrong = await postFirms(FIRM_ONE_INPUT, {
         adminKey: presentedWrongKey,
         idempotencyKey: crypto.randomUUID(),
       });
       const wrongErrorId = ((await wrong.json()) as { errorId: string }).errorId;
-      const wrongLog = errorSpy.mock.calls.map((call) => String(call[0])).join("\n");
-      expect(wrongLog).toContain("cause=mismatch");
-      expect(wrongLog).toContain(`errorId=${wrongErrorId}`);
-      // Redaction: neither the presented key nor the configured secret leaks into the log line.
-      expect(wrongLog).not.toContain(presentedWrongKey);
-      expect(wrongLog).not.toContain(env.PLATFORM_ADMIN_KEY);
+      const wrongEvent = lastAuthDenied();
+      expect(wrongEvent?.fields?.["cause"]).toBe("mismatch");
+      expect(wrongEvent?.fields?.["errorId"]).toBe(wrongErrorId);
+      // Redaction by allowlist: neither the presented key nor the configured secret appears anywhere
+      // in the emitted logs (the event has no field for either).
+      const allLogs = logSpy.mock.calls.map((call) => String(call[0])).join("\n");
+      expect(allLogs).not.toContain(presentedWrongKey);
+      expect(allLogs).not.toContain(env.PLATFORM_ADMIN_KEY);
     } finally {
-      errorSpy.mockRestore();
+      logSpy.mockRestore();
     }
   });
 
@@ -161,7 +184,7 @@ describe("POST /api/v1/firms", () => {
     expect(firmRow).toEqual({
       status: "active",
       database_identifier: "DB_FIRM_POOL_1",
-      per_firm_schema_version: "0003_matters-locations-file-manager",
+      per_firm_schema_version: "0004_matters-locations-file-manager",
       bucket_name: "R2",
     });
 
@@ -314,7 +337,7 @@ describe("POST /api/v1/firms", () => {
     expect(partialRow).toEqual({
       status: "provisioning",
       database_identifier: "DB_FIRM_POOL_2",
-      per_firm_schema_version: "0003_matters-locations-file-manager",
+      per_firm_schema_version: "0004_matters-locations-file-manager",
     });
 
     // Re-invoking with a FREE owner email (new key — a corrected request) resumes the partial

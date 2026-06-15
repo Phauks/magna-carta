@@ -279,6 +279,58 @@ function componentNameCollisions(app: ReturnType<typeof createApp>): string[] {
   return violations;
 }
 
+// Resolve a response schema, following a single `$ref` into components/schemas (the shape
+// zod-to-openapi emits for a named .openapi() schema like Problem).
+//
+// KNOWN SEAM (review 2026-06-13, low): this follows ONE top-level $ref and does NOT recurse through
+// composition (allOf/oneOf/anyOf) or a $ref chain. Acceptable: every error response points directly
+// at the single Problem component ("the one error shape platform-wide"), and a future composed error
+// schema would FALSE-POSITIVE (a loud CI failure), never silently let a non-conforming route through
+// — the safe direction. Recurse through composition here if composed error schemas are ever adopted.
+function resolveSchema(
+  schema: unknown,
+  schemas: Record<string, { properties?: Record<string, unknown> }>,
+): { properties?: Record<string, unknown> } | undefined {
+  if (schema === null || typeof schema !== "object") return undefined;
+  if ("$ref" in schema) {
+    const name = String((schema as { $ref: string }).$ref)
+      .split("/")
+      .pop();
+    return name ? schemas[name] : undefined;
+  }
+  return schema as { properties?: Record<string, unknown> };
+}
+
+// Rule: every error response (4xx/5xx) declares the observability errorId — the public key joining a
+// user-visible failure to its redacted server trace. An error response with no schema, or one whose
+// schema omits errorId, fails: the client must always have an Error ID to quote.
+function errorIdCoverageViolations(document: ReturnType<typeof buildOpenAPIDocument>): string[] {
+  const schemas = (document.components?.schemas ?? {}) as Record<
+    string,
+    { properties?: Record<string, unknown> }
+  >;
+  const violations: string[] = [];
+  for (const { path, method, operation } of operations(document)) {
+    const responses = (operation as { responses?: Record<string, unknown> }).responses ?? {};
+    for (const [statusCode, response] of Object.entries(responses)) {
+      if (Number(statusCode) < 400) continue; // error responses only
+      const label = `${method.toUpperCase()} ${path} ${statusCode}`;
+      const content =
+        (response as { content?: Record<string, { schema?: unknown }> }).content ?? {};
+      const mediaTypes = Object.values(content);
+      const declaresErrorId =
+        mediaTypes.length > 0 &&
+        mediaTypes.every(
+          (media) => resolveSchema(media.schema, schemas)?.properties?.["errorId"] !== undefined,
+        );
+      if (!declaresErrorId) {
+        violations.push(`${label}: error response must declare an errorId (RFC 9457)`);
+      }
+    }
+  }
+  return violations;
+}
+
 // --- Negative-control helpers: build a one-route document from arbitrary meta, never committed. ---
 const okResponse = {
   200: {
@@ -366,6 +418,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "documentTypes.update",
       "firms.provision",
       "health.read",
+      "incidents.report",
       "locations.assignMember",
       "locations.close",
       "locations.create",
@@ -531,6 +584,46 @@ describe("conformance — the committed contract holds, and each rule catches a 
         { method: "get", path: "/api/v1/gadgets", operation: rawOperation() },
       ]);
       expect(operationIdViolations(bad).length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("every error response declares an errorId", () => {
+    it("the committed contract satisfies it", () => {
+      expect(errorIdCoverageViolations(document)).toEqual([]);
+    });
+    it("flags an error response whose schema omits errorId", () => {
+      const bad = documentWithOperations([
+        {
+          method: "post",
+          path: "/api/v1/widgets",
+          operation: rawOperation({
+            responses: {
+              200: { description: "OK" },
+              404: {
+                description: "Not found",
+                content: {
+                  "application/problem+json": {
+                    schema: { type: "object", properties: { title: { type: "string" } } },
+                  },
+                },
+              },
+            },
+          }),
+        },
+      ]);
+      expect(errorIdCoverageViolations(bad).length).toBeGreaterThan(0);
+    });
+    it("flags an error response that declares no content at all", () => {
+      const bad = documentWithOperations([
+        {
+          method: "get",
+          path: "/api/v1/widgets",
+          operation: rawOperation({
+            responses: { 200: { description: "OK" }, 500: { description: "Server error" } },
+          }),
+        },
+      ]);
+      expect(errorIdCoverageViolations(bad).length).toBeGreaterThan(0);
     });
   });
 

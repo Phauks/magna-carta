@@ -1,3 +1,5 @@
+import { logOperationFailed } from "@magna-carta/telemetry/operation";
+import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import { createApp, type Bindings } from "./app.ts";
 import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
 import { runScheduledSweep, runStorageReconciliation } from "./scheduled.ts";
@@ -11,15 +13,21 @@ const RECONCILIATION_CRON = "0 3 * * *";
 // fetch + scheduled + queue: the Hono app serves requests; the Cron triggers run the outbox relay
 // sweeps + idempotency TTL purge + stale-pending upload sweep every 5 minutes, and the storage
 // reconciliation once daily; the queue consumer ingests uploaded objects from the files-ingest queue
-// (the R2 object-create event feed). waitUntil keeps the work alive past the handler return.
+// (the R2 object-create event feed). waitUntil keeps the work alive past the handler return. Each
+// scheduled pass routes a failure through the one telemetry pipeline (operation.failed) — the same
+// boundary the request-path sweep uses — so a cron failure is never silently dropped.
 export default {
   fetch: app.fetch,
   scheduled(controller, env, executionContext) {
-    if (controller.cron === RECONCILIATION_CRON) {
-      executionContext.waitUntil(runStorageReconciliation(env));
-    } else {
-      executionContext.waitUntil(runScheduledSweep(env));
-    }
+    const pass =
+      controller.cron === RECONCILIATION_CRON
+        ? { operation: "cron:storage-reconciliation", run: () => runStorageReconciliation(env) }
+        : { operation: "cron:scheduled-sweep", run: () => runScheduledSweep(env) };
+    executionContext.waitUntil(
+      pass.run().catch((caught: unknown) => {
+        logOperationFailed(createWorkersLogger(env.TELEMETRY), pass.operation, caught);
+      }),
+    );
   },
   queue(batch, env) {
     // The only queue this Worker consumes is files-ingest; its messages are R2 events.

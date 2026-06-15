@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   directGrant,
   idempotencyKey,
+  incident,
   member,
   memberRole,
   outbox,
@@ -139,5 +140,31 @@ describe("per-firm schema: direct_grant (per-member permission, optionally expir
   it("foreign-keys ONLY member_user_id — granted_by is an audit fact that must outlive the granter", () => {
     const config = getTableConfig(directGrant);
     expect(config.foreignKeys).toHaveLength(1); // member_user_id -> member.user_id
+  });
+});
+
+describe("per-firm schema: incident (user-initiated incident intake)", () => {
+  it("matches the column shape", () => {
+    const config = getTableConfig(incident);
+    expect(config.name).toBe("incident");
+    expect(columnOf(incident, "id").primary).toBe(true);
+    expect(columnOf(incident, "id").getSQLType()).toBe("text"); // incident_ handle
+    expect(columnOf(incident, "error_ids").notNull).toBe(true); // JSON array of error_ handles (may be empty)
+    expect(columnOf(incident, "breadcrumbs").notNull).toBe(true); // JSON array of { at, action, route }
+    expect(columnOf(incident, "description").notNull).toBe(true); // firm-boundary now, protected() later
+    expect(columnOf(incident, "context").notNull).toBe(true); // JSON { route, appVersion, clientAt }
+    expect(columnOf(incident, "screenshot_key").notNull).toBe(false); // R2 seam, nullable; UI slice fills it
+    const status = columnOf(incident, "status");
+    expect(status.notNull).toBe(true);
+    expect(status.default).toBe("open");
+    expect(columnOf(incident, "reported_by").notNull).toBe(true);
+    expect(columnOf(incident, "reported_by").getSQLType()).toBe("text"); // usr_ handle
+    expect(columnOf(incident, "created_at").getSQLType()).toBe("text"); // ISO-8601 instant
+  });
+
+  it("has no foreign keys — reported_by is a usr_ handle the per-firm plane does not own", () => {
+    // Like granted_by on direct_grant: the reporter handle is the global control-plane user id; the
+    // per-firm plane carries no auth state to FK against.
+    expect(getTableConfig(incident).foreignKeys).toHaveLength(0);
   });
 });

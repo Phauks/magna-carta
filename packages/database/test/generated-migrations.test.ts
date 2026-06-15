@@ -113,11 +113,11 @@ describe("generated migrations (committed artifacts)", () => {
     expect(isIdentifier(permissionSeeds[0]?.id, "rolePermission")).toBe(true);
   });
 
-  it("per-firm 0003 creates the matters/locations/file-manager tables with their CHECKs, and leaves ledger_account alone", async () => {
+  it("per-firm 0004 creates the matters/locations/file-manager tables with their CHECKs, and leaves ledger_account alone", async () => {
     const migrations = await loadLineage("per-firm");
-    expect(migrations.length).toBeGreaterThanOrEqual(4);
-    expect(migrations[3]?.tag).toMatch(/^0003_/);
-    const sql = (migrations[3]?.statements ?? []).join("\n");
+    expect(migrations.length).toBeGreaterThanOrEqual(5);
+    expect(migrations[4]?.tag).toMatch(/^0004_/);
+    const sql = (migrations[4]?.statements ?? []).join("\n");
     for (const tableName of [
       "location",
       "location_address",
@@ -143,17 +143,18 @@ describe("generated migrations (committed artifacts)", () => {
     expect(sql).toContain("location_status_check");
     // The frozen-number partial UNIQUE index (a duplicate number within a firm is impossible).
     expect(sql).toContain(`WHERE "matter"."matter_number" IS NOT NULL`);
-    // The hand-correction stripped the spurious ledger_account table-rebuild: 0003 never touches it.
+    // 0004 (regenerated atop 0003 incident-intake) adds only the matters/locations/file tables: no
+    // spurious ledger_account table-rebuild.
     expect(sql).not.toContain("__new_ledger_account");
     expect(sql).not.toContain("DROP TABLE `ledger_account`");
   });
 
-  it("per-firm 0003 seeds the matters/locations/files role grants per the default-role policy", async () => {
+  it("per-firm 0004 seeds the matters/locations/files role grants per the default-role policy", async () => {
     const migrations = await loadLineage("per-firm");
     const statements0002 = migrations[2]?.statements ?? [];
-    const statements0003 = migrations[3]?.statements ?? [];
+    const statements0004 = migrations[4]?.statements ?? [];
 
-    // Role ids are seeded in 0002; map name -> id so the 0003 grant assertions read by role NAME.
+    // Role ids are seeded in 0002; map name -> id so the 0004 grant assertions read by role NAME.
     const roleIdByName = new Map<string, string>(
       statements0002
         .filter((statement) => statement.includes("INSERT INTO `role`"))
@@ -161,9 +162,9 @@ describe("generated migrations (committed artifacts)", () => {
         .map((seed) => [String(seed.name), String(seed.id)]),
     );
 
-    // Collect 0003's role_permission grants, grouped by role name.
+    // Collect 0004's role_permission grants, grouped by role name.
     const grantsByRole = new Map<string, Set<string>>();
-    for (const statement of statements0003) {
+    for (const statement of statements0004) {
       if (!statement.includes("INSERT INTO `role_permission`")) continue;
       const seed = parseSingleRowInsert(statement);
       expect(isIdentifier(seed.id, "rolePermission"), String(seed.id)).toBe(true);

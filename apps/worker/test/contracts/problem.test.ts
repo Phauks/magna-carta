@@ -7,10 +7,13 @@ import { Problem, defaultHook, problemJson } from "../../src/contracts/problem";
 import { PROBLEM_TYPES, problemType } from "../../src/contracts/problem-types";
 
 // A minimal Context stub whose .json mirrors Hono's: serializes the body and stamps status +
-// headers. Enough to exercise problemJson/defaultHook off the request lifecycle.
+// headers. .get returns undefined (no telemetry middleware ran off the request lifecycle, so there
+// is no stashed correlation id — problemJson omits the field). Enough to exercise
+// problemJson/defaultHook directly.
 function fakeContext(path: string): Context {
   return {
     req: { path },
+    get: () => undefined,
     json: (body: unknown, status?: number, headers?: Record<string, string>) =>
       new Response(JSON.stringify(body), { status: status ?? 200, headers }),
   } as unknown as Context;
@@ -38,6 +41,7 @@ describe("problem-type URI registry", () => {
         "conflict",
         "email-in-use",
         "upload-not-allowed",
+        "internal",
       ].sort(),
     );
   });
@@ -89,7 +93,7 @@ describe("Problem schema", () => {
     expect(Problem.safeParse({ ...base, status: 599 }).success).toBe(true);
   });
 
-  it("rejects an errorId that is not a well-formed err_ handle", () => {
+  it("rejects an errorId that is not a well-formed error_ handle", () => {
     const base = {
       type: "https://api.magnacarta.esq/problems/not-found",
       title: "Not found",
@@ -159,7 +163,7 @@ describe("problemJson", () => {
     expect(body.detail).toBe("No such matter in this firm.");
   });
 
-  it("generates a fresh err_-prefixed errorId per reply", async () => {
+  it("generates a fresh error_-prefixed errorId per reply", async () => {
     const app = appWithNotFoundRoute();
     const first = (await (await app.request("/api/v1/matters/mat_a")).json()) as Record<
       string,

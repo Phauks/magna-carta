@@ -1,4 +1,9 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
+import type { Logger } from "@magna-carta/telemetry/logger";
+import {
+  createWorkersLogger,
+  type AnalyticsEngineDataset,
+} from "@magna-carta/telemetry/workers-logger";
 import { createAuth } from "./auth.ts";
 import { createChokepoint } from "./chokepoint/chokepoint.ts";
 import { createChokepointIdempotency } from "./chokepoint/idempotency-port.ts";
@@ -6,9 +11,11 @@ import { createChokepointPorts, type AppVariables, type FirmContext } from "./ch
 import { createInMemoryRateLimiter } from "./chokepoint/rate-limiter.ts";
 import { defaultHook } from "./contracts/problem.ts";
 import { registerHealthRoute } from "./routes/health.ts";
-import { createLoggingEmailAdapter } from "./email-port.ts";
+import { createCloudflareEmailAdapter, type CloudflareEmailBinding } from "./email-cloudflare.ts";
+import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
+import { registerIncidentsRoute } from "./routes/incidents.ts";
 import { registerLocationsRoutes } from "./routes/locations.ts";
 import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
 import { registerMattersRoutes } from "./routes/matters.ts";
@@ -16,6 +23,7 @@ import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 import { registerNumberingRoutes } from "./routes/numbering.ts";
 import { registerUploadsRoutes } from "./routes/uploads.ts";
+import { telemetryErrorHandler, telemetryMiddleware } from "./telemetry-middleware.ts";
 
 // The Worker's runtime bindings, declared once here (the no-barrel single home for the app's env shape).
 // worker-env.d.ts mirrors this into the ambient `Cloudflare.Env` the vitest-pool-workers harness types `env` as.
@@ -54,6 +62,15 @@ export type Bindings = {
   // "development" enables the dev-only response validator (chokepoint/response-validator.ts);
   // unset in production (wrangler.jsonc declares no var), set locally via .dev.vars.
   ENVIRONMENT?: string;
+  // The Analytics Engine dataset the Workers logger mirrors counters to (slice 0·6). Optional: a
+  // missing binding (dev/test, or a deployment without it) degrades to console-only logging, never
+  // throws (createWorkersLogger handles undefined).
+  TELEMETRY?: AnalyticsEngineDataset;
+  // Cloudflare Email Service. Both optional: the Cloudflare adapter is selected
+  // only when the send_email binding AND EMAIL_FROM are present (production); dev/test leave EMAIL_FROM
+  // unset and keep the logging adapter, so no real email is sent and no domain onboarding is required.
+  SEND_EMAIL?: CloudflareEmailBinding;
+  EMAIL_FROM?: string;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
@@ -62,19 +79,62 @@ export type Bindings = {
 // email behind the same SendEmail port.
 const authInstanceByEnv = new WeakMap<Bindings, ReturnType<typeof createAuth>>();
 
+// The outbound-email adapter for an env: the real Cloudflare Email Service when its binding AND
+// EMAIL_FROM are both present (production), otherwise the dev logging adapter. EMAIL_FROM is the
+// selection key — unset in dev/test (.dev.vars omits it), so tests never touch the real binding and
+// no domain onboarding is required to run locally. The Cloudflare adapter logs through the per-env
+// Workers logger (email.sent — class + outcome, never body).
+function emailAdapterForEnv(env: Bindings): SendEmail {
+  if (env.SEND_EMAIL !== undefined && env.EMAIL_FROM !== undefined && env.EMAIL_FROM !== "") {
+    return createCloudflareEmailAdapter(env.SEND_EMAIL, env.EMAIL_FROM, defaultLoggerForEnv(env));
+  }
+  return createLoggingEmailAdapter();
+}
+
 function authForEnv(env: Bindings): ReturnType<typeof createAuth> {
   let auth = authInstanceByEnv.get(env);
   if (auth === undefined) {
-    auth = createAuth(env, createLoggingEmailAdapter());
+    auth = createAuth(env, emailAdapterForEnv(env));
     authInstanceByEnv.set(env, auth);
   }
   return auth;
 }
 
-export function createApp() {
+// One Workers logger per env (the env object is stable within an isolate), built over the optional
+// TELEMETRY Analytics Engine binding. The single production wiring of createWorkersLogger.
+const loggerInstanceByEnv = new WeakMap<Bindings, Logger>();
+function defaultLoggerForEnv(env: Bindings): Logger {
+  let logger = loggerInstanceByEnv.get(env);
+  if (logger === undefined) {
+    logger = createWorkersLogger(env.TELEMETRY);
+    loggerInstanceByEnv.set(env, logger);
+  }
+  return logger;
+}
+
+// createApp options exist for tests (the seam is ours): a memory logger to assert emitted events, an
+// injectable clock for deterministic durations, and the telemetry probe routes that exercise the
+// error boundary and the route-template behavior. Production (index.ts) calls createApp() with no
+// options — the Workers logger, the real clock, no probes.
+export interface CreateAppOptions {
+  loggerForEnv?: (env: Bindings) => Logger;
+  clock?: () => number;
+  includeTelemetryProbes?: boolean;
+}
+
+export function createApp(options: CreateAppOptions = {}) {
+  const loggerForEnv = options.loggerForEnv ?? defaultLoggerForEnv;
+
   // defaultHook: every Zod request-validation failure becomes the 422 problem with
   // field-level errors[] — installed app-wide so no route re-derives it.
   const app = new OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>({ defaultHook });
+
+  // Telemetry FIRST: before the chokepoint and every route, so it mints the correlation id, stashes
+  // the request-scoped logger, and times the request. app.use registered here applies to every route
+  // below. The error boundary is the onError handler (Hono's compose routes a thrown handler there,
+  // not back up through middleware) — it logs error.captured and returns the 500.
+  app.onError(telemetryErrorHandler(options.clock));
+  app.use("*", telemetryMiddleware(loggerForEnv, options.clock));
 
   // The chokepoint: built once over the REAL ports — session resolution, firm-context
   // resolution (control-plane lookup + firm-binding-resolver + member-active check), permission
@@ -104,6 +164,7 @@ export function createApp() {
   registerMeRoute(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
+  registerIncidentsRoute(app, chokepoint);
   registerUploadsRoutes(app, chokepoint);
   // Slice 1·1: matters (shell + lifecycle), per-firm matter/document types, Locations, and the
   // numbering-scheme surface — each composed through the same chokepoint.
@@ -116,6 +177,18 @@ export function createApp() {
   // Serve the same document the committed snapshot carries (root tags included), so the live endpoint
   // and the snapshot never diverge. A plain route, so it does not appear in the document itself.
   app.get("/api/openapi.json", (c) => c.json(emitOpenAPIDocument(app)));
+
+  // Test-only probes (never in production: gated on the option, and bare app.get so they never enter
+  // the OpenAPI contract). They sit inside the global telemetry middleware but outside the chokepoint
+  // and BEFORE the asset fallthrough so they match first. One proves the route-TEMPLATE behavior (a
+  // parameterized path logged as its pattern, not the concrete id); one throws to exercise the
+  // error boundary (the message carries an email to prove the scrubber backstops error.captured).
+  if (options.includeTelemetryProbes) {
+    app.get("/api/v1/__telemetry-probe/:probeId", (c) => c.json({ ok: true }));
+    app.get("/api/v1/__telemetry-throw", () => {
+      throw new Error("telemetry probe boom for leak@example.com");
+    });
+  }
 
   // Everything not handled above falls through to the static-asset SPA (Workers Static Assets binding).
   app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));

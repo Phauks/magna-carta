@@ -42,7 +42,11 @@ describe("permission registry", () => {
   });
 
   it("permissionsForNamespace('firm') returns exactly the firm keys", () => {
-    expect(permissionsForNamespace("firm")).toEqual(["firm:manageMembers", "firm:provision"]);
+    expect(permissionsForNamespace("firm")).toEqual([
+      "firm:manageMembers",
+      "firm:provision",
+      "firm:reportIncident",
+    ]);
   });
 
   it("permissionsForNamespace('matters') returns exactly the matters keys, in registry order", () => {

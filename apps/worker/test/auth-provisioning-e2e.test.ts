@@ -220,14 +220,16 @@ describe("end-to-end", () => {
         email: FIRM_A_INPUT.owner.email,
       },
       firm: { id: firmA.id, name: FIRM_A_INPUT.name },
-      // Owner/Admin's seeded role_permission rows: firm:manageMembers (0002_member-rbac.sql) plus
-      // the slice 1·1 matters/locations/files grants (0003_matters-locations-file-manager.sql).
+      // Owner/Admin's seeded role_permission rows: firm:manageMembers (0002) + firm:reportIncident
+      // (0003, seeded onto every default role) + the slice 1·1 matters/locations/files grants
+      // (0004_matters-locations-file-manager.sql). Sorted.
       permissions: [
         "files:delete",
         "files:manageDocumentTypes",
         "files:organize",
         "files:upload",
         "firm:manageMembers",
+        "firm:reportIncident",
         "locations:manage",
         "matters:close",
         "matters:create",

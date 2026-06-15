@@ -30,6 +30,10 @@ export const PROBLEM_TYPES = {
   // the real bytes at the ingest gate. DISTINCT from `validation` (request-shape) — the request is
   // well-formed; the firm policy refuses its content.
   "upload-not-allowed": "upload-not-allowed",
+  // An unexpected, unhandled server error (HTTP 500). The telemetry middleware's final catch maps
+  // any escaped exception to this — the one error type the client cannot have caused, carrying only
+  // the Error ID to quote.
+  internal: "internal",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;

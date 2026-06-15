@@ -25,11 +25,20 @@ jobs:
       - name: Install dependencies
         run: vp install
 
+      # Dependency audit: fail on a KNOWN-vulnerable dependency at high+ severity; advisory/moderate
+      # findings do not block. Registry advisories, zero extra tooling — the osv-scanner action is
+      # the documented upgrade path if coverage disappoints.
+      - name: Dependency audit (high severity)
+        run: pnpm audit --audit-level high
+
       - name: Quality gate (fmt + lint + TS type-check + svelte-check)
         run: pnpm check
 
       - name: Governance — no process-artifact references in code (golden rule 13)
         run: pnpm run lint:process-refs
+
+      - name: Governance — dependency license allowlist (deny AGPL/SSPL)
+        run: pnpm run lint:licenses
 
       - name: Tests (Miniflare worker integration)
         run: vp test

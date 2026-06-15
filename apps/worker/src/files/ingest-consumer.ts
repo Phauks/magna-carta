@@ -7,6 +7,9 @@ import {
 import { runIngest } from "@magna-carta/file-manager/ingest-core";
 import { unscannedAdapter } from "@magna-carta/file-manager/scan-port";
 import { readUploadPolicy } from "@magna-carta/file-manager/upload-policy";
+import { newCorrelationId } from "@magna-carta/telemetry/ids";
+import { logOperationFailed } from "@magna-carta/telemetry/operation";
+import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
 import { resolveFirmDatabase } from "../firm-binding-resolver.ts";
 
@@ -104,14 +107,15 @@ export async function ingestQueue(
   batch: MessageBatch<R2EventMessage>,
   env: Bindings,
 ): Promise<void> {
+  // One logger per batch; a failed message routes through the one telemetry pipeline (golden rule 4
+  // — the console ban is structural) and is retried, dead-lettering at max attempts.
+  const logger = createWorkersLogger(env.TELEMETRY);
   for (const message of batch.messages) {
     try {
       await handleIngestMessage(env, message.body);
       message.ack();
     } catch (error) {
-      console.error(
-        `files-ingest: message ${message.id} failed, retrying: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      logOperationFailed(logger, `queue:files-ingest:${message.id}`, error, newCorrelationId());
       message.retry();
     }
   }

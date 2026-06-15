@@ -18,6 +18,7 @@ import type {
   FolderId,
   GrantId,
   IdempotencyRecordId,
+  IncidentId,
   LedgerAccountId,
   LedgerEntryId,
   LedgerLineId,
@@ -622,3 +623,22 @@ export const auditLog = sqliteTable(
     index("audit_log_event_index").on(table.event),
   ],
 );
+
+// User-initiated incident reports — the row written by POST /api/v1/incidents. Structure only — the
+// route and its outbox→Queue seam (`incident.created`, no consumer yet) live in apps/worker. JSON
+// columns are redacted by construction: error_ids and breadcrumbs are id-and-action shaped, never
+// content. The `description` is the user's words — it sits inside the firm-isolation boundary today;
+// the protected() crypto module encrypts it (access-gated, audited reads) when it lands.
+export const incident = sqliteTable("incident", {
+  id: text("id").primaryKey().$type<IncidentId>(), // incident_ handle
+  errorIds: text("error_ids").notNull(), // JSON array of error_ handles (may be empty — "nothing crashed but…")
+  breadcrumbs: text("breadcrumbs").notNull(), // JSON array of { at, action, route } — redacted by construction
+  description: text("description").notNull(), // user-authored; firm boundary now, protected() later
+  context: text("context").notNull(), // JSON { route, appVersion, clientAt }
+  screenshotKey: text("screenshot_key"), // R2 seam, nullable; the UI slice populates capture/upload
+  // Lifecycle stays open text (not an enum): the diagnostics agent defines the states it transitions
+  // through later — constraining now would be premature (no consumer exists yet).
+  status: text("status").notNull().default("open"),
+  reportedBy: text("reported_by").notNull().$type<UserId>(), // global usr_ handle; no cross-plane FK
+  createdAt: text("created_at").notNull(), // ISO-8601 instant
+});

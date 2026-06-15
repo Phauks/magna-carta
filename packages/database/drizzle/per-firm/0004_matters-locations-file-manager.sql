@@ -1,8 +1,3 @@
--- Hand-correction: drizzle-kit appended a `ledger_account` table-rebuild after the statements
--- below, because the 0002 snapshot did not record the `ledger_account_type_check` that the 0001
--- migration's SQL already creates. The CHECK is therefore already present on every firm database,
--- so the rebuild was redundant (it would needlessly DROP and recreate a populated table) and has
--- been removed. The 0003 snapshot records the CHECK, so later diffs no longer regenerate it.
 CREATE TABLE `audit_log` (
 	`id` text PRIMARY KEY NOT NULL,
 	`event` text NOT NULL,

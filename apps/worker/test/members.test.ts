@@ -448,6 +448,7 @@ describe("POST /api/v1/members", () => {
     // only the per-response errorId is removed before the deep-equal. Any divergent field
     // (title, detail, instance, an extra key, …) is an oracle distinguishing live keys from dead.
     delete controlBody["errorId"];
+    delete controlBody["correlationId"];
     for (const probe of probes) {
       expect(probe.status).toBe(control.status);
       expect(probe.headers.get("content-type")).toBe(control.headers.get("content-type"));
@@ -455,6 +456,7 @@ describe("POST /api/v1/members", () => {
       const probeBody = (await probe.json()) as Record<string, unknown>;
       expect(probeBody["errorId"]).toMatch(/^error_/);
       delete probeBody["errorId"];
+      delete probeBody["correlationId"];
       expect(probeBody).toEqual(controlBody);
     }
   });
@@ -499,6 +501,7 @@ describe("POST /api/v1/members", () => {
     // Field-complete comparison against the unknown-key control — see the unauthenticated oracle
     // test above for the rationale; only the per-response errorId is removed before the deep-equal.
     delete controlBody["errorId"];
+    delete controlBody["correlationId"];
     for (const probe of probes) {
       expect(probe.status).toBe(control.status);
       expect(probe.headers.get("content-type")).toBe(control.headers.get("content-type"));
@@ -506,6 +509,7 @@ describe("POST /api/v1/members", () => {
       const probeBody = (await probe.json()) as Record<string, unknown>;
       expect(probeBody["errorId"]).toMatch(/^error_/);
       delete probeBody["errorId"];
+      delete probeBody["correlationId"];
       expect(probeBody).toEqual(controlBody);
     }
   });

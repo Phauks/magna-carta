@@ -1,8 +1,9 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import type { MiddlewareHandler } from "hono";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
-import type { IdempotencyContext } from "@magna-carta/data-access/hono-idempotency-middleware";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
+import { authDenied } from "@magna-carta/telemetry/events";
+import { newErrorId } from "@magna-carta/telemetry/ids";
 import type { Bindings } from "../app.ts";
 import type { createAuth } from "../auth.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -25,7 +26,6 @@ import {
 } from "../idempotency-conflict-problems.ts";
 import { perFirmHeadSchemaVersion } from "../per-firm-migrations.ts";
 import { scheduleRequestPathSweep } from "../request-path-sweep.ts";
-import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { idempotencyKeyHeader } from "../contracts/common.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
@@ -57,9 +57,11 @@ const ProvisionFirmResponse = z
   })
   .openapi("ProvisionFirmResponse");
 
+// The guard reads the telemetry-stashed logger + correlationId (set by the middleware ahead of it)
+// from context, so its env is the full AppVariables, not a one-off shape.
 type FirmsEnv = {
   Bindings: Bindings;
-  Variables: { idempotency?: IdempotencyContext };
+  Variables: AppVariables;
 };
 
 // The platform-admin guard: a Worker-secret header check, the single-operator reality for now — a
@@ -86,13 +88,18 @@ export const platformAdminGuard: MiddlewareHandler<FirmsEnv> = async (c, next) =
     denialCause = "mismatch";
   }
   if (denialCause !== undefined) {
-    const errorId = newIdentifier("error");
-    // Interim telemetry seam (slice 0·6 replaces it with the standard redacting logging pipeline,
-    // which also owns severity/sampling): ids and the cause label only — NEVER the presented or
-    // configured key. The id passed to problemJson is the SAME one the client receives, so an
-    // operator can tell a deployment misconfiguration ('unconfigured') apart from a denied caller.
-    console.error(
-      `platform_admin_guard denied: cause=${denialCause} errorId=${errorId} path=${c.req.path}`,
+    const errorId = newErrorId();
+    // The standard telemetry pipeline (slice 0·6) — the structural replacement for slice 0·4's
+    // interim console.error seam. The auth.denied event records the cause label + route + the SAME
+    // Error ID the client receives (so an operator can tell a deployment misconfiguration
+    // 'unconfigured' apart from a denied caller). The allowlist IS the redaction: the event has no
+    // slot for the presented or configured key, so neither can ever be logged. The request-scoped
+    // logger and correlation id were stashed by the telemetry middleware ahead of this guard.
+    c.get("logger")?.log(
+      authDenied(
+        { correlationId: c.get("correlationId") ?? "", now: new Date().toISOString() },
+        { cause: denialCause, route: c.req.routePath, errorId },
+      ),
     );
     return problemJson(c, {
       type: "unauthenticated",

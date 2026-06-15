@@ -30,6 +30,10 @@ export const ENTITY_PREFIXES = {
   grant: "grant",
   authAudit: "authAudit",
   error: "error",
+  // Telemetry-minted handles (correlation rides every request/event/problem; incident is the
+  // user-reported row) — full-name prefixes per the ADR-0062 amendment, same as every other entry.
+  correlation: "correlation",
+  incident: "incident",
   // Matters, Locations & File Manager. `matterType`/`documentType` are the per-firm classification
   // catalogs (distinct from `document`, a stored object); `numberingScheme` is the matter-number
   // template; `file`/`fileVersion` are the versioned object metadata; `uploadSession` tracks an

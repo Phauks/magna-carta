@@ -18,13 +18,19 @@ import {
   type MeterRow,
 } from "@magna-carta/file-manager/metering-statements";
 import type { FileVersionId, UploadSessionId } from "@magna-carta/identifiers/types";
+import { outboxDeadLettered, outboxSwept } from "@magna-carta/telemetry/events";
+import { newCorrelationId } from "@magna-carta/telemetry/ids";
+import type { Logger } from "@magna-carta/telemetry/logger";
+import { logOperationFailed } from "@magna-carta/telemetry/operation";
+import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "./app.ts";
 import { presignerForEnv } from "./files/presigner-wiring.ts";
 import { resolveFirmDatabase } from "./firm-binding-resolver.ts";
 import { consumeMemberProvision } from "./member-provision-consumer.ts";
 
-// Every console.error in this file is the interim telemetry seam — the slice 0·6 error-logging
-// pipeline replaces them.
+// All background logging in this file goes through the slice 0·6 telemetry pipeline (golden rule 4 —
+// the one logging path, the console ban makes it structural): a cron pass builds one Workers logger
+// + correlation id and emits allowlist events, never console.*.
 
 // Idempotency records are ephemeral dedup state with a ~24h TTL; the purge cutoff is
 // everything older than this.
@@ -54,12 +60,20 @@ export interface ScheduledSweepReport {
   readonly unprovisionedMembers: readonly UnprovisionedMember[];
 }
 
-// Dead-letter surfacing: ids + topic + attempts + our own error message only — payloads are never
-// logged.
-function logDeadLetter(scope: string): (row: OutboxRow, error: Error) => Promise<void> {
-  return (row, error) => {
-    console.error(
-      `outbox dead-letter (${scope}): id=${row.id} topic=${row.topic} attempts=${row.attempts + 1} error=${error.message}`,
+// Dead-letter surfacing: ids + topic + attempts only — payloads are never logged (redaction; the
+// allowlist event has no payload slot). The outboxId is opaque and the diagnostics agent
+// investigates the parked row by it.
+function logDeadLetter(
+  logger: Logger,
+  correlationId: string,
+  scope: string,
+): (row: OutboxRow) => Promise<void> {
+  return (row) => {
+    logger.log(
+      outboxDeadLettered(
+        { correlationId, now: new Date().toISOString() },
+        { scope, outboxId: row.id, topic: row.topic, attempts: row.attempts + 1 },
+      ),
     );
     return Promise.resolve();
   };
@@ -149,6 +163,11 @@ export async function findUnprovisionedMembers(
 // Sweeps are at-least-once and every consumer dedups, so overlapping Cron fires are safe
 // (sweepOutbox's status guards) — no run lock needed.
 export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepReport> {
+  // One logger + correlation id per cron pass: every event this pass emits shares the correlation id
+  // (no request context here — the pass is the unit of work).
+  const logger = createWorkersLogger(env.TELEMETRY);
+  const correlationId = newCorrelationId();
+
   const controlPlane = await sweepOutbox({
     database: env.DB_CONTROL,
     publish: async (row) => {
@@ -158,8 +177,20 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
       }
       await consume(env, row);
     },
-    deadLetter: logDeadLetter("control-plane"),
+    deadLetter: logDeadLetter(logger, correlationId, "control-plane"),
   });
+  // A successful sweep is observable, not just its failures (outbox.swept, one per sweep).
+  logger.log(
+    outboxSwept(
+      { correlationId, now: new Date().toISOString() },
+      {
+        database: "control-plane",
+        dispatched: controlPlane.dispatched,
+        failed: controlPlane.failed,
+        deadLettered: controlPlane.deadLettered,
+      },
+    ),
+  );
 
   const firms = await listReachableActiveFirms(env);
   const idempotencyCutoff = new Date(
@@ -169,7 +200,7 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
   let firmSweeps = 0;
   for (const firm of firms) {
     try {
-      await sweepOutbox({
+      const firmReport = await sweepOutbox({
         database: firm.database,
         publish: async (row) => {
           // The Queue message mirrors the outbox row (consumers dedup on id, order by
@@ -188,16 +219,26 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
             seq: row.seq,
           });
         },
-        deadLetter: logDeadLetter(`firm ${firm.firmId}`),
+        deadLetter: logDeadLetter(logger, correlationId, `firm ${firm.firmId}`),
       });
       await purgeExpiredIdempotencyRecordsStatement(firm.database, idempotencyCutoff).run();
       await sweepStalePendingUploads(env, firm);
       firmSweeps++;
+      logger.log(
+        outboxSwept(
+          { correlationId, now: new Date().toISOString() },
+          {
+            database: firm.firmId,
+            dispatched: firmReport.dispatched,
+            failed: firmReport.failed,
+            deadLettered: firmReport.deadLettered,
+          },
+        ),
+      );
     } catch (caught) {
       // One firm's broken database must not starve the rest of the fleet; the failure is logged
-      // (ids only) and the next Cron fire retries.
-      const message = caught instanceof Error ? caught.message : String(caught);
-      console.error(`per-firm sweep failed: firm=${firm.firmId} error=${message}`);
+      // through the one pipeline (firm handle in the operation label) and the next Cron fire retries.
+      logOperationFailed(logger, `cron:per-firm-sweep:${firm.firmId}`, caught, correlationId);
     }
   }
 
@@ -205,10 +246,11 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
 
   const unprovisionedMembers = await findUnprovisionedMembers(env, firms);
   if (unprovisionedMembers.length > 0) {
-    console.error(
-      `reconciliation backstop: ${unprovisionedMembers.length} user(s) without a member row — ` +
-        unprovisionedMembers.map((entry) => `${entry.userId}@${entry.firmId}`).join(", "),
-    );
+    // The backstop finding is a self-healing operational signal (the relay clears it next pass), so
+    // it rides a counter, not an event: the count is the alertable signal, and the per-user detail
+    // (a usr_@firm_ list) stays out of the structured log. The report still carries the full list
+    // for the caller.
+    logger.count("reconciliation.unprovisioned", {}, unprovisionedMembers.length);
   }
 
   return { controlPlane, firmSweeps, unprovisionedMembers };
@@ -289,6 +331,10 @@ async function readMeterRows(database: D1Database): Promise<MeterRow[]> {
 // ingest consumer documents. D1 stays authoritative; the AE trend seam (the telemetry package)
 // consumes the corrected meter on its own path.
 export async function runStorageReconciliation(env: Bindings): Promise<ReconciliationReport> {
+  // One logger + correlation id per pass — the same one-pipeline discipline as runScheduledSweep
+  // (golden rule 4; the console ban is structural).
+  const logger = createWorkersLogger(env.TELEMETRY);
+  const correlationId = newCorrelationId();
   const firms = await listReachableActiveFirms(env);
   let firmsReconciled = 0;
   let corrections = 0;
@@ -326,20 +372,19 @@ export async function runStorageReconciliation(env: Bindings): Promise<Reconcili
           { now: () => new Date().toISOString() },
         );
         corrections += result.corrections.length;
-        console.error(
-          `storage reconciliation: firm=${firm.firmId} corrected ${result.corrections.length} bucket(s): ` +
-            result.drift
-              .map(
-                (entry) =>
-                  `${entry.storageClass}/${entry.prefix} ${entry.expectedBytes}->${entry.actualBytes}b`,
-              )
-              .join(", "),
-        );
+        // Drift correction is a self-healing operational signal: the count is the alertable metric
+        // (the meter is authoritative regardless), so it rides a counter, not a content-bearing event.
+        logger.count("storage.reconciliation.corrected", {}, result.corrections.length);
       }
       firmsReconciled++;
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : String(caught);
-      console.error(`storage reconciliation failed: firm=${firm.firmId} error=${message}`);
+      // One firm's failure must not starve the rest; logged through the one pipeline, next pass retries.
+      logOperationFailed(
+        logger,
+        `cron:storage-reconciliation:${firm.firmId}`,
+        caught,
+        correlationId,
+      );
     }
   }
   return { firmsReconciled, corrections };

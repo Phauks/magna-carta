@@ -7,6 +7,8 @@ import * as controlPlaneSchema from "@magna-carta/database/control-plane-schema"
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { EntityType } from "@magna-carta/identifiers/registry";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
+import { logOperationFailed } from "@magna-carta/telemetry/operation";
+import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "./app.ts";
 import type { SendEmail } from "./email-port.ts";
 
@@ -24,10 +26,10 @@ const ENTITY_TYPE_BY_MODEL: Partial<Record<string, EntityType>> = {
 
 // Auth audit writes are observability, not gates: the INSERT failing must never break
 // the auth flow it describes — Better Auth runs databaseHooks unguarded, so a throw here would
-// surface as a 500 on the auth route. Failures are logged (event name + message only; metadata is
-// ids-only by contract and never echoed; the console.error is the interim telemetry seam slice
-// 0·6 replaces) and swallowed. The guarded-vs-batched audit split is documented at its one home:
-// @magna-carta/data-access auth-audit-statements.ts.
+// surface as a 500 on the auth route. A failure is logged through the telemetry pipeline
+// (operation.failed, the audit event name in the operation label; metadata is ids-only by contract
+// and never echoed) and swallowed. The guarded-vs-batched audit split is documented at its one
+// home: @magna-carta/data-access auth-audit-statements.ts.
 async function writeAuthAuditGuarded(
   env: Bindings,
   input: { event: string; userId: string | null; metadata?: unknown },
@@ -41,8 +43,11 @@ async function writeAuthAuditGuarded(
       now: new Date().toISOString(),
     }).run();
   } catch (caught) {
-    const message = caught instanceof Error ? caught.message : String(caught);
-    console.error(`auth_audit write failed: event=${input.event} error=${message}`);
+    logOperationFailed(
+      createWorkersLogger(env.TELEMETRY),
+      `auth-audit-write:${input.event}`,
+      caught,
+    );
   }
 }
 
@@ -81,7 +86,12 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
       disableSignUp: true,
       requireEmailVerification: true,
       sendResetPassword: async ({ user, url }) => {
-        await sendEmail({ to: user.email, subject: "Set your Magna Carta password", text: url });
+        await sendEmail({
+          to: user.email,
+          subject: "Set your Magna Carta password",
+          text: url,
+          messageClass: "password-reset",
+        });
       },
       // Completing a reset proves control of the mailbox (the token only ever travels by email) —
       // the same possession proof email verification asks for, so the flag flips here. This is
@@ -101,7 +111,12 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
     },
     emailVerification: {
       sendVerificationEmail: async ({ user, url }) => {
-        await sendEmail({ to: user.email, subject: "Verify your email", text: url });
+        await sendEmail({
+          to: user.email,
+          subject: "Verify your email",
+          text: url,
+          messageClass: "email-verification",
+        });
       },
     },
     // Every user belongs to exactly one tenant firm; input: false keeps the field out of every

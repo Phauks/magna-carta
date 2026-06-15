@@ -57,16 +57,29 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
       const roleId = roles.find((row) => row.name === name)?.id;
       return grants.filter((grant) => grant.role_id === roleId).map((grant) => grant.permission);
     };
-    // firm:manageMembers stays Owner/Admin-only; the matters/locations/files grants extend the seed.
-    expect(grantsFor("Owner/Admin")).toContain("firm:manageMembers");
+    const ownerAdmin = roles.find((row) => row.name === "Owner/Admin");
+    // firm:manageMembers is seeded onto Owner/Admin ONLY (0002_member-rbac.sql).
+    expect(grants.filter((grant) => grant.permission === "firm:manageMembers")).toEqual([
+      { role_id: ownerAdmin?.id, permission: "firm:manageMembers" },
+    ]);
     expect(grantsFor("Attorney")).not.toContain("firm:manageMembers");
+    // firm:reportIncident is seeded onto EVERY default role (0003_incident-intake.sql) — any member
+    // may file a diagnostic incident.
+    expect(
+      grants
+        .filter((grant) => grant.permission === "firm:reportIncident")
+        .map((grant) => grant.role_id)
+        .sort(),
+    ).toEqual(roles.map((row) => row.id).sort());
+    // The matters/locations/files grants (0004) extend the seed per the role distribution.
     expect(grantsFor("Owner/Admin")).toContain("matters:create");
+    // Paralegal: firm:reportIncident (0003) + matters:create + files upload/organize (0004).
     expect(grantsFor("Paralegal").sort()).toEqual(
-      ["files:organize", "files:upload", "matters:create"].sort(),
+      ["files:organize", "files:upload", "firm:reportIncident", "matters:create"].sort(),
     );
-    // Billing and Read-only stay permissionless by default (adjustable data).
-    expect(grantsFor("Billing")).toEqual([]);
-    expect(grantsFor("Read-only")).toEqual([]);
+    // Billing and Read-only carry only firm:reportIncident by default (adjustable data).
+    expect(grantsFor("Billing")).toEqual(["firm:reportIncident"]);
+    expect(grantsFor("Read-only")).toEqual(["firm:reportIncident"]);
   });
 
   it("prepare/bind/run/all round-trips and batch() is atomic (all-or-nothing)", async () => {

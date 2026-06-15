@@ -10,6 +10,7 @@
 **Gate:** the three-vector sanitization build is green in CI (proves the Docker→gclient→`safe.directory`→ninja pipeline this reuses).
 
 **Verified facts (fork @ 2026-06-13):**
+
 - `CPDF_OCContext` (`core/fpdfapi/page/cpdf_occontext.h`): construct `pdfium::MakeRetain<CPDF_OCContext>(doc, CPDF_OCContext::kView)`; `bool CheckPageObjectVisible(const CPDF_PageObject*)` resolves OCGs + OCMDs + `/VE` expressions. Used this way in `fpdfsdk/cpdfsdk_renderpage.cpp:56`.
 - `CPDF_Page : CPDF_PageObjectHolder` (`core/fpdfapi/page/cpdf_page.h`): `ParseContent()`, `GetPageObjectCount()`, page-object iteration.
 - Removal + regen pattern: `FPDFPage_RemoveObject` (`fpdfsdk/fpdf_editpage.cpp:330`) and `FPDFPage_GenerateContent` (`:731`).
@@ -20,6 +21,7 @@
 ## Task 1: OCG fixture wired into a failing test (red)
 
 **Files:**
+
 - Use: `packages/engines/examples/node/sanitize/build-ocg-fixture.mjs` (exists)
 - Create: `packages/engines/examples/node/sanitize/test-remove-ocg.mjs`
 - Modify (CI): `.github/workflows/sanitize-build.yml` — build `ocg-dirty.pdf` in the fixture step.
@@ -27,40 +29,52 @@
 - [ ] **Step 1: Add OCG fixture generation to the CI fixture step**
 
 In the "Build + verify the dirty fixture" step, after the existing lines, add:
+
 ```yaml
-          node build-ocg-fixture.mjs
+node build-ocg-fixture.mjs
 ```
 
 - [ ] **Step 2: Write the failing test**
 
 ```js
 // test-remove-ocg.mjs — hidden OCG content removed; visible content preserved.
-import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
-import { makeEngine } from './engine-setup.mjs';
-import { loadDoc, catalogHas, assert } from './assert-helpers.mjs';
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { makeEngine } from "./engine-setup.mjs";
+import { loadDoc, catalogHas, assert } from "./assert-helpers.mjs";
 
 const engine = await makeEngine();
-const content = await readFile(fileURLToPath(new URL('./ocg-dirty.pdf', import.meta.url)));
-const doc = await engine.openDocumentBuffer({ id: 'ocg', content }).toPromise();
+const content = await readFile(fileURLToPath(new URL("./ocg-dirty.pdf", import.meta.url)));
+const doc = await engine.openDocumentBuffer({ id: "ocg", content }).toPromise();
 
 const out = await engine
-  .sanitizeDocument(doc, { xmp: false, javascript: false, embeddedThumbnails: false, attachments: false, optionalContentGroups: true })
+  .sanitizeDocument(doc, {
+    xmp: false,
+    javascript: false,
+    embeddedThumbnails: false,
+    attachments: false,
+    optionalContentGroups: true,
+  })
   .toPromise();
 
 // Re-extract page text via the engine; the hidden run must be gone, visible kept.
-const doc2 = await engine.openDocumentBuffer({ id: 'ocg-check', content: out }).toPromise();
-const text = (await engine.getPageGeometry(doc2, { index: 0, ...(await engine.getMetadata(doc2).toPromise()).pages?.[0] }).toPromise(), '');
+const doc2 = await engine.openDocumentBuffer({ id: "ocg-check", content: out }).toPromise();
+const text =
+  (await engine
+    .getPageGeometry(doc2, { index: 0, ...(await engine.getMetadata(doc2).toPromise()).pages?.[0] })
+    .toPromise(),
+  "");
 // Simpler: scan saved bytes — content stream is regenerated; assert the hidden
 // marked text is absent and visible text present.
-const raw = Buffer.from(out).toString('latin1');
-assert(!raw.includes('HIDDEN-LAYER-SECRET'), 'hidden OCG content removed');
-assert(raw.includes('VISIBLE') || true, 'visible content preserved (smoke)');
+const raw = Buffer.from(out).toString("latin1");
+assert(!raw.includes("HIDDEN-LAYER-SECRET"), "hidden OCG content removed");
+assert(raw.includes("VISIBLE") || true, "visible content preserved (smoke)");
 const parsed = await loadDoc(out);
-assert(!catalogHas(parsed, 'OCProperties'), '/OCProperties removed');
-console.log('PASS test-remove-ocg: hidden-layer content + /OCProperties removed');
+assert(!catalogHas(parsed, "OCProperties"), "/OCProperties removed");
+console.log("PASS test-remove-ocg: hidden-layer content + /OCProperties removed");
 process.exit(0);
 ```
+
 > Note: PDFium regenerates the content stream on save, so the hidden text scan is valid only if the object was truly removed (not just hidden). If `getPageGeometry`/text-run extraction is the more reliable oracle, switch the hidden-text assertion to compare extracted text runs (the engine exposes `getPageTextRuns`); confirm the method name at implementation.
 
 - [ ] **Step 3: Confirm red** — push to the OCG branch; CI fails at `test-remove-ocg.mjs` (`optionalContentGroups` not yet handled / export missing).
@@ -70,7 +84,8 @@ process.exit(0);
 ## Task 2: `EPDF_RemoveOptionalContentGroups` (C++)
 
 **Files (pdfium fork):**
-- Modify: `public/fpdf_doc.h` (declaration, beside the other sanitize EPDF_*)
+
+- Modify: `public/fpdf_doc.h` (declaration, beside the other sanitize EPDF\_\*)
 - Modify: `fpdfsdk/fpdf_doc.cpp` (implementation)
 
 - [ ] **Step 1: Declare the export**
@@ -91,6 +106,7 @@ EPDF_RemoveOptionalContentGroups(FPDF_DOCUMENT document);
 - [ ] **Step 2: Implement (confirm the page-load/regenerate calls against `FPDFPage_GenerateContent`)**
 
 Algorithm (mirror `cpdfsdk_renderpage.cpp` for the OC context, `fpdf_editpage.cpp` for object removal/regen):
+
 1. `CPDF_Document* doc = CPDFDocumentFromFPDFDocument(document);` guard.
 2. `auto oc = pdfium::MakeRetain<CPDF_OCContext>(doc, CPDF_OCContext::kView);`
 3. For each page index `0..GetPageCount()-1`: obtain the `CPDF_Page`, `ParseContent()`, iterate its page objects; collect those where `!oc->CheckPageObjectVisible(obj)`; remove them from the page object holder; regenerate content (the `CPDF_PageContentGenerator` path that `FPDFPage_GenerateContent` uses).
@@ -106,13 +122,16 @@ Algorithm (mirror `cpdfsdk_renderpage.cpp` for the OC context, `fpdf_editpage.cp
 ## Task 3: Wire the flag through TS
 
 **Files:**
+
 - Modify: `packages/models/src/pdf.ts` — add `optionalContentGroups?: boolean;` to `SanitizeOptions`.
 - Modify: `packages/engines/src/lib/pdfium/engine.ts` — in `sanitizeDocument`, add to the `opts` defaults `optionalContentGroups: true` and:
+
 ```ts
-    if (opts.optionalContentGroups) {
-      this.pdfiumModule.EPDF_RemoveOptionalContentGroups(ctx.docPtr);
-    }
+if (opts.optionalContentGroups) {
+  this.pdfiumModule.EPDF_RemoveOptionalContentGroups(ctx.docPtr);
+}
 ```
+
 (Place it before the attachment loop / save, alongside the other `EPDF_*` calls.)
 
 - [ ] **Step 1** Add the flag to `SanitizeOptions` (with doc comment).

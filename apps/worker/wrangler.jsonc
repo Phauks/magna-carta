@@ -93,6 +93,22 @@
       },
     ],
   },
+  // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines
+  // the telemetry Workers logger emits land here). Logpush → R2 is a deploy-time runbook step
+  // (docs/conventions/operations.md), not code — it is account configuration (slice 0·6, ADR-0074).
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  // The Analytics Engine dataset the telemetry Workers logger mirrors counters to (slice 0·6). The
+  // TELEMETRY binding is optional in code (a missing binding degrades to console-only); declaring it
+  // here wires the real dataset in production and a local stub under Miniflare.
+  "analytics_engine_datasets": [
+    { "binding": "TELEMETRY", "dataset": "magna-carta-production-telemetry" },
+  ],
+  // Cloudflare Email Service send binding (slice 0·6, ADR-0074). The adapter is SELECTED only when
+  // EMAIL_FROM is also set — deliberately NOT committed as a var here: it is the activation switch
+  // the deploy-time runbook flips once magnacarta.esq is onboarded for Email Sending (DKIM/SPF —
+  // docs/conventions/operations.md). Until then the binding is present but unused and production
+  // keeps the logging adapter, so no send fails against an un-onboarded domain.
+  "send_email": [{ "name": "SEND_EMAIL" }],
   // The scheduled work (src/scheduled.ts): the */5 sweep runs the outbox relay over the control-plane
   // + per-firm lineages, the idempotency TTL purge, and the stale-pending upload sweep; the daily
   // 03:00 UTC pass runs the storage-metering reconciliation (a full R2 LIST per firm — too heavy for
