@@ -20,10 +20,16 @@
    * border. That solid status panel is the contrast-safe pairing the gate guarantees AA across every
    * theme × mode — the same choice Alert makes.
    *
-   * richColors is ON by design: it is the flag that makes sonner apply the per-intent trios above
+   * richColors is set ON here: it is the flag that makes sonner apply the per-intent trios above
    * (sonner only reads `--success-*` etc. under `[data-rich-colors='true']`). Without it, success and
    * error would fall back to the neutral `--normal-*` surface and lose their status colour, breaking
    * parity with Alert. Plain `toast()` (no intent) still uses the neutral surface.
+   *
+   * Defaults set here (callers and per-toast options still override): duration={5000} (a calm 5s),
+   * closeButton (every toast is dismissible — sonner reveals it on hover/focus, so it is also a
+   * keyboard-reachable dismiss), and pauseWhenPageIsHidden (a toast doesn't expire while the user is
+   * away in another tab). sonner's default hotkey (Alt+T) is kept: Alt+T focuses the toast region so
+   * keyboard users can Tab to the action/close button.
    */
   import { Toaster as SonnerToaster } from "svelte-sonner";
   import type { ComponentProps } from "svelte";
@@ -53,6 +59,9 @@
   let {
     position = "bottom-right",
     richColors = true,
+    duration = 5000,
+    closeButton = true,
+    pauseWhenPageIsHidden = true,
     class: className,
     style,
     ...restProps
@@ -62,6 +71,9 @@
 <SonnerToaster
   {position}
   {richColors}
+  {duration}
+  {closeButton}
+  {pauseWhenPageIsHidden}
   class={mergeClasses(Z_LAYER_CLASSES.toast, className)}
   style={style ? `${TOKEN_BRIDGE}; ${style}` : TOKEN_BRIDGE}
   {...restProps}

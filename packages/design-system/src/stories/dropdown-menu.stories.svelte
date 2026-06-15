@@ -6,9 +6,10 @@
    * return. Styling is ours (the mc-dropdown-menu-* recipes + the floating presence). Catalog: one
    * realistic matter "Actions" menu — a Group + heading of plain Items (one disabled), a Separator,
    * a CheckboxItem, a RadioGroup of sort options, and a nested Sub menu. Behaviour rides the play
-   * function (open, arrow highlight, disabled skip, select-closes, Escape with focus return). `open`
-   * is bindable — Bits owns it after mount — so it is the initial state, not a control; Bits' prop
-   * types explode into hundreds of attribute controls, so the whitelist is empty. svelte-csf v5.
+   * function (open, arrow highlight, disabled skip, stateful toggles keep the menu open, a plain
+   * item closes it, Escape with focus return). `open` is bindable — Bits owns it after mount — so it
+   * is the initial state, not a control; Bits' prop types explode into hundreds of attribute
+   * controls, so the whitelist is empty. svelte-csf v5.
    */
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ComponentProps } from "svelte";
@@ -40,7 +41,7 @@
         <DropdownMenu.Item disabled>Archive</DropdownMenu.Item>
       </DropdownMenu.Group>
       <DropdownMenu.Separator />
-      <DropdownMenu.CheckboxItem closeOnSelect={false}>Show closed</DropdownMenu.CheckboxItem>
+      <DropdownMenu.CheckboxItem>Show closed</DropdownMenu.CheckboxItem>
       <DropdownMenu.Separator />
       <DropdownMenu.RadioGroup value="recent">
         <DropdownMenu.GroupHeading>Sort by</DropdownMenu.GroupHeading>
@@ -84,7 +85,40 @@
       await expect(body.getByRole("menuitem", { name: "Archive" })).toHaveAttribute("data-disabled");
     });
 
-    await step("Selecting an item closes the menu", async () => {
+    await step("Toggling a checkbox item leaves the menu open (stateful toggle)", async () => {
+      const showClosed = body.getByRole("menuitemcheckbox", { name: "Show closed" });
+      await expect(showClosed).toHaveAttribute("aria-checked", "false");
+      await userEvent.click(showClosed);
+      await waitFor(() =>
+        expect(body.getByRole("menuitemcheckbox", { name: "Show closed" })).toHaveAttribute(
+          "aria-checked",
+          "true",
+        ),
+      );
+      // The menu stays mounted — closeOnSelect defaults to false on the wrapper.
+      await expect(body.getByRole("menu")).toBeVisible();
+    });
+
+    await step("Selecting a radio item leaves the menu open and moves the checked state", async () => {
+      await expect(body.getByRole("menuitemradio", { name: "Most recent" })).toHaveAttribute(
+        "aria-checked",
+        "true",
+      );
+      await userEvent.click(body.getByRole("menuitemradio", { name: "Name" }));
+      await waitFor(() =>
+        expect(body.getByRole("menuitemradio", { name: "Name" })).toHaveAttribute(
+          "aria-checked",
+          "true",
+        ),
+      );
+      await expect(body.getByRole("menuitemradio", { name: "Most recent" })).toHaveAttribute(
+        "aria-checked",
+        "false",
+      );
+      await expect(body.getByRole("menu")).toBeVisible();
+    });
+
+    await step("Selecting a plain item closes the menu", async () => {
       await userEvent.click(body.getByRole("menuitem", { name: "Edit" }));
       await waitFor(() => expect(body.queryByRole("menu")).toBeNull());
     });

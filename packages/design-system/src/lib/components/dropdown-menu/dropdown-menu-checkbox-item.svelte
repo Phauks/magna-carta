@@ -15,6 +15,9 @@
   let {
     ref = $bindable(null),
     checked = $bindable(false),
+    // A checkbox is a stateful toggle (you may flip several at once), so toggling one keeps the menu
+    // open instead of Bits' default of closing on select; a caller can still pass closeOnSelect={true}.
+    closeOnSelect = false,
     class: className,
     children: label,
     ...restProps
@@ -25,6 +28,7 @@
 <DropdownMenuPrimitive.CheckboxItem
   bind:ref
   bind:checked
+  {closeOnSelect}
   class={mergeClasses("mc-dropdown-menu-item", className)}
   {...restProps}
 >

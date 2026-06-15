@@ -2,7 +2,8 @@
   /*
    * Dialog.Content — the centered modal panel, composed with its backdrop. It portals to the body,
    * renders the Overlay scrim, then the panel; inside the panel it renders the caller's content
-   * followed by a default top-right Close button (the Lucide X, deep-imported).
+   * followed by a default top-right Close button (the Lucide X, deep-imported) when showClose is set
+   * (the default).
    *
    * Centering vs. presence — the one subtlety. Bits' Dialog.Content is fixed/centered, NOT
    * Floating-UI-anchored, so the two-level wrapper rule does NOT apply: classes go straight on the
@@ -24,10 +25,15 @@
 
   let {
     ref = $bindable(null),
+    // A content dialog wants the corner ✕ as its natural dismiss, so it defaults true (preserving the
+    // built-in Close). A dialog with explicit footer actions can pass showClose={false}; a
+    // confirmation should not use this component at all — use AlertDialog. Destructured out so it does
+    // NOT spread onto Bits' Content.
+    showClose = true,
     class: className,
     children,
     ...restProps
-  }: WithoutChild<DialogPrimitive.ContentProps> = $props();
+  }: WithoutChild<DialogPrimitive.ContentProps> & { showClose?: boolean } = $props();
 </script>
 
 <DialogPrimitive.Portal>
@@ -43,8 +49,10 @@
     {...restProps}
   >
     {@render children?.()}
-    <DialogPrimitive.Close class="mc-dialog-close" aria-label="Close">
-      <X class="mc-dialog-close-icon" aria-hidden="true" />
-    </DialogPrimitive.Close>
+    {#if showClose}
+      <DialogPrimitive.Close class="mc-dialog-close" aria-label="Close">
+        <X class="mc-dialog-close-icon" aria-hidden="true" />
+      </DialogPrimitive.Close>
+    {/if}
   </DialogPrimitive.Content>
 </DialogPrimitive.Portal>

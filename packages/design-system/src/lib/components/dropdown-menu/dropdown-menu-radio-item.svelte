@@ -14,6 +14,9 @@
 
   let {
     ref = $bindable(null),
+    // A radio is a stateful toggle (you may re-sort several times), so selecting one keeps the menu
+    // open instead of Bits' default of closing on select; a caller can still pass closeOnSelect={true}.
+    closeOnSelect = false,
     class: className,
     children: label,
     ...restProps
@@ -23,6 +26,7 @@
 
 <DropdownMenuPrimitive.RadioItem
   bind:ref
+  {closeOnSelect}
   class={mergeClasses("mc-dropdown-menu-item", className)}
   {...restProps}
 >
