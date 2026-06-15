@@ -12,6 +12,7 @@
     "./button": "./src/lib/components/button/index.ts",
     "./card": "./src/lib/components/card/index.ts",
     "./checkbox": "./src/lib/components/checkbox/index.ts",
+    "./dialog": "./src/lib/components/dialog/index.ts",
     "./file-input": "./src/lib/components/file-input/index.ts",
     "./input": "./src/lib/components/input/index.ts",
     "./keyboard": "./src/lib/components/keyboard/index.ts",

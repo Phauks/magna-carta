@@ -917,4 +917,91 @@
     font-size: var(--mc-text-xs);
     line-height: var(--mc-leading-tight);
   }
+
+  /*
+   * Dialog (Tier 3 exemplar, Bits UI). A centered modal panel over a scrim. The z-layers and the
+   * presence (the scrim fades; the panel scale-fades) come from the floating module; only the look
+   * lives here. The panel is centered WITHOUT a centering transform — `position: fixed; inset: 0;
+   * margin: auto` with a fit-content block size — so the scale-fade presence (a Tailwind `scale-*`
+   * transform) has nothing to fight; a translate-based centre would be clobbered by that transform.
+   * Width and max-height are layout, set by utilities on the wrapper, not here. The panel is a flex
+   * column (title, description, body, footer) with the elevation reserved for floating layers. The
+   * built-in corner dismiss is a quiet icon button (mc-dialog-close); the Trigger and the reusable
+   * Close part carry NO recipe — they are caller-styled buttons (typically the mc-button recipes),
+   * so nothing here fights the caller's chosen variant.
+   */
+  .mc-dialog-overlay {
+    position: fixed;
+    inset: var(--mc-space-0);
+    background-color: var(--mc-surface-scrim);
+  }
+  .mc-dialog-content {
+    position: fixed;
+    inset: var(--mc-space-0);
+    margin: auto;
+    block-size: fit-content;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-16);
+    padding: var(--mc-space-24);
+    background-color: var(--mc-surface-raised);
+    color: var(--mc-text-default);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-lg);
+    box-shadow: var(--mc-elevation-3);
+  }
+  .mc-dialog-title {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-lg);
+    font-weight: var(--mc-weight-semibold);
+    line-height: var(--mc-leading-tight);
+    color: var(--mc-text-default);
+  }
+  .mc-dialog-description {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-sm);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-muted);
+  }
+  /*
+   * Close — a quiet icon button pinned to the top-right corner. Transparent at rest, muting the
+   * Lucide X; hover lifts the icon to the default text colour. Borderless control, so the flush
+   * focus ring (same shape as the Button).
+   */
+  .mc-dialog-close {
+    position: absolute;
+    inset-block-start: var(--mc-space-16);
+    inset-inline-end: var(--mc-space-16);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--mc-space-4);
+    background-color: transparent;
+    border-style: none;
+    border-radius: var(--mc-radius-md);
+    color: var(--mc-text-muted);
+    cursor: pointer;
+    transition-property: color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-dialog-close:hover {
+    color: var(--mc-text-default);
+  }
+  .mc-dialog-close:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-dialog-close-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
 }
