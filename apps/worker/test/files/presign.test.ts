@@ -34,6 +34,23 @@ describe("createR2Presigner.presignPut", () => {
   });
 });
 
+describe("createR2Presigner.presignGet", () => {
+  it("produces a query-signed SigV4 GET URL against the R2 S3 endpoint", async () => {
+    const presigner = createR2Presigner(CREDENTIALS);
+    const urlString = await presigner.presignGet(BUCKET, KEY, 300);
+    const url = new URL(urlString);
+
+    expect(url.host).toBe(ENDPOINT_HOST);
+    expect(url.pathname).toBe(`/${BUCKET}/${KEY}`);
+    expect(url.searchParams.get("X-Amz-Algorithm")).toBe("AWS4-HMAC-SHA256");
+    expect(url.searchParams.get("X-Amz-Credential")).toContain(CREDENTIALS.accessKeyId);
+    expect(url.searchParams.get("X-Amz-Expires")).toBe("300");
+    expect(url.searchParams.get("X-Amz-Signature")).toMatch(/^[0-9a-f]{64}$/);
+    // A GET sends no body, so content-type is not part of the signed header set.
+    expect(url.searchParams.get("X-Amz-SignedHeaders")).not.toContain("content-type");
+  });
+});
+
 describe("createR2Presigner.presignUploadPart", () => {
   it("produces a query-signed SigV4 URL carrying the uploadId and partNumber", async () => {
     const presigner = createR2Presigner(CREDENTIALS);

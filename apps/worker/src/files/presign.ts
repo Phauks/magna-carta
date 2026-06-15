@@ -15,6 +15,9 @@ export interface R2Presigner {
     contentType: string,
     expiresSeconds: number,
   ): Promise<string>;
+  // A query-signed GET URL the client downloads the object directly from — the download-path twin of
+  // presignPut. No content-type is signed (a GET sends no body), so the signed header set is just host.
+  presignGet(bucket: string, key: string, expiresSeconds: number): Promise<string>;
   presignUploadPart(
     bucket: string,
     key: string,
@@ -78,6 +81,12 @@ export function createR2Presigner(options: R2PresignerOptions): R2Presigner {
         headers: { "content-type": contentType },
         aws: { signQuery: true, allHeaders: true },
       });
+      return signed.url;
+    },
+
+    async presignGet(bucket, key, expiresSeconds) {
+      const url = `${objectUrl(bucket, key)}?X-Amz-Expires=${expiresSeconds}`;
+      const signed = await client.sign(url, { method: "GET", aws: { signQuery: true } });
       return signed.url;
     },
 
@@ -151,6 +160,9 @@ export function createDevR2Presigner(): R2Presigner {
   return {
     presignPut(bucket, key) {
       return Promise.resolve(`https://r2.dev.local/${bucket}/${key}?dev-presigned=put`);
+    },
+    presignGet(bucket, key) {
+      return Promise.resolve(`https://r2.dev.local/${bucket}/${key}?dev-presigned=get`);
     },
     presignUploadPart(bucket, key, uploadId, partNumber) {
       return Promise.resolve(

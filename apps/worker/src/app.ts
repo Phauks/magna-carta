@@ -14,7 +14,10 @@ import { registerHealthRoute } from "./routes/health.ts";
 import { createCloudflareEmailAdapter, type CloudflareEmailBinding } from "./email-cloudflare.ts";
 import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
+import { registerDownloadsRoutes } from "./routes/downloads.ts";
+import { registerFilesRoutes } from "./routes/files.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
+import { registerFoldersRoutes } from "./routes/folders.ts";
 import { registerIncidentsRoute } from "./routes/incidents.ts";
 import { registerLocationsRoutes } from "./routes/locations.ts";
 import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
@@ -173,6 +176,11 @@ export function createApp(options: CreateAppOptions = {}) {
   registerDocumentTypesRoutes(app, chokepoint);
   registerLocationsRoutes(app, chokepoint);
   registerNumberingRoutes(app, chokepoint);
+  // Slice 1·1: the File Manager's folder/file metadata surface, signed single-file download, and the
+  // streaming ZIP64 bulk download — each composed through the same chokepoint.
+  registerFoldersRoutes(app, chokepoint);
+  registerFilesRoutes(app, chokepoint);
+  registerDownloadsRoutes(app, chokepoint);
 
   // Serve the same document the committed snapshot carries (root tags included), so the live endpoint
   // and the snapshot never diverge. A plain route, so it does not appear in the document itself.

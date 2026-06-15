@@ -7,6 +7,7 @@ import type {
   MatterId,
 } from "@magna-carta/identifiers/types";
 import { FILE_TABLE, FILE_VERSION_TABLE } from "./file-statements.ts";
+import { FOLDER_TABLE } from "./folder-statements.ts";
 
 // Read mediation (golden rule 3): every consumer read serves only clean, non-deleted content. A file
 // is visible once it has a clean current version (current_version_id, set only on commit); a version
@@ -182,4 +183,117 @@ export function listCleanVersionsStatement(database: SqlDatabase, fileId: FileId
       `SELECT id, version_number, r2_key, size_bytes, sniffed_content_type, content_sha256, committed_at FROM ${FILE_VERSION_TABLE} WHERE file_id = ?1 AND status = 'clean' ORDER BY version_number DESC`,
     )
     .bind(fileId);
+}
+
+export interface CleanVersionListItem {
+  readonly id: FileVersionId;
+  readonly versionNumber: number;
+  readonly sizeBytes: number | null;
+  readonly sniffedContentType: string | null;
+  readonly contentSha256: string | null;
+  readonly committedAt: string | null;
+}
+
+export async function listCleanVersions(
+  database: SqlDatabase,
+  fileId: FileId,
+): Promise<readonly CleanVersionListItem[]> {
+  const { results } = await listCleanVersionsStatement(database, fileId).all<{
+    id: FileVersionId;
+    version_number: number;
+    size_bytes: number | null;
+    sniffed_content_type: string | null;
+    content_sha256: string | null;
+    committed_at: string | null;
+  }>();
+  return results.map((row) => ({
+    id: row.id,
+    versionNumber: row.version_number,
+    sizeBytes: row.size_bytes,
+    sniffedContentType: row.sniffed_content_type,
+    contentSha256: row.content_sha256,
+    committedAt: row.committed_at,
+  }));
+}
+
+// Every folder in a matter (id, parent, name) — the input to folder-tree path composition for the
+// ZIP download. Folders carry no status gate (only file_version does), so this is an unguarded read.
+export function listFoldersByMatterStatement(
+  database: SqlDatabase,
+  matterId: MatterId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, parent_folder_id, name FROM ${FOLDER_TABLE} WHERE matter_id = ?1 ORDER BY created_at ASC, id ASC`,
+    )
+    .bind(matterId);
+}
+
+export interface FolderNode {
+  readonly id: FolderId;
+  readonly parentFolderId: FolderId | null;
+  readonly name: string;
+}
+
+export async function listFoldersByMatter(
+  database: SqlDatabase,
+  matterId: MatterId,
+): Promise<readonly FolderNode[]> {
+  const { results } = await listFoldersByMatterStatement(database, matterId).all<{
+    id: FolderId;
+    parent_folder_id: FolderId | null;
+    name: string;
+  }>();
+  return results.map((row) => ({
+    id: row.id,
+    parentFolderId: row.parent_folder_id,
+    name: row.name,
+  }));
+}
+
+// Every clean, non-deleted file in a matter joined to its current clean version — the resolved,
+// version-pinned set the ZIP download draws from. current_version_id IS NOT NULL + v.status = 'clean'
+// is the visibility gate (set only on commit), so a pending/quarantined/deleted file never appears.
+export function listCleanCurrentVersionsByMatterStatement(
+  database: SqlDatabase,
+  matterId: MatterId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT f.id AS file_id, f.folder_id, f.name, v.id AS version_id, v.r2_key, v.size_bytes ` +
+        `FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id ` +
+        `WHERE f.matter_id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean'`,
+    )
+    .bind(matterId);
+}
+
+export interface MatterCleanFile {
+  readonly fileId: FileId;
+  readonly folderId: FolderId | null;
+  readonly name: string;
+  readonly versionId: FileVersionId;
+  readonly r2Key: string;
+  readonly sizeBytes: number | null;
+}
+
+export async function listCleanCurrentVersionsByMatter(
+  database: SqlDatabase,
+  matterId: MatterId,
+): Promise<readonly MatterCleanFile[]> {
+  const { results } = await listCleanCurrentVersionsByMatterStatement(database, matterId).all<{
+    file_id: FileId;
+    folder_id: FolderId | null;
+    name: string;
+    version_id: FileVersionId;
+    r2_key: string;
+    size_bytes: number | null;
+  }>();
+  return results.map((row) => ({
+    fileId: row.file_id,
+    folderId: row.folder_id,
+    name: row.name,
+    versionId: row.version_id,
+    r2Key: row.r2_key,
+    sizeBytes: row.size_bytes,
+  }));
 }

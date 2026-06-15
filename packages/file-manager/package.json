@@ -16,6 +16,7 @@
     "./scan-port": "./src/scan-port.ts",
     "./upload-policy": "./src/upload-policy.ts",
     "./queries": "./src/queries.ts",
+    "./zip-composition": "./src/zip-composition.ts",
     "./audit": "./src/audit.ts",
     "./validation": "./src/validation.ts"
   },

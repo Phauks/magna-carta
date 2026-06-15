@@ -82,6 +82,15 @@ export const modeThresholdDefinition: FirmSettingDefinition<number> = {
   defaultValue: 100 * 1024 * 1024,
 };
 
+// The total-bytes ceiling above which a bulk ZIP download should hand off to an asynchronous job
+// rather than stream inline. Read and recorded in the download audit row today; the async-job path
+// that acts on it is built in a later phase. Default 2 GiB.
+export const zipAsyncThresholdDefinition: FirmSettingDefinition<number> = {
+  key: "fileManager.zipAsyncThresholdBytes",
+  schema: z.number().int().positive(),
+  defaultValue: 2 * GIBIBYTE,
+};
+
 export function readUploadPolicy(database: SqlDatabase): Promise<UploadPolicy> {
   return readFirmSetting(database, uploadPolicyDefinition);
 }
