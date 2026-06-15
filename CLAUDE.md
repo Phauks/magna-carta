@@ -76,8 +76,6 @@ pnpm --filter @magna-carta/worker exec wrangler deploy --dry-run        # valida
 cargo test  /  cargo clippy                                             # Rust
 ```
 
-**Known local gotcha (Windows + OneDrive):** `vp run build-all` can fail with `EPERM` because OneDrive locks `apps/web/build` during `adapter-static`'s cleanup step. Linux CI is unaffected. Workaround: pause OneDrive sync (or move the repo outside a synced folder) before running a full local build.
-
 ## Where to look next
 
 **Live status:** [`ROADMAP.md`](ROADMAP.md) · **Changes:** [`CHANGELOG.md`](CHANGELOG.md) · **Phase strategy, roadmap rationale & open research:** the [white paper](docs/Magna-Carta-White-Paper.md).
