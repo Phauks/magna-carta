@@ -45,12 +45,12 @@ export function createDevFirmResourceProvider(
     },
 
     // Miniflare cannot create R2 buckets at runtime either; every locally-provisioned firm shares
-    // the single pre-declared R2 binding. Per-firm bucket isolation is a production property —
-    // locally the bucket name only marks the provisioning step complete. The "R2" literal tracks
-    // the binding key on Bindings in app.ts (and its wrangler.jsonc r2_buckets entry) — rename
-    // them in lockstep.
-    createBucket(): Promise<{ bucketName: string }> {
-      return Promise.resolve({ bucketName: "R2" });
+    // the single pre-declared R2 binding (resolved by binding key in code, never by this stored
+    // name). The stored name is per-firm UNIQUE — the SAME deterministic shape production uses — so
+    // the ingest consumer's `WHERE bucket_name = ?` event→firm resolution stays unambiguous with
+    // more than one dev firm; locally it only marks the provisioning step complete.
+    async createBucket(firmId: FirmId): Promise<{ bucketName: string }> {
+      return { bucketName: await firmResourceName(firmId) };
     },
 
     // Miniflare delivers no R2 event notifications, so there is nothing to configure locally — the

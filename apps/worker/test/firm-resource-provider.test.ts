@@ -40,14 +40,19 @@ describe("dev FirmResourceProvider (pool-claiming adapter)", () => {
     );
   });
 
-  it("createBucket answers the single pre-declared local bucket binding", async () => {
+  it("createBucket answers a per-firm-unique deterministic name (the event→firm resolution key)", async () => {
     const provider = createDevFirmResourceProvider({
       poolBindingNames: POOL,
       claimedDatabaseIdentifiers: () => Promise.resolve([]),
     });
-    await expect(provider.createBucket(newIdentifier("firm"))).resolves.toEqual({
-      bucketName: "R2",
-    });
+    const firmId = newIdentifier("firm");
+    const created = await provider.createBucket(firmId);
+    // The same deterministic shape production uses, derived from the firm id — unique per firm so
+    // the ingest consumer's bucket_name → firm lookup is unambiguous with more than one dev firm.
+    expect(created.bucketName).toBe(await firmResourceName(firmId));
+    expect(created.bucketName).toMatch(/^magna-carta-production-firm-[0-9a-f]{32}$/);
+    const otherFirmId = newIdentifier("firm");
+    expect((await provider.createBucket(otherFirmId)).bucketName).not.toBe(created.bucketName);
   });
 
   it("configureBucketNotifications is a no-op (Miniflare delivers no R2 notifications)", async () => {

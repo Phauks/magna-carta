@@ -1,14 +1,28 @@
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import type { FileId, FileVersionId } from "@magna-carta/identifiers/types";
+import type { FileId, FileVersionId, FolderId, MatterId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import {
   commitVersion,
   initiateUpload,
+  moveFile,
   quarantineVersion,
   softDeleteFile,
 } from "../src/file-service.ts";
+import { createFolder } from "../src/folder-service.ts";
 import { listFiles } from "../src/queries.ts";
 import { ACTOR, freshDatabase, now, options, seedMatter } from "./support.ts";
+
+// A second matter (id + responsible member) alongside seedMatter's matter_a, for cross-matter guards.
+async function seedSecondMatter(database: ReturnType<typeof freshDatabase>): Promise<MatterId> {
+  const matterId = "matter_b" as MatterId;
+  await database
+    .prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'M2', 'open', 'user_a', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')",
+    )
+    .bind(matterId)
+    .run();
+  return matterId;
+}
 
 const pdf = { name: "brief.pdf", declaredSize: 1024, declaredContentType: "application/pdf" };
 
@@ -177,5 +191,91 @@ describe("softDeleteFile", () => {
     await expect(softDeleteFile(database, "file_missing" as FileId, options)).rejects.toMatchObject(
       { code: "unknown-file" },
     );
+  });
+});
+
+describe("commitVersion — monotonic current version", () => {
+  it("keeps the pointer at the newer version when an older one commits out of order", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId: v1 } = await initiate(database, matterId);
+    const second = await initiate(database, matterId, { fileId });
+    // Commit v2 first (different bytes), then v1 (older) late — the pointer must not regress to v1.
+    await commit(database, second.versionId, "hash-v2");
+    await commit(database, v1, "hash-v1");
+    const file = await database
+      .prepare("SELECT current_version_id FROM file WHERE id = ?1")
+      .bind(fileId)
+      .all<{ current_version_id: string }>();
+    expect(file.results[0]?.current_version_id).toBe(second.versionId);
+  });
+});
+
+describe("moveFile — same-matter integrity", () => {
+  it("moves a file into a folder of its own matter", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId } = await initiate(database, matterId);
+    await commit(database, versionId, "hash-a");
+    const { folderId, effect } = await createFolder(database, { matterId, name: "Same" }, options);
+    await commitEffectBatch(database, effect, { now });
+    const moved = await moveFile(database, fileId, folderId, options);
+    await commitEffectBatch(database, moved.effect, { now });
+    const row = await database
+      .prepare("SELECT folder_id FROM file WHERE id = ?1")
+      .bind(fileId)
+      .all<{ folder_id: string }>();
+    expect(row.results[0]?.folder_id).toBe(folderId);
+  });
+
+  it("refuses to move a file into a folder of another matter", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const otherMatterId = await seedSecondMatter(database);
+    const { fileId, versionId } = await initiate(database, matterId);
+    await commit(database, versionId, "hash-a");
+    const { folderId, effect } = await createFolder(
+      database,
+      { matterId: otherMatterId, name: "Foreign" },
+      options,
+    );
+    await commitEffectBatch(database, effect, { now });
+    await expect(moveFile(database, fileId, folderId, options)).rejects.toMatchObject({
+      code: "file-cross-matter",
+    });
+  });
+
+  it("refuses to move a file into an unknown folder", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId } = await initiate(database, matterId);
+    await commit(database, versionId, "hash-a");
+    await expect(
+      moveFile(database, fileId, "folder_missing" as FolderId, options),
+    ).rejects.toMatchObject({ code: "unknown-folder" });
+  });
+});
+
+describe("initiateUpload — new version on an existing file", () => {
+  it("refuses a new version whose declared matter differs from the file's matter", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const otherMatterId = await seedSecondMatter(database);
+    const { fileId } = await initiate(database, matterId);
+    await expect(
+      initiateUpload(
+        database,
+        {
+          matterId: otherMatterId,
+          name: "v2.pdf",
+          declaredSize: 1024,
+          declaredContentType: "application/pdf",
+          uploadedBy: ACTOR,
+          mode: "put",
+          fileId,
+        },
+        options,
+      ),
+    ).rejects.toMatchObject({ code: "file-matter-mismatch" });
   });
 });

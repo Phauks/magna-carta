@@ -130,6 +130,90 @@ describe("handleIngestMessage", () => {
     expect(committedEvents?.n).toBe(1);
   });
 
+  it("is exactly-once under concurrent redelivery: two interleaved deliveries commit, meter, audit, and emit once", async () => {
+    const { versionId, r2Key } = await seedPendingVersion(
+      "concurrent.pdf",
+      "application/pdf",
+      PDF_BYTES,
+    );
+    const meterBefore = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT COALESCE(bytes, 0) AS bytes FROM storage_meter WHERE prefix = 'files'",
+    ).first<{ bytes: number }>();
+
+    // Two deliveries of the same R2 event run concurrently: both read the version while it is still
+    // pending (before either commits), so only the idempotency record's UNIQUE(key) keeps the second
+    // batch from double-applying the meter/audit/outbox effects.
+    const evt = event(BUCKET, r2Key, PDF_BYTES.byteLength);
+    await Promise.all([handleIngestMessage(env, evt), handleIngestMessage(env, evt)]);
+
+    const version = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT status FROM file_version WHERE id = ?1",
+    )
+      .bind(versionId)
+      .first<{ status: string }>();
+    expect(version?.status).toBe("clean");
+
+    // The meter moved by exactly one object's bytes.
+    const meterAfter = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT bytes, object_count FROM storage_meter WHERE prefix = 'files'",
+    ).first<{ bytes: number; object_count: number }>();
+    expect((meterAfter?.bytes ?? 0) - (meterBefore?.bytes ?? 0)).toBe(PDF_BYTES.byteLength);
+
+    // Exactly one commit audit row and exactly one committed outbox row for this version.
+    const audit = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'file.version_committed' AND subject_id = ?1",
+    )
+      .bind(versionId)
+      .first<{ n: number }>();
+    expect(audit?.n).toBe(1);
+    const outbox = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT COUNT(*) AS n FROM outbox WHERE topic = 'file.version_committed' AND payload LIKE ?1",
+    )
+      .bind(`%${versionId}%`)
+      .first<{ n: number }>();
+    expect(outbox?.n).toBe(1);
+  });
+
+  it("quarantines at the gate a file whose name has a blocked extension (even if it slipped initiate)", async () => {
+    // A pending version seeded directly with a blocked-extension name (bypassing initiate's policy
+    // check) — the gate re-checks the real file name against the blocklist and quarantines it.
+    const fileId = newIdentifier("file");
+    const versionId = newIdentifier("fileVersion");
+    const sessionId = newIdentifier("uploadSession");
+    const r2Key = `files/${fileId}/${versionId}`;
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO file (id, matter_id, name, created_at, updated_at) VALUES (?1, ?2, 'payload.exe', ?3, ?3)",
+    )
+      .bind(fileId, matterId, clock.now())
+      .run();
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO file_version (id, file_id, version_number, r2_key, declared_content_type, status, uploaded_by, created_at) VALUES (?1, ?2, 1, ?3, 'application/pdf', 'pending', ?4, ?5)",
+    )
+      .bind(versionId, fileId, r2Key, ACTOR, clock.now())
+      .run();
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO upload_session (id, file_version_id, mode, declared_size, declared_content_type, status, created_at) VALUES (?1, ?2, 'put', ?3, 'application/pdf', 'open', ?4)",
+    )
+      .bind(sessionId, versionId, PDF_BYTES.byteLength, clock.now())
+      .run();
+    await env.R2.put(r2Key, PDF_BYTES);
+
+    await handleIngestMessage(env, event(BUCKET, r2Key, PDF_BYTES.byteLength));
+
+    const version = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT status FROM file_version WHERE id = ?1",
+    )
+      .bind(versionId)
+      .first<{ status: string }>();
+    expect(version?.status).toBe("quarantined");
+    const outbox = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT payload FROM outbox WHERE topic = 'file.quarantined' AND payload LIKE ?1",
+    )
+      .bind(`%${versionId}%`)
+      .first<{ payload: string }>();
+    expect(outbox?.payload).toContain("policy-type");
+  });
+
   it("quarantines a declared-type lie: invisible, with a quarantine outbox event", async () => {
     // PDF bytes declared as text/plain — the sniffed magic bytes contradict the declared type.
     const { versionId, r2Key } = await seedPendingVersion("liar.txt", "text/plain", PDF_BYTES);

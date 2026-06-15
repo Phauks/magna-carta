@@ -36,6 +36,7 @@ function input(bytes: Uint8Array, overrides: Partial<IngestInput> = {}): IngestI
       declaredSize: bytes.byteLength,
       declaredContentType: "application/pdf",
       r2Key: "files/a/v1",
+      fileName: "doc.pdf",
     },
     policy: POLICY,
     scanPort: unscannedAdapter,
@@ -51,6 +52,7 @@ describe("runIngest", () => {
           declaredSize: HELLO.byteLength,
           declaredContentType: "text/plain",
           r2Key: "files/a/v1",
+          fileName: "hello.txt",
         },
       }),
     );
@@ -77,6 +79,7 @@ describe("runIngest", () => {
           declaredSize: PDF_BYTES.byteLength,
           declaredContentType: "text/plain",
           r2Key: "files/a/v1",
+          fileName: "doc.pdf",
         },
       }),
     );
@@ -92,6 +95,7 @@ describe("runIngest", () => {
           declaredSize: null,
           declaredContentType: "application/pdf",
           r2Key: "files/a/v1",
+          fileName: "doc.pdf",
         },
       }),
     );
@@ -101,6 +105,23 @@ describe("runIngest", () => {
   it("quarantines a size mismatch between the stream and the object metadata", async () => {
     const outcome = await runIngest(input(PDF_BYTES, { objectSize: PDF_BYTES.byteLength + 1 }));
     expect(outcome).toEqual({ kind: "quarantine", reason: "size-mismatch" });
+  });
+
+  it("quarantines a blocked file extension via the live name re-check (the r2_key has none)", async () => {
+    const outcome = await runIngest(
+      input(PDF_BYTES, {
+        // The opaque r2_key carries no extension; the real file name does — the gate re-checks the
+        // name, so a blocked extension is caught even when the bytes sniff as an allowed type.
+        policy: { ...POLICY, blockedExtensions: [".exe"] },
+        version: {
+          declaredSize: PDF_BYTES.byteLength,
+          declaredContentType: "application/pdf",
+          r2Key: "files/a/v1",
+          fileName: "payload.exe",
+        },
+      }),
+    );
+    expect(outcome).toEqual({ kind: "quarantine", reason: "policy-type" });
   });
 
   it("quarantines an infected verdict from the scan port", async () => {

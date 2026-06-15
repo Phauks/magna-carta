@@ -101,25 +101,88 @@ describe("sweepStalePendingUploads", () => {
   });
 });
 
+// A clean committed version backing an R2 object: only these keys count toward the firm's meter.
+// Reconciliation filters the R2 LIST against this set, so an object with no clean version row (orphan,
+// quarantined, or another firm's) is ignored rather than driven into the meter.
+async function seedCleanVersion(r2Key: string, sizeBytes: number): Promise<void> {
+  const matterId = newIdentifier("matter");
+  const fileId = newIdentifier("file");
+  const versionId = newIdentifier("fileVersion");
+  const now = new Date().toISOString();
+  await env.DB_FIRM_POOL_1.prepare(
+    "INSERT INTO member (user_id, display_name, status, created_at) VALUES ('user_recon', 'Recon', 'active', ?1) ON CONFLICT (user_id) DO NOTHING",
+  )
+    .bind(now)
+    .run();
+  await env.DB_FIRM_POOL_1.prepare(
+    "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Recon Matter', 'open', 'user_recon', ?2, ?2)",
+  )
+    .bind(matterId, now)
+    .run();
+  await env.DB_FIRM_POOL_1.prepare(
+    "INSERT INTO file (id, matter_id, name, created_at, updated_at) VALUES (?1, ?2, 'doc.pdf', ?3, ?3)",
+  )
+    .bind(fileId, matterId, now)
+    .run();
+  await env.DB_FIRM_POOL_1.prepare(
+    "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, status, scan_verdict, storage_class, uploaded_by, created_at, committed_at) VALUES (?1, ?2, 1, ?3, ?4, 'clean', 'unscanned', 'standard', 'user_recon', ?5, ?5)",
+  )
+    .bind(versionId, fileId, r2Key, sizeBytes, now)
+    .run();
+  await env.DB_FIRM_POOL_1.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+    .bind(fileId, versionId)
+    .run();
+}
+
+async function readFilesMeter(): Promise<{ bytes: number; object_count: number } | null> {
+  return env.DB_FIRM_POOL_1.prepare(
+    "SELECT bytes, object_count FROM storage_meter WHERE storage_class = 'standard' AND prefix = 'files'",
+  ).first<{ bytes: number; object_count: number }>();
+}
+
 describe("runStorageReconciliation", () => {
-  it("corrects a meter row that drifted from the real R2 objects", async () => {
-    // Seed a meter that overstates storage, and one real 100-byte object under files/.
+  it("corrects a skewed meter to a clean version's R2 object", async () => {
+    // A clean version + its real 100-byte object, with a meter that overstates storage.
+    const r2Key = "files/recon-clean/v1";
+    await seedCleanVersion(r2Key, 100);
+    await env.R2.put(r2Key, new Uint8Array(100));
     await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO storage_meter (storage_class, artifact_role, prefix, bytes, object_count) VALUES ('standard', 'original', 'files', 999, 1) ON CONFLICT (storage_class, artifact_role, prefix) DO UPDATE SET bytes = 999, object_count = 1",
+      "INSERT INTO storage_meter (storage_class, artifact_role, prefix, bytes, object_count) VALUES ('standard', 'original', 'files', 999, 5) ON CONFLICT (storage_class, artifact_role, prefix) DO UPDATE SET bytes = 999, object_count = 5",
     ).run();
-    await env.R2.put("files/reconcile-test/v1", new Uint8Array(100));
-    const listed = await env.R2.list({ prefix: "files/" });
-    expect(listed.objects.length).toBeGreaterThanOrEqual(1);
 
     const report = await runStorageReconciliation(env);
     expect(report.firmsReconciled).toBeGreaterThanOrEqual(1);
     expect(report.corrections).toBeGreaterThanOrEqual(1);
 
-    // The meter now matches the real object (100 bytes, one object).
-    const meter = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT bytes, object_count FROM storage_meter WHERE storage_class = 'standard' AND prefix = 'files'",
-    ).first<{ bytes: number; object_count: number }>();
+    const meter = await readFilesMeter();
     expect(meter?.bytes).toBe(100);
     expect(meter?.object_count).toBe(1);
+  });
+
+  it("ignores an orphan/quarantined R2 object with no clean version row (meter unchanged)", async () => {
+    // The meter already matches the one clean object from the prior test (100 bytes, one object).
+    const before = await readFilesMeter();
+    // An R2 object with NO backing clean version — a quarantined/abandoned leftover. It must not be
+    // counted: reconciliation only considers objects whose key is in the firm's clean set.
+    await env.R2.put("files/orphan-no-clean-version/v1", new Uint8Array(7777));
+
+    await runStorageReconciliation(env);
+
+    const after = await readFilesMeter();
+    expect(after?.bytes).toBe(before?.bytes);
+    expect(after?.object_count).toBe(before?.object_count);
+  });
+
+  it("ignores an R2 object whose key is not in this firm's clean set (cross-firm contamination)", async () => {
+    const before = await readFilesMeter();
+    // An object under files/ that belongs to ANOTHER firm (the single bound R2 is shared in the dev
+    // pool) — its key is in no clean version row of THIS firm, so it must not inflate this meter.
+    await env.R2.put("files/other-firms-file/v1", new Uint8Array(123456));
+
+    await runStorageReconciliation(env);
+
+    const after = await readFilesMeter();
+    expect(after?.bytes).toBe(before?.bytes);
+    expect(after?.object_count).toBe(before?.object_count);
   });
 });

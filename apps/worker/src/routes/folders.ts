@@ -198,7 +198,7 @@ function folderErrorResponse(
       detail: "No such resource in this firm.",
     });
   }
-  // folder-not-empty, folder-cycle, folder-name-taken — a state clash.
+  // folder-not-empty, folder-cycle, folder-name-taken, folder-cross-matter — a state clash.
   return problemJson(c, {
     type: "conflict",
     title: "Folder cannot be changed",

@@ -1,5 +1,7 @@
 import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
+import type { FirmId } from "@magna-carta/identifiers/types";
+import { firmResourceName } from "../src/firm-resource-provider.ts";
 import { runScheduledSweep } from "../src/scheduled.ts";
 import { handleIngestMessage } from "../src/files/ingest-consumer.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
@@ -45,7 +47,9 @@ const PDF_BYTES = new TextEncoder().encode("%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntra
 const SECOND_PDF_BYTES = new TextEncoder().encode(
   "%PDF-1.4\n2 0 obj\n<< /Second true >>\nendobj\ntrailer\n%%EOF\n",
 );
-const BUCKET = "R2"; // the dev resource provider records this bucket name for every provisioned firm
+// The dev resource provider records a per-firm-unique deterministic bucket name (the ingest
+// consumer's event→firm resolution key); set from the provisioned firm in the first step.
+let bucketName = "";
 
 // The location+year(2)+counter scheme that renders like RENO-26-0001.
 const SCHEME = [
@@ -106,7 +110,7 @@ async function get(path: string): Promise<Response> {
 }
 
 function ingestEvent(key: string, size: number) {
-  return { bucket: BUCKET, object: { key, size }, action: "PutObject" };
+  return { bucket: bucketName, object: { key, size }, action: "PutObject" };
 }
 
 // Initiates an upload over the HTTP surface, writes the bytes into the Miniflare R2 binding at the
@@ -145,14 +149,16 @@ describe("slice 1·1 end-to-end", () => {
     firm = (await provisionResponse.json()) as ProvisionResponseBody;
     expect(firm.status).toBe("active");
 
-    // The firm claims the first dev-pool binding; the dev resource provider records bucket_name "R2".
+    // The firm claims the first dev-pool binding; the dev resource provider records a per-firm-unique
+    // deterministic bucket name (the ingest consumer's event→firm resolution key).
     const firmRow = await env.DB_CONTROL.prepare(
       "SELECT database_identifier, bucket_name FROM firm WHERE id = ?1",
     )
       .bind(firm.id)
       .first<{ database_identifier: string; bucket_name: string }>();
     expect(firmRow?.database_identifier).toBe("DB_FIRM_POOL_1");
-    expect(firmRow?.bucket_name).toBe(BUCKET);
+    expect(firmRow?.bucket_name).toBe(await firmResourceName(firm.id as FirmId));
+    bucketName = firmRow?.bucket_name ?? "";
 
     // Activation: set the password through the emailed reset link, then sign in for the session.
     const { token } = await captureResetToken(FIRM_INPUT.owner.email);

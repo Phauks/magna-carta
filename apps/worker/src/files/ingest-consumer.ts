@@ -1,4 +1,4 @@
-import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import {
   commitVersion,
   loadPendingVersionForIngest,
@@ -17,9 +17,13 @@ import { resolveFirmDatabase } from "../firm-binding-resolver.ts";
 // (gates + streaming SHA-256 + scan port) to a clean commit or a quarantine. A thin shell around the
 // pure runIngest (ingest-core.ts) plus the file-manager commit/quarantine effects.
 //
-// IDEMPOTENCY is by version status, read FIRST: only a still-`pending` version is processed, so a
-// redelivered event (queue at-least-once) finds the now-clean/quarantined version absent and no-ops
-// — the metering increment, which is not itself guarded, therefore runs exactly once.
+// IDEMPOTENCY has two layers. The cheap common-case guard is by version status, read FIRST: only a
+// still-`pending` version is processed, so a redelivered event (queue at-least-once) finds the
+// now-clean/quarantined version absent and no-ops. The correctness backstop for the CONCURRENT window
+// — two deliveries that both read pending before either commits — is a per-version idempotency record
+// committed in the SAME atomic batch as the commit/quarantine writes (key `ingest:<versionId>`): the
+// loser hits the UNIQUE(key) insert, its whole batch rolls back, and the meter increment / current-
+// version bump / audit row / outbox message all apply exactly once.
 //
 // PER-FIRM BUCKET SEAM: the object is read from the single bound R2 bucket (env.R2). In production a
 // firm's bytes live in its own bucket; binding that per-firm bucket to the Worker is the same
@@ -68,6 +72,7 @@ export async function handleIngestMessage(env: Bindings, message: R2EventMessage
       declaredSize: pending.declaredSize,
       declaredContentType: pending.declaredContentType,
       r2Key: pending.r2Key,
+      fileName: pending.name,
     },
     policy,
     scanPort: unscannedAdapter,
@@ -75,34 +80,56 @@ export async function handleIngestMessage(env: Bindings, message: R2EventMessage
 
   const now = () => new Date().toISOString();
   const options = { clock: { now }, actorUserId: null };
-  if (outcome.kind === "commit") {
-    const result = await commitVersion(
-      firmDatabase,
-      {
-        versionId: pending.id,
-        sizeBytes: outcome.sizeBytes,
-        sniffedContentType: outcome.sniffedContentType,
-        contentSha256: outcome.contentSha256,
-        scanVerdict: outcome.scanVerdict,
-        scanEngineVersion: outcome.scanEngineVersion,
-        now: now(),
-      },
-      options,
-    );
-    await commitEffectBatch(firmDatabase, result.effect, { now });
-    return;
-  }
-  const result = await quarantineVersion(
-    firmDatabase,
-    { versionId: pending.id, reason: outcome.reason },
-    options,
-  );
-  await commitEffectBatch(firmDatabase, result.effect, { now });
+  // The commit/quarantine writes ride a per-version idempotency record in one atomic batch: a second
+  // concurrent delivery that also read pending loses the UNIQUE(key) race and its whole batch rolls
+  // back, so the meter/current-version/audit/outbox effects apply exactly once. The fingerprint is the
+  // version id — the only delivery for this key is this version's ingest, and it carries no request
+  // payload to vary on. The response is trivial (the consumer returns nothing to a caller).
+  const fingerprint = pending.id;
+  await runIdempotentEffect({
+    database: firmDatabase,
+    key: `ingest:${pending.id}`,
+    fingerprint,
+    now,
+    effect: async () => {
+      if (outcome.kind === "commit") {
+        const result = await commitVersion(
+          firmDatabase,
+          {
+            versionId: pending.id,
+            sizeBytes: outcome.sizeBytes,
+            sniffedContentType: outcome.sniffedContentType,
+            contentSha256: outcome.contentSha256,
+            scanVerdict: outcome.scanVerdict,
+            scanEngineVersion: outcome.scanEngineVersion,
+            now: now(),
+          },
+          options,
+        );
+        return {
+          write: result.effect,
+          responseCode: 200,
+          responseBody: JSON.stringify({ versionId: pending.id }),
+        };
+      }
+      const result = await quarantineVersion(
+        firmDatabase,
+        { versionId: pending.id, reason: outcome.reason },
+        options,
+      );
+      return {
+        write: result.effect,
+        responseCode: 200,
+        responseBody: JSON.stringify({ versionId: pending.id }),
+      };
+    },
+  });
 }
 
-// The queue() handler: one message at a time, ack on success, retry on a transient throw (the queue
-// dead-letters at max attempts — the slice 0·2 relay discipline). Per-message ack so a single bad
-// message never re-runs an already-committed sibling.
+// The queue() handler: one message at a time, ack on success, retry on a transient throw. A retried
+// message is redelivered (at-least-once) and dead-lettered once it exhausts its attempts — the
+// standard relay retry discipline. Per-message ack so a single bad message never re-runs an
+// already-committed sibling.
 export async function ingestQueue(
   batch: MessageBatch<R2EventMessage>,
   env: Bindings,

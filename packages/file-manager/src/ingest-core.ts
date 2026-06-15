@@ -23,6 +23,9 @@ export interface PendingVersionFacts {
   readonly declaredSize: number | null;
   readonly declaredContentType: string | null;
   readonly r2Key: string;
+  // The real file name (the r2_key is opaque and extension-less), so the gate's extension blocklist
+  // re-check runs against the name the client actually declared, not the key.
+  readonly fileName: string;
 }
 
 export interface IngestInput {
@@ -121,13 +124,13 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
   ) {
     return { kind: "quarantine", reason: "type-mismatch" };
   }
-  // Re-enforce the policy against the REAL size and sniffed type (a declared lie cannot smuggle a
-  // blocked type past the gate).
+  // Re-enforce the policy against the REAL size, the sniffed type, and the declared file name (a
+  // declared lie cannot smuggle a blocked type or a blocked extension past the gate).
   try {
     checkUploadPolicy(input.policy, {
       sizeBytes: input.objectSize,
       contentType: sniffedContentType,
-      fileName: input.version.r2Key,
+      fileName: input.version.fileName,
     });
   } catch (error) {
     if (error instanceof FileManagerValidationError) {

@@ -167,6 +167,33 @@ describe("POST /api/v1/uploads — initiate", () => {
     expect(((await response.json()) as Record<string, unknown>)["requestAccess"]).toBe(true);
   });
 
+  it("a lost-race duplicate multipart initiate creates no second R2 multipart upload", async () => {
+    // Two concurrent multipart initiates share one Idempotency-Key: only the winner reserves a
+    // session and (OUTSIDE the idempotency batch) creates the R2 multipart upload + persists its id;
+    // the loser replays the winner's response and creates nothing. The regression guard is that the
+    // R2 multipart create never rides the idempotency effect, so a lost race leaves exactly one
+    // session carrying exactly one persisted upload id — never a second, orphaned multipart upload.
+    const idempotencyKey = crypto.randomUUID();
+    const [first, second] = await Promise.all([
+      postUpload(largeMultipart(), { cookie: ownerCookie, idempotencyKey }),
+      postUpload(largeMultipart(), { cookie: ownerCookie, idempotencyKey }),
+    ]);
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    const firstBody = (await first.json()) as { uploadId: string; versionId: string };
+    const secondBody = (await second.json()) as { uploadId: string; versionId: string };
+    // Both calls return the SAME session (one reservation; the loser replayed the winner's response).
+    expect(secondBody.uploadId).toBe(firstBody.uploadId);
+
+    // Exactly one session for that version, and its r2_upload_id is set exactly once (the winner's).
+    const sessions = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT COUNT(*) AS n FROM upload_session WHERE file_version_id = ?1 AND r2_upload_id IS NOT NULL",
+    )
+      .bind(firstBody.versionId)
+      .first<{ n: number }>();
+    expect(sessions?.n).toBe(1);
+  });
+
   it("replays a repeated Idempotency-Key and stores the record in the FIRM database, not the control plane", async () => {
     const idempotencyKey = crypto.randomUUID();
     const first = await postUpload(smallPut("idem.pdf"), { cookie: ownerCookie, idempotencyKey });

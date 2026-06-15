@@ -355,6 +355,14 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
         declaredSize !== null && declaredSize > threshold ? "multipart" : "put";
       const contentType = request.declaredContentType ?? "application/octet-stream";
 
+      // The multipart session's r2_upload_id is filled in AFTER the idempotency batch commits, not
+      // inside the effect: creating an R2 multipart upload there would leak a real upload at R2 on a
+      // lost idempotency race (the loser's batch rolls back, but the side effect already happened).
+      // The effect only reserves the session (open, r2_upload_id null) + the file/version rows + the
+      // idempotency record. The multipart initiate response carries no upload id (sign-part/complete
+      // load it from the session), so deferring it is safe; the put branch presigns a URL, which is a
+      // pure credential mint with no server-side R2 state to leak.
+      let multipartToCreate: { sessionId: UploadSessionId; r2Key: string } | undefined;
       let result;
       try {
         result = await runIdempotentEffect({
@@ -378,7 +386,6 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
               },
               { clock: { now }, actorUserId: userId },
             );
-            const statements = [...initiated.effect.statements];
             let responseBody: Record<string, unknown>;
             if (mode === "put") {
               const url = await presigner.presignPut(
@@ -398,18 +405,11 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
                 headers: { "Content-Type": contentType },
               };
             } else {
-              const created = await presigner.createMultipartUpload(
-                bucket,
-                initiated.r2Key,
-                contentType,
-              );
-              statements.push(
-                setUploadSessionR2UploadIdStatement(
-                  firm.firmDatabase,
-                  initiated.uploadSessionId as UploadSessionId,
-                  created.uploadId,
-                ),
-              );
+              // Defer the R2 multipart create until the batch commits (see above).
+              multipartToCreate = {
+                sessionId: initiated.uploadSessionId as UploadSessionId,
+                r2Key: initiated.r2Key,
+              };
               responseBody = {
                 mode: "multipart",
                 uploadId: initiated.uploadSessionId,
@@ -419,10 +419,7 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
               };
             }
             return {
-              write: {
-                statements,
-                outboxMessages: initiated.effect.outboxMessages,
-              },
+              write: initiated.effect,
               responseCode: 201,
               responseBody: canonicalJsonStringify(responseBody),
             };
@@ -438,7 +435,14 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
               detail: caught.message,
             });
           }
-          if (caught.code === "unknown-file" || caught.code === "unknown-folder") {
+          if (
+            caught.code === "unknown-file" ||
+            caught.code === "unknown-folder" ||
+            // A cross-matter target (file's matter, or its folder's) is not a resource of the
+            // requested matter — surfaced as not-found, never a 500.
+            caught.code === "file-matter-mismatch" ||
+            caught.code === "file-cross-matter"
+          ) {
             return problemJson(c, {
               type: "not-found",
               title: "Not found",
@@ -452,6 +456,31 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
 
       if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
         return problemResponseForIdempotencyConflict(c, result);
+      }
+      // Only the winner (a fresh execute) creates the R2 multipart upload and persists its id; a
+      // replayed hit returns the stored response and creates nothing (the loser never reserved a
+      // session of its own — its batch rolled back). createMultipartUpload runs OUTSIDE the
+      // idempotency batch, so a lost race can never leave an orphaned multipart upload at R2.
+      if (result.kind === "executed" && multipartToCreate !== undefined) {
+        const created = await presigner.createMultipartUpload(
+          bucket,
+          multipartToCreate.r2Key,
+          contentType,
+        );
+        await commitEffectBatch(
+          firm.firmDatabase,
+          {
+            statements: [
+              setUploadSessionR2UploadIdStatement(
+                firm.firmDatabase,
+                multipartToCreate.sessionId,
+                created.uploadId,
+              ),
+            ],
+            outboxMessages: [],
+          },
+          { now },
+        );
       }
       if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
       const responseBody = JSON.parse(storedResponseBody(result)) as z.infer<

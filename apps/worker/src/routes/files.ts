@@ -340,7 +340,13 @@ function requireIdempotency(c: Context): { key: string | undefined; fingerprint:
 }
 
 function fileErrorResponse(c: Context, error: FileManagerValidationError): ProblemResponse<404> {
-  if (error.code === "unknown-file") {
+  if (
+    error.code === "unknown-file" ||
+    error.code === "unknown-folder" ||
+    // A move whose target folder lives in another matter targets a resource not in this matter —
+    // surfaced as not-found, never a 500.
+    error.code === "file-cross-matter"
+  ) {
     return problemJson(c, {
       type: "not-found",
       title: "Not found",
@@ -365,6 +371,7 @@ async function loadVisibleFile(
       documentTypeId: string | null;
       currentVersionId: FileVersionId | null;
       deletedAt: string | null;
+      createdAt: string;
     }
   | undefined
 > {
@@ -376,6 +383,7 @@ async function loadVisibleFile(
     document_type_id: string | null;
     current_version_id: FileVersionId | null;
     deleted_at: string | null;
+    created_at: string;
   }>();
   const row = results[0];
   if (row === undefined || row.deleted_at !== null || row.current_version_id === null) {
@@ -389,6 +397,7 @@ async function loadVisibleFile(
     documentTypeId: row.document_type_id,
     currentVersionId: row.current_version_id,
     deletedAt: row.deleted_at,
+    createdAt: row.created_at,
   };
 }
 
@@ -441,11 +450,6 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
           detail: "No such file in this firm.",
         });
       }
-      // createdAt is not on the file shell read; the listing carries it. Re-read the column here.
-      const { results } = await firm.firmDatabase
-        .prepare("SELECT created_at FROM file WHERE id = ?1")
-        .bind(id)
-        .all<{ created_at: string }>();
       return c.json(
         {
           id: file.id,
@@ -454,7 +458,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
           name: file.name,
           documentTypeId: file.documentTypeId,
           currentVersionId: file.currentVersionId,
-          createdAt: results[0]?.created_at ?? "",
+          createdAt: file.createdAt,
         } as z.infer<typeof FileSummary>,
         200,
       );

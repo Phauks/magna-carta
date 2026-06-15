@@ -17,6 +17,7 @@ import {
   type ListedObject,
   type MeterRow,
 } from "@magna-carta/file-manager/metering-statements";
+import { listCleanVersionR2Keys } from "@magna-carta/file-manager/queries";
 import type { FileVersionId, UploadSessionId } from "@magna-carta/identifiers/types";
 import { outboxDeadLettered, outboxSwept } from "@magna-carta/telemetry/events";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
@@ -323,8 +324,15 @@ async function readMeterRows(database: D1Database): Promise<MeterRow[]> {
 
 // The storage-metering reconciliation pass (its own daily Cron, not the */5 sweep — a full R2 LIST per
 // firm is too heavy for every five minutes). For each reachable firm it LISTs the firm's objects under
-// the files/ prefix, diffs the aggregate against the authoritative storage_meter, and commits the delta
+// the files/ prefix, FILTERS them to only the objects backing a clean committed version in THIS firm's
+// D1, diffs that filtered aggregate against the authoritative storage_meter, and commits the delta
 // corrections; drift is logged (totals only — never object contents) for operator visibility.
+//
+// The clean-key filter is load-bearing: the meter counts clean commits only, so a pending/quarantined/
+// abandoned object (its bytes never metered, never deleted from R2) must not inflate the meter; and the
+// single bound env.R2 is SHARED across dev-pool firms, so another firm's object — whose key is not in
+// this firm's clean set — must not be counted against this firm. Both are excluded by keeping only the
+// listed objects whose key is in this firm's clean-version set.
 //
 // PER-FIRM BUCKET SEAM: it reads the single bound env.R2 (the dev pool shares one bucket); in
 // production a firm's bytes live in its own bucket bound per-firm, resolved through the same seam the
@@ -340,6 +348,10 @@ export async function runStorageReconciliation(env: Bindings): Promise<Reconcili
   let corrections = 0;
   for (const firm of firms) {
     try {
+      // This firm's authoritative clean-version set: only these keys count toward its meter.
+      const cleanKeys = new Set(
+        (await listCleanVersionR2Keys(firm.database)).map((version) => version.r2Key),
+      );
       const listed: ListedObject[] = [];
       let cursor: string | undefined;
       for (;;) {
@@ -349,6 +361,9 @@ export async function runStorageReconciliation(env: Bindings): Promise<Reconcili
           cursor === undefined ? { prefix: "files/" } : { prefix: "files/", cursor },
         );
         for (const object of page.objects) {
+          // Keep only objects backing a clean version in this firm's D1: pending/quarantined/abandoned
+          // objects (never metered) and other dev-pool firms' objects (not in this set) are ignored.
+          if (!cleanKeys.has(object.key)) continue;
           const reported = (object as { storageClass?: string }).storageClass ?? "";
           listed.push({
             key: object.key,

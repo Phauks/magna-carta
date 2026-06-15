@@ -71,6 +71,19 @@ export async function createFolder(
     throw new FileManagerValidationError("folder-name-taken", "a folder needs a name");
   }
   const parentFolderId = input.parentFolderId ?? null;
+  if (parentFolderId !== null) {
+    // The parent must live in the same matter — a folder tree never spans matters.
+    const parent = await loadFolder(database, parentFolderId);
+    if (parent === undefined) {
+      throw new FileManagerValidationError("unknown-folder", `no such folder: ${parentFolderId}`);
+    }
+    if (parent.matterId !== input.matterId) {
+      throw new FileManagerValidationError(
+        "folder-cross-matter",
+        "a folder's parent must belong to the same matter",
+      );
+    }
+  }
   await assertNameAvailable(database, input.matterId, parentFolderId, input.name);
   const folderId = newIdentifier("folder", options.randomSource);
   return {
@@ -141,11 +154,26 @@ export async function moveFolder(
   if (folder === undefined) {
     throw new FileManagerValidationError("unknown-folder", `no such folder: ${folderId}`);
   }
-  if (newParentFolderId !== null && (await wouldCycle(database, folderId, newParentFolderId))) {
-    throw new FileManagerValidationError(
-      "folder-cycle",
-      "a folder cannot be moved into itself or one of its descendants",
-    );
+  if (newParentFolderId !== null) {
+    const parent = await loadFolder(database, newParentFolderId);
+    if (parent === undefined) {
+      throw new FileManagerValidationError(
+        "unknown-folder",
+        `no such folder: ${newParentFolderId}`,
+      );
+    }
+    if (parent.matterId !== folder.matterId) {
+      throw new FileManagerValidationError(
+        "folder-cross-matter",
+        "a folder's parent must belong to the same matter",
+      );
+    }
+    if (await wouldCycle(database, folderId, newParentFolderId)) {
+      throw new FileManagerValidationError(
+        "folder-cycle",
+        "a folder cannot be moved into itself or one of its descendants",
+      );
+    }
   }
   await assertNameAvailable(database, folder.matterId, newParentFolderId, folder.name, folderId);
   return {

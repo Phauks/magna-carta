@@ -216,6 +216,38 @@ export async function listCleanVersions(
   }));
 }
 
+// Every clean committed version's R2 key, size, and storage class in this firm — the authoritative
+// set the storage reconciliation filters its R2 LIST against. Only clean versions are metered, and
+// the single bound R2 binding is shared across dev-pool firms, so reconciliation must consider only
+// objects whose key belongs to this firm's clean set: a pending/quarantined/abandoned object (never
+// metered) or another firm's object (not in this set) is ignored, never driven into the meter.
+export function listCleanVersionR2KeysStatement(database: SqlDatabase): SqlStatement {
+  return database.prepare(
+    `SELECT r2_key, size_bytes, storage_class FROM ${FILE_VERSION_TABLE} WHERE status = 'clean'`,
+  );
+}
+
+export interface CleanVersionR2Object {
+  readonly r2Key: string;
+  readonly sizeBytes: number | null;
+  readonly storageClass: string;
+}
+
+export async function listCleanVersionR2Keys(
+  database: SqlDatabase,
+): Promise<readonly CleanVersionR2Object[]> {
+  const { results } = await listCleanVersionR2KeysStatement(database).all<{
+    r2_key: string;
+    size_bytes: number | null;
+    storage_class: string;
+  }>();
+  return results.map((row) => ({
+    r2Key: row.r2_key,
+    sizeBytes: row.size_bytes,
+    storageClass: row.storage_class,
+  }));
+}
+
 // Every folder in a matter (id, parent, name) — the input to folder-tree path composition for the
 // ZIP download. Folders carry no status gate (only file_version does), so this is an unguarded read.
 export function listFoldersByMatterStatement(

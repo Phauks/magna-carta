@@ -1,5 +1,7 @@
 import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import type { FirmId } from "@magna-carta/identifiers/types";
+import { firmResourceName } from "../src/firm-resource-provider.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 
 // POST /api/v1/firms end-to-end (Miniflare): the platform-admin guard, the resumable provisioner
@@ -185,7 +187,9 @@ describe("POST /api/v1/firms", () => {
       status: "active",
       database_identifier: "DB_FIRM_POOL_1",
       per_firm_schema_version: "0004_matters-locations-file-manager",
-      bucket_name: "R2",
+      // The dev provider records a per-firm-unique deterministic bucket name (the event→firm
+      // resolution key), not a shared literal.
+      bucket_name: await firmResourceName(firmOneBody.id as FirmId),
     });
 
     // The claimed firm database really is migrated to head — the mirror column MATCHES the

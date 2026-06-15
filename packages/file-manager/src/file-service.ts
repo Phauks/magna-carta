@@ -34,6 +34,7 @@ import {
   setUploadSessionStatusStatement,
   softDeleteFileStatement,
 } from "./file-statements.ts";
+import { selectFolderStatement } from "./folder-statements.ts";
 import { meterCommitStatements } from "./metering-statements.ts";
 import { checkUploadPolicy, readUploadPolicy } from "./upload-policy.ts";
 import { FileManagerValidationError } from "./validation.ts";
@@ -73,6 +74,18 @@ async function requireFile(database: SqlDatabase, id: FileId): Promise<StoredFil
     throw new FileManagerValidationError("unknown-file", `no such file: ${id}`);
   }
   return file;
+}
+
+// The matter a folder belongs to (undefined when the folder is unknown) — the same-matter guard the
+// file moves and uploads enforce so a file never lands in a folder of another matter.
+async function loadFolderMatter(
+  database: SqlDatabase,
+  folderId: FolderId,
+): Promise<MatterId | undefined> {
+  const { results } = await selectFolderStatement(database, folderId).all<{
+    matter_id: MatterId;
+  }>();
+  return results[0]?.matter_id;
 }
 
 export interface InitiateUploadInput {
@@ -116,7 +129,27 @@ export async function initiateUpload(
   let fileId: FileId;
   let versionNumber: number;
   if (input.fileId !== undefined) {
-    await requireFile(database, input.fileId);
+    const existing = await requireFile(database, input.fileId);
+    // A new version rides the existing file's matter; a payload claiming a different matter is a
+    // mismatch (the folder/document-type fields below are validated against that same matter).
+    if (existing.matterId !== input.matterId) {
+      throw new FileManagerValidationError(
+        "file-matter-mismatch",
+        "the target file belongs to a different matter",
+      );
+    }
+    if (input.folderId !== undefined && input.folderId !== null) {
+      const folderMatterId = await loadFolderMatter(database, input.folderId);
+      if (folderMatterId === undefined) {
+        throw new FileManagerValidationError("unknown-folder", `no such folder: ${input.folderId}`);
+      }
+      if (folderMatterId !== input.matterId) {
+        throw new FileManagerValidationError(
+          "file-cross-matter",
+          "a file's folder must belong to the same matter",
+        );
+      }
+    }
     fileId = input.fileId;
     const { results } = await selectMaxVersionNumberStatement(database, fileId).all<{
       n: number;
@@ -191,12 +224,14 @@ async function loadPendingVersion(
 }
 
 // The facts the ingest pipeline needs about a pending version, found by its r2_key: the version id
-// (to commit/quarantine) plus the declared size/type runIngest re-checks against the real bytes.
+// (to commit/quarantine), the declared size/type runIngest re-checks against the real bytes, and the
+// file name the gate re-checks the extension blocklist against (the r2_key carries no extension).
 export interface PendingIngestVersion {
   readonly id: FileVersionId;
   readonly declaredSize: number | null;
   readonly declaredContentType: string | null;
   readonly r2Key: string;
+  readonly name: string;
 }
 
 export async function loadPendingVersionForIngest(
@@ -208,6 +243,7 @@ export async function loadPendingVersionForIngest(
     declared_content_type: string | null;
     r2_key: string;
     declared_size: number | null;
+    file_name: string;
   }>();
   const row = results[0];
   if (row === undefined) return undefined;
@@ -216,6 +252,7 @@ export async function loadPendingVersionForIngest(
     declaredSize: row.declared_size,
     declaredContentType: row.declared_content_type,
     r2Key: row.r2_key,
+    name: row.file_name,
   };
 }
 
@@ -354,7 +391,20 @@ export async function moveFile(
   folderId: FolderId | null,
   options: FileServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  await requireFile(database, fileId);
+  const file = await requireFile(database, fileId);
+  if (folderId !== null) {
+    // The target folder must live in the file's matter — a file never crosses matters on a move.
+    const folderMatterId = await loadFolderMatter(database, folderId);
+    if (folderMatterId === undefined) {
+      throw new FileManagerValidationError("unknown-folder", `no such folder: ${folderId}`);
+    }
+    if (folderMatterId !== file.matterId) {
+      throw new FileManagerValidationError(
+        "file-cross-matter",
+        "a file's target folder must belong to the same matter",
+      );
+    }
+  }
   return {
     effect: {
       statements: [

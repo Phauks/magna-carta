@@ -128,16 +128,18 @@ export function selectPendingVersionStatement(
 }
 
 // The pending version for ingest, found by its r2_key (the R2 event carries the key, not the
-// version id), joined to its session's declared size. status = 'pending' is the idempotency guard:
-// a replayed R2 event finds the now-clean/quarantined version absent here and no-ops.
+// version id), joined to its session's declared size and the file's name (the ingest gate re-checks
+// the extension blocklist against the real name, not the opaque key). status = 'pending' is the
+// idempotency guard: a replayed R2 event finds the now-clean/quarantined version absent here and no-ops.
 export function selectPendingVersionByR2KeyStatement(
   database: SqlDatabase,
   r2Key: string,
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT v.id, v.declared_content_type, v.r2_key, s.declared_size ` +
+      `SELECT v.id, v.declared_content_type, v.r2_key, s.declared_size, f.name AS file_name ` +
         `FROM ${FILE_VERSION_TABLE} v JOIN ${UPLOAD_SESSION_TABLE} s ON s.file_version_id = v.id ` +
+        `JOIN ${FILE_TABLE} f ON f.id = v.file_id ` +
         `WHERE v.r2_key = ?1 AND v.status = 'pending'`,
     )
     .bind(r2Key);
@@ -183,14 +185,22 @@ export function commitVersionStatement(database: SqlDatabase, row: CommitVersion
     );
 }
 
+// Monotonic: the current-version pointer only advances. Ingest commits can land out of order (v2
+// before v1, or a redelivery), so the pointer moves only when the committing version's number is
+// higher than the one it already points at — an older version committing late never regresses it.
 export function bumpFileCurrentVersionStatement(
   database: SqlDatabase,
   fileId: FileId,
   versionId: FileVersionId,
   updatedAt: string,
 ): SqlStatement {
+  // The version_number subqueries read by primary key (id) to compare ordering — they intentionally
+  // span all statuses (the committing version and whatever the pointer holds), gating nothing.
+  // fitness:allow-no-status
   return database
-    .prepare(`UPDATE ${FILE_TABLE} SET current_version_id = ?2, updated_at = ?3 WHERE id = ?1`)
+    .prepare(
+      `UPDATE ${FILE_TABLE} SET current_version_id = ?2, updated_at = ?3 WHERE id = ?1 AND (current_version_id IS NULL OR (SELECT version_number FROM ${FILE_VERSION_TABLE} WHERE id = ?2) > (SELECT version_number FROM ${FILE_VERSION_TABLE} WHERE id = ${FILE_TABLE}.current_version_id))`,
+    )
     .bind(fileId, versionId, updatedAt);
 }
 
@@ -246,8 +256,11 @@ export function selectUploadSessionStatement(
 
 // Open sessions whose expiry has passed — the stale-pending sweep's input. Joined to the version's
 // r2 key (needed to abort a multipart upload at R2). Spans version statuses by design: the version it
-// reads is the still-pending one being abandoned.
+// reads is the still-pending one being abandoned. LIMIT bounds one pass to a fixed batch so a backlog
+// never makes a single Cron fire unbounded; the next */5 pass drains the next batch.
 // fitness:allow-no-status
+export const STALE_PENDING_SWEEP_BATCH = 100;
+
 export function selectExpiredOpenSessionsStatement(
   database: SqlDatabase,
   now: string,
@@ -256,7 +269,8 @@ export function selectExpiredOpenSessionsStatement(
     .prepare(
       `SELECT s.id, s.file_version_id, s.mode, s.r2_upload_id, v.r2_key ` +
         `FROM ${UPLOAD_SESSION_TABLE} s JOIN ${FILE_VERSION_TABLE} v ON v.id = s.file_version_id ` +
-        `WHERE s.status = 'open' AND s.expires_at IS NOT NULL AND s.expires_at < ?1`,
+        `WHERE s.status = 'open' AND s.expires_at IS NOT NULL AND s.expires_at < ?1 ` +
+        `LIMIT ${STALE_PENDING_SWEEP_BATCH}`,
     )
     .bind(now);
 }
@@ -288,7 +302,7 @@ export function setUploadSessionStatusByIdStatement(
 export function selectFileStatement(database: SqlDatabase, id: FileId): SqlStatement {
   return database
     .prepare(
-      `SELECT id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at FROM ${FILE_TABLE} WHERE id = ?1`,
+      `SELECT id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at FROM ${FILE_TABLE} WHERE id = ?1`,
     )
     .bind(id);
 }

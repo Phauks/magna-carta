@@ -31,6 +31,40 @@ describe("createFolder", () => {
   });
 });
 
+describe("createFolder / moveFolder — same-matter integrity", () => {
+  async function seedSecondMatter(database: ReturnType<typeof freshDatabase>): Promise<MatterId> {
+    const matterId = "matter_b" as MatterId;
+    await database
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'M2', 'open', 'user_a', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')",
+      )
+      .bind(matterId)
+      .run();
+    return matterId;
+  }
+
+  it("refuses to create a subfolder under a parent in another matter", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const otherMatterId = await seedSecondMatter(database);
+    const parent = await makeFolder(database, otherMatterId, "Foreign");
+    await expect(
+      createFolder(database, { matterId, parentFolderId: parent, name: "Child" }, options),
+    ).rejects.toMatchObject({ code: "folder-cross-matter" });
+  });
+
+  it("refuses to move a folder under a parent in another matter", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const otherMatterId = await seedSecondMatter(database);
+    const here = await makeFolder(database, matterId, "Here");
+    const foreign = await makeFolder(database, otherMatterId, "Foreign");
+    await expect(moveFolder(database, here, foreign, options)).rejects.toMatchObject({
+      code: "folder-cross-matter",
+    });
+  });
+});
+
 describe("renameFolder / moveFolder", () => {
   it("renames a folder", async () => {
     const database = freshDatabase();
