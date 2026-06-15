@@ -1004,4 +1004,173 @@
     inline-size: var(--mc-space-16);
     block-size: var(--mc-space-16);
   }
+
+  /*
+   * AlertDialog (Tier 3, Bits UI). A centered modal decision panel over a scrim — the Dialog
+   * structure, but a deliberate confirm/cancel surface with NO incidental dismiss: no corner ✕ and,
+   * by Bits' defaults, no outside-click close, so the user must choose Cancel or Action. The look is
+   * byte-identical to Dialog (centered without a centering transform so the scale-fade presence has
+   * nothing to fight; flex column; the floating elevation), but kept under its own recipe names —
+   * one recipe per component, clarity over DRY — so the two can drift independently later. The
+   * z-layers and presence come from the floating module; width/max-height are layout utilities on
+   * the wrapper. The Trigger, Cancel, and Action carry NO recipe — they are caller-styled buttons
+   * (typically the mc-button recipes), so nothing here fights the caller's chosen variant.
+   */
+  .mc-alert-dialog-overlay {
+    position: fixed;
+    inset: var(--mc-space-0);
+    background-color: var(--mc-surface-scrim);
+  }
+  .mc-alert-dialog-content {
+    position: fixed;
+    inset: var(--mc-space-0);
+    margin: auto;
+    block-size: fit-content;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-16);
+    padding: var(--mc-space-24);
+    background-color: var(--mc-surface-raised);
+    color: var(--mc-text-default);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-lg);
+    box-shadow: var(--mc-elevation-3);
+  }
+  .mc-alert-dialog-title {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-lg);
+    font-weight: var(--mc-weight-semibold);
+    line-height: var(--mc-leading-tight);
+    color: var(--mc-text-default);
+  }
+  .mc-alert-dialog-description {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-sm);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-muted);
+  }
+
+  /*
+   * Sheet (Tier 3, Bits UI). A Dialog variant: a drawer that slides in from a screen EDGE over a
+   * scrim. Built on the SAME Dialog primitives — only the pinning and presence differ. The z-layers
+   * and presence (the scrim fades; the panel slides from its edge) come from the floating module;
+   * only the look lives here. Unlike Dialog, the panel is NOT centered — it is fixed to one edge via
+   * logical-property insets, full height on a vertical edge (right/left) or full width on a
+   * horizontal edge (top/bottom). The cross-axis size (width for right/left, height for top/bottom)
+   * is layout, set by a utility on the element, not here. The panel is a flex column (title,
+   * description, body, footer) with the elevation reserved for floating layers. The built-in corner
+   * dismiss is a quiet icon button (mc-sheet-close); the Trigger and the reusable Close part carry
+   * NO recipe — they are caller-styled buttons (typically the mc-button recipes), so nothing here
+   * fights the caller's chosen variant.
+   */
+  .mc-sheet-overlay {
+    position: fixed;
+    inset: var(--mc-space-0);
+    background-color: var(--mc-surface-scrim);
+  }
+  .mc-sheet-content {
+    position: fixed;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-16);
+    padding: var(--mc-space-24);
+    background-color: var(--mc-surface-raised);
+    color: var(--mc-text-default);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    box-shadow: var(--mc-elevation-3);
+  }
+  /* Pinned to a vertical edge: full height, flush against the right or left of the viewport. */
+  .mc-sheet-content-right {
+    inset-block: var(--mc-space-0);
+    inset-inline-end: var(--mc-space-0);
+  }
+  .mc-sheet-content-left {
+    inset-block: var(--mc-space-0);
+    inset-inline-start: var(--mc-space-0);
+  }
+  /* Pinned to a horizontal edge: full width, flush against the top or bottom of the viewport. */
+  .mc-sheet-content-top {
+    inset-inline: var(--mc-space-0);
+    inset-block-start: var(--mc-space-0);
+  }
+  .mc-sheet-content-bottom {
+    inset-inline: var(--mc-space-0);
+    inset-block-end: var(--mc-space-0);
+  }
+  .mc-sheet-title {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-lg);
+    font-weight: var(--mc-weight-semibold);
+    line-height: var(--mc-leading-tight);
+    color: var(--mc-text-default);
+  }
+  .mc-sheet-description {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-sm);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-muted);
+  }
+  /*
+   * Close — a quiet icon button pinned to the top-right corner. Transparent at rest, muting the
+   * Lucide X; hover lifts the icon to the default text colour. Borderless control, so the flush
+   * focus ring (same shape as the Button).
+   */
+  .mc-sheet-close {
+    position: absolute;
+    inset-block-start: var(--mc-space-16);
+    inset-inline-end: var(--mc-space-16);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--mc-space-4);
+    background-color: transparent;
+    border-style: none;
+    border-radius: var(--mc-radius-md);
+    color: var(--mc-text-muted);
+    cursor: pointer;
+    transition-property: color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-sheet-close:hover {
+    color: var(--mc-text-default);
+  }
+  .mc-sheet-close:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-sheet-close-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+
+  /*
+   * Popover (Tier 3, Bits UI). A click-triggered floating panel anchored to its trigger — an
+   * overlay surface with a hairline and the dropdown-layer elevation. Positioning (Floating UI),
+   * the z-layer, and the scale-fade presence come from the floating module; only the panel's look
+   * lives here. The panel's width is layout — a utility on the element (e.g. w-72), not the recipe.
+   * The Trigger and the Close part carry NO recipe — they are caller-styled buttons (typically the
+   * mc-button recipes), so nothing here fights the caller's chosen variant.
+   */
+  .mc-popover-content {
+    padding: var(--mc-space-16);
+    background-color: var(--mc-surface-overlay);
+    color: var(--mc-text-default);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    box-shadow: var(--mc-elevation-2);
+  }
 }
