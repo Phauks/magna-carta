@@ -1173,4 +1173,89 @@
     border-radius: var(--mc-radius-md);
     box-shadow: var(--mc-elevation-2);
   }
+
+  /*
+   * DropdownMenu (Tier 3, Bits UI). A click-triggered floating menu of actions anchored to its
+   * trigger. Positioning (Floating UI), the z-layer, and the scale-fade presence come from the
+   * floating module; only the look lives here. The Trigger carries NO recipe — it is a caller-styled
+   * button (typically the mc-button recipes), so nothing here fights the caller's chosen variant.
+   * Only the Content surface, the interactive item rows, the group heading, and the separator are
+   * styled. The panel's min-width is layout — a utility on the element (e.g. min-w-48), not the
+   * recipe.
+   */
+  .mc-dropdown-menu-content,
+  .mc-dropdown-menu-sub-content {
+    padding: var(--mc-space-4);
+    background-color: var(--mc-surface-overlay);
+    color: var(--mc-text-default);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    box-shadow: var(--mc-elevation-2);
+  }
+  /*
+   * An item row (also the SubTrigger). Bits sets data-highlighted on the hovered/keyboard-focused
+   * row and data-disabled on a disabled one; the recipe keys its hover/disabled looks off those.
+   */
+  .mc-dropdown-menu-item {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+    border-radius: var(--mc-radius-sm);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-sm);
+    line-height: var(--mc-leading-normal);
+    cursor: default;
+    user-select: none;
+    outline-style: none;
+  }
+  .mc-dropdown-menu-item[data-highlighted] {
+    background-color: var(--mc-action-secondary);
+  }
+  .mc-dropdown-menu-item[data-disabled] {
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+  /* The leading indicator box for a CheckboxItem / RadioItem (holds the check or dot). */
+  .mc-dropdown-menu-item-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: var(--mc-space-0);
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+  .mc-dropdown-menu-item-indicator-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+  .mc-dropdown-menu-item-indicator-dot {
+    inline-size: var(--mc-space-8);
+    block-size: var(--mc-space-8);
+    fill: currentColor;
+  }
+  /* The SubTrigger's trailing chevron sits at the inline-end edge of the row. */
+  .mc-dropdown-menu-sub-trigger-icon {
+    margin-inline-start: auto;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+  .mc-dropdown-menu-group-heading {
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-xs);
+    font-weight: var(--mc-weight-medium);
+    line-height: var(--mc-leading-tight);
+  }
+  .mc-dropdown-menu-separator {
+    block-size: var(--mc-border-width-default);
+    margin-block: var(--mc-space-4);
+    background-color: var(--mc-border-default);
+  }
 }

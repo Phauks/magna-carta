@@ -14,6 +14,7 @@
     "./card": "./src/lib/components/card/index.ts",
     "./checkbox": "./src/lib/components/checkbox/index.ts",
     "./dialog": "./src/lib/components/dialog/index.ts",
+    "./dropdown-menu": "./src/lib/components/dropdown-menu/index.ts",
     "./file-input": "./src/lib/components/file-input/index.ts",
     "./input": "./src/lib/components/input/index.ts",
     "./keyboard": "./src/lib/components/keyboard/index.ts",
@@ -27,6 +28,7 @@
     "./switch": "./src/lib/components/switch/index.ts",
     "./tabs": "./src/lib/components/tabs/index.ts",
     "./textarea": "./src/lib/components/textarea/index.ts",
+    "./toast": "./src/lib/components/toast/index.ts",
     "./tooltip": "./src/lib/components/tooltip/index.ts",
     "./internal/floating": "./src/lib/internal/floating.ts",
     "./internal/merge-classes": "./src/lib/internal/merge-classes.ts",
@@ -48,6 +50,7 @@
     "@magna-carta/design-tokens": "workspace:*",
     "bits-ui": "catalog:",
     "clsx": "catalog:",
+    "svelte-sonner": "catalog:",
     "tailwind-merge": "catalog:"
   },
   "devDependencies": {
