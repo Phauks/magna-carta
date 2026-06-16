@@ -13,6 +13,8 @@
     "./button": "./src/lib/components/button/index.ts",
     "./card": "./src/lib/components/card/index.ts",
     "./checkbox": "./src/lib/components/checkbox/index.ts",
+    "./combobox": "./src/lib/components/combobox/index.ts",
+    "./command": "./src/lib/components/command/index.ts",
     "./dialog": "./src/lib/components/dialog/index.ts",
     "./dropdown-menu": "./src/lib/components/dropdown-menu/index.ts",
     "./file-input": "./src/lib/components/file-input/index.ts",
@@ -35,6 +37,7 @@
     "./internal/merge-classes": "./src/lib/internal/merge-classes.ts",
     "./internal/theme-preference": "./src/lib/internal/theme-preference.ts",
     "./internal/types": "./src/lib/internal/types.ts",
+    "./internal/virtual-list": "./src/lib/internal/virtual-list.svelte",
     "./styles/animations.css": "./src/lib/styles/animations.css",
     "./styles/components.css": "./src/lib/styles/components.css"
   },
@@ -53,7 +56,8 @@
     "bits-ui": "catalog:",
     "clsx": "catalog:",
     "svelte-sonner": "catalog:",
-    "tailwind-merge": "catalog:"
+    "tailwind-merge": "catalog:",
+    "virtua": "catalog:"
   },
   "devDependencies": {
     "@chromatic-com/storybook": "catalog:",

@@ -5,12 +5,13 @@
    * applies this class to the inner content element. The z-layer (dropdown) and the scale-fade
    * presence come from the floating module; the look is the mc-select-content recipe.
    *
-   * The panel matches the Trigger width via Bits' `--bits-select-anchor-width` and the Viewport is
-   * bounded by `--bits-select-content-available-height` so a long list scrolls within the viewport
-   * (Bits mounts the scroll buttons when there is overflow). Those Bits-owned positioning variables
-   * ride an inline style — they are not `--mc-` tokens, so they belong on the element, never in the
-   * recipe (the components.css purity gate). The Trigger's selection is the children: the caller
-   * nests Item/Group rows, which Bits places inside the scrollable Viewport.
+   * The panel matches the anchor width via Bits' generic `--bits-floating-anchor-width` and the
+   * Viewport is bounded by `--bits-floating-available-height` so a long list scrolls within it (Bits
+   * mounts the scroll buttons when there is overflow). The GENERIC floating variables (not the
+   * `--bits-select-*` aliases) are used so this same component serves Combobox.Content too, which
+   * reuses it. Those Bits-owned positioning variables ride an inline style — they are not `--mc-`
+   * tokens, so they belong on the element, never in the recipe (the components.css purity gate). The
+   * caller nests Item/Group rows, which Bits places inside the scrollable Viewport.
    */
   import { Select as SelectPrimitive } from "bits-ui";
   import { mergeClasses } from "../../internal/merge-classes.ts";
@@ -32,7 +33,7 @@
   <SelectPrimitive.Content
     bind:ref
     {sideOffset}
-    style="min-width: var(--bits-select-anchor-width)"
+    style="min-width: var(--bits-floating-anchor-width)"
     class={mergeClasses(
       floatingContentClasses("dropdown", PRESENCE_SCALE_FADE),
       "mc-select-content",
@@ -43,7 +44,7 @@
     <SelectScrollUpButton />
     <SelectPrimitive.Viewport
       class="mc-select-viewport"
-      style="max-height: var(--bits-select-content-available-height)"
+      style="max-height: var(--bits-floating-available-height)"
     >
       {@render children?.()}
     </SelectPrimitive.Viewport>

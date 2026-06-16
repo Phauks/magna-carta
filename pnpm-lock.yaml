@@ -126,6 +126,9 @@ catalogs:
     tailwindcss:
       specifier: 4.3.0
       version: 4.3.0
+    virtua:
+      specifier: 0.49.1
+      version: 0.49.1
     vite-plus:
       specifier: 0.1.24
       version: 0.1.24
@@ -331,6 +334,9 @@ importers:
       tailwind-merge:
         specifier: 'catalog:'
         version: 3.6.0
+      virtua:
+        specifier: 'catalog:'
+        version: 0.49.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(svelte@5.56.2)
     devDependencies:
       '@chromatic-com/storybook':
         specifier: 'catalog:'
@@ -3779,6 +3785,26 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
+  virtua@0.49.1:
+    resolution: {integrity: sha512-6f79msqg3jzNFdqJiS0FSzhRN1EHlDhR7EvW7emp6z5qQ22VdsReiDHflkpMEMhoAyUuYr69nwT0aagiM7NrUg==}
+    peerDependencies:
+      react: '>=16.14.0'
+      react-dom: '>=16.14.0'
+      solid-js: '>=1.0'
+      svelte: '>=5.0'
+      vue: '>=3.2'
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
+      solid-js:
+        optional: true
+      svelte:
+        optional: true
+      vue:
+        optional: true
+
   vite-node@5.3.0:
     resolution: {integrity: sha512-8f20COPYJujc3OKPX6OuyBy3ZIv2det4eRRU4GY1y2MjbeGSUmPjedxg1b72KnTagCofwvZ65ThzjxDW2AtQFQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -6450,6 +6476,12 @@ snapshots:
   use-sync-external-store@1.6.0(react@19.2.7):
     dependencies:
       react: 19.2.7
+
+  virtua@0.49.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(svelte@5.56.2):
+    optionalDependencies:
+      react: 19.2.7
+      react-dom: 19.2.7(react@19.2.7)
+      svelte: 5.56.2
 
   vite-node@5.3.0(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(yaml@2.9.0):
     dependencies:
