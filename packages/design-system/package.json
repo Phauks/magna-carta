@@ -11,6 +11,7 @@
     "./avatar": "./src/lib/components/avatar/index.ts",
     "./badge": "./src/lib/components/badge/index.ts",
     "./button": "./src/lib/components/button/index.ts",
+    "./calendar": "./src/lib/components/calendar/index.ts",
     "./card": "./src/lib/components/card/index.ts",
     "./checkbox": "./src/lib/components/checkbox/index.ts",
     "./combobox": "./src/lib/components/combobox/index.ts",
@@ -51,6 +52,7 @@
     "csp-spike": "vite build --config test/csp-spike/vite.config.mjs && node test/csp-spike/run-csp-spike.mjs"
   },
   "dependencies": {
+    "@internationalized/date": "catalog:",
     "@lucide/svelte": "catalog:",
     "@magna-carta/design-tokens": "workspace:*",
     "bits-ui": "catalog:",

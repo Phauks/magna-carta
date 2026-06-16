@@ -21,6 +21,9 @@ catalogs:
     '@hono/zod-openapi':
       specifier: 1.4.0
       version: 1.4.0
+    '@internationalized/date':
+      specifier: 3.12.2
+      version: 3.12.2
     '@lucide/svelte':
       specifier: 1.17.0
       version: 1.17.0
@@ -316,6 +319,9 @@ importers:
 
   packages/design-system:
     dependencies:
+      '@internationalized/date':
+        specifier: 'catalog:'
+        version: 3.12.2
       '@lucide/svelte':
         specifier: 'catalog:'
         version: 1.17.0(svelte@5.56.2)
