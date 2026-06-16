@@ -14,9 +14,11 @@
     "./demo-firm": "./src/demo-firm.ts",
     "./load-profile/profile": "./src/load-profile/profile.ts",
     "./load-profile/generate": "./src/load-profile/generate.ts",
+    "./load-profile/matters-generate": "./src/load-profile/matters-generate.ts",
     "./load-profile/snapshot": "./src/load-profile/snapshot.ts",
     "./load-profile/runner": "./src/load-profile/runner.ts",
-    "./load-profile/ledger-measurements": "./src/load-profile/ledger-measurements.ts"
+    "./load-profile/ledger-measurements": "./src/load-profile/ledger-measurements.ts",
+    "./load-profile/matters-measurements": "./src/load-profile/matters-measurements.ts"
   },
   "scripts": {
     "measure": "node --experimental-transform-types src/load-profile/measure-cli.ts",
@@ -26,8 +28,11 @@
     "@faker-js/faker": "catalog:",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
+    "@magna-carta/file-manager": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/ledger": "workspace:*",
+    "@magna-carta/locations": "workspace:*",
+    "@magna-carta/matters": "workspace:*",
     "@magna-carta/money": "workspace:*"
   },
   "devDependencies": {

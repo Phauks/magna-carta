@@ -21,6 +21,7 @@ import { fixtureContext } from "../context.ts";
 import { assertSeedingAllowed, type SeedingOptions } from "../guard.ts";
 import { createLocalPerFirmDatabase } from "../local-database.ts";
 import { generateLedgerVolume, type VolumeProbes } from "./generate.ts";
+import { generatePracticeVolume, type PracticeProbes } from "./matters-generate.ts";
 import { GENERATOR_VERSION, type LedgerVolumeProfile } from "./profile.ts";
 
 // Snapshot identity: the resolved profile parameters, the generation seed, the per-firm schema
@@ -33,6 +34,13 @@ export interface SnapshotManifest {
   readonly generatorVersion: number;
   readonly entryCount: number;
   readonly probes: VolumeProbes;
+  // The practice volume laid over the ledger book: total counts + the probe identifiers the
+  // matters/locations/file-manager measurement layer binds its volume-shaped reads to.
+  readonly matterCount: number;
+  readonly fileCount: number;
+  readonly fileVersionCount: number;
+  readonly folderCount: number;
+  readonly practiceProbes: PracticeProbes;
 }
 
 export interface LoadedSnapshot extends MigratedNodeDatabase {
@@ -101,10 +109,14 @@ export async function loadProfileSnapshot(
     options.onGenerate?.();
     const generated = createLocalPerFirmDatabase();
     try {
-      const result = await generateLedgerVolume(
+      // One FixtureContext threads both generators: the ledger book first, then the practice volume
+      // on top (matters carry the ledger's clients implicitly — the two share the same seed stream).
+      const context = fixtureContext(seed);
+      const result = await generateLedgerVolume(generated.database, context, profile, options);
+      const practice = await generatePracticeVolume(
         generated.database,
-        fixtureContext(seed),
-        profile,
+        context,
+        profile.practice,
         options,
       );
       const manifest: SnapshotManifest = {
@@ -114,6 +126,11 @@ export async function loadProfileSnapshot(
         generatorVersion: GENERATOR_VERSION,
         entryCount: result.entryCount,
         probes: result.probes,
+        matterCount: practice.matterCount,
+        fileCount: practice.fileCount,
+        fileVersionCount: practice.fileVersionCount,
+        folderCount: practice.folderCount,
+        practiceProbes: practice.probes,
       };
       // Artifact before manifest: the replay gate above requires BOTH files, so a crash between
       // the two writes leaves a regenerable miss, never a manifest pointing at a missing artifact.

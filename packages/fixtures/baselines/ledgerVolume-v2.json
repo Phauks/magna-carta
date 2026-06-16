@@ -1,0 +1,119 @@
+{
+  "profileName": "ledgerVolume",
+  "profileVersion": 2,
+  "cacheKey": "5032bc44be245d78",
+  "results": [
+    {
+      "name": "balance-read.busy-subledger",
+      "iterations": 30,
+      "minMs": 0.054,
+      "medianMs": 0.065,
+      "p95Ms": 0.135
+    },
+    {
+      "name": "create-account.trust-subledger",
+      "iterations": 30,
+      "minMs": 3.276,
+      "medianMs": 4.127,
+      "p95Ms": 5.471
+    },
+    {
+      "name": "get-current-clean-version",
+      "iterations": 30,
+      "minMs": 0.082,
+      "medianMs": 0.092,
+      "p95Ms": 0.182
+    },
+    {
+      "name": "ledger-fitness.table-wide",
+      "iterations": 30,
+      "minMs": 334.748,
+      "medianMs": 373.262,
+      "p95Ms": 420.566
+    },
+    {
+      "name": "list-clean-versions.by-file",
+      "iterations": 30,
+      "minMs": 0.105,
+      "medianMs": 0.161,
+      "p95Ms": 0.325
+    },
+    {
+      "name": "list-consultations.by-member",
+      "iterations": 30,
+      "minMs": 0.345,
+      "medianMs": 0.471,
+      "p95Ms": 3.333
+    },
+    {
+      "name": "list-files.by-folder",
+      "iterations": 30,
+      "minMs": 0.099,
+      "medianMs": 0.169,
+      "p95Ms": 0.227
+    },
+    {
+      "name": "list-files.by-matter",
+      "iterations": 30,
+      "minMs": 0.223,
+      "medianMs": 0.317,
+      "p95Ms": 0.511
+    },
+    {
+      "name": "list-matters.filtered",
+      "iterations": 30,
+      "minMs": 0.257,
+      "medianMs": 0.345,
+      "p95Ms": 0.712
+    },
+    {
+      "name": "list-matters.first-page",
+      "iterations": 30,
+      "minMs": 0.51,
+      "medianMs": 0.914,
+      "p95Ms": 2.955
+    },
+    {
+      "name": "matter-number.counter-draw",
+      "iterations": 30,
+      "minMs": 4.671,
+      "medianMs": 6.27,
+      "p95Ms": 9.743
+    },
+    {
+      "name": "post-entry.two-line",
+      "iterations": 30,
+      "minMs": 14.397,
+      "medianMs": 16.814,
+      "p95Ms": 19.967
+    },
+    {
+      "name": "reverse-entry.two-line",
+      "iterations": 30,
+      "minMs": 15.425,
+      "medianMs": 18.328,
+      "p95Ms": 21.229
+    },
+    {
+      "name": "storage-meter.summary",
+      "iterations": 30,
+      "minMs": 0.055,
+      "medianMs": 0.096,
+      "p95Ms": 0.14
+    },
+    {
+      "name": "zip-resolution.clean-current-versions",
+      "iterations": 30,
+      "minMs": 0.193,
+      "medianMs": 0.241,
+      "p95Ms": 0.347
+    },
+    {
+      "name": "zip-resolution.folders-by-matter",
+      "iterations": 30,
+      "minMs": 0.072,
+      "medianMs": 0.104,
+      "p95Ms": 0.415
+    }
+  ]
+}

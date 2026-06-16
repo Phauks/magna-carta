@@ -8,6 +8,11 @@ import {
   measurementHandle,
   PLAN_SCAN_ALLOWLIST,
 } from "../src/load-profile/ledger-measurements.ts";
+import {
+  mattersMeasurements,
+  practiceHotPathPlans,
+  PRACTICE_PLAN_SCAN_ALLOWLIST,
+} from "../src/load-profile/matters-measurements.ts";
 import { ledgerVolume, scaleProfile } from "../src/load-profile/profile.ts";
 import { findFullScans, runMeasurements } from "../src/load-profile/runner.ts";
 import { loadProfileSnapshot, type LoadedSnapshot } from "../src/load-profile/snapshot.ts";
@@ -47,7 +52,7 @@ describe("load-profile smoke", () => {
     );
     const handle = measurementHandle(snapshot, "smoke-seed");
 
-    const results = await runMeasurements(handle, ledgerMeasurements, {
+    const results = await runMeasurements(handle, [...ledgerMeasurements, ...mattersMeasurements], {
       warmupIterations: 1,
       iterations: 2,
     });
@@ -58,6 +63,17 @@ describe("load-profile smoke", () => {
         "ledger-fitness.table-wide",
         "post-entry.two-line",
         "reverse-entry.two-line",
+        "list-matters.first-page",
+        "list-matters.filtered",
+        "list-consultations.by-member",
+        "list-files.by-matter",
+        "list-files.by-folder",
+        "get-current-clean-version",
+        "list-clean-versions.by-file",
+        "zip-resolution.clean-current-versions",
+        "zip-resolution.folders-by-matter",
+        "storage-meter.summary",
+        "matter-number.counter-draw",
       ].sort(),
     );
     for (const result of results) {
@@ -74,6 +90,24 @@ describe("load-profile smoke", () => {
     );
     const scans = findFullScans(plans, PLAN_SCAN_ALLOWLIST);
     expect(scans).toEqual([]);
+
+    // The practice hot-path plans: same label-set-first guard, then the scan check.
+    const practicePlans = practiceHotPathPlans(snapshot);
+    expect(practicePlans.map((plan) => plan.label).sort()).toEqual(
+      [
+        "list-matters.first-page",
+        "list-matters.filtered",
+        "list-consultations.by-member",
+        "list-files.by-matter",
+        "list-files.by-folder",
+        "get-current-clean-version",
+        "zip-resolution.clean-current-versions",
+        "zip-resolution.folders-by-matter",
+        "storage-meter.summary",
+      ].sort(),
+    );
+    const practiceScans = findFullScans(practicePlans, PRACTICE_PLAN_SCAN_ALLOWLIST);
+    expect(practiceScans).toEqual([]);
 
     snapshot.close();
   });
