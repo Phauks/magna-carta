@@ -22,6 +22,7 @@
     "./popover": "./src/lib/components/popover/index.ts",
     "./progress": "./src/lib/components/progress/index.ts",
     "./radio-group": "./src/lib/components/radio-group/index.ts",
+    "./select": "./src/lib/components/select/index.ts",
     "./separator": "./src/lib/components/separator/index.ts",
     "./sheet": "./src/lib/components/sheet/index.ts",
     "./skeleton": "./src/lib/components/skeleton/index.ts",
