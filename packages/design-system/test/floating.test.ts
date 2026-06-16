@@ -6,10 +6,6 @@ import {
   floatingContentClasses,
   PRESENCE_FADE,
   PRESENCE_SCALE_FADE,
-  PRESENCE_SLIDE_FROM_BOTTOM,
-  PRESENCE_SLIDE_FROM_LEFT,
-  PRESENCE_SLIDE_FROM_RIGHT,
-  PRESENCE_SLIDE_FROM_TOP,
   Z_LAYER_CLASSES,
 } from "../src/lib/internal/floating.ts";
 
@@ -48,10 +44,6 @@ const easeTokens = themeTokens(generatedTheme, "ease");
 const PRESENCE_CONSTANTS = {
   PRESENCE_FADE,
   PRESENCE_SCALE_FADE,
-  PRESENCE_SLIDE_FROM_TOP,
-  PRESENCE_SLIDE_FROM_BOTTOM,
-  PRESENCE_SLIDE_FROM_LEFT,
-  PRESENCE_SLIDE_FROM_RIGHT,
 } as const;
 
 describe("source-of-truth wiring (vacuity guards)", () => {
@@ -104,7 +96,7 @@ const ALLOWED_BASE_UTILITIES = [
   /^transition(-(opacity|transform|colors|none))?$/,
   /^opacity-(0|100)$/,
   /^scale-(95|100)$/,
-  /^-?translate-(x|y)-(0|4|8|full)$/, // spacing-token distances (0/4/8), or full = 100% (a panel's own size, for edge-pinned drawers)
+  /^-?translate-(x|y)-(0|4|8)$/, // translate distances resolve the --spacing-* tokens
 ];
 
 function classifyPresenceClass(presenceClass: string): { variant: string; base: string } {
@@ -125,11 +117,7 @@ describe.each(Object.entries(PRESENCE_CONSTANTS))("%s", (constantName, constant)
       true,
     );
     expect(classes.some((candidate) => candidate.startsWith("duration-"))).toBe(true);
-    // Easing may be a single base utility OR per-direction under the data-state variants
-    // (a drawer decelerates in, accelerates out), so classify away any variant first.
-    expect(
-      classes.some((candidate) => classifyPresenceClass(candidate).base.startsWith("ease-")),
-    ).toBe(true);
+    expect(classes.some((candidate) => candidate.startsWith("ease-"))).toBe(true);
   });
 
   it("styles both data-state targets (open and closed)", () => {

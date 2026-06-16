@@ -81,34 +81,12 @@ export const PRESENCE_SCALE_FADE =
   "data-[state=closed]:opacity-0 data-[state=closed]:scale-95";
 
 /*
- * Full-panel edge slides — for drawers/sheets (a panel pinned to a screen edge), NOT small
- * floats. The panel translates its ENTIRE width/height from off the edge to flush, staying SOLID
- * (transform only, no opacity fade — a fading-while-barely-moving panel reads as a "pop", not a
- * slide; the scrim fades separately via PRESENCE_FADE on the overlay). The motion is asymmetric,
- * the natural drawer feel: it DECELERATES on the way in (fast off the edge, easing to rest) and
- * ACCELERATES on the way out (eases off, then leaves quickly), at the slow duration so a full-
- * width travel doesn't feel rushed. `translate-*-full` is 100% of the panel's own size, so the
- * closed position is exactly off its edge regardless of how wide/tall the caller sizes it.
+ * Edge-pinned PANEL slides (drawers/sheets) are NOT here — a panel that travels its full own size
+ * needs a keyframe ANIMATION, not a transition (a transition has nothing to animate from on first
+ * mount, so the panel would "pop" in and only slide out). That motion lives as CSS keyframes in
+ * styles/animations.css, wired token-by-token in the mc-sheet-content recipe (components.css).
+ * The constants here stay for SMALL floats (tooltip/popover/menu) whose presence is a transition.
  */
-export const PRESENCE_SLIDE_FROM_TOP =
-  "transition-transform duration-slow motion-reduce:transition-none " +
-  "data-[state=open]:translate-y-0 data-[state=open]:ease-decelerate " +
-  "data-[state=closed]:-translate-y-full data-[state=closed]:ease-accelerate";
-
-export const PRESENCE_SLIDE_FROM_BOTTOM =
-  "transition-transform duration-slow motion-reduce:transition-none " +
-  "data-[state=open]:translate-y-0 data-[state=open]:ease-decelerate " +
-  "data-[state=closed]:translate-y-full data-[state=closed]:ease-accelerate";
-
-export const PRESENCE_SLIDE_FROM_LEFT =
-  "transition-transform duration-slow motion-reduce:transition-none " +
-  "data-[state=open]:translate-x-0 data-[state=open]:ease-decelerate " +
-  "data-[state=closed]:-translate-x-full data-[state=closed]:ease-accelerate";
-
-export const PRESENCE_SLIDE_FROM_RIGHT =
-  "transition-transform duration-slow motion-reduce:transition-none " +
-  "data-[state=open]:translate-x-0 data-[state=open]:ease-decelerate " +
-  "data-[state=closed]:translate-x-full data-[state=closed]:ease-accelerate";
 
 /**
  * The canonical content-class builder for floating parts (Tier 3/4): composes

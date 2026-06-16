@@ -1084,24 +1084,80 @@
     border-width: var(--mc-border-width-default);
     border-color: var(--mc-border-default);
     box-shadow: var(--mc-elevation-3);
+    /*
+     * Slide presence — a CSS ANIMATION (keyframes in styles/animations.css), not a transition: a
+     * transition has nothing to animate from on first mount, so the panel would "pop" in and only
+     * slide out. animation-fill-mode: both holds the off-edge first frame before paint and the
+     * resting frame after, so the panel slides in AND out. The per-side/per-state rules below pick
+     * the keyframe + direction + easing; the duration lives here so reduced motion overrides it once.
+     */
+    animation-duration: var(--mc-duration-slow);
+    animation-fill-mode: both;
   }
-  /* Pinned to a vertical edge: full height, flush against the right or left of the viewport. */
+  /*
+   * Pinned to a vertical edge: full height, flush right/left. data-state=open slides in
+   * (decelerating to rest); data-state=closed replays the same keyframe in reverse (accelerating
+   * off the edge) for the exit. Bits keeps the panel mounted until the animation ends.
+   */
   .mc-sheet-content-right {
     inset-block: var(--mc-space-0);
     inset-inline-end: var(--mc-space-0);
   }
+  .mc-sheet-content-right[data-state="open"] {
+    animation-name: mc-sheet-in-right;
+    animation-timing-function: var(--mc-easing-decelerate);
+  }
+  .mc-sheet-content-right[data-state="closed"] {
+    animation-name: mc-sheet-out-right;
+    animation-timing-function: var(--mc-easing-accelerate);
+  }
   .mc-sheet-content-left {
     inset-block: var(--mc-space-0);
     inset-inline-start: var(--mc-space-0);
+  }
+  .mc-sheet-content-left[data-state="open"] {
+    animation-name: mc-sheet-in-left;
+    animation-timing-function: var(--mc-easing-decelerate);
+  }
+  .mc-sheet-content-left[data-state="closed"] {
+    animation-name: mc-sheet-out-left;
+    animation-timing-function: var(--mc-easing-accelerate);
   }
   /* Pinned to a horizontal edge: full width, flush against the top or bottom of the viewport. */
   .mc-sheet-content-top {
     inset-inline: var(--mc-space-0);
     inset-block-start: var(--mc-space-0);
   }
+  .mc-sheet-content-top[data-state="open"] {
+    animation-name: mc-sheet-in-top;
+    animation-timing-function: var(--mc-easing-decelerate);
+  }
+  .mc-sheet-content-top[data-state="closed"] {
+    animation-name: mc-sheet-out-top;
+    animation-timing-function: var(--mc-easing-accelerate);
+  }
   .mc-sheet-content-bottom {
     inset-inline: var(--mc-space-0);
     inset-block-end: var(--mc-space-0);
+  }
+  .mc-sheet-content-bottom[data-state="open"] {
+    animation-name: mc-sheet-in-bottom;
+    animation-timing-function: var(--mc-easing-decelerate);
+  }
+  .mc-sheet-content-bottom[data-state="closed"] {
+    animation-name: mc-sheet-out-bottom;
+    animation-timing-function: var(--mc-easing-accelerate);
+  }
+  /*
+   * Low-motion: collapse the slide to instant. Overriding the base duration (not each name)
+   * dodges any specificity fight with the per-side rules — they set the name, this sets 0ms, so
+   * the panel just appears. The OS prefers-reduced-motion signal today; the data-motion user axis
+   * (a firm/user setting) wires onto the same duration token in slice 0·7b.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .mc-sheet-content {
+      animation-duration: var(--mc-duration-instant);
+    }
   }
   .mc-sheet-title {
     font-family: var(--mc-font-sans);

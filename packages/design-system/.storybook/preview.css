@@ -13,5 +13,6 @@
 @import "tailwindcss";
 @import "@magna-carta/design-tokens/tokens.css";
 @import "@magna-carta/design-tokens/tailwind-theme.css";
+@import "../src/lib/styles/animations.css";
 @import "../src/lib/styles/components.css";
 @source "../src";

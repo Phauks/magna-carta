@@ -34,6 +34,7 @@
     "./internal/merge-classes": "./src/lib/internal/merge-classes.ts",
     "./internal/theme-preference": "./src/lib/internal/theme-preference.ts",
     "./internal/types": "./src/lib/internal/types.ts",
+    "./styles/animations.css": "./src/lib/styles/animations.css",
     "./styles/components.css": "./src/lib/styles/components.css"
   },
   "scripts": {
