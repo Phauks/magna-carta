@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Credential, CredentialStore } from "../src/credentials.ts";
-import type { ConnectionLookup, ConnectionStore, IntegrationConnection } from "../src/connection.ts";
+import type {
+  ConnectionLookup,
+  ConnectionStore,
+  IntegrationConnection,
+} from "../src/connection.ts";
 import type { Adapter, CapabilityDescriptor } from "../src/port.ts";
 import { createIntegrationRegistry, requireCapability } from "../src/registry.ts";
 
