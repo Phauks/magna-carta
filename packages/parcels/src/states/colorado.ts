@@ -1,0 +1,155 @@
+import type { AssessorSite } from "../types.ts";
+import { stateSites } from "./helpers.ts";
+
+// Colorado's 64 counties (incl. consolidated Denver 08031 and Broomfield 08014). Dominant platform is
+// Tyler EagleWeb (~22 counties, POST search, no public deep-link); plus Spatialest, InfoEnvoy, gsaCorp
+// form-search, qPublic/Beacon, and custom county systems. Only four counties (Chaffee, Garfield, Park,
+// Pitkin) deep-link by the public R-prefixed schedule number via Beacon. Everything else is search-only
+// (five are county landing pages with no online search: Baca, Conejos, Dolores, Moffat, Bent).
+const { search, platform } = stateSites("CO");
+
+const beacon = (
+  jurisdictionId: string,
+  name: string,
+  searchUrl: string,
+  appId: string,
+  layerId: string,
+  host = "qpublic.schneidercorp.com",
+): AssessorSite =>
+  platform(jurisdictionId, name, searchUrl, "beaconQpublic", host, { params: { appId, layerId } });
+
+export const COLORADO_ASSESSOR_SITES: readonly AssessorSite[] = [
+  search("08001", "Adams", "https://gisapp.adcogov.org/PropertySearch"),
+  search(
+    "08003",
+    "Alamosa",
+    "https://qpublic.schneidercorp.com/Application.aspx?App=AlamosaCountyCO&PageType=Search",
+  ),
+  search(
+    "08005",
+    "Arapahoe",
+    "https://www.arapahoeco.gov/your_county/county_departments/assessor/property_search/search_residential_commercial_ag_and_vacant.php",
+  ),
+  search("08007", "Archuleta", "https://archuleta.infoenvoy.com/Search"),
+  search("08009", "Baca", "https://www.bacacountyco.gov/government/county-assessor/"),
+  search("08011", "Bent", "https://bentcountyco-treasurer.tylerhost.net/treasurer/web/"),
+  search("08013", "Boulder", "https://maps.bouldercounty.org/boco/PropertySearch/?page=Home"),
+  search("08014", "Broomfield", "https://egov.broomfield.org/assessor/web/"),
+  beacon(
+    "08015",
+    "Chaffee",
+    "https://qpublic.schneidercorp.com/Application.aspx?AppID=928&LayerID=18090&PageTypeID=2&PageID=8090",
+    "928",
+    "18090",
+  ),
+  search(
+    "08017",
+    "Cheyenne",
+    "https://experience.arcgis.com/experience/ee6e8974056e40918dfd49a8ebba6245/",
+  ),
+  search("08019", "Clear Creek", "https://assessor.co.clear-creek.co.us/eagleassessor/web/"),
+  search("08021", "Conejos", "https://conejoscounty.colorado.gov/elected-officials/assessor"),
+  search("08023", "Costilla", "https://costilla-assessor-tyler.obus.io/assessor/web/"),
+  search("08025", "Crowley", "https://crowleycountyco-assessor.tylerhost.net/assessor/web/"),
+  search(
+    "08027",
+    "Custer",
+    "https://qpublic.schneidercorp.com/Application.aspx?App=CusterCountyCO&PageType=Search",
+  ),
+  search("08029", "Delta", "https://assessor.deltacountyco.gov/assessor/web/"),
+  search(
+    "08031",
+    "Denver",
+    "https://www.denvergov.org/My-Property/Property-Information/Real-Property",
+  ),
+  search("08033", "Dolores", "https://dolocnty.colorado.gov/assessors-office"),
+  search(
+    "08035",
+    "Douglas",
+    "https://apps.douglas.co.us/apps/assessor/search/parcelSimpleSearchForm.do",
+  ),
+  search("08037", "Eagle", "https://property.eaglecounty.us/assessor/web/"),
+  search("08039", "Elbert", "https://services.elbertcounty-co.gov/assessor/web/"),
+  search("08041", "El Paso", "https://property.spatialest.com/co/elpaso"),
+  search("08043", "Fremont", "https://fremontcountyco-asr-web.tylerhost.net/assessor/web/"),
+  beacon(
+    "08045",
+    "Garfield",
+    "https://qpublic.schneidercorp.com/Application.aspx?AppID=1038&LayerID=22381&PageTypeID=2&PageID=9445",
+    "1038",
+    "22381",
+  ),
+  search("08047", "Gilpin", "https://gilpincounty.colorado.gov/elected-officials/assessor"),
+  search("08049", "Grand", "https://assessor.co.grand.co.us/assessor/web/"),
+  search("08051", "Gunnison", "https://property.spatialest.com/co/gunnison"),
+  search("08053", "Hinsdale", "https://tyler.hinsdalecountycolorado.us:8444/assessor/web/"),
+  search("08055", "Huerfano", "https://property.spatialest.com/co/huerfano"),
+  search("08057", "Jackson", "https://eagleweb.jacksoncountyco.gov/assessor/web/"),
+  search("08059", "Jefferson", "https://propertysearch.jeffco.us/"),
+  search(
+    "08061",
+    "Kiowa",
+    "https://qpublic.schneidercorp.com/Application.aspx?App=KiowaCountyCO&PageType=Search",
+  ),
+  search("08063", "Kit Carson", "https://kitcarsoncountyco-assessor.tylerhost.net/assessor/web/"),
+  search("08065", "Lake", "https://assessor.lakecountyco.com/"),
+  search("08067", "La Plata", "https://property.spatialest.com/co/laplata"),
+  search("08069", "Larimer", "https://www.larimer.gov/assessor/search"),
+  search("08071", "Las Animas", "http://assessorweb.lasanimascounty.net/"),
+  search("08073", "Lincoln", "https://treasurer.lincolncountyco.us:8443/assessor/web/"),
+  search(
+    "08075",
+    "Logan",
+    "http://www.logancountycoaat.com/pt/search/commonsearch.aspx?mode=address",
+  ),
+  search("08077", "Mesa", "https://emap.mesacounty.us/assessor_lookup/"),
+  search("08079", "Mineral", "https://eagleweb.mineralcountycolorado.com/assessor/web/"),
+  search(
+    "08081",
+    "Moffat",
+    "https://moffatcounty.colorado.gov/government/elected-officials/county-assessor",
+  ),
+  search("08083", "Montezuma", "http://eagleweb.co.montezuma.co.us/assessor/taxweb/search.jsp"),
+  search("08085", "Montrose", "https://eagleweb.montrosecounty.net/eagleassessor/web/"),
+  search("08087", "Morgan", "https://morganco-eagle.com/assessor/taxweb/search.jsp"),
+  search(
+    "08089",
+    "Otero",
+    "https://qpublic.schneidercorp.com/Application.aspx?App=OteroCountyCO&Layer=Parcels&PageType=Search",
+  ),
+  search("08091", "Ouray", "https://ouraycountyco-assessor.tylerhost.net/assessor/web/"),
+  beacon(
+    "08093",
+    "Park",
+    "https://beacon.schneidercorp.com/Application.aspx?AppID=1085&LayerID=26739&PageTypeID=2&PageID=10841",
+    "1085",
+    "26739",
+    "beacon.schneidercorp.com",
+  ),
+  search("08095", "Phillips", "http://phillipsco.tyler-esubmittal.com/assessor/web/"),
+  beacon(
+    "08097",
+    "Pitkin",
+    "https://qpublic.schneidercorp.com/Application.aspx?AppID=1071&LayerID=26013&PageTypeID=2&PageID=10531",
+    "1071",
+    "26013",
+  ),
+  search(
+    "08099",
+    "Prowers",
+    "https://qpublic.schneidercorp.com/Application.aspx?App=ProwersCountyCO&PageType=Search",
+  ),
+  search("08101", "Pueblo", "https://puebloco-search.gsacorp.io/"),
+  search("08103", "Rio Blanco", "https://rioblanco.infoenvoy.com/Search"),
+  search("08105", "Rio Grande", "https://riograndecountyco-assessor.tylerhost.net/assessor/web/"),
+  search("08107", "Routt", "https://property.spatialest.com/co/routt"),
+  search("08109", "Saguache", "https://assessor.saguachecounty.net/assessor/web/login.jsp"),
+  search("08111", "San Juan", "https://sanjuanco-search.gsacorp.io/"),
+  search("08113", "San Miguel", "https://sanmiguel.infoenvoy.com/search"),
+  search("08115", "Sedgwick", "https://sedgwickco-search.gsacorp.io/"),
+  search("08117", "Summit", "https://www.summitcountyco.gov/services/assessor/index.php"),
+  search("08119", "Teller", "https://tcweb.tellercounty.gov/proprecs/"),
+  search("08121", "Washington", "https://qpublic.net/co/washington/"),
+  search("08123", "Weld", "https://maps.weld.gov/propertyportal/"),
+  search("08125", "Yuma", "https://qpublic.net/co/yuma/search.html"),
+];
