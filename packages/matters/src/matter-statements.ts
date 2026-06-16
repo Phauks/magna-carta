@@ -54,12 +54,15 @@ export interface MatterRow extends MatterFields {
   readonly id: MatterId;
   readonly status: MatterStatus;
   readonly matterNumber: string | null;
+  // The honest "was this matter ever opened" signal: set by createMatter (status 'open') and by
+  // openMatter, never by renumberMatter — so reopen restores the real pre-close status.
+  readonly openedAt: string | null;
 }
 
 export function selectMatterStatement(database: SqlDatabase, id: MatterId): SqlStatement {
   return database
     .prepare(
-      `SELECT id, title, description, status, matter_type_id, location_id, responsible_member_id, client_display_name, client_code, matter_number FROM ${MATTER_TABLE} WHERE id = ?1`,
+      `SELECT id, title, description, status, matter_type_id, location_id, responsible_member_id, client_display_name, client_code, matter_number, opened_at FROM ${MATTER_TABLE} WHERE id = ?1`,
     )
     .bind(id);
 }

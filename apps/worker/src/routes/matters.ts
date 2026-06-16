@@ -12,6 +12,7 @@ import {
   type NumberContext,
 } from "@magna-carta/matters/matter-service";
 import { ClosePreconditionError } from "@magna-carta/matters/close-preconditions";
+import { NumberingRenderError } from "@magna-carta/matters/numbering/render";
 import { listConsultations, listMatters } from "@magna-carta/matters/queries";
 import { staleConsultationAgeDaysDefinition } from "@magna-carta/matters/settings";
 import { MatterValidationError } from "@magna-carta/matters/validation";
@@ -181,6 +182,18 @@ function matterErrorResponse(
         detail: error.message,
       });
   }
+}
+
+// A number draw whose active scheme references a value the matter lacks (e.g. a location_code segment
+// with no Location and no firm default) is a bad request against this matter, not a server fault —
+// map it to a 422, mirroring the numbering preview route.
+function numberingRenderResponse(c: Context, error: NumberingRenderError): ProblemResponse<422> {
+  return problemJson(c, {
+    type: "validation",
+    title: "Cannot render the matter number",
+    status: 422,
+    detail: error.message,
+  });
 }
 
 // Reads a single string column for a row by id (used to assemble the number context from the Location
@@ -631,6 +644,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
           return problemResponseForIdempotencyConflict(c, caught);
         }
         if (caught instanceof MatterValidationError) return matterErrorResponse(c, caught);
+        if (caught instanceof NumberingRenderError) return numberingRenderResponse(c, caught);
         throw caught;
       }
     },
@@ -892,6 +906,7 @@ function mapMutationError(
     return problemResponseForIdempotencyConflict(c, caught);
   }
   if (caught instanceof MatterValidationError) return matterErrorResponse(c, caught);
+  if (caught instanceof NumberingRenderError) return numberingRenderResponse(c, caught);
   throw caught;
 }
 

@@ -197,6 +197,31 @@ describe("matter lifecycle routes", () => {
     expect(closed.status).toBe(200);
   });
 
+  it("returns 422 (not 500) when the draw needs a value the matter lacks", async () => {
+    // Set a scheme whose counter scope keys off a required location_code segment.
+    const locationScheme = [
+      { kind: "location_code" },
+      { kind: "literal", text: "-" },
+      { kind: "counter", padWidth: 4 },
+    ];
+    const setResponse = await put("/api/v1/numbering-scheme", { segments: locationScheme });
+    expect(setResponse.status).toBe(200);
+
+    // Create-as-open with no location and no firm default → the draw cannot render the number.
+    const response = await post("/api/v1/matters", {
+      title: "No Location",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+    });
+    expect(response.status).toBe(422);
+    const body = (await response.json()) as { type: string };
+    expect(body.type).toContain("validation");
+
+    // Restore the year/counter scheme for the later cases.
+    const restore = await put("/api/v1/numbering-scheme", { segments: YEAR_COUNTER });
+    expect(restore.status).toBe(200);
+  });
+
   it("replays a create under the same Idempotency-Key (no second matter)", async () => {
     const key = crypto.randomUUID();
     const body = { title: "Idempotent Matter", status: "open", responsibleMemberId: ownerUserId };

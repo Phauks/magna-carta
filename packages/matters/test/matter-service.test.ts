@@ -186,6 +186,30 @@ describe("closeMatter / reopenMatter", () => {
     });
   });
 
+  it("reopens a manually-numbered consultation to prospective, not open", async () => {
+    const database = await setup();
+    // A consultation given a manual number never sets opened_at, so it was never opened.
+    const { matterId } = await createMatter(
+      database,
+      { ...baseInput, status: "prospective" },
+      options,
+    );
+    await renumberMatter(database, matterId, "LEGACY-7", options);
+    expect(await readMatter(database, matterId)).toMatchObject({
+      status: "prospective",
+      matter_number: "LEGACY-7",
+      opened_at: null,
+    });
+    await closeMatter(database, matterId, options);
+    await reopenMatter(database, matterId, options);
+    // Restored from opened_at (null), not inferred from the present number — stays prospective.
+    expect(await readMatter(database, matterId)).toMatchObject({
+      status: "prospective",
+      matter_number: "LEGACY-7",
+      closed_at: null,
+    });
+  });
+
   it("close runs the (empty) precondition registry and succeeds", async () => {
     const database = await setup();
     const { matterId } = await createMatter(database, { ...baseInput, status: "open" }, options);

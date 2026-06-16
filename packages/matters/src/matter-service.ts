@@ -111,6 +111,7 @@ async function loadMatter(database: SqlDatabase, id: MatterId): Promise<MatterRo
     client_display_name: string | null;
     client_code: string | null;
     matter_number: string | null;
+    opened_at: string | null;
   }>();
   const row = results[0];
   if (row === undefined) return undefined;
@@ -125,6 +126,7 @@ async function loadMatter(database: SqlDatabase, id: MatterId): Promise<MatterRo
     clientDisplayName: row.client_display_name,
     clientCode: row.client_code,
     matterNumber: row.matter_number,
+    openedAt: row.opened_at,
   };
 }
 
@@ -142,7 +144,7 @@ async function loadActiveScheme(database: SqlDatabase): Promise<ActiveScheme> {
   const segments = numberingSchemeSchema.parse(JSON.parse(row.segments));
   const counter = segments.find((segment) => segment.kind === "counter");
   // numberingSchemeSchema guarantees exactly one counter; the start defaults to 1.
-  const startValue = counter !== undefined && counter.kind === "counter" ? (counter.start ?? 1) : 1;
+  const startValue = counter?.start ?? 1;
   return { segments, startValue };
 }
 
@@ -439,9 +441,10 @@ export async function reopenMatter(
       `matter ${matterId} is ${matter.status}, not closed`,
     );
   }
-  // Restore the pre-close status: a numbered matter reopens to open, an unnumbered consultation to
-  // prospective (the number, if any, is frozen and untouched).
-  const status = matter.matterNumber !== null ? "open" : "prospective";
+  // Restore the pre-close status from the honest signal — opened_at, set only when a matter was
+  // actually opened. A consultation handed a manual number via renumberMatter has a number but was
+  // never opened, so it reopens to prospective; the number, if any, is frozen and untouched.
+  const status = matter.openedAt !== null ? "open" : "prospective";
   return runMatterEffect<{ matterId: MatterId }>(database, options, 200, () => {
     const now = options.clock.now();
     return {
