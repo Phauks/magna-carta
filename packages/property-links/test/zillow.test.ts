@@ -21,7 +21,12 @@ describe("zillowProvider", () => {
 
   it("percent-encodes path-unsafe characters in the slug", () => {
     expect(
-      zillowProvider.build({ street: "123 Main St #4", city: "Reno", region: "NV", postal: "89501" }),
+      zillowProvider.build({
+        street: "123 Main St #4",
+        city: "Reno",
+        region: "NV",
+        postal: "89501",
+      }),
     ).toBe("https://www.zillow.com/homes/123-Main-St-%234-Reno-NV-89501_rb/");
   });
 

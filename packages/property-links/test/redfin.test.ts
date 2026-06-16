@@ -15,7 +15,12 @@ describe("redfinProvider", () => {
 
   it("percent-encodes path-unsafe characters", () => {
     expect(
-      redfinProvider.build({ street: "123 Main St #4", city: "Reno", region: "NV", postal: "89501" }),
+      redfinProvider.build({
+        street: "123 Main St #4",
+        city: "Reno",
+        region: "NV",
+        postal: "89501",
+      }),
     ).toBe("https://www.redfin.com/?location=123%20Main%20St%20%234%2C%20Reno%2C%20NV%2089501");
   });
 
