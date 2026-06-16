@@ -70,7 +70,9 @@
     await step("Clicking the trigger opens the menu, portaled and visible", async () => {
       await userEvent.click(trigger);
       const menu = await body.findByRole("menu");
-      await expect(menu).toBeVisible();
+      // The menu scale-fades in (mc-presence-scale-fade), starting at opacity 0, so poll until
+      // the entrance settles rather than asserting on the first frame.
+      await waitFor(() => expect(menu).toBeVisible());
       await expect(body.getByRole("menuitem", { name: "Edit" })).toBeVisible();
     });
 

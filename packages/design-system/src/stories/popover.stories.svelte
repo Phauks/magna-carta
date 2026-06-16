@@ -56,7 +56,9 @@
       await userEvent.click(trigger);
       // The content is portaled to the body, so query there.
       const heading = await body.findByText("Add a note to this matter");
-      await expect(heading).toBeVisible();
+      // The panel scale-fades in (mc-presence-scale-fade), starting at opacity 0, so poll until
+      // the entrance settles rather than asserting on the first frame.
+      await waitFor(() => expect(heading).toBeVisible());
     });
 
     await step("Escape closes the popover and returns focus to the trigger", async () => {

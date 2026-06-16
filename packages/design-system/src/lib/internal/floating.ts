@@ -56,36 +56,25 @@ export const Z_LAYER_CLASSES = {
 export type ZLayer = keyof typeof Z_LAYER_CLASSES;
 
 /*
- * Presence animation constants — motion tokens only (duration-* and ease-* from the
- * generated theme; opacity/scale/translate values from Tailwind's token-resolved
- * scales — translate distances resolve the --spacing-* tokens). No arbitrary
- * values, no raw milliseconds.
- *
- * Every constant carries `motion-reduce:transition-none` — the STRUCTURAL
- * reduced-motion gate: under prefers-reduced-motion the state flip applies
- * instantly with no animation. CSS media queries cannot stop JS engines, so a
- * JS-side prefersReducedMotion scalar gate is still mandatory for JS-driven
- * animation (design spec, "Satellite dependencies" — Motion); it ships with the
- * first JS-driven animation, which does not exist yet.
+ * Presence recipe classes — each names a CSS keyframe-animation recipe (keyframes in
+ * styles/animations.css, recipe in components.css) keyed on the Bits `data-state` attribute.
+ * A keyframe animation, not a transition, so each surface animates IN on mount as well as OUT
+ * (a transition has nothing to animate from on first mount, so the surface would "pop" in and only
+ * animate on close). Durations, easings, and reduced motion are all handled token-by-token in the
+ * recipe; under prefers-reduced-motion the recipe collapses the duration to instant.
  */
 
 /** Fade in/out. The default for tooltips and other low-emphasis surfaces. */
-export const PRESENCE_FADE =
-  "transition-opacity duration-fast ease-standard motion-reduce:transition-none " +
-  "data-[state=open]:opacity-100 data-[state=closed]:opacity-0";
+export const PRESENCE_FADE = "mc-presence-fade";
 
 /** Fade combined with a subtle scale — the standard popover/menu presence. */
-export const PRESENCE_SCALE_FADE =
-  "transition duration-fast ease-standard motion-reduce:transition-none " +
-  "data-[state=open]:opacity-100 data-[state=open]:scale-100 " +
-  "data-[state=closed]:opacity-0 data-[state=closed]:scale-95";
+export const PRESENCE_SCALE_FADE = "mc-presence-scale-fade";
 
 /*
- * Edge-pinned PANEL slides (drawers/sheets) are NOT here — a panel that travels its full own size
- * needs a keyframe ANIMATION, not a transition (a transition has nothing to animate from on first
- * mount, so the panel would "pop" in and only slide out). That motion lives as CSS keyframes in
- * styles/animations.css, wired token-by-token in the mc-sheet-content recipe (components.css).
- * The constants here stay for SMALL floats (tooltip/popover/menu) whose presence is a transition.
+ * Edge-pinned PANEL slides (drawers/sheets) are NOT here — they carry their own per-side recipe
+ * (mc-sheet-content in components.css, keyframes in styles/animations.css). Same keyframe-animation
+ * rationale as the constants above: a transition has nothing to animate from on first mount, so the
+ * panel would "pop" in and only slide out.
  */
 
 /**

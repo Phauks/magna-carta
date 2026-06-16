@@ -88,3 +88,48 @@
     transform: translateY(100%);
   }
 }
+
+/*
+ * Shared float/overlay presence — companions to the sheet slide keyframes above. Fade is for
+ * low-emphasis surfaces (overlay scrims, tooltips); scale-fade is for popovers, menus, and dialogs.
+ * Same rationale as the slides: a keyframe animation (not a transition) so each surface animates IN
+ * on mount as well as OUT, and IN/OUT are SEPARATE names so both directions replay (the recipes in
+ * components.css swap animation-name on data-state).
+ */
+@keyframes mc-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes mc-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes mc-scale-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes mc-scale-fade-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}

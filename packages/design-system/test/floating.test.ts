@@ -5,17 +5,18 @@ import {
   FLOATING_WRAPPER_RULE,
   floatingContentClasses,
   PRESENCE_FADE,
-  PRESENCE_SCALE_FADE,
   Z_LAYER_CLASSES,
 } from "../src/lib/internal/floating.ts";
 
 /*
- * The floating/presence pattern is class STRINGS, so these tests verify them
- * against the same source of truth the browser will: the generated Tailwind
- * theme in @magna-carta/design-tokens (the pattern merge-classes.test.ts
- * established). A z-layer or motion utility that names a token the theme does
- * not emit would silently produce no CSS — that is the failure mode this suite
- * makes loud.
+ * The floating z-scale is class STRINGS, so these tests verify them against the
+ * same source of truth the browser will: the generated Tailwind theme in
+ * @magna-carta/design-tokens (the pattern merge-classes.test.ts established). A
+ * z-layer utility that names a token the theme does not emit would silently
+ * produce no CSS — that is the failure mode this suite makes loud. (The presence
+ * recipes — PRESENCE_FADE / PRESENCE_SCALE_FADE — are now plain recipe class
+ * names whose token purity is covered by the components.css/animations.css
+ * fitness gates, so they need no string-composition checks here.)
  */
 
 const GENERATED_THEME_PATH = join(
@@ -38,21 +39,12 @@ function themeTokens(css: string, namespace: string): Set<string> {
 
 const generatedTheme = readFileSync(GENERATED_THEME_PATH, "utf8");
 const zIndexTokens = themeTokens(generatedTheme, "z-index");
-const durationTokens = themeTokens(generatedTheme, "transition-duration");
-const easeTokens = themeTokens(generatedTheme, "ease");
-
-const PRESENCE_CONSTANTS = {
-  PRESENCE_FADE,
-  PRESENCE_SCALE_FADE,
-} as const;
 
 describe("source-of-truth wiring (vacuity guards)", () => {
-  it("the generated theme emits z-index, duration, and ease token namespaces", () => {
-    // If any of these sets were empty, the membership assertions below would be
+  it("the generated theme emits the z-index token namespace", () => {
+    // If this set were empty, the membership assertions below would be
     // unreachable-vacuous rather than failing — guard the parse itself.
     expect(zIndexTokens.size).toBeGreaterThan(0);
-    expect(durationTokens.size).toBeGreaterThan(0);
-    expect(easeTokens.size).toBeGreaterThan(0);
   });
 });
 
@@ -74,84 +66,6 @@ describe("Z_LAYER_CLASSES — the token z-scale", () => {
       expect(
         zIndexTokens.has(layer),
         `--z-index-${layer} is missing from the generated theme — the ${utility} utility would emit no CSS`,
-      ).toBe(true);
-    },
-  );
-});
-
-/*
- * Presence-constant discipline: every class must match the allowlist below —
- * token-named motion utilities (duration-* and ease-* verified against the theme),
- * the transition property selectors, and opacity/scale/translate state targets
- * under data-[state=…] variants. Anything else (arbitrary values like
- * duration-[150ms], raw numeral durations like duration-150, unknown variants)
- * fails the sweep.
- */
-
-/** variant prefixes a presence class may carry (at most one). */
-const ALLOWED_VARIANTS = /^(data-\[state=(open|closed)\]|motion-reduce):/;
-
-/** base utilities a presence class may resolve to, beyond theme-checked motion ones. */
-const ALLOWED_BASE_UTILITIES = [
-  /^transition(-(opacity|transform|colors|none))?$/,
-  /^opacity-(0|100)$/,
-  /^scale-(95|100)$/,
-  /^-?translate-(x|y)-(0|4|8)$/, // translate distances resolve the --spacing-* tokens
-];
-
-function classifyPresenceClass(presenceClass: string): { variant: string; base: string } {
-  const variantMatch = presenceClass.match(ALLOWED_VARIANTS);
-  if (variantMatch === null) return { variant: "", base: presenceClass };
-  return { variant: variantMatch[0], base: presenceClass.slice(variantMatch[0].length) };
-}
-
-describe.each(Object.entries(PRESENCE_CONSTANTS))("%s", (constantName, constant) => {
-  const classes = constant.split(/\s+/).filter((candidate) => candidate.length > 0);
-
-  it("contains the structural reduced-motion gate motion-reduce:transition-none", () => {
-    expect(classes).toContain("motion-reduce:transition-none");
-  });
-
-  it("declares a transition property, a theme duration, and a theme easing", () => {
-    expect(classes.some((candidate) => /^transition(-(opacity|transform))?$/.test(candidate))).toBe(
-      true,
-    );
-    expect(classes.some((candidate) => candidate.startsWith("duration-"))).toBe(true);
-    expect(classes.some((candidate) => candidate.startsWith("ease-"))).toBe(true);
-  });
-
-  it("styles both data-state targets (open and closed)", () => {
-    expect(classes.some((candidate) => candidate.startsWith("data-[state=open]:"))).toBe(true);
-    expect(classes.some((candidate) => candidate.startsWith("data-[state=closed]:"))).toBe(true);
-  });
-
-  it.each(classes)(
-    "class %s is on the token allowlist (no arbitrary values, no raw ms)",
-    (presenceClass) => {
-      const { base } = classifyPresenceClass(presenceClass);
-      expect(base, `variant prefix left an empty utility in "${presenceClass}"`).not.toBe("");
-      // No arbitrary values anywhere in the utility itself (the data-[state=…]
-      // variant bracket is consumed by classifyPresenceClass above).
-      expect(base, `arbitrary value in "${presenceClass}"`).not.toMatch(/[[\]]/);
-
-      if (base.startsWith("duration-")) {
-        const token = base.slice("duration-".length);
-        expect(
-          durationTokens.has(token),
-          `duration token "${token}" is not in the generated theme (raw numerals like duration-150 are banned here)`,
-        ).toBe(true);
-        return;
-      }
-      if (base.startsWith("ease-")) {
-        const token = base.slice("ease-".length);
-        expect(easeTokens.has(token), `ease token "${token}" is not in the generated theme`).toBe(
-          true,
-        );
-        return;
-      }
-      expect(
-        ALLOWED_BASE_UTILITIES.some((pattern) => pattern.test(base)),
-        `"${presenceClass}" is outside the presence allowlist`,
       ).toBe(true);
     },
   );

@@ -74,7 +74,9 @@
     await step("Opening via the trigger shows the dialog, labelled and described", async () => {
       await userEvent.click(trigger);
       const dialog = await body.findByRole("dialog");
-      await expect(dialog).toBeVisible();
+      // The panel scale-fades in (mc-presence-scale-fade), starting at opacity 0, so poll until
+      // the entrance settles rather than asserting on the first frame.
+      await waitFor(() => expect(dialog).toBeVisible());
       // Bits wires Title → aria-labelledby and Description → aria-describedby; resolve both.
       await expect(dialog).toHaveAccessibleName("Matter details");
       await expect(dialog).toHaveAccessibleDescription(/read-only summary/);
@@ -105,7 +107,9 @@
     await step("With showClose={false} there is no corner ✕; the footer Done dismisses", async () => {
       await userEvent.click(trigger);
       const dialog = await body.findByRole("dialog");
-      await expect(dialog).toBeVisible();
+      // The panel scale-fades in (mc-presence-scale-fade), starting at opacity 0, so poll until
+      // the entrance settles rather than asserting on the first frame.
+      await waitFor(() => expect(dialog).toBeVisible());
       // showClose={false} renders no built-in Close, so the only button is the footer Done.
       await expect(body.queryByRole("button", { name: "Close" })).toBeNull();
       await userEvent.click(body.getByRole("button", { name: "Done" }));

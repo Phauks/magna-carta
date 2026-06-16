@@ -82,7 +82,9 @@
     await step("Opening via the trigger shows the alert dialog, labelled and described", async () => {
       await userEvent.click(trigger);
       const dialog = await body.findByRole("alertdialog");
-      await expect(dialog).toBeVisible();
+      // The panel scale-fades in (mc-presence-scale-fade), starting at opacity 0, so poll until
+      // the entrance settles rather than asserting on the first frame.
+      await waitFor(() => expect(dialog).toBeVisible());
       // Bits wires Title → aria-labelledby and Description → aria-describedby; resolve both.
       await expect(dialog).toHaveAccessibleName("Delete this document?");
       await expect(dialog).toHaveAccessibleDescription(/removes it from the matter/);

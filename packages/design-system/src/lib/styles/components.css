@@ -919,6 +919,48 @@
   }
 
   /*
+   * Shared presence recipes for floating/overlay surfaces (keyframes in styles/animations.css).
+   * A CSS ANIMATION, not a transition, so presence animates on mount IN as well as OUT — a
+   * transition has nothing to animate from on first mount, so the surface would "pop" in and only
+   * fade out. animation-fill-mode: both holds the first frame before paint and the last after.
+   * IN and OUT are SEPARATE keyframe names (the per-state rules swap animation-name) because a
+   * browser only restarts an animation when the name changes. The constants in internal/floating.ts
+   * (PRESENCE_FADE / PRESENCE_SCALE_FADE) point at these class names, so every overlay, tooltip,
+   * popover, and menu upgrades at once. Reduced motion overrides the base duration once below —
+   * specificity-safe, since the per-state rules only set the name, never the duration. mc-presence-
+   * fade is for low-emphasis surfaces (scrims, tooltips); mc-presence-scale-fade for popovers,
+   * menus, and dialog/alert-dialog panels.
+   */
+  .mc-presence-fade {
+    animation-duration: var(--mc-duration-fast);
+    animation-timing-function: var(--mc-easing-standard);
+    animation-fill-mode: both;
+  }
+  .mc-presence-fade[data-state="open"] {
+    animation-name: mc-fade-in;
+  }
+  .mc-presence-fade[data-state="closed"] {
+    animation-name: mc-fade-out;
+  }
+  .mc-presence-scale-fade {
+    animation-duration: var(--mc-duration-fast);
+    animation-timing-function: var(--mc-easing-standard);
+    animation-fill-mode: both;
+  }
+  .mc-presence-scale-fade[data-state="open"] {
+    animation-name: mc-scale-fade-in;
+  }
+  .mc-presence-scale-fade[data-state="closed"] {
+    animation-name: mc-scale-fade-out;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mc-presence-fade,
+    .mc-presence-scale-fade {
+      animation-duration: var(--mc-duration-instant);
+    }
+  }
+
+  /*
    * Dialog (Tier 3 exemplar, Bits UI). A centered modal panel over a scrim. The z-layers and the
    * presence (the scrim fades; the panel scale-fades) come from the floating module; only the look
    * lives here. The panel is centered WITHOUT a centering transform — `position: fixed; inset: 0;
@@ -1088,16 +1130,18 @@
      * Slide presence — a CSS ANIMATION (keyframes in styles/animations.css), not a transition: a
      * transition has nothing to animate from on first mount, so the panel would "pop" in and only
      * slide out. animation-fill-mode: both holds the off-edge first frame before paint and the
-     * resting frame after, so the panel slides in AND out. The per-side/per-state rules below pick
-     * the keyframe + direction + easing; the duration lives here so reduced motion overrides it once.
+     * resting frame after, so the panel slides in AND out. Duration AND easing live here so the
+     * motion is UNIFORM — in matches out (same curve, same time) — and reduced motion overrides the
+     * duration once. The per-side rules below only pick the in/out keyframe NAME.
      */
     animation-duration: var(--mc-duration-slow);
+    animation-timing-function: var(--mc-easing-standard);
     animation-fill-mode: both;
   }
   /*
-   * Pinned to a vertical edge: full height, flush right/left. data-state=open slides in
-   * (decelerating to rest); data-state=closed replays the same keyframe in reverse (accelerating
-   * off the edge) for the exit. Bits keeps the panel mounted until the animation ends.
+   * Pinned to a vertical edge: full height, flush right/left. data-state=open runs the in keyframe,
+   * data-state=closed the out keyframe (separate names so both directions replay). Bits keeps the
+   * panel mounted until the animation ends.
    */
   .mc-sheet-content-right {
     inset-block: var(--mc-space-0);
@@ -1105,11 +1149,9 @@
   }
   .mc-sheet-content-right[data-state="open"] {
     animation-name: mc-sheet-in-right;
-    animation-timing-function: var(--mc-easing-decelerate);
   }
   .mc-sheet-content-right[data-state="closed"] {
     animation-name: mc-sheet-out-right;
-    animation-timing-function: var(--mc-easing-accelerate);
   }
   .mc-sheet-content-left {
     inset-block: var(--mc-space-0);
@@ -1117,11 +1159,9 @@
   }
   .mc-sheet-content-left[data-state="open"] {
     animation-name: mc-sheet-in-left;
-    animation-timing-function: var(--mc-easing-decelerate);
   }
   .mc-sheet-content-left[data-state="closed"] {
     animation-name: mc-sheet-out-left;
-    animation-timing-function: var(--mc-easing-accelerate);
   }
   /* Pinned to a horizontal edge: full width, flush against the top or bottom of the viewport. */
   .mc-sheet-content-top {
@@ -1130,11 +1170,9 @@
   }
   .mc-sheet-content-top[data-state="open"] {
     animation-name: mc-sheet-in-top;
-    animation-timing-function: var(--mc-easing-decelerate);
   }
   .mc-sheet-content-top[data-state="closed"] {
     animation-name: mc-sheet-out-top;
-    animation-timing-function: var(--mc-easing-accelerate);
   }
   .mc-sheet-content-bottom {
     inset-inline: var(--mc-space-0);
@@ -1142,11 +1180,9 @@
   }
   .mc-sheet-content-bottom[data-state="open"] {
     animation-name: mc-sheet-in-bottom;
-    animation-timing-function: var(--mc-easing-decelerate);
   }
   .mc-sheet-content-bottom[data-state="closed"] {
     animation-name: mc-sheet-out-bottom;
-    animation-timing-function: var(--mc-easing-accelerate);
   }
   /*
    * Low-motion: collapse the slide to instant. Overriding the base duration (not each name)
