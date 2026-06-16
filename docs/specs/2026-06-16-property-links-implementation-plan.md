@@ -32,6 +32,7 @@ Spec: [`2026-06-16-property-links-design.md`](2026-06-16-property-links-design.m
 ### Task 1: Scaffold the package + `formatAddress`
 
 **Files:**
+
 - Create: `packages/property-links/package.json`, `tsconfig.json`, `vitest.config.ts`
 - Create: `packages/property-links/src/types.ts`
 - Create: `packages/property-links/src/format.ts`
@@ -40,6 +41,7 @@ Spec: [`2026-06-16-property-links-design.md`](2026-06-16-property-links-design.m
 - [ ] **Step 1: Create the scaffold files**
 
 `packages/property-links/package.json`:
+
 ```json
 {
   "name": "@magna-carta/property-links",
@@ -66,6 +68,7 @@ Spec: [`2026-06-16-property-links-design.md`](2026-06-16-property-links-design.m
 ```
 
 `packages/property-links/tsconfig.json`:
+
 ```json
 {
   "extends": "../tsconfig/base.json",
@@ -80,6 +83,7 @@ Spec: [`2026-06-16-property-links-design.md`](2026-06-16-property-links-design.m
 ```
 
 `packages/property-links/vitest.config.ts`:
+
 ```ts
 import { defineConfig } from "vite-plus";
 
@@ -93,6 +97,7 @@ export default defineConfig({
 - [ ] **Step 2: Create the type home**
 
 `packages/property-links/src/types.ts`:
+
 ```ts
 // What the caller knows about a property. Field names match the codebase AddressInput
 // (street/city/region/postal) so a Location maps in directly. `apn`/`jurisdictionId` are unused by
@@ -126,6 +131,7 @@ export interface LinkProvider {
 - [ ] **Step 3: Write the failing test**
 
 `packages/property-links/test/format.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import { formatAddress } from "../src/format.ts";
@@ -163,6 +169,7 @@ Expected: install succeeds; test FAILS — `formatAddress` not found.
 - [ ] **Step 5: Write the implementation**
 
 `packages/property-links/src/format.ts`:
+
 ```ts
 import type { PropertyReference } from "./types.ts";
 
@@ -206,12 +213,14 @@ EOF
 ### Task 2: Zillow provider
 
 **Files:**
+
 - Create: `packages/property-links/src/providers/zillow.ts`
 - Test: `packages/property-links/test/zillow.test.ts`
 
 - [ ] **Step 1: Write the failing test**
 
 `packages/property-links/test/zillow.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import { zillowProvider } from "../src/providers/zillow.ts";
@@ -242,6 +251,7 @@ Expected: FAIL — `../src/providers/zillow.ts` not found.
 - [ ] **Step 3: Write the implementation**
 
 `packages/property-links/src/providers/zillow.ts`:
+
 ```ts
 import { formatAddress } from "../format.ts";
 import type { LinkProvider } from "../types.ts";
@@ -283,12 +293,14 @@ EOF
 ### Task 3: Redfin provider
 
 **Files:**
+
 - Create: `packages/property-links/src/providers/redfin.ts`
 - Test: `packages/property-links/test/redfin.test.ts`
 
 - [ ] **Step 1: Write the failing test**
 
 `packages/property-links/test/redfin.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import { redfinProvider } from "../src/providers/redfin.ts";
@@ -319,6 +331,7 @@ Expected: FAIL — `../src/providers/redfin.ts` not found.
 - [ ] **Step 3: Write the implementation**
 
 `packages/property-links/src/providers/redfin.ts`:
+
 ```ts
 import { formatAddress } from "../format.ts";
 import type { LinkProvider } from "../types.ts";
@@ -359,12 +372,14 @@ EOF
 ### Task 4: The registry and `resolvePropertyLinks`
 
 **Files:**
+
 - Create: `packages/property-links/src/registry.ts`
 - Test: `packages/property-links/test/registry.test.ts`
 
 - [ ] **Step 1: Write the failing test**
 
 `packages/property-links/test/registry.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import { resolvePropertyLinks } from "../src/registry.ts";
@@ -407,6 +422,7 @@ Expected: FAIL — `../src/registry.ts` not found.
 - [ ] **Step 3: Write the implementation**
 
 `packages/property-links/src/registry.ts`:
+
 ```ts
 import { redfinProvider } from "./providers/redfin.ts";
 import { zillowProvider } from "./providers/zillow.ts";
@@ -454,12 +470,14 @@ EOF
 ### Task 5: Package notes, quality gate, and docs
 
 **Files:**
+
 - Create: `packages/property-links/CLAUDE.md`
 - Modify: `CHANGELOG.md`, `STATUS.md`, `ROADMAP.md`
 
 - [ ] **Step 1: Write the package CLAUDE.md**
 
 `packages/property-links/CLAUDE.md`:
+
 ```markdown
 # @magna-carta/property-links — local notes
 
@@ -477,7 +495,7 @@ credentials, no `env`, no UI.
 
 Seams (see `docs/specs/2026-06-16-property-links-design.md`, ADR-0093): Maps/Realtor/Trulia providers;
 a county-assessor provider wrapping `@magna-carta/parcels` (`apn`/`jurisdictionId` reserved on the
-reference); per-firm provider config; an optional credential-less framework adapter. Property *data*
+reference); per-firm provider config; an optional credential-less framework adapter. Property _data_
 (valuation/ownership) is a separate credentialed concern, not this package.
 ```
 
@@ -514,6 +532,7 @@ EOF
 ## Self-review
 
 **Spec coverage:**
+
 - §1 module placement (package + the 6 files) → Tasks 1–4 + Task 5 (CLAUDE.md).
 - §2 provider model (`LinkProvider`, registry, total `resolvePropertyLinks`) → Tasks 1 (types), 4.
 - §3 `PropertyReference` aligned to AddressInput + `formatAddress` null-rule → Task 1.
