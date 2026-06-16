@@ -11,8 +11,9 @@
 **Spec:** `docs/specs/2026-06-16-shipping-easypost-design.md` (ADR-0094 subsystem + EasyPost choice; ADR-0095 API-key credential kind). **Build gate:** the `firm_secret`-backed `CredentialStore` (Task 13) gates on slice 1·2's `getSecret`/`putSecret`, which is in progress — it is built against that interface here and wired live in Plan 2's worker composition.
 
 **Conventions that bind every task:**
+
 - Spell names in full (`@magna-carta/shipping`, `newIdentifier`, `integrationConnection`) — golden rule 12. Storage-encoding suffixes (`amount_minor`) are the only allowed shorthand.
-- Source, tests, and comments carry **no** process references (no `ADR-NNNN`, no "spec §N", no "slice 0·N"). State reasoning inline. A *forward-looking* "wired in Plan 2 / when the firm_secret store lands" is allowed. Enforced by `pnpm run lint:process-refs` — golden rule 13.
+- Source, tests, and comments carry **no** process references (no `ADR-NNNN`, no "spec §N", no "slice 0·N"). State reasoning inline. A _forward-looking_ "wired in Plan 2 / when the firm_secret store lands" is allowed. Enforced by `pnpm run lint:process-refs` — golden rule 13.
 - The API key is a secret: never `console.log`, `JSON.stringify` onto a log path, or splice an upstream response body into an error `detail` — golden rule 4.
 - Run `pnpm check` (fmt + lint + typecheck) before every commit; it must be green.
 
@@ -21,6 +22,7 @@
 ## File Structure
 
 **New package `packages/shipping/`:**
+
 - `package.json`, `tsconfig.json`, `CLAUDE.md`
 - `src/canonical.ts` — zod canonical schemas + inferred types + request-input types
 - `src/port.ts` — the `ShippingPort` interface
@@ -30,19 +32,23 @@
 - `test/canonical.test.ts`, `test/adapter.test.ts`, `test/map.test.ts`
 
 **Modified `packages/integrations/`:**
+
 - `src/credentials.ts` — add `ApiKeyCredential` to the `Credential` union
 - `src/port.ts` — add `{ kind: "apiKey"; scope }` to `CredentialRequirement`
 - `test/credentials.test.ts` (or existing) — cover the new kind through `resolve`
 
 **Modified `packages/identifiers/`:**
+
 - `src/registry.ts` — add `integrationConnection` prefix
 - `src/types.ts` — add `IntegrationConnectionId`
 
 **Modified `packages/database/`:**
+
 - `src/per-firm-schema.ts` — add the `integration_connection` table
 - `drizzle/per-firm/0006_*.sql` — generated migration
 
 **Modified `packages/data-access/`:**
+
 - `src/integration-connection-statements.ts` — statement builders + row type
 - `src/integration-connection-store.ts` — `ConnectionStore` impl + insert/update-status
 - `src/firm-secret-credential-store.ts` — `CredentialStore` over the `firm_secret` interface
@@ -53,6 +59,7 @@
 ## Task 1: Extend the framework credential model with an API-key kind
 
 **Files:**
+
 - Modify: `packages/integrations/src/credentials.ts`
 - Modify: `packages/integrations/src/port.ts`
 - Test: `packages/integrations/test/credentials.test.ts` (create)
@@ -130,6 +137,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 2: Scaffold the `@magna-carta/shipping` package
 
 **Files:**
+
 - Create: `packages/shipping/package.json`
 - Create: `packages/shipping/tsconfig.json`
 - Create: `packages/shipping/CLAUDE.md`
@@ -217,6 +225,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 3: Register the `integrationConnection` identifier
 
 **Files:**
+
 - Modify: `packages/identifiers/src/registry.ts`
 - Modify: `packages/identifiers/src/types.ts`
 - Test: `packages/identifiers/test/generate.test.ts` (extend, or create a focused test)
@@ -276,6 +285,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 4: Define the canonical shipping model
 
 **Files:**
+
 - Create: `packages/shipping/src/canonical.ts`
 - Test: `packages/shipping/test/canonical.test.ts`
 
@@ -469,6 +479,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 5: Define the `ShippingPort` interface
 
 **Files:**
+
 - Create: `packages/shipping/src/port.ts`
 - Test: covered by the adapter tests (Task 8) — no standalone test for a bare interface.
 
@@ -518,6 +529,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 6: The injected `HttpClient` seam
 
 **Files:**
+
 - Create: `packages/shipping/src/easypost/http.ts`
 
 - [ ] **Step 1: Write the seam**
@@ -577,6 +589,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 > **Build note (golden rule 11):** before writing the mapping, open the current EasyPost API docs (`https://docs.easypost.com`) and confirm the live field names for Shipment / Rate / PostageLabel / Tracker / Address-verification and the `options` keys (`certified_mail`, `return_receipt`, `delivery_confirmation`). The shapes below match the documented v2 API; adjust if the docs have moved. This is a verification step, not a guess to ship blind.
 
 **Files:**
+
 - Create: `packages/shipping/src/easypost/map.ts`
 - Test: `packages/shipping/test/map.test.ts`
 
@@ -585,18 +598,37 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ```typescript
 // packages/shipping/test/map.test.ts
 import { describe, expect, it } from "vitest";
-import { classifyError, mapLabel, mapRatedShipment, mapShipmentOptions } from "../src/easypost/map.ts";
+import {
+  classifyError,
+  mapLabel,
+  mapRatedShipment,
+  mapShipmentOptions,
+} from "../src/easypost/map.ts";
 
 describe("EasyPost mapping", () => {
   it("maps a shipment payload to canonical rates (dollars → minor units)", () => {
     const result = mapRatedShipment({
       id: "shp_abc",
       rates: [
-        { id: "rate_1", carrier: "USPS", service: "Priority", rate: "7.45", currency: "USD", delivery_days: 2, est_delivery_date: "2026-06-18" },
+        {
+          id: "rate_1",
+          carrier: "USPS",
+          service: "Priority",
+          rate: "7.45",
+          currency: "USD",
+          delivery_days: 2,
+          est_delivery_date: "2026-06-18",
+        },
       ],
     });
     expect(result.remoteId).toBe("shp_abc");
-    expect(result.rates[0]).toMatchObject({ remoteId: "rate_1", carrier: "USPS", amountMinor: 745, currency: "USD", deliveryDays: 2 });
+    expect(result.rates[0]).toMatchObject({
+      remoteId: "rate_1",
+      carrier: "USPS",
+      amountMinor: 745,
+      currency: "USD",
+      deliveryDays: 2,
+    });
   });
 
   it("maps a bought shipment to a canonical label", () => {
@@ -606,7 +638,12 @@ describe("EasyPost mapping", () => {
       selected_rate: { carrier: "USPS", service: "Priority", rate: "7.45", currency: "USD" },
       postage_label: { label_url: "https://ep.example/l.pdf", label_file_type: "application/pdf" },
     });
-    expect(label).toMatchObject({ remoteId: "shp_abc", trackingCode: "9400111", costMinor: 745, labelFormat: "application/pdf" });
+    expect(label).toMatchObject({
+      remoteId: "shp_abc",
+      trackingCode: "9400111",
+      costMinor: 745,
+      labelFormat: "application/pdf",
+    });
   });
 
   it("maps certified mail + electronic return receipt to EasyPost options", () => {
@@ -622,7 +659,10 @@ describe("EasyPost mapping", () => {
   });
 
   it("classifies a 429 as a retryable rate-limit problem", () => {
-    expect(classifyError(429, "Too Many Requests")).toMatchObject({ category: "rate_limit", retryable: true });
+    expect(classifyError(429, "Too Many Requests")).toMatchObject({
+      category: "rate_limit",
+      retryable: true,
+    });
   });
 });
 ```
@@ -637,7 +677,14 @@ Expected: FAIL — module not found.
 ```typescript
 // packages/shipping/src/easypost/map.ts
 import { integrationProblem, type IntegrationProblem } from "@magna-carta/integrations/problem";
-import type { CanonicalAddress, Label, RatedShipment, RefundResult, ShipmentOptions, TrackingEvent } from "../canonical.ts";
+import type {
+  CanonicalAddress,
+  Label,
+  RatedShipment,
+  RefundResult,
+  ShipmentOptions,
+  TrackingEvent,
+} from "../canonical.ts";
 
 // EasyPost returns money as a decimal-dollar string ("7.45"). Convert to integer minor units without
 // float drift: parse the two sides of the decimal point.
@@ -685,7 +732,11 @@ export function mapRatedShipment(shipment: EpShipment): RatedShipment {
 
 export function mapLabel(shipment: EpShipment): Label {
   const selected = shipment.selected_rate;
-  if (selected === undefined || shipment.postage_label === undefined || shipment.tracking_code === undefined) {
+  if (
+    selected === undefined ||
+    shipment.postage_label === undefined ||
+    shipment.tracking_code === undefined
+  ) {
     throw new Error("EasyPost shipment is not in a bought state");
   }
   return {
@@ -735,7 +786,12 @@ export function mapAddress(address: EpAddress): CanonicalAddress {
 }
 
 interface EpTracker {
-  tracking_details?: { status?: string; datetime?: string | null; message?: string | null; tracking_location?: { city?: string | null; state?: string | null } | null }[];
+  tracking_details?: {
+    status?: string;
+    datetime?: string | null;
+    message?: string | null;
+    tracking_location?: { city?: string | null; state?: string | null } | null;
+  }[];
 }
 
 export function mapTrackingEvents(tracker: EpTracker): TrackingEvent[] {
@@ -749,9 +805,13 @@ export function mapTrackingEvents(tracker: EpTracker): TrackingEvent[] {
   }));
 }
 
-function locationOf(loc: { city?: string | null; state?: string | null } | null | undefined): string | null {
+function locationOf(
+  loc: { city?: string | null; state?: string | null } | null | undefined,
+): string | null {
   if (loc === null || loc === undefined) return null;
-  const parts = [loc.city, loc.state].filter((p): p is string => typeof p === "string" && p.length > 0);
+  const parts = [loc.city, loc.state].filter(
+    (p): p is string => typeof p === "string" && p.length > 0,
+  );
   return parts.length > 0 ? parts.join(", ") : null;
 }
 
@@ -765,9 +825,11 @@ export function mapShipmentOptions(options: ShipmentOptions | undefined): Record
   const out: Record<string, unknown> = {};
   if (options === undefined) return out;
   if (options.certifiedMail) out.certified_mail = true;
-  if (options.returnReceipt && options.returnReceipt !== "none") out.return_receipt = options.returnReceipt;
+  if (options.returnReceipt && options.returnReceipt !== "none")
+    out.return_receipt = options.returnReceipt;
   if (options.signatureConfirmation && options.signatureConfirmation !== "none") {
-    out.delivery_confirmation = options.signatureConfirmation === "adult" ? "ADULT_SIGNATURE" : "SIGNATURE";
+    out.delivery_confirmation =
+      options.signatureConfirmation === "adult" ? "ADULT_SIGNATURE" : "SIGNATURE";
   }
   return out;
 }
@@ -805,6 +867,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 8: The EasyPost adapter
 
 **Files:**
+
 - Create: `packages/shipping/src/easypost/adapter.ts`
 - Test: `packages/shipping/test/adapter.test.ts`
 
@@ -826,15 +889,26 @@ function fakeHttp(handler: (req: HttpRequest) => { status: number; body: unknown
   };
 }
 
-const ADDRESS = { name: "Jane", street1: "1 Main St", city: "Reno", state: "NV", zip: "89501", country: "US" };
+const ADDRESS = {
+  name: "Jane",
+  street1: "1 Main St",
+  city: "Reno",
+  state: "NV",
+  zip: "89501",
+  country: "US",
+};
 
 function portWith(http: HttpClient): ShippingPort {
-  return createEasyPostAdapter({ http }).create({ credential: { kind: "apiKey", apiKey: "ezk_test" } });
+  return createEasyPostAdapter({ http }).create({
+    credential: { kind: "apiKey", apiKey: "ezk_test" },
+  });
 }
 
 describe("EasyPost adapter", () => {
   it("declares a firm-scoped api-key descriptor with all operations", () => {
-    const descriptor = createEasyPostAdapter({ http: fakeHttp(() => ({ status: 200, body: {} })) }).descriptor;
+    const descriptor = createEasyPostAdapter({
+      http: fakeHttp(() => ({ status: 200, body: {} })),
+    }).descriptor;
     expect(descriptor.adapterId).toBe("easypost");
     expect(descriptor.category).toBe("shipping");
     expect(descriptor.credential).toEqual({ kind: "apiKey", scope: "firm" });
@@ -846,10 +920,23 @@ describe("EasyPost adapter", () => {
     const port = portWith(
       fakeHttp((req) => {
         seen = req;
-        return { status: 201, body: { id: "shp_1", rates: [{ id: "rate_1", carrier: "USPS", service: "Priority", rate: "7.45", currency: "USD" }] } };
+        return {
+          status: 201,
+          body: {
+            id: "shp_1",
+            rates: [
+              { id: "rate_1", carrier: "USPS", service: "Priority", rate: "7.45", currency: "USD" },
+            ],
+          },
+        };
       }),
     );
-    const result = await port.rateShipment({ from: ADDRESS, to: ADDRESS, parcel: { weightOz: 10 }, options: { certifiedMail: true } });
+    const result = await port.rateShipment({
+      from: ADDRESS,
+      to: ADDRESS,
+      parcel: { weightOz: 10 },
+      options: { certifiedMail: true },
+    });
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value.rates[0].amountMinor).toBe(745);
     expect(seen?.headers.Authorization).toMatch(/^Basic /);
@@ -858,8 +945,14 @@ describe("EasyPost adapter", () => {
   });
 
   it("maps a 401 into a typed adapter-error, not a throw", async () => {
-    const port = portWith(fakeHttp(() => ({ status: 401, body: { error: { message: "bad key" } } })));
-    const result = await port.rateShipment({ from: ADDRESS, to: ADDRESS, parcel: { weightOz: 10 } });
+    const port = portWith(
+      fakeHttp(() => ({ status: 401, body: { error: { message: "bad key" } } })),
+    );
+    const result = await port.rateShipment({
+      from: ADDRESS,
+      to: ADDRESS,
+      parcel: { weightOz: 10 },
+    });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.reason).toBe("adapter-error");
@@ -871,7 +964,12 @@ describe("EasyPost adapter", () => {
     const port = portWith(
       fakeHttp(() => ({
         status: 200,
-        body: { id: "shp_1", tracking_code: "9400", selected_rate: { carrier: "USPS", service: "Priority", rate: "7.45", currency: "USD" }, postage_label: { label_url: "https://ep/l.pdf", label_file_type: "application/pdf" } },
+        body: {
+          id: "shp_1",
+          tracking_code: "9400",
+          selected_rate: { carrier: "USPS", service: "Priority", rate: "7.45", currency: "USD" },
+          postage_label: { label_url: "https://ep/l.pdf", label_file_type: "application/pdf" },
+        },
       })),
     );
     const result = await port.buyLabel({ remoteShipmentId: "shp_1", remoteRateId: "rate_1" });
@@ -892,10 +990,28 @@ Expected: FAIL — module `../src/easypost/adapter.ts` not found.
 // packages/shipping/src/easypost/adapter.ts
 import { adapterError, ok, type Dispatch } from "@magna-carta/integrations/dispatch";
 import type { Adapter, AdapterContext, CapabilityDescriptor } from "@magna-carta/integrations/port";
-import type { BuyLabelRequest, CanonicalAddress, Label, RateRequest, RatedShipment, RefundResult, AddressInput, TrackingEvent } from "../canonical.ts";
+import type {
+  BuyLabelRequest,
+  CanonicalAddress,
+  Label,
+  RateRequest,
+  RatedShipment,
+  RefundResult,
+  AddressInput,
+  TrackingEvent,
+} from "../canonical.ts";
 import type { ShippingPort } from "../port.ts";
 import type { HttpClient } from "./http.ts";
-import { classifyError, mapAddress, mapLabel, mapRatedShipment, mapRefund, mapShipmentOptions, mapTrackingEvents, networkProblem } from "./map.ts";
+import {
+  classifyError,
+  mapAddress,
+  mapLabel,
+  mapRatedShipment,
+  mapRefund,
+  mapShipmentOptions,
+  mapTrackingEvents,
+  networkProblem,
+} from "./map.ts";
 
 const DEFAULT_BASE_URL = "https://api.easypost.com/v2";
 
@@ -931,16 +1047,28 @@ export function createEasyPostAdapter(deps: EasyPostAdapterDeps): Adapter<Shippi
       const authHeader = `Basic ${btoa(`${credential.apiKey}:`)}`;
       const headers = { Authorization: authHeader, "Content-Type": "application/json" };
 
-      async function call<T>(method: "GET" | "POST", path: string, body: unknown, map: (json: unknown) => T): Promise<Dispatch<T>> {
+      async function call<T>(
+        method: "GET" | "POST",
+        path: string,
+        body: unknown,
+        map: (json: unknown) => T,
+      ): Promise<Dispatch<T>> {
         let response;
         try {
-          response = await deps.http.request({ method, url: `${baseUrl}${path}`, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+          response = await deps.http.request({
+            method,
+            url: `${baseUrl}${path}`,
+            headers,
+            body: body === undefined ? undefined : JSON.stringify(body),
+          });
         } catch {
           return adapterError(networkProblem());
         }
         if (response.status >= 400) {
           // Title is the status family — never the upstream body (it can echo the auth header).
-          return adapterError(classifyError(response.status, `EasyPost responded ${response.status}`));
+          return adapterError(
+            classifyError(response.status, `EasyPost responded ${response.status}`),
+          );
         }
         const json = await response.json();
         return ok(map(json));
@@ -962,7 +1090,12 @@ export function createEasyPostAdapter(deps: EasyPostAdapterDeps): Adapter<Shippi
 
       return {
         validateAddress(input) {
-          return call("POST", "/addresses", { address: epAddress(input), verify: ["delivery"] }, (json) => mapAddress(json as never) as CanonicalAddress);
+          return call(
+            "POST",
+            "/addresses",
+            { address: epAddress(input), verify: ["delivery"] },
+            (json) => mapAddress(json as never) as CanonicalAddress,
+          );
         },
         rateShipment(input: RateRequest) {
           const shipment = {
@@ -977,20 +1110,43 @@ export function createEasyPostAdapter(deps: EasyPostAdapterDeps): Adapter<Shippi
             },
             options: mapShipmentOptions(input.options),
           };
-          return call("POST", "/shipments", { shipment }, (json) => mapRatedShipment(json as never) as RatedShipment);
+          return call(
+            "POST",
+            "/shipments",
+            { shipment },
+            (json) => mapRatedShipment(json as never) as RatedShipment,
+          );
         },
         buyLabel(input: BuyLabelRequest) {
-          const body = { rate: { id: input.remoteRateId }, label_format: input.labelFormat ?? "PDF" };
-          return call("POST", `/shipments/${input.remoteShipmentId}/buy`, body, (json) => mapLabel(json as never) as Label);
+          const body = {
+            rate: { id: input.remoteRateId },
+            label_format: input.labelFormat ?? "PDF",
+          };
+          return call(
+            "POST",
+            `/shipments/${input.remoteShipmentId}/buy`,
+            body,
+            (json) => mapLabel(json as never) as Label,
+          );
         },
         getTracking(trackingCode: string) {
-          return call("GET", `/trackers?tracking_code=${encodeURIComponent(trackingCode)}`, undefined, (json) => {
-            const trackers = (json as { trackers?: unknown[] }).trackers ?? [json];
-            return mapTrackingEvents(trackers[0] as never) as TrackingEvent[];
-          });
+          return call(
+            "GET",
+            `/trackers?tracking_code=${encodeURIComponent(trackingCode)}`,
+            undefined,
+            (json) => {
+              const trackers = (json as { trackers?: unknown[] }).trackers ?? [json];
+              return mapTrackingEvents(trackers[0] as never) as TrackingEvent[];
+            },
+          );
         },
         refundLabel(remoteShipmentId: string) {
-          return call("POST", `/shipments/${remoteShipmentId}/refund`, {}, (json) => mapRefund(json as never) as RefundResult);
+          return call(
+            "POST",
+            `/shipments/${remoteShipmentId}/refund`,
+            {},
+            (json) => mapRefund(json as never) as RefundResult,
+          );
         },
       };
     },
@@ -1017,6 +1173,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 9: The `integration_connection` per-firm table + migration
 
 **Files:**
+
 - Modify: `packages/database/src/per-firm-schema.ts`
 - Generated: `packages/database/drizzle/per-firm/0006_*.sql`
 - Test: `packages/database/test/per-firm-schema.test.ts` (extend if a table-presence test exists; otherwise the migration round-trips in Task 12's repo test)
@@ -1097,6 +1254,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 10: Connection statement builders
 
 **Files:**
+
 - Create: `packages/data-access/src/integration-connection-statements.ts`
 
 - [ ] **Step 1: Write the statement builders**
@@ -1119,15 +1277,31 @@ export interface InsertConnectionRow {
   readonly createdAt: string;
 }
 
-export function insertConnectionStatement(database: SqlDatabase, row: InsertConnectionRow): SqlStatement {
+export function insertConnectionStatement(
+  database: SqlDatabase,
+  row: InsertConnectionRow,
+): SqlStatement {
   return database
     .prepare(
       `INSERT INTO ${INTEGRATION_CONNECTION_TABLE} (id, category, adapter_id, scope, principal_ref, credential_ref, status, capability_snapshot, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'connected', ?7, ?8, ?8)`,
     )
-    .bind(row.id, row.category, row.adapterId, row.scope, row.principalRef, row.credentialRef, row.capabilitySnapshot, row.createdAt);
+    .bind(
+      row.id,
+      row.category,
+      row.adapterId,
+      row.scope,
+      row.principalRef,
+      row.credentialRef,
+      row.capabilitySnapshot,
+      row.createdAt,
+    );
 }
 
-export function selectConnectionStatement(database: SqlDatabase, category: string, principalRef: string): SqlStatement {
+export function selectConnectionStatement(
+  database: SqlDatabase,
+  category: string,
+  principalRef: string,
+): SqlStatement {
   return database
     .prepare(
       `SELECT id, category, adapter_id, scope, principal_ref, credential_ref, status, capability_snapshot FROM ${INTEGRATION_CONNECTION_TABLE} WHERE category = ?1 AND principal_ref = ?2`,
@@ -1135,13 +1309,23 @@ export function selectConnectionStatement(database: SqlDatabase, category: strin
     .bind(category, principalRef);
 }
 
-export function updateConnectionStatusStatement(database: SqlDatabase, id: IntegrationConnectionId, status: string, updatedAt: string): SqlStatement {
+export function updateConnectionStatusStatement(
+  database: SqlDatabase,
+  id: IntegrationConnectionId,
+  status: string,
+  updatedAt: string,
+): SqlStatement {
   return database
-    .prepare(`UPDATE ${INTEGRATION_CONNECTION_TABLE} SET status = ?2, updated_at = ?3 WHERE id = ?1`)
+    .prepare(
+      `UPDATE ${INTEGRATION_CONNECTION_TABLE} SET status = ?2, updated_at = ?3 WHERE id = ?1`,
+    )
     .bind(id, status, updatedAt);
 }
 
-export function deleteConnectionStatement(database: SqlDatabase, id: IntegrationConnectionId): SqlStatement {
+export function deleteConnectionStatement(
+  database: SqlDatabase,
+  id: IntegrationConnectionId,
+): SqlStatement {
   return database.prepare(`DELETE FROM ${INTEGRATION_CONNECTION_TABLE} WHERE id = ?1`).bind(id);
 }
 ```
@@ -1163,6 +1347,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 11: The `ConnectionStore` repository
 
 **Files:**
+
 - Create: `packages/data-access/src/integration-connection-store.ts`
 - Test: `packages/data-access/test/integration-connection-store.test.ts`
 
@@ -1176,7 +1361,13 @@ import { describe, expect, it } from "vitest";
 import { createConnectionStore } from "../src/integration-connection-store.ts";
 import { insertConnectionStatement } from "../src/integration-connection-statements.ts";
 
-const SNAPSHOT = JSON.stringify({ adapterId: "easypost", category: "shipping", credential: { kind: "apiKey", scope: "firm" }, operations: {}, passthroughAvailable: true });
+const SNAPSHOT = JSON.stringify({
+  adapterId: "easypost",
+  category: "shipping",
+  credential: { kind: "apiKey", scope: "firm" },
+  operations: {},
+  passthroughAvailable: true,
+});
 
 describe("ConnectionStore.getConnection", () => {
   it("returns a connected firm-scoped connection by (category, principal)", async () => {
@@ -1217,7 +1408,11 @@ Expected: FAIL — module not found.
 ```typescript
 // packages/data-access/src/integration-connection-store.ts
 import type { CapabilityDescriptor } from "@magna-carta/integrations/port";
-import type { ConnectionLookup, ConnectionStore, IntegrationConnection } from "@magna-carta/integrations/connection";
+import type {
+  ConnectionLookup,
+  ConnectionStore,
+  IntegrationConnection,
+} from "@magna-carta/integrations/connection";
 import type { SqlDatabase } from "./idempotency-statements.ts";
 import { selectConnectionStatement } from "./integration-connection-statements.ts";
 
@@ -1238,7 +1433,11 @@ export function createConnectionStore(database: SqlDatabase): ConnectionStore {
   return {
     async getConnection(lookup: ConnectionLookup): Promise<IntegrationConnection | null> {
       const principalRef = lookup.userId ?? lookup.firmId;
-      const { results } = await selectConnectionStatement(database, lookup.category, principalRef).all<ConnectionRow>();
+      const { results } = await selectConnectionStatement(
+        database,
+        lookup.category,
+        principalRef,
+      ).all<ConnectionRow>();
       const row = results[0];
       if (row === undefined) return null;
       return {
@@ -1279,6 +1478,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 > **Gate:** the real backing is slice 1·2's `firm_secret` store (`getSecret`/`putSecret`), in progress. This task builds the `CredentialStore` against that interface and tests it with an in-memory fake, so it compiles and is fully unit-tested now; the worker passes the real store in Plan 2 once 1·2 lands.
 
 **Files:**
+
 - Create: `packages/data-access/src/firm-secret-credential-store.ts`
 - Test: `packages/data-access/test/firm-secret-credential-store.test.ts`
 
@@ -1287,7 +1487,10 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ```typescript
 // packages/data-access/test/firm-secret-credential-store.test.ts
 import { describe, expect, it } from "vitest";
-import { createFirmSecretCredentialStore, type SecretStore } from "../src/firm-secret-credential-store.ts";
+import {
+  createFirmSecretCredentialStore,
+  type SecretStore,
+} from "../src/firm-secret-credential-store.ts";
 
 function memorySecretStore(): SecretStore {
   const map = new Map<string, string>();
@@ -1365,6 +1568,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 Proves the built pieces compose: a seeded connection + credential resolve through the framework registry to a working EasyPost port, with `capability-unsupported` and `not-connected` as first-class outcomes.
 
 **Files:**
+
 - Test: `packages/shipping/test/registry-resolution.test.ts`
 
 - [ ] **Step 1: Write the test**
@@ -1381,7 +1585,15 @@ import type { ShippingPort } from "../src/port.ts";
 
 const http: HttpClient = {
   async request() {
-    return { status: 201, json: async () => ({ id: "shp_1", rates: [{ id: "rate_1", carrier: "USPS", service: "Priority", rate: "7.45", currency: "USD" }] }) };
+    return {
+      status: 201,
+      json: async () => ({
+        id: "shp_1",
+        rates: [
+          { id: "rate_1", carrier: "USPS", service: "Priority", rate: "7.45", currency: "USD" },
+        ],
+      }),
+    };
   },
 };
 
@@ -1390,7 +1602,16 @@ const descriptor = createEasyPostAdapter({ http }).descriptor;
 const connectionStore: ConnectionStore = {
   async getConnection(lookup) {
     if (lookup.category !== "shipping") return null;
-    return { id: "integrationConnection_1", category: "shipping", adapterId: "easypost", scope: "firm", principalRef: lookup.firmId, credentialRef: "ref_1", status: "connected", capabilitySnapshot: descriptor };
+    return {
+      id: "integrationConnection_1",
+      category: "shipping",
+      adapterId: "easypost",
+      scope: "firm",
+      principalRef: lookup.firmId,
+      credentialRef: "ref_1",
+      status: "connected",
+      capabilitySnapshot: descriptor,
+    };
   },
 };
 
@@ -1408,13 +1629,21 @@ describe("registry resolution of the shipping adapter", () => {
     const resolved = await registry.resolve<ShippingPort>("shipping", { firmId: "firm_1" });
     expect(resolved.ok).toBe(true);
     if (resolved.ok) {
-      const rated = await resolved.value.port.rateShipment({ from: { name: "a", street1: "1", city: "c", state: "NV", zip: "1", country: "US" }, to: { name: "b", street1: "2", city: "d", state: "NV", zip: "2", country: "US" }, parcel: { weightOz: 8 } });
+      const rated = await resolved.value.port.rateShipment({
+        from: { name: "a", street1: "1", city: "c", state: "NV", zip: "1", country: "US" },
+        to: { name: "b", street1: "2", city: "d", state: "NV", zip: "2", country: "US" },
+        parcel: { weightOz: 8 },
+      });
       expect(rated.ok).toBe(true);
     }
   });
 
   it("returns not-connected for a firm with no connection", async () => {
-    const empty: ConnectionStore = { async getConnection() { return null; } };
+    const empty: ConnectionStore = {
+      async getConnection() {
+        return null;
+      },
+    };
     const registry = createIntegrationRegistry({ connectionStore: empty, credentialStore });
     registry.register(createEasyPostAdapter({ http }));
     const resolved = await registry.resolve<ShippingPort>("shipping", { firmId: "firm_x" });
@@ -1454,6 +1683,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 14: Fitness — adapter not imported by core; descriptor present; key never logged
 
 **Files:**
+
 - Test: `packages/shipping/test/fitness.test.ts`
 
 - [ ] **Step 1: Write the fitness tests**
@@ -1466,7 +1696,11 @@ import { describe, expect, it } from "vitest";
 import { createEasyPostAdapter } from "../src/easypost/adapter.ts";
 import type { HttpClient } from "../src/easypost/http.ts";
 
-const http: HttpClient = { async request() { return { status: 200, json: async () => ({}) }; } };
+const http: HttpClient = {
+  async request() {
+    return { status: 200, json: async () => ({}) };
+  },
+};
 
 describe("shipping fitness", () => {
   it("the adapter ships a descriptor with a category and a credential requirement", () => {
@@ -1476,12 +1710,18 @@ describe("shipping fitness", () => {
   });
 
   it("the port module does not import any easypost adapter (dependency-inversion guard)", () => {
-    const portSource = readFileSync(fileURLToPath(new URL("../src/port.ts", import.meta.url)), "utf8");
+    const portSource = readFileSync(
+      fileURLToPath(new URL("../src/port.ts", import.meta.url)),
+      "utf8",
+    );
     expect(portSource).not.toMatch(/easypost/i);
   });
 
   it("the adapter never writes the credential to a console/log surface", () => {
-    const adapterSource = readFileSync(fileURLToPath(new URL("../src/easypost/adapter.ts", import.meta.url)), "utf8");
+    const adapterSource = readFileSync(
+      fileURLToPath(new URL("../src/easypost/adapter.ts", import.meta.url)),
+      "utf8",
+    );
     expect(adapterSource).not.toMatch(/console\./);
     expect(adapterSource).not.toMatch(/JSON\.stringify\([^)]*credential/);
   });
@@ -1507,6 +1747,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 15: Documentation + status
 
 **Files:**
+
 - Modify: `docs/Decision-Log.md` (ADR-0094, ADR-0095)
 - Modify: `STATUS.md` (Cross-cutting table: correct the integration-port row to built; add a shipping row)
 - Modify: `ROADMAP.md` (Phase 7 / cross-cutting: shipping in progress)
@@ -1541,13 +1782,14 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Self-Review
 
 **Spec coverage (Plan 1 portion of the design):**
+
 - §1 module placement — `@magna-carta/shipping` (Tasks 2,4–8), `integrations` extension (Task 1), data-access seams (Tasks 10–12), database table (Task 9). ✓
 - §2 `ShippingPort` + adapter — operations (Task 5), canonical model + options-as-data (Task 4), descriptor firm-scoped api-key (Task 8), error taxonomy mapping (Task 7), first-credentialed-adapter seams: connection repo (Tasks 9–11) + `firm_secret` `CredentialStore` (Task 12). ✓
 - §6 cross-cutting — money as `amountMinor` (Task 4), secret-never-logged (Tasks 8,14). ✓
 - §7 testing — canonical/zod boundary (Task 4), descriptor honesty + dependency inversion (Task 14), adapter mapping incl. certified mail (Tasks 7–8), error categories (Task 7), connection tenant isolation (Task 11), end-to-end resolve (Task 13). ✓
 - **Out of Plan 1 (→ Plan 2):** shipment/label/tracking tables + service, all worker routes (connection-management, shipments, rates, purchase, label, tracking, refund), the EasyPost webhook ingress, R2 label storage, the load-profile extension, and the live `firm_secret` wiring. Piece C (service fee + cost recovery) stays a Phase 3 seam.
 
-**Placeholder scan:** none — every code step carries full source. Task 7 and Task 9 contain *verification* steps (confirm EasyPost field names against live docs; confirm generated SQL) — these are required checks, not deferred work.
+**Placeholder scan:** none — every code step carries full source. Task 7 and Task 9 contain _verification_ steps (confirm EasyPost field names against live docs; confirm generated SQL) — these are required checks, not deferred work.
 
 **Type consistency:** `Credential`/`ApiKeyCredential` (Task 1) used in Tasks 8,12,13. `ShippingPort` (Task 5) returns the canonical types (Task 4) and is used in Tasks 8,13,14. `ConnectionStore`/`IntegrationConnection`/`ConnectionLookup` from the framework (`connection.ts`) implemented in Task 11, consumed in Task 13. `IntegrationConnectionId` (Task 3) used in Tasks 9,10. `createEasyPostAdapter({ http })` signature identical across Tasks 8,13,14. `RatedShipment.remoteId` = EasyPost shipment id, consumed by `BuyLabelRequest.remoteShipmentId` — consistent (Tasks 4,7,8).
 

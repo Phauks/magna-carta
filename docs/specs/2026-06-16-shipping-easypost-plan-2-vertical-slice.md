@@ -100,7 +100,9 @@ export const shipment = sqliteTable(
   "shipment",
   {
     id: text("id").primaryKey().$type<ShipmentId>(),
-    matterRef: text("matter_ref").$type<MatterId>().references(() => matter.id),
+    matterRef: text("matter_ref")
+      .$type<MatterId>()
+      .references(() => matter.id),
     status: text("status", {
       enum: ["draft", "rated", "purchased", "in_transit", "delivered", "refunded"],
     })
@@ -160,7 +162,10 @@ export const trackingEvent = sqliteTable(
     createdAt: text("created_at").notNull(),
   },
   (table) => [
-    uniqueIndex("tracking_event_shipment_remote_unique_index").on(table.shipmentRef, table.remoteId),
+    uniqueIndex("tracking_event_shipment_remote_unique_index").on(
+      table.shipmentRef,
+      table.remoteId,
+    ),
   ],
 );
 ```
@@ -198,11 +203,23 @@ it("buyLabel sends an Idempotency-Key header when given a key", async () => {
     http: {
       async request(req) {
         seen = { headers: { ...req.headers } };
-        return { status: 200, json: async () => ({ id: "shp_1", tracking_code: "9400", selected_rate: { carrier: "USPS", service: "Priority", rate: "7.45", currency: "USD" }, postage_label: { label_url: "https://ep/l.pdf", label_file_type: "application/pdf" } }) };
+        return {
+          status: 200,
+          json: async () => ({
+            id: "shp_1",
+            tracking_code: "9400",
+            selected_rate: { carrier: "USPS", service: "Priority", rate: "7.45", currency: "USD" },
+            postage_label: { label_url: "https://ep/l.pdf", label_file_type: "application/pdf" },
+          }),
+        };
       },
     },
   }).create({ credential: { kind: "apiKey", apiKey: "ezk_test" } });
-  await port.buyLabel({ remoteShipmentId: "shp_1", remoteRateId: "rate_1", idempotencyKey: "key-123" });
+  await port.buyLabel({
+    remoteShipmentId: "shp_1",
+    remoteRateId: "rate_1",
+    idempotencyKey: "key-123",
+  });
   expect(seen?.headers["Idempotency-Key"]).toBe("key-123");
 });
 ```
@@ -230,19 +247,30 @@ export interface BuyLabelRequest {
 In `packages/shipping/src/easypost/adapter.ts`, the `call` helper takes fixed `headers`. Add a per-call header override. Change the `call` signature and the `buyLabel` body:
 
 ```typescript
-      async function call<T>(method: "GET" | "POST", path: string, body: unknown, map: (json: unknown) => T, extraHeaders: Record<string, string> = {}): Promise<Dispatch<T>> {
-        let response;
-        try {
-          response = await deps.http.request({ method, url: `${baseUrl}${path}`, headers: { ...headers, ...extraHeaders }, body: body === undefined ? undefined : JSON.stringify(body) });
-        } catch {
-          return adapterError(networkProblem());
-        }
-        if (response.status >= 400) {
-          return adapterError(classifyError(response.status, `EasyPost responded ${response.status}`));
-        }
-        const json = await response.json();
-        return ok(map(json));
-      }
+async function call<T>(
+  method: "GET" | "POST",
+  path: string,
+  body: unknown,
+  map: (json: unknown) => T,
+  extraHeaders: Record<string, string> = {},
+): Promise<Dispatch<T>> {
+  let response;
+  try {
+    response = await deps.http.request({
+      method,
+      url: `${baseUrl}${path}`,
+      headers: { ...headers, ...extraHeaders },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    return adapterError(networkProblem());
+  }
+  if (response.status >= 400) {
+    return adapterError(classifyError(response.status, `EasyPost responded ${response.status}`));
+  }
+  const json = await response.json();
+  return ok(map(json));
+}
 ```
 
 And `buyLabel`:
@@ -278,7 +306,12 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ```typescript
 // packages/data-access/src/shipment-statements.ts
 import type { SqlDatabase, SqlStatement } from "./idempotency-statements.ts";
-import type { ShipmentId, ShipmentLabelId, TrackingEventId, MatterId } from "@magna-carta/identifiers/types";
+import type {
+  ShipmentId,
+  ShipmentLabelId,
+  TrackingEventId,
+  MatterId,
+} from "@magna-carta/identifiers/types";
 
 export const SHIPMENT_TABLE = "shipment";
 export const SHIPMENT_LABEL_TABLE = "shipment_label";
@@ -294,12 +327,23 @@ export interface InsertShipmentRow {
   readonly createdAt: string;
 }
 
-export function insertShipmentDraftStatement(database: SqlDatabase, row: InsertShipmentRow): SqlStatement {
+export function insertShipmentDraftStatement(
+  database: SqlDatabase,
+  row: InsertShipmentRow,
+): SqlStatement {
   return database
     .prepare(
       `INSERT INTO ${SHIPMENT_TABLE} (id, matter_ref, status, from_address, to_address, parcel, options, created_at, updated_at) VALUES (?1, ?2, 'draft', ?3, ?4, ?5, ?6, ?7, ?7)`,
     )
-    .bind(row.id, row.matterRef, row.fromAddress, row.toAddress, row.parcel, row.options, row.createdAt);
+    .bind(
+      row.id,
+      row.matterRef,
+      row.fromAddress,
+      row.toAddress,
+      row.parcel,
+      row.options,
+      row.createdAt,
+    );
 }
 
 export function selectShipmentStatement(database: SqlDatabase, id: ShipmentId): SqlStatement {
@@ -321,16 +365,38 @@ export interface PurchaseUpdate {
   readonly currency: string;
 }
 
-export function markShipmentPurchasedStatement(database: SqlDatabase, id: ShipmentId, update: PurchaseUpdate, updatedAt: string): SqlStatement {
+export function markShipmentPurchasedStatement(
+  database: SqlDatabase,
+  id: ShipmentId,
+  update: PurchaseUpdate,
+  updatedAt: string,
+): SqlStatement {
   return database
     .prepare(
       `UPDATE ${SHIPMENT_TABLE} SET status = 'purchased', remote_shipment_id = ?2, carrier = ?3, service = ?4, tracking_code = ?5, label_ref = ?6, postage_cost_minor = ?7, service_fee_minor = ?8, currency = ?9, updated_at = ?10 WHERE id = ?1`,
     )
-    .bind(id, update.remoteShipmentId, update.carrier, update.service, update.trackingCode, update.labelRef, update.postageCostMinor, update.serviceFeeMinor, update.currency, updatedAt);
+    .bind(
+      id,
+      update.remoteShipmentId,
+      update.carrier,
+      update.service,
+      update.trackingCode,
+      update.labelRef,
+      update.postageCostMinor,
+      update.serviceFeeMinor,
+      update.currency,
+      updatedAt,
+    );
 }
 
-export function markShipmentRefundedStatement(database: SqlDatabase, id: ShipmentId, updatedAt: string): SqlStatement {
-  return database.prepare(`UPDATE ${SHIPMENT_TABLE} SET status = 'refunded', updated_at = ?2 WHERE id = ?1`).bind(id, updatedAt);
+export function markShipmentRefundedStatement(
+  database: SqlDatabase,
+  id: ShipmentId,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(`UPDATE ${SHIPMENT_TABLE} SET status = 'refunded', updated_at = ?2 WHERE id = ?1`)
+    .bind(id, updatedAt);
 }
 
 export interface InsertLabelRow {
@@ -349,7 +415,16 @@ export function insertLabelStatement(database: SqlDatabase, row: InsertLabelRow)
     .prepare(
       `INSERT INTO ${SHIPMENT_LABEL_TABLE} (id, shipment_ref, format, r2_key, tracking_code, cost_minor, currency, voided, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, ?8)`,
     )
-    .bind(row.id, row.shipmentRef, row.format, row.r2Key, row.trackingCode, row.costMinor, row.currency, row.createdAt);
+    .bind(
+      row.id,
+      row.shipmentRef,
+      row.format,
+      row.r2Key,
+      row.trackingCode,
+      row.costMinor,
+      row.currency,
+      row.createdAt,
+    );
 }
 
 export interface InsertTrackingEventRow {
@@ -364,17 +439,34 @@ export interface InsertTrackingEventRow {
 }
 
 // INSERT OR IGNORE: the (shipment_ref, remote_id) unique index makes a re-pulled event a no-op.
-export function insertTrackingEventStatement(database: SqlDatabase, row: InsertTrackingEventRow): SqlStatement {
+export function insertTrackingEventStatement(
+  database: SqlDatabase,
+  row: InsertTrackingEventRow,
+): SqlStatement {
   return database
     .prepare(
       `INSERT OR IGNORE INTO ${TRACKING_EVENT_TABLE} (id, shipment_ref, remote_id, status, occurred_at, location, message, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)`,
     )
-    .bind(row.id, row.shipmentRef, row.remoteId, row.status, row.occurredAt, row.location, row.message, row.createdAt);
+    .bind(
+      row.id,
+      row.shipmentRef,
+      row.remoteId,
+      row.status,
+      row.occurredAt,
+      row.location,
+      row.message,
+      row.createdAt,
+    );
 }
 
-export function listTrackingEventsStatement(database: SqlDatabase, shipmentRef: ShipmentId): SqlStatement {
+export function listTrackingEventsStatement(
+  database: SqlDatabase,
+  shipmentRef: ShipmentId,
+): SqlStatement {
   return database
-    .prepare(`SELECT remote_id, status, occurred_at, location, message FROM ${TRACKING_EVENT_TABLE} WHERE shipment_ref = ?1 ORDER BY occurred_at`)
+    .prepare(
+      `SELECT remote_id, status, occurred_at, location, message FROM ${TRACKING_EVENT_TABLE} WHERE shipment_ref = ?1 ORDER BY occurred_at`,
+    )
     .bind(shipmentRef);
 }
 ```
@@ -412,7 +504,14 @@ import { createShipmentDraft, recordPurchase } from "../src/shipment-service.ts"
 const clock = { now: () => "2026-06-16T12:00:00.000Z" };
 const now = () => clock.now();
 const options = { clock, actorUserId: "user_a" as UserId };
-const ADDR = JSON.stringify({ name: "Jane", street1: "1 Main", city: "Reno", state: "NV", zip: "89501", country: "US" });
+const ADDR = JSON.stringify({
+  name: "Jane",
+  street1: "1 Main",
+  city: "Reno",
+  state: "NV",
+  zip: "89501",
+  country: "US",
+});
 
 function db(): BatchDatabase {
   return createMigratedNodeDatabase("per-firm").database;
@@ -421,25 +520,72 @@ function db(): BatchDatabase {
 describe("shipment service", () => {
   it("creates a draft shipment row", async () => {
     const database = db();
-    const { shipmentId, effect } = await createShipmentDraft(database, { matterRef: null, fromAddress: ADDR, toAddress: ADDR, parcel: JSON.stringify({ weightOz: 8 }), options: "{}" }, options);
+    const { shipmentId, effect } = await createShipmentDraft(
+      database,
+      {
+        matterRef: null,
+        fromAddress: ADDR,
+        toAddress: ADDR,
+        parcel: JSON.stringify({ weightOz: 8 }),
+        options: "{}",
+      },
+      options,
+    );
     await commitEffectBatch(database, effect, { now });
-    const { results } = await database.prepare("SELECT status FROM shipment WHERE id = ?1").bind(shipmentId).all();
+    const { results } = await database
+      .prepare("SELECT status FROM shipment WHERE id = ?1")
+      .bind(shipmentId)
+      .all();
     expect(results[0]).toEqual({ status: "draft" });
   });
 
   it("records a purchase: shipment → purchased + a label row", async () => {
     const database = db();
-    const draft = await createShipmentDraft(database, { matterRef: null, fromAddress: ADDR, toAddress: ADDR, parcel: JSON.stringify({ weightOz: 8 }), options: "{}" }, options);
+    const draft = await createShipmentDraft(
+      database,
+      {
+        matterRef: null,
+        fromAddress: ADDR,
+        toAddress: ADDR,
+        parcel: JSON.stringify({ weightOz: 8 }),
+        options: "{}",
+      },
+      options,
+    );
     await commitEffectBatch(database, draft.effect, { now });
     const purchase = await recordPurchase(
       database,
-      { shipmentId: draft.shipmentId, remoteShipmentId: "shp_1", carrier: "USPS", service: "Priority", trackingCode: "9400", labelFormat: "application/pdf", r2Key: `labels/${draft.shipmentId}.pdf`, postageCostMinor: 745, serviceFeeMinor: 5, currency: "USD" },
+      {
+        shipmentId: draft.shipmentId,
+        remoteShipmentId: "shp_1",
+        carrier: "USPS",
+        service: "Priority",
+        trackingCode: "9400",
+        labelFormat: "application/pdf",
+        r2Key: `labels/${draft.shipmentId}.pdf`,
+        postageCostMinor: 745,
+        serviceFeeMinor: 5,
+        currency: "USD",
+      },
       options,
     );
     await commitEffectBatch(database, purchase.effect, { now });
-    const { results } = await database.prepare("SELECT status, tracking_code, postage_cost_minor, service_fee_minor FROM shipment WHERE id = ?1").bind(draft.shipmentId).all();
-    expect(results[0]).toEqual({ status: "purchased", tracking_code: "9400", postage_cost_minor: 745, service_fee_minor: 5 });
-    const labels = await database.prepare("SELECT cost_minor FROM shipment_label WHERE shipment_ref = ?1").bind(draft.shipmentId).all();
+    const { results } = await database
+      .prepare(
+        "SELECT status, tracking_code, postage_cost_minor, service_fee_minor FROM shipment WHERE id = ?1",
+      )
+      .bind(draft.shipmentId)
+      .all();
+    expect(results[0]).toEqual({
+      status: "purchased",
+      tracking_code: "9400",
+      postage_cost_minor: 745,
+      service_fee_minor: 5,
+    });
+    const labels = await database
+      .prepare("SELECT cost_minor FROM shipment_label WHERE shipment_ref = ?1")
+      .bind(draft.shipmentId)
+      .all();
     expect(labels.results[0]).toEqual({ cost_minor: 745 });
   });
 });
@@ -477,8 +623,19 @@ export interface ShipmentServiceOptions {
   readonly randomSource?: RandomSource;
 }
 
-function audit(database: SqlDatabase, options: ShipmentServiceOptions, event: string, subjectId: string) {
-  return domainAuditStatement(database, { event, subjectId, actorUserId: options.actorUserId, clock: options.clock, randomSource: options.randomSource });
+function audit(
+  database: SqlDatabase,
+  options: ShipmentServiceOptions,
+  event: string,
+  subjectId: string,
+) {
+  return domainAuditStatement(database, {
+    event,
+    subjectId,
+    actorUserId: options.actorUserId,
+    clock: options.clock,
+    randomSource: options.randomSource,
+  });
 }
 
 export interface CreateShipmentDraftInput {
@@ -500,7 +657,15 @@ export async function createShipmentDraft(
     shipmentId,
     effect: {
       statements: [
-        insertShipmentDraftStatement(database, { id: shipmentId, matterRef: input.matterRef, fromAddress: input.fromAddress, toAddress: input.toAddress, parcel: input.parcel, options: input.options, createdAt }),
+        insertShipmentDraftStatement(database, {
+          id: shipmentId,
+          matterRef: input.matterRef,
+          fromAddress: input.fromAddress,
+          toAddress: input.toAddress,
+          parcel: input.parcel,
+          options: input.options,
+          createdAt,
+        }),
         audit(database, options, "shipment.created", shipmentId),
       ],
       outboxMessages: [{ topic: "shipment.created", payload: { shipmentId } }],
@@ -532,12 +697,45 @@ export async function recordPurchase(
     labelId,
     effect: {
       statements: [
-        insertLabelStatement(database, { id: labelId, shipmentRef: input.shipmentId, format: input.labelFormat, r2Key: input.r2Key, trackingCode: input.trackingCode, costMinor: input.postageCostMinor, currency: input.currency, createdAt: updatedAt }),
-        markShipmentPurchasedStatement(database, input.shipmentId, { remoteShipmentId: input.remoteShipmentId, carrier: input.carrier, service: input.service, trackingCode: input.trackingCode, labelRef: labelId, postageCostMinor: input.postageCostMinor, serviceFeeMinor: input.serviceFeeMinor, currency: input.currency }, updatedAt),
+        insertLabelStatement(database, {
+          id: labelId,
+          shipmentRef: input.shipmentId,
+          format: input.labelFormat,
+          r2Key: input.r2Key,
+          trackingCode: input.trackingCode,
+          costMinor: input.postageCostMinor,
+          currency: input.currency,
+          createdAt: updatedAt,
+        }),
+        markShipmentPurchasedStatement(
+          database,
+          input.shipmentId,
+          {
+            remoteShipmentId: input.remoteShipmentId,
+            carrier: input.carrier,
+            service: input.service,
+            trackingCode: input.trackingCode,
+            labelRef: labelId,
+            postageCostMinor: input.postageCostMinor,
+            serviceFeeMinor: input.serviceFeeMinor,
+            currency: input.currency,
+          },
+          updatedAt,
+        ),
         audit(database, options, "shipment.purchased", input.shipmentId),
       ],
       // The cost-recovery seam: the Phase-3 financial core consumes this to post a matter disbursement.
-      outboxMessages: [{ topic: "shipment.purchased", payload: { shipmentId: input.shipmentId, postageCostMinor: input.postageCostMinor, serviceFeeMinor: input.serviceFeeMinor, currency: input.currency } }],
+      outboxMessages: [
+        {
+          topic: "shipment.purchased",
+          payload: {
+            shipmentId: input.shipmentId,
+            postageCostMinor: input.postageCostMinor,
+            serviceFeeMinor: input.serviceFeeMinor,
+            currency: input.currency,
+          },
+        },
+      ],
     },
   };
 }
@@ -550,7 +748,10 @@ export async function recordRefund(
   const updatedAt = options.clock.now();
   return {
     effect: {
-      statements: [markShipmentRefundedStatement(database, shipmentId, updatedAt), audit(database, options, "shipment.refunded", shipmentId)],
+      statements: [
+        markShipmentRefundedStatement(database, shipmentId, updatedAt),
+        audit(database, options, "shipment.refunded", shipmentId),
+      ],
       outboxMessages: [{ topic: "shipment.refunded", payload: { shipmentId } }],
     },
   };
@@ -599,15 +800,25 @@ export const firmSecretStoreNotYetAvailable: SecretStoreForFirm = () => {
 ```typescript
 // apps/worker/src/shipping/registry.ts
 import { createConnectionStore } from "@magna-carta/data-access/integration-connection-store";
-import { createFirmSecretCredentialStore, type SecretStore } from "@magna-carta/data-access/firm-secret-credential-store";
+import {
+  createFirmSecretCredentialStore,
+  type SecretStore,
+} from "@magna-carta/data-access/firm-secret-credential-store";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
-import { createIntegrationRegistry, type IntegrationRegistry } from "@magna-carta/integrations/registry";
+import {
+  createIntegrationRegistry,
+  type IntegrationRegistry,
+} from "@magna-carta/integrations/registry";
 import { createEasyPostAdapter } from "@magna-carta/shipping/easypost";
 import { fetchHttpClient, type HttpClient } from "@magna-carta/shipping/easypost/http";
 
 // One registry per request, over the firm's D1 (ConnectionStore) and its firm_secret CredentialStore.
 // The HttpClient is injectable so tests pass a fake EasyPost.
-export function buildShippingRegistry(firmDatabase: SqlDatabase, secretStore: SecretStore, http: HttpClient = fetchHttpClient()): IntegrationRegistry {
+export function buildShippingRegistry(
+  firmDatabase: SqlDatabase,
+  secretStore: SecretStore,
+  http: HttpClient = fetchHttpClient(),
+): IntegrationRegistry {
   const registry = createIntegrationRegistry({
     connectionStore: createConnectionStore(firmDatabase),
     credentialStore: createFirmSecretCredentialStore(secretStore),
@@ -674,7 +885,11 @@ import { createEasyPostAdapter } from "@magna-carta/shipping/easypost";
 import type { HttpClient } from "@magna-carta/shipping/easypost/http";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
-import { requireChokepointFirmContext, requireChokepointIdempotency, requireChokepointUserId } from "../chokepoint/context-accessors.ts";
+import {
+  requireChokepointFirmContext,
+  requireChokepointIdempotency,
+  requireChokepointUserId,
+} from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
@@ -688,7 +903,17 @@ type ShippingApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 const MANAGE = "shipping:manage" as const;
 
 function writeMeta(operationId: string): RouteMeta {
-  return { operationId, surface: "app", authenticated: true, permission: MANAGE, resource: "firm", audited: true, idempotency: "required", idempotencyStore: "firm", rateLimit: "default" };
+  return {
+    operationId,
+    surface: "app",
+    authenticated: true,
+    permission: MANAGE,
+    resource: "firm",
+    audited: true,
+    idempotency: "required",
+    idempotencyStore: "firm",
+    rateLimit: "default",
+  };
 }
 
 const ConnectRequest = z.object({ apiKey: z.string().min(1) }).openapi("ShippingConnectRequest");
@@ -697,54 +922,83 @@ const ConnectAck = z.object({ id: z.string(), status: z.string() }).openapi("Shi
 const connectRoute = defineOpenAPIRoute(writeMeta("shipping.connect"), {
   method: "post",
   path: "/api/v1/integrations/shipping/connection",
-  description: "Connects the firm's EasyPost postage account by storing its API key as a firm secret.",
-  request: { body: { content: { "application/json": { schema: ConnectRequest } }, required: true } },
-  responses: { 201: { description: "Connected", content: { "application/json": { schema: ConnectAck } } } },
+  description:
+    "Connects the firm's EasyPost postage account by storing its API key as a firm secret.",
+  request: {
+    body: { content: { "application/json": { schema: ConnectRequest } }, required: true },
+  },
+  responses: {
+    201: { description: "Connected", content: { "application/json": { schema: ConnectAck } } },
+  },
 });
 
-export function registerShippingRoutes(app: ShippingApp, chokepoint: Chokepoint, deps: ShippingRouteDeps): void {
-  app.openapi({ ...connectRoute, middleware: chokepointMiddleware(chokepoint, connectRoute) }, async (c) => {
-    const firm = requireChokepointFirmContext(c);
-    const userId = requireChokepointUserId(c);
-    const idempotency = requireChokepointIdempotency(c);
-    const { apiKey } = c.req.valid("json");
-    const now = () => new Date().toISOString();
-    const secrets = deps.secretStoreForFirm(firm.firmDatabase);
-    const descriptor = createEasyPostAdapter({ http: deps.httpClient }).descriptor;
+export function registerShippingRoutes(
+  app: ShippingApp,
+  chokepoint: Chokepoint,
+  deps: ShippingRouteDeps,
+): void {
+  app.openapi(
+    { ...connectRoute, middleware: chokepointMiddleware(chokepoint, connectRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { apiKey } = c.req.valid("json");
+      const now = () => new Date().toISOString();
+      const secrets = deps.secretStoreForFirm(firm.firmDatabase);
+      const descriptor = createEasyPostAdapter({ http: deps.httpClient }).descriptor;
 
-    const connectionId = newIdentifier("integrationConnection");
-    const credentialRef = `integration:shipping:${connectionId}`;
-    // Store the secret first (idempotent by ref), then commit the connection row in the effect batch.
-    await secrets.putSecret(credentialRef, JSON.stringify({ kind: "apiKey", apiKey }));
+      const connectionId = newIdentifier("integrationConnection");
+      const credentialRef = `integration:shipping:${connectionId}`;
+      // Store the secret first (idempotent by ref), then commit the connection row in the effect batch.
+      await secrets.putSecret(credentialRef, JSON.stringify({ kind: "apiKey", apiKey }));
 
-    const result = await runIdempotentEffect({
-      database: firm.firmDatabase,
-      key: idempotency.key,
-      fingerprint: idempotency.fingerprint,
-      now,
-      effect: async () => ({
-        write: {
-          statements: [
-            insertConnectionStatement(firm.firmDatabase, { id: connectionId, category: "shipping", adapterId: "easypost", scope: "firm", principalRef: firm.firmId, credentialRef, capabilitySnapshot: JSON.stringify(descriptor), createdAt: now() }),
-          ],
-          outboxMessages: [],
-        },
-        responseCode: 201,
-        responseBody: canonicalJsonStringify({ id: connectionId, status: "connected" }),
-      }),
-    });
-    if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") return problemForIdempotency(c, result);
-    return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof ConnectAck>, 201);
-  });
+      const result = await runIdempotentEffect({
+        database: firm.firmDatabase,
+        key: idempotency.key,
+        fingerprint: idempotency.fingerprint,
+        now,
+        effect: async () => ({
+          write: {
+            statements: [
+              insertConnectionStatement(firm.firmDatabase, {
+                id: connectionId,
+                category: "shipping",
+                adapterId: "easypost",
+                scope: "firm",
+                principalRef: firm.firmId,
+                credentialRef,
+                capabilitySnapshot: JSON.stringify(descriptor),
+                createdAt: now(),
+              }),
+            ],
+            outboxMessages: [],
+          },
+          responseCode: 201,
+          responseBody: canonicalJsonStringify({ id: connectionId, status: "connected" }),
+        }),
+      });
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
+        return problemForIdempotency(c, result);
+      return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof ConnectAck>, 201);
+    },
+  );
 }
 
 // Minimal local helper — mirror the idempotency-conflict problem shape used in routes/locations.ts.
-function problemForIdempotency(c: Parameters<ShippingApp["openapi"]>[1] extends (c: infer C, ...args: never[]) => unknown ? C : never, _result: unknown): never {
-  throw new Error("replace with the shared idempotency-conflict problem helper used in routes/locations.ts");
+function problemForIdempotency(
+  c: Parameters<ShippingApp["openapi"]>[1] extends (c: infer C, ...args: never[]) => unknown
+    ? C
+    : never,
+  _result: unknown,
+): never {
+  throw new Error(
+    "replace with the shared idempotency-conflict problem helper used in routes/locations.ts",
+  );
 }
 ```
 
-> **Build note:** copy the *exact* idempotency-conflict handling (`problemResponseForIdempotencyConflict`, the `replayed` header) and the `userId` audit wiring from `apps/worker/src/routes/locations.ts` — the stub above marks where it goes. Keep this file consistent with that reference route. `userId` is read to satisfy the audited-route contract.
+> **Build note:** copy the _exact_ idempotency-conflict handling (`problemResponseForIdempotencyConflict`, the `replayed` header) and the `userId` audit wiring from `apps/worker/src/routes/locations.ts` — the stub above marks where it goes. Keep this file consistent with that reference route. `userId` is read to satisfy the audited-route contract.
 
 - [ ] **Step 2: Register in `app.ts`**
 
@@ -757,7 +1011,7 @@ In `apps/worker/src/app.ts`, extend `CreateAppOptions` and register the routes:
 
 ```typescript
 // inside createApp, with the other route registrations:
-  if (options.shipping) registerShippingRoutes(app, chokepoint, options.shipping);
+if (options.shipping) registerShippingRoutes(app, chokepoint, options.shipping);
 ```
 
 Add the import: `import { registerShippingRoutes } from "./routes/shipping.ts";`. (Production wiring in `index.ts` passes `shipping: { secretStoreForFirm: firmSecretStoreNotYetAvailable, httpClient: fetchHttpClient() }` until 1·2 lands; tests pass a fake — Task 12.)
@@ -785,70 +1039,170 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 Append to `registerShippingRoutes` (and define the schemas at module scope):
 
 ```typescript
-const AddressSchema = z.object({ name: z.string().min(1), company: z.string().nullable().optional(), street1: z.string().min(1), street2: z.string().nullable().optional(), city: z.string().min(1), state: z.string().min(1), zip: z.string().min(1), country: z.string().length(2), phone: z.string().nullable().optional() });
-const ParcelSchema = z.object({ lengthIn: z.number().positive().optional(), widthIn: z.number().positive().optional(), heightIn: z.number().positive().optional(), weightOz: z.number().positive(), predefinedPackage: z.string().nullable().optional() });
-const OptionsSchema = z.object({ certifiedMail: z.boolean().optional(), returnReceipt: z.enum(["none", "electronic", "physical"]).optional(), signatureConfirmation: z.enum(["none", "signature", "adult"]).optional(), insuranceAmountMinor: z.number().int().nullable().optional() });
-const CreateShipmentRequest = z.object({ matterRef: z.string().nullable().optional(), from: AddressSchema, to: AddressSchema, parcel: ParcelSchema, options: OptionsSchema.optional() }).openapi("CreateShipmentRequest");
+const AddressSchema = z.object({
+  name: z.string().min(1),
+  company: z.string().nullable().optional(),
+  street1: z.string().min(1),
+  street2: z.string().nullable().optional(),
+  city: z.string().min(1),
+  state: z.string().min(1),
+  zip: z.string().min(1),
+  country: z.string().length(2),
+  phone: z.string().nullable().optional(),
+});
+const ParcelSchema = z.object({
+  lengthIn: z.number().positive().optional(),
+  widthIn: z.number().positive().optional(),
+  heightIn: z.number().positive().optional(),
+  weightOz: z.number().positive(),
+  predefinedPackage: z.string().nullable().optional(),
+});
+const OptionsSchema = z.object({
+  certifiedMail: z.boolean().optional(),
+  returnReceipt: z.enum(["none", "electronic", "physical"]).optional(),
+  signatureConfirmation: z.enum(["none", "signature", "adult"]).optional(),
+  insuranceAmountMinor: z.number().int().nullable().optional(),
+});
+const CreateShipmentRequest = z
+  .object({
+    matterRef: z.string().nullable().optional(),
+    from: AddressSchema,
+    to: AddressSchema,
+    parcel: ParcelSchema,
+    options: OptionsSchema.optional(),
+  })
+  .openapi("CreateShipmentRequest");
 const ShipmentAck = z.object({ id: z.string() }).openapi("ShipmentAck");
-const RateSchema = z.object({ remoteId: z.string(), carrier: z.string(), service: z.string(), amountMinor: z.number(), currency: z.string(), deliveryDays: z.number().nullable(), estDeliveryDate: z.string().nullable() });
-const RatesResponse = z.object({ remoteShipmentId: z.string(), rates: z.array(RateSchema) }).openapi("ShipmentRates");
+const RateSchema = z.object({
+  remoteId: z.string(),
+  carrier: z.string(),
+  service: z.string(),
+  amountMinor: z.number(),
+  currency: z.string(),
+  deliveryDays: z.number().nullable(),
+  estDeliveryDate: z.string().nullable(),
+});
+const RatesResponse = z
+  .object({ remoteShipmentId: z.string(), rates: z.array(RateSchema) })
+  .openapi("ShipmentRates");
 ```
 
 ```typescript
 const createShipmentRoute = defineOpenAPIRoute(writeMeta("shipping.createShipment"), {
-  method: "post", path: "/api/v1/shipments",
-  description: "Creates a draft shipment (recipient, package, options) optionally linked to a matter.",
-  request: { body: { content: { "application/json": { schema: CreateShipmentRequest } }, required: true } },
-  responses: { 201: { description: "Draft created", content: { "application/json": { schema: ShipmentAck } } } },
+  method: "post",
+  path: "/api/v1/shipments",
+  description:
+    "Creates a draft shipment (recipient, package, options) optionally linked to a matter.",
+  request: {
+    body: { content: { "application/json": { schema: CreateShipmentRequest } }, required: true },
+  },
+  responses: {
+    201: { description: "Draft created", content: { "application/json": { schema: ShipmentAck } } },
+  },
 });
 
-app.openapi({ ...createShipmentRoute, middleware: chokepointMiddleware(chokepoint, createShipmentRoute) }, async (c) => {
-  const firm = requireChokepointFirmContext(c);
-  const userId = requireChokepointUserId(c);
-  const idempotency = requireChokepointIdempotency(c);
-  const body = c.req.valid("json");
-  const now = () => new Date().toISOString();
-  const result = await runIdempotentEffect({
-    database: firm.firmDatabase, key: idempotency.key, fingerprint: idempotency.fingerprint, now,
-    effect: async () => {
-      const created = await createShipmentDraft(firm.firmDatabase, { matterRef: (body.matterRef ?? null) as never, fromAddress: JSON.stringify(body.from), toAddress: JSON.stringify(body.to), parcel: JSON.stringify(body.parcel), options: JSON.stringify(body.options ?? {}) }, { clock: { now }, actorUserId: userId });
-      return { write: created.effect, responseCode: 201, responseBody: canonicalJsonStringify({ id: created.shipmentId }) };
-    },
-  });
-  if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") return problemForIdempotency(c, result);
-  return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof ShipmentAck>, 201);
-});
+app.openapi(
+  { ...createShipmentRoute, middleware: chokepointMiddleware(chokepoint, createShipmentRoute) },
+  async (c) => {
+    const firm = requireChokepointFirmContext(c);
+    const userId = requireChokepointUserId(c);
+    const idempotency = requireChokepointIdempotency(c);
+    const body = c.req.valid("json");
+    const now = () => new Date().toISOString();
+    const result = await runIdempotentEffect({
+      database: firm.firmDatabase,
+      key: idempotency.key,
+      fingerprint: idempotency.fingerprint,
+      now,
+      effect: async () => {
+        const created = await createShipmentDraft(
+          firm.firmDatabase,
+          {
+            matterRef: (body.matterRef ?? null) as never,
+            fromAddress: JSON.stringify(body.from),
+            toAddress: JSON.stringify(body.to),
+            parcel: JSON.stringify(body.parcel),
+            options: JSON.stringify(body.options ?? {}),
+          },
+          { clock: { now }, actorUserId: userId },
+        );
+        return {
+          write: created.effect,
+          responseCode: 201,
+          responseBody: canonicalJsonStringify({ id: created.shipmentId }),
+        };
+      },
+    });
+    if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
+      return problemForIdempotency(c, result);
+    return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof ShipmentAck>, 201);
+  },
+);
 ```
 
 Rate-shop is a read-through to EasyPost (no persistence — rates are ephemeral). It is a POST (it sends the package) but `idempotency: "optional"`, `audited: false`:
 
 ```typescript
 const rateRoute = defineOpenAPIRoute(
-  { operationId: "shipping.rateShipment", surface: "app", authenticated: true, permission: MANAGE, resource: "firm", audited: false, idempotency: "optional", rateLimit: "default" },
-  { method: "post", path: "/api/v1/shipments/{id}/rates", description: "Returns live carrier rates for the draft shipment.", request: { params: z.object({ id: z.string() }) }, responses: { 200: { description: "Rates", content: { "application/json": { schema: RatesResponse } } } } },
+  {
+    operationId: "shipping.rateShipment",
+    surface: "app",
+    authenticated: true,
+    permission: MANAGE,
+    resource: "firm",
+    audited: false,
+    idempotency: "optional",
+    rateLimit: "default",
+  },
+  {
+    method: "post",
+    path: "/api/v1/shipments/{id}/rates",
+    description: "Returns live carrier rates for the draft shipment.",
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: { description: "Rates", content: { "application/json": { schema: RatesResponse } } },
+    },
+  },
 );
 
-app.openapi({ ...rateRoute, middleware: chokepointMiddleware(chokepoint, rateRoute) }, async (c) => {
-  const firm = requireChokepointFirmContext(c);
-  const id = c.req.valid("param").id as never; // ShipmentId
-  const secrets = deps.secretStoreForFirm(firm.firmDatabase);
-  const registry = buildShippingRegistry(firm.firmDatabase, secrets, deps.httpClient);
-  const resolved = await registry.resolve<ShippingPort>("shipping", { firmId: firm.firmId });
-  if (!resolved.ok) return shippingDispatchProblem(c, resolved);
-  const { results } = await selectShipmentStatement(firm.firmDatabase, id).all<{ from_address: string; to_address: string; parcel: string; options: string }>();
-  const draft = results[0];
-  if (draft === undefined) return notFoundProblem(c);
-  const rated = await resolved.value.port.rateShipment({ from: JSON.parse(draft.from_address), to: JSON.parse(draft.to_address), parcel: JSON.parse(draft.parcel), options: JSON.parse(draft.options) });
-  if (!rated.ok) return shippingDispatchProblem(c, rated);
-  return c.json({ remoteShipmentId: rated.value.remoteId, rates: rated.value.rates }, 200);
-});
+app.openapi(
+  { ...rateRoute, middleware: chokepointMiddleware(chokepoint, rateRoute) },
+  async (c) => {
+    const firm = requireChokepointFirmContext(c);
+    const id = c.req.valid("param").id as never; // ShipmentId
+    const secrets = deps.secretStoreForFirm(firm.firmDatabase);
+    const registry = buildShippingRegistry(firm.firmDatabase, secrets, deps.httpClient);
+    const resolved = await registry.resolve<ShippingPort>("shipping", { firmId: firm.firmId });
+    if (!resolved.ok) return shippingDispatchProblem(c, resolved);
+    const { results } = await selectShipmentStatement(firm.firmDatabase, id).all<{
+      from_address: string;
+      to_address: string;
+      parcel: string;
+      options: string;
+    }>();
+    const draft = results[0];
+    if (draft === undefined) return notFoundProblem(c);
+    const rated = await resolved.value.port.rateShipment({
+      from: JSON.parse(draft.from_address),
+      to: JSON.parse(draft.to_address),
+      parcel: JSON.parse(draft.parcel),
+      options: JSON.parse(draft.options),
+    });
+    if (!rated.ok) return shippingDispatchProblem(c, rated);
+    return c.json({ remoteShipmentId: rated.value.remoteId, rates: rated.value.rates }, 200);
+  },
+);
 ```
 
 Add the imports at the top of the file:
 
 ```typescript
 import { selectShipmentStatement } from "@magna-carta/data-access/shipment-statements";
-import { createShipmentDraft, recordPurchase, recordRefund } from "@magna-carta/data-access/shipment-service";
+import {
+  createShipmentDraft,
+  recordPurchase,
+  recordRefund,
+} from "@magna-carta/data-access/shipment-service";
 import { buildShippingRegistry } from "../shipping/registry.ts";
 import type { ShippingPort } from "@magna-carta/shipping/port";
 ```
@@ -878,49 +1232,99 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 The chokepoint idempotency key doubles as the EasyPost `Idempotency-Key`, so a retry never double-buys. The label PDF is fetched from EasyPost's transient URL and written to per-firm R2; the R2 key is derived from the shipment id (stable across retries → idempotent put).
 
 ```typescript
-const PurchaseRequest = z.object({ remoteShipmentId: z.string(), remoteRateId: z.string(), serviceFeeMinor: z.number().int().nonnegative().default(0) }).openapi("PurchaseRequest");
-const PurchaseAck = z.object({ id: z.string(), trackingCode: z.string(), labelId: z.string() }).openapi("PurchaseAck");
+const PurchaseRequest = z
+  .object({
+    remoteShipmentId: z.string(),
+    remoteRateId: z.string(),
+    serviceFeeMinor: z.number().int().nonnegative().default(0),
+  })
+  .openapi("PurchaseRequest");
+const PurchaseAck = z
+  .object({ id: z.string(), trackingCode: z.string(), labelId: z.string() })
+  .openapi("PurchaseAck");
 
 const purchaseRoute = defineOpenAPIRoute(writeMeta("shipping.purchase"), {
-  method: "post", path: "/api/v1/shipments/{id}/purchase",
+  method: "post",
+  path: "/api/v1/shipments/{id}/purchase",
   description: "Buys the chosen rate, stores the label PDF, and records postage + service fee.",
-  request: { params: z.object({ id: z.string() }), body: { content: { "application/json": { schema: PurchaseRequest } }, required: true } },
-  responses: { 200: { description: "Purchased", content: { "application/json": { schema: PurchaseAck } } } },
+  request: {
+    params: z.object({ id: z.string() }),
+    body: { content: { "application/json": { schema: PurchaseRequest } }, required: true },
+  },
+  responses: {
+    200: { description: "Purchased", content: { "application/json": { schema: PurchaseAck } } },
+  },
 });
 
-app.openapi({ ...purchaseRoute, middleware: chokepointMiddleware(chokepoint, purchaseRoute) }, async (c) => {
-  const firm = requireChokepointFirmContext(c);
-  const userId = requireChokepointUserId(c);
-  const idempotency = requireChokepointIdempotency(c);
-  const id = c.req.valid("param").id as never; // ShipmentId
-  const body = c.req.valid("json");
-  const now = () => new Date().toISOString();
-  const secrets = deps.secretStoreForFirm(firm.firmDatabase);
-  const registry = buildShippingRegistry(firm.firmDatabase, secrets, deps.httpClient);
-  const resolved = await registry.resolve<ShippingPort>("shipping", { firmId: firm.firmId });
-  if (!resolved.ok) return shippingDispatchProblem(c, resolved);
+app.openapi(
+  { ...purchaseRoute, middleware: chokepointMiddleware(chokepoint, purchaseRoute) },
+  async (c) => {
+    const firm = requireChokepointFirmContext(c);
+    const userId = requireChokepointUserId(c);
+    const idempotency = requireChokepointIdempotency(c);
+    const id = c.req.valid("param").id as never; // ShipmentId
+    const body = c.req.valid("json");
+    const now = () => new Date().toISOString();
+    const secrets = deps.secretStoreForFirm(firm.firmDatabase);
+    const registry = buildShippingRegistry(firm.firmDatabase, secrets, deps.httpClient);
+    const resolved = await registry.resolve<ShippingPort>("shipping", { firmId: firm.firmId });
+    if (!resolved.ok) return shippingDispatchProblem(c, resolved);
 
-  const result = await runIdempotentEffect({
-    database: firm.firmDatabase, key: idempotency.key, fingerprint: idempotency.fingerprint, now,
-    effect: async () => {
-      const bought = await resolved.value.port.buyLabel({ remoteShipmentId: body.remoteShipmentId, remoteRateId: body.remoteRateId, idempotencyKey: idempotency.key });
-      if (!bought.ok) throw new ShippingDispatchError(bought);
-      const label = bought.value;
-      // Copy the label bytes from EasyPost's transient URL into per-firm R2.
-      const labelResponse = await fetch(label.labelUrl);
-      const r2Key = `labels/${id}.pdf`;
-      await c.env.R2.put(r2Key, await labelResponse.arrayBuffer(), { httpMetadata: { contentType: label.labelFormat } });
-      const recorded = await recordPurchase(firm.firmDatabase, { shipmentId: id, remoteShipmentId: label.remoteId, carrier: label.carrier, service: label.service, trackingCode: label.trackingCode, labelFormat: label.labelFormat, r2Key, postageCostMinor: label.costMinor, serviceFeeMinor: body.serviceFeeMinor, currency: label.currency }, { clock: { now }, actorUserId: userId });
-      return { write: recorded.effect, responseCode: 200, responseBody: canonicalJsonStringify({ id, trackingCode: label.trackingCode, labelId: recorded.labelId }) };
-    },
-  }).catch((caught) => {
-    if (caught instanceof ShippingDispatchError) return caught;
-    throw caught;
-  });
-  if (result instanceof ShippingDispatchError) return shippingDispatchProblem(c, result.dispatch);
-  if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") return problemForIdempotency(c, result);
-  return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof PurchaseAck>, 200);
-});
+    const result = await runIdempotentEffect({
+      database: firm.firmDatabase,
+      key: idempotency.key,
+      fingerprint: idempotency.fingerprint,
+      now,
+      effect: async () => {
+        const bought = await resolved.value.port.buyLabel({
+          remoteShipmentId: body.remoteShipmentId,
+          remoteRateId: body.remoteRateId,
+          idempotencyKey: idempotency.key,
+        });
+        if (!bought.ok) throw new ShippingDispatchError(bought);
+        const label = bought.value;
+        // Copy the label bytes from EasyPost's transient URL into per-firm R2.
+        const labelResponse = await fetch(label.labelUrl);
+        const r2Key = `labels/${id}.pdf`;
+        await c.env.R2.put(r2Key, await labelResponse.arrayBuffer(), {
+          httpMetadata: { contentType: label.labelFormat },
+        });
+        const recorded = await recordPurchase(
+          firm.firmDatabase,
+          {
+            shipmentId: id,
+            remoteShipmentId: label.remoteId,
+            carrier: label.carrier,
+            service: label.service,
+            trackingCode: label.trackingCode,
+            labelFormat: label.labelFormat,
+            r2Key,
+            postageCostMinor: label.costMinor,
+            serviceFeeMinor: body.serviceFeeMinor,
+            currency: label.currency,
+          },
+          { clock: { now }, actorUserId: userId },
+        );
+        return {
+          write: recorded.effect,
+          responseCode: 200,
+          responseBody: canonicalJsonStringify({
+            id,
+            trackingCode: label.trackingCode,
+            labelId: recorded.labelId,
+          }),
+        };
+      },
+    }).catch((caught) => {
+      if (caught instanceof ShippingDispatchError) return caught;
+      throw caught;
+    });
+    if (result instanceof ShippingDispatchError) return shippingDispatchProblem(c, result.dispatch);
+    if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
+      return problemForIdempotency(c, result);
+    return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof PurchaseAck>, 200);
+  },
+);
 ```
 
 Add at the bottom of the file:
@@ -957,75 +1361,188 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 - [ ] **Step 1: Add the three routes**
 
 ```typescript
-const TrackingResponse = z.object({ events: z.array(z.object({ status: z.string(), occurredAt: z.string().nullable(), location: z.string().nullable(), message: z.string().nullable() })) }).openapi("TrackingResponse");
+const TrackingResponse = z
+  .object({
+    events: z.array(
+      z.object({
+        status: z.string(),
+        occurredAt: z.string().nullable(),
+        location: z.string().nullable(),
+        message: z.string().nullable(),
+      }),
+    ),
+  })
+  .openapi("TrackingResponse");
 const RefundAck = z.object({ id: z.string(), status: z.string() }).openapi("RefundAck");
 
 // GET label PDF — streamed from per-firm R2.
 const labelRoute = defineOpenAPIRoute(
-  { operationId: "shipping.label", surface: "app", authenticated: true, permission: MANAGE, resource: "firm", audited: false, idempotency: "optional", rateLimit: "default" },
-  { method: "get", path: "/api/v1/shipments/{id}/label", description: "Streams the shipment's label PDF.", request: { params: z.object({ id: z.string() }) }, responses: { 200: { description: "Label PDF", content: { "application/pdf": { schema: z.string() } } } } },
+  {
+    operationId: "shipping.label",
+    surface: "app",
+    authenticated: true,
+    permission: MANAGE,
+    resource: "firm",
+    audited: false,
+    idempotency: "optional",
+    rateLimit: "default",
+  },
+  {
+    method: "get",
+    path: "/api/v1/shipments/{id}/label",
+    description: "Streams the shipment's label PDF.",
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: { description: "Label PDF", content: { "application/pdf": { schema: z.string() } } },
+    },
+  },
 );
-app.openapi({ ...labelRoute, middleware: chokepointMiddleware(chokepoint, labelRoute) }, async (c) => {
-  const id = c.req.valid("param").id;
-  const object = await c.env.R2.get(`labels/${id}.pdf`);
-  if (object === null) return notFoundProblem(c);
-  return new Response(object.body, { status: 200, headers: { "content-type": "application/pdf", "content-disposition": `inline; filename="label-${id}.pdf"` } });
-});
+app.openapi(
+  { ...labelRoute, middleware: chokepointMiddleware(chokepoint, labelRoute) },
+  async (c) => {
+    const id = c.req.valid("param").id;
+    const object = await c.env.R2.get(`labels/${id}.pdf`);
+    if (object === null) return notFoundProblem(c);
+    return new Response(object.body, {
+      status: 200,
+      headers: {
+        "content-type": "application/pdf",
+        "content-disposition": `inline; filename="label-${id}.pdf"`,
+      },
+    });
+  },
+);
 
 // Pull tracking live, cache events, return them. POST (it calls EasyPost) but unaudited, optional idempotency.
 const trackingRoute = defineOpenAPIRoute(
-  { operationId: "shipping.tracking", surface: "app", authenticated: true, permission: MANAGE, resource: "firm", audited: false, idempotency: "optional", rateLimit: "default" },
-  { method: "post", path: "/api/v1/shipments/{id}/tracking", description: "Pulls and returns current tracking events.", request: { params: z.object({ id: z.string() }) }, responses: { 200: { description: "Tracking events", content: { "application/json": { schema: TrackingResponse } } } } },
+  {
+    operationId: "shipping.tracking",
+    surface: "app",
+    authenticated: true,
+    permission: MANAGE,
+    resource: "firm",
+    audited: false,
+    idempotency: "optional",
+    rateLimit: "default",
+  },
+  {
+    method: "post",
+    path: "/api/v1/shipments/{id}/tracking",
+    description: "Pulls and returns current tracking events.",
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: {
+        description: "Tracking events",
+        content: { "application/json": { schema: TrackingResponse } },
+      },
+    },
+  },
 );
-app.openapi({ ...trackingRoute, middleware: chokepointMiddleware(chokepoint, trackingRoute) }, async (c) => {
-  const firm = requireChokepointFirmContext(c);
-  const id = c.req.valid("param").id as never; // ShipmentId
-  const now = () => new Date().toISOString();
-  const { results } = await selectShipmentStatement(firm.firmDatabase, id).all<{ tracking_code: string | null }>();
-  const shipmentRow = results[0];
-  if (shipmentRow?.tracking_code == null) return notFoundProblem(c);
-  const registry = buildShippingRegistry(firm.firmDatabase, deps.secretStoreForFirm(firm.firmDatabase), deps.httpClient);
-  const resolved = await registry.resolve<ShippingPort>("shipping", { firmId: firm.firmId });
-  if (!resolved.ok) return shippingDispatchProblem(c, resolved);
-  const tracked = await resolved.value.port.getTracking(shipmentRow.tracking_code);
-  if (!tracked.ok) return shippingDispatchProblem(c, tracked);
-  // Cache each event (INSERT OR IGNORE dedups by remote_id); a single batch.
-  const inserts = tracked.value.map((event) => insertTrackingEventStatement(firm.firmDatabase, { id: newIdentifier("trackingEvent"), shipmentRef: id, remoteId: event.remoteId, status: event.status, occurredAt: event.occurredAt, location: event.location, message: event.message, createdAt: now() }));
-  if (inserts.length > 0) await firm.firmDatabase.batch(inserts);
-  return c.json({ events: tracked.value.map((e) => ({ status: e.status, occurredAt: e.occurredAt, location: e.location, message: e.message })) }, 200);
-});
+app.openapi(
+  { ...trackingRoute, middleware: chokepointMiddleware(chokepoint, trackingRoute) },
+  async (c) => {
+    const firm = requireChokepointFirmContext(c);
+    const id = c.req.valid("param").id as never; // ShipmentId
+    const now = () => new Date().toISOString();
+    const { results } = await selectShipmentStatement(firm.firmDatabase, id).all<{
+      tracking_code: string | null;
+    }>();
+    const shipmentRow = results[0];
+    if (shipmentRow?.tracking_code == null) return notFoundProblem(c);
+    const registry = buildShippingRegistry(
+      firm.firmDatabase,
+      deps.secretStoreForFirm(firm.firmDatabase),
+      deps.httpClient,
+    );
+    const resolved = await registry.resolve<ShippingPort>("shipping", { firmId: firm.firmId });
+    if (!resolved.ok) return shippingDispatchProblem(c, resolved);
+    const tracked = await resolved.value.port.getTracking(shipmentRow.tracking_code);
+    if (!tracked.ok) return shippingDispatchProblem(c, tracked);
+    // Cache each event (INSERT OR IGNORE dedups by remote_id); a single batch.
+    const inserts = tracked.value.map((event) =>
+      insertTrackingEventStatement(firm.firmDatabase, {
+        id: newIdentifier("trackingEvent"),
+        shipmentRef: id,
+        remoteId: event.remoteId,
+        status: event.status,
+        occurredAt: event.occurredAt,
+        location: event.location,
+        message: event.message,
+        createdAt: now(),
+      }),
+    );
+    if (inserts.length > 0) await firm.firmDatabase.batch(inserts);
+    return c.json(
+      {
+        events: tracked.value.map((e) => ({
+          status: e.status,
+          occurredAt: e.occurredAt,
+          location: e.location,
+          message: e.message,
+        })),
+      },
+      200,
+    );
+  },
+);
 
 // Refund/void an unused label.
 const refundRoute = defineOpenAPIRoute(writeMeta("shipping.refund"), {
-  method: "post", path: "/api/v1/shipments/{id}/refund",
+  method: "post",
+  path: "/api/v1/shipments/{id}/refund",
   description: "Voids/refunds the shipment's label.",
   request: { params: z.object({ id: z.string() }) },
-  responses: { 200: { description: "Refund submitted", content: { "application/json": { schema: RefundAck } } } },
-});
-app.openapi({ ...refundRoute, middleware: chokepointMiddleware(chokepoint, refundRoute) }, async (c) => {
-  const firm = requireChokepointFirmContext(c);
-  const userId = requireChokepointUserId(c);
-  const idempotency = requireChokepointIdempotency(c);
-  const id = c.req.valid("param").id as never; // ShipmentId
-  const now = () => new Date().toISOString();
-  const { results } = await selectShipmentStatement(firm.firmDatabase, id).all<{ remote_shipment_id: string | null }>();
-  const remote = results[0]?.remote_shipment_id;
-  if (remote == null) return notFoundProblem(c);
-  const registry = buildShippingRegistry(firm.firmDatabase, deps.secretStoreForFirm(firm.firmDatabase), deps.httpClient);
-  const resolved = await registry.resolve<ShippingPort>("shipping", { firmId: firm.firmId });
-  if (!resolved.ok) return shippingDispatchProblem(c, resolved);
-  const refunded = await resolved.value.port.refundLabel(remote);
-  if (!refunded.ok) return shippingDispatchProblem(c, refunded);
-  const result = await runIdempotentEffect({
-    database: firm.firmDatabase, key: idempotency.key, fingerprint: idempotency.fingerprint, now,
-    effect: async () => {
-      const recorded = await recordRefund(firm.firmDatabase, id, { clock: { now }, actorUserId: userId });
-      return { write: recorded.effect, responseCode: 200, responseBody: canonicalJsonStringify({ id, status: refunded.value.status }) };
+  responses: {
+    200: {
+      description: "Refund submitted",
+      content: { "application/json": { schema: RefundAck } },
     },
-  });
-  if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") return problemForIdempotency(c, result);
-  return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof RefundAck>, 200);
+  },
 });
+app.openapi(
+  { ...refundRoute, middleware: chokepointMiddleware(chokepoint, refundRoute) },
+  async (c) => {
+    const firm = requireChokepointFirmContext(c);
+    const userId = requireChokepointUserId(c);
+    const idempotency = requireChokepointIdempotency(c);
+    const id = c.req.valid("param").id as never; // ShipmentId
+    const now = () => new Date().toISOString();
+    const { results } = await selectShipmentStatement(firm.firmDatabase, id).all<{
+      remote_shipment_id: string | null;
+    }>();
+    const remote = results[0]?.remote_shipment_id;
+    if (remote == null) return notFoundProblem(c);
+    const registry = buildShippingRegistry(
+      firm.firmDatabase,
+      deps.secretStoreForFirm(firm.firmDatabase),
+      deps.httpClient,
+    );
+    const resolved = await registry.resolve<ShippingPort>("shipping", { firmId: firm.firmId });
+    if (!resolved.ok) return shippingDispatchProblem(c, resolved);
+    const refunded = await resolved.value.port.refundLabel(remote);
+    if (!refunded.ok) return shippingDispatchProblem(c, refunded);
+    const result = await runIdempotentEffect({
+      database: firm.firmDatabase,
+      key: idempotency.key,
+      fingerprint: idempotency.fingerprint,
+      now,
+      effect: async () => {
+        const recorded = await recordRefund(firm.firmDatabase, id, {
+          clock: { now },
+          actorUserId: userId,
+        });
+        return {
+          write: recorded.effect,
+          responseCode: 200,
+          responseBody: canonicalJsonStringify({ id, status: refunded.value.status }),
+        };
+      },
+    });
+    if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
+      return problemForIdempotency(c, result);
+    return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof RefundAck>, 200);
+  },
+);
 ```
 
 Add the import: `import { insertTrackingEventStatement } from "@magna-carta/data-access/shipment-statements";`.
@@ -1062,28 +1579,72 @@ import { seedCredentialedUser, mirrorMemberWithOwnerRole, PASSWORD } from "./sup
 
 function memorySecretStore(): SecretStore {
   const map = new Map<string, string>();
-  return { getSecret: async (r) => map.get(r) ?? null, putSecret: async (r, v) => void map.set(r, v) };
+  return {
+    getSecret: async (r) => map.get(r) ?? null,
+    putSecret: async (r, v) => void map.set(r, v),
+  };
 }
 
 // A fake EasyPost: rate → buy → tracking, by URL.
 function fakeEasyPost(): HttpClient {
   return {
     async request(req) {
-      if (req.url.endsWith("/shipments") && req.method === "POST") return { status: 201, json: async () => ({ id: "shp_1", rates: [{ id: "rate_1", carrier: "USPS", service: "Priority", rate: "7.45", currency: "USD" }] }) };
-      if (req.url.includes("/buy")) return { status: 200, json: async () => ({ id: "shp_1", tracking_code: "9400111", selected_rate: { carrier: "USPS", service: "Priority", rate: "7.45", currency: "USD" }, postage_label: { label_url: "https://easypost.test/label.pdf", label_file_type: "application/pdf" } }) };
-      if (req.url.includes("/trackers")) return { status: 200, json: async () => ({ trackers: [{ tracking_details: [{ status: "in_transit", datetime: "2026-06-17T00:00:00Z", message: "Departed", tracking_location: { city: "Reno", state: "NV" } }] }] }) };
+      if (req.url.endsWith("/shipments") && req.method === "POST")
+        return {
+          status: 201,
+          json: async () => ({
+            id: "shp_1",
+            rates: [
+              { id: "rate_1", carrier: "USPS", service: "Priority", rate: "7.45", currency: "USD" },
+            ],
+          }),
+        };
+      if (req.url.includes("/buy"))
+        return {
+          status: 200,
+          json: async () => ({
+            id: "shp_1",
+            tracking_code: "9400111",
+            selected_rate: { carrier: "USPS", service: "Priority", rate: "7.45", currency: "USD" },
+            postage_label: {
+              label_url: "https://easypost.test/label.pdf",
+              label_file_type: "application/pdf",
+            },
+          }),
+        };
+      if (req.url.includes("/trackers"))
+        return {
+          status: 200,
+          json: async () => ({
+            trackers: [
+              {
+                tracking_details: [
+                  {
+                    status: "in_transit",
+                    datetime: "2026-06-17T00:00:00Z",
+                    message: "Departed",
+                    tracking_location: { city: "Reno", state: "NV" },
+                  },
+                ],
+              },
+            ],
+          }),
+        };
       return { status: 404, json: async () => ({}) };
     },
   };
 }
 
 const secrets = memorySecretStore();
-const app = createApp({ shipping: { secretStoreForFirm: () => secrets, httpClient: fakeEasyPost() } });
+const app = createApp({
+  shipping: { secretStoreForFirm: () => secrets, httpClient: fakeEasyPost() },
+});
 
 // Also stub global fetch for the R2 label copy (the purchase route fetches label_url).
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  globalThis.fetch = (async () => new Response(new Uint8Array([37, 80, 68, 70]), { status: 200 })) as typeof fetch; // "%PDF"
+  globalThis.fetch = (async () =>
+    new Response(new Uint8Array([37, 80, 68, 70]), { status: 200 })) as typeof fetch; // "%PDF"
 });
 
 async function authedHeaders(): Promise<Record<string, string>> {
@@ -1091,7 +1652,9 @@ async function authedHeaders(): Promise<Record<string, string>> {
   await mirrorMemberWithOwnerRole(userId, "Ship User");
   // Obtain a session cookie via Better Auth sign-in (mirror an existing authed integration test's helper).
   // Replace with the repo's session-cookie helper used by other chokepoint route tests.
-  throw new Error("use the repo's existing authed-request helper to mint a session cookie + Idempotency-Key");
+  throw new Error(
+    "use the repo's existing authed-request helper to mint a session cookie + Idempotency-Key",
+  );
 }
 
 describe("shipping e2e", () => {
@@ -1100,27 +1663,80 @@ describe("shipping e2e", () => {
     const base = "https://example.com/api/v1";
     const json = { "content-type": "application/json", ...headers };
 
-    const connect = await app.request(`${base}/integrations/shipping/connection`, { method: "POST", headers: json, body: JSON.stringify({ apiKey: "ezk_test" }) }, env);
+    const connect = await app.request(
+      `${base}/integrations/shipping/connection`,
+      { method: "POST", headers: json, body: JSON.stringify({ apiKey: "ezk_test" }) },
+      env,
+    );
     expect(connect.status).toBe(201);
 
-    const addr = { name: "Jane", street1: "1 Main St", city: "Reno", state: "NV", zip: "89501", country: "US" };
-    const create = await app.request(`${base}/shipments`, { method: "POST", headers: json, body: JSON.stringify({ from: addr, to: addr, parcel: { weightOz: 8 }, options: { certifiedMail: true } }) }, env);
+    const addr = {
+      name: "Jane",
+      street1: "1 Main St",
+      city: "Reno",
+      state: "NV",
+      zip: "89501",
+      country: "US",
+    };
+    const create = await app.request(
+      `${base}/shipments`,
+      {
+        method: "POST",
+        headers: json,
+        body: JSON.stringify({
+          from: addr,
+          to: addr,
+          parcel: { weightOz: 8 },
+          options: { certifiedMail: true },
+        }),
+      },
+      env,
+    );
     expect(create.status).toBe(201);
     const { id } = (await create.json()) as { id: string };
 
-    const rates = await app.request(`${base}/shipments/${id}/rates`, { method: "POST", headers: json }, env);
+    const rates = await app.request(
+      `${base}/shipments/${id}/rates`,
+      { method: "POST", headers: json },
+      env,
+    );
     expect(rates.status).toBe(200);
-    const rated = (await rates.json()) as { remoteShipmentId: string; rates: { remoteId: string }[] };
+    const rated = (await rates.json()) as {
+      remoteShipmentId: string;
+      rates: { remoteId: string }[];
+    };
 
-    const purchase = await app.request(`${base}/shipments/${id}/purchase`, { method: "POST", headers: json, body: JSON.stringify({ remoteShipmentId: rated.remoteShipmentId, remoteRateId: rated.rates[0].remoteId, serviceFeeMinor: 5 }) }, env);
+    const purchase = await app.request(
+      `${base}/shipments/${id}/purchase`,
+      {
+        method: "POST",
+        headers: json,
+        body: JSON.stringify({
+          remoteShipmentId: rated.remoteShipmentId,
+          remoteRateId: rated.rates[0].remoteId,
+          serviceFeeMinor: 5,
+        }),
+      },
+      env,
+    );
     expect(purchase.status).toBe(200);
-    expect((await purchase.json()) as { trackingCode: string }).toMatchObject({ trackingCode: "9400111" });
+    expect((await purchase.json()) as { trackingCode: string }).toMatchObject({
+      trackingCode: "9400111",
+    });
 
-    const label = await app.request(`${base}/shipments/${id}/label`, { method: "GET", headers }, env);
+    const label = await app.request(
+      `${base}/shipments/${id}/label`,
+      { method: "GET", headers },
+      env,
+    );
     expect(label.status).toBe(200);
     expect(label.headers.get("content-type")).toBe("application/pdf");
 
-    const tracking = await app.request(`${base}/shipments/${id}/tracking`, { method: "POST", headers: json }, env);
+    const tracking = await app.request(
+      `${base}/shipments/${id}/tracking`,
+      { method: "POST", headers: json },
+      env,
+    );
     expect(tracking.status).toBe(200);
     expect(((await tracking.json()) as { events: unknown[] }).events.length).toBeGreaterThan(0);
   });
@@ -1168,7 +1784,9 @@ export const shippingMeasurements: readonly Measurement<MattersMeasurementHandle
     name: "list-shipments.by-matter",
     operation: async (handle) => {
       await handle.snapshot.database
-        .prepare("SELECT id, status, tracking_code, carrier, service FROM shipment WHERE matter_ref = ?1 ORDER BY created_at DESC LIMIT 51")
+        .prepare(
+          "SELECT id, status, tracking_code, carrier, service FROM shipment WHERE matter_ref = ?1 ORDER BY created_at DESC LIMIT 51",
+        )
         .bind(handle.snapshot.manifest.shippingProbes.busiestMatterId)
         .all();
     },
@@ -1176,7 +1794,10 @@ export const shippingMeasurements: readonly Measurement<MattersMeasurementHandle
   {
     name: "list-tracking-events.by-shipment",
     operation: async (handle) => {
-      await listTrackingEventsStatement(handle.snapshot.database, handle.snapshot.manifest.shippingProbes.multiEventShipmentId).all();
+      await listTrackingEventsStatement(
+        handle.snapshot.database,
+        handle.snapshot.manifest.shippingProbes.multiEventShipmentId,
+      ).all();
     },
   },
 ];
@@ -1186,10 +1807,19 @@ export function shippingHotPathPlans(snapshot: LoadedSnapshot): LabeledPlan[] {
   const byMatter = snapshot.database
     .prepare("SELECT id FROM shipment WHERE matter_ref = ?1 ORDER BY created_at DESC LIMIT 51")
     .bind(shippingProbes.busiestMatterId) as unknown as { sql: string; bindings: unknown[] };
-  const byShipment = listTrackingEventsStatement(snapshot.database, shippingProbes.multiEventShipmentId) as unknown as { sql: string; bindings: unknown[] };
+  const byShipment = listTrackingEventsStatement(
+    snapshot.database,
+    shippingProbes.multiEventShipmentId,
+  ) as unknown as { sql: string; bindings: unknown[] };
   return [
-    { label: "list-shipments.by-matter", details: explainStatement(snapshot.raw, byMatter.sql, byMatter.bindings) },
-    { label: "list-tracking-events.by-shipment", details: explainStatement(snapshot.raw, byShipment.sql, byShipment.bindings) },
+    {
+      label: "list-shipments.by-matter",
+      details: explainStatement(snapshot.raw, byMatter.sql, byMatter.bindings),
+    },
+    {
+      label: "list-tracking-events.by-shipment",
+      details: explainStatement(snapshot.raw, byShipment.sql, byShipment.bindings),
+    },
   ];
 }
 ```
@@ -1227,6 +1857,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 - [ ] **Step 2: Final full gate**
 
 Run:
+
 ```
 pnpm check && pnpm run lint:process-refs && \
 pnpm --filter @magna-carta/shipping exec vitest run && \
@@ -1234,6 +1865,7 @@ pnpm --filter @magna-carta/data-access exec vitest run && \
 pnpm --filter @magna-carta/worker exec vitest run && \
 pnpm --filter @magna-carta/fixtures exec vitest run
 ```
+
 Expected: all green; `lint:process-refs` clean.
 
 - [ ] **Step 3: Validate the worker deploy contract**
@@ -1255,6 +1887,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Self-Review
 
 **Spec coverage (B-backend portion of the design):**
+
 - §1 module placement — shipping tables (Task 2), shipment statements/service (Tasks 4–5), worker routes + composition (Tasks 6–11), identifiers (Task 1). ✓
 - §4 vertical slice — schema incl. cost columns + matter link (Task 2); routes for create, rate, idempotent purchase with R2 label copy, label, tracking, refund (Tasks 9–11); connection management (Task 8). ✓
 - §6 cross-cutting — money as minor units (Tasks 2,4,5); purchase idempotent end-to-end (chokepoint key + EasyPost `Idempotency-Key`, Tasks 3,10); secret never logged (the key only ever flows into `putSecret`). ✓
@@ -1262,9 +1895,10 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 - §5 piece C — cost columns + the `shipment.purchased` outbox payload ship as the seam (Tasks 2,5); the disbursement posting is built with Phase 3. ✓
 
 **Deliberate scope refinements (flagged):**
+
 - **Tracking is pull-based**, not push-webhook. At firm mailing volume, on-demand pull (Task 11) is sufficient and avoids building cross-firm webhook routing for Forge's single parent webhook. **Deferred follow-up:** a `POST /v1/webhooks/easypost/{token}` ingress — per-firm opaque token on the connection + a control-plane token→firm route table + HMAC-SHA256 verification (`crypto.subtle`) + `INSERT OR IGNORE` tracking append. This is the one design item (§4 webhook) intentionally pushed to its own task; everything else in B-backend is built here.
 - **Live `firm_secret` backing** is injected through the `secretStoreForFirm` seam (Task 6); production uses `firmSecretStoreNotYetAvailable` until slice 1·2 lands, then swaps to the real store (one line). Tests use an in-memory fake, so the slice is fully testable now.
 
-**Placeholder scan:** the three `> Build note` callouts (Tasks 8, 10, 12) point at *named existing files* to copy an exact helper from (idempotency-conflict response; `runIdempotentEffect` throw semantics; the authed-request helper) rather than inventing a divergent copy — these are "use the canonical version" instructions, not deferred work. The `problemForIdempotency` / `shippingDispatchProblem` / `notFoundProblem` helpers are specified by behavior and built over the existing `problemJson`. No `TBD`/`TODO`.
+**Placeholder scan:** the three `> Build note` callouts (Tasks 8, 10, 12) point at _named existing files_ to copy an exact helper from (idempotency-conflict response; `runIdempotentEffect` throw semantics; the authed-request helper) rather than inventing a divergent copy — these are "use the canonical version" instructions, not deferred work. The `problemForIdempotency` / `shippingDispatchProblem` / `notFoundProblem` helpers are specified by behavior and built over the existing `problemJson`. No `TBD`/`TODO`.
 
 **Type consistency:** `ShipmentId`/`ShipmentLabelId`/`TrackingEventId` (Task 1) used in Tasks 2,4,5. `createShipmentDraft`/`recordPurchase`/`recordRefund` signatures (Task 5) match their callers (Tasks 9–11). `buildShippingRegistry(firmDatabase, secretStore, http)` (Task 6) called identically in Tasks 9–11. `ShippingPort`/`BuyLabelRequest.idempotencyKey` (Plan 1 + Task 3) consumed in Task 10. `SecretStore` (Plan 1 Task 12) threaded through Tasks 6,8,12. R2 key `labels/${shipmentId}.pdf` identical in Tasks 10 (put) and 11 (get).

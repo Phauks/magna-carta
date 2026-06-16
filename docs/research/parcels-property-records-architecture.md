@@ -6,7 +6,7 @@
 
 ## Decision
 
-Recorder/deed lookups are the *same pattern* parcels already implements: a per-county deep-link to a government portal, keyed by jurisdiction (FIPS), resolved through pluggable platform adapters. The recorder is just another county system on the same machinery — different vendor platforms (Tyler Eagle, Kofile/GovOS, Fidlar, AcclaimWeb), the same jurisdiction registry + adapter abstraction.
+Recorder/deed lookups are the _same pattern_ parcels already implements: a per-county deep-link to a government portal, keyed by jurisdiction (FIPS), resolved through pluggable platform adapters. The recorder is just another county system on the same machinery — different vendor platforms (Tyler Eagle, Kofile/GovOS, Fidlar, AcclaimWeb), the same jurisdiction registry + adapter abstraction.
 
 So a **separate package would duplicate parcels' jurisdiction/adapter engine** (golden rule 1). Instead:
 
@@ -20,7 +20,7 @@ So a **separate package would duplicate parcels' jurisdiction/adapter engine** (
 
 ### Honest caveat
 
-Recorder deed *images* are paywalled / portal-only (per the public-records research). So, exactly like the assessor, we **deep-link to the recorder's search — we do not pull deed data.** Chain-of-title work stays a human-on-the-portal task; parcels only removes the clicks to get there.
+Recorder deed _images_ are paywalled / portal-only (per the public-records research). So, exactly like the assessor, we **deep-link to the recorder's search — we do not pull deed data.** Chain-of-title work stays a human-on-the-portal task; parcels only removes the clicks to get there.
 
 ## Why the model generalization is deferred (not done now)
 
