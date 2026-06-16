@@ -83,13 +83,13 @@ The patch was declared (`patches/bits-ui@2.18.1.patch`, `patchedDependencies` in
 `pnpm-workspace.yaml`) when the first scroll-locking Tier 3 component — **Dialog** — shipped.
 The spike was re-run against the patched dependency across chromium, firefox and webkit:
 
-| Path                       | Before patch (setAttribute)                                  | After patch (style.cssText)                       |
-| -------------------------- | ------------------------------------------------------------ | -------------------------------------------------- |
-| Dialog close — violation   | `style-src-attr` violation, all engines                      | **none, all engines**                              |
-| Dialog close — write API   | `setAttribute("style", …)`                                   | `style.cssText = …` (`cssTextAssignment` = 1)      |
-| Body after close (Chromium/WebKit) | stays `overflow:hidden; pointer-events:none` — page locked | **recovers** (`overflow:visible`, scroll works)   |
-| Body after close (Firefox) | recovers but drops pre-existing inline styles                | **recovers, pre-existing inline styles preserved** |
-| Marker `background:rgb(1,2,3)` | dropped (Firefox) / survives-but-locked (Chromium/WebKit) | **survives, all engines**                          |
+| Path                               | Before patch (setAttribute)                                | After patch (style.cssText)                        |
+| ---------------------------------- | ---------------------------------------------------------- | -------------------------------------------------- |
+| Dialog close — violation           | `style-src-attr` violation, all engines                    | **none, all engines**                              |
+| Dialog close — write API           | `setAttribute("style", …)`                                 | `style.cssText = …` (`cssTextAssignment` = 1)      |
+| Body after close (Chromium/WebKit) | stays `overflow:hidden; pointer-events:none` — page locked | **recovers** (`overflow:visible`, scroll works)    |
+| Body after close (Firefox)         | recovers but drops pre-existing inline styles              | **recovers, pre-existing inline styles preserved** |
+| Marker `background:rgb(1,2,3)`     | dropped (Firefox) / survives-but-locked (Chromium/WebKit)  | **survives, all engines**                          |
 
 The aftermath, engine-divergent while unpatched, is now **uniform**: the `cssText` write
 replaces the inline declaration block cleanly in every engine. `run-csp-spike.mjs` now asserts
