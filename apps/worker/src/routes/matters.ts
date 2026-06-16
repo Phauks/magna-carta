@@ -589,7 +589,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
   app.openapi(
     {
       ...createMatterRoute,
-      middleware: chokepointMiddleware(chokepoint, createMatterMeta, createMatterRoute),
+      middleware: chokepointMiddleware(chokepoint, createMatterRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -645,7 +645,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
   app.openapi(
     {
       ...listMattersRoute,
-      middleware: chokepointMiddleware(chokepoint, listMattersMeta, listMattersRoute),
+      middleware: chokepointMiddleware(chokepoint, listMattersRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -667,7 +667,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
   app.openapi(
     {
       ...listConsultationsRoute,
-      middleware: chokepointMiddleware(chokepoint, listConsultationsMeta, listConsultationsRoute),
+      middleware: chokepointMiddleware(chokepoint, listConsultationsRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -692,7 +692,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
   app.openapi(
     {
       ...getMatterRoute,
-      middleware: chokepointMiddleware(chokepoint, getMatterMeta, getMatterRoute),
+      middleware: chokepointMiddleware(chokepoint, getMatterRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -740,7 +740,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
   app.openapi(
     {
       ...patchMatterRoute,
-      middleware: chokepointMiddleware(chokepoint, patchMatterMeta, patchMatterRoute),
+      middleware: chokepointMiddleware(chokepoint, patchMatterRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -766,7 +766,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
   app.openapi(
     {
       ...openMatterRoute,
-      middleware: chokepointMiddleware(chokepoint, openMatterMeta, openMatterRoute),
+      middleware: chokepointMiddleware(chokepoint, openMatterRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -801,7 +801,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
   app.openapi(
     {
       ...closeMatterRoute,
-      middleware: chokepointMiddleware(chokepoint, closeMatterMeta, closeMatterRoute),
+      middleware: chokepointMiddleware(chokepoint, closeMatterRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -839,7 +839,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
   app.openapi(
     {
       ...reopenMatterRoute,
-      middleware: chokepointMiddleware(chokepoint, reopenMatterMeta, reopenMatterRoute),
+      middleware: chokepointMiddleware(chokepoint, reopenMatterRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -864,7 +864,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
   app.openapi(
     {
       ...renumberMatterRoute,
-      middleware: chokepointMiddleware(chokepoint, renumberMatterMeta, renumberMatterRoute),
+      middleware: chokepointMiddleware(chokepoint, renumberMatterRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);

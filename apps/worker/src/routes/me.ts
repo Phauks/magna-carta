@@ -75,35 +75,32 @@ export function registerMeRoute(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
   chokepoint: Chokepoint,
 ): void {
-  app.openapi(
-    { ...meRoute, middleware: chokepointMiddleware(chokepoint, meMeta, meRoute) },
-    async (c) => {
-      const userId = requireChokepointUserId(c);
-      const firmId = requireChokepointFirmId(c);
-      const firmContext = requireChokepointFirmContext(c);
+  app.openapi({ ...meRoute, middleware: chokepointMiddleware(chokepoint, meRoute) }, async (c) => {
+    const userId = requireChokepointUserId(c);
+    const firmId = requireChokepointFirmId(c);
+    const firmContext = requireChokepointFirmContext(c);
 
-      const userRow = await c.env.DB_CONTROL.prepare('SELECT name, email FROM "user" WHERE id = ?1')
-        .bind(userId)
-        .first<{ name: string; email: string }>();
-      // The session resolved a user id the control plane carries (the chokepoint read the same firm
-      // row); an absent user row here would be control-plane corruption, not a routine 404.
-      if (userRow === null) {
-        throw new Error(
-          `session user ${userId} resolved by the chokepoint but absent from the control plane`,
-        );
-      }
-
-      const permissions = await loadEffectivePermissions(firmContext.firmDatabase, userId);
-
-      return c.json(
-        {
-          user: { id: userId, name: userRow.name, email: userRow.email },
-          firm: { id: firmId, name: firmContext.firmName },
-          // Sorted for a deterministic wire shape (a Set has insertion order, not a contract).
-          permissions: [...permissions].sort(),
-        },
-        200,
+    const userRow = await c.env.DB_CONTROL.prepare('SELECT name, email FROM "user" WHERE id = ?1')
+      .bind(userId)
+      .first<{ name: string; email: string }>();
+    // The session resolved a user id the control plane carries (the chokepoint read the same firm
+    // row); an absent user row here would be control-plane corruption, not a routine 404.
+    if (userRow === null) {
+      throw new Error(
+        `session user ${userId} resolved by the chokepoint but absent from the control plane`,
       );
-    },
-  );
+    }
+
+    const permissions = await loadEffectivePermissions(firmContext.firmDatabase, userId);
+
+    return c.json(
+      {
+        user: { id: userId, name: userRow.name, email: userRow.email },
+        firm: { id: firmId, name: firmContext.firmName },
+        // Sorted for a deterministic wire shape (a Set has insertion order, not a contract).
+        permissions: [...permissions].sort(),
+      },
+      200,
+    );
+  });
 }

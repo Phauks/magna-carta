@@ -316,7 +316,7 @@ export function registerClassificationTypeRoutes(
   app.openapi(
     {
       ...createTypeRoute,
-      middleware: chokepointMiddleware(chokepoint, createTypeMeta, createTypeRoute),
+      middleware: chokepointMiddleware(chokepoint, createTypeRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -364,7 +364,7 @@ export function registerClassificationTypeRoutes(
   app.openapi(
     {
       ...listTypesRoute,
-      middleware: chokepointMiddleware(chokepoint, listTypesMeta, listTypesRoute),
+      middleware: chokepointMiddleware(chokepoint, listTypesRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -388,7 +388,7 @@ export function registerClassificationTypeRoutes(
   app.openapi(
     {
       ...updateTypeRoute,
-      middleware: chokepointMiddleware(chokepoint, updateTypeMeta, updateTypeRoute),
+      middleware: chokepointMiddleware(chokepoint, updateTypeRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -408,7 +408,7 @@ export function registerClassificationTypeRoutes(
   app.openapi(
     {
       ...deactivateTypeRoute,
-      middleware: chokepointMiddleware(chokepoint, deactivateTypeMeta, deactivateTypeRoute),
+      middleware: chokepointMiddleware(chokepoint, deactivateTypeRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);

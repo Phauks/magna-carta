@@ -196,7 +196,7 @@ export function registerFirmsRoute(
   app.openapi(
     {
       ...provisionFirmRoute,
-      middleware: chokepointMiddleware(chokepoint, provisionFirmMeta, provisionFirmRoute, [
+      middleware: chokepointMiddleware(chokepoint, provisionFirmRoute, [
         platformAdminGuard as MiddlewareHandler,
       ]),
     },

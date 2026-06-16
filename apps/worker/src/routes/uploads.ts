@@ -327,7 +327,7 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
   app.openapi(
     {
       ...initiateUploadRoute,
-      middleware: chokepointMiddleware(chokepoint, initiateUploadMeta, initiateUploadRoute),
+      middleware: chokepointMiddleware(chokepoint, initiateUploadRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -481,7 +481,7 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
   app.openapi(
     {
       ...signUploadPartRoute,
-      middleware: chokepointMiddleware(chokepoint, signUploadPartMeta, signUploadPartRoute),
+      middleware: chokepointMiddleware(chokepoint, signUploadPartRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -523,7 +523,7 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
   app.openapi(
     {
       ...completeUploadRoute,
-      middleware: chokepointMiddleware(chokepoint, completeUploadMeta, completeUploadRoute),
+      middleware: chokepointMiddleware(chokepoint, completeUploadRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -579,7 +579,7 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
   app.openapi(
     {
       ...abortUploadRoute,
-      middleware: chokepointMiddleware(chokepoint, abortUploadMeta, abortUploadRoute),
+      middleware: chokepointMiddleware(chokepoint, abortUploadRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);

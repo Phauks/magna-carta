@@ -127,7 +127,7 @@ export function registerMembersRoute(
   app.openapi(
     {
       ...inviteMemberRoute,
-      middleware: chokepointMiddleware(chokepoint, membersInviteMeta, inviteMemberRoute),
+      middleware: chokepointMiddleware(chokepoint, inviteMemberRoute),
     },
     async (c) => {
       const actingUserId = requireChokepointUserId(c);

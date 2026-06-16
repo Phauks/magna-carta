@@ -3,6 +3,7 @@ import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
+import { Problem } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 
 const Health = z
@@ -34,6 +35,10 @@ export const healthRoute = defineOpenAPIRoute(healthMeta, {
       description: "Service health",
       content: { "application/json": { schema: Health } },
     },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
   },
 });
 
@@ -42,7 +47,7 @@ export function registerHealthRoute(
   chokepoint: Chokepoint,
 ): void {
   app.openapi(
-    { ...healthRoute, middleware: chokepointMiddleware(chokepoint, healthMeta, healthRoute) },
+    { ...healthRoute, middleware: chokepointMiddleware(chokepoint, healthRoute) },
     async (c) => {
       // Prove the control-plane D1 binding works end-to-end (the walking-skeleton's round trip).
       await c.env.DB_CONTROL.prepare("SELECT 1").first();

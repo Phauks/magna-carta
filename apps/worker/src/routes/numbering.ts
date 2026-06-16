@@ -260,7 +260,7 @@ export function registerNumberingRoutes(app: NumberingApp, chokepoint: Chokepoin
   app.openapi(
     {
       ...getNumberingSchemeRoute,
-      middleware: chokepointMiddleware(chokepoint, getNumberingSchemeMeta, getNumberingSchemeRoute),
+      middleware: chokepointMiddleware(chokepoint, getNumberingSchemeRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -272,7 +272,7 @@ export function registerNumberingRoutes(app: NumberingApp, chokepoint: Chokepoin
   app.openapi(
     {
       ...setNumberingSchemeRoute,
-      middleware: chokepointMiddleware(chokepoint, setNumberingSchemeMeta, setNumberingSchemeRoute),
+      middleware: chokepointMiddleware(chokepoint, setNumberingSchemeRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -325,11 +325,7 @@ export function registerNumberingRoutes(app: NumberingApp, chokepoint: Chokepoin
   app.openapi(
     {
       ...previewNumberingSchemeRoute,
-      middleware: chokepointMiddleware(
-        chokepoint,
-        previewNumberingSchemeMeta,
-        previewNumberingSchemeRoute,
-      ),
+      middleware: chokepointMiddleware(chokepoint, previewNumberingSchemeRoute),
     },
     (c) => {
       const request = c.req.valid("json");

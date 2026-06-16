@@ -107,7 +107,7 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
   app.openapi(
     {
       ...zipDownloadRoute,
-      middleware: chokepointMiddleware(chokepoint, zipDownloadMeta, zipDownloadRoute),
+      middleware: chokepointMiddleware(chokepoint, zipDownloadRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);

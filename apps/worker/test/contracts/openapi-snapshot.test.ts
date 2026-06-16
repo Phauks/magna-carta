@@ -1,4 +1,4 @@
-// Slice 0·5b Task 9: the committed snapshot must equal a fresh emission — the local mirror of the CI
+// The committed snapshot must equal a fresh emission — the local mirror of the CI
 // code-as-contract drift gate (`emit-openapi && git diff --exit-code`), catching a route change that
 // landed without re-emitting before it ever reaches push. Byte-for-byte against the `?raw` text, the
 // same comparison CI's `git diff` makes.
@@ -13,7 +13,7 @@ describe("OpenAPI snapshot — committed artifact equals a fresh emission", () =
   });
 });
 
-// Full-stack proof (Task 13): the running Worker serves the SAME document the snapshot commits, so the
+// Full-stack proof: the running Worker serves the SAME document the snapshot commits, so the
 // committed contract is never stale against what the deployment actually serves. The live endpoint and
 // the snapshot share one emit path (emitOpenAPIDocument in app.ts) — this locks them together end to
 // end. Parsed equality, not byte: the live endpoint replies with compact JSON, the snapshot is

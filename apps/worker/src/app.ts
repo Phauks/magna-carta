@@ -230,7 +230,7 @@ export const openAPIDocumentConfig = {
 // (the generated SDK/docs group by tag) and satisfies Spectral's operation-tag-defined. The single
 // emit path shared by the committed snapshot and the live /api/openapi.json route, so they never
 // diverge. getOpenAPI31Document is pure (no request, no env), so this needs no bindings.
-function emitOpenAPIDocument(app: ReturnType<typeof createApp>) {
+export function emitOpenAPIDocument(app: ReturnType<typeof createApp>) {
   const document = app.getOpenAPI31Document(openAPIDocumentConfig);
   const methods = ["get", "put", "post", "delete", "patch", "options", "head", "trace"] as const;
   const tagNames = new Set<string>();
@@ -246,7 +246,7 @@ function emitOpenAPIDocument(app: ReturnType<typeof createApp>) {
 
 // Builds the committed-contract document with no bindings: createApp() registers every route at
 // construction time. The emit script loads this through the Vite pipeline; the snapshot sanity test
-// calls it in-pool. (Task 9.)
+// calls it in-pool.
 export function buildOpenAPIDocument() {
   return emitOpenAPIDocument(createApp());
 }

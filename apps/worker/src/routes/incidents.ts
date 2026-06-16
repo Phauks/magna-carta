@@ -110,7 +110,7 @@ export function registerIncidentsRoute(
   app.openapi(
     {
       ...reportIncidentRoute,
-      middleware: chokepointMiddleware(chokepoint, reportIncidentMeta, reportIncidentRoute),
+      middleware: chokepointMiddleware(chokepoint, reportIncidentRoute),
     },
     async (c) => {
       const reportedBy = requireChokepointUserId(c);

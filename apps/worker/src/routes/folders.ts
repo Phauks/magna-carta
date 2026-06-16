@@ -213,7 +213,7 @@ export function registerFoldersRoutes(app: FoldersApp, chokepoint: Chokepoint): 
   app.openapi(
     {
       ...createFolderRoute,
-      middleware: chokepointMiddleware(chokepoint, createFolderMeta, createFolderRoute),
+      middleware: chokepointMiddleware(chokepoint, createFolderRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -260,7 +260,7 @@ export function registerFoldersRoutes(app: FoldersApp, chokepoint: Chokepoint): 
   app.openapi(
     {
       ...patchFolderRoute,
-      middleware: chokepointMiddleware(chokepoint, patchFolderMeta, patchFolderRoute),
+      middleware: chokepointMiddleware(chokepoint, patchFolderRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -317,7 +317,7 @@ export function registerFoldersRoutes(app: FoldersApp, chokepoint: Chokepoint): 
   app.openapi(
     {
       ...deleteFolderRoute,
-      middleware: chokepointMiddleware(chokepoint, deleteFolderMeta, deleteFolderRoute),
+      middleware: chokepointMiddleware(chokepoint, deleteFolderRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);

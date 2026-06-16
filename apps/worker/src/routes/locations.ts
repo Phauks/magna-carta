@@ -427,7 +427,7 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
   app.openapi(
     {
       ...createLocationRoute,
-      middleware: chokepointMiddleware(chokepoint, createLocationMeta, createLocationRoute),
+      middleware: chokepointMiddleware(chokepoint, createLocationRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -478,7 +478,7 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
   app.openapi(
     {
       ...listLocationsRoute,
-      middleware: chokepointMiddleware(chokepoint, listLocationsMeta, listLocationsRoute),
+      middleware: chokepointMiddleware(chokepoint, listLocationsRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -510,7 +510,7 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
   app.openapi(
     {
       ...getLocationRoute,
-      middleware: chokepointMiddleware(chokepoint, getLocationMeta, getLocationRoute),
+      middleware: chokepointMiddleware(chokepoint, getLocationRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -559,7 +559,7 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
   app.openapi(
     {
       ...updateLocationRoute,
-      middleware: chokepointMiddleware(chokepoint, updateLocationMeta, updateLocationRoute),
+      middleware: chokepointMiddleware(chokepoint, updateLocationRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -583,7 +583,7 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
   app.openapi(
     {
       ...closeLocationRoute,
-      middleware: chokepointMiddleware(chokepoint, closeLocationMeta, closeLocationRoute),
+      middleware: chokepointMiddleware(chokepoint, closeLocationRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -608,7 +608,7 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
   app.openapi(
     {
       ...setAddressesRoute,
-      middleware: chokepointMiddleware(chokepoint, setAddressesMeta, setAddressesRoute),
+      middleware: chokepointMiddleware(chokepoint, setAddressesRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -641,7 +641,7 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
   app.openapi(
     {
       ...assignMemberRoute,
-      middleware: chokepointMiddleware(chokepoint, assignMemberMeta, assignMemberRoute),
+      middleware: chokepointMiddleware(chokepoint, assignMemberRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);

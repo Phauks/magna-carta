@@ -391,7 +391,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
   app.openapi(
     {
       ...listFilesRoute,
-      middleware: chokepointMiddleware(chokepoint, listFilesMeta, listFilesRoute),
+      middleware: chokepointMiddleware(chokepoint, listFilesRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -422,7 +422,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
 
   // GET /api/v1/files/{id} — detail
   app.openapi(
-    { ...getFileRoute, middleware: chokepointMiddleware(chokepoint, getFileMeta, getFileRoute) },
+    { ...getFileRoute, middleware: chokepointMiddleware(chokepoint, getFileRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const { id } = c.req.valid("param");
@@ -454,7 +454,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
   app.openapi(
     {
       ...listFileVersionsRoute,
-      middleware: chokepointMiddleware(chokepoint, listFileVersionsMeta, listFileVersionsRoute),
+      middleware: chokepointMiddleware(chokepoint, listFileVersionsRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -489,7 +489,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
   app.openapi(
     {
       ...patchFileRoute,
-      middleware: chokepointMiddleware(chokepoint, patchFileMeta, patchFileRoute),
+      middleware: chokepointMiddleware(chokepoint, patchFileRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -559,7 +559,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
   app.openapi(
     {
       ...deleteFileRoute,
-      middleware: chokepointMiddleware(chokepoint, deleteFileMeta, deleteFileRoute),
+      middleware: chokepointMiddleware(chokepoint, deleteFileRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
@@ -601,7 +601,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
   app.openapi(
     {
       ...downloadFileRoute,
-      middleware: chokepointMiddleware(chokepoint, downloadFileMeta, downloadFileRoute),
+      middleware: chokepointMiddleware(chokepoint, downloadFileRoute),
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);

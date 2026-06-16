@@ -16,17 +16,17 @@ import type { MiddlewareHandler } from "hono";
 import type { RouteConfig } from "@hono/zod-openapi";
 import type { Chokepoint } from "./chokepoint.ts";
 import { createResponseValidator } from "./response-validator.ts";
-import type { RouteMeta } from "../contracts/route-meta.ts";
 
 export function chokepointMiddleware(
   chokepoint: Chokepoint,
-  meta: RouteMeta,
   route: RouteConfig,
   routeSpecificMiddleware: MiddlewareHandler[] = [],
 ): MiddlewareHandler[] {
   // Fail-closed at registration: assert the route carries its metadata (and a registered
-  // permission) before composing — a misconfigured route never reaches request time.
-  chokepoint.assertRouteHasMeta(route as object, route.path);
+  // permission) before composing — a misconfigured route never reaches request time. The meta the
+  // chokepoint enforces is the route's own resolved meta, derived here so a caller cannot hand in a
+  // meta that disagrees with the route it is wiring.
+  const meta = chokepoint.assertRouteHasMeta(route as object, route.path);
   return [
     createResponseValidator(route) as MiddlewareHandler,
     ...routeSpecificMiddleware,

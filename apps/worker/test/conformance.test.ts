@@ -7,7 +7,7 @@
 import { OpenAPIHono, z } from "@hono/zod-openapi";
 import { PERMISSIONS } from "@magna-carta/access-control/registry";
 import { describe, expect, it } from "vitest";
-import { buildOpenAPIDocument, createApp } from "../src/app.ts";
+import { buildOpenAPIDocument, createApp, emitOpenAPIDocument } from "../src/app.ts";
 import {
   defineOpenAPIRoute,
   isMutatingMethod,
@@ -326,6 +326,55 @@ function errorIdCoverageViolations(document: ReturnType<typeof buildOpenAPIDocum
       if (!declaresErrorId) {
         violations.push(`${label}: error response must declare an errorId (RFC 9457)`);
       }
+    }
+  }
+  return violations;
+}
+
+// Normalize a Hono route path to the OpenAPI path syntax: Hono templates a parameter as `:name`, the
+// emitted document as `{name}`. Trailing slashes are dropped so `/api/v1/x/` and `/api/v1/x` compare
+// equal. This is the join key between app.routes (what Hono will actually dispatch) and the document
+// (what went through defineOpenAPIRoute, the only registration path that composes the chokepoint).
+function honoPathToOpenAPI(path: string): string {
+  const templated = path.replace(/:([A-Za-z0-9_]+)/g, "{$1}");
+  return templated.length > 1 && templated.endsWith("/") ? templated.slice(0, -1) : templated;
+}
+
+// The set of /api/v1 paths the emitted document exposes — i.e. every path registered via
+// defineOpenAPIRoute (the chokepoint-composing path) and nothing else.
+function documentedApiV1Paths(document: ReturnType<typeof buildOpenAPIDocument>): Set<string> {
+  const paths = new Set<string>();
+  for (const path of Object.keys(document.paths ?? {})) {
+    if (path.startsWith("/api/v1")) paths.add(honoPathToOpenAPI(path));
+  }
+  return paths;
+}
+
+// The distinct /api/v1 paths Hono will actually dispatch in the given app (app.routes is the live
+// dispatch table: every registered handler/middleware, {method, path}). Normalized to OpenAPI syntax.
+function dispatchedApiV1Paths(app: ReturnType<typeof createApp>): Set<string> {
+  const paths = new Set<string>();
+  for (const { path } of app.routes) {
+    if (path.startsWith("/api/v1")) paths.add(honoPathToOpenAPI(path));
+  }
+  return paths;
+}
+
+// Rule: every /api/v1 path Hono will dispatch is present in the emitted document — i.e. it was
+// registered via defineOpenAPIRoute, the ONLY registration path that composes the chokepoint. A bare
+// app.get("/api/v1/...") would dispatch (appear in app.routes) yet never enter the document, silently
+// skipping tenancy/authn/RBAC/idempotency/rate-limit enforcement AND every other fitness function
+// above (which all read the document). This structural gate is what makes "every /api/v1 route goes
+// through the chokepoint" provable rather than convention.
+function chokepointCompositionViolations(app: ReturnType<typeof createApp>): string[] {
+  const documented = documentedApiV1Paths(emitOpenAPIDocument(app));
+  const violations: string[] = [];
+  for (const path of dispatchedApiV1Paths(app)) {
+    if (!documented.has(path)) {
+      violations.push(
+        `${path}: dispatched under /api/v1 but absent from the OpenAPI document — it was not ` +
+          `registered via defineOpenAPIRoute, so it bypasses the chokepoint`,
+      );
     }
   }
   return violations;
@@ -674,6 +723,39 @@ describe("conformance — the committed contract holds, and each rule catches a 
       expect(componentNameCollisions(app as ReturnType<typeof createApp>).length).toBeGreaterThan(
         0,
       );
+    });
+  });
+
+  describe("every dispatched /api/v1 route composes the chokepoint (is in the document)", () => {
+    // Build a production app (NO options) so the test-only telemetry probes — which ARE bare
+    // app.get("/api/v1/__telemetry-*") routes deliberately outside the contract — are absent. Under
+    // production wiring, the only /api/v1 routes Hono dispatches are the defineOpenAPIRoute-registered
+    // ones, so the dispatch table and the document must agree exactly.
+    const productionApp = createApp();
+
+    it("the committed contract satisfies it", () => {
+      expect(chokepointCompositionViolations(productionApp)).toEqual([]);
+    });
+
+    it("is not vacuous — it actually sees the real /api/v1 operations", () => {
+      const dispatched = dispatchedApiV1Paths(productionApp);
+      // A spot-check of paths the committed routes register: if enumeration silently saw nothing,
+      // the positive assertion above would pass trivially. These must be present.
+      expect(dispatched.has("/api/v1/me")).toBe(true);
+      expect(dispatched.has("/api/v1/matters")).toBe(true);
+      expect(dispatched.has("/api/v1/files/{id}")).toBe(true);
+      expect(dispatched.size).toBeGreaterThan(10);
+    });
+
+    it("flags a bare-registered /api/v1 route absent from the document (skips the chokepoint)", () => {
+      // A throwaway app with a route mounted the WRONG way: a raw app.get, not defineOpenAPIRoute. It
+      // dispatches (enters app.routes) yet never enters the document — exactly the bypass this gate
+      // exists to catch.
+      const bare = createApp();
+      bare.get("/api/v1/__conformance_probe", (c) => c.json({ ok: true }));
+      const violations = chokepointCompositionViolations(bare);
+      expect(violations.length).toBeGreaterThan(0);
+      expect(violations.some((v) => v.includes("/api/v1/__conformance_probe"))).toBe(true);
     });
   });
 });
