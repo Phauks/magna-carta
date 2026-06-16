@@ -20,6 +20,7 @@ Documentation is **segmented and non-duplicative.** Every fact has one authorita
 | Live execution status (now / next / shipped / backlog)   | [`ROADMAP.md`](ROADMAP.md)                                                            |
 | Per-slice stage status (spec → plan → built → tested)    | [`STATUS.md`](STATUS.md)                                                              |
 | Notable changes                                          | [`CHANGELOG.md`](CHANGELOG.md)                                                        |
+| Recurring & associated costs (subscriptions, usage, one-time) | [`docs/operating-costs.md`](docs/operating-costs.md)                            |
 | Research (trust rules, competitive analysis)             | [`docs/research/`](docs/research/)                                                    |
 
 **Cross-reference rule:** `§N` is navigation _inside_ the white paper only. From any other file, reference the white paper by **document + topic name** (or a stable **`ADR-NNNN`**), never a section number — they shift on reorganization.
