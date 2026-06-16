@@ -34,6 +34,7 @@ export const ENTITY_PREFIXES = {
   // user-reported row) — prefixes spelled out in full, the same no-shorthand rule as every entry.
   correlation: "correlation",
   incident: "incident",
+  integrationConnection: "integrationConnection",
   // Matters, Locations & File Manager. `matterType`/`documentType` are the per-firm classification
   // catalogs (distinct from `document`, a stored object); `numberingScheme` is the matter-number
   // template; `file`/`fileVersion` are the versioned object metadata; `uploadSession` tracks an
