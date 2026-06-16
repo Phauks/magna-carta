@@ -1,19 +1,16 @@
 import type { AssessorSite, PortalSite } from "../types.ts";
-import { NEVADA_BUSINESS_SITES } from "./nevada.ts";
+import { SECRETARY_OF_STATE_SITES_BY_STATE } from "./secretary-of-state.ts";
 
 // One row registers a state's Secretary-of-State portals: 2-letter code, 2-digit state FIPS, sites
-// (the business-entity register, the UCC index). Like the property STATES table, the national lookup
-// derives from this — adding a state is one row plus its `business/<state>.ts` module.
+// (the business-entity register, the UCC index). The national lookup derives from this; the rows come
+// from the `secretary-of-state.ts` data table (one entry per state), kept sorted by FIPS.
 export interface BusinessRegistration {
   readonly code: string;
   readonly fipsPrefix: string;
   readonly sites: readonly AssessorSite[];
 }
 
-// Kept sorted by FIPS prefix — insert a new state in numeric order, not appended.
-export const BUSINESS_STATES: readonly BusinessRegistration[] = [
-  { code: "NV", fipsPrefix: "32", sites: NEVADA_BUSINESS_SITES },
-];
+export const BUSINESS_STATES: readonly BusinessRegistration[] = SECRETARY_OF_STATE_SITES_BY_STATE;
 
 export function allBusinessSites(): readonly AssessorSite[] {
   return BUSINESS_STATES.flatMap((state) => state.sites);
