@@ -38,6 +38,9 @@ export function createIntegrationRegistry(stores: RegistryStores = {}): Integrat
       category: string,
       context: ResolveContext,
     ): Promise<Dispatch<Resolved<Port>>> {
+      // Keyed by string category; the caller requests the Port matching the category it asks for —
+      // the registry can't statically tie a runtime string to a port type, so this cast is that
+      // contract made explicit (the standard typed-registry tradeoff).
       const adapter = adapters.get(category) as Adapter<Port> | undefined;
       if (adapter === undefined) return notConnected();
 
@@ -49,7 +52,14 @@ export function createIntegrationRegistry(stores: RegistryStores = {}): Integrat
       const { connectionStore, credentialStore } = stores;
       if (connectionStore === undefined || credentialStore === undefined) return notConnected();
 
-      const userId = requirement.scope === "user" ? context.userId : undefined;
+      // A user-scoped port MUST carry a user — never silently fall back to a firm-wide lookup, which
+      // would let one user's connection resolve for another within the firm. Firm-scoped ports
+      // ignore userId by design.
+      let userId: string | undefined;
+      if (requirement.scope === "user") {
+        if (context.userId === undefined) return notConnected();
+        userId = context.userId;
+      }
       const connection = await connectionStore.getConnection({
         firmId: context.firmId,
         userId,

@@ -31,7 +31,7 @@ export interface IntegrationConnection {
   readonly category: string;
   readonly adapterId: string;
   readonly scope: AdapterScope;
-  readonly principalRef: string;
+  readonly principalRef: string; // the user/firm principal this grant belongs to (read by persistence + the connection UI)
   readonly credentialRef: string;
   readonly status: ConnectionHealth;
   readonly capabilitySnapshot: CapabilityDescriptor;

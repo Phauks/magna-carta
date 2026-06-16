@@ -15,4 +15,10 @@ describe("canonicalRecordSchema", () => {
   it("rejects a record missing remoteId (the boundary guard)", () => {
     expect(eventSchema.safeParse({ title: "Hearing" }).success).toBe(false);
   });
+
+  it("makes raw optional — a record without it parses, raw undefined", () => {
+    const result = eventSchema.safeParse({ remoteId: "a", title: "T" });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.raw).toBeUndefined();
+  });
 });
