@@ -80,29 +80,35 @@ export const PRESENCE_SCALE_FADE =
   "data-[state=open]:opacity-100 data-[state=open]:scale-100 " +
   "data-[state=closed]:opacity-0 data-[state=closed]:scale-95";
 
-/** Slide down into place from above, fading. For surfaces anchored to a top edge. */
+/*
+ * Full-panel edge slides — for drawers/sheets (a panel pinned to a screen edge), NOT small
+ * floats. The panel translates its ENTIRE width/height from off the edge to flush, staying SOLID
+ * (transform only, no opacity fade — a fading-while-barely-moving panel reads as a "pop", not a
+ * slide; the scrim fades separately via PRESENCE_FADE on the overlay). The motion is asymmetric,
+ * the natural drawer feel: it DECELERATES on the way in (fast off the edge, easing to rest) and
+ * ACCELERATES on the way out (eases off, then leaves quickly), at the slow duration so a full-
+ * width travel doesn't feel rushed. `translate-*-full` is 100% of the panel's own size, so the
+ * closed position is exactly off its edge regardless of how wide/tall the caller sizes it.
+ */
 export const PRESENCE_SLIDE_FROM_TOP =
-  "transition duration-normal ease-standard motion-reduce:transition-none " +
-  "data-[state=open]:translate-y-0 data-[state=open]:opacity-100 " +
-  "data-[state=closed]:-translate-y-8 data-[state=closed]:opacity-0";
+  "transition-transform duration-slow motion-reduce:transition-none " +
+  "data-[state=open]:translate-y-0 data-[state=open]:ease-decelerate " +
+  "data-[state=closed]:-translate-y-full data-[state=closed]:ease-accelerate";
 
-/** Slide up into place from below, fading. For surfaces anchored to a bottom edge. */
 export const PRESENCE_SLIDE_FROM_BOTTOM =
-  "transition duration-normal ease-standard motion-reduce:transition-none " +
-  "data-[state=open]:translate-y-0 data-[state=open]:opacity-100 " +
-  "data-[state=closed]:translate-y-8 data-[state=closed]:opacity-0";
+  "transition-transform duration-slow motion-reduce:transition-none " +
+  "data-[state=open]:translate-y-0 data-[state=open]:ease-decelerate " +
+  "data-[state=closed]:translate-y-full data-[state=closed]:ease-accelerate";
 
-/** Slide right into place from the left, fading. For surfaces anchored to a left edge. */
 export const PRESENCE_SLIDE_FROM_LEFT =
-  "transition duration-normal ease-standard motion-reduce:transition-none " +
-  "data-[state=open]:translate-x-0 data-[state=open]:opacity-100 " +
-  "data-[state=closed]:-translate-x-8 data-[state=closed]:opacity-0";
+  "transition-transform duration-slow motion-reduce:transition-none " +
+  "data-[state=open]:translate-x-0 data-[state=open]:ease-decelerate " +
+  "data-[state=closed]:-translate-x-full data-[state=closed]:ease-accelerate";
 
-/** Slide left into place from the right, fading. For surfaces anchored to a right edge. */
 export const PRESENCE_SLIDE_FROM_RIGHT =
-  "transition duration-normal ease-standard motion-reduce:transition-none " +
-  "data-[state=open]:translate-x-0 data-[state=open]:opacity-100 " +
-  "data-[state=closed]:translate-x-8 data-[state=closed]:opacity-0";
+  "transition-transform duration-slow motion-reduce:transition-none " +
+  "data-[state=open]:translate-x-0 data-[state=open]:ease-decelerate " +
+  "data-[state=closed]:translate-x-full data-[state=closed]:ease-accelerate";
 
 /**
  * The canonical content-class builder for floating parts (Tier 3/4): composes

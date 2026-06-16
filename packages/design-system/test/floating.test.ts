@@ -104,7 +104,7 @@ const ALLOWED_BASE_UTILITIES = [
   /^transition(-(opacity|transform|colors|none))?$/,
   /^opacity-(0|100)$/,
   /^scale-(95|100)$/,
-  /^-?translate-(x|y)-(0|4|8)$/, // translate distances resolve the --spacing-* tokens
+  /^-?translate-(x|y)-(0|4|8|full)$/, // spacing-token distances (0/4/8), or full = 100% (a panel's own size, for edge-pinned drawers)
 ];
 
 function classifyPresenceClass(presenceClass: string): { variant: string; base: string } {
@@ -121,9 +121,15 @@ describe.each(Object.entries(PRESENCE_CONSTANTS))("%s", (constantName, constant)
   });
 
   it("declares a transition property, a theme duration, and a theme easing", () => {
-    expect(classes.some((candidate) => /^transition(-opacity)?$/.test(candidate))).toBe(true);
+    expect(classes.some((candidate) => /^transition(-(opacity|transform))?$/.test(candidate))).toBe(
+      true,
+    );
     expect(classes.some((candidate) => candidate.startsWith("duration-"))).toBe(true);
-    expect(classes.some((candidate) => candidate.startsWith("ease-"))).toBe(true);
+    // Easing may be a single base utility OR per-direction under the data-state variants
+    // (a drawer decelerates in, accelerates out), so classify away any variant first.
+    expect(
+      classes.some((candidate) => classifyPresenceClass(candidate).base.startsWith("ease-")),
+    ).toBe(true);
   });
 
   it("styles both data-state targets (open and closed)", () => {
