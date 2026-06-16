@@ -20,4 +20,10 @@ describe("nextHealth", () => {
     expect(nextHealth("disabled", { kind: "success" })).toBe("disabled");
     expect(nextHealth("disabled", { kind: "enable" })).toBe("connected");
   });
+
+  it("treats disable/enable idempotently and keeps degraded under further transient errors", () => {
+    expect(nextHealth("connected", { kind: "enable" })).toBe("connected");
+    expect(nextHealth("disabled", { kind: "disable" })).toBe("disabled");
+    expect(nextHealth("degraded", { kind: "error", category: "upstream" })).toBe("degraded");
+  });
 });

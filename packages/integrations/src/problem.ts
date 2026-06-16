@@ -24,6 +24,8 @@ const RETRYABLE_CATEGORIES: ReadonlySet<ProblemCategory> = new Set([
 ]);
 
 export interface IntegrationProblemOptions {
+  // Caller-safe text only — adapters must never splice raw upstream response bodies (which can echo
+  // tokens/auth headers) into `detail`.
   readonly detail?: string;
   readonly correlationId?: string;
   readonly type?: string;
@@ -36,7 +38,7 @@ export function integrationProblem(
   options: IntegrationProblemOptions = {},
 ): IntegrationProblem {
   return {
-    type: options.type ?? `https://magnacarta.esq/problems/integration/${category}`,
+    type: options.type ?? `https://api.magnacarta.esq/problems/integration/${category}`,
     title,
     status,
     detail: options.detail,

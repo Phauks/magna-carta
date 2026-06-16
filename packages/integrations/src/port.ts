@@ -14,6 +14,8 @@ export type CredentialRequirement =
   | { readonly kind: "none" }
   | { readonly kind: "oauth"; readonly scope: AdapterScope };
 
+// An object rather than a bare boolean so it can carry future per-operation metadata — supported
+// fields, required parameters — the way unified-API capability manifests do.
 export interface OperationSupport {
   readonly supported: boolean;
 }
@@ -23,6 +25,8 @@ export interface CapabilityDescriptor {
   readonly category: string;
   readonly credential: CredentialRequirement;
   readonly operations: Readonly<Record<string, OperationSupport>>;
+  // Gate read by passthrough callers (the vendor-native proxy escape hatch); declared now, the
+  // proxy itself lands with the first credentialed adapter.
   readonly passthroughAvailable: boolean;
 }
 

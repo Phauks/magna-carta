@@ -3,6 +3,9 @@
 // serialized by a Durable-Object-per-credential lock (providers silently rotate refresh tokens, so
 // concurrent refreshes race). Both are built with the first credentialed adapter — here we fix only
 // the interfaces so the registry and adapters compile against a stable contract.
+// SECURITY: every field here is a secret. Never log, `JSON.stringify`, or otherwise serialize a
+// Credential onto an observable path. The credentialed-adapter slice wraps these in a redacting
+// holder; until it lands, callers keep them off all log/telemetry surfaces.
 export interface OAuthCredential {
   readonly kind: "oauth";
   readonly accessToken?: string;

@@ -99,12 +99,107 @@ describe("createIntegrationRegistry.resolve", () => {
     });
     expect(result).toEqual({ ok: false, reason: "not-connected" });
   });
+
+  it("rejects a user-scoped resolve when userId is absent (no firm-wide fallback)", async () => {
+    const registry = createIntegrationRegistry({
+      connectionStore: new FakeConnectionStore(connectedRow),
+      credentialStore: new FakeCredentialStore({ kind: "oauth", refreshToken: "r1" }),
+    });
+    registry.register(makeAdapter(credentialed));
+    expect(await registry.resolve<EchoPort>("paid-category", { firmId: "firm_1" })).toEqual({
+      ok: false,
+      reason: "not-connected",
+    });
+  });
+
+  it("rejects disabled and needs_reauth connections but resolves a degraded one", async () => {
+    for (const status of ["disabled", "needs_reauth"] as const) {
+      const registry = createIntegrationRegistry({
+        connectionStore: new FakeConnectionStore({ ...connectedRow, status }),
+        credentialStore: new FakeCredentialStore({ kind: "oauth", refreshToken: "r1" }),
+      });
+      registry.register(makeAdapter(credentialed));
+      expect(
+        await registry.resolve<EchoPort>("paid-category", { firmId: "firm_1", userId: "user_1" }),
+      ).toEqual({ ok: false, reason: "not-connected" });
+    }
+    const registry = createIntegrationRegistry({
+      connectionStore: new FakeConnectionStore({ ...connectedRow, status: "degraded" }),
+      credentialStore: new FakeCredentialStore({ kind: "oauth", refreshToken: "r1" }),
+    });
+    registry.register(makeAdapter(credentialed));
+    const result = await registry.resolve<EchoPort>("paid-category", {
+      firmId: "firm_1",
+      userId: "user_1",
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it("returns not-connected when a healthy connection has no stored credential", async () => {
+    const registry = createIntegrationRegistry({
+      connectionStore: new FakeConnectionStore(connectedRow),
+      credentialStore: new FakeCredentialStore(null),
+    });
+    registry.register(makeAdapter(credentialed));
+    expect(
+      await registry.resolve<EchoPort>("paid-category", { firmId: "firm_1", userId: "user_1" }),
+    ).toEqual({ ok: false, reason: "not-connected" });
+  });
+
+  it("resolves with the connection's capability snapshot, not the adapter's descriptor", async () => {
+    const snapshot: CapabilityDescriptor = {
+      ...credentialed,
+      operations: { echo: { supported: true }, extra: { supported: true } },
+    };
+    const registry = createIntegrationRegistry({
+      connectionStore: new FakeConnectionStore({ ...connectedRow, capabilitySnapshot: snapshot }),
+      credentialStore: new FakeCredentialStore({ kind: "oauth", refreshToken: "r1" }),
+    });
+    registry.register(makeAdapter(credentialed));
+    const result = await registry.resolve<EchoPort>("paid-category", {
+      firmId: "firm_1",
+      userId: "user_1",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.descriptor).toBe(snapshot);
+  });
+
+  it("forwards userId for a user-scoped port and omits it for a firm-scoped port", async () => {
+    class SpyStore implements ConnectionStore {
+      readonly lookups: ConnectionLookup[] = [];
+      async getConnection(lookup: ConnectionLookup): Promise<IntegrationConnection | null> {
+        this.lookups.push(lookup);
+        return null;
+      }
+    }
+    const credentialStore = new FakeCredentialStore({ kind: "oauth", refreshToken: "r1" });
+
+    const userSpy = new SpyStore();
+    const userRegistry = createIntegrationRegistry({ connectionStore: userSpy, credentialStore });
+    userRegistry.register(makeAdapter(credentialed));
+    await userRegistry.resolve<EchoPort>("paid-category", { firmId: "firm_1", userId: "user_1" });
+    expect(userSpy.lookups[0]?.userId).toBe("user_1");
+
+    const firmScoped: CapabilityDescriptor = {
+      ...credentialed,
+      adapterId: "firm-paid",
+      category: "firm-category",
+      credential: { kind: "oauth", scope: "firm" },
+    };
+    const firmSpy = new SpyStore();
+    const firmRegistry = createIntegrationRegistry({ connectionStore: firmSpy, credentialStore });
+    firmRegistry.register(makeAdapter(firmScoped));
+    await firmRegistry.resolve<EchoPort>("firm-category", { firmId: "firm_1", userId: "user_1" });
+    expect(firmSpy.lookups[0]?.userId).toBeUndefined();
+  });
 });
 
 describe("requireCapability", () => {
-  it("passes a supported operation and rejects an unsupported one", () => {
+  it("passes a supported operation (returning the same resolved) and rejects an unsupported one", () => {
     const resolved = { port: { echo: () => "x" }, descriptor: credentialLess };
-    expect(requireCapability(resolved, "echo").ok).toBe(true);
+    const passed = requireCapability(resolved, "echo");
+    expect(passed.ok).toBe(true);
+    if (passed.ok) expect(passed.value).toBe(resolved);
     expect(requireCapability(resolved, "missing")).toEqual({
       ok: false,
       reason: "capability-unsupported",

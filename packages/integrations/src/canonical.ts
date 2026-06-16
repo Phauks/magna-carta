@@ -14,6 +14,11 @@ const BASE_SHAPE = {
   raw: z.unknown().optional(),
 };
 
-export function canonicalRecordSchema<Shape extends z.ZodRawShape>(fields: Shape) {
+// `Shape` may not redeclare `remoteId`/`raw`: those are the invariant base the boundary guarantees,
+// and a spread override would silently weaken them. `raw` is the preserved vendor payload and is
+// intentionally unvalidated (`z.unknown()`) — a consumer that reaches into it bypasses the boundary.
+export function canonicalRecordSchema<
+  Shape extends z.ZodRawShape & { remoteId?: never; raw?: never },
+>(fields: Shape) {
   return z.object({ ...BASE_SHAPE, ...fields });
 }

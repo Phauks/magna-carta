@@ -15,9 +15,15 @@ describe("integrationProblem", () => {
       detail: "token expired",
       correlationId: "correlation_abc",
     });
-    expect(problem.type).toBe("https://magnacarta.esq/problems/integration/auth");
+    expect(problem.type).toBe("https://api.magnacarta.esq/problems/integration/auth");
     expect(problem.detail).toBe("token expired");
     expect(problem.correlationId).toBe("correlation_abc");
     expect(problem.status).toBe(401);
+  });
+
+  it("lets an explicit type override the derived URI", () => {
+    expect(integrationProblem("upstream", 503, "Down", { type: "urn:custom" }).type).toBe(
+      "urn:custom",
+    );
   });
 });
