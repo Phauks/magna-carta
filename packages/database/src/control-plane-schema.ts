@@ -42,6 +42,15 @@ export const firm = sqliteTable("firm", {
   // pre-lifecycle rows. Deliberately NOT a foreign key: user.firm_id already references firm.id,
   // and the reverse edge would make the firm<->user pair circular.
   ownerUserId: text("owner_user_id").$type<UserId>(),
+  // The firm's data key, sealed under the root key-encryption key — the wrapped form that never
+  // leaves the control plane in the clear. Null = not yet minted (the key-mint sweep fills it for
+  // active firms); nulling it is also the crypto-shred mechanism, after which the firm's protected
+  // values become permanently unreadable. The unwrap/cache lives in @magna-carta/data-access.
+  wrappedFirmKey: text("wrapped_firm_key"),
+  // Which key version the wrapped data key is at, and which root key-encryption key version sealed
+  // it. Both default 1 so pre-mint rows are valid (expand-contract); rotation bumps them.
+  firmKeyVersion: integer("firm_key_version").notNull().default(1),
+  rootKeyVersion: integer("root_key_version").notNull().default(1),
   // ISO-8601 UTC instant.
   createdAt: text("created_at").notNull(),
 });
