@@ -54,6 +54,19 @@
     await step("The calendar stays open after a complete range, so it can be adjusted", async () => {
       await expect(body.queryByRole("grid")).not.toBeNull();
     });
+
+    await step("Dragging across days selects a range in one gesture", async () => {
+      const grid = body.getByRole("grid");
+      await userEvent.pointer([
+        { keys: "[MouseLeft>]", target: within(grid).getByText("5") },
+        { target: within(grid).getByText("8") },
+        { keys: "[/MouseLeft]" },
+      ]);
+      await waitFor(() =>
+        expect(within(grid).getByText("5")).toHaveAttribute("data-selection-start"),
+      );
+      await expect(within(grid).getByText("8")).toHaveAttribute("data-selection-end");
+    });
   }}
 >
   {#snippet template(args: DateRangePickerStoryArgs)}

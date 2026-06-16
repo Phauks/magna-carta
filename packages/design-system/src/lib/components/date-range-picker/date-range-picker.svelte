@@ -6,8 +6,14 @@
    * `<DateRangePicker bind:value label="Engagement period" />` (value is a {start, end} range of
    * @internationalized/date CalendarDate). Reuses the mc-date-field-* and mc-calendar-* recipes; the
    * range day states (data-range-start/middle/end, data-highlighted) add to the day recipe.
+   *
+   * Drag-to-select: press a day and drag across to define the range in one gesture. A drag spans
+   * different days, so Bits' own click selection (which needs press + release on the SAME day) never
+   * fires for it — the two paths coexist, and a plain click still selects via Bits. We drive the
+   * bound `value` on pointer enter while pressed; pointer-up anywhere ends the drag.
    */
   import { DateRangePicker as DateRangePickerPrimitive } from "bits-ui";
+  import type { DateValue } from "@internationalized/date";
   import CalendarIcon from "@lucide/svelte/icons/calendar";
   import ChevronLeft from "@lucide/svelte/icons/chevron-left";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
@@ -19,8 +25,9 @@
 
   // DateRangePicker.Root renders no DOM of its own; the consumer's class dresses the field.
   // closeOnRangeSelect defaults false: the calendar stays open after a range so the user can adjust
-  // the endpoints (re-pick) rather than having it dismiss on the second click.
+  // the endpoints (re-pick or drag) rather than having it dismiss on the second click.
   let {
+    value = $bindable(),
     class: className,
     label,
     closeOnRangeSelect = false,
@@ -29,9 +36,26 @@
     class?: string;
     label?: string;
   } = $props();
+
+  // The day the current drag started on (set on pointer-down, cleared on pointer-up); null when idle.
+  let dragAnchor = $state<DateValue | null>(null);
+
+  function beginDrag(date: DateValue): void {
+    dragAnchor = date;
+  }
+  function extendDrag(date: DateValue): void {
+    // Only while a press is in progress, and only once the pointer reaches a DIFFERENT day (so a
+    // plain click — same day, no movement — stays Bits' job).
+    if (!dragAnchor || date.compare(dragAnchor) === 0) return;
+    value =
+      dragAnchor.compare(date) <= 0 ? { start: dragAnchor, end: date } : { start: date, end: dragAnchor };
+  }
 </script>
 
-<DateRangePickerPrimitive.Root {closeOnRangeSelect} {...restProps}>
+<!-- End the drag on pointer-up anywhere (the release may land outside the calendar). -->
+<svelte:window onpointerup={() => (dragAnchor = null)} />
+
+<DateRangePickerPrimitive.Root bind:value {closeOnRangeSelect} {...restProps}>
   {#if label}
     <DateRangePickerPrimitive.Label class="mc-date-field-label">{label}</DateRangePickerPrimitive.Label>
   {/if}
@@ -95,7 +119,11 @@
                         month={month.value}
                         class="mc-calendar-cell"
                       >
-                        <DateRangePickerPrimitive.Day class="mc-calendar-day" />
+                        <DateRangePickerPrimitive.Day
+                          class="mc-calendar-day"
+                          onpointerdown={() => beginDrag(date)}
+                          onpointerenter={() => extendDrag(date)}
+                        />
                       </DateRangePickerPrimitive.Cell>
                     {/each}
                   </DateRangePickerPrimitive.GridRow>
