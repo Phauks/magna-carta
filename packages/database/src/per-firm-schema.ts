@@ -649,7 +649,10 @@ export const incident = sqliteTable("incident", {
   id: text("id").primaryKey().$type<IncidentId>(), // incident_ handle
   errorIds: text("error_ids").notNull(), // JSON array of error_ handles (may be empty — "nothing crashed but…")
   breadcrumbs: text("breadcrumbs").notNull(), // JSON array of { at, action, route } — redacted by construction
-  description: text("description").notNull(), // user-authored plaintext; superseded by description_ciphertext
+  // user-authored plaintext, NULLABLE now that new writes are encrypted-only into
+  // description_ciphertext (the route writes NULL here); the backfill sweep encrypts pre-existing
+  // rows and this plaintext column is dropped in a later slice after a verification window.
+  description: text("description"),
   // The encrypted form of the user's words, sealed under the firm key and read only with
   // incidents:viewDescription (an audited decrypt). Nullable while the plaintext column still
   // exists; the plaintext `description` is dropped in a later slice after a verification window.

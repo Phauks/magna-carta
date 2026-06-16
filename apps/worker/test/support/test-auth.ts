@@ -4,6 +4,7 @@ import {
   insertMemberStatement,
   insertRoleAssignmentStatement,
 } from "@magna-carta/data-access/member-statements";
+import { generateFirmKeyBytes, importRootKek, wrapFirmKey } from "@magna-carta/encryption/keys";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
@@ -50,6 +51,17 @@ export async function seedFirm(options?: {
     )
     .run();
   return { firmId, databaseIdentifier };
+}
+
+// Mints + stores a wrapped firm key on a seeded firm — the provisioner's step 4c, done directly so
+// a test firm seeded with seedFirm (which inserts no key) can exercise protected reads/writes. Uses
+// the same test ROOT_KEK the worker reads from env, so the worker's firm-key provider unwraps it.
+export async function seedFirmKey(firmId: FirmId): Promise<void> {
+  const rootKek = await importRootKek(env.ROOT_KEK);
+  const wrappedFirmKey = await wrapFirmKey(rootKek, generateFirmKeyBytes());
+  await env.DB_CONTROL.prepare("UPDATE firm SET wrapped_firm_key = ?2 WHERE id = ?1")
+    .bind(firmId, wrappedFirmKey)
+    .run();
 }
 
 export interface SeededCredentialedUser {

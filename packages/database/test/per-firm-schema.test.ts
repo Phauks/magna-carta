@@ -151,7 +151,10 @@ describe("per-firm schema: incident (user-initiated incident intake)", () => {
     expect(columnOf(incident, "id").getSQLType()).toBe("text"); // incident_ handle
     expect(columnOf(incident, "error_ids").notNull).toBe(true); // JSON array of error_ handles (may be empty)
     expect(columnOf(incident, "breadcrumbs").notNull).toBe(true); // JSON array of { at, action, route }
-    expect(columnOf(incident, "description").notNull).toBe(true); // firm-boundary now, protected() later
+    // Nullable now: new writes are encrypted-only into description_ciphertext, so the plaintext
+    // column accepts NULL (dropped in a later slice after a verification window).
+    expect(columnOf(incident, "description").notNull).toBe(false);
+    expect(columnOf(incident, "description_ciphertext").notNull).toBe(false); // sealed form, nullable
     expect(columnOf(incident, "context").notNull).toBe(true); // JSON { route, appVersion, clientAt }
     expect(columnOf(incident, "screenshot_key").notNull).toBe(false); // R2 seam, nullable; UI slice fills it
     const status = columnOf(incident, "status");
