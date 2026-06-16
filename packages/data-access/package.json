@@ -19,12 +19,16 @@
     "./cursor-pagination": "./src/cursor-pagination.ts",
     "./classification-type-service": "./src/classification-type-service.ts",
     "./firm-key-provider": "./src/firm-key-provider.ts",
+    "./protected-fields": "./src/protected-fields.ts",
+    "./protected-field-registry": "./src/protected-field-registry.ts",
+    "./secret-statements": "./src/secret-statements.ts",
     "./hono-idempotency-middleware": "./src/hono-idempotency-middleware.ts"
   },
   "scripts": {
     "test": "vp test run"
   },
   "dependencies": {
+    "@magna-carta/access-control": "workspace:*",
     "@magna-carta/database": "workspace:*",
     "@magna-carta/encryption": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
