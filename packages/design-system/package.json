@@ -19,6 +19,7 @@
     "./date-picker": "./src/lib/components/date-picker/index.ts",
     "./date-range-picker": "./src/lib/components/date-range-picker/index.ts",
     "./dialog": "./src/lib/components/dialog/index.ts",
+    "./form": "./src/lib/components/form/index.ts",
     "./dropdown-menu": "./src/lib/components/dropdown-menu/index.ts",
     "./file-input": "./src/lib/components/file-input/index.ts",
     "./input": "./src/lib/components/input/index.ts",
@@ -59,7 +60,9 @@
     "@magna-carta/design-tokens": "workspace:*",
     "bits-ui": "catalog:",
     "clsx": "catalog:",
+    "formsnap": "catalog:",
     "svelte-sonner": "catalog:",
+    "sveltekit-superforms": "catalog:",
     "tailwind-merge": "catalog:",
     "virtua": "catalog:"
   },
@@ -80,6 +83,7 @@
     "svelte": "catalog:",
     "svelte-check": "catalog:",
     "tailwindcss": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "zod": "catalog:"
   }
 }

@@ -8,9 +8,20 @@
  * Vite+ name — it exports the real Vite API and `version` ("8.0.16"), so Storybook's builder
  * accepts it unmodified (plan "Decided up front" 9; verified empirically by `storybook build`).
  */
+import { fileURLToPath } from "node:url";
 import type { StorybookConfig } from "@storybook/svelte-vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import tailwindcss from "@tailwindcss/vite";
+
+// superforms imports SvelteKit's $app/* modules; this is a plain-Vite Storybook (no SvelteKit), so
+// alias them to local stubs (.storybook/sveltekit-stubs/) — enough for the form stories, which
+// validate client-side. Any future superforms-backed story reuses these.
+const sveltekitStubs: Record<string, string> = {
+  "$app/environment": fileURLToPath(new URL("./sveltekit-stubs/environment.ts", import.meta.url)),
+  "$app/navigation": fileURLToPath(new URL("./sveltekit-stubs/navigation.ts", import.meta.url)),
+  "$app/stores": fileURLToPath(new URL("./sveltekit-stubs/stores.ts", import.meta.url)),
+  "$app/forms": fileURLToPath(new URL("./sveltekit-stubs/forms.ts", import.meta.url)),
+};
 
 const config: StorybookConfig = {
   framework: "@storybook/svelte-vite",
@@ -32,6 +43,11 @@ const config: StorybookConfig = {
     "@chromatic-com/storybook",
   ],
   async viteFinal(viteConfiguration) {
+    viteConfiguration.resolve ??= {};
+    viteConfiguration.resolve.alias = {
+      ...(viteConfiguration.resolve.alias as Record<string, string>),
+      ...sveltekitStubs,
+    };
     viteConfiguration.plugins ??= [];
     // The Svelte compiler plugin. @storybook/svelte-vite does NOT register it — upstream assumes
     // the project's own vite.config.ts provides it, and this package deliberately has no
