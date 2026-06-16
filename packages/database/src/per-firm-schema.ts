@@ -427,7 +427,16 @@ export const matter = sqliteTable(
       .on(table.matterNumber)
       .where(sql`${table.matterNumber} IS NOT NULL`),
     index("matter_status_index").on(table.status),
-    index("matter_responsible_member_id_index").on(table.responsibleMemberId),
+    // List reads keyset-paginate on (created_at DESC, id DESC). SQLite walks an ASC index in reverse,
+    // so these ASC composites serve the sort order from the index itself — no temporary B-tree. The
+    // responsible-member composite leads with the filter column, so it also serves the bare FK lookup
+    // (a strict prefix); the second covers the unfiltered/status-filtered caseload list's sort.
+    index("matter_responsible_member_id_created_at_id_index").on(
+      table.responsibleMemberId,
+      table.createdAt,
+      table.id,
+    ),
+    index("matter_created_at_id_index").on(table.createdAt, table.id),
     check("matter_status_check", sql`${table.status} IN ('prospective', 'open', 'closed')`),
     check("matter_title_nonempty_check", sql`length(${table.title}) > 0`),
   ],
@@ -454,7 +463,9 @@ export const folder = sqliteTable(
     // SQLite treats NULLs as distinct, so this backstops sibling-name collisions for non-root folders;
     // the folder service enforces the root-level (null-parent) case as well.
     unique().on(table.matterId, table.parentFolderId, table.name),
-    index("folder_matter_id_index").on(table.matterId),
+    // The per-matter folder list keyset-paginates on (created_at, id); leading with matter_id serves
+    // both the filter and the sort from one index (and still covers the bare matter_id FK lookup).
+    index("folder_matter_id_created_at_id_index").on(table.matterId, table.createdAt, table.id),
     check("folder_name_nonempty_check", sql`length(${table.name}) > 0`),
   ],
 );
@@ -484,8 +495,11 @@ export const file = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
-    index("file_matter_id_index").on(table.matterId),
-    index("file_folder_id_index").on(table.folderId),
+    // File lists keyset-paginate on (created_at DESC, id DESC) under a matter or folder filter.
+    // Leading with the filter column lets one ASC composite serve both the filter and the reversed
+    // sort (and still cover the bare FK lookup that each replaces).
+    index("file_matter_id_created_at_id_index").on(table.matterId, table.createdAt, table.id),
+    index("file_folder_id_created_at_id_index").on(table.folderId, table.createdAt, table.id),
     check("file_name_nonempty_check", sql`length(${table.name}) > 0`),
   ],
 );

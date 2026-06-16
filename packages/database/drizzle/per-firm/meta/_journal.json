@@ -36,6 +36,13 @@
       "when": 1781560957387,
       "tag": "0004_matters-locations-file-manager",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1781595491489,
+      "tag": "0005_list-keyset-indexes",
+      "breakpoints": true
     }
   ]
 }

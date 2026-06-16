@@ -215,6 +215,38 @@ describe("generated migrations (committed artifacts)", () => {
     expect(grantsByRole.get("Read-only")).toBeUndefined();
   });
 
+  it("per-firm 0005 only swaps list indexes (drop + create), never rebuilds a table", async () => {
+    const migrations = await loadLineage("per-firm");
+    expect(migrations.length).toBeGreaterThanOrEqual(6);
+    expect(migrations[5]?.tag).toMatch(/^0005_/);
+    const statements = migrations[5]?.statements ?? [];
+    const sql = statements.join("\n");
+    // The composite list-keyset indexes are the point: filter column first, then (created_at, id) so
+    // one ASC index serves both the filter and the reversed keyset sort with no temporary B-tree.
+    for (const indexName of [
+      "file_matter_id_created_at_id_index",
+      "file_folder_id_created_at_id_index",
+      "folder_matter_id_created_at_id_index",
+      "matter_responsible_member_id_created_at_id_index",
+      "matter_created_at_id_index",
+    ]) {
+      expect(sql, indexName).toContain(`CREATE INDEX \`${indexName}\``);
+    }
+    // The single-column FK indexes the composites replace are dropped (the composites cover them).
+    for (const droppedIndex of [
+      "file_matter_id_index",
+      "file_folder_id_index",
+      "folder_matter_id_index",
+      "matter_responsible_member_id_index",
+    ]) {
+      expect(sql, droppedIndex).toContain(`DROP INDEX \`${droppedIndex}\``);
+    }
+    // An index swap must never trigger a table rebuild — no new shadow table, no table drop.
+    for (const statement of statements) {
+      expect(statement).toMatch(/^\s*(?:DROP INDEX|CREATE INDEX)\b/u);
+    }
+  });
+
   it("per-firm lineage never creates the auth tables — they are control-plane only", async () => {
     const migrations = await loadLineage("per-firm");
     const allSql = migrations.flatMap((migration) => migration.statements).join("\n");

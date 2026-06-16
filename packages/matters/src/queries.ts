@@ -40,7 +40,11 @@ export function listMattersStatement(
     bindings.push(filters.status);
   } else {
     // The main list is the working caseload — unnumbered prospectives live in the consultations view.
-    conditions.push("status IN ('open', 'closed')");
+    // Stated as a range exclusion (not status IN ('open','closed')) so the planner satisfies the
+    // (created_at, id) keyset sort straight from matter_created_at_id_index: an equality/IN on status
+    // would instead drive the status index and force a materialize-and-sort temporary B-tree. status
+    // is one of exactly three values (the matter_status_check constraint), so this is equivalent.
+    conditions.push("status != 'prospective'");
   }
   if (filters.matterTypeId !== undefined) {
     conditions.push("matter_type_id = ?");

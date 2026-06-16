@@ -117,6 +117,20 @@ export function findFullScans(
     .map((plan) => plan.label);
 }
 
+// A keyset-paginated list whose filter and (created_at, id) sort are both served by one index reads
+// `SEARCH … USING INDEX …` with NO sort step. If SQLite cannot serve ORDER BY from an index it
+// materializes the rows and sorts them — the plan carries `USE TEMP B-TREE FOR ORDER BY`. That
+// defeats keyset pagination at volume, so the list hot paths must never show it. Returns the labels
+// of any plan that does, so a future sort regression (a dropped or reordered covering index) fails
+// the smoke instead of silently degrading.
+export function findTempBtreeSorts(plans: readonly LabeledPlan[]): string[] {
+  return plans
+    .filter((plan) =>
+      plan.details.some((detail) => detail.includes("USE TEMP B-TREE FOR ORDER BY")),
+    )
+    .map((plan) => plan.label);
+}
+
 export interface BaselineFile {
   readonly profileName: string;
   readonly profileVersion: number;

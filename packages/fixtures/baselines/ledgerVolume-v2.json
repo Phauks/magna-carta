@@ -1,119 +1,119 @@
 {
   "profileName": "ledgerVolume",
   "profileVersion": 2,
-  "cacheKey": "5032bc44be245d78",
+  "cacheKey": "eba82dd6c1b0a7dc",
   "results": [
     {
       "name": "balance-read.busy-subledger",
       "iterations": 30,
-      "minMs": 0.054,
-      "medianMs": 0.065,
-      "p95Ms": 0.135
+      "minMs": 0.05,
+      "medianMs": 0.058,
+      "p95Ms": 0.097
     },
     {
       "name": "create-account.trust-subledger",
       "iterations": 30,
-      "minMs": 3.276,
-      "medianMs": 4.127,
-      "p95Ms": 5.471
+      "minMs": 3.812,
+      "medianMs": 4.84,
+      "p95Ms": 7.06
     },
     {
       "name": "get-current-clean-version",
       "iterations": 30,
-      "minMs": 0.082,
-      "medianMs": 0.092,
-      "p95Ms": 0.182
+      "minMs": 0.149,
+      "medianMs": 0.178,
+      "p95Ms": 0.22
     },
     {
       "name": "ledger-fitness.table-wide",
       "iterations": 30,
-      "minMs": 334.748,
-      "medianMs": 373.262,
-      "p95Ms": 420.566
+      "minMs": 372.695,
+      "medianMs": 415.989,
+      "p95Ms": 571.207
     },
     {
       "name": "list-clean-versions.by-file",
       "iterations": 30,
-      "minMs": 0.105,
-      "medianMs": 0.161,
-      "p95Ms": 0.325
+      "minMs": 0.104,
+      "medianMs": 0.197,
+      "p95Ms": 0.404
     },
     {
       "name": "list-consultations.by-member",
       "iterations": 30,
-      "minMs": 0.345,
-      "medianMs": 0.471,
-      "p95Ms": 3.333
+      "minMs": 0.237,
+      "medianMs": 0.465,
+      "p95Ms": 1.103
     },
     {
       "name": "list-files.by-folder",
       "iterations": 30,
-      "minMs": 0.099,
-      "medianMs": 0.169,
-      "p95Ms": 0.227
+      "minMs": 0.14,
+      "medianMs": 0.184,
+      "p95Ms": 0.226
     },
     {
       "name": "list-files.by-matter",
       "iterations": 30,
-      "minMs": 0.223,
-      "medianMs": 0.317,
-      "p95Ms": 0.511
+      "minMs": 0.14,
+      "medianMs": 0.252,
+      "p95Ms": 0.546
     },
     {
       "name": "list-matters.filtered",
       "iterations": 30,
-      "minMs": 0.257,
-      "medianMs": 0.345,
-      "p95Ms": 0.712
+      "minMs": 0.228,
+      "medianMs": 0.362,
+      "p95Ms": 0.565
     },
     {
       "name": "list-matters.first-page",
       "iterations": 30,
-      "minMs": 0.51,
-      "medianMs": 0.914,
-      "p95Ms": 2.955
+      "minMs": 0.448,
+      "medianMs": 0.567,
+      "p95Ms": 0.791
     },
     {
       "name": "matter-number.counter-draw",
       "iterations": 30,
-      "minMs": 4.671,
-      "medianMs": 6.27,
-      "p95Ms": 9.743
+      "minMs": 6.887,
+      "medianMs": 7.877,
+      "p95Ms": 9.77
     },
     {
       "name": "post-entry.two-line",
       "iterations": 30,
-      "minMs": 14.397,
-      "medianMs": 16.814,
-      "p95Ms": 19.967
+      "minMs": 15.623,
+      "medianMs": 18.295,
+      "p95Ms": 23.421
     },
     {
       "name": "reverse-entry.two-line",
       "iterations": 30,
-      "minMs": 15.425,
-      "medianMs": 18.328,
-      "p95Ms": 21.229
+      "minMs": 16.042,
+      "medianMs": 18.378,
+      "p95Ms": 26.183
     },
     {
       "name": "storage-meter.summary",
       "iterations": 30,
       "minMs": 0.055,
-      "medianMs": 0.096,
-      "p95Ms": 0.14
+      "medianMs": 0.077,
+      "p95Ms": 0.098
     },
     {
       "name": "zip-resolution.clean-current-versions",
       "iterations": 30,
-      "minMs": 0.193,
-      "medianMs": 0.241,
-      "p95Ms": 0.347
+      "minMs": 0.131,
+      "medianMs": 0.227,
+      "p95Ms": 0.319
     },
     {
       "name": "zip-resolution.folders-by-matter",
       "iterations": 30,
-      "minMs": 0.072,
-      "medianMs": 0.104,
-      "p95Ms": 0.415
+      "minMs": 0.091,
+      "medianMs": 0.142,
+      "p95Ms": 0.549
     }
   ]
 }

@@ -14,7 +14,7 @@ import {
   PRACTICE_PLAN_SCAN_ALLOWLIST,
 } from "../src/load-profile/matters-measurements.ts";
 import { ledgerVolume, scaleProfile } from "../src/load-profile/profile.ts";
-import { findFullScans, runMeasurements } from "../src/load-profile/runner.ts";
+import { findFullScans, findTempBtreeSorts, runMeasurements } from "../src/load-profile/runner.ts";
 import { loadProfileSnapshot, type LoadedSnapshot } from "../src/load-profile/snapshot.ts";
 
 // The CI smoke: the harness stays green end-to-end at tiny scale. NO timing assertions —
@@ -108,6 +108,21 @@ describe("load-profile smoke", () => {
     );
     const practiceScans = findFullScans(practicePlans, PRACTICE_PLAN_SCAN_ALLOWLIST);
     expect(practiceScans).toEqual([]);
+
+    // The keyset-paginated list hot paths must satisfy their (created_at, id) ORDER BY from a
+    // covering index — never a materialize-and-sort temporary B-tree, which defeats keyset
+    // pagination at volume. A dropped or reordered covering index regresses the sort and fails here.
+    const sortedListLabels = [
+      "list-matters.first-page",
+      "list-matters.filtered",
+      "list-consultations.by-member",
+      "list-files.by-matter",
+      "list-files.by-folder",
+      "zip-resolution.folders-by-matter",
+    ];
+    const sortedListPlans = practicePlans.filter((plan) => sortedListLabels.includes(plan.label));
+    expect(sortedListPlans.map((plan) => plan.label).sort()).toEqual([...sortedListLabels].sort());
+    expect(findTempBtreeSorts(sortedListPlans)).toEqual([]);
 
     snapshot.close();
   });
