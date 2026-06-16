@@ -1,15 +1,16 @@
 {
-  "name": "@magna-carta/parcels",
+  "name": "@magna-carta/government-links",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "sideEffects": false,
   "exports": {
     "./types": "./src/types.ts",
-    "./apn": "./src/apn.ts",
+    "./keys": "./src/keys.ts",
     "./platforms": "./src/platforms.ts",
     "./resolve": "./src/resolve.ts",
     "./registry": "./src/registry.ts",
+    "./property": "./src/property/registry.ts",
     "./business": "./src/business/registry.ts"
   },
   "scripts": {

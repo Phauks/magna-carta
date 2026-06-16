@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeKey } from "../src/apn.ts";
+import { normalizeKey } from "../src/keys.ts";
 
 describe("normalizeKey", () => {
   it("stripSeparators removes dashes, dots, colons, and whitespace", () => {

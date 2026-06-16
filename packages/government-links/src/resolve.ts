@@ -1,4 +1,4 @@
-import { normalizeKey } from "./apn.ts";
+import { normalizeKey } from "./keys.ts";
 import { ASSESSOR_PLATFORMS } from "./platforms.ts";
 import type { AssessorLookup, PortalLookup, PortalSite } from "./types.ts";
 
