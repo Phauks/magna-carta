@@ -12,7 +12,8 @@ export type AdapterScope = "firm" | "user";
 // account) or `firm` (one connection for the firm). The PORT picks; the framework supports both.
 export type CredentialRequirement =
   | { readonly kind: "none" }
-  | { readonly kind: "oauth"; readonly scope: AdapterScope };
+  | { readonly kind: "oauth"; readonly scope: AdapterScope }
+  | { readonly kind: "apiKey"; readonly scope: AdapterScope };
 
 // An object rather than a bare boolean so it can carry future per-operation metadata — supported
 // fields, required parameters — the way unified-API capability manifests do.

@@ -13,7 +13,12 @@ export interface OAuthCredential {
   readonly expiresAt?: string; // ISO-8601 UTC instant
 }
 
-export type Credential = OAuthCredential;
+export interface ApiKeyCredential {
+  readonly kind: "apiKey";
+  readonly apiKey: string;
+}
+
+export type Credential = OAuthCredential | ApiKeyCredential;
 
 export interface CredentialStore {
   get(credentialRef: string): Promise<Credential | null>;
