@@ -1,0 +1,22 @@
+{
+  "name": "@magna-carta/property-links",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./types": "./src/types.ts",
+    "./format": "./src/format.ts",
+    "./registry": "./src/registry.ts",
+    "./providers/zillow": "./src/providers/zillow.ts",
+    "./providers/redfin": "./src/providers/redfin.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}
