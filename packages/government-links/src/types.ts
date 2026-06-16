@@ -20,15 +20,22 @@ export type ParcelKeyFormat = "stripSeparators" | "keepSeparators" | "hawaiiTmk"
 export type JurisdictionType = "county" | "municipality" | "district" | "state";
 
 // The category of public-record link, which also fixes the granularity of its jurisdiction key:
-// `property` is keyed by county (5-digit FIPS) or county-subdivision (10-digit GEOID); `business` by
-// state (2-digit FIPS). One engine serves both — the same jurisdiction-keyed registry, platform
-// adapters, and URL builder.
-export type LinkCategory = "property" | "business";
+// `property` is keyed by county (5-digit FIPS) or county-subdivision (10-digit GEOID); `business` and
+// `licensing` by state (2-digit FIPS). One engine serves all — the same jurisdiction-keyed registry,
+// platform adapters, and URL builder.
+export type LinkCategory = "property" | "business" | "licensing";
 
 // The specific government portal within a category. A jurisdiction can carry several: a county has an
-// assessor and (later) a recorder and GIS; a state has a business-entity register and a UCC index.
-// The registry keys on `system` + `jurisdictionId`, so these never collide.
-export type PortalSystem = "assessor" | "recorder" | "gis" | "businessEntity" | "ucc";
+// assessor and (later) a recorder and GIS; a state has a business-entity register, a UCC index, and an
+// attorney-licensing directory. The registry keys on `system` + `jurisdictionId`, so these never
+// collide.
+export type PortalSystem =
+  | "assessor"
+  | "recorder"
+  | "gis"
+  | "businessEntity"
+  | "ucc"
+  | "attorneyLicense";
 
 // How to build a direct link to a parcel on an assessor site:
 //  - `platform`: the jurisdiction runs a known platform — name it plus the host (and any

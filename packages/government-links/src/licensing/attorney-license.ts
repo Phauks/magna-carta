@@ -1,0 +1,259 @@
+import type { AssessorSite } from "../types.ts";
+import { licensingSites } from "./helpers.ts";
+
+// Every US state's (and DC's) official attorney-license lookup — the public page where a lawyer's
+// license status and standing are verified by name or bar number. Keyed by 2-digit state FIPS (bar
+// admission is per state), so one row per state sits beside that state's business and property
+// portals in the shared registry. The authority differs by state: a mandatory bar's member directory
+// (most states), or — in non-unified-bar states — the judiciary / supreme court / disciplinary
+// board's attorney-registration search (e.g. New York OCA, Ohio Supreme Court, Illinois ARDC, Kansas
+// KARD, Arkansas AOC, Nebraska Judicial, Tennessee BPR). All search-only.
+interface AttorneyLicenseState {
+  readonly fips: string;
+  readonly code: string;
+  readonly name: string;
+  readonly lookup: string;
+}
+
+// Kept sorted by FIPS.
+const ATTORNEY_LICENSE_STATES: readonly AttorneyLicenseState[] = [
+  { fips: "01", code: "AL", name: "Alabama", lookup: "https://www.alabar.org/find-a-member/" },
+  { fips: "02", code: "AK", name: "Alaska", lookup: "https://courts.alaska.gov/shc/lawyer.htm" },
+  {
+    fips: "04",
+    code: "AZ",
+    name: "Arizona",
+    lookup:
+      "https://www.azbar.org/for-legal-professionals/practice-tools-management/member-directory/",
+  },
+  {
+    fips: "05",
+    code: "AR",
+    name: "Arkansas",
+    lookup: "https://attorneyinfo.aoc.arkansas.gov/info/attorney/attorneysearch.aspx",
+  },
+  {
+    fips: "06",
+    code: "CA",
+    name: "California",
+    lookup: "https://members.calbar.ca.gov/fal/MemberSearch/QuickSearch",
+  },
+  { fips: "08", code: "CO", name: "Colorado", lookup: "https://www.cobar.org/Licensed-Lawyer" },
+  {
+    fips: "09",
+    code: "CT",
+    name: "Connecticut",
+    lookup: "https://www.jud.ct.gov/attorneyfirminquiry/AttorneyFirmInquiry.aspx",
+  },
+  {
+    fips: "10",
+    code: "DE",
+    name: "Delaware",
+    lookup: "https://www.dsba.org/resources/public-resources/",
+  },
+  {
+    fips: "11",
+    code: "DC",
+    name: "District of Columbia",
+    lookup: "https://www.dcbar.org/for-lawyers/mydclawyer",
+  },
+  {
+    fips: "12",
+    code: "FL",
+    name: "Florida",
+    lookup: "https://www.floridabar.org/directories/find-mbr/",
+  },
+  { fips: "13", code: "GA", name: "Georgia", lookup: "https://www.gabar.org/search" },
+  { fips: "15", code: "HI", name: "Hawaii", lookup: "https://hsba.org/find-a-lawyer/" },
+  {
+    fips: "16",
+    code: "ID",
+    name: "Idaho",
+    lookup: "https://isb.idaho.gov/licensing-mcle/attorney-roster-search/",
+  },
+  { fips: "17", code: "IL", name: "Illinois", lookup: "https://www.iardc.org/Lawyer/Search" },
+  { fips: "18", code: "IN", name: "Indiana", lookup: "https://courts.in.gov/rollofattorneys" },
+  {
+    fips: "19",
+    code: "IA",
+    name: "Iowa",
+    lookup: "https://www.iowabar.org/?pg=MemberDirectories",
+  },
+  { fips: "20", code: "KS", name: "Kansas", lookup: "https://directory-kard.kscourts.gov/" },
+  {
+    fips: "21",
+    code: "KY",
+    name: "Kentucky",
+    lookup: "https://kybar.org/For-Public/Find-a-Lawyer",
+  },
+  {
+    fips: "22",
+    code: "LA",
+    name: "Louisiana",
+    lookup: "https://www.lsba.org/Public/LawyerReferral.aspx",
+  },
+  {
+    fips: "23",
+    code: "ME",
+    name: "Maine",
+    lookup: "https://www.mainebar.org/public-services/find-a-lawyer",
+  },
+  { fips: "24", code: "MD", name: "Maryland", lookup: "https://www.mdcourts.gov/ais/" },
+  {
+    fips: "25",
+    code: "MA",
+    name: "Massachusetts",
+    lookup: "https://www.massbbo.org/public-services/find-a-licensed-attorney",
+  },
+  { fips: "26", code: "MI", name: "Michigan", lookup: "https://directory.michbar.org/" },
+  { fips: "27", code: "MN", name: "Minnesota", lookup: "https://mncourts.org/mnlawyers" },
+  {
+    fips: "28",
+    code: "MS",
+    name: "Mississippi",
+    lookup: "https://www.msbar.org/public-services/find-a-lawyer",
+  },
+  {
+    fips: "29",
+    code: "MO",
+    name: "Missouri",
+    lookup: "https://www.mobar.org/public-services/find-a-lawyer",
+  },
+  {
+    fips: "30",
+    code: "MT",
+    name: "Montana",
+    lookup: "https://www.montanabar.org/For-Attorneys/Attorney-Directory",
+  },
+  {
+    fips: "31",
+    code: "NE",
+    name: "Nebraska",
+    lookup: "https://attorneys.nejudicial.gov/member-search",
+  },
+  {
+    fips: "32",
+    code: "NV",
+    name: "Nevada",
+    lookup: "https://www.nvbar.org/public-services/find-an-attorney/",
+  },
+  {
+    fips: "33",
+    code: "NH",
+    name: "New Hampshire",
+    lookup: "https://member.nhbar.org/directory",
+  },
+  {
+    fips: "34",
+    code: "NJ",
+    name: "New Jersey",
+    lookup: "https://www.nj.gov/courts/attorney_services/attorney_lookup.html",
+  },
+  {
+    fips: "35",
+    code: "NM",
+    name: "New Mexico",
+    lookup: "https://www.nmbar.org/public-services/find-a-lawyer",
+  },
+  { fips: "36", code: "NY", name: "New York", lookup: "https://www.nycourts.gov/attorney-search" },
+  {
+    fips: "37",
+    code: "NC",
+    name: "North Carolina",
+    lookup: "https://portal.ncbar.gov/verification/search.aspx",
+  },
+  {
+    fips: "38",
+    code: "ND",
+    name: "North Dakota",
+    lookup: "https://www.sband.org/page/FindaLawyer",
+  },
+  {
+    fips: "39",
+    code: "OH",
+    name: "Ohio",
+    lookup: "https://www.supremecourt.ohio.gov/AttorneySearch",
+  },
+  {
+    fips: "40",
+    code: "OK",
+    name: "Oklahoma",
+    lookup: "https://ams.okbar.org/eweb/startpage.aspx?site=FALWEB",
+  },
+  {
+    fips: "41",
+    code: "OR",
+    name: "Oregon",
+    lookup: "https://www.osbar.org/members/membersearch_start.asp",
+  },
+  {
+    fips: "42",
+    code: "PA",
+    name: "Pennsylvania",
+    lookup: "https://www.padisciplinaryboard.org/for-the-public/find-attorney",
+  },
+  {
+    fips: "44",
+    code: "RI",
+    name: "Rhode Island",
+    lookup: "http://rijrs.courts.ri.gov/rijrs/attorney.do",
+  },
+  {
+    fips: "45",
+    code: "SC",
+    name: "South Carolina",
+    lookup: "https://www.scbar.org/for-lawyers/quicklinks/member-directory/",
+  },
+  { fips: "46", code: "SD", name: "South Dakota", lookup: "https://findalawyerinsd.com/" },
+  {
+    fips: "47",
+    code: "TN",
+    name: "Tennessee",
+    lookup: "https://www.tbpr.org/for-the-public/online-attorney-directory",
+  },
+  {
+    fips: "48",
+    code: "TX",
+    name: "Texas",
+    lookup: "https://www.texasbar.com/public-services/find-a-lawyer",
+  },
+  {
+    fips: "49",
+    code: "UT",
+    name: "Utah",
+    lookup: "https://services.utahbar.org/Member-Directory",
+  },
+  { fips: "50", code: "VT", name: "Vermont", lookup: "https://www.vtbar.org/online-directory/" },
+  { fips: "51", code: "VA", name: "Virginia", lookup: "https://www.vsb.org/" },
+  {
+    fips: "53",
+    code: "WA",
+    name: "Washington",
+    lookup: "http://www.mywsba.org/PersonifyEbusiness/LegalDirectory.aspx",
+  },
+  { fips: "54", code: "WV", name: "West Virginia", lookup: "https://www.wvbar.org/" },
+  {
+    fips: "55",
+    code: "WI",
+    name: "Wisconsin",
+    lookup: "https://www.wisbar.org/Pages/BasicLawyerSearch.aspx",
+  },
+  {
+    fips: "56",
+    code: "WY",
+    name: "Wyoming",
+    lookup: "https://www.wyomingbar.org/for-the-public/hire-a-lawyer/lawyer-search/",
+  },
+];
+
+// Built through the `licensingSites` builder so every row gets the licensing `category`, the
+// `attorneyLicense` system, `state` (the 2-letter code), and the state-FIPS jurisdiction.
+export const ATTORNEY_LICENSE_SITES_BY_STATE: ReadonlyArray<{
+  readonly code: string;
+  readonly fipsPrefix: string;
+  readonly sites: readonly AssessorSite[];
+}> = ATTORNEY_LICENSE_STATES.map(({ fips, code, name, lookup }) => ({
+  code,
+  fipsPrefix: fips,
+  sites: [licensingSites(fips, code).attorneyLicense(`${name} Attorney Search`, lookup)],
+}));

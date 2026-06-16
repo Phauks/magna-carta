@@ -11,7 +11,8 @@
     "./resolve": "./src/resolve.ts",
     "./registry": "./src/registry.ts",
     "./property": "./src/property/registry.ts",
-    "./business": "./src/business/registry.ts"
+    "./business": "./src/business/registry.ts",
+    "./licensing": "./src/licensing/registry.ts"
   },
   "scripts": {
     "test": "vp test run"
