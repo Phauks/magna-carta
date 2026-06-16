@@ -1,6 +1,7 @@
 // What the caller knows about a property. Field names match the codebase AddressInput
 // (street/city/region/postal) so a Location maps in directly. `apn`/`jurisdictionId` are unused by
-// Zillow/Redfin — reserved for the future county-assessor provider (wraps @magna-carta/parcels).
+// the address-keyed sites (Zillow/Redfin/…); the county-assessor provider uses them to deep-link the
+// parcel via @magna-carta/parcels.
 export interface PropertyReference {
   readonly street?: string;
   readonly city?: string;

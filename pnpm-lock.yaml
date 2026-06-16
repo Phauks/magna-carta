@@ -522,6 +522,10 @@ importers:
         version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))(yaml@2.9.0)'
 
   packages/property-links:
+    dependencies:
+      '@magna-carta/parcels':
+        specifier: workspace:*
+        version: link:../parcels
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*

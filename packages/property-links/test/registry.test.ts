@@ -33,4 +33,18 @@ describe("resolvePropertyLinks", () => {
     expect(resolvePropertyLinks({})).toEqual([]);
     expect(resolvePropertyLinks({ city: "Reno" })).toEqual([]);
   });
+
+  it("adds the county-assessor link when a covered jurisdiction is known", () => {
+    const links = resolvePropertyLinks({ ...fullAddress, jurisdictionId: "20001" });
+    expect(links.map((link) => link.providerId)).toContain("countyAssessor");
+    const assessor = links.find((link) => link.providerId === "countyAssessor");
+    expect(assessor?.label).toBe("County Assessor");
+    expect(assessor?.url).toMatch(/^https?:\/\//);
+  });
+
+  it("from a jurisdiction alone, yields only the county-assessor link", () => {
+    expect(
+      resolvePropertyLinks({ jurisdictionId: "20001" }).map((link) => link.providerId),
+    ).toEqual(["countyAssessor"]);
+  });
 });

@@ -9,10 +9,14 @@
     "./format": "./src/format.ts",
     "./registry": "./src/registry.ts",
     "./providers/zillow": "./src/providers/zillow.ts",
-    "./providers/redfin": "./src/providers/redfin.ts"
+    "./providers/redfin": "./src/providers/redfin.ts",
+    "./providers/county-assessor": "./src/providers/county-assessor.ts"
   },
   "scripts": {
     "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/parcels": "workspace:*"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

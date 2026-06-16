@@ -1,3 +1,4 @@
+import { countyAssessorProvider } from "./providers/county-assessor.ts";
 import { googleMapsProvider } from "./providers/google-maps.ts";
 import { realtorProvider } from "./providers/realtor.ts";
 import { redfinProvider } from "./providers/redfin.ts";
@@ -5,13 +6,15 @@ import { zillowProvider } from "./providers/zillow.ts";
 import type { LinkProvider, PropertyLink, PropertyReference } from "./types.ts";
 
 // Every external-link provider composes into one ordered registry. Adding a provider (Trulia, a
-// county-assessor link wrapping @magna-carta/parcels, a FEMA flood-map link) is one import + one row
-// here — nothing else changes.
+// FEMA flood-map link) is one import + one row here — nothing else changes. The commercial sites come
+// first (address-keyed); the county-assessor link (jurisdiction-keyed, wrapping @magna-carta/parcels)
+// rounds out the list — present only when the caller has resolved a covered county.
 const PROVIDERS: readonly LinkProvider[] = [
   zillowProvider,
   redfinProvider,
   googleMapsProvider,
   realtorProvider,
+  countyAssessorProvider,
 ];
 
 // The external lookups usable for what the caller knows about a property. Providers lacking the
