@@ -32,7 +32,7 @@
 </script>
 
 <!-- Virtualizer scrolls within this element (its direct parent), so the container owns overflow. -->
-<div class={mergeClasses("overflow-y-auto", className)} {style}>
+<div class={mergeClasses("overflow-y-auto mc-scrollbar", className)} {style}>
   <Virtualizer data={items} {getKey} {itemSize}>
     {#snippet children(entry, index)}
       {@render item(entry, index)}

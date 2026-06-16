@@ -17,6 +17,25 @@ import {
 import { CATALOG_MODES, CATALOG_THEMES } from "./catalog-matrix.ts";
 import "./preview.css";
 
+/*
+ * virtua emits a benign "ResizeObserver loop completed with undelivered notifications" error while
+ * measuring (the virtualized Combobox). It is not a real failure, but the browser test runner treats
+ * any unhandled window error as one — so swallow this specific message in the capture phase before
+ * the runner's handler sees it. Nothing else is suppressed.
+ */
+if (typeof window !== "undefined") {
+  window.addEventListener(
+    "error",
+    (event) => {
+      if (event.message?.includes("ResizeObserver loop")) {
+        event.stopImmediatePropagation();
+        event.preventDefault();
+      }
+    },
+    true,
+  );
+}
+
 function humanLabel(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }

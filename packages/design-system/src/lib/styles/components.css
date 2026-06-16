@@ -1749,7 +1749,8 @@
     justify-content: center;
     inline-size: var(--mc-control-md);
     block-size: var(--mc-control-md);
-    border-radius: var(--mc-radius-md);
+    /* Circular highlights (hover/selected/today/endpoints) read nicer than rounded squares. */
+    border-radius: var(--mc-radius-full);
     color: var(--mc-text-default);
     font-family: var(--mc-font-sans);
     font-size: var(--mc-text-sm);
@@ -1770,11 +1771,6 @@
   }
   .mc-calendar-day[data-outside-month] {
     color: var(--mc-text-subtle);
-  }
-  .mc-calendar-day[data-today] {
-    border-style: solid;
-    border-width: var(--mc-border-width-default);
-    border-color: var(--mc-border-strong);
   }
   .mc-calendar-day[data-selected] {
     background-color: var(--mc-action-primary);
@@ -1881,16 +1877,55 @@
     padding-inline: var(--mc-space-8);
     color: var(--mc-text-muted);
   }
+  /* The in-range span: a readable muted band. Text stays default (the endpoints' white foreground
+     must NOT bleed onto the light band — that was unreadable). Square so the days connect. */
   .mc-calendar-day[data-highlighted],
   .mc-calendar-day[data-range-middle] {
     background-color: var(--mc-action-secondary);
+    color: var(--mc-text-default);
     border-radius: var(--mc-radius-none);
   }
+  /* Endpoints (and a lone selected date) are the SAME shape — a primary circle — so selecting one
+     date looks like the final endpoint, not a different shape. */
   .mc-calendar-day[data-range-start],
   .mc-calendar-day[data-range-end],
   .mc-calendar-day[data-selection-start],
   .mc-calendar-day[data-selection-end] {
     background-color: var(--mc-action-primary);
     color: var(--mc-action-primary-foreground);
+    border-radius: var(--mc-radius-full);
+  }
+  /* Today is a circular ring. Declared AFTER the range rules so it stays a circle even when it falls
+     inside a range (the square band must not re-square it — the owner flagged that). */
+  .mc-calendar-day[data-today] {
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-strong);
+    border-radius: var(--mc-radius-full);
+  }
+
+  /*
+   * Scrollbar — a slim, tokenised scrollbar applied wherever our own scroll regions appear (the
+   * Select/Command/Combobox dropdowns). Native <select> dropdowns (the calendar month/year jumps)
+   * are OS-rendered and cannot take this styling. Standard `scrollbar-*` for Firefox; the
+   * ::-webkit-scrollbar pseudos for Chromium/WebKit.
+   */
+  .mc-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--mc-border-strong) transparent;
+  }
+  .mc-scrollbar::-webkit-scrollbar {
+    width: var(--mc-space-8);
+    height: var(--mc-space-8);
+  }
+  .mc-scrollbar::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+  .mc-scrollbar::-webkit-scrollbar-thumb {
+    background-color: var(--mc-border-strong);
+    border-radius: var(--mc-radius-full);
+  }
+  .mc-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: var(--mc-text-subtle);
   }
 }

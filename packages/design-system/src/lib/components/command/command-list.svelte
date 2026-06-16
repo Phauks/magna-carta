@@ -12,4 +12,8 @@
   }: WithoutChild<CommandPrimitive.ListProps> = $props();
 </script>
 
-<CommandPrimitive.List bind:ref class={mergeClasses("mc-command-list", className)} {...restProps} />
+<CommandPrimitive.List
+  bind:ref
+  class={mergeClasses("mc-command-list mc-scrollbar", className)}
+  {...restProps}
+/>

@@ -43,7 +43,7 @@
   >
     <SelectScrollUpButton />
     <SelectPrimitive.Viewport
-      class="mc-select-viewport"
+      class="mc-select-viewport mc-scrollbar"
       style="max-height: var(--bits-floating-available-height)"
     >
       {@render children?.()}

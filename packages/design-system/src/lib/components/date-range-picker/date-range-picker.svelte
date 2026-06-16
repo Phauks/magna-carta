@@ -18,9 +18,12 @@
   const RANGE_PARTS = ["start", "end"] as const;
 
   // DateRangePicker.Root renders no DOM of its own; the consumer's class dresses the field.
+  // closeOnRangeSelect defaults false: the calendar stays open after a range so the user can adjust
+  // the endpoints (re-pick) rather than having it dismiss on the second click.
   let {
     class: className,
     label,
+    closeOnRangeSelect = false,
     ...restProps
   }: WithoutChildrenOrChild<DateRangePickerPrimitive.RootProps> & {
     class?: string;
@@ -28,7 +31,7 @@
   } = $props();
 </script>
 
-<DateRangePickerPrimitive.Root {...restProps}>
+<DateRangePickerPrimitive.Root {closeOnRangeSelect} {...restProps}>
   {#if label}
     <DateRangePickerPrimitive.Label class="mc-date-field-label">{label}</DateRangePickerPrimitive.Label>
   {/if}

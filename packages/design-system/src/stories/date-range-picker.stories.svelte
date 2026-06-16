@@ -50,6 +50,10 @@
       );
       await expect(within(grid).getByText("15")).toHaveAttribute("data-selection-end");
     });
+
+    await step("The calendar stays open after a complete range, so it can be adjusted", async () => {
+      await expect(body.queryByRole("grid")).not.toBeNull();
+    });
   }}
 >
   {#snippet template(args: DateRangePickerStoryArgs)}
