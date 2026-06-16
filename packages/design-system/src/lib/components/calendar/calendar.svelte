@@ -31,7 +31,12 @@
       <CalendarPrimitive.PrevButton class="mc-calendar-nav">
         <ChevronLeft class="mc-calendar-nav-icon" aria-hidden="true" />
       </CalendarPrimitive.PrevButton>
-      <CalendarPrimitive.Heading class="mc-calendar-heading" />
+      <!-- Month + year are jump-to selects (native, accessible). The year list is bounded by
+           minValue/maxValue, so an earliest-date floor (e.g. 1900) trims it. -->
+      <div class="mc-calendar-selects">
+        <CalendarPrimitive.MonthSelect aria-label="Month" class="mc-calendar-select" />
+        <CalendarPrimitive.YearSelect aria-label="Year" class="mc-calendar-select" />
+      </div>
       <CalendarPrimitive.NextButton class="mc-calendar-nav">
         <ChevronRight class="mc-calendar-nav-icon" aria-hidden="true" />
       </CalendarPrimitive.NextButton>

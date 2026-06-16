@@ -33,8 +33,9 @@
   play={async ({ canvas, step }) => {
     const grid = within(canvas.getByRole("grid"));
 
-    await step("Renders the placeholder month", async () => {
-      await expect(canvas.getByText("June 2026")).toBeVisible();
+    await step("Renders the placeholder month with jump-to month/year selects", async () => {
+      await expect(canvas.getByDisplayValue("June")).toBeVisible();
+      await expect(canvas.getByDisplayValue("2026")).toBeVisible();
       await expect(grid.getByText("15")).toBeVisible();
     });
 
@@ -56,9 +57,9 @@
       await expect(grid.getByText("16")).toHaveFocus();
     });
 
-    await step("The next-month button advances the heading", async () => {
+    await step("The next-month button advances the month select", async () => {
       await userEvent.click(canvas.getByRole("button", { name: "Next" }));
-      await expect(canvas.getByText("July 2026")).toBeVisible();
+      await expect(canvas.getByDisplayValue("July")).toBeVisible();
     });
   }}
 >

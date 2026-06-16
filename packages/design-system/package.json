@@ -16,6 +16,8 @@
     "./checkbox": "./src/lib/components/checkbox/index.ts",
     "./combobox": "./src/lib/components/combobox/index.ts",
     "./command": "./src/lib/components/command/index.ts",
+    "./date-picker": "./src/lib/components/date-picker/index.ts",
+    "./date-range-picker": "./src/lib/components/date-range-picker/index.ts",
     "./dialog": "./src/lib/components/dialog/index.ts",
     "./dropdown-menu": "./src/lib/components/dropdown-menu/index.ts",
     "./file-input": "./src/lib/components/file-input/index.ts",

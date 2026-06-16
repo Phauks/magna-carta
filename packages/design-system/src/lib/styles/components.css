@@ -1692,11 +1692,35 @@
     inline-size: var(--mc-space-16);
     block-size: var(--mc-space-16);
   }
-  .mc-calendar-heading {
+  .mc-calendar-selects {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+  }
+  /* Month/year jump-to selects (native <select>); the OS dropdown arrow is kept. */
+  .mc-calendar-select {
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+    background-color: var(--mc-surface-default);
+    color: var(--mc-text-default);
     font-family: var(--mc-font-sans);
     font-size: var(--mc-text-sm);
     font-weight: var(--mc-weight-medium);
-    color: var(--mc-text-default);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-sm);
+    cursor: pointer;
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-calendar-select:focus-visible {
+    border-color: var(--mc-focus-ring);
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
   }
   .mc-calendar-grid {
     border-collapse: collapse;
@@ -1754,5 +1778,113 @@
   .mc-calendar-day[data-unavailable] {
     color: var(--mc-action-disabled-foreground);
     cursor: not-allowed;
+  }
+
+  /*
+   * DatePicker (Tier 4, Bits UI). The segmented date field (a row of editable spinbutton segments +
+   * a calendar-opening trigger, in one bordered control with the single focus shape on :focus-within)
+   * and the popover panel that hosts the calendar. The calendar itself reuses the mc-calendar-*
+   * recipes; only the field is dressed here. The active segment highlights on :focus.
+   */
+  .mc-date-field-label {
+    display: block;
+    margin-block-end: var(--mc-space-4);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-sm);
+    font-weight: var(--mc-weight-medium);
+  }
+  .mc-date-field {
+    display: inline-flex;
+    align-items: center;
+    block-size: var(--mc-control-md);
+    padding-inline: var(--mc-space-12);
+    background-color: var(--mc-surface-default);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-sm);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    transition-property: border-color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-date-field:focus-within {
+    border-color: var(--mc-focus-ring);
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-date-field-segment {
+    padding-inline: var(--mc-space-4);
+    border-radius: var(--mc-radius-sm);
+    outline-style: none;
+  }
+  .mc-date-field-segment:focus {
+    background-color: var(--mc-action-primary);
+    color: var(--mc-action-primary-foreground);
+  }
+  .mc-date-field-segment[data-segment="literal"] {
+    padding-inline: var(--mc-space-0);
+    color: var(--mc-text-muted);
+  }
+  .mc-date-field-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-inline-start: auto;
+    inline-size: var(--mc-space-24);
+    block-size: var(--mc-space-24);
+    color: var(--mc-text-muted);
+    background-color: transparent;
+    border-style: none;
+    border-radius: var(--mc-radius-sm);
+    cursor: pointer;
+  }
+  .mc-date-field-trigger-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+  .mc-date-picker-content {
+    padding: var(--mc-space-16);
+    background-color: var(--mc-surface-overlay);
+    color: var(--mc-text-default);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    box-shadow: var(--mc-elevation-2);
+  }
+
+  /*
+   * DateRangePicker (Tier 4, Bits UI). Adds to the date field: the two segment groups (start/end)
+   * sit inline with a separator between them; the range calendar adds the range day states to the
+   * shared mc-calendar-day recipe — the endpoints read as selected, the in-between span is muted.
+   */
+  .mc-date-range-input {
+    display: inline-flex;
+    align-items: center;
+  }
+  .mc-date-range-separator {
+    padding-inline: var(--mc-space-8);
+    color: var(--mc-text-muted);
+  }
+  .mc-calendar-day[data-highlighted],
+  .mc-calendar-day[data-range-middle] {
+    background-color: var(--mc-action-secondary);
+    border-radius: var(--mc-radius-none);
+  }
+  .mc-calendar-day[data-range-start],
+  .mc-calendar-day[data-range-end],
+  .mc-calendar-day[data-selection-start],
+  .mc-calendar-day[data-selection-end] {
+    background-color: var(--mc-action-primary);
+    color: var(--mc-action-primary-foreground);
   }
 }
