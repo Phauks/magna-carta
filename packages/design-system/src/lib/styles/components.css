@@ -1301,7 +1301,7 @@
     font-family: var(--mc-font-sans);
     font-size: var(--mc-text-sm);
     line-height: var(--mc-leading-normal);
-    cursor: default;
+    cursor: pointer;
     user-select: none;
     outline-style: none;
   }
@@ -1376,7 +1376,7 @@
     font-family: var(--mc-font-sans);
     font-size: var(--mc-text-sm);
     line-height: var(--mc-leading-tight);
-    cursor: default;
+    cursor: pointer;
     transition-property: border-color, outline-color;
     transition-duration: var(--mc-duration-fast);
     transition-timing-function: var(--mc-easing-standard);
@@ -1443,7 +1443,7 @@
     font-family: var(--mc-font-sans);
     font-size: var(--mc-text-sm);
     line-height: var(--mc-leading-normal);
-    cursor: default;
+    cursor: pointer;
     user-select: none;
     outline-style: none;
   }
@@ -1482,7 +1482,7 @@
     justify-content: center;
     padding-block: var(--mc-space-4);
     color: var(--mc-text-muted);
-    cursor: default;
+    cursor: pointer;
   }
   .mc-select-scroll-button-icon {
     inline-size: var(--mc-space-16);
@@ -1567,7 +1567,7 @@
     font-family: var(--mc-font-sans);
     font-size: var(--mc-text-sm);
     line-height: var(--mc-leading-normal);
-    cursor: default;
+    cursor: pointer;
     user-select: none;
     outline-style: none;
   }
@@ -1635,7 +1635,7 @@
     color: var(--mc-text-muted);
     background-color: transparent;
     border-style: none;
-    cursor: default;
+    cursor: pointer;
   }
   .mc-combobox-trigger-icon {
     inline-size: var(--mc-space-16);

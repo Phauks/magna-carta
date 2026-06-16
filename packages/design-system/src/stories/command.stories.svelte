@@ -4,14 +4,17 @@
    * (role="combobox") filters a listbox of Items; Bits owns the filtering, the roving keyboard
    * highlight (aria-activedescendant), and the listbox/option a11y. The matcher is a seam — Root
    * defaults to a plain case-insensitive substring match and a caller can swap in a richer scorer.
-   * Items fire commands (onSelect), so Command is an Overlay of actions (catalog taxonomy), not an
-   * Input. The list height is layout (max-h-96 here); a hidden story filters 500 items at scale.
-   * svelte-csf v5.
+   *
+   * A command palette has no open/close of its own — it is the inner content of a Dialog (the Cmd+K
+   * pattern), which supplies the trigger, the focus trap, and dismissal on outside-click/Escape. The
+   * Default story shows that composition (the Dialog chrome hosts a border-less Command); the hidden
+   * at-scale story renders the bare palette to filter 500 rows. svelte-csf v5.
    */
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ComponentProps } from "svelte";
-  import { expect, fn, userEvent, waitFor } from "storybook/test";
+  import { expect, fn, userEvent, waitFor, within } from "storybook/test";
   import * as Command from "../lib/components/command/index.ts";
+  import * as Dialog from "../lib/components/dialog/index.ts";
   import CommandRoot from "../lib/components/command/command-root.svelte";
 
   const { Story } = defineMeta({
@@ -30,29 +33,32 @@
   const MANY = Array.from({ length: 500 }, (_, index) => `Item ${index + 1}`);
 </script>
 
-<!-- A realistic palette: two action groups (one item disabled), a separator, and an empty state. -->
+<!-- The Cmd+K pattern: a trigger opens a Dialog hosting the palette; outside-click/Escape closes it. -->
 <Story
-  name="Default"
+  name="Command menu"
   play={async ({ canvas, step }) => {
-    const input = canvas.getByRole("combobox");
+    const trigger = canvas.getByRole("button", { name: "Open command menu" });
+    const body = within(document.body);
 
-    await step("Lists every command before any query", async () => {
-      await expect(canvas.getByRole("option", { name: "New matter" })).toBeVisible();
-      await expect(canvas.getByRole("option", { name: "Go to billing" })).toBeVisible();
+    await step("Opening the dialog reveals the palette", async () => {
+      await userEvent.click(trigger);
+      await body.findByRole("dialog");
+      // The dialog scale-fades in, so poll until the entrance settles.
+      await waitFor(() => expect(body.getByRole("option", { name: "New matter" })).toBeVisible());
     });
+
+    const input = body.getByRole("combobox");
 
     await step("Typing filters the list and auto-highlights the first match", async () => {
       await userEvent.type(input, "matter");
-      await waitFor(() => expect(canvas.queryByRole("option", { name: "Go to billing" })).toBeNull());
-      await expect(canvas.getByRole("option", { name: "New matter" })).toBeVisible();
-      // Command keeps the first enabled match highlighted as you type (the active descendant).
+      await waitFor(() => expect(body.queryByRole("option", { name: "Go to billing" })).toBeNull());
       await waitFor(() =>
-        expect(canvas.getByRole("option", { name: "New matter" })).toHaveAttribute("data-selected"),
+        expect(body.getByRole("option", { name: "New matter" })).toHaveAttribute("data-selected"),
       );
     });
 
     await step("A disabled command is not selectable", async () => {
-      await expect(canvas.getByRole("option", { name: "Close matter" })).toHaveAttribute(
+      await expect(body.getByRole("option", { name: "Close matter" })).toHaveAttribute(
         "data-disabled",
       );
     });
@@ -65,49 +71,51 @@
     await step("A query that matches nothing shows the empty state", async () => {
       await userEvent.clear(input);
       await userEvent.type(input, "zzzzz");
-      // Bits re-creates the list node when the query crosses empty/non-empty, so query fresh.
-      await expect(await canvas.findByText("No results found.")).toBeVisible();
+      await expect(await body.findByText("No results found.")).toBeVisible();
     });
 
-    await step("Clearing the query restores the full list", async () => {
-      // Leave the palette populated: it is the showcase state, and an empty listbox (no option
-      // children) trips axe's aria-required-children — the "No results" message above is the
-      // accessible feedback for that transient state.
-      await userEvent.clear(input);
-      await waitFor(() =>
-        expect(canvas.getByRole("option", { name: "Go to billing" })).toBeVisible(),
-      );
+    await step("Clicking outside closes the palette", async () => {
+      // The body carries pointer-events:none while the dialog is open, so click the overlay scrim
+      // (the dismiss surface) rather than the body.
+      const overlay = document.querySelector(".mc-dialog-overlay");
+      await userEvent.click(overlay as Element);
+      await waitFor(() => expect(body.queryByRole("dialog")).toBeNull());
     });
   }}
 >
   {#snippet template(args: CommandStoryArgs)}
-    <Command.Root {...args} label="Command menu" class="max-w-md">
-      <Command.Input placeholder="Type a command or search…" />
-      <!-- No max-height here: the short palette fits without scrolling. A scrolling listbox driven by
-           aria-activedescendant has no tabbable content, which trips axe's scrollable-region-focusable
-           (keyboard users still reach every row via the arrow keys); the at-scale story bounds height. -->
-      <Command.List>
-        <Command.Viewport>
-          <Command.Empty>No results found.</Command.Empty>
-          <Command.Group>
-            <Command.GroupHeading>Matters</Command.GroupHeading>
-            <Command.GroupItems>
-              <Command.Item onSelect={runNewMatter}>New matter</Command.Item>
-              <Command.Item>Open matter</Command.Item>
-              <Command.Item disabled>Close matter</Command.Item>
-            </Command.GroupItems>
-          </Command.Group>
-          <Command.Separator />
-          <Command.Group>
-            <Command.GroupHeading>Navigation</Command.GroupHeading>
-            <Command.GroupItems>
-              <Command.Item>Go to dashboard</Command.Item>
-              <Command.Item>Go to billing</Command.Item>
-            </Command.GroupItems>
-          </Command.Group>
-        </Command.Viewport>
-      </Command.List>
-    </Command.Root>
+    <Dialog.Root>
+      <Dialog.Trigger class="mc-button mc-button-secondary mc-button-md">
+        Open command menu
+      </Dialog.Trigger>
+      <Dialog.Content showClose={false} class="overflow-hidden p-0">
+        <Dialog.Title class="sr-only">Command menu</Dialog.Title>
+        <Command.Root {...args} label="Command menu" class="border-0 bg-transparent">
+          <Command.Input placeholder="Type a command or search…" />
+          <Command.List>
+            <Command.Viewport>
+              <Command.Empty>No results found.</Command.Empty>
+              <Command.Group>
+                <Command.GroupHeading>Matters</Command.GroupHeading>
+                <Command.GroupItems>
+                  <Command.Item onSelect={runNewMatter}>New matter</Command.Item>
+                  <Command.Item>Open matter</Command.Item>
+                  <Command.Item disabled>Close matter</Command.Item>
+                </Command.GroupItems>
+              </Command.Group>
+              <Command.Separator />
+              <Command.Group>
+                <Command.GroupHeading>Navigation</Command.GroupHeading>
+                <Command.GroupItems>
+                  <Command.Item>Go to dashboard</Command.Item>
+                  <Command.Item>Go to billing</Command.Item>
+                </Command.GroupItems>
+              </Command.Group>
+            </Command.Viewport>
+          </Command.List>
+        </Command.Root>
+      </Dialog.Content>
+    </Dialog.Root>
   {/snippet}
 </Story>
 
@@ -129,7 +137,7 @@
   {#snippet template(args: CommandStoryArgs)}
     <Command.Root {...args} label="Large command list" class="max-w-md">
       <Command.Input placeholder="Filter…" />
-      <Command.List class="max-h-96">
+      <Command.List>
         <Command.Viewport>
           <Command.Empty>No results found.</Command.Empty>
           {#each MANY as label (label)}

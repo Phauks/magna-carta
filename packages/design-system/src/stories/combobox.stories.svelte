@@ -37,12 +37,26 @@
 </script>
 
 <script lang="ts">
+  // Data-safe single combobox: the consumer owns the input text (`query`) so it can be reset to the
+  // committed selection. The value MUST be one of the options — so on close the input snaps back to
+  // the selected label (or empty), never keeping typed-but-unchosen text.
   let query = $state("");
+  let selectedValue = $state("");
+  const selectedLabel = $derived(MATTERS.find((matter) => matter.value === selectedValue)?.label ?? "");
   const filtered = $derived(
     query.trim() === ""
       ? MATTERS
       : MATTERS.filter((matter) => matter.label.toLowerCase().includes(query.trim().toLowerCase())),
   );
+
+  function handleValueChange(value: string | string[]): void {
+    const next = Array.isArray(value) ? (value[0] ?? "") : value;
+    selectedValue = next;
+    query = MATTERS.find((matter) => matter.value === next)?.label ?? "";
+  }
+  function handleOpenChange(open: boolean): void {
+    if (!open) query = selectedLabel;
+  }
 </script>
 
 <Story
@@ -80,11 +94,29 @@
       await waitFor(() => expect(body.queryByRole("listbox")).toBeNull());
       await expect(input).toHaveValue("Matter 00042");
     });
+
+    await step("Typing a non-match then closing snaps back to the selection (no orphan text)", async () => {
+      await userEvent.click(trigger);
+      await body.findByRole("listbox");
+      await userEvent.clear(input);
+      await userEvent.type(input, "zzzzz");
+      await expect(input).toHaveValue("zzzzz");
+      // Click outside to dismiss without choosing — the input must not keep the invalid text.
+      await userEvent.click(document.body);
+      await waitFor(() => expect(body.queryByRole("listbox")).toBeNull());
+      await expect(input).toHaveValue("Matter 00042");
+    });
   }}
 >
   {#snippet template(args: ComboboxStoryArgs)}
     <div class="max-w-sm">
-      <Combobox.Root {...args} items={MATTERS}>
+      <Combobox.Root
+        {...args}
+        items={MATTERS}
+        inputValue={query}
+        onValueChange={handleValueChange}
+        onOpenChange={handleOpenChange}
+      >
         <Combobox.Input
           placeholder="Search matters…"
           aria-label="Matter"
@@ -95,7 +127,7 @@
             items={filtered}
             getKey={(matter) => matter.value}
             itemSize={36}
-            style="height: var(--bits-floating-available-height, 18rem)"
+            style="max-height: min(var(--bits-floating-available-height, 18rem), 18rem)"
           >
             {#snippet item(matter)}
               <Combobox.Item value={matter.value} label={matter.label} />
