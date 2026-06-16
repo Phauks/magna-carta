@@ -23,6 +23,7 @@ import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
+  requireChokepointIdempotency,
   requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
@@ -255,16 +256,6 @@ async function assembleNumberContext(
     clientName: fields.clientDisplayName ?? undefined,
     staffInitials: memberName === null ? undefined : initialsOf(memberName),
   };
-}
-
-function requireIdempotency(c: Context): { key: string | undefined; fingerprint: string } {
-  const idempotency = c.get("idempotency");
-  if (idempotency === undefined) {
-    throw new Error(
-      "idempotency context missing — the chokepoint idempotency gate did not run on a required-idempotency route",
-    );
-  }
-  return { key: idempotency.key, fingerprint: idempotency.fingerprint };
 }
 
 // ---- route metas ----
@@ -603,7 +594,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const idempotency = requireIdempotency(c);
+      const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
       const numberContext =
         request.status === "open"
@@ -754,7 +745,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const idempotency = requireIdempotency(c);
+      const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const patch = c.req.valid("json");
       try {
@@ -780,7 +771,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const idempotency = requireIdempotency(c);
+      const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       try {
         const matter = await loadMatterFields(firm.firmDatabase, id);
@@ -815,7 +806,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const idempotency = requireIdempotency(c);
+      const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       try {
         const result = await closeMatter(firm.firmDatabase, id, {
@@ -853,7 +844,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const idempotency = requireIdempotency(c);
+      const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       try {
         const result = await reopenMatter(firm.firmDatabase, id, {
@@ -878,7 +869,7 @@ export function registerMattersRoutes(app: MattersApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const idempotency = requireIdempotency(c);
+      const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const { matterNumber } = c.req.valid("json");
       try {

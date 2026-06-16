@@ -20,6 +20,7 @@ import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
+  requireChokepointIdempotency,
   requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
@@ -276,12 +277,7 @@ export function registerNumberingRoutes(app: NumberingApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const idempotency = c.get("idempotency");
-      if (idempotency === undefined) {
-        throw new Error(
-          "idempotency context missing — the chokepoint idempotency gate did not run on a required-idempotency route",
-        );
-      }
+      const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
       const now = () => new Date().toISOString();
 

@@ -1,3 +1,5 @@
+import { newIdentifier } from "@magna-carta/identifiers/generate";
+import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { AuditLogId, UserId } from "@magna-carta/identifiers/types";
 import { canonicalJsonStringify } from "./canonical.ts";
 import type { SqlDatabase, SqlStatement } from "./idempotency-statements.ts";
@@ -33,4 +35,31 @@ export function insertAuditLogStatement(database: SqlDatabase, input: AuditLogIn
       `INSERT INTO ${AUDIT_LOG_TABLE} (id, event, actor_user_id, subject_id, metadata, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)`,
     )
     .bind(input.id, input.event, input.actorUserId, input.subjectId, metadata, input.now);
+}
+
+// What a domain operation needs to write an audit row for an effect batch: the event, its subject,
+// and the caller-supplied clock + actor (the service reads no clock and trusts no ambient identity).
+// randomSource lets fixtures mint byte-deterministic ids.
+export interface DomainAuditInput {
+  readonly event: string;
+  readonly subjectId: string;
+  readonly actorUserId: UserId | null;
+  readonly clock: { now(): string };
+  readonly randomSource?: RandomSource;
+}
+
+// Composes the per-firm audit_log row for an effect batch, minting the audit-log id and leaving
+// metadata null — the event, subject, actor, and instant are the record; a future audit subsystem
+// enriches it. Every business domain (matters, file manager, locations, …) writes its audit rows
+// through this one wrapper. (The divergent guarded auth-hook path is insertAuthAuditStatement, not
+// this.)
+export function domainAuditStatement(database: SqlDatabase, input: DomainAuditInput): SqlStatement {
+  return insertAuditLogStatement(database, {
+    id: newIdentifier("auditLog", input.randomSource),
+    event: input.event,
+    actorUserId: input.actorUserId,
+    subjectId: input.subjectId,
+    metadata: null,
+    now: input.clock.now(),
+  });
 }

@@ -1,6 +1,5 @@
-import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
+import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
-import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { UserId } from "@magna-carta/identifiers/types";
 
@@ -12,20 +11,21 @@ export interface AuditContext {
   readonly randomSource?: RandomSource;
 }
 
-// Composes the per-firm audit_log row for an effect batch. Metadata is null at this layer — the
-// event, subject, actor, and instant are the record; a future audit subsystem enriches it.
+// Composes the per-firm audit_log row for an effect batch via the shared domain audit wrapper —
+// minting the audit-log id with null metadata (the event, subject, actor, and instant are the
+// record). A thin positional adapter so a File Manager call site reads fileAuditStatement(db, ctx,
+// event, subject).
 export function fileAuditStatement(
   database: SqlDatabase,
   context: AuditContext,
   event: string,
   subjectId: string,
 ): SqlStatement {
-  return insertAuditLogStatement(database, {
-    id: newIdentifier("auditLog", context.randomSource),
+  return domainAuditStatement(database, {
     event,
-    actorUserId: context.actorUserId,
     subjectId,
-    metadata: null,
-    now: context.clock.now(),
+    actorUserId: context.actorUserId,
+    clock: context.clock,
+    randomSource: context.randomSource,
   });
 }

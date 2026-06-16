@@ -9,6 +9,7 @@ import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import {
   requireChokepointFirmId,
+  requireChokepointIdempotency,
   requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
@@ -137,14 +138,7 @@ export function registerMembersRoute(
       // activation flow must find the row the invite wrote.
       const email = request.email.trim().toLowerCase();
       const displayName = request.name;
-      const idempotency = c.get("idempotency");
-      if (idempotency === undefined) {
-        // This route declares idempotency REQUIRED: a missing context means the chokepoint's
-        // idempotency gate did not run — failing loud beats silently losing idempotency.
-        throw new Error(
-          "idempotency context missing — the chokepoint idempotency gate did not run on a required-idempotency route",
-        );
-      }
+      const idempotency = requireChokepointIdempotency(c);
 
       let result;
       try {

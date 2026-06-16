@@ -25,6 +25,7 @@ import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
+  requireChokepointIdempotency,
   requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
@@ -33,6 +34,7 @@ import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../c
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
+import { requireBucket } from "../files/require-bucket.ts";
 import {
   problemResponseForIdempotencyConflict,
   storedResponseBody,
@@ -322,23 +324,6 @@ const downloadFileRoute = defineOpenAPIRoute(downloadFileMeta, {
 
 type FilesApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
-function requireBucket(bucketName: string | null): string {
-  if (bucketName === null) {
-    throw new Error("session firm has no R2 bucket — provisioning is incomplete");
-  }
-  return bucketName;
-}
-
-function requireIdempotency(c: Context): { key: string | undefined; fingerprint: string } {
-  const idempotency = c.get("idempotency");
-  if (idempotency === undefined) {
-    throw new Error(
-      "idempotency context missing — the chokepoint idempotency gate did not run on a required-idempotency route",
-    );
-  }
-  return { key: idempotency.key, fingerprint: idempotency.fingerprint };
-}
-
 function fileErrorResponse(c: Context, error: FileManagerValidationError): ProblemResponse<404> {
   if (
     error.code === "unknown-file" ||
@@ -509,7 +494,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const idempotency = requireIdempotency(c);
+      const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const patch = c.req.valid("json");
       const now = () => new Date().toISOString();
@@ -579,7 +564,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const idempotency = requireIdempotency(c);
+      const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const now = () => new Date().toISOString();
       try {

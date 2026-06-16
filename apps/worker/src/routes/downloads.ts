@@ -23,6 +23,7 @@ import { identifierField } from "../contracts/common.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
+import { requireBucket } from "../files/require-bucket.ts";
 
 // Bulk download. A {matterId, folderIds?, fileIds?} selection resolves to the matter's clean CURRENT
 // versions at request time (version-pinned: a later upload never changes what this archive holds). A
@@ -94,13 +95,6 @@ const zipDownloadRoute = defineOpenAPIRoute(zipDownloadMeta, {
 });
 
 type DownloadsApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
-
-function requireBucket(bucketName: string | null): string {
-  if (bucketName === null) {
-    throw new Error("session firm has no R2 bucket — provisioning is incomplete");
-  }
-  return bucketName;
-}
 
 // An archive filename safe for a Content-Disposition header: any non-filename character collapses to
 // a dash, so a matter id never breaks the header.

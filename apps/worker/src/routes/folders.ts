@@ -15,6 +15,7 @@ import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
+  requireChokepointIdempotency,
   requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
@@ -207,16 +208,6 @@ function folderErrorResponse(
   });
 }
 
-function requireIdempotency(c: Context): { key: string | undefined; fingerprint: string } {
-  const idempotency = c.get("idempotency");
-  if (idempotency === undefined) {
-    throw new Error(
-      "idempotency context missing — the chokepoint idempotency gate did not run on a required-idempotency route",
-    );
-  }
-  return { key: idempotency.key, fingerprint: idempotency.fingerprint };
-}
-
 export function registerFoldersRoutes(app: FoldersApp, chokepoint: Chokepoint): void {
   // POST /api/v1/folders — create
   app.openapi(
@@ -227,7 +218,7 @@ export function registerFoldersRoutes(app: FoldersApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const idempotency = requireIdempotency(c);
+      const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
       const now = () => new Date().toISOString();
       try {
@@ -274,7 +265,7 @@ export function registerFoldersRoutes(app: FoldersApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const idempotency = requireIdempotency(c);
+      const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const patch = c.req.valid("json");
       const now = () => new Date().toISOString();
@@ -331,7 +322,7 @@ export function registerFoldersRoutes(app: FoldersApp, chokepoint: Chokepoint): 
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const idempotency = requireIdempotency(c);
+      const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const now = () => new Date().toISOString();
       try {

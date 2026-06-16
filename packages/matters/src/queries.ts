@@ -1,49 +1,20 @@
+import {
+  appendCursorPredicate,
+  assemblePage,
+  DEFAULT_PAGE_SIZE,
+  decodeCursor,
+  type Page,
+  type SortCursor,
+} from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { LocationId, MatterId, MatterTypeId, UserId } from "@magna-carta/identifiers/types";
 import { MATTER_TABLE, type MatterStatus } from "./matter-statements.ts";
 
-// List queries return the uniform cursor-paginated envelope (api.md: cursor-based, never offset).
-// The cursor is an opaque continuation over the (created_at, id) sort key — stable under concurrent
-// inserts, where offset would double-show or skip rows.
-const DEFAULT_PAGE_SIZE = 50;
-
-export interface Page<Row> {
-  readonly data: readonly Row[];
-  readonly nextCursor: string | null;
-}
-
-interface SortCursor {
-  readonly createdAt: string;
-  readonly id: string;
-}
-
-function encodeCursor(createdAt: string, id: string): string {
-  return btoa(JSON.stringify({ c: createdAt, i: id }));
-}
-
-function decodeCursor(cursor: string | undefined): SortCursor | undefined {
-  if (cursor === undefined) return undefined;
-  try {
-    const parsed = JSON.parse(atob(cursor)) as { c?: unknown; i?: unknown };
-    if (typeof parsed.c === "string" && typeof parsed.i === "string") {
-      return { createdAt: parsed.c, id: parsed.i };
-    }
-  } catch {
-    // A malformed/tampered cursor reveals nothing and is treated as the first page.
-  }
-  return undefined;
-}
-
-// The (created_at, id) keyset predicate: rows strictly "after" the cursor in DESC order.
-function appendCursorPredicate(
-  conditions: string[],
-  bindings: unknown[],
-  cursor: SortCursor | undefined,
-): void {
-  if (cursor === undefined) return;
-  conditions.push("(created_at < ? OR (created_at = ? AND id < ?))");
-  bindings.push(cursor.createdAt, cursor.createdAt, cursor.id);
-}
+// List queries return the uniform cursor-paginated envelope (cursor-based, never offset): the cursor
+// is an opaque continuation over the (created_at, id) sort key — stable under concurrent inserts,
+// where offset would double-show or skip rows. The keyset toolkit lives in
+// @magna-carta/data-access/cursor-pagination.
+export type { Page };
 
 const MATTER_LIST_COLUMNS =
   "id, title, status, matter_type_id, location_id, responsible_member_id, client_display_name, matter_number, created_at";
@@ -151,13 +122,7 @@ export async function listMatters(
     decodeCursor(params.cursor),
     pageSize + 1, // one extra row tells us another page exists
   ).all<MatterRowRaw>();
-  const hasMore = results.length > pageSize;
-  const rows = hasMore ? results.slice(0, pageSize) : results;
-  const last = rows.at(-1);
-  return {
-    data: rows.map(toMatterListItem),
-    nextCursor: hasMore && last !== undefined ? encodeCursor(last.created_at, last.id) : null,
-  };
+  return assemblePage(results, pageSize, toMatterListItem);
 }
 
 export function listConsultationsStatement(
@@ -210,17 +175,11 @@ export async function listConsultations(
     decodeCursor(params.cursor),
     pageSize + 1,
   ).all<{ id: MatterId; title: string; matter_number: string | null; created_at: string }>();
-  const hasMore = results.length > pageSize;
-  const rows = hasMore ? results.slice(0, pageSize) : results;
-  const last = rows.at(-1);
-  return {
-    data: rows.map((row) => ({
-      id: row.id,
-      title: row.title,
-      matterNumber: row.matter_number,
-      createdAt: row.created_at,
-      isStale: row.created_at <= threshold,
-    })),
-    nextCursor: hasMore && last !== undefined ? encodeCursor(last.created_at, last.id) : null,
-  };
+  return assemblePage(results, pageSize, (row) => ({
+    id: row.id,
+    title: row.title,
+    matterNumber: row.matter_number,
+    createdAt: row.created_at,
+    isStale: row.created_at <= threshold,
+  }));
 }

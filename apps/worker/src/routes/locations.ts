@@ -18,6 +18,7 @@ import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
+  requireChokepointIdempotency,
   requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
@@ -371,16 +372,6 @@ function locationErrorResponse(
   });
 }
 
-function requireIdempotency(c: Context): { key: string | undefined; fingerprint: string } {
-  const idempotency = c.get("idempotency");
-  if (idempotency === undefined) {
-    throw new Error(
-      "idempotency context missing — the chokepoint idempotency gate did not run on a required-idempotency route",
-    );
-  }
-  return { key: idempotency.key, fingerprint: idempotency.fingerprint };
-}
-
 // Commits an effect-returning location mutation idempotently and reports the outcome: a problem
 // response to return as-is, or the id of the committed/replayed mutation for the handler to render
 // (the success c.json stays in the handler so it carries the route's exact 200/IdAck typed response —
@@ -441,7 +432,7 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const idempotency = requireIdempotency(c);
+      const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
       const now = () => new Date().toISOString();
       let result;
@@ -573,7 +564,7 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const idempotency = requireIdempotency(c);
+      const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const patch = c.req.valid("json");
       const outcome = await commitLocationEffect(c, firm.firmDatabase, idempotency, id, () =>
@@ -597,7 +588,7 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const idempotency = requireIdempotency(c);
+      const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const firmDefault = await readFirmSetting(firm.firmDatabase, firmDefaultLocationDefinition);
       const outcome = await commitLocationEffect(c, firm.firmDatabase, idempotency, id, () =>
@@ -622,7 +613,7 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
-      const idempotency = requireIdempotency(c);
+      const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const { addresses } = c.req.valid("json");
       const outcome = await commitLocationEffect(c, firm.firmDatabase, idempotency, id, () =>
@@ -655,7 +646,7 @@ export function registerLocationsRoutes(app: LocationsApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const actorUserId = requireChokepointUserId(c);
-      const idempotency = requireIdempotency(c);
+      const idempotency = requireChokepointIdempotency(c);
       const { userId } = c.req.valid("param");
       const { assignments } = c.req.valid("json");
       const outcome = await commitLocationEffect(c, firm.firmDatabase, idempotency, userId, () =>

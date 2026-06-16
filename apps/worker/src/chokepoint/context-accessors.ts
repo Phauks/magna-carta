@@ -13,6 +13,7 @@
 // required-idempotency route reaches it without a resolved firm. A throw → Hono's default 500
 // (fail-closed: the handler's tenant-scoped work never runs), the regression contract documented in
 // chokepoint.ts.
+import type { IdempotencyContext } from "@magna-carta/data-access/hono-idempotency-middleware";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import type { AppVariables, FirmContext } from "./ports.ts";
 import type { SessionContext } from "../session-context.ts";
@@ -61,4 +62,18 @@ export function requireChokepointFirmContext(c: AppContext): FirmContext {
   const firmContext = c.get("chokepointFirmContext") as FirmContext | undefined;
   if (firmContext === undefined) throw chokepointContextError("chokepointFirmContext");
   return firmContext;
+}
+
+// The idempotency context the chokepoint's idempotency gate stashed on a required-idempotency route,
+// or a throw if absent. A handler mounted on a required-idempotency route always runs after the gate
+// populated it; an absent value means the gate did not run (the route is misconfigured), so fail loud
+// (→ 500) rather than silently lose idempotency. Use in place of a raw c.get("idempotency").
+export function requireChokepointIdempotency(c: AppContext): IdempotencyContext {
+  const idempotency = c.get("idempotency") as IdempotencyContext | undefined;
+  if (idempotency === undefined) {
+    throw new Error(
+      "idempotency context missing — the chokepoint idempotency gate did not run on a required-idempotency route",
+    );
+  }
+  return idempotency;
 }

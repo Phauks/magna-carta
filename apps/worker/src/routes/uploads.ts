@@ -17,6 +17,7 @@ import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
+  requireChokepointIdempotency,
   requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
@@ -25,6 +26,7 @@ import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../c
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
+import { requireBucket } from "../files/require-bucket.ts";
 import {
   problemResponseForIdempotencyConflict,
   storedResponseBody,
@@ -321,15 +323,6 @@ export const abortUploadRoute = defineOpenAPIRoute(abortUploadMeta, {
 
 type UploadsApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
-function requireBucket(bucketName: string | null): string {
-  if (bucketName === null) {
-    // An active session firm always has a provisioned bucket; null is a broken provisioning
-    // invariant — fail loud (→ 500) rather than presign against a missing bucket.
-    throw new Error("session firm has no R2 bucket — provisioning is incomplete");
-  }
-  return bucketName;
-}
-
 export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): void {
   app.openapi(
     {
@@ -340,12 +333,7 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
       const bucket = requireBucket(firm.bucketName);
-      const idempotency = c.get("idempotency");
-      if (idempotency === undefined) {
-        throw new Error(
-          "idempotency context missing — the chokepoint idempotency gate did not run on a required-idempotency route",
-        );
-      }
+      const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
       const presigner = presignerForEnv(c.env);
       const now = () => new Date().toISOString();

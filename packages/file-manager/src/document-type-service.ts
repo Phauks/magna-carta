@@ -1,8 +1,10 @@
+import {
+  createClassificationTypeService,
+  type ClassificationTypeServiceOptions,
+} from "@magna-carta/data-access/classification-type-service";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
-import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DocumentTypeId } from "@magna-carta/identifiers/types";
-import { fileAuditStatement, type AuditContext } from "./audit.ts";
 import {
   deactivateDocumentTypeStatement,
   insertDocumentTypeStatement,
@@ -11,146 +13,60 @@ import {
   selectDocumentTypeStatement,
   updateDocumentTypeStatement,
 } from "./document-type-statements.ts";
-import { FileManagerValidationError } from "./validation.ts";
+import { FileManagerValidationError, type FileManagerValidationCode } from "./validation.ts";
 
 // Document types mirror matter types: per-firm classification labels, soft-deactivate only, name/code
-// uniqueness pre-checked as named codes with the UNIQUE indexes as backstop.
-export type DocumentTypeServiceOptions = AuditContext;
+// uniqueness pre-checked as named codes with the UNIQUE indexes as backstop. They are one instance of
+// the shared classification-type shape — the behavior lives in
+// @magna-carta/data-access/classification-type-service; this module binds it to the document_type
+// table and the File Manager validation error.
 
-interface StoredDocumentType {
-  readonly id: DocumentTypeId;
-  readonly name: string;
-  readonly code: string | null;
-  readonly active: number;
-}
+export type DocumentTypeServiceOptions = ClassificationTypeServiceOptions;
 
-async function loadDocumentType(
-  database: SqlDatabase,
-  id: DocumentTypeId,
-): Promise<StoredDocumentType | undefined> {
-  const { results } = await selectDocumentTypeStatement(database, id).all<StoredDocumentType>();
-  return results[0];
-}
-
-async function assertNameAvailable(
-  database: SqlDatabase,
-  name: string,
-  excludeId?: DocumentTypeId,
-): Promise<void> {
-  const { results } = await selectDocumentTypeIdByNameStatement(database, name).all<{
-    id: DocumentTypeId;
-  }>();
-  if (results.some((row) => row.id !== excludeId)) {
-    throw new FileManagerValidationError(
-      "document-type-name-taken",
-      `document type name already in use: ${name}`,
-    );
-  }
-}
-
-async function assertCodeAvailable(
-  database: SqlDatabase,
-  code: string,
-  excludeId?: DocumentTypeId,
-): Promise<void> {
-  const { results } = await selectDocumentTypeIdByCodeStatement(database, code).all<{
-    id: DocumentTypeId;
-  }>();
-  if (results.some((row) => row.id !== excludeId)) {
-    throw new FileManagerValidationError(
-      "document-type-code-taken",
-      `document type code already in use: ${code}`,
-    );
-  }
-}
+const service = createClassificationTypeService({
+  statements: {
+    select: selectDocumentTypeStatement,
+    selectIdByName: selectDocumentTypeIdByNameStatement,
+    selectIdByCode: selectDocumentTypeIdByCodeStatement,
+    insert: insertDocumentTypeStatement,
+    update: updateDocumentTypeStatement,
+    deactivate: deactivateDocumentTypeStatement,
+  },
+  idEntityType: "documentType",
+  eventPrefix: "documentType",
+  noun: "document type",
+  errorCodes: {
+    emptyName: "empty-document-type-name",
+    nameTaken: "document-type-name-taken",
+    codeTaken: "document-type-code-taken",
+    unknown: "unknown-document-type",
+  },
+  makeValidationError: (code, message) =>
+    new FileManagerValidationError(code as FileManagerValidationCode, message),
+});
 
 export async function createDocumentType(
   database: SqlDatabase,
   input: { name: string; code?: string | null },
   options: DocumentTypeServiceOptions,
 ): Promise<{ documentTypeId: DocumentTypeId; effect: EffectWrite }> {
-  if (input.name.trim().length === 0) {
-    throw new FileManagerValidationError(
-      "empty-document-type-name",
-      "a document type needs a name",
-    );
-  }
-  const code = input.code ?? null;
-  await assertNameAvailable(database, input.name);
-  if (code !== null) await assertCodeAvailable(database, code);
-  const documentTypeId = newIdentifier("documentType", options.randomSource);
-  return {
-    documentTypeId,
-    effect: {
-      statements: [
-        insertDocumentTypeStatement(database, {
-          id: documentTypeId,
-          name: input.name,
-          code,
-          createdAt: options.clock.now(),
-        }),
-        fileAuditStatement(database, options, "documentType.created", documentTypeId),
-      ],
-      outboxMessages: [],
-    },
-  };
+  const { id, effect } = await service.create(database, input, options);
+  return { documentTypeId: id, effect };
 }
 
-export async function updateDocumentType(
+export function updateDocumentType(
   database: SqlDatabase,
   documentTypeId: DocumentTypeId,
   patch: { name?: string; code?: string | null },
   options: DocumentTypeServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  const existing = await loadDocumentType(database, documentTypeId);
-  if (existing === undefined) {
-    throw new FileManagerValidationError(
-      "unknown-document-type",
-      `no such document type: ${documentTypeId}`,
-    );
-  }
-  const name = patch.name ?? existing.name;
-  if (name.trim().length === 0) {
-    throw new FileManagerValidationError(
-      "empty-document-type-name",
-      "a document type needs a name",
-    );
-  }
-  const code = patch.code !== undefined ? patch.code : existing.code;
-  if (name !== existing.name) await assertNameAvailable(database, name, documentTypeId);
-  if (code !== null && code !== existing.code) {
-    await assertCodeAvailable(database, code, documentTypeId);
-  }
-  return {
-    effect: {
-      statements: [
-        updateDocumentTypeStatement(database, documentTypeId, name, code, options.clock.now()),
-        fileAuditStatement(database, options, "documentType.updated", documentTypeId),
-      ],
-      outboxMessages: [],
-    },
-  };
+  return service.update(database, documentTypeId, patch, options);
 }
 
-export async function deactivateDocumentType(
+export function deactivateDocumentType(
   database: SqlDatabase,
   documentTypeId: DocumentTypeId,
   options: DocumentTypeServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
-  const existing = await loadDocumentType(database, documentTypeId);
-  if (existing === undefined) {
-    throw new FileManagerValidationError(
-      "unknown-document-type",
-      `no such document type: ${documentTypeId}`,
-    );
-  }
-  return {
-    effect: {
-      statements: [
-        deactivateDocumentTypeStatement(database, documentTypeId, options.clock.now()),
-        fileAuditStatement(database, options, "documentType.deactivated", documentTypeId),
-      ],
-      outboxMessages: [],
-    },
-  };
+  return service.deactivate(database, documentTypeId, options);
 }

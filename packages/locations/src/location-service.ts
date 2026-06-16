@@ -1,4 +1,4 @@
-import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
+import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
@@ -68,13 +68,12 @@ function auditStatement(
   event: string,
   subjectId: string,
 ) {
-  return insertAuditLogStatement(database, {
-    id: newIdentifier("auditLog", options.randomSource),
+  return domainAuditStatement(database, {
     event,
-    actorUserId: options.actorUserId,
     subjectId,
-    metadata: null,
-    now: options.clock.now(),
+    actorUserId: options.actorUserId,
+    clock: options.clock,
+    randomSource: options.randomSource,
   });
 }
 

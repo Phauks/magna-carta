@@ -1,3 +1,11 @@
+import {
+  appendCursorPredicate,
+  assemblePage,
+  DEFAULT_PAGE_SIZE,
+  decodeCursor,
+  type Page,
+  type SortCursor,
+} from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
   DocumentTypeId,
@@ -12,34 +20,8 @@ import { FOLDER_TABLE } from "./folder-statements.ts";
 // Read mediation (golden rule 3): every consumer read serves only clean, non-deleted content. A file
 // is visible once it has a clean current version (current_version_id, set only on commit); a version
 // read filters status = 'clean'. The pending/quarantined gate is enforced HERE, not by a key scheme.
-const DEFAULT_PAGE_SIZE = 50;
-
-export interface Page<Row> {
-  readonly data: readonly Row[];
-  readonly nextCursor: string | null;
-}
-
-interface SortCursor {
-  readonly createdAt: string;
-  readonly id: string;
-}
-
-function encodeCursor(createdAt: string, id: string): string {
-  return btoa(JSON.stringify({ c: createdAt, i: id }));
-}
-
-function decodeCursor(cursor: string | undefined): SortCursor | undefined {
-  if (cursor === undefined) return undefined;
-  try {
-    const parsed = JSON.parse(atob(cursor)) as { c?: unknown; i?: unknown };
-    if (typeof parsed.c === "string" && typeof parsed.i === "string") {
-      return { createdAt: parsed.c, id: parsed.i };
-    }
-  } catch {
-    // A malformed cursor is treated as the first page.
-  }
-  return undefined;
-}
+// The cursor-paginated list draws its keyset toolkit from @magna-carta/data-access/cursor-pagination.
+export type { Page };
 
 export interface ListFilesFilters {
   readonly matterId: MatterId;
@@ -64,10 +46,7 @@ export function listFilesStatement(
   if (filters.includeDeleted !== true) {
     conditions.push("deleted_at IS NULL");
   }
-  if (cursor !== undefined) {
-    conditions.push("(created_at < ? OR (created_at = ? AND id < ?))");
-    bindings.push(cursor.createdAt, cursor.createdAt, cursor.id);
-  }
+  appendCursorPredicate(conditions, bindings, cursor);
   bindings.push(limit);
   return database
     .prepare(
@@ -127,13 +106,7 @@ export async function listFiles(
     decodeCursor(params.cursor),
     pageSize + 1,
   ).all<FileRowRaw>();
-  const hasMore = results.length > pageSize;
-  const rows = hasMore ? results.slice(0, pageSize) : results;
-  const last = rows.at(-1);
-  return {
-    data: rows.map(toFileListItem),
-    nextCursor: hasMore && last !== undefined ? encodeCursor(last.created_at, last.id) : null,
-  };
+  return assemblePage(results, pageSize, toFileListItem);
 }
 
 // The clean current version of a non-deleted file — for the signed-download path (r2_key) and the
