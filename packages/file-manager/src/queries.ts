@@ -1,0 +1,304 @@
+import {
+  appendCursorPredicate,
+  assemblePage,
+  DEFAULT_PAGE_SIZE,
+  decodeCursor,
+  type Page,
+  type SortCursor,
+} from "@magna-carta/data-access/cursor-pagination";
+import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import type {
+  DocumentTypeId,
+  FileId,
+  FileVersionId,
+  FolderId,
+  MatterId,
+} from "@magna-carta/identifiers/types";
+import { FILE_TABLE, FILE_VERSION_TABLE } from "./file-statements.ts";
+import { FOLDER_TABLE } from "./folder-statements.ts";
+
+// Read mediation (golden rule 3): every consumer read serves only clean, non-deleted content. A file
+// is visible once it has a clean current version (current_version_id, set only on commit); a version
+// read filters status = 'clean'. The pending/quarantined gate is enforced HERE, not by a key scheme.
+// The cursor-paginated list draws its keyset toolkit from @magna-carta/data-access/cursor-pagination.
+export type { Page };
+
+export interface ListFilesFilters {
+  readonly matterId: MatterId;
+  readonly folderId?: FolderId;
+  readonly includeDeleted?: boolean; // the recovery view; default false
+}
+
+export function listFilesStatement(
+  database: SqlDatabase,
+  filters: ListFilesFilters,
+  cursor: SortCursor | undefined,
+  limit: number,
+): SqlStatement {
+  // current_version_id IS NOT NULL is the visibility gate — it is set only when a version commits
+  // clean, so pending/quarantined-only files never appear.
+  const conditions = ["matter_id = ?", "current_version_id IS NOT NULL"];
+  const bindings: unknown[] = [filters.matterId];
+  if (filters.folderId !== undefined) {
+    conditions.push("folder_id = ?");
+    bindings.push(filters.folderId);
+  }
+  if (filters.includeDeleted !== true) {
+    conditions.push("deleted_at IS NULL");
+  }
+  appendCursorPredicate(conditions, bindings, cursor);
+  bindings.push(limit);
+  return database
+    .prepare(
+      `SELECT id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at FROM ${FILE_TABLE} WHERE ${conditions.join(" AND ")} ORDER BY created_at DESC, id DESC LIMIT ?`,
+    )
+    .bind(...bindings);
+}
+
+interface FileRowRaw {
+  id: FileId;
+  matter_id: MatterId;
+  folder_id: FolderId | null;
+  name: string;
+  document_type_id: DocumentTypeId | null;
+  current_version_id: FileVersionId | null;
+  deleted_at: string | null;
+  created_at: string;
+}
+
+export interface FileListItem {
+  readonly id: FileId;
+  readonly matterId: MatterId;
+  readonly folderId: FolderId | null;
+  readonly name: string;
+  readonly documentTypeId: DocumentTypeId | null;
+  readonly currentVersionId: FileVersionId | null;
+  readonly deletedAt: string | null;
+  readonly createdAt: string;
+}
+
+function toFileListItem(row: FileRowRaw): FileListItem {
+  return {
+    id: row.id,
+    matterId: row.matter_id,
+    folderId: row.folder_id,
+    name: row.name,
+    documentTypeId: row.document_type_id,
+    currentVersionId: row.current_version_id,
+    deletedAt: row.deleted_at,
+    createdAt: row.created_at,
+  };
+}
+
+export interface ListFilesParams extends ListFilesFilters {
+  readonly cursor?: string;
+  readonly pageSize?: number;
+}
+
+export async function listFiles(
+  database: SqlDatabase,
+  params: ListFilesParams,
+): Promise<Page<FileListItem>> {
+  const pageSize = params.pageSize ?? DEFAULT_PAGE_SIZE;
+  const { results } = await listFilesStatement(
+    database,
+    params,
+    decodeCursor(params.cursor),
+    pageSize + 1,
+  ).all<FileRowRaw>();
+  return assemblePage(results, pageSize, toFileListItem);
+}
+
+// The clean current version of a non-deleted file — for the signed-download path (r2_key) and the
+// ZIP selection. Returns nothing for a deleted file or one without a committed version.
+export function selectCurrentCleanVersionStatement(
+  database: SqlDatabase,
+  fileId: FileId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT v.id, v.r2_key, v.size_bytes, v.version_number FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id WHERE f.id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean'`,
+    )
+    .bind(fileId);
+}
+
+export interface CleanVersion {
+  readonly id: FileVersionId;
+  readonly r2Key: string;
+  readonly sizeBytes: number | null;
+  readonly versionNumber: number;
+}
+
+export async function getCurrentCleanVersion(
+  database: SqlDatabase,
+  fileId: FileId,
+): Promise<CleanVersion | undefined> {
+  const { results } = await selectCurrentCleanVersionStatement(database, fileId).all<{
+    id: FileVersionId;
+    r2_key: string;
+    size_bytes: number | null;
+    version_number: number;
+  }>();
+  const row = results[0];
+  if (row === undefined) return undefined;
+  return {
+    id: row.id,
+    r2Key: row.r2_key,
+    sizeBytes: row.size_bytes,
+    versionNumber: row.version_number,
+  };
+}
+
+// A file's committed version history (clean only) — newest first.
+export function listCleanVersionsStatement(database: SqlDatabase, fileId: FileId): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, version_number, r2_key, size_bytes, sniffed_content_type, content_sha256, committed_at FROM ${FILE_VERSION_TABLE} WHERE file_id = ?1 AND status = 'clean' ORDER BY version_number DESC`,
+    )
+    .bind(fileId);
+}
+
+export interface CleanVersionListItem {
+  readonly id: FileVersionId;
+  readonly versionNumber: number;
+  readonly sizeBytes: number | null;
+  readonly sniffedContentType: string | null;
+  readonly contentSha256: string | null;
+  readonly committedAt: string | null;
+}
+
+export async function listCleanVersions(
+  database: SqlDatabase,
+  fileId: FileId,
+): Promise<readonly CleanVersionListItem[]> {
+  const { results } = await listCleanVersionsStatement(database, fileId).all<{
+    id: FileVersionId;
+    version_number: number;
+    size_bytes: number | null;
+    sniffed_content_type: string | null;
+    content_sha256: string | null;
+    committed_at: string | null;
+  }>();
+  return results.map((row) => ({
+    id: row.id,
+    versionNumber: row.version_number,
+    sizeBytes: row.size_bytes,
+    sniffedContentType: row.sniffed_content_type,
+    contentSha256: row.content_sha256,
+    committedAt: row.committed_at,
+  }));
+}
+
+// Every clean committed version's R2 key, size, and storage class in this firm — the authoritative
+// set the storage reconciliation filters its R2 LIST against. Only clean versions are metered, and
+// the single bound R2 binding is shared across dev-pool firms, so reconciliation must consider only
+// objects whose key belongs to this firm's clean set: a pending/quarantined/abandoned object (never
+// metered) or another firm's object (not in this set) is ignored, never driven into the meter.
+export function listCleanVersionR2KeysStatement(database: SqlDatabase): SqlStatement {
+  return database.prepare(
+    `SELECT r2_key, size_bytes, storage_class FROM ${FILE_VERSION_TABLE} WHERE status = 'clean'`,
+  );
+}
+
+export interface CleanVersionR2Object {
+  readonly r2Key: string;
+  readonly sizeBytes: number | null;
+  readonly storageClass: string;
+}
+
+export async function listCleanVersionR2Keys(
+  database: SqlDatabase,
+): Promise<readonly CleanVersionR2Object[]> {
+  const { results } = await listCleanVersionR2KeysStatement(database).all<{
+    r2_key: string;
+    size_bytes: number | null;
+    storage_class: string;
+  }>();
+  return results.map((row) => ({
+    r2Key: row.r2_key,
+    sizeBytes: row.size_bytes,
+    storageClass: row.storage_class,
+  }));
+}
+
+// Every folder in a matter (id, parent, name) — the input to folder-tree path composition for the
+// ZIP download. Folders carry no status gate (only file_version does), so this is an unguarded read.
+export function listFoldersByMatterStatement(
+  database: SqlDatabase,
+  matterId: MatterId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, parent_folder_id, name FROM ${FOLDER_TABLE} WHERE matter_id = ?1 ORDER BY created_at ASC, id ASC`,
+    )
+    .bind(matterId);
+}
+
+export interface FolderNode {
+  readonly id: FolderId;
+  readonly parentFolderId: FolderId | null;
+  readonly name: string;
+}
+
+export async function listFoldersByMatter(
+  database: SqlDatabase,
+  matterId: MatterId,
+): Promise<readonly FolderNode[]> {
+  const { results } = await listFoldersByMatterStatement(database, matterId).all<{
+    id: FolderId;
+    parent_folder_id: FolderId | null;
+    name: string;
+  }>();
+  return results.map((row) => ({
+    id: row.id,
+    parentFolderId: row.parent_folder_id,
+    name: row.name,
+  }));
+}
+
+// Every clean, non-deleted file in a matter joined to its current clean version — the resolved,
+// version-pinned set the ZIP download draws from. current_version_id IS NOT NULL + v.status = 'clean'
+// is the visibility gate (set only on commit), so a pending/quarantined/deleted file never appears.
+export function listCleanCurrentVersionsByMatterStatement(
+  database: SqlDatabase,
+  matterId: MatterId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT f.id AS file_id, f.folder_id, f.name, v.id AS version_id, v.r2_key, v.size_bytes ` +
+        `FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id ` +
+        `WHERE f.matter_id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean'`,
+    )
+    .bind(matterId);
+}
+
+export interface MatterCleanFile {
+  readonly fileId: FileId;
+  readonly folderId: FolderId | null;
+  readonly name: string;
+  readonly versionId: FileVersionId;
+  readonly r2Key: string;
+  readonly sizeBytes: number | null;
+}
+
+export async function listCleanCurrentVersionsByMatter(
+  database: SqlDatabase,
+  matterId: MatterId,
+): Promise<readonly MatterCleanFile[]> {
+  const { results } = await listCleanCurrentVersionsByMatterStatement(database, matterId).all<{
+    file_id: FileId;
+    folder_id: FolderId | null;
+    name: string;
+    version_id: FileVersionId;
+    r2_key: string;
+    size_bytes: number | null;
+  }>();
+  return results.map((row) => ({
+    fileId: row.file_id,
+    folderId: row.folder_id,
+    name: row.name,
+    versionId: row.version_id,
+    r2Key: row.r2_key,
+    sizeBytes: row.size_bytes,
+  }));
+}

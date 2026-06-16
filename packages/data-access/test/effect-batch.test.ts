@@ -11,7 +11,7 @@ function completedRecord() {
     key: "client-key-1",
     fingerprint: "f".repeat(64),
     responseCode: 201,
-    responseBody: '{"id":"inv_x"}',
+    responseBody: '{"id":"invoice_x"}',
     createdAt: NOW(),
   };
 }

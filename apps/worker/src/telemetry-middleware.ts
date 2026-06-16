@@ -1,11 +1,11 @@
 // Telemetry wiring, in two halves that share the request-scoped context the first stashes:
-//   • telemetryMiddleware — installed FIRST in app.ts. Mints the correlation id (cor_), stashes it
+//   • telemetryMiddleware — installed FIRST in app.ts. Mints the correlation id (correlation_), stashes it
 //     + a request-scoped Logger so every downstream guard/handler/problemJson reads them, times the
 //     request, and on NORMAL completion logs request.completed (route TEMPLATE, never the concrete
 //     path — it can embed matter numbers). It does NOT try/catch the chain: Hono's compose catches a thrown handler
 //     at the throwing layer and routes it to app.onError, so an upstream try/catch would only ever
 //     see the already-handled response. The error path is therefore the onError handler below.
-//   • telemetryErrorHandler — registered with app.onError. The real error boundary: mints an err_
+//   • telemetryErrorHandler — registered with app.onError. The real error boundary: mints an error_
 //     Error ID, logs error.captured (message head, which the Workers logger scrubs), and returns the
 //     RFC 9457 500 carrying that same Error ID. The middleware then skips request.completed (c.error
 //     is set), so a failed request emits error.captured as its single terminal event.

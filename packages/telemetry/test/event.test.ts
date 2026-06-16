@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { defineEvent, type TelemetryEvent } from "../src/event.ts";
 
-const context = { correlationId: "cor_abc123", now: "2026-06-13T00:00:00.000Z" };
+const context = { correlationId: "correlation_abc123", now: "2026-06-13T00:00:00.000Z" };
 
 describe("defineEvent — the allowlist IS the builder", () => {
   it("builds an event carrying the declared fields, name, instant, and correlation id", () => {
@@ -10,7 +10,7 @@ describe("defineEvent — the allowlist IS the builder", () => {
     expect(event).toEqual<TelemetryEvent>({
       name: "test.event",
       at: "2026-06-13T00:00:00.000Z",
-      correlationId: "cor_abc123",
+      correlationId: "correlation_abc123",
       fields: { route: "/api/v1/things/:id", status: 200 },
     });
   });

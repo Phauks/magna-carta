@@ -61,7 +61,7 @@ describe("ledger fitness queries — prove the whole table, not one write", () =
     // direct tampering can produce this state, which is exactly what fitness exists to catch).
     raw
       .prepare(
-        "INSERT INTO ledger_account (id, name, type, currency, parent_account_id, active, created_at) SELECT 'acct_racechild0000000000', 'Race child', type, currency, id, 1, created_at FROM ledger_account WHERE name = 'Bank'",
+        "INSERT INTO ledger_account (id, name, type, currency, parent_account_id, active, created_at) SELECT 'ledgerAccount_racechild0000000000', 'Race child', type, currency, id, 1, created_at FROM ledger_account WHERE name = 'Bank'",
       )
       .run();
     const offenders = (await parentAccountsWithPostingsStatement(database).all()).results;

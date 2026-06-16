@@ -1,0 +1,41 @@
+{
+  "name": "@magna-carta/file-manager",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./folder-statements": "./src/folder-statements.ts",
+    "./folder-service": "./src/folder-service.ts",
+    "./file-statements": "./src/file-statements.ts",
+    "./file-service": "./src/file-service.ts",
+    "./document-type-statements": "./src/document-type-statements.ts",
+    "./document-type-service": "./src/document-type-service.ts",
+    "./metering-statements": "./src/metering-statements.ts",
+    "./ingest-core": "./src/ingest-core.ts",
+    "./scan-port": "./src/scan-port.ts",
+    "./upload-policy": "./src/upload-policy.ts",
+    "./queries": "./src/queries.ts",
+    "./zip-composition": "./src/zip-composition.ts",
+    "./audit": "./src/audit.ts",
+    "./validation": "./src/validation.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "client-zip": "catalog:",
+    "file-type": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
+    "vitest": "catalog:"
+  }
+}

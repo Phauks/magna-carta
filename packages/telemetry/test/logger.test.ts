@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { requestCompleted } from "../src/events.ts";
 import { createMemoryLogger } from "../src/logger.ts";
 
-const context = { correlationId: "cor_abc", now: "2026-06-13T00:00:00.000Z" };
+const context = { correlationId: "correlation_abc", now: "2026-06-13T00:00:00.000Z" };
 
 describe("createMemoryLogger — the test adapter", () => {
   it("records logged events in order", () => {

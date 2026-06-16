@@ -113,6 +113,108 @@ describe("generated migrations (committed artifacts)", () => {
     expect(isIdentifier(permissionSeeds[0]?.id, "rolePermission")).toBe(true);
   });
 
+  it("per-firm 0004 creates the matters/locations/file-manager tables with their CHECKs, and leaves ledger_account alone", async () => {
+    const migrations = await loadLineage("per-firm");
+    expect(migrations.length).toBeGreaterThanOrEqual(5);
+    expect(migrations[4]?.tag).toMatch(/^0004_/);
+    const sql = (migrations[4]?.statements ?? []).join("\n");
+    for (const tableName of [
+      "location",
+      "location_address",
+      "member_location",
+      "matter_type",
+      "document_type",
+      "numbering_scheme",
+      "matter_number_counter",
+      "matter",
+      "folder",
+      "file",
+      "file_version",
+      "upload_session",
+      "storage_meter",
+      "setting",
+      "audit_log",
+    ]) {
+      expect(sql, tableName).toContain(`CREATE TABLE \`${tableName}\``);
+    }
+    // The CHECKs are the point — the status gates must exist in the DDL.
+    expect(sql).toContain("matter_status_check");
+    expect(sql).toContain("file_version_status_check");
+    expect(sql).toContain("location_status_check");
+    // The frozen-number partial UNIQUE index (a duplicate number within a firm is impossible).
+    expect(sql).toContain(`WHERE "matter"."matter_number" IS NOT NULL`);
+    // 0004 (regenerated atop 0003 incident-intake) adds only the matters/locations/file tables: no
+    // spurious ledger_account table-rebuild.
+    expect(sql).not.toContain("__new_ledger_account");
+    expect(sql).not.toContain("DROP TABLE `ledger_account`");
+  });
+
+  it("per-firm 0004 seeds the matters/locations/files role grants per the default-role policy", async () => {
+    const migrations = await loadLineage("per-firm");
+    const statements0002 = migrations[2]?.statements ?? [];
+    const statements0004 = migrations[4]?.statements ?? [];
+
+    // Role ids are seeded in 0002; map name -> id so the 0004 grant assertions read by role NAME.
+    const roleIdByName = new Map<string, string>(
+      statements0002
+        .filter((statement) => statement.includes("INSERT INTO `role`"))
+        .map(parseSingleRowInsert)
+        .map((seed) => [String(seed.name), String(seed.id)]),
+    );
+
+    // Collect 0004's role_permission grants, grouped by role name.
+    const grantsByRole = new Map<string, Set<string>>();
+    for (const statement of statements0004) {
+      if (!statement.includes("INSERT INTO `role_permission`")) continue;
+      const seed = parseSingleRowInsert(statement);
+      expect(isIdentifier(seed.id, "rolePermission"), String(seed.id)).toBe(true);
+      const roleName = [...roleIdByName].find(([, id]) => id === seed.role_id)?.[0];
+      expect(
+        roleName,
+        `grant role_id ${String(seed.role_id)} resolves to a seeded role`,
+      ).toBeDefined();
+      const set = grantsByRole.get(roleName as string) ?? new Set<string>();
+      set.add(String(seed.permission));
+      grantsByRole.set(roleName as string, set);
+    }
+
+    const sorted = (name: string) => [...(grantsByRole.get(name) ?? new Set())].sort();
+    // Owner/Admin gets every new permission; Attorney/Paralegal a curated subset; Billing/Read-only none.
+    expect(sorted("Owner/Admin")).toEqual(
+      [
+        "files:delete",
+        "files:manageDocumentTypes",
+        "files:organize",
+        "files:upload",
+        "locations:manage",
+        "matters:close",
+        "matters:create",
+        "matters:edit",
+        "matters:manageNumbering",
+        "matters:manageTypes",
+        "matters:open",
+        "matters:renumber",
+        "matters:reopen",
+      ].sort(),
+    );
+    expect(sorted("Attorney")).toEqual(
+      [
+        "matters:create",
+        "matters:open",
+        "matters:close",
+        "matters:edit",
+        "files:upload",
+        "files:organize",
+        "files:delete",
+      ].sort(),
+    );
+    expect(sorted("Paralegal")).toEqual(
+      ["matters:create", "files:upload", "files:organize"].sort(),
+    );
+    expect(grantsByRole.get("Billing")).toBeUndefined();
+    expect(grantsByRole.get("Read-only")).toBeUndefined();
+  });
+
   it("per-firm lineage never creates the auth tables — they are control-plane only", async () => {
     const migrations = await loadLineage("per-firm");
     const allSql = migrations.flatMap((migration) => migration.statements).join("\n");

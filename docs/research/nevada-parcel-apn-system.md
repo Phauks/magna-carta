@@ -23,7 +23,7 @@ It attaches naturally to a property address already on a **matter or Location** 
 
 Each rung is optional and builds on the last:
 
-1. **Deep-link** — address → assessor site. *(ships now, ~zero risk)*
+1. **Deep-link** — address → assessor site. _(ships now, ~zero risk)_
 2. **Inline lookup** — for API-backed counties (Washoe's fully-attributed FeatureServer; Clark's GISMO + roll join), pull APN, owner, assessed value, and characteristics and show them **inside Magna Carta** so the user never leaves. Internal use of public data — the easy legal case.
 3. **Map** — MapLibre + parcel geometry, the visual layer.
 4. **National (optional, later)** — an AI-maintained connector fleet that discovers, classifies, and self-heals per-county sources by platform pattern (ArcGIS / Beacon-qPublic / Tyler / GovOS / Fidlar / DevNet …), gated behind a deterministic validation harness. The genuine moat if this ever grows past internal use; out of scope for now.
@@ -40,14 +40,14 @@ The `source` / `source_date` / `fetched_at` provenance triplet makes "how fresh 
 
 ### Per-county sourcing
 
-| Jurisdiction | Source | Attributes on the polygon? | Notes |
-|---|---|---|---|
-| **Washoe (Reno)** — start here | **OpenData FeatureServer** `wcgisweb.washoecounty.us/arcgis/rest/services/OpenData/OpenData/FeatureServer/0` [VERIFIED] | **Yes — fully joined** | Owner, situs, assessed+appraised value, land use, acreage, beds/baths/year, last sale all on layer 0. **Refreshed nightly.** Free Hub download (GeoJSON/CSV/Shapefile). The gold standard — do the end-to-end proof here. |
-| **Clark (Las Vegas)** | **GISMO** `maps.clarkcountynv.gov/arcgis/rest/services/GISMO/AGParcel/MapServer/1` [VERIFIED] | **No — geometry only** (`APN`, `PARCEL`, `CLASS`) | Owner/value/address are NOT on a public REST layer; join to the Assessor roll (HTML apps `…/assessor/AssessorParcelDetail/`, `…/secroll/secroll.asp`). For internal lookups, rung 1 (deep-link to the roll page) sidesteps this entirely. **TLS gotcha:** use `maps.clarkcountynv.gov`, not `gisgate.co.clark.nv.us` (bad cert). |
-| **Carson City, Churchill, Douglas, Lyon, Storey** | Open-data Hubs + the **CWSD** `gis.mbakerintl.com/server/rest/services/CWSD/Parcels/MapServer` [High] | Mixed | Usable REST; Churchill/Carson publish APN + site address downloads. |
-| **Elko, Humboldt, Nye + rural tail** | **NDWR fallback** `arcgis.water.nv.gov/arcgis/rest/services/BaseLayers/County_Parcels_In_Nevada…/MapServer` (updated 2024-10-22) [High] | Limited | Recent, but **do NOT use the State Demographer aggregation** — see landmine. |
-| **Smallest counties** (Esmeralda, Eureka, Lander, Lincoln, Mineral, Pershing, White Pine) | Human assessor portals → deep-link (rung 1) | — | Tiny populations; deep-link is plenty; manual pull only if you want inline data. |
-| Statewide last resort | **NDOT** `gis.dot.nv.gov/agsphs/rest/services/Reference/Statewide_Parcels/MapServer/0` [VERIFIED] | Has owner/value fields | "All Parcels -2018-12-31" — **5+ years stale; uniform schema only, never trust owner/value.** |
+| Jurisdiction                                                                              | Source                                                                                                                                  | Attributes on the polygon?                        | Notes                                                                                                                                                                                                                                                                                                                            |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Washoe (Reno)** — start here                                                            | **OpenData FeatureServer** `wcgisweb.washoecounty.us/arcgis/rest/services/OpenData/OpenData/FeatureServer/0` [VERIFIED]                 | **Yes — fully joined**                            | Owner, situs, assessed+appraised value, land use, acreage, beds/baths/year, last sale all on layer 0. **Refreshed nightly.** Free Hub download (GeoJSON/CSV/Shapefile). The gold standard — do the end-to-end proof here.                                                                                                        |
+| **Clark (Las Vegas)**                                                                     | **GISMO** `maps.clarkcountynv.gov/arcgis/rest/services/GISMO/AGParcel/MapServer/1` [VERIFIED]                                           | **No — geometry only** (`APN`, `PARCEL`, `CLASS`) | Owner/value/address are NOT on a public REST layer; join to the Assessor roll (HTML apps `…/assessor/AssessorParcelDetail/`, `…/secroll/secroll.asp`). For internal lookups, rung 1 (deep-link to the roll page) sidesteps this entirely. **TLS gotcha:** use `maps.clarkcountynv.gov`, not `gisgate.co.clark.nv.us` (bad cert). |
+| **Carson City, Churchill, Douglas, Lyon, Storey**                                         | Open-data Hubs + the **CWSD** `gis.mbakerintl.com/server/rest/services/CWSD/Parcels/MapServer` [High]                                   | Mixed                                             | Usable REST; Churchill/Carson publish APN + site address downloads.                                                                                                                                                                                                                                                              |
+| **Elko, Humboldt, Nye + rural tail**                                                      | **NDWR fallback** `arcgis.water.nv.gov/arcgis/rest/services/BaseLayers/County_Parcels_In_Nevada…/MapServer` (updated 2024-10-22) [High] | Limited                                           | Recent, but **do NOT use the State Demographer aggregation** — see landmine.                                                                                                                                                                                                                                                     |
+| **Smallest counties** (Esmeralda, Eureka, Lander, Lincoln, Mineral, Pershing, White Pine) | Human assessor portals → deep-link (rung 1)                                                                                             | —                                                 | Tiny populations; deep-link is plenty; manual pull only if you want inline data.                                                                                                                                                                                                                                                 |
+| Statewide last resort                                                                     | **NDOT** `gis.dot.nv.gov/agsphs/rest/services/Reference/Statewide_Parcels/MapServer/0` [VERIFIED]                                       | Has owner/value fields                            | "All Parcels -2018-12-31" — **5+ years stale; uniform schema only, never trust owner/value.**                                                                                                                                                                                                                                    |
 
 ### APN normalization
 
@@ -58,13 +58,16 @@ The `source` / `source_date` / `fetched_at` provenance triplet makes "how fresh 
 ### Query examples
 
 By APN (Washoe, fully attributed):
+
 ```
 .../OpenData/OpenData/FeatureServer/0/query
   ?where=APN=12345678
   &outFields=APN,FIRSTNAME,LASTNAME,FullAddress,TOTALASS,LAND_USE,ACREAGE
   &returnGeometry=true&f=geojson
 ```
+
 By address (Washoe — no separate geocoder needed):
+
 ```
 .../FeatureServer/0/query?where=UPPER(FullAddress) LIKE '%1001 E 9TH ST%'&outFields=APN,FullAddress,TOTALASS&f=json
 ```
@@ -84,7 +87,7 @@ Prefer **periodic bulk ingest into our own normalized store** over live pass-thr
 
 - **Rung 1 (deep-link) carries no data-licensing question at all** — it's a hyperlink to a public site.
 - **Rungs 2–3 (internal enrichment from public data):** parcel/assessor data is a **Nevada public record** (NRS 239.010 — open and copyable, fees at actual cost). Using it for our own enrichment is the easy case; **the per-county resale clauses don't bite because we're not redistributing.** Still respect each county's access/automation terms when ingesting.
-- **Landmine — NRS 250.087:** county parcel datasets given to the **State Demographer are confidential and non-redistributable**. Source each county's *own* public publication directly; never shortcut through the demographer aggregation. [High]
+- **Landmine — NRS 250.087:** county parcel datasets given to the **State Demographer are confidential and non-redistributable**. Source each county's _own_ public publication directly; never shortcut through the demographer aggregation. [High]
 - **The licensed layer is the base map, not your parcels** — MapLibre + OSM sidesteps it.
 - **Footnote — if we ever sell it:** resale flips the calculus (per-county terms, multi-tenant credentialing, OEM/redistribution licensing) and a Nevada attorney's review becomes a prerequisite. That's a future decision, not today's.
 
@@ -94,7 +97,7 @@ A nationwide parcel dataset is a **perpetual data-operations business**, not a b
 
 ## This as its own workstream
 
-Treat it as a **separable internal project** with its own name — the parcel/location-enrichment engine — that Magna Carta consumes through the property-data port, exactly where an external vendor would sit, except we build it. Keeping the data layer and the map layer separate means either can be reused or rebuilt independently (in-app panel, the public coverage map, a future standalone). *(Whether it ever becomes its own product/entity is a later business call; the architecture supports it either way.)*
+Treat it as a **separable internal project** with its own name — the parcel/location-enrichment engine — that Magna Carta consumes through the property-data port, exactly where an external vendor would sit, except we build it. Keeping the data layer and the map layer separate means either can be reused or rebuilt independently (in-app panel, the public coverage map, a future standalone). _(Whether it ever becomes its own product/entity is a later business call; the architecture supports it either way.)_
 
 ## Open items to verify
 

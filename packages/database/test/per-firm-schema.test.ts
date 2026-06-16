@@ -148,8 +148,8 @@ describe("per-firm schema: incident (user-initiated incident intake)", () => {
     const config = getTableConfig(incident);
     expect(config.name).toBe("incident");
     expect(columnOf(incident, "id").primary).toBe(true);
-    expect(columnOf(incident, "id").getSQLType()).toBe("text"); // inc_ handle
-    expect(columnOf(incident, "error_ids").notNull).toBe(true); // JSON array of err_ handles (may be empty)
+    expect(columnOf(incident, "id").getSQLType()).toBe("text"); // incident_ handle
+    expect(columnOf(incident, "error_ids").notNull).toBe(true); // JSON array of error_ handles (may be empty)
     expect(columnOf(incident, "breadcrumbs").notNull).toBe(true); // JSON array of { at, action, route }
     expect(columnOf(incident, "description").notNull).toBe(true); // firm-boundary now, protected() later
     expect(columnOf(incident, "context").notNull).toBe(true); // JSON { route, appVersion, clientAt }

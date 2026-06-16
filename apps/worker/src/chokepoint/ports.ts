@@ -26,6 +26,9 @@ import type { ChokepointPorts, ResolvedSession } from "./chokepoint.ts";
 export interface FirmContext {
   readonly firmDatabase: D1Database;
   readonly firmName: string;
+  // The firm's R2 bucket name, for the upload/download presigner (null until provisioning created it;
+  // an active firm always has it). The bucket came from the SESSION firm row, never client input.
+  readonly bucketName: string | null;
 }
 
 // The typed context variables the chokepoint stashes (chokepoint.ts step 3a) and the handlers
@@ -76,10 +79,10 @@ function makeResolveFirmContext(): (
   return async (c, session) => {
     const env = (c as Context<{ Bindings: Bindings }>).env;
     const firmRow = await env.DB_CONTROL.prepare(
-      "SELECT name, database_identifier FROM firm WHERE id = ?1",
+      "SELECT name, database_identifier, bucket_name FROM firm WHERE id = ?1",
     )
       .bind(session.firmId)
-      .first<{ name: string; database_identifier: string }>();
+      .first<{ name: string; database_identifier: string; bucket_name: string | null }>();
     if (firmRow === null) return null;
 
     const firmDatabase = resolveFirmDatabase(env, firmRow.database_identifier);
@@ -93,7 +96,7 @@ function makeResolveFirmContext(): (
     const memberStatus = memberStatusResult.results[0]?.status;
     if (memberStatus !== undefined && memberStatus !== "active") return null;
 
-    return { firmDatabase, firmName: firmRow.name };
+    return { firmDatabase, firmName: firmRow.name, bucketName: firmRow.bucket_name };
   };
 }
 

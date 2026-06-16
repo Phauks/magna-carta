@@ -12,7 +12,7 @@ import {
   requestCompleted,
 } from "../src/events.ts";
 
-const context = { correlationId: "cor_abc123", now: "2026-06-13T00:00:00.000Z" };
+const context = { correlationId: "correlation_abc123", now: "2026-06-13T00:00:00.000Z" };
 
 describe("event catalog", () => {
   it("requestCompleted carries route/method/status/durationMs", () => {
@@ -33,14 +33,14 @@ describe("event catalog", () => {
 
   it("errorCaptured carries errorId/route/method/errorName/messageHead", () => {
     const event = errorCaptured(context, {
-      errorId: "err_xyz",
+      errorId: "error_xyz",
       route: "/api/v1/things",
       method: "POST",
       errorName: "TypeError",
       messageHead: "cannot read x",
     });
     expect(event.name).toBe("error.captured");
-    expect(event.fields.errorId).toBe("err_xyz");
+    expect(event.fields.errorId).toBe("error_xyz");
   });
 
   it("outboxSwept carries database/dispatched/failed/deadLettered", () => {
@@ -64,7 +64,7 @@ describe("event catalog", () => {
   });
 
   it("incidentCreated carries incidentId/errorIdCount", () => {
-    const event = incidentCreated(context, { incidentId: "inc_1", errorIdCount: 2 });
+    const event = incidentCreated(context, { incidentId: "incident_1", errorIdCount: 2 });
     expect(event.name).toBe("incident.created");
   });
 
@@ -72,10 +72,10 @@ describe("event catalog", () => {
     const event = authDenied(context, {
       cause: "mismatch",
       route: "/api/v1/firms",
-      errorId: "err_1",
+      errorId: "error_1",
     });
     expect(event.name).toBe("auth.denied");
-    expect(event.fields).toEqual({ cause: "mismatch", route: "/api/v1/firms", errorId: "err_1" });
+    expect(event.fields).toEqual({ cause: "mismatch", route: "/api/v1/firms", errorId: "error_1" });
   });
 
   it("operationFailed carries operation/errorName/messageHead/errorId (the background error counterpart)", () => {
@@ -83,7 +83,7 @@ describe("event catalog", () => {
       operation: "cron:per-firm-sweep",
       errorName: "Error",
       messageHead: "boom",
-      errorId: "err_1",
+      errorId: "error_1",
     });
     expect(event.name).toBe("operation.failed");
     expect(event.fields.operation).toBe("cron:per-firm-sweep");

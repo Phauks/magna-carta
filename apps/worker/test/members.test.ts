@@ -130,7 +130,7 @@ describe("POST /api/v1/members", () => {
       type: "https://api.magnacarta.esq/problems/unauthenticated",
       status: 401,
     });
-    expect(body["errorId"]).toMatch(/^err_/);
+    expect(body["errorId"]).toMatch(/^error_/);
   });
 
   it("demands the Idempotency-Key header with a 400 problem (x-mc-idempotency: required)", async () => {
@@ -146,7 +146,7 @@ describe("POST /api/v1/members", () => {
       type: "https://api.magnacarta.esq/problems/idempotency-key-missing",
       status: 400,
     });
-    expect(body["errorId"]).toMatch(/^err_/);
+    expect(body["errorId"]).toMatch(/^error_/);
   });
 
   it("answers 403 when the member lacks firm:manageMembers", async () => {
@@ -169,7 +169,7 @@ describe("POST /api/v1/members", () => {
     // The within-firm denial (a trusted insider, visible-but-denied) carries the request→grant
     // seam — distinct from the silent 404 structural absence above.
     expect(body["requestAccess"]).toBe(true);
-    expect(body["errorId"]).toMatch(/^err_/);
+    expect(body["errorId"]).toMatch(/^error_/);
   });
 
   it("answers 404 when the inviter has been DEACTIVATED — absent at the chokepoint, never a 403 oracle", async () => {
@@ -201,7 +201,7 @@ describe("POST /api/v1/members", () => {
     });
     // No requestAccess on a 404 — structural absence is silent, never the within-firm 403 seam.
     expect("requestAccess" in body).toBe(false);
-    expect(body["errorId"]).toMatch(/^err_/);
+    expect(body["errorId"]).toMatch(/^error_/);
   });
 
   it("creates the user, outbox row, and audit row in one batch, then sends the activation email", async () => {
@@ -213,7 +213,7 @@ describe("POST /api/v1/members", () => {
     );
     expect(response.status).toBe(201);
     const body = (await response.json()) as { id: string; email: string; name: string };
-    expect(body.id).toMatch(/^usr_/);
+    expect(body.id).toMatch(/^user_/);
     // Stored lowercased — Better Auth's email lookups lowercase their input.
     expect(body.email).toBe("invitee@example.com");
     expect(body.name).toBe("Invited Member");
@@ -252,7 +252,7 @@ describe("POST /api/v1/members", () => {
     )
       .bind(body.id)
       .first<{ user_id: string; metadata: string }>();
-    expect(auditRow?.user_id).toMatch(/^usr_/);
+    expect(auditRow?.user_id).toMatch(/^user_/);
     expect(JSON.parse(auditRow?.metadata ?? "{}")).toMatchObject({ invitedUserId: body.id });
 
     // requestPasswordReset ran after the commit: its reset-password verification row exists.
@@ -326,7 +326,7 @@ describe("POST /api/v1/members", () => {
       type: "https://api.magnacarta.esq/problems/email-in-use",
       status: 422,
     });
-    expect(body["errorId"]).toMatch(/^err_/);
+    expect(body["errorId"]).toMatch(/^error_/);
 
     // Nothing from the rolled-back batch survives: still one user for the email, and the
     // duplicate attempt added no outbox row.
@@ -367,7 +367,7 @@ describe("POST /api/v1/members", () => {
       status: 422,
       instance: "/api/v1/members",
     });
-    expect(body["errorId"]).toMatch(/^err_/);
+    expect(body["errorId"]).toMatch(/^error_/);
 
     // The mismatching request executed nothing: no user row for the second email.
     const userCount = await env.DB_CONTROL.prepare(
@@ -410,7 +410,7 @@ describe("POST /api/v1/members", () => {
       status: 409,
       instance: "/api/v1/members",
     });
-    expect(body["errorId"]).toMatch(/^err_/);
+    expect(body["errorId"]).toMatch(/^error_/);
   });
 
   // Auth precedes idempotency: the route's middleware chain resolves the session and the
@@ -434,7 +434,7 @@ describe("POST /api/v1/members", () => {
       type: "https://api.magnacarta.esq/problems/unauthenticated",
       status: 401,
     });
-    expect(controlBody["errorId"]).toMatch(/^err_/);
+    expect(controlBody["errorId"]).toMatch(/^error_/);
 
     const probes = [
       // The leaked-key replay: exact key + exact body must NOT answer the stored 201 (which
@@ -454,7 +454,7 @@ describe("POST /api/v1/members", () => {
       expect(probe.headers.get("content-type")).toBe(control.headers.get("content-type"));
       expect(probe.headers.get("Idempotency-Replayed")).toBeNull();
       const probeBody = (await probe.json()) as Record<string, unknown>;
-      expect(probeBody["errorId"]).toMatch(/^err_/);
+      expect(probeBody["errorId"]).toMatch(/^error_/);
       delete probeBody["errorId"];
       delete probeBody["correlationId"];
       expect(probeBody).toEqual(controlBody);
@@ -486,7 +486,7 @@ describe("POST /api/v1/members", () => {
       type: "https://api.magnacarta.esq/problems/permission-denied",
       status: 403,
     });
-    expect(controlBody["errorId"]).toMatch(/^err_/);
+    expect(controlBody["errorId"]).toMatch(/^error_/);
 
     const probes = [
       // Exact key + exact body: no replay of the stored 201.
@@ -507,7 +507,7 @@ describe("POST /api/v1/members", () => {
       expect(probe.headers.get("content-type")).toBe(control.headers.get("content-type"));
       expect(probe.headers.get("Idempotency-Replayed")).toBeNull();
       const probeBody = (await probe.json()) as Record<string, unknown>;
-      expect(probeBody["errorId"]).toMatch(/^err_/);
+      expect(probeBody["errorId"]).toMatch(/^error_/);
       delete probeBody["errorId"];
       delete probeBody["correlationId"];
       expect(probeBody).toEqual(controlBody);

@@ -5,7 +5,7 @@
 // you cannot declare a content field, and you cannot smuggle one past the type.
 import { defineEvent, type FieldValue } from "../src/event.ts";
 
-const context = { correlationId: "cor_x", now: "2026-06-13T00:00:00.000Z" };
+const context = { correlationId: "correlation_x", now: "2026-06-13T00:00:00.000Z" };
 const build = defineEvent("test.negative", ["allowed"] as const);
 
 // A nested object is not a FieldValue — events are flat primitives only.

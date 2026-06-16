@@ -22,7 +22,7 @@ function appWithMemoryLogger(): { app: ReturnType<typeof createApp>; logger: Mem
 }
 
 describe("telemetry middleware", () => {
-  it("logs request.completed with a cor_ correlation id, the route TEMPLATE, status, and duration", async () => {
+  it("logs request.completed with a correlation_ correlation id, the route TEMPLATE, status, and duration", async () => {
     const { app, logger } = appWithMemoryLogger();
     const response = await app.request(
       "https://example.com/api/v1/__telemetry-probe/abc123",
@@ -33,7 +33,7 @@ describe("telemetry middleware", () => {
 
     const completed = logger.events.find((event) => event.name === "request.completed");
     expect(completed).toBeDefined();
-    expect(completed?.correlationId).toMatch(/^cor_/);
+    expect(completed?.correlationId).toMatch(/^correlation_/);
     // The TEMPLATE, never the concrete id: :probeId, not abc123.
     expect(completed?.fields.route).toBe("/api/v1/__telemetry-probe/:probeId");
     expect(completed?.fields.method).toBe("GET");
@@ -53,8 +53,8 @@ describe("telemetry middleware", () => {
       title: "Internal server error",
       status: 500,
     });
-    expect(body["errorId"]).toMatch(/^err_/);
-    expect(body["correlationId"]).toMatch(/^cor_/);
+    expect(body["errorId"]).toMatch(/^error_/);
+    expect(body["correlationId"]).toMatch(/^correlation_/);
 
     const captured = logger.events.find((event) => event.name === "error.captured");
     expect(captured).toBeDefined();

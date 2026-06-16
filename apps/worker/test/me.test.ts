@@ -35,7 +35,7 @@ describe("GET /api/v1/me", () => {
       status: 401,
       instance: "/api/v1/me",
     });
-    expect(body["errorId"]).toMatch(/^err_/);
+    expect(body["errorId"]).toMatch(/^error_/);
   });
 
   it("returns the session user, firm, and effective permissions including the role seeds", async () => {
@@ -54,8 +54,25 @@ describe("GET /api/v1/me", () => {
       user: { id: userId, name: "Me Test User", email: "me-member@example.com" },
       firm: { id: firmId, name: "Me Test Firm" },
       // Owner/Admin's seeded role_permission rows: firm:manageMembers (0002_member-rbac.sql) +
-      // firm:reportIncident (0003_incident-intake.sql, seeded onto every default role). Sorted.
-      permissions: ["firm:manageMembers", "firm:reportIncident"],
+      // firm:reportIncident (0003_incident-intake.sql, seeded onto every default role) + the slice
+      // 1·1 matters/locations/files grants (0004_matters-locations-file-manager.sql). Sorted.
+      permissions: [
+        "files:delete",
+        "files:manageDocumentTypes",
+        "files:organize",
+        "files:upload",
+        "firm:manageMembers",
+        "firm:reportIncident",
+        "locations:manage",
+        "matters:close",
+        "matters:create",
+        "matters:edit",
+        "matters:manageNumbering",
+        "matters:manageTypes",
+        "matters:open",
+        "matters:renumber",
+        "matters:reopen",
+      ],
     });
   });
 
@@ -83,7 +100,7 @@ describe("GET /api/v1/me", () => {
       title: "Not found",
       status: 404,
     });
-    expect(body["errorId"]).toMatch(/^err_/);
+    expect(body["errorId"]).toMatch(/^error_/);
   });
 
   it("answers 200 with EMPTY permissions for a never-mirrored user (sweep lag is transient and self-heals)", async () => {
@@ -126,7 +143,7 @@ describe("GET /api/v1/me", () => {
       title: "Not found",
       status: 404,
     });
-    expect(body["errorId"]).toMatch(/^err_/);
+    expect(body["errorId"]).toMatch(/^error_/);
   });
 
   it("emits the route into the OpenAPI document with the native operationId and x-mc metadata", async () => {

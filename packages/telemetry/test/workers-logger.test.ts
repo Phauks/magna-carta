@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { errorCaptured, requestCompleted } from "../src/events.ts";
 import { createWorkersLogger, type AnalyticsEngineDataset } from "../src/workers-logger.ts";
 
-const context = { correlationId: "cor_abc", now: "2026-06-13T00:00:00.000Z" };
+const context = { correlationId: "correlation_abc", now: "2026-06-13T00:00:00.000Z" };
 
 // A recording sink — typed string[] so indexed access stays type-safe under noUncheckedIndexedAccess.
 function recordingEmit() {
@@ -28,7 +28,7 @@ describe("createWorkersLogger — the one console.* site", () => {
     expect(lines).toHaveLength(1);
     expect(JSON.parse(lines[0] ?? "{}")).toMatchObject({
       name: "request.completed",
-      correlationId: "cor_abc",
+      correlationId: "correlation_abc",
       fields: { route: "/x", status: 200 },
     });
   });
@@ -38,7 +38,7 @@ describe("createWorkersLogger — the one console.* site", () => {
     const logger = createWorkersLogger(undefined, emit);
     logger.log(
       errorCaptured(context, {
-        errorId: "err_1",
+        errorId: "error_1",
         route: "/x",
         method: "POST",
         errorName: "Error",
@@ -56,7 +56,7 @@ describe("createWorkersLogger — the one console.* site", () => {
     const logger = createWorkersLogger(dataset, emit);
     logger.log(
       errorCaptured(context, {
-        errorId: "err_1",
+        errorId: "error_1",
         route: "/x",
         method: "POST",
         errorName: "Error",

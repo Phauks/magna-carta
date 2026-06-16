@@ -20,7 +20,7 @@ describe("runIdempotentEffect", () => {
   it("fresh key: executes, commits one batch containing the completed record, returns executed", async () => {
     const stub = stubD1();
     stub.onAll("FROM idempotency_key", []); // pre-check: no record
-    const effect = effectReturning(201, '{"id":"inv_x"}');
+    const effect = effectReturning(201, '{"id":"invoice_x"}');
     const result = await runIdempotentEffect({
       database: stub.database,
       key: "client-key-1",
@@ -28,7 +28,11 @@ describe("runIdempotentEffect", () => {
       effect: () => effect(stub.database),
       now: NOW,
     });
-    expect(result).toEqual({ kind: "executed", responseCode: 201, responseBody: '{"id":"inv_x"}' });
+    expect(result).toEqual({
+      kind: "executed",
+      responseCode: 201,
+      responseBody: '{"id":"invoice_x"}',
+    });
     expect(effect).toHaveBeenCalledTimes(1);
     expect(stub.batches).toHaveLength(1);
     const sqls = (stub.batches[0] ?? []).map((statement) => statement.sql);
@@ -97,14 +101,14 @@ describe("runIdempotentEffect", () => {
       fingerprint: FINGERPRINT,
       status: "completed",
       response_code: 201,
-      response_body: '{"id":"inv_winner"}',
+      response_body: '{"id":"invoice_winner"}',
     };
     // Pre-check sees nothing (we lost the race after the SELECT); the batch then hits UNIQUE;
     // the re-read returns the winner's record.
     let preCheckCalls = 0;
     stub.onAll("FROM idempotency_key", () => (++preCheckCalls === 1 ? [] : [winnerRecord]));
     stub.failBatchWith(new Error("D1_ERROR: UNIQUE constraint failed: idempotency_key.key"));
-    const effect = effectReturning(201, '{"id":"inv_loser"}');
+    const effect = effectReturning(201, '{"id":"invoice_loser"}');
     const result = await runIdempotentEffect({
       database: stub.database,
       key: "client-key-1",
@@ -115,7 +119,7 @@ describe("runIdempotentEffect", () => {
     expect(result).toEqual({
       kind: "replayed",
       responseCode: 201,
-      responseBody: '{"id":"inv_winner"}',
+      responseBody: '{"id":"invoice_winner"}',
     });
     expect(effect).toHaveBeenCalledTimes(1); // ran speculatively, committed nothing
     expect(stub.batches).toHaveLength(0); // the failed batch recorded nothing

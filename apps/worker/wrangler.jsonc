@@ -59,12 +59,39 @@
   // fail loudly with a missing-secret list rather than letting auth routes 500 by design at runtime.
   // CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID are NOT listed: they are optional deploy-time
   // credentials for the REST FirmResourceProvider (the dev pool-claiming adapter runs without them).
+  // R2_S3_ACCESS_KEY_ID / R2_S3_SECRET_ACCESS_KEY: the account-scoped R2 S3 API token the upload
+  // presigner signs direct-to-R2 URLs with (ADR-0081). Required so a deploy fails loudly rather than
+  // serving uploads through the dev presigner. Real presigning ALSO needs CLOUDFLARE_ACCOUNT_ID (the
+  // optional REST-adapter secret) for the S3 endpoint host; set all three together.
   "secrets": {
-    "required": ["AUTH_SECRET", "PLATFORM_ADMIN_KEY"],
+    "required": [
+      "AUTH_SECRET",
+      "PLATFORM_ADMIN_KEY",
+      "R2_S3_ACCESS_KEY_ID",
+      "R2_S3_SECRET_ACCESS_KEY",
+    ],
   },
   "r2_buckets": [{ "binding": "R2", "bucket_name": "magna-carta-production-platform-files" }],
+  // FILES_INGEST carries one R2 event per uploaded object to the ingest consumer (single read:
+  // magic-byte gates + streaming SHA-256 + scan port, then commit or quarantine). It is a distinct
+  // queue from the platform job queue so upload bursts cannot starve the outbox relay, and so its
+  // consumer can be tuned and dead-lettered on its own. The matching `consumers` entry is added with
+  // the queue() handler — a declared consumer with no exported handler fails the deploy.
   "queues": {
-    "producers": [{ "binding": "QUEUE", "queue": "magna-carta-production-platform-jobs" }],
+    "producers": [
+      { "binding": "QUEUE", "queue": "magna-carta-production-platform-jobs" },
+      { "binding": "FILES_INGEST", "queue": "magna-carta-production-files-ingest" },
+    ],
+    // The files-ingest consumer (the queue() handler in src/index.ts over the ingest consumer): one
+    // R2 object-create event per uploaded object → single-read gates + SHA-256 + scan port → commit
+    // or quarantine. A declared consumer with no exported handler fails the deploy, so this lands
+    // with the handler. Dead-letters to its own queue after max retries (the 0·2 relay discipline).
+    "consumers": [
+      {
+        "queue": "magna-carta-production-files-ingest",
+        "dead_letter_queue": "magna-carta-production-files-ingest-deadletter",
+      },
+    ],
   },
   // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines
   // the telemetry Workers logger emits land here). Logpush → R2 is a deploy-time runbook step
@@ -82,9 +109,11 @@
   // docs/conventions/operations.md). Until then the binding is present but unused and production
   // keeps the logging adapter, so no send fails against an un-onboarded domain.
   "send_email": [{ "name": "SEND_EMAIL" }],
-  // The scheduled sweep (src/scheduled.ts): outbox relay over the control-plane + per-firm
-  // lineages and the idempotency TTL purge, every 5 minutes (closes the slice 0·2 deferral).
+  // The scheduled work (src/scheduled.ts): the */5 sweep runs the outbox relay over the control-plane
+  // + per-firm lineages, the idempotency TTL purge, and the stale-pending upload sweep; the daily
+  // 03:00 UTC pass runs the storage-metering reconciliation (a full R2 LIST per firm — too heavy for
+  // every five minutes). src/index.ts routes each Cron expression to its handler.
   "triggers": {
-    "crons": ["*/5 * * * *"],
+    "crons": ["*/5 * * * *", "0 3 * * *"],
   },
 }

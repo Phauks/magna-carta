@@ -60,6 +60,7 @@ const USER = "user_test0000000000000" as UserId;
 const FIRM_CONTEXT = {
   firmDatabase: {} as D1Database,
   firmName: "Test Firm",
+  bucketName: "test-firm-bucket",
 } satisfies FirmContext;
 
 describe("chokepoint context accessors — fail closed when the populated-context invariant is broken", () => {

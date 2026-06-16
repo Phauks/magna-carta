@@ -20,7 +20,7 @@ import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 // Bounded everywhere so a report cannot become an unbounded write.
 const ReportIncidentRequest = z
   .object({
-    // err_ handles the client correlates to its crash(es); may be empty ("nothing crashed but…").
+    // error_ handles the client correlates to its crash(es); may be empty ("nothing crashed but…").
     errorIds: z.array(z.string().regex(identifierPattern("error"))).max(10),
     // The client breadcrumb ring (never content — the client library enforces that when it ships).
     breadcrumbs: z

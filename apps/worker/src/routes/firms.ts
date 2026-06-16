@@ -7,6 +7,7 @@ import { newErrorId } from "@magna-carta/telemetry/ids";
 import type { Bindings } from "../app.ts";
 import type { createAuth } from "../auth.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
+import { requireChokepointIdempotency } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { constantTimeStringEquals } from "../constant-time.ts";
@@ -201,14 +202,7 @@ export function registerFirmsRoute(
     },
     async (c) => {
       const request = c.req.valid("json");
-      const idempotency = c.get("idempotency");
-      if (idempotency === undefined) {
-        // This route declares idempotency REQUIRED: a missing context means the chokepoint's
-        // idempotency gate did not run — failing loud beats silently losing idempotency.
-        throw new Error(
-          "idempotency context missing — the chokepoint idempotency gate did not run on a required-idempotency route",
-        );
-      }
+      const idempotency = requireChokepointIdempotency(c);
 
       const dependencies: FirmProvisionerDependencies = {
         controlPlaneDatabase: c.env.DB_CONTROL,

@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 // A branded, pattern-constrained handle — brands are type-level only and must emit as a plain string.
 const Handle = z
   .string()
-  .regex(/^mat_[0-9a-zA-Z_-]+$/)
+  .regex(/^matter_[0-9a-zA-Z_-]+$/)
   .brand<"matter">()
   .openapi("Handle");
 
@@ -39,7 +39,7 @@ function emit(): Record<string, any> {
   const app = new OpenAPIHono();
   app.openapi(route, (c) =>
     c.json(
-      { id: "mat_0001" as z.infer<typeof Handle>, openedAt: "2026-06-09T00:00:00Z", sides: [] },
+      { id: "matter_0001" as z.infer<typeof Handle>, openedAt: "2026-06-09T00:00:00Z", sides: [] },
       200,
     ),
   );

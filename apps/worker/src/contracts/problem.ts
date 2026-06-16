@@ -21,7 +21,7 @@ export const ProblemFieldError = z
   .openapi("ProblemFieldError");
 
 // Documents and validates error replies only (this schema feeds the dev-only response validator),
-// so status is pinned to the 4xx/5xx range and errorId to the err_ handle shape the
+// so status is pinned to the 4xx/5xx range and errorId to the error_ handle shape the
 // @magna-carta/identifiers generator actually emits.
 export const Problem = z
   .object({
@@ -30,7 +30,7 @@ export const Problem = z
     status: z.number().int().min(400).max(599),
     detail: z.string().optional(),
     errorId: z.string().regex(identifierPattern("error")),
-    // The per-request correlation id (cor_) the telemetry middleware mints and rides on every event.
+    // The per-request correlation id (correlation_) the telemetry middleware mints and rides on every event.
     // Stamped on every problem reply so a user-visible failure joins its redacted server trace.
     // Optional in the schema because a problem built outside a request context (none today) would
     // have none.
@@ -56,7 +56,7 @@ export interface ProblemOptions {
   // Emitted into the body only when set (the chokepoint sets it true on its 403). A
   // typed optional, not an open extension bag — the only extension this slice admits.
   requestAccess?: boolean;
-  // An already-minted err_ handle to stamp into the body instead of minting a fresh one. The
+  // An already-minted error_ handle to stamp into the body instead of minting a fresh one. The
   // caller wants the SAME Error ID it has already correlated elsewhere — e.g. the platform-admin
   // guard logs a denial cause against the id it then returns to the client (reworked onto the
   // telemetry pipeline in slice 0·6). Defaults to a fresh mint when omitted.
@@ -76,7 +76,7 @@ export type ProblemResponse<S extends ProblemStatusCode> = Response &
   TypedResponse<JSONParsed<ProblemBody>, S, "json">;
 
 // Reply with an RFC 9457 problem document: expands the registry key to its type URI, mints a fresh
-// err_ correlation id (shown to the user, maps to the redacted log), and stamps
+// error_ correlation id (shown to the user, maps to the redacted log), and stamps
 // instance with the request path. Generic over the status literal so the returned response stays
 // status-typed for `app.openapi` handlers (see ProblemResponse).
 export function problemJson<S extends ProblemStatusCode>(

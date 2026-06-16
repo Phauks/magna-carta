@@ -36,7 +36,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     }
   });
 
-  it("the role seed actually executes: five default roles, manage-members on Owner/Admin only", () => {
+  it("the role seeds actually execute: five default roles with their default grants", () => {
     const raw = freshPerFirmDatabase();
     const roles = raw.prepare("SELECT id, name FROM role ORDER BY name").all() as {
       id: string;
@@ -53,11 +53,16 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
       role_id: string;
       permission: string;
     }[];
+    const grantsFor = (name: string) => {
+      const roleId = roles.find((row) => row.name === name)?.id;
+      return grants.filter((grant) => grant.role_id === roleId).map((grant) => grant.permission);
+    };
     const ownerAdmin = roles.find((row) => row.name === "Owner/Admin");
     // firm:manageMembers is seeded onto Owner/Admin ONLY (0002_member-rbac.sql).
     expect(grants.filter((grant) => grant.permission === "firm:manageMembers")).toEqual([
       { role_id: ownerAdmin?.id, permission: "firm:manageMembers" },
     ]);
+    expect(grantsFor("Attorney")).not.toContain("firm:manageMembers");
     // firm:reportIncident is seeded onto EVERY default role (0003_incident-intake.sql) — any member
     // may file a diagnostic incident.
     expect(
@@ -66,6 +71,15 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         .map((grant) => grant.role_id)
         .sort(),
     ).toEqual(roles.map((row) => row.id).sort());
+    // The matters/locations/files grants (0004) extend the seed per the role distribution.
+    expect(grantsFor("Owner/Admin")).toContain("matters:create");
+    // Paralegal: firm:reportIncident (0003) + matters:create + files upload/organize (0004).
+    expect(grantsFor("Paralegal").sort()).toEqual(
+      ["files:organize", "files:upload", "firm:reportIncident", "matters:create"].sort(),
+    );
+    // Billing and Read-only carry only firm:reportIncident by default (adjustable data).
+    expect(grantsFor("Billing")).toEqual(["firm:reportIncident"]);
+    expect(grantsFor("Read-only")).toEqual(["firm:reportIncident"]);
   });
 
   it("prepare/bind/run/all round-trips and batch() is atomic (all-or-nothing)", async () => {
@@ -75,13 +89,13 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
       .prepare(
         "INSERT INTO ledger_account (id, name, type, currency, active, created_at) VALUES (?1, ?2, 'asset', 'USD', 1, ?3)",
       )
-      .bind("acct_aaaaaaaaaaaaaaaaaaaaa", "Operating Bank", "2026-01-05T09:00:00.000Z");
+      .bind("ledgerAccount_aaaaaaaaaaaaaaaaaaaaa", "Operating Bank", "2026-01-05T09:00:00.000Z");
     // Second statement violates the name CHECK — the whole batch must roll back.
     const badInsert = database
       .prepare(
         "INSERT INTO ledger_account (id, name, type, currency, active, created_at) VALUES (?1, ?2, 'asset', 'USD', 1, ?3)",
       )
-      .bind("acct_bbbbbbbbbbbbbbbbbbbbb", "", "2026-01-05T09:00:00.000Z");
+      .bind("ledgerAccount_bbbbbbbbbbbbbbbbbbbbb", "", "2026-01-05T09:00:00.000Z");
     await expect(database.batch([goodInsert, badInsert])).rejects.toThrow(/CHECK/);
     const { results } = await database
       .prepare("SELECT COUNT(*) AS n FROM ledger_account")
@@ -147,13 +161,13 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
       .prepare(
         "INSERT INTO ledger_account (id, name, type, currency, active, created_at) VALUES (?1, ?2, 'asset', 'USD', 1, ?3)",
       )
-      .bind("acct_ccccccccccccccccccccc", "Trust Bank", "2026-01-05T09:00:00.000Z")
+      .bind("ledgerAccount_ccccccccccccccccccccc", "Trust Bank", "2026-01-05T09:00:00.000Z")
       .run();
     expect(meta.changes).toBe(1);
     // Visible immediately through the raw handle — committed, not held in an open transaction.
     const row = raw
       .prepare("SELECT name FROM ledger_account WHERE id = ?")
-      .get("acct_ccccccccccccccccccccc") as { name: string };
+      .get("ledgerAccount_ccccccccccccccccccccc") as { name: string };
     expect(row.name).toBe("Trust Bank");
   });
 });

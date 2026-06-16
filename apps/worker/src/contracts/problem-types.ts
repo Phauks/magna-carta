@@ -25,6 +25,11 @@ export const PROBLEM_TYPES = {
   // (which the app-level defaultHook owns for Zod request-shape failures): this is a semantic
   // uniqueness clash surfaced from a committed write, not a request-shape rejection.
   "email-in-use": "email-in-use",
+  // An upload the firm's policy refuses (HTTP 422): a size over the cap, a blocked extension, or a
+  // disallowed content type — checked at presign against the declared facts and re-checked against
+  // the real bytes at the ingest gate. DISTINCT from `validation` (request-shape) — the request is
+  // well-formed; the firm policy refuses its content.
+  "upload-not-allowed": "upload-not-allowed",
   // An unexpected, unhandled server error (HTTP 500). The telemetry middleware's final catch maps
   // any escaped exception to this — the one error type the client cannot have caused, carrying only
   // the Error ID to quote.

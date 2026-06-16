@@ -15,6 +15,17 @@ These are **scoped, not universal:** each binds only when you work in its area. 
 - **No-negative trust balance.** A client trust ledger can never go negative — enforce on write. (_Trust accounting_; ADR-0009)
 - **Fees never touch trust.** Trust/IOLTA deposits land gross; processor fees debit the operating account only, never netted from a trust deposit. (_Payments_; ADR-0032)
 
+## Matters & numbering
+
+- **A matter number is frozen at assignment, unique per firm.** It is drawn when a matter opens (a prospective consultation has none) and never changes except by a deliberate renumber; a partial UNIQUE index on `matter_number` is the concurrency backstop, so two simultaneous draws yield distinct numbers. (_Matters and File Manager_; ADR-0079)
+- **Closed is archived-but-additive.** A closed matter still accepts documents; closing runs the named close-precondition registry first (the Financial Core registers the zero-balance rule later). (_Matters and File Manager_; ADR-0080)
+
+## File Manager
+
+- **The quarantine gate is a status gate enforced by reads.** Every `file_version` read filters `status = 'clean'` (and `deleted_at IS NULL` for default lists) — a pending or quarantined version is never servable; quarantine is a status, never a key scheme. A source-scan fitness function rejects any `file_version` SELECT without a status predicate. (_Matters and File Manager_; ADR-0081)
+- **Versions are immutable; soft-delete only.** A committed version's bytes and metadata never change — a new version is a new row and a new R2 key; files soft-delete, versions are untouched. (_Matters and File Manager_; ADR-0077)
+- **R2 keys are opaque and server-minted.** Object keys are `files/{fileId}/{versionId}`, never derived from a client-supplied path; the bytes flow direct-to-R2 and never transit the Worker. (_Matters and File Manager_; ADR-0081)
+
 ## Secrets & encryption
 
 - **`protected()` for sensitive fields.** Encrypt/role-gate/audit sensitive identifiers via the DAL `protected()` field type — never hand-rolled crypto, never plaintext secrets in core tables. (_Encryption & key management_; ADR-0026)

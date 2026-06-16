@@ -43,8 +43,8 @@ describe("slice 0·6 end-to-end — the correlation story", () => {
     const failure = await app.request("https://example.com/api/v1/__telemetry-throw", {}, env);
     expect(failure.status).toBe(500);
     const failureBody = (await failure.json()) as { errorId: string; correlationId: string };
-    expect(failureBody.errorId).toMatch(/^err_/);
-    expect(failureBody.correlationId).toMatch(/^cor_/);
+    expect(failureBody.errorId).toMatch(/^error_/);
+    expect(failureBody.correlationId).toMatch(/^correlation_/);
 
     const captured = memory.events.find((event) => event.name === "error.captured");
     expect(captured?.fields.errorId).toBe(failureBody.errorId);
@@ -66,7 +66,7 @@ describe("slice 0·6 end-to-end — the correlation story", () => {
     );
     expect(report.status).toBe(201);
     const incidentId = ((await report.json()) as { id: string }).id;
-    expect(incidentId).toMatch(/^inc_/);
+    expect(incidentId).toMatch(/^incident_/);
 
     // incident.created logged with the new incident's id.
     const incidentEvent = memory.events.find((event) => event.name === "incident.created");

@@ -14,8 +14,11 @@ describe("schema conformance (fitness functions)", () => {
   it("found the expected tables (guards the enumeration itself)", () => {
     // control-plane: firm + the five Better Auth tables + auth_audit + outbox + idempotency_key (9);
     // per-firm: idempotency_key, outbox, ledger_account, ledger_entry, ledger_line, account_balance,
-    // member, role, role_permission, member_role, direct_grant, incident (12).
-    expect(ALL_TABLES.length).toBeGreaterThanOrEqual(21);
+    // member, role, role_permission, member_role, direct_grant, incident (12) + location,
+    // location_address, member_location, matter_type, document_type, numbering_scheme,
+    // matter_number_counter, matter, folder, file, file_version, upload_session, storage_meter,
+    // setting, audit_log (15) = 27 per-firm; 9 + 27 = 36 across both lineages.
+    expect(ALL_TABLES.length).toBeGreaterThanOrEqual(36);
   });
 
   it("auth tables exist ONLY in the control-plane lineage — never in the per-firm schema", () => {
@@ -31,22 +34,36 @@ describe("schema conformance (fitness functions)", () => {
     }
   });
 
-  it("every table's primary key is a TEXT identifier handle named id", () => {
-    // Sanctioned exceptions: 1:1 extension tables keyed by the OWNING entity's handle. The primary
-    // key is still a TEXT identifier handle — it is the owner's, not a fresh one.
-    // account_balance is the materialized balance row of its ledger_account.
-    // member is the per-firm mirror of the control-plane user — keyed by the GLOBAL usr_ handle,
-    // the join key across planes.
-    const extensionTablePrimaryKeyNames: Record<string, string> = {
+  it("every table's primary key is a TEXT identifier handle named id (natural/composite keys are documented exceptions)", () => {
+    // Sanctioned single-column exceptions — the PK is still TEXT, just not a fresh handle:
+    //  - account_balance: the materialized balance row of its ledger_account (owner's handle).
+    //  - member: the per-firm mirror of the control-plane user — keyed by the GLOBAL user handle.
+    //  - matter_number_counter: a counter keyed by its scope (like the migration tracker, _migrations).
+    //  - setting: key/value config keyed by the setting key.
+    const naturalSinglePrimaryKeyNames: Record<string, string> = {
       account_balance: "account_id",
       member: "user_id",
+      matter_number_counter: "scope_key",
+      setting: "key",
     };
+    // storage_meter is keyed by WHAT it rolls up — a composite natural key, no handle. Still all TEXT.
+    const compositeKeyTables = new Set(["storage_meter"]);
+
     for (const table of ALL_TABLES) {
       const config = getTableConfig(table);
+      if (compositeKeyTables.has(config.name)) {
+        const composite = config.primaryKeys[0];
+        expect(composite, config.name).toBeDefined();
+        expect(composite?.columns.length, config.name).toBeGreaterThan(1);
+        for (const column of composite?.columns ?? []) {
+          expect(column.getSQLType(), `${config.name}.${column.name}`).toBe("text");
+        }
+        continue;
+      }
       const primaryColumns = config.columns.filter((column) => column.primary);
       expect(primaryColumns, config.name).toHaveLength(1);
       expect(primaryColumns[0]?.name, config.name).toBe(
-        extensionTablePrimaryKeyNames[config.name] ?? "id",
+        naturalSinglePrimaryKeyNames[config.name] ?? "id",
       );
       expect(primaryColumns[0]?.getSQLType(), config.name).toBe("text");
     }

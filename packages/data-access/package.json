@@ -10,10 +10,14 @@
     "./idempotency-statements": "./src/idempotency-statements.ts",
     "./member-statements": "./src/member-statements.ts",
     "./auth-audit-statements": "./src/auth-audit-statements.ts",
+    "./audit-statements": "./src/audit-statements.ts",
+    "./setting-statements": "./src/setting-statements.ts",
     "./outbox-statements": "./src/outbox-statements.ts",
     "./effect-batch": "./src/effect-batch.ts",
     "./run-idempotent-effect": "./src/run-idempotent-effect.ts",
     "./outbox-relay": "./src/outbox-relay.ts",
+    "./cursor-pagination": "./src/cursor-pagination.ts",
+    "./classification-type-service": "./src/classification-type-service.ts",
     "./hono-idempotency-middleware": "./src/hono-idempotency-middleware.ts"
   },
   "scripts": {
@@ -22,7 +26,8 @@
   "dependencies": {
     "@magna-carta/database": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
-    "hono": "catalog:"
+    "hono": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",

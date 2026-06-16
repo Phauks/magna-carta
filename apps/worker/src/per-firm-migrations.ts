@@ -4,6 +4,7 @@ import foundationalTablesSql from "@magna-carta/database/drizzle/per-firm/0000_f
 import ledgerCoreSql from "@magna-carta/database/drizzle/per-firm/0001_ledger-core.sql";
 import memberRbacSql from "@magna-carta/database/drizzle/per-firm/0002_member-rbac.sql";
 import incidentIntakeSql from "@magna-carta/database/drizzle/per-firm/0003_incident-intake.sql";
+import mattersLocationsFileManagerSql from "@magna-carta/database/drizzle/per-firm/0004_matters-locations-file-manager.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the firm
 // provisioner migrates a freshly created firm database to head at provisioning time, so the SQL
@@ -17,6 +18,7 @@ export function perFirmMigrations(): Migration[] {
     "0001_ledger-core": ledgerCoreSql,
     "0002_member-rbac": memberRbacSql,
     "0003_incident-intake": incidentIntakeSql,
+    "0004_matters-locations-file-manager": mattersLocationsFileManagerSql,
   });
 }
 

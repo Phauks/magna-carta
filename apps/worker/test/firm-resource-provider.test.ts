@@ -40,14 +40,29 @@ describe("dev FirmResourceProvider (pool-claiming adapter)", () => {
     );
   });
 
-  it("createBucket answers the single pre-declared local bucket binding", async () => {
+  it("createBucket answers a per-firm-unique deterministic name (the event→firm resolution key)", async () => {
     const provider = createDevFirmResourceProvider({
       poolBindingNames: POOL,
       claimedDatabaseIdentifiers: () => Promise.resolve([]),
     });
-    await expect(provider.createBucket(newIdentifier("firm"))).resolves.toEqual({
-      bucketName: "R2",
+    const firmId = newIdentifier("firm");
+    const created = await provider.createBucket(firmId);
+    // The same deterministic shape production uses, derived from the firm id — unique per firm so
+    // the ingest consumer's bucket_name → firm lookup is unambiguous with more than one dev firm.
+    expect(created.bucketName).toBe(await firmResourceName(firmId));
+    expect(created.bucketName).toMatch(/^magna-carta-production-firm-[0-9a-f]{32}$/);
+    const otherFirmId = newIdentifier("firm");
+    expect((await provider.createBucket(otherFirmId)).bucketName).not.toBe(created.bucketName);
+  });
+
+  it("configureBucketNotifications is a no-op (Miniflare delivers no R2 notifications)", async () => {
+    const provider = createDevFirmResourceProvider({
+      poolBindingNames: POOL,
+      claimedDatabaseIdentifiers: () => Promise.resolve([]),
     });
+    await expect(
+      provider.configureBucketNotifications(newIdentifier("firm")),
+    ).resolves.toBeUndefined();
   });
 });
 
@@ -285,5 +300,53 @@ describe("Cloudflare REST FirmResourceProvider", () => {
     await restProvider(databaseStub).createDatabase(firmId);
     await restProvider(bucketStub).createBucket(firmId);
     expect(requestedName(databaseStub.calls[1])).toBe(requestedName(bucketStub.calls[1]));
+  });
+
+  it("configureBucketNotifications PUTs the object-create rule to the files-ingest queue", async () => {
+    const stub = stubFetch([{ status: 200, body: { success: true, result: {} } }]);
+    const provider = createCloudflareRestFirmResourceProvider({
+      accountId: "test-account-id",
+      apiToken: "test-api-token",
+      eventNotificationQueueId: "queue-uuid-files-ingest",
+      fetchImplementation: stub.fetchImplementation,
+    });
+    await provider.configureBucketNotifications(firmId);
+
+    const call = stub.calls[0];
+    expect(call?.method).toBe("PUT");
+    const bucketName = await firmResourceName(firmId);
+    expect(call?.url).toBe(
+      `https://api.cloudflare.com/client/v4/accounts/test-account-id/event_notifications/r2/${bucketName}/configuration/queues/queue-uuid-files-ingest`,
+    );
+    expect(call?.body).toEqual({
+      rules: [{ actions: ["PutObject", "CompleteMultipartUpload"], prefix: "files/" }],
+    });
+  });
+
+  it("configureBucketNotifications fails loud without a queue id (a REST misconfiguration)", async () => {
+    const stub = stubFetch([]);
+    const provider = createCloudflareRestFirmResourceProvider({
+      accountId: "test-account-id",
+      apiToken: "test-api-token",
+      fetchImplementation: stub.fetchImplementation,
+    });
+    await expect(provider.configureBucketNotifications(firmId)).rejects.toThrow(
+      /eventNotificationQueueId/,
+    );
+  });
+
+  it("configureBucketNotifications surfaces a non-success envelope as a failure", async () => {
+    const stub = stubFetch([
+      { status: 403, body: { success: false, errors: [{ code: 10001, message: "forbidden" }] } },
+    ]);
+    const provider = createCloudflareRestFirmResourceProvider({
+      accountId: "test-account-id",
+      apiToken: "test-api-token",
+      eventNotificationQueueId: "queue-uuid-files-ingest",
+      fetchImplementation: stub.fetchImplementation,
+    });
+    await expect(provider.configureBucketNotifications(firmId)).rejects.toThrow(
+      /configureBucketNotifications failed.*403.*forbidden/s,
+    );
   });
 });

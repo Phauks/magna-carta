@@ -49,6 +49,14 @@ catalog:
   # NNNN_tag.sql + meta/_journal.json, which src/migration.ts consumes. Bump both together.
   drizzle-orm: 0.45.2
   drizzle-kit: 0.31.10
+  # File Manager — uploads & bulk download (packages/file-manager, apps/worker).
+  # aws4fetch: SigV4 presigning of R2's S3-compatible endpoint (single-key, single-method, short-TTL
+  # signed URLs; bytes never transit the Worker). client-zip 2.x: streaming store-mode ZIP64 (no
+  # buffering, >4 GiB bundles). file-type 22.x: magic-byte sniffing over the head bytes — the
+  # Uint8Array API (no Node streams), so it runs unchanged in the Workers runtime.
+  aws4fetch: 1.0.20
+  client-zip: 2.5.0
+  file-type: 22.0.1
   # Fixtures (packages/fixtures). Seeded via faker.seed(); locale en.
   "@faker-js/faker": 10.4.0
   # Web (apps/web)

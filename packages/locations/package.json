@@ -1,0 +1,28 @@
+{
+  "name": "@magna-carta/locations",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./location-service": "./src/location-service.ts",
+    "./statements": "./src/statements.ts",
+    "./settings": "./src/settings.ts",
+    "./validation": "./src/validation.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -2,6 +2,7 @@ import { getTableConfig } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
 import { authAudit } from "@magna-carta/database/control-plane-schema";
 import {
+  auditLog,
   directGrant,
   idempotencyKey,
   member,
@@ -9,6 +10,7 @@ import {
   outbox,
   rolePermission,
 } from "@magna-carta/database/per-firm-schema";
+import { AUDIT_LOG_TABLE, insertAuditLogStatement } from "../src/audit-statements.ts";
 import { AUTH_AUDIT_TABLE, insertAuthAuditStatement } from "../src/auth-audit-statements.ts";
 import { IDEMPOTENCY_TABLE } from "../src/idempotency-statements.ts";
 import {
@@ -69,6 +71,7 @@ const sqlKeywords = new Set([
   ROLE_PERMISSION_TABLE,
   DIRECT_GRANT_TABLE,
   AUTH_AUDIT_TABLE,
+  AUDIT_LOG_TABLE,
 ]);
 
 describe("schema-name sync", () => {
@@ -80,6 +83,7 @@ describe("schema-name sync", () => {
     expect(ROLE_PERMISSION_TABLE).toBe(getTableConfig(rolePermission).name);
     expect(DIRECT_GRANT_TABLE).toBe(getTableConfig(directGrant).name);
     expect(AUTH_AUDIT_TABLE).toBe(getTableConfig(authAudit).name);
+    expect(AUDIT_LOG_TABLE).toBe(getTableConfig(auditLog).name);
   });
 
   it("every column the SQL statements name exists in the schema", () => {
@@ -93,7 +97,7 @@ describe("schema-name sync", () => {
       captured(selectIdempotencyRecordStatement(stub.database, "k")).sql,
       captured(
         insertCompletedIdempotencyRecordStatement(stub.database, {
-          id: "idr_x" as never,
+          id: "idempotencyRecord_x" as never,
           key: "k",
           fingerprint: "f",
           responseCode: 200,
@@ -120,7 +124,7 @@ describe("schema-name sync", () => {
 
   it("every column the member-mirror and auth-audit SQL names exists in the schema", () => {
     const stub = stubD1();
-    const userId = "usr_x" as never;
+    const userId = "user_x" as never;
     const reads = selectMemberPermissionsStatements(stub.database, userId);
 
     // Each statement is checked against the union of columns of EXACTLY the tables it touches.
@@ -137,9 +141,9 @@ describe("schema-name sync", () => {
           label: "role assignment insert",
           sql: captured(
             insertRoleAssignmentStatement(stub.database, {
-              id: "mrl_x" as never,
+              id: "memberRole_x" as never,
               memberUserId: userId,
-              roleId: "rol_x" as never,
+              roleId: "role_x" as never,
             }),
           ).sql,
           tables: [memberRole],
@@ -165,7 +169,7 @@ describe("schema-name sync", () => {
           label: "auth-audit insert",
           sql: captured(
             insertAuthAuditStatement(stub.database, {
-              id: "aud_x" as never,
+              id: "authAudit_x" as never,
               event: "e",
               userId: null,
               metadata: null,
@@ -173,6 +177,20 @@ describe("schema-name sync", () => {
             }),
           ).sql,
           tables: [authAudit],
+        },
+        {
+          label: "audit-log insert",
+          sql: captured(
+            insertAuditLogStatement(stub.database, {
+              id: "auditLog_x" as never,
+              event: "e",
+              actorUserId: null,
+              subjectId: null,
+              metadata: null,
+              now: "t",
+            }),
+          ).sql,
+          tables: [auditLog],
         },
       ];
 

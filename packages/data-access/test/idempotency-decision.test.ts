@@ -9,7 +9,7 @@ function record(overrides: Partial<IdempotencyRecordRow> = {}): IdempotencyRecor
     fingerprint: FINGERPRINT,
     status: "completed",
     response_code: 201,
-    response_body: '{"id":"inv_x"}',
+    response_body: '{"id":"invoice_x"}',
     ...overrides,
   };
 }
@@ -23,7 +23,7 @@ describe("decideIdempotency (decision table)", () => {
     expect(decideIdempotency(record(), FINGERPRINT)).toEqual({
       kind: "replay",
       responseCode: 201,
-      responseBody: '{"id":"inv_x"}',
+      responseBody: '{"id":"invoice_x"}',
     });
   });
 

@@ -221,8 +221,25 @@ describe("end-to-end", () => {
       },
       firm: { id: firmA.id, name: FIRM_A_INPUT.name },
       // Owner/Admin's seeded role_permission rows: firm:manageMembers (0002) + firm:reportIncident
-      // (0003, seeded onto every default role). Sorted.
-      permissions: ["firm:manageMembers", "firm:reportIncident"],
+      // (0003, seeded onto every default role) + the slice 1·1 matters/locations/files grants
+      // (0004_matters-locations-file-manager.sql). Sorted.
+      permissions: [
+        "files:delete",
+        "files:manageDocumentTypes",
+        "files:organize",
+        "files:upload",
+        "firm:manageMembers",
+        "firm:reportIncident",
+        "locations:manage",
+        "matters:close",
+        "matters:create",
+        "matters:edit",
+        "matters:manageNumbering",
+        "matters:manageTypes",
+        "matters:open",
+        "matters:renumber",
+        "matters:reopen",
+      ],
     });
   });
 
@@ -264,7 +281,7 @@ describe("end-to-end", () => {
     const paralegalRole = await env.DB_FIRM_POOL_1.prepare(
       "SELECT id FROM role WHERE name = 'Paralegal'",
     ).first<{ id: string }>();
-    expect(paralegalRole?.id).toMatch(/^rol_/);
+    expect(paralegalRole?.id).toMatch(/^role_/);
   });
 
   it("leaves no trace of firm A's activity in firm B (tenant isolation)", async () => {
@@ -348,8 +365,17 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
     expect(operationIds).toContain("firms.provision");
     expect(operationIds).toContain("members.invite");
 
+    // POST routes that mutate nothing — a pure computation over the request body (a preview/render) —
+    // are exempt from the audited-mutating requirement: there is no state change to audit, and
+    // auditing a hot read-shaped POST (the numbering live preview, fired on every keystroke) would
+    // flood audit_log. Mirrors the NON_MUTATING_POST_ALLOW_LIST in conformance.test.ts, applied here
+    // to the live-served document.
+    const NON_MUTATING_POST_ALLOW_LIST = new Set(["numbering.preview"]);
+
     for (const { operation, label } of mutatingV1) {
-      expect(operation["x-mc-audited"], label).toBe(true);
+      if (!NON_MUTATING_POST_ALLOW_LIST.has(operation["operationId"] as string)) {
+        expect(operation["x-mc-audited"], label).toBe(true);
+      }
       // Non-null AND one of the two declared idempotency modes — a new mode must be a deliberate
       // contract change, not a typo this sweep waves through.
       expect(["required", "optional"], label).toContain(operation["x-mc-idempotency"]);

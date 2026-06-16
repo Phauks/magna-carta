@@ -1,5 +1,7 @@
 import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import type { FirmId } from "@magna-carta/identifiers/types";
+import { firmResourceName } from "../src/firm-resource-provider.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 
 // POST /api/v1/firms end-to-end (Miniflare): the platform-admin guard, the resumable provisioner
@@ -63,8 +65,8 @@ describe("POST /api/v1/firms", () => {
       type: "https://api.magnacarta.esq/problems/unauthenticated",
       status: 401,
     });
-    expect(controlBody["errorId"]).toMatch(/^err_/);
-    expect(controlBody["correlationId"]).toMatch(/^cor_/);
+    expect(controlBody["errorId"]).toMatch(/^error_/);
+    expect(controlBody["correlationId"]).toMatch(/^correlation_/);
 
     // Wrong key (including a near-miss prefix) answers identically to no key — no probe surface.
     // errorId and correlationId are per-request by design, so drop both before the field-identity
@@ -79,7 +81,7 @@ describe("POST /api/v1/firms", () => {
       expect(probe.status).toBe(401);
       expect(probe.headers.get("content-type")).toBe(control.headers.get("content-type"));
       const probeBody = (await probe.json()) as Record<string, unknown>;
-      expect(probeBody["errorId"]).toMatch(/^err_/);
+      expect(probeBody["errorId"]).toMatch(/^error_/);
       delete probeBody["errorId"];
       delete probeBody["correlationId"];
       expect(probeBody).toEqual(controlBody);
@@ -155,7 +157,7 @@ describe("POST /api/v1/firms", () => {
       type: "https://api.magnacarta.esq/problems/idempotency-key-missing",
       status: 400,
     });
-    expect(body["errorId"]).toMatch(/^err_/);
+    expect(body["errorId"]).toMatch(/^error_/);
   });
 
   it("provisions a firm end-to-end: active row, claimed pool binding, migrated firm database, owner effects", async () => {
@@ -166,7 +168,7 @@ describe("POST /api/v1/firms", () => {
     expect(firmOneBody.id).toMatch(/^firm_/);
     expect(firmOneBody.name).toBe(FIRM_ONE_NAME);
     expect(firmOneBody.status).toBe("active");
-    expect(firmOneBody.owner.id).toMatch(/^usr_/);
+    expect(firmOneBody.owner.id).toMatch(/^user_/);
     expect(firmOneBody.owner.email).toBe(FIRM_ONE_OWNER_EMAIL);
     expect(firmOneBody.owner.name).toBe("Firm Owner");
 
@@ -184,8 +186,10 @@ describe("POST /api/v1/firms", () => {
     expect(firmRow).toEqual({
       status: "active",
       database_identifier: "DB_FIRM_POOL_1",
-      per_firm_schema_version: "0003_incident-intake",
-      bucket_name: "R2",
+      per_firm_schema_version: "0004_matters-locations-file-manager",
+      // The dev provider records a per-firm-unique deterministic bucket name (the event→firm
+      // resolution key), not a shared literal.
+      bucket_name: await firmResourceName(firmOneBody.id as FirmId),
     });
 
     // The claimed firm database really is migrated to head — the mirror column MATCHES the
@@ -197,7 +201,7 @@ describe("POST /api/v1/firms", () => {
     const ownerRole = await env.DB_FIRM_POOL_1.prepare(
       "SELECT id FROM role WHERE name = 'Owner/Admin'",
     ).first<{ id: string }>();
-    expect(ownerRole?.id).toMatch(/^rol_/);
+    expect(ownerRole?.id).toMatch(/^role_/);
 
     // The owner user: unverified, account-less (activation through the reset link — Path A).
     const ownerRow = await env.DB_CONTROL.prepare(
@@ -298,7 +302,7 @@ describe("POST /api/v1/firms", () => {
       'INSERT INTO "user" (id, name, email, email_verified, created_at, updated_at, firm_id) VALUES (?1, ?2, ?3, 0, ?4, ?4, ?5)',
     )
       .bind(
-        "usr_ccccccccccccccccccccc",
+        "user_ccccccccccccccccccccc",
         "Invited Bob",
         "invited-bob@example.com",
         Date.now(),
@@ -337,7 +341,7 @@ describe("POST /api/v1/firms", () => {
     expect(partialRow).toEqual({
       status: "provisioning",
       database_identifier: "DB_FIRM_POOL_2",
-      per_firm_schema_version: "0003_incident-intake",
+      per_firm_schema_version: "0004_matters-locations-file-manager",
     });
 
     // Re-invoking with a FREE owner email (new key — a corrected request) resumes the partial
@@ -363,7 +367,7 @@ describe("POST /api/v1/firms", () => {
     const poolTwoRole = await env.DB_FIRM_POOL_2.prepare(
       "SELECT id FROM role WHERE name = 'Owner/Admin'",
     ).first<{ id: string }>();
-    expect(poolTwoRole?.id).toMatch(/^rol_/);
+    expect(poolTwoRole?.id).toMatch(/^role_/);
   });
 
   it("emits the route into the OpenAPI document with the native operationId and x-mc metadata", async () => {

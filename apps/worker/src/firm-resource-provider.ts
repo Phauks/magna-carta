@@ -6,6 +6,10 @@ import type { FirmId } from "@magna-carta/identifiers/types";
 export interface FirmResourceProvider {
   createDatabase(firmId: FirmId): Promise<{ databaseIdentifier: string }>;
   createBucket(firmId: FirmId): Promise<{ bucketName: string }>;
+  // Configure the firm bucket's object-create event notification to feed the files-ingest queue
+  // (prefix files/). Idempotent and re-runnable: provisioning calls it on every run that reaches the
+  // bucket step, so a run that created the bucket but crashed before this still configures on retry.
+  configureBucketNotifications(firmId: FirmId): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -41,12 +45,18 @@ export function createDevFirmResourceProvider(
     },
 
     // Miniflare cannot create R2 buckets at runtime either; every locally-provisioned firm shares
-    // the single pre-declared R2 binding. Per-firm bucket isolation is a production property —
-    // locally the bucket name only marks the provisioning step complete. The "R2" literal tracks
-    // the binding key on Bindings in app.ts (and its wrangler.jsonc r2_buckets entry) — rename
-    // them in lockstep.
-    createBucket(): Promise<{ bucketName: string }> {
-      return Promise.resolve({ bucketName: "R2" });
+    // the single pre-declared R2 binding (resolved by binding key in code, never by this stored
+    // name). The stored name is per-firm UNIQUE — the SAME deterministic shape production uses — so
+    // the ingest consumer's `WHERE bucket_name = ?` event→firm resolution stays unambiguous with
+    // more than one dev firm; locally it only marks the provisioning step complete.
+    async createBucket(firmId: FirmId): Promise<{ bucketName: string }> {
+      return { bucketName: await firmResourceName(firmId) };
+    },
+
+    // Miniflare delivers no R2 event notifications, so there is nothing to configure locally — the
+    // ingest consumer is driven by synthetic events in dev/tests. A no-op marks the step complete.
+    configureBucketNotifications(): Promise<void> {
+      return Promise.resolve();
     },
   };
 }
@@ -60,8 +70,16 @@ export interface CloudflareRestFirmResourceProviderOptions {
   // A deploy-time Worker secret (wrangler secret put CLOUDFLARE_API_TOKEN) — never needed
   // locally, where the dev adapter runs instead.
   readonly apiToken: string;
+  // The files-ingest queue's Cloudflare UUID — the target of every firm bucket's object-create
+  // notification. A deploy-time fact (the queue is created once for the fleet); absent → the dev
+  // adapter runs instead, so reaching configureBucketNotifications without it is a misconfiguration.
+  readonly eventNotificationQueueId?: string;
   readonly fetchImplementation?: typeof fetch;
 }
+
+// The R2 key prefix uploaded objects live under (mirrors @magna-carta/file-manager's FILES_PREFIX);
+// the notification rule scopes to it so only ingestable objects trigger the queue.
+const FILES_NOTIFICATION_PREFIX = "files/";
 
 const CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4";
 
@@ -129,7 +147,7 @@ export function createCloudflareRestFirmResourceProvider(
 
   async function callApi<Result>(
     operation: string,
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "PUT",
     url: string,
     body?: unknown,
   ): Promise<{ status: number; envelope: CloudflareApiEnvelope<Result> }> {
@@ -214,6 +232,42 @@ export function createCloudflareRestFirmResourceProvider(
         return { bucketName: name };
       }
       throw describeFailure("createBucket", created.status, created.envelope);
+    },
+
+    // PUT the object-create notification rule onto the firm's bucket, targeting the files-ingest
+    // queue. PUT is idempotent — re-running replaces the same rule set, so a resumed provisioning is
+    // safe. The bucket name is its deterministic resource name (createBucket's identifier).
+    async configureBucketNotifications(firmId: FirmId): Promise<void> {
+      if (
+        options.eventNotificationQueueId === undefined ||
+        options.eventNotificationQueueId === ""
+      ) {
+        throw new Error(
+          "configureBucketNotifications requires eventNotificationQueueId (the files-ingest queue " +
+            "UUID) — set FILES_INGEST_QUEUE_ID for the REST provider, or run the dev adapter",
+        );
+      }
+      const bucketName = await firmResourceName(firmId);
+      const configured = await callApi<unknown>(
+        "configureBucketNotifications",
+        "PUT",
+        `${accountBase}/event_notifications/r2/${bucketName}/configuration/queues/${options.eventNotificationQueueId}`,
+        {
+          rules: [
+            {
+              actions: ["PutObject", "CompleteMultipartUpload"],
+              prefix: FILES_NOTIFICATION_PREFIX,
+            },
+          ],
+        },
+      );
+      if (!configured.envelope.success) {
+        throw describeFailure(
+          "configureBucketNotifications",
+          configured.status,
+          configured.envelope,
+        );
+      }
     },
   };
 }

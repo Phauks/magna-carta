@@ -40,14 +40,14 @@ CREATE TABLE `role_permission` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `role_permission_role_id_permission_unique` ON `role_permission` (`role_id`,`permission`);--> statement-breakpoint
--- Seeded default roles (hand-appended). The rol_/rpm_ handles below were minted ONCE with
--- @magna-carta/identifiers and committed as literals, so every firm's defaults match byte-for-byte.
+-- Seeded default roles (hand-appended). The role_/rolePermission_ handles below were minted ONCE
+-- with @magna-carta/identifiers and committed as literals, so every firm's defaults match byte-for-byte.
 -- created_at is the migration's authoring instant — a fixed literal, never a runtime expression.
 -- Permission values are registry keys from @magna-carta/access-control; a fitness test cross-checks
 -- every seeded value against the registry. firm:manageMembers goes to Owner/Admin ONLY.
-INSERT INTO `role` (`id`, `name`, `created_at`) VALUES ('rol_Gw-zKO8hOHQuNv2bWokMp', 'Owner/Admin', '2026-06-10T00:00:00.000Z');--> statement-breakpoint
-INSERT INTO `role` (`id`, `name`, `created_at`) VALUES ('rol_gEyJ_YqL1_RI_yDqSa28Y', 'Attorney', '2026-06-10T00:00:00.000Z');--> statement-breakpoint
-INSERT INTO `role` (`id`, `name`, `created_at`) VALUES ('rol_917LCQyRKP50Z9bW89vXl', 'Paralegal', '2026-06-10T00:00:00.000Z');--> statement-breakpoint
-INSERT INTO `role` (`id`, `name`, `created_at`) VALUES ('rol_hwwC1D98d8Lazc_asL6vO', 'Billing', '2026-06-10T00:00:00.000Z');--> statement-breakpoint
-INSERT INTO `role` (`id`, `name`, `created_at`) VALUES ('rol_WojF9F7kksBEftsmZGNhb', 'Read-only', '2026-06-10T00:00:00.000Z');--> statement-breakpoint
-INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rpm_bjqp0FuxHVqfwweoS4lNd', 'rol_Gw-zKO8hOHQuNv2bWokMp', 'firm:manageMembers');
+INSERT INTO `role` (`id`, `name`, `created_at`) VALUES ('role_Gw-zKO8hOHQuNv2bWokMp', 'Owner/Admin', '2026-06-10T00:00:00.000Z');--> statement-breakpoint
+INSERT INTO `role` (`id`, `name`, `created_at`) VALUES ('role_gEyJ_YqL1_RI_yDqSa28Y', 'Attorney', '2026-06-10T00:00:00.000Z');--> statement-breakpoint
+INSERT INTO `role` (`id`, `name`, `created_at`) VALUES ('role_917LCQyRKP50Z9bW89vXl', 'Paralegal', '2026-06-10T00:00:00.000Z');--> statement-breakpoint
+INSERT INTO `role` (`id`, `name`, `created_at`) VALUES ('role_hwwC1D98d8Lazc_asL6vO', 'Billing', '2026-06-10T00:00:00.000Z');--> statement-breakpoint
+INSERT INTO `role` (`id`, `name`, `created_at`) VALUES ('role_WojF9F7kksBEftsmZGNhb', 'Read-only', '2026-06-10T00:00:00.000Z');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_bjqp0FuxHVqfwweoS4lNd', 'role_Gw-zKO8hOHQuNv2bWokMp', 'firm:manageMembers');

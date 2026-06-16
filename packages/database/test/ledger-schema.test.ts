@@ -33,8 +33,8 @@ describe("ledger tables", () => {
           "INSERT INTO ledger_account (id, name, type, currency, active, created_at) VALUES (?, ?, ?, 'USD', 1, 't')",
         )
         .run(id, "Account", type);
-    expect(() => insert("acct_badtype000000000000", "Asset")).toThrow(/CHECK/);
-    expect(() => insert("acct_goodtype00000000000", "asset")).not.toThrow();
+    expect(() => insert("ledgerAccount_badtype000000000000", "Asset")).toThrow(/CHECK/);
+    expect(() => insert("ledgerAccount_goodtype00000000000", "asset")).not.toThrow();
   });
 
   it("ledger_entry: dual dates, UNIQUE reverses_entry_id, non-empty description CHECK", () => {

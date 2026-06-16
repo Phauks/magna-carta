@@ -58,7 +58,7 @@ describe("POST /api/v1/incidents", () => {
     );
     expect(response.status).toBe(201);
     const body = (await response.json()) as { id: string; status: string };
-    expect(body.id).toMatch(/^inc_/);
+    expect(body.id).toMatch(/^incident_/);
     expect(body.status).toBe("open");
 
     // The per-firm incident row landed, redacted-by-construction JSON columns and all.
@@ -99,7 +99,7 @@ describe("POST /api/v1/incidents", () => {
     expect(response.status).toBe(401);
     expect(response.headers.get("content-type")).toContain("application/problem+json");
     const body = (await response.json()) as Record<string, unknown>;
-    expect(body["errorId"]).toMatch(/^err_/);
+    expect(body["errorId"]).toMatch(/^error_/);
   });
 
   it("rejects an over-cap breadcrumb array with a 422 validation problem", async () => {

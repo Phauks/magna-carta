@@ -1,15 +1,31 @@
+import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { purgeExpiredIdempotencyRecordsStatement } from "@magna-carta/data-access/idempotency-statements";
 import {
   sweepOutbox,
   type OutboxRow,
   type OutboxSweepReport,
 } from "@magna-carta/data-access/outbox-relay";
+import {
+  abandonVersionStatement,
+  selectExpiredOpenSessionsStatement,
+  setUploadSessionStatusByIdStatement,
+} from "@magna-carta/file-manager/file-statements";
+import {
+  meterCorrectionStatements,
+  normalizeR2StorageClass,
+  reconciliationDiff,
+  type ListedObject,
+  type MeterRow,
+} from "@magna-carta/file-manager/metering-statements";
+import { listCleanVersionR2Keys } from "@magna-carta/file-manager/queries";
+import type { FileVersionId, UploadSessionId } from "@magna-carta/identifiers/types";
 import { outboxDeadLettered, outboxSwept } from "@magna-carta/telemetry/events";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "./app.ts";
+import { presignerForEnv } from "./files/presigner-wiring.ts";
 import { resolveFirmDatabase } from "./firm-binding-resolver.ts";
 import { consumeMemberProvision } from "./member-provision-consumer.ts";
 
@@ -65,25 +81,28 @@ function logDeadLetter(
 }
 
 // An active firm this deployment can reach: the control-plane row joined to its resolved binding.
+// bucketName is the firm's R2 bucket (null until provisioning records it) — the stale-pending sweep
+// needs it to abort a multipart upload at R2.
 export interface ReachableActiveFirm {
   readonly firmId: string;
   readonly database: D1Database;
+  readonly bucketName: string | null;
 }
 
-// The ONE active-firm enumeration per cron pass — the per-firm sweep and the reconciliation
-// backstop both consume the same list. Firms with no recorded database, or whose database this
-// deployment cannot reach, are skipped; the next pass retries them.
+// The ONE active-firm enumeration per cron pass — the per-firm sweep, the stale-pending sweep, and the
+// reconciliation backstop all consume the same list. Firms with no recorded database, or whose
+// database this deployment cannot reach, are skipped; the next pass retries them.
 export async function listReachableActiveFirms(env: Bindings): Promise<ReachableActiveFirm[]> {
   const firms = await env.DB_CONTROL.prepare(
-    "SELECT id, database_identifier FROM firm WHERE status = 'active'",
-  ).all<{ id: string; database_identifier: string | null }>();
+    "SELECT id, database_identifier, bucket_name FROM firm WHERE status = 'active'",
+  ).all<{ id: string; database_identifier: string | null; bucket_name: string | null }>();
 
   const reachable: ReachableActiveFirm[] = [];
   for (const firm of firms.results) {
     const database =
       firm.database_identifier === null ? null : resolveFirmDatabase(env, firm.database_identifier);
     if (database === null) continue;
-    reachable.push({ firmId: firm.id, database });
+    reachable.push({ firmId: firm.id, database, bucketName: firm.bucket_name });
   }
   return reachable;
 }
@@ -204,6 +223,7 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
         deadLetter: logDeadLetter(logger, correlationId, `firm ${firm.firmId}`),
       });
       await purgeExpiredIdempotencyRecordsStatement(firm.database, idempotencyCutoff).run();
+      await sweepStalePendingUploads(env, firm);
       firmSweeps++;
       logger.log(
         outboxSwept(
@@ -235,4 +255,152 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
   }
 
   return { controlPlane, firmSweeps, unprovisionedMembers };
+}
+
+// The stale-pending upload sweep: an upload session left open past its expiry (the client started an
+// upload and never completed it) is aborted at R2 and its pending version abandoned, reclaiming the
+// reserved version slot. Run every */5 pass inside the per-firm loop. Each transition is guarded
+// (session status = 'open', version status = 'pending'), so a redelivery/overlap is a no-op. Returns
+// the count swept (for tests/observability).
+export async function sweepStalePendingUploads(
+  env: Bindings,
+  firm: ReachableActiveFirm,
+): Promise<number> {
+  const now = () => new Date().toISOString();
+  const { results } = await selectExpiredOpenSessionsStatement(firm.database, now()).all<{
+    id: UploadSessionId;
+    file_version_id: FileVersionId;
+    mode: "put" | "multipart";
+    r2_upload_id: string | null;
+    r2_key: string;
+  }>();
+  if (results.length === 0) return 0;
+  const presigner = presignerForEnv(env);
+  for (const session of results) {
+    // Abort the multipart upload at R2 first (idempotent; a 404 there is success), then commit the
+    // status flip — a thrown abort leaves the session open so the next pass retries it.
+    if (session.mode === "multipart" && session.r2_upload_id !== null && firm.bucketName !== null) {
+      await presigner.abortMultipartUpload(firm.bucketName, session.r2_key, session.r2_upload_id);
+    }
+    await commitEffectBatch(
+      firm.database,
+      {
+        statements: [
+          setUploadSessionStatusByIdStatement(firm.database, session.id, "expired"),
+          abandonVersionStatement(firm.database, session.file_version_id),
+        ],
+        outboxMessages: [],
+      },
+      { now },
+    );
+  }
+  return results.length;
+}
+
+export interface ReconciliationReport {
+  readonly firmsReconciled: number;
+  readonly corrections: number;
+}
+
+// Reads a firm's authoritative storage rollup for the reconciliation diff.
+async function readMeterRows(database: D1Database): Promise<MeterRow[]> {
+  const { results } = await database
+    .prepare("SELECT storage_class, artifact_role, prefix, bytes, object_count FROM storage_meter")
+    .all<{
+      storage_class: string;
+      artifact_role: string;
+      prefix: string;
+      bytes: number;
+      object_count: number;
+    }>();
+  return results.map((row) => ({
+    storageClass: row.storage_class,
+    artifactRole: row.artifact_role,
+    prefix: row.prefix,
+    bytes: row.bytes,
+    objectCount: row.object_count,
+  }));
+}
+
+// The storage-metering reconciliation pass (its own daily Cron, not the */5 sweep — a full R2 LIST per
+// firm is too heavy for every five minutes). For each reachable firm it LISTs the firm's objects under
+// the files/ prefix, FILTERS them to only the objects backing a clean committed version in THIS firm's
+// D1, diffs that filtered aggregate against the authoritative storage_meter, and commits the delta
+// corrections; drift is logged (totals only — never object contents) for operator visibility.
+//
+// The clean-key filter is load-bearing: the meter counts clean commits only, so a pending/quarantined/
+// abandoned object (its bytes never metered, never deleted from R2) must not inflate the meter; and the
+// single bound env.R2 is SHARED across dev-pool firms, so another firm's object — whose key is not in
+// this firm's clean set — must not be counted against this firm. Both are excluded by keeping only the
+// listed objects whose key is in this firm's clean-version set.
+//
+// PER-FIRM BUCKET SEAM: it reads the single bound env.R2 (the dev pool shares one bucket); in
+// production a firm's bytes live in its own bucket bound per-firm, resolved through the same seam the
+// ingest consumer documents. D1 stays authoritative; the AE trend seam (the telemetry package)
+// consumes the corrected meter on its own path.
+export async function runStorageReconciliation(env: Bindings): Promise<ReconciliationReport> {
+  // One logger + correlation id per pass — the same one-pipeline discipline as runScheduledSweep
+  // (golden rule 4; the console ban is structural).
+  const logger = createWorkersLogger(env.TELEMETRY);
+  const correlationId = newCorrelationId();
+  const firms = await listReachableActiveFirms(env);
+  let firmsReconciled = 0;
+  let corrections = 0;
+  for (const firm of firms) {
+    try {
+      // This firm's authoritative clean-version set: only these keys count toward its meter.
+      const cleanKeys = new Set(
+        (await listCleanVersionR2Keys(firm.database)).map((version) => version.r2Key),
+      );
+      const listed: ListedObject[] = [];
+      let cursor: string | undefined;
+      for (;;) {
+        // Build options without a cursor key on the first page — passing an explicit `cursor:
+        // undefined` makes Miniflare's R2 return an empty page.
+        const page = await env.R2.list(
+          cursor === undefined ? { prefix: "files/" } : { prefix: "files/", cursor },
+        );
+        for (const object of page.objects) {
+          // Keep only objects backing a clean version in this firm's D1: pending/quarantined/abandoned
+          // objects (never metered) and other dev-pool firms' objects (not in this set) are ignored.
+          if (!cleanKeys.has(object.key)) continue;
+          const reported = (object as { storageClass?: string }).storageClass ?? "";
+          listed.push({
+            key: object.key,
+            size: object.size,
+            storageClass: normalizeR2StorageClass(reported),
+          });
+        }
+        if (!page.truncated) break;
+        cursor = page.cursor;
+      }
+
+      const meterRows = await readMeterRows(firm.database);
+      const result = reconciliationDiff(listed, meterRows);
+      if (result.corrections.length > 0) {
+        await commitEffectBatch(
+          firm.database,
+          {
+            statements: meterCorrectionStatements(firm.database, result.corrections),
+            outboxMessages: [],
+          },
+          { now: () => new Date().toISOString() },
+        );
+        corrections += result.corrections.length;
+        // Drift correction is a self-healing operational signal: the count is the alertable metric
+        // (the meter is authoritative regardless), so it rides a counter, not a content-bearing event.
+        logger.count("storage.reconciliation.corrected", {}, result.corrections.length);
+      }
+      firmsReconciled++;
+    } catch (caught) {
+      // One firm's failure must not starve the rest; logged through the one pipeline, next pass retries.
+      logOperationFailed(
+        logger,
+        `cron:storage-reconciliation:${firm.firmId}`,
+        caught,
+        correlationId,
+      );
+    }
+  }
+  return { firmsReconciled, corrections };
 }
