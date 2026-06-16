@@ -19,6 +19,7 @@ Spec: [`2026-06-16-integration-port-system-design.md`](2026-06-16-integration-po
 ## File structure
 
 **New package `packages/integrations/`:**
+
 - `package.json`, `tsconfig.json`, `vitest.config.ts` — scaffold (mirrors `packages/parcels`).
 - `src/problem.ts` — `IntegrationProblem` (RFC 9457 + `retryable`/`category`) + `integrationProblem()` constructor.
 - `src/canonical.ts` — `CanonicalRecord` base + `canonicalRecordSchema()` zod helper.
@@ -30,11 +31,13 @@ Spec: [`2026-06-16-integration-port-system-design.md`](2026-06-16-integration-po
 - `test/*.test.ts` — one suite per module.
 
 **Modified `packages/parcels/`:**
+
 - Create `src/adapter.ts` — `ParcelLookupPort`, `AssessorLink` canonical type + schema, `parcelsDeepLinkAdapter`.
 - Modify `package.json` — add `@magna-carta/integrations` + `zod` deps and the `./adapter` export.
 - Create `test/adapter.test.ts`.
 
 **Modified `packages/identifiers/`:**
+
 - Modify `src/registry.ts` — add `integrationConnection` prefix.
 - Modify `src/types.ts` — add `IntegrationConnectionId` alias.
 
@@ -45,6 +48,7 @@ Spec: [`2026-06-16-integration-port-system-design.md`](2026-06-16-integration-po
 ### Task 1: Scaffold the `@magna-carta/integrations` package
 
 **Files:**
+
 - Create: `packages/integrations/package.json`
 - Create: `packages/integrations/tsconfig.json`
 - Create: `packages/integrations/vitest.config.ts`
@@ -54,6 +58,7 @@ Spec: [`2026-06-16-integration-port-system-design.md`](2026-06-16-integration-po
 - [ ] **Step 1: Create the package manifest**
 
 `packages/integrations/package.json`:
+
 ```json
 {
   "name": "@magna-carta/integrations",
@@ -87,6 +92,7 @@ Spec: [`2026-06-16-integration-port-system-design.md`](2026-06-16-integration-po
 - [ ] **Step 2: Create the tsconfig and vitest config**
 
 `packages/integrations/tsconfig.json`:
+
 ```json
 {
   "extends": "../tsconfig/base.json",
@@ -101,6 +107,7 @@ Spec: [`2026-06-16-integration-port-system-design.md`](2026-06-16-integration-po
 ```
 
 `packages/integrations/vitest.config.ts`:
+
 ```ts
 import { defineConfig } from "vite-plus";
 
@@ -114,12 +121,14 @@ export default defineConfig({
 - [ ] **Step 3: Add a placeholder source export and a smoke test**
 
 `packages/integrations/src/problem.ts`:
+
 ```ts
 // Placeholder — replaced in Task 2. Lets the workspace resolve the package before the real modules land.
 export const INTEGRATIONS_PACKAGE = "@magna-carta/integrations";
 ```
 
 `packages/integrations/test/smoke.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import { INTEGRATIONS_PACKAGE } from "../src/problem.ts";
@@ -153,12 +162,14 @@ EOF
 ### Task 2: The integration problem model
 
 **Files:**
+
 - Modify: `packages/integrations/src/problem.ts`
 - Test: `packages/integrations/test/problem.test.ts`
 
 - [ ] **Step 1: Write the failing test**
 
 `packages/integrations/test/problem.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import { integrationProblem } from "../src/problem.ts";
@@ -193,6 +204,7 @@ Expected: FAIL — `integrationProblem` not exported.
 - [ ] **Step 3: Write the implementation**
 
 Replace `packages/integrations/src/problem.ts` entirely:
+
 ```ts
 // The one integration error taxonomy. Adapters map heterogeneous vendor errors into this shape
 // (their job, not the caller's); the framework reads it to drive retry (cross-cutting scaffolding)
@@ -265,12 +277,14 @@ EOF
 ### Task 3: The canonical-record contract
 
 **Files:**
+
 - Create: `packages/integrations/src/canonical.ts`
 - Test: `packages/integrations/test/canonical.test.ts`
 
 - [ ] **Step 1: Write the failing test**
 
 `packages/integrations/test/canonical.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -300,6 +314,7 @@ Expected: FAIL — `canonicalRecordSchema` not found.
 - [ ] **Step 3: Write the implementation**
 
 `packages/integrations/src/canonical.ts`:
+
 ```ts
 import { z } from "zod";
 
@@ -344,6 +359,7 @@ EOF
 ### Task 4: Credential and refresh interfaces (seams)
 
 **Files:**
+
 - Create: `packages/integrations/src/credentials.ts`
 - Test: `packages/integrations/test/credentials.test.ts`
 
@@ -352,6 +368,7 @@ These are interfaces only — no implementation lands until the first credential
 - [ ] **Step 1: Write the failing test**
 
 `packages/integrations/test/credentials.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import type { Credential, CredentialStore } from "../src/credentials.ts";
@@ -384,6 +401,7 @@ Expected: FAIL — module `../src/credentials.ts` not found.
 - [ ] **Step 3: Write the implementation**
 
 `packages/integrations/src/credentials.ts`:
+
 ```ts
 // Credential storage and token refresh are framework-owned SEAMS. The real backing is slice 1·2's
 // per-firm envelope-encrypted `firm_secret` store (getSecret/putSecret); the real refresher is
@@ -431,12 +449,14 @@ EOF
 ### Task 5: Port, adapter, and capability descriptor
 
 **Files:**
+
 - Create: `packages/integrations/src/port.ts`
 - Test: `packages/integrations/test/port.test.ts`
 
 - [ ] **Step 1: Write the failing test**
 
 `packages/integrations/test/port.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import { supports, type CapabilityDescriptor } from "../src/port.ts";
@@ -466,6 +486,7 @@ Expected: FAIL — `../src/port.ts` not found.
 - [ ] **Step 3: Write the implementation**
 
 `packages/integrations/src/port.ts`:
+
 ```ts
 import type { Credential } from "./credentials.ts";
 
@@ -531,12 +552,14 @@ EOF
 ### Task 6: The dispatch result type
 
 **Files:**
+
 - Create: `packages/integrations/src/dispatch.ts`
 - Test: `packages/integrations/test/dispatch.test.ts`
 
 - [ ] **Step 1: Write the failing test**
 
 `packages/integrations/test/dispatch.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import { adapterError, capabilityUnsupported, notConnected, ok } from "../src/dispatch.ts";
@@ -562,6 +585,7 @@ Expected: FAIL — `../src/dispatch.ts` not found.
 - [ ] **Step 3: Write the implementation**
 
 `packages/integrations/src/dispatch.ts`:
+
 ```ts
 import type { IntegrationProblem } from "./problem.ts";
 
@@ -572,7 +596,11 @@ export type DispatchFailureReason = "not-connected" | "capability-unsupported" |
 
 export type Dispatch<T> =
   | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly reason: DispatchFailureReason; readonly problem?: IntegrationProblem };
+  | {
+      readonly ok: false;
+      readonly reason: DispatchFailureReason;
+      readonly problem?: IntegrationProblem;
+    };
 
 export function ok<T>(value: T): Dispatch<T> {
   return { ok: true, value };
@@ -613,12 +641,14 @@ EOF
 ### Task 7: Connection model and health state machine
 
 **Files:**
+
 - Create: `packages/integrations/src/connection.ts`
 - Test: `packages/integrations/test/connection.test.ts`
 
 - [ ] **Step 1: Write the failing test**
 
 `packages/integrations/test/connection.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import { nextHealth } from "../src/connection.ts";
@@ -653,6 +683,7 @@ Expected: FAIL — `../src/connection.ts` not found.
 - [ ] **Step 3: Write the implementation**
 
 `packages/integrations/src/connection.ts`:
+
 ```ts
 import type { AdapterScope, CapabilityDescriptor } from "./port.ts";
 import type { ProblemCategory } from "./problem.ts";
@@ -728,16 +759,22 @@ EOF
 ### Task 8: The registry and resolve
 
 **Files:**
+
 - Create: `packages/integrations/src/registry.ts`
 - Test: `packages/integrations/test/registry.test.ts`
 
 - [ ] **Step 1: Write the failing test**
 
 `packages/integrations/test/registry.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import type { Credential, CredentialStore } from "../src/credentials.ts";
-import type { ConnectionLookup, ConnectionStore, IntegrationConnection } from "../src/connection.ts";
+import type {
+  ConnectionLookup,
+  ConnectionStore,
+  IntegrationConnection,
+} from "../src/connection.ts";
 import type { Adapter, CapabilityDescriptor } from "../src/port.ts";
 import { createIntegrationRegistry, requireCapability } from "../src/registry.ts";
 
@@ -854,6 +891,7 @@ Expected: FAIL — `../src/registry.ts` not found.
 - [ ] **Step 3: Write the implementation**
 
 `packages/integrations/src/registry.ts`:
+
 ```ts
 import type { ConnectionStore } from "./connection.ts";
 import type { CredentialStore } from "./credentials.ts";
@@ -904,15 +942,26 @@ export function createIntegrationRegistry(stores: RegistryStores = {}): Integrat
       if (connectionStore === undefined || credentialStore === undefined) return notConnected();
 
       const userId = requirement.scope === "user" ? context.userId : undefined;
-      const connection = await connectionStore.getConnection({ firmId: context.firmId, userId, category });
-      if (connection === null || connection.status === "disabled" || connection.status === "needs_reauth") {
+      const connection = await connectionStore.getConnection({
+        firmId: context.firmId,
+        userId,
+        category,
+      });
+      if (
+        connection === null ||
+        connection.status === "disabled" ||
+        connection.status === "needs_reauth"
+      ) {
         return notConnected();
       }
 
       const credential = await credentialStore.get(connection.credentialRef);
       if (credential === null) return notConnected();
 
-      return ok({ port: adapter.create({ credential }), descriptor: connection.capabilitySnapshot });
+      return ok({
+        port: adapter.create({ credential }),
+        descriptor: connection.capabilitySnapshot,
+      });
     },
   };
 }
@@ -949,6 +998,7 @@ EOF
 ### Task 9: Retrofit `parcels` as the first adapter
 
 **Files:**
+
 - Modify: `packages/parcels/package.json` (add deps + export)
 - Create: `packages/parcels/src/adapter.ts`
 - Test: `packages/parcels/test/adapter.test.ts`
@@ -956,6 +1006,7 @@ EOF
 - [ ] **Step 1: Add the dependencies and export**
 
 Edit `packages/parcels/package.json` — add `"./adapter": "./src/adapter.ts"` to `exports`, and add a `dependencies` block (the package currently has none):
+
 ```json
   "exports": {
     "./types": "./src/types.ts",
@@ -977,11 +1028,13 @@ Edit `packages/parcels/package.json` — add `"./adapter": "./src/adapter.ts"` t
     "zod": "catalog:"
   },
 ```
+
 Then run `vp install` to link the workspace dependency.
 
 - [ ] **Step 2: Write the failing test**
 
 `packages/parcels/test/adapter.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest";
 import { supports } from "@magna-carta/integrations/port";
@@ -1022,6 +1075,7 @@ Expected: FAIL — `../src/adapter.ts` not found.
 - [ ] **Step 4: Write the implementation**
 
 `packages/parcels/src/adapter.ts`:
+
 ```ts
 import { z } from "zod";
 import { canonicalRecordSchema } from "@magna-carta/integrations/canonical";
@@ -1109,6 +1163,7 @@ EOF
 ### Task 10: Identifier prefix, quality gate, and docs
 
 **Files:**
+
 - Modify: `packages/identifiers/src/registry.ts`
 - Modify: `packages/identifiers/src/types.ts`
 - Create: `packages/integrations/CLAUDE.md`
@@ -1117,6 +1172,7 @@ EOF
 - [ ] **Step 1: Add the connection handle prefix**
 
 In `packages/identifiers/src/registry.ts`, add to `ENTITY_PREFIXES` (after the `auditLog` entry), with a comment:
+
 ```ts
   auditLog: "auditLog",
   // Integration framework: the per-firm authorized-account connection record (the credential ref it
@@ -1126,6 +1182,7 @@ In `packages/identifiers/src/registry.ts`, add to `ENTITY_PREFIXES` (after the `
 ```
 
 In `packages/identifiers/src/types.ts`, add after `AuditLogId`:
+
 ```ts
 export type IntegrationConnectionId = Identifier<"integrationConnection">;
 ```
@@ -1141,6 +1198,7 @@ Expected: PASS (fmt + lint + typecheck across the workspace, including the new p
 - [ ] **Step 3: Write the package CLAUDE.md**
 
 `packages/integrations/CLAUDE.md`:
+
 ```markdown
 # @magna-carta/integrations — local notes
 
@@ -1190,6 +1248,7 @@ EOF
 ## Self-review
 
 **Spec coverage:**
+
 - §1 module placement → Tasks 1–10 (the package; the `data-access` repo + worker routes are the explicitly-deferred seam, scope note).
 - §2 port/adapter/capability → Tasks 5 (+ 9 the worked example).
 - §3 canonical contract (canonical model, `remoteId`, `raw`, zod, versioning) → Task 3 + Task 9; passthrough tiers are descriptor-flagged (`passthroughAvailable`) here, implemented when a credentialed adapter needs them.
