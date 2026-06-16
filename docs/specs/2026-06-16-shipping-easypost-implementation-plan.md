@@ -1428,7 +1428,7 @@ describe("registry resolution of the shipping adapter", () => {
     const resolved = await registry.resolve<ShippingPort>("shipping", { firmId: "firm_1" });
     expect(resolved.ok).toBe(true);
     if (resolved.ok) {
-      const gate = requireCapability(resolved.value, "lookupParcel");
+      const gate = requireCapability(resolved.value, "schedulePickup");
       expect(gate.ok).toBe(false);
     }
   });
