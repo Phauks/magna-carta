@@ -13,6 +13,18 @@ describe("zillowProvider", () => {
     expect(zillowProvider.label).toBe("Zillow");
   });
 
+  it("strips commas from a formattedAddress before slugging", () => {
+    expect(zillowProvider.build({ formattedAddress: "123 Main St, Reno, NV 89501" })).toBe(
+      "https://www.zillow.com/homes/123-Main-St-Reno-NV-89501_rb/",
+    );
+  });
+
+  it("percent-encodes path-unsafe characters in the slug", () => {
+    expect(
+      zillowProvider.build({ street: "123 Main St #4", city: "Reno", region: "NV", postal: "89501" }),
+    ).toBe("https://www.zillow.com/homes/123-Main-St-%234-Reno-NV-89501_rb/");
+  });
+
   it("returns null when the reference is insufficient", () => {
     expect(zillowProvider.build({ city: "Reno" })).toBeNull();
   });
