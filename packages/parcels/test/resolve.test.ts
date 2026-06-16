@@ -5,6 +5,8 @@ import type { AssessorSite } from "../src/types.ts";
 const gsaSite: AssessorSite = {
   jurisdictionId: "32005",
   jurisdictionType: "county",
+  category: "property",
+  system: "assessor",
   state: "NV",
   name: "Douglas",
   searchUrl: "https://douglasnv-search.gsacorp.io/",
@@ -14,6 +16,8 @@ const gsaSite: AssessorSite = {
 const devnetSite: AssessorSite = {
   jurisdictionId: "32023",
   jurisdictionType: "county",
+  category: "property",
+  system: "assessor",
   state: "NV",
   name: "Nye",
   searchUrl: "https://nyenv-assessor.devnetwedge.com/",
@@ -23,6 +27,8 @@ const devnetSite: AssessorSite = {
 const beaconSite: AssessorSite = {
   jurisdictionId: "15003",
   jurisdictionType: "county",
+  category: "property",
+  system: "assessor",
   state: "HI",
   name: "Honolulu",
   searchUrl:
@@ -38,6 +44,8 @@ const beaconSite: AssessorSite = {
 const templateSite: AssessorSite = {
   jurisdictionId: "32003",
   jurisdictionType: "county",
+  category: "property",
+  system: "assessor",
   state: "NV",
   name: "Clark",
   searchUrl: "https://www.clarkcountynv.gov/government/assessor/property_search/",
@@ -51,6 +59,8 @@ const templateSite: AssessorSite = {
 const keepSeparatorsSite: AssessorSite = {
   jurisdictionId: "10005",
   jurisdictionType: "county",
+  category: "property",
+  system: "assessor",
   state: "DE",
   name: "Sussex",
   searchUrl: "https://property.sussexcountyde.gov/PT/search/commonsearch.aspx?mode=parid",

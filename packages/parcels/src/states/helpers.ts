@@ -26,6 +26,8 @@ export function stateSites(state: string, jurisdictionType: JurisdictionType = "
     search: (jurisdictionId: string, name: string, searchUrl: string): AssessorSite => ({
       jurisdictionId,
       jurisdictionType,
+      category: "property",
+      system: "assessor",
       state,
       name,
       searchUrl,
@@ -40,6 +42,8 @@ export function stateSites(state: string, jurisdictionType: JurisdictionType = "
     ): AssessorSite => ({
       jurisdictionId,
       jurisdictionType,
+      category: "property",
+      system: "assessor",
       state,
       name,
       searchUrl,
@@ -57,6 +61,8 @@ export function stateSites(state: string, jurisdictionType: JurisdictionType = "
     ): AssessorSite => ({
       jurisdictionId,
       jurisdictionType,
+      category: "property",
+      system: "assessor",
       state,
       name,
       searchUrl,

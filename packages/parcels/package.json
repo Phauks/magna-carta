@@ -9,7 +9,8 @@
     "./apn": "./src/apn.ts",
     "./platforms": "./src/platforms.ts",
     "./resolve": "./src/resolve.ts",
-    "./registry": "./src/registry.ts"
+    "./registry": "./src/registry.ts",
+    "./business": "./src/business/registry.ts"
   },
   "scripts": {
     "test": "vp test run"
