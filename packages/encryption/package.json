@@ -1,0 +1,26 @@
+{
+  "name": "@magna-carta/encryption",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./aad": "./src/aad.ts",
+    "./envelope": "./src/envelope.ts",
+    "./keys": "./src/keys.ts",
+    "./normalize": "./src/normalize.ts",
+    "./blind-index": "./src/blind-index.ts",
+    "./protect": "./src/protect.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/identifiers": "workspace:*"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

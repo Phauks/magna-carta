@@ -52,3 +52,4 @@ export type FileId = Identifier<"file">;
 export type FileVersionId = Identifier<"fileVersion">;
 export type UploadSessionId = Identifier<"uploadSession">;
 export type AuditLogId = Identifier<"auditLog">;
+export type FirmSecretId = Identifier<"firmSecret">;
