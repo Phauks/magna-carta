@@ -26,7 +26,5 @@ test("directory migration creates the node, name, edge, identifier and merge tab
     expect(names, `table ${t} should exist`).toContain(t);
   }
   // FTS5 trigram virtual table exists and is queryable
-  raw
-    .prepare("INSERT INTO directory_name_fts(directory_name_fts) VALUES('integrity-check')")
-    .run();
+  raw.prepare("INSERT INTO directory_name_fts(directory_name_fts) VALUES('integrity-check')").run();
 });

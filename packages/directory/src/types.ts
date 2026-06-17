@@ -27,14 +27,7 @@ export type EntityKind = (typeof ENTITY_KINDS)[number];
 // (directory_name.name_role CHECK is length > 0 only); this union is the application-level
 // catalog of well-known values. Code that stores a name role should use one of these unless
 // explicitly extending the catalog.
-export const NAME_ROLES = [
-  "current",
-  "former",
-  "alias",
-  "aka",
-  "maiden",
-  "dba",
-] as const;
+export const NAME_ROLES = ["current", "former", "alias", "aka", "maiden", "dba"] as const;
 export type NameRole = (typeof NAME_ROLES)[number];
 
 // ── PhoneticScheme ────────────────────────────────────────────────────────────

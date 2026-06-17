@@ -65,9 +65,7 @@ test("the former name still produces phonetic codes (conflicts corpus)", async (
   // The former name row (Jones) must still have its phonetic code rows so the
   // conflicts corpus can match on maiden/previous names.
   const { results: nameRows } = await database
-    .prepare(
-      "SELECT id, name_family, is_current FROM directory_name WHERE entity_id = ?1",
-    )
+    .prepare("SELECT id, name_family, is_current FROM directory_name WHERE entity_id = ?1")
     .bind(personId)
     .all<{ id: string; name_family: string | null; is_current: number }>();
 
@@ -75,17 +73,13 @@ test("the former name still produces phonetic codes (conflicts corpus)", async (
   expect(formerRow?.name_family).toBe("Jones");
 
   const { results: phoneticRows } = await database
-    .prepare(
-      "SELECT scheme, code FROM directory_name_phonetic_code WHERE name_id = ?1",
-    )
+    .prepare("SELECT scheme, code FROM directory_name_phonetic_code WHERE name_id = ?1")
     .bind(formerRow?.id)
     .all<{ scheme: string; code: string }>();
 
   // Jones' phonetic codes must exist and be non-empty.
   expect(phoneticRows.length).toBeGreaterThan(0);
-  const primaryCode = phoneticRows.find(
-    (row) => row.scheme === "double_metaphone_primary",
-  );
+  const primaryCode = phoneticRows.find((row) => row.scheme === "double_metaphone_primary");
   expect(primaryCode?.code.length).toBeGreaterThan(0);
 });
 
@@ -126,16 +120,12 @@ test("changeName emits a directory.entity.renamed outbox message and audit row",
   );
 
   const { results: outbox } = await database
-    .prepare(
-      "SELECT topic, payload FROM outbox WHERE topic = 'directory.entity.renamed'",
-    )
+    .prepare("SELECT topic, payload FROM outbox WHERE topic = 'directory.entity.renamed'")
     .all<{ topic: string; payload: string }>();
   expect(outbox).toHaveLength(1);
 
   const { results: audit } = await database
-    .prepare(
-      "SELECT event, subject_id FROM audit_log WHERE event = 'directory.entity.renamed'",
-    )
+    .prepare("SELECT event, subject_id FROM audit_log WHERE event = 'directory.entity.renamed'")
     .all<{ event: string; subject_id: string }>();
   expect(audit).toHaveLength(1);
   expect(audit[0]?.subject_id).toBe(personId);
@@ -227,9 +217,7 @@ test("addName stores phonetic codes for the added name", async () => {
   );
 
   const { results: nameRows } = await database
-    .prepare(
-      "SELECT id, is_current FROM directory_name WHERE entity_id = ?1",
-    )
+    .prepare("SELECT id, is_current FROM directory_name WHERE entity_id = ?1")
     .bind(personId)
     .all<{ id: string; is_current: number }>();
 
@@ -237,16 +225,12 @@ test("addName stores phonetic codes for the added name", async () => {
   expect(aliasRow).toBeDefined();
 
   const { results: phoneticRows } = await database
-    .prepare(
-      "SELECT scheme, code FROM directory_name_phonetic_code WHERE name_id = ?1",
-    )
+    .prepare("SELECT scheme, code FROM directory_name_phonetic_code WHERE name_id = ?1")
     .bind(aliasRow?.id)
     .all<{ scheme: string; code: string }>();
 
   expect(phoneticRows.length).toBeGreaterThan(0);
-  const primaryCode = phoneticRows.find(
-    (row) => row.scheme === "double_metaphone_primary",
-  );
+  const primaryCode = phoneticRows.find((row) => row.scheme === "double_metaphone_primary");
   expect(primaryCode?.code.length).toBeGreaterThan(0);
 });
 
@@ -333,9 +317,7 @@ test("double changeName: exactly one current, two former, first former valid_to 
     .bind(personId)
     .all<{ name_family: string | null; is_current: number; valid_to: string | null }>();
 
-  const firstFormerAfterFirstRename = afterFirstRename.find(
-    (row) => row.name_family === "Adams",
-  );
+  const firstFormerAfterFirstRename = afterFirstRename.find((row) => row.name_family === "Adams");
   expect(firstFormerAfterFirstRename?.valid_to).not.toBeNull();
   const capturedFirstFormerValidTo = firstFormerAfterFirstRename?.valid_to;
 
@@ -352,7 +334,12 @@ test("double changeName: exactly one current, two former, first former valid_to 
       "SELECT name_family, name_role, is_current, valid_to FROM directory_name WHERE entity_id = ?1 ORDER BY created_at",
     )
     .bind(personId)
-    .all<{ name_family: string | null; name_role: string; is_current: number; valid_to: string | null }>();
+    .all<{
+      name_family: string | null;
+      name_role: string;
+      is_current: number;
+      valid_to: string | null;
+    }>();
 
   // Exactly three rows total after two renames.
   expect(rows).toHaveLength(3);

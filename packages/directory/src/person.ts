@@ -1,7 +1,7 @@
 import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { DirectoryNameId, DirectoryPersonId, UserId } from "@magna-carta/identifiers/types";
+import type { DirectoryNameId, DirectoryPersonId } from "@magna-carta/identifiers/types";
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.js";
 import { normalizeName } from "./normalize-name.js";
 import { phoneticCodes } from "./phonetics.js";

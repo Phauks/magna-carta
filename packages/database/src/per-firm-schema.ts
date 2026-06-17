@@ -716,10 +716,7 @@ export const directoryPerson = sqliteTable(
     deletedAt: text("deleted_at"),
   },
   (table) => [
-    check(
-      "directory_person_status_check",
-      sql`${table.status} IN ('active', 'merged_into')`,
-    ),
+    check("directory_person_status_check", sql`${table.status} IN ('active', 'merged_into')`),
   ],
 );
 
@@ -739,10 +736,7 @@ export const directoryOrganization = sqliteTable(
     deletedAt: text("deleted_at"),
   },
   (table) => [
-    check(
-      "directory_organization_status_check",
-      sql`${table.status} IN ('active', 'merged_into')`,
-    ),
+    check("directory_organization_status_check", sql`${table.status} IN ('active', 'merged_into')`),
   ],
 );
 
@@ -777,10 +771,7 @@ export const directoryName = sqliteTable(
       sql`${table.entityKind} IN ('person', 'organization')`,
     ),
     check("directory_name_name_role_check", sql`length(${table.nameRole}) > 0`),
-    check(
-      "directory_name_is_current_check",
-      sql`${table.isCurrent} IN (0, 1)`,
-    ),
+    check("directory_name_is_current_check", sql`${table.isCurrent} IN (0, 1)`),
   ],
 );
 
@@ -794,17 +785,17 @@ export const directoryName = sqliteTable(
 export const directoryNamePhoneticCode = sqliteTable(
   "directory_name_phonetic_code",
   {
-    nameId: text("name_id").notNull().$type<DirectoryNameId>().references(() => directoryName.id),
+    nameId: text("name_id")
+      .notNull()
+      .$type<DirectoryNameId>()
+      .references(() => directoryName.id),
     scheme: text("scheme").notNull(),
     code: text("code").notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.nameId, table.scheme] }),
     index("directory_name_phonetic_code_scheme_code_index").on(table.scheme, table.code),
-    check(
-      "directory_name_phonetic_code_scheme_check",
-      sql`length(${table.scheme}) > 0`,
-    ),
+    check("directory_name_phonetic_code_scheme_check", sql`length(${table.scheme}) > 0`),
   ],
 );
 
@@ -991,7 +982,10 @@ export const matterParty = sqliteTable(
   "matter_party",
   {
     id: text("id").primaryKey().$type<MatterPartyId>(), // matterParty_ handle
-    matterId: text("matter_id").notNull().$type<MatterId>().references(() => matter.id),
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
     entityId: text("entity_id").notNull(), // FK to directory_person.id or directory_organization.id
     role: text("role").notNull(), // e.g. 'client', 'opposing_party', 'witness'
     validFrom: text("valid_from"),

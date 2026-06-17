@@ -38,9 +38,7 @@ test("soft-deleted name row is excluded from search results", async () => {
 
   // Soft-delete the name row by setting deleted_at directly.
   await database
-    .prepare(
-      "UPDATE directory_name SET deleted_at = ?1 WHERE entity_id = ?2",
-    )
+    .prepare("UPDATE directory_name SET deleted_at = ?1 WHERE entity_id = ?2")
     .bind("2026-06-17T00:00:00.000Z", personId)
     .run();
 
@@ -99,9 +97,7 @@ test("FTS5 keyword trigrams 'and'/'not' do not throw or corrupt results (regress
   expect(andersonHits.map((hit) => hit.displayName)).toContain("Sarah Anderson");
 
   const nottinghamHits = await searchNames(database, "nottingham");
-  expect(nottinghamHits.map((hit) => hit.displayName)).toContain(
-    "Nottingham Chambers",
-  );
+  expect(nottinghamHits.map((hit) => hit.displayName)).toContain("Nottingham Chambers");
 });
 
 test("short query (fewer than 3 characters) returns empty without throwing", async () => {

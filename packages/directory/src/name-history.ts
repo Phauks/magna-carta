@@ -1,7 +1,11 @@
 import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { DirectoryNameId, DirectoryOrganizationId, DirectoryPersonId } from "@magna-carta/identifiers/types";
+import type {
+  DirectoryNameId,
+  DirectoryOrganizationId,
+  DirectoryPersonId,
+} from "@magna-carta/identifiers/types";
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.js";
 import { normalizeName } from "./normalize-name.js";
 import { phoneticCodes } from "./phonetics.js";
@@ -91,7 +95,9 @@ export async function changeName(
   if (entityKind === "person") {
     const personInput = isPersonNameInput(input)
       ? input
-      : (() => { throw new Error("name-history: person entity requires ChangePersonNameInput"); })();
+      : (() => {
+          throw new Error("name-history: person entity requires ChangePersonNameInput");
+        })();
 
     const given = personInput.given.trim();
     const family = personInput.family.trim();
@@ -143,7 +149,9 @@ export async function changeName(
   } else {
     const organizationInput = !isPersonNameInput(input)
       ? input
-      : (() => { throw new Error("name-history: organization entity requires ChangeOrganizationNameInput"); })();
+      : (() => {
+          throw new Error("name-history: organization entity requires ChangeOrganizationNameInput");
+        })();
 
     const legalName = organizationInput.legalName.trim();
     const displayName = (organizationInput.displayName ?? legalName).trim();
@@ -185,9 +193,7 @@ export async function changeName(
   }
 
   // Step 4: audit row.
-  statements.push(
-    directoryAuditStatement(database, options, "directory.entity.renamed", entityId),
-  );
+  statements.push(directoryAuditStatement(database, options, "directory.entity.renamed", entityId));
 
   await commitEffectBatch(
     database,
@@ -246,7 +252,9 @@ export async function addName(
   if (entityKind === "person") {
     const personInput = isAddPersonNameInput(input)
       ? input
-      : (() => { throw new Error("name-history: person entity requires AddPersonNameInput"); })();
+      : (() => {
+          throw new Error("name-history: person entity requires AddPersonNameInput");
+        })();
 
     const given = personInput.given.trim();
     const family = personInput.family.trim();
@@ -278,7 +286,9 @@ export async function addName(
   } else {
     const organizationInput = !isAddPersonNameInput(input)
       ? input
-      : (() => { throw new Error("name-history: organization entity requires AddOrganizationNameInput"); })();
+      : (() => {
+          throw new Error("name-history: organization entity requires AddOrganizationNameInput");
+        })();
 
     const legalName = organizationInput.legalName.trim();
     const normalizedDisplay = normalizeName(legalName);
@@ -310,9 +320,5 @@ export async function addName(
     directoryAuditStatement(database, options, "directory.entity.name_added", entityId),
   );
 
-  await commitEffectBatch(
-    database,
-    { statements, outboxMessages: [] },
-    { now: () => now },
-  );
+  await commitEffectBatch(database, { statements, outboxMessages: [] }, { now: () => now });
 }

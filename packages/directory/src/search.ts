@@ -74,10 +74,7 @@ function buildTrigramOrExpression(normalizedQuery: string): string {
 //     results. Task 13 (packages/directory/src/merge.ts) adds candidate-generation logic that
 //     resolves a merged subordinate to its surviving master; until then this filter keeps merged
 //     rows out of the result set entirely.
-export async function searchNames(
-  database: SqlDatabase,
-  query: string,
-): Promise<NameSearchHit[]> {
+export async function searchNames(database: SqlDatabase, query: string): Promise<NameSearchHit[]> {
   const normalizedQuery = normalizeName(query);
 
   // The trigram tokenizer requires at least three characters to form a single trigram.

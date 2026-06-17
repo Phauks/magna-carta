@@ -32,15 +32,17 @@
  *   6. Collapse whitespace and trim.
  */
 export function normalizeName(raw: string): string {
-  return raw
-    .normalize("NFC")
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    // Apostrophe/elision-mark strip — curated exhaustive set; see step 4 above.
-    // U+0027 ‘ · U+2019 ‘ · U+2018 ‘ · U+0060 ` · U+02BC ʼ · U+2032 ′
-    .replace(/[\u0027\u2019\u2018\u0060\u02BC\u2032]/gu, "")
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return (
+    raw
+      .normalize("NFC")
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .toLowerCase()
+      // Apostrophe/elision-mark strip — curated exhaustive set; see step 4 above.
+      // U+0027 ‘ · U+2019 ‘ · U+2018 ‘ · U+0060 ` · U+02BC ʼ · U+2032 ′
+      .replace(/[\u0027\u2019\u2018\u0060\u02BC\u2032]/gu, "")
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }

@@ -14,9 +14,7 @@ import type { PhoneticScheme } from "./types.js";
 // diacritics or lowercase); callers that want normalization-consistent codes must
 // pass already-normalized text (e.g. the output of `normalizeName`).
 
-export function phoneticCodes(
-  name: string,
-): Array<{ scheme: PhoneticScheme; code: string }> {
+export function phoneticCodes(name: string): Array<{ scheme: PhoneticScheme; code: string }> {
   const [primary, secondary] = doubleMetaphone(name);
   return [
     { scheme: "double_metaphone_primary" satisfies PhoneticScheme, code: primary },
