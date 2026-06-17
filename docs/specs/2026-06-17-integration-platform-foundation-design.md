@@ -2,7 +2,7 @@
 
 **Status:** Designed (brainstormed 2026-06-17). Awaiting plan.
 
-**Goal.** Decouple integrations ("plugins") from the platform core so that adding, expanding, reducing, or removing one is cheap and local. Today the core *contains* knowledge of each plugin in roughly a dozen files; this spec inverts that: each integration package exports one declarative **`IntegrationManifest`**, and the core holds a **registry that enumerates manifests** and drives wiring (route mounting, per-request adapter resolution, and — in Spec 2 — the marketplace) off them. The manifest is **transport-agnostic**, so the eventual move to isolated plugin Workers (see the C-seam ADR) swaps the transport beneath the same contract.
+**Goal.** Decouple integrations ("plugins") from the platform core so that adding, expanding, reducing, or removing one is cheap and local. Today the core _contains_ knowledge of each plugin in roughly a dozen files; this spec inverts that: each integration package exports one declarative **`IntegrationManifest`**, and the core holds a **registry that enumerates manifests** and drives wiring (route mounting, per-request adapter resolution, and — in Spec 2 — the marketplace) off them. The manifest is **transport-agnostic**, so the eventual move to isolated plugin Workers (see the C-seam ADR) swaps the transport beneath the same contract.
 
 **Non-goals (deferred).** The marketplace management surface (catalog/enablement/settings/credentials/connect — **Spec 2**); per-Worker plugin isolation / Workers-for-Platforms (**the C seam — ADR only here, built when triggered**); any new vendor adapter.
 
@@ -18,24 +18,24 @@ One manifest per integration package, pure data + declared capability — no D1,
 
 ```ts
 interface IntegrationManifest {
-  id: string;                  // stable adapter id, e.g. "easypost"
-  category: string;            // port category, e.g. "shipping"
-  displayName: string;         // catalog title — "EasyPost"
-  summary: string;             // one-line catalog description
-  vendorUrl?: string;          // optional "learn more" link
+  id: string; // stable adapter id, e.g. "easypost"
+  category: string; // port category, e.g. "shipping"
+  displayName: string; // catalog title — "EasyPost"
+  summary: string; // one-line catalog description
+  vendorUrl?: string; // optional "learn more" link
 
-  credential: CredentialRequirement;   // reused: { kind: "none" | "apiKey" | "oauth", scope: "firm" | "user" }
-  capability: CapabilityDescriptor;     // reused: operations supported (drives graceful degrade)
+  credential: CredentialRequirement; // reused: { kind: "none" | "apiKey" | "oauth", scope: "firm" | "user" }
+  capability: CapabilityDescriptor; // reused: operations supported (drives graceful degrade)
 
-  permission: KnownPermission | null;   // operational gate, e.g. "shipping:manage"; null for credential-less
+  permission: KnownPermission | null; // operational gate, e.g. "shipping:manage"; null for credential-less
 
   // Spec-2 fields, declared here so the contract is whole (unused by the core until the marketplace lands):
-  defaultEnablement: "on" | "off";      // credential-less → "on"; credentialed → "off"
-  connectSchema?: ZodType;              // credential input shape at connect, e.g. { apiKey }
-  settingsSchema?: ZodType;            // per-firm config; defaults in code
+  defaultEnablement: "on" | "off"; // credential-less → "on"; credentialed → "off"
+  connectSchema?: ZodType; // credential input shape at connect, e.g. { apiKey }
+  settingsSchema?: ZodType; // per-firm config; defaults in code
 
-  registerRoutes?: (app, chokepoint, runtime: PluginRuntime) => void;  // the plugin's own routes
-  adapter?: Adapter<unknown>;          // the Port adapter, for credentialed resolution
+  registerRoutes?: (app, chokepoint, runtime: PluginRuntime) => void; // the plugin's own routes
+  adapter?: Adapter<unknown>; // the Port adapter, for credentialed resolution
 }
 ```
 
@@ -48,7 +48,7 @@ One file lists every plugin's manifest in an array — the **only** place the co
 - `listManifests(): readonly IntegrationManifest[]` — enumeration (catalog source; route-mount loop).
 - `manifestFor(category): IntegrationManifest | undefined` — single-category resolution.
 
-Adding a plugin = write its manifest + add one line to this index. (Its migration, permission, and identifier prefixes remain core-side registrations — those are genuine shared-resource concerns, not accidental coupling; see *Intrinsic vs accidental coupling* below.)
+Adding a plugin = write its manifest + add one line to this index. (Its migration, permission, and identifier prefixes remain core-side registrations — those are genuine shared-resource concerns, not accidental coupling; see _Intrinsic vs accidental coupling_ below.)
 
 ### `PluginRuntime` — the uniform dependency seam
 
@@ -68,7 +68,7 @@ for (const manifest of listManifests()) {
 }
 ```
 
-**Enforcement is unchanged.** Each plugin's `registerRoutes` wires every route through `chokepointMiddleware(chokepoint, route)` exactly as `shipping.ts` does today. The ADR-0067 chokepoint stays the single tenancy → authn → RBAC → idempotency → rate-limit enforcement point; only *registration* became data-driven. This is the security-critical invariant the in-process model preserves (and the reason in-process beats per-Worker isolation for first-party plugins).
+**Enforcement is unchanged.** Each plugin's `registerRoutes` wires every route through `chokepointMiddleware(chokepoint, route)` exactly as `shipping.ts` does today. The ADR-0067 chokepoint stays the single tenancy → authn → RBAC → idempotency → rate-limit enforcement point; only _registration_ became data-driven. This is the security-critical invariant the in-process model preserves (and the reason in-process beats per-Worker isolation for first-party plugins).
 
 **The contract gets simpler.** The OpenAPI emitter and conformance suite already enumerate routes from the built app. Because manifest routes always register (no `if (options.shipping)` gate — that workaround is deleted), the emitted contract is complete by construction. The committed OpenAPI snapshot + generated client are regenerated; routes are byte-identical to today, only their mounting changed.
 
@@ -77,7 +77,7 @@ for (const manifest of listManifests()) {
 ## Migrating the three existing plugins (the proof)
 
 - **shipping (credentialed).** Export a manifest (`id: "easypost"`, `category: "shipping"`, `credential: {kind:"apiKey",scope:"firm"}`, `permission: "shipping:manage"`, `connectSchema: { apiKey }`, its routes, the EasyPost adapter). Delete the bespoke `app.ts` import, the `CreateAppOptions.shipping` field, and the conditional registration. The existing shipping e2e + conformance + snapshot tests must stay green through the new mounting — that is the validation.
-- **parcels, property-links (credential-less).** Export manifests (`credential: {kind:"none"}`, `permission: null`, `defaultEnablement: "on"`). They have no connection and no routes today (pure libraries surfaced inside features), so their manifests are catalog-only for now — but they make the registry hold *both* integration types from day one, which Spec 2's marketplace needs.
+- **parcels, property-links (credential-less).** Export manifests (`credential: {kind:"none"}`, `permission: null`, `defaultEnablement: "on"`). They have no connection and no routes today (pure libraries surfaced inside features), so their manifests are catalog-only for now — but they make the registry hold _both_ integration types from day one, which Spec 2's marketplace needs.
 
 ---
 
@@ -105,7 +105,7 @@ The C-seam ADR formalizes this boundary (what an isolated plugin Worker could ow
 
 ## Docs & decisions (in-commit, golden rule 5/8)
 
-- White-paper *Plugin / Add-on system* updated to describe the manifest model and the transport progression.
+- White-paper _Plugin / Add-on system_ updated to describe the manifest model and the transport progression.
 - **ADRs:** (1) the integration-platform decoupling / manifest contract; (2) the C-transition seam (transport progression, `PluginRuntime` boundary, the hard problems C must solve, what stays platform-owned, the trigger). Recorded in `docs/Decision-Log.md` with assigned numbers at build time.
 - STATUS / ROADMAP / CHANGELOG updated.
 
@@ -113,9 +113,9 @@ The C-seam ADR formalizes this boundary (what an isolated plugin Worker could ow
 
 ## The C seam (ADR content, recorded — not built)
 
-- **Transport progression under one unchanged manifest:** in-process (this spec) → service bindings (C1, first-party multi-Worker) → Workers for Platforms (C2, the *untrusted third-party* marketplace; confirmed as Cloudflare's "deploy serverless functions on behalf of your customers" model with dispatch namespaces).
+- **Transport progression under one unchanged manifest:** in-process (this spec) → service bindings (C1, first-party multi-Worker) → Workers for Platforms (C2, the _untrusted third-party_ marketplace; confirmed as Cloudflare's "deploy serverless functions on behalf of your customers" model with dispatch namespaces).
 - **`PluginRuntime` is the boundary contract:** in-process = direct; C = RPC. Authors code against it unchanged.
-- **The hard problems C must solve** (documented so they are not improvised): per-firm D1 across Workers (bindings are per-Worker by `database_id` — a plugin Worker cannot be handed the core's resolved firm-DB connection); firm-key / credential custody across the boundary; distributed migration ownership (likely resolution: plugins *declare* schema fragments the core applies to the single lineage, not per-Worker migrations); chokepoint-across-boundary (C1: core enforces then forwards trusted context; C2: per-Worker sandbox + re-check); aggregated OpenAPI across Workers; multi-Worker dev/test/deploy and WfP pricing.
+- **The hard problems C must solve** (documented so they are not improvised): per-firm D1 across Workers (bindings are per-Worker by `database_id` — a plugin Worker cannot be handed the core's resolved firm-DB connection); firm-key / credential custody across the boundary; distributed migration ownership (likely resolution: plugins _declare_ schema fragments the core applies to the single lineage, not per-Worker migrations); chokepoint-across-boundary (C1: core enforces then forwards trusted context; C2: per-Worker sandbox + re-check); aggregated OpenAPI across Workers; multi-Worker dev/test/deploy and WfP pricing.
 - **Platform-owned at every stage:** tenancy resolution, the single chokepoint, the migration lineage, the encryption custody root.
 - **Trigger:** the first untrusted/third-party plugin, or a plugin needing independent deploy cadence / sandboxing — not a calendar date.
 
@@ -123,4 +123,4 @@ The C-seam ADR formalizes this boundary (what an isolated plugin Worker could ow
 
 ## Follow-on: Spec 2 — Integration marketplace (separate spec)
 
-Built on this foundation: a uniform per-firm **enablement** model (everything toggleable; stored in the per-firm `setting` table as `integration:<id>` → `{ enabled, settings }`, validated by `settingsSchema`); per-integration **settings**; **credentials** (connect/disconnect over `firm_secret`, with the *machine credential-read* carve-out — a non-gated, non-audited firm-key decrypt used only by the framework's `CredentialStore`, while connect/disconnect stay audited under `integrations:manage`); an `EnablementStore` the registry consults so `resolve()` gates on enablement uniformly; the generic manifest-driven management routes under `/api/v1/integrations`; and a new `integrations:manage` permission. Brainstormed and specced after Spec 1 lands.
+Built on this foundation: a uniform per-firm **enablement** model (everything toggleable; stored in the per-firm `setting` table as `integration:<id>` → `{ enabled, settings }`, validated by `settingsSchema`); per-integration **settings**; **credentials** (connect/disconnect over `firm_secret`, with the _machine credential-read_ carve-out — a non-gated, non-audited firm-key decrypt used only by the framework's `CredentialStore`, while connect/disconnect stay audited under `integrations:manage`); an `EnablementStore` the registry consults so `resolve()` gates on enablement uniformly; the generic manifest-driven management routes under `/api/v1/integrations`; and a new `integrations:manage` permission. Brainstormed and specced after Spec 1 lands.

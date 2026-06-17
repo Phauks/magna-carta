@@ -39,6 +39,7 @@
 **Files:** Create `packages/integrations/src/manifest.ts`; modify `packages/integrations/package.json`. Test: `packages/integrations/test/manifest.test.ts`.
 
 **Interfaces:**
+
 - Produces: `IntegrationManifest` (the declarative contract) and `isWellFormedManifest(m): string[]` (returns a list of problems; empty = valid). Consumed by Tasks 2–7.
 
 - [ ] **Step 1: Write the failing test**
@@ -121,7 +122,9 @@ export function isWellFormedManifest(manifest: IntegrationManifest): string[] {
   if (manifest.id.trim() === "") problems.push("id must be non-empty");
   if (manifest.category.trim() === "") problems.push("category must be non-empty");
   if (manifest.capability.category !== manifest.category) {
-    problems.push(`capability.category "${manifest.capability.category}" must equal category "${manifest.category}"`);
+    problems.push(
+      `capability.category "${manifest.capability.category}" must equal category "${manifest.category}"`,
+    );
   }
   if (manifest.capability.credential.kind !== manifest.credential.kind) {
     problems.push("capability.credential.kind must equal credential.kind");
@@ -153,6 +156,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Files:** Create `apps/worker/src/plugins/runtime.ts`, `apps/worker/src/plugins/registry.ts`. Test: `apps/worker/test/plugins/registry.test.ts`.
 
 **Interfaces:**
+
 - Consumes: `IntegrationManifest` (Task 1); `SecretStore` (`@magna-carta/data-access/firm-secret-credential-store`); `HttpClient` (`@magna-carta/shipping/easypost/http`); `createIntegrationRegistry`/`IntegrationRegistry` (`@magna-carta/integrations/registry`); `createConnectionStore`, `createFirmSecretCredentialStore` (data-access); `SqlDatabase` (data-access).
 - Produces:
   - `interface PluginRuntime { readonly httpClient: HttpClient; readonly secretStoreForFirm: (firmDatabase: unknown) => SecretStore; }`
@@ -270,6 +274,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Files:** Create `packages/shipping/src/manifest.ts`; modify `packages/shipping/package.json`. Test: `packages/shipping/test/manifest.test.ts`.
 
 **Interfaces:**
+
 - Consumes: `IntegrationManifest` (Task 1); the EasyPost descriptor (`createEasyPostAdapter(...).descriptor`).
 - Produces: `shippingManifest: IntegrationManifest`.
 
@@ -349,6 +354,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Files:** Create `apps/worker/src/plugins/shipping-plugin.ts`; modify `apps/worker/src/routes/shipping.ts`, `apps/worker/src/plugins/registry.ts`; delete `apps/worker/src/shipping/registry.ts`.
 
 **Interfaces:**
+
 - Consumes: `shippingManifest` (Task 3); `registerShippingRoutes` (existing, signature `(app, chokepoint, deps)`); `buildIntegrationRegistry` (Task 2); `PluginRuntime` (Task 2); `createEasyPostAdapter` (`@magna-carta/shipping/easypost`).
 - Produces: `shippingPlugin: WorkerPlugin`, added to `workerPlugins`.
 
@@ -376,7 +382,7 @@ export function registerShippingRoutes(
 Each `buildShippingRegistry(...)` call becomes:
 
 ```typescript
-      const registry = buildIntegrationRegistry(firm.firmDatabase, runtime);
+const registry = buildIntegrationRegistry(firm.firmDatabase, runtime);
 ```
 
 And the connect route's `const secrets = deps.secretStoreForFirm(firm.firmDatabase);` becomes `const secrets = runtime.secretStoreForFirm(firm.firmDatabase);`, and `deps.httpClient` in the descriptor line becomes `runtime.httpClient`.
@@ -431,6 +437,7 @@ Expected: PASS (app.ts still references the old wiring — fixed in Task 5; if a
 **Files:** Modify `apps/worker/src/app.ts`, `apps/worker/src/index.ts`. Regenerate `apps/worker/openapi/openapi.json` + `packages/api-client`.
 
 **Interfaces:**
+
 - Consumes: `workerPlugins` / `listManifests` is not needed here; the mount uses `workerPlugins`. `PluginRuntime` (Task 2); `firmSecretStoreNotYetAvailable` (`./shipping/secret-store.ts`); `fetchHttpClient`.
 
 - [ ] **Step 1: Replace the shipping wiring with the mount loop**
@@ -438,34 +445,40 @@ Expected: PASS (app.ts still references the old wiring — fixed in Task 5; if a
 In `apps/worker/src/app.ts`:
 
 Remove these imports:
+
 ```typescript
 import { registerShippingRoutes } from "./routes/shipping.ts";
 import { fetchHttpClient } from "@magna-carta/shipping/easypost/http";
 ```
+
 Add:
+
 ```typescript
 import { workerPlugins } from "./plugins/registry.ts";
 import type { PluginRuntime } from "./plugins/runtime.ts";
 import { fetchHttpClient } from "@magna-carta/shipping/easypost/http";
 ```
+
 (`firmSecretStoreNotYetAvailable` import stays.)
 
 Replace the `CreateAppOptions.shipping?` field with a single runtime override:
+
 ```typescript
   // Overrides the plugin runtime for tests (a fake EasyPost http client + an in-memory secret store).
   pluginRuntime?: Partial<PluginRuntime>;
 ```
 
 Replace the shipping registration block with the runtime build + mount loop (place where `registerShippingRoutes(...)` was):
+
 ```typescript
-  // The plugin runtime: production defaults (a fetch-backed http client; the firm_secret store seam
-  // that throws until the marketplace wires the live credential read), overridable in tests.
-  const pluginRuntime: PluginRuntime = {
-    httpClient: options.pluginRuntime?.httpClient ?? fetchHttpClient(),
-    secretStoreForFirm: options.pluginRuntime?.secretStoreForFirm ?? firmSecretStoreNotYetAvailable,
-  };
-  // Plugins mount from the registry — the core names no plugin. Each registers through the chokepoint.
-  for (const plugin of workerPlugins) plugin.registerRoutes?.(app, chokepoint, pluginRuntime);
+// The plugin runtime: production defaults (a fetch-backed http client; the firm_secret store seam
+// that throws until the marketplace wires the live credential read), overridable in tests.
+const pluginRuntime: PluginRuntime = {
+  httpClient: options.pluginRuntime?.httpClient ?? fetchHttpClient(),
+  secretStoreForFirm: options.pluginRuntime?.secretStoreForFirm ?? firmSecretStoreNotYetAvailable,
+};
+// Plugins mount from the registry — the core names no plugin. Each registers through the chokepoint.
+for (const plugin of workerPlugins) plugin.registerRoutes?.(app, chokepoint, pluginRuntime);
 ```
 
 - [ ] **Step 2: Update `index.ts`**
@@ -475,6 +488,7 @@ In `apps/worker/src/index.ts`, the production `createApp()` call takes no plugin
 - [ ] **Step 3: Update the shipping e2e's injection**
 
 In `apps/worker/test/shipping-e2e.test.ts`, change the app construction from `createApp({ shipping: { secretStoreForFirm: () => secrets, httpClient: fakeEasyPost() } })` to:
+
 ```typescript
 const app = createApp({
   pluginRuntime: { secretStoreForFirm: () => secrets, httpClient: fakeEasyPost() },
@@ -489,10 +503,12 @@ Expected: PASS — the full connect→create→rate→purchase→label→trackin
 - [ ] **Step 5: Regenerate the contract + client**
 
 Run:
+
 ```
 pnpm --filter @magna-carta/worker run emit-openapi
 pnpm --filter @magna-carta/api-client run generate
 ```
+
 Expected: the OpenAPI snapshot diff shows **no operation changes** (routes are byte-identical; only mounting changed). If operations changed, a route was dropped — stop and fix.
 
 - [ ] **Step 6: Typecheck + commit (Tasks 4 + 5 together)**
@@ -515,6 +531,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Files:** Create `packages/parcels/src/manifest.ts`, `packages/property-links/src/manifest.ts`; modify both `package.json`s and `apps/worker/src/plugins/registry.ts`. Tests: `packages/parcels/test/manifest.test.ts`, `packages/property-links/test/manifest.test.ts`.
 
 **Interfaces:**
+
 - Consumes: `IntegrationManifest` (Task 1), `isWellFormedManifest`.
 - Produces: `parcelsManifest`, `propertyLinksManifest`; both added to a `parcelsPlugin`/`propertyLinksPlugin` `WorkerPlugin` (manifest-only — no routes, no adapter) and listed in `workerPlugins`.
 
@@ -627,6 +644,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 **Files:** Create `apps/worker/test/plugins/manifest-fitness.test.ts`.
 
 **Interfaces:**
+
 - Consumes: `listManifests` (Task 2), `isWellFormedManifest` (Task 1), `PERMISSIONS`/`isPermission` (`@magna-carta/access-control/registry`).
 
 - [ ] **Step 1: Write the test**
@@ -695,13 +713,14 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 - [ ] **Step 1: Record the two ADRs** in `docs/Decision-Log.md` (next free numbers): (1) **integration-platform decoupling** — the `IntegrationManifest` contract, the worker plugin registry, manifest-driven mounting, and the intrinsic-vs-accidental coupling boundary; (2) **the C-transition seam** — the in-process → service-binding → Workers-for-Platforms progression under one manifest, `PluginRuntime` as the boundary, the hard problems C must solve (per-firm D1 across Workers, credential custody, distributed migration ownership, chokepoint-across-boundary, aggregated contract), what stays platform-owned (tenancy, chokepoint, migration lineage, encryption custody), and the trigger (first untrusted/third-party or independent-deploy plugin). Follow the existing ADR entry format.
 
-- [ ] **Step 2: Update the white paper** — rewrite the *Plugin / Add-on system* section's mechanics around the manifest model (each integration self-describes; the core enumerates; first-party in-process now, the transport progression as the marketplace seam). No process-doc citations in the prose beyond ADR references (docs may cite ADRs).
+- [ ] **Step 2: Update the white paper** — rewrite the _Plugin / Add-on system_ section's mechanics around the manifest model (each integration self-describes; the core enumerates; first-party in-process now, the transport progression as the marketplace seam). No process-doc citations in the prose beyond ADR references (docs may cite ADRs).
 
 - [ ] **Step 3: Update STATUS / ROADMAP / CHANGELOG** — a new "Integration platform foundation" row/entry: built, Load profile `[-]` (no per-firm data surface — structural refactor), the manifest model + shipping migrated as proof + parcels/property-links manifests, the marketplace (Spec 2) and the C seam noted as follow-ons.
 
 - [ ] **Step 4: Final full gate**
 
 Run:
+
 ```
 pnpm check && pnpm run lint:process-refs && \
 pnpm --filter @magna-carta/integrations exec vp test run && \
@@ -710,6 +729,7 @@ pnpm --filter @magna-carta/parcels exec vp test run && \
 pnpm --filter @magna-carta/property-links exec vp test run && \
 pnpm --filter @magna-carta/worker exec vp test run
 ```
+
 Expected: all green; `lint:process-refs` clean.
 
 - [ ] **Step 5: Validate the worker deploy contract**
