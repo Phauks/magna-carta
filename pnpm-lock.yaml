@@ -144,6 +144,9 @@ importers:
       '@magna-carta/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@magna-carta/encryption':
+        specifier: workspace:*
+        version: link:../../packages/encryption
       '@magna-carta/file-manager':
         specifier: workspace:*
         version: link:../../packages/file-manager
@@ -246,9 +249,15 @@ importers:
 
   packages/data-access:
     dependencies:
+      '@magna-carta/access-control':
+        specifier: workspace:*
+        version: link:../access-control
       '@magna-carta/database':
         specifier: workspace:*
         version: link:../database
+      '@magna-carta/encryption':
+        specifier: workspace:*
+        version: link:../encryption
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers
@@ -306,6 +315,22 @@ importers:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
         version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))(yaml@2.9.0)'
 
+  packages/encryption:
+    dependencies:
+      '@magna-carta/identifiers':
+        specifier: workspace:*
+        version: link:../identifiers
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.1
+      vitest:
+        specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))(yaml@2.9.0)'
+
   packages/file-manager:
     dependencies:
       '@magna-carta/data-access':
@@ -354,6 +379,9 @@ importers:
       '@magna-carta/database':
         specifier: workspace:*
         version: link:../database
+      '@magna-carta/encryption':
+        specifier: workspace:*
+        version: link:../encryption
       '@magna-carta/file-manager':
         specifier: workspace:*
         version: link:../file-manager

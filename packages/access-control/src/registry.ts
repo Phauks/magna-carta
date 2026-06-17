@@ -10,6 +10,9 @@ export const PERMISSIONS = [
   "firm:manageMembers", // invite/deactivate members, assign roles
   "firm:provision", // reserved: platform-level firm creation (guarded by secret this slice)
   "firm:reportIncident", // file a diagnostic incident (slice 0·6) — seeded to every default role
+  "firm:manageSecrets", // read/write the encrypted per-firm secret store (an audited decrypt on read)
+  // Incidents — gates on the user-authored incident report beyond filing it.
+  "incidents:viewDescription", // decrypt and read an incident's protected description (audited)
   // Matters — the matter shell, its lifecycle, and the per-firm type/numbering configuration.
   "matters:create", // open a consultation or a numbered matter
   "matters:open", // draw a number on a prospective matter (prospective -> open)

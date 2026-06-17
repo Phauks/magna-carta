@@ -1,0 +1,46 @@
+[
+  {
+    "context": {
+      "firmId": "firm_abc",
+      "table": "incident",
+      "field": "description",
+      "rowPrimaryKey": "incident_xyz",
+      "algoVersion": 1,
+      "keyVersion": 1
+    },
+    "expected": "mc:aad:v1|firm_abc|incident|description|incident_xyz|1|1"
+  },
+  {
+    "context": {
+      "firmId": "firm_002",
+      "table": "client",
+      "field": "ssn",
+      "rowPrimaryKey": "client_5050",
+      "algoVersion": 1,
+      "keyVersion": 2
+    },
+    "expected": "mc:aad:v1|firm_002|client|ssn|client_5050|1|2"
+  },
+  {
+    "context": {
+      "firmId": "firm_legacy",
+      "table": "matter",
+      "field": "notes",
+      "rowPrimaryKey": "matter_0001",
+      "algoVersion": 2,
+      "keyVersion": 255
+    },
+    "expected": "mc:aad:v1|firm_legacy|matter|notes|matter_0001|2|255"
+  },
+  {
+    "context": {
+      "firmId": "firm_zzz",
+      "table": "safe_custody_item",
+      "field": "location",
+      "rowPrimaryKey": "item_900",
+      "algoVersion": 3,
+      "keyVersion": 7
+    },
+    "expected": "mc:aad:v1|firm_zzz|safe_custody_item|location|item_900|3|7"
+  }
+]

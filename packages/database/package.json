@@ -7,6 +7,7 @@
   "exports": {
     "./control-plane-schema": "./src/control-plane-schema.ts",
     "./per-firm-schema": "./src/per-firm-schema.ts",
+    "./protected-columns": "./src/protected-columns.ts",
     "./migration": "./src/migration.ts",
     "./migration-runner": "./src/migration-runner.ts",
     "./d1-migration-target": "./src/d1-migration-target.ts",

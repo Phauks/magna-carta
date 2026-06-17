@@ -1,5 +1,6 @@
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import { insertAuthAuditStatement } from "@magna-carta/data-access/auth-audit-statements";
+import { generateFirmKeyBytes, importRootKek, wrapFirmKey } from "@magna-carta/encryption/keys";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { isFirmNameConflict } from "./control-plane-conflicts.ts";
@@ -63,6 +64,10 @@ export interface FirmProvisionerDependencies {
   // The lineage head (perFirmHeadSchemaVersion()) — the step-3 skip guard compares the mirrored
   // version against this WITHOUT calling the port, so a resumed run leaves it untouched.
   readonly headSchemaVersion: string;
+  // The base64 root key-encryption key (the ROOT_KEK secret) the firm-key mint step (step 4c)
+  // wraps each freshly minted firm key under. The raw firm-key bytes are never persisted — only
+  // the wrapped form lands in the firm row.
+  readonly rootKekBase64: string;
   readonly now?: () => string;
 }
 
@@ -95,10 +100,11 @@ interface FirmRow {
   readonly database_identifier: string | null;
   readonly per_firm_schema_version: string | null;
   readonly bucket_name: string | null;
+  readonly wrapped_firm_key: string | null;
 }
 
 const SELECT_FIRM_BY_NAME =
-  "SELECT id, status, database_identifier, per_firm_schema_version, bucket_name FROM firm WHERE name = ?1";
+  "SELECT id, status, database_identifier, per_firm_schema_version, bucket_name, wrapped_firm_key FROM firm WHERE name = ?1";
 
 export async function provisionFirm(
   dependencies: FirmProvisionerDependencies,
@@ -205,6 +211,28 @@ export async function provisionFirm(
   // before this would otherwise never configure notifications on resume. Idempotent (PUT), so the
   // re-run on a resume is harmless.
   await dependencies.resourceProvider.configureBucketNotifications(firmId);
+
+  // Step 4c — mint the firm's data key. Guarded by wrapped_firm_key IS NULL so a resume mints
+  // nothing, AND by the firm never having been shredded (a firm.key_shredded audit row): a shredded
+  // firm's null key is permanent, never re-minted. Mint = 32 random bytes, AES-KW-wrapped under the
+  // root KEK; only the wrapped form is stored (the raw bytes are never persisted), so the firm's
+  // protected columns become writable/readable. firm_key_version/root_key_version already default 1.
+  if (firmRow.wrapped_firm_key === null) {
+    const shredded = await database
+      .prepare(
+        "SELECT 1 AS present FROM auth_audit WHERE event = 'firm.key_shredded' AND metadata LIKE '%' || ?1 || '%' LIMIT 1",
+      )
+      .bind(firmId)
+      .first<{ present: number }>();
+    if (shredded === null) {
+      const rootKek = await importRootKek(dependencies.rootKekBase64);
+      const wrappedFirmKey = await wrapFirmKey(rootKek, generateFirmKeyBytes());
+      await database
+        .prepare("UPDATE firm SET wrapped_firm_key = ?2 WHERE id = ?1 AND wrapped_firm_key IS NULL")
+        .bind(firmId, wrappedFirmKey)
+        .run();
+    }
+  }
 
   // Step 5 — the activation batch, returned for the caller's atomic commit: the owner user
   // (unverified, account-less — activation runs through the password-reset flow, the Path A

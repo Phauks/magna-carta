@@ -14,6 +14,12 @@ import {
   PRACTICE_PLAN_SCAN_ALLOWLIST,
 } from "../src/load-profile/matters-measurements.ts";
 import {
+  protectedHotPathPlans,
+  protectedMeasurementHandle,
+  protectedMeasurements,
+  PROTECTED_PLAN_SCAN_ALLOWLIST,
+} from "../src/load-profile/protected-measurements.ts";
+import {
   shippingHotPathPlans,
   shippingMeasurements,
   SHIPPING_PLAN_SCAN_ALLOWLIST,
@@ -92,6 +98,27 @@ describe("load-profile smoke", () => {
       expect(result.minMs).toBeGreaterThanOrEqual(0);
     }
 
+    // The protected() chokepoint set runs under its own (async) handle — the seed-derived firm key
+    // and owner permissions. Decrypts the cached sealed values, so a key-derivation regression would
+    // fail here, not silently.
+    const protectedHandle = await protectedMeasurementHandle(snapshot, "smoke-seed");
+    expect(protectedHandle.incidentCiphertexts.length).toBeGreaterThan(0);
+    const protectedResults = await runMeasurements(protectedHandle, protectedMeasurements, {
+      warmupIterations: 1,
+      iterations: 2,
+    });
+    expect(protectedResults.map((result) => result.name).sort()).toEqual(
+      [
+        "protected.incident-decrypt-page",
+        "protected.firm-secret-read",
+        "protected.blind-index-compute",
+      ].sort(),
+    );
+    for (const result of protectedResults) {
+      expect(result.iterations).toBe(2);
+      expect(result.minMs).toBeGreaterThanOrEqual(0);
+    }
+
     // The structural no-N+1/no-missing-index check on the hot-path statements. The label set is
     // asserted first: an empty plan list would make the scan check pass vacuously, so dropped
     // probes must fail here, not slip through.
@@ -141,6 +168,14 @@ describe("load-profile smoke", () => {
     const sortedListPlans = practicePlans.filter((plan) => sortedListLabels.includes(plan.label));
     expect(sortedListPlans.map((plan) => plan.label).sort()).toEqual([...sortedListLabels].sort());
     expect(findTempBtreeSorts(sortedListPlans)).toEqual([]);
+
+    // The protected keyed-read hot paths: same label-set-first guard, then the scan check. Both the
+    // firm-secret name lookup and the by-id incident fetch must walk an index / the primary key.
+    const protectedPlans = protectedHotPathPlans(snapshot);
+    expect(protectedPlans.map((plan) => plan.label).sort()).toEqual(
+      ["firm-secret.read-by-name", "incident.read-by-id"].sort(),
+    );
+    expect(findFullScans(protectedPlans, PROTECTED_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
     snapshot.close();
   });

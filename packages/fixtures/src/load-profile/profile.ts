@@ -2,7 +2,7 @@
 // seed (new archetype, changed faker call order, …) — it participates in snapshot identity, so a
 // stale cached artifact can never be measured against silently. Profile parameter changes bump
 // the profile's own `version` instead.
-export const GENERATOR_VERSION = 2;
+export const GENERATOR_VERSION = 3;
 
 // Transaction archetypes, weighted (faker.helpers.weightedArrayElement). The settlement archetype
 // is the multi-line tail; the rest are two-line entries. Weights are profile PARAMETERS, never
@@ -55,6 +55,19 @@ export interface ShippingVolume {
   readonly trackingEventsPerShipment: { readonly min: number; readonly max: number };
 }
 
+// The protected-field volume laid over the practice: diagnostic incidents whose user-authored
+// descriptions are SEALED at rest, and a handful of named firm secrets whose values are sealed too.
+// This is the queryable shadow of the crypto chokepoint — the encrypt-on-write
+// and audited decrypt-on-read paths the protected() module introduces. Counts are PARAMETERS (scaling
+// bumps the profile version). Directory-scale protected volume — many blind-indexed sensitive
+// identifiers — rides slice 1·3, where an indexed protected column first exists.
+export interface ProtectedVolume {
+  // Diagnostic incidents with a sealed description (the protected list read decrypts a page of these).
+  readonly incidentCount: number;
+  // Named firm secrets with a sealed value (read by name through the secrets store).
+  readonly firmSecretCount: number;
+}
+
 export interface LedgerVolumeProfile {
   readonly name: "ledgerVolume";
   // Profile identity: bump on ANY parameter change — baselines measured against different data
@@ -70,6 +83,8 @@ export interface LedgerVolumeProfile {
   readonly archetypeWeights: ArchetypeWeights;
   // The practice volume laid over the ledger book (matters/locations/file-manager).
   readonly practice: PracticeVolume;
+  // The protected-field volume laid over the practice (sealed incident descriptions + firm secrets).
+  readonly protected: ProtectedVolume;
   // The shipping volume laid over the practice book (shipments/labels/tracking).
   readonly shipping: ShippingVolume;
 }
@@ -79,7 +94,7 @@ export interface LedgerVolumeProfile {
 // files with multi-version histories.
 export const ledgerVolume: LedgerVolumeProfile = {
   name: "ledgerVolume",
-  version: 3,
+  version: 4,
   trustSubledgerCount: 200,
   entryCount: 25_000,
   postingSpanDays: 1_095,
@@ -102,6 +117,11 @@ export const ledgerVolume: LedgerVolumeProfile = {
     filesPerMatter: { min: 3, max: 14 },
     versionsPerFile: { min: 1, max: 4 },
     fileSizeBytes: { min: 20_000, max: 8_000_000 },
+  },
+  protected: {
+    // A few years of self-filed diagnostics, and a dozen integration/config secrets.
+    incidentCount: 500,
+    firmSecretCount: 12,
   },
   shipping: {
     shipmentCount: 300,
@@ -130,6 +150,12 @@ export function scaleProfile(
       prospectiveMatterCount: scaleCount(profile.practice.prospectiveMatterCount, 2),
       openMatterCount: scaleCount(profile.practice.openMatterCount, 3),
       closedMatterCount: scaleCount(profile.practice.closedMatterCount, 2),
+    },
+    protected: {
+      // Floors keep a handful of incidents (enough for a multi-row decrypt page) and a couple of
+      // secrets at the smoke multiplier.
+      incidentCount: scaleCount(profile.protected.incidentCount, 5),
+      firmSecretCount: scaleCount(profile.protected.firmSecretCount, 2),
     },
     shipping: {
       ...profile.shipping,

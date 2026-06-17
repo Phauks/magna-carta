@@ -12,6 +12,12 @@ import {
   PRACTICE_PLAN_SCAN_ALLOWLIST,
 } from "./matters-measurements.ts";
 import {
+  protectedHotPathPlans,
+  protectedMeasurementHandle,
+  protectedMeasurements,
+  PROTECTED_PLAN_SCAN_ALLOWLIST,
+} from "./protected-measurements.ts";
+import {
   shippingHotPathPlans,
   shippingMeasurements,
   SHIPPING_PLAN_SCAN_ALLOWLIST,
@@ -34,12 +40,13 @@ const snapshot = await loadProfileSnapshot(ledgerVolume, BASELINE_SEED, { allowS
 // dev-only CLI either moves onto the telemetry logger or gets an explicit exemption (never Worker
 // code).
 console.log(
-  `snapshot ${snapshot.cacheKey}: ${snapshot.manifest.entryCount} entries, ${snapshot.manifest.matterCount} matters, ${snapshot.manifest.fileCount} files (${snapshot.manifest.fileVersionCount} versions), ${snapshot.manifest.folderCount} folders, ${snapshot.manifest.shipmentCount} shipments (${snapshot.manifest.trackingEventCount} tracking events) (profile v${snapshot.manifest.profile.version})`,
+  `snapshot ${snapshot.cacheKey}: ${snapshot.manifest.entryCount} entries, ${snapshot.manifest.matterCount} matters, ${snapshot.manifest.fileCount} files (${snapshot.manifest.fileVersionCount} versions), ${snapshot.manifest.folderCount} folders, ${snapshot.manifest.incidentCount} sealed incidents, ${snapshot.manifest.firmSecretCount} firm secrets, ${snapshot.manifest.shipmentCount} shipments (${snapshot.manifest.trackingEventCount} tracking events) (profile v${snapshot.manifest.profile.version})`,
 );
 
 const scans = [
   ...findFullScans(hotPathPlans(snapshot), PLAN_SCAN_ALLOWLIST),
   ...findFullScans(practiceHotPathPlans(snapshot), PRACTICE_PLAN_SCAN_ALLOWLIST),
+  ...findFullScans(protectedHotPathPlans(snapshot), PROTECTED_PLAN_SCAN_ALLOWLIST),
   ...findFullScans(shippingHotPathPlans(snapshot), SHIPPING_PLAN_SCAN_ALLOWLIST),
 ];
 if (scans.length > 0) {
@@ -49,14 +56,18 @@ if (scans.length > 0) {
   process.exit(1);
 }
 
-const results = await runMeasurements(
-  measurementHandle(snapshot, BASELINE_SEED),
-  [...ledgerMeasurements, ...mattersMeasurements, ...shippingMeasurements],
-  {
-    warmupIterations: 3,
-    iterations: 30,
-  },
-);
+const results = [
+  ...(await runMeasurements(
+    measurementHandle(snapshot, BASELINE_SEED),
+    [...ledgerMeasurements, ...mattersMeasurements, ...shippingMeasurements],
+    { warmupIterations: 3, iterations: 30 },
+  )),
+  ...(await runMeasurements(
+    await protectedMeasurementHandle(snapshot, BASELINE_SEED),
+    protectedMeasurements,
+    { warmupIterations: 3, iterations: 30 },
+  )),
+];
 for (const result of results) {
   console.log(
     `${result.name}: median ${result.medianMs}ms · p95 ${result.p95Ms}ms · min ${result.minMs}ms (${result.iterations} iterations)`,

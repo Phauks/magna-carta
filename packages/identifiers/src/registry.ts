@@ -50,6 +50,9 @@ export const ENTITY_PREFIXES = {
   fileVersion: "fileVersion",
   uploadSession: "uploadSession",
   auditLog: "auditLog",
+  // A per-firm wrapped encryption key — the firm-secret row holding a data key sealed under the
+  // root key-encryption key. The full-name prefix keeps the handle self-describing in logs.
+  firmSecret: "firmSecret",
   // Shipping & postage. `shipment` is a mailing; `shipmentLabel` is a bought label's metadata (PDF in
   // R2); `trackingEvent` is one carrier scan appended as tracking is pulled.
   shipment: "shipment",

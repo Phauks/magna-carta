@@ -1,0 +1,62 @@
+[
+  {
+    "fn": "normalizeToDigits",
+    "args": ["123-45-6789"],
+    "expected": "123456789"
+  },
+  {
+    "fn": "normalizeToDigits",
+    "args": ["123456789"],
+    "expected": "123456789"
+  },
+  {
+    "fn": "normalizeToDigits",
+    "args": ["12 34-56"],
+    "expected": "123456"
+  },
+  {
+    "fn": "normalizeToDigits",
+    "args": ["(555) 123-4567 ext. 9"],
+    "expected": "55512345679"
+  },
+  {
+    "fn": "normalizeUppercaseStrip",
+    "args": ["d1234 567"],
+    "expected": "D1234567"
+  },
+  {
+    "fn": "normalizeUppercaseStrip",
+    "args": [" a-b.c "],
+    "expected": "ABC"
+  },
+  {
+    "fn": "normalizeUppercaseStrip",
+    "args": ["café"],
+    "expected": "CAFÉ"
+  },
+  {
+    "fn": "normalizeUppercaseStrip",
+    "args": ["café"],
+    "expected": "CAFÉ"
+  },
+  {
+    "fn": "withStatePrefix",
+    "args": ["nv", "d1234 567"],
+    "expected": "NV:D1234567"
+  },
+  {
+    "fn": "withStatePrefix",
+    "args": [" ca ", "Z-99.88"],
+    "expected": "CA:Z9988"
+  },
+  {
+    "fn": "toNfc",
+    "args": ["café"],
+    "expected": "café"
+  },
+  {
+    "fn": "toNfc",
+    "args": ["café"],
+    "expected": "café"
+  }
+]

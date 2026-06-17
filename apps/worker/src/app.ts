@@ -49,6 +49,10 @@ export type Bindings = {
   // stand-in seam until a real platform-admin principal model exists). Local dev + tests load the
   // placeholder from .dev.vars; production sets it with `wrangler secret put PLATFORM_ADMIN_KEY`.
   PLATFORM_ADMIN_KEY: string;
+  // The root key-encryption key (base64, 32 bytes) at the top of the encryption key hierarchy —
+  // it wraps the per-firm data keys, so no plaintext data key is ever stored. Local dev + tests
+  // load the placeholder from .dev.vars; production sets it with `wrangler secret put ROOT_KEK`.
+  ROOT_KEK: string;
   // Cloudflare REST FirmResourceProvider credentials — DEPLOY-TIME secrets only (`wrangler
   // secret put`), deliberately absent from .dev.vars: locally the dev pool-claiming adapter runs
   // instead, selected by these being unset (see routes/firms.ts resourceProviderForEnv).

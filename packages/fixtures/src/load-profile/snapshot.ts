@@ -22,6 +22,7 @@ import { assertSeedingAllowed, type SeedingOptions } from "../guard.ts";
 import { createLocalPerFirmDatabase } from "../local-database.ts";
 import { generateLedgerVolume, type VolumeProbes } from "./generate.ts";
 import { generatePracticeVolume, type PracticeProbes } from "./matters-generate.ts";
+import { generateProtectedVolume, type ProtectedProbes } from "./protected-generate.ts";
 import { generateShippingVolume, type ShippingProbes } from "./shipping-generate.ts";
 import { GENERATOR_VERSION, type LedgerVolumeProfile } from "./profile.ts";
 
@@ -42,6 +43,11 @@ export interface SnapshotManifest {
   readonly fileVersionCount: number;
   readonly folderCount: number;
   readonly practiceProbes: PracticeProbes;
+  // The protected-field volume laid over the practice (sealed incident descriptions + firm secrets)
+  // and the probe identifiers the protected measurement layer binds its decrypt/blind-index ops to.
+  readonly incidentCount: number;
+  readonly firmSecretCount: number;
+  readonly protectedProbes: ProtectedProbes;
   // The shipping volume laid over the practice book: total counts + the probe identifiers the
   // shipping measurement layer binds its volume-shaped reads to.
   readonly shipmentCount: number;
@@ -126,8 +132,16 @@ export async function loadProfileSnapshot(
         profile.practice,
         options,
       );
-      // The shipping volume rides the same FixtureContext, linking its shipments to the matters the
-      // practice generation laid down.
+      // The protected volume rides next — its sealed incidents reuse a mirrored member as reporter.
+      const protectedVolume = await generateProtectedVolume(
+        generated.database,
+        context,
+        profile.protected,
+        practice.probes.responsibleMemberId,
+        options,
+      );
+      // The shipping volume rides last on the same FixtureContext, linking its shipments to the
+      // matters the practice generation laid down.
       const shipping = await generateShippingVolume(
         generated.database,
         context,
@@ -146,6 +160,9 @@ export async function loadProfileSnapshot(
         fileVersionCount: practice.fileVersionCount,
         folderCount: practice.folderCount,
         practiceProbes: practice.probes,
+        incidentCount: protectedVolume.incidentCount,
+        firmSecretCount: protectedVolume.firmSecretCount,
+        protectedProbes: protectedVolume.probes,
         shipmentCount: shipping.shipmentCount,
         purchasedShipmentCount: shipping.purchasedCount,
         trackingEventCount: shipping.trackingEventCount,
