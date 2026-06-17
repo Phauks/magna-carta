@@ -1,17 +1,19 @@
 <script lang="ts" generics="TData">
   /*
    * Story support: a worked composition of the DataTable adapter — NOT part of the design-system API.
-   * It shows how a consumer wires @tanstack/table-core through createSvelteTable: sorting state, row
-   * selection, and column visibility live in local runes; the styled primitives render the result.
-   * Reused by the showcase / empty / loading stories so the composition is written once.
+   * Shows how a consumer wires @tanstack/table-core through createSvelteTable: a composable toolbar
+   * (Search drives the global filter, ColumnMenu toggles visibility) over the SAME table instance;
+   * typed columns (`defaultColumn.cell = typedCell`) format by their `meta.type` and right-align
+   * numerics via `columnAlign`; row selection supports shift-click range select. Reused by the
+   * showcase / empty / loading stories so the composition is written once.
    */
   import type { ColumnDef, RowSelectionState, SortingState, VisibilityState } from "@tanstack/table-core";
-  import { getCoreRowModel, getSortedRowModel } from "@tanstack/table-core";
+  import { getCoreRowModel, getFilteredRowModel, getSortedRowModel } from "@tanstack/table-core";
   import ArrowDown from "@lucide/svelte/icons/arrow-down";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import ChevronsUpDown from "@lucide/svelte/icons/chevrons-up-down";
   import * as DataTable from "../../lib/components/data-table/index.ts";
-  import { createSvelteTable, FlexRender } from "../../lib/components/data-table/index.ts";
+  import { columnAlign, createSvelteTable, FlexRender, typedCell } from "../../lib/components/data-table/index.ts";
   import Checkbox from "../../lib/components/checkbox/index.ts";
   import Skeleton from "../../lib/components/skeleton/index.ts";
 
@@ -30,6 +32,7 @@
   let sorting = $state<SortingState>([]);
   let rowSelection = $state<RowSelectionState>({});
   let columnVisibility = $state<VisibilityState>({});
+  let globalFilter = $state("");
 
   const table = createSvelteTable({
     get data() {
@@ -38,6 +41,8 @@
     get columns() {
       return columns;
     },
+    // Format every column by its meta.type unless it sets its own cell (the "set a value type" path).
+    defaultColumn: { cell: typedCell },
     state: {
       get sorting() {
         return sorting;
@@ -47,6 +52,9 @@
       },
       get columnVisibility() {
         return columnVisibility;
+      },
+      get globalFilter() {
+        return globalFilter;
       },
     },
     enableRowSelection: true,
@@ -59,8 +67,12 @@
     onColumnVisibilityChange: (updater) => {
       columnVisibility = updater instanceof Function ? updater(columnVisibility) : updater;
     },
+    onGlobalFilterChange: (updater) => {
+      globalFilter = updater instanceof Function ? updater(globalFilter) : updater;
+    },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
   });
 
   const ariaSort = (state: false | "asc" | "desc") =>
@@ -68,23 +80,42 @@
 
   // Selection column + the visible data columns span the empty/loading placeholder rows.
   const spanCount = $derived(table.getVisibleLeafColumns().length + 1);
+
+  // Shift-click range selection: an anchor row + the live shift-key state (tracked on the window, so
+  // it does not depend on the event being forwarded through bits' checkbox). A shift-click extends the
+  // selection from the anchor to the clicked row; a plain click sets a new anchor.
+  let anchorRowId: string | null = null;
+  let shiftHeld = false;
+  function selectRow(rowId: string, value: boolean): void {
+    const rows = table.getRowModel().rows;
+    if (shiftHeld && anchorRowId) {
+      const from = rows.findIndex((row) => row.id === anchorRowId);
+      const to = rows.findIndex((row) => row.id === rowId);
+      if (from !== -1 && to !== -1) {
+        const [low, high] = from < to ? [from, to] : [to, from];
+        for (let index = low; index <= high; index += 1) rows[index]!.toggleSelected(true);
+      }
+    } else {
+      rows.find((row) => row.id === rowId)?.toggleSelected(value);
+    }
+    anchorRowId = rowId;
+  }
 </script>
 
+<svelte:window
+  onkeydown={(event) => {
+    if (event.key === "Shift") shiftHeld = true;
+  }}
+  onkeyup={(event) => {
+    if (event.key === "Shift") shiftHeld = false;
+  }}
+/>
+
 <div class="flex flex-col gap-12">
-  <!-- Column-visibility toggles — one per hideable column. -->
-  <fieldset class="flex flex-wrap items-center gap-12">
-    <legend class="mc-table-toolbar-legend">Columns</legend>
-    {#each table.getAllLeafColumns().filter((column) => column.getCanHide()) as column (column.id)}
-      <label class="flex items-center gap-4">
-        <Checkbox
-          checked={column.getIsVisible()}
-          onCheckedChange={(value) => column.toggleVisibility(value === true)}
-          aria-label="Toggle {column.id} column"
-        />
-        <span class="mc-table-toolbar-label">{column.id}</span>
-      </label>
-    {/each}
-  </fieldset>
+  <div class="mc-table-toolbar">
+    <DataTable.Search {table} placeholder="Search matters…" class="max-w-xs" />
+    <DataTable.ColumnMenu {table} />
+  </div>
 
   <DataTable.Root>
     <DataTable.Caption class="sr-only">{caption}</DataTable.Caption>
@@ -101,6 +132,7 @@
           </DataTable.Head>
           {#each headerGroup.headers as header (header.id)}
             <DataTable.Head
+              data-align={columnAlign(header.column) === "end" ? "end" : undefined}
               aria-sort={header.column.getCanSort() ? ariaSort(header.column.getIsSorted()) : undefined}
             >
               {#if !header.isPlaceholder}
@@ -148,12 +180,12 @@
             <DataTable.Cell>
               <Checkbox
                 checked={row.getIsSelected()}
-                onCheckedChange={(value) => row.toggleSelected(value === true)}
+                onCheckedChange={(value) => selectRow(row.id, value === true)}
                 aria-label="Select row"
               />
             </DataTable.Cell>
             {#each row.getVisibleCells() as cell (cell.id)}
-              <DataTable.Cell>
+              <DataTable.Cell data-align={columnAlign(cell.column) === "end" ? "end" : undefined}>
                 <FlexRender content={cell.column.columnDef.cell} context={cell.getContext()} />
               </DataTable.Cell>
             {/each}

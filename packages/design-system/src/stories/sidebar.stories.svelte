@@ -40,24 +40,27 @@
   name="App shell"
   play={async ({ canvas, step }) => {
     const nav = canvas.getByRole("navigation", { name: "Primary" });
-    const trigger = canvas.getByRole("button", { name: "Toggle sidebar" });
 
     await step("The active destination is marked as the current page", async () => {
       await expect(canvas.getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
     });
 
-    await step("Collapsing switches to the icon rail but keeps accessible names", async () => {
-      await userEvent.click(trigger);
+    await step("The trigger says Collapse, and collapsing switches to the icon rail", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: "Collapse sidebar" }));
       await expect(nav).toHaveAttribute("data-state", "collapsed");
-      await expect(trigger).toHaveAttribute("aria-expanded", "false");
+      const expand = canvas.getByRole("button", { name: "Expand sidebar" });
+      await expect(expand).toHaveAttribute("aria-expanded", "false");
       // The label went sr-only, so the link is still findable by its accessible name.
       await expect(canvas.getByRole("link", { name: "Matters" })).toBeInTheDocument();
     });
 
-    await step("Expanding restores the labelled rail", async () => {
-      await userEvent.click(trigger);
+    await step("The trigger now says Expand, and expanding restores the labelled rail", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: "Expand sidebar" }));
       await expect(nav).toHaveAttribute("data-state", "expanded");
-      await expect(trigger).toHaveAttribute("aria-expanded", "true");
+      await expect(canvas.getByRole("button", { name: "Collapse sidebar" })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
     });
   }}
 >
@@ -67,7 +70,11 @@
         <Sidebar.Root bind:collapsed aria-label="Primary">
           <Sidebar.Header>
             <Landmark class="mc-sidebar-icon" aria-hidden="true" />
-            <span class={collapsed ? "sr-only" : "font-semibold text-default"}>Magna Carta</span>
+            <!-- Transparent (not sr-only) in the rail so the brand keeps its height — the header stays
+                 the same size, so collapsing never shifts the icons below it. -->
+            <span class={collapsed ? "font-semibold text-transparent" : "font-semibold text-default"}>
+              Magna Carta
+            </span>
           </Sidebar.Header>
 
           <Sidebar.Content>

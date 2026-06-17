@@ -660,6 +660,10 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    /* Pin the inline baseline so an empty box and a checked box (which gains the Check glyph) sit on
+       the line identically — otherwise the checked state shifts the line box and, in a table, resizes
+       the whole row on select. */
+    vertical-align: middle;
     inline-size: var(--mc-space-20);
     block-size: var(--mc-space-20);
     border-style: solid;
@@ -1996,8 +2000,15 @@
   .mc-table-scroll {
     overflow-x: auto;
   }
+  /*
+   * border-collapse SEPARATE (not collapse) with the hairline on the CELLS, not the row: under
+   * `collapse` a row's background shares the cell border box, so selecting a row (a background change)
+   * shifts its geometry by the border width. With separate borders + zero spacing the selected tint is
+   * a pure paint and the row height never moves.
+   */
   .mc-table {
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: var(--mc-space-0);
     font-family: var(--mc-font-sans);
     font-size: var(--mc-text-sm);
     line-height: var(--mc-leading-normal);
@@ -2013,6 +2024,7 @@
   .mc-table-head {
     block-size: var(--mc-density-control-height);
     padding-inline: var(--mc-density-gutter);
+    border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);
     color: var(--mc-text-muted);
     font-weight: var(--mc-weight-semibold);
     text-align: start;
@@ -2020,7 +2032,6 @@
     vertical-align: middle;
   }
   .mc-table-row {
-    border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);
     transition-property: background-color;
     transition-duration: var(--mc-duration-fast);
     transition-timing-function: var(--mc-easing-standard);
@@ -2035,7 +2046,15 @@
   .mc-table-cell {
     padding-block: var(--mc-density-stack);
     padding-inline: var(--mc-density-gutter);
+    border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);
     vertical-align: middle;
+  }
+  /* Numeric / money / date columns right-align with tabular figures (set data-align="end" from the
+     column's value type — see the typed-column meta + formatters). */
+  .mc-table-head[data-align="end"],
+  .mc-table-cell[data-align="end"] {
+    text-align: end;
+    font-variant-numeric: tabular-nums;
   }
   /*
    * Sortable column header — a borderless text button that fills the head cell, inherits its muted
@@ -2074,16 +2093,16 @@
   .mc-table-skeleton {
     block-size: var(--mc-space-16);
   }
-  /* The column-visibility toolbar above the table (story composition uses these for its chrome). */
-  .mc-table-toolbar-legend {
-    color: var(--mc-text-muted);
-    font-size: var(--mc-text-xs);
-    font-weight: var(--mc-weight-semibold);
+  /* The toolbar above the table — search on the leading edge, the Columns menu on the trailing edge. */
+  .mc-table-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--mc-space-12);
   }
-  .mc-table-toolbar-label {
-    color: var(--mc-text-default);
-    font-size: var(--mc-text-sm);
-    text-transform: capitalize;
+  .mc-table-toolbar-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
   }
 
   /*
@@ -2209,34 +2228,15 @@
   .mc-sidebar[data-state="collapsed"] .mc-sidebar-menu-button {
     justify-content: center;
   }
+  /* The group label keeps its box (transparent text), not display:none — removing its height would
+     pull every icon below it upward as the rail collapses. Reserving the space keeps icons fixed. */
   .mc-sidebar[data-state="collapsed"] .mc-sidebar-group-label {
-    display: none;
+    color: transparent;
   }
-  .mc-sidebar-trigger {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    inline-size: var(--mc-control-md);
-    block-size: var(--mc-control-md);
-    border-radius: var(--mc-radius-md);
-    background-color: transparent;
+  /* The collapse Trigger reuses the menu-button look (icon + "Collapse"/"Expand" label); it mutes its
+     icon to read as a control rather than a destination. */
+  .mc-sidebar-trigger .mc-sidebar-icon {
     color: var(--mc-text-muted);
-    cursor: pointer;
-    transition-property: background-color, color;
-    transition-duration: var(--mc-duration-fast);
-    transition-timing-function: var(--mc-easing-standard);
-  }
-  .mc-sidebar-trigger:hover {
-    background-color: var(--mc-surface-sunken);
-    color: var(--mc-text-default);
-  }
-  .mc-sidebar-trigger:focus-visible {
-    outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring);
-    outline-offset: var(--mc-focus-ring-offset);
-  }
-  .mc-sidebar-trigger-icon {
-    inline-size: var(--mc-space-20);
-    block-size: var(--mc-space-20);
   }
 
   /*

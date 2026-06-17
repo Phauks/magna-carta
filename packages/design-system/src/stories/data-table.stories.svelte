@@ -1,17 +1,17 @@
 <script module lang="ts">
   /*
    * DataTable — Tier 4, a THIN adapter over @tanstack/table-core (not a Bits component). The styled
-   * <table> primitives (Table/Header/Body/Row/Head/Cell) are presentation; sorting, row selection,
-   * and column visibility are wired through `createSvelteTable` in the consumer. The composition lives
-   * in the `support/matters-table.svelte` worked example (one place, reused by all three states), so
-   * these stories pass it data and a state flag. The three states ARE the variant axis (like Alert):
-   * the populated showcase (the compact, load-profile look at 100 rows), the empty state, and the
-   * deferred-load skeleton state. svelte-csf v5; FlexRender renders the plain-string headers and the
-   * default-stringified accessor cells.
+   * <table> primitives are presentation; sorting, row selection (incl. shift-click range select),
+   * column visibility, and global-filter search are wired through `createSvelteTable` in the consumer.
+   * Columns declare a value `type` in their meta so the table FORMATS them (Fees as money, Opened as a
+   * date) and right-aligns numerics. A composable toolbar (Search + ColumnMenu) drives the same table
+   * instance. The composition lives in `support/matters-table.svelte` (one place, reused by all three
+   * states). The three states ARE the variant axis: the populated showcase (the load-profile look at
+   * 100 rows), the empty state, and the deferred-load skeleton state. svelte-csf v5.
    */
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ColumnDef } from "@tanstack/table-core";
-  import { expect, userEvent, within } from "storybook/test";
+  import { expect, userEvent, waitFor, within } from "storybook/test";
   import DataTableRoot from "../lib/components/data-table/table.svelte";
   import MattersTable from "./support/matters-table.svelte";
 
@@ -23,7 +23,7 @@
     },
   });
 
-  type Matter = { reference: string; client: string; status: string; fees: number };
+  type Matter = { reference: string; client: string; status: string; opened: Date; fees: number };
 
   // CLIENTS[0] is deliberately NOT the alphabetical first, so an ascending sort visibly reorders.
   const CLIENTS = ["Zenith Holdings", "Acme Corp", "Briar LLP", "Crestwood Trust", "Dunmore Group"];
@@ -34,20 +34,24 @@
     reference: `MAT-${1000 + index}`,
     client: CLIENTS[index % CLIENTS.length]!,
     status: STATUSES[index % STATUSES.length]!,
+    opened: new Date(Date.UTC(2025, (index * 7) % 12, ((index * 13) % 27) + 1)),
     fees: ((index * 37) % 100) * 25,
   }));
 
+  // The `type` in each column's meta is what the table formats + aligns by (Opened = date, Fees =
+  // right-aligned money); text columns need no type.
   const columns: ColumnDef<Matter>[] = [
     { accessorKey: "reference", header: "Reference" },
     { accessorKey: "client", header: "Client" },
     { accessorKey: "status", header: "Status" },
-    { accessorKey: "fees", header: "Fees" },
+    { accessorKey: "opened", header: "Opened", meta: { type: "date" } },
+    { accessorKey: "fees", header: "Fees", meta: { type: "money", currency: "USD" } },
   ];
 </script>
 
 <!--
-  The showcase: a compact, 100-row table with sortable headers, row selection, and column-visibility
-  toggles — the look a matter list takes at volume.
+  The showcase: a compact, 100-row table with sortable headers, shift-selectable rows, typed columns
+  (money/date), a search box, and a column-visibility menu — the look a matter list takes at volume.
 -->
 <Story
   name="Data table"
@@ -70,16 +74,34 @@
       await expect(rows()[1]).toHaveTextContent("Zenith Holdings");
     });
 
-    await step("Select-all checks every row", async () => {
-      await userEvent.click(canvas.getByRole("checkbox", { name: "Select all rows" }));
-      await expect(rows()[1]).toHaveAttribute("data-state", "selected");
-      const rowBoxes = canvas.getAllByRole("checkbox", { name: "Select row" });
-      await expect(rowBoxes.every((box) => box.getAttribute("aria-checked") === "true")).toBe(true);
+    await step("The money column formats as currency", async () => {
+      await expect(within(table).getAllByText(/^\$[\d,]+\.\d{2}$/).length).toBeGreaterThan(0);
     });
 
-    await step("Hiding a column removes its header", async () => {
-      await userEvent.click(canvas.getByRole("checkbox", { name: "Toggle fees column" }));
-      await expect(canvas.queryByRole("button", { name: "Fees" })).toBeNull();
+    await step("Shift-click selects the whole range between two rows", async () => {
+      await userEvent.click(within(rows()[1]!).getByRole("checkbox", { name: "Select row" }));
+      await userEvent.keyboard("{Shift>}");
+      await userEvent.click(within(rows()[4]!).getByRole("checkbox", { name: "Select row" }));
+      await userEvent.keyboard("{/Shift}");
+      for (let index = 1; index <= 4; index += 1) {
+        await expect(rows()[index]).toHaveAttribute("data-state", "selected");
+      }
+    });
+
+    await step("The search box filters the rows", async () => {
+      const search = canvas.getByRole("searchbox", { name: "Search table" });
+      await userEvent.type(search, "Acme Corp");
+      await waitFor(() => expect(within(table).queryByText("Zenith Holdings")).toBeNull());
+      await expect(within(table).getAllByText("Acme Corp").length).toBeGreaterThan(0);
+      await userEvent.clear(search);
+    });
+
+    await step("The Columns menu hides a column", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: "Columns" }));
+      const body = within(document.body);
+      await userEvent.click(await body.findByRole("menuitemcheckbox", { name: "Fees" }));
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(canvas.queryByRole("button", { name: "Fees" })).toBeNull());
     });
   }}
 >
@@ -88,7 +110,7 @@
   {/snippet}
 </Story>
 
-<!-- Empty state: the header stays, the body shows a single spanning "no results" message. -->
+<!-- Empty state: the toolbar + header stay, the body shows a single spanning "no results" message. -->
 <Story
   name="Empty"
   play={async ({ canvas, step }) => {

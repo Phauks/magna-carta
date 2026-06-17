@@ -20,9 +20,20 @@ import Head from "./table-head.svelte";
 import Cell from "./table-cell.svelte";
 import Caption from "./table-caption.svelte";
 import FlexRender from "./flex-render.svelte";
+import Search from "./data-table-search.svelte";
+import ColumnMenu from "./data-table-column-menu.svelte";
 
 export { createSvelteTable } from "./data-table.svelte.ts";
 export { renderComponent, renderSnippet } from "./render-helpers.ts";
+export {
+  type ColumnValueType,
+  formatDate,
+  formatMoney,
+  formatNumber,
+  typedCell,
+  columnAlign,
+  columnLabel,
+} from "./typed-columns.ts";
 
 export {
   Root,
@@ -33,6 +44,8 @@ export {
   Cell,
   Caption,
   FlexRender,
+  Search,
+  ColumnMenu,
   //
   Root as Table,
   Header as TableHeader,
@@ -41,4 +54,6 @@ export {
   Head as TableHead,
   Cell as TableCell,
   Caption as TableCaption,
+  Search as TableSearch,
+  ColumnMenu as TableColumnMenu,
 };
