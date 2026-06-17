@@ -55,9 +55,13 @@ export type { MergeEntitiesInput, SurvivorshipInput, SurvivorshipChoice } from "
 export {
   assertNoDanglingToSubordinate,
   findDanglingToSubordinate,
+  assertDirectoryFitness,
+  findNamesMissingPhonetics,
+  findEdgesToDeletedEntities,
   DanglingSubordinateReferenceError,
+  DirectoryFitnessError,
 } from "./fitness.ts";
-export type { DanglingReference } from "./fitness.ts";
+export type { DanglingReference, NameMissingPhonetics, EdgeToDeletedEntity } from "./fitness.ts";
 export { linkMatterParty, readMatterParties, createPartyRole, listPartyRoles } from "./party.ts";
 export type {
   LinkMatterPartyInput,

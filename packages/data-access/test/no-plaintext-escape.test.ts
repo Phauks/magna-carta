@@ -59,6 +59,12 @@ const ALLOW_LISTED_WRITE_SITES = new Set(
     // no raw decrypt bypasses the gate.
     "packages/fixtures/src/load-profile/protected-generate.ts",
     "packages/fixtures/src/load-profile/protected-measurements.ts",
+    // The directory load-profile measurement harness (fixtures, never bundled into the Worker): same
+    // shape as protected-measurements.ts for the directory_identifier column — it prefetches a page of
+    // (id, value_ciphertext) pairs only to hand each to readProtected (the chokepoint does every
+    // decrypt under the row-bound AAD), and EXPLAIN-probes the value_blind_index equality lookup. No
+    // raw decrypt bypasses the gate.
+    "packages/fixtures/src/load-profile/directory-measurements.ts",
   ].map(normalizeRelative),
 );
 
