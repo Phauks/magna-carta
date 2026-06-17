@@ -19,6 +19,7 @@ import type {
   GrantId,
   IdempotencyRecordId,
   IncidentId,
+  IntegrationConnectionId,
   LedgerAccountId,
   LedgerEntryId,
   LedgerLineId,
@@ -656,3 +657,33 @@ export const incident = sqliteTable("incident", {
   reportedBy: text("reported_by").notNull().$type<UserId>(), // global usr_ handle; no cross-plane FK
   createdAt: text("created_at").notNull(), // ISO-8601 instant
 });
+
+// One authorized external account per category (the grant). Firm-scoped today (shipping); the unique
+// index keys it on (category, principal) so a firm has exactly one connection per category.
+// `credential_ref` points at the firm_secret entry; `capability_snapshot` is the adapter descriptor
+// captured at connect time.
+export const integrationConnection = sqliteTable(
+  "integration_connection",
+  {
+    id: text("id").primaryKey().$type<IntegrationConnectionId>(),
+    category: text("category").notNull(),
+    adapterId: text("adapter_id").notNull(),
+    scope: text("scope", { enum: ["firm", "user"] }).notNull(),
+    principalRef: text("principal_ref").notNull(),
+    credentialRef: text("credential_ref").notNull(),
+    status: text("status", {
+      enum: ["connected", "degraded", "needs_reauth", "disabled"],
+    })
+      .notNull()
+      .default("connected"),
+    capabilitySnapshot: text("capability_snapshot").notNull(), // JSON-serialized CapabilityDescriptor
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("integration_connection_principal_category_unique_index").on(
+      table.category,
+      table.principalRef,
+    ),
+  ],
+);
