@@ -33,6 +33,10 @@ import {
   NAME_ROLES,
 } from "@magna-carta/directory/types";
 import type { DirectoryWriteOptions } from "@magna-carta/directory/audit";
+import {
+  DirectoryIdempotencyConflictError,
+  type DirectoryIdempotencyContext,
+} from "@magna-carta/directory/run-directory-effect";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import { identifierField, idempotencyKeyHeader } from "../contracts/common.ts";
 import type { DirectoryOrganizationId, DirectoryPersonId } from "@magna-carta/identifiers/types";
@@ -42,8 +46,10 @@ import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
   requireChokepointFirmId,
+  requireChokepointIdempotency,
   requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
+import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import { firmKeyProviderForEnv } from "../firm-key-provider-wiring.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
@@ -64,12 +70,18 @@ import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 
 // The clock + random source every directory write reads (the service trusts no ambient clock and no
 // ambient identity — both are passed). The random source is the production Web Crypto source; tests
-// drive determinism at the domain layer, not through the route.
-function writeOptions(actorUserId: AppVariables["chokepointUserId"]): DirectoryWriteOptions {
+// drive determinism at the domain layer, not through the route. The idempotency context (the
+// chokepoint's firm-scoped derived key + request fingerprint) rides the committed batch so a retried
+// mutation dedups instead of duplicating.
+function writeOptions(
+  actorUserId: AppVariables["chokepointUserId"],
+  idempotency: DirectoryIdempotencyContext,
+): DirectoryWriteOptions {
   return {
     clock: { now: () => new Date().toISOString() },
     actorUserId,
     randomSource: cryptoRandomSource,
+    idempotency,
   };
 }
 
@@ -81,6 +93,7 @@ function writeOptions(actorUserId: AppVariables["chokepointUserId"]): DirectoryW
 // minted today).
 async function identifierContext(
   c: Context<{ Bindings: Bindings; Variables: AppVariables }>,
+  idempotency?: DirectoryIdempotencyContext,
 ): Promise<DirectoryIdentifierContext> {
   const firm = requireChokepointFirmContext(c);
   const firmId = requireChokepointFirmId(c);
@@ -95,6 +108,7 @@ async function identifierContext(
     actorUserId,
     clock: { now: () => new Date().toISOString() },
     randomSource: cryptoRandomSource,
+    idempotency,
   };
 }
 
@@ -317,6 +331,9 @@ function directoryErrorResponse(
   c: Context,
   caught: unknown,
 ): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
+  if (caught instanceof DirectoryIdempotencyConflictError) {
+    return problemResponseForIdempotencyConflict(c, caught);
+  }
   if (
     caught instanceof MergeEntityNotFoundError ||
     caught instanceof EntityNotFoundError ||
@@ -732,19 +749,24 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
-      const id = await createPerson(
-        firm.firmDatabase,
-        {
-          given: request.given,
-          family: request.family,
-          prefix: request.prefix ?? null,
-          middle: request.middle ?? null,
-          suffix: request.suffix ?? null,
-        },
-        writeOptions(userId),
-      );
-      return c.json({ id } as z.infer<typeof CreatedEntityResponse>, 201);
+      try {
+        const id = await createPerson(
+          firm.firmDatabase,
+          {
+            given: request.given,
+            family: request.family,
+            prefix: request.prefix ?? null,
+            middle: request.middle ?? null,
+            suffix: request.suffix ?? null,
+          },
+          writeOptions(userId, idempotency),
+        );
+        return c.json({ id } as z.infer<typeof CreatedEntityResponse>, 201);
+      } catch (caught) {
+        return directoryErrorResponse(c, caught);
+      }
     },
   );
 
@@ -777,13 +799,18 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
-      const id = await createOrganization(
-        firm.firmDatabase,
-        { legalName: request.legalName, displayName: request.displayName ?? null },
-        writeOptions(userId),
-      );
-      return c.json({ id } as z.infer<typeof CreatedEntityResponse>, 201);
+      try {
+        const id = await createOrganization(
+          firm.firmDatabase,
+          { legalName: request.legalName, displayName: request.displayName ?? null },
+          writeOptions(userId, idempotency),
+        );
+        return c.json({ id } as z.infer<typeof CreatedEntityResponse>, 201);
+      } catch (caught) {
+        return directoryErrorResponse(c, caught);
+      }
     },
   );
 
@@ -816,6 +843,7 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const request = c.req.valid("json");
       try {
@@ -834,7 +862,7 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
                 middle: request.middle ?? null,
                 suffix: request.suffix ?? null,
               };
-        await addName(firm.firmDatabase, id as EntityId, input, writeOptions(userId));
+        await addName(firm.firmDatabase, id as EntityId, input, writeOptions(userId, idempotency));
         return c.json({ ok: true } as z.infer<typeof AckResponse>, 201);
       } catch (caught) {
         return directoryErrorResponse(c, caught);
@@ -846,9 +874,10 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
   app.openapi(
     { ...addIdentifierRoute, middleware: chokepointMiddleware(chokepoint, addIdentifierRoute) },
     async (c) => {
+      const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const request = c.req.valid("json");
-      const context = await identifierContext(c);
+      const context = await identifierContext(c, idempotency);
       try {
         await addIdentifier(context, id, {
           type: request.type,
@@ -880,6 +909,7 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
       try {
         const id = await createEdge(
@@ -893,7 +923,7 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
             validFrom: request.validFrom ?? null,
             validTo: request.validTo ?? null,
           },
-          writeOptions(userId),
+          writeOptions(userId, idempotency),
         );
         return c.json({ id } as z.infer<typeof CreatedEntityResponse>, 201);
       } catch (caught) {
@@ -908,13 +938,18 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
-      const { id } = await createCategory(
-        firm.firmDatabase,
-        { name: request.name, appliesTo: request.appliesTo, position: request.position },
-        writeOptions(userId),
-      );
-      return c.json({ id } as z.infer<typeof CreatedEntityResponse>, 201);
+      try {
+        const { id } = await createCategory(
+          firm.firmDatabase,
+          { name: request.name, appliesTo: request.appliesTo, position: request.position },
+          writeOptions(userId, idempotency),
+        );
+        return c.json({ id } as z.infer<typeof CreatedEntityResponse>, 201);
+      } catch (caught) {
+        return directoryErrorResponse(c, caught);
+      }
     },
   );
 
@@ -924,12 +959,13 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
       try {
         await assignCategory(
           firm.firmDatabase,
           { entityId: request.entityId, categoryId: request.categoryId },
-          writeOptions(userId),
+          writeOptions(userId, idempotency),
         );
         return c.json({ ok: true } as z.infer<typeof AckResponse>, 201);
       } catch (caught) {
@@ -974,8 +1010,9 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
   app.openapi(
     { ...mergeRoute, middleware: chokepointMiddleware(chokepoint, mergeRoute) },
     async (c) => {
+      const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
-      const context = await identifierContext(c);
+      const context = await identifierContext(c, idempotency);
       try {
         const mergeId = await mergeEntities(context, {
           masterId: request.masterId,
@@ -995,12 +1032,13 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
       try {
         const id = await linkMatterParty(
           firm.firmDatabase,
           { matterId: request.matterId, entityId: request.entityId, role: request.role },
-          writeOptions(userId),
+          writeOptions(userId, idempotency),
         );
         return c.json({ id } as z.infer<typeof MatterPartyResponse>, 201);
       } catch (caught) {

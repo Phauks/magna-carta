@@ -28,6 +28,8 @@ export type {
   ChangePersonNameInput,
 } from "./name-history.js";
 export type { DirectoryWriteOptions } from "./audit.js";
+export { DirectoryIdempotencyConflictError } from "./run-directory-effect.js";
+export type { DirectoryIdempotencyContext } from "./run-directory-effect.js";
 export {
   createCategory,
   assignCategory,

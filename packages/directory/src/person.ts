@@ -1,8 +1,8 @@
-import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
-import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DirectoryNameId, DirectoryPersonId } from "@magna-carta/identifiers/types";
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.js";
+import { runDirectoryEffect } from "./run-directory-effect.js";
 import { normalizeName } from "./normalize-name.js";
 import { phoneticCodes } from "./phonetics.js";
 import {
@@ -70,49 +70,45 @@ export async function createPerson(
   const phoneticSource = family.length > 0 ? family : given;
   const codes = phoneticCodes(normalizeName(phoneticSource));
 
-  const statements: SqlStatement[] = [
-    insertPersonStatement(database, {
-      id: personId,
-      prefix: input.prefix ?? null,
-      given: given.length > 0 ? given : null,
-      middle: input.middle ?? null,
-      family: family.length > 0 ? family : null,
-      suffix: input.suffix ?? null,
-      displayName,
-      status: "active",
-      needsReview: 0,
-      createdAt: now,
-    }),
-    insertNameStatement(database, {
-      id: nameId,
-      entityId: personId,
-      entityKind: "person",
-      nameRole: "current",
-      prefix: input.prefix ?? null,
-      given: given.length > 0 ? given : null,
-      middle: input.middle ?? null,
-      family: family.length > 0 ? family : null,
-      suffix: input.suffix ?? null,
-      normalizedDisplay,
-      isCurrent: true,
-      validFrom: now,
-      validTo: null,
-      createdAt: now,
-    }),
-    ...insertPhoneticCodeStatements(database, nameId, codes),
-    directoryAuditStatement(database, options, "directory.person.created", personId),
-  ];
-
-  await commitEffectBatch(
-    database,
-    {
-      statements,
-      outboxMessages: [{ topic: "directory.entity.created", payload: { personId } }],
-    },
-    { now: () => now },
-  );
-
-  return personId;
+  return runDirectoryEffect(database, options.idempotency, options.clock, () => ({
+    statements: [
+      insertPersonStatement(database, {
+        id: personId,
+        prefix: input.prefix ?? null,
+        given: given.length > 0 ? given : null,
+        middle: input.middle ?? null,
+        family: family.length > 0 ? family : null,
+        suffix: input.suffix ?? null,
+        displayName,
+        status: "active",
+        needsReview: 0,
+        createdAt: now,
+      }),
+      insertNameStatement(database, {
+        id: nameId,
+        entityId: personId,
+        entityKind: "person",
+        nameRole: "current",
+        prefix: input.prefix ?? null,
+        given: given.length > 0 ? given : null,
+        middle: input.middle ?? null,
+        family: family.length > 0 ? family : null,
+        suffix: input.suffix ?? null,
+        normalizedDisplay,
+        isCurrent: true,
+        validFrom: now,
+        validTo: null,
+        createdAt: now,
+      }),
+      ...insertPhoneticCodeStatements(database, nameId, codes),
+      directoryAuditStatement(database, options, "directory.person.created", personId),
+    ],
+    outboxMessages: [{ topic: "directory.entity.created", payload: { personId } }],
+    responseCode: 201,
+    responseBody: { id: personId },
+    value: personId,
+    fromBody: (body) => (body as { id: DirectoryPersonId }).id,
+  }));
 }
 
 export async function readPerson(
@@ -168,12 +164,17 @@ export async function updatePerson(
     mergedIntoId: patch.mergedIntoId !== undefined ? patch.mergedIntoId : current.mergedIntoId,
   };
 
-  const statements: SqlStatement[] = [
-    updatePersonFieldsStatement(database, personId, fields, now),
-    directoryAuditStatement(database, options, "directory.person.updated", personId),
-  ];
-
-  await commitEffectBatch(database, { statements, outboxMessages: [] }, { now: () => now });
+  await runDirectoryEffect(database, options.idempotency, options.clock, () => ({
+    statements: [
+      updatePersonFieldsStatement(database, personId, fields, now),
+      directoryAuditStatement(database, options, "directory.person.updated", personId),
+    ],
+    outboxMessages: [],
+    responseCode: 200,
+    responseBody: { ok: true },
+    value: undefined,
+    fromBody: () => undefined,
+  }));
 }
 
 // Re-export PersonRow for consumers wiring read projections elsewhere.

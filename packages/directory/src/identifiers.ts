@@ -1,4 +1,4 @@
-import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
+import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import {
   blindIndexValue,
@@ -18,6 +18,7 @@ import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statement
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DirectoryIdentifierId } from "@magna-carta/identifiers/types";
 import { directoryAuditStatement } from "./audit.js";
+import { runDirectoryEffect, type DirectoryIdempotencyContext } from "./run-directory-effect.js";
 import { DIRECTORY_IDENTIFIER_TABLE } from "./statements.js";
 import type { IdentifierType } from "./types.js";
 
@@ -29,10 +30,13 @@ import type { IdentifierType } from "./types.js";
 // exact-identifier channel — matched by indexed equality with no decrypt and no permission.
 
 // The context every directory identifier operation runs under: the firm-scoped protected-read context
-// (firm key, the per-firm database, the caller's effective permissions, the acting user, the clock).
-// addIdentifier and findByIdentifier use only its write/index halves; readIdentifier uses the full
-// permission-gated, audited read.
-export type DirectoryIdentifierContext = ProtectedReadContext;
+// (firm key, the per-firm database, the caller's effective permissions, the acting user, the clock),
+// plus the route's optional Idempotency-Key context. addIdentifier and findByIdentifier use only its
+// write/index halves; readIdentifier uses the full permission-gated, audited read; the mutating paths
+// (addIdentifier, mergeEntities) thread idempotency into their committed batch so a retry dedups.
+export type DirectoryIdentifierContext = ProtectedReadContext & {
+  readonly idempotency?: DirectoryIdempotencyContext;
+};
 
 // Thrown when a lookup is attempted against an identifier type that carries no standalone blind index
 // (DOB, SSN-last-four — too low-entropy to index without leaking distribution). There is nothing to
@@ -184,31 +188,36 @@ export async function addIdentifier(
 
   const sealed = await composeProtectedWrite(context, declaration, identifierId, input.value);
 
-  const statements: SqlStatement[] = [
-    insertIdentifierStatement(context.database, {
-      id: identifierId,
-      entityId,
-      identifierType: input.type,
-      valueCiphertext: sealed.ciphertextValue,
-      valueBlindIndex: sealed.blindIndexValue ?? null,
-      validFrom: input.validFrom ?? null,
-      validTo: input.validTo ?? null,
-      createdAt: now,
-    }),
-    // The audit subject is the identifier row, so a later read/merge correlates by it.
-    directoryAuditStatement(
-      context.database,
-      {
-        clock: context.clock,
-        actorUserId: context.actorUserId,
-        randomSource: context.randomSource,
-      },
-      "directory.identifier.added",
-      identifierId,
-    ),
-  ];
-
-  await commitEffectBatch(context.database, { statements, outboxMessages: [] }, { now: () => now });
+  await runDirectoryEffect(context.database, context.idempotency, context.clock, () => ({
+    statements: [
+      insertIdentifierStatement(context.database, {
+        id: identifierId,
+        entityId,
+        identifierType: input.type,
+        valueCiphertext: sealed.ciphertextValue,
+        valueBlindIndex: sealed.blindIndexValue ?? null,
+        validFrom: input.validFrom ?? null,
+        validTo: input.validTo ?? null,
+        createdAt: now,
+      }),
+      // The audit subject is the identifier row, so a later read/merge correlates by it.
+      directoryAuditStatement(
+        context.database,
+        {
+          clock: context.clock,
+          actorUserId: context.actorUserId,
+          randomSource: context.randomSource,
+        },
+        "directory.identifier.added",
+        identifierId,
+      ),
+    ],
+    outboxMessages: [],
+    responseCode: 201,
+    responseBody: { ok: true },
+    value: undefined,
+    fromBody: () => undefined,
+  }));
 }
 
 // The caller-supplied lookup: an identifier type and the plaintext value to match. Formatting-insensitive

@@ -1,4 +1,4 @@
-import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
+import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -6,6 +6,7 @@ import type { EntityMergeId } from "@magna-carta/identifiers/types";
 import type { DirectoryWriteOptions } from "./audit.js";
 import { entityKindFromId } from "./entity-kind.js";
 import type { DirectoryIdentifierContext } from "./identifiers.js";
+import { runDirectoryEffect } from "./run-directory-effect.js";
 import type { EntityKind } from "./types.js";
 
 // Merge is the directory's most intricate write: it folds a duplicate (the subordinate) into the
@@ -274,7 +275,15 @@ export async function mergeEntities(
     }),
   );
 
-  await commitEffectBatch(database, { statements, outboxMessages: [] }, { now: () => now });
-
-  return mergeId;
+  // The merge — the archive, every repoint, the survivorship, the entity_merge event, and the audit
+  // row — commits in ONE atomic batch with the idempotency record (when a key is present), so a
+  // retried merge under the same key never double-repoints nor writes a second entity_merge event.
+  return runDirectoryEffect(database, context.idempotency, context.clock, () => ({
+    statements,
+    outboxMessages: [],
+    responseCode: 201,
+    responseBody: { mergeId },
+    value: mergeId,
+    fromBody: (body) => (body as { mergeId: EntityMergeId }).mergeId,
+  }));
 }

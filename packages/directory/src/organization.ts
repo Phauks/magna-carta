@@ -1,8 +1,8 @@
-import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
-import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DirectoryNameId, DirectoryOrganizationId } from "@magna-carta/identifiers/types";
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.js";
+import { runDirectoryEffect } from "./run-directory-effect.js";
 import { normalizeName } from "./normalize-name.js";
 import { phoneticCodes } from "./phonetics.js";
 import {
@@ -50,45 +50,41 @@ export async function createOrganization(
   // separately, which requires encoding the full string.
   const codes = phoneticCodes(normalizedDisplay);
 
-  const statements: SqlStatement[] = [
-    insertOrganizationStatement(database, {
-      id: organizationId,
-      legalName,
-      displayName,
-      status: "active",
-      needsReview: 0,
-      createdAt: now,
-    }),
-    insertNameStatement(database, {
-      id: nameId,
-      entityId: organizationId,
-      entityKind: "organization",
-      nameRole: "current",
-      prefix: null,
-      given: null,
-      middle: null,
-      family: null,
-      suffix: null,
-      normalizedDisplay,
-      isCurrent: true,
-      validFrom: now,
-      validTo: null,
-      createdAt: now,
-    }),
-    ...insertPhoneticCodeStatements(database, nameId, codes),
-    directoryAuditStatement(database, options, "directory.organization.created", organizationId),
-  ];
-
-  await commitEffectBatch(
-    database,
-    {
-      statements,
-      outboxMessages: [{ topic: "directory.entity.created", payload: { organizationId } }],
-    },
-    { now: () => now },
-  );
-
-  return organizationId;
+  return runDirectoryEffect(database, options.idempotency, options.clock, () => ({
+    statements: [
+      insertOrganizationStatement(database, {
+        id: organizationId,
+        legalName,
+        displayName,
+        status: "active",
+        needsReview: 0,
+        createdAt: now,
+      }),
+      insertNameStatement(database, {
+        id: nameId,
+        entityId: organizationId,
+        entityKind: "organization",
+        nameRole: "current",
+        prefix: null,
+        given: null,
+        middle: null,
+        family: null,
+        suffix: null,
+        normalizedDisplay,
+        isCurrent: true,
+        validFrom: now,
+        validTo: null,
+        createdAt: now,
+      }),
+      ...insertPhoneticCodeStatements(database, nameId, codes),
+      directoryAuditStatement(database, options, "directory.organization.created", organizationId),
+    ],
+    outboxMessages: [{ topic: "directory.entity.created", payload: { organizationId } }],
+    responseCode: 201,
+    responseBody: { id: organizationId },
+    value: organizationId,
+    fromBody: (body) => (body as { id: DirectoryOrganizationId }).id,
+  }));
 }
 
 export async function readOrganization(

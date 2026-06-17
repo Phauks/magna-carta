@@ -1,8 +1,8 @@
-import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
-import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DirectoryCategoryId } from "@magna-carta/identifiers/types";
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.js";
+import { runDirectoryEffect } from "./run-directory-effect.js";
 import { assertEntityExists, entityKindFromId } from "./entity-kind.js";
 import type { EntityKind } from "./types.js";
 
@@ -76,18 +76,21 @@ export async function createCategory(
   const now = options.clock.now();
   const position = input.position ?? 0;
 
-  const statements: SqlStatement[] = [
-    database
-      .prepare(
-        `INSERT INTO directory_category (id, name, applies_to, position, archived, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 0, ?5, ?5)`,
-      )
-      .bind(categoryId, input.name, input.appliesTo, position, now),
-    directoryAuditStatement(database, options, "directory.category.created", categoryId),
-  ];
-
-  await commitEffectBatch(database, { statements, outboxMessages: [] }, { now: () => now });
-
-  return { id: categoryId };
+  return runDirectoryEffect(database, options.idempotency, options.clock, () => ({
+    statements: [
+      database
+        .prepare(
+          `INSERT INTO directory_category (id, name, applies_to, position, archived, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 0, ?5, ?5)`,
+        )
+        .bind(categoryId, input.name, input.appliesTo, position, now),
+      directoryAuditStatement(database, options, "directory.category.created", categoryId),
+    ],
+    outboxMessages: [],
+    responseCode: 201,
+    responseBody: { id: categoryId },
+    value: { id: categoryId },
+    fromBody: (body) => ({ id: (body as { id: DirectoryCategoryId }).id }),
+  }));
 }
 
 // Links an entity to a category within an atomic batch that also writes the domain audit row.
@@ -125,16 +128,19 @@ export async function assignCategory(
     throw new CategoryAppliesToMismatchError(input.categoryId, appliesTo, entityKind);
   }
 
-  const now = options.clock.now();
-
-  const statements: SqlStatement[] = [
-    database
-      .prepare(`INSERT INTO directory_entity_category (entity_id, category_id) VALUES (?1, ?2)`)
-      .bind(input.entityId, input.categoryId),
-    directoryAuditStatement(database, options, "directory.category.assigned", input.entityId),
-  ];
-
-  await commitEffectBatch(database, { statements, outboxMessages: [] }, { now: () => now });
+  await runDirectoryEffect(database, options.idempotency, options.clock, () => ({
+    statements: [
+      database
+        .prepare(`INSERT INTO directory_entity_category (entity_id, category_id) VALUES (?1, ?2)`)
+        .bind(input.entityId, input.categoryId),
+      directoryAuditStatement(database, options, "directory.category.assigned", input.entityId),
+    ],
+    outboxMessages: [],
+    responseCode: 201,
+    responseBody: { ok: true },
+    value: undefined,
+    fromBody: () => undefined,
+  }));
 }
 
 // Returns all categories linked to the given entity by joining directory_entity_category

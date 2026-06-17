@@ -21,6 +21,7 @@ import {
   MergeKindMismatchError,
   MergeAlreadyMergedError,
 } from "../src/merge.ts";
+import { DirectoryIdempotencyConflictError } from "../src/run-directory-effect.ts";
 import { assertNoDanglingToSubordinate } from "../src/fitness.ts";
 
 const ROOT_KEK = "bWFnbmEtY2FydGEtbG9jYWwtZGV2LXJvb3Qta2VrISE=";
@@ -409,4 +410,115 @@ test("merge guards: same entity, missing entity, kind mismatch, already merged",
   await expect(
     mergeEntities(ctx, { masterId: master, subordinateId: dup, survivorship: {} }),
   ).rejects.toBeInstanceOf(MergeAlreadyMergedError);
+});
+
+// The highest-risk dedup path. A merge committed under an Idempotency-Key writes its idempotency
+// record in the SAME atomic batch (proved here: the record exists after the first merge, carrying the
+// merge response). The danger is the CONCURRENT race the chokepoint middleware cannot pre-answer: two
+// identical merge requests both read the subordinate as live, both pass the already-merged guard, and
+// both reach the commit. runIdempotentEffect makes the loser harmless — it sees the winner's record
+// (UNIQUE(key)) and replays it instead of running its own repoint batch. We drive exactly that path:
+// seed the winner's completed record, then run a merge under the same key against still-live entities
+// — the guards pass, the pre-check replays, and NO repoint and NO second entity_merge event happen.
+test("a same-key merge replays the stored response — no double-repoint, no second entity_merge event", async () => {
+  const { database, ctx, options } = await directoryTestContext("t-idem-merge");
+
+  const master = await createPerson(
+    database,
+    { given: "Idem", family: "Master" },
+    { ...options, randomSource: seededRandomSource("ti-master") },
+  );
+  const dup = await createPerson(
+    database,
+    { given: "Idem", family: "Dup" },
+    { ...options, randomSource: seededRandomSource("ti-dup") },
+  );
+
+  // dup carries an inbound matter_party reference the merge would repoint to the master.
+  await seedMatter(database, "mat_idem");
+  const matterPartyId = await seedMatterParty(database, "mat_idem", dup, "beneficiary");
+
+  const idempotency = { key: "merge-key-1", fingerprint: "fp" };
+
+  // First merge: commits the repoint + entity_merge event + the idempotency record in one batch.
+  const firstMergeId = await mergeEntities(
+    { ...ctx, idempotency },
+    { masterId: master, subordinateId: dup, survivorship: {} },
+  );
+
+  // The idempotency record was written in that same batch, keyed by the merge key, carrying the
+  // stored merge response — the byte-identical replay source.
+  const { results: records } = await database
+    .prepare("SELECT response_body FROM idempotency_key WHERE key = ?1")
+    .bind("merge-key-1")
+    .all<{ response_body: string }>();
+  expect(records).toHaveLength(1);
+  expect(JSON.parse(records[0]!.response_body)).toEqual({ mergeId: firstMergeId });
+
+  // The concurrent loser's path: roll the subordinate back to live (as it was when the loser READ it,
+  // before the winner committed) so the already-merged guard would pass, then re-run under the same
+  // key. runIdempotentEffect's pre-check finds the winner's record and replays — its repoint batch
+  // never runs. This is the dedup the fix adds: without the record, this second call WOULD repoint
+  // again and write a second entity_merge event.
+  await database
+    .prepare("UPDATE directory_person SET status = 'active', merged_into_id = NULL WHERE id = ?1")
+    .bind(dup)
+    .run();
+
+  const replayMergeId = await mergeEntities(
+    { ...ctx, idempotency },
+    { masterId: master, subordinateId: dup, survivorship: {} },
+  );
+  expect(replayMergeId).toBe(firstMergeId);
+
+  // Exactly ONE entity_merge event exists for this subordinate — the replay wrote none.
+  const { results: events } = await database
+    .prepare("SELECT id FROM entity_merge WHERE subordinate_id = ?1")
+    .bind(dup)
+    .all<{ id: string }>();
+  expect(events).toHaveLength(1);
+  expect(events[0]?.id).toBe(firstMergeId);
+
+  // The matter_party row is repointed to the master exactly once — the replay did not touch it.
+  const { results: party } = await database
+    .prepare("SELECT entity_id FROM matter_party WHERE id = ?1")
+    .bind(matterPartyId)
+    .all<{ entity_id: string }>();
+  expect(party).toHaveLength(1);
+  expect(party[0]?.entity_id).toBe(master);
+});
+
+// A same key reused with a DIFFERENT payload surfaces the fingerprint-mismatch conflict the route
+// maps to a 422 — proving the directory conflict path mirrors matters.
+test("a merge key reused with a different payload surfaces a fingerprint-mismatch conflict", async () => {
+  const { database, ctx, options } = await directoryTestContext("t-idem-merge-fp");
+
+  const master = await createPerson(
+    database,
+    { given: "Fp", family: "Master" },
+    { ...options, randomSource: seededRandomSource("tifp-master") },
+  );
+  const dup = await createPerson(
+    database,
+    { given: "Fp", family: "Dup" },
+    { ...options, randomSource: seededRandomSource("tifp-dup") },
+  );
+
+  await mergeEntities(
+    { ...ctx, idempotency: { key: "merge-key-fp", fingerprint: "fp-a" } },
+    { masterId: master, subordinateId: dup, survivorship: {} },
+  );
+  // Roll the subordinate back to live so the merge guards pass and runIdempotentEffect's pre-check is
+  // reached — the stored record's fingerprint (fp-a) differs from this call's (fp-b), so it refuses
+  // with the fingerprint-mismatch conflict the route maps to 422.
+  await database
+    .prepare("UPDATE directory_person SET status = 'active', merged_into_id = NULL WHERE id = ?1")
+    .bind(dup)
+    .run();
+  await expect(
+    mergeEntities(
+      { ...ctx, idempotency: { key: "merge-key-fp", fingerprint: "fp-b" } },
+      { masterId: master, subordinateId: dup, survivorship: {} },
+    ),
+  ).rejects.toBeInstanceOf(DirectoryIdempotencyConflictError);
 });

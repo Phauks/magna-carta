@@ -1,5 +1,4 @@
-import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
-import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
   DirectoryEdgeId,
@@ -7,6 +6,7 @@ import type {
   DirectoryPersonId,
 } from "@magna-carta/identifiers/types";
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.js";
+import { runDirectoryEffect } from "./run-directory-effect.js";
 import { assertEntityExists, UnknownEntityError } from "./entity-kind.js";
 import { EDGE_TYPES, type EdgeType } from "./types.js";
 
@@ -83,28 +83,31 @@ export async function createEdge(
   const edgeId = newIdentifier("directoryEdge", options.randomSource);
   const now = options.clock.now();
 
-  const statements: SqlStatement[] = [
-    database
-      .prepare(
-        `INSERT INTO directory_edge (id, from_entity_id, to_entity_id, edge_type, role, note, valid_from, valid_to, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9, NULL)`,
-      )
-      .bind(
-        edgeId,
-        input.from,
-        input.to,
-        input.edgeType,
-        input.role,
-        input.note,
-        input.validFrom,
-        input.validTo,
-        now,
-      ),
-    directoryAuditStatement(database, options, "directory.edge.created", edgeId),
-  ];
-
-  await commitEffectBatch(database, { statements, outboxMessages: [] }, { now: () => now });
-
-  return edgeId;
+  return runDirectoryEffect(database, options.idempotency, options.clock, () => ({
+    statements: [
+      database
+        .prepare(
+          `INSERT INTO directory_edge (id, from_entity_id, to_entity_id, edge_type, role, note, valid_from, valid_to, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9, NULL)`,
+        )
+        .bind(
+          edgeId,
+          input.from,
+          input.to,
+          input.edgeType,
+          input.role,
+          input.note,
+          input.validFrom,
+          input.validTo,
+          now,
+        ),
+      directoryAuditStatement(database, options, "directory.edge.created", edgeId),
+    ],
+    outboxMessages: [],
+    responseCode: 201,
+    responseBody: { id: edgeId },
+    value: edgeId,
+    fromBody: (body) => (body as { id: DirectoryEdgeId }).id,
+  }));
 }
 
 // Returns all active edges where the given entity is either the from or to endpoint.

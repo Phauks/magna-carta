@@ -1,4 +1,4 @@
-import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
+import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
@@ -7,6 +7,7 @@ import type {
   DirectoryPersonId,
 } from "@magna-carta/identifiers/types";
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.js";
+import { runDirectoryEffect } from "./run-directory-effect.js";
 import { entityKindFromId } from "./entity-kind.js";
 import { normalizeName } from "./normalize-name.js";
 import { phoneticCodes } from "./phonetics.js";
@@ -184,14 +185,14 @@ export async function changeName(
   // Step 4: audit row.
   statements.push(directoryAuditStatement(database, options, "directory.entity.renamed", entityId));
 
-  await commitEffectBatch(
-    database,
-    {
-      statements,
-      outboxMessages: [{ topic: "directory.entity.renamed", payload: { entityId } }],
-    },
-    { now: () => now },
-  );
+  await runDirectoryEffect(database, options.idempotency, options.clock, () => ({
+    statements,
+    outboxMessages: [{ topic: "directory.entity.renamed", payload: { entityId } }],
+    responseCode: 200,
+    responseBody: { ok: true },
+    value: undefined,
+    fromBody: () => undefined,
+  }));
 }
 
 // ── addName ──────────────────────────────────────────────────────────────────
@@ -309,5 +310,12 @@ export async function addName(
     directoryAuditStatement(database, options, "directory.entity.name_added", entityId),
   );
 
-  await commitEffectBatch(database, { statements, outboxMessages: [] }, { now: () => now });
+  await runDirectoryEffect(database, options.idempotency, options.clock, () => ({
+    statements,
+    outboxMessages: [],
+    responseCode: 201,
+    responseBody: { ok: true },
+    value: undefined,
+    fromBody: () => undefined,
+  }));
 }

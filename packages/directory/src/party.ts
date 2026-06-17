@@ -1,8 +1,8 @@
-import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
-import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DirectoryPartyRoleId, MatterPartyId } from "@magna-carta/identifiers/types";
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.js";
+import { runDirectoryEffect } from "./run-directory-effect.js";
 import { assertEntityExists } from "./entity-kind.js";
 
 // The caller-supplied fields for linking a directory entity to a matter in a role. The role is a
@@ -37,18 +37,21 @@ export async function linkMatterParty(
   const matterPartyId = newIdentifier("matterParty", options.randomSource);
   const now = options.clock.now();
 
-  const statements: SqlStatement[] = [
-    database
-      .prepare(
-        `INSERT INTO matter_party (id, matter_id, entity_id, role, valid_from, valid_to, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, NULL, NULL, ?5, ?5, NULL)`,
-      )
-      .bind(matterPartyId, input.matterId, input.entityId, input.role, now),
-    directoryAuditStatement(database, options, "directory.matter_party.linked", matterPartyId),
-  ];
-
-  await commitEffectBatch(database, { statements, outboxMessages: [] }, { now: () => now });
-
-  return matterPartyId;
+  return runDirectoryEffect(database, options.idempotency, options.clock, () => ({
+    statements: [
+      database
+        .prepare(
+          `INSERT INTO matter_party (id, matter_id, entity_id, role, valid_from, valid_to, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, NULL, NULL, ?5, ?5, NULL)`,
+        )
+        .bind(matterPartyId, input.matterId, input.entityId, input.role, now),
+      directoryAuditStatement(database, options, "directory.matter_party.linked", matterPartyId),
+    ],
+    outboxMessages: [],
+    responseCode: 201,
+    responseBody: { id: matterPartyId },
+    value: matterPartyId,
+    fromBody: (body) => (body as { id: MatterPartyId }).id,
+  }));
 }
 
 // Returns the live (non-soft-deleted) parties on a matter, ordered for a stable read.
@@ -94,21 +97,23 @@ export async function createPartyRole(
   options: DirectoryWriteOptions,
 ): Promise<{ id: DirectoryPartyRoleId }> {
   const partyRoleId = newIdentifier("directoryPartyRole", options.randomSource);
-  const now = options.clock.now();
   const position = input.position ?? 0;
 
-  const statements: SqlStatement[] = [
-    database
-      .prepare(
-        `INSERT INTO directory_party_role (id, name, archived, position) VALUES (?1, ?2, 0, ?3)`,
-      )
-      .bind(partyRoleId, input.name, position),
-    directoryAuditStatement(database, options, "directory.party_role.created", partyRoleId),
-  ];
-
-  await commitEffectBatch(database, { statements, outboxMessages: [] }, { now: () => now });
-
-  return { id: partyRoleId };
+  return runDirectoryEffect(database, options.idempotency, options.clock, () => ({
+    statements: [
+      database
+        .prepare(
+          `INSERT INTO directory_party_role (id, name, archived, position) VALUES (?1, ?2, 0, ?3)`,
+        )
+        .bind(partyRoleId, input.name, position),
+      directoryAuditStatement(database, options, "directory.party_role.created", partyRoleId),
+    ],
+    outboxMessages: [],
+    responseCode: 201,
+    responseBody: { id: partyRoleId },
+    value: { id: partyRoleId },
+    fromBody: (body) => ({ id: (body as { id: DirectoryPartyRoleId }).id }),
+  }));
 }
 
 // Returns the non-archived party roles ordered by display position.

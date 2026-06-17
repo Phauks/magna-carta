@@ -91,6 +91,21 @@ async function get(path: string, cookie = ownerCookie) {
   });
 }
 
+// A POST that pins a caller-chosen Idempotency-Key (vs. the fresh-per-call key `post` mints), so a
+// retry under the SAME key exercises the dedup path.
+async function postWithFixedKey(path: string, body: unknown, idempotencyKey: string) {
+  return SELF.fetch(`https://example.com${path}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: "https://example.com",
+      cookie: ownerCookie,
+      "Idempotency-Key": idempotencyKey,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
 describe("directory person routes", () => {
   it("creates a person, reads it back, and finds it by fuzzy search", async () => {
     const created = await post("/api/v1/directory/persons", {
@@ -122,6 +137,31 @@ describe("directory person routes", () => {
       false,
     );
     expect(response.status).toBe(400);
+  });
+
+  it("dedups a retried create under the same Idempotency-Key — one person, replayed response", async () => {
+    const key = crypto.randomUUID();
+    const body = { given: "Retry", family: "Dedup" };
+
+    const first = await postWithFixedKey("/api/v1/directory/persons", body, key);
+    expect(first.status).toBe(201);
+    const { id: firstId } = (await first.json()) as { id: string };
+    expect(first.headers.get("Idempotency-Replayed")).toBeNull();
+
+    // The retry under the SAME key replays the stored response — byte-identical id, replay header set.
+    const replay = await postWithFixedKey("/api/v1/directory/persons", body, key);
+    expect(replay.status).toBe(201);
+    const { id: replayId } = (await replay.json()) as { id: string };
+    expect(replayId).toBe(firstId);
+    expect(replay.headers.get("Idempotency-Replayed")).toBe("true");
+
+    // Exactly ONE person row was created across the two requests — true dedup, not a second insert.
+    const count = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT COUNT(*) AS c FROM directory_person WHERE id = ?1",
+    )
+      .bind(firstId)
+      .first<{ c: number }>();
+    expect(count?.c).toBe(1);
   });
 });
 

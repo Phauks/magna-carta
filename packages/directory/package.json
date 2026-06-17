@@ -18,7 +18,8 @@
     "./merge": "./src/merge.ts",
     "./party": "./src/party.ts",
     "./statements": "./src/statements.ts",
-    "./audit": "./src/audit.ts"
+    "./audit": "./src/audit.ts",
+    "./run-directory-effect": "./src/run-directory-effect.ts"
   },
   "scripts": {
     "test": "vp test run"
