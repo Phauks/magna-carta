@@ -7,7 +7,10 @@ import { licensingSites } from "./helpers.ts";
 // portals in the shared registry. The authority differs by state: a mandatory bar's member directory
 // (most states), or — in non-unified-bar states — the judiciary / supreme court / disciplinary
 // board's attorney-registration search (e.g. New York OCA, Ohio Supreme Court, Illinois ARDC, Kansas
-// KARD, Arkansas AOC, Nebraska Judicial, Tennessee BPR). All search-only.
+// KARD, Arkansas AOC, Nebraska Judicial, Tennessee BPR). All search-only. New Hampshire and South
+// Dakota publish no public instant name-search — verification there is by request form / phone through
+// the NH Bar Association and the State Bar of South Dakota (the mandatory bars), so those two point at
+// the official verification entry point rather than a search form.
 interface AttorneyLicenseState {
   readonly fips: string;
   readonly code: string;
@@ -161,7 +164,7 @@ const ATTORNEY_LICENSE_STATES: readonly AttorneyLicenseState[] = [
     fips: "33",
     code: "NH",
     name: "New Hampshire",
-    lookup: "https://member.nhbar.org/directory",
+    lookup: "https://www.nhbar.org/attorney-verification-good-standing-request/",
   },
   {
     fips: "34",
@@ -229,7 +232,12 @@ const ATTORNEY_LICENSE_STATES: readonly AttorneyLicenseState[] = [
     name: "South Carolina",
     lookup: "https://www.sccourts.org/attorneys/",
   },
-  { fips: "46", code: "SD", name: "South Dakota", lookup: "https://findalawyerinsd.com/" },
+  {
+    fips: "46",
+    code: "SD",
+    name: "South Dakota",
+    lookup: "https://www.statebarofsouthdakota.com/",
+  },
   {
     fips: "47",
     code: "TN",
