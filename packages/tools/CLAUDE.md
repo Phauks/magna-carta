@@ -26,5 +26,5 @@ Cloudflare edge — is pending the shell. Firm-usage diagnostics (see
 `@magna-carta/file-manager`, `readMatterCounts` in `@magna-carta/matters`, `readLocationCount` in
 `@magna-carta/locations`) and its `firm-usage` manifest wired in the catalog (`tools:firmUsage`); its
 reads are now exposed via `GET /api/v1/firm-usage` (through the slice 0·5 chokepoint, gated by
-`tools:firmUsage`), and `tools:firmUsage` is seeded to the Owner and Admin roles (migration
+`tools:firmUsage`), and `tools:firmUsage` is seeded to the Owner/Admin role (migration
 `0006_seed-tools-firm-usage`); only the UI widget remains pending. Future catalog rows: an Avery template printer (printing).
