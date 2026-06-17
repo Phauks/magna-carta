@@ -1,9 +1,8 @@
 import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { DirectoryNameId, DirectoryPersonId, UserId } from "@magna-carta/identifiers/types";
-import { directoryAuditStatement } from "./audit.js";
+import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.js";
 import { normalizeName } from "./normalize-name.js";
 import { phoneticCodes } from "./phonetics.js";
 import {
@@ -15,15 +14,6 @@ import {
   type PersonRow,
   type PersonStatus,
 } from "./statements.js";
-
-// What every directory write needs from its caller: the clock and the acting user (the service reads
-// no ambient clock and trusts no ambient identity), plus an optional seeded source so fixtures mint
-// byte-deterministic ids. Mirrors the matters service options shape.
-export interface DirectoryWriteOptions {
-  readonly clock: { now(): string };
-  readonly actorUserId: UserId | null;
-  readonly randomSource?: RandomSource;
-}
 
 // The caller-supplied fields for a new person. given/family are the required structured name parts;
 // the rest are optional. There is no idempotency context at this layer — that is threaded at the

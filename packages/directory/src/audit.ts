@@ -3,9 +3,10 @@ import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempot
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { UserId } from "@magna-carta/identifiers/types";
 
-// The minimum a directory operation needs to write an audit row — the clock and actor arrive from the
-// caller (the service reads no clock and trusts no ambient identity).
-export interface AuditContext {
+// What every directory write needs from its caller: the clock and the acting user (the service reads
+// no ambient clock and trusts no ambient identity), plus an optional seeded source so fixtures mint
+// byte-deterministic ids. Single home for all directory write modules.
+export interface DirectoryWriteOptions {
   readonly clock: { now(): string };
   readonly actorUserId: UserId | null;
   readonly randomSource?: RandomSource;
@@ -17,7 +18,7 @@ export interface AuditContext {
 // event, subject).
 export function directoryAuditStatement(
   database: SqlDatabase,
-  context: AuditContext,
+  context: DirectoryWriteOptions,
   event: string,
   subjectId: string,
 ): SqlStatement {
