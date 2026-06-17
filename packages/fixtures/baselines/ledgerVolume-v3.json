@@ -1,0 +1,133 @@
+{
+  "profileName": "ledgerVolume",
+  "profileVersion": 3,
+  "cacheKey": "e598200bb1c4dfe1",
+  "results": [
+    {
+      "name": "balance-read.busy-subledger",
+      "iterations": 30,
+      "minMs": 0.048,
+      "medianMs": 0.057,
+      "p95Ms": 0.111
+    },
+    {
+      "name": "create-account.trust-subledger",
+      "iterations": 30,
+      "minMs": 4.641,
+      "medianMs": 5.326,
+      "p95Ms": 6.31
+    },
+    {
+      "name": "get-current-clean-version",
+      "iterations": 30,
+      "minMs": 0.071,
+      "medianMs": 0.101,
+      "p95Ms": 0.168
+    },
+    {
+      "name": "ledger-fitness.table-wide",
+      "iterations": 30,
+      "minMs": 304.701,
+      "medianMs": 327.86,
+      "p95Ms": 398.233
+    },
+    {
+      "name": "list-clean-versions.by-file",
+      "iterations": 30,
+      "minMs": 0.078,
+      "medianMs": 0.082,
+      "p95Ms": 0.163
+    },
+    {
+      "name": "list-consultations.by-member",
+      "iterations": 30,
+      "minMs": 0.192,
+      "medianMs": 0.265,
+      "p95Ms": 0.602
+    },
+    {
+      "name": "list-files.by-folder",
+      "iterations": 30,
+      "minMs": 0.081,
+      "medianMs": 0.087,
+      "p95Ms": 0.254
+    },
+    {
+      "name": "list-files.by-matter",
+      "iterations": 30,
+      "minMs": 0.12,
+      "medianMs": 0.141,
+      "p95Ms": 0.195
+    },
+    {
+      "name": "list-matters.filtered",
+      "iterations": 30,
+      "minMs": 0.154,
+      "medianMs": 0.178,
+      "p95Ms": 0.365
+    },
+    {
+      "name": "list-matters.first-page",
+      "iterations": 30,
+      "minMs": 0.278,
+      "medianMs": 0.443,
+      "p95Ms": 0.564
+    },
+    {
+      "name": "list-shipments.by-matter",
+      "iterations": 30,
+      "minMs": 0.072,
+      "medianMs": 0.079,
+      "p95Ms": 0.147
+    },
+    {
+      "name": "list-tracking-events.by-shipment",
+      "iterations": 30,
+      "minMs": 0.068,
+      "medianMs": 0.074,
+      "p95Ms": 0.151
+    },
+    {
+      "name": "matter-number.counter-draw",
+      "iterations": 30,
+      "minMs": 5.027,
+      "medianMs": 6.71,
+      "p95Ms": 13.241
+    },
+    {
+      "name": "post-entry.two-line",
+      "iterations": 30,
+      "minMs": 15.137,
+      "medianMs": 18.526,
+      "p95Ms": 22.931
+    },
+    {
+      "name": "reverse-entry.two-line",
+      "iterations": 30,
+      "minMs": 15.103,
+      "medianMs": 17.607,
+      "p95Ms": 26.666
+    },
+    {
+      "name": "storage-meter.summary",
+      "iterations": 30,
+      "minMs": 0.048,
+      "medianMs": 0.066,
+      "p95Ms": 0.165
+    },
+    {
+      "name": "zip-resolution.clean-current-versions",
+      "iterations": 30,
+      "minMs": 0.114,
+      "medianMs": 0.119,
+      "p95Ms": 0.171
+    },
+    {
+      "name": "zip-resolution.folders-by-matter",
+      "iterations": 30,
+      "minMs": 0.06,
+      "medianMs": 0.065,
+      "p95Ms": 0.127
+    }
+  ]
+}

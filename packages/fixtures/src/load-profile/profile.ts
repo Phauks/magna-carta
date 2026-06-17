@@ -43,6 +43,18 @@ export interface PracticeVolume {
   readonly fileSizeBytes: { readonly min: number; readonly max: number };
 }
 
+// The shipping volume laid over the practice book: drafts spread across the firm's matters, a
+// fraction taken through to a bought label, and a handful of tracking events per purchased shipment.
+// Every count is a PARAMETER here, never a generator constant — changing one bumps the profile
+// `version`. Sized like an established firm's mailing volume, not a stress run.
+export interface ShippingVolume {
+  readonly shipmentCount: number;
+  // Percentage of drafts taken through to a bought label (the rest stay drafts). 0–100.
+  readonly purchasedPercent: number;
+  // Tracking events appended per purchased shipment (the pulled carrier history).
+  readonly trackingEventsPerShipment: { readonly min: number; readonly max: number };
+}
+
 export interface LedgerVolumeProfile {
   readonly name: "ledgerVolume";
   // Profile identity: bump on ANY parameter change — baselines measured against different data
@@ -58,6 +70,8 @@ export interface LedgerVolumeProfile {
   readonly archetypeWeights: ArchetypeWeights;
   // The practice volume laid over the ledger book (matters/locations/file-manager).
   readonly practice: PracticeVolume;
+  // The shipping volume laid over the practice book (shipments/labels/tracking).
+  readonly shipping: ShippingVolume;
 }
 
 // A plausible established small firm: a few years of posting activity over a 200-client trust book,
@@ -65,7 +79,7 @@ export interface LedgerVolumeProfile {
 // files with multi-version histories.
 export const ledgerVolume: LedgerVolumeProfile = {
   name: "ledgerVolume",
-  version: 2,
+  version: 3,
   trustSubledgerCount: 200,
   entryCount: 25_000,
   postingSpanDays: 1_095,
@@ -89,6 +103,11 @@ export const ledgerVolume: LedgerVolumeProfile = {
     versionsPerFile: { min: 1, max: 4 },
     fileSizeBytes: { min: 20_000, max: 8_000_000 },
   },
+  shipping: {
+    shipmentCount: 300,
+    purchasedPercent: 70,
+    trackingEventsPerShipment: { min: 1, max: 5 },
+  },
 };
 
 // One profile, every scale: CI smoke (~0.01), local working scale (1), deliberate stress runs
@@ -111,6 +130,10 @@ export function scaleProfile(
       prospectiveMatterCount: scaleCount(profile.practice.prospectiveMatterCount, 2),
       openMatterCount: scaleCount(profile.practice.openMatterCount, 3),
       closedMatterCount: scaleCount(profile.practice.closedMatterCount, 2),
+    },
+    shipping: {
+      ...profile.shipping,
+      shipmentCount: scaleCount(profile.shipping.shipmentCount, 5),
     },
   };
 }

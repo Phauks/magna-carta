@@ -13,6 +13,11 @@ import {
   practiceHotPathPlans,
   PRACTICE_PLAN_SCAN_ALLOWLIST,
 } from "../src/load-profile/matters-measurements.ts";
+import {
+  shippingHotPathPlans,
+  shippingMeasurements,
+  SHIPPING_PLAN_SCAN_ALLOWLIST,
+} from "../src/load-profile/shipping-measurements.ts";
 import { ledgerVolume, scaleProfile } from "../src/load-profile/profile.ts";
 import { findFullScans, findTempBtreeSorts, runMeasurements } from "../src/load-profile/runner.ts";
 import { loadProfileSnapshot, type LoadedSnapshot } from "../src/load-profile/snapshot.ts";
@@ -52,10 +57,14 @@ describe("load-profile smoke", () => {
     );
     const handle = measurementHandle(snapshot, "smoke-seed");
 
-    const results = await runMeasurements(handle, [...ledgerMeasurements, ...mattersMeasurements], {
-      warmupIterations: 1,
-      iterations: 2,
-    });
+    const results = await runMeasurements(
+      handle,
+      [...ledgerMeasurements, ...mattersMeasurements, ...shippingMeasurements],
+      {
+        warmupIterations: 1,
+        iterations: 2,
+      },
+    );
     expect(results.map((result) => result.name).sort()).toEqual(
       [
         "balance-read.busy-subledger",
@@ -74,6 +83,8 @@ describe("load-profile smoke", () => {
         "zip-resolution.folders-by-matter",
         "storage-meter.summary",
         "matter-number.counter-draw",
+        "list-shipments.by-matter",
+        "list-tracking-events.by-shipment",
       ].sort(),
     );
     for (const result of results) {
@@ -108,6 +119,13 @@ describe("load-profile smoke", () => {
     );
     const practiceScans = findFullScans(practicePlans, PRACTICE_PLAN_SCAN_ALLOWLIST);
     expect(practiceScans).toEqual([]);
+
+    // The shipping hot-path plans: same label-set-first guard, then the scan check.
+    const shippingPlans = shippingHotPathPlans(snapshot);
+    expect(shippingPlans.map((plan) => plan.label).sort()).toEqual(
+      ["list-shipments.by-matter", "list-tracking-events.by-shipment"].sort(),
+    );
+    expect(findFullScans(shippingPlans, SHIPPING_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
     // The keyset-paginated list hot paths must satisfy their (created_at, id) ORDER BY from a
     // covering index — never a materialize-and-sort temporary B-tree, which defeats keyset

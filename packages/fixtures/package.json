@@ -15,10 +15,12 @@
     "./load-profile/profile": "./src/load-profile/profile.ts",
     "./load-profile/generate": "./src/load-profile/generate.ts",
     "./load-profile/matters-generate": "./src/load-profile/matters-generate.ts",
+    "./load-profile/shipping-generate": "./src/load-profile/shipping-generate.ts",
     "./load-profile/snapshot": "./src/load-profile/snapshot.ts",
     "./load-profile/runner": "./src/load-profile/runner.ts",
     "./load-profile/ledger-measurements": "./src/load-profile/ledger-measurements.ts",
-    "./load-profile/matters-measurements": "./src/load-profile/matters-measurements.ts"
+    "./load-profile/matters-measurements": "./src/load-profile/matters-measurements.ts",
+    "./load-profile/shipping-measurements": "./src/load-profile/shipping-measurements.ts"
   },
   "scripts": {
     "measure": "node --experimental-transform-types src/load-profile/measure-cli.ts",

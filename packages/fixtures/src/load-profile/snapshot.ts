@@ -22,6 +22,7 @@ import { assertSeedingAllowed, type SeedingOptions } from "../guard.ts";
 import { createLocalPerFirmDatabase } from "../local-database.ts";
 import { generateLedgerVolume, type VolumeProbes } from "./generate.ts";
 import { generatePracticeVolume, type PracticeProbes } from "./matters-generate.ts";
+import { generateShippingVolume, type ShippingProbes } from "./shipping-generate.ts";
 import { GENERATOR_VERSION, type LedgerVolumeProfile } from "./profile.ts";
 
 // Snapshot identity: the resolved profile parameters, the generation seed, the per-firm schema
@@ -41,6 +42,12 @@ export interface SnapshotManifest {
   readonly fileVersionCount: number;
   readonly folderCount: number;
   readonly practiceProbes: PracticeProbes;
+  // The shipping volume laid over the practice book: total counts + the probe identifiers the
+  // shipping measurement layer binds its volume-shaped reads to.
+  readonly shipmentCount: number;
+  readonly purchasedShipmentCount: number;
+  readonly trackingEventCount: number;
+  readonly shippingProbes: ShippingProbes;
 }
 
 export interface LoadedSnapshot extends MigratedNodeDatabase {
@@ -119,6 +126,14 @@ export async function loadProfileSnapshot(
         profile.practice,
         options,
       );
+      // The shipping volume rides the same FixtureContext, linking its shipments to the matters the
+      // practice generation laid down.
+      const shipping = await generateShippingVolume(
+        generated.database,
+        context,
+        profile.shipping,
+        options,
+      );
       const manifest: SnapshotManifest = {
         profile,
         seed,
@@ -131,6 +146,10 @@ export async function loadProfileSnapshot(
         fileVersionCount: practice.fileVersionCount,
         folderCount: practice.folderCount,
         practiceProbes: practice.probes,
+        shipmentCount: shipping.shipmentCount,
+        purchasedShipmentCount: shipping.purchasedCount,
+        trackingEventCount: shipping.trackingEventCount,
+        shippingProbes: shipping.probes,
       };
       // Artifact before manifest: the replay gate above requires BOTH files, so a crash between
       // the two writes leaves a regenerable miss, never a manifest pointing at a missing artifact.
