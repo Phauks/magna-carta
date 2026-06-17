@@ -101,4 +101,6 @@ export interface BuyLabelRequest {
   readonly remoteShipmentId: string;
   readonly remoteRateId: string;
   readonly labelFormat?: "PDF" | "ZPL" | "PNG";
+  // Forwarded as the EasyPost `Idempotency-Key` header so a retried purchase never double-charges.
+  readonly idempotencyKey?: string;
 }

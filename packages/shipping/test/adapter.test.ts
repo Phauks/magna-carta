@@ -100,6 +100,30 @@ describe("EasyPost adapter", () => {
     if (result.ok) expect(result.value.trackingCode).toBe("9400");
   });
 
+  it("buyLabel sends an Idempotency-Key header when given a key", async () => {
+    let seen: HttpRequest | undefined;
+    const port = portWith(
+      fakeHttp((req) => {
+        seen = req;
+        return {
+          status: 200,
+          body: {
+            id: "shp_1",
+            tracking_code: "9400",
+            selected_rate: { carrier: "USPS", service: "Priority", rate: "7.45", currency: "USD" },
+            postage_label: { label_url: "https://ep/l.pdf", label_file_type: "application/pdf" },
+          },
+        };
+      }),
+    );
+    await port.buyLabel({
+      remoteShipmentId: "shp_1",
+      remoteRateId: "rate_1",
+      idempotencyKey: "key-123",
+    });
+    expect(seen?.headers["Idempotency-Key"]).toBe("key-123");
+  });
+
   it("getTracking with an empty trackers list returns ok([]), not a throw", async () => {
     const port = portWith(
       fakeHttp(() => ({

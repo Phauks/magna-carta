@@ -54,13 +54,14 @@ export function createEasyPostAdapter(deps: EasyPostAdapterDeps): Adapter<Shippi
         path: string,
         body: unknown,
         map: (json: unknown) => T,
+        extraHeaders: Record<string, string> = {},
       ): Promise<Dispatch<T>> {
         let response;
         try {
           response = await deps.http.request({
             method,
             url: `${baseUrl}${path}`,
-            headers,
+            headers: { ...headers, ...extraHeaders },
             body: body === undefined ? undefined : JSON.stringify(body),
           });
         } catch {
@@ -133,8 +134,14 @@ export function createEasyPostAdapter(deps: EasyPostAdapterDeps): Adapter<Shippi
             rate: { id: input.remoteRateId },
             label_format: input.labelFormat ?? "PDF",
           };
-          return call("POST", `/shipments/${input.remoteShipmentId}/buy`, body, (json) =>
-            mapLabel(json as never),
+          const extra: Record<string, string> =
+            input.idempotencyKey === undefined ? {} : { "Idempotency-Key": input.idempotencyKey };
+          return call(
+            "POST",
+            `/shipments/${input.remoteShipmentId}/buy`,
+            body,
+            (json) => mapLabel(json as never),
+            extra,
           );
         },
         getTracking(trackingCode: string) {
