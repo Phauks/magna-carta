@@ -2,8 +2,8 @@
 
 Owner-facing launchers for the things you open most. Every script works from any checkout of the repo (paths are relative to this folder), opens its own terminal window, and stays open so you can read the output.
 
-| Launcher                | What it does                                                                                                                                                                                                                    |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Launcher                | What it does                                                                                                                                                                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `open-coverage-map.cmd` | Regenerates the government-records **coverage map** from the live registry and opens it in your browser — property / business / licensing coverage, deep-link vs search-only shading; click any region to open its real search page. |
 
 Terminal equivalents:

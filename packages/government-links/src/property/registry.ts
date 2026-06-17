@@ -1,3 +1,4 @@
+import { ALASKA_ASSESSOR_SITES } from "./alaska.ts";
 import { ARIZONA_ASSESSOR_SITES } from "./arizona.ts";
 import { CALIFORNIA_ASSESSOR_SITES } from "./california.ts";
 import { COLORADO_ASSESSOR_SITES } from "./colorado.ts";
@@ -36,6 +37,7 @@ export interface StateRegistration {
 
 // Kept sorted by FIPS prefix — insert a new state in numeric order, not appended.
 export const STATES: readonly StateRegistration[] = [
+  { code: "AK", fipsPrefix: "02", count: 14, sites: ALASKA_ASSESSOR_SITES },
   { code: "AZ", fipsPrefix: "04", count: 15, sites: ARIZONA_ASSESSOR_SITES },
   { code: "CA", fipsPrefix: "06", count: 58, sites: CALIFORNIA_ASSESSOR_SITES },
   { code: "CO", fipsPrefix: "08", count: 64, sites: COLORADO_ASSESSOR_SITES },

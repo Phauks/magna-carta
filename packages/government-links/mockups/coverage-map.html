@@ -280,31 +280,9 @@
     <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
     <script src="coverage-data.js"></script>
     <script>
-      // Covered property states (2-digit FIPS) — every county in these is wired. (GU 66 / VI 78 are
-      // covered too but off this map.) Counts from the STATES table in property/registry.ts.
-      const PROPERTY = {
-        "04": ["Arizona", 15],
-        "06": ["California", 58],
-        "08": ["Colorado", 64],
-        10: ["Delaware", 3],
-        11: ["District of Columbia", 1],
-        15: ["Hawaii", 5],
-        16: ["Idaho", 44],
-        20: ["Kansas", 105],
-        30: ["Montana", 56],
-        31: ["Nebraska", 93],
-        32: ["Nevada", 17],
-        35: ["New Mexico", 33],
-        38: ["North Dakota", 53],
-        40: ["Oklahoma", 77],
-        41: ["Oregon", 36],
-        46: ["South Dakota", 66],
-        49: ["Utah", 29],
-        53: ["Washington", 39],
-        56: ["Wyoming", 23],
-      };
-      const propertySet = new Set(Object.keys(PROPERTY));
-      // Business + Licensing: all 50 states + DC.
+      // Property coverage is data-driven from coverage-data.js — a county lights up only if it actually
+      // has a wired assessor URL, so the map stays correct as states are added (e.g. Alaska's boroughs,
+      // where only some are covered). Business + Licensing cover all 50 states + DC.
       const ALL51 = new Set([
         "01",
         "02",
@@ -456,18 +434,16 @@
         function countyTip(d) {
           const st = d.id.slice(0, 2);
           if (layer === "property") {
-            const info = PROPERTY[st];
-            if (!info) return `${d.properties.name} County — not yet`;
-            const open = propUrl.has(d.id) ? " &middot; click to open assessor" : "";
-            return `<b>${d.properties.name} County</b> — ${info[0]}${open}`;
+            if (!propUrl.has(d.id))
+              return `${d.properties.name}, ${stateName.get(st) || ""} — not yet`;
+            const kind = deepProp.has(d.id) ? "deep-link" : "search";
+            return `<b>${d.properties.name}</b>, ${stateName.get(st) || ""} &middot; ${kind} &middot; click to open`;
           }
-          return `${d.properties.name} County, ${stateName.get(st) || ""}`;
+          return `${d.properties.name}, ${stateName.get(st) || ""}`;
         }
         function stateTip(d) {
-          const covered = layer === "property" ? propertySet.has(d.id) : ALL51.has(d.id);
+          const covered = ALL51.has(d.id);
           let extra = "";
-          if (layer === "property" && PROPERTY[d.id])
-            extra = ` &middot; ${PROPERTY[d.id][1]} counties`;
           if (layer === "business" && covered) extra = " &middot; click to open SoS search";
           if (layer === "licensing" && covered) extra = " &middot; click to open attorney search";
           return `<b>${d.properties.name}</b> — ${covered ? "covered" : "not yet"}${extra}`;
@@ -481,9 +457,7 @@
           gCounty
             .style("display", countyMode ? null : "none")
             .selectAll("path")
-            .attr("fill", (d) =>
-              !propertySet.has(d.id.slice(0, 2)) ? UNCOVERED : deepSet.has(d.id) ? c : soft,
-            )
+            .attr("fill", (d) => (!propUrl.has(d.id) ? UNCOVERED : deepSet.has(d.id) ? c : soft))
             .style("cursor", (d) => (propUrl.has(d.id) ? "pointer" : "default"));
           gState
             .style("display", countyMode ? "none" : null)
