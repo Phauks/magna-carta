@@ -116,4 +116,12 @@ test("updatePerson updates non-name standard fields", async () => {
 
   const person = await readPerson(database, personId);
   expect(person.status).toBe("merged_into");
+  expect(person.mergedIntoId).toBe("directoryPerson_other");
+
+  const { results: audit } = await database
+    .prepare("SELECT event, subject_id FROM audit_log WHERE event = 'directory.person.updated'")
+    .all<{ event: string; subject_id: string }>();
+  expect(audit).toHaveLength(1);
+  expect(audit[0]?.event).toBe("directory.person.updated");
+  expect(audit[0]?.subject_id).toBe(personId);
 });
