@@ -12,6 +12,7 @@
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ColumnDef } from "@tanstack/table-core";
   import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test";
+  import { dateRangeFilterFn } from "../lib/components/data-table/index.ts";
   import DataTableRoot from "../lib/components/data-table/table.svelte";
   import MattersTable from "./support/matters-table.svelte";
 
@@ -40,12 +41,18 @@
 
   // The `type` in each column's meta is what the table formats + aligns by (Opened = date, Fees =
   // right-aligned money); text columns need no type.
+  // `filter` (in meta) picks the per-column control; `filterFn` is the matching table-core matcher.
   const columns: ColumnDef<Matter>[] = [
-    { accessorKey: "reference", header: "Reference" },
-    { accessorKey: "client", header: "Client" },
-    { accessorKey: "status", header: "Status" },
-    { accessorKey: "opened", header: "Opened", meta: { type: "date" } },
-    { accessorKey: "fees", header: "Fees", meta: { type: "money", currency: "USD" } },
+    { accessorKey: "reference", header: "Reference", filterFn: "includesString", meta: { filter: "text" } },
+    { accessorKey: "client", header: "Client", filterFn: "includesString", meta: { filter: "text" } },
+    { accessorKey: "status", header: "Status", filterFn: "arrIncludesSome", meta: { filter: "facet" } },
+    { accessorKey: "opened", header: "Opened", filterFn: dateRangeFilterFn, meta: { type: "date" } },
+    {
+      accessorKey: "fees",
+      header: "Fees",
+      filterFn: "inNumberRange",
+      meta: { type: "money", currency: "USD" },
+    },
   ];
 </script>
 
@@ -123,6 +130,19 @@
       await userEvent.keyboard("{Escape}");
       await waitFor(() => expect(canvas.queryByRole("button", { name: "Fees" })).toBeNull());
       await expect(table).toHaveAttribute("data-zebra", "on");
+      // Wait for the menu to fully unmount AND release the body scroll-lock (it sets the body's
+      // pointer-events to none while open; the release lags the unmount by a tick).
+      await waitFor(() => expect(within(document.body).queryByRole("menuitemcheckbox")).toBeNull());
+      await waitFor(() => expect(document.body.style.pointerEvents).not.toBe("none"));
+    });
+
+    await step("A faceted column filter narrows the rows to a value", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: "Filter Status" }));
+      const body = within(document.body);
+      await userEvent.click(await body.findByRole("checkbox", { name: "Open" }));
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(within(table).queryByText("Closed")).toBeNull());
+      await expect(within(table).getAllByText("Open").length).toBeGreaterThan(0);
     });
   }}
 >

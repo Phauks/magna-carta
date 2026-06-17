@@ -7,8 +7,20 @@
    * numerics via `columnAlign`; row selection supports shift-click range select. Reused by the
    * showcase / empty / loading stories so the composition is written once.
    */
-  import type { ColumnDef, RowSelectionState, SortingState, VisibilityState } from "@tanstack/table-core";
-  import { getCoreRowModel, getFilteredRowModel, getSortedRowModel } from "@tanstack/table-core";
+  import type {
+    ColumnDef,
+    ColumnFiltersState,
+    RowSelectionState,
+    SortingState,
+    VisibilityState,
+  } from "@tanstack/table-core";
+  import {
+    getCoreRowModel,
+    getFacetedRowModel,
+    getFacetedUniqueValues,
+    getFilteredRowModel,
+    getSortedRowModel,
+  } from "@tanstack/table-core";
   import ArrowDown from "@lucide/svelte/icons/arrow-down";
   import ArrowUp from "@lucide/svelte/icons/arrow-up";
   import ChevronsUpDown from "@lucide/svelte/icons/chevrons-up-down";
@@ -41,6 +53,7 @@
   let rowSelection = $state<RowSelectionState>({});
   let columnVisibility = $state<VisibilityState>({});
   let globalFilter = $state("");
+  let columnFilters = $state<ColumnFiltersState>([]);
   let appearance = $state(defaultTableAppearance());
 
   const table = createSvelteTable({
@@ -65,6 +78,9 @@
       get globalFilter() {
         return globalFilter;
       },
+      get columnFilters() {
+        return columnFilters;
+      },
     },
     enableRowSelection: true,
     onSortingChange: (updater) => {
@@ -79,6 +95,9 @@
     onGlobalFilterChange: (updater) => {
       globalFilter = updater instanceof Function ? updater(globalFilter) : updater;
     },
+    onColumnFiltersChange: (updater) => {
+      columnFilters = updater instanceof Function ? updater(columnFilters) : updater;
+    },
     // Search matches the FORMATTED value (so dates/money are searchable as shown), and every column
     // is included (table-core would otherwise skip the Date column).
     globalFilterFn: typedGlobalFilterFn,
@@ -86,6 +105,8 @@
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getFacetedRowModel: getFacetedRowModel(),
+    getFacetedUniqueValues: getFacetedUniqueValues(),
   });
 
   const ariaSort = (state: false | "asc" | "desc") =>
@@ -155,24 +176,27 @@
               aria-sort={header.column.getCanSort() ? ariaSort(header.column.getIsSorted()) : undefined}
             >
               {#if !header.isPlaceholder}
-                {#if header.column.getCanSort()}
-                  <button
-                    type="button"
-                    class="mc-table-sort"
-                    onclick={header.column.getToggleSortingHandler()}
-                  >
+                <div class="mc-table-head-inner">
+                  {#if header.column.getCanSort()}
+                    <button
+                      type="button"
+                      class="mc-table-sort"
+                      onclick={header.column.getToggleSortingHandler()}
+                    >
+                      <FlexRender content={header.column.columnDef.header} context={header.getContext()} />
+                      {#if header.column.getIsSorted() === "asc"}
+                        <ArrowUp class="mc-table-sort-icon" aria-hidden="true" />
+                      {:else if header.column.getIsSorted() === "desc"}
+                        <ArrowDown class="mc-table-sort-icon" aria-hidden="true" />
+                      {:else}
+                        <ChevronsUpDown class="mc-table-sort-icon" aria-hidden="true" />
+                      {/if}
+                    </button>
+                  {:else}
                     <FlexRender content={header.column.columnDef.header} context={header.getContext()} />
-                    {#if header.column.getIsSorted() === "asc"}
-                      <ArrowUp class="mc-table-sort-icon" aria-hidden="true" />
-                    {:else if header.column.getIsSorted() === "desc"}
-                      <ArrowDown class="mc-table-sort-icon" aria-hidden="true" />
-                    {:else}
-                      <ChevronsUpDown class="mc-table-sort-icon" aria-hidden="true" />
-                    {/if}
-                  </button>
-                {:else}
-                  <FlexRender content={header.column.columnDef.header} context={header.getContext()} />
-                {/if}
+                  {/if}
+                  <DataTable.ColumnFilter column={header.column} />
+                </div>
               {/if}
             </DataTable.Head>
           {/each}

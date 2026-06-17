@@ -13,6 +13,8 @@ import type { CellContext, ColumnMeta, Row, RowData } from "@tanstack/table-core
 import type { Column } from "@tanstack/table-core";
 
 export type ColumnValueType = "text" | "number" | "money" | "date";
+/** The per-column filter control: a contains box, faceted value list, numeric range, or date range. */
+export type ColumnFilterKind = "text" | "facet" | "range" | "date";
 
 declare module "@tanstack/table-core" {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -27,6 +29,9 @@ declare module "@tanstack/table-core" {
     locale?: string;
     /** Human label for the column (the Columns menu + headers); falls back to a title-cased id. */
     label?: string;
+    /** The per-column filter control. Defaults from `type` (number/money → range, date → date, text →
+     * text); set explicitly for a faceted (distinct-value) filter, or omit for no column filter. */
+    filter?: ColumnFilterKind;
   }
 }
 
@@ -105,6 +110,44 @@ export function columnAlign<TData extends RowData>(
   const meta = column.columnDef.meta;
   if (meta?.align) return meta.align;
   return meta?.type === "money" || meta?.type === "number" ? "end" : "start";
+}
+
+/** The per-column filter control kind, from `meta.filter` or derived from `meta.type` (undefined → no filter). */
+export function columnFilterKind<TData extends RowData>(
+  column: Column<TData, unknown>,
+): ColumnFilterKind | undefined {
+  const meta = column.columnDef.meta;
+  if (meta?.filter) return meta.filter;
+  switch (meta?.type) {
+    case "money":
+    case "number":
+      return "range";
+    case "date":
+      return "date";
+    case "text":
+      return "text";
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * A filter function for a `date` column over a `[from, to]` pair of `YYYY-MM-DD` strings (either side
+ * optional). Compares in UTC and treats `to` as inclusive through end-of-day, matching the displayed
+ * date-only values.
+ */
+export function dateRangeFilterFn<TData extends RowData>(
+  row: Row<TData>,
+  columnId: string,
+  filterValue: unknown,
+): boolean {
+  const [from, to] = (Array.isArray(filterValue) ? filterValue : []) as [string?, string?];
+  if (!from && !to) return true;
+  const value = row.getValue(columnId);
+  const time = (value instanceof Date ? value : new Date(value as string)).getTime();
+  if (from && time < new Date(`${from}T00:00:00Z`).getTime()) return false;
+  if (to && time > new Date(`${to}T23:59:59Z`).getTime()) return false;
+  return true;
 }
 
 /** The column's display label — `meta.label`, else the string header, else a title-cased id. */

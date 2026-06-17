@@ -2109,6 +2109,13 @@
     inline-size: var(--mc-space-16);
     block-size: var(--mc-space-16);
   }
+  /* Header cell content: the sort control + the filter funnel sit on one row (inline-flex, so the
+     head's text-align positions the group — leading for text columns, trailing for end-aligned ones). */
+  .mc-table-head-inner {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+  }
   /* Empty / loading placeholders. The empty cell centres a muted message across the table; the
      loading rows carry token-height skeletons (full width via the w-full utility on the element). */
   .mc-table-empty {
@@ -2128,6 +2135,65 @@
   .mc-table-toolbar-icon {
     inline-size: var(--mc-space-16);
     block-size: var(--mc-space-16);
+  }
+  /*
+   * Per-column filter — a funnel button in the header that opens a popover with the type-appropriate
+   * control. The funnel mutes to a subtle tint and lights up (link colour) while the column is
+   * filtered. The popover content is a fixed-width stack; facets scroll past a few rows.
+   */
+  .mc-table-filter-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--mc-space-24);
+    block-size: var(--mc-space-24);
+    border-radius: var(--mc-radius-sm);
+    background-color: transparent;
+    color: var(--mc-text-subtle);
+    cursor: pointer;
+    transition-property: background-color, color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-table-filter-trigger:hover {
+    background-color: var(--mc-surface-sunken);
+    color: var(--mc-text-default);
+  }
+  .mc-table-filter-trigger[data-active="true"] {
+    color: var(--mc-text-link);
+  }
+  .mc-table-filter-trigger:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-table-filter-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+  .mc-table-filter-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-8);
+    inline-size: var(--mc-size-popover);
+  }
+  .mc-table-filter-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-8);
+  }
+  .mc-table-filter-facets {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    max-block-size: var(--mc-size-popover);
+    overflow-y: auto;
+  }
+  .mc-table-filter-option {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    font-size: var(--mc-text-sm);
+    cursor: pointer;
   }
 
   /*

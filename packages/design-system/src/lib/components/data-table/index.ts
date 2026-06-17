@@ -22,11 +22,13 @@ import Caption from "./table-caption.svelte";
 import FlexRender from "./flex-render.svelte";
 import Search from "./data-table-search.svelte";
 import ViewMenu from "./data-table-view-menu.svelte";
+import ColumnFilter from "./data-table-column-filter.svelte";
 
 export { createSvelteTable } from "./data-table.svelte.ts";
 export { renderComponent, renderSnippet } from "./render-helpers.ts";
 export {
   type ColumnValueType,
+  type ColumnFilterKind,
   formatDate,
   formatMoney,
   formatNumber,
@@ -34,6 +36,8 @@ export {
   typedGlobalFilterFn,
   columnAlign,
   columnLabel,
+  columnFilterKind,
+  dateRangeFilterFn,
 } from "./typed-columns.ts";
 export {
   type TableAppearance,
@@ -53,6 +57,7 @@ export {
   FlexRender,
   Search,
   ViewMenu,
+  ColumnFilter,
   //
   Root as Table,
   Header as TableHeader,
@@ -63,4 +68,5 @@ export {
   Caption as TableCaption,
   Search as TableSearch,
   ViewMenu as TableViewMenu,
+  ColumnFilter as TableColumnFilter,
 };
