@@ -4,7 +4,7 @@
 **White-paper home:** _Plugin / Add-on system_ (build-in-vs-plugin rule; "pure utilities are libraries, not plugins")
 **ADRs:** **ADR-0097 (the Tools layer — a presentation/IA catalog above the integration framework; library-vs-integration tool backing — new)** · builds on ADR-0091/0092 (integration port system + connection model), ADR-0093 (property external-links), ADR-0068 (access control), ADR-0015 (uniform plugin model).
 
-A growing set of first-party utilities — county property links, Secretary-of-State business lookups, attorney-license lookups, shipping/postage, an Avery template printer, an in-app network speed test — currently has no shared home and no consistent way to be discovered. This design adds a **Tools** area: a top-level left-nav destination that catalogs these utilities and surfaces each one both **generally** (a permanent, discoverable place) and **contextually** (where it is relevant — an address tool on a Location, a person tool on a Directory entity). The catalog is one source of truth feeding both surfaces.
+A growing set of first-party utilities — county property links, Secretary-of-State business lookups, attorney-license lookups, shipping/postage, an Avery template printer, and a family of diagnostics (a network speed test, firm usage/storage, server-connectivity checks, platform uptime) — currently has no shared home and no consistent way to be discovered. This design adds a **Tools** area: a top-level left-nav destination that catalogs these utilities and surfaces each one both **generally** (a permanent, discoverable place) and **contextually** (where it is relevant — an address tool on a Location, a person tool on a Directory entity). The catalog is one source of truth feeding both surfaces.
 
 This is a **presentation / information-architecture layer only**. It does no outbound work itself: it sits *above* the packages that already exist — pure libraries for the link tools, the integration framework for the connected ones — and never touches credentials, connections, or vendor APIs.
 
@@ -53,14 +53,16 @@ export type SubjectGroup =
   | "people-licenses"
   | "mailing-shipping"
   | "printing"
-  | "diagnostics"; // connectivity / system tests — no legal subject (the speed test now)
+  | "diagnostics"; // connectivity / system / account-health tools — no legal subject (speed test, firm usage/storage, server-connectivity checks, platform uptime)
 
 // What real-world subject a tool can act on — drives contextual surfacing. `none` = general-only.
 export type ContextTag = "address" | "person" | "company" | "matter" | "none";
 
-// `library` = self-contained, no connection and no credential — covers BOTH a pure link generator
-// (property-links) AND an interactive client-side widget (the speed test). The difference is purely
-// UI, handled by the shell's id→component map; the catalog treats them identically.
+// `library` = no EXTERNAL integration to reflect — covers a pure link generator (property-links), an
+// interactive client-side widget (the speed test), AND a view of first-party firm data fetched from
+// our own API (firm usage/storage diagnostics). The only distinction the catalog draws is whether a
+// tool reflects an external integration's connection health; how a library tool sources its data is a
+// UI concern, handled by the shell's id→component map.
 export type ToolBacking =
   | { readonly kind: "library" } // pure utility — no connection, no credential
   | { readonly kind: "integration"; readonly category: string }; // reflects the integration registry
@@ -113,8 +115,9 @@ Both are total, pure functions over the catalog and the principal's permission s
 
 ## 5. Integration boundary (the firm line)
 
-- **library** tools (property-links, government-links, Avery, the speed test) — no port, no credential, no connection record, whether a pure link generator or an interactive client-side widget. The catalog references each by `id`; the shell maps `id → component`.
+- **library** tools (property-links, government-links, Avery, the speed test, firm usage/storage diagnostics) — no external integration to reflect: a pure link generator, an interactive client-side widget, or a view of first-party firm data fetched from our own API. No port, no credential, no connection record. The catalog references each by `id`; the shell maps `id → component`.
 - **integration** tools (shipping, and future connected tools) — the catalog holds only the `category` string. Everything real (port, descriptor, credential, health) lives in `@magna-carta/integrations` and its adapters. The Tools layer never reads or writes a credential.
+- **cross-integration diagnostics** (a future connectivity / "verify access" check) are a third relationship: a diagnostics tool that *reads across* the firm's connections — pinging each and reporting the framework's `connected | degraded | needs_reauth | disabled` health — rather than being backed by one integration. It is a read-only consumer of the integration health model, classified `backing: library` (it reflects no single integration's connection) and never connecting, re-authing, or touching credentials — a read-only precursor to, and distinct from, the deferred connection-management UI.
 
 No new credential or connection concept is introduced by Tools. This keeps the framework's own boundary intact: pure utilities stay libraries; only genuinely connected capabilities are integrations.
 
@@ -124,6 +127,7 @@ No new credential or connection concept is introduced by Tools. This keeps the f
 - **Connection management** — the integration connection-management UI (connect an account, view health, re-auth, disable) is deferred and unowned in the integration spec. This design assumes a **"Connect…" entry point exists** behind the integration-backed `not-connected` state and routes to that surface; its placement (a dedicated Settings → Integrations area vs. inside Tools) is decided in the integration connection-UI slice.
 - **Tool entry UI** — the `id → component` map and the styled sidebar/contextual rendering land with the 0·7a design-system shell.
 - **Per-tool build details** — each tool's internals are out of scope here and decided when it is built. Recorded recommendation for the speed test: build the UI on Cloudflare's official `@cloudflare/speedtest` client library and style it with the design system, rather than iframing `speed.cloudflare.com` (a raw external iframe cannot be design-system-styled — golden rule 2).
+- **Future Diagnostics tools** (added as catalog rows when built; data sources noted): the **network speed test** (`@cloudflare/speedtest`, above); **firm usage & storage** — a read of the existing slice 1·1 storage metering (exact D1 rollup + scheduled R2-LIST reconciliation) and usage counters, surfaced per firm; **server-connectivity / "verify access"** — the cross-integration health check above, reading the integration framework's connection health; **platform uptime / upkeep** — Magna Carta's own service status and any scheduled-maintenance window. All sit in the Diagnostics subject group.
 
 ## 7. Build sequencing
 
