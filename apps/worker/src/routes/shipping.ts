@@ -1,10 +1,18 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
+import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { SecretStore } from "@magna-carta/data-access/firm-secret-credential-store";
 import { insertConnectionStatement } from "@magna-carta/data-access/integration-connection-statements";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
-import { selectShipmentStatement } from "@magna-carta/data-access/shipment-statements";
-import { createShipmentDraft, recordPurchase } from "@magna-carta/data-access/shipment-service";
+import {
+  insertTrackingEventStatement,
+  selectShipmentStatement,
+} from "@magna-carta/data-access/shipment-statements";
+import {
+  createShipmentDraft,
+  recordPurchase,
+  recordRefund,
+} from "@magna-carta/data-access/shipment-service";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { MatterId, ShipmentId } from "@magna-carta/identifiers/types";
 import type { Dispatch } from "@magna-carta/integrations/dispatch";
@@ -249,6 +257,102 @@ const purchaseRoute = defineOpenAPIRoute(writeMeta("shipping.purchase"), {
   },
 });
 
+const TrackingResponse = z
+  .object({
+    events: z.array(
+      z.object({
+        status: z.string(),
+        occurredAt: z.string().nullable(),
+        location: z.string().nullable(),
+        message: z.string().nullable(),
+      }),
+    ),
+  })
+  .openapi("TrackingResponse");
+const RefundAck = z.object({ id: z.string(), status: z.string() }).openapi("RefundAck");
+
+// GET label PDF — streamed from per-firm R2.
+const labelRoute = defineOpenAPIRoute(
+  {
+    operationId: "shipping.label",
+    surface: "app",
+    authenticated: true,
+    permission: MANAGE,
+    resource: "firm",
+    audited: false,
+    idempotency: "optional",
+    rateLimit: "default",
+  },
+  {
+    method: "get",
+    path: "/api/v1/shipments/{id}/label",
+    description: "Streams the shipment's label PDF.",
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: { description: "Label PDF", content: { "application/pdf": { schema: z.string() } } },
+      401: errorResponses[401],
+      403: errorResponses[403],
+      404: errorResponses[404],
+      429: errorResponses[429],
+    },
+  },
+);
+
+// Pull tracking live, cache events, return them. POST (it calls EasyPost) but unaudited, optional idempotency.
+const trackingRoute = defineOpenAPIRoute(
+  {
+    operationId: "shipping.tracking",
+    surface: "app",
+    authenticated: true,
+    permission: MANAGE,
+    resource: "firm",
+    audited: false,
+    idempotency: "optional",
+    rateLimit: "default",
+  },
+  {
+    method: "post",
+    path: "/api/v1/shipments/{id}/tracking",
+    description: "Pulls and returns current tracking events.",
+    request: { params: z.object({ id: z.string() }) },
+    responses: {
+      200: {
+        description: "Tracking events",
+        content: { "application/json": { schema: TrackingResponse } },
+      },
+      401: errorResponses[401],
+      403: errorResponses[403],
+      404: errorResponses[404],
+      409: errorResponses[409],
+      422: errorResponses[422],
+      429: errorResponses[429],
+      502: errorResponses[502],
+    },
+  },
+);
+
+// Refund/void an unused label.
+const refundRoute = defineOpenAPIRoute(writeMeta("shipping.refund"), {
+  method: "post",
+  path: "/api/v1/shipments/{id}/refund",
+  description: "Voids/refunds the shipment's label.",
+  request: { headers: idempotencyKeyHeader, params: z.object({ id: z.string() }) },
+  responses: {
+    200: {
+      description: "Refund submitted",
+      content: { "application/json": { schema: RefundAck } },
+    },
+    400: errorResponses[400],
+    401: errorResponses[401],
+    403: errorResponses[403],
+    404: errorResponses[404],
+    409: errorResponses[409],
+    422: errorResponses[422],
+    429: errorResponses[429],
+    502: errorResponses[502],
+  },
+});
+
 export function registerShippingRoutes(
   app: ShippingApp,
   chokepoint: Chokepoint,
@@ -473,6 +577,128 @@ export function registerShippingRoutes(
       }
       if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
       return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof PurchaseAck>, 200);
+    },
+  );
+
+  // GET /api/v1/shipments/{id}/label — stream the label PDF from per-firm R2
+  app.openapi(
+    { ...labelRoute, middleware: chokepointMiddleware(chokepoint, labelRoute) },
+    async (c) => {
+      const id = c.req.valid("param").id;
+      const object = await c.env.R2.get(`labels/${id}.pdf`);
+      if (object === null) return notFoundProblem(c);
+      return new Response(object.body, {
+        status: 200,
+        headers: {
+          "content-type": "application/pdf",
+          "content-disposition": `inline; filename="label-${id}.pdf"`,
+        },
+      });
+    },
+  );
+
+  // POST /api/v1/shipments/{id}/tracking — pull live tracking, cache events, return them
+  app.openapi(
+    { ...trackingRoute, middleware: chokepointMiddleware(chokepoint, trackingRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const firmId = requireChokepointFirmId(c);
+      const id = c.req.valid("param").id as ShipmentId;
+      const now = () => new Date().toISOString();
+      const { results } = await selectShipmentStatement(firm.firmDatabase, id).all<{
+        tracking_code: string | null;
+      }>();
+      const shipmentRow = results[0];
+      if (shipmentRow?.tracking_code == null) return notFoundProblem(c);
+      const registry = buildShippingRegistry(
+        firm.firmDatabase,
+        deps.secretStoreForFirm(firm.firmDatabase),
+        deps.httpClient,
+      );
+      const resolved = await registry.resolve<ShippingPort>("shipping", { firmId });
+      if (!resolved.ok) return shippingDispatchProblem(c, resolved);
+      const tracked = await resolved.value.port.getTracking(shipmentRow.tracking_code);
+      if (!tracked.ok) return shippingDispatchProblem(c, tracked);
+      // Cache each event (INSERT OR IGNORE dedups by remote_id); a single batch.
+      const inserts = tracked.value.map((event) =>
+        insertTrackingEventStatement(firm.firmDatabase, {
+          id: newIdentifier("trackingEvent"),
+          shipmentRef: id,
+          remoteId: event.remoteId,
+          status: event.status,
+          occurredAt: event.occurredAt,
+          location: event.location,
+          message: event.message,
+          createdAt: now(),
+        }),
+      );
+      if (inserts.length > 0) {
+        await commitEffectBatch(
+          firm.firmDatabase,
+          { statements: inserts, outboxMessages: [] },
+          { now },
+        );
+      }
+      return c.json(
+        {
+          events: tracked.value.map((event) => ({
+            status: event.status,
+            occurredAt: event.occurredAt,
+            location: event.location,
+            message: event.message,
+          })),
+        },
+        200,
+      );
+    },
+  );
+
+  // POST /api/v1/shipments/{id}/refund — void/refund the label
+  app.openapi(
+    { ...refundRoute, middleware: chokepointMiddleware(chokepoint, refundRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const firmId = requireChokepointFirmId(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const id = c.req.valid("param").id as ShipmentId;
+      const now = () => new Date().toISOString();
+      const { results } = await selectShipmentStatement(firm.firmDatabase, id).all<{
+        remote_shipment_id: string | null;
+      }>();
+      const remote = results[0]?.remote_shipment_id;
+      if (remote == null) return notFoundProblem(c);
+      const registry = buildShippingRegistry(
+        firm.firmDatabase,
+        deps.secretStoreForFirm(firm.firmDatabase),
+        deps.httpClient,
+      );
+      const resolved = await registry.resolve<ShippingPort>("shipping", { firmId });
+      if (!resolved.ok) return shippingDispatchProblem(c, resolved);
+      const refunded = await resolved.value.port.refundLabel(remote);
+      if (!refunded.ok) return shippingDispatchProblem(c, refunded);
+      const result = await runIdempotentEffect({
+        database: firm.firmDatabase,
+        key: idempotency.key,
+        fingerprint: idempotency.fingerprint,
+        now,
+        effect: async () => {
+          const recorded = await recordRefund(firm.firmDatabase, id, {
+            clock: { now },
+            actorUserId: userId,
+          });
+          return {
+            write: recorded.effect,
+            responseCode: 200,
+            responseBody: canonicalJsonStringify({ id, status: refunded.value.status }),
+          };
+        },
+      });
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+        return problemResponseForIdempotencyConflict(c, result);
+      }
+      if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
+      return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof RefundAck>, 200);
     },
   );
 }
