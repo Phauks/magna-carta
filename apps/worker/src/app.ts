@@ -39,6 +39,10 @@ export type Bindings = {
   DB_FIRM_POOL_2: D1Database;
   R2: R2Bucket;
   QUEUE: Queue;
+  // The files-ingest queue binding for the interactive lane (files/ prefix).
+  FILES_INGEST?: Queue;
+  // The files-ingest-bulk queue binding for the bulk lane (bulk/ prefix, lower concurrency).
+  FILES_INGEST_BULK?: Queue;
   // Better Auth's signing/encryption secret. Local dev + tests load it from .dev.vars;
   // production sets it with `wrangler secret put AUTH_SECRET`.
   AUTH_SECRET: string;

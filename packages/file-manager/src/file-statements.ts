@@ -17,9 +17,16 @@ export const UPLOAD_SESSION_TABLE = "upload_session";
 // The top-level R2 key segment for matter files (also the storage_meter prefix). Keys are opaque:
 // files/{fileId}/{versionId} — never derived from a folder path, so a rename moves no bytes.
 export const FILES_PREFIX = "files";
+// The R2 key prefix for bulk-uploaded objects. Bulk objects live under bulk/ but still meter under
+// the files/ logical dimension — the lane benefit is queue topology, not a different meter bucket.
+export const BULK_PREFIX = "bulk";
 
-export function fileVersionKey(fileId: FileId, versionId: FileVersionId): string {
-  return `${FILES_PREFIX}/${fileId}/${versionId}`;
+export function fileVersionKey(
+  fileId: FileId,
+  versionId: FileVersionId,
+  prefix: string = FILES_PREFIX,
+): string {
+  return `${prefix}/${fileId}/${versionId}`;
 }
 
 export interface InsertFileRow {

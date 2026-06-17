@@ -302,6 +302,33 @@ describe("moveFile — same-matter integrity", () => {
   });
 });
 
+describe("initiateUpload — lane selection by uploadKind", () => {
+  it("mints an R2 key under files/ by default (interactive lane)", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const result = await initiate(database, matterId);
+    expect(result.r2Key).toMatch(/^files\//);
+  });
+
+  it("mints an R2 key under bulk/ when uploadKind is bulk", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const result = await initiate(database, matterId, { uploadKind: "bulk" });
+    expect(result.r2Key).toMatch(/^bulk\//);
+  });
+
+  it("bulk upload still meters under files/ on commit (meter dimension is logical, not the key prefix)", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { versionId } = await initiate(database, matterId, { uploadKind: "bulk" });
+    await commit(database, versionId, "hash-bulk");
+    const meter = await database
+      .prepare("SELECT bytes, object_count FROM storage_meter WHERE prefix = 'files'")
+      .all<{ bytes: number; object_count: number }>();
+    expect(meter.results[0]).toEqual({ bytes: 1024, object_count: 1 });
+  });
+});
+
 describe("initiateUpload — new version on an existing file", () => {
   it("refuses a new version whose declared matter differs from the file's matter", async () => {
     const database = freshDatabase();

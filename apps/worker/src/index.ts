@@ -30,7 +30,8 @@ export default {
     );
   },
   queue(batch, env) {
-    // The only queue this Worker consumes is files-ingest; its messages are R2 events.
+    // Both the interactive files-ingest queue and the bulk files-ingest-bulk queue route to the
+    // same ingest handler — the lane separation is entirely in queue topology and concurrency.
     return ingestQueue(batch as MessageBatch<R2EventMessage>, env);
   },
 } satisfies ExportedHandler<Bindings>;

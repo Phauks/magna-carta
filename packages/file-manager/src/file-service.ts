@@ -14,6 +14,7 @@ import { fileAuditStatement, type AuditContext } from "./audit.ts";
 import {
   abandonVersionStatement,
   assignDocumentTypeStatement,
+  BULK_PREFIX,
   bumpFileCurrentVersionStatement,
   commitVersionStatement,
   fileVersionKey,
@@ -99,6 +100,9 @@ export interface InitiateUploadInput {
   readonly documentTypeId?: DocumentTypeId | null;
   readonly fileId?: FileId; // present = a new version on an existing file
   readonly expiresAt?: string | null;
+  // Absent or "interactive" = the file lands in the interactive ingest lane (files/ key prefix);
+  // "bulk" = the file lands in the bulk ingest lane (bulk/ key prefix, lower queue concurrency).
+  readonly uploadKind?: "interactive" | "bulk";
 }
 
 export interface InitiatedUpload {
@@ -171,7 +175,8 @@ export async function initiateUpload(
   }
   const versionId = newIdentifier("fileVersion", options.randomSource);
   const uploadSessionId = newIdentifier("uploadSession", options.randomSource);
-  const r2Key = fileVersionKey(fileId, versionId);
+  const prefix = input.uploadKind === "bulk" ? BULK_PREFIX : FILES_PREFIX;
+  const r2Key = fileVersionKey(fileId, versionId, prefix);
   statements.push(
     insertFileVersionStatement(database, {
       id: versionId,

@@ -82,15 +82,23 @@
     "producers": [
       { "binding": "QUEUE", "queue": "magna-carta-production-platform-jobs" },
       { "binding": "FILES_INGEST", "queue": "magna-carta-production-files-ingest" },
+      { "binding": "FILES_INGEST_BULK", "queue": "magna-carta-production-files-ingest-bulk" },
     ],
     // The files-ingest consumer (the queue() handler in src/index.ts over the ingest consumer): one
     // R2 object-create event per uploaded object → single-read gates + SHA-256 + scan port → commit
     // or quarantine. A declared consumer with no exported handler fails the deploy, so this lands
     // with the handler. Dead-letters to its own queue after max retries (the 0·2 relay discipline).
+    // Both the interactive files-ingest queue and the bulk files-ingest-bulk queue route to the same
+    // ingest handler; the lane separation is entirely in queue topology and max_concurrency.
     "consumers": [
       {
         "queue": "magna-carta-production-files-ingest",
         "dead_letter_queue": "magna-carta-production-files-ingest-deadletter",
+      },
+      {
+        "queue": "magna-carta-production-files-ingest-bulk",
+        "max_concurrency": 2,
+        "dead_letter_queue": "magna-carta-production-files-ingest-bulk-deadletter",
       },
     ],
   },
