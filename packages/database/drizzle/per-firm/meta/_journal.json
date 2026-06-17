@@ -43,6 +43,13 @@
       "when": 1781595491489,
       "tag": "0005_list-keyset-indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1781719063395,
+      "tag": "0006_seed-tools-firm-usage",
+      "breakpoints": true
     }
   ]
 }

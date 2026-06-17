@@ -247,6 +247,19 @@ describe("generated migrations (committed artifacts)", () => {
     }
   });
 
+  it("per-firm 0006 seeds tools:firmUsage onto the Owner/Admin role only", async () => {
+    const migrations = await loadLineage("per-firm");
+    const migration = migrations.find((m) => m.tag === "0006_seed-tools-firm-usage");
+    expect(migration, "0006_seed-tools-firm-usage missing from the per-firm lineage").toBeDefined();
+    const seeds = (migration?.statements ?? [])
+      .filter((statement) => statement.includes("INSERT INTO `role_permission`"))
+      .map(parseSingleRowInsert);
+    expect(seeds).toHaveLength(1);
+    expect(seeds[0]?.permission).toBe("tools:firmUsage");
+    expect(seeds[0]?.role_id).toBe("role_Gw-zKO8hOHQuNv2bWokMp"); // the Owner/Admin role (0002)
+    expect(isIdentifier(seeds[0]?.id, "rolePermission")).toBe(true);
+  });
+
   it("per-firm lineage never creates the auth tables — they are control-plane only", async () => {
     const migrations = await loadLineage("per-firm");
     const allSql = migrations.flatMap((migration) => migration.statements).join("\n");
