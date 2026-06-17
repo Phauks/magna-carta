@@ -1,7 +1,6 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import type { SecretStore } from "@magna-carta/data-access/firm-secret-credential-store";
 import { insertConnectionStatement } from "@magna-carta/data-access/integration-connection-statements";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import {
@@ -17,7 +16,6 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { MatterId, ShipmentId } from "@magna-carta/identifiers/types";
 import type { Dispatch } from "@magna-carta/integrations/dispatch";
 import { createEasyPostAdapter } from "@magna-carta/shipping/easypost";
-import type { HttpClient } from "@magna-carta/shipping/easypost/http";
 import type { ShippingPort } from "@magna-carta/shipping/port";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
@@ -34,18 +32,13 @@ import { idempotencyKeyHeader } from "../contracts/common.ts";
 import { problemJson, Problem, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
-import { buildShippingRegistry } from "../shipping/registry.ts";
+import { buildIntegrationRegistry } from "../plugins/registry.ts";
+import type { PluginRuntime } from "../plugins/runtime.ts";
 
 // Shipping & postage: connect the firm's EasyPost postage account, then create/rate/buy/track/refund
 // shipments. The API key is stored as a firm secret (never logged); the live carrier calls run
-// through the resolved ShippingPort. Every route requires shipping:manage. The secretStoreForFirm and
-// httpClient are injected so production swaps the real firm_secret store (slice 1·2) and tests inject
-// a fake EasyPost.
-
-export interface ShippingRouteDeps {
-  readonly secretStoreForFirm: (firmDatabase: unknown) => SecretStore;
-  readonly httpClient: HttpClient;
-}
+// through the resolved ShippingPort. Every route requires shipping:manage. The PluginRuntime is
+// injected so production swaps the real firm_secret store and tests inject a fake EasyPost.
 
 type ShippingApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 const MANAGE = "shipping:manage" as const;
@@ -356,7 +349,7 @@ const refundRoute = defineOpenAPIRoute(writeMeta("shipping.refund"), {
 export function registerShippingRoutes(
   app: ShippingApp,
   chokepoint: Chokepoint,
-  deps: ShippingRouteDeps,
+  runtime: PluginRuntime,
 ): void {
   // POST /api/v1/integrations/shipping/connection — store the API key + record the connection
   app.openapi(
@@ -369,8 +362,8 @@ export function registerShippingRoutes(
       const idempotency = requireChokepointIdempotency(c);
       const { apiKey } = c.req.valid("json");
       const now = () => new Date().toISOString();
-      const secrets = deps.secretStoreForFirm(firm.firmDatabase);
-      const descriptor = createEasyPostAdapter({ http: deps.httpClient }).descriptor;
+      const secrets = runtime.secretStoreForFirm(firm.firmDatabase);
+      const descriptor = createEasyPostAdapter({ http: runtime.httpClient }).descriptor;
 
       const connectionId = newIdentifier("integrationConnection");
       const credentialRef = `integration:shipping:${connectionId}`;
@@ -458,11 +451,7 @@ export function registerShippingRoutes(
       const firm = requireChokepointFirmContext(c);
       const firmId = requireChokepointFirmId(c);
       const id = c.req.valid("param").id as ShipmentId;
-      const registry = buildShippingRegistry(
-        firm.firmDatabase,
-        deps.secretStoreForFirm(firm.firmDatabase),
-        deps.httpClient,
-      );
+      const registry = buildIntegrationRegistry(firm.firmDatabase, runtime);
       const resolved = await registry.resolve<ShippingPort>("shipping", { firmId });
       if (!resolved.ok) return shippingDispatchProblem(c, resolved);
       const { results } = await selectShipmentStatement(firm.firmDatabase, id).all<{
@@ -509,11 +498,7 @@ export function registerShippingRoutes(
       const id = c.req.valid("param").id as ShipmentId;
       const body = c.req.valid("json");
       const now = () => new Date().toISOString();
-      const registry = buildShippingRegistry(
-        firm.firmDatabase,
-        deps.secretStoreForFirm(firm.firmDatabase),
-        deps.httpClient,
-      );
+      const registry = buildIntegrationRegistry(firm.firmDatabase, runtime);
       const resolved = await registry.resolve<ShippingPort>("shipping", { firmId });
       if (!resolved.ok) return shippingDispatchProblem(c, resolved);
 
@@ -610,11 +595,7 @@ export function registerShippingRoutes(
       }>();
       const shipmentRow = results[0];
       if (shipmentRow?.tracking_code == null) return notFoundProblem(c);
-      const registry = buildShippingRegistry(
-        firm.firmDatabase,
-        deps.secretStoreForFirm(firm.firmDatabase),
-        deps.httpClient,
-      );
+      const registry = buildIntegrationRegistry(firm.firmDatabase, runtime);
       const resolved = await registry.resolve<ShippingPort>("shipping", { firmId });
       if (!resolved.ok) return shippingDispatchProblem(c, resolved);
       const tracked = await resolved.value.port.getTracking(shipmentRow.tracking_code);
@@ -668,11 +649,7 @@ export function registerShippingRoutes(
       }>();
       const remote = results[0]?.remote_shipment_id;
       if (remote == null) return notFoundProblem(c);
-      const registry = buildShippingRegistry(
-        firm.firmDatabase,
-        deps.secretStoreForFirm(firm.firmDatabase),
-        deps.httpClient,
-      );
+      const registry = buildIntegrationRegistry(firm.firmDatabase, runtime);
       const resolved = await registry.resolve<ShippingPort>("shipping", { firmId });
       if (!resolved.ok) return shippingDispatchProblem(c, resolved);
       const refunded = await resolved.value.port.refundLabel(remote);

@@ -76,7 +76,7 @@ function fakeEasyPost(): HttpClient {
 
 const secrets = memorySecretStore();
 const app = createApp({
-  shipping: { secretStoreForFirm: () => secrets, httpClient: fakeEasyPost() },
+  pluginRuntime: { secretStoreForFirm: () => secrets, httpClient: fakeEasyPost() },
 });
 
 let poolFirmId: FirmId;

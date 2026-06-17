@@ -4,9 +4,9 @@ import { createApp, type Bindings } from "./app.ts";
 import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
 import { runScheduledSweep, runStorageReconciliation } from "./scheduled.ts";
 
-// createApp defaults shipping to the production seam — the firm_secret credential store throws until
-// slice 1·2 lands (the routes are registered and in the contract, but cannot resolve a live account
-// yet), with a fetch-backed EasyPost client.
+// createApp defaults the plugin runtime to the production seam — the firm_secret credential store
+// throws until the marketplace wires the live credential read; carrier calls use a fetch-backed
+// EasyPost client. Plugins mount from the registry; the core names none directly.
 const app = createApp();
 
 // The daily reconciliation Cron expression (wrangler.jsonc triggers.crons), distinct from the */5
