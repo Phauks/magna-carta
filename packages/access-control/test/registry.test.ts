@@ -83,6 +83,7 @@ describe("permission registry", () => {
       "tools:attorneyLicense",
       "tools:shipping",
       "tools:speedTest",
+      "tools:firmUsage",
     ]);
   });
 
