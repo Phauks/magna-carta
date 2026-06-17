@@ -16,7 +16,7 @@ describe("licensing domain — attorney-license lookup", () => {
     expect(site?.system).toBe("attorneyLicense");
     expect(site?.jurisdictionType).toBe("state");
     expect(site && portalUrl(site)).toBe(
-      "https://members.calbar.ca.gov/fal/MemberSearch/QuickSearch",
+      "https://apps.calbar.ca.gov/attorney/LicenseeSearch/QuickSearch",
     );
   });
 

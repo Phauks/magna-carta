@@ -17,8 +17,18 @@ interface AttorneyLicenseState {
 
 // Kept sorted by FIPS.
 const ATTORNEY_LICENSE_STATES: readonly AttorneyLicenseState[] = [
-  { fips: "01", code: "AL", name: "Alabama", lookup: "https://www.alabar.org/find-a-member/" },
-  { fips: "02", code: "AK", name: "Alaska", lookup: "https://courts.alaska.gov/shc/lawyer.htm" },
+  {
+    fips: "01",
+    code: "AL",
+    name: "Alabama",
+    lookup: "https://members.alabar.org/Member_Portal/Member_Portal/Member-Search.aspx",
+  },
+  {
+    fips: "02",
+    code: "AK",
+    name: "Alaska",
+    lookup: "https://alaskabar.org/for-lawyers/member-directories/",
+  },
   {
     fips: "04",
     code: "AZ",
@@ -36,9 +46,14 @@ const ATTORNEY_LICENSE_STATES: readonly AttorneyLicenseState[] = [
     fips: "06",
     code: "CA",
     name: "California",
-    lookup: "https://members.calbar.ca.gov/fal/MemberSearch/QuickSearch",
+    lookup: "https://apps.calbar.ca.gov/attorney/LicenseeSearch/QuickSearch",
   },
-  { fips: "08", code: "CO", name: "Colorado", lookup: "https://www.cobar.org/Licensed-Lawyer" },
+  {
+    fips: "08",
+    code: "CO",
+    name: "Colorado",
+    lookup: "https://www.coloradolegalregulation.com/attorney-search/",
+  },
   {
     fips: "09",
     code: "CT",
@@ -55,7 +70,7 @@ const ATTORNEY_LICENSE_STATES: readonly AttorneyLicenseState[] = [
     fips: "11",
     code: "DC",
     name: "District of Columbia",
-    lookup: "https://www.dcbar.org/for-lawyers/mydclawyer",
+    lookup: "https://my.dcbar.org/memberdirectory",
   },
   {
     fips: "12",
@@ -63,8 +78,8 @@ const ATTORNEY_LICENSE_STATES: readonly AttorneyLicenseState[] = [
     name: "Florida",
     lookup: "https://www.floridabar.org/directories/find-mbr/",
   },
-  { fips: "13", code: "GA", name: "Georgia", lookup: "https://www.gabar.org/search" },
-  { fips: "15", code: "HI", name: "Hawaii", lookup: "https://hsba.org/find-a-lawyer/" },
+  { fips: "13", code: "GA", name: "Georgia", lookup: "https://www.gabar.org/member-directory/" },
+  { fips: "15", code: "HI", name: "Hawaii", lookup: "https://hsba.org/member-directory" },
   {
     fips: "16",
     code: "ID",
@@ -72,7 +87,12 @@ const ATTORNEY_LICENSE_STATES: readonly AttorneyLicenseState[] = [
     lookup: "https://isb.idaho.gov/licensing-mcle/attorney-roster-search/",
   },
   { fips: "17", code: "IL", name: "Illinois", lookup: "https://www.iardc.org/Lawyer/Search" },
-  { fips: "18", code: "IN", name: "Indiana", lookup: "https://courts.in.gov/rollofattorneys" },
+  {
+    fips: "18",
+    code: "IN",
+    name: "Indiana",
+    lookup: "https://courtapps.in.gov/rollofattorneys/search",
+  },
   {
     fips: "19",
     code: "IA",
@@ -106,18 +126,18 @@ const ATTORNEY_LICENSE_STATES: readonly AttorneyLicenseState[] = [
     lookup: "https://www.massbbo.org/public-services/find-a-licensed-attorney",
   },
   { fips: "26", code: "MI", name: "Michigan", lookup: "https://directory.michbar.org/" },
-  { fips: "27", code: "MN", name: "Minnesota", lookup: "https://mncourts.org/mnlawyers" },
+  { fips: "27", code: "MN", name: "Minnesota", lookup: "https://olpr.mncourts.gov/lawyer-search/" },
   {
     fips: "28",
     code: "MS",
     name: "Mississippi",
-    lookup: "https://www.msbar.org/public-services/find-a-lawyer",
+    lookup: "https://courts.ms.gov/bar/barroll/barroll.php",
   },
   {
     fips: "29",
     code: "MO",
     name: "Missouri",
-    lookup: "https://www.mobar.org/public-services/find-a-lawyer",
+    lookup: "https://mobar.org/public/LawyerDirectory.aspx",
   },
   {
     fips: "30",
@@ -147,15 +167,20 @@ const ATTORNEY_LICENSE_STATES: readonly AttorneyLicenseState[] = [
     fips: "34",
     code: "NJ",
     name: "New Jersey",
-    lookup: "https://www.nj.gov/courts/attorney_services/attorney_lookup.html",
+    lookup: "https://drblookupportal.judiciary.state.nj.us/",
   },
   {
     fips: "35",
     code: "NM",
     name: "New Mexico",
-    lookup: "https://www.nmbar.org/public-services/find-a-lawyer",
+    lookup: "https://www.sbnm.org/For-Public/I-Need-a-Lawyer/Online-Bar-Directory",
   },
-  { fips: "36", code: "NY", name: "New York", lookup: "https://www.nycourts.gov/attorney-search" },
+  {
+    fips: "36",
+    code: "NY",
+    name: "New York",
+    lookup: "https://iapps.courts.state.ny.us/attorneyservices/search",
+  },
   {
     fips: "37",
     code: "NC",
@@ -202,7 +227,7 @@ const ATTORNEY_LICENSE_STATES: readonly AttorneyLicenseState[] = [
     fips: "45",
     code: "SC",
     name: "South Carolina",
-    lookup: "https://www.scbar.org/for-lawyers/quicklinks/member-directory/",
+    lookup: "https://www.sccourts.org/attorneys/",
   },
   { fips: "46", code: "SD", name: "South Dakota", lookup: "https://findalawyerinsd.com/" },
   {
