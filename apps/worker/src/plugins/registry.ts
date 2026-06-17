@@ -11,6 +11,8 @@ import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import type { PluginRuntime } from "./runtime.ts";
+import { parcelsManifest } from "@magna-carta/parcels/manifest";
+import { propertyLinksManifest } from "@magna-carta/property-links/manifest";
 import { shippingPlugin } from "./shipping-plugin.ts";
 
 type PluginApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
@@ -26,7 +28,11 @@ export interface WorkerPlugin {
 
 // THE single place the worker learns a plugin exists. Populated as each integration is wired:
 // shipping first (credentialed), then parcels and property-links (catalog-only).
-export const workerPlugins: readonly WorkerPlugin[] = [shippingPlugin];
+export const workerPlugins: readonly WorkerPlugin[] = [
+  shippingPlugin,
+  { manifest: parcelsManifest },
+  { manifest: propertyLinksManifest },
+];
 
 export function listManifests(): readonly IntegrationManifest[] {
   return workerPlugins.map((plugin) => plugin.manifest);

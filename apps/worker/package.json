@@ -22,6 +22,8 @@
     "@magna-carta/integrations": "workspace:*",
     "@magna-carta/locations": "workspace:*",
     "@magna-carta/matters": "workspace:*",
+    "@magna-carta/parcels": "workspace:*",
+    "@magna-carta/property-links": "workspace:*",
     "@magna-carta/shipping": "workspace:*",
     "@magna-carta/telemetry": "workspace:*",
     "aws4fetch": "catalog:",
