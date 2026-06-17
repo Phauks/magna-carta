@@ -2036,9 +2036,13 @@
     transition-duration: var(--mc-duration-fast);
     transition-timing-function: var(--mc-easing-standard);
   }
-  /* Body rows lift on hover and tint when selected; the header row does neither. */
+  /*
+   * Three distinguishable body-row states. Zebra is the faintest (sunken); hover is a touch stronger
+   * (secondary); selection shares the secondary fill BUT adds a brand accent bar on its leading edge,
+   * so it never reads as just another stripe (both fills are faint neutrals). The header does none.
+   */
   .mc-table-body .mc-table-row:hover {
-    background-color: var(--mc-surface-sunken);
+    background-color: var(--mc-action-secondary);
   }
   .mc-table-body .mc-table-row[data-state="selected"] {
     background-color: var(--mc-action-secondary);
@@ -2048,6 +2052,15 @@
     padding-inline: var(--mc-density-gutter);
     border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);
     vertical-align: middle;
+  }
+  /* The accent bar — transparent on every leading cell (reserved so colouring it shifts nothing),
+     brand-coloured on a selected row. */
+  .mc-table-head:first-child,
+  .mc-table-cell:first-child {
+    border-inline-start: var(--mc-focus-ring-width) solid transparent;
+  }
+  .mc-table-body .mc-table-row[data-state="selected"] .mc-table-cell:first-child {
+    border-inline-start-color: var(--mc-action-primary);
   }
   /* Numeric / money / date columns right-align with tabular figures (set data-align="end" from the
      column's value type — see the typed-column meta + formatters). */
@@ -2145,8 +2158,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    inline-size: var(--mc-space-24);
-    block-size: var(--mc-space-24);
+    inline-size: var(--mc-space-20);
+    block-size: var(--mc-space-20);
     border-radius: var(--mc-radius-sm);
     background-color: transparent;
     color: var(--mc-text-subtle);
@@ -2167,8 +2180,8 @@
     outline-offset: var(--mc-focus-ring-offset);
   }
   .mc-table-filter-icon {
-    inline-size: var(--mc-space-16);
-    block-size: var(--mc-space-16);
+    inline-size: var(--mc-space-12);
+    block-size: var(--mc-space-12);
   }
   .mc-table-filter-content {
     display: flex;
@@ -2176,16 +2189,29 @@
     gap: var(--mc-space-8);
     inline-size: var(--mc-size-popover);
   }
-  .mc-table-filter-row {
+  .mc-table-filter-heading {
+    margin: var(--mc-space-0);
+    color: var(--mc-text-muted);
+    font-size: var(--mc-text-xs);
+    font-weight: var(--mc-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: var(--mc-tracking-normal);
+  }
+  .mc-table-filter-field {
     display: flex;
     flex-direction: column;
-    gap: var(--mc-space-8);
+    gap: var(--mc-space-4);
+  }
+  .mc-table-filter-field-label {
+    color: var(--mc-text-muted);
+    font-size: var(--mc-text-xs);
   }
   .mc-table-filter-facets {
     display: flex;
     flex-direction: column;
     gap: var(--mc-space-4);
     max-block-size: var(--mc-size-popover);
+    padding-block-start: var(--mc-space-4);
     overflow-y: auto;
   }
   .mc-table-filter-option {
@@ -2193,7 +2219,18 @@
     align-items: center;
     gap: var(--mc-space-8);
     font-size: var(--mc-text-sm);
+    color: var(--mc-text-default);
     cursor: pointer;
+  }
+  /* "Select all" sits above the value list with a hairline divider, like a sheet's filter dropdown. */
+  .mc-table-filter-selectall {
+    padding-block-end: var(--mc-space-8);
+    border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);
+    font-weight: var(--mc-weight-medium);
+  }
+  .mc-table-filter-actions {
+    display: flex;
+    justify-content: flex-end;
   }
 
   /*

@@ -84,6 +84,18 @@ export function typedCell<TData extends RowData>(context: CellContext<TData, unk
 }
 
 /**
+ * The searchable text for a value — the displayed form PLUS, for money/number, the bare number, so a
+ * money cell shown as "$2,125.00" also matches "2125" and "2,125" (any of the forms a user might type).
+ */
+function searchableValue(value: unknown, meta: ColumnMeta<RowData, unknown> | undefined): string {
+  const formatted = formatValue(value, meta);
+  if (value != null && (meta?.type === "money" || meta?.type === "number")) {
+    return `${formatted} ${String(value as number)}`;
+  }
+  return formatted;
+}
+
+/**
  * A global-filter function that matches the FORMATTED (displayed) value, not the raw one — so a date
  * is searchable as "Mar 13, 2025" and money as "$2,125.00", what the user actually sees. Pair it with
  * `getColumnCanGlobalFilter: () => true` so date/object columns (which table-core would otherwise skip)
@@ -100,7 +112,7 @@ export function typedGlobalFilterFn<TData extends RowData>(
   if (query === "") return true;
   const cell = row.getAllCells().find((candidate) => candidate.column.id === columnId);
   if (!cell) return false;
-  return formatValue(cell.getValue(), cell.column.columnDef.meta).toLowerCase().includes(query);
+  return searchableValue(cell.getValue(), cell.column.columnDef.meta).toLowerCase().includes(query);
 }
 
 /** "end" for numeric/money columns (or an explicit `meta.align`), else "start". */

@@ -120,6 +120,11 @@
       await waitFor(() => expect(within(table).getAllByText(/Mar \d+, 2025/).length).toBeGreaterThan(0));
       await expect(within(table).getAllByRole("row").length).toBeLessThan(101);
       await userEvent.clear(search);
+      // Money matches the bare number too ("2125"), not only the formatted "$2,125.00".
+      await userEvent.type(search, "2125");
+      await waitFor(() => expect(within(table).getByText("$2,125.00")).toBeVisible());
+      await expect(within(table).getAllByRole("row").length).toBe(2); // header + the one match
+      await userEvent.clear(search);
     });
 
     await step("The View menu hides a column and toggles appearance", async () => {
@@ -136,12 +141,15 @@
       await waitFor(() => expect(document.body.style.pointerEvents).not.toBe("none"));
     });
 
-    await step("A faceted column filter narrows the rows to a value", async () => {
+    await step("A faceted column filter keeps only the checked values", async () => {
       await userEvent.click(canvas.getByRole("button", { name: "Filter Status" }));
       const body = within(document.body);
-      await userEvent.click(await body.findByRole("checkbox", { name: "Open" }));
+      // Sheets model: every value starts checked; uncheck the others to keep only Open.
+      await userEvent.click(await body.findByRole("checkbox", { name: "Closed" }));
+      await userEvent.click(body.getByRole("checkbox", { name: "Pending" }));
       await userEvent.keyboard("{Escape}");
       await waitFor(() => expect(within(table).queryByText("Closed")).toBeNull());
+      await expect(within(table).queryByText("Pending")).toBeNull();
       await expect(within(table).getAllByText("Open").length).toBeGreaterThan(0);
     });
   }}

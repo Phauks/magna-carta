@@ -73,7 +73,7 @@
             <!-- Transparent (not sr-only) in the rail so the brand keeps its height — the header stays
                  the same size, so collapsing never shifts the icons below it — and fades with the rest. -->
             <span
-              class="font-semibold transition-colors duration-normal {collapsed
+              class="overflow-hidden font-semibold whitespace-nowrap transition-colors duration-normal {collapsed
                 ? 'text-transparent'
                 : 'text-default'}"
             >
