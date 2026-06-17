@@ -203,9 +203,8 @@ export async function blindIndexValue(
   declaration: ProtectedFieldDeclaration,
   plaintext: string,
 ): Promise<string> {
-  if (declaration.blindIndex === undefined) {
-    throw new Error(`field ${declaration.table}.${declaration.column} declares no blind index`);
-  }
+  // computeFieldBlindIndex throws if the declaration carries no blind index, so no separate guard is
+  // needed here.
   return computeFieldBlindIndex(context, declaration, plaintext);
 }
 

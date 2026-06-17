@@ -22,6 +22,19 @@ import { firmKeyProviderForEnv } from "./firm-key-provider-wiring.ts";
 // Function only, no route this slice: the offboarding flow that invokes it is its own design. The
 // audit metadata is ids-only (the firm id) — never any protected value.
 export async function shredFirmKey(env: Bindings, firmId: FirmId): Promise<void> {
+  const provider = firmKeyProviderForEnv(env);
+  // Idempotent guard: a firm with no live wrapped key is either already shredded or never minted, so
+  // there is nothing to destroy and no new shred event to record. Return without touching the batch —
+  // this keeps a retry or queue redelivery from writing a duplicate firm.key_shredded audit row. Still
+  // invalidate, in case this isolate cached the handle before the key was nulled elsewhere.
+  const firm = await env.DB_CONTROL.prepare("SELECT wrapped_firm_key FROM firm WHERE id = ?1")
+    .bind(firmId)
+    .first<{ wrapped_firm_key: string | null }>();
+  if (firm?.wrapped_firm_key == null) {
+    provider.invalidate(firmId);
+    return;
+  }
+
   const now = new Date().toISOString();
   // The destruction + its audit commit in one atomic batch (composeEffectBatch accepts the
   // data-access SqlStatement shape, which a raw env.DB_CONTROL.prepare(...).bind(...) also satisfies).
@@ -46,5 +59,5 @@ export async function shredFirmKey(env: Bindings, firmId: FirmId): Promise<void>
     },
     { now: () => now },
   );
-  firmKeyProviderForEnv(env).invalidate(firmId);
+  provider.invalidate(firmId);
 }

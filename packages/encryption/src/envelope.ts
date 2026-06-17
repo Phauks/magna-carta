@@ -6,8 +6,10 @@
 // Binary frame layout, then standard-base64-encoded to the stored TEXT string:
 //   [ algoVersion (1 byte) | keyVersion (1 byte) | iv (12 bytes) | ciphertext (rest) ]
 //
-// Pure module: no platform bindings. base64 uses btoa/atob, which the Workers runtime and Node both
-// provide, matching the cursor-pagination encoder elsewhere in the repo.
+// Pure module: no platform bindings. The raw-bytes base64 codec lives in ./base64.ts, shared with
+// the key hierarchy and the blind index.
+
+import { Base64DecodeError, base64FromBytes, bytesFromBase64 } from "./base64.ts";
 
 // The current frame's algorithm version: AES-256-GCM, first revision. A new cipher gets a new value,
 // never an edit — frames stamped with an older version must keep decoding.
@@ -73,7 +75,15 @@ export function encodeEnvelope(parts: EnvelopeParts): string {
 // short to hold every required field; EnvelopeError("envelope-unknown-version") if the algorithm
 // version is not one this build understands.
 export function decodeEnvelope(stored: string): EnvelopeParts {
-  const frame = bytesFromBase64(stored);
+  let frame: Uint8Array;
+  try {
+    frame = bytesFromBase64(stored);
+  } catch (error) {
+    if (error instanceof Base64DecodeError) {
+      throw new EnvelopeError("envelope-malformed", "stored value is not valid base64");
+    }
+    throw error;
+  }
 
   if (frame.length < MINIMUM_FRAME_LENGTH) {
     throw new EnvelopeError("envelope-malformed", "frame is shorter than the minimum length");
@@ -90,24 +100,4 @@ export function decodeEnvelope(stored: string): EnvelopeParts {
   const ciphertext = frame.slice(CIPHERTEXT_OFFSET);
 
   return { algoVersion, keyVersion, iv, ciphertext };
-}
-
-// Standard base64 of the raw bytes, via a binary string and btoa.
-function base64FromBytes(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-  return btoa(binary);
-}
-
-// Inverse of base64FromBytes. atob throws on invalid base64; that surfaces as envelope-malformed.
-function bytesFromBase64(stored: string): Uint8Array {
-  let binary: string;
-  try {
-    binary = atob(stored);
-  } catch {
-    throw new EnvelopeError("envelope-malformed", "stored value is not valid base64");
-  }
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }

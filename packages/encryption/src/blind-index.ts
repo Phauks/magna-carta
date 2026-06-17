@@ -11,6 +11,8 @@
 // length or the normalize transform changes which values collide, so it is a new indexName (and a
 // new derived subkey), never an edit to one already in use.
 
+import { base64FromBytes } from "./base64.ts";
+
 // The version prefix stamped on every value. Never stripped or changed; a new scheme is "2:".
 const VERSION_PREFIX = "1:";
 
@@ -48,13 +50,3 @@ export async function computeBlindIndex(
 }
 
 const textEncoder = new TextEncoder();
-
-// Standard base64 of raw bytes, via a binary string and btoa — the same idiom as the ciphertext
-// envelope and the key hierarchy, which both the Workers runtime and Node provide.
-function base64FromBytes(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-  return btoa(binary);
-}

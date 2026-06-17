@@ -14,6 +14,8 @@
 // Non-extractable end to end: bytes enter once (firm-key mint, root-KEK import) and never leave —
 // no derived or unwrapped key can be exported.
 
+import { base64FromBytes, bytesFromBase64 } from "./base64.ts";
+
 // Frozen contract — these parameters define version 1 of the protected-field key schema. Changing any
 // value here changes every key derived from it, so they are never edited: a change is a new version
 // with a new info prefix. (HKDF hash, salt, and info strings.)
@@ -131,23 +133,4 @@ export function deriveIndexSubkey(
     false,
     ["sign"],
   );
-}
-
-// Standard base64 of raw bytes, via a binary string and btoa — the same idiom as the ciphertext
-// envelope, which both the Workers runtime and Node provide.
-function base64FromBytes(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-  return btoa(binary);
-}
-
-function bytesFromBase64(value: string): Uint8Array<ArrayBuffer> {
-  const binary = atob(value);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
-  }
-  return bytes;
 }

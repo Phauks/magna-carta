@@ -1,5 +1,4 @@
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import { createFirmKeyProvider } from "@magna-carta/data-access/firm-key-provider";
 import { purgeExpiredIdempotencyRecordsStatement } from "@magna-carta/data-access/idempotency-statements";
 import { incidentDescription } from "@magna-carta/data-access/protected-field-registry";
 import { composeProtectedWrite } from "@magna-carta/data-access/protected-fields";
@@ -31,6 +30,7 @@ import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "./app.ts";
 import { presignerForEnv } from "./files/presigner-wiring.ts";
 import { resolveFirmDatabase } from "./firm-binding-resolver.ts";
+import { firmKeyProviderForEnv } from "./firm-key-provider-wiring.ts";
 import { consumeMemberProvision } from "./member-provision-consumer.ts";
 
 // All background logging in this file goes through the slice 0·6 telemetry pipeline (golden rule 4 —
@@ -517,19 +517,10 @@ export async function runIncidentDescriptionEncryptBackfill(
   logger: Logger,
   correlationId: string,
 ): Promise<FirmBackfillReport> {
-  // One key provider for the pass: the unwrapped non-extractable HKDF handles cache across firms.
-  const firmKeyProvider = createFirmKeyProvider({
-    rootKekBase64: env.ROOT_KEK,
-    readWrappedKey: (firmId: FirmId) =>
-      env.DB_CONTROL.prepare("SELECT wrapped_firm_key, firm_key_version FROM firm WHERE id = ?1")
-        .bind(firmId)
-        .first<{ wrapped_firm_key: string | null; firm_key_version: number }>()
-        .then((row) =>
-          row === null
-            ? null
-            : { wrappedFirmKey: row.wrapped_firm_key, firmKeyVersion: row.firm_key_version },
-        ),
-  });
+  // The per-isolate key provider — the same wrapped-key read and non-extractable HKDF handle cache the
+  // request paths use, so a firm unwrapped in a request stays cached for this sweep and vice versa. It
+  // reads the live wrapped_firm_key, so a shredded firm yields null and fails closed here too.
+  const firmKeyProvider = firmKeyProviderForEnv(env);
 
   return runFirmBackfill(
     "incident-description-encrypt",

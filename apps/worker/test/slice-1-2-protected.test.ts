@@ -302,6 +302,16 @@ describe("slice 1·2 — crypto-shred", () => {
       .first<{ count: number }>();
     expect(shredAudit?.count).toBe(1);
 
+    // Idempotent: a second shred (a retry or queue redelivery) writes no duplicate audit row — the
+    // key is already null, so there is nothing to destroy and no new shred event to record.
+    await shredFirmKey(env, firmAId);
+    const reShredAudit = await env.DB_CONTROL.prepare(
+      "SELECT COUNT(*) AS count FROM auth_audit WHERE event = 'firm.key_shredded' AND metadata LIKE '%' || ?1 || '%'",
+    )
+      .bind(firmAId)
+      .first<{ count: number }>();
+    expect(reShredAudit?.count).toBe(1);
+
     // Firm A's protected read now fails closed (the cache was invalidated, the wrapped key is gone).
     await expect(
       readProtected(
