@@ -39,11 +39,14 @@ export type NameRole = (typeof NAME_ROLES)[number];
 
 // ── PhoneticScheme ────────────────────────────────────────────────────────────
 // The phonetic encoding scheme for a name's phonetic code row. DB-enforced:
-// directory_name_phonetic_code.scheme CHECK constrains to exactly these three values.
+// directory_name_phonetic_code.scheme CHECK constrains to exactly these four values.
+// Double Metaphone produces two codes per input (primary and secondary); they are stored
+// as separate rows so the blocking/search layer treats all schemes uniformly.
 export const PHONETIC_SCHEMES = [
   "soundex",
   "metaphone",
-  "double_metaphone",
+  "double_metaphone_primary",
+  "double_metaphone_secondary",
 ] as const;
 export type PhoneticScheme = (typeof PHONETIC_SCHEMES)[number];
 

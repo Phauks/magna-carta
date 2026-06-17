@@ -6,7 +6,8 @@
   "sideEffects": false,
   "exports": {
     "./types": "./src/types.ts",
-    "./normalize-name": "./src/normalize-name.ts"
+    "./normalize-name": "./src/normalize-name.ts",
+    "./phonetics": "./src/phonetics.ts"
   },
   "scripts": {
     "test": "vp test run"

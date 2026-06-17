@@ -794,7 +794,7 @@ export const directoryNamePhoneticCode = sqliteTable(
   "directory_name_phonetic_code",
   {
     nameId: text("name_id").notNull().$type<DirectoryNameId>().references(() => directoryName.id),
-    scheme: text("scheme").notNull(), // 'soundex' | 'metaphone' | 'double_metaphone'
+    scheme: text("scheme").notNull(), // 'soundex' | 'metaphone' | 'double_metaphone_primary' | 'double_metaphone_secondary'
     code: text("code").notNull(),
   },
   (table) => [
@@ -802,7 +802,7 @@ export const directoryNamePhoneticCode = sqliteTable(
     index("directory_name_phonetic_code_scheme_code_index").on(table.scheme, table.code),
     check(
       "directory_name_phonetic_code_scheme_check",
-      sql`${table.scheme} IN ('soundex', 'metaphone', 'double_metaphone')`,
+      sql`${table.scheme} IN ('soundex', 'metaphone', 'double_metaphone_primary', 'double_metaphone_secondary')`,
     ),
   ],
 );
