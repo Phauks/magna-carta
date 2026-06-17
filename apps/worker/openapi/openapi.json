@@ -156,6 +156,117 @@
           "permissions"
         ]
       },
+      "FirmUsageResponse": {
+        "type": "object",
+        "properties": {
+          "storage": {
+            "type": "object",
+            "properties": {
+              "totalBytes": {
+                "type": "number"
+              },
+              "totalObjects": {
+                "type": "number"
+              },
+              "byStorageClass": {
+                "type": "object",
+                "properties": {
+                  "standard": {
+                    "type": "object",
+                    "properties": {
+                      "bytes": {
+                        "type": "number"
+                      },
+                      "objects": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "bytes",
+                      "objects"
+                    ]
+                  },
+                  "infrequent_access": {
+                    "type": "object",
+                    "properties": {
+                      "bytes": {
+                        "type": "number"
+                      },
+                      "objects": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "bytes",
+                      "objects"
+                    ]
+                  }
+                },
+                "required": [
+                  "standard",
+                  "infrequent_access"
+                ]
+              }
+            },
+            "required": [
+              "totalBytes",
+              "totalObjects",
+              "byStorageClass"
+            ]
+          },
+          "counts": {
+            "type": "object",
+            "properties": {
+              "matters": {
+                "type": "object",
+                "properties": {
+                  "total": {
+                    "type": "number"
+                  },
+                  "prospective": {
+                    "type": "number"
+                  },
+                  "open": {
+                    "type": "number"
+                  },
+                  "closed": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "total",
+                  "prospective",
+                  "open",
+                  "closed"
+                ]
+              },
+              "files": {
+                "type": "number"
+              },
+              "fileVersions": {
+                "type": "number"
+              },
+              "folders": {
+                "type": "number"
+              },
+              "locations": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "matters",
+              "files",
+              "fileVersions",
+              "folders",
+              "locations"
+            ]
+          }
+        },
+        "required": [
+          "storage",
+          "counts"
+        ]
+      },
       "InviteMemberResponse": {
         "type": "object",
         "properties": {
@@ -1969,6 +2080,79 @@
           },
           "404": {
             "description": "The session's firm is not reachable from this deployment, or the session user is a deactivated member of it (absent, never an existence oracle)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm-usage": {
+      "get": {
+        "description": "The firm's own usage: storage consumed (by class) and entity counts (matters by status, files, versions, folders, locations).",
+        "operationId": "firmUsage.get",
+        "tags": [
+          "firmUsage"
+        ],
+        "x-mc-operationId": "firmUsage.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:firmUsage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "firmUsage"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm usage snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FirmUsageResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks tools:firmUsage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The session's firm is not reachable, or the member is deactivated (absent)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -6772,6 +6956,9 @@
     },
     {
       "name": "files"
+    },
+    {
+      "name": "firmUsage"
     },
     {
       "name": "firms"

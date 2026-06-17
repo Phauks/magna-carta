@@ -22,6 +22,7 @@ import { registerIncidentsRoute } from "./routes/incidents.ts";
 import { registerLocationsRoutes } from "./routes/locations.ts";
 import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
 import { registerMattersRoutes } from "./routes/matters.ts";
+import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 import { registerNumberingRoutes } from "./routes/numbering.ts";
@@ -166,6 +167,7 @@ export function createApp(options: CreateAppOptions = {}) {
   // public firms route additionally mounts the platform-admin secret guard as route-specific
   // middleware, run before the chokepoint's idempotency/rate-limit gates (see routes/firms.ts).
   registerMeRoute(app, chokepoint);
+  registerFirmUsageRoute(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
   registerIncidentsRoute(app, chokepoint);

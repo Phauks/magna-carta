@@ -108,6 +108,7 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string> = {
   matters: "matter",
   locations: "location",
   files: "matter",
+  tools: "firm",
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
@@ -472,6 +473,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "files.list",
       "files.update",
       "files.versions",
+      "firmUsage.get",
       "firms.provision",
       "folders.create",
       "folders.delete",
