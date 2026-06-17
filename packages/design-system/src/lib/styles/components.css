@@ -1887,16 +1887,23 @@
   /*
    * The selection's darker edge — a grey border-strong ring. It frames the selected cells only and
    * never the seams where selected days touch: each endpoint is OPEN on the side meeting the band
-   * (start: no right edge; end: no left edge). Today is a full ring on a TRANSPARENT background, so
-   * inside a range it reads as a rounded WHITE cut-out in the grey band (not a grey square, and not a
-   * rounded grey square that would leak the white surface at its corners). Today is declared BEFORE
-   * the endpoints so an endpoint that happens to be today keeps its open ring: the endpoint rules
-   * collapse today's band-facing border back to zero.
+   * (start: no right edge; end: no left edge). Today is a full rounded ring on a TRANSPARENT
+   * background; the colour BEHIND it does the work — a standalone today sits on the white surface, and
+   * inside a range its CELL is painted the band colour (below) so the ring reveals grey at its corners
+   * instead of a white cut-out. Today is declared BEFORE the endpoints so an endpoint that happens to
+   * be today keeps its open ring: the endpoint rules collapse today's band-facing border back to zero.
    */
   .mc-calendar-day[data-today] {
     background-color: transparent;
     border: var(--mc-border-width-default) solid var(--mc-border-strong);
     border-radius: var(--mc-radius-md);
+  }
+  /* Inside a range, paint today's CELL with the band colour so the rounded ring reveals the grey band
+     at its corners, not the white surface (the owner's "white around 16"). `:has` scopes this to a
+     mid-range today; a standalone today keeps the white surface behind its ring. */
+  .mc-calendar-cell:has(.mc-calendar-day[data-today][data-range-middle]),
+  .mc-calendar-cell:has(.mc-calendar-day[data-today][data-highlighted]) {
+    background-color: var(--mc-action-secondary);
   }
   /* Endpoints are a filled primary chip; the ring is OPEN toward the band and the outer corners round. */
   .mc-calendar-day[data-range-start],
