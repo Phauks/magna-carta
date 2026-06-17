@@ -12,7 +12,12 @@ const { search, template, platform } = stateSites("KS");
 const orka = (jurisdictionId: string, name: string): AssessorSite =>
   search(jurisdictionId, name, `https://www.kansasgis.org/orka/intro.cfm?countyName=${name}`);
 
-const beacon = (jurisdictionId: string, name: string, appId: string, layerId: string): AssessorSite =>
+const beacon = (
+  jurisdictionId: string,
+  name: string,
+  appId: string,
+  layerId: string,
+): AssessorSite =>
   platform(
     jurisdictionId,
     name,
@@ -58,7 +63,11 @@ export const KANSAS_ASSESSOR_SITES: readonly AssessorSite[] = [
   orka("20049", "Elk"),
   search("20051", "Ellis", "https://ks292.cichosting.com/webportal/appraiser"),
   orka("20053", "Ellsworth"),
-  search("20055", "Finney", "https://experience.arcgis.com/experience/f813099e4ce647959c9ea6bb8735217f"),
+  search(
+    "20055",
+    "Finney",
+    "https://experience.arcgis.com/experience/f813099e4ce647959c9ea6bb8735217f",
+  ),
   search("20057", "Ford", "https://ford.kansasgov.com/parcel/DisclaimerReg.asp"),
   search("20059", "Franklin", "https://franklinks-atpro-pa.tylerhost.net/"),
   search("20061", "Geary", "https://ks296.cichosting.com/ttp/tax"),

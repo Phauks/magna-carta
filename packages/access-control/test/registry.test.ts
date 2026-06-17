@@ -46,6 +46,7 @@ describe("permission registry", () => {
       "firm:manageMembers",
       "firm:provision",
       "firm:reportIncident",
+      "firm:manageSecrets",
     ]);
   });
 

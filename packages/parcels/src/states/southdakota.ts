@@ -25,8 +25,12 @@ const beacon = (
     { params: { appId, layerId } },
   );
 
-const qpublic = (jurisdictionId: string, name: string, appId: string, layerId: string): AssessorSite =>
-  beacon(jurisdictionId, name, appId, layerId, "qpublic.schneidercorp.com");
+const qpublic = (
+  jurisdictionId: string,
+  name: string,
+  appId: string,
+  layerId: string,
+): AssessorSite => beacon(jurisdictionId, name, appId, layerId, "qpublic.schneidercorp.com");
 
 export const SOUTH_DAKOTA_ASSESSOR_SITES: readonly AssessorSite[] = [
   search("46003", "Aurora", "https://gis.districtiii.org/aurora/"),
@@ -42,7 +46,11 @@ export const SOUTH_DAKOTA_ASSESSOR_SITES: readonly AssessorSite[] = [
   search("46015", "Brule", "https://gis.districtiii.org/brule/"),
   search("46017", "Buffalo", "https://gis.districtiii.org/buffalo/"),
   search("46019", "Butte", "https://buttesd.org/equalization"),
-  search("46021", "Campbell", "https://dakotaathome.sd.gov/search/6b928341-3e46-51e4-9b4a-2d290c6462d4"),
+  search(
+    "46021",
+    "Campbell",
+    "https://dakotaathome.sd.gov/search/6b928341-3e46-51e4-9b4a-2d290c6462d4",
+  ),
   search("46023", "Charles Mix", "https://gis.districtiii.org/charles_mix/"),
   search("46025", "Clark", "https://clark.southdakotadirectors.com/"),
   beacon("46027", "Clay", "52", "348"),
@@ -87,7 +95,11 @@ export const SOUTH_DAKOTA_ASSESSOR_SITES: readonly AssessorSite[] = [
   search("46089", "McPherson", "https://mcpherson.sdcounties.org/director-of-equalization/"),
   search("46091", "Marshall", "https://gis.districtiii.org/marshall"),
   beacon("46093", "Meade", "53", "17891"),
-  search("46095", "Mellette", "https://mellette.sdcounty.gov/departments/director-of-equalization/"),
+  search(
+    "46095",
+    "Mellette",
+    "https://mellette.sdcounty.gov/departments/director-of-equalization/",
+  ),
   search("46097", "Miner", "https://www.1stdistrict.org/minerts/"),
   beacon("46099", "Minnehaha", "1180", "35026"),
   search("46101", "Moody", "https://www.1stdistrict.org/moodyjs/"),

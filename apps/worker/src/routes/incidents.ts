@@ -1,5 +1,7 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { incidentDescription } from "@magna-carta/data-access/protected-field-registry";
+import { composeProtectedWrite } from "@magna-carta/data-access/protected-fields";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { identifierPattern } from "@magna-carta/identifiers/validate";
 import { incidentCreated } from "@magna-carta/telemetry/events";
@@ -7,8 +9,10 @@ import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
+  requireChokepointFirmId,
   requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
+import { firmKeyProviderForEnv } from "../firm-key-provider-wiring.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { Problem } from "../contracts/problem.ts";
@@ -16,8 +20,9 @@ import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 
 // The user-initiated incident report — the "bug-report Worker" realized as one route in the single
 // Worker. Body fields are id-and-action shaped (redacted by construction) except `description`, the
-// user's words (firm boundary now; the protected() crypto module encrypts it when it lands).
-// Bounded everywhere so a report cannot become an unbounded write.
+// user's words — sealed into description_ciphertext under the firm key through the protected-field
+// chokepoint (encrypted-only: the plaintext column is written NULL), readable only with an audited
+// incidents:viewDescription decrypt. Bounded everywhere so a report cannot become an unbounded write.
 const ReportIncidentRequest = z
   .object({
     // error_ handles the client correlates to its crash(es); may be empty ("nothing crashed but…").
@@ -114,12 +119,23 @@ export function registerIncidentsRoute(
     },
     async (c) => {
       const reportedBy = requireChokepointUserId(c);
+      const firmId = requireChokepointFirmId(c);
       const { firmDatabase } = requireChokepointFirmContext(c);
       const request = c.req.valid("json");
 
       const incidentId = newIdentifier("incident");
       const now = new Date().toISOString();
       const errorIdCount = request.errorIds.length;
+
+      // Seal the user's words under the firm key, bound to this incident row (the AAD carries the
+      // incident id), BEFORE the batch — encrypted-only: the plaintext `description` column is
+      // written NULL. firm_key_version 1 (the only version this slice mints).
+      const sealedDescription = await composeProtectedWrite(
+        { firmId, firmKeyVersion: 1, firmKeyProvider: firmKeyProviderForEnv(c.env) },
+        incidentDescription,
+        incidentId,
+        request.description,
+      );
 
       // One atomic per-firm batch: the incident row + the incident.created outbox row (no consumer
       // yet — the relay sweeps it to the Queue; the diagnostics agent subscribes later). Optional
@@ -130,14 +146,14 @@ export function registerIncidentsRoute(
           statements: [
             firmDatabase
               .prepare(
-                "INSERT INTO incident (id, error_ids, breadcrumbs, description, context, reported_by, created_at) " +
-                  "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                "INSERT INTO incident (id, error_ids, breadcrumbs, description, description_ciphertext, context, reported_by, created_at) " +
+                  "VALUES (?1, ?2, ?3, NULL, ?4, ?5, ?6, ?7)",
               )
               .bind(
                 incidentId,
                 JSON.stringify(request.errorIds),
                 JSON.stringify(request.breadcrumbs),
-                request.description,
+                sealedDescription.ciphertextValue,
                 JSON.stringify(request.context),
                 reportedBy,
                 now,

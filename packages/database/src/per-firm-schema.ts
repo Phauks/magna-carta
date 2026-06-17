@@ -15,6 +15,7 @@ import type {
   DocumentTypeId,
   FileId,
   FileVersionId,
+  FirmSecretId,
   FolderId,
   GrantId,
   IdempotencyRecordId,
@@ -641,13 +642,21 @@ export const auditLog = sqliteTable(
 // User-initiated incident reports — the row written by POST /api/v1/incidents. Structure only — the
 // route and its outbox→Queue seam (`incident.created`, no consumer yet) live in apps/worker. JSON
 // columns are redacted by construction: error_ids and breadcrumbs are id-and-action shaped, never
-// content. The `description` is the user's words — it sits inside the firm-isolation boundary today;
-// the protected() crypto module encrypts it (access-gated, audited reads) when it lands.
+// content. The `description` is the user's words — encrypted into description_ciphertext (access-gated,
+// audited reads) by the firm-scoped data-access chokepoint; the plaintext column is retained until a
+// later slice drops it (expand-contract).
 export const incident = sqliteTable("incident", {
   id: text("id").primaryKey().$type<IncidentId>(), // incident_ handle
   errorIds: text("error_ids").notNull(), // JSON array of error_ handles (may be empty — "nothing crashed but…")
   breadcrumbs: text("breadcrumbs").notNull(), // JSON array of { at, action, route } — redacted by construction
-  description: text("description").notNull(), // user-authored; firm boundary now, protected() later
+  // user-authored plaintext, NULLABLE now that new writes are encrypted-only into
+  // description_ciphertext (the route writes NULL here); the backfill sweep encrypts pre-existing
+  // rows and this plaintext column is dropped in a later slice after a verification window.
+  description: text("description"),
+  // The encrypted form of the user's words, sealed under the firm key and read only with
+  // incidents:viewDescription (an audited decrypt). Nullable while the plaintext column still
+  // exists; the plaintext `description` is dropped in a later slice after a verification window.
+  descriptionCiphertext: text("description_ciphertext"),
   context: text("context").notNull(), // JSON { route, appVersion, clientAt }
   screenshotKey: text("screenshot_key"), // R2 seam, nullable; the UI slice populates capture/upload
   // Lifecycle stays open text (not an enum): the diagnostics agent defines the states it transitions
@@ -655,4 +664,16 @@ export const incident = sqliteTable("incident", {
   status: text("status").notNull().default("open"),
   reportedBy: text("reported_by").notNull().$type<UserId>(), // global usr_ handle; no cross-plane FK
   createdAt: text("created_at").notNull(), // ISO-8601 instant
+});
+
+// Named per-firm secrets — a small key/value store whose values are always encrypted at rest under
+// the firm key. The row only ever holds ciphertext; the encrypt/decrypt and the access gate
+// (firm:manageSecrets, audited) live in @magna-carta/data-access. name is the lookup handle, unique
+// per firm. created_at/updated_at are ISO-8601 instants (updated_at moves on an upsert).
+export const firmSecret = sqliteTable("firm_secret", {
+  id: text("id").primaryKey().$type<FirmSecretId>(), // firmSecret_ handle
+  name: text("name").notNull().unique(),
+  ciphertext: text("ciphertext").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
 });

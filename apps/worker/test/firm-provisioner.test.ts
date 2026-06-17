@@ -68,6 +68,9 @@ function fakePorts(): FakePorts {
         return Promise.resolve({ latestTag: HEAD });
       },
       headSchemaVersion: HEAD,
+      // A fixed base64 32-byte placeholder — the wrap is real (importRootKek/wrapFirmKey), so the
+      // minted wrapped_firm_key is a genuine AES-KW ciphertext, just under a test root KEK.
+      rootKekBase64: "bWFnbmEtY2FydGEtbG9jYWwtZGV2LXJvb3Qta2VrISE=",
     },
   };
 }
@@ -129,6 +132,21 @@ describe("provisionFirm", () => {
       bucket_name: `fake-bucket-${outcome.firmId}`,
       owner_user_id: outcome.ownerUserId, // recorded by the activation batch — the owner of record
     });
+
+    // The firm-key mint step (4c) sealed a wrapped data key — a non-null AES-KW ciphertext, never
+    // the raw bytes; version columns default 1.
+    const keyRow = await env.DB_CONTROL.prepare(
+      "SELECT wrapped_firm_key, firm_key_version, root_key_version FROM firm WHERE id = ?1",
+    )
+      .bind(outcome.firmId)
+      .first<{
+        wrapped_firm_key: string | null;
+        firm_key_version: number;
+        root_key_version: number;
+      }>();
+    expect(keyRow?.wrapped_firm_key).toEqual(expect.any(String));
+    expect(keyRow?.firm_key_version).toBe(1);
+    expect(keyRow?.root_key_version).toBe(1);
 
     // Owner user: unverified, account-less, attached to the firm (activation via reset — Path A).
     const ownerRow = await env.DB_CONTROL.prepare(
@@ -298,6 +316,61 @@ describe("provisionFirm", () => {
     });
   });
 
+  it("mints the firm key exactly once — a resumed provisioning run leaves the existing wrapped key untouched", async () => {
+    const ports = fakePorts();
+    const input = inputFor("Key Mint Idempotent Firm");
+
+    const first = await provisionAndCommit(ports, input);
+    expect(first.kind).toBe("ready-to-activate");
+    if (first.kind !== "ready-to-activate") return;
+    const minted = await env.DB_CONTROL.prepare("SELECT wrapped_firm_key FROM firm WHERE id = ?1")
+      .bind(first.firmId)
+      .first<{ wrapped_firm_key: string | null }>();
+    expect(minted?.wrapped_firm_key).toEqual(expect.any(String));
+
+    // A second full invoke is an already-active no-op (the firm is active), and the wrapped key is
+    // byte-identical — re-provisioning never re-mints.
+    const second = await provisionAndCommit(ports, input);
+    expect(second.kind).toBe("already-active");
+    const afterReinvoke = await env.DB_CONTROL.prepare(
+      "SELECT wrapped_firm_key FROM firm WHERE id = ?1",
+    )
+      .bind(first.firmId)
+      .first<{ wrapped_firm_key: string | null }>();
+    expect(afterReinvoke?.wrapped_firm_key).toBe(minted?.wrapped_firm_key);
+  });
+
+  it("never re-mints a key for a shredded firm — a firm.key_shredded audit row makes the null key permanent", async () => {
+    const ports = fakePorts();
+    const input = inputFor("Shredded No Remint Firm");
+    const outcome = await provisionAndCommit(ports, input);
+    expect(outcome.kind).toBe("ready-to-activate");
+    if (outcome.kind !== "ready-to-activate") return;
+
+    // Simulate a completed crypto-shred: null the wrapped key and record the shred audit.
+    await env.DB_CONTROL.prepare("UPDATE firm SET wrapped_firm_key = NULL WHERE id = ?1")
+      .bind(outcome.firmId)
+      .run();
+    await env.DB_CONTROL.prepare(
+      "INSERT INTO auth_audit (id, event, user_id, metadata, created_at) VALUES (?1, 'firm.key_shredded', NULL, ?2, ?3)",
+    )
+      .bind(
+        "authAudit_shredNoRemintFirmTest01",
+        JSON.stringify({ firmId: outcome.firmId }),
+        new Date().toISOString(),
+      )
+      .run();
+
+    // A resumed provisioning attempt must NOT re-mint past a shred — the null key stays null.
+    await provisionFirm(ports.dependencies, input);
+    const afterResume = await env.DB_CONTROL.prepare(
+      "SELECT wrapped_firm_key FROM firm WHERE id = ?1",
+    )
+      .bind(outcome.firmId)
+      .first<{ wrapped_firm_key: string | null }>();
+    expect(afterResume?.wrapped_firm_key).toBeNull();
+  });
+
   it("fails loud when a concurrent run recorded a DIFFERENT database identifier (double-claim guard)", async () => {
     const input = inputFor("Concurrent Claim Firm");
     // Interleaving simulated INSIDE the fake port: while this run's createDatabase is in flight,
@@ -327,6 +400,7 @@ describe("provisionFirm", () => {
         throw new Error("unreachable: the double-claim guard must throw before the migrate step");
       },
       headSchemaVersion: HEAD,
+      rootKekBase64: "bWFnbmEtY2FydGEtbG9jYWwtZGV2LXJvb3Qta2VrISE=",
     };
 
     await expect(provisionFirm(dependencies, input)).rejects.toThrow(

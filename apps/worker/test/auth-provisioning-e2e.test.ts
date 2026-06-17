@@ -222,14 +222,17 @@ describe("end-to-end", () => {
       firm: { id: firmA.id, name: FIRM_A_INPUT.name },
       // Owner/Admin's seeded role_permission rows: firm:manageMembers (0002) + firm:reportIncident
       // (0003, seeded onto every default role) + the slice 1·1 matters/locations/files grants
-      // (0004_matters-locations-file-manager.sql). Sorted.
+      // (0004_matters-locations-file-manager.sql) + the slice 1·2 firm:manageSecrets /
+      // incidents:viewDescription grants (0006). Sorted.
       permissions: [
         "files:delete",
         "files:manageDocumentTypes",
         "files:organize",
         "files:upload",
         "firm:manageMembers",
+        "firm:manageSecrets",
         "firm:reportIncident",
+        "incidents:viewDescription",
         "locations:manage",
         "matters:close",
         "matters:create",

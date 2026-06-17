@@ -8,6 +8,7 @@ import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
   seedFirm,
+  seedFirmKey,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
@@ -41,6 +42,10 @@ beforeAll(async () => {
     .firmId;
   firmBId = (await seedFirm({ name: "Incident Firm B", databaseIdentifier: "DB_FIRM_POOL_2" }))
     .firmId;
+  // The incident-intake route encrypts the description under the firm key, so both firms need a
+  // minted wrapped key (seedFirm inserts none).
+  await seedFirmKey(firmAId);
+  await seedFirmKey(firmBId);
 });
 
 describe("POST /api/v1/incidents", () => {
@@ -61,21 +66,26 @@ describe("POST /api/v1/incidents", () => {
     expect(body.id).toMatch(/^incident_/);
     expect(body.status).toBe("open");
 
-    // The per-firm incident row landed, redacted-by-construction JSON columns and all.
+    // The per-firm incident row landed, redacted-by-construction JSON columns and all. The
+    // description is encrypted-only: the plaintext column is NULL and description_ciphertext holds
+    // the sealed value (never the plaintext words).
     const row = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT id, error_ids, description, reported_by, status FROM incident WHERE id = ?1",
+      "SELECT id, error_ids, description, description_ciphertext, reported_by, status FROM incident WHERE id = ?1",
     )
       .bind(body.id)
       .first<{
         id: string;
         error_ids: string;
-        description: string;
+        description: string | null;
+        description_ciphertext: string | null;
         reported_by: string;
         status: string;
       }>();
     expect(row).not.toBeNull();
     expect(row?.error_ids).toBe("[]");
-    expect(row?.description).toBe("Save spun forever.");
+    expect(row?.description).toBeNull();
+    expect(row?.description_ciphertext).toEqual(expect.any(String));
+    expect(row?.description_ciphertext).not.toContain("Save spun forever.");
     expect(row?.reported_by).toBe(userId);
     expect(row?.status).toBe("open");
 

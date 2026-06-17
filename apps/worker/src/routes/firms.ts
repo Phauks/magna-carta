@@ -209,6 +209,7 @@ export function registerFirmsRoute(
         resourceProvider: resourceProviderForEnv(c.env),
         migrateFirmDatabaseToHead: migrateFirmDatabaseToHeadForEnv(c.env),
         headSchemaVersion: perFirmHeadSchemaVersion(),
+        rootKekBase64: c.env.ROOT_KEK,
       };
 
       // Captured from the effect closure: the post-commit activation email must only go out when

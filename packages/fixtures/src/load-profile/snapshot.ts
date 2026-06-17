@@ -22,6 +22,7 @@ import { assertSeedingAllowed, type SeedingOptions } from "../guard.ts";
 import { createLocalPerFirmDatabase } from "../local-database.ts";
 import { generateLedgerVolume, type VolumeProbes } from "./generate.ts";
 import { generatePracticeVolume, type PracticeProbes } from "./matters-generate.ts";
+import { generateProtectedVolume, type ProtectedProbes } from "./protected-generate.ts";
 import { GENERATOR_VERSION, type LedgerVolumeProfile } from "./profile.ts";
 
 // Snapshot identity: the resolved profile parameters, the generation seed, the per-firm schema
@@ -41,6 +42,11 @@ export interface SnapshotManifest {
   readonly fileVersionCount: number;
   readonly folderCount: number;
   readonly practiceProbes: PracticeProbes;
+  // The protected-field volume laid over the practice (sealed incident descriptions + firm secrets)
+  // and the probe identifiers the protected measurement layer binds its decrypt/blind-index ops to.
+  readonly incidentCount: number;
+  readonly firmSecretCount: number;
+  readonly protectedProbes: ProtectedProbes;
 }
 
 export interface LoadedSnapshot extends MigratedNodeDatabase {
@@ -119,6 +125,14 @@ export async function loadProfileSnapshot(
         profile.practice,
         options,
       );
+      // The protected volume rides last — its sealed incidents reuse a mirrored member as reporter.
+      const protectedVolume = await generateProtectedVolume(
+        generated.database,
+        context,
+        profile.protected,
+        practice.probes.responsibleMemberId,
+        options,
+      );
       const manifest: SnapshotManifest = {
         profile,
         seed,
@@ -131,6 +145,9 @@ export async function loadProfileSnapshot(
         fileVersionCount: practice.fileVersionCount,
         folderCount: practice.folderCount,
         practiceProbes: practice.probes,
+        incidentCount: protectedVolume.incidentCount,
+        firmSecretCount: protectedVolume.firmSecretCount,
+        protectedProbes: protectedVolume.probes,
       };
       // Artifact before manifest: the replay gate above requires BOTH files, so a crash between
       // the two writes leaves a regenerable miss, never a manifest pointing at a missing artifact.
