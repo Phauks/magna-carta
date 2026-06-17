@@ -532,6 +532,11 @@ export const fileVersion = sqliteTable(
       .default("standard"),
     scanVerdict: text("scan_verdict", { enum: ["unscanned", "clean", "infected"] }),
     scanEngineVersion: text("scan_engine_version"),
+    // The reason behind an `unscanned` badge ("no-engine"/"encrypted"/"oversize"), an "active-content"
+    // badge on an otherwise-clean file (PDF JavaScript / Office macros), or a suspicious
+    // quarantine ("decompression-bomb"/"archive-nesting"/"archive-entry-count"). Null for a plain
+    // clean scan. Surfaces the "not scanned" badge in read models without overloading scan_verdict.
+    scanDetail: text("scan_detail"),
     status: text("status", { enum: ["pending", "clean", "quarantined", "abandoned"] })
       .notNull()
       .default("pending"),
