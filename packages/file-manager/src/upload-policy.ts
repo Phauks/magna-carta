@@ -91,8 +91,47 @@ export const zipAsyncThresholdDefinition: FirmSettingDefinition<number> = {
   defaultValue: 2 * GIBIBYTE,
 };
 
+// The maximum byte size of a document that the ingest pipeline will attempt to inspect for
+// schema extraction, type detection, and metadata enrichment. Documents larger than this cap
+// are marked as uninspectable and skip enrichment. Default 2 GiB.
+export const inspectableSizeCapDefinition: FirmSettingDefinition<number> = {
+  key: "fileManager.inspectableSizeCapBytes",
+  schema: z.number().int().positive(),
+  defaultValue: 2 * GIBIBYTE,
+};
+
+// Constraints on archive expansion limits for the scan engine: max directory depth, max entries
+// per archive, max uncompressed total, and max expansion ratio (uncompressed / compressed).
+// These prevent zip bombs and pathological archives from consuming unbounded resources.
+export interface ArchiveCaps {
+  readonly maxDepth: number;
+  readonly maxEntries: number;
+  readonly maxUncompressedBytes: number;
+  readonly maxExpansionRatio: number;
+}
+
+export const archiveCapsDefinition: FirmSettingDefinition<ArchiveCaps> = {
+  key: "fileManager.archiveCaps",
+  schema: z.object({
+    maxDepth: z.number().int().positive(),
+    maxEntries: z.number().int().positive(),
+    maxUncompressedBytes: z.number().int().positive(),
+    maxExpansionRatio: z.number().int().positive(),
+  }),
+  defaultValue: {
+    maxDepth: 16,
+    maxEntries: 10000,
+    maxUncompressedBytes: 4 * GIBIBYTE,
+    maxExpansionRatio: 100,
+  },
+};
+
 export function readUploadPolicy(database: SqlDatabase): Promise<UploadPolicy> {
   return readFirmSetting(database, uploadPolicyDefinition);
+}
+
+export function readInspectableSizeCap(database: SqlDatabase): Promise<number> {
+  return readFirmSetting(database, inspectableSizeCapDefinition);
 }
 
 function contentTypeAllowed(allowed: readonly string[], contentType: string): boolean {
