@@ -5,6 +5,7 @@ import {
   quarantineVersion,
 } from "@magna-carta/file-manager/file-service";
 import { runIngest } from "@magna-carta/file-manager/ingest-core";
+import type { MalwareScanPort } from "@magna-carta/file-manager/scan-port";
 import { readInspectableSizeCap, readUploadPolicy } from "@magna-carta/file-manager/upload-policy";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
@@ -42,7 +43,11 @@ export interface R2EventMessage {
 // Process one event. Returns (acks) for every terminal outcome — commit, quarantine, or a no-op
 // (unknown bucket / unbound firm / no pending version). THROWS only on a transient condition (the
 // object not yet readable) so the queue retries and, at max attempts, dead-letters.
-export async function handleIngestMessage(env: Bindings, message: R2EventMessage): Promise<void> {
+export async function handleIngestMessage(
+  env: Bindings,
+  message: R2EventMessage,
+  scanPort: MalwareScanPort = resolveScanPort(env),
+): Promise<void> {
   // bucket → firm (the control-plane registry). An unknown bucket or a firm this deployment cannot
   // reach is acked: there is no work this Worker can do, and retrying cannot make the binding exist.
   const firm = await env.DB_CONTROL.prepare(
@@ -78,7 +83,7 @@ export async function handleIngestMessage(env: Bindings, message: R2EventMessage
       fileName: pending.name,
     },
     policy,
-    scanPort: resolveScanPort(env),
+    scanPort,
     inspectableSizeCap,
   });
 
