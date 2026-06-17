@@ -21,7 +21,8 @@
     "./hono-idempotency-middleware": "./src/hono-idempotency-middleware.ts",
     "./integration-connection-statements": "./src/integration-connection-statements.ts",
     "./integration-connection-store": "./src/integration-connection-store.ts",
-    "./firm-secret-credential-store": "./src/firm-secret-credential-store.ts"
+    "./firm-secret-credential-store": "./src/firm-secret-credential-store.ts",
+    "./shipment-statements": "./src/shipment-statements.ts"
   },
   "scripts": {
     "test": "vp test run"
