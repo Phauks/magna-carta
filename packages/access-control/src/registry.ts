@@ -34,6 +34,7 @@ export const PERMISSIONS = [
   "tools:businessLookup", // Secretary-of-State business-entity lookup links
   "tools:attorneyLicense", // attorney-license lookup links
   "tools:shipping", // shipping & postage (the shipping integration)
+  "tools:speedTest", // in-app network speed test (runs client-side against the Cloudflare edge)
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

@@ -18,5 +18,6 @@ and contextual entry points. No D1, no Hono, no `env`, no Svelte, no network. De
 Seams (see `docs/specs/2026-06-16-tools-area-design.md`, ADR-0097): the sidebar/contextual UI + the
 id->component map + the integration Dispatch/health branching land with the design-system shell; role-
 seeding the `tools:` permissions and the "every integration category resolves" fitness are worker-side
-follow-ons. Future catalog rows: an Avery template printer (printing) and a network speed test
-(diagnostics), added when those tools are built.
+follow-ons. The network speed test (diagnostics) is already a catalog manifest (`network-speed-test`,
+`tools:speedTest`); only its UI widget — built on `@cloudflare/speedtest`, client-side against the
+Cloudflare edge — is pending the shell. Future catalog rows: an Avery template printer (printing).

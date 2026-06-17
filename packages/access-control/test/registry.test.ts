@@ -82,6 +82,7 @@ describe("permission registry", () => {
       "tools:businessLookup",
       "tools:attorneyLicense",
       "tools:shipping",
+      "tools:speedTest",
     ]);
   });
 

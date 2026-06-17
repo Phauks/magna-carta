@@ -56,4 +56,14 @@ export const CATALOG: readonly ToolManifest[] = [
     backing: { kind: "integration", category: "shipping" },
     matterContext: "none",
   },
+  {
+    id: "network-speed-test",
+    name: "Network Speed Test",
+    icon: "gauge",
+    subjectGroup: "diagnostics",
+    permission: assertPermission("tools:speedTest"),
+    contextTags: ["none"],
+    backing: { kind: "library" },
+    matterContext: "none",
+  },
 ];

@@ -33,6 +33,7 @@ describe("tool catalog", () => {
       "business-entity-lookup",
       "attorney-license-lookup",
       "shipping",
+      "network-speed-test",
     ]);
   });
 });
