@@ -20,6 +20,7 @@ import { registerFirmsRoute } from "./routes/firms.ts";
 import { registerFoldersRoutes } from "./routes/folders.ts";
 import { registerIncidentsRoute } from "./routes/incidents.ts";
 import { registerLocationsRoutes } from "./routes/locations.ts";
+import { registerShippingRoutes } from "./routes/shipping.ts";
 import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
 import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerMeRoute } from "./routes/me.ts";
@@ -124,6 +125,7 @@ export interface CreateAppOptions {
   loggerForEnv?: (env: Bindings) => Logger;
   clock?: () => number;
   includeTelemetryProbes?: boolean;
+  shipping?: import("./routes/shipping.ts").ShippingRouteDeps;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
@@ -182,6 +184,11 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFoldersRoutes(app, chokepoint);
   registerFilesRoutes(app, chokepoint);
   registerDownloadsRoutes(app, chokepoint);
+
+  // Shipping & postage: connection management + the shipment lifecycle (create/rate/purchase/label/
+  // tracking/refund), composed through the same chokepoint. Registered only when its deps are wired
+  // (production passes the firm_secret store seam + a fetch-backed EasyPost client; tests inject fakes).
+  if (options.shipping) registerShippingRoutes(app, chokepoint, options.shipping);
 
   // Serve the same document the committed snapshot carries (root tags included), so the live endpoint
   // and the snapshot never diverge. A plain route, so it does not appear in the document itself.
