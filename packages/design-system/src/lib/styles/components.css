@@ -2075,10 +2075,12 @@
    * dividers draw vertical hairlines between cells; compact density trims the row padding + header
    * height. Comfortable density is the default (no override).
    */
+  /* Zebra is the faintest tint (raised = neutral-50), deliberately LIGHTER than the selection /
+     hover fill (secondary = neutral-100), so a striped row never competes with a selected one. */
   .mc-table[data-zebra="on"]
     .mc-table-body
     .mc-table-row:nth-child(even):not(:hover):not([data-state="selected"]) {
-    background-color: var(--mc-surface-sunken);
+    background-color: var(--mc-surface-raised);
   }
   .mc-table[data-dividers="on"] .mc-table-head,
   .mc-table[data-dividers="on"] .mc-table-cell {
@@ -2187,7 +2189,8 @@
     display: flex;
     flex-direction: column;
     gap: var(--mc-space-8);
-    inline-size: var(--mc-size-popover);
+    /* At least the popover width, but grows to fit wider content (the date-range field). */
+    min-inline-size: var(--mc-size-popover);
   }
   .mc-table-filter-heading {
     margin: var(--mc-space-0);
@@ -2261,7 +2264,9 @@
     align-items: center;
     gap: var(--mc-space-8);
     min-block-size: var(--mc-control-lg);
-    padding: var(--mc-space-12);
+    /* The brand mark aligns with the nav icons below (content padding 8 + button padding 8 = 16). */
+    padding-inline: var(--mc-space-16);
+    padding-block: var(--mc-space-12);
     border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);
   }
   .mc-sidebar-content {
@@ -2366,11 +2371,11 @@
     transition-timing-function: var(--mc-easing-standard);
   }
   /* Collapsed icon rail: collapse the label column to 0 (its width AND its leading padding animate to
-     zero so it slides fully away), fade its text, centre the icon, and fade the group labels — whose
-     height is reserved so the icons below never shift. */
+     zero so it slides fully away) and fade its text. The icon does NOT recentre — it stays exactly
+     where it is (the rail width is sized so a left-aligned icon reads centred), so collapsing never
+     slides the icons sideways. Group labels fade; their height is reserved so icons never shift. */
   .mc-sidebar[data-state="collapsed"] .mc-sidebar-menu-button {
     grid-template-columns: var(--mc-space-20) 0fr;
-    justify-content: center;
   }
   .mc-sidebar[data-state="collapsed"] .mc-sidebar-label {
     padding-inline-start: var(--mc-space-0);

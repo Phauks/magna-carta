@@ -9,11 +9,14 @@
    * dateRangeFilterFn).
    */
   import type { Column } from "@tanstack/table-core";
+  import type { DateRange } from "bits-ui";
+  import { getLocalTimeZone, parseDate, today } from "@internationalized/date";
   import Funnel from "@lucide/svelte/icons/funnel";
   import * as Popover from "../popover/index.ts";
   import Input from "../input/index.ts";
   import Checkbox from "../checkbox/index.ts";
   import Button from "../button/index.ts";
+  import { DateRangePicker } from "../date-range-picker/index.ts";
   import { columnFilterKind, columnLabel } from "./typed-columns.ts";
 
   type Props = { column: Column<TData> };
@@ -52,18 +55,32 @@
     column.setFilterValue(on ? undefined : []);
   }
 
-  // Range / date pairs.
+  // Numeric range pair (min/max).
   const pair = (): [string, string] => {
     const [low, high] = (column.getFilterValue() as [unknown, unknown] | undefined) ?? [];
     return [low == null ? "" : String(low), high == null ? "" : String(high)];
   };
-  function setBound(index: 0 | 1, raw: string, numeric: boolean): void {
-    const current = ((column.getFilterValue() as [unknown, unknown] | undefined)?.slice() ?? [
+  function setBound(index: 0 | 1, raw: string): void {
+    const current = ((column.getFilterValue() as [number?, number?] | undefined)?.slice() ?? [
       undefined,
       undefined,
-    ]) as [unknown, unknown];
-    current[index] = raw === "" ? undefined : numeric ? Number(raw) : raw;
+    ]) as [number?, number?];
+    current[index] = raw === "" ? undefined : Number(raw);
     column.setFilterValue(current[0] == null && current[1] == null ? undefined : current);
+  }
+
+  // Date range — the filter value is a [from, to] pair of YYYY-MM-DD strings (so the filterFn stays
+  // plain), but the UI is the styled DateRangePicker (CalendarDate), not a native date input.
+  const dateFilter = (): DateRange | undefined => {
+    const [from, to] = (column.getFilterValue() as [string?, string?] | undefined) ?? [];
+    return from || to
+      ? { start: from ? parseDate(from) : undefined, end: to ? parseDate(to) : undefined }
+      : undefined;
+  };
+  function setDateRange(range: DateRange | undefined): void {
+    const from = range?.start?.toString();
+    const to = range?.end?.toString();
+    column.setFilterValue(from || to ? [from, to] : undefined);
   }
 </script>
 
@@ -110,26 +127,32 @@
             </label>
           {/each}
         </div>
-      {:else if kind === "range" || kind === "date"}
-        {@const numeric = kind === "range"}
+      {:else if kind === "range"}
         <label class="mc-table-filter-field">
-          <span class="mc-table-filter-field-label">{numeric ? "Min" : "From"}</span>
+          <span class="mc-table-filter-field-label">Min</span>
           <Input
-            type={numeric ? "number" : "date"}
-            aria-label={numeric ? "Minimum" : "From"}
+            type="number"
+            aria-label="Minimum"
             value={pair()[0]}
-            oninput={(event) => setBound(0, event.currentTarget.value, numeric)}
+            oninput={(event) => setBound(0, event.currentTarget.value)}
           />
         </label>
         <label class="mc-table-filter-field">
-          <span class="mc-table-filter-field-label">{numeric ? "Max" : "To"}</span>
+          <span class="mc-table-filter-field-label">Max</span>
           <Input
-            type={numeric ? "number" : "date"}
-            aria-label={numeric ? "Maximum" : "To"}
+            type="number"
+            aria-label="Maximum"
             value={pair()[1]}
-            oninput={(event) => setBound(1, event.currentTarget.value, numeric)}
+            oninput={(event) => setBound(1, event.currentTarget.value)}
           />
         </label>
+      {:else if kind === "date"}
+        <DateRangePicker
+          value={dateFilter()}
+          onValueChange={(range) => setDateRange(range)}
+          placeholder={today(getLocalTimeZone())}
+          aria-label="Filter {name} range"
+        />
       {/if}
 
       {#if column.getIsFiltered()}

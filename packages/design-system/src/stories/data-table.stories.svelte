@@ -44,7 +44,8 @@
   // `filter` (in meta) picks the per-column control; `filterFn` is the matching table-core matcher.
   const columns: ColumnDef<Matter>[] = [
     { accessorKey: "reference", header: "Reference", filterFn: "includesString", meta: { filter: "text" } },
-    { accessorKey: "client", header: "Client", filterFn: "includesString", meta: { filter: "text" } },
+    // Client uses a faceted filter — pick from all distinct values (select some, exclude others).
+    { accessorKey: "client", header: "Client", filterFn: "arrIncludesSome", meta: { filter: "facet" } },
     { accessorKey: "status", header: "Status", filterFn: "arrIncludesSome", meta: { filter: "facet" } },
     { accessorKey: "opened", header: "Opened", filterFn: dateRangeFilterFn, meta: { type: "date" } },
     {
