@@ -17,8 +17,8 @@ import {
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
-// Slice 1·3 directory capstone: one journey across the REAL HTTP surface over Miniflare bindings,
-// composing every layer the slice built. A person and an organization are created (idempotent
+// Directory capstone e2e: one journey across the REAL HTTP surface over Miniflare bindings,
+// composing every layer the directory feature built. A person and an organization are created (idempotent
 // mutations), aliases and a sensitive identifier are attached, an edge links them, a matter party is
 // linked, a duplicate is surfaced and merged, and the merge's invariants are asserted end-to-end —
 // the matter party + edge repointed to the master, the merged-away alias STILL resolving (to the
@@ -108,7 +108,7 @@ async function decryptAuditCount(subjectId: string): Promise<number> {
   return row?.count ?? 0;
 }
 
-describe("slice 1·3 directory e2e — full journey over the HTTP surface", () => {
+describe("directory e2e — full journey over the HTTP surface", () => {
   // Carried across the ordered steps below.
   const ids: {
     person?: string;
