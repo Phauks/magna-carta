@@ -26,3 +26,16 @@ export type {
   ChangePersonNameInput,
 } from "./name-history.js";
 export type { DirectoryWriteOptions } from "./audit.js";
+export {
+  createCategory,
+  assignCategory,
+  readCategories,
+  CategoryNotFoundError,
+  CategoryAppliestoMismatchError,
+} from "./categories.js";
+export type {
+  CreateCategoryInput,
+  AssignCategoryInput,
+  CategoryRow,
+  CategoryAppliesTo,
+} from "./categories.js";
