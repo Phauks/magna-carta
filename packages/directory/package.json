@@ -9,6 +9,7 @@
     "./normalize-name": "./src/normalize-name.ts",
     "./phonetics": "./src/phonetics.ts",
     "./person": "./src/person.ts",
+    "./organization": "./src/organization.ts",
     "./statements": "./src/statements.ts",
     "./audit": "./src/audit.ts"
   },

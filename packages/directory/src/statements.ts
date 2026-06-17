@@ -1,10 +1,11 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
-import type { DirectoryNameId, DirectoryPersonId } from "@magna-carta/identifiers/types";
+import type { DirectoryNameId, DirectoryOrganizationId, DirectoryPersonId } from "@magna-carta/identifiers/types";
 import type { EntityKind, NameRole, PhoneticScheme } from "./types.js";
 
 // Table names tracked against @magna-carta/database's per-firm schema by the schema-name-sync fitness
 // test.
 export const DIRECTORY_PERSON_TABLE = "directory_person";
+export const DIRECTORY_ORGANIZATION_TABLE = "directory_organization";
 export const DIRECTORY_NAME_TABLE = "directory_name";
 export const DIRECTORY_NAME_PHONETIC_CODE_TABLE = "directory_name_phonetic_code";
 
@@ -145,4 +146,40 @@ export function updatePersonFieldsStatement(
       `UPDATE ${DIRECTORY_PERSON_TABLE} SET status = ?2, merged_into_id = ?3, updated_at = ?4 WHERE id = ?1`,
     )
     .bind(id, fields.status, fields.mergedIntoId, updatedAt);
+}
+
+// The caller-supplied organization status values; the table CHECK constrains the column to exactly these.
+export type OrganizationStatus = "active" | "merged_into";
+
+// The organization row written by createOrganization. legal_name is the primary name column;
+// display_name defaults to legal_name at creation and may diverge if the organization trades
+// under a different name. status starts 'active'; merged_into_id is set only by a merge.
+export interface InsertOrganizationRow {
+  readonly id: DirectoryOrganizationId;
+  readonly legalName: string;
+  readonly displayName: string;
+  readonly status: OrganizationStatus;
+  readonly createdAt: string;
+}
+
+export function insertOrganizationStatement(
+  database: SqlDatabase,
+  row: InsertOrganizationRow,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${DIRECTORY_ORGANIZATION_TABLE} (id, legal_name, display_name, ein_ciphertext, ein_blind_index, status, merged_into_id, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, NULL, NULL, ?4, NULL, ?5, ?5, NULL)`,
+    )
+    .bind(row.id, row.legalName, row.displayName, row.status, row.createdAt);
+}
+
+export function selectOrganizationStatement(
+  database: SqlDatabase,
+  id: DirectoryOrganizationId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, legal_name, display_name, status, merged_into_id FROM ${DIRECTORY_ORGANIZATION_TABLE} WHERE id = ?1`,
+    )
+    .bind(id);
 }
