@@ -1,5 +1,9 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
-import type { DirectoryNameId, DirectoryOrganizationId, DirectoryPersonId } from "@magna-carta/identifiers/types";
+import type {
+  DirectoryNameId,
+  DirectoryOrganizationId,
+  DirectoryPersonId,
+} from "@magna-carta/identifiers/types";
 import type { EntityKind, NameRole, PhoneticScheme } from "./types.js";
 
 // Table names tracked against @magna-carta/database's per-firm schema by the schema-name-sync fitness
@@ -8,6 +12,7 @@ export const DIRECTORY_PERSON_TABLE = "directory_person";
 export const DIRECTORY_ORGANIZATION_TABLE = "directory_organization";
 export const DIRECTORY_NAME_TABLE = "directory_name";
 export const DIRECTORY_NAME_PHONETIC_CODE_TABLE = "directory_name_phonetic_code";
+export const DIRECTORY_IDENTIFIER_TABLE = "directory_identifier";
 
 // The caller-supplied person status values; the table CHECK constrains the column to exactly these.
 export type PersonStatus = "active" | "merged_into";

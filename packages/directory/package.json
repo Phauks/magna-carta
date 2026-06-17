@@ -10,6 +10,7 @@
     "./phonetics": "./src/phonetics.ts",
     "./person": "./src/person.ts",
     "./organization": "./src/organization.ts",
+    "./identifiers": "./src/identifiers.ts",
     "./statements": "./src/statements.ts",
     "./audit": "./src/audit.ts"
   },
@@ -17,8 +18,10 @@
     "test": "vp test run"
   },
   "dependencies": {
+    "@magna-carta/access-control": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
+    "@magna-carta/encryption": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "double-metaphone": "catalog:"
   },

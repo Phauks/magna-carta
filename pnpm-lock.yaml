@@ -311,12 +311,18 @@ importers:
 
   packages/directory:
     dependencies:
+      '@magna-carta/access-control':
+        specifier: workspace:*
+        version: link:../access-control
       '@magna-carta/data-access':
         specifier: workspace:*
         version: link:../data-access
       '@magna-carta/database':
         specifier: workspace:*
         version: link:../database
+      '@magna-carta/encryption':
+        specifier: workspace:*
+        version: link:../encryption
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers

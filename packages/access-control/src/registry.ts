@@ -22,6 +22,8 @@ export const PERMISSIONS = [
   "matters:renumber", // assign a manual/court/legacy number
   "matters:manageTypes", // create/deactivate matter types
   "matters:manageNumbering", // edit the firm numbering scheme
+  // Directory — persons, organizations, and their sensitive typed identifiers.
+  "directory:viewSensitiveIdentifiers", // decrypt and read an entity's protected identifier (SSN/EIN/DL/account/DOB) — audited
   // Locations — the firm's offices/letterhead roots.
   "locations:manage", // create/update/close locations, addresses, staff assignment
   // Files — the File Manager's upload, organization, and document-type configuration.

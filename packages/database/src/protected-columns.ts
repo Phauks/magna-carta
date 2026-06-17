@@ -12,4 +12,5 @@ export interface ProtectedColumn {
 export const PROTECTED_COLUMNS: readonly ProtectedColumn[] = [
   { table: "firm_secret", column: "ciphertext" },
   { table: "incident", column: "description_ciphertext" },
+  { table: "directory_identifier", column: "value_ciphertext" },
 ];

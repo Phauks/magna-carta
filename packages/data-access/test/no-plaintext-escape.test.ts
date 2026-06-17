@@ -46,6 +46,12 @@ const ALLOW_LISTED_WRITE_SITES = new Set(
     // The backfill sweep: seals pre-slice plaintext through the chokepoint, UPDATEs the ciphertext
     // column, and selects rows by `description_ciphertext IS NULL` — it never decrypts.
     "apps/worker/src/scheduled.ts",
+    // The directory identifier write/match path: addIdentifier seals each typed identifier value
+    // through composeProtectedWrite and binds the returned ciphertext + blind-index values into its
+    // own INSERT; findByIdentifier filters on value_blind_index equality (no decrypt); the only
+    // decrypt is readIdentifier delegating to readProtected. It never SELECTs the ciphertext to
+    // decrypt outside the chokepoint.
+    "packages/directory/src/identifiers.ts",
     // The load-profile harness (fixtures, never bundled into the Worker — not a production read
     // surface): the generator seals through composeProtectedWrite/putSecret and binds the returned
     // ciphertext into its INSERT, and the measurement layer fetches a ciphertext only to hand it to
