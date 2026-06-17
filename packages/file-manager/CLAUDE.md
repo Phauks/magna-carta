@@ -31,19 +31,26 @@ runs logic mid-transaction.
   predicate (allowlist a legitimate all-status read with an inline `fitness:allow-no-status` marker).
 - **Versions are immutable; soft-delete only.** A committed version's bytes/metadata never change; a new
   version is a new row + a new R2 key. Files soft-delete (`deleted_at`); versions are untouched.
-- **R2 keys are opaque and server-minted** (`files/{fileId}/{versionId}`) — never derived from a
-  client-supplied path. The bytes bypass the Worker (direct-to-R2 via presigned URLs).
+- **R2 keys are opaque and server-minted** — `files/{fileId}/{versionId}` (interactive lane) or
+  `bulk/{fileId}/{versionId}` (bulk lane) — never derived from a client-supplied path. Both key prefixes
+  meter under the `files/` logical dimension. The bytes bypass the Worker (direct-to-R2 via presigned URLs).
 - **No-op version skip.** A re-upload whose content hash equals the file's current version's hash marks
   the session completed and the new version abandoned — one logical version, not a duplicate.
 - **Ingest is one read.** `runIngest` tees a single stream: head bytes to the magic-byte sniff, the full
   stream through `crypto.DigestStream` and the scan port. A multi-GB object never buffers.
 - **Uninspectable-file split (inspectable-size short-circuit).** Files that exceed the inspectable-size
-  cap bypass the scan port entirely. Benign uninspectable types (extension allow-list) commit with an
-  `unscanned` verdict + a badge recorded in `scan_detail`; suspicious uninspectable types go to quarantine
-  with the reason in `scan_detail`. Files within the cap follow the normal scan path.
-- **Scan verdict policy.** `clean` commits the version (`activeContent: true` triggers CDR in a future
-  pass). `infected` quarantines. `unscanned` commits (explicit launch policy, pending the real engine).
-  `suspicious` quarantines.
+  cap bypass the scan port and commit unconditionally as `unscanned` with `scan_detail: "oversize"` — no
+  extension allow-list classification occurs at this boundary; large legitimate files are not suspicious
+  for being big. Files within the cap follow the normal scan path: an engine `unscanned` result (e.g.
+  reason `encrypted`) commits with `scan_detail` set to that reason (a "not scanned" badge); an engine
+  `suspicious` result (decompression-bomb / archive-nesting / archive-entry-count) quarantines with
+  reason `scan-suspicious`. This mapping exists now but is dormant — the launch `unscannedAdapter` only
+  ever returns `unscanned`/`no-engine`; the real engine lands with Plan 2.
+- **Scan verdict policy.** `clean` commits the version; `activeContent: true` (PDF JavaScript / Office
+  macros — set by the Plan 2 engine) commits with `scan_detail: "active-content"` as a badge; execution
+  defenses are the safe-delivery sandbox (a later slice) and the upload-policy extension blocklist. CDR
+  (Content Disarm & Reconstruction) is not part of this platform. `infected` quarantines. `unscanned`
+  commits (explicit launch policy, pending the real engine). `suspicious` quarantines.
 - **`scan_detail` records the badge/quarantine reason** — the human-readable string written to the
   `file_version.scan_detail` column explaining why a version received its verdict (e.g. the rule hit, the
   over-size reason, or the suspicious-type classification).
