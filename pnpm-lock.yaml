@@ -246,6 +246,9 @@ importers:
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers
+      '@magna-carta/integrations':
+        specifier: workspace:*
+        version: link:../integrations
       hono:
         specifier: 'catalog:'
         version: 4.12.23

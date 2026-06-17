@@ -18,7 +18,9 @@
     "./outbox-relay": "./src/outbox-relay.ts",
     "./cursor-pagination": "./src/cursor-pagination.ts",
     "./classification-type-service": "./src/classification-type-service.ts",
-    "./hono-idempotency-middleware": "./src/hono-idempotency-middleware.ts"
+    "./hono-idempotency-middleware": "./src/hono-idempotency-middleware.ts",
+    "./integration-connection-statements": "./src/integration-connection-statements.ts",
+    "./integration-connection-store": "./src/integration-connection-store.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -26,6 +28,7 @@
   "dependencies": {
     "@magna-carta/database": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/integrations": "workspace:*",
     "hono": "catalog:",
     "zod": "catalog:"
   },
