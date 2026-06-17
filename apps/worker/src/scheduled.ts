@@ -611,7 +611,10 @@ export interface RescanSweepReport {
 // Each firm is capped at RESCAN_SWEEP_PER_FIRM_CAP per run to bound queue pressure; a per-firm
 // failure is isolated (logged through the one telemetry pipeline) so one broken firm cannot starve
 // the rest. FILES_INGEST absent (the binding is optional in Bindings) is a no-op per firm.
-export async function runRescanSweep(env: Bindings): Promise<RescanSweepReport> {
+export async function runRescanSweep(
+  env: Bindings,
+  perFirmCap: number = RESCAN_SWEEP_PER_FIRM_CAP,
+): Promise<RescanSweepReport> {
   const logger = createWorkersLogger(env.TELEMETRY);
   const correlationId = newCorrelationId();
   const firms = await listReachableActiveFirms(env);
@@ -623,10 +626,7 @@ export async function runRescanSweep(env: Bindings): Promise<RescanSweepReport> 
         firmsProcessed++;
         continue;
       }
-      const versions = await listUnscannedCommittedVersions(
-        firm.database,
-        RESCAN_SWEEP_PER_FIRM_CAP,
-      );
+      const versions = await listUnscannedCommittedVersions(firm.database, perFirmCap);
       for (const version of versions) {
         await env.FILES_INGEST.send({
           // R2-event-shaped message: the ingest consumer reads bucket + object.key + action.

@@ -425,10 +425,23 @@ describe("runRescanSweep — weekly re-scan sweep", () => {
     expect(message.object?.key).toBe(`files/${unscannedVersionId}`);
   });
 
-  it("respects the per-run cap — does not enqueue more than the cap allows", async () => {
-    // Seed more unscanned versions than the cap (cap is 100 per the implementation).
-    // This test seeds 3 and checks all are enqueued (well under the cap) — the cap is tested
-    // here structurally: any value > 3 passes, validating the cap does not break small sets.
+  it("respects the per-firm cap — enqueues exactly the cap count when backlog exceeds it", async () => {
+    // Seed 3 unscanned committed versions into a fresh firm database so the test is isolated
+    // from other tests that may have left residual unscanned rows in the pool firm.
+    // Then call runRescanSweep with a cap of 2 and assert EXACTLY 2 messages are enqueued,
+    // proving the bounding logic is exercised (not merely that the cap is larger than the backlog).
+    await applyPerFirmMigrations(env.DB_FIRM_POOL_2);
+    const capBoundFirmId = (
+      await seedFirm({ name: "Cap Boundary Firm", databaseIdentifier: "DB_FIRM_POOL_2" })
+    ).firmId;
+
+    const seededVersionIds: FileVersionId[] = [];
+    for (let i = 0; i < 3; i++) {
+      const versionId = newIdentifier("fileVersion") as FileVersionId;
+      seededVersionIds.push(versionId);
+      await insertCommittedVersion(env.DB_FIRM_POOL_2, versionId, "unscanned");
+    }
+
     const sent: unknown[] = [];
     const capturingFilesIngest = {
       send: (message: unknown) => {
@@ -437,18 +450,18 @@ describe("runRescanSweep — weekly re-scan sweep", () => {
       },
     } as unknown as Queue;
 
-    // Three more unscanned versions in the same pool firm database.
-    for (let i = 0; i < 3; i++) {
-      const versionId = newIdentifier("fileVersion") as FileVersionId;
-      await insertCommittedVersion(env.DB_FIRM_POOL_1, versionId, "unscanned");
-    }
+    // Cap of 2 with 3 unscanned versions: exactly 2 must be enqueued for the cap-boundary firm.
+    await runRescanSweep({ ...env, FILES_INGEST: capturingFilesIngest }, 2);
 
-    // sent already has the one from the previous test — reset by calling with a fresh capturer.
-    const previousCount = sent.length;
-    await runRescanSweep({ ...env, FILES_INGEST: capturingFilesIngest });
-    // The three new unscanned versions are all enqueued (plus any residual unscanned from the
-    // prior test — still within the cap of 100).
-    expect(sent.length - previousCount).toBeGreaterThanOrEqual(3);
+    const firmMessages = sent.filter((entry) => {
+      // Filter by key prefix matching a seeded version to isolate this firm's messages.
+      const key = (entry as { object?: { key?: string } }).object?.key ?? "";
+      return seededVersionIds.some((id) => key === `files/${id}`);
+    });
+    expect(firmMessages).toHaveLength(2);
+
+    // Clean up: remove the cap-boundary firm row so it does not interfere with subsequent tests.
+    await env.DB_CONTROL.prepare("DELETE FROM firm WHERE id = ?1").bind(capBoundFirmId).run();
   });
 
   it("routes the weekly cron expression to runRescanSweep via the Worker's scheduled handler", async () => {
