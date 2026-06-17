@@ -28,6 +28,15 @@ jobs:
       - name: Quality gate (fmt + lint + TS type-check + svelte-check)
         run: pnpm check
 
+      # Regenerate the committed token CSS and fail if it drifts from what's checked in — the
+      # authoritative half of the design-tokens golden gate (golden.test.ts pins the committed twin;
+      # this proves the committed output still matches a fresh `tz build`). Generated files are never
+      # hand-edited (packages/design-tokens/CLAUDE.md).
+      - name: Design-token drift gate
+        run: |
+          pnpm --filter @magna-carta/design-tokens build
+          git diff --exit-code packages/design-tokens/generated
+
       # The design-system Storybook story tests run in browser mode (Chromium via Playwright) with
       # per-story axe checks, registered as a Vitest project in the root config — so `vp test` needs
       # the Chromium binary (+ its OS deps on the Linux runner). Without this step those component
@@ -38,9 +47,56 @@ jobs:
       - name: Tests (unit + Miniflare worker integration + Storybook browser & axe)
         run: vp test
 
+      # Build the static catalog — a build-error gate on every PR (the visual-regression job rebuilds
+      # it inside the pinned container, where the authoritative screenshots are rendered).
+      - name: Build Storybook catalog
+        run: pnpm --filter @magna-carta/design-system run storybook-build
+
       - name: Build web SPA then worker
         run: vp run build-all
 
       - name: Validate Worker + assets config (no publish)
         run: pnpm --filter @magna-carta/worker exec wrangler deploy --dry-run
         # To deploy for real: add a CLOUDFLARE_API_TOKEN secret and drop --dry-run
+
+  # The container tag is derived from the @playwright/test catalog pin so the browser build that
+  # renders the screenshots always matches the test runner — a manual hardcoded tag would silently
+  # drift on a Playwright bump and poison every baseline. Mirrors visual-regression/update-baselines.
+  visual-regression-image:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.resolve.outputs.image }}
+    steps:
+      - uses: actions/checkout@v6
+      - id: resolve
+        run: |
+          version=$(grep -oE '"@playwright/test":[[:space:]]*[0-9.]+' pnpm-workspace.yaml | grep -oE '[0-9.]+$')
+          echo "image=mcr.microsoft.com/playwright:v${version}-noble" >> "$GITHUB_OUTPUT"
+
+  # Visual-regression: screenshot every story x theme x mode over the static catalog and diff against
+  # the committed baselines. Runs in the pinned Playwright container — the ONE authoritative rendering
+  # environment (font rasterization differs per OS). The harness skips (named, logged) until baselines
+  # exist, so this gate is inert until the first baselines are generated via update-baselines in the
+  # same container; once committed it fails on any visual diff and uploads the actual/diff images.
+  visual-regression:
+    needs: visual-regression-image
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.visual-regression-image.outputs.image }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Enable pnpm (corepack)
+        run: corepack enable
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build Storybook catalog
+        run: pnpm --filter @magna-carta/design-system run storybook-build
+      - name: Visual-regression sweep (compare against committed baselines)
+        run: pnpm --filter @magna-carta/design-system run visual-regression
+      - name: Upload diffs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-regression-diffs
+          path: packages/design-system/visual-regression/test-results/
+          if-no-files-found: ignore

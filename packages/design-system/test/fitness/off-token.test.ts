@@ -13,12 +13,20 @@ import { collectSourceFiles } from "./source-file-sweep.ts";
  * functions are Vitest tests that scan source files (ADR-0051), like the token gates in
  * packages/design-tokens/test/.
  *
- * Four scanners, each banning one way an off-token value enters the UI:
+ * Five scanners, each banning one way an off-token value (or a banned glyph) enters the UI:
  *   1. Tailwind arbitrary values  — p-[13px], bg-[#fff], duration-[150ms]
  *   2. Raw color literals         — hex, rgb()/rgba()/hsl()/hsla()/oklch()/oklab()
  *   3. Raw z-index numerals       — z-50 (Z_LAYER_CLASSES in src/lib/internal/floating.ts
  *                                   is the only z home)
  *   4. Raw transition durations   — duration-150 (duration-instant|fast|normal|slow only)
+ *   5. Emojis                     — golden rule 2 ("no emojis anywhere"); icons are Lucide. Scans the
+ *                                   pictographic ranges only (emoji planes U+1F000–1FAFF and misc
+ *                                   symbols U+2600–26FF — an emoji's base always falls in one).
+ *                                   Text punctuation the codebase uses in prose/comments is
+ *                                   deliberately NOT banned: arrows (→ ↔, U+2190–21FF) and the
+ *                                   dingbat multiplication X (✕, U+2715) are legitimate symbols, not
+ *                                   emoji. Docs and commit messages are golden-rule-2 surfaces too,
+ *                                   enforced outside this UI-source sweep (review + commit hooks).
  *
  * THE SWEEP SURFACE (deliberate; every exclusion justified):
  *   IN  apps/web/src — .svelte, .ts, .css — the product UI. The plan names svelte+ts;
@@ -94,6 +102,15 @@ const RAW_Z_INDEX_NUMERAL_PATTERN = /\bz-\d+\b/g;
 /** Rule 4 — raw transition-duration numerals. duration-instant|fast|normal|slow only. */
 const RAW_DURATION_NUMERAL_PATTERN = /\bduration-\d+\b/g;
 
+/**
+ * Rule 5 — emojis (golden rule 2). The pictographic ranges only: the emoji supplementary planes
+ * (U+1F000–1FAFF) and Miscellaneous Symbols (U+2600–26FF). An emoji always carries a base in one of
+ * these ranges, so the U+FE0F variation selector is not part of the class (a combining char in a
+ * character class is misleading, and the base is already matched). Arrows and the dingbat ✕ are
+ * excluded — the codebase uses them as plain text symbols in comments, and they are not emoji.
+ */
+const EMOJI_PATTERN = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{26FF}]/gu;
+
 interface RuleMatch {
   readonly rule: string;
   readonly match: string;
@@ -117,6 +134,9 @@ export function findOffTokenMatches(line: string): RuleMatch[] {
   }
   for (const hit of line.matchAll(RAW_DURATION_NUMERAL_PATTERN)) {
     matches.push({ rule: "raw-duration-numeral", match: hit[0] });
+  }
+  for (const hit of line.matchAll(EMOJI_PATTERN)) {
+    matches.push({ rule: "emoji", match: hit[0] });
   }
   return matches;
 }
@@ -261,6 +281,16 @@ describe("the off-token scanners catch crafted violations (self-check)", () => {
     expect(rules('"duration-150"')).toContain("raw-duration-numeral");
     expect(findOffTokenMatches('"z-modal z-dropdown z-toast"')).toEqual([]);
     expect(findOffTokenMatches('"duration-fast duration-normal"')).toEqual([]);
+  });
+
+  it("flags pictographic emojis but not the text symbols the codebase uses", () => {
+    const rules = (line: string) => findOffTokenMatches(line).map((violation) => violation.rule);
+    expect(rules("// celebrate 🎉")).toContain("emoji");
+    expect(rules("const rocket = '🚀';")).toContain("emoji");
+    expect(rules("warning ⚠️ here")).toContain("emoji"); // U+26A0 + U+FE0F
+    // Arrows and the dingbat X are plain text symbols the codebase uses in comments — NOT emoji.
+    expect(findOffTokenMatches("schema → data-access → API")).toEqual([]);
+    expect(findOffTokenMatches("the corner ✕ dismiss")).toEqual([]);
   });
 
   it("reports file, line number, rule, and the offending match", () => {

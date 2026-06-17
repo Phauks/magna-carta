@@ -187,8 +187,11 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
   - **Visual-tests addon** (`@chromatic-com/storybook`) is installed but **inert** until a Chromatic token is set; the recorded primary VRT is the self-hosted Playwright harness (Argos the named upgrade) — revisit which SaaS before relying on Chromatic.
 - **`#NNNN` issue references in `src/` comments trip the raw-hex gate** (four hex digits) — cite
   issues in full URL form or use a justified `fitness-allow`.
-- **Open spec item:** the no-emoji fitness gate is specced but unimplemented (decide at CI wiring,
-  plan Task 28/29).
+- **No-emoji gate (golden rule 2)** is the fifth off-token scanner (`test/fitness/off-token.test.ts`):
+  it bans the pictographic ranges (emoji planes U+1F000–1FAFF and Misc Symbols U+2600–26FF, where an
+  emoji's base always falls) across the UI source sweep. Text symbols the codebase uses in comments —
+  arrows (→ ↔) and the dingbat ✕ — are deliberately NOT banned. Docs + commit messages are
+  golden-rule-2 surfaces too, enforced outside this UI-source sweep (review + commit hooks).
 - **Workshop agenda (z-order):** `dropdown` (1000) sits below `sticky` (1100) — portal-to-body
   menus paint beneath sticky headers; defensible, but make it a deliberate decision.
 - **Workshop agenda (hairline weight under fractional DPR) — flagged for Fable design review:**
