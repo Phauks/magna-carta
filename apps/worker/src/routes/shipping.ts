@@ -4,7 +4,7 @@ import type { SecretStore } from "@magna-carta/data-access/firm-secret-credentia
 import { insertConnectionStatement } from "@magna-carta/data-access/integration-connection-statements";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { selectShipmentStatement } from "@magna-carta/data-access/shipment-statements";
-import { createShipmentDraft } from "@magna-carta/data-access/shipment-service";
+import { createShipmentDraft, recordPurchase } from "@magna-carta/data-access/shipment-service";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { MatterId, ShipmentId } from "@magna-carta/identifiers/types";
 import type { Dispatch } from "@magna-carta/integrations/dispatch";
@@ -216,6 +216,39 @@ const rateRoute = defineOpenAPIRoute(
   },
 );
 
+const PurchaseRequest = z
+  .object({
+    remoteShipmentId: z.string(),
+    remoteRateId: z.string(),
+    serviceFeeMinor: z.number().int().nonnegative().default(0),
+  })
+  .openapi("PurchaseRequest");
+const PurchaseAck = z
+  .object({ id: z.string(), trackingCode: z.string(), labelId: z.string() })
+  .openapi("PurchaseAck");
+
+const purchaseRoute = defineOpenAPIRoute(writeMeta("shipping.purchase"), {
+  method: "post",
+  path: "/api/v1/shipments/{id}/purchase",
+  description: "Buys the chosen rate, stores the label PDF, and records postage + service fee.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: z.object({ id: z.string() }),
+    body: { content: { "application/json": { schema: PurchaseRequest } }, required: true },
+  },
+  responses: {
+    200: { description: "Purchased", content: { "application/json": { schema: PurchaseAck } } },
+    400: errorResponses[400],
+    401: errorResponses[401],
+    403: errorResponses[403],
+    404: errorResponses[404],
+    409: errorResponses[409],
+    422: errorResponses[422],
+    429: errorResponses[429],
+    502: errorResponses[502],
+  },
+});
+
 export function registerShippingRoutes(
   app: ShippingApp,
   chokepoint: Chokepoint,
@@ -360,6 +393,95 @@ export function registerShippingRoutes(
       );
     },
   );
+
+  // POST /api/v1/shipments/{id}/purchase — buy the label, copy it to R2, record postage + fee
+  app.openapi(
+    { ...purchaseRoute, middleware: chokepointMiddleware(chokepoint, purchaseRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const firmId = requireChokepointFirmId(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const id = c.req.valid("param").id as ShipmentId;
+      const body = c.req.valid("json");
+      const now = () => new Date().toISOString();
+      const registry = buildShippingRegistry(
+        firm.firmDatabase,
+        deps.secretStoreForFirm(firm.firmDatabase),
+        deps.httpClient,
+      );
+      const resolved = await registry.resolve<ShippingPort>("shipping", { firmId });
+      if (!resolved.ok) return shippingDispatchProblem(c, resolved);
+
+      // The chokepoint idempotency key doubles as the EasyPost Idempotency-Key. A thrown effect
+      // commits no idempotency record (runIdempotentEffect re-executes on retry), so that header is
+      // what prevents a double-buy: EasyPost returns the same label for the same key. The R2 key is
+      // derived from the shipment id, so the put is idempotent across retries too.
+      const result = await runIdempotentEffect({
+        database: firm.firmDatabase,
+        key: idempotency.key,
+        fingerprint: idempotency.fingerprint,
+        now,
+        effect: async () => {
+          const bought = await resolved.value.port.buyLabel({
+            remoteShipmentId: body.remoteShipmentId,
+            remoteRateId: body.remoteRateId,
+            idempotencyKey: idempotency.key,
+          });
+          if (!bought.ok) throw new ShippingDispatchError(bought);
+          const label = bought.value;
+          const labelResponse = await fetch(label.labelUrl);
+          const r2Key = `labels/${id}.pdf`;
+          await c.env.R2.put(r2Key, await labelResponse.arrayBuffer(), {
+            httpMetadata: { contentType: label.labelFormat },
+          });
+          const recorded = await recordPurchase(
+            firm.firmDatabase,
+            {
+              shipmentId: id,
+              remoteShipmentId: label.remoteId,
+              carrier: label.carrier,
+              service: label.service,
+              trackingCode: label.trackingCode,
+              labelFormat: label.labelFormat,
+              r2Key,
+              postageCostMinor: label.costMinor,
+              serviceFeeMinor: body.serviceFeeMinor,
+              currency: label.currency,
+            },
+            { clock: { now }, actorUserId: userId },
+          );
+          return {
+            write: recorded.effect,
+            responseCode: 200,
+            responseBody: canonicalJsonStringify({
+              id,
+              trackingCode: label.trackingCode,
+              labelId: recorded.labelId,
+            }),
+          };
+        },
+      }).catch((caught: unknown) => {
+        if (caught instanceof ShippingDispatchError) return caught;
+        throw caught;
+      });
+      if (result instanceof ShippingDispatchError) {
+        return shippingDispatchProblem(c, result.dispatch);
+      }
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+        return problemResponseForIdempotencyConflict(c, result);
+      }
+      if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
+      return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof PurchaseAck>, 200);
+    },
+  );
+}
+
+// Carries a non-ok Dispatch out of the idempotent-effect callback so the route maps it to a problem.
+class ShippingDispatchError extends Error {
+  constructor(public readonly dispatch: Extract<Dispatch<unknown>, { ok: false }>) {
+    super("shipping dispatch error");
+  }
 }
 
 // Maps a non-ok shipping Dispatch onto the worker's problem taxonomy. not-connected → 409 (the firm
