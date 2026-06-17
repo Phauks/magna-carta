@@ -254,7 +254,7 @@ test("assignCategory with a non-existent category throws not-found", async () =>
   ).rejects.toMatchObject({ code: "not-found" });
 });
 
-test("assignCategory with a non-existent entity throws not-found", async () => {
+test("assignCategory with a non-existent entity throws unknown-entity", async () => {
   const database = freshDatabase();
   const randomSource = seededRandomSource("t11-no-entity");
 
@@ -270,7 +270,7 @@ test("assignCategory with a non-existent entity throws not-found", async () => {
       { entityId: "directoryPerson_doesnotexist" as never, categoryId },
       { clock, actorUserId: null, randomSource },
     ),
-  ).rejects.toMatchObject({ code: "not-found" });
+  ).rejects.toMatchObject({ code: "unknown-entity" });
 });
 
 test("assignCategory writes an audit row for directory.category.assigned", async () => {

@@ -7,7 +7,7 @@ import type {
   DirectoryPersonId,
 } from "@magna-carta/identifiers/types";
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.js";
-import { entityKindFromId } from "./entity-kind.js";
+import { assertEntityExists, UnknownEntityError } from "./entity-kind.js";
 import { EDGE_TYPES, type EdgeType } from "./types.js";
 
 // The error thrown when a caller supplies an edge_type value that is not in the
@@ -21,29 +21,7 @@ export class InvalidEdgeTypeError extends Error {
   }
 }
 
-// The error thrown when either endpoint of an edge does not exist in the directory
-// or has been soft-deleted. Hard-deletion of directory entities is not permitted;
-// soft-deletion sets deleted_at.
-export class UnknownEntityError extends Error {
-  readonly code = "unknown-entity";
-  constructor(entityId: string) {
-    super(`directory: entity not found or soft-deleted: ${entityId}`);
-    this.name = "UnknownEntityError";
-  }
-}
-
-// Check that a single endpoint entity exists and is not soft-deleted. Looks in the
-// correct node table based on the entity id prefix. Throws UnknownEntityError if
-// the entity is missing or has a non-null deleted_at.
-async function assertEntityExists(database: BatchDatabase, entityId: string): Promise<void> {
-  const kind = entityKindFromId(entityId);
-  const table = kind === "person" ? "directory_person" : "directory_organization";
-  const { results } = await database
-    .prepare(`SELECT id FROM ${table} WHERE id = ?1 AND deleted_at IS NULL`)
-    .bind(entityId)
-    .all<{ id: string }>();
-  if (results.length === 0) throw new UnknownEntityError(entityId);
-}
+export { UnknownEntityError };
 
 // The caller-supplied fields for a new directed edge between two directory entities.
 // Both from and to may be person or organization ids — the endpoint tables are distinct

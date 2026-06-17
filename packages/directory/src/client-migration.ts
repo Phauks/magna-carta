@@ -176,6 +176,8 @@ export async function migrateClientDisplayFields(
     if (existing.length > 0) continue;
 
     const now = options.clock.now();
+    // Pre-minted for both org and non-blank-person paths; blank-person path emits no name row
+    // but the identifier is consumed by the random sequence to keep downstream seeds stable.
     const nameId: DirectoryNameId = newIdentifier("directoryName", options.randomSource);
     const matterPartyId: MatterPartyId = newIdentifier("matterParty", options.randomSource);
 
@@ -193,7 +195,7 @@ export async function migrateClientDisplayFields(
     } else {
       const personId = newIdentifier("directoryPerson", options.randomSource);
       entityId = personId;
-      entityStatements = personStatements(database, personId, nameId, displayName, now);
+      entityStatements = personStatements(database, personId, nameId, trimmed, now);
       auditEvent = "directory.person.created";
     }
 

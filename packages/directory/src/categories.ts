@@ -3,7 +3,7 @@ import type { SqlStatement } from "@magna-carta/data-access/idempotency-statemen
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DirectoryCategoryId } from "@magna-carta/identifiers/types";
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.js";
-import { entityKindFromId } from "./entity-kind.js";
+import { assertEntityExists, entityKindFromId } from "./entity-kind.js";
 import type { EntityKind } from "./types.js";
 
 // Thrown when a caller references a category id that does not exist in directory_category.
@@ -114,18 +114,11 @@ export async function assignCategory(
 
   const appliesTo = categoryResults[0]!.applies_to as CategoryAppliesTo;
 
-  // 2. Determine entity kind from its id prefix, then validate the entity exists.
+  // 2. Validate the entity exists and is not soft-deleted, then determine its kind for the
+  //    applies_to check. assertEntityExists throws UnknownEntityError (code: "unknown-entity")
+  //    for missing or deleted entities.
+  await assertEntityExists(database, input.entityId);
   const entityKind = entityKindFromId(input.entityId);
-  const entityTable = entityKind === "person" ? "directory_person" : "directory_organization";
-
-  const { results: entityResults } = await database
-    .prepare(`SELECT id FROM ${entityTable} WHERE id = ?1`)
-    .bind(input.entityId)
-    .all<{ id: string }>();
-
-  if (entityResults.length === 0) {
-    throw new EntityNotFoundError(input.entityId);
-  }
 
   // 3. Validate applies_to compatibility.
   if (appliesTo !== "both" && appliesTo !== entityKind) {

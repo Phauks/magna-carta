@@ -98,3 +98,15 @@ test("listPartyRoles orders by position and excludes archived roles", async () =
   const roles = await listPartyRoles(database);
   expect(roles.map((role) => role.name)).toEqual(["Client", "Expert"]);
 });
+
+test("linkMatterParty rejects a non-existent entity with UnknownEntityError", async () => {
+  const database = freshDatabase();
+  await seedMatter(database, "mat_ghost");
+  await expect(
+    linkMatterParty(
+      database,
+      { matterId: "mat_ghost", entityId: "directoryPerson_doesnotexist", role: "client" },
+      { clock, actorUserId: ACTOR, randomSource: seededRandomSource("t14-ghost") },
+    ),
+  ).rejects.toThrow("entity not found or soft-deleted");
+});

@@ -3,6 +3,7 @@ import type { SqlStatement } from "@magna-carta/data-access/idempotency-statemen
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DirectoryPartyRoleId, MatterPartyId } from "@magna-carta/identifiers/types";
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.js";
+import { assertEntityExists } from "./entity-kind.js";
 
 // The caller-supplied fields for linking a directory entity to a matter in a role. The role is a
 // free-text value (e.g. 'client', 'opposing_party', 'guardian') — directory_party_role is the catalog
@@ -30,6 +31,9 @@ export async function linkMatterParty(
   input: LinkMatterPartyInput,
   options: DirectoryWriteOptions,
 ): Promise<MatterPartyId> {
+  // Fail fast before any side effects: reject a missing or soft-deleted entity.
+  await assertEntityExists(database, input.entityId);
+
   const matterPartyId = newIdentifier("matterParty", options.randomSource);
   const now = options.clock.now();
 
