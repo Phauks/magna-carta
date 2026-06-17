@@ -33,6 +33,9 @@ import type {
   OutboxId,
   RoleId,
   RolePermissionId,
+  ShipmentId,
+  ShipmentLabelId,
+  TrackingEventId,
   UploadSessionId,
   UserId,
 } from "@magna-carta/identifiers/types";
@@ -684,6 +687,83 @@ export const integrationConnection = sqliteTable(
     uniqueIndex("integration_connection_principal_category_unique_index").on(
       table.category,
       table.principalRef,
+    ),
+  ],
+);
+
+// A mailing/postage shipment. Addresses, parcel, and options are JSON text (never sub-queried).
+// postage_cost_minor / service_fee_minor are recorded at purchase — the cost-recovery seam the
+// financial core reads to post a matter disbursement. matter_ref is optional (a shipment may be
+// firm-administrative, not matter-linked).
+export const shipment = sqliteTable(
+  "shipment",
+  {
+    id: text("id").primaryKey().$type<ShipmentId>(),
+    matterRef: text("matter_ref")
+      .$type<MatterId>()
+      .references(() => matter.id),
+    status: text("status", {
+      enum: ["draft", "rated", "purchased", "in_transit", "delivered", "refunded"],
+    })
+      .notNull()
+      .default("draft"),
+    fromAddress: text("from_address").notNull(), // JSON
+    toAddress: text("to_address").notNull(), // JSON
+    parcel: text("parcel").notNull(), // JSON
+    options: text("options").notNull().default("{}"), // JSON ShipmentOptions
+    remoteShipmentId: text("remote_shipment_id"), // EasyPost shipment id, set once rated/bought
+    carrier: text("carrier"),
+    service: text("service"),
+    trackingCode: text("tracking_code"),
+    labelRef: text("label_ref").$type<ShipmentLabelId>(),
+    postageCostMinor: integer("postage_cost_minor"),
+    serviceFeeMinor: integer("service_fee_minor"),
+    currency: text("currency"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("shipment_matter_ref_index").on(table.matterRef),
+    index("shipment_tracking_code_index").on(table.trackingCode),
+  ],
+);
+
+// A bought label's metadata; the PDF bytes live in per-firm R2 at r2_key (bulk content never in D1).
+export const shipmentLabel = sqliteTable("shipment_label", {
+  id: text("id").primaryKey().$type<ShipmentLabelId>(),
+  shipmentRef: text("shipment_ref")
+    .notNull()
+    .$type<ShipmentId>()
+    .references(() => shipment.id),
+  format: text("format").notNull(), // content type, e.g. application/pdf
+  r2Key: text("r2_key").notNull(),
+  trackingCode: text("tracking_code").notNull(),
+  costMinor: integer("cost_minor").notNull(),
+  currency: text("currency").notNull(),
+  voided: integer("voided").notNull().default(0), // 0/1
+  createdAt: text("created_at").notNull(),
+});
+
+// A carrier tracking event, appended as tracking is pulled. Dedup by (shipment_ref, remote_id).
+export const trackingEvent = sqliteTable(
+  "tracking_event",
+  {
+    id: text("id").primaryKey().$type<TrackingEventId>(),
+    shipmentRef: text("shipment_ref")
+      .notNull()
+      .$type<ShipmentId>()
+      .references(() => shipment.id),
+    remoteId: text("remote_id").notNull(),
+    status: text("status").notNull(),
+    occurredAt: text("occurred_at"),
+    location: text("location"),
+    message: text("message"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("tracking_event_shipment_remote_unique_index").on(
+      table.shipmentRef,
+      table.remoteId,
     ),
   ],
 );

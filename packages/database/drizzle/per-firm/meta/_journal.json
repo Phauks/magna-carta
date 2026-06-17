@@ -50,6 +50,13 @@
       "when": 1781655578117,
       "tag": "0006_giant_groot",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1781713661059,
+      "tag": "0007_tiny_green_goblin",
+      "breakpoints": true
     }
   ]
 }
