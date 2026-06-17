@@ -80,6 +80,7 @@ export async function createPerson(
       suffix: input.suffix ?? null,
       displayName,
       status: "active",
+      needsReview: 0,
       createdAt: now,
     }),
     insertNameStatement(database, {

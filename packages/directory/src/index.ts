@@ -56,3 +56,11 @@ export {
   DanglingSubordinateReferenceError,
 } from "./fitness.js";
 export type { DanglingReference } from "./fitness.js";
+export { linkMatterParty, readMatterParties, createPartyRole, listPartyRoles } from "./party.js";
+export type {
+  LinkMatterPartyInput,
+  MatterPartyRow,
+  CreatePartyRoleInput,
+  PartyRoleRow,
+} from "./party.js";
+export { migrateClientDisplayFields } from "./client-migration.js";

@@ -126,10 +126,12 @@ CREATE TABLE `directory_organization` (
 	`display_name` text,
 	`status` text DEFAULT 'active' NOT NULL,
 	`merged_into_id` text,
+	`needs_review` integer DEFAULT 0 NOT NULL,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL,
 	`deleted_at` text,
-	CONSTRAINT "directory_organization_status_check" CHECK("directory_organization"."status" IN ('active', 'merged_into'))
+	CONSTRAINT "directory_organization_status_check" CHECK("directory_organization"."status" IN ('active', 'merged_into')),
+	CONSTRAINT "directory_organization_needs_review_check" CHECK("directory_organization"."needs_review" IN (0, 1))
 );
 --> statement-breakpoint
 CREATE TABLE `directory_party_role` (
@@ -153,10 +155,12 @@ CREATE TABLE `directory_person` (
 	`member_id` text,
 	`status` text DEFAULT 'active' NOT NULL,
 	`merged_into_id` text,
+	`needs_review` integer DEFAULT 0 NOT NULL,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL,
 	`deleted_at` text,
-	CONSTRAINT "directory_person_status_check" CHECK("directory_person"."status" IN ('active', 'merged_into'))
+	CONSTRAINT "directory_person_status_check" CHECK("directory_person"."status" IN ('active', 'merged_into')),
+	CONSTRAINT "directory_person_needs_review_check" CHECK("directory_person"."needs_review" IN (0, 1))
 );
 --> statement-breakpoint
 CREATE TABLE `directory_phone` (

@@ -968,6 +968,14 @@
           "notNull": false,
           "autoincrement": false
         },
+        "needs_review": {
+          "name": "needs_review",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -998,6 +1006,10 @@
         "directory_organization_status_check": {
           "name": "directory_organization_status_check",
           "value": "\"directory_organization\".\"status\" IN ('active', 'merged_into')"
+        },
+        "directory_organization_needs_review_check": {
+          "name": "directory_organization_needs_review_check",
+          "value": "\"directory_organization\".\"needs_review\" IN (0, 1)"
         }
       }
     },
@@ -1130,6 +1142,14 @@
           "notNull": false,
           "autoincrement": false
         },
+        "needs_review": {
+          "name": "needs_review",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -1160,6 +1180,10 @@
         "directory_person_status_check": {
           "name": "directory_person_status_check",
           "value": "\"directory_person\".\"status\" IN ('active', 'merged_into')"
+        },
+        "directory_person_needs_review_check": {
+          "name": "directory_person_needs_review_check",
+          "value": "\"directory_person\".\"needs_review\" IN (0, 1)"
         }
       }
     },

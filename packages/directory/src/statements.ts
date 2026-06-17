@@ -29,13 +29,16 @@ export interface InsertPersonRow {
   readonly suffix: string | null;
   readonly displayName: string;
   readonly status: PersonStatus;
+  // 0/1; an ordinary create binds 0, a provisional import (a bare client display name with no
+  // structured parts to trust) binds 1 so a clerk reviews it before it joins the conflicts corpus.
+  readonly needsReview: 0 | 1;
   readonly createdAt: string;
 }
 
 export function insertPersonStatement(database: SqlDatabase, row: InsertPersonRow): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${DIRECTORY_PERSON_TABLE} (id, name_prefix, name_given, name_middle, name_family, name_suffix, display_name, status, merged_into_id, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, ?9, ?9, NULL)`,
+      `INSERT INTO ${DIRECTORY_PERSON_TABLE} (id, name_prefix, name_given, name_middle, name_family, name_suffix, display_name, status, merged_into_id, needs_review, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, ?9, ?10, ?10, NULL)`,
     )
     .bind(
       row.id,
@@ -46,6 +49,7 @@ export function insertPersonStatement(database: SqlDatabase, row: InsertPersonRo
       row.suffix,
       row.displayName,
       row.status,
+      row.needsReview,
       row.createdAt,
     );
 }
@@ -164,6 +168,8 @@ export interface InsertOrganizationRow {
   readonly legalName: string;
   readonly displayName: string;
   readonly status: OrganizationStatus;
+  // 0/1; an ordinary create binds 0, a provisional import binds 1 so a clerk reviews it.
+  readonly needsReview: 0 | 1;
   readonly createdAt: string;
 }
 
@@ -173,9 +179,9 @@ export function insertOrganizationStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${DIRECTORY_ORGANIZATION_TABLE} (id, legal_name, display_name, status, merged_into_id, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?5, NULL)`,
+      `INSERT INTO ${DIRECTORY_ORGANIZATION_TABLE} (id, legal_name, display_name, status, merged_into_id, needs_review, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?6, NULL)`,
     )
-    .bind(row.id, row.legalName, row.displayName, row.status, row.createdAt);
+    .bind(row.id, row.legalName, row.displayName, row.status, row.needsReview, row.createdAt);
 }
 
 export function selectOrganizationStatement(

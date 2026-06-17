@@ -711,12 +711,14 @@ export const directoryPerson = sqliteTable(
     memberId: text("member_id").$type<UserId>(), // nullable; set if this person maps to a firm member
     status: text("status").notNull().default("active"), // 'active' | 'merged_into'
     mergedIntoId: text("merged_into_id").$type<DirectoryPersonId>(), // set when status = 'merged_into'
+    needsReview: integer("needs_review").notNull().default(0), // 0/1; set by provisional imports awaiting review
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     deletedAt: text("deleted_at"),
   },
   (table) => [
     check("directory_person_status_check", sql`${table.status} IN ('active', 'merged_into')`),
+    check("directory_person_needs_review_check", sql`${table.needsReview} IN (0, 1)`),
   ],
 );
 
@@ -731,12 +733,14 @@ export const directoryOrganization = sqliteTable(
     displayName: text("display_name"),
     status: text("status").notNull().default("active"), // 'active' | 'merged_into'
     mergedIntoId: text("merged_into_id").$type<DirectoryOrganizationId>(), // set when status = 'merged_into'
+    needsReview: integer("needs_review").notNull().default(0), // 0/1; set by provisional imports awaiting review
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     deletedAt: text("deleted_at"),
   },
   (table) => [
     check("directory_organization_status_check", sql`${table.status} IN ('active', 'merged_into')`),
+    check("directory_organization_needs_review_check", sql`${table.needsReview} IN (0, 1)`),
   ],
 );
 
