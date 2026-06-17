@@ -8,7 +8,7 @@ import { IDAHO_ASSESSOR_SITES } from "./idaho.ts";
 import { KANSAS_ASSESSOR_SITES } from "./kansas.ts";
 import { MONTANA_ASSESSOR_SITES } from "./montana.ts";
 import { NEBRASKA_ASSESSOR_SITES } from "./nebraska.ts";
-import { NEVADA_ASSESSOR_SITES } from "./nevada.ts";
+import { NEVADA_ASSESSOR_SITES, NEVADA_GIS_SITES, NEVADA_RECORDER_SITES } from "./nevada.ts";
 import { NEW_MEXICO_ASSESSOR_SITES } from "./newmexico.ts";
 import { NORTH_DAKOTA_ASSESSOR_SITES } from "./northdakota.ts";
 import { OKLAHOMA_ASSESSOR_SITES } from "./oklahoma.ts";
@@ -53,7 +53,14 @@ export const STATES: readonly StateRegistration[] = [
   { code: "KS", fipsPrefix: "20", count: 105, sites: KANSAS_ASSESSOR_SITES },
   { code: "MT", fipsPrefix: "30", count: 56, sites: MONTANA_ASSESSOR_SITES },
   { code: "NE", fipsPrefix: "31", count: 93, sites: NEBRASKA_ASSESSOR_SITES },
-  { code: "NV", fipsPrefix: "32", count: 17, sites: NEVADA_ASSESSOR_SITES },
+  {
+    code: "NV",
+    fipsPrefix: "32",
+    count: 17,
+    sites: NEVADA_ASSESSOR_SITES,
+    recorder: NEVADA_RECORDER_SITES,
+    gis: NEVADA_GIS_SITES,
+  },
   { code: "NM", fipsPrefix: "35", count: 33, sites: NEW_MEXICO_ASSESSOR_SITES },
   { code: "ND", fipsPrefix: "38", count: 53, sites: NORTH_DAKOTA_ASSESSOR_SITES },
   { code: "OK", fipsPrefix: "40", count: 77, sites: OKLAHOMA_ASSESSOR_SITES },
