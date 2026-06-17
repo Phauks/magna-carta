@@ -1,10 +1,11 @@
 # @magna-carta/file-manager — CLAUDE.md
 
 **Purpose.** The File Manager domain module: the D1 folder tree over opaque per-firm R2 keys,
-`file`/`file_version` with the pending → clean/quarantined status gate, the single-read ingest pipeline
-(magic-byte gates + streaming SHA-256 + scan port → commit or quarantine), per-firm upload policy, exact
-storage metering + reconciliation, and the bulk-download selection resolver. Validates in memory and
-composes statements into @magna-carta/data-access's `composeEffectBatch`; never runs logic mid-transaction.
+`file`/`file_version` with the pending → clean/quarantined/unscanned/suspicious status flow, the
+single-read ingest pipeline (magic-byte gates + streaming SHA-256 + scan port → commit or quarantine),
+per-firm upload policy, exact storage metering + reconciliation, and the bulk-download selection resolver.
+Validates in memory and composes statements into @magna-carta/data-access's `composeEffectBatch`; never
+runs logic mid-transaction.
 
 **White paper:** _Matters and File Manager_ —
 [`docs/Magna-Carta-White-Paper.md`](../../docs/Magna-Carta-White-Paper.md). (ADR-0077, ADR-0078, ADR-0081, ADR-0082.)
@@ -16,7 +17,7 @@ composes statements into @magna-carta/data-access's `composeEffectBatch`; never 
 - `src/folder-service.ts` — create/rename/move/delete folders (delete only when empty; cycle-checked)
 - `src/file-service.ts` — `initiateUpload`, `commitVersion` (with the no-op hash-skip), `quarantineVersion`, rename/move/soft-delete, upload-session lifecycle
 - `src/ingest-core.ts` — the pure single-read pipeline (`runIngest`); the Worker consumer is a thin shell
-- `src/scan-port.ts` — `MalwareScanPort` + the engine-less `unscannedAdapter` launch adapter
+- `src/scan-port.ts` — `MalwareScanPort` (returns `clean | infected | unscanned | suspicious`; `activeContent` flag on `clean`) + the engine-less `unscannedAdapter` launch adapter
 - `src/queries.ts` — the status-gated reads (`listFiles`, `getCurrentCleanVersion`, `listCleanVersions`, `listFoldersByMatter`, `listCleanCurrentVersionsByMatter`)
 - `src/metering-statements.ts` — the storage-meter delta/commit/tier/delete builders + `reconciliationDiff` + `normalizeR2StorageClass`
 - `src/upload-policy.ts` — per-firm policy checks (presign-time + gate-time) + the mode/zip-async threshold setting definitions
@@ -35,22 +36,40 @@ composes statements into @magna-carta/data-access's `composeEffectBatch`; never 
 - **No-op version skip.** A re-upload whose content hash equals the file's current version's hash marks
   the session completed and the new version abandoned — one logical version, not a duplicate.
 - **Ingest is one read.** `runIngest` tees a single stream: head bytes to the magic-byte sniff, the full
-  stream through `crypto.DigestStream` and the scan port. A multi-GB object never buffers. An `unscanned`
-  verdict commits (the explicit launch policy); quarantine is for failed gates and `infected` only.
+  stream through `crypto.DigestStream` and the scan port. A multi-GB object never buffers.
+- **Uninspectable-file split (inspectable-size short-circuit).** Files that exceed the inspectable-size
+  cap bypass the scan port entirely. Benign uninspectable types (extension allow-list) commit with an
+  `unscanned` verdict + a badge recorded in `scan_detail`; suspicious uninspectable types go to quarantine
+  with the reason in `scan_detail`. Files within the cap follow the normal scan path.
+- **Scan verdict policy.** `clean` commits the version (`activeContent: true` triggers CDR in a future
+  pass). `infected` quarantines. `unscanned` commits (explicit launch policy, pending the real engine).
+  `suspicious` quarantines.
+- **`scan_detail` records the badge/quarantine reason** — the human-readable string written to the
+  `file_version.scan_detail` column explaining why a version received its verdict (e.g. the rule hit, the
+  over-size reason, or the suspicious-type classification).
+- **Two ingest lanes: interactive (`files/` queue) + bulk (`bulk/` queue).** Interactive ingests run on
+  the `files-ingest` queue (bounded concurrency, low latency, interactive UI path). Bulk ingests run on
+  the `magna-carta-production-files-ingest-bulk` queue (higher-throughput, background). Both lanes share
+  the same `runIngest` core and metering under the `files/` dimension — the dimension is unchanged by
+  lane.
 - **Metering is exact in D1, reconciled against R2.** The rollup moves in the same batch as the version
   it counts; the scheduled R2 LIST corrects drift (R2 reports the default tier as `""`/PascalCase —
   `normalizeR2StorageClass` maps it to the lowercase token before the diff).
+- **Weekly re-scan sweep (`0 4 * * 0`).** A cron trigger re-queues `unscanned` versions for
+  re-inspection when a new scan engine becomes available.
 
 ## Dependencies & contracts
 
 - Depends on `@magna-carta/data-access`, `@magna-carta/database`, `@magna-carta/identifiers`,
   `client-zip` (store-mode ZIP64), `file-type` (magic-byte sniff). Holds no D1 binding; the Worker passes
   the database and the R2/presigner seams in.
-- The malware-scan engine is a future Phase 2 build behind `MalwareScanPort`; the launch adapter records
-  an honest `unscanned` verdict.
+- The malware-scan engine (`MalwareScanPort`) and the real scan verdicts (`infected` / `suspicious`) land
+  with Plan 2 (the Container engine — ClamAV + yara-x + Rust heuristics). The launch adapter records an
+  honest `unscanned` verdict today; the `suspicious` path is exercised once the engine ships.
 
 ## Gotchas
 
 - D1 has no interactive transactions — read before composing, or assert inside the batch.
 - The `zipAsyncThreshold` setting is read and recorded in the download audit row but not yet acted on —
-  the build-to-R2-artifact job is a Phase 2 build; the live stream is the only path today.
+  the build-to-R2-artifact job lands with Plan 3 (async bulk download, the Durable Object path); the live
+  stream is the only path today.

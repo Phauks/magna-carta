@@ -61,3 +61,16 @@ Each entry **drops** when Renovate upgrades the carrying dependency past the fix
 
 - **Renovate GitHub App** — enable on the repository (propose-only; `renovate.json` configures pin/weekly/drizzle-pin). Review the onboarding PR like any other.
 - **GitHub secret scanning** — enable in the repository's **Settings → Code security**.
+
+## 7. Bulk-ingest queue + weekly re-scan cron (slice 2·1 Plan 1)
+
+Two Cloudflare Queues and one new cron trigger added in slice 2·1 Plan 1 must be present before deploying.
+
+**Queues (wrangler does not auto-create them — create once per environment):**
+
+1. **Primary queue:** `magna-carta-production-files-ingest-bulk` — the bulk ingest lane (higher-throughput, background ingests). Create via the Cloudflare dashboard (**Workers & Pages → Queues → Create queue**) or `wrangler queues create magna-carta-production-files-ingest-bulk`.
+2. **Dead-letter queue:** `magna-carta-production-files-ingest-bulk-deadletter` — receives messages the bulk consumer fails to process after all retries. Create it the same way, then configure it as the dead-letter destination on the primary queue.
+
+The interactive-lane queue (`files-ingest`) and its dead-letter already exist from slice 1·1. The two new queues above are additional; the Worker `wrangler.jsonc` binds them, but Wrangler will error on deploy if they do not yet exist in the account.
+
+**Cron trigger:** `0 4 * * 0` (Sundays at 04:00 UTC) — the weekly re-scan sweep re-queues `unscanned` versions for re-inspection when a new scan engine becomes available. The cron is declared in `wrangler.jsonc`; it activates automatically on the next deploy. No manual dashboard step is required beyond verifying the trigger appears under the Worker's **Triggers** tab after deploy.
