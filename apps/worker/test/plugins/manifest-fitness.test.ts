@@ -8,7 +8,7 @@ import appSource from "../../src/app.ts?raw";
 describe("plugin manifest fitness", () => {
   const manifests = listManifests();
 
-  it("registers at least the three built integrations", () => {
+  it("registers exactly the three built integrations", () => {
     expect(manifests.map((m) => m.id).sort()).toEqual(
       ["easypost", "parcels", "property-links"].sort(),
     );
