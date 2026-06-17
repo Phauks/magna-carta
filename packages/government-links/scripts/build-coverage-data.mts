@@ -1,7 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { allBusinessSites } from "../src/business/registry.ts";
 import { allLicensingSites } from "../src/licensing/registry.ts";
-import { allAssessorSites } from "../src/property/registry.ts";
+import { allPropertySites } from "../src/property/registry.ts";
 import type { AssessorSite } from "../src/types.ts";
 
 // Builds the coverage mockup's data straight from the registry, so the clickable map can never drift
@@ -21,7 +21,7 @@ const slim = (site: AssessorSite) => ({
 // for local files opened over file://, but a script tag is not. Returns a one-line summary.
 export function writeCoverageData(): string {
   const data = {
-    property: allAssessorSites().map(slim),
+    property: allPropertySites().map(slim),
     business: allBusinessSites().map(slim),
     licensing: allLicensingSites().map(slim),
   };

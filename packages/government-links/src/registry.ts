@@ -1,6 +1,9 @@
 import {
   STATES,
   allAssessorSites,
+  allGisSites,
+  allPropertySites,
+  allRecorderSites,
   assessorSiteForJurisdiction,
   type StateRegistration,
 } from "./property/registry.ts";
@@ -23,6 +26,9 @@ import type { PortalSite, PortalSystem } from "./types.ts";
 export {
   STATES,
   allAssessorSites,
+  allRecorderSites,
+  allGisSites,
+  allPropertySites,
   assessorSiteForJurisdiction,
   BUSINESS_STATES,
   allBusinessSites,
@@ -41,10 +47,10 @@ function systemKey(jurisdictionId: string, system: PortalSystem): string {
   return `${system}:${jurisdictionId}`;
 }
 
-// Every portal — property (assessor), business (Secretary of State), licensing (attorney) — in one
-// lookup.
+// Every portal — property (assessor / recorder / gis), business (Secretary of State), licensing
+// (attorney) — in one lookup, keyed by system + jurisdiction.
 const SITES_BY_SYSTEM: ReadonlyMap<string, PortalSite> = new Map(
-  [...allAssessorSites(), ...allBusinessSites(), ...allLicensingSites()].map((site) => [
+  [...allPropertySites(), ...allBusinessSites(), ...allLicensingSites()].map((site) => [
     systemKey(site.jurisdictionId, site.system),
     site,
   ]),
@@ -57,4 +63,13 @@ export function siteForSystem(
   system: PortalSystem,
 ): PortalSite | undefined {
   return SITES_BY_SYSTEM.get(systemKey(jurisdictionId, system));
+}
+
+// Property: the recorder (deeds/liens) and GIS (parcel-map) portals for a county, where wired.
+export function recorderSiteForJurisdiction(jurisdictionId: string): PortalSite | undefined {
+  return siteForSystem(jurisdictionId, "recorder");
+}
+
+export function gisSiteForJurisdiction(jurisdictionId: string): PortalSite | undefined {
+  return siteForSystem(jurisdictionId, "gis");
 }

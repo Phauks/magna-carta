@@ -32,7 +32,12 @@ export interface StateRegistration {
   readonly code: string;
   readonly fipsPrefix: string;
   readonly count: number;
+  // The assessor sites (the `count` guards this array's length). `recorder` (deeds/liens search) and
+  // `gis` (parcel-map) are the other property systems for the same counties, added per state as they
+  // are wired — optional, since most states are assessor-only so far.
   readonly sites: readonly AssessorSite[];
+  readonly recorder?: readonly AssessorSite[];
+  readonly gis?: readonly AssessorSite[];
 }
 
 // Kept sorted by FIPS prefix — insert a new state in numeric order, not appended.
@@ -73,4 +78,17 @@ export function assessorSiteForJurisdiction(jurisdictionId: string): AssessorSit
 
 export function allAssessorSites(): readonly AssessorSite[] {
   return STATES.flatMap((state) => state.sites);
+}
+
+export function allRecorderSites(): readonly AssessorSite[] {
+  return STATES.flatMap((state) => state.recorder ?? []);
+}
+
+export function allGisSites(): readonly AssessorSite[] {
+  return STATES.flatMap((state) => state.gis ?? []);
+}
+
+// Every property portal across all three systems (assessor, recorder, gis).
+export function allPropertySites(): readonly AssessorSite[] {
+  return [...allAssessorSites(), ...allRecorderSites(), ...allGisSites()];
 }
