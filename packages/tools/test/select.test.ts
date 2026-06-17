@@ -23,9 +23,24 @@ const businessLookup = assertPermission("tools:businessLookup");
 const shipping = assertPermission("tools:shipping");
 
 const catalog: ToolManifest[] = [
-  makeTool({ id: "a", permission: propertyListings, subjectGroup: "property", contextTags: ["address"] }),
-  makeTool({ id: "b", permission: businessLookup, subjectGroup: "business-entities", contextTags: ["company"] }),
-  makeTool({ id: "c", permission: shipping, subjectGroup: "mailing-shipping", contextTags: ["address"] }),
+  makeTool({
+    id: "a",
+    permission: propertyListings,
+    subjectGroup: "property",
+    contextTags: ["address"],
+  }),
+  makeTool({
+    id: "b",
+    permission: businessLookup,
+    subjectGroup: "business-entities",
+    contextTags: ["company"],
+  }),
+  makeTool({
+    id: "c",
+    permission: shipping,
+    subjectGroup: "mailing-shipping",
+    contextTags: ["address"],
+  }),
 ];
 
 const allPermissions = new Set<Permission>([propertyListings, businessLookup, shipping]);
@@ -38,7 +53,7 @@ describe("toolsByGroup", () => {
       "business-entities",
       "mailing-shipping",
     ]);
-    expect(grouped[0].tools.map((tool) => tool.id)).toEqual(["a"]);
+    expect(grouped[0]!.tools.map((tool) => tool.id)).toEqual(["a"]);
   });
 
   it("hides tools the principal lacks permission for, and drops a group that empties", () => {
@@ -57,9 +72,9 @@ describe("toolsFor", () => {
   });
 
   it("excludes tools the principal cannot access", () => {
-    expect(toolsFor(catalog, "address", new Set<Permission>([propertyListings])).map((tool) => tool.id)).toEqual([
-      "a",
-    ]);
+    expect(
+      toolsFor(catalog, "address", new Set<Permission>([propertyListings])).map((tool) => tool.id),
+    ).toEqual(["a"]);
   });
 
   it("returns [] when nothing matches the tag", () => {

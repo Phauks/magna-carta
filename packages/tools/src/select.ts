@@ -1,5 +1,10 @@
 import type { Permission } from "@magna-carta/access-control/registry";
-import { SUBJECT_GROUP_ORDER, type ContextTag, type SubjectGroup, type ToolManifest } from "./types.ts";
+import {
+  SUBJECT_GROUP_ORDER,
+  type ContextTag,
+  type SubjectGroup,
+  type ToolManifest,
+} from "./types.ts";
 
 export interface GroupedTools {
   readonly group: SubjectGroup;
