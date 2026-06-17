@@ -34,6 +34,7 @@ describe("tool catalog", () => {
       "attorney-license-lookup",
       "shipping",
       "network-speed-test",
+      "firm-usage",
     ]);
   });
 });

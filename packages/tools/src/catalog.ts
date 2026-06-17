@@ -66,4 +66,14 @@ export const CATALOG: readonly ToolManifest[] = [
     backing: { kind: "library" },
     matterContext: "none",
   },
+  {
+    id: "firm-usage",
+    name: "Firm Usage",
+    icon: "chart-pie",
+    subjectGroup: "diagnostics",
+    permission: assertPermission("tools:firmUsage"),
+    contextTags: ["none"],
+    backing: { kind: "library" },
+    matterContext: "none",
+  },
 ];
