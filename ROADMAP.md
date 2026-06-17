@@ -115,6 +115,22 @@ Marked `> Needs development.` in the white paper (by area, not section number); 
 - **Telemetry analytics tier (Iceberg-on-R2)** — register the redacted Logpush-in-R2 logs as **R2 Data Catalog** Iceberg tables for zero-egress DuckDB/Spark/BI querying, with compaction + snapshot-expiration maintenance (_Observability and diagnostics_ → _Telemetry analytics tier_, ADR-0056 _Proposed_). Analytics Engine remains the MVP path; the seam sits on data already written. Adopt when a trigger binds — retention past ~92 days, exact/unsampled counts, rich joins / external engines, or cost-at-scale — and re-verify the open-beta limits (Parquet-only, ~2 GB/table/hr, orphan-file cleanup) at that point.
 - **Post-quantum signature migration** — passkeys/WebAuthn + the PAdES e-signature seal → ML-DSA/SLH-DSA, and a PQC-capable external-KMS-rooted KEK (_Encryption and key management_, ADR-0046). Seamed today via algorithm-versioning; gated on upstream standards (FIPS 204/205/206, COSE, ETSI PAdES, CA support). Verify Cloudflare hybrid PQC TLS is on for every hop and log any plugin endpoint that won't negotiate it.
 
+### Interest list — unvetted ideas (captured, not yet triaged)
+
+Raw capture of candidate features and integrations — **not** spec-ready and **not** white-paper-blessed (the bullets above are). Recorded so nothing is lost; each needs the owner's brainstorm → design cycle before it becomes real scope. Items that already have a tracked home are cross-linked, not restated.
+
+- **Integrations — legal research & content:** Westlaw, LexisNexis, Best Case (bankruptcy) — the _legal research/courts_ Phase-7 port (white paper, _Integrations_); state statutes + municipal codes as reference-content sources; DMV links (extends `@magna-carta/government-links`).
+- **Integrations — accounting & productivity:** QuickBooks (the _accounting/banking_ Phase-7 port); ClickUp, Asana (project/task sync — relate to _Tasks and workflows_); Zapier (generic iPaaS egress over the integration framework).
+- **Integrations — identity & secrets:** Bitwarden (assessment exists — [`docs/research/bitwarden-integration-assessment.md`](docs/research/bitwarden-integration-assessment.md)), 1Password.
+- **Integrations — email & professional/print:** Gmail, Outlook (already sequenced — see _Email filing & capture_ above + the deferred mailbox-sync port); Super Lawyers (professional-profile/marketing); Artelo, MOO (print fulfillment) — captured as-named, vendors unconfirmed.
+- **Integrations — AI:** AI connectors (model/provider connectors over the integration framework); AI help-desk assistant for support.
+- **File compatibility:** Adobe Acrobat compatibility, Office-suite compatibility (round-trip fidelity — relates to Phase 2 editing/conversion, ADR-0030/0035).
+- **Vital records & government data:** death & birth certificates (vital-records lookup/order); DMV (above).
+- **Tools area:** a **Links section** in Tools (curated external links as a `library`-backed tool, ADR-0097); **bulk vs. individual file re-scan** (the malware re-scan-on-signature-update sweep is already a _Hardening_ seam above — this adds the user-triggered single/bulk rescan surface).
+- **Platform & developer surfaces:** public-facing **API docs portal** (over the committed OpenAPI snapshot, slice 0·5 — a developer site, example-site-inspired); public **changelog website** (over [`CHANGELOG.md`](CHANGELOG.md), example-site-inspired); **integration marketplace** (already a contract-stable seam in the integration framework, ADR-0091/0092); **Flagship** (Cloudflare feature flags) for runtime flagging.
+- **Directory & documents:** **family relationship builder + map** (visual kinship graph over the Directory edge model, slice 1·3); the **templates vs. examples vs. firm-documents** distinction in the document model (Phase 2 automation, slice 2·6).
+- **Help & community:** **self-propagating help materials** (auto-generated/maintained user docs — relates to the _Maintenance agents_ docs agent, ADR-0058); **forums** with ClickUp's forum UX as inspiration (extends the _Community & feedback board_ above); **marketing website** with anime.js as motion inspiration (already tracked — _Deferred_ → Marketing front-end website).
+
 ## How this stays current
 
 Updated in the same PR as the work. The future propose-only **docs-maintenance agent** (white paper, _Maintenance agents_; ADR-0058) can roll completed items up from the changelog and flag drift between the planned phases and reality — propose-only; authoring stays in-commit.
