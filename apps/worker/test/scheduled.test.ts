@@ -400,10 +400,21 @@ async function insertCommittedVersion(
     .run();
 }
 
+// The bucket name used for rescan tests — any non-null string works here because the sweep only
+// needs a non-null bucketName to decide to enqueue; the ingest consumer resolves the firm from the
+// bucket, but these tests inject a capturing queue that never reaches the consumer.
+const RESCAN_BUCKET = "magna-carta-test-rescan-bucket";
+
 describe("runRescanSweep — weekly re-scan sweep", () => {
   it("enqueues exactly one re-scan message for the unscanned committed version, not the already-clean one", async () => {
     // Seed two committed versions: one with scan_verdict = 'unscanned', one with 'clean'.
     // runRescanSweep should enqueue only the unscanned one.
+    // The firm must have a recorded bucket_name: the sweep skips firms with a null bucket so the
+    // enqueued counter only reflects messages the ingest consumer can meaningfully resolve.
+    await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = ?2 WHERE id = ?1")
+      .bind(poolFirmId, RESCAN_BUCKET)
+      .run();
+
     const unscannedVersionId = newIdentifier("fileVersion") as FileVersionId;
     const cleanVersionId = newIdentifier("fileVersion") as FileVersionId;
     await insertCommittedVersion(env.DB_FIRM_POOL_1, unscannedVersionId, "unscanned");
@@ -423,6 +434,11 @@ describe("runRescanSweep — weekly re-scan sweep", () => {
     expect(sent).toHaveLength(1);
     const message = sent[0] as { object?: { key?: unknown } };
     expect(message.object?.key).toBe(`files/${unscannedVersionId}`);
+
+    // Restore null bucket so other tests that do NOT want enqueuing are unaffected.
+    await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = NULL WHERE id = ?1")
+      .bind(poolFirmId)
+      .run();
   });
 
   it("respects the per-firm cap — enqueues exactly the cap count when backlog exceeds it", async () => {
@@ -434,6 +450,12 @@ describe("runRescanSweep — weekly re-scan sweep", () => {
     const capBoundFirmId = (
       await seedFirm({ name: "Cap Boundary Firm", databaseIdentifier: "DB_FIRM_POOL_2" })
     ).firmId;
+
+    // The firm must have a recorded bucket_name: the sweep skips firms with a null bucket so the
+    // enqueued counter only reflects messages the ingest consumer can meaningfully resolve.
+    await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = ?2 WHERE id = ?1")
+      .bind(capBoundFirmId, "magna-carta-test-cap-bucket")
+      .run();
 
     const seededVersionIds: FileVersionId[] = [];
     for (let i = 0; i < 3; i++) {

@@ -99,7 +99,7 @@ export async function handleIngestMessage(
   // version id — the only delivery for this key is this version's ingest, and it carries no request
   // payload to vary on. The response is trivial (the consumer returns nothing to a caller).
   const fingerprint = pending.id;
-  await runIdempotentEffect({
+  const idempotentResult = await runIdempotentEffect({
     database: firmDatabase,
     key: `ingest:${pending.id}`,
     fingerprint,
@@ -141,24 +141,28 @@ export async function handleIngestMessage(
 
   // One verdict event per terminal outcome — rates are observable without any file-identifying
   // field (structural redaction: the allowlist has no slot for id, name, key, or content).
-  logger?.log(
-    ingestVerdict(
-      { correlationId, now: new Date().toISOString() },
-      outcome.kind === "commit"
-        ? {
-            outcome: "commit",
-            scanVerdict: outcome.scanVerdict,
-            scanDetail: outcome.scanDetail,
-            quarantineReason: null,
-          }
-        : {
-            outcome: "quarantine",
-            scanVerdict: null,
-            scanDetail: outcome.scanDetail,
-            quarantineReason: outcome.reason,
-          },
-    ),
-  );
+  // Only the delivery that won the idempotency race emits the event: a replayed result means the
+  // effect was already applied by a concurrent delivery, so the event was already emitted once.
+  if (idempotentResult.kind === "executed") {
+    logger?.log(
+      ingestVerdict(
+        { correlationId, now: new Date().toISOString() },
+        outcome.kind === "commit"
+          ? {
+              outcome: "commit",
+              scanVerdict: outcome.scanVerdict,
+              scanDetail: outcome.scanDetail,
+              quarantineReason: null,
+            }
+          : {
+              outcome: "quarantine",
+              scanVerdict: null,
+              scanDetail: outcome.scanDetail,
+              quarantineReason: outcome.reason,
+            },
+      ),
+    );
+  }
 }
 
 // The queue() handler: one message at a time, ack on success, retry on a transient throw. A retried

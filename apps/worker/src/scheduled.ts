@@ -9,6 +9,7 @@ import {
 } from "@magna-carta/data-access/outbox-relay";
 import {
   abandonVersionStatement,
+  FILES_PREFIX,
   selectExpiredOpenSessionsStatement,
   setUploadSessionStatusByIdStatement,
 } from "@magna-carta/file-manager/file-statements";
@@ -19,7 +20,6 @@ import {
   type ListedObject,
   type MeterRow,
 } from "@magna-carta/file-manager/metering-statements";
-import { FILES_PREFIX } from "@magna-carta/file-manager/file-statements";
 import {
   listCleanVersionR2Keys,
   listUnscannedCommittedVersions,
@@ -626,13 +626,19 @@ export async function runRescanSweep(
         firmsProcessed++;
         continue;
       }
+      // A firm whose bucket has not been recorded yet has no R2 objects to re-scan: skip it so
+      // the enqueued counter only reflects messages the ingest consumer can meaningfully resolve.
+      if (firm.bucketName === null) {
+        firmsProcessed++;
+        continue;
+      }
       const versions = await listUnscannedCommittedVersions(firm.database, perFirmCap);
       for (const version of versions) {
         await env.FILES_INGEST.send({
           // R2-event-shaped message: the ingest consumer reads bucket + object.key + action.
           // bucket resolves the firm on ingest; for the dev pool the single shared bucket_name
           // is used — the per-firm bucket seam (firm-binding-resolver.ts) handles production.
-          bucket: firm.bucketName ?? "",
+          bucket: firm.bucketName,
           object: { key: version.r2Key, size: 0 },
           action: "ObjectCreated:Put",
         });

@@ -486,6 +486,24 @@ describe("handleIngestMessage — verdict telemetry", () => {
     await env.DB_FIRM_POOL_1.prepare("DELETE FROM file WHERE id = ?1").bind(fileId).run();
   });
 
+  it("emits exactly one ingest.verdict event across two sequential deliveries of the same message (replay path emits nothing)", async () => {
+    // The idempotency loser returns kind "replayed" rather than throwing, so without a guard the
+    // verdict event would fire twice — once on the first delivery and once on the replay. This test
+    // delivers the same message twice and asserts the event fires only once (on the executed delivery).
+    const { r2Key } = await seedPendingVersion("dedup-telemetry.pdf", "application/pdf", PDF_BYTES);
+    const evt = event(BUCKET, r2Key, PDF_BYTES.byteLength);
+
+    const logger = createMemoryLogger();
+    // First delivery: the effect is applied and the idempotency record is written.
+    await handleIngestMessage(env, evt, undefined, logger);
+    // Second delivery: the version is no longer pending so the consumer no-ops before reaching
+    // runIdempotentEffect — the status-first guard catches it, no verdict event emitted.
+    await handleIngestMessage(env, evt, undefined, logger);
+
+    const verdictEvents = logger.events.filter((e) => e.name === "ingest.verdict");
+    expect(verdictEvents).toHaveLength(1);
+  });
+
   it("emits no ingest.verdict event for a no-op (unknown bucket)", async () => {
     const logger = createMemoryLogger();
     const { r2Key } = await seedPendingVersion("noop-telemetry.pdf", "application/pdf", PDF_BYTES);
