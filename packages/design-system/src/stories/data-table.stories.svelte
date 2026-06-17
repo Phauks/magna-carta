@@ -11,7 +11,7 @@
    */
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ColumnDef } from "@tanstack/table-core";
-  import { expect, userEvent, waitFor, within } from "storybook/test";
+  import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test";
   import DataTableRoot from "../lib/components/data-table/table.svelte";
   import MattersTable from "./support/matters-table.svelte";
 
@@ -78,30 +78,51 @@
       await expect(within(table).getAllByText(/^\$[\d,]+\.\d{2}$/).length).toBeGreaterThan(0);
     });
 
+    // Shift is held via fireEvent (the window key handlers track it) — userEvent's "{/Shift}" does
+    // not reliably fire a keyup in this browser-mode runner.
+    const holdShift = () => fireEvent.keyDown(window, { key: "Shift" });
+    const releaseShift = () => fireEvent.keyUp(window, { key: "Shift" });
+
     await step("Shift-click selects the whole range between two rows", async () => {
       await userEvent.click(within(rows()[1]!).getByRole("checkbox", { name: "Select row" }));
-      await userEvent.keyboard("{Shift>}");
+      await holdShift();
       await userEvent.click(within(rows()[4]!).getByRole("checkbox", { name: "Select row" }));
-      await userEvent.keyboard("{/Shift}");
+      await releaseShift();
       for (let index = 1; index <= 4; index += 1) {
         await expect(rows()[index]).toHaveAttribute("data-state", "selected");
       }
     });
 
-    await step("The search box filters the rows", async () => {
+    await step("Toggling a box off then shift-clicking deselects the range", async () => {
+      await userEvent.click(within(rows()[1]!).getByRole("checkbox", { name: "Select row" })); // off
+      await holdShift();
+      await userEvent.click(within(rows()[3]!).getByRole("checkbox", { name: "Select row" }));
+      await releaseShift();
+      for (let index = 1; index <= 3; index += 1) {
+        await expect(rows()[index]).not.toHaveAttribute("data-state", "selected");
+      }
+    });
+
+    await step("Search matches the displayed value, including dates", async () => {
       const search = canvas.getByRole("searchbox", { name: "Search table" });
       await userEvent.type(search, "Acme Corp");
       await waitFor(() => expect(within(table).queryByText("Zenith Holdings")).toBeNull());
-      await expect(within(table).getAllByText("Acme Corp").length).toBeGreaterThan(0);
+      await userEvent.clear(search);
+      // "Mar" matches the formatted date ("Mar 1, 2025") — table-core would have skipped the Date column.
+      await userEvent.type(search, "Mar");
+      await waitFor(() => expect(within(table).getAllByText(/Mar \d+, 2025/).length).toBeGreaterThan(0));
+      await expect(within(table).getAllByRole("row").length).toBeLessThan(101);
       await userEvent.clear(search);
     });
 
-    await step("The Columns menu hides a column", async () => {
-      await userEvent.click(canvas.getByRole("button", { name: "Columns" }));
+    await step("The View menu hides a column and toggles appearance", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: "View" }));
       const body = within(document.body);
       await userEvent.click(await body.findByRole("menuitemcheckbox", { name: "Fees" }));
+      await userEvent.click(body.getByRole("menuitemcheckbox", { name: "Zebra stripes" }));
       await userEvent.keyboard("{Escape}");
       await waitFor(() => expect(canvas.queryByRole("button", { name: "Fees" })).toBeNull());
+      await expect(table).toHaveAttribute("data-zebra", "on");
     });
   }}
 >

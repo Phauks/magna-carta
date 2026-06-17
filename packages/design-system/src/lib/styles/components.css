@@ -2057,6 +2057,31 @@
     font-variant-numeric: tabular-nums;
   }
   /*
+   * Appearance options — driven by the View menu via data-attributes on the <table>. Zebra tints
+   * even BODY rows (but never overrides hover or the selected tint — :not() keeps those winning);
+   * dividers draw vertical hairlines between cells; compact density trims the row padding + header
+   * height. Comfortable density is the default (no override).
+   */
+  .mc-table[data-zebra="on"]
+    .mc-table-body
+    .mc-table-row:nth-child(even):not(:hover):not([data-state="selected"]) {
+    background-color: var(--mc-surface-sunken);
+  }
+  .mc-table[data-dividers="on"] .mc-table-head,
+  .mc-table[data-dividers="on"] .mc-table-cell {
+    border-inline-end: var(--mc-border-width-default) solid var(--mc-border-default);
+  }
+  .mc-table[data-dividers="on"] .mc-table-head:last-child,
+  .mc-table[data-dividers="on"] .mc-table-cell:last-child {
+    border-inline-end-width: var(--mc-space-0);
+  }
+  .mc-table[data-density="compact"] .mc-table-cell {
+    padding-block: var(--mc-space-4);
+  }
+  .mc-table[data-density="compact"] .mc-table-head {
+    block-size: var(--mc-control-sm);
+  }
+  /*
    * Sortable column header — a borderless text button that fills the head cell, inherits its muted
    * type, and darkens on hover. The trailing icon shows the sort direction (or the neutral
    * up/down chevrons when unsorted). Inherits font + colour so it reads as the header, not a button.

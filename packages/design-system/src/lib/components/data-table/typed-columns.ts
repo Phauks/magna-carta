@@ -9,7 +9,8 @@
  * a money column receives the already-correct numeric amount and only presents it. Dates render in UTC
  * so a date-only value never shifts across the runner's timezone.
  */
-import type { CellContext, Column, RowData } from "@tanstack/table-core";
+import type { CellContext, ColumnMeta, Row, RowData } from "@tanstack/table-core";
+import type { Column } from "@tanstack/table-core";
 
 export type ColumnValueType = "text" | "number" | "money" | "date";
 
@@ -56,11 +57,9 @@ export function formatDate(
   }).format(date);
 }
 
-/** The default cell that formats a value by its column's declared `meta.type`. */
-export function typedCell<TData extends RowData>(context: CellContext<TData, unknown>): string {
-  const value = context.getValue();
+/** Format a raw value by a column's declared `meta.type` — the shared core of cells and search. */
+function formatValue(value: unknown, meta: ColumnMeta<RowData, unknown> | undefined): string {
   if (value == null) return "";
-  const meta = context.column.columnDef.meta;
   switch (meta?.type) {
     case "money":
       return formatMoney(Number(value), meta);
@@ -72,6 +71,31 @@ export function typedCell<TData extends RowData>(context: CellContext<TData, unk
       // The text path expects a primitive accessor value; cast so the linter knows it is stringifiable.
       return String(value as string | number | boolean);
   }
+}
+
+/** The default cell that formats a value by its column's declared `meta.type`. */
+export function typedCell<TData extends RowData>(context: CellContext<TData, unknown>): string {
+  return formatValue(context.getValue(), context.column.columnDef.meta);
+}
+
+/**
+ * A global-filter function that matches the FORMATTED (displayed) value, not the raw one — so a date
+ * is searchable as "Mar 13, 2025" and money as "$2,125.00", what the user actually sees. Pair it with
+ * `getColumnCanGlobalFilter: () => true` so date/object columns (which table-core would otherwise skip)
+ * are included.
+ */
+export function typedGlobalFilterFn<TData extends RowData>(
+  row: Row<TData>,
+  columnId: string,
+  filterValue: unknown,
+): boolean {
+  const query = String((filterValue ?? "") as string)
+    .trim()
+    .toLowerCase();
+  if (query === "") return true;
+  const cell = row.getAllCells().find((candidate) => candidate.column.id === columnId);
+  if (!cell) return false;
+  return formatValue(cell.getValue(), cell.column.columnDef.meta).toLowerCase().includes(query);
 }
 
 /** "end" for numeric/money columns (or an explicit `meta.align`), else "start". */

@@ -21,7 +21,7 @@ import Cell from "./table-cell.svelte";
 import Caption from "./table-caption.svelte";
 import FlexRender from "./flex-render.svelte";
 import Search from "./data-table-search.svelte";
-import ColumnMenu from "./data-table-column-menu.svelte";
+import ViewMenu from "./data-table-view-menu.svelte";
 
 export { createSvelteTable } from "./data-table.svelte.ts";
 export { renderComponent, renderSnippet } from "./render-helpers.ts";
@@ -31,9 +31,16 @@ export {
   formatMoney,
   formatNumber,
   typedCell,
+  typedGlobalFilterFn,
   columnAlign,
   columnLabel,
 } from "./typed-columns.ts";
+export {
+  type TableAppearance,
+  type TableDensity,
+  defaultTableAppearance,
+  appearanceAttributes,
+} from "./appearance.ts";
 
 export {
   Root,
@@ -45,7 +52,7 @@ export {
   Caption,
   FlexRender,
   Search,
-  ColumnMenu,
+  ViewMenu,
   //
   Root as Table,
   Header as TableHeader,
@@ -55,5 +62,5 @@ export {
   Cell as TableCell,
   Caption as TableCaption,
   Search as TableSearch,
-  ColumnMenu as TableColumnMenu,
+  ViewMenu as TableViewMenu,
 };
