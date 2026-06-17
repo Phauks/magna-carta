@@ -67,6 +67,19 @@
       );
       await expect(within(grid).getByText("8")).toHaveAttribute("data-selection-end");
     });
+
+    await step("Pressing a new day clears the old range at once (no lingering)", async () => {
+      // With the 5–8 range showing, press a different day WITHOUT releasing: the press alone resets
+      // the selection to that day, so the old range does not linger until the pointer reaches another.
+      const grid = body.getByRole("grid");
+      await userEvent.pointer({ keys: "[MouseLeft>]", target: within(grid).getByText("20") });
+      await waitFor(() =>
+        expect(within(grid).getByText("20")).toHaveAttribute("data-selection-start"),
+      );
+      await expect(within(grid).getByText("20")).toHaveAttribute("data-selection-end");
+      await expect(within(grid).getByText("5")).not.toHaveAttribute("data-selection-start");
+      await userEvent.pointer({ keys: "[/MouseLeft]" });
+    });
   }}
 >
   {#snippet template(args: DateRangePickerStoryArgs)}

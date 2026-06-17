@@ -42,6 +42,13 @@
 
   function beginDrag(date: DateValue): void {
     dragAnchor = date;
+    // Immediate feedback on press: if a COMPLETE range is already on the calendar, reset to the
+    // pressed day at once so the old range doesn't linger until the pointer reaches another day (the
+    // "only changes once I cover the other date" feel). While a selection is still in progress (start
+    // picked, end not yet) we leave it to Bits, so click-a-start-then-click-an-end keeps working.
+    if (value?.start && value?.end) {
+      value = { start: date, end: date };
+    }
   }
   function extendDrag(date: DateValue): void {
     // Only while a press is in progress, and only once the pointer reaches a DIFFERENT day (so a
