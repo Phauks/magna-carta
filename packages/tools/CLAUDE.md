@@ -20,4 +20,9 @@ id->component map + the integration Dispatch/health branching land with the desi
 seeding the `tools:` permissions and the "every integration category resolves" fitness are worker-side
 follow-ons. The network speed test (diagnostics) is already a catalog manifest (`network-speed-test`,
 `tools:speedTest`); only its UI widget — built on `@cloudflare/speedtest`, client-side against the
-Cloudflare edge — is pending the shell. Future catalog rows: an Avery template printer (printing).
+Cloudflare edge — is pending the shell. Firm-usage diagnostics (see
+`docs/specs/2026-06-17-firm-usage-diagnostics-design.md`, ADR-0103) now has its headless reads built
+(`readStorageUsage`/`summarizeStorageMeterRows` + file/version/folder counts in
+`@magna-carta/file-manager`, `readMatterCounts` in `@magna-carta/matters`, `readLocationCount` in
+`@magna-carta/locations`) and its `firm-usage` manifest wired in the catalog (`tools:firmUsage`); only
+its worker read route and UI are pending. Future catalog rows: an Avery template printer (printing).
