@@ -110,7 +110,7 @@ async function decryptAuditCount(subjectId: string): Promise<number> {
 
 describe("directory e2e — full journey over the HTTP surface", () => {
   // Carried across the ordered steps below.
-  const ids: {
+  const createdEntityIdentifiers: {
     person?: string;
     organization?: string;
     duplicatePerson?: string;
@@ -125,36 +125,58 @@ describe("directory e2e — full journey over the HTTP surface", () => {
       family: "Smith",
     });
     expect(personResponse.status).toBe(201);
-    ids.person = (await jsonOf<{ id: string }>(personResponse)).id;
-    expect(ids.person).toMatch(/^directoryPerson_/);
+    createdEntityIdentifiers.person = (await jsonOf<{ id: string }>(personResponse)).id;
+    expect(createdEntityIdentifiers.person).toMatch(/^directoryPerson_/);
 
     const orgResponse = await post("/api/v1/directory/organizations", {
       legalName: "Acme Holdings Pty Ltd",
     });
     expect(orgResponse.status).toBe(201);
-    ids.organization = (await jsonOf<{ id: string }>(orgResponse)).id;
-    expect(ids.organization).toMatch(/^directoryOrganization_/);
+    createdEntityIdentifiers.organization = (await jsonOf<{ id: string }>(orgResponse)).id;
+    expect(createdEntityIdentifiers.organization).toMatch(/^directoryOrganization_/);
   });
 
   it("adds an alias name to the person and a trading name to the organization", async () => {
-    const personName = await post(`/api/v1/directory/entities/${ids.person}/names`, {
-      nameRole: "maiden",
-      given: "Catherine",
-      family: "Jones",
-    });
+    expect(
+      createdEntityIdentifiers.person,
+      "person id must be set by the previous step",
+    ).toBeDefined();
+    expect(
+      createdEntityIdentifiers.organization,
+      "organization id must be set by the previous step",
+    ).toBeDefined();
+    const personName = await post(
+      `/api/v1/directory/entities/${createdEntityIdentifiers.person}/names`,
+      {
+        nameRole: "maiden",
+        given: "Catherine",
+        family: "Jones",
+      },
+    );
     expect(personName.status).toBe(201);
 
-    const orgName = await post(`/api/v1/directory/entities/${ids.organization}/names`, {
-      nameRole: "dba",
-      legalName: "Acme Trading",
-    });
+    const orgName = await post(
+      `/api/v1/directory/entities/${createdEntityIdentifiers.organization}/names`,
+      {
+        nameRole: "dba",
+        legalName: "Acme Trading",
+      },
+    );
     expect(orgName.status).toBe(201);
   });
 
   it("links the person and the organization with an edge", async () => {
+    expect(
+      createdEntityIdentifiers.person,
+      "person id must be set by the previous step",
+    ).toBeDefined();
+    expect(
+      createdEntityIdentifiers.organization,
+      "organization id must be set by the previous step",
+    ).toBeDefined();
     const edge = await post("/api/v1/directory/edges", {
-      from: ids.person,
-      to: ids.organization,
+      from: createdEntityIdentifiers.person,
+      to: createdEntityIdentifiers.organization,
       edgeType: "affiliation",
     });
     expect(edge.status).toBe(201);
@@ -162,17 +184,24 @@ describe("directory e2e — full journey over the HTTP surface", () => {
   });
 
   it("seals a sensitive identifier (SSN) on the person", async () => {
-    const added = await post(`/api/v1/directory/entities/${ids.person}/identifiers`, {
-      type: "ssn",
-      value: "123-45-6789",
-    });
+    expect(
+      createdEntityIdentifiers.person,
+      "person id must be set by the previous step",
+    ).toBeDefined();
+    const added = await post(
+      `/api/v1/directory/entities/${createdEntityIdentifiers.person}/identifiers`,
+      {
+        type: "ssn",
+        value: "123-45-6789",
+      },
+    );
     expect(added.status).toBe(201);
 
     // The plaintext never lands in the clear: the stored row holds only ciphertext + a blind index.
     const stored = await env.DB_FIRM_POOL_1.prepare(
       "SELECT value_ciphertext, value_blind_index FROM directory_identifier WHERE entity_id = ?1 AND identifier_type = 'ssn'",
     )
-      .bind(ids.person ?? "")
+      .bind(createdEntityIdentifiers.person ?? "")
       .first<{ value_ciphertext: string; value_blind_index: string | null }>();
     expect(stored?.value_ciphertext).toEqual(expect.any(String));
     expect(stored?.value_ciphertext).not.toContain("123-45-6789");
@@ -181,6 +210,10 @@ describe("directory e2e — full journey over the HTTP surface", () => {
   });
 
   it("links the person to a matter as a party", async () => {
+    expect(
+      createdEntityIdentifiers.person,
+      "person id must be set by the previous step",
+    ).toBeDefined();
     // A matter to link the party to (the e2e firm's owner is the responsible member).
     const matter = await post("/api/v1/matters", {
       title: "Smith v. Acme",
@@ -188,79 +221,103 @@ describe("directory e2e — full journey over the HTTP surface", () => {
       responsibleMemberId: ownerUserId,
     });
     expect(matter.status).toBe(201);
-    ids.matterId = (await jsonOf<{ matterId: string }>(matter)).matterId;
+    createdEntityIdentifiers.matterId = (await jsonOf<{ matterId: string }>(matter)).matterId;
 
     const party = await post("/api/v1/directory/matter-parties", {
-      matterId: ids.matterId,
-      entityId: ids.person,
+      matterId: createdEntityIdentifiers.matterId,
+      entityId: createdEntityIdentifiers.person,
       role: "client",
     });
     expect(party.status).toBe(201);
-    ids.matterPartyId = (await jsonOf<{ id: string }>(party)).id;
-    expect(ids.matterPartyId).toMatch(/^matterParty_/);
+    createdEntityIdentifiers.matterPartyId = (await jsonOf<{ id: string }>(party)).id;
+    expect(createdEntityIdentifiers.matterPartyId).toMatch(/^matterParty_/);
   });
 
   it("surfaces a duplicate of the person via duplicate-candidates", async () => {
+    expect(
+      createdEntityIdentifiers.person,
+      "person id must be set by the previous step",
+    ).toBeDefined();
     // A near-duplicate person — same surname phonetics ("Smyth" sounds like "Smith").
     const dup = await post("/api/v1/directory/persons", { given: "Cathryn", family: "Smyth" });
     expect(dup.status).toBe(201);
-    ids.duplicatePerson = (await jsonOf<{ id: string }>(dup)).id;
+    createdEntityIdentifiers.duplicatePerson = (await jsonOf<{ id: string }>(dup)).id;
 
     // Probing the duplicate's own facts surfaces the original (phonetic + trigram channels).
     const candidates = await post("/api/v1/directory/duplicate-candidates", {
       kind: "person",
       given: "Cathryn",
       family: "Smyth",
-      excludeEntityId: ids.duplicatePerson,
+      excludeEntityId: createdEntityIdentifiers.duplicatePerson,
     });
     expect(candidates.status).toBe(200);
     const body = await jsonOf<{ data: { entityId: string }[] }>(candidates);
-    expect(body.data.some((candidate) => candidate.entityId === ids.person)).toBe(true);
+    expect(
+      body.data.some((candidate) => candidate.entityId === createdEntityIdentifiers.person),
+    ).toBe(true);
   });
 
   it("merges the duplicate into the original and repoints its inbound references", async () => {
+    expect(
+      createdEntityIdentifiers.person,
+      "person id must be set by the previous step",
+    ).toBeDefined();
+    expect(
+      createdEntityIdentifiers.duplicatePerson,
+      "duplicatePerson id must be set by the previous step",
+    ).toBeDefined();
+    expect(
+      createdEntityIdentifiers.organization,
+      "organization id must be set by the previous step",
+    ).toBeDefined();
+    expect(
+      createdEntityIdentifiers.matterId,
+      "matterId must be set by the previous step",
+    ).toBeDefined();
     // Make the duplicate the SUBORDINATE so the merge has something to repoint: give it the edge and
     // the matter party, then merge it into the original (the master).
-    await post("/api/v1/directory/edges", {
-      from: ids.duplicatePerson,
-      to: ids.organization,
+    const dupEdge = await post("/api/v1/directory/edges", {
+      from: createdEntityIdentifiers.duplicatePerson,
+      to: createdEntityIdentifiers.organization,
       edgeType: "representation",
     });
-    await post("/api/v1/directory/matter-parties", {
-      matterId: ids.matterId,
-      entityId: ids.duplicatePerson,
+    expect(dupEdge.status).toBe(201);
+    const dupParty = await post("/api/v1/directory/matter-parties", {
+      matterId: createdEntityIdentifiers.matterId,
+      entityId: createdEntityIdentifiers.duplicatePerson,
       role: "client",
     });
+    expect(dupParty.status).toBe(201);
 
     const merge = await post("/api/v1/directory/merges", {
-      masterId: ids.person,
-      subordinateId: ids.duplicatePerson,
+      masterId: createdEntityIdentifiers.person,
+      subordinateId: createdEntityIdentifiers.duplicatePerson,
     });
     expect(merge.status).toBe(201);
-    ids.mergeId = (await jsonOf<{ mergeId: string }>(merge)).mergeId;
-    expect(ids.mergeId).toMatch(/^entityMerge_/);
+    createdEntityIdentifiers.mergeId = (await jsonOf<{ mergeId: string }>(merge)).mergeId;
+    expect(createdEntityIdentifiers.mergeId).toMatch(/^entityMerge_/);
 
     // The subordinate is archived (status='merged_into', merged_into_id=master), never deleted.
     const subordinate = await env.DB_FIRM_POOL_1.prepare(
       "SELECT status, merged_into_id, deleted_at FROM directory_person WHERE id = ?1",
     )
-      .bind(ids.duplicatePerson ?? "")
+      .bind(createdEntityIdentifiers.duplicatePerson ?? "")
       .first<{ status: string; merged_into_id: string | null; deleted_at: string | null }>();
     expect(subordinate?.status).toBe("merged_into");
-    expect(subordinate?.merged_into_id).toBe(ids.person);
+    expect(subordinate?.merged_into_id).toBe(createdEntityIdentifiers.person);
     expect(subordinate?.deleted_at).toBeNull();
 
     // Every inbound reference repointed: no matter_party or edge endpoint still names the subordinate.
     const danglingParty = await env.DB_FIRM_POOL_1.prepare(
       "SELECT COUNT(*) AS c FROM matter_party WHERE entity_id = ?1",
     )
-      .bind(ids.duplicatePerson ?? "")
+      .bind(createdEntityIdentifiers.duplicatePerson ?? "")
       .first<{ c: number }>();
     expect(danglingParty?.c).toBe(0);
     const danglingEdge = await env.DB_FIRM_POOL_1.prepare(
       "SELECT COUNT(*) AS c FROM directory_edge WHERE from_entity_id = ?1 OR to_entity_id = ?1",
     )
-      .bind(ids.duplicatePerson ?? "")
+      .bind(createdEntityIdentifiers.duplicatePerson ?? "")
       .first<{ c: number }>();
     expect(danglingEdge?.c).toBe(0);
 
@@ -268,7 +325,7 @@ describe("directory e2e — full journey over the HTTP surface", () => {
     const masterParty = await env.DB_FIRM_POOL_1.prepare(
       "SELECT COUNT(*) AS c FROM matter_party WHERE entity_id = ?1",
     )
-      .bind(ids.person ?? "")
+      .bind(createdEntityIdentifiers.person ?? "")
       .first<{ c: number }>();
     expect(masterParty?.c).toBeGreaterThanOrEqual(2);
 
@@ -276,17 +333,25 @@ describe("directory e2e — full journey over the HTTP surface", () => {
     const event = await env.DB_FIRM_POOL_1.prepare(
       "SELECT master_id, subordinate_id, repointed, merged_by FROM entity_merge WHERE id = ?1",
     )
-      .bind(ids.mergeId ?? "")
+      .bind(createdEntityIdentifiers.mergeId ?? "")
       .first<{ master_id: string; subordinate_id: string; repointed: string; merged_by: string }>();
-    expect(event?.master_id).toBe(ids.person);
-    expect(event?.subordinate_id).toBe(ids.duplicatePerson);
+    expect(event?.master_id).toBe(createdEntityIdentifiers.person);
+    expect(event?.subordinate_id).toBe(createdEntityIdentifiers.duplicatePerson);
     expect(event?.merged_by).toBe(ownerUserId);
     const repointed = JSON.parse(event?.repointed ?? "[]") as { table: string; to: string }[];
     expect(repointed.length).toBeGreaterThanOrEqual(2);
-    expect(repointed.every((r) => r.to === ids.person)).toBe(true);
+    expect(repointed.every((r) => r.to === createdEntityIdentifiers.person)).toBe(true);
   });
 
   it("keeps the merged-away alias matching, resolving to the master", async () => {
+    expect(
+      createdEntityIdentifiers.person,
+      "person id must be set by the previous step",
+    ).toBeDefined();
+    expect(
+      createdEntityIdentifiers.duplicatePerson,
+      "duplicatePerson id must be set by the previous step",
+    ).toBeDefined();
     // The subordinate's name rows stay alive after the merge (the conflicts-corpus rule): probing the
     // subordinate's name surfaces the MASTER, never the archived subordinate id.
     const candidates = await post("/api/v1/directory/duplicate-candidates", {
@@ -296,20 +361,32 @@ describe("directory e2e — full journey over the HTTP surface", () => {
     });
     expect(candidates.status).toBe(200);
     const body = await jsonOf<{ data: { entityId: string }[] }>(candidates);
-    expect(body.data.some((candidate) => candidate.entityId === ids.person)).toBe(true);
-    expect(body.data.some((candidate) => candidate.entityId === ids.duplicatePerson)).toBe(false);
+    expect(
+      body.data.some((candidate) => candidate.entityId === createdEntityIdentifiers.person),
+    ).toBe(true);
+    expect(
+      body.data.some(
+        (candidate) => candidate.entityId === createdEntityIdentifiers.duplicatePerson,
+      ),
+    ).toBe(false);
   });
 
   it("reads the SSN back WITH permission (returns plaintext, writes one decrypt-audit row)", async () => {
+    expect(
+      createdEntityIdentifiers.person,
+      "person id must be set by the previous step",
+    ).toBeDefined();
     // The identifier row id is the audit subject (the AAD binds the ciphertext to it).
     const identifierRow = await env.DB_FIRM_POOL_1.prepare(
       "SELECT id FROM directory_identifier WHERE entity_id = ?1 AND identifier_type = 'ssn'",
     )
-      .bind(ids.person ?? "")
+      .bind(createdEntityIdentifiers.person ?? "")
       .first<{ id: string }>();
     const before = await decryptAuditCount(identifierRow?.id ?? "");
 
-    const ownerRead = await get(`/api/v1/directory/entities/${ids.person}/identifiers/ssn`);
+    const ownerRead = await get(
+      `/api/v1/directory/entities/${createdEntityIdentifiers.person}/identifiers/ssn`,
+    );
     expect(ownerRead.status).toBe(200);
     expect((await jsonOf<{ value: string }>(ownerRead)).value).toBe("123-45-6789");
 
@@ -318,15 +395,19 @@ describe("directory e2e — full journey over the HTTP surface", () => {
   });
 
   it("refuses the SSN read WITHOUT permission (403, no decrypt)", async () => {
+    expect(
+      createdEntityIdentifiers.person,
+      "person id must be set by the previous step",
+    ).toBeDefined();
     const identifierRow = await env.DB_FIRM_POOL_1.prepare(
       "SELECT id FROM directory_identifier WHERE entity_id = ?1 AND identifier_type = 'ssn'",
     )
-      .bind(ids.person ?? "")
+      .bind(createdEntityIdentifiers.person ?? "")
       .first<{ id: string }>();
     const before = await decryptAuditCount(identifierRow?.id ?? "");
 
     const denied = await get(
-      `/api/v1/directory/entities/${ids.person}/identifiers/ssn`,
+      `/api/v1/directory/entities/${createdEntityIdentifiers.person}/identifiers/ssn`,
       readOnlyCookie,
     );
     expect(denied.status).toBe(403);

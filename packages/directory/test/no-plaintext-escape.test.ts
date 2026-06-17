@@ -57,7 +57,7 @@ function referencesColumn(source: string, column: string): boolean {
   return new RegExp(`\\b${column}\\b`).test(stripComments(source));
 }
 
-describe("no directory protected column escapes its chokepoint (golden rule 3)", () => {
+describe("no directory protected column escapes its chokepoint", () => {
   const sourceFiles = listSourceFiles(DIRECTORY_SRC);
 
   it("the scan walked the directory source and saw the chokepoint, and the column is registered", () => {
