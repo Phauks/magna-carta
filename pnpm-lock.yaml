@@ -150,12 +150,18 @@ importers:
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../../packages/identifiers
+      '@magna-carta/integrations':
+        specifier: workspace:*
+        version: link:../../packages/integrations
       '@magna-carta/locations':
         specifier: workspace:*
         version: link:../../packages/locations
       '@magna-carta/matters':
         specifier: workspace:*
         version: link:../../packages/matters
+      '@magna-carta/shipping':
+        specifier: workspace:*
+        version: link:../../packages/shipping
       '@magna-carta/telemetry':
         specifier: workspace:*
         version: link:../../packages/telemetry
