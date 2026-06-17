@@ -303,3 +303,73 @@ test("addName works for an organization with a dba role", async () => {
   const organization = await readOrganization(database, organizationId);
   expect(organization.legalName).toBe("Acme Corp");
 });
+
+// ── double-rename invariant ──────────────────────────────────────────────────
+
+// Guard the flip's WHERE entity_id=? AND is_current=1 scoping: renaming twice must produce
+// exactly one is_current=1 row, two former rows each with valid_to set, and must not
+// re-disturb the first former row's valid_to when the second rename fires.
+test("double changeName: exactly one current, two former, first former valid_to undisturbed", async () => {
+  const database = freshDatabase();
+  const personId = await createPerson(
+    database,
+    { given: "Alice", family: "Adams" },
+    { clock, actorUserId: null, randomSource: seededRandomSource("t7-s") },
+  );
+
+  // First rename: Adams → Brown.
+  await changeName(
+    database,
+    personId,
+    { given: "Alice", family: "Brown" },
+    { clock, actorUserId: null, randomSource: seededRandomSource("t7-t") },
+  );
+
+  // Capture the first former row's valid_to before the second rename.
+  const { results: afterFirstRename } = await database
+    .prepare(
+      "SELECT name_family, is_current, valid_to FROM directory_name WHERE entity_id = ?1 ORDER BY created_at",
+    )
+    .bind(personId)
+    .all<{ name_family: string | null; is_current: number; valid_to: string | null }>();
+
+  const firstFormerAfterFirstRename = afterFirstRename.find(
+    (row) => row.name_family === "Adams",
+  );
+  expect(firstFormerAfterFirstRename?.valid_to).not.toBeNull();
+  const capturedFirstFormerValidTo = firstFormerAfterFirstRename?.valid_to;
+
+  // Second rename: Brown → Clark.
+  await changeName(
+    database,
+    personId,
+    { given: "Alice", family: "Clark" },
+    { clock, actorUserId: null, randomSource: seededRandomSource("t7-u") },
+  );
+
+  const { results: rows } = await database
+    .prepare(
+      "SELECT name_family, name_role, is_current, valid_to FROM directory_name WHERE entity_id = ?1 ORDER BY created_at",
+    )
+    .bind(personId)
+    .all<{ name_family: string | null; name_role: string; is_current: number; valid_to: string | null }>();
+
+  // Exactly three rows total after two renames.
+  expect(rows).toHaveLength(3);
+
+  // Exactly one is_current=1 row.
+  const currentRows = rows.filter((row) => row.is_current === 1);
+  expect(currentRows).toHaveLength(1);
+  expect(currentRows[0]?.name_family).toBe("Clark");
+
+  // Exactly two former rows, both with valid_to set.
+  const formerRows = rows.filter((row) => row.name_role === "former");
+  expect(formerRows).toHaveLength(2);
+  for (const row of formerRows) {
+    expect(row.valid_to).not.toBeNull();
+  }
+
+  // The first former row (Adams) must not have had its valid_to overwritten by the second rename.
+  const firstFormer = rows.find((row) => row.name_family === "Adams");
+  expect(firstFormer?.valid_to).toBe(capturedFirstFormerValidTo);
+});

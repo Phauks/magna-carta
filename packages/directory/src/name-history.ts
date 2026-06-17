@@ -58,8 +58,11 @@ export interface ChangeOrganizationNameInput {
 export type ChangeNameInput = ChangePersonNameInput | ChangeOrganizationNameInput;
 
 // True when the input carries person name fields (given/family) rather than an org legalName.
+// Both given and family are required on ChangePersonNameInput; checking for both prevents a
+// partial object that only supplies one field from incorrectly matching and then crashing when
+// the other is accessed. ChangeOrganizationNameInput carries legalName and no given/family.
 function isPersonNameInput(input: ChangeNameInput): input is ChangePersonNameInput {
-  return "given" in input || "family" in input;
+  return "given" in input && "family" in input;
 }
 
 // changeName performs the append-and-flip in one atomic batch:
@@ -301,6 +304,11 @@ export async function addName(
     );
     statements.push(...insertPhoneticCodeStatements(database, nameId, codes));
   }
+
+  // Audit row — records the alias addition for the domain audit trail.
+  statements.push(
+    directoryAuditStatement(database, options, "directory.entity.name_added", entityId),
+  );
 
   await commitEffectBatch(
     database,
