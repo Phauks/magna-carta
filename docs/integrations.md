@@ -1,0 +1,26 @@
+# Integrations inventory
+
+The living inventory of integration **ports** and their **adapters** — what exists, the credential/connection model, and build state. The framework's _design_ lives in [`specs/2026-06-16-integration-port-system-design.md`](specs/2026-06-16-integration-port-system-design.md) (ADR-0091/0092); this page tracks the **adapters and their state** against it, and the per-firm connection-management UI debt.
+
+**In-commit discipline:** when an adapter or port lands or changes state, update its row here in the same commit (the ROADMAP/STATUS/CHANGELOG rule). Stage detail per build slice still lives in [`STATUS.md`](../STATUS.md); this is the cross-cutting _adapter_ view.
+
+## Framework
+
+**`@magna-carta/integrations`** — the pure ports-and-adapters foundation: typed category **ports** (our domain vocabulary), per-adapter **capability descriptors**, the canonical-record + `remoteId` + opt-in `raw` + zod-validated boundary, the **registry + typed `Dispatch`** (`not-connected` / `capability-unsupported` / `adapter-error`, never a throw), the **connection health model**, and the credential-store / token-refresh **seams**. **Built, on `main`** (7-angle adversarial pass done).
+
+**Worker wiring — pending** (designed seams, not yet built): the composition-root registry registration, the per-firm `integration_connection` persistence, the slice-1·2-backed credential store, the Durable-Object refresh lock, and the connect/OAuth + webhook ingress routes. Deferred to the first credentialed adapter (email/calendar).
+
+## Adapters
+
+| Port | Adapter | Package | Credential · scope | State |
+| --- | --- | --- | --- | --- |
+| `ParcelLookupPort` (`resolveAssessorUrl`; `lookupParcel` / `lookupByAddress` future) | parcels county deep-link resolver (the framework's credential-less proof) | `@magna-carta/government-links` | none | **Designed, not built.** The deep-link resolver exists; the port interface + adapter retrofit (spec §9) is unbuilt on every branch — `ParcelLookupPort` appears only in docs + an example comment in `port.ts`. |
+| `ShippingPort` (`validateAddress` / `rateShipment` / `buyLabel` / `getTracking` / `refundLabel`) | EasyPost | `@magna-carta/shipping` | API-key · firm | **Built, not yet merged.** Lives in the `shipping-easypost` worktree/branch (`port.ts` + `easypost/adapter.ts` · `http.ts` · `map.ts`); not on `main` or `parcels-states-batch-2`. Surfaces as the `shipping` Tools entry (ADR-0097). |
+| `CalendarPort` / email (the first credentialed adapter) | Google · Microsoft | — | OAuth · user | **Deferred.** Designed at the seam level; gated on slice 1·2 (credential store) + the Google CASA / Microsoft publisher verification (procurement, not engineering). Drives the worker-wiring seams above. |
+| `ParcelLookupPort` (full data) | Regrid · ATTOM · HouseCanary | — | API-key · firm | **Future.** Richer valuation/ownership data on the same port — the credentialed counterpart to the deep-link resolver. |
+
+## Notes
+
+- **Connection scope is declared per port** (`firm` | `user`), not globally — correcting the white paper's blanket "per-firm scoped secrets" (ADR-0092). A user-scoped port (calendar/email) keys on `{firm, user}`; a firm-scoped port (shipping) keys on `{firm}`.
+- **Pure utilities are libraries, not plugins.** `@magna-carta/property-links` and `@magna-carta/government-links` build plain `https` links with no port, credential, or API call — they are **not** integrations. They (and integration-backed tools) surface to users through the **Tools area** (ADR-0097), a presentation layer _above_ this framework that reflects an integration's connection health but never holds credentials.
+- **Connection-management UI** (connect an account, view health, re-auth, disable) behind each credentialed adapter is deferred and **unowned** — tracked in [`ROADMAP.md`](../ROADMAP.md) _Pending UI surfaces_.
