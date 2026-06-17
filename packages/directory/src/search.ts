@@ -20,8 +20,9 @@ export interface NameSearchHit {
 
 // Extract every three-character window from a normalized string as an array of trigrams.
 // normalizeName output contains only lowercase letters, digits, and single spaces — no FTS5
-// operator characters — so these trigrams are safe to concatenate into a MATCH expression
-// without additional escaping.
+// operator characters — but lowercase words like "and", "not", "or" are FTS5 boolean operators,
+// so each trigram must be wrapped as a phrase literal (double-quoted) before use in a MATCH
+// expression. See buildTrigramOrExpression.
 function extractTrigrams(value: string): string[] {
   const trigrams: string[] = [];
   for (let index = 0; index <= value.length - 3; index++) {
@@ -43,16 +44,17 @@ function extractTrigrams(value: string): string[] {
 // result set at all. A one-character insertion or deletion between query and target typically
 // preserves enough common trigrams to rank the real match above noise.
 //
-// Input safety: normalizeName() strips all FTS5 operator characters before we reach here.
-// Three-character windows of that output can only contain lowercase letters, digits, and spaces —
-// none of which are FTS5 query operators — so the concatenated OR expression is injection-safe.
+// Each trigram is wrapped in double-quotes to make it an FTS5 phrase literal. Without quoting,
+// FTS5 treats AND/OR/NOT case-insensitively as boolean operators; trigrams like "and" and "not"
+// appear in many real names (e.g. "Anderson", "Nottingham") and would produce a syntax error or
+// wrong semantics if left bare in the MATCH expression.
 function buildTrigramOrExpression(normalizedQuery: string): string {
   const trigrams = extractTrigrams(normalizedQuery);
   // Deduplicate: the same trigram appearing twice (e.g. "aaa" → ["aaa","aaa"]) should appear
   // once in the MATCH expression. FTS5 does not error on duplicates, but deduplicating keeps
   // the query short and the bm25() scores predictable.
   const unique = [...new Set(trigrams)];
-  return unique.join(" OR ");
+  return unique.map((trigram) => `"${trigram}"`).join(" OR ");
 }
 
 // searchNames performs a trigram FTS5 MATCH across all non-deleted, non-merged directory

@@ -77,6 +77,33 @@ test("merged_into entity is excluded from ordinary search results", async () => 
   expect(entityIds).not.toContain(mergedPersonId);
 });
 
+test("FTS5 keyword trigrams 'and'/'not' do not throw or corrupt results (regression)", async () => {
+  // "Anderson" contains the trigram "and"; "Nottingham" contains "not". Both are FTS5 boolean
+  // operators when left bare in a MATCH expression — they must be quoted as phrase literals.
+  const database = freshDatabase();
+
+  await createPerson(
+    database,
+    { given: "Sarah", family: "Anderson" },
+    { clock, actorUserId: null, randomSource: seededRandomSource("t8-g") },
+  );
+
+  await createOrganization(
+    database,
+    { legalName: "Nottingham Chambers" },
+    { clock, actorUserId: null, randomSource: seededRandomSource("t8-h") },
+  );
+
+  // Neither query should throw (was a syntax error before trigrams were quoted).
+  const andersonHits = await searchNames(database, "anderson");
+  expect(andersonHits.map((hit) => hit.displayName)).toContain("Sarah Anderson");
+
+  const nottinghamHits = await searchNames(database, "nottingham");
+  expect(nottinghamHits.map((hit) => hit.displayName)).toContain(
+    "Nottingham Chambers",
+  );
+});
+
 test("short query (fewer than 3 characters) returns empty without throwing", async () => {
   const database = freshDatabase();
   await createPerson(
