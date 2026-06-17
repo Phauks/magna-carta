@@ -77,9 +77,9 @@ function buildTrigramOrExpression(normalizedQuery: string): string {
 //   - directory_name.deleted_at IS NULL — soft-deleted name rows are invisible.
 //   - entity deleted_at IS NULL — soft-deleted entities are invisible.
 //   - entity status != 'merged_into' — merged-away entities do not appear in ordinary search
-//     results. Task 13 (packages/directory/src/merge.ts) adds candidate-generation logic that
-//     resolves a merged subordinate to its surviving master; until then this filter keeps merged
-//     rows out of the result set entirely.
+//     results. This is the deliberate divergence from findDuplicateCandidates: ordinary search
+//     hides merged entities outright, while duplicate detection (the conflicts corpus) keeps them
+//     and resolves a subordinate to its surviving master. See the merge-resolution note below.
 export async function searchNames(database: SqlDatabase, query: string): Promise<NameSearchHit[]> {
   const normalizedQuery = normalizeName(query);
 
@@ -169,12 +169,14 @@ export async function searchNames(database: SqlDatabase, query: string): Promise
 // number of distinct channels that returned it. The list is sorted descending by signalCount
 // so entities that hit more channels appear first (they are stronger duplicate candidates).
 //
-// Merge-resolution seam: this function does not resolve merged entities — entities with
-// status='merged_into' are excluded by the per-channel SQL WHERE clauses (same as searchNames).
-// Task 13 (packages/directory/src/merge.ts) will add a master-resolution pass that follows
-// merged_into_id pointers so a search against a subordinate entity's name surfaces its surviving
-// master. Until then, subordinate rows are invisible to duplicate detection, which is the
-// correct conservative behaviour: a merged subordinate is not itself a duplicate candidate.
+// Merge-resolution: duplicate detection is the conflicts corpus, so a merged-away entity's still-alive
+// name/identifier rows must keep matching — but resolve to the surviving master, never the archived
+// subordinate. Each channel therefore INCLUDES merged_into entities and, where a hit lands on a
+// subordinate, returns its merged_into_id (the master id) in place of the subordinate's own id (see
+// resolveMergedId). A hit on the subordinate's old name thus surfaces the master; the subordinate id
+// itself never appears as a candidate. This is the deliberate divergence from searchNames, which is
+// ordinary search and still excludes merged entities outright. The blind-index identifier channel
+// resolves the same way via resolveEntityIds.
 
 // The caller-supplied name and identifier facts to match against. Either given+family (for persons)
 // or legalName (for organizations) drives the name channels; identifiers drives the blind-index
@@ -243,10 +245,12 @@ async function phoneticChannel(
   // because D1/SQLite prepared-statement binding does not accept array values natively.
   const placeholders = codes.map((_, i) => `?${i + 2}`).join(", ");
 
-  // The JOIN path: phonetic_code → name → entity. Merging the entity status check here
-  // (same WHERE clauses as searchNames) ensures merged-away and deleted entities are excluded.
+  // The JOIN path: phonetic_code → name → entity. Deleted entities are excluded, but merged-away
+  // entities are KEPT and resolved to their master (merged_into_id) — see the merge-resolution note
+  // above. COALESCE(merged_into_id, id) is the resolved candidate id: the master for a subordinate,
+  // the entity itself otherwise.
   const sql = `
-    SELECT DISTINCT dn.entity_id
+    SELECT DISTINCT COALESCE(dp.merged_into_id, do.merged_into_id, dn.entity_id) AS entity_id
     FROM directory_name_phonetic_code AS pc
     JOIN directory_name AS dn ON pc.name_id = dn.id
     LEFT JOIN directory_person AS dp
@@ -259,9 +263,9 @@ async function phoneticChannel(
       AND pc.code IN (${placeholders})
       AND dn.deleted_at IS NULL
       AND (
-        (dn.entity_kind = 'person'       AND dp.deleted_at IS NULL AND dp.status != 'merged_into')
+        (dn.entity_kind = 'person'       AND dp.deleted_at IS NULL)
         OR
-        (dn.entity_kind = 'organization' AND do.deleted_at IS NULL AND do.status != 'merged_into')
+        (dn.entity_kind = 'organization' AND do.deleted_at IS NULL)
       )
   `;
 
@@ -286,8 +290,10 @@ async function trigramChannel(
 
   const ftsMatchExpression = buildTrigramOrExpression(normalizedQuery);
 
+  // Deleted entities are excluded; merged-away entities are kept and resolved to their master via
+  // COALESCE(merged_into_id, id) — see the merge-resolution note above.
   const sql = `
-    SELECT DISTINCT dn.entity_id
+    SELECT DISTINCT COALESCE(dp.merged_into_id, do.merged_into_id, dn.entity_id) AS entity_id
     FROM directory_name_fts
     JOIN directory_name AS dn
       ON directory_name_fts.rowid = dn.rowid
@@ -301,9 +307,9 @@ async function trigramChannel(
       AND dn.entity_kind = ?2
       AND dn.deleted_at IS NULL
       AND (
-        (dn.entity_kind = 'person'       AND dp.deleted_at IS NULL AND dp.status != 'merged_into')
+        (dn.entity_kind = 'person'       AND dp.deleted_at IS NULL)
         OR
-        (dn.entity_kind = 'organization' AND do.deleted_at IS NULL AND do.status != 'merged_into')
+        (dn.entity_kind = 'organization' AND do.deleted_at IS NULL)
       )
   `;
 
@@ -344,14 +350,41 @@ async function identifierChannel(
     }),
   );
 
-  // Union all identifier matches into one set.
+  // Union all identifier matches into one set, then resolve any merged-away subordinate to its
+  // master. Identifier rows stay alive on the subordinate after a merge (the conflicts-corpus rule),
+  // so an exact-identifier hit can land on a subordinate; it must surface the surviving master, like
+  // the name channels do in SQL.
   const union = new Set<string>();
   for (const set of entityIdSets) {
     for (const entityId of set) {
       union.add(entityId);
     }
   }
-  return union;
+  return resolveMergedIds(context.database, union);
+}
+
+// Resolve a set of entity ids through merged_into_id: a subordinate (status='merged_into') is replaced
+// by its master, every other id passes through unchanged. Used by the identifier channel, whose match
+// rows are not repointed by a merge and so may still carry a subordinate id. The name channels resolve
+// in SQL (COALESCE on the joined node row); this is the in-code equivalent for ids that did not arrive
+// through a node-table join.
+async function resolveMergedIds(
+  database: SqlDatabase,
+  entityIds: Set<string>,
+): Promise<Set<string>> {
+  if (entityIds.size === 0) return entityIds;
+  const resolved = new Set<string>();
+  for (const entityId of entityIds) {
+    const table = entityId.startsWith("directoryOrganization_")
+      ? "directory_organization"
+      : "directory_person";
+    const { results } = await database
+      .prepare(`SELECT merged_into_id FROM ${table} WHERE id = ?1`)
+      .bind(entityId)
+      .all<{ merged_into_id: string | null }>();
+    resolved.add(results[0]?.merged_into_id ?? entityId);
+  }
+  return resolved;
 }
 
 export async function findDuplicateCandidates(

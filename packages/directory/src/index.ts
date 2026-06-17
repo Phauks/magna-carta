@@ -42,3 +42,17 @@ export type {
   CategoryRow,
   CategoryAppliesTo,
 } from "./categories.js";
+export {
+  mergeEntities,
+  MergeSameEntityError,
+  MergeEntityNotFoundError,
+  MergeKindMismatchError,
+  MergeAlreadyMergedError,
+} from "./merge.js";
+export type { MergeEntitiesInput, SurvivorshipInput, SurvivorshipChoice } from "./merge.js";
+export {
+  assertNoDanglingToSubordinate,
+  findDanglingToSubordinate,
+  DanglingSubordinateReferenceError,
+} from "./fitness.js";
+export type { DanglingReference } from "./fitness.js";
