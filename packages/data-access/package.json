@@ -20,7 +20,8 @@
     "./classification-type-service": "./src/classification-type-service.ts",
     "./hono-idempotency-middleware": "./src/hono-idempotency-middleware.ts",
     "./integration-connection-statements": "./src/integration-connection-statements.ts",
-    "./integration-connection-store": "./src/integration-connection-store.ts"
+    "./integration-connection-store": "./src/integration-connection-store.ts",
+    "./firm-secret-credential-store": "./src/firm-secret-credential-store.ts"
   },
   "scripts": {
     "test": "vp test run"
