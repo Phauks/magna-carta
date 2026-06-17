@@ -147,6 +147,9 @@ importers:
       '@magna-carta/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@magna-carta/directory':
+        specifier: workspace:*
+        version: link:../../packages/directory
       '@magna-carta/encryption':
         specifier: workspace:*
         version: link:../../packages/encryption

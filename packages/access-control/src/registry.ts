@@ -23,6 +23,7 @@ export const PERMISSIONS = [
   "matters:manageTypes", // create/deactivate matter types
   "matters:manageNumbering", // edit the firm numbering scheme
   // Directory — persons, organizations, and their sensitive typed identifiers.
+  "directory:edit", // create/edit directory entities, names, identifiers, edges, categories, merges, and matter-party links
   "directory:viewSensitiveIdentifiers", // decrypt and read an entity's protected identifier (SSN/EIN/DL/account/DOB) — audited
   // Locations — the firm's offices/letterhead roots.
   "locations:manage", // create/update/close locations, addresses, staff assignment

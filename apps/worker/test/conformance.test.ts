@@ -45,6 +45,8 @@ const PUBLIC_ALLOW_LIST: Record<string, string> = {
 const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
   "numbering.preview":
     "Pure render of a candidate numbering scheme against a sample context — no write, no counter touch.",
+  "directory.duplicateCandidates":
+    "Read-shaped POST: unions the phonetic/trigram/blind-index blocking channels for a prospective entity (match facts ride the body) — no write, no decrypt.",
 };
 
 // Subsystems whose every route must be idempotency: required (money/trust/payment/outbound-comms).
@@ -108,6 +110,7 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string> = {
   matters: "matter",
   locations: "location",
   files: "matter",
+  directory: "directoryEntity",
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
@@ -461,6 +464,20 @@ describe("conformance — the committed contract holds, and each rule catches a 
   it("exposes the known committed operations (so the positive assertions are not vacuous)", () => {
     const ids = [...operations(document)].map((entry) => entry.operationId).sort();
     expect(ids).toEqual([
+      "directory.addIdentifier",
+      "directory.addName",
+      "directory.assignCategory",
+      "directory.createCategory",
+      "directory.createEdge",
+      "directory.createOrganization",
+      "directory.createPerson",
+      "directory.duplicateCandidates",
+      "directory.getOrganization",
+      "directory.getPerson",
+      "directory.linkMatterParty",
+      "directory.merge",
+      "directory.readIdentifier",
+      "directory.search",
       "documentTypes.create",
       "documentTypes.deactivate",
       "documentTypes.list",

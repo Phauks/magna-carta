@@ -64,7 +64,10 @@ describe("permission registry", () => {
   });
 
   it("permissionsForNamespace('directory') returns exactly the directory keys", () => {
-    expect(permissionsForNamespace("directory")).toEqual(["directory:viewSensitiveIdentifiers"]);
+    expect(permissionsForNamespace("directory")).toEqual([
+      "directory:edit",
+      "directory:viewSensitiveIdentifiers",
+    ]);
   });
 
   it("permissionsForNamespace('locations') returns exactly the locations keys", () => {

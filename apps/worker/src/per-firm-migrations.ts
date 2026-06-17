@@ -8,6 +8,7 @@ import mattersLocationsFileManagerSql from "@magna-carta/database/drizzle/per-fi
 import listKeysetIndexesSql from "@magna-carta/database/drizzle/per-firm/0005_list-keyset-indexes.sql";
 import protectedSecretsSql from "@magna-carta/database/drizzle/per-firm/0006_protected-secrets-and-incident-ciphertext.sql";
 import incidentDescriptionNullableSql from "@magna-carta/database/drizzle/per-firm/0007_incident-description-nullable.sql";
+import directorySql from "@magna-carta/database/drizzle/per-firm/0008_directory.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the firm
 // provisioner migrates a freshly created firm database to head at provisioning time, so the SQL
@@ -25,6 +26,7 @@ export function perFirmMigrations(): Migration[] {
     "0005_list-keyset-indexes": listKeysetIndexesSql,
     "0006_protected-secrets-and-incident-ciphertext": protectedSecretsSql,
     "0007_incident-description-nullable": incidentDescriptionNullableSql,
+    "0008_directory": directorySql,
   });
 }
 

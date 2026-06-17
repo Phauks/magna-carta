@@ -10,7 +10,13 @@
     "./phonetics": "./src/phonetics.ts",
     "./person": "./src/person.ts",
     "./organization": "./src/organization.ts",
+    "./name-history": "./src/name-history.ts",
     "./identifiers": "./src/identifiers.ts",
+    "./edges": "./src/edges.ts",
+    "./categories": "./src/categories.ts",
+    "./search": "./src/search.ts",
+    "./merge": "./src/merge.ts",
+    "./party": "./src/party.ts",
     "./statements": "./src/statements.ts",
     "./audit": "./src/audit.ts"
   },

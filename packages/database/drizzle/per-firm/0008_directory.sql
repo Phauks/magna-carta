@@ -215,4 +215,11 @@ END;--> statement-breakpoint
 CREATE TRIGGER `directory_name_fts_update` AFTER UPDATE ON `directory_name` BEGIN
   INSERT INTO `directory_name_fts`(`directory_name_fts`, rowid, normalized_display) VALUES ('delete', old.rowid, old.normalized_display);
   INSERT INTO `directory_name_fts`(rowid, normalized_display) VALUES (new.rowid, new.normalized_display);
-END;
+END;--> statement-breakpoint
+-- Owner/Admin and Attorney may create/edit directory entities. Owner/Admin may additionally decrypt
+-- an entity's protected identifier (SSN/EIN/DL/account/DOB) — the decrypt is itself audited at the
+-- protected-field chokepoint; this grant only opens the capability. Other default roles get neither —
+-- viewing a sensitive identifier is a privileged, logged action.
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_dir1EditOwnerAdmin000', 'role_Gw-zKO8hOHQuNv2bWokMp', 'directory:edit');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_dir1EditAttorney00000', 'role_gEyJ_YqL1_RI_yDqSa28Y', 'directory:edit');--> statement-breakpoint
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_dir1ViewSensitiveIds0', 'role_Gw-zKO8hOHQuNv2bWokMp', 'directory:viewSensitiveIdentifiers');

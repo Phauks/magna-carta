@@ -13,6 +13,7 @@ import { defaultHook } from "./contracts/problem.ts";
 import { registerHealthRoute } from "./routes/health.ts";
 import { createCloudflareEmailAdapter, type CloudflareEmailBinding } from "./email-cloudflare.ts";
 import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
+import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerDownloadsRoutes } from "./routes/downloads.ts";
 import { registerFilesRoutes } from "./routes/files.ts";
@@ -186,6 +187,9 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFoldersRoutes(app, chokepoint);
   registerFilesRoutes(app, chokepoint);
   registerDownloadsRoutes(app, chokepoint);
+  // Slice 1·3: the directory (persons/organizations, names, sensitive identifiers, edges,
+  // categories, search, merge, matter-party link) — composed through the same chokepoint.
+  registerDirectoryRoutes(app, chokepoint);
 
   // Serve the same document the committed snapshot carries (root tags included), so the live endpoint
   // and the snapshot never diverge. A plain route, so it does not appear in the document itself.
