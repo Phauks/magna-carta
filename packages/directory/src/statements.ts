@@ -173,7 +173,7 @@ export function insertOrganizationStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${DIRECTORY_ORGANIZATION_TABLE} (id, legal_name, display_name, ein_ciphertext, ein_blind_index, status, merged_into_id, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, NULL, NULL, ?4, NULL, ?5, ?5, NULL)`,
+      `INSERT INTO ${DIRECTORY_ORGANIZATION_TABLE} (id, legal_name, display_name, status, merged_into_id, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?5, NULL)`,
     )
     .bind(row.id, row.legalName, row.displayName, row.status, row.createdAt);
 }

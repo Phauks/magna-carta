@@ -1001,20 +1001,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "ein_ciphertext": {
-          "name": "ein_ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "ein_blind_index": {
-          "name": "ein_blind_index",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "status": {
           "name": "status",
           "type": "text",
@@ -1167,20 +1153,6 @@
         },
         "display_name": {
           "name": "display_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "dob_ciphertext": {
-          "name": "dob_ciphertext",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "dob": {
-          "name": "dob",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

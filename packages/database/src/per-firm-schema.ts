@@ -694,8 +694,8 @@ export const firmSecret = sqliteTable("firm_secret", {
 // @magna-carta/directory. Every PK is a TEXT identifier handle; no REAL columns;
 // soft-delete via deleted_at.
 
-// A natural person in the directory. Protected fields (dob_ciphertext, ssn_ciphertext, etc.) are
-// sealed by @magna-carta/data-access; only the ciphertext column lives here.
+// A natural person in the directory. All protected fields (dob, ssn, dl, etc.) are stored uniformly
+// as directory_identifier rows — no ciphertext columns here.
 // status/merged_into_id support the merge graph (see entity_merge); these columns must exist before
 // any merge logic is added so there is no expand-contract migration at merge time.
 export const directoryPerson = sqliteTable(
@@ -708,8 +708,6 @@ export const directoryPerson = sqliteTable(
     nameFamily: text("name_family"),
     nameSuffix: text("name_suffix"),
     displayName: text("display_name"),
-    dobCiphertext: text("dob_ciphertext"), // encrypted; never logged
-    dob: text("dob"), // protected — do not log (retained for plaintext window; drop after migration)
     memberId: text("member_id").$type<UserId>(), // nullable; set if this person maps to a firm member
     status: text("status").notNull().default("active"), // 'active' | 'merged_into'
     mergedIntoId: text("merged_into_id").$type<DirectoryPersonId>(), // set when status = 'merged_into'
@@ -725,8 +723,8 @@ export const directoryPerson = sqliteTable(
   ],
 );
 
-// A legal entity (company, trust, government body, etc.) in the directory. ein_ciphertext is sealed
-// under the firm key; ein_blind_index enables equality search without decryption.
+// A legal entity (company, trust, government body, etc.) in the directory. All protected fields
+// (ein, etc.) are stored uniformly as directory_identifier rows — no ciphertext columns here.
 // status/merged_into_id mirror directory_person for the same merge-graph reason.
 export const directoryOrganization = sqliteTable(
   "directory_organization",
@@ -734,8 +732,6 @@ export const directoryOrganization = sqliteTable(
     id: text("id").primaryKey().$type<DirectoryOrganizationId>(), // directoryOrganization_ handle
     legalName: text("legal_name"),
     displayName: text("display_name"),
-    einCiphertext: text("ein_ciphertext"), // encrypted; never logged
-    einBlindIndex: text("ein_blind_index"), // HMAC blind index for equality search
     status: text("status").notNull().default("active"), // 'active' | 'merged_into'
     mergedIntoId: text("merged_into_id").$type<DirectoryOrganizationId>(), // set when status = 'merged_into'
     createdAt: text("created_at").notNull(),
