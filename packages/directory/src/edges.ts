@@ -7,6 +7,7 @@ import type {
   DirectoryPersonId,
 } from "@magna-carta/identifiers/types";
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.js";
+import { entityKindFromId } from "./entity-kind.js";
 import { EDGE_TYPES, type EdgeType } from "./types.js";
 
 // The error thrown when a caller supplies an edge_type value that is not in the
@@ -29,17 +30,6 @@ export class UnknownEntityError extends Error {
     super(`directory: entity not found or soft-deleted: ${entityId}`);
     this.name = "UnknownEntityError";
   }
-}
-
-// Determine whether an entity id belongs to a person or an organization by inspecting the handle
-// prefix. Identifiers are self-describing: the prefix is the entity type spelled out in full,
-// separated from the random token by a single underscore.
-function entityKindFromId(entityId: string): "person" | "organization" {
-  if (entityId.startsWith("directoryPerson_")) return "person";
-  if (entityId.startsWith("directoryOrganization_")) return "organization";
-  throw new InvalidEdgeTypeError(
-    `entity id does not start with a known directory entity prefix: ${entityId}`,
-  );
 }
 
 // Check that a single endpoint entity exists and is not soft-deleted. Looks in the

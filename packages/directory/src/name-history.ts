@@ -7,6 +7,7 @@ import type {
   DirectoryPersonId,
 } from "@magna-carta/identifiers/types";
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.js";
+import { entityKindFromId } from "./entity-kind.js";
 import { normalizeName } from "./normalize-name.js";
 import { phoneticCodes } from "./phonetics.js";
 import {
@@ -17,18 +18,6 @@ import {
   updatePersonNameStatement,
 } from "./statements.js";
 import type { NameRole } from "./types.js";
-
-// Determine whether an entity id belongs to a person or an organization by inspecting the handle
-// prefix. Identifiers are self-describing: the prefix is the entity type spelled out in full,
-// separated from the random token by a single underscore. "directoryPerson_..." starts with
-// "directoryPerson_"; "directoryOrganization_..." starts with "directoryOrganization_".
-function entityKindFromId(entityId: string): "person" | "organization" {
-  if (entityId.startsWith("directoryPerson_")) return "person";
-  if (entityId.startsWith("directoryOrganization_")) return "organization";
-  throw new Error(
-    `name-history: entity id does not start with a known directory entity prefix: ${entityId}`,
-  );
-}
 
 // Render the display name for a person from its structured parts, collapsing blanks so a mononym
 // or a missing middle name produces a clean single-spaced string.
