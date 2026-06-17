@@ -79,6 +79,17 @@ export const outboxDeadLettered = defineEvent("outbox.deadLettered", [
 // logged (the structural replacement for slice 0·4's interim console.error seam).
 export const authDenied = defineEvent("auth.denied", ["cause", "route", "errorId"] as const);
 
+// ingest.verdict — one per terminal ingest outcome (commit or quarantine). Redaction is structural:
+// there is NO slot for file id, name, r2 key, or content — only the scan verdict and the outcome
+// classification. This makes infected/quarantine rates observable without logging anything that
+// identifies the file or its uploader.
+export const ingestVerdict = defineEvent("ingest.verdict", [
+  "outcome",
+  "scanVerdict",
+  "scanDetail",
+  "quarantineReason",
+] as const);
+
 // The catalog's event names — derived from the builders themselves (each carries its `eventName`),
 // so this registry cannot drift from the real builders and the uniqueness fitness test checks the
 // actual catalog, not a hand-copied parallel list. Adding a builder above adds it here.
@@ -92,4 +103,5 @@ export const EVENT_NAMES = [
   operationFailed,
   outboxDeadLettered,
   authDenied,
+  ingestVerdict,
 ].map((builder) => builder.eventName);

@@ -7,7 +7,9 @@ import {
 import { runIngest } from "@magna-carta/file-manager/ingest-core";
 import type { MalwareScanPort } from "@magna-carta/file-manager/scan-port";
 import { readInspectableSizeCap, readUploadPolicy } from "@magna-carta/file-manager/upload-policy";
+import { ingestVerdict } from "@magna-carta/telemetry/events";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
+import type { Logger } from "@magna-carta/telemetry/logger";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
@@ -47,6 +49,8 @@ export async function handleIngestMessage(
   env: Bindings,
   message: R2EventMessage,
   scanPort: MalwareScanPort = resolveScanPort(env),
+  logger?: Logger,
+  correlationId: string = newCorrelationId(),
 ): Promise<void> {
   // bucket → firm (the control-plane registry). An unknown bucket or a firm this deployment cannot
   // reach is acked: there is no work this Worker can do, and retrying cannot make the binding exist.
@@ -134,6 +138,27 @@ export async function handleIngestMessage(
       };
     },
   });
+
+  // One verdict event per terminal outcome — rates are observable without any file-identifying
+  // field (structural redaction: the allowlist has no slot for id, name, key, or content).
+  logger?.log(
+    ingestVerdict(
+      { correlationId, now: new Date().toISOString() },
+      outcome.kind === "commit"
+        ? {
+            outcome: "commit",
+            scanVerdict: outcome.scanVerdict,
+            scanDetail: outcome.scanDetail,
+            quarantineReason: null,
+          }
+        : {
+            outcome: "quarantine",
+            scanVerdict: null,
+            scanDetail: outcome.scanDetail,
+            quarantineReason: outcome.reason,
+          },
+    ),
+  );
 }
 
 // The queue() handler: one message at a time, ack on success, retry on a transient throw. A retried
@@ -148,11 +173,12 @@ export async function ingestQueue(
   // — the console ban is structural) and is retried, dead-lettering at max attempts.
   const logger = createWorkersLogger(env.TELEMETRY);
   for (const message of batch.messages) {
+    const correlationId = newCorrelationId();
     try {
-      await handleIngestMessage(env, message.body);
+      await handleIngestMessage(env, message.body, undefined, logger, correlationId);
       message.ack();
     } catch (error) {
-      logOperationFailed(logger, `queue:files-ingest:${message.id}`, error, newCorrelationId());
+      logOperationFailed(logger, `queue:files-ingest:${message.id}`, error, correlationId);
       message.retry();
     }
   }

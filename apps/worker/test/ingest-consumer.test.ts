@@ -7,6 +7,7 @@ import type { MalwareScanPort } from "@magna-carta/file-manager/scan-port";
 import { inspectableSizeCapDefinition } from "@magna-carta/file-manager/upload-policy";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, MatterId, UserId } from "@magna-carta/identifiers/types";
+import { createMemoryLogger } from "@magna-carta/telemetry/logger";
 import { handleIngestMessage } from "../src/files/ingest-consumer.ts";
 import { resolveScanPort } from "../src/files/scan-port-binding.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
@@ -387,5 +388,116 @@ describe("resolveScanPort", () => {
     // The adapter is the engine-less launch adapter: drains the stream and returns `unscanned`.
     expect(port).toBeDefined();
     expect(typeof port.scan).toBe("function");
+  });
+});
+
+describe("handleIngestMessage — verdict telemetry", () => {
+  // Verdict observability: one scan-verdict telemetry event per terminal outcome (commit or quarantine),
+  // structural redaction enforced (no file-identifying fields in the allowlist).
+
+  it("emits exactly one ingest.verdict event on a clean commit", async () => {
+    const logger = createMemoryLogger();
+    const { r2Key } = await seedPendingVersion("telemetry-clean.pdf", "application/pdf", PDF_BYTES);
+
+    await handleIngestMessage(env, event(BUCKET, r2Key, PDF_BYTES.byteLength), undefined, logger);
+
+    const verdictEvents = logger.events.filter((e) => e.name === "ingest.verdict");
+    expect(verdictEvents).toHaveLength(1);
+
+    const fields = verdictEvents[0]!.fields;
+    expect(fields.outcome).toBe("commit");
+    expect(fields.scanVerdict).toBe("unscanned");
+    // scanDetail and quarantineReason are present in the allowlist (null is a legal FieldValue)
+    expect(Object.prototype.hasOwnProperty.call(fields, "scanDetail")).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(fields, "quarantineReason")).toBe(true);
+
+    // Structural redaction: no file-identifying fields are present
+    expect(fields).not.toHaveProperty("id");
+    expect(fields).not.toHaveProperty("name");
+    expect(fields).not.toHaveProperty("key");
+    expect(fields).not.toHaveProperty("content");
+    expect(fields).not.toHaveProperty("versionId");
+    expect(fields).not.toHaveProperty("fileId");
+    expect(fields).not.toHaveProperty("r2Key");
+    expect(fields).not.toHaveProperty("fileName");
+  });
+
+  it("emits exactly one ingest.verdict event on a quarantine outcome", async () => {
+    const fakeScanPort: MalwareScanPort = {
+      scan: async (_body, _meta) => ({
+        verdict: "infected",
+        engineVersion: "test-1",
+        signature: "Test.Eicar",
+      }),
+    };
+    const fileId = newIdentifier("file");
+    const versionId = newIdentifier("fileVersion");
+    const sessionId = newIdentifier("uploadSession");
+    const r2Key = `files/${fileId}/${versionId}`;
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO file (id, matter_id, name, created_at, updated_at) VALUES (?1, ?2, 'infected-telemetry.pdf', ?3, ?3)",
+    )
+      .bind(fileId, matterId, clock.now())
+      .run();
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO file_version (id, file_id, version_number, r2_key, declared_content_type, status, uploaded_by, created_at) VALUES (?1, ?2, 1, ?3, 'application/pdf', 'pending', ?4, ?5)",
+    )
+      .bind(versionId, fileId, r2Key, ACTOR, clock.now())
+      .run();
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO upload_session (id, file_version_id, mode, declared_size, declared_content_type, status, created_at) VALUES (?1, ?2, 'put', ?3, 'application/pdf', 'open', ?4)",
+    )
+      .bind(sessionId, versionId, PDF_BYTES.byteLength, clock.now())
+      .run();
+    await env.R2.put(r2Key, PDF_BYTES);
+
+    const logger = createMemoryLogger();
+    await handleIngestMessage(
+      env,
+      event(BUCKET, r2Key, PDF_BYTES.byteLength),
+      fakeScanPort,
+      logger,
+    );
+
+    const verdictEvents = logger.events.filter((e) => e.name === "ingest.verdict");
+    expect(verdictEvents).toHaveLength(1);
+
+    const fields = verdictEvents[0]!.fields;
+    expect(fields.outcome).toBe("quarantine");
+    expect(fields.quarantineReason).toBe("scan-infected");
+
+    // Structural redaction: no file-identifying fields are present
+    expect(fields).not.toHaveProperty("id");
+    expect(fields).not.toHaveProperty("name");
+    expect(fields).not.toHaveProperty("key");
+    expect(fields).not.toHaveProperty("content");
+    expect(fields).not.toHaveProperty("versionId");
+    expect(fields).not.toHaveProperty("fileId");
+    expect(fields).not.toHaveProperty("r2Key");
+    expect(fields).not.toHaveProperty("fileName");
+
+    // Clean up
+    await env.DB_FIRM_POOL_1.prepare("DELETE FROM upload_session WHERE id = ?1")
+      .bind(sessionId)
+      .run();
+    await env.DB_FIRM_POOL_1.prepare("DELETE FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .run();
+    await env.DB_FIRM_POOL_1.prepare("DELETE FROM file WHERE id = ?1").bind(fileId).run();
+  });
+
+  it("emits no ingest.verdict event for a no-op (unknown bucket)", async () => {
+    const logger = createMemoryLogger();
+    const { r2Key } = await seedPendingVersion("noop-telemetry.pdf", "application/pdf", PDF_BYTES);
+
+    await handleIngestMessage(
+      env,
+      event("unknown-bucket", r2Key, PDF_BYTES.byteLength),
+      undefined,
+      logger,
+    );
+
+    const verdictEvents = logger.events.filter((e) => e.name === "ingest.verdict");
+    expect(verdictEvents).toHaveLength(0);
   });
 });
