@@ -126,10 +126,6 @@ export function isWellFormedManifest(manifest: IntegrationManifest): string[] {
   if (manifest.capability.credential.kind !== manifest.credential.kind) {
     problems.push("capability.credential.kind must equal credential.kind");
   }
-  if (manifest.credential.kind === "none" && manifest.permission !== null) {
-    // A credential-less integration with an operational permission is allowed, but the common case
-    // is null; this is a soft signal, not pushed as a problem. (No-op — documented intent.)
-  }
   return problems;
 }
 ```
