@@ -11,21 +11,18 @@
   import { superForm, defaults } from "sveltekit-superforms";
   import { zod4 } from "sveltekit-superforms/adapters";
   import { z } from "zod";
+  import tlds from "tlds";
   import * as Form from "../lib/components/form/index.ts";
   import Input from "../lib/components/input/index.ts";
   import Checkbox from "../lib/components/checkbox/index.ts";
   import Button from "../lib/components/button/index.ts";
 
-  // Validate the address shape, then check its ending against KNOWN top-level domains — so not just
-  // a length rule ("tre@mail.c" / "tre@mail.zz" are rejected) but a real TLD. (Demo set; production
-  // would use the full IANA / public-suffix list.)
+  // Validate the address shape, then check its ending against the real top-level domains — so not a
+  // length rule ("tre@mail.c") nor a plausible-but-fake ending ("tre@mail.zz") passes, only a TLD
+  // that exists. The list is `tlds` (the IANA root zone, auto-published), the same source the app's
+  // form schemas use — so there is one list to track, never a hand-maintained set that drifts.
   const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.([a-z]{2,})$/i;
-  const KNOWN_TLDS = new Set([
-    "com", "org", "net", "edu", "gov", "mil", "int", "io", "co", "ai", "app", "dev", "xyz", "info",
-    "biz", "me", "tv", "online", "site", "tech", "law", "legal", "us", "uk", "ca", "au", "nz", "de",
-    "fr", "es", "it", "nl", "be", "ch", "se", "no", "dk", "fi", "ie", "pt", "pl", "jp", "cn", "in",
-    "br", "mx", "za",
-  ]);
+  const KNOWN_TLDS = new Set(tlds);
 
   function isKnownEmail(value: string): boolean {
     const tld = EMAIL_SHAPE.exec(value)?.[1]?.toLowerCase();

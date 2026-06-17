@@ -135,6 +135,9 @@ catalogs:
     tailwindcss:
       specifier: 4.3.0
       version: 4.3.0
+    tlds:
+      specifier: 1.261.0
+      version: 1.261.0
     virtua:
       specifier: 0.49.1
       version: 0.49.1
@@ -404,6 +407,9 @@ importers:
       tailwindcss:
         specifier: 'catalog:'
         version: 4.3.0
+      tlds:
+        specifier: 'catalog:'
+        version: 1.261.0
       vitest:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
         version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@25.9.1)(esbuild@0.28.0)(happy-dom@20.10.2)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))(yaml@2.9.0)'
@@ -3883,6 +3889,10 @@ packages:
     resolution: {integrity: sha512-azl+t0z7pw/z958Gy9svOTuzqIk6xq+NSheJzn5MMWtWTFywIacg2wUlzKFGtt3cthx0r2SxMK0yzJOR0IES7Q==}
     engines: {node: '>=14.0.0'}
 
+  tlds@1.261.0:
+    resolution: {integrity: sha512-QXqwfEl9ddlGBaRFXIvNKK6OhipSiLXuRuLJX5DErz0o0Q0rYxulWLdFryTkV5PkdZct5iMInwYEGe/eR++1AA==}
+    hasBin: true
+
   toposort@2.0.2:
     resolution: {integrity: sha512-0a5EOkAUp8D4moMi2W8ZF8jcga7BgZd91O/yabJCFY8az+XSzeGyTKs0Aoo897iV1Nj6guFq8orWDS96z91oGg==}
 
@@ -6803,6 +6813,8 @@ snapshots:
   tinyrainbow@3.1.0: {}
 
   tinyspy@4.0.4: {}
+
+  tlds@1.261.0: {}
 
   toposort@2.0.2:
     optional: true

@@ -83,6 +83,7 @@
     "svelte": "catalog:",
     "svelte-check": "catalog:",
     "tailwindcss": "catalog:",
+    "tlds": "catalog:",
     "vitest": "catalog:",
     "zod": "catalog:"
   }
