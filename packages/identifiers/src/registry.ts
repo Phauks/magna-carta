@@ -50,6 +50,11 @@ export const ENTITY_PREFIXES = {
   fileVersion: "fileVersion",
   uploadSession: "uploadSession",
   auditLog: "auditLog",
+  // Shipping & postage. `shipment` is a mailing; `shipmentLabel` is a bought label's metadata (PDF in
+  // R2); `trackingEvent` is one carrier scan appended as tracking is pulled.
+  shipment: "shipment",
+  shipmentLabel: "shipmentLabel",
+  trackingEvent: "trackingEvent",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;
