@@ -41,9 +41,6 @@ interface EpShipment {
 }
 
 export function mapRatedShipment(shipment: EpShipment): RatedShipment {
-  // `as RatedShipment` is needed because TypeScript 6 infers the Zod-generic spread
-  // (canonicalRecordSchema) as `never` for `remoteId`/`raw` when assigning object literals —
-  // a known issue with the `{ remoteId?: never; raw?: never }` Shape constraint.
   return {
     remoteId: shipment.id,
     raw: shipment,
@@ -56,7 +53,7 @@ export function mapRatedShipment(shipment: EpShipment): RatedShipment {
       deliveryDays: rate.delivery_days ?? null,
       estDeliveryDate: rate.delivery_date ?? null,
     })),
-  } as unknown as RatedShipment;
+  };
 }
 
 export function mapLabel(shipment: EpShipment): Label {
@@ -78,7 +75,7 @@ export function mapLabel(shipment: EpShipment): Label {
     labelFormat: shipment.postage_label.label_file_type ?? "application/pdf",
     costMinor: dollarsToMinor(selected.rate),
     currency: selected.currency,
-  } as unknown as Label;
+  };
 }
 
 interface EpAddress {
@@ -111,7 +108,7 @@ export function mapAddress(address: EpAddress): CanonicalAddress {
     phone: address.phone ?? null,
     residential: address.residential ?? null,
     verified: address.verifications?.delivery?.success === true,
-  } as unknown as CanonicalAddress;
+  };
 }
 
 interface EpTracker {
@@ -131,7 +128,7 @@ export function mapTrackingEvents(tracker: EpTracker): TrackingEvent[] {
     occurredAt: detail.datetime ?? null,
     location: locationOf(detail.tracking_location),
     message: detail.message ?? null,
-  })) as unknown as TrackingEvent[];
+  }));
 }
 
 function locationOf(
@@ -149,7 +146,7 @@ export function mapRefund(shipment: { id: string; refund_status?: string }): Ref
     remoteId: shipment.id,
     raw: shipment,
     status: shipment.refund_status ?? "submitted",
-  } as unknown as RefundResult;
+  };
 }
 
 // Certified mail / return receipt / signature → EasyPost `options`. Only emit keys the caller
