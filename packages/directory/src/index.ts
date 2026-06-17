@@ -31,7 +31,8 @@ export {
   assignCategory,
   readCategories,
   CategoryNotFoundError,
-  CategoryAppliestoMismatchError,
+  EntityNotFoundError,
+  CategoryAppliesToMismatchError,
 } from "./categories.js";
 export type {
   CreateCategoryInput,

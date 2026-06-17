@@ -15,15 +15,26 @@ export class CategoryNotFoundError extends Error {
   }
 }
 
+// Thrown when the entity (person or organization) referenced by entityId does not exist
+// in its respective type table. Distinct from CategoryNotFoundError so callers can tell
+// apart a missing entity from a missing category even though both carry code "not-found".
+export class EntityNotFoundError extends Error {
+  readonly code = "not-found";
+  constructor(entityId: string) {
+    super(`directory: entity not found: ${entityId}`);
+    this.name = "EntityNotFoundError";
+  }
+}
+
 // Thrown when a caller tries to assign a category to an entity whose kind does not match
 // the category's applies_to constraint (e.g. a person-only category assigned to an organization).
-export class CategoryAppliestoMismatchError extends Error {
+export class CategoryAppliesToMismatchError extends Error {
   readonly code = "category-applies-to-mismatch";
   constructor(categoryId: string, appliesTo: string, entityKind: EntityKind) {
     super(
       `directory: category ${categoryId} applies to "${appliesTo}" entities only, but entity is a "${entityKind}"`,
     );
-    this.name = "CategoryAppliestoMismatchError";
+    this.name = "CategoryAppliesToMismatchError";
   }
 }
 
@@ -82,9 +93,9 @@ export async function createCategory(
 // Links an entity to a category within an atomic batch that also writes the domain audit row.
 // Validates:
 // 1. The category exists — throws CategoryNotFoundError (code: "not-found") if not.
-// 2. The entity exists in its type table — throws CategoryNotFoundError (code: "not-found") if not.
+// 2. The entity exists in its type table — throws EntityNotFoundError (code: "not-found") if not.
 // 3. The category's applies_to constraint matches the entity kind — throws
-//    CategoryAppliestoMismatchError (code: "category-applies-to-mismatch") if the category is
+//    CategoryAppliesToMismatchError (code: "category-applies-to-mismatch") if the category is
 //    person-only and the entity is an organization, or vice versa. "both" accepts either kind.
 export async function assignCategory(
   database: BatchDatabase,
@@ -113,12 +124,12 @@ export async function assignCategory(
     .all<{ id: string }>();
 
   if (entityResults.length === 0) {
-    throw new CategoryNotFoundError(input.entityId);
+    throw new EntityNotFoundError(input.entityId);
   }
 
   // 3. Validate applies_to compatibility.
   if (appliesTo !== "both" && appliesTo !== entityKind) {
-    throw new CategoryAppliestoMismatchError(input.categoryId, appliesTo, entityKind);
+    throw new CategoryAppliesToMismatchError(input.categoryId, appliesTo, entityKind);
   }
 
   const now = options.clock.now();
@@ -144,7 +155,8 @@ export async function readCategories(
       `SELECT c.id, c.name, c.applies_to, c.position, c.archived
        FROM directory_entity_category ec
        JOIN directory_category c ON c.id = ec.category_id
-       WHERE ec.entity_id = ?1`,
+       WHERE ec.entity_id = ?1
+       ORDER BY c.position ASC, c.id ASC`,
     )
     .bind(entityId)
     .all<{
