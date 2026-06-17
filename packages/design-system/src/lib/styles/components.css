@@ -1984,4 +1984,105 @@
     font-size: var(--mc-text-xs);
     line-height: var(--mc-leading-normal);
   }
+
+  /*
+   * Data Table (Tier 4) — the styled <table> primitives. Compact by default (the load-profile look):
+   * row geometry from the density tokens (gutter = horizontal padding, stack = vertical padding,
+   * control-height = the header-row height). Behaviour (sorting/selection/visibility) is wired by the
+   * consumer through the table-core adapter; these recipes are presentation only. Row hover and the
+   * selected-row tint are scoped to the BODY so header rows stay inert.
+   */
+  /* Width is a utility (w-full) on the element — `%` is not tokenizable, so it stays out of the recipe. */
+  .mc-table-scroll {
+    overflow-x: auto;
+  }
+  .mc-table {
+    border-collapse: collapse;
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-sm);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-default);
+    text-align: start;
+  }
+  .mc-table-caption {
+    margin-block-start: var(--mc-space-12);
+    color: var(--mc-text-muted);
+    font-size: var(--mc-text-xs);
+    text-align: start;
+  }
+  .mc-table-head {
+    block-size: var(--mc-density-control-height);
+    padding-inline: var(--mc-density-gutter);
+    color: var(--mc-text-muted);
+    font-weight: var(--mc-weight-semibold);
+    text-align: start;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+  .mc-table-row {
+    border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);
+    transition-property: background-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  /* Body rows lift on hover and tint when selected; the header row does neither. */
+  .mc-table-body .mc-table-row:hover {
+    background-color: var(--mc-surface-sunken);
+  }
+  .mc-table-body .mc-table-row[data-state="selected"] {
+    background-color: var(--mc-action-secondary);
+  }
+  .mc-table-cell {
+    padding-block: var(--mc-density-stack);
+    padding-inline: var(--mc-density-gutter);
+    vertical-align: middle;
+  }
+  /*
+   * Sortable column header — a borderless text button that fills the head cell, inherits its muted
+   * type, and darkens on hover. The trailing icon shows the sort direction (or the neutral
+   * up/down chevrons when unsorted). Inherits font + colour so it reads as the header, not a button.
+   */
+  .mc-table-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+    background-color: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: var(--mc-weight-semibold);
+    cursor: pointer;
+    border-radius: var(--mc-radius-sm);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-table-sort:hover {
+    color: var(--mc-text-default);
+  }
+  .mc-table-sort:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring);
+  }
+  .mc-table-sort-icon {
+    flex-shrink: var(--mc-space-0);
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+  /* Empty / loading placeholders. The empty cell centres a muted message across the table; the
+     loading rows carry token-height skeletons (full width via the w-full utility on the element). */
+  .mc-table-empty {
+    color: var(--mc-text-muted);
+    text-align: center;
+  }
+  .mc-table-skeleton {
+    block-size: var(--mc-space-16);
+  }
+  /* The column-visibility toolbar above the table (story composition uses these for its chrome). */
+  .mc-table-toolbar-legend {
+    color: var(--mc-text-muted);
+    font-size: var(--mc-text-xs);
+    font-weight: var(--mc-weight-semibold);
+  }
+  .mc-table-toolbar-label {
+    color: var(--mc-text-default);
+    font-size: var(--mc-text-sm);
+    text-transform: capitalize;
+  }
 }
