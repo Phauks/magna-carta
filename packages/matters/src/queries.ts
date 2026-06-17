@@ -164,6 +164,28 @@ export interface ListConsultationsParams {
 
 const MS_PER_DAY = 86_400_000;
 
+export interface MatterCounts {
+  readonly total: number;
+  readonly prospective: number;
+  readonly open: number;
+  readonly closed: number;
+}
+
+// Per-firm matter counts, grouped by lifecycle status. An unexpected status still adds to total.
+export async function readMatterCounts(database: SqlDatabase): Promise<MatterCounts> {
+  const { results } = await database
+    .prepare(`SELECT status, COUNT(*) AS c FROM ${MATTER_TABLE} GROUP BY status`)
+    .all<{ status: string; c: number }>();
+  const counts = { total: 0, prospective: 0, open: 0, closed: 0 };
+  for (const row of results) {
+    counts.total += row.c;
+    if (row.status === "prospective" || row.status === "open" || row.status === "closed") {
+      counts[row.status] += row.c;
+    }
+  }
+  return counts;
+}
+
 export async function listConsultations(
   database: SqlDatabase,
   params: ListConsultationsParams,

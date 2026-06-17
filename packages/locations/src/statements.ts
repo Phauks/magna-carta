@@ -151,6 +151,14 @@ export interface InsertMemberLocationRow {
   readonly createdAt: string;
 }
 
+// Per-firm count of all locations (active and closed alike).
+export async function readLocationCount(database: SqlDatabase): Promise<number> {
+  const { results } = await database
+    .prepare(`SELECT COUNT(*) AS c FROM ${LOCATION_TABLE}`)
+    .all<{ c: number }>();
+  return results[0]?.c ?? 0;
+}
+
 export function insertMemberLocationStatement(
   database: SqlDatabase,
   row: InsertMemberLocationRow,
