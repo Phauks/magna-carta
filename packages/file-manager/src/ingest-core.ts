@@ -34,6 +34,10 @@ export interface IngestInput {
   readonly version: PendingVersionFacts;
   readonly policy: UploadPolicy; // re-checked against the real bytes
   readonly scanPort: MalwareScanPort;
+  // Files larger than this cap bypass the scan engine and commit as unscanned/oversize — streaming
+  // a multi-GiB object to a scanner is wasteful and a large legitimate file is not suspicious for
+  // being big. A later task wires this from the firm setting; consumers pass a default until then.
+  readonly inspectableSizeCap: number;
 }
 
 export type QuarantineReason =
@@ -41,7 +45,8 @@ export type QuarantineReason =
   | "size-mismatch"
   | "policy-size"
   | "policy-type"
-  | "scan-infected";
+  | "scan-infected"
+  | "scan-suspicious";
 
 export type IngestOutcome =
   | {
@@ -51,8 +56,9 @@ export type IngestOutcome =
       contentSha256: string;
       scanVerdict: "unscanned" | "clean";
       scanEngineVersion: string | null;
+      scanDetail: string | null;
     }
-  | { kind: "quarantine"; reason: QuarantineReason };
+  | { kind: "quarantine"; reason: QuarantineReason; scanDetail: string | null };
 
 function toHex(buffer: ArrayBuffer): string {
   return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -101,6 +107,26 @@ async function hashAndCount(
 export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
   const [headStream, bodyStream] = input.objectBody.tee();
   const sniffedContentType = await sniffHead(headStream);
+
+  // Files past the scanner's inspectable cap are benign-uninspectable: commit as `unscanned`/oversize
+  // and never stream them to the engine (a large legitimate file is not suspicious for being big).
+  if (input.objectSize > input.inspectableSizeCap) {
+    const [hashStream, skipStream] = bodyStream.tee();
+    await skipStream.cancel();
+    const hashed = await hashAndCount(hashStream);
+    if (hashed.size !== input.objectSize)
+      return { kind: "quarantine", reason: "size-mismatch", scanDetail: null };
+    return {
+      kind: "commit",
+      sizeBytes: input.objectSize,
+      sniffedContentType,
+      contentSha256: hashed.hash,
+      scanVerdict: "unscanned",
+      scanEngineVersion: null,
+      scanDetail: "oversize",
+    };
+  }
+
   const [hashStream, scanStream] = bodyStream.tee();
   const [scan, hashed] = await Promise.all([
     input.scanPort.scan(scanStream, {
@@ -112,9 +138,10 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
 
   // The streamed byte count must match the object's metadata, and (when declared) the declared size —
   // tolerance is exact. A mismatch means truncation or a lie.
-  if (hashed.size !== input.objectSize) return { kind: "quarantine", reason: "size-mismatch" };
+  if (hashed.size !== input.objectSize)
+    return { kind: "quarantine", reason: "size-mismatch", scanDetail: null };
   if (input.version.declaredSize !== null && input.objectSize !== input.version.declaredSize) {
-    return { kind: "quarantine", reason: "size-mismatch" };
+    return { kind: "quarantine", reason: "size-mismatch", scanDetail: null };
   }
   // A declared content type contradicted by the sniffed magic bytes is a lie.
   if (
@@ -122,7 +149,7 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
     input.version.declaredContentType !== null &&
     sniffedContentType !== input.version.declaredContentType
   ) {
-    return { kind: "quarantine", reason: "type-mismatch" };
+    return { kind: "quarantine", reason: "type-mismatch", scanDetail: null };
   }
   // Re-enforce the policy against the REAL size, the sniffed type, and the declared file name (a
   // declared lie cannot smuggle a blocked type or a blocked extension past the gate).
@@ -134,25 +161,25 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
     });
   } catch (error) {
     if (error instanceof FileManagerValidationError) {
-      if (error.code === "upload-policy-size") return { kind: "quarantine", reason: "policy-size" };
-      if (error.code === "upload-policy-type") return { kind: "quarantine", reason: "policy-type" };
+      if (error.code === "upload-policy-size")
+        return { kind: "quarantine", reason: "policy-size", scanDetail: null };
+      if (error.code === "upload-policy-type")
+        return { kind: "quarantine", reason: "policy-type", scanDetail: null };
     }
     throw error;
   }
-  if (scan.verdict === "infected") return { kind: "quarantine", reason: "scan-infected" };
-  // An `unscanned` verdict commits (explicit-unscanned policy); `clean` commits too.
-  // `suspicious` is handled as unscanned for now (commits the version but flagged for review).
-  if (scan.verdict === "clean" || scan.verdict === "unscanned" || scan.verdict === "suspicious") {
-    return {
-      kind: "commit",
-      sizeBytes: input.objectSize,
-      sniffedContentType,
-      contentSha256: hashed.hash,
-      scanVerdict: scan.verdict === "clean" ? "clean" : "unscanned",
-      scanEngineVersion: scan.engineVersion,
-    };
-  }
-  // Exhaustiveness check: if TypeScript reaches here, scan is not one of the expected variants.
-  const _exhaustiveness: never = scan;
-  return _exhaustiveness;
+  if (scan.verdict === "infected")
+    return { kind: "quarantine", reason: "scan-infected", scanDetail: scan.signature };
+  if (scan.verdict === "suspicious")
+    return { kind: "quarantine", reason: "scan-suspicious", scanDetail: scan.reason };
+  return {
+    kind: "commit",
+    sizeBytes: input.objectSize,
+    sniffedContentType,
+    contentSha256: hashed.hash,
+    scanVerdict: scan.verdict === "clean" ? "clean" : "unscanned",
+    scanEngineVersion: scan.engineVersion,
+    scanDetail:
+      scan.verdict === "clean" ? (scan.activeContent ? "active-content" : null) : scan.reason,
+  };
 }

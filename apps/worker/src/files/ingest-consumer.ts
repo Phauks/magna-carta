@@ -76,6 +76,7 @@ export async function handleIngestMessage(env: Bindings, message: R2EventMessage
     },
     policy,
     scanPort: unscannedAdapter,
+    inspectableSizeCap: 2 * 1024 * 1024 * 1024, // default 2 GiB until the firm-setting read is wired in the consumer
   });
 
   const now = () => new Date().toISOString();
