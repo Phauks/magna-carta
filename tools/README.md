@@ -4,13 +4,14 @@ Owner-facing launchers for the things you open most. Every script works from any
 
 | Launcher                | What it does                                                                                                                                                                                                                         |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `open-coverage-map.cmd` | Regenerates the government-records **coverage map** from the live registry and opens it in your browser — property / business / licensing coverage, deep-link vs search-only shading; click any region to open its real search page. |
+| `open-coverage-map.cmd` | Opens the government-records **coverage map** in your browser (property / business / licensing coverage, deep-link vs search-only shading; click any region to open its real search page). Runs a small local server so the in-page **Rebuild data** button can regenerate from the live registry. Ctrl+C to stop. |
 
 Terminal equivalents:
 
 ```
-pnpm --filter @magna-carta/government-links coverage        # regenerate the map data + open the map
-pnpm --filter @magna-carta/government-links coverage:data   # regenerate the map data only
+pnpm --filter @magna-carta/government-links coverage:serve  # serve the map + enable the Rebuild button
+pnpm --filter @magna-carta/government-links coverage        # regenerate the data + open the static map
+pnpm --filter @magna-carta/government-links coverage:data   # regenerate the data only
 ```
 
-The map reads a generated snapshot (`packages/government-links/mockups/coverage-data.js`); the launcher regenerates it from the registry each time, so it is always current. The US county shapes load from a CDN, so opening the map needs an internet connection.
+The map reads a generated snapshot (`packages/government-links/mockups/coverage-data.js`). Served via the launcher, the **Rebuild data** button (top-right of the toggles) regenerates it from the registry on demand; opened as a bare file the button is hidden. The US county shapes load from a CDN, so the map needs an internet connection.

@@ -79,6 +79,30 @@
         margin-right: 7px;
         vertical-align: middle;
       }
+      .rebuild {
+        margin-left: 12px;
+        padding: 8px 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--accent);
+        cursor: pointer;
+        vertical-align: middle;
+      }
+      .rebuild:hover {
+        border-color: #c4d0d7;
+      }
+      .rebuild:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+      .rebuild-msg {
+        margin-left: 10px;
+        font-size: 12.5px;
+        color: var(--muted);
+      }
 
       .layout {
         display: grid;
@@ -233,6 +257,15 @@
           <span class="dot" style="background: var(--lic)"></span>Licensing
         </button>
       </div>
+      <button
+        id="rebuild"
+        class="rebuild"
+        hidden
+        title="Regenerate the map data from the live registry"
+      >
+        &#8635; Rebuild data
+      </button>
+      <span id="rebuildMsg" class="rebuild-msg"></span>
 
       <div class="layout">
         <div class="mapcard">
@@ -505,6 +538,29 @@
       }
       function hideTip() {
         tip.style("opacity", 0);
+      }
+
+      // "Rebuild data" — only works when the map is served by scripts/serve-coverage-map.mts (which
+      // exposes POST /rebuild to regenerate coverage-data.js from the live registry). Hidden when the
+      // file is opened directly (file://), since a static page can't run the dump.
+      const rebuildBtn = document.getElementById("rebuild");
+      const rebuildMsg = document.getElementById("rebuildMsg");
+      if (location.protocol.startsWith("http")) {
+        rebuildBtn.hidden = false;
+        rebuildBtn.addEventListener("click", async () => {
+          rebuildBtn.disabled = true;
+          rebuildMsg.textContent = "Rebuilding from the registry …";
+          try {
+            const r = await fetch("/rebuild", { method: "POST" });
+            if (!r.ok) throw new Error(await r.text());
+            rebuildMsg.textContent = "Done — reloading …";
+            location.reload();
+          } catch (err) {
+            rebuildBtn.disabled = false;
+            rebuildMsg.textContent =
+              "Rebuild failed — is the coverage server running? Use tools/open-coverage-map.cmd.";
+          }
+        });
       }
     </script>
   </body>

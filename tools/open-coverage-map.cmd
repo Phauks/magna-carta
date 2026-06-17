@@ -1,9 +1,9 @@
 @echo off
-rem Regenerates the government-records coverage map from the live registry, then opens it in your browser.
-rem Toggle property / business / licensing; deep-link vs search-only shading; click any region to open its search.
+rem Starts the government-records coverage map (rebuild-enabled) and opens it in your browser.
+rem Runs a small local server so the in-page "Rebuild data" button can regenerate from the live
+rem registry. Property / business / licensing coverage; click any region to open its search.
+rem Close this window or press Ctrl+C to stop the server.
 cd /d "%~dp0.."
-echo Regenerating coverage data from the registry ...
-call pnpm --filter @magna-carta/government-links coverage:data
-echo Opening the coverage map ...
-start "" "packages\government-links\mockups\coverage-map.html"
+echo Starting the coverage map server (opens your browser; Ctrl+C to stop) ...
+call pnpm --filter @magna-carta/government-links coverage:serve
 pause

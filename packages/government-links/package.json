@@ -17,6 +17,7 @@
   "scripts": {
     "test": "vp test run",
     "coverage:data": "tsx scripts/dump-coverage.mts",
+    "coverage:serve": "tsx scripts/serve-coverage-map.mts",
     "coverage": "tsx scripts/dump-coverage.mts && start mockups/coverage-map.html"
   },
   "devDependencies": {
