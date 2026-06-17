@@ -46,4 +46,7 @@ CREATE TABLE `tracking_event` (
 	FOREIGN KEY (`shipment_ref`) REFERENCES `shipment`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `tracking_event_shipment_remote_unique_index` ON `tracking_event` (`shipment_ref`,`remote_id`);
+CREATE UNIQUE INDEX `tracking_event_shipment_remote_unique_index` ON `tracking_event` (`shipment_ref`,`remote_id`);--> statement-breakpoint
+-- Default-role grant for shipping: Owner/Admin gets shipping:manage (the same role that holds
+-- locations:manage from 0004). Other seeded roles get no shipping permission this slice.
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_q7J6yK5CfA9O1vgyLizLh', 'role_Gw-zKO8hOHQuNv2bWokMp', 'shipping:manage');

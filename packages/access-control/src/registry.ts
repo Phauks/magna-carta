@@ -21,6 +21,8 @@ export const PERMISSIONS = [
   "matters:manageNumbering", // edit the firm numbering scheme
   // Locations — the firm's offices/letterhead roots.
   "locations:manage", // create/update/close locations, addresses, staff assignment
+  // Shipping & postage — connect the firm's postage account and create/rate/buy/track/refund shipments.
+  "shipping:manage",
   // Files — the File Manager's upload, organization, and document-type configuration.
   "files:upload", // initiate uploads and commit versions
   "files:organize", // create/rename/move folders and files

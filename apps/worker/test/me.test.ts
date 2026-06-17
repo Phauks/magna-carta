@@ -55,7 +55,8 @@ describe("GET /api/v1/me", () => {
       firm: { id: firmId, name: "Me Test Firm" },
       // Owner/Admin's seeded role_permission rows: firm:manageMembers (0002_member-rbac.sql) +
       // firm:reportIncident (0003_incident-intake.sql, seeded onto every default role) + the slice
-      // 1·1 matters/locations/files grants (0004_matters-locations-file-manager.sql). Sorted.
+      // 1·1 matters/locations/files grants (0004_matters-locations-file-manager.sql) +
+      // shipping:manage (0007). Sorted.
       permissions: [
         "files:delete",
         "files:manageDocumentTypes",
@@ -72,6 +73,7 @@ describe("GET /api/v1/me", () => {
         "matters:open",
         "matters:renumber",
         "matters:reopen",
+        "shipping:manage",
       ],
     });
   });

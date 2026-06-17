@@ -6,6 +6,8 @@ import memberRbacSql from "@magna-carta/database/drizzle/per-firm/0002_member-rb
 import incidentIntakeSql from "@magna-carta/database/drizzle/per-firm/0003_incident-intake.sql";
 import mattersLocationsFileManagerSql from "@magna-carta/database/drizzle/per-firm/0004_matters-locations-file-manager.sql";
 import listKeysetIndexesSql from "@magna-carta/database/drizzle/per-firm/0005_list-keyset-indexes.sql";
+import integrationConnectionSql from "@magna-carta/database/drizzle/per-firm/0006_giant_groot.sql";
+import shipmentTablesSql from "@magna-carta/database/drizzle/per-firm/0007_tiny_green_goblin.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the firm
 // provisioner migrates a freshly created firm database to head at provisioning time, so the SQL
@@ -21,6 +23,8 @@ export function perFirmMigrations(): Migration[] {
     "0003_incident-intake": incidentIntakeSql,
     "0004_matters-locations-file-manager": mattersLocationsFileManagerSql,
     "0005_list-keyset-indexes": listKeysetIndexesSql,
+    "0006_giant_groot": integrationConnectionSql,
+    "0007_tiny_green_goblin": shipmentTablesSql,
   });
 }
 
