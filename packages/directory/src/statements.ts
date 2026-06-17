@@ -183,3 +183,72 @@ export function selectOrganizationStatement(
     )
     .bind(id);
 }
+
+// Flip the entity's current name row to a former row: set name_role='former', is_current=0,
+// valid_to=now, and touch updated_at. The row is preserved in place — never deleted — so phonetic
+// codes and normalized_display remain queryable for the conflicts corpus.
+export function flipCurrentNameToFormerStatement(
+  database: SqlDatabase,
+  entityId: string,
+  validTo: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${DIRECTORY_NAME_TABLE} SET name_role = 'former', is_current = 0, valid_to = ?2, updated_at = ?2 WHERE entity_id = ?1 AND is_current = 1`,
+    )
+    .bind(entityId, validTo);
+}
+
+// The new name columns to write onto the person entity row when a person's name changes. This is
+// the denormalized projection kept on the entity row for fast list/display reads; the authoritative
+// record is in directory_name.
+export interface UpdatePersonNameFields {
+  readonly prefix: string | null;
+  readonly given: string | null;
+  readonly middle: string | null;
+  readonly family: string | null;
+  readonly suffix: string | null;
+  readonly displayName: string;
+}
+
+export function updatePersonNameStatement(
+  database: SqlDatabase,
+  id: DirectoryPersonId,
+  fields: UpdatePersonNameFields,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${DIRECTORY_PERSON_TABLE} SET name_prefix = ?2, name_given = ?3, name_middle = ?4, name_family = ?5, name_suffix = ?6, display_name = ?7, updated_at = ?8 WHERE id = ?1`,
+    )
+    .bind(
+      id,
+      fields.prefix,
+      fields.given,
+      fields.middle,
+      fields.family,
+      fields.suffix,
+      fields.displayName,
+      updatedAt,
+    );
+}
+
+// The new name columns to write onto the organization entity row when an organization's name
+// changes. legal_name is the primary field; display_name defaults to legal_name if not supplied.
+export interface UpdateOrganizationNameFields {
+  readonly legalName: string;
+  readonly displayName: string;
+}
+
+export function updateOrganizationNameStatement(
+  database: SqlDatabase,
+  id: DirectoryOrganizationId,
+  fields: UpdateOrganizationNameFields,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${DIRECTORY_ORGANIZATION_TABLE} SET legal_name = ?2, display_name = ?3, updated_at = ?4 WHERE id = ?1`,
+    )
+    .bind(id, fields.legalName, fields.displayName, updatedAt);
+}
