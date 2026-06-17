@@ -1,17 +1,13 @@
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
-import { fetchHttpClient } from "@magna-carta/shipping/easypost/http";
 import { createApp, type Bindings } from "./app.ts";
 import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
 import { runScheduledSweep, runStorageReconciliation } from "./scheduled.ts";
-import { firmSecretStoreNotYetAvailable } from "./shipping/secret-store.ts";
 
-// Shipping is wired with the real fetch-backed EasyPost client; its credential store throws until the
-// firm_secret store lands (slice 1·2), so the routes are registered but cannot resolve a live account
-// in production yet — the single swap that turns shipping on is firmSecretStoreNotYetAvailable.
-const app = createApp({
-  shipping: { secretStoreForFirm: firmSecretStoreNotYetAvailable, httpClient: fetchHttpClient() },
-});
+// createApp defaults shipping to the production seam — the firm_secret credential store throws until
+// slice 1·2 lands (the routes are registered and in the contract, but cannot resolve a live account
+// yet), with a fetch-backed EasyPost client.
+const app = createApp();
 
 // The daily reconciliation Cron expression (wrangler.jsonc triggers.crons), distinct from the */5
 // sweep — a full R2 LIST per firm is too heavy to run every five minutes.

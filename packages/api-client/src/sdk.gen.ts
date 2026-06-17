@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { FirmsProvisionData, FirmsProvisionErrors, FirmsProvisionResponses, HealthReadData, HealthReadResponses, MeGetData, MeGetErrors, MeGetResponses, MembersInviteData, MembersInviteErrors, MembersInviteResponses, UploadsAbortData, UploadsAbortErrors, UploadsAbortResponses, UploadsCompleteData, UploadsCompleteErrors, UploadsCompleteResponses, UploadsInitiateData, UploadsInitiateErrors, UploadsInitiateResponses, UploadsSignPartData, UploadsSignPartErrors, UploadsSignPartResponses } from './types.gen';
+import type { DocumentTypesCreateData, DocumentTypesCreateErrors, DocumentTypesCreateResponses, DocumentTypesDeactivateData, DocumentTypesDeactivateErrors, DocumentTypesDeactivateResponses, DocumentTypesListData, DocumentTypesListErrors, DocumentTypesListResponses, DocumentTypesUpdateData, DocumentTypesUpdateErrors, DocumentTypesUpdateResponses, DownloadsZipData, DownloadsZipErrors, DownloadsZipResponses, FilesDeleteData, FilesDeleteErrors, FilesDeleteResponses, FilesDownloadData, FilesDownloadErrors, FilesGetData, FilesGetErrors, FilesGetResponses, FilesListData, FilesListErrors, FilesListResponses, FilesUpdateData, FilesUpdateErrors, FilesUpdateResponses, FilesVersionsData, FilesVersionsErrors, FilesVersionsResponses, FirmsProvisionData, FirmsProvisionErrors, FirmsProvisionResponses, FoldersCreateData, FoldersCreateErrors, FoldersCreateResponses, FoldersDeleteData, FoldersDeleteErrors, FoldersDeleteResponses, FoldersUpdateData, FoldersUpdateErrors, FoldersUpdateResponses, HealthReadData, HealthReadErrors, HealthReadResponses, IncidentsReportData, IncidentsReportErrors, IncidentsReportResponses, LocationsAssignMemberData, LocationsAssignMemberErrors, LocationsAssignMemberResponses, LocationsCloseData, LocationsCloseErrors, LocationsCloseResponses, LocationsCreateData, LocationsCreateErrors, LocationsCreateResponses, LocationsGetData, LocationsGetErrors, LocationsGetResponses, LocationsListData, LocationsListErrors, LocationsListResponses, LocationsSetAddressesData, LocationsSetAddressesErrors, LocationsSetAddressesResponses, LocationsUpdateData, LocationsUpdateErrors, LocationsUpdateResponses, MattersCloseData, MattersCloseErrors, MattersCloseResponses, MattersCreateData, MattersCreateErrors, MattersCreateResponses, MattersGetData, MattersGetErrors, MattersGetResponses, MattersListConsultationsData, MattersListConsultationsErrors, MattersListConsultationsResponses, MattersListData, MattersListErrors, MattersListResponses, MattersOpenData, MattersOpenErrors, MattersOpenResponses, MattersRenumberData, MattersRenumberErrors, MattersRenumberResponses, MattersReopenData, MattersReopenErrors, MattersReopenResponses, MattersUpdateData, MattersUpdateErrors, MattersUpdateResponses, MatterTypesCreateData, MatterTypesCreateErrors, MatterTypesCreateResponses, MatterTypesDeactivateData, MatterTypesDeactivateErrors, MatterTypesDeactivateResponses, MatterTypesListData, MatterTypesListErrors, MatterTypesListResponses, MatterTypesUpdateData, MatterTypesUpdateErrors, MatterTypesUpdateResponses, MeGetData, MeGetErrors, MeGetResponses, MembersInviteData, MembersInviteErrors, MembersInviteResponses, NumberingGetData, NumberingGetErrors, NumberingGetResponses, NumberingPreviewData, NumberingPreviewErrors, NumberingPreviewResponses, NumberingSetData, NumberingSetErrors, NumberingSetResponses, ShippingConnectData, ShippingConnectErrors, ShippingConnectResponses, ShippingCreateShipmentData, ShippingCreateShipmentErrors, ShippingCreateShipmentResponses, ShippingLabelData, ShippingLabelErrors, ShippingLabelResponses, ShippingPurchaseData, ShippingPurchaseErrors, ShippingPurchaseResponses, ShippingRateShipmentData, ShippingRateShipmentErrors, ShippingRateShipmentResponses, ShippingRefundData, ShippingRefundErrors, ShippingRefundResponses, ShippingTrackingData, ShippingTrackingErrors, ShippingTrackingResponses, UploadsAbortData, UploadsAbortErrors, UploadsAbortResponses, UploadsCompleteData, UploadsCompleteErrors, UploadsCompleteResponses, UploadsInitiateData, UploadsInitiateErrors, UploadsInitiateResponses, UploadsSignPartData, UploadsSignPartErrors, UploadsSignPartResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -21,7 +21,7 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 /**
  * Service health — the walking-skeleton control-plane round trip.
  */
-export const healthRead = <ThrowOnError extends boolean = false>(options?: Options<HealthReadData, ThrowOnError>): RequestResult<HealthReadResponses, unknown, ThrowOnError> => (options?.client ?? client).get<HealthReadResponses, unknown, ThrowOnError>({ url: '/api/health', ...options });
+export const healthRead = <ThrowOnError extends boolean = false>(options?: Options<HealthReadData, ThrowOnError>): RequestResult<HealthReadResponses, HealthReadErrors, ThrowOnError> => (options?.client ?? client).get<HealthReadResponses, HealthReadErrors, ThrowOnError>({ url: '/api/health', ...options });
 
 /**
  * The session user, their firm, and their effective permissions — the SPA's bootstrap call.
@@ -45,6 +45,18 @@ export const membersInvite = <ThrowOnError extends boolean = false>(options: Opt
  */
 export const firmsProvision = <ThrowOnError extends boolean = false>(options: Options<FirmsProvisionData, ThrowOnError>): RequestResult<FirmsProvisionResponses, FirmsProvisionErrors, ThrowOnError> => (options.client ?? client).post<FirmsProvisionResponses, FirmsProvisionErrors, ThrowOnError>({
     url: '/api/v1/firms',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Files a diagnostic incident from the session firm: writes the per-firm incident row and the incident.created outbox row in one atomic batch (the diagnostics agent's future feed). Any member may report; the description is the user's words, the rest is id-and-action shaped.
+ */
+export const incidentsReport = <ThrowOnError extends boolean = false>(options: Options<IncidentsReportData, ThrowOnError>): RequestResult<IncidentsReportResponses, IncidentsReportErrors, ThrowOnError> => (options.client ?? client).post<IncidentsReportResponses, IncidentsReportErrors, ThrowOnError>({
+    url: '/api/v1/incidents',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -85,3 +97,363 @@ export const uploadsComplete = <ThrowOnError extends boolean = false>(options: O
  * Aborts an open upload session: aborts the multipart upload at R2 (when multipart), marks the session aborted, and abandons the pending version.
  */
 export const uploadsAbort = <ThrowOnError extends boolean = false>(options: Options<UploadsAbortData, ThrowOnError>): RequestResult<UploadsAbortResponses, UploadsAbortErrors, ThrowOnError> => (options.client ?? client).post<UploadsAbortResponses, UploadsAbortErrors, ThrowOnError>({ url: '/api/v1/uploads/{id}/abort', ...options });
+
+/**
+ * Lists the firm's matters (the working caseload — Prospective consultations are excluded unless status=prospective is named), cursor-paginated, filterable by status/type/location/responsible member and a free-text search over title, number, and client.
+ */
+export const mattersList = <ThrowOnError extends boolean = false>(options?: Options<MattersListData, ThrowOnError>): RequestResult<MattersListResponses, MattersListErrors, ThrowOnError> => (options?.client ?? client).get<MattersListResponses, MattersListErrors, ThrowOnError>({ url: '/api/v1/matters', ...options });
+
+/**
+ * Creates a matter. status 'prospective' opens an unnumbered consultation (it appears only in the responsible attorney's Consultations view); status 'open' draws the firm's next matter number atomically and opens it.
+ */
+export const mattersCreate = <ThrowOnError extends boolean = false>(options: Options<MattersCreateData, ThrowOnError>): RequestResult<MattersCreateResponses, MattersCreateErrors, ThrowOnError> => (options.client ?? client).post<MattersCreateResponses, MattersCreateErrors, ThrowOnError>({
+    url: '/api/v1/matters',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * The Consultations view: the session attorney's unnumbered Prospective matters, each flagged stale once it has sat past the firm's stale-consultation age. Cursor-paginated.
+ */
+export const mattersListConsultations = <ThrowOnError extends boolean = false>(options?: Options<MattersListConsultationsData, ThrowOnError>): RequestResult<MattersListConsultationsResponses, MattersListConsultationsErrors, ThrowOnError> => (options?.client ?? client).get<MattersListConsultationsResponses, MattersListConsultationsErrors, ThrowOnError>({ url: '/api/v1/matters/consultations', ...options });
+
+/**
+ * Returns one matter's detail.
+ */
+export const mattersGet = <ThrowOnError extends boolean = false>(options: Options<MattersGetData, ThrowOnError>): RequestResult<MattersGetResponses, MattersGetErrors, ThrowOnError> => (options.client ?? client).get<MattersGetResponses, MattersGetErrors, ThrowOnError>({ url: '/api/v1/matters/{id}', ...options });
+
+/**
+ * Updates a matter's editable fields (title, description, type, Location, responsible member, client display fields). Does not change status or the assigned number.
+ */
+export const mattersUpdate = <ThrowOnError extends boolean = false>(options: Options<MattersUpdateData, ThrowOnError>): RequestResult<MattersUpdateResponses, MattersUpdateErrors, ThrowOnError> => (options.client ?? client).patch<MattersUpdateResponses, MattersUpdateErrors, ThrowOnError>({
+    url: '/api/v1/matters/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Opens a Prospective matter: draws the firm's next matter number atomically and transitions it to open. Refuses a matter that is not Prospective.
+ */
+export const mattersOpen = <ThrowOnError extends boolean = false>(options: Options<MattersOpenData, ThrowOnError>): RequestResult<MattersOpenResponses, MattersOpenErrors, ThrowOnError> => (options.client ?? client).post<MattersOpenResponses, MattersOpenErrors, ThrowOnError>({ url: '/api/v1/matters/{id}/open', ...options });
+
+/**
+ * Closes a matter (archived-but-additive — it leaves active lists but still accepts documents). Runs the close-precondition registry; a failure returns the precondition codes.
+ */
+export const mattersClose = <ThrowOnError extends boolean = false>(options: Options<MattersCloseData, ThrowOnError>): RequestResult<MattersCloseResponses, MattersCloseErrors, ThrowOnError> => (options.client ?? client).post<MattersCloseResponses, MattersCloseErrors, ThrowOnError>({ url: '/api/v1/matters/{id}/close', ...options });
+
+/**
+ * Reopens a closed matter, restoring its pre-close status (open if it was numbered, else Prospective). The frozen number, if any, is untouched.
+ */
+export const mattersReopen = <ThrowOnError extends boolean = false>(options: Options<MattersReopenData, ThrowOnError>): RequestResult<MattersReopenResponses, MattersReopenErrors, ThrowOnError> => (options.client ?? client).post<MattersReopenResponses, MattersReopenErrors, ThrowOnError>({ url: '/api/v1/matters/{id}/reopen', ...options });
+
+/**
+ * Assigns a manual/court/legacy matter number (never touches a counter). The number must be URL-safe and unique within the firm.
+ */
+export const mattersRenumber = <ThrowOnError extends boolean = false>(options: Options<MattersRenumberData, ThrowOnError>): RequestResult<MattersRenumberResponses, MattersRenumberErrors, ThrowOnError> => (options.client ?? client).post<MattersRenumberResponses, MattersRenumberErrors, ThrowOnError>({
+    url: '/api/v1/matters/{id}/renumber',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Lists the firm's matter types (active and deactivated), ordered by name.
+ */
+export const matterTypesList = <ThrowOnError extends boolean = false>(options?: Options<MatterTypesListData, ThrowOnError>): RequestResult<MatterTypesListResponses, MatterTypesListErrors, ThrowOnError> => (options?.client ?? client).get<MatterTypesListResponses, MatterTypesListErrors, ThrowOnError>({ url: '/api/v1/matter-types', ...options });
+
+/**
+ * Creates a matter type (name plus an optional short code used by numbering schemes).
+ */
+export const matterTypesCreate = <ThrowOnError extends boolean = false>(options: Options<MatterTypesCreateData, ThrowOnError>): RequestResult<MatterTypesCreateResponses, MatterTypesCreateErrors, ThrowOnError> => (options.client ?? client).post<MatterTypesCreateResponses, MatterTypesCreateErrors, ThrowOnError>({
+    url: '/api/v1/matter-types',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Updates a matter type's name or code.
+ */
+export const matterTypesUpdate = <ThrowOnError extends boolean = false>(options: Options<MatterTypesUpdateData, ThrowOnError>): RequestResult<MatterTypesUpdateResponses, MatterTypesUpdateErrors, ThrowOnError> => (options.client ?? client).patch<MatterTypesUpdateResponses, MatterTypesUpdateErrors, ThrowOnError>({
+    url: '/api/v1/matter-types/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Soft-deactivates a matter type (historical matters keep their type; it is never deleted).
+ */
+export const matterTypesDeactivate = <ThrowOnError extends boolean = false>(options: Options<MatterTypesDeactivateData, ThrowOnError>): RequestResult<MatterTypesDeactivateResponses, MatterTypesDeactivateErrors, ThrowOnError> => (options.client ?? client).post<MatterTypesDeactivateResponses, MatterTypesDeactivateErrors, ThrowOnError>({ url: '/api/v1/matter-types/{id}/deactivate', ...options });
+
+/**
+ * Lists the firm's document types (active and deactivated), ordered by name.
+ */
+export const documentTypesList = <ThrowOnError extends boolean = false>(options?: Options<DocumentTypesListData, ThrowOnError>): RequestResult<DocumentTypesListResponses, DocumentTypesListErrors, ThrowOnError> => (options?.client ?? client).get<DocumentTypesListResponses, DocumentTypesListErrors, ThrowOnError>({ url: '/api/v1/document-types', ...options });
+
+/**
+ * Creates a document type (a per-firm document classification label with an optional code).
+ */
+export const documentTypesCreate = <ThrowOnError extends boolean = false>(options: Options<DocumentTypesCreateData, ThrowOnError>): RequestResult<DocumentTypesCreateResponses, DocumentTypesCreateErrors, ThrowOnError> => (options.client ?? client).post<DocumentTypesCreateResponses, DocumentTypesCreateErrors, ThrowOnError>({
+    url: '/api/v1/document-types',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Updates a document type's name or code.
+ */
+export const documentTypesUpdate = <ThrowOnError extends boolean = false>(options: Options<DocumentTypesUpdateData, ThrowOnError>): RequestResult<DocumentTypesUpdateResponses, DocumentTypesUpdateErrors, ThrowOnError> => (options.client ?? client).patch<DocumentTypesUpdateResponses, DocumentTypesUpdateErrors, ThrowOnError>({
+    url: '/api/v1/document-types/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Soft-deactivates a document type (historical documents keep their type; it is never deleted).
+ */
+export const documentTypesDeactivate = <ThrowOnError extends boolean = false>(options: Options<DocumentTypesDeactivateData, ThrowOnError>): RequestResult<DocumentTypesDeactivateResponses, DocumentTypesDeactivateErrors, ThrowOnError> => (options.client ?? client).post<DocumentTypesDeactivateResponses, DocumentTypesDeactivateErrors, ThrowOnError>({ url: '/api/v1/document-types/{id}/deactivate', ...options });
+
+/**
+ * Lists the firm's Locations, ordered by name.
+ */
+export const locationsList = <ThrowOnError extends boolean = false>(options?: Options<LocationsListData, ThrowOnError>): RequestResult<LocationsListResponses, LocationsListErrors, ThrowOnError> => (options?.client ?? client).get<LocationsListResponses, LocationsListErrors, ThrowOnError>({ url: '/api/v1/locations', ...options });
+
+/**
+ * Creates a Location (office) with its numbering code and letterhead/remit fields.
+ */
+export const locationsCreate = <ThrowOnError extends boolean = false>(options: Options<LocationsCreateData, ThrowOnError>): RequestResult<LocationsCreateResponses, LocationsCreateErrors, ThrowOnError> => (options.client ?? client).post<LocationsCreateResponses, LocationsCreateErrors, ThrowOnError>({
+    url: '/api/v1/locations',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Returns one Location's detail.
+ */
+export const locationsGet = <ThrowOnError extends boolean = false>(options: Options<LocationsGetData, ThrowOnError>): RequestResult<LocationsGetResponses, LocationsGetErrors, ThrowOnError> => (options.client ?? client).get<LocationsGetResponses, LocationsGetErrors, ThrowOnError>({ url: '/api/v1/locations/{id}', ...options });
+
+/**
+ * Updates a Location's fields.
+ */
+export const locationsUpdate = <ThrowOnError extends boolean = false>(options: Options<LocationsUpdateData, ThrowOnError>): RequestResult<LocationsUpdateResponses, LocationsUpdateErrors, ThrowOnError> => (options.client ?? client).patch<LocationsUpdateResponses, LocationsUpdateErrors, ThrowOnError>({
+    url: '/api/v1/locations/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Soft-closes a Location. Refuses to close the firm-default Location (set another default first).
+ */
+export const locationsClose = <ThrowOnError extends boolean = false>(options: Options<LocationsCloseData, ThrowOnError>): RequestResult<LocationsCloseResponses, LocationsCloseErrors, ThrowOnError> => (options.client ?? client).post<LocationsCloseResponses, LocationsCloseErrors, ThrowOnError>({ url: '/api/v1/locations/{id}/close', ...options });
+
+/**
+ * Replaces a Location's address set (at most one physical and one mailing address for letterhead).
+ */
+export const locationsSetAddresses = <ThrowOnError extends boolean = false>(options: Options<LocationsSetAddressesData, ThrowOnError>): RequestResult<LocationsSetAddressesResponses, LocationsSetAddressesErrors, ThrowOnError> => (options.client ?? client).put<LocationsSetAddressesResponses, LocationsSetAddressesErrors, ThrowOnError>({
+    url: '/api/v1/locations/{id}/addresses',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Replaces a member's Location assignments (exactly one primary when any are assigned; an empty set clears them).
+ */
+export const locationsAssignMember = <ThrowOnError extends boolean = false>(options: Options<LocationsAssignMemberData, ThrowOnError>): RequestResult<LocationsAssignMemberResponses, LocationsAssignMemberErrors, ThrowOnError> => (options.client ?? client).put<LocationsAssignMemberResponses, LocationsAssignMemberErrors, ThrowOnError>({
+    url: '/api/v1/members/{userId}/locations',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Returns the firm's active matter-numbering scheme (the ordered segment template), or null segments when none is configured yet.
+ */
+export const numberingGet = <ThrowOnError extends boolean = false>(options?: Options<NumberingGetData, ThrowOnError>): RequestResult<NumberingGetResponses, NumberingGetErrors, ThrowOnError> => (options?.client ?? client).get<NumberingGetResponses, NumberingGetErrors, ThrowOnError>({ url: '/api/v1/numbering-scheme', ...options });
+
+/**
+ * Replaces the firm's active matter-numbering scheme. The prior scheme is retained but deactivated (numbers already drawn are frozen — a scheme change affects only later matters). Rejects a scheme without exactly one counter segment.
+ */
+export const numberingSet = <ThrowOnError extends boolean = false>(options: Options<NumberingSetData, ThrowOnError>): RequestResult<NumberingSetResponses, NumberingSetErrors, ThrowOnError> => (options.client ?? client).put<NumberingSetResponses, NumberingSetErrors, ThrowOnError>({
+    url: '/api/v1/numbering-scheme',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Renders a candidate numbering scheme against a sample context and counter value, returning the example number and its derived counter scope key. Pure: it writes nothing and never touches a counter.
+ */
+export const numberingPreview = <ThrowOnError extends boolean = false>(options: Options<NumberingPreviewData, ThrowOnError>): RequestResult<NumberingPreviewResponses, NumberingPreviewErrors, ThrowOnError> => (options.client ?? client).post<NumberingPreviewResponses, NumberingPreviewErrors, ThrowOnError>({
+    url: '/api/v1/numbering-scheme/preview',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Creates a folder under a matter (optionally nested under a parent folder). A folder is pure metadata — file bytes are keyed independently, so this moves nothing in storage.
+ */
+export const foldersCreate = <ThrowOnError extends boolean = false>(options: Options<FoldersCreateData, ThrowOnError>): RequestResult<FoldersCreateResponses, FoldersCreateErrors, ThrowOnError> => (options.client ?? client).post<FoldersCreateResponses, FoldersCreateErrors, ThrowOnError>({
+    url: '/api/v1/folders',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Deletes a folder. Refuses a folder that still contains any subfolder or file.
+ */
+export const foldersDelete = <ThrowOnError extends boolean = false>(options: Options<FoldersDeleteData, ThrowOnError>): RequestResult<FoldersDeleteResponses, FoldersDeleteErrors, ThrowOnError> => (options.client ?? client).delete<FoldersDeleteResponses, FoldersDeleteErrors, ThrowOnError>({ url: '/api/v1/folders/{id}', ...options });
+
+/**
+ * Renames a folder and/or moves it under a new parent (or to the matter root). Refuses a move that would form a cycle, or a name already taken among its new siblings.
+ */
+export const foldersUpdate = <ThrowOnError extends boolean = false>(options: Options<FoldersUpdateData, ThrowOnError>): RequestResult<FoldersUpdateResponses, FoldersUpdateErrors, ThrowOnError> => (options.client ?? client).patch<FoldersUpdateResponses, FoldersUpdateErrors, ThrowOnError>({
+    url: '/api/v1/folders/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Lists a matter's files (optionally a single folder), clean and undeleted only, cursor-paginated. A file appears once it has a committed clean version; pending, quarantined, and soft-deleted files are excluded.
+ */
+export const filesList = <ThrowOnError extends boolean = false>(options: Options<FilesListData, ThrowOnError>): RequestResult<FilesListResponses, FilesListErrors, ThrowOnError> => (options.client ?? client).get<FilesListResponses, FilesListErrors, ThrowOnError>({ url: '/api/v1/files', ...options });
+
+/**
+ * Soft-deletes a file: it leaves the default listing and download but its rows and bytes are retained for the recovery window.
+ */
+export const filesDelete = <ThrowOnError extends boolean = false>(options: Options<FilesDeleteData, ThrowOnError>): RequestResult<FilesDeleteResponses, FilesDeleteErrors, ThrowOnError> => (options.client ?? client).delete<FilesDeleteResponses, FilesDeleteErrors, ThrowOnError>({ url: '/api/v1/files/{id}', ...options });
+
+/**
+ * Returns one file's metadata. A pending-only, quarantined, or soft-deleted file is 404.
+ */
+export const filesGet = <ThrowOnError extends boolean = false>(options: Options<FilesGetData, ThrowOnError>): RequestResult<FilesGetResponses, FilesGetErrors, ThrowOnError> => (options.client ?? client).get<FilesGetResponses, FilesGetErrors, ThrowOnError>({ url: '/api/v1/files/{id}', ...options });
+
+/**
+ * Renames a file, moves it to another folder (or the matter root), and/or assigns a document type. Metadata only — the file's bytes and versions are untouched.
+ */
+export const filesUpdate = <ThrowOnError extends boolean = false>(options: Options<FilesUpdateData, ThrowOnError>): RequestResult<FilesUpdateResponses, FilesUpdateErrors, ThrowOnError> => (options.client ?? client).patch<FilesUpdateResponses, FilesUpdateErrors, ThrowOnError>({
+    url: '/api/v1/files/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Lists a file's committed (clean) version history, newest first.
+ */
+export const filesVersions = <ThrowOnError extends boolean = false>(options: Options<FilesVersionsData, ThrowOnError>): RequestResult<FilesVersionsResponses, FilesVersionsErrors, ThrowOnError> => (options.client ?? client).get<FilesVersionsResponses, FilesVersionsErrors, ThrowOnError>({ url: '/api/v1/files/{id}/versions', ...options });
+
+/**
+ * Resolves the file's current clean version and redirects (302) to a short-TTL presigned GET URL the client downloads the bytes directly from. 404 when the file has no clean current version.
+ */
+export const filesDownload = <ThrowOnError extends boolean = false>(options: Options<FilesDownloadData, ThrowOnError>): RequestResult<unknown, FilesDownloadErrors, ThrowOnError> => (options.client ?? client).get<unknown, FilesDownloadErrors, ThrowOnError>({ url: '/api/v1/files/{id}/download', ...options });
+
+/**
+ * Resolves a selection of folders and/or files within a matter to their current clean versions at request time, then streams a ZIP of those bytes (entry paths follow the folder tree). A selection that resolves to a single file redirects (302) to a presigned download instead. An empty selection (matter only) bundles the whole matter.
+ */
+export const downloadsZip = <ThrowOnError extends boolean = false>(options: Options<DownloadsZipData, ThrowOnError>): RequestResult<DownloadsZipResponses, DownloadsZipErrors, ThrowOnError> => (options.client ?? client).post<DownloadsZipResponses, DownloadsZipErrors, ThrowOnError>({
+    url: '/api/v1/downloads/zip',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Connects the firm's EasyPost postage account by storing its API key as a firm secret.
+ */
+export const shippingConnect = <ThrowOnError extends boolean = false>(options: Options<ShippingConnectData, ThrowOnError>): RequestResult<ShippingConnectResponses, ShippingConnectErrors, ThrowOnError> => (options.client ?? client).post<ShippingConnectResponses, ShippingConnectErrors, ThrowOnError>({
+    url: '/api/v1/integrations/shipping/connection',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Creates a draft shipment (recipient, package, options) optionally linked to a matter.
+ */
+export const shippingCreateShipment = <ThrowOnError extends boolean = false>(options: Options<ShippingCreateShipmentData, ThrowOnError>): RequestResult<ShippingCreateShipmentResponses, ShippingCreateShipmentErrors, ThrowOnError> => (options.client ?? client).post<ShippingCreateShipmentResponses, ShippingCreateShipmentErrors, ThrowOnError>({
+    url: '/api/v1/shipments',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Returns live carrier rates for the draft shipment.
+ */
+export const shippingRateShipment = <ThrowOnError extends boolean = false>(options: Options<ShippingRateShipmentData, ThrowOnError>): RequestResult<ShippingRateShipmentResponses, ShippingRateShipmentErrors, ThrowOnError> => (options.client ?? client).post<ShippingRateShipmentResponses, ShippingRateShipmentErrors, ThrowOnError>({ url: '/api/v1/shipments/{id}/rates', ...options });
+
+/**
+ * Buys the chosen rate, stores the label PDF, and records postage + service fee.
+ */
+export const shippingPurchase = <ThrowOnError extends boolean = false>(options: Options<ShippingPurchaseData, ThrowOnError>): RequestResult<ShippingPurchaseResponses, ShippingPurchaseErrors, ThrowOnError> => (options.client ?? client).post<ShippingPurchaseResponses, ShippingPurchaseErrors, ThrowOnError>({
+    url: '/api/v1/shipments/{id}/purchase',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Streams the shipment's label PDF.
+ */
+export const shippingLabel = <ThrowOnError extends boolean = false>(options: Options<ShippingLabelData, ThrowOnError>): RequestResult<ShippingLabelResponses, ShippingLabelErrors, ThrowOnError> => (options.client ?? client).get<ShippingLabelResponses, ShippingLabelErrors, ThrowOnError>({ url: '/api/v1/shipments/{id}/label', ...options });
+
+/**
+ * Pulls and returns current tracking events.
+ */
+export const shippingTracking = <ThrowOnError extends boolean = false>(options: Options<ShippingTrackingData, ThrowOnError>): RequestResult<ShippingTrackingResponses, ShippingTrackingErrors, ThrowOnError> => (options.client ?? client).post<ShippingTrackingResponses, ShippingTrackingErrors, ThrowOnError>({ url: '/api/v1/shipments/{id}/tracking', ...options });
+
+/**
+ * Voids/refunds the shipment's label.
+ */
+export const shippingRefund = <ThrowOnError extends boolean = false>(options: Options<ShippingRefundData, ThrowOnError>): RequestResult<ShippingRefundResponses, ShippingRefundErrors, ThrowOnError> => (options.client ?? client).post<ShippingRefundResponses, ShippingRefundErrors, ThrowOnError>({ url: '/api/v1/shipments/{id}/refund', ...options });

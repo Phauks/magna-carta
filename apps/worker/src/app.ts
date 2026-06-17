@@ -21,6 +21,8 @@ import { registerFoldersRoutes } from "./routes/folders.ts";
 import { registerIncidentsRoute } from "./routes/incidents.ts";
 import { registerLocationsRoutes } from "./routes/locations.ts";
 import { registerShippingRoutes } from "./routes/shipping.ts";
+import { firmSecretStoreNotYetAvailable } from "./shipping/secret-store.ts";
+import { fetchHttpClient } from "@magna-carta/shipping/easypost/http";
 import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
 import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerMeRoute } from "./routes/me.ts";
@@ -186,9 +188,17 @@ export function createApp(options: CreateAppOptions = {}) {
   registerDownloadsRoutes(app, chokepoint);
 
   // Shipping & postage: connection management + the shipment lifecycle (create/rate/purchase/label/
-  // tracking/refund), composed through the same chokepoint. Registered only when its deps are wired
-  // (production passes the firm_secret store seam + a fetch-backed EasyPost client; tests inject fakes).
-  if (options.shipping) registerShippingRoutes(app, chokepoint, options.shipping);
+  // tracking/refund), composed through the same chokepoint. Always registered (so the OpenAPI contract
+  // carries every route); the deps default to the production seam — the firm_secret store throws until
+  // slice 1·2 lands, with a fetch-backed EasyPost client — and tests override them with fakes.
+  registerShippingRoutes(
+    app,
+    chokepoint,
+    options.shipping ?? {
+      secretStoreForFirm: firmSecretStoreNotYetAvailable,
+      httpClient: fetchHttpClient(),
+    },
+  );
 
   // Serve the same document the committed snapshot carries (root tags included), so the live endpoint
   // and the snapshot never diverge. A plain route, so it does not appear in the document itself.
