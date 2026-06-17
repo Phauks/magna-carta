@@ -36,5 +36,10 @@
   "border-width": {
     "$description": "Border widths — mode-invariant lengths consumed directly by recipes (the border COLOR is the semantic border.* token). Design language §6: structure is 1px hairline rules and surface tints, shadow reserved for floating layers. Tokenized so components.css carries no literal lengths, exactly as focus-ring width/offset were before the Tier 1 control recipes (Input, Card, Separator, ...) landed.",
     "default": { "$type": "dimension", "$value": { "value": 1, "unit": "px" } }
+  },
+  "size": {
+    "$description": "Named layout dimensions for app-shell chrome — mode-invariant, consumed directly by recipes (like control/focus-ring/border-width). The global sidebar (page-archetypes Layout A) is a fixed-width rail that collapses to an icon rail; its two widths are tokens so the mc-sidebar recipe carries no literal length.",
+    "sidebar": { "$type": "dimension", "$value": { "value": 256, "unit": "px" } },
+    "sidebar-rail": { "$type": "dimension", "$value": { "value": 56, "unit": "px" } }
   }
 }
