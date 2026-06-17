@@ -6,6 +6,8 @@ export { createOrganization, readOrganization } from "./organization.js";
 export { addName, changeName } from "./name-history.js";
 export { createEdge, readEdges, InvalidEdgeTypeError, UnknownEntityError } from "./edges.js";
 export type { CreateEdgeInput, DirectoryEdge } from "./edges.js";
+export { searchNames, findDuplicateCandidates } from "./search.js";
+export type { NameSearchHit, FindDuplicateCandidatesInput, DuplicateCandidate } from "./search.js";
 export {
   addIdentifier,
   findByIdentifier,

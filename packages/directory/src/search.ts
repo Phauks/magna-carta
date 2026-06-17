@@ -1,6 +1,12 @@
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import {
+  findByIdentifier,
+  IdentifierNotIndexableError,
+  type DirectoryIdentifierContext,
+} from "./identifiers.js";
 import { normalizeName } from "./normalize-name.js";
-import type { EntityKind } from "./types.js";
+import { phoneticCodes } from "./phonetics.js";
+import type { EntityKind, IdentifierType } from "./types.js";
 
 // The minimum normalized query length for a useful trigram search. Trigrams are three-character
 // substrings; any query shorter than three characters produces no trigrams and therefore matches
@@ -138,4 +144,257 @@ export async function searchNames(database: SqlDatabase, query: string): Promise
     displayName: row.display_name ?? "",
     relevance: row.relevance,
   }));
+}
+
+// ── Duplicate-candidate generation ────────────────────────────────────────────
+//
+// findDuplicateCandidates runs three independent blocking channels in parallel and unions their
+// results into a single ranked list. The three channels are:
+//
+//   1. Phonetic block — computes Double Metaphone codes on the family/legal name and probes
+//      directory_name_phonetic_code for any entity whose stored code matches. Sound-alikes
+//      (Smith/Smyth, Cathrine/Catherine) surface here without requiring an exact token.
+//
+//   2. Trigram FTS5 — normalizes the incoming full display name and runs the same OR-trigram
+//      MATCH used by searchNames. This catches substring/typo variants that the phonetic block
+//      might miss (e.g. multi-word legal names where one word is shared).
+//
+//   3. Blind-index identifiers — for each supplied identifier whose type carries a standalone
+//      blind index (SSN, EIN, drivers_license, account), calls findByIdentifier to probe
+//      value_blind_index equality. Non-indexable types (dob, ssn_last_four) are silently
+//      skipped; they are too low-entropy for a standalone equality probe and are resolved by
+//      decrypt-and-compare over a candidate set, not here.
+//
+// The three result sets are unioned by entity id. Each entity accumulates a signalCount: the
+// number of distinct channels that returned it. The list is sorted descending by signalCount
+// so entities that hit more channels appear first (they are stronger duplicate candidates).
+//
+// Merge-resolution seam: this function does not resolve merged entities — entities with
+// status='merged_into' are excluded by the per-channel SQL WHERE clauses (same as searchNames).
+// Task 13 (packages/directory/src/merge.ts) will add a master-resolution pass that follows
+// merged_into_id pointers so a search against a subordinate entity's name surfaces its surviving
+// master. Until then, subordinate rows are invisible to duplicate detection, which is the
+// correct conservative behaviour: a merged subordinate is not itself a duplicate candidate.
+
+// The caller-supplied name and identifier facts to match against. Either given+family (for persons)
+// or legalName (for organizations) drives the name channels; identifiers drives the blind-index
+// channel. All fields are optional — a caller may supply any subset.
+export interface FindDuplicateCandidatesInput {
+  readonly kind: EntityKind;
+  // Person name fields.
+  readonly given?: string;
+  readonly family?: string;
+  // Organization name field.
+  readonly legalName?: string;
+  // Typed identifiers to probe via blind-index equality.
+  readonly identifiers?: ReadonlyArray<{ type: IdentifierType; value: string }>;
+  // When editing an existing entity, supply its id here so it does not appear in its own
+  // candidate list. The exclusion is applied after the union so it is consistent across all
+  // three channels.
+  readonly excludeEntityId?: string;
+}
+
+// A single entry in the ranked duplicate-candidate list. entityId is the directory entity;
+// signalCount is the number of distinct channels (phonetic, trigram, identifier) that returned
+// this entity — higher is a stronger candidate.
+export interface DuplicateCandidate {
+  readonly entityId: string;
+  readonly signalCount: number;
+}
+
+// Derive the primary display name string from the input, for use in the trigram channel.
+// For persons: "[given] [family]" (trimmed, joined by space); for organizations: legalName.
+function displayNameFromInput(input: FindDuplicateCandidatesInput): string {
+  if (input.kind === "organization") {
+    return (input.legalName ?? "").trim();
+  }
+  return [input.given ?? "", input.family ?? ""]
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .join(" ");
+}
+
+// Derive the phonetic blocking token from the input. For persons the family name is the primary
+// conflicts-blocking token (same choice made in person.ts); falls back to given if family is
+// absent. For organizations the full legal name is used (same as organization.ts).
+function phoneticTokenFromInput(input: FindDuplicateCandidatesInput): string {
+  if (input.kind === "organization") {
+    return normalizeName((input.legalName ?? "").trim());
+  }
+  const family = (input.family ?? "").trim();
+  const given = (input.given ?? "").trim();
+  return normalizeName(family.length > 0 ? family : given);
+}
+
+// Channel 1: Phonetic block. Returns entity ids whose stored phonetic codes (any scheme)
+// match any of the codes computed from the input's blocking token. Excludes deleted and
+// merged entities, consistent with searchNames.
+async function phoneticChannel(
+  database: SqlDatabase,
+  input: FindDuplicateCandidatesInput,
+): Promise<Set<string>> {
+  const token = phoneticTokenFromInput(input);
+  if (token.length === 0) return new Set();
+
+  const codes = phoneticCodes(token);
+  if (codes.length === 0) return new Set();
+
+  // Build a parameterized IN list for the code values. Each code is bound as a separate parameter
+  // because D1/SQLite prepared-statement binding does not accept array values natively.
+  const placeholders = codes.map((_, i) => `?${i + 2}`).join(", ");
+
+  // The JOIN path: phonetic_code → name → entity. Merging the entity status check here
+  // (same WHERE clauses as searchNames) ensures merged-away and deleted entities are excluded.
+  const sql = `
+    SELECT DISTINCT dn.entity_id
+    FROM directory_name_phonetic_code AS pc
+    JOIN directory_name AS dn ON pc.name_id = dn.id
+    LEFT JOIN directory_person AS dp
+      ON dn.entity_kind = 'person'
+      AND dp.id = dn.entity_id
+    LEFT JOIN directory_organization AS do
+      ON dn.entity_kind = 'organization'
+      AND do.id = dn.entity_id
+    WHERE dn.entity_kind = ?1
+      AND pc.code IN (${placeholders})
+      AND dn.deleted_at IS NULL
+      AND (
+        (dn.entity_kind = 'person'       AND dp.deleted_at IS NULL AND dp.status != 'merged_into')
+        OR
+        (dn.entity_kind = 'organization' AND do.deleted_at IS NULL AND do.status != 'merged_into')
+      )
+  `;
+
+  const { results } = await database
+    .prepare(sql)
+    .bind(input.kind, ...codes.map((c) => c.code))
+    .all<{ entity_id: string }>();
+
+  return new Set(results.map((row) => row.entity_id));
+}
+
+// Channel 2: Trigram FTS5. Reuses the same buildTrigramOrExpression / normalizeName pipeline as
+// searchNames. Returns entity ids matching the trigram-OR expression built from the input's display
+// name. Short-circuits when the normalized name is shorter than TRIGRAM_MINIMUM_LENGTH.
+async function trigramChannel(
+  database: SqlDatabase,
+  input: FindDuplicateCandidatesInput,
+): Promise<Set<string>> {
+  const displayName = displayNameFromInput(input);
+  const normalizedQuery = normalizeName(displayName);
+  if (normalizedQuery.length < TRIGRAM_MINIMUM_LENGTH) return new Set();
+
+  const ftsMatchExpression = buildTrigramOrExpression(normalizedQuery);
+
+  const sql = `
+    SELECT DISTINCT dn.entity_id
+    FROM directory_name_fts
+    JOIN directory_name AS dn
+      ON directory_name_fts.rowid = dn.rowid
+    LEFT JOIN directory_person AS dp
+      ON dn.entity_kind = 'person'
+      AND dp.id = dn.entity_id
+    LEFT JOIN directory_organization AS do
+      ON dn.entity_kind = 'organization'
+      AND do.id = dn.entity_id
+    WHERE directory_name_fts MATCH ?1
+      AND dn.entity_kind = ?2
+      AND dn.deleted_at IS NULL
+      AND (
+        (dn.entity_kind = 'person'       AND dp.deleted_at IS NULL AND dp.status != 'merged_into')
+        OR
+        (dn.entity_kind = 'organization' AND do.deleted_at IS NULL AND do.status != 'merged_into')
+      )
+  `;
+
+  const { results } = await database
+    .prepare(sql)
+    .bind(ftsMatchExpression, input.kind)
+    .all<{ entity_id: string }>();
+
+  return new Set(results.map((row) => row.entity_id));
+}
+
+// Channel 3: Blind-index identifiers. For each supplied identifier whose type is standalone-
+// indexable, delegates to findByIdentifier to probe value_blind_index equality. Non-indexable
+// types (dob, ssn_last_four) are caught via IdentifierNotIndexableError and silently skipped —
+// those types are resolved by decrypt-and-compare over the full candidate set, not here.
+async function identifierChannel(
+  context: DirectoryIdentifierContext,
+  input: FindDuplicateCandidatesInput,
+): Promise<Set<string>> {
+  const identifiers = input.identifiers ?? [];
+  if (identifiers.length === 0) return new Set();
+
+  const entityIdSets = await Promise.all(
+    identifiers.map(async (identifier) => {
+      try {
+        const entityIds = await findByIdentifier(context, {
+          type: identifier.type,
+          value: identifier.value,
+        });
+        return new Set(entityIds);
+      } catch (error) {
+        if (error instanceof IdentifierNotIndexableError) {
+          // Non-indexable type (dob, ssn_last_four): silently skip — see function doc above.
+          return new Set<string>();
+        }
+        throw error;
+      }
+    }),
+  );
+
+  // Union all identifier matches into one set.
+  const union = new Set<string>();
+  for (const set of entityIdSets) {
+    for (const entityId of set) {
+      union.add(entityId);
+    }
+  }
+  return union;
+}
+
+export async function findDuplicateCandidates(
+  context: DirectoryIdentifierContext,
+  input: FindDuplicateCandidatesInput,
+): Promise<DuplicateCandidate[]> {
+  // Short-circuit when there is nothing to match on: no name and no identifiers.
+  const displayName = displayNameFromInput(input);
+  const hasName =
+    normalizeName(displayName).length >= TRIGRAM_MINIMUM_LENGTH ||
+    phoneticTokenFromInput(input).length > 0;
+  const hasIdentifiers = (input.identifiers ?? []).length > 0;
+  if (!hasName && !hasIdentifiers) return [];
+
+  // Run all three channels in parallel.
+  const [phoneticSet, trigramSet, identifierSet] = await Promise.all([
+    phoneticChannel(context.database, input),
+    trigramChannel(context.database, input),
+    identifierChannel(context, input),
+  ]);
+
+  // Union the three sets and count how many channels contributed each entity id.
+  const signalCounts = new Map<string, number>();
+
+  function tally(set: Set<string>): void {
+    for (const entityId of set) {
+      signalCounts.set(entityId, (signalCounts.get(entityId) ?? 0) + 1);
+    }
+  }
+
+  tally(phoneticSet);
+  tally(trigramSet);
+  tally(identifierSet);
+
+  // Apply excludeEntityId after union — consistent exclusion across all channels.
+  if (input.excludeEntityId !== undefined) {
+    signalCounts.delete(input.excludeEntityId);
+  }
+
+  // Sort descending by signal count (most channels first = strongest candidate first).
+  const candidates: DuplicateCandidate[] = [...signalCounts.entries()]
+    .map(([entityId, signalCount]) => ({ entityId, signalCount }))
+    .sort((a, b) => b.signalCount - a.signalCount);
+
+  return candidates;
 }
