@@ -75,6 +75,16 @@ describe("permission registry", () => {
     ]);
   });
 
+  it("permissionsForNamespace('tools') returns exactly the tools keys, in registry order", () => {
+    expect(permissionsForNamespace("tools")).toEqual([
+      "tools:propertyListings",
+      "tools:propertyRecords",
+      "tools:businessLookup",
+      "tools:attorneyLicense",
+      "tools:shipping",
+    ]);
+  });
+
   it("permissionsForNamespace returns an empty list for an unknown namespace", () => {
     // 'matter' (singular) is NOT the matters namespace — the keys live under 'matters'.
     expect(permissionsForNamespace("matter")).toEqual([]);

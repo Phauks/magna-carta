@@ -26,6 +26,14 @@ export const PERMISSIONS = [
   "files:organize", // create/rename/move folders and files
   "files:delete", // soft-delete files
   "files:manageDocumentTypes", // create/deactivate document types
+  // Tools — the cross-cutting Tools area: general-purpose utilities surfaced in the sidebar and
+  // contextually. One key per tool; gates visibility on both surfaces. Role-seeding lands with the
+  // Tools UI shell.
+  "tools:propertyListings", // external property-listing links (Zillow/Redfin/…)
+  "tools:propertyRecords", // county assessor/recorder record links
+  "tools:businessLookup", // Secretary-of-State business-entity lookup links
+  "tools:attorneyLicense", // attorney-license lookup links
+  "tools:shipping", // shipping & postage (the shipping integration)
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);
