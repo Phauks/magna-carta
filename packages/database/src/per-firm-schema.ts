@@ -788,13 +788,18 @@ export const directoryName = sqliteTable(
   ],
 );
 
-// Phonetic codes for a name — enables soundex/metaphone/double-metaphone fuzzy search alongside the
+// Phonetic codes for a name — enables double-metaphone fuzzy search alongside the
 // FTS5 trigram index. Multiple codes per name (one row per scheme).
+// scheme is an open, application-managed catalog: current values are 'double_metaphone_primary'
+// and 'double_metaphone_secondary' (Double Metaphone yields two codes per input, stored as
+// separate rows so every row carries a single scalar code). Future schemes such as Beider-Morse
+// are added by the application layer without a schema migration — hence the open length() check
+// rather than a closed IN(...) enumeration.
 export const directoryNamePhoneticCode = sqliteTable(
   "directory_name_phonetic_code",
   {
     nameId: text("name_id").notNull().$type<DirectoryNameId>().references(() => directoryName.id),
-    scheme: text("scheme").notNull(), // 'soundex' | 'metaphone' | 'double_metaphone_primary' | 'double_metaphone_secondary'
+    scheme: text("scheme").notNull(),
     code: text("code").notNull(),
   },
   (table) => [
@@ -802,7 +807,7 @@ export const directoryNamePhoneticCode = sqliteTable(
     index("directory_name_phonetic_code_scheme_code_index").on(table.scheme, table.code),
     check(
       "directory_name_phonetic_code_scheme_check",
-      sql`${table.scheme} IN ('soundex', 'metaphone', 'double_metaphone_primary', 'double_metaphone_secondary')`,
+      sql`length(${table.scheme}) > 0`,
     ),
   ],
 );

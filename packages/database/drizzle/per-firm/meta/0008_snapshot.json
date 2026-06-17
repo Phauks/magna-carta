@@ -973,7 +973,7 @@
       "checkConstraints": {
         "directory_name_phonetic_code_scheme_check": {
           "name": "directory_name_phonetic_code_scheme_check",
-          "value": "\"directory_name_phonetic_code\".\"scheme\" IN ('soundex', 'metaphone', 'double_metaphone')"
+          "value": "length(\"directory_name_phonetic_code\".\"scheme\") > 0"
         }
       }
     },

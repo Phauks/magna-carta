@@ -116,7 +116,7 @@ CREATE TABLE `directory_name_phonetic_code` (
 	`code` text NOT NULL,
 	PRIMARY KEY(`name_id`, `scheme`),
 	FOREIGN KEY (`name_id`) REFERENCES `directory_name`(`id`) ON UPDATE no action ON DELETE no action,
-	CONSTRAINT "directory_name_phonetic_code_scheme_check" CHECK("directory_name_phonetic_code"."scheme" IN ('soundex', 'metaphone', 'double_metaphone'))
+	CONSTRAINT "directory_name_phonetic_code_scheme_check" CHECK(length("directory_name_phonetic_code"."scheme") > 0)
 );
 --> statement-breakpoint
 CREATE INDEX `directory_name_phonetic_code_scheme_code_index` ON `directory_name_phonetic_code` (`scheme`,`code`);--> statement-breakpoint
