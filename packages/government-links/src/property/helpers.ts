@@ -93,3 +93,31 @@ export function recorderSites(state: string, jurisdictionType: JurisdictionType 
 export function gisSites(state: string, jurisdictionType: JurisdictionType = "county") {
   return propertyBuilders(state, "gis", jurisdictionType);
 }
+
+// County-centric authoring for multi-system states: one `add` per county carries its assessor (built
+// with the search / template / platform builders) plus the county's recorder and GIS search URLs, so a
+// county's three portals live together and missing systems are visible at a glance. The three
+// per-system arrays the registry consumes are derived via assessors() / recorders() / gisPortals().
+// Recorder and GIS are search-only here (deed images are paywalled; GIS viewers take no public key);
+// omit `gis` for a county whose GIS is just its assessor parcel search (don't duplicate the link).
+export function counties(state: string, jurisdictionType: JurisdictionType = "county") {
+  const recorder = recorderSites(state, jurisdictionType).search;
+  const gis = gisSites(state, jurisdictionType).search;
+  const assessorArr: AssessorSite[] = [];
+  const recorderArr: AssessorSite[] = [];
+  const gisArr: AssessorSite[] = [];
+  return {
+    add(assessor: AssessorSite, portals?: { recorder?: string; gis?: string }) {
+      assessorArr.push(assessor);
+      if (portals?.recorder) {
+        recorderArr.push(recorder(assessor.jurisdictionId, assessor.name, portals.recorder));
+      }
+      if (portals?.gis) {
+        gisArr.push(gis(assessor.jurisdictionId, assessor.name, portals.gis));
+      }
+    },
+    assessors: (): readonly AssessorSite[] => assessorArr,
+    recorders: (): readonly AssessorSite[] => recorderArr,
+    gisPortals: (): readonly AssessorSite[] => gisArr,
+  };
+}
