@@ -1,4 +1,5 @@
 import { adapterError, ok, type Dispatch } from "@magna-carta/integrations/dispatch";
+import { integrationProblem } from "@magna-carta/integrations/problem";
 import type { Adapter, AdapterContext, CapabilityDescriptor } from "@magna-carta/integrations/port";
 import type { AddressInput, BuyLabelRequest, RateRequest } from "../canonical.ts";
 import type { ShippingPort } from "../port.ts";
@@ -72,7 +73,17 @@ export function createEasyPostAdapter(deps: EasyPostAdapterDeps): Adapter<Shippi
           );
         }
         const json = await response.json();
-        return ok(map(json));
+        try {
+          return ok(map(json));
+        } catch {
+          return adapterError(
+            integrationProblem(
+              "validation",
+              response.status,
+              "EasyPost response failed validation",
+            ),
+          );
+        }
       }
 
       function epAddress(input: AddressInput): Record<string, unknown> {

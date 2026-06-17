@@ -99,4 +99,39 @@ describe("EasyPost adapter", () => {
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value.trackingCode).toBe("9400");
   });
+
+  it("getTracking with an empty trackers list returns ok([]), not a throw", async () => {
+    const port = portWith(
+      fakeHttp(() => ({
+        status: 200,
+        body: { trackers: [] },
+      })),
+    );
+    const result = await port.getTracking("9400111899223461892");
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value).toEqual([]);
+  });
+
+  it("rateShipment with a malformed rate response yields a validation adapter-error, not a throw", async () => {
+    const port = portWith(
+      fakeHttp(() => ({
+        status: 200,
+        // Missing required fields: rates[0] has no `id` or `rate`
+        body: {
+          id: "shp_bad",
+          rates: [{ carrier: "USPS", service: "Priority", currency: "USD" }],
+        },
+      })),
+    );
+    const result = await port.rateShipment({
+      from: ADDRESS,
+      to: ADDRESS,
+      parcel: { weightOz: 10 },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe("adapter-error");
+      expect(result.problem?.category).toBe("validation");
+    }
+  });
 });

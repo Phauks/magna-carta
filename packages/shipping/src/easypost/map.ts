@@ -1,11 +1,16 @@
 import { integrationProblem, type IntegrationProblem } from "@magna-carta/integrations/problem";
-import type {
-  CanonicalAddress,
-  Label,
-  RatedShipment,
-  RefundResult,
-  ShipmentOptions,
-  TrackingEvent,
+import {
+  addressSchema,
+  labelSchema,
+  ratedShipmentSchema,
+  refundResultSchema,
+  trackingEventSchema,
+  type CanonicalAddress,
+  type Label,
+  type RatedShipment,
+  type RefundResult,
+  type ShipmentOptions,
+  type TrackingEvent,
 } from "../canonical.ts";
 
 // EasyPost returns money as a decimal-dollar string ("7.45"). Convert to integer minor units without
@@ -41,7 +46,7 @@ interface EpShipment {
 }
 
 export function mapRatedShipment(shipment: EpShipment): RatedShipment {
-  return {
+  return ratedShipmentSchema.parse({
     remoteId: shipment.id,
     raw: shipment,
     rates: (shipment.rates ?? []).map((rate) => ({
@@ -53,7 +58,7 @@ export function mapRatedShipment(shipment: EpShipment): RatedShipment {
       deliveryDays: rate.delivery_days ?? null,
       estDeliveryDate: rate.delivery_date ?? null,
     })),
-  };
+  });
 }
 
 export function mapLabel(shipment: EpShipment): Label {
@@ -65,17 +70,17 @@ export function mapLabel(shipment: EpShipment): Label {
   ) {
     throw new Error("EasyPost shipment is not in a bought state");
   }
-  return {
+  return labelSchema.parse({
     remoteId: shipment.id,
     raw: shipment,
     carrier: selected.carrier,
     service: selected.service,
     trackingCode: shipment.tracking_code,
     labelUrl: shipment.postage_label.label_url,
-    labelFormat: shipment.postage_label.label_file_type ?? "application/pdf",
+    labelFormat: shipment.postage_label.label_file_type ?? "PDF",
     costMinor: dollarsToMinor(selected.rate),
     currency: selected.currency,
-  };
+  });
 }
 
 interface EpAddress {
@@ -94,7 +99,7 @@ interface EpAddress {
 }
 
 export function mapAddress(address: EpAddress): CanonicalAddress {
-  return {
+  return addressSchema.parse({
     remoteId: address.id,
     raw: address,
     name: address.name ?? "",
@@ -108,7 +113,7 @@ export function mapAddress(address: EpAddress): CanonicalAddress {
     phone: address.phone ?? null,
     residential: address.residential ?? null,
     verified: address.verifications?.delivery?.success === true,
-  };
+  });
 }
 
 interface EpTracker {
@@ -120,15 +125,17 @@ interface EpTracker {
   }[];
 }
 
-export function mapTrackingEvents(tracker: EpTracker): TrackingEvent[] {
-  return (tracker.tracking_details ?? []).map((detail, index) => ({
-    remoteId: `${detail.status ?? "event"}:${detail.datetime ?? index}`,
-    raw: detail,
-    status: detail.status ?? "unknown",
-    occurredAt: detail.datetime ?? null,
-    location: locationOf(detail.tracking_location),
-    message: detail.message ?? null,
-  }));
+export function mapTrackingEvents(tracker: EpTracker | undefined): TrackingEvent[] {
+  return (tracker?.tracking_details ?? []).map((detail, index) =>
+    trackingEventSchema.parse({
+      remoteId: `${detail.status ?? "event"}:${detail.datetime ?? index}`,
+      raw: detail,
+      status: detail.status ?? "unknown",
+      occurredAt: detail.datetime ?? null,
+      location: locationOf(detail.tracking_location),
+      message: detail.message ?? null,
+    }),
+  );
 }
 
 function locationOf(
@@ -142,11 +149,11 @@ function locationOf(
 }
 
 export function mapRefund(shipment: { id: string; refund_status?: string }): RefundResult {
-  return {
+  return refundResultSchema.parse({
     remoteId: shipment.id,
     raw: shipment,
     status: shipment.refund_status ?? "submitted",
-  };
+  });
 }
 
 // Certified mail / return receipt / signature → EasyPost `options`. Only emit keys the caller
