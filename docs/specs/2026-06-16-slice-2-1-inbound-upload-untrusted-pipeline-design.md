@@ -87,6 +87,7 @@ Some files cannot be inspected. The policy splits on whether the inability *corr
   - A **decompression-bomb signature** (compressed-to-uncompressed expansion ratio over a guard).
   - **Archive nesting depth** over the cap.
   - **Archive entry-count** over the cap.
+- **Active content → commit as `clean` with an "active-content" badge** (PDF JavaScript, Office macros). Active content is *not* uninspectable and is *not* a standalone quarantine trigger — it is common in legitimate legal documents (fillable court PDFs with calculation scripts, macro-enabled templates). The safe-delivery sandbox (slice 2·3) and the extension blocklist are the execution defenses; the badge warns staff. It escalates to quarantine only when a signature or bomb signal co-occurs — active content *amplifies*, it does not gate alone.
 
 This keeps the common legitimate case frictionless and honest while treating the cases that *look like* evasion as quarantine.
 

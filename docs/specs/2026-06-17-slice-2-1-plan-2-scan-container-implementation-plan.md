@@ -29,7 +29,7 @@
 `200 OK` JSON response — exactly one of (mirrors the `ScanResult` union):
 
 ```json
-{ "verdict": "clean", "engineVersion": "clamav/1.x+yara-x/1.17.0+heuristics/1" }
+{ "verdict": "clean", "engineVersion": "clamav/1.x+yara-x/1.17.0+heuristics/1", "activeContent": false }
 { "verdict": "infected", "engineVersion": "...", "signature": "Eicar-Test-Signature" }
 { "verdict": "unscanned", "reason": "encrypted", "engineVersion": "..." }
 { "verdict": "suspicious", "reason": "decompression-bomb", "engineVersion": "..." }
@@ -225,11 +225,11 @@ git commit -m "feat(scan): yara-x rule compile + buffer scan"
 **Files:** Create `containers/scan/src/heuristics/{mod.rs,pdf.rs,office.rs}`. Tests: `containers/scan/tests/heuristics.rs`.
 
 **Interfaces:**
-- Produces: `fn inspect(bytes: &[u8], sniffed: Option<&str>, caps: &ArchiveCaps) -> Heuristic` where `Heuristic = Clean | Suspicious(Reason) | Encrypted`, with `Reason ∈ { DecompressionBomb, ArchiveNesting, ArchiveEntryCount, PdfActiveContent, OfficeMacro }`. `ArchiveCaps` mirrors the Plan 1 `archiveCapsDefinition` (`maxDepth`, `maxEntries`, `maxUncompressedBytes`, `maxExpansionRatio`).
+- Produces: `fn inspect(bytes: &[u8], sniffed: Option<&str>, caps: &ArchiveCaps) -> Heuristic` where `Heuristic = Clean | ActiveContent | Suspicious(Reason) | Encrypted`, with `Reason ∈ { DecompressionBomb, ArchiveNesting, ArchiveEntryCount }`. PDF JavaScript / Office macros surface as `ActiveContent` — a clean-with-badge signal, **not** a `Suspicious` reason (active content is common in legitimate legal forms; the safe-delivery sandbox is the execution defense). `ArchiveCaps` mirrors the Plan 1 `archiveCapsDefinition` (`maxDepth`, `maxEntries`, `maxUncompressedBytes`, `maxExpansionRatio`).
 
 - [ ] **Step 1: Write the failing tests**, one per signal, with fixtures:
-  - a PDF containing `/OpenAction` + `/JS` → `Suspicious(PdfActiveContent)`.
-  - an `.xlsm`/OLE with a `vbaProject.bin` → `Suspicious(OfficeMacro)`.
+  - a PDF containing `/OpenAction` + `/JS` → `ActiveContent`.
+  - an `.xlsm`/OLE with a `vbaProject.bin` → `ActiveContent`.
   - a zip nested deeper than `maxDepth` → `Suspicious(ArchiveNesting)`.
   - a zip whose uncompressed:compressed ratio exceeds `maxExpansionRatio` → `Suspicious(DecompressionBomb)`.
   - a password-protected zip/PDF → `Encrypted`.
@@ -257,11 +257,11 @@ git commit -m "feat(scan): pdf/office structural heuristics + archive bomb caps"
 - Consumes: `ClamVerdict` (Task 2), yara identifiers (Task 3), `Heuristic` (Task 4).
 - Produces: the precedence rule → the `ScanResult` JSON (the contract above).
 
-Precedence (most-dangerous wins, but evasion-signals before clean):
+Precedence (most-dangerous wins; active content amplifies but never gates alone):
 1. clamd `Infected` **or** any yara match → `infected` (signature = clamd's name, else the yara identifier).
-2. heuristic `Suspicious(reason)` → `suspicious` with the mapped reason (`DecompressionBomb`→`decompression-bomb`, `ArchiveNesting`→`archive-nesting`, `ArchiveEntryCount`→`archive-entry-count`; `PdfActiveContent`/`OfficeMacro` → **`infected`** with a synthetic signature, since active content in an unscannable wrapper is treated as a positive, not merely suspicious — confirm this mapping with the owner if active-content should be a softer signal).
+2. heuristic `Suspicious(reason)` (bomb/nesting/entry-count) → `suspicious` with the mapped reason (`DecompressionBomb`→`decompression-bomb`, `ArchiveNesting`→`archive-nesting`, `ArchiveEntryCount`→`archive-entry-count`).
 3. heuristic `Encrypted` **or** clamd `Unavailable` with no other signal → `unscanned` (`reason: "encrypted"` / `"no-engine"`).
-4. else → `clean`.
+4. else → `clean`, with `activeContent: true` when the `ActiveContent` heuristic fired (PDF JavaScript / Office macros). Active content is **not** a standalone verdict — it commits with a badge, and the safe-delivery sandbox + extension blocklist are the execution defenses. It reaches quarantine only when a step-1/step-2 signal co-occurs (those take precedence above).
 
 - [ ] **Step 1: Write the failing test** — a table-driven test over (clam, yara, heuristic) tuples asserting the JSON verdict for each precedence branch.
 

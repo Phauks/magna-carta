@@ -52,7 +52,9 @@
 ```typescript
 // packages/file-manager/src/scan-port.ts
 export type ScanResult =
-  | { verdict: "clean"; engineVersion: string }
+  // activeContent flags PDF JavaScript / Office macros on an otherwise-clean file — committed with a
+  // badge (the safe-delivery sandbox is the execution defense), never quarantined on its own
+  | { verdict: "clean"; engineVersion: string; activeContent?: boolean }
   | { verdict: "infected"; engineVersion: string; signature: string | null }
   // benign-uninspectable: commits as `unscanned`, the reason surfaces as a "not scanned" badge
   | { verdict: "unscanned"; reason: "no-engine" | "encrypted"; engineVersion: string | null }
@@ -148,7 +150,7 @@ git commit -m "feat(file-manager): widen MalwareScanPort to clean/infected/unsca
 - Test: `packages/database/test/schema-fitness.test.ts` (extend the existing fitness suite)
 
 **Interfaces:**
-- Produces: `file_version.scan_detail` — nullable TEXT, the persisted reason behind an `unscanned` badge or a suspicious quarantine; null for plain `clean`.
+- Produces: `file_version.scan_detail` — nullable TEXT, the persisted reason behind an `unscanned` badge or a suspicious quarantine, or `"active-content"` on a clean file carrying PDF JavaScript / Office macros; null for a plain clean file.
 
 - [ ] **Step 1: Add the column to the Drizzle schema**
 
@@ -157,7 +159,8 @@ In the `fileVersion` table definition, after `scanEngineVersion`:
 ```typescript
     scanVerdict: text("scan_verdict", { enum: ["unscanned", "clean", "infected"] }),
     scanEngineVersion: text("scan_engine_version"),
-    // The reason behind an `unscanned` badge ("no-engine"/"encrypted"/"oversize") or a suspicious
+    // The reason behind an `unscanned` badge ("no-engine"/"encrypted"/"oversize"), an "active-content"
+    // badge on an otherwise-clean file (PDF JavaScript / Office macros), or a suspicious
     // quarantine ("decompression-bomb"/"archive-nesting"/"archive-entry-count"). Null for a plain
     // clean scan. Surfaces the "not scanned" badge in read models without overloading scan_verdict.
     scanDetail: text("scan_detail"),
@@ -195,7 +198,7 @@ git commit -m "feat(database): add file_version.scan_detail for the scan badge/q
 Mapping the gate must implement, in order, after the existing size/type/policy gates:
 - `objectSize > inspectableSizeCap` → **commit** `unscanned`, `scanDetail: "oversize"` (the scan stream is cancelled, never sent to the engine).
 - otherwise call `scanPort.scan`:
-  - `clean` → commit `clean`, `scanDetail: null`.
+  - `clean` → commit `clean`, `scanDetail: scan.activeContent ? "active-content" : null` (active content commits with a badge — the safe-delivery sandbox, not quarantine, is the execution defense).
   - `unscanned` (reason `no-engine`|`encrypted`) → commit `unscanned`, `scanDetail: reason`.
   - `infected` → quarantine `scan-infected`.
   - `suspicious` (bomb/nesting/entry-count) → quarantine `scan-suspicious`, recording the sub-reason in `scanDetail`.
@@ -319,7 +322,7 @@ Then keep the existing size/type/policy gates, but every `return { kind: "quaran
     contentSha256: hashed.hash,
     scanVerdict: scan.verdict === "clean" ? "clean" : "unscanned",
     scanEngineVersion: scan.engineVersion,
-    scanDetail: scan.verdict === "clean" ? null : scan.reason,
+    scanDetail: scan.verdict === "clean" ? (scan.activeContent ? "active-content" : null) : scan.reason,
   };
 ```
 
