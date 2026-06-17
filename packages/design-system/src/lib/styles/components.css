@@ -1749,8 +1749,7 @@
     justify-content: center;
     inline-size: var(--mc-control-md);
     block-size: var(--mc-control-md);
-    /* Circular highlights (hover/selected/today/endpoints) read nicer than rounded squares. */
-    border-radius: var(--mc-radius-full);
+    border-radius: var(--mc-radius-md);
     color: var(--mc-text-default);
     font-family: var(--mc-font-sans);
     font-size: var(--mc-text-sm);
@@ -1885,23 +1884,23 @@
     color: var(--mc-text-default);
     border-radius: var(--mc-radius-none);
   }
-  /* Endpoints (and a lone selected date) are the SAME shape — a primary circle — so selecting one
-     date looks like the final endpoint, not a different shape. */
+  /* Endpoints (and a lone selected date) are the SAME shape — a rounded-square primary chip — so
+     selecting one date looks like the final endpoint, not a different shape. */
   .mc-calendar-day[data-range-start],
   .mc-calendar-day[data-range-end],
   .mc-calendar-day[data-selection-start],
   .mc-calendar-day[data-selection-end] {
     background-color: var(--mc-action-primary);
     color: var(--mc-action-primary-foreground);
-    border-radius: var(--mc-radius-full);
+    border-radius: var(--mc-radius-md);
   }
-  /* Today is a circular ring. Declared AFTER the range rules so it stays a circle even when it falls
-     inside a range (the square band must not re-square it — the owner flagged that). */
+  /* Today is a ring. Declared AFTER the range rules so it keeps its rounded-square shape even when it
+     falls inside a range (the square band must not re-square it — the owner flagged that). */
   .mc-calendar-day[data-today] {
     border-style: solid;
     border-width: var(--mc-border-width-default);
     border-color: var(--mc-border-strong);
-    border-radius: var(--mc-radius-full);
+    border-radius: var(--mc-radius-md);
   }
 
   /*

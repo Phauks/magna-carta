@@ -16,8 +16,24 @@
   import Checkbox from "../lib/components/checkbox/index.ts";
   import Button from "../lib/components/button/index.ts";
 
+  // Validate the address shape, then check its ending against KNOWN top-level domains — so not just
+  // a length rule ("tre@mail.c" / "tre@mail.zz" are rejected) but a real TLD. (Demo set; production
+  // would use the full IANA / public-suffix list.)
+  const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.([a-z]{2,})$/i;
+  const KNOWN_TLDS = new Set([
+    "com", "org", "net", "edu", "gov", "mil", "int", "io", "co", "ai", "app", "dev", "xyz", "info",
+    "biz", "me", "tv", "online", "site", "tech", "law", "legal", "us", "uk", "ca", "au", "nz", "de",
+    "fr", "es", "it", "nl", "be", "ch", "se", "no", "dk", "fi", "ie", "pt", "pl", "jp", "cn", "in",
+    "br", "mx", "za",
+  ]);
+
+  function isKnownEmail(value: string): boolean {
+    const tld = EMAIL_SHAPE.exec(value)?.[1]?.toLowerCase();
+    return tld !== undefined && KNOWN_TLDS.has(tld);
+  }
+
   const schema = z.object({
-    email: z.string().email("Enter a valid email address"),
+    email: z.string().refine(isKnownEmail, "Enter a valid email address"),
     acceptTerms: z
       .boolean()
       .refine((value) => value === true, "You must accept the engagement terms"),
@@ -58,11 +74,28 @@
       await expect(email).toHaveAttribute("aria-describedby");
     });
 
+    await step("An unknown TLD is rejected (checked against known endings, not just length)", async () => {
+      // .c is too short and .zz is not a real TLD — both must fail, unlike a bare length rule.
+      for (const bad of ["tre@mail.c", "tre@mail.zz"]) {
+        await userEvent.clear(email);
+        await userEvent.type(email, bad);
+        await waitFor(() => expect(email).toHaveAttribute("aria-invalid", "true"));
+        await expect(canvas.getByText("Enter a valid email address")).toBeVisible();
+      }
+    });
+
     await step("Correcting the value clears the error", async () => {
       await userEvent.clear(email);
-      await userEvent.type(email, "partner@firm.example");
+      await userEvent.type(email, "partner@firm.com");
       await waitFor(() => expect(canvas.queryByText("Enter a valid email address")).toBeNull());
       await expect(email).not.toHaveAttribute("aria-invalid", "true");
+    });
+
+    await step("Submitting validates in place — no navigation", async () => {
+      await userEvent.click(canvas.getByRole("checkbox", { name: "I accept the engagement terms" }));
+      await userEvent.click(canvas.getByRole("button", { name: "Submit" }));
+      // The dialog/page did not navigate away: the form is still here.
+      await expect(canvas.getByRole("button", { name: "Submit" })).toBeVisible();
     });
   }}
 >
