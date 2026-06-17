@@ -263,6 +263,7 @@ export interface CommitVersionInput {
   readonly contentSha256: string;
   readonly scanVerdict: "unscanned" | "clean";
   readonly scanEngineVersion: string | null;
+  readonly scanDetail: string | null;
   readonly now: string;
 }
 
@@ -318,6 +319,7 @@ export async function commitVersion(
           contentSha256: input.contentSha256,
           scanVerdict: input.scanVerdict,
           scanEngineVersion: input.scanEngineVersion,
+          scanDetail: input.scanDetail,
           committedAt: input.now,
         }),
         bumpFileCurrentVersionStatement(database, version.fileId, input.versionId, input.now),
@@ -341,7 +343,7 @@ export async function commitVersion(
 
 export async function quarantineVersion(
   database: SqlDatabase,
-  input: { versionId: FileVersionId; reason: string },
+  input: { versionId: FileVersionId; reason: string; scanDetail: string | null },
   options: FileServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
   const version = await loadPendingVersion(database, input.versionId);
@@ -354,7 +356,7 @@ export async function quarantineVersion(
   return {
     effect: {
       statements: [
-        quarantineVersionStatement(database, input.versionId),
+        quarantineVersionStatement(database, input.versionId, input.scanDetail),
         fileAuditStatement(database, options, "file.quarantined", input.versionId),
       ],
       outboxMessages: [

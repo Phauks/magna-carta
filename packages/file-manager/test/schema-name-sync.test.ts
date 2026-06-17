@@ -171,11 +171,12 @@ describe("schema name sync (file-manager SQL pinned to @magna-carta/database)", 
           contentSha256: "h",
           scanVerdict: "unscanned",
           scanEngineVersion: null,
+          scanDetail: null,
           committedAt: "t",
         }),
       ),
       sqlOf(bumpFileCurrentVersionStatement(stub, F, V, "t")),
-      sqlOf(quarantineVersionStatement(stub, V)),
+      sqlOf(quarantineVersionStatement(stub, V, null)),
       sqlOf(abandonVersionStatement(stub, V)),
       sqlOf(
         insertUploadSessionStatement(stub, {

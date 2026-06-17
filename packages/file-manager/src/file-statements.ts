@@ -165,6 +165,7 @@ export interface CommitVersionRow {
   readonly contentSha256: string;
   readonly scanVerdict: "unscanned" | "clean";
   readonly scanEngineVersion: string | null;
+  readonly scanDetail: string | null;
   readonly committedAt: string;
 }
 
@@ -172,7 +173,7 @@ export interface CommitVersionRow {
 export function commitVersionStatement(database: SqlDatabase, row: CommitVersionRow): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${FILE_VERSION_TABLE} SET status = 'clean', size_bytes = ?2, sniffed_content_type = ?3, content_sha256 = ?4, scan_verdict = ?5, scan_engine_version = ?6, committed_at = ?7 WHERE id = ?1 AND status = 'pending'`,
+      `UPDATE ${FILE_VERSION_TABLE} SET status = 'clean', size_bytes = ?2, sniffed_content_type = ?3, content_sha256 = ?4, scan_verdict = ?5, scan_engine_version = ?6, scan_detail = ?7, committed_at = ?8 WHERE id = ?1 AND status = 'pending'`,
     )
     .bind(
       row.versionId,
@@ -181,6 +182,7 @@ export function commitVersionStatement(database: SqlDatabase, row: CommitVersion
       row.contentSha256,
       row.scanVerdict,
       row.scanEngineVersion,
+      row.scanDetail,
       row.committedAt,
     );
 }
@@ -207,12 +209,13 @@ export function bumpFileCurrentVersionStatement(
 export function quarantineVersionStatement(
   database: SqlDatabase,
   versionId: FileVersionId,
+  scanDetail: string | null,
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${FILE_VERSION_TABLE} SET status = 'quarantined' WHERE id = ?1 AND status = 'pending'`,
+      `UPDATE ${FILE_VERSION_TABLE} SET status = 'quarantined', scan_detail = ?2 WHERE id = ?1 AND status = 'pending'`,
     )
-    .bind(versionId);
+    .bind(versionId, scanDetail);
 }
 
 // The no-op skip: identical re-upload abandons the freshly-minted pending version.

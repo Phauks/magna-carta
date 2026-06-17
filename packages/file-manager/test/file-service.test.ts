@@ -58,6 +58,7 @@ async function commit(
       contentSha256: hash,
       scanVerdict: "unscanned",
       scanEngineVersion: null,
+      scanDetail: null,
       now: now(),
     },
     options,
@@ -159,7 +160,7 @@ describe("quarantineVersion", () => {
     const { versionId } = await initiate(database, matterId);
     const result = await quarantineVersion(
       database,
-      { versionId, reason: "scan-infected" },
+      { versionId, reason: "scan-infected", scanDetail: null },
       options,
     );
     await commitEffectBatch(database, result.effect, { now });
@@ -169,6 +170,51 @@ describe("quarantineVersion", () => {
       .bind(versionId)
       .all<{ status: string }>();
     expect(row.results[0]?.status).toBe("quarantined");
+  });
+});
+
+describe("commitVersion — scan_detail persistence", () => {
+  it("persists scan_detail on commit", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { versionId } = await initiate(database, matterId);
+    const result = await commitVersion(
+      database,
+      {
+        versionId,
+        sizeBytes: 4,
+        sniffedContentType: "application/pdf",
+        contentSha256: "ab",
+        scanVerdict: "unscanned",
+        scanEngineVersion: null,
+        scanDetail: "encrypted",
+        now: now(),
+      },
+      options,
+    );
+    await commitEffectBatch(database, result.effect, { now });
+    const rows = await database
+      .prepare("SELECT scan_detail FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .all<{ scan_detail: string | null }>();
+    expect(rows.results[0]?.scan_detail).toBe("encrypted");
+  });
+
+  it("persists scan_detail on quarantine", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { versionId } = await initiate(database, matterId);
+    const result = await quarantineVersion(
+      database,
+      { versionId, reason: "scan-infected", scanDetail: "trojan detected" },
+      options,
+    );
+    await commitEffectBatch(database, result.effect, { now });
+    const rows = await database
+      .prepare("SELECT scan_detail FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .all<{ scan_detail: string | null }>();
+    expect(rows.results[0]?.scan_detail).toBe("trojan detected");
   });
 });
 

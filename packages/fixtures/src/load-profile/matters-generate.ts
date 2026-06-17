@@ -379,6 +379,7 @@ export async function generatePracticeVolume(
             contentSha256,
             scanVerdict: "clean",
             scanEngineVersion: null,
+            scanDetail: null,
             now: clock.now(),
           },
           serviceOptions,

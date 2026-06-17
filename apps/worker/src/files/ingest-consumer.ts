@@ -103,6 +103,7 @@ export async function handleIngestMessage(env: Bindings, message: R2EventMessage
             contentSha256: outcome.contentSha256,
             scanVerdict: outcome.scanVerdict,
             scanEngineVersion: outcome.scanEngineVersion,
+            scanDetail: outcome.scanDetail,
             now: now(),
           },
           options,
@@ -115,7 +116,7 @@ export async function handleIngestMessage(env: Bindings, message: R2EventMessage
       }
       const result = await quarantineVersion(
         firmDatabase,
-        { versionId: pending.id, reason: outcome.reason },
+        { versionId: pending.id, reason: outcome.reason, scanDetail: outcome.scanDetail },
         options,
       );
       return {
