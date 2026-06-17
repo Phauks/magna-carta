@@ -370,6 +370,9 @@ importers:
       '@magna-carta/database':
         specifier: workspace:*
         version: link:../database
+      '@magna-carta/encryption':
+        specifier: workspace:*
+        version: link:../encryption
       '@magna-carta/file-manager':
         specifier: workspace:*
         version: link:../file-manager
