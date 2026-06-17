@@ -23,8 +23,8 @@ export interface WorkerPlugin {
   registerAdapter?(registry: IntegrationRegistry, runtime: PluginRuntime): void;
 }
 
-// THE single place the worker learns a plugin exists. Populated in Task 4 (shipping) and Task 6
-// (parcels, property-links).
+// THE single place the worker learns a plugin exists. Populated as each integration is wired:
+// shipping first (credentialed), then parcels and property-links (catalog-only).
 export const workerPlugins: readonly WorkerPlugin[] = [];
 
 export function listManifests(): readonly IntegrationManifest[] {
