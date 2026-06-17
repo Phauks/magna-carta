@@ -23,6 +23,7 @@ import { createLocalPerFirmDatabase } from "../local-database.ts";
 import { generateLedgerVolume, type VolumeProbes } from "./generate.ts";
 import { generatePracticeVolume, type PracticeProbes } from "./matters-generate.ts";
 import { generateProtectedVolume, type ProtectedProbes } from "./protected-generate.ts";
+import { generateDirectoryVolume, type DirectoryProbes } from "./directory-generate.ts";
 import { GENERATOR_VERSION, type LedgerVolumeProfile } from "./profile.ts";
 
 // Snapshot identity: the resolved profile parameters, the generation seed, the per-firm schema
@@ -47,6 +48,12 @@ export interface SnapshotManifest {
   readonly incidentCount: number;
   readonly firmSecretCount: number;
   readonly protectedProbes: ProtectedProbes;
+  // The directory volume laid over the practice (persons/organizations, names, edges, blind-indexed
+  // identifiers, matter parties) and the probe identifiers the directory measurement layer binds its
+  // blind-index lookup / protected-list decrypt / candidate-generation / graph-expansion ops to.
+  readonly directoryPersonCount: number;
+  readonly directoryOrganizationCount: number;
+  readonly directoryProbes: DirectoryProbes;
 }
 
 export interface LoadedSnapshot extends MigratedNodeDatabase {
@@ -125,12 +132,20 @@ export async function loadProfileSnapshot(
         profile.practice,
         options,
       );
-      // The protected volume rides last — its sealed incidents reuse a mirrored member as reporter.
+      // The protected volume rides next — its sealed incidents reuse a mirrored member as reporter.
       const protectedVolume = await generateProtectedVolume(
         generated.database,
         context,
         profile.protected,
         practice.probes.responsibleMemberId,
+        options,
+      );
+      // The directory volume rides last — its matter-party links join entities to the matters the
+      // practice volume already laid down, so it must run after practice generation.
+      const directoryVolume = await generateDirectoryVolume(
+        generated.database,
+        context,
+        profile.directory,
         options,
       );
       const manifest: SnapshotManifest = {
@@ -148,6 +163,9 @@ export async function loadProfileSnapshot(
         incidentCount: protectedVolume.incidentCount,
         firmSecretCount: protectedVolume.firmSecretCount,
         protectedProbes: protectedVolume.probes,
+        directoryPersonCount: directoryVolume.personCount,
+        directoryOrganizationCount: directoryVolume.organizationCount,
+        directoryProbes: directoryVolume.probes,
       };
       // Artifact before manifest: the replay gate above requires BOTH files, so a crash between
       // the two writes leaves a regenerable miss, never a manifest pointing at a missing artifact.

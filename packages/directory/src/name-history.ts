@@ -6,19 +6,19 @@ import type {
   DirectoryOrganizationId,
   DirectoryPersonId,
 } from "@magna-carta/identifiers/types";
-import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.js";
-import { runDirectoryEffect } from "./run-directory-effect.js";
-import { entityKindFromId } from "./entity-kind.js";
-import { normalizeName } from "./normalize-name.js";
-import { phoneticCodes } from "./phonetics.js";
+import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.ts";
+import { runDirectoryEffect } from "./run-directory-effect.ts";
+import { entityKindFromId } from "./entity-kind.ts";
+import { normalizeName } from "./normalize-name.ts";
+import { phoneticCodes } from "./phonetics.ts";
 import {
   flipCurrentNameToFormerStatement,
   insertNameStatement,
   insertPhoneticCodeStatements,
   updateOrganizationNameStatement,
   updatePersonNameStatement,
-} from "./statements.js";
-import type { NameRole } from "./types.js";
+} from "./statements.ts";
+import type { NameRole } from "./types.ts";
 
 // Render the display name for a person from its structured parts, collapsing blanks so a mononym
 // or a missing middle name produces a clean single-spaced string.

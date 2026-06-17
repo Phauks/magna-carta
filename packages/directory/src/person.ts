@@ -1,10 +1,10 @@
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DirectoryNameId, DirectoryPersonId } from "@magna-carta/identifiers/types";
-import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.js";
-import { runDirectoryEffect } from "./run-directory-effect.js";
-import { normalizeName } from "./normalize-name.js";
-import { phoneticCodes } from "./phonetics.js";
+import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.ts";
+import { runDirectoryEffect } from "./run-directory-effect.ts";
+import { normalizeName } from "./normalize-name.ts";
+import { phoneticCodes } from "./phonetics.ts";
 import {
   insertNameStatement,
   insertPersonStatement,
@@ -13,7 +13,7 @@ import {
   updatePersonFieldsStatement,
   type PersonRow,
   type PersonStatus,
-} from "./statements.js";
+} from "./statements.ts";
 
 // The caller-supplied fields for a new person. given/family are the required structured name parts;
 // the rest are optional. There is no idempotency context at this layer — that is threaded at the

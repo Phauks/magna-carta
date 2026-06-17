@@ -1,5 +1,5 @@
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
-import type { EntityKind } from "./types.js";
+import type { EntityKind } from "./types.ts";
 
 // Determine whether an entity id belongs to a person or an organization by inspecting the handle
 // prefix. Identifiers are self-describing: the prefix is the entity type spelled out in full,

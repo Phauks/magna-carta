@@ -17,10 +17,10 @@ import {
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DirectoryIdentifierId } from "@magna-carta/identifiers/types";
-import { directoryAuditStatement } from "./audit.js";
-import { runDirectoryEffect, type DirectoryIdempotencyContext } from "./run-directory-effect.js";
-import { DIRECTORY_IDENTIFIER_TABLE } from "./statements.js";
-import type { IdentifierType } from "./types.js";
+import { directoryAuditStatement } from "./audit.ts";
+import { runDirectoryEffect, type DirectoryIdempotencyContext } from "./run-directory-effect.ts";
+import { DIRECTORY_IDENTIFIER_TABLE } from "./statements.ts";
+import type { IdentifierType } from "./types.ts";
 
 // Sensitive typed identifiers (SSN, EIN, driver's license, account number, DOB, SSN-last-four) live in
 // directory_identifier, one physical (value_ciphertext, value_blind_index) column pair per row. Every

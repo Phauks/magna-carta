@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
-import { phoneticCodes } from "../src/phonetics.js";
+import { phoneticCodes } from "../src/phonetics.ts";
 
 test("returns scheme-keyed primary + secondary Double Metaphone codes", () => {
   const codes = phoneticCodes("Catherine");

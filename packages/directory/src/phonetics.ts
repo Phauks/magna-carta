@@ -2,7 +2,7 @@
 // All imports of `double-metaphone` in this package must live here; no other
 // source file may import it directly (enforced by the seam-boundary fitness test).
 import { doubleMetaphone } from "double-metaphone";
-import type { PhoneticScheme } from "./types.js";
+import type { PhoneticScheme } from "./types.ts";
 
 // `doubleMetaphone(value)` returns a 2-tuple [primary, secondary] of strings.
 // Both codes are always stored, even when primary === secondary, because the

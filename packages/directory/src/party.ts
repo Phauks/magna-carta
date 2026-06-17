@@ -1,9 +1,9 @@
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DirectoryPartyRoleId, MatterPartyId } from "@magna-carta/identifiers/types";
-import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.js";
-import { runDirectoryEffect } from "./run-directory-effect.js";
-import { assertEntityExists } from "./entity-kind.js";
+import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.ts";
+import { runDirectoryEffect } from "./run-directory-effect.ts";
+import { assertEntityExists } from "./entity-kind.ts";
 
 // The caller-supplied fields for linking a directory entity to a matter in a role. The role is a
 // free-text value (e.g. 'client', 'opposing_party', 'guardian') — directory_party_role is the catalog

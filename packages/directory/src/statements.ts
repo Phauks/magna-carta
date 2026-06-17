@@ -4,7 +4,7 @@ import type {
   DirectoryOrganizationId,
   DirectoryPersonId,
 } from "@magna-carta/identifiers/types";
-import type { EntityKind, NameRole, PhoneticScheme } from "./types.js";
+import type { EntityKind, NameRole, PhoneticScheme } from "./types.ts";
 
 // Table names tracked against @magna-carta/database's per-firm schema by the schema-name-sync fitness
 // test.

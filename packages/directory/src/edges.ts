@@ -5,10 +5,10 @@ import type {
   DirectoryOrganizationId,
   DirectoryPersonId,
 } from "@magna-carta/identifiers/types";
-import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.js";
-import { runDirectoryEffect } from "./run-directory-effect.js";
-import { assertEntityExists, UnknownEntityError } from "./entity-kind.js";
-import { EDGE_TYPES, type EdgeType } from "./types.js";
+import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.ts";
+import { runDirectoryEffect } from "./run-directory-effect.ts";
+import { assertEntityExists, UnknownEntityError } from "./entity-kind.ts";
+import { EDGE_TYPES, type EdgeType } from "./types.ts";
 
 // The error thrown when a caller supplies an edge_type value that is not in the
 // application-level catalog. The DB schema allows any non-empty string, so this

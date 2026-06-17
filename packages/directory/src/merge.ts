@@ -3,11 +3,11 @@ import { domainAuditStatement } from "@magna-carta/data-access/audit-statements"
 import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { EntityMergeId } from "@magna-carta/identifiers/types";
-import type { DirectoryWriteOptions } from "./audit.js";
-import { entityKindFromId } from "./entity-kind.js";
-import type { DirectoryIdentifierContext } from "./identifiers.js";
-import { runDirectoryEffect } from "./run-directory-effect.js";
-import type { EntityKind } from "./types.js";
+import type { DirectoryWriteOptions } from "./audit.ts";
+import { entityKindFromId } from "./entity-kind.ts";
+import type { DirectoryIdentifierContext } from "./identifiers.ts";
+import { runDirectoryEffect } from "./run-directory-effect.ts";
+import type { EntityKind } from "./types.ts";
 
 // Merge is the directory's most intricate write: it folds a duplicate (the subordinate) into the
 // surviving record (the master) NON-DESTRUCTIVELY. The subordinate row is archived, never deleted —

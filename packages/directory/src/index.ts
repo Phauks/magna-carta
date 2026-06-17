@@ -1,24 +1,24 @@
-export * from "./types.js";
-export { normalizeName } from "./normalize-name.js";
-export { phoneticCodes } from "./phonetics.js";
-export { createPerson, readPerson, updatePerson } from "./person.js";
-export { createOrganization, readOrganization } from "./organization.js";
-export { addName, changeName } from "./name-history.js";
-export { createEdge, readEdges, InvalidEdgeTypeError, UnknownEntityError } from "./edges.js";
-export type { CreateEdgeInput, DirectoryEdge } from "./edges.js";
-export { searchNames, findDuplicateCandidates } from "./search.js";
-export type { NameSearchHit, FindDuplicateCandidatesInput, DuplicateCandidate } from "./search.js";
+export * from "./types.ts";
+export { normalizeName } from "./normalize-name.ts";
+export { phoneticCodes } from "./phonetics.ts";
+export { createPerson, readPerson, updatePerson } from "./person.ts";
+export { createOrganization, readOrganization } from "./organization.ts";
+export { addName, changeName } from "./name-history.ts";
+export { createEdge, readEdges, InvalidEdgeTypeError, UnknownEntityError } from "./edges.ts";
+export type { CreateEdgeInput, DirectoryEdge } from "./edges.ts";
+export { searchNames, findDuplicateCandidates } from "./search.ts";
+export type { NameSearchHit, FindDuplicateCandidatesInput, DuplicateCandidate } from "./search.ts";
 export {
   addIdentifier,
   findByIdentifier,
   readIdentifier,
   IdentifierNotIndexableError,
-} from "./identifiers.js";
+} from "./identifiers.ts";
 export type {
   AddIdentifierInput,
   DirectoryIdentifierContext,
   FindByIdentifierInput,
-} from "./identifiers.js";
+} from "./identifiers.ts";
 export type {
   AddNameInput,
   AddOrganizationNameInput,
@@ -26,10 +26,10 @@ export type {
   ChangeNameInput,
   ChangeOrganizationNameInput,
   ChangePersonNameInput,
-} from "./name-history.js";
-export type { DirectoryWriteOptions } from "./audit.js";
-export { DirectoryIdempotencyConflictError } from "./run-directory-effect.js";
-export type { DirectoryIdempotencyContext } from "./run-directory-effect.js";
+} from "./name-history.ts";
+export type { DirectoryWriteOptions } from "./audit.ts";
+export { DirectoryIdempotencyConflictError } from "./run-directory-effect.ts";
+export type { DirectoryIdempotencyContext } from "./run-directory-effect.ts";
 export {
   createCategory,
   assignCategory,
@@ -37,32 +37,32 @@ export {
   CategoryNotFoundError,
   EntityNotFoundError,
   CategoryAppliesToMismatchError,
-} from "./categories.js";
+} from "./categories.ts";
 export type {
   CreateCategoryInput,
   AssignCategoryInput,
   CategoryRow,
   CategoryAppliesTo,
-} from "./categories.js";
+} from "./categories.ts";
 export {
   mergeEntities,
   MergeSameEntityError,
   MergeEntityNotFoundError,
   MergeKindMismatchError,
   MergeAlreadyMergedError,
-} from "./merge.js";
-export type { MergeEntitiesInput, SurvivorshipInput, SurvivorshipChoice } from "./merge.js";
+} from "./merge.ts";
+export type { MergeEntitiesInput, SurvivorshipInput, SurvivorshipChoice } from "./merge.ts";
 export {
   assertNoDanglingToSubordinate,
   findDanglingToSubordinate,
   DanglingSubordinateReferenceError,
-} from "./fitness.js";
-export type { DanglingReference } from "./fitness.js";
-export { linkMatterParty, readMatterParties, createPartyRole, listPartyRoles } from "./party.js";
+} from "./fitness.ts";
+export type { DanglingReference } from "./fitness.ts";
+export { linkMatterParty, readMatterParties, createPartyRole, listPartyRoles } from "./party.ts";
 export type {
   LinkMatterPartyInput,
   MatterPartyRow,
   CreatePartyRoleInput,
   PartyRoleRow,
-} from "./party.js";
-export { migrateClientDisplayFields } from "./client-migration.js";
+} from "./party.ts";
+export { migrateClientDisplayFields } from "./client-migration.ts";

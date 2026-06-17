@@ -2,7 +2,7 @@ import { domainAuditStatement } from "@magna-carta/data-access/audit-statements"
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { UserId } from "@magna-carta/identifiers/types";
-import type { DirectoryIdempotencyContext } from "./run-directory-effect.js";
+import type { DirectoryIdempotencyContext } from "./run-directory-effect.ts";
 
 // What every directory write needs from its caller: the clock and the acting user (the service reads
 // no ambient clock and trusts no ambient identity), plus an optional seeded source so fixtures mint

@@ -19,6 +19,12 @@ import {
   protectedMeasurements,
   PROTECTED_PLAN_SCAN_ALLOWLIST,
 } from "../src/load-profile/protected-measurements.ts";
+import {
+  directoryHotPathPlans,
+  directoryMeasurementHandle,
+  directoryMeasurements,
+  DIRECTORY_PLAN_SCAN_ALLOWLIST,
+} from "../src/load-profile/directory-measurements.ts";
 import { ledgerVolume, scaleProfile } from "../src/load-profile/profile.ts";
 import { findFullScans, findTempBtreeSorts, runMeasurements } from "../src/load-profile/runner.ts";
 import { loadProfileSnapshot, type LoadedSnapshot } from "../src/load-profile/snapshot.ts";
@@ -108,6 +114,28 @@ describe("load-profile smoke", () => {
       expect(result.minMs).toBeGreaterThanOrEqual(0);
     }
 
+    // The directory measured set runs under its own (async) handle — the seed-derived firm key and
+    // viewSensitiveIdentifiers permission. Decrypts the cached sealed SSN ciphertexts on the
+    // read-protected-list op, so a key-derivation regression would surface here.
+    const directoryHandle = await directoryMeasurementHandle(snapshot, "smoke-seed");
+    expect(directoryHandle.sampleEntityCiphertexts.length).toBeGreaterThan(0);
+    const directoryResults = await runMeasurements(directoryHandle, directoryMeasurements, {
+      warmupIterations: 1,
+      iterations: 2,
+    });
+    expect(directoryResults.map((result) => result.name).sort()).toEqual(
+      [
+        "directory.find-by-identifier",
+        "directory.read-protected-list",
+        "directory.candidate-generation",
+        "directory.graph-expansion",
+      ].sort(),
+    );
+    for (const result of directoryResults) {
+      expect(result.iterations).toBe(2);
+      expect(result.minMs).toBeGreaterThanOrEqual(0);
+    }
+
     // The structural no-N+1/no-missing-index check on the hot-path statements. The label set is
     // asserted first: an empty plan list would make the scan check pass vacuously, so dropped
     // probes must fail here, not slip through.
@@ -158,6 +186,15 @@ describe("load-profile smoke", () => {
       ["firm-secret.read-by-name", "incident.read-by-id"].sort(),
     );
     expect(findFullScans(protectedPlans, PROTECTED_PLAN_SCAN_ALLOWLIST)).toEqual([]);
+
+    // The directory hot-path plans: same label-set-first guard, then the scan check. The
+    // blind-index equality probe walks the (identifier_type, value_blind_index) index; the
+    // related-party graph expansion walks the from/to entity-id indexes.
+    const directoryPlans = directoryHotPathPlans(snapshot);
+    expect(directoryPlans.map((plan) => plan.label).sort()).toEqual(
+      ["directory.find-by-identifier", "directory.graph-expansion"].sort(),
+    );
+    expect(findFullScans(directoryPlans, DIRECTORY_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
     snapshot.close();
   });

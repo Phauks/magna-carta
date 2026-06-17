@@ -1,10 +1,10 @@
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DirectoryCategoryId } from "@magna-carta/identifiers/types";
-import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.js";
-import { runDirectoryEffect } from "./run-directory-effect.js";
-import { assertEntityExists, entityKindFromId } from "./entity-kind.js";
-import type { EntityKind } from "./types.js";
+import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.ts";
+import { runDirectoryEffect } from "./run-directory-effect.ts";
+import { assertEntityExists, entityKindFromId } from "./entity-kind.ts";
+import type { EntityKind } from "./types.ts";
 
 // Thrown when a caller references a category id that does not exist in directory_category.
 export class CategoryNotFoundError extends Error {

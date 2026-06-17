@@ -3,10 +3,10 @@ import {
   findByIdentifier,
   IdentifierNotIndexableError,
   type DirectoryIdentifierContext,
-} from "./identifiers.js";
-import { normalizeName } from "./normalize-name.js";
-import { phoneticCodes } from "./phonetics.js";
-import type { EntityKind, IdentifierType } from "./types.js";
+} from "./identifiers.ts";
+import { normalizeName } from "./normalize-name.ts";
+import { phoneticCodes } from "./phonetics.ts";
+import type { EntityKind, IdentifierType } from "./types.ts";
 
 // The minimum normalized query length for a useful trigram search. Trigrams are three-character
 // substrings; any query shorter than three characters produces no trigrams and therefore matches

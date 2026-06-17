@@ -7,15 +7,15 @@ import type {
   DirectoryPersonId,
   MatterPartyId,
 } from "@magna-carta/identifiers/types";
-import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.js";
-import { normalizeName } from "./normalize-name.js";
-import { phoneticCodes } from "./phonetics.js";
+import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.ts";
+import { normalizeName } from "./normalize-name.ts";
+import { phoneticCodes } from "./phonetics.ts";
 import {
   insertNameStatement,
   insertOrganizationStatement,
   insertPersonStatement,
   insertPhoneticCodeStatements,
-} from "./statements.js";
+} from "./statements.ts";
 
 // Organization-suffix heuristic. A client display name is treated as an organization when it carries
 // one of these legal-form tokens as a whole word (case-insensitive). This is a one-time best-effort

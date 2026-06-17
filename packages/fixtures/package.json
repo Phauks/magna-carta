@@ -20,7 +20,9 @@
     "./load-profile/ledger-measurements": "./src/load-profile/ledger-measurements.ts",
     "./load-profile/matters-measurements": "./src/load-profile/matters-measurements.ts",
     "./load-profile/protected-generate": "./src/load-profile/protected-generate.ts",
-    "./load-profile/protected-measurements": "./src/load-profile/protected-measurements.ts"
+    "./load-profile/protected-measurements": "./src/load-profile/protected-measurements.ts",
+    "./load-profile/directory-generate": "./src/load-profile/directory-generate.ts",
+    "./load-profile/directory-measurements": "./src/load-profile/directory-measurements.ts"
   },
   "scripts": {
     "measure": "node --experimental-transform-types src/load-profile/measure-cli.ts",
@@ -30,6 +32,7 @@
     "@faker-js/faker": "catalog:",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
+    "@magna-carta/directory": "workspace:*",
     "@magna-carta/encryption": "workspace:*",
     "@magna-carta/file-manager": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",

@@ -1,5 +1,5 @@
 import { test, expect } from "vitest";
-import { normalizeName } from "../src/normalize-name.js";
+import { normalizeName } from "../src/normalize-name.ts";
 
 test("normalizes case, punctuation, diacritics, and NFC", () => {
   expect(normalizeName("O'Brien")).toBe("obrien");
