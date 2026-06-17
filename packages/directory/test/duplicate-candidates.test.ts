@@ -293,6 +293,93 @@ test("merged_into entities do not appear in duplicate candidates", async () => {
   expect(entityIds).toContain(masterId);
 });
 
+// ── Identifier channel: soft-deleted entity is excluded ───────────────────────
+//
+// The name channels exclude soft-deleted entities via `deleted_at IS NULL` on the entity join.
+// The identifier channel must apply the same exclusion: a blind-index hit whose entity has
+// deleted_at set must not surface as a duplicate candidate.
+
+test("identifier channel excludes a soft-deleted entity (no merge)", async () => {
+  const { database, ctx } = await directoryTestContext("t12-identifier-softdelete");
+
+  const personId = await createPerson(
+    database,
+    { given: "Ghost", family: "Doe" },
+    {
+      clock,
+      actorUserId: null,
+      randomSource: seededRandomSource("t12-identifier-softdelete-target"),
+    },
+  );
+  await addIdentifier(ctx, personId, { type: "ssn", value: "000-00-0001" });
+
+  // Soft-delete the entity — matches the predicate the name channels use.
+  await database
+    .prepare("UPDATE directory_person SET deleted_at = ?1 WHERE id = ?2")
+    .bind(clock.now(), personId)
+    .run();
+
+  // An identifier-only probe (no name channels can fire) must yield no candidates.
+  const candidates = await findDuplicateCandidates(ctx, {
+    kind: "person",
+    identifiers: [{ type: "ssn", value: "000-00-0001" }],
+  });
+
+  expect(candidates.map((c) => c.entityId)).not.toContain(personId);
+});
+
+// ── Identifier channel: merged subordinate resolves to master ─────────────────
+//
+// After a merge the subordinate's identifier rows are NOT repointed (the conflicts-corpus rule).
+// An exact-blind-index hit on the subordinate must therefore surface the surviving master, not
+// the subordinate — identical to what the name channels do via COALESCE in SQL.
+
+test("identifier channel hit on a merged subordinate resolves to the master id", async () => {
+  const { database, ctx } = await directoryTestContext("t12-identifier-merge-resolve");
+
+  const masterId = await createPerson(
+    database,
+    { given: "Surviving", family: "Master" },
+    {
+      clock,
+      actorUserId: null,
+      randomSource: seededRandomSource("t12-identifier-merge-resolve-master"),
+    },
+  );
+  const subordinateId = await createPerson(
+    database,
+    { given: "Archived", family: "Sub" },
+    {
+      clock,
+      actorUserId: null,
+      randomSource: seededRandomSource("t12-identifier-merge-resolve-sub"),
+    },
+  );
+
+  // Attach the identifier to the subordinate (stays there after merge — conflicts-corpus rule).
+  await addIdentifier(ctx, subordinateId, { type: "ssn", value: "000-00-0002" });
+
+  // Mark subordinate as merged_into master (same direct UPDATE the existing merge test uses).
+  await database
+    .prepare(
+      "UPDATE directory_person SET status = 'merged_into', merged_into_id = ?1 WHERE id = ?2",
+    )
+    .bind(masterId, subordinateId)
+    .run();
+
+  // Probe by identifier only — the hit lands on the subordinate's row, must resolve to master.
+  const candidates = await findDuplicateCandidates(ctx, {
+    kind: "person",
+    identifiers: [{ type: "ssn", value: "000-00-0002" }],
+  });
+
+  const entityIds = candidates.map((c) => c.entityId);
+  // Master must appear (resolved from subordinate).
+  expect(entityIds).toContain(masterId);
+  // Subordinate must never appear directly.
+  expect(entityIds).not.toContain(subordinateId);
+});
+
 // ── Empty name short-circuit ───────────────────────────────────────────────────
 
 test("returns empty when no name is provided and no identifiers", async () => {

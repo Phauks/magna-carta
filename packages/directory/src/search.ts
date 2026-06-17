@@ -363,11 +363,14 @@ async function identifierChannel(
   return resolveMergedIds(context.database, union);
 }
 
-// Resolve a set of entity ids through merged_into_id: a subordinate (status='merged_into') is replaced
-// by its master, every other id passes through unchanged. Used by the identifier channel, whose match
-// rows are not repointed by a merge and so may still carry a subordinate id. The name channels resolve
-// in SQL (COALESCE on the joined node row); this is the in-code equivalent for ids that did not arrive
-// through a node-table join.
+// Resolve a set of entity ids through merged_into_id and apply the same deleted_at exclusion
+// the name channels apply in SQL. For each id:
+//   - If the node row has merged_into_id set, the id is a subordinate; resolve to the master.
+//   - If the resolved (or original) node row has deleted_at set, the entity is soft-deleted;
+//     drop it from the result — mirroring the `dp.deleted_at IS NULL` predicate in the name channels.
+//   - Otherwise pass the id through unchanged.
+// The name channels resolve in SQL (COALESCE + deleted_at predicate on the joined node row); this
+// is the in-code equivalent for ids that did not arrive through a node-table join.
 async function resolveMergedIds(
   database: SqlDatabase,
   entityIds: Set<string>,
@@ -379,10 +382,32 @@ async function resolveMergedIds(
       ? "directory_organization"
       : "directory_person";
     const { results } = await database
-      .prepare(`SELECT merged_into_id FROM ${table} WHERE id = ?1`)
+      .prepare(`SELECT merged_into_id, deleted_at FROM ${table} WHERE id = ?1`)
       .bind(entityId)
-      .all<{ merged_into_id: string | null }>();
-    resolved.add(results[0]?.merged_into_id ?? entityId);
+      .all<{ merged_into_id: string | null; deleted_at: string | null }>();
+    const row = results[0];
+    if (row === undefined) continue; // entity not found — skip
+
+    if (row.merged_into_id !== null) {
+      // Subordinate: resolve to the master and check the master's deleted_at.
+      const masterId = row.merged_into_id;
+      const masterTable = masterId.startsWith("directoryOrganization_")
+        ? "directory_organization"
+        : "directory_person";
+      const { results: masterResults } = await database
+        .prepare(`SELECT deleted_at FROM ${masterTable} WHERE id = ?1`)
+        .bind(masterId)
+        .all<{ deleted_at: string | null }>();
+      const masterRow = masterResults[0];
+      if (masterRow !== undefined && masterRow.deleted_at === null) {
+        resolved.add(masterId);
+      }
+      // If master is soft-deleted or not found, drop the candidate entirely.
+    } else if (row.deleted_at === null) {
+      // Non-merged, non-deleted: pass through.
+      resolved.add(entityId);
+    }
+    // If deleted_at is set, drop the candidate — mirrors the name channel predicate.
   }
   return resolved;
 }
