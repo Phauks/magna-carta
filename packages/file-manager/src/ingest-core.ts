@@ -152,7 +152,7 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
       scanEngineVersion: scan.engineVersion,
     };
   }
-  // Exhaustiveness check: if TypeScript reaches here, scan.verdict is not one of the expected values.
-  const _exhaustiveness: never = scan.verdict;
+  // Exhaustiveness check: if TypeScript reaches here, scan is not one of the expected variants.
+  const _exhaustiveness: never = scan;
   return _exhaustiveness;
 }

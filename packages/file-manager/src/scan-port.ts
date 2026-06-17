@@ -3,10 +3,14 @@
 // clean-by-scan). A real engine (its own design cycle) implements this same interface behind the gate.
 
 export type ScanResult =
-  | { verdict: "clean"; engineVersion: string }
-  | { verdict: "infected"; engineVersion: string }
-  | { verdict: "suspicious"; engineVersion: string }
-  | { verdict: "unscanned"; reason: string; engineVersion: null };
+  | { verdict: "clean"; engineVersion: string; activeContent?: boolean }
+  | { verdict: "infected"; engineVersion: string; signature: string | null }
+  | { verdict: "unscanned"; reason: "no-engine" | "encrypted"; engineVersion: string | null }
+  | {
+      verdict: "suspicious";
+      reason: "decompression-bomb" | "archive-nesting" | "archive-entry-count";
+      engineVersion: string;
+    };
 
 export interface MalwareScanPort {
   scan(
