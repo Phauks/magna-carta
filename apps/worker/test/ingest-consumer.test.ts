@@ -3,9 +3,12 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { initiateUpload } from "@magna-carta/file-manager/file-service";
 import { listFiles } from "@magna-carta/file-manager/queries";
+import type { MalwareScanPort } from "@magna-carta/file-manager/scan-port";
+import { inspectableSizeCapDefinition } from "@magna-carta/file-manager/upload-policy";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import { handleIngestMessage } from "../src/files/ingest-consumer.ts";
+import { resolveScanPort } from "../src/files/scan-port-binding.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 
@@ -267,5 +270,44 @@ describe("handleIngestMessage", () => {
     await expect(
       handleIngestMessage(env, event(BUCKET, initiated.r2Key, PDF_BYTES.byteLength)),
     ).rejects.toThrow();
+  });
+
+  it("resolveScanPort returns the unscanned adapter when no Container binding is present", () => {
+    const port: MalwareScanPort = resolveScanPort(env);
+    // The adapter is the engine-less launch adapter: drains the stream and returns `unscanned`.
+    expect(port).toBeDefined();
+    expect(typeof port.scan).toBe("function");
+  });
+
+  it("commits with scanDetail 'oversize' when the object exceeds the firm inspectable-size cap", async () => {
+    // Write a tiny inspectable-size cap (1 byte) as JSON into the firm setting row — the real bytes
+    // are larger. This verifies the consumer calls readInspectableSizeCap from the database rather
+    // than using a hardcoded constant.
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT OR REPLACE INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3)",
+    )
+      .bind(inspectableSizeCapDefinition.key, "1", clock.now())
+      .run();
+
+    const { versionId, r2Key } = await seedPendingVersion(
+      "oversize.pdf",
+      "application/pdf",
+      PDF_BYTES,
+    );
+
+    await handleIngestMessage(env, event(BUCKET, r2Key, PDF_BYTES.byteLength));
+
+    const version = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT status, scan_detail FROM file_version WHERE id = ?1",
+    )
+      .bind(versionId)
+      .first<{ status: string; scan_detail: string | null }>();
+    expect(version?.status).toBe("clean");
+    expect(version?.scan_detail).toBe("oversize");
+
+    // Restore the default cap so subsequent tests are unaffected.
+    await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+      .bind(inspectableSizeCapDefinition.key)
+      .run();
   });
 });

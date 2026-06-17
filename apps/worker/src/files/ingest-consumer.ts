@@ -5,13 +5,13 @@ import {
   quarantineVersion,
 } from "@magna-carta/file-manager/file-service";
 import { runIngest } from "@magna-carta/file-manager/ingest-core";
-import { unscannedAdapter } from "@magna-carta/file-manager/scan-port";
-import { readUploadPolicy } from "@magna-carta/file-manager/upload-policy";
+import { readInspectableSizeCap, readUploadPolicy } from "@magna-carta/file-manager/upload-policy";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
 import { resolveFirmDatabase } from "../firm-binding-resolver.ts";
+import { resolveScanPort } from "./scan-port-binding.ts";
 
 // The files-ingest queue consumer: one R2 object-create event drives the single-read ingest pipeline
 // (gates + streaming SHA-256 + scan port) to a clean commit or a quarantine. A thin shell around the
@@ -64,7 +64,10 @@ export async function handleIngestMessage(env: Bindings, message: R2EventMessage
     throw new Error(`R2 object not readable for a pending version: ${message.object.key}`);
   }
 
-  const policy = await readUploadPolicy(firmDatabase);
+  const [policy, inspectableSizeCap] = await Promise.all([
+    readUploadPolicy(firmDatabase),
+    readInspectableSizeCap(firmDatabase),
+  ]);
   const outcome = await runIngest({
     objectBody: object.body,
     objectSize: object.size,
@@ -75,8 +78,8 @@ export async function handleIngestMessage(env: Bindings, message: R2EventMessage
       fileName: pending.name,
     },
     policy,
-    scanPort: unscannedAdapter,
-    inspectableSizeCap: 2 * 1024 * 1024 * 1024, // default 2 GiB until the firm-setting read is wired in the consumer
+    scanPort: resolveScanPort(env),
+    inspectableSizeCap,
   });
 
   const now = () => new Date().toISOString();
