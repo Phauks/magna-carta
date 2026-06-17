@@ -221,6 +221,37 @@ export async function listCleanVersionR2Keys(
   }));
 }
 
+// Committed versions (status = 'clean') whose scan has not yet been evaluated (scan_verdict =
+// 'unscanned'). Used by the weekly re-scan sweep to re-enqueue these versions once a real scan
+// engine is available. The status = 'clean' predicate is the legitimate status gate: only committed
+// versions are eligible — pending/quarantined/abandoned versions are not re-scanned.
+export function listUnscannedCommittedVersionsStatement(
+  database: SqlDatabase,
+  limit: number,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, r2_key FROM ${FILE_VERSION_TABLE} WHERE status = 'clean' AND scan_verdict = 'unscanned' LIMIT ?`,
+    )
+    .bind(limit);
+}
+
+export interface UnscannedCommittedVersion {
+  readonly id: FileVersionId;
+  readonly r2Key: string;
+}
+
+export async function listUnscannedCommittedVersions(
+  database: SqlDatabase,
+  limit: number,
+): Promise<readonly UnscannedCommittedVersion[]> {
+  const { results } = await listUnscannedCommittedVersionsStatement(database, limit).all<{
+    id: FileVersionId;
+    r2_key: string;
+  }>();
+  return results.map((row) => ({ id: row.id, r2Key: row.r2_key }));
+}
+
 // Every folder in a matter (id, parent, name) — the input to folder-tree path composition for the
 // ZIP download. Folders carry no status gate (only file_version does), so this is an unguarded read.
 export function listFoldersByMatterStatement(
