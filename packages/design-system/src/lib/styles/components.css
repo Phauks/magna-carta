@@ -2140,6 +2140,8 @@
   .mc-sidebar {
     display: flex;
     flex-direction: column;
+    /* flex-shrink 0 so the flex algorithm does not override (and snap) the animated width. */
+    flex-shrink: var(--mc-space-0);
     inline-size: var(--mc-size-sidebar);
     background-color: var(--mc-surface-default);
     border-inline-end: var(--mc-border-width-default) solid var(--mc-border-default);
@@ -2201,10 +2203,21 @@
   .mc-sidebar-menu-item {
     display: block;
   }
+  /*
+   * The button is a GRID (icon | label) so the collapse can ANIMATE: the label column interpolates
+   * from 1fr to 0fr (the label slides away) while the icon glides to centre — `justify-content`
+   * snaps to centre but is invisible while the grid still fills the button, so the motion reads as
+   * smooth. The label fades by going to `color: transparent` (opacity has no token and is gate-banned).
+   * The label stays in the DOM (not sr-only), so the link keeps its accessible name; a Tooltip
+   * surfaces the name visually in the rail.
+   */
   .mc-sidebar-menu-button {
-    display: flex;
+    display: grid;
+    /* A FIXED icon track (not auto) so grid-template-columns is interpolatable — auto tracks don't
+       animate, fixed-length + fr tracks do. The icon is exactly this size (mc-sidebar-icon). */
+    grid-template-columns: var(--mc-space-20) 1fr;
     align-items: center;
-    gap: var(--mc-space-8);
+    justify-content: start;
     min-block-size: var(--mc-control-md);
     padding-inline: var(--mc-space-8);
     padding-block: var(--mc-space-8);
@@ -2219,8 +2232,8 @@
     text-decoration-line: none;
     white-space: nowrap;
     cursor: pointer;
-    transition-property: background-color, color;
-    transition-duration: var(--mc-duration-fast);
+    transition-property: grid-template-columns, background-color, color;
+    transition-duration: var(--mc-duration-normal);
     transition-timing-function: var(--mc-easing-standard);
   }
   .mc-sidebar-menu-button:hover {
@@ -2242,19 +2255,29 @@
   }
   .mc-sidebar-label {
     overflow: hidden;
+    padding-inline-start: var(--mc-space-8);
+    color: inherit;
     text-overflow: ellipsis;
+    transition-property: color, padding-inline-start;
+    transition-duration: var(--mc-duration-normal);
+    transition-timing-function: var(--mc-easing-standard);
   }
-  /*
-   * Collapsed icon rail: centre the icon and hide the group labels. The MENU-button labels are NOT
-   * display:none — that would strip the link/button's accessible name (the icon is aria-hidden).
-   * The button instead toggles the labels to sr-only (visually hidden, still announced), and a
-   * Tooltip surfaces the name visually on hover/focus.
-   */
+  /* Collapsed icon rail: collapse the label column to 0 (its width AND its leading padding animate to
+     zero so it slides fully away), fade its text, centre the icon, and fade the group labels — whose
+     height is reserved so the icons below never shift. */
   .mc-sidebar[data-state="collapsed"] .mc-sidebar-menu-button {
+    grid-template-columns: var(--mc-space-20) 0fr;
     justify-content: center;
   }
-  /* The group label keeps its box (transparent text), not display:none — removing its height would
-     pull every icon below it upward as the rail collapses. Reserving the space keeps icons fixed. */
+  .mc-sidebar[data-state="collapsed"] .mc-sidebar-label {
+    padding-inline-start: var(--mc-space-0);
+    color: transparent;
+  }
+  .mc-sidebar-group-label {
+    transition-property: color;
+    transition-duration: var(--mc-duration-normal);
+    transition-timing-function: var(--mc-easing-standard);
+  }
   .mc-sidebar[data-state="collapsed"] .mc-sidebar-group-label {
     color: transparent;
   }

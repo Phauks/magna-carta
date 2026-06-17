@@ -71,8 +71,12 @@
           <Sidebar.Header>
             <Landmark class="mc-sidebar-icon" aria-hidden="true" />
             <!-- Transparent (not sr-only) in the rail so the brand keeps its height — the header stays
-                 the same size, so collapsing never shifts the icons below it. -->
-            <span class={collapsed ? "font-semibold text-transparent" : "font-semibold text-default"}>
+                 the same size, so collapsing never shifts the icons below it — and fades with the rest. -->
+            <span
+              class="font-semibold transition-colors duration-normal {collapsed
+                ? 'text-transparent'
+                : 'text-default'}"
+            >
               Magna Carta
             </span>
           </Sidebar.Header>

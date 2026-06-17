@@ -43,9 +43,7 @@
     {:else}
       <PanelLeftClose class="mc-sidebar-icon" aria-hidden="true" />
     {/if}
-    <span class={mergeClasses("mc-sidebar-label", sidebar.collapsed && "sr-only")}>
-      {sidebar.collapsed ? "Expand" : "Collapse"}
-    </span>
+    <span class="mc-sidebar-label">{sidebar.collapsed ? "Expand" : "Collapse"}</span>
   </button>
 {/snippet}
 

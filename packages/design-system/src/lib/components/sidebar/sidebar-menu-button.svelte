@@ -59,9 +59,7 @@
       {...triggerProps}
     >
       {@render icon?.()}
-      <span class={mergeClasses("mc-sidebar-label", sidebar.collapsed && "sr-only")}>
-        {@render children?.()}
-      </span>
+      <span class="mc-sidebar-label">{@render children?.()}</span>
     </a>
   {:else}
     <button
@@ -74,9 +72,7 @@
       {...triggerProps}
     >
       {@render icon?.()}
-      <span class={mergeClasses("mc-sidebar-label", sidebar.collapsed && "sr-only")}>
-        {@render children?.()}
-      </span>
+      <span class="mc-sidebar-label">{@render children?.()}</span>
     </button>
   {/if}
 {/snippet}

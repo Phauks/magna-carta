@@ -242,6 +242,14 @@ const CSS_NAMED_COLORS = new Set(
 
 const TOKEN_REFERENCE_PATTERN = /^var\(--mc-[a-z0-9-]+\)$/;
 const STRUCTURAL_IDENTIFIER_PATTERN = /^[a-zA-Z][a-zA-Z-]*$/;
+/**
+ * The grid `fr` flex-factor (e.g. `1fr`, `0fr`) is a STRUCTURAL track-sizing unit — like the allowed
+ * `auto` / `min-content` keywords it carries no themeable design value; it only expresses a layout
+ * ratio. Animating a column from `1fr` to `0fr` is how the sidebar's label collapses smoothly. There
+ * is deliberately no design token for it (it is not a length); permitting it keeps real lengths
+ * (`13px`, `1.5rem`, `%`) still banned.
+ */
+const GRID_FR_PATTERN = /^\d*\.?\d+fr$/;
 
 interface CssDeclaration {
   readonly property: string;
@@ -306,6 +314,7 @@ export function findOffTokenValueParts(value: string): string[] {
       if (STRUCTURAL_IDENTIFIER_PATTERN.test(part) && !CSS_NAMED_COLORS.has(part.toLowerCase())) {
         return false;
       }
+      if (GRID_FR_PATTERN.test(part)) return false; // structural grid track sizing, not a design value
       return true; // numbers, lengths, hex, functions, strings, named colors, !important
     });
 }
@@ -359,6 +368,10 @@ describe("components.css token purity (golden rule 2; ADR-0076 component-layer d
     expect(findOffTokenValueParts("Red")).toEqual(["Red"]); // ...case-insensitively
     expect(findOffTokenValueParts("0 1px 2px rgb(0 0 0 / 0.05)")).not.toEqual([]);
     expect(findOffTokenValueParts("50")).toEqual(["50"]);
+    // Grid fr factors are structural (allowed); real lengths and bare numbers are not.
+    expect(findOffTokenValueParts("auto 1fr")).toEqual([]);
+    expect(findOffTokenValueParts("auto 0fr")).toEqual([]);
+    expect(findOffTokenValueParts("1px 1fr")).toEqual(["1px"]);
     expect(findOffTokenValueParts("opacity 150ms ease")).toEqual(["150ms"]);
     expect(findOffTokenValueParts('"Inter"')).toEqual(['"Inter"']);
     // A var() fallback argument could smuggle a literal — the whole form is rejected.
