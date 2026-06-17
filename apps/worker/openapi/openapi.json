@@ -475,6 +475,13 @@
           "fileId": {
             "type": "string",
             "pattern": "^file_[A-Za-z0-9_-]{21}$"
+          },
+          "uploadKind": {
+            "type": "string",
+            "enum": [
+              "interactive",
+              "bulk"
+            ]
           }
         },
         "required": [

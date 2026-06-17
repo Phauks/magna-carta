@@ -10,6 +10,24 @@ export type Health = {
     time: string;
 };
 
+export type Problem = {
+    type: string;
+    title: string;
+    status: number;
+    detail?: string;
+    errorId: string;
+    correlationId?: string;
+    instance?: string;
+    errors?: Array<ProblemFieldError>;
+    requestAccess?: boolean;
+};
+
+export type ProblemFieldError = {
+    path: string;
+    code: string;
+    detail: string;
+};
+
 export type MeResponse = {
     user: {
         id: string;
@@ -21,23 +39,6 @@ export type MeResponse = {
         name: string;
     };
     permissions: Array<string>;
-};
-
-export type Problem = {
-    type: string;
-    title: string;
-    status: number;
-    detail?: string;
-    errorId: string;
-    instance?: string;
-    errors?: Array<ProblemFieldError>;
-    requestAccess?: boolean;
-};
-
-export type ProblemFieldError = {
-    path: string;
-    code: string;
-    detail: string;
 };
 
 export type InviteMemberResponse = {
@@ -70,6 +71,26 @@ export type ProvisionFirmRequest = {
     };
 };
 
+export type ReportIncidentResponse = {
+    id: string;
+    status: string;
+};
+
+export type ReportIncidentRequest = {
+    errorIds: Array<string>;
+    breadcrumbs: Array<{
+        at: string;
+        action: string;
+        route: string;
+    }>;
+    description: string;
+    context: {
+        route: string;
+        appVersion: string;
+        clientAt: string;
+    };
+};
+
 export type InitiateUploadResponse = {
     mode: 'put';
     uploadId: string;
@@ -97,6 +118,7 @@ export type InitiateUploadRequest = {
     declaredContentType: string | null;
     documentTypeId?: string | null;
     fileId?: string;
+    uploadKind?: 'interactive' | 'bulk';
 };
 
 export type SignUploadPartResponse = {
@@ -119,12 +141,336 @@ export type AbortUploadResponse = {
     status: 'aborted';
 };
 
+export type CreateMatterResponse = {
+    matterId: string;
+    matterNumber: string | null;
+};
+
+export type CreateMatterRequest = {
+    title: string;
+    status: 'prospective' | 'open';
+    description?: string | null;
+    matterTypeId?: string | null;
+    locationId?: string | null;
+    responsibleMemberId: string;
+    clientDisplayName?: string | null;
+    clientCode?: string | null;
+};
+
+export type MatterListResponse = {
+    data: Array<MatterSummary>;
+    nextCursor: string | null;
+};
+
+export type MatterSummary = {
+    id: string;
+    title: string;
+    status: 'prospective' | 'open' | 'closed';
+    matterTypeId: string | null;
+    locationId: string | null;
+    responsibleMemberId: string;
+    clientDisplayName: string | null;
+    matterNumber: string | null;
+    createdAt: string;
+};
+
+export type ConsultationListResponse = {
+    data: Array<ConsultationItem>;
+    nextCursor: string | null;
+};
+
+export type ConsultationItem = {
+    id: string;
+    title: string;
+    matterNumber: string | null;
+    createdAt: string;
+    isStale: boolean;
+};
+
+export type MatterDetail = {
+    id: string;
+    title: string;
+    description: string | null;
+    status: 'prospective' | 'open' | 'closed';
+    matterTypeId: string | null;
+    locationId: string | null;
+    responsibleMemberId: string;
+    clientDisplayName: string | null;
+    clientCode: string | null;
+    matterNumber: string | null;
+};
+
+export type MatterActionAck = {
+    matterId: string;
+};
+
+export type PatchMatterRequest = {
+    title?: string;
+    description?: string | null;
+    matterTypeId?: string | null;
+    locationId?: string | null;
+    responsibleMemberId?: string;
+    clientDisplayName?: string | null;
+    clientCode?: string | null;
+};
+
+export type OpenMatterResponse = {
+    matterId: string;
+    matterNumber: string;
+};
+
+export type RenumberMatterRequest = {
+    matterNumber: string;
+};
+
+export type MatterType = {
+    id: string;
+    name: string;
+    code: string | null;
+    active: boolean;
+};
+
+export type MatterTypeRequest = {
+    name: string;
+    code?: string | null;
+};
+
+export type MatterTypeListResponse = {
+    data: Array<MatterType>;
+};
+
+export type MatterTypeAck = {
+    id: string;
+};
+
+export type PatchMatterTypeRequest = {
+    name?: string;
+    code?: string | null;
+};
+
+export type DocumentType = {
+    id: string;
+    name: string;
+    code: string | null;
+    active: boolean;
+};
+
+export type DocumentTypeRequest = {
+    name: string;
+    code?: string | null;
+};
+
+export type DocumentTypeListResponse = {
+    data: Array<DocumentType>;
+};
+
+export type DocumentTypeAck = {
+    id: string;
+};
+
+export type PatchDocumentTypeRequest = {
+    name?: string;
+    code?: string | null;
+};
+
+export type LocationAck = {
+    id: string;
+};
+
+export type LocationRequest = {
+    name: string;
+    jurisdiction?: string | null;
+    numberCode?: string | null;
+    addressBlock?: string | null;
+    footer?: string | null;
+    remitTo?: string | null;
+};
+
+export type LocationListResponse = {
+    data: Array<LocationSummary>;
+};
+
+export type LocationSummary = {
+    id: string;
+    name: string;
+    status: 'active' | 'closed';
+    jurisdiction: string | null;
+    numberCode: string | null;
+};
+
+export type LocationDetail = {
+    id: string;
+    name: string;
+    status: 'active' | 'closed';
+    jurisdiction: string | null;
+    numberCode: string | null;
+    addressBlock: string | null;
+    footer: string | null;
+    remitTo: string | null;
+};
+
+export type PatchLocationRequest = {
+    name?: string;
+    jurisdiction?: string | null;
+    numberCode?: string | null;
+    addressBlock?: string | null;
+    footer?: string | null;
+    remitTo?: string | null;
+};
+
+export type LocationAddressesRequest = {
+    addresses: Array<{
+        kind: 'physical' | 'mailing';
+        street?: string | null;
+        city?: string | null;
+        region?: string | null;
+        postal?: string | null;
+        phone?: string | null;
+    }>;
+};
+
+export type MemberLocationsRequest = {
+    assignments: Array<{
+        locationId: string;
+        isPrimary: boolean;
+    }>;
+};
+
+export type NumberingSchemeResponse = {
+    segments: Array<NumberSegment> | null;
+};
+
+export type NumberSegment = {
+    kind: 'literal';
+    text: string;
+} | {
+    kind: 'counter';
+    padWidth: number;
+    start?: number;
+} | {
+    kind: 'year';
+    digits: 2 | 4;
+    scoping?: boolean;
+} | {
+    kind: 'date_opened';
+    scoping?: boolean;
+} | {
+    kind: 'location_code';
+    scoping?: boolean;
+} | {
+    kind: 'matter_type_code';
+    scoping?: boolean;
+} | {
+    kind: 'client_code';
+    scoping?: boolean;
+} | {
+    kind: 'staff_initials';
+    scoping?: boolean;
+} | {
+    kind: 'client_name';
+    scoping?: boolean;
+};
+
+export type NumberingScheme = {
+    segments: Array<NumberSegment>;
+};
+
+export type NumberingPreviewResponse = {
+    number: string;
+    scopeKey: string;
+};
+
+export type NumberingPreviewRequest = {
+    segments: Array<NumberSegment>;
+    counterValue?: number;
+    context?: {
+        openedDate?: string;
+        locationCode?: string;
+        matterTypeCode?: string;
+        clientCode?: string;
+        staffInitials?: string;
+        clientName?: string;
+    };
+};
+
+export type CreateFolderResponse = {
+    folderId: string;
+};
+
+export type CreateFolderRequest = {
+    matterId: string;
+    parentFolderId?: string | null;
+    name: string;
+};
+
+export type FolderActionAck = {
+    folderId: string;
+};
+
+export type PatchFolderRequest = {
+    name?: string;
+    parentFolderId?: string | null;
+};
+
+export type FileListResponse = {
+    data: Array<FileSummary>;
+    nextCursor: string | null;
+};
+
+export type FileSummary = {
+    id: string;
+    matterId: string;
+    folderId: string | null;
+    name: string;
+    documentTypeId: string | null;
+    currentVersionId: string | null;
+    createdAt: string;
+};
+
+export type FileVersionsResponse = {
+    data: Array<FileVersionItem>;
+};
+
+export type FileVersionItem = {
+    id: string;
+    versionNumber: number;
+    sizeBytes: number | null;
+    sniffedContentType: string | null;
+    contentSha256: string | null;
+    committedAt: string | null;
+};
+
+export type FileActionAck = {
+    fileId: string;
+};
+
+export type PatchFileRequest = {
+    name?: string;
+    folderId?: string | null;
+    documentTypeId?: string | null;
+};
+
+export type ZipDownloadRequest = {
+    matterId: string;
+    folderIds?: Array<string>;
+    fileIds?: Array<string>;
+};
+
 export type HealthReadData = {
     body?: never;
     path?: never;
     query?: never;
     url: '/api/health';
 };
+
+export type HealthReadErrors = {
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type HealthReadError = HealthReadErrors[keyof HealthReadErrors];
 
 export type HealthReadResponses = {
     /**
@@ -263,6 +609,47 @@ export type FirmsProvisionResponses = {
 };
 
 export type FirmsProvisionResponse = FirmsProvisionResponses[keyof FirmsProvisionResponses];
+
+export type IncidentsReportData = {
+    body: ReportIncidentRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/incidents';
+};
+
+export type IncidentsReportErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:reportIncident
+     */
+    403: Problem;
+    /**
+     * The session's firm is not reachable, or the session member is deactivated — absent, never an existence oracle
+     */
+    404: Problem;
+    /**
+     * The body failed validation (over-cap breadcrumbs/errorIds, empty description, …)
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type IncidentsReportError = IncidentsReportErrors[keyof IncidentsReportErrors];
+
+export type IncidentsReportResponses = {
+    /**
+     * The recorded incident
+     */
+    201: ReportIncidentResponse;
+};
+
+export type IncidentsReportResponse = IncidentsReportResponses[keyof IncidentsReportResponses];
 
 export type UploadsInitiateData = {
     body: InitiateUploadRequest;
@@ -445,3 +832,1728 @@ export type UploadsAbortResponses = {
 };
 
 export type UploadsAbortResponse = UploadsAbortResponses[keyof UploadsAbortResponses];
+
+export type MattersListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        status?: 'prospective' | 'open' | 'closed';
+        matterTypeId?: string;
+        locationId?: string;
+        responsibleMemberId?: string;
+        search?: string;
+        cursor?: string;
+        pageSize?: number;
+    };
+    url: '/api/v1/matters';
+};
+
+export type MattersListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersListError = MattersListErrors[keyof MattersListErrors];
+
+export type MattersListResponses = {
+    /**
+     * A page of matters
+     */
+    200: MatterListResponse;
+};
+
+export type MattersListResponse = MattersListResponses[keyof MattersListResponses];
+
+export type MattersCreateData = {
+    body: CreateMatterRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/matters';
+};
+
+export type MattersCreateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the matter is in the wrong state
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersCreateError = MattersCreateErrors[keyof MattersCreateErrors];
+
+export type MattersCreateResponses = {
+    /**
+     * The matter was created (numbered when opened)
+     */
+    201: CreateMatterResponse;
+};
+
+export type MattersCreateResponse = MattersCreateResponses[keyof MattersCreateResponses];
+
+export type MattersListConsultationsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        cursor?: string;
+        pageSize?: number;
+    };
+    url: '/api/v1/matters/consultations';
+};
+
+export type MattersListConsultationsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersListConsultationsError = MattersListConsultationsErrors[keyof MattersListConsultationsErrors];
+
+export type MattersListConsultationsResponses = {
+    /**
+     * A page of the attorney's consultations
+     */
+    200: ConsultationListResponse;
+};
+
+export type MattersListConsultationsResponse = MattersListConsultationsResponses[keyof MattersListConsultationsResponses];
+
+export type MattersGetData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}';
+};
+
+export type MattersGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersGetError = MattersGetErrors[keyof MattersGetErrors];
+
+export type MattersGetResponses = {
+    /**
+     * The matter
+     */
+    200: MatterDetail;
+};
+
+export type MattersGetResponse = MattersGetResponses[keyof MattersGetResponses];
+
+export type MattersUpdateData = {
+    body: PatchMatterRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}';
+};
+
+export type MattersUpdateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the matter is in the wrong state
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersUpdateError = MattersUpdateErrors[keyof MattersUpdateErrors];
+
+export type MattersUpdateResponses = {
+    /**
+     * The matter was updated
+     */
+    200: MatterActionAck;
+};
+
+export type MattersUpdateResponse = MattersUpdateResponses[keyof MattersUpdateResponses];
+
+export type MattersOpenData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/open';
+};
+
+export type MattersOpenErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the matter is in the wrong state
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersOpenError = MattersOpenErrors[keyof MattersOpenErrors];
+
+export type MattersOpenResponses = {
+    /**
+     * The matter was opened and numbered
+     */
+    200: OpenMatterResponse;
+};
+
+export type MattersOpenResponse = MattersOpenResponses[keyof MattersOpenResponses];
+
+export type MattersCloseData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/close';
+};
+
+export type MattersCloseErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the matter is in the wrong state
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersCloseError = MattersCloseErrors[keyof MattersCloseErrors];
+
+export type MattersCloseResponses = {
+    /**
+     * The matter was closed
+     */
+    200: MatterActionAck;
+};
+
+export type MattersCloseResponse = MattersCloseResponses[keyof MattersCloseResponses];
+
+export type MattersReopenData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/reopen';
+};
+
+export type MattersReopenErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the matter is in the wrong state
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersReopenError = MattersReopenErrors[keyof MattersReopenErrors];
+
+export type MattersReopenResponses = {
+    /**
+     * The matter was reopened
+     */
+    200: MatterActionAck;
+};
+
+export type MattersReopenResponse = MattersReopenResponses[keyof MattersReopenResponses];
+
+export type MattersRenumberData = {
+    body: RenumberMatterRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matters/{id}/renumber';
+};
+
+export type MattersRenumberErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the matter is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the matter is in the wrong state
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MattersRenumberError = MattersRenumberErrors[keyof MattersRenumberErrors];
+
+export type MattersRenumberResponses = {
+    /**
+     * The matter was renumbered
+     */
+    200: MatterActionAck;
+};
+
+export type MattersRenumberResponse = MattersRenumberResponses[keyof MattersRenumberResponses];
+
+export type MatterTypesListData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/matter-types';
+};
+
+export type MatterTypesListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the type is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterTypesListError = MatterTypesListErrors[keyof MatterTypesListErrors];
+
+export type MatterTypesListResponses = {
+    /**
+     * The matter types
+     */
+    200: MatterTypeListResponse;
+};
+
+export type MatterTypesListResponse = MatterTypesListResponses[keyof MatterTypesListResponses];
+
+export type MatterTypesCreateData = {
+    body: MatterTypeRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/matter-types';
+};
+
+export type MatterTypesCreateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks matters:manageTypes
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the type is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the name/code is already in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterTypesCreateError = MatterTypesCreateErrors[keyof MatterTypesCreateErrors];
+
+export type MatterTypesCreateResponses = {
+    /**
+     * The matter type was created
+     */
+    201: MatterType;
+};
+
+export type MatterTypesCreateResponse = MatterTypesCreateResponses[keyof MatterTypesCreateResponses];
+
+export type MatterTypesUpdateData = {
+    body: PatchMatterTypeRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matter-types/{id}';
+};
+
+export type MatterTypesUpdateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks matters:manageTypes
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the type is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the name/code is already in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterTypesUpdateError = MatterTypesUpdateErrors[keyof MatterTypesUpdateErrors];
+
+export type MatterTypesUpdateResponses = {
+    /**
+     * The matter type was updated
+     */
+    200: MatterTypeAck;
+};
+
+export type MatterTypesUpdateResponse = MatterTypesUpdateResponses[keyof MatterTypesUpdateResponses];
+
+export type MatterTypesDeactivateData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/matter-types/{id}/deactivate';
+};
+
+export type MatterTypesDeactivateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks matters:manageTypes
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the type is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the name/code is already in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MatterTypesDeactivateError = MatterTypesDeactivateErrors[keyof MatterTypesDeactivateErrors];
+
+export type MatterTypesDeactivateResponses = {
+    /**
+     * The matter type was deactivated
+     */
+    200: MatterTypeAck;
+};
+
+export type MatterTypesDeactivateResponse = MatterTypesDeactivateResponses[keyof MatterTypesDeactivateResponses];
+
+export type DocumentTypesListData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/document-types';
+};
+
+export type DocumentTypesListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the type is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DocumentTypesListError = DocumentTypesListErrors[keyof DocumentTypesListErrors];
+
+export type DocumentTypesListResponses = {
+    /**
+     * The document types
+     */
+    200: DocumentTypeListResponse;
+};
+
+export type DocumentTypesListResponse = DocumentTypesListResponses[keyof DocumentTypesListResponses];
+
+export type DocumentTypesCreateData = {
+    body: DocumentTypeRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/document-types';
+};
+
+export type DocumentTypesCreateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:manageDocumentTypes
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the type is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the name/code is already in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DocumentTypesCreateError = DocumentTypesCreateErrors[keyof DocumentTypesCreateErrors];
+
+export type DocumentTypesCreateResponses = {
+    /**
+     * The document type was created
+     */
+    201: DocumentType;
+};
+
+export type DocumentTypesCreateResponse = DocumentTypesCreateResponses[keyof DocumentTypesCreateResponses];
+
+export type DocumentTypesUpdateData = {
+    body: PatchDocumentTypeRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/document-types/{id}';
+};
+
+export type DocumentTypesUpdateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:manageDocumentTypes
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the type is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the name/code is already in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DocumentTypesUpdateError = DocumentTypesUpdateErrors[keyof DocumentTypesUpdateErrors];
+
+export type DocumentTypesUpdateResponses = {
+    /**
+     * The document type was updated
+     */
+    200: DocumentTypeAck;
+};
+
+export type DocumentTypesUpdateResponse = DocumentTypesUpdateResponses[keyof DocumentTypesUpdateResponses];
+
+export type DocumentTypesDeactivateData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/document-types/{id}/deactivate';
+};
+
+export type DocumentTypesDeactivateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:manageDocumentTypes
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the type is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the name/code is already in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DocumentTypesDeactivateError = DocumentTypesDeactivateErrors[keyof DocumentTypesDeactivateErrors];
+
+export type DocumentTypesDeactivateResponses = {
+    /**
+     * The document type was deactivated
+     */
+    200: DocumentTypeAck;
+};
+
+export type DocumentTypesDeactivateResponse = DocumentTypesDeactivateResponses[keyof DocumentTypesDeactivateResponses];
+
+export type LocationsListData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/locations';
+};
+
+export type LocationsListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the location is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LocationsListError = LocationsListErrors[keyof LocationsListErrors];
+
+export type LocationsListResponses = {
+    /**
+     * The Locations
+     */
+    200: LocationListResponse;
+};
+
+export type LocationsListResponse = LocationsListResponses[keyof LocationsListResponses];
+
+export type LocationsCreateData = {
+    body: LocationRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/locations';
+};
+
+export type LocationsCreateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks locations:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the location is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the firm-default cannot be closed
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LocationsCreateError = LocationsCreateErrors[keyof LocationsCreateErrors];
+
+export type LocationsCreateResponses = {
+    /**
+     * The Location was created
+     */
+    201: LocationAck;
+};
+
+export type LocationsCreateResponse = LocationsCreateResponses[keyof LocationsCreateResponses];
+
+export type LocationsGetData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/locations/{id}';
+};
+
+export type LocationsGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the location is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LocationsGetError = LocationsGetErrors[keyof LocationsGetErrors];
+
+export type LocationsGetResponses = {
+    /**
+     * The Location
+     */
+    200: LocationDetail;
+};
+
+export type LocationsGetResponse = LocationsGetResponses[keyof LocationsGetResponses];
+
+export type LocationsUpdateData = {
+    body: PatchLocationRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/locations/{id}';
+};
+
+export type LocationsUpdateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks locations:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the location is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the firm-default cannot be closed
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LocationsUpdateError = LocationsUpdateErrors[keyof LocationsUpdateErrors];
+
+export type LocationsUpdateResponses = {
+    /**
+     * The Location was updated
+     */
+    200: LocationAck;
+};
+
+export type LocationsUpdateResponse = LocationsUpdateResponses[keyof LocationsUpdateResponses];
+
+export type LocationsCloseData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/locations/{id}/close';
+};
+
+export type LocationsCloseErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks locations:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the location is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the firm-default cannot be closed
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LocationsCloseError = LocationsCloseErrors[keyof LocationsCloseErrors];
+
+export type LocationsCloseResponses = {
+    /**
+     * The Location was closed
+     */
+    200: LocationAck;
+};
+
+export type LocationsCloseResponse = LocationsCloseResponses[keyof LocationsCloseResponses];
+
+export type LocationsSetAddressesData = {
+    body: LocationAddressesRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/locations/{id}/addresses';
+};
+
+export type LocationsSetAddressesErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks locations:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the location is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the firm-default cannot be closed
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LocationsSetAddressesError = LocationsSetAddressesErrors[keyof LocationsSetAddressesErrors];
+
+export type LocationsSetAddressesResponses = {
+    /**
+     * The addresses were set
+     */
+    200: LocationAck;
+};
+
+export type LocationsSetAddressesResponse = LocationsSetAddressesResponses[keyof LocationsSetAddressesResponses];
+
+export type LocationsAssignMemberData = {
+    body: MemberLocationsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        userId: string;
+    };
+    query?: never;
+    url: '/api/v1/members/{userId}/locations';
+};
+
+export type LocationsAssignMemberErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks locations:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the location is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the firm-default cannot be closed
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type LocationsAssignMemberError = LocationsAssignMemberErrors[keyof LocationsAssignMemberErrors];
+
+export type LocationsAssignMemberResponses = {
+    /**
+     * The member's Location assignments were set
+     */
+    200: LocationAck;
+};
+
+export type LocationsAssignMemberResponse = LocationsAssignMemberResponses[keyof LocationsAssignMemberResponses];
+
+export type NumberingGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/numbering-scheme';
+};
+
+export type NumberingGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks matters:manageNumbering
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NumberingGetError = NumberingGetErrors[keyof NumberingGetErrors];
+
+export type NumberingGetResponses = {
+    /**
+     * The active scheme's segments, or null
+     */
+    200: NumberingSchemeResponse;
+};
+
+export type NumberingGetResponse = NumberingGetResponses[keyof NumberingGetResponses];
+
+export type NumberingSetData = {
+    body: NumberingScheme;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/numbering-scheme';
+};
+
+export type NumberingSetErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks matters:manageNumbering
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The scheme is invalid (not exactly one counter), or the Idempotency-Key was reused
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NumberingSetError = NumberingSetErrors[keyof NumberingSetErrors];
+
+export type NumberingSetResponses = {
+    /**
+     * The scheme was set; the validated segments are echoed
+     */
+    200: NumberingScheme;
+};
+
+export type NumberingSetResponse = NumberingSetResponses[keyof NumberingSetResponses];
+
+export type NumberingPreviewData = {
+    body: NumberingPreviewRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/numbering-scheme/preview';
+};
+
+export type NumberingPreviewErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks matters:manageNumbering
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The scheme is invalid, or a scoping/value segment has no value in the sample context
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NumberingPreviewError = NumberingPreviewErrors[keyof NumberingPreviewErrors];
+
+export type NumberingPreviewResponses = {
+    /**
+     * The rendered example number and its scope key
+     */
+    200: NumberingPreviewResponse;
+};
+
+export type NumberingPreviewResponse2 = NumberingPreviewResponses[keyof NumberingPreviewResponses];
+
+export type FoldersCreateData = {
+    body: CreateFolderRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/folders';
+};
+
+export type FoldersCreateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:organize
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the folder/matter is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the folder cannot be changed (name taken, would form a cycle, or is not empty)
+     */
+    409: Problem;
+    /**
+     * The Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FoldersCreateError = FoldersCreateErrors[keyof FoldersCreateErrors];
+
+export type FoldersCreateResponses = {
+    /**
+     * The folder was created
+     */
+    201: CreateFolderResponse;
+};
+
+export type FoldersCreateResponse = FoldersCreateResponses[keyof FoldersCreateResponses];
+
+export type FoldersDeleteData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/folders/{id}';
+};
+
+export type FoldersDeleteErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:organize
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the folder/matter is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the folder cannot be changed (name taken, would form a cycle, or is not empty)
+     */
+    409: Problem;
+    /**
+     * The Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FoldersDeleteError = FoldersDeleteErrors[keyof FoldersDeleteErrors];
+
+export type FoldersDeleteResponses = {
+    /**
+     * The folder was deleted
+     */
+    200: FolderActionAck;
+};
+
+export type FoldersDeleteResponse = FoldersDeleteResponses[keyof FoldersDeleteResponses];
+
+export type FoldersUpdateData = {
+    body: PatchFolderRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/folders/{id}';
+};
+
+export type FoldersUpdateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:organize
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the folder/matter is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the folder cannot be changed (name taken, would form a cycle, or is not empty)
+     */
+    409: Problem;
+    /**
+     * The Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FoldersUpdateError = FoldersUpdateErrors[keyof FoldersUpdateErrors];
+
+export type FoldersUpdateResponses = {
+    /**
+     * The folder was updated
+     */
+    200: FolderActionAck;
+};
+
+export type FoldersUpdateResponse = FoldersUpdateResponses[keyof FoldersUpdateResponses];
+
+export type FilesListData = {
+    body?: never;
+    path?: never;
+    query: {
+        matterId: string;
+        folderId?: string;
+        cursor?: string;
+        pageSize?: number;
+    };
+    url: '/api/v1/files';
+};
+
+export type FilesListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the file is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesListError = FilesListErrors[keyof FilesListErrors];
+
+export type FilesListResponses = {
+    /**
+     * A page of files
+     */
+    200: FileListResponse;
+};
+
+export type FilesListResponse = FilesListResponses[keyof FilesListResponses];
+
+export type FilesDeleteData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}';
+};
+
+export type FilesDeleteErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the file is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesDeleteError = FilesDeleteErrors[keyof FilesDeleteErrors];
+
+export type FilesDeleteResponses = {
+    /**
+     * The file was soft-deleted
+     */
+    200: FileActionAck;
+};
+
+export type FilesDeleteResponse = FilesDeleteResponses[keyof FilesDeleteResponses];
+
+export type FilesGetData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}';
+};
+
+export type FilesGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the file is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesGetError = FilesGetErrors[keyof FilesGetErrors];
+
+export type FilesGetResponses = {
+    /**
+     * The file
+     */
+    200: FileSummary;
+};
+
+export type FilesGetResponse = FilesGetResponses[keyof FilesGetResponses];
+
+export type FilesUpdateData = {
+    body: PatchFileRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}';
+};
+
+export type FilesUpdateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the file is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesUpdateError = FilesUpdateErrors[keyof FilesUpdateErrors];
+
+export type FilesUpdateResponses = {
+    /**
+     * The file was updated
+     */
+    200: FileActionAck;
+};
+
+export type FilesUpdateResponse = FilesUpdateResponses[keyof FilesUpdateResponses];
+
+export type FilesVersionsData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}/versions';
+};
+
+export type FilesVersionsErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the file is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesVersionsError = FilesVersionsErrors[keyof FilesVersionsErrors];
+
+export type FilesVersionsResponses = {
+    /**
+     * The file's clean version history
+     */
+    200: FileVersionsResponse;
+};
+
+export type FilesVersionsResponse = FilesVersionsResponses[keyof FilesVersionsResponses];
+
+export type FilesDownloadData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}/download';
+};
+
+export type FilesDownloadErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the file is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesDownloadError = FilesDownloadErrors[keyof FilesDownloadErrors];
+
+export type DownloadsZipData = {
+    body: ZipDownloadRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/downloads/zip';
+};
+
+export type DownloadsZipErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:organize
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the selection is empty
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DownloadsZipError = DownloadsZipErrors[keyof DownloadsZipErrors];
+
+export type DownloadsZipResponses = {
+    /**
+     * A streamed ZIP archive of the selected files
+     */
+    200: Blob | File;
+};
+
+export type DownloadsZipResponse = DownloadsZipResponses[keyof DownloadsZipResponses];
