@@ -1,11 +1,18 @@
 // The malware-scan seam. The engine is a future slice's concern — this slice ships the PORT and an
 // engine-less launch adapter that records an honest `unscanned` verdict (nothing pretends to be
 // clean-by-scan). A real engine (its own design cycle) implements this same interface behind the gate.
+
+export type ScanResult =
+  | { verdict: "clean"; engineVersion: string }
+  | { verdict: "infected"; engineVersion: string }
+  | { verdict: "suspicious"; engineVersion: string }
+  | { verdict: "unscanned"; reason: string; engineVersion: null };
+
 export interface MalwareScanPort {
   scan(
     body: ReadableStream<Uint8Array>,
     meta: { sizeBytes: number; sniffedContentType: string | null },
-  ): Promise<{ verdict: "unscanned" | "clean" | "infected"; engineVersion: string | null }>;
+  ): Promise<ScanResult>;
 }
 
 // Launch adapter: no engine yet. Drains its stream branch so it cannot backpressure the single read,
@@ -14,6 +21,6 @@ export interface MalwareScanPort {
 export const unscannedAdapter: MalwareScanPort = {
   async scan(body) {
     await body.cancel();
-    return { verdict: "unscanned", engineVersion: null };
+    return { verdict: "unscanned", reason: "no-engine", engineVersion: null };
   },
 };

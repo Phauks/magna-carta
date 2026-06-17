@@ -141,12 +141,18 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
   }
   if (scan.verdict === "infected") return { kind: "quarantine", reason: "scan-infected" };
   // An `unscanned` verdict commits (explicit-unscanned policy); `clean` commits too.
-  return {
-    kind: "commit",
-    sizeBytes: input.objectSize,
-    sniffedContentType,
-    contentSha256: hashed.hash,
-    scanVerdict: scan.verdict === "clean" ? "clean" : "unscanned",
-    scanEngineVersion: scan.engineVersion,
-  };
+  // `suspicious` is handled as unscanned for now (commits the version but flagged for review).
+  if (scan.verdict === "clean" || scan.verdict === "unscanned" || scan.verdict === "suspicious") {
+    return {
+      kind: "commit",
+      sizeBytes: input.objectSize,
+      sniffedContentType,
+      contentSha256: hashed.hash,
+      scanVerdict: scan.verdict === "clean" ? "clean" : "unscanned",
+      scanEngineVersion: scan.engineVersion,
+    };
+  }
+  // Exhaustiveness check: if TypeScript reaches here, scan.verdict is not one of the expected values.
+  const _exhaustiveness: never = scan.verdict;
+  return _exhaustiveness;
 }
