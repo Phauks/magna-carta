@@ -128,7 +128,7 @@ describe("runIngest", () => {
     const infectedPort: MalwareScanPort = {
       async scan(body) {
         await body.cancel();
-        return { verdict: "infected", engineVersion: "test-engine-1" };
+        return { verdict: "infected", engineVersion: "test-engine-1", signature: null };
       },
     };
     const outcome = await runIngest(input(PDF_BYTES, { scanPort: infectedPort }));
