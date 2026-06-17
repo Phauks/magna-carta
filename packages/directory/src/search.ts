@@ -449,10 +449,12 @@ export async function findDuplicateCandidates(
     signalCounts.delete(input.excludeEntityId);
   }
 
-  // Sort descending by signal count (most channels first = strongest candidate first).
+  // Sort descending by signal count (most channels first = strongest candidate first), with a
+  // stable secondary sort on the entity id so equal-signal candidates have a deterministic order
+  // regardless of channel completion order (otherwise the ordering varies with DB result order).
   const candidates: DuplicateCandidate[] = [...signalCounts.entries()]
     .map(([entityId, signalCount]) => ({ entityId, signalCount }))
-    .sort((a, b) => b.signalCount - a.signalCount);
+    .sort((a, b) => b.signalCount - a.signalCount || a.entityId.localeCompare(b.entityId));
 
   return candidates;
 }

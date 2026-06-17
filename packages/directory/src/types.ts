@@ -31,10 +31,13 @@ export const NAME_ROLES = ["current", "former", "alias", "aka", "maiden", "dba"]
 export type NameRole = (typeof NAME_ROLES)[number];
 
 // ── PhoneticScheme ────────────────────────────────────────────────────────────
-// The phonetic encoding scheme for a name's phonetic code row. DB-enforced:
-// directory_name_phonetic_code.scheme CHECK constrains to exactly these four values.
-// Double Metaphone produces two codes per input (primary and secondary); they are stored
-// as separate rows so the blocking/search layer treats all schemes uniformly.
+// The phonetic encoding scheme for a name's phonetic code row. The
+// directory_name_phonetic_code.scheme CHECK is open (length > 0), not a closed enum, so a
+// new scheme (e.g. Beider-Morse) can be added later as additive rows without a migration.
+// This array is the application-level catalog of known schemes; only the two double_metaphone
+// schemes are emitted today (soundex/metaphone are reserved for future encoders). Double
+// Metaphone produces two codes per input (primary and secondary); they are stored as separate
+// rows so the blocking/search layer treats all schemes uniformly.
 export const PHONETIC_SCHEMES = [
   "soundex",
   "metaphone",
