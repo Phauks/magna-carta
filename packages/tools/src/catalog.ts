@@ -1,0 +1,59 @@
+import { assertPermission } from "@magna-carta/access-control/registry";
+import type { ToolManifest } from "./types.ts";
+
+// The single source of truth for the Tools area. The sidebar renders this grouped by subject;
+// contextual surfaces query it by context tag. Adding a tool is one row here (and, for the UI, one
+// id->component mapping in the shell). Each permission is validated at module load — an unregistered
+// key fails loud here rather than rendering a tool no one can be granted.
+export const CATALOG: readonly ToolManifest[] = [
+  {
+    id: "property-listing-links",
+    name: "Property Listing Links",
+    icon: "house",
+    subjectGroup: "property",
+    permission: assertPermission("tools:propertyListings"),
+    contextTags: ["address"],
+    backing: { kind: "library" },
+    matterContext: "none",
+  },
+  {
+    id: "county-property-records",
+    name: "County Property Records",
+    icon: "landmark",
+    subjectGroup: "property",
+    permission: assertPermission("tools:propertyRecords"),
+    contextTags: ["address"],
+    backing: { kind: "library" },
+    matterContext: "none",
+  },
+  {
+    id: "business-entity-lookup",
+    name: "Business Entity Lookup",
+    icon: "building-2",
+    subjectGroup: "business-entities",
+    permission: assertPermission("tools:businessLookup"),
+    contextTags: ["company"],
+    backing: { kind: "library" },
+    matterContext: "none",
+  },
+  {
+    id: "attorney-license-lookup",
+    name: "Attorney License Lookup",
+    icon: "badge-check",
+    subjectGroup: "people-licenses",
+    permission: assertPermission("tools:attorneyLicense"),
+    contextTags: ["person"],
+    backing: { kind: "library" },
+    matterContext: "none",
+  },
+  {
+    id: "shipping",
+    name: "Shipping & Postage",
+    icon: "package",
+    subjectGroup: "mailing-shipping",
+    permission: assertPermission("tools:shipping"),
+    contextTags: ["address"],
+    backing: { kind: "integration", category: "shipping" },
+    matterContext: "none",
+  },
+];
