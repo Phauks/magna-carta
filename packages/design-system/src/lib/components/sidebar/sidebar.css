@@ -28,10 +28,12 @@
     display: flex;
     align-items: center;
     gap: var(--mc-space-8);
+    /* Pinned to the control-lg row height so the brand corner lines up with the app-shell top bar
+       (their bottom hairlines meet). The brand mark aligns with the nav icons below via padding-inline
+       (content padding 8 + button padding 8 = 16). */
     min-block-size: var(--mc-control-lg);
-    /* The brand mark aligns with the nav icons below (content padding 8 + button padding 8 = 16). */
     padding-inline: var(--mc-space-16);
-    padding-block: var(--mc-space-12);
+    padding-block: var(--mc-space-8);
     color: var(--mc-chrome-text-strong);
     border-block-end: var(--mc-border-width-default) solid var(--mc-chrome-border);
   }
