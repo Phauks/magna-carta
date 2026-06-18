@@ -162,6 +162,22 @@ export function dateRangeFilterFn<TData extends RowData>(
   return true;
 }
 
+/**
+ * A faceted multi-select filter: keep rows whose (stringified) value is in the selected set. The
+ * selection model is `facet-selection.ts` — `undefined` (all) clears the filter; an empty array
+ * (none) matches nothing. It deliberately defines NO `autoRemove`: table-core then keeps an empty
+ * array (it only auto-removes `undefined` or an empty string), so "none selected" stays
+ * representable — unlike the built-in `arrIncludesSome`, whose `autoRemove` strips an empty array and
+ * so silently reverts "none" back to "all".
+ */
+export function facetFilterFn<TData extends RowData>(
+  row: Row<TData>,
+  columnId: string,
+  filterValue: unknown,
+): boolean {
+  return ((filterValue ?? []) as string[]).includes(String(row.getValue(columnId)));
+}
+
 /** The column's display label — `meta.label`, else the string header, else a title-cased id. */
 export function columnLabel<TData extends RowData>(column: Column<TData, unknown>): string {
   const meta = column.columnDef.meta;

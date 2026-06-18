@@ -38,7 +38,7 @@
 
 <Story
   name="App shell"
-  play={async ({ canvas, step }) => {
+  play={async ({ canvas, canvasElement, step }) => {
     const nav = canvas.getByRole("navigation", { name: "Primary" });
 
     await step("The active destination is marked as the current page", async () => {
@@ -52,6 +52,11 @@
       await expect(expand).toHaveAttribute("aria-expanded", "false");
       // The label went sr-only, so the link is still findable by its accessible name.
       await expect(canvas.getByRole("link", { name: "Matters" })).toBeInTheDocument();
+      // Regression: the brand mark keeps its full size in the rail (flex: none) — it used to shrink
+      // to a ~2px sliver because an invalid flex-shrink token left the icon shrinkable.
+      const brandIcon = canvasElement.querySelector(".mc-sidebar-header svg.mc-sidebar-icon");
+      await expect(brandIcon).toBeInTheDocument();
+      await expect(brandIcon!.getBoundingClientRect().width).toBeGreaterThan(16);
     });
 
     await step("The trigger now says Expand, and expanding restores the labelled rail", async () => {

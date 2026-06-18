@@ -1321,7 +1321,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: var(--mc-space-0);
+    flex: none;
     inline-size: var(--mc-space-16);
     block-size: var(--mc-space-16);
   }
@@ -1405,7 +1405,7 @@
   }
   /* The trailing chevron; muted and held at a fixed size so it never shrinks under a long label. */
   .mc-select-trigger-icon {
-    flex-shrink: var(--mc-space-0);
+    flex: none;
     inline-size: var(--mc-space-16);
     block-size: var(--mc-space-16);
     color: var(--mc-text-muted);
@@ -1462,7 +1462,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: var(--mc-space-0);
+    flex: none;
     inline-size: var(--mc-space-16);
     block-size: var(--mc-space-16);
   }
@@ -1520,7 +1520,7 @@
     border-block-end-color: var(--mc-border-default);
   }
   .mc-command-input-icon {
-    flex-shrink: var(--mc-space-0);
+    flex: none;
     inline-size: var(--mc-space-16);
     block-size: var(--mc-space-16);
     color: var(--mc-text-muted);
@@ -1635,7 +1635,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: var(--mc-space-0);
+    flex: none;
     color: var(--mc-text-muted);
     background-color: transparent;
     border-style: none;
@@ -2120,7 +2120,7 @@
     outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring);
   }
   .mc-table-sort-icon {
-    flex-shrink: var(--mc-space-0);
+    flex: none;
     inline-size: var(--mc-space-16);
     block-size: var(--mc-space-16);
   }
@@ -2231,6 +2231,16 @@
     border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);
     font-weight: var(--mc-weight-medium);
   }
+  /* Date filter: a vertical list of quick-range presets (full-width, left-read), not a nested calendar. */
+  .mc-table-filter-presets {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--mc-space-4);
+  }
+  .mc-table-filter-preset {
+    justify-content: flex-start;
+  }
   .mc-table-filter-actions {
     display: flex;
     justify-content: flex-end;
@@ -2246,8 +2256,9 @@
   .mc-sidebar {
     display: flex;
     flex-direction: column;
-    /* flex-shrink 0 so the flex algorithm does not override (and snap) the animated width. */
-    flex-shrink: var(--mc-space-0);
+    /* flex: none (shrink 0) so the flex algorithm does not override (and snap) the animated width.
+       A unitless flex-shrink can't be a length token, so the keyword shorthand is the token-pure form. */
+    flex: none;
     inline-size: var(--mc-size-sidebar);
     background-color: var(--mc-surface-default);
     border-inline-end: var(--mc-border-width-default) solid var(--mc-border-default);
@@ -2357,7 +2368,7 @@
     font-weight: var(--mc-weight-semibold);
   }
   .mc-sidebar-icon {
-    flex-shrink: var(--mc-space-0);
+    flex: none;
     inline-size: var(--mc-space-20);
     block-size: var(--mc-space-20);
   }
@@ -2413,7 +2424,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: var(--mc-space-0);
+    flex: none;
     background-color: var(--mc-border-default);
     transition-property: background-color;
     transition-duration: var(--mc-duration-fast);

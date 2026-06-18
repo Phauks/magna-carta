@@ -164,9 +164,11 @@
         <DataTable.Row>
           <DataTable.Head>
             <Checkbox
-              checked={table.getIsAllRowsSelected()}
+              bind:checked={
+                () => table.getIsAllRowsSelected(),
+                (checked) => table.toggleAllRowsSelected(checked)
+              }
               indeterminate={table.getIsSomeRowsSelected()}
-              onCheckedChange={(value) => table.toggleAllRowsSelected(value === true)}
               aria-label="Select all rows"
             />
           </DataTable.Head>
@@ -195,7 +197,7 @@
                   {:else}
                     <FlexRender content={header.column.columnDef.header} context={header.getContext()} />
                   {/if}
-                  <DataTable.ColumnFilter column={header.column} />
+                  <DataTable.ColumnFilter column={header.column} {table} />
                 </div>
               {/if}
             </DataTable.Head>
@@ -222,8 +224,7 @@
           <DataTable.Row data-state={row.getIsSelected() ? "selected" : undefined}>
             <DataTable.Cell>
               <Checkbox
-                checked={row.getIsSelected()}
-                onCheckedChange={() => selectRow(row.id)}
+                bind:checked={() => row.getIsSelected(), () => selectRow(row.id)}
                 aria-label="Select row"
               />
             </DataTable.Cell>

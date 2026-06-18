@@ -38,7 +38,23 @@ export {
   columnLabel,
   columnFilterKind,
   dateRangeFilterFn,
+  facetFilterFn,
 } from "./typed-columns.ts";
+export {
+  type FacetSelection,
+  isAllFacetsSelected,
+  isSomeFacetsSelected,
+  isFacetSelected,
+  facetSelectionAfterToggle,
+  facetSelectionAfterToggleAll,
+} from "./facet-selection.ts";
+export {
+  type DateRangePreset,
+  type DateRangePresetId,
+  DATE_RANGE_PRESETS,
+  presetFilterValue,
+  activeDateRangePresetId,
+} from "./date-range-presets.ts";
 export {
   type TableAppearance,
   type TableDensity,

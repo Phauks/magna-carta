@@ -329,6 +329,26 @@ export function findComponentsCssViolations(filePath: string, css: string): stri
   );
 }
 
+/*
+ * A standalone `flex-grow` / `flex-shrink` declaration needs a UNITLESS flex factor (0, 1, ...), which
+ * the token grammar above cannot express: `var(--mc-space-0)` resolves to `0px`, an invalid flex factor
+ * the browser silently discards (falling back to 1). That is the bug that let the sidebar brand mark
+ * shrink to a sliver. The fix — and the only token-pure form — is the `flex` shorthand with a keyword
+ * (e.g. `flex: none` for "neither grow nor shrink"), so the standalone factors are banned outright.
+ */
+const UNITLESS_FLEX_PROPERTIES = new Set(["flex-grow", "flex-shrink"]);
+
+export function findUnitlessFlexMisuse(filePath: string, css: string): string[] {
+  return extractCssDeclarations(css)
+    .filter(({ property }) => UNITLESS_FLEX_PROPERTIES.has(property.toLowerCase()))
+    .map(
+      ({ property, value, line }) =>
+        `${filePath}:${line} [unitless-flex] ${property}: ${value} — use the \`flex\` shorthand ` +
+        "keyword (e.g. `flex: none`); a standalone flex factor needs a unitless number, which the " +
+        "token grammar cannot express (var(--mc-space-0) is 0px, an invalid factor)",
+    );
+}
+
 const COMPONENTS_CSS_PATH = "packages/design-system/src/lib/styles/components.css";
 
 describe("components.css token purity (golden rule 2; ADR-0076 component-layer discipline)", () => {
@@ -410,5 +430,21 @@ describe("components.css token purity (golden rule 2; ADR-0076 component-layer d
         .mc-button:hover[data-state="open"] { }
       }`;
     expect(extractCssDeclarations(structuralOnly)).toEqual([]);
+  });
+});
+
+describe("components.css uses the flex shorthand, never standalone flex factors", () => {
+  const componentsCss = readFileSync(join(REPOSITORY_ROOT, COMPONENTS_CSS_PATH), "utf8");
+
+  it("has no standalone flex-grow / flex-shrink declarations", () => {
+    expect(findUnitlessFlexMisuse(COMPONENTS_CSS_PATH, componentsCss)).toEqual([]);
+  });
+
+  it("catches a crafted standalone flex factor and allows the keyword shorthand (self-check)", () => {
+    const crafted = "@layer components {\n  .mc-x {\n    flex-shrink: var(--mc-space-0);\n  }\n}";
+    expect(findUnitlessFlexMisuse("crafted.css", crafted)).toHaveLength(1);
+    expect(findUnitlessFlexMisuse("crafted.css", crafted)[0]).toContain("[unitless-flex]");
+    const keyword = "@layer components {\n  .mc-y {\n    flex: none;\n  }\n}";
+    expect(findUnitlessFlexMisuse("crafted.css", keyword)).toEqual([]);
   });
 });

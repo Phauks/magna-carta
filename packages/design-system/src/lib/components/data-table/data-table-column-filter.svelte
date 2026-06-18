@@ -3,57 +3,63 @@
    * DataTable.ColumnFilter — a per-column filter in the spirit of Excel / Google Sheets: a small
    * funnel in the header opens a popover with the control that fits the column's type (from meta) —
    * a contains box (text), a searchable checklist of distinct values (facet, the Sheets pattern:
-   * everything is checked until you uncheck), a min/max pair (number/money range), or a from/to pair
-   * (date). The funnel lights up while the column is filtered; each popover has a Clear action. The
-   * column declares the matching filterFn (includesString / arrIncludesSome / inNumberRange /
-   * dateRangeFilterFn).
+   * everything is checked until you uncheck), a min/max pair (number/money range), or quick presets
+   * (date). The funnel lights up while the column is filtered; each popover has a Clear action.
+   *
+   * Facets use a STABLE universe (the column's distinct values over the unfiltered rows, via `table`)
+   * and the `facet-selection` model with `facetFilterFn`, so "deselect everything" means NONE and the
+   * list never collapses. Checkboxes are bound with get/set function bindings (the Bits-UI controlled
+   * pattern), so what's shown always reflects the table state — never a stale internal toggle.
+   *
+   * The date control offers quick presets, not a nested calendar: a calendar popover nested inside
+   * this filter popover crashes the floating layer, and presets are the better fit for column filters.
    */
-  import type { Column } from "@tanstack/table-core";
-  import type { DateRange } from "bits-ui";
-  import { getLocalTimeZone, parseDate, today } from "@internationalized/date";
+  import type { Column, Table } from "@tanstack/table-core";
+  import { getLocalTimeZone, today } from "@internationalized/date";
   import Funnel from "@lucide/svelte/icons/funnel";
   import * as Popover from "../popover/index.ts";
   import Input from "../input/index.ts";
   import Checkbox from "../checkbox/index.ts";
   import Button from "../button/index.ts";
-  import { DateRangePicker } from "../date-range-picker/index.ts";
   import { columnFilterKind, columnLabel } from "./typed-columns.ts";
+  import {
+    facetSelectionAfterToggle,
+    facetSelectionAfterToggleAll,
+    isAllFacetsSelected,
+    isFacetSelected,
+    isSomeFacetsSelected,
+    type FacetSelection,
+  } from "./facet-selection.ts";
+  import {
+    activeDateRangePresetId,
+    DATE_RANGE_PRESETS,
+    presetFilterValue,
+    type DateRangePreset,
+  } from "./date-range-presets.ts";
 
-  type Props = { column: Column<TData> };
-  let { column }: Props = $props();
+  type Props = { column: Column<TData>; table: Table<TData> };
+  let { column, table }: Props = $props();
 
   const kind = $derived(columnFilterKind(column as Column<TData, unknown>));
   const name = $derived(columnLabel(column as Column<TData, unknown>));
 
   let facetQuery = $state("");
 
-  // Faceted (Sheets-style) selection: no filter value means "all checked". Unchecking a value filters
-  // to the remaining set; re-selecting them all clears the filter.
-  const allFacets = (): string[] =>
-    [...(column.getFacetedUniqueValues()?.keys() ?? [])].map((value) => String(value)).sort();
-  const visibleFacets = (): string[] =>
-    allFacets().filter((value) => value.toLowerCase().includes(facetQuery.trim().toLowerCase()));
-  const checkedFacets = (): string[] | undefined => column.getFilterValue() as string[] | undefined;
-  const isFacetChecked = (value: string): boolean =>
-    checkedFacets() === undefined || checkedFacets()!.includes(value);
-  const allChecked = (): boolean => {
-    const checked = checkedFacets();
-    return checked === undefined || checked.length === allFacets().length;
-  };
-  const someChecked = (): boolean => {
-    const checked = checkedFacets();
-    return checked !== undefined && checked.length > 0 && checked.length < allFacets().length;
-  };
-  function toggleFacet(value: string, on: boolean): void {
-    const all = allFacets();
-    const set = new Set(checkedFacets() ?? all);
-    if (on) set.add(value);
-    else set.delete(value);
-    column.setFilterValue(set.size === all.length ? undefined : [...set]);
+  // The column's full, STABLE set of distinct values, from the unfiltered (core) rows — so options
+  // never vanish as the selection narrows and the all/none math never divides by an empty set.
+  function facetUniverse(): string[] {
+    const values = new Set<string>();
+    for (const row of table.getCoreRowModel().rows) {
+      const value = row.getValue(column.id);
+      if (value != null) values.add(String(value));
+    }
+    return [...values].sort();
   }
-  function toggleAll(on: boolean): void {
-    column.setFilterValue(on ? undefined : []);
-  }
+  const facetSelection = (): FacetSelection => column.getFilterValue() as FacetSelection;
+  const visibleFacets = (universe: string[]): string[] => {
+    const query = facetQuery.trim().toLowerCase();
+    return query === "" ? universe : universe.filter((value) => value.toLowerCase().includes(query));
+  };
 
   // Numeric range pair (min/max).
   const pair = (): [string, string] => {
@@ -69,18 +75,14 @@
     column.setFilterValue(current[0] == null && current[1] == null ? undefined : current);
   }
 
-  // Date range — the filter value is a [from, to] pair of YYYY-MM-DD strings (so the filterFn stays
-  // plain), but the UI is the styled DateRangePicker (CalendarDate), not a native date input.
-  const dateFilter = (): DateRange | undefined => {
-    const [from, to] = (column.getFilterValue() as [string?, string?] | undefined) ?? [];
-    return from || to
-      ? { start: from ? parseDate(from) : undefined, end: to ? parseDate(to) : undefined }
-      : undefined;
-  };
-  function setDateRange(range: DateRange | undefined): void {
-    const from = range?.start?.toString();
-    const to = range?.end?.toString();
-    column.setFilterValue(from || to ? [from, to] : undefined);
+  // Date — quick presets stored as the [from, to] pair of YYYY-MM-DD strings that dateRangeFilterFn
+  // reads; the active preset (if any) is highlighted.
+  const dateValue = (): [string?, string?] | undefined =>
+    column.getFilterValue() as [string?, string?] | undefined;
+  const activePreset = (): string | undefined =>
+    activeDateRangePresetId(dateValue(), today(getLocalTimeZone()));
+  function applyPreset(preset: DateRangePreset): void {
+    column.setFilterValue(presetFilterValue(preset, today(getLocalTimeZone())));
   }
 </script>
 
@@ -105,22 +107,35 @@
           oninput={(event) => column.setFilterValue(event.currentTarget.value || undefined)}
         />
       {:else if kind === "facet"}
-        <Input type="search" placeholder="Search values…" aria-label="Search values" bind:value={facetQuery} />
+        {@const universe = facetUniverse()}
+        <Input
+          type="search"
+          placeholder="Search values…"
+          aria-label="Search values"
+          bind:value={facetQuery}
+        />
         <label class="mc-table-filter-option mc-table-filter-selectall">
           <Checkbox
-            checked={allChecked()}
-            indeterminate={someChecked()}
-            onCheckedChange={(checked) => toggleAll(checked === true)}
+            bind:checked={
+              () => isAllFacetsSelected(universe, facetSelection()),
+              (checked) => column.setFilterValue(facetSelectionAfterToggleAll(checked))
+            }
+            indeterminate={isSomeFacetsSelected(universe, facetSelection())}
             aria-label="Select all"
           />
           <span>Select all</span>
         </label>
         <div class="mc-table-filter-facets mc-scrollbar">
-          {#each visibleFacets() as value (value)}
+          {#each visibleFacets(universe) as value (value)}
             <label class="mc-table-filter-option">
               <Checkbox
-                checked={isFacetChecked(value)}
-                onCheckedChange={(checked) => toggleFacet(value, checked === true)}
+                bind:checked={
+                  () => isFacetSelected(facetSelection(), value),
+                  (checked) =>
+                    column.setFilterValue(
+                      facetSelectionAfterToggle(universe, facetSelection(), value, checked),
+                    )
+                }
                 aria-label={value}
               />
               <span>{value}</span>
@@ -147,12 +162,18 @@
           />
         </label>
       {:else if kind === "date"}
-        <DateRangePicker
-          value={dateFilter()}
-          onValueChange={(range) => setDateRange(range)}
-          placeholder={today(getLocalTimeZone())}
-          aria-label="Filter {name} range"
-        />
+        <div class="mc-table-filter-presets">
+          {#each DATE_RANGE_PRESETS as preset (preset.id)}
+            <Button
+              variant={activePreset() === preset.id ? "secondary" : "ghost"}
+              size="sm"
+              class="mc-table-filter-preset"
+              onclick={() => applyPreset(preset)}
+            >
+              {preset.label}
+            </Button>
+          {/each}
+        </div>
       {/if}
 
       {#if column.getIsFiltered()}

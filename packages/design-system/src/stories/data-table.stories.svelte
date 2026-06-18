@@ -12,7 +12,7 @@
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ColumnDef } from "@tanstack/table-core";
   import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test";
-  import { dateRangeFilterFn } from "../lib/components/data-table/index.ts";
+  import { dateRangeFilterFn, facetFilterFn } from "../lib/components/data-table/index.ts";
   import DataTableRoot from "../lib/components/data-table/table.svelte";
   import MattersTable from "./support/matters-table.svelte";
 
@@ -45,8 +45,8 @@
   const columns: ColumnDef<Matter>[] = [
     { accessorKey: "reference", header: "Reference", filterFn: "includesString", meta: { filter: "text" } },
     // Client uses a faceted filter — pick from all distinct values (select some, exclude others).
-    { accessorKey: "client", header: "Client", filterFn: "arrIncludesSome", meta: { filter: "facet" } },
-    { accessorKey: "status", header: "Status", filterFn: "arrIncludesSome", meta: { filter: "facet" } },
+    { accessorKey: "client", header: "Client", filterFn: facetFilterFn, meta: { filter: "facet" } },
+    { accessorKey: "status", header: "Status", filterFn: facetFilterFn, meta: { filter: "facet" } },
     { accessorKey: "opened", header: "Opened", filterFn: dateRangeFilterFn, meta: { type: "date" } },
     {
       accessorKey: "fees",
@@ -187,5 +187,62 @@
 >
   {#snippet template()}
     <MattersTable data={MATTERS} {columns} loading caption="Open matters" />
+  {/snippet}
+</Story>
+
+<!--
+  Column filters — the per-column funnels. Pins the regressions that used to bite: a faceted filter
+  whose "Select all" toggle inverted to "all" when you deselected everything, options that vanished
+  as the selection narrowed, and a date filter that crashed trying to open a nested calendar.
+-->
+<Story
+  name="Column filters"
+  play={async ({ canvas, step }) => {
+    const table = canvas.getByRole("table");
+    const body = within(document.body);
+    // Each column filter is its own popover portalled to <body>; scope queries to the right one by its
+    // heading, so a second still-open popover never makes a name (e.g. "Clear") match twice.
+    const filterPopover = async (heading: string) =>
+      within(
+        (await body.findByText(heading, { selector: ".mc-table-filter-heading" })).closest(
+          ".mc-table-filter-content",
+        ) as HTMLElement,
+      );
+
+    await step("Faceted: deselecting Select all selects NONE — it never reverts to all", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: "Filter Client" }));
+      const client = await filterPopover("Client");
+      const selectAll = client.getByRole("checkbox", { name: "Select all" });
+      await expect(selectAll).toBeChecked();
+      await userEvent.click(selectAll);
+      // None selected: the box stays unchecked, every value is unchecked, and no rows match.
+      await expect(selectAll).not.toBeChecked();
+      await expect(client.getByRole("checkbox", { name: "Acme Corp" })).not.toBeChecked();
+      await waitFor(() => expect(within(table).getByText("No matters found.")).toBeVisible());
+    });
+
+    await step("Faceted: the value list stays complete (stable universe) and one value re-filters", async () => {
+      const client = await filterPopover("Client");
+      // Options never vanish when the selection empties — the universe is the unfiltered distinct set.
+      await expect(client.getByRole("checkbox", { name: "Zenith Holdings" })).toBeInTheDocument();
+      await userEvent.click(client.getByRole("checkbox", { name: "Acme Corp" }));
+      await waitFor(() => expect(within(table).getAllByText("Acme Corp").length).toBeGreaterThan(0));
+      await expect(within(table).queryByText("Zenith Holdings")).toBeNull();
+      await userEvent.keyboard("{Escape}");
+    });
+
+    await step("Date: a quick preset filters the column (no nested-calendar crash) and Clear resets it", async () => {
+      const opened = canvas.getByRole("button", { name: "Filter Opened" });
+      await userEvent.click(opened);
+      const date = await filterPopover("Opened");
+      await userEvent.click(date.getByRole("button", { name: "Last 12 months" }));
+      await waitFor(() => expect(opened).toHaveAttribute("data-active", "true"));
+      await userEvent.click(date.getByRole("button", { name: "Clear" }));
+      await waitFor(() => expect(opened).not.toHaveAttribute("data-active"));
+    });
+  }}
+>
+  {#snippet template()}
+    <MattersTable data={MATTERS} {columns} caption="Open matters" />
   {/snippet}
 </Story>
