@@ -19,7 +19,8 @@
     "./cursor-pagination": "./src/cursor-pagination.ts",
     "./classification-type-service": "./src/classification-type-service.ts",
     "./hono-idempotency-middleware": "./src/hono-idempotency-middleware.ts",
-    "./firm-secret-credential-store": "./src/firm-secret-credential-store.ts"
+    "./firm-secret-credential-store": "./src/firm-secret-credential-store.ts",
+    "./usage-consent-statements": "./src/usage-consent-statements.ts"
   },
   "scripts": {
     "test": "vp test run"
