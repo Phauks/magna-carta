@@ -82,11 +82,28 @@ export const modeThresholdDefinition: FirmSettingDefinition<number> = {
   defaultValue: 100 * 1024 * 1024,
 };
 
-// The total-bytes ceiling above which a bulk ZIP download should hand off to an asynchronous job
-// rather than stream inline. Read and recorded in the download audit row today; the async-job path
-// that acts on it is built in a later phase. Default 2 GiB.
+// Superseded by liveMaxFileCountDefinition + liveMaxTotalBytesDefinition below: a single byte ceiling
+// missed the real driver — a selection of many small files is just as retry-unfriendly to stream
+// inline as one large one. The download route now decides on the two knobs (count OR bytes), not this.
+// Kept readable for one release so an already-stored firm value isn't orphaned mid-migration. Default 2 GiB.
 export const zipAsyncThresholdDefinition: FirmSettingDefinition<number> = {
   key: "fileManager.zipAsyncThresholdBytes",
+  schema: z.number().int().positive(),
+  defaultValue: 2 * GIBIBYTE,
+};
+
+// Above either knob the bulk download hands off to the async build job instead of streaming inline.
+// File count and total bytes are independent triggers: a huge fan-out of small files (count) is as
+// stream-unfriendly as a few large ones (bytes). The route hands off when fileCount > liveMaxFileCount
+// OR totalBytes > liveMaxTotalBytes. Defaults: 1000 files, 2 GiB.
+export const liveMaxFileCountDefinition: FirmSettingDefinition<number> = {
+  key: "fileManager.liveMaxFileCount",
+  schema: z.number().int().positive(),
+  defaultValue: 1000,
+};
+
+export const liveMaxTotalBytesDefinition: FirmSettingDefinition<number> = {
+  key: "fileManager.liveMaxTotalBytes",
   schema: z.number().int().positive(),
   defaultValue: 2 * GIBIBYTE,
 };
@@ -132,6 +149,14 @@ export function readUploadPolicy(database: SqlDatabase): Promise<UploadPolicy> {
 
 export function readInspectableSizeCap(database: SqlDatabase): Promise<number> {
   return readFirmSetting(database, inspectableSizeCapDefinition);
+}
+
+export function readLiveMaxFileCount(database: SqlDatabase): Promise<number> {
+  return readFirmSetting(database, liveMaxFileCountDefinition);
+}
+
+export function readLiveMaxTotalBytes(database: SqlDatabase): Promise<number> {
+  return readFirmSetting(database, liveMaxTotalBytesDefinition);
 }
 
 function contentTypeAllowed(allowed: readonly string[], contentType: string): boolean {
