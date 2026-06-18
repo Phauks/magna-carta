@@ -11,7 +11,9 @@
     "./scrub": "./src/scrub.ts",
     "./ids": "./src/ids.ts",
     "./logger": "./src/logger.ts",
-    "./workers-logger": "./src/workers-logger.ts"
+    "./workers-logger": "./src/workers-logger.ts",
+    "./pseudonymize": "./src/pseudonymize.ts",
+    "./usage-features": "./src/usage-features.ts"
   },
   "scripts": {
     "test": "vp test run"
