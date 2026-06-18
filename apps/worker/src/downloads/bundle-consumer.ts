@@ -63,7 +63,14 @@ async function putStreamMultipart(
     }
     await upload.complete(parts);
   } catch (error) {
-    await upload.abort();
+    // Best-effort abort: a throwing abort (a transient R2 error — common precisely when the upload was
+    // already failing) must not replace the original error, which carries the real cause to markFailed.
+    // Dangling parts from a failed abort are reclaimed by R2's abort-incomplete-multipart lifecycle.
+    try {
+      await upload.abort();
+    } catch {
+      // swallow — propagate the original error below
+    }
     throw error;
   }
 }

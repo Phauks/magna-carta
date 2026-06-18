@@ -31,7 +31,9 @@ export class BundleBuildCoordinator extends DurableObject<Bindings> implements B
   async markReady(r2Key: string): Promise<void> {
     const state = await this.ctx.storage.get<BundleJobState>("state");
     if (state === undefined) return;
-    await this.ctx.storage.put("state", { ...state, status: "ready", r2Key });
+    // Clear any error from a prior failed attempt: a job can legitimately go failed -> building ->
+    // ready (a retried build that succeeds), and a ready state must not carry a stale error string.
+    await this.ctx.storage.put("state", { ...state, status: "ready", r2Key, error: null });
     await this.ctx.storage.deleteAlarm();
   }
 

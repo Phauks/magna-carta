@@ -179,36 +179,41 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
             ? "async"
             : "inline";
 
+      // The export is recorded AFTER the delivery side-effect succeeds (matching the per-file download
+      // in routes/files.ts), so the audit trail never claims an export that a later presign/build
+      // failure prevented.
       const now = new Date().toISOString();
-      await commitEffectBatch(
-        firm.firmDatabase,
-        {
-          statements: [
-            insertAuditLogStatement(firm.firmDatabase, {
-              id: newIdentifier("auditLog"),
-              event: "files.bulkDownloaded",
-              actorUserId: userId,
-              subjectId: matterId,
-              metadata: {
-                fileCount: resolved.fileCount,
-                totalBytes: resolved.totalBytes,
-                liveMaxFileCount,
-                liveMaxTotalBytes,
-                delivery,
-              },
-              now,
-            }),
-          ],
-          outboxMessages: [],
-        },
-        { now: () => now },
-      );
+      const recordExport = () =>
+        commitEffectBatch(
+          firm.firmDatabase,
+          {
+            statements: [
+              insertAuditLogStatement(firm.firmDatabase, {
+                id: newIdentifier("auditLog"),
+                event: "files.bulkDownloaded",
+                actorUserId: userId,
+                subjectId: matterId,
+                metadata: {
+                  fileCount: resolved.fileCount,
+                  totalBytes: resolved.totalBytes,
+                  liveMaxFileCount,
+                  liveMaxTotalBytes,
+                  delivery,
+                },
+                now,
+              }),
+            ],
+            outboxMessages: [],
+          },
+          { now: () => now },
+        );
 
       // A single resolved file: redirect to a presigned GET, identical to the per-file download.
       if (delivery === "redirect") {
         const only = resolved.entries[0] as ZipEntry;
         const presigner = presignerForEnv(c.env);
         const url = await presigner.presignGet(bucket, only.r2Key, DOWNLOAD_TTL_SECONDS);
+        await recordExport();
         return c.redirect(url, 302);
       }
 
@@ -226,6 +231,7 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
             artifactKey,
             DOWNLOAD_TTL_SECONDS,
           );
+          await recordExport();
           return c.json({ url }, 200);
         }
         const coordinator = c.env.BUNDLE_COORDINATOR.get(
@@ -237,6 +243,7 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
           manifestHash,
           entries,
         });
+        await recordExport();
         return c.json({ jobId: manifestHash, status: state.status }, 202);
       }
 
@@ -253,6 +260,7 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
           yield { name: entry.path, input: object.body };
         }
       }
+      await recordExport();
       const zipStream = makeZip(zipInputs());
       return new Response(zipStream, {
         status: 200,
