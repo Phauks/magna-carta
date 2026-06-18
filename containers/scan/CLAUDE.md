@@ -55,3 +55,9 @@ bash tests/eicar_e2e.sh                      # build the image + EICAR acceptanc
   runs in the `scan-container` CI job, not the local worker suite.
 - yara starts **rule-less** today; the YARA-Forge corpus + rule-directory loading bake into the image as a
   follow-up. clamd signatures (incl. EICAR) work without any yara rules.
+- Structural inspection covers **PDF, OLE, and ZIP** only. Archive bombs/nesting/encryption in other
+  formats (7z, RAR, gzip, bzip2, xz, tar) are not structurally caught — clamd scans their contents, but
+  an encrypted non-ZIP archive serializes as `clean` rather than `unscanned`. Documented follow-up.
+- Archive nesting is detected by **content** (a leading-byte peek for an archive magic), not the `.zip`
+  filename, and ZIP inspection runs regardless of leading bytes (prepended-stub / polyglot zips), so a
+  rename or junk prefix cannot bypass the caps. A forged-size single-level bomb still relies on clamd.

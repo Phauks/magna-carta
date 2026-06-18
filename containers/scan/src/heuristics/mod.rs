@@ -72,6 +72,12 @@ fn is_zip(bytes: &[u8]) -> bool {
 /// magic), because the zip format is located by its tail end-of-central-directory record — a
 /// self-extracting stub or polyglot prefix yields a still-valid, extractable archive that an offset-0
 /// check would miss. `inspect_zip` is `Clean` for anything that is not a readable zip.
+///
+/// Known limitation: only PDF, OLE, and ZIP are structurally inspected. Other archive formats (7z, RAR,
+/// gzip, bzip2, xz, tar) are not — clamd still scans their contents for signatures, but their archive
+/// caps are not enforced and an ENCRYPTED non-ZIP archive serializes here as `Clean` rather than the
+/// `unscanned`/encrypted a ZIP would get. Adding magic dispatch (or at least an uninspectable-container
+/// classification) for those formats is a documented follow-up.
 pub fn inspect(bytes: &[u8], _sniffed: Option<&str>, caps: &ArchiveCaps) -> Heuristic {
     if is_pdf(bytes) {
         pdf::inspect_pdf(bytes)
