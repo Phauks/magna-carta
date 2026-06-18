@@ -15,10 +15,9 @@ interface CacheEntry {
   readonly expiresAt: number;
 }
 
-export function createUsageConsentResolver(options?: {
-  ttlMs?: number;
-  clock?: () => number;
-}): { resolve(database: SqlDatabase, firmId: string, userId: string): Promise<boolean> } {
+export function createUsageConsentResolver(options?: { ttlMs?: number; clock?: () => number }): {
+  resolve(database: SqlDatabase, firmId: string, userId: string): Promise<boolean>;
+} {
   const ttlMs = options?.ttlMs ?? DEFAULT_TTL_MILLISECONDS;
   const clock = options?.clock ?? (() => Date.now());
   const cache = new Map<string, CacheEntry>();

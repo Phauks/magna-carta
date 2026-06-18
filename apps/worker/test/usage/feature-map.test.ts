@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { isFeatureKey } from "@magna-carta/telemetry/usage-features";
-import { ROUTE_FEATURE, TOPIC_FEATURE, routeFeature, topicFeature } from "../../src/usage/feature-map.ts";
+import {
+  ROUTE_FEATURE,
+  TOPIC_FEATURE,
+  routeFeature,
+  topicFeature,
+} from "../../src/usage/feature-map.ts";
 
 describe("feature maps", () => {
   it("maps a known route template to its feature", () => {

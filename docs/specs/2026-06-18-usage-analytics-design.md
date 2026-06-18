@@ -20,12 +20,12 @@ It is deliberately **not**:
 
 Decided with the owner (2026-06-18): build **Reached + Completed** now; **seam** Retention; **dimension** Performance; **build** the full Iceberg/BI tier now (Cloudflare has since automated its maintenance — §6, so this is now light).
 
-| Insight | Disposition | Why |
-| --- | --- | --- |
-| **Feature reached** — an API route mapped to a feature was served to an authorized user (§4 defines this precisely) | **Build now** | The "what's used vs not" question; a dead-feature detector. Cheapest event, lowest risk. |
-| **Feature completed** — an authoritative domain mutation for a feature occurred | **Build now** | "Reached but not completed" is a stronger signal than "never reached" — it finds present-but-broken features. Cheap here because completion is derived from outbox events the domains **already emit** (§4). |
-| **Frequency & retention** — distinct users returning over time | **Seam only** | Premature at a handful of beta firms (retention curves are noise). The only expensive-to-retrofit part — a stable pseudonymous **`userIdHash`** on every user-attributed event — is included now (§3); the rollups are a later query over Iceberg. |
-| **Performance-in-context** — p50/p95 of real actions, by feature | **Dimension existing** | Operational telemetry already times requests (`request.completed`, `durationMs`); add the **`feature`** dimension so latency is sliceable by feature. No parallel system. |
+| Insight                                                                                                             | Disposition            | Why                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Feature reached** — an API route mapped to a feature was served to an authorized user (§4 defines this precisely) | **Build now**          | The "what's used vs not" question; a dead-feature detector. Cheapest event, lowest risk.                                                                                                                                                           |
+| **Feature completed** — an authoritative domain mutation for a feature occurred                                     | **Build now**          | "Reached but not completed" is a stronger signal than "never reached" — it finds present-but-broken features. Cheap here because completion is derived from outbox events the domains **already emit** (§4).                                       |
+| **Frequency & retention** — distinct users returning over time                                                      | **Seam only**          | Premature at a handful of beta firms (retention curves are noise). The only expensive-to-retrofit part — a stable pseudonymous **`userIdHash`** on every user-attributed event — is included now (§3); the rollups are a later query over Iceberg. |
+| **Performance-in-context** — p50/p95 of real actions, by feature                                                    | **Dimension existing** | Operational telemetry already times requests (`request.completed`, `durationMs`); add the **`feature`** dimension so latency is sliceable by feature. No parallel system.                                                                          |
 
 **Out of scope (explicit):** per-firm customer-facing usage dashboards; opt-in consent; any per-firm Iceberg tables (this tier is cross-firm aggregate only — the tenancy boundary is preserved exactly as the white paper's pillar already permits: "only non-sensitive technical aggregates roll up globally").
 
@@ -62,14 +62,14 @@ Every event also carries the implicit `correlationId` + `at` (ISO-8601) the buil
 
 **Per-emit-site field sourcing** (resolves what each site supplies — see §4):
 
-| Field | `reached` (request middleware) | `completed` (outbox relay) | beacon (`POST /v1/usage`) |
-| --- | --- | --- | --- |
-| `feature` | route→feature map | topic→feature map | client payload (taxonomy-validated) |
-| `phase` | `"reached"` | `"completed"` | from payload |
-| `surface` | `null` | `null` | client payload |
-| `firmIdHash` | from chokepoint `firmId` | from the swept firm's `firmId` | from chokepoint `firmId` |
-| `userIdHash` | from chokepoint `userId` | `null` unless the outbox payload carries an actor | from chokepoint `userId` |
-| `appVersion` | `null` | `null` | client payload |
+| Field        | `reached` (request middleware) | `completed` (outbox relay)                        | beacon (`POST /v1/usage`)           |
+| ------------ | ------------------------------ | ------------------------------------------------- | ----------------------------------- |
+| `feature`    | route→feature map              | topic→feature map                                 | client payload (taxonomy-validated) |
+| `phase`      | `"reached"`                    | `"completed"`                                     | from payload                        |
+| `surface`    | `null`                         | `null`                                            | client payload                      |
+| `firmIdHash` | from chokepoint `firmId`       | from the swept firm's `firmId`                    | from chokepoint `firmId`            |
+| `userIdHash` | from chokepoint `userId`       | `null` unless the outbox payload carries an actor | from chokepoint `userId`            |
+| `appVersion` | `null`                         | `null`                                            | client payload                      |
 
 **Pseudonymous hashes — HMAC, fail-closed.** `firmIdHash` / `userIdHash` are `HMAC-SHA-256(pepper, id)` rendered as a hex handle, where `pepper` is a long-lived server secret bound as `USAGE_ANALYTICS_PEPPER` (Secrets Store / wrangler secret). Plain SHA-256 of a `firm_…` identifier is reversible by enumerating the (small, knowable) firm-id space; the keyed pepper closes that. The hash helper is **pure** (pepper injected, not read from a binding inside it); the **pepper binding is read at each emit site and injected**, identically on the request path and the relay/cron path so hashes **join across both**. **Missing/empty pepper fails closed** — the event is suppressed entirely; an unhashed or unsalted identifier is never emitted (this deliberately does **not** follow the Analytics Engine binding's silent-degrade precedent, because the hash is the only privacy control on the Iceberg rows). The pepper is **stable** (rotating it breaks longitudinal/retention continuity), documented as no-rotate, and never logged.
 
@@ -124,19 +124,19 @@ Every layer-2 query applies **small-n suppression** (k-anonymity): drop any cell
 
 ## 7. Module placement & files
 
-| Concern | Home | Note |
-| --- | --- | --- |
-| `usage.feature` builder + `EVENT_NAMES` entry | `packages/telemetry/src/events.ts` | One new `defineEvent`; uniqueness fitness auto-covers it. |
-| Feature taxonomy registry | `packages/telemetry/src/` (new module) | String literals only; no domain dependency. |
-| Pseudonymous-hash helper (HMAC) | `packages/telemetry/src/` (new) | Pure; pepper injected; fail-closed on missing pepper. |
-| `usage_analytics.enabled` firm setting | `packages/data-access/src/setting-statements.ts` (definition) | Default `true`; read via `readFirmSetting`. |
-| `usage_analytics.optedOut` member-row field + migration | `packages/database` (schema + migration) | A member-row field, per the white paper's member-row settings home — **not** a new table. |
-| `firm:recordUsage` permission | `packages/access-control/src/registry.ts` | New literal in `PERMISSIONS`; `assertPermission` validates. `firm` namespace already maps to `firm` resource. |
-| Consent-resolution + `reached` emit (outbound pass) + isolate-local firm cache | `apps/worker/src/telemetry-middleware.ts` | After `await next()`, reading `requireChokepointFirmContext`; emit nothing when absent. |
-| `completed` emit (topic→feature) | `apps/worker/src/scheduled.ts` (outbox relay publish path) | Branch on `row.topic`; firm-level; at-least-once. |
-| `POST /v1/usage` beacon | `apps/worker/src/routes/usage.ts` (new) + `app.ts` registration + OpenAPI/client regen | Modelled on `routes/incidents.ts`; `feature` is a taxonomy-derived zod enum. |
-| Pepper secret | `apps/worker` (`USAGE_ANALYTICS_PEPPER` via Secrets Store/wrangler secret) | Read at each emit site. |
-| Logpush job, Pipeline (SQL + Iceberg/Parquet sink), Data Catalog table, automated compaction + snapshot expiration | `apps/worker/wrangler.jsonc` + Cloudflare config | No Container/Cron maintenance Workflow needed. |
+| Concern                                                                                                            | Home                                                                                   | Note                                                                                                          |
+| ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `usage.feature` builder + `EVENT_NAMES` entry                                                                      | `packages/telemetry/src/events.ts`                                                     | One new `defineEvent`; uniqueness fitness auto-covers it.                                                     |
+| Feature taxonomy registry                                                                                          | `packages/telemetry/src/` (new module)                                                 | String literals only; no domain dependency.                                                                   |
+| Pseudonymous-hash helper (HMAC)                                                                                    | `packages/telemetry/src/` (new)                                                        | Pure; pepper injected; fail-closed on missing pepper.                                                         |
+| `usage_analytics.enabled` firm setting                                                                             | `packages/data-access/src/setting-statements.ts` (definition)                          | Default `true`; read via `readFirmSetting`.                                                                   |
+| `usage_analytics.optedOut` member-row field + migration                                                            | `packages/database` (schema + migration)                                               | A member-row field, per the white paper's member-row settings home — **not** a new table.                     |
+| `firm:recordUsage` permission                                                                                      | `packages/access-control/src/registry.ts`                                              | New literal in `PERMISSIONS`; `assertPermission` validates. `firm` namespace already maps to `firm` resource. |
+| Consent-resolution + `reached` emit (outbound pass) + isolate-local firm cache                                     | `apps/worker/src/telemetry-middleware.ts`                                              | After `await next()`, reading `requireChokepointFirmContext`; emit nothing when absent.                       |
+| `completed` emit (topic→feature)                                                                                   | `apps/worker/src/scheduled.ts` (outbox relay publish path)                             | Branch on `row.topic`; firm-level; at-least-once.                                                             |
+| `POST /v1/usage` beacon                                                                                            | `apps/worker/src/routes/usage.ts` (new) + `app.ts` registration + OpenAPI/client regen | Modelled on `routes/incidents.ts`; `feature` is a taxonomy-derived zod enum.                                  |
+| Pepper secret                                                                                                      | `apps/worker` (`USAGE_ANALYTICS_PEPPER` via Secrets Store/wrangler secret)             | Read at each emit site.                                                                                       |
+| Logpush job, Pipeline (SQL + Iceberg/Parquet sink), Data Catalog table, automated compaction + snapshot expiration | `apps/worker/wrangler.jsonc` + Cloudflare config                                       | No Container/Cron maintenance Workflow needed.                                                                |
 
 ## 8. Fitness functions & testing
 

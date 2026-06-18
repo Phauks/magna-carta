@@ -25,27 +25,27 @@
 
 ## File structure
 
-| File | Responsibility | Task |
-| --- | --- | --- |
-| `packages/telemetry/src/events.ts` (modify) | Add the `usageFeature` builder + `EVENT_NAMES` entry | A1 |
-| `packages/telemetry/src/usage-features.ts` (create) | The feature-key taxonomy registry (`FEATURE_KEYS`, `FeatureKey`) | A2 |
-| `packages/telemetry/src/pseudonymize.ts` (create) | HMAC-SHA-256 hash helper, fail-closed | A3 |
-| `packages/database/src/per-firm-schema.ts` (modify) | Add the `optedOutOfUsageAnalytics` member-row column | B1 |
-| `packages/database/drizzle/per-firm/0007_usage-analytics-opt-out.sql` (create) | The opt-out column migration | B1 |
-| `packages/data-access/src/usage-consent-statements.ts` (create) | `usageAnalyticsEnabled` setting definition + `readMemberOptedOut` | B2 |
-| `apps/worker/src/usage/consent.ts` (create) | Cached effective-consent resolver | B3 |
-| `apps/worker/src/usage/feature-map.ts` (create) | `routeFeature(routePath)` + `topicFeature(topic)` maps | C1 |
-| `apps/worker/src/usage/emit.ts` (create) | `emitUsage(...)` — the shared log+count emitter (consent + hash + suppress) | C2 |
-| `apps/worker/src/usage/reached-middleware.ts` (create) | Global outbound-pass `reached` middleware | C2 |
-| `apps/worker/src/scheduled.ts` (modify) | `completed` emit in the per-firm sweep publish path | C3 |
-| `apps/worker/src/routes/usage.ts` (create) | `POST /api/v1/usage` beacon | D2 |
-| `apps/worker/src/contracts/route-meta.ts` (modify) | Add `"usage-beacon"` to `RateLimitBucket` | D1 |
-| `packages/access-control/src/registry.ts` (modify) | Add `firm:recordUsage` | D1 |
-| `apps/worker/src/app.ts` (modify) | Register the middleware + beacon; add `USAGE_ANALYTICS_PEPPER` binding | C2/D2 |
-| `packages/telemetry/src/usage-suppression.ts` (create) | Small-n (k-anonymity) suppressor | E1 |
-| `docs/analytics/usage-queries.md` (create) | Canonical DuckDB query set | E2/F3 |
-| `apps/worker/wrangler.jsonc` + Cloudflare config (modify) | Logpush → Pipelines → R2 Data Catalog | F1/F2 |
-| Docs (ADR, white paper, ROADMAP, STATUS, CHANGELOG, operating-costs) | Same-commit doc updates | G |
+| File                                                                           | Responsibility                                                              | Task  |
+| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------- | ----- |
+| `packages/telemetry/src/events.ts` (modify)                                    | Add the `usageFeature` builder + `EVENT_NAMES` entry                        | A1    |
+| `packages/telemetry/src/usage-features.ts` (create)                            | The feature-key taxonomy registry (`FEATURE_KEYS`, `FeatureKey`)            | A2    |
+| `packages/telemetry/src/pseudonymize.ts` (create)                              | HMAC-SHA-256 hash helper, fail-closed                                       | A3    |
+| `packages/database/src/per-firm-schema.ts` (modify)                            | Add the `optedOutOfUsageAnalytics` member-row column                        | B1    |
+| `packages/database/drizzle/per-firm/0007_usage-analytics-opt-out.sql` (create) | The opt-out column migration                                                | B1    |
+| `packages/data-access/src/usage-consent-statements.ts` (create)                | `usageAnalyticsEnabled` setting definition + `readMemberOptedOut`           | B2    |
+| `apps/worker/src/usage/consent.ts` (create)                                    | Cached effective-consent resolver                                           | B3    |
+| `apps/worker/src/usage/feature-map.ts` (create)                                | `routeFeature(routePath)` + `topicFeature(topic)` maps                      | C1    |
+| `apps/worker/src/usage/emit.ts` (create)                                       | `emitUsage(...)` — the shared log+count emitter (consent + hash + suppress) | C2    |
+| `apps/worker/src/usage/reached-middleware.ts` (create)                         | Global outbound-pass `reached` middleware                                   | C2    |
+| `apps/worker/src/scheduled.ts` (modify)                                        | `completed` emit in the per-firm sweep publish path                         | C3    |
+| `apps/worker/src/routes/usage.ts` (create)                                     | `POST /api/v1/usage` beacon                                                 | D2    |
+| `apps/worker/src/contracts/route-meta.ts` (modify)                             | Add `"usage-beacon"` to `RateLimitBucket`                                   | D1    |
+| `packages/access-control/src/registry.ts` (modify)                             | Add `firm:recordUsage`                                                      | D1    |
+| `apps/worker/src/app.ts` (modify)                                              | Register the middleware + beacon; add `USAGE_ANALYTICS_PEPPER` binding      | C2/D2 |
+| `packages/telemetry/src/usage-suppression.ts` (create)                         | Small-n (k-anonymity) suppressor                                            | E1    |
+| `docs/analytics/usage-queries.md` (create)                                     | Canonical DuckDB query set                                                  | E2/F3 |
+| `apps/worker/wrangler.jsonc` + Cloudflare config (modify)                      | Logpush → Pipelines → R2 Data Catalog                                       | F1/F2 |
+| Docs (ADR, white paper, ROADMAP, STATUS, CHANGELOG, operating-costs)           | Same-commit doc updates                                                     | G     |
 
 ---
 
@@ -54,10 +54,12 @@
 ### Task A1: The `usage.feature` event builder
 
 **Files:**
+
 - Modify: `packages/telemetry/src/events.ts`
 - Test: `packages/telemetry/test/events.test.ts`
 
 **Interfaces:**
+
 - Produces: `usageFeature(context: EventContext, fields: { feature, phase, surface, firmIdHash, userIdHash, appVersion }): TelemetryEvent` where every field is `string | null` (and `phase` is `"reached" | "completed"` by convention, typed `string`). Added to `EVENT_NAMES`.
 
 - [ ] **Step 1: Write the failing test** — append to `packages/telemetry/test/events.test.ts`:
@@ -133,10 +135,12 @@ git commit -m "feat(telemetry): add usage.feature event builder"
 ### Task A2: The feature-key taxonomy
 
 **Files:**
+
 - Create: `packages/telemetry/src/usage-features.ts`
 - Test: `packages/telemetry/test/usage-features.test.ts`
 
 **Interfaces:**
+
 - Produces: `FEATURE_KEYS: readonly string[]` (a `const` tuple), `type FeatureKey = (typeof FEATURE_KEYS)[number]`, `isFeatureKey(value: string): value is FeatureKey`.
 
 - [ ] **Step 1: Write the failing test** — `packages/telemetry/test/usage-features.test.ts`:
@@ -210,10 +214,12 @@ git commit -m "feat(telemetry): add product-usage feature taxonomy"
 ### Task A3: The pseudonymizing hash helper (fail-closed)
 
 **Files:**
+
 - Create: `packages/telemetry/src/pseudonymize.ts`
 - Test: `packages/telemetry/test/pseudonymize.test.ts`
 
 **Interfaces:**
+
 - Produces: `async pseudonymize(pepper: string | undefined, identifier: string): Promise<string | null>` — HMAC-SHA-256 hex of `identifier` under `pepper`; returns `null` when `pepper` is missing/empty (fail-closed) so callers suppress the event.
 
 - [ ] **Step 1: Write the failing test** — `packages/telemetry/test/pseudonymize.test.ts`:
@@ -287,11 +293,13 @@ git commit -m "feat(telemetry): add fail-closed HMAC pseudonymizer"
 ### Task B1: The per-user opt-out column + migration
 
 **Files:**
+
 - Modify: `packages/database/src/per-firm-schema.ts:86-93` (the `member` table)
 - Create: `packages/database/drizzle/per-firm/0007_usage-analytics-opt-out.sql`
 - Test: covered by B2's read test (a column alone has no behavior to unit-test).
 
 **Interfaces:**
+
 - Produces: `member.optedOutOfUsageAnalytics` (SQLite integer 0/1, default 0) — the per-user opt-out flag, on the member row per the white paper's member-row settings home.
 
 - [ ] **Step 1: Add the column** — in `packages/database/src/per-firm-schema.ts`, extend the `member` table:
@@ -339,10 +347,12 @@ git commit -m "feat(database): add per-user usage-analytics opt-out column"
 ### Task B2: The consent reads (firm setting + member opt-out)
 
 **Files:**
+
 - Create: `packages/data-access/src/usage-consent-statements.ts`
 - Test: `packages/data-access/test/usage-consent-statements.test.ts`
 
 **Interfaces:**
+
 - Consumes: `readFirmSetting`, `FirmSettingDefinition` (`./setting-statements.ts`); `SqlDatabase` (`./idempotency-statements.ts`).
 - Produces: `usageAnalyticsEnabledDefinition: FirmSettingDefinition<boolean>` (key `usage_analytics.enabled`, default `true`); `async readUsageAnalyticsEnabled(database): Promise<boolean>`; `async readMemberOptedOut(database, userId: string): Promise<boolean>`.
 
@@ -350,10 +360,7 @@ git commit -m "feat(database): add per-user usage-analytics opt-out column"
 
 ```typescript
 import { describe, expect, it } from "vitest";
-import {
-  readMemberOptedOut,
-  readUsageAnalyticsEnabled,
-} from "../src/usage-consent-statements.ts";
+import { readMemberOptedOut, readUsageAnalyticsEnabled } from "../src/usage-consent-statements.ts";
 import { freshFirmDatabase } from "./helpers/fresh-firm-database.ts"; // existing per-package helper
 
 describe("usage consent reads", () => {
@@ -431,10 +438,12 @@ git commit -m "feat(data-access): add usage-analytics consent reads"
 ### Task B3: The cached effective-consent resolver
 
 **Files:**
+
 - Create: `apps/worker/src/usage/consent.ts`
 - Test: `apps/worker/test/usage/consent.test.ts`
 
 **Interfaces:**
+
 - Consumes: `readUsageAnalyticsEnabled`, `readMemberOptedOut` (`@magna-carta/data-access/usage-consent-statements`); `SqlDatabase`.
 - Produces: `createUsageConsentResolver(options?: { ttlMs?: number; clock?: () => number }): { resolve(database, firmId, userId): Promise<boolean> }` — effective consent (`firm.enabled && !member.optedOut`), isolate-local cached per `(firmId, userId)` with a 60 s TTL.
 
@@ -451,9 +460,7 @@ function fakeDatabase(enabled: boolean, optedOut: boolean) {
       return {
         bind: () => ({
           all: async () =>
-            sql.includes("setting")
-              ? { results: [{ value }] }
-              : { results: [{ optedOut: value }] },
+            sql.includes("setting") ? { results: [{ value }] } : { results: [{ optedOut: value }] },
         }),
       };
     },
@@ -509,10 +516,9 @@ interface CacheEntry {
   readonly expiresAt: number;
 }
 
-export function createUsageConsentResolver(options?: {
-  ttlMs?: number;
-  clock?: () => number;
-}): { resolve(database: SqlDatabase, firmId: string, userId: string): Promise<boolean> } {
+export function createUsageConsentResolver(options?: { ttlMs?: number; clock?: () => number }): {
+  resolve(database: SqlDatabase, firmId: string, userId: string): Promise<boolean>;
+} {
   const ttlMs = options?.ttlMs ?? DEFAULT_TTL_MILLISECONDS;
   const clock = options?.clock ?? (() => Date.now());
   const cache = new Map<string, CacheEntry>();
@@ -555,10 +561,12 @@ git commit -m "feat(worker): add cached usage-analytics consent resolver"
 ### Task C1: The route→feature and topic→feature maps
 
 **Files:**
+
 - Create: `apps/worker/src/usage/feature-map.ts`
 - Test: `apps/worker/test/usage/feature-map.test.ts`
 
 **Interfaces:**
+
 - Consumes: `FeatureKey`, `isFeatureKey` (`@magna-carta/telemetry/usage-features`).
 - Produces: `routeFeature(routePath: string): FeatureKey | null`; `topicFeature(topic: string): FeatureKey | null`. Both many-to-one; an unmapped input returns `null` (no event).
 
@@ -567,7 +575,12 @@ git commit -m "feat(worker): add cached usage-analytics consent resolver"
 ```typescript
 import { describe, expect, it } from "vitest";
 import { isFeatureKey } from "@magna-carta/telemetry/usage-features";
-import { ROUTE_FEATURE, TOPIC_FEATURE, routeFeature, topicFeature } from "../../src/usage/feature-map.ts";
+import {
+  ROUTE_FEATURE,
+  TOPIC_FEATURE,
+  routeFeature,
+  topicFeature,
+} from "../../src/usage/feature-map.ts";
 
 describe("feature maps", () => {
   it("maps a known route template to its feature", () => {
@@ -642,12 +655,14 @@ git commit -m "feat(worker): add usage route/topic feature maps"
 ### Task C2: The shared emitter + the reached middleware
 
 **Files:**
+
 - Create: `apps/worker/src/usage/emit.ts`
 - Create: `apps/worker/src/usage/reached-middleware.ts`
 - Modify: `apps/worker/src/app.ts` (add `USAGE_ANALYTICS_PEPPER` to `Bindings`; install the middleware)
 - Test: `apps/worker/test/usage/emit.test.ts`, `apps/worker/test/usage/reached-middleware.test.ts`
 
 **Interfaces:**
+
 - Consumes: `usageFeature` (`@magna-carta/telemetry/events`), `pseudonymize` (`@magna-carta/telemetry/pseudonymize`), `Logger`, the consent resolver (B3), `requireChokepointFirmContext`/`requireChokepointUserId` (`../chokepoint/context-accessors.ts`).
 - Produces: `async emitUsage(params): Promise<void>` — the one place that checks consent, hashes ids fail-closed, and fires `logger.log(usageFeature(...))` + `logger.count("usage", {...})`; `usageReachedMiddleware(deps)` — a global outbound-pass middleware.
 
@@ -807,7 +822,14 @@ describe("usageReachedMiddleware", () => {
       c.set("chokepointUserId", "user_a");
       await next();
     });
-    app.use("*", usageReachedMiddleware({ pepperFor: () => "pepper", consent: { resolve: async () => true }, now: () => "t" }));
+    app.use(
+      "*",
+      usageReachedMiddleware({
+        pepperFor: () => "pepper",
+        consent: { resolve: async () => true },
+        now: () => "t",
+      }),
+    );
     app.get("/api/v1/whatever", (c) => c.text("ok"));
     await app.request("/api/v1/whatever");
     expect(logger.log).not.toHaveBeenCalled();
@@ -820,7 +842,14 @@ describe("usageReachedMiddleware", () => {
       c.set("logger", logger);
       await next();
     });
-    app.use("*", usageReachedMiddleware({ pepperFor: () => "pepper", consent: { resolve: async () => true }, now: () => "t" }));
+    app.use(
+      "*",
+      usageReachedMiddleware({
+        pepperFor: () => "pepper",
+        consent: { resolve: async () => true },
+        now: () => "t",
+      }),
+    );
     app.get("/api/v1/matters", (c) => c.text("ok"));
     await app.request("/api/v1/matters");
     expect(logger.log).not.toHaveBeenCalled();
@@ -835,13 +864,18 @@ import type { MiddlewareHandler } from "hono";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import type { Bindings } from "../app.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
-import { optionalChokepointFirmContext, optionalChokepointUserId } from "../chokepoint/context-accessors.ts";
+import {
+  optionalChokepointFirmContext,
+  optionalChokepointUserId,
+} from "../chokepoint/context-accessors.ts";
 import { emitUsage } from "./emit.ts";
 import { routeFeature } from "./feature-map.ts";
 
 interface ReachedDeps {
   readonly pepperFor: (env: Bindings) => string | undefined;
-  readonly consent: { resolve(database: unknown, firmId: string, userId: string): Promise<boolean> };
+  readonly consent: {
+    resolve(database: unknown, firmId: string, userId: string): Promise<boolean>;
+  };
   readonly now?: () => string;
 }
 
@@ -862,7 +896,11 @@ export function usageReachedMiddleware(
     const logger = c.get("logger") as Logger | undefined;
     if (logger === undefined) return;
 
-    const consented = await deps.consent.resolve(firmContext.firmDatabase, firmContext.firmId, userId);
+    const consented = await deps.consent.resolve(
+      firmContext.firmDatabase,
+      firmContext.firmId,
+      userId,
+    );
     await emitUsage({
       logger,
       consented,
@@ -916,10 +954,12 @@ git commit -m "feat(worker): emit usage reached events on the outbound pass"
 ### Task C3: The `completed` emit in the per-firm sweep
 
 **Files:**
+
 - Modify: `apps/worker/src/scheduled.ts` (the per-firm sweep loop + its `publish` callback)
 - Test: `apps/worker/test/scheduled-usage-completed.test.ts`
 
 **Interfaces:**
+
 - Consumes: `topicFeature` (C1), `emitUsage` (C2), `readUsageAnalyticsEnabled` (B2), `pseudonymize` indirectly via `emitUsage`.
 - Produces: a `completed` usage event per swept, mapped outbox row, firm-level (`userId: null`), consent-gated once per firm per pass.
 
@@ -998,11 +1038,13 @@ git commit -m "feat(worker): emit usage completed events from the outbox sweep"
 ### Task D1: The permission + rate bucket
 
 **Files:**
+
 - Modify: `packages/access-control/src/registry.ts:9-39`
 - Modify: `apps/worker/src/contracts/route-meta.ts:14`
 - Test: `packages/access-control/test/registry.test.ts` (existing registry test covers the new key)
 
 **Interfaces:**
+
 - Produces: `firm:recordUsage` permission; `"usage-beacon"` rate-limit bucket.
 
 - [ ] **Step 1: Add the permission** — in `packages/access-control/src/registry.ts`, in the `firm:` block of `PERMISSIONS`:
@@ -1029,11 +1071,13 @@ git commit -m "feat(access-control): add firm:recordUsage permission + usage-bea
 ### Task D2: The `POST /api/v1/usage` beacon route
 
 **Files:**
+
 - Create: `apps/worker/src/routes/usage.ts`
 - Modify: `apps/worker/src/app.ts` (register the route)
 - Test: `apps/worker/test/routes/usage.test.ts`
 
 **Interfaces:**
+
 - Consumes: `FEATURE_KEYS` (`@magna-carta/telemetry/usage-features`), `emitUsage` (C2), the consent resolver, `requireChokepointFirmContext`/`requireChokepointUserId`, `defineOpenAPIRoute`/`RouteMeta`, `chokepointMiddleware`.
 - Produces: `registerUsageRoute(app, chokepoint)` registering `POST /api/v1/usage`.
 
@@ -1103,11 +1147,26 @@ export const recordUsageRoute = defineOpenAPIRoute(recordUsageMeta, {
   },
   responses: {
     202: { description: "Accepted (the beacon is fire-and-forget; no body)" },
-    401: { description: "No valid session", content: { "application/problem+json": { schema: Problem } } },
-    403: { description: "The session member lacks firm:recordUsage", content: { "application/problem+json": { schema: Problem } } },
-    404: { description: "The session's firm is not reachable", content: { "application/problem+json": { schema: Problem } } },
-    422: { description: "The body failed validation (unknown feature, over-cap batch, …)", content: { "application/problem+json": { schema: Problem } } },
-    429: { description: "Rate limit exceeded", content: { "application/problem+json": { schema: Problem } } },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "The session member lacks firm:recordUsage",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    404: {
+      description: "The session's firm is not reachable",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    422: {
+      description: "The body failed validation (unknown feature, over-cap batch, …)",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
   },
 });
 
@@ -1168,10 +1227,12 @@ git commit -m "feat(worker): add POST /v1/usage product-usage beacon"
 ### Task E1: The small-n (k-anonymity) suppressor
 
 **Files:**
+
 - Create: `packages/telemetry/src/usage-suppression.ts`
 - Test: `packages/telemetry/test/usage-suppression.test.ts`
 
 **Interfaces:**
+
 - Produces: `suppressSmallCells<T extends { distinctCount: number }>(cells: T[], k?: number): { kept: T[]; suppressed: number }` — drops cells whose `distinctCount < k` (default 5) and reports how many were dropped.
 
 - [ ] **Step 1: Write the failing test** — `packages/telemetry/test/usage-suppression.test.ts`:
@@ -1225,6 +1286,7 @@ git commit -m "feat(telemetry): add small-n usage suppressor"
 ### Task E2: The canonical query set (Analytics Engine now)
 
 **Files:**
+
 - Create: `docs/analytics/usage-queries.md`
 
 - [ ] **Step 1: Write the document** — record the live Analytics Engine SQL queries the builder uses against the `usage` counter dataset today (aggregate totals, never filtered to one firm), plus a note that the per-firm/per-user (retention/funnel) versions land against the Iceberg catalog in Task F3 with `k = 5` suppression. Include at minimum:

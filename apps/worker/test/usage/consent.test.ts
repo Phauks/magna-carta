@@ -8,9 +8,7 @@ function fakeDatabase(enabled: boolean, optedOut: boolean) {
       return {
         bind: () => ({
           all: async () =>
-            sql.includes("setting")
-              ? { results: [{ value }] }
-              : { results: [{ optedOut: value }] },
+            sql.includes("setting") ? { results: [{ value }] } : { results: [{ optedOut: value }] },
         }),
       };
     },

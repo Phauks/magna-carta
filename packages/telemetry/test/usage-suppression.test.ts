@@ -13,10 +13,7 @@ describe("small-n suppression", () => {
     expect(suppressed).toBe(1);
   });
   it("honors a custom threshold", () => {
-    const cells = [
-      { distinctCount: 7 },
-      { distinctCount: 10 },
-    ];
+    const cells = [{ distinctCount: 7 }, { distinctCount: 10 }];
     const { kept, suppressed } = suppressSmallCells(cells, 8);
     expect(kept).toHaveLength(1);
     expect(suppressed).toBe(1);

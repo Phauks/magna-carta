@@ -1,6 +1,10 @@
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
-import { readUsageAnalyticsEnabled, readMemberOptedOut, usageAnalyticsEnabledDefinition } from "../src/usage-consent-statements.ts";
+import {
+  readUsageAnalyticsEnabled,
+  readMemberOptedOut,
+  usageAnalyticsEnabledDefinition,
+} from "../src/usage-consent-statements.ts";
 import { writeFirmSettingStatement } from "../src/setting-statements.ts";
 
 // Builds an in-memory SQLite database with the tables and columns needed by the usage-consent
