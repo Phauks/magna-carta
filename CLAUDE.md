@@ -19,6 +19,7 @@ Documentation is **segmented and non-duplicative.** Every fact has one authorita
 | End-user & admin guides (per feature)                         | [`docs/user/`](docs/user/)                                                            |
 | Live execution status (now / next / shipped / backlog)        | [`ROADMAP.md`](ROADMAP.md)                                                            |
 | Per-slice stage status (spec → plan → built → tested)         | [`STATUS.md`](STATUS.md)                                                              |
+| Concurrent work in flight (other worktrees/branches)          | [`docs/active-work/`](docs/active-work/) (+ `vp run worktrees`)                       |
 | Notable changes                                               | [`CHANGELOG.md`](CHANGELOG.md)                                                        |
 | Recurring & associated costs (subscriptions, usage, one-time) | [`docs/operating-costs.md`](docs/operating-costs.md)                                  |
 | Research (trust rules, competitive analysis)                  | [`docs/research/`](docs/research/)                                                    |
@@ -64,6 +65,15 @@ Broad principles for how we build — they apply across the work, not just one s
 - **Implementation:** autonomous and terse; comprehensive fixes over incremental patches. Design and brainstorming stay collaborative.
 - **Per-area `CLAUDE.md`:** each code area carries its own (template in [`docs/conventions/`](docs/conventions/)) for local rules and the domain invariants that apply there — keep cross-cutting rules in `docs/conventions/`, not duplicated locally.
 
+### Parallel worktrees & branches
+
+Several worktrees run at once, so streams must stay aware of each other and keep merges cheap.
+
+- **Make your stream visible.** When you start work, add a note at [`docs/active-work/<branch>.md`](docs/active-work/) (scope + the files you expect to touch). Before starting a stream — and **before editing any cross-cutting file** (`CLAUDE.md`, `STATUS.md`, `ROADMAP.md`, the white paper, `docs/conventions/`) — run **`vp run worktrees`** to see what else is in flight and where it overlaps. One note per stream (never a shared list), so the registry never collides.
+- **Append-don't-collide on shared files.** CHANGELOG and ADRs go through fragments (`changelog.d/`, `docs/decisions/pending/`), assembled on `main` — branches never edit `CHANGELOG.md` or the Decision-Log register directly. For `STATUS.md`, edit only your own slice's row.
+- **Sync `main` on a cadence.** Long-lived branches merge/rebase `main` regularly, and **always before touching a shared or generated file** — merge cost scales with drift. If `main` is more than a handful of merges ahead (`vp run worktrees` shows the gap), sync before continuing.
+- **Worktree lifecycle.** Feature worktrees live at `C:/dev/magna-carta-worktrees/<branch>`; transient agent worktrees under `.claude/worktrees/`. When a branch merges, in one step **remove its worktree, delete the branch, and delete its `docs/active-work/<branch>.md`**. Periodically `git worktree prune` and clear `[gone]` branches.
+
 ## Commands
 
 ```
@@ -71,6 +81,7 @@ vp install                                                              # deps (
 vp dev                                                                  # web SPA dev server only (Vite HMR, no Worker)
 vp run worker-dev                                                       # full local app: builds the SPA, then runs wrangler dev (Miniflare: local D1/R2/Queues)
 vp run build-all                                                        # build all apps in dependency order
+vp run worktrees                                                        # print the active-work registry (concurrent streams + touch-overlaps + drift from main)
 vp test                                                                 # unit + integration (Vitest, single-run; includes the Miniflare worker integration test)
 pnpm check                                                              # full quality gate: vp check (fmt+lint+TS-typecheck) AND svelte-check (.svelte); CI runs this, not bare vp check
 pnpm --filter @magna-carta/worker exec wrangler deploy --dry-run        # validate deploy without pushing

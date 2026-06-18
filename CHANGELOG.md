@@ -83,6 +83,7 @@ Categories: **Added · Changed · Deprecated · Removed · Fixed · Security.**
 - **Settings & configuration framework** (white paper §26, `settings.md`, ADR-0040): a declarative settings registry that generates the Settings UI, with scope resolution (entity → user → location → firm → system), per-setting RBAC view/edit access enforced in the DAL, and storage that surfaces existing subsystem data without copying it.
 - Error logging & user-driven diagnostics method (white paper _Observability & diagnostics_, `error-logging.md`, ADR-0038): an in-house, Cloudflare-native pipeline with a one-click "send to developer" / "report a problem" flow, firm-scoped incidents, a propose-only diagnostics agent (triage → root-cause → draft PR → acknowledge), and a configurable diagnostics setting (off/standard/verbose-auto, the latter being the beta posture).
 - Documentation tooling: `vp run decisions-build` / `vp run changelog-build` assemble per-entry ADR and changelog fragments on `main`, so parallel worktrees no longer collide on the register or `CHANGELOG.md`. ADRs became a directory of per-file records (`docs/decisions/`) numbered at merge; the Decision-Log register is generated.
+- Worktree coordination: `vp run worktrees` prints the active-work registry — concurrent streams from `git worktree list` merged with per-stream `docs/active-work/<branch>.md` notes, plus declared touch-overlaps and each stream's drift from `main`. New `CLAUDE.md` conventions cover making a stream visible, a `main`-sync cadence, and the worktree/branch lifecycle.
 
 ### Fixed
 

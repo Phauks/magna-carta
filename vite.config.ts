@@ -40,6 +40,7 @@ export default defineConfig({
       "apps/worker/vitest.config.ts",
       "packages/*/vitest.config.ts",
       "tooling/doc-fragments/vitest.config.ts",
+      "tooling/worktrees/vitest.config.ts",
     ],
   },
   // vp reads test/lint/format defaults from here; run.tasks declares the monorepo graph.
@@ -71,6 +72,11 @@ export default defineConfig({
       // Fold changelog.d/* fragments into CHANGELOG.md [Unreleased] and consume them.
       "changelog-build": {
         command: "node tooling/doc-fragments/build-changelog.mjs",
+      },
+      // Print the active-work registry: git worktrees + docs/active-work notes + touch-overlaps.
+      // Run before starting a stream or editing a cross-cutting file (see docs/active-work/README.md).
+      worktrees: {
+        command: "node tooling/worktrees/index.mjs",
       },
     },
   },
