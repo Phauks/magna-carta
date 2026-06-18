@@ -4,6 +4,8 @@
 
 :root[data-theme="chancery"] {
 --mc-accent-default: var(--mc-color-accent-700);
+  --mc-accent-strong: var(--mc-color-accent-400);
+  --mc-accent-strong-foreground: var(--mc-color-accent-900);
   --mc-accent-subtle: var(--mc-color-accent-100);
   --mc-accent-subtle-foreground: var(--mc-color-accent-700);
   --mc-action-destructive: var(--mc-color-red-500);
@@ -189,6 +191,8 @@
 
 :root[data-theme="chancery"].dark {
 --mc-accent-default: var(--mc-color-accent-400);
+  --mc-accent-strong: var(--mc-color-accent-400);
+  --mc-accent-strong-foreground: var(--mc-color-accent-900);
   --mc-accent-subtle: var(--mc-color-accent-900);
   --mc-accent-subtle-foreground: var(--mc-color-accent-300);
   --mc-action-destructive: var(--mc-color-red-400);
@@ -374,6 +378,8 @@
 
 :root[data-theme="verdigris"] {
 --mc-accent-default: var(--mc-color-accent-700);
+  --mc-accent-strong: var(--mc-color-accent-400);
+  --mc-accent-strong-foreground: var(--mc-color-accent-900);
   --mc-accent-subtle: var(--mc-color-accent-100);
   --mc-accent-subtle-foreground: var(--mc-color-accent-700);
   --mc-action-destructive: var(--mc-color-red-500);
@@ -559,6 +565,8 @@
 
 :root[data-theme="verdigris"].dark {
 --mc-accent-default: var(--mc-color-accent-400);
+  --mc-accent-strong: var(--mc-color-accent-400);
+  --mc-accent-strong-foreground: var(--mc-color-accent-900);
   --mc-accent-subtle: var(--mc-color-accent-900);
   --mc-accent-subtle-foreground: var(--mc-color-accent-300);
   --mc-action-destructive: var(--mc-color-red-400);
@@ -744,6 +752,8 @@
 
 :root[data-theme="parchment"] {
 --mc-accent-default: var(--mc-color-accent-700);
+  --mc-accent-strong: var(--mc-color-accent-400);
+  --mc-accent-strong-foreground: var(--mc-color-accent-900);
   --mc-accent-subtle: var(--mc-color-accent-100);
   --mc-accent-subtle-foreground: var(--mc-color-accent-700);
   --mc-action-destructive: var(--mc-color-red-500);
@@ -929,6 +939,8 @@
 
 :root[data-theme="parchment"].dark {
 --mc-accent-default: var(--mc-color-accent-400);
+  --mc-accent-strong: var(--mc-color-accent-400);
+  --mc-accent-strong-foreground: var(--mc-color-accent-900);
   --mc-accent-subtle: var(--mc-color-accent-900);
   --mc-accent-subtle-foreground: var(--mc-color-accent-300);
   --mc-action-destructive: var(--mc-color-red-400);
@@ -1114,6 +1126,8 @@
 
 :root[data-theme="oxblood"] {
 --mc-accent-default: var(--mc-color-accent-700);
+  --mc-accent-strong: var(--mc-color-accent-400);
+  --mc-accent-strong-foreground: var(--mc-color-accent-900);
   --mc-accent-subtle: var(--mc-color-accent-100);
   --mc-accent-subtle-foreground: var(--mc-color-accent-700);
   --mc-action-destructive: var(--mc-color-red-500);
@@ -1299,6 +1313,8 @@
 
 :root[data-theme="oxblood"].dark {
 --mc-accent-default: var(--mc-color-accent-400);
+  --mc-accent-strong: var(--mc-color-accent-400);
+  --mc-accent-strong-foreground: var(--mc-color-accent-900);
   --mc-accent-subtle: var(--mc-color-accent-900);
   --mc-accent-subtle-foreground: var(--mc-color-accent-300);
   --mc-action-destructive: var(--mc-color-red-400);
@@ -1484,6 +1500,8 @@
 
 :root[data-theme="aubergine"] {
 --mc-accent-default: var(--mc-color-accent-700);
+  --mc-accent-strong: var(--mc-color-accent-400);
+  --mc-accent-strong-foreground: var(--mc-color-accent-900);
   --mc-accent-subtle: var(--mc-color-accent-100);
   --mc-accent-subtle-foreground: var(--mc-color-accent-700);
   --mc-action-destructive: var(--mc-color-red-500);
@@ -1669,6 +1687,8 @@
 
 :root[data-theme="aubergine"].dark {
 --mc-accent-default: var(--mc-color-accent-400);
+  --mc-accent-strong: var(--mc-color-accent-400);
+  --mc-accent-strong-foreground: var(--mc-color-accent-900);
   --mc-accent-subtle: var(--mc-color-accent-900);
   --mc-accent-subtle-foreground: var(--mc-color-accent-300);
   --mc-action-destructive: var(--mc-color-red-400);
@@ -1854,6 +1874,8 @@
 
 :root[data-theme="slate"] {
 --mc-accent-default: var(--mc-color-accent-700);
+  --mc-accent-strong: var(--mc-color-accent-400);
+  --mc-accent-strong-foreground: var(--mc-color-accent-900);
   --mc-accent-subtle: var(--mc-color-accent-100);
   --mc-accent-subtle-foreground: var(--mc-color-accent-700);
   --mc-action-destructive: var(--mc-color-red-500);
@@ -2039,6 +2061,8 @@
 
 :root[data-theme="slate"].dark {
 --mc-accent-default: var(--mc-color-accent-400);
+  --mc-accent-strong: var(--mc-color-accent-400);
+  --mc-accent-strong-foreground: var(--mc-color-accent-900);
   --mc-accent-subtle: var(--mc-color-accent-900);
   --mc-accent-subtle-foreground: var(--mc-color-accent-300);
   --mc-action-destructive: var(--mc-color-red-400);

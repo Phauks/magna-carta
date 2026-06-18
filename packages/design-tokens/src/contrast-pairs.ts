@@ -85,6 +85,11 @@ export const CONTRAST_PAIRS: ReadonlyArray<ContrastPair> = [
     background: "accent-subtle",
     minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
   },
+  {
+    foreground: "accent-strong-foreground",
+    background: "accent-strong",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
   // The dark edge-chrome (app-shell rail + top bar) — text and the gold accent on the ink ground.
   {
     foreground: "chrome-text",

@@ -42,7 +42,9 @@
     "$description": "Brand accent — gold by default (the signature thread: active nav, selected, held states, the wordmark). Shared across themes, not theme-varying; a swappable anchor (the role is named, not the value).",
     "default": { "$type": "color", "$value": "{color.accent.700}" },
     "subtle": { "$type": "color", "$value": "{color.accent.100}" },
-    "subtle-foreground": { "$type": "color", "$value": "{color.accent.700}" }
+    "subtle-foreground": { "$type": "color", "$value": "{color.accent.700}" },
+    "strong": { "$type": "color", "$value": "{color.accent.400}" },
+    "strong-foreground": { "$type": "color", "$value": "{color.accent.900}" }
   },
   "chrome": {
     "$description": "The application's EDGE chrome — the dark 'ink' register that FRAMES the work (app-shell rail + top bar). Identity lives here (gold accents read on this ground), so the work canvas can stay light and calm. Follows the brand 'ink' ramp, so the chrome travels with the theme.",

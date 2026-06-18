@@ -100,6 +100,8 @@
   --color-accent-default: var(--mc-accent-default);
   --color-accent-subtle: var(--mc-accent-subtle);
   --color-accent-subtle-foreground: var(--mc-accent-subtle-foreground);
+  --color-accent-strong: var(--mc-accent-strong);
+  --color-accent-strong-foreground: var(--mc-accent-strong-foreground);
   --color-chrome-surface: var(--mc-chrome-surface);
   --color-chrome-surface-hover: var(--mc-chrome-surface-hover);
   --color-chrome-text: var(--mc-chrome-text);

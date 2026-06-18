@@ -35,6 +35,7 @@
 <!-- One story per variant — the visual showcase. The first is the Docs-page Primary; size,
      disabled, href, and type are explored in the Controls panel rather than as separate stories. -->
 <Story name="Primary" args={{ variant: "primary" }} {template} />
+<Story name="Accent" args={{ variant: "accent" }} {template} />
 <Story name="Secondary" args={{ variant: "secondary" }} {template} />
 <Story name="Destructive" args={{ variant: "destructive" }} {template} />
 <Story name="Ghost" args={{ variant: "ghost" }} {template} />

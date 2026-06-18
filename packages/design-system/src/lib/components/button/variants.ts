@@ -5,11 +5,12 @@
  * lookup is clearer and fully type-checked. Sibling components copy this exact shape.
  */
 
-export type ButtonVariant = "primary" | "secondary" | "destructive" | "ghost";
+export type ButtonVariant = "primary" | "accent" | "secondary" | "destructive" | "ghost";
 export type ButtonSize = "sm" | "default" | "lg" | "icon";
 
 const VARIANT: Record<ButtonVariant, string> = {
   primary: "mc-button-primary",
+  accent: "mc-button-accent",
   secondary: "mc-button-secondary",
   destructive: "mc-button-destructive",
   ghost: "mc-button-ghost",

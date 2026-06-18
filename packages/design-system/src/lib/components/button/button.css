@@ -52,6 +52,18 @@
     background-color: var(--mc-action-primary-active);
   }
 
+  /* The gilt CTA — bright gold fill + dark-gold text (a monochrome gilt that holds across themes).
+     The accent ramp has no stop between bright and deep gold that keeps AA with the dark text, so the
+     hover signal is a calm elevation lift rather than a colour shift. */
+  .mc-button-accent {
+    background-color: var(--mc-accent-strong);
+    color: var(--mc-accent-strong-foreground);
+    font-weight: var(--mc-weight-semibold);
+  }
+  .mc-button-accent:hover {
+    box-shadow: var(--mc-elevation-1);
+  }
+
   .mc-button-secondary {
     background-color: var(--mc-action-secondary);
     color: var(--mc-action-secondary-foreground);
