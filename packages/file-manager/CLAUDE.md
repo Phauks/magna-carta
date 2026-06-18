@@ -20,8 +20,8 @@ runs logic mid-transaction.
 - `src/scan-port.ts` — `MalwareScanPort` (returns `clean | infected | unscanned | suspicious`; `activeContent` flag on `clean`) + the engine-less `unscannedAdapter` launch adapter
 - `src/queries.ts` — the status-gated reads (`listFiles`, `getCurrentCleanVersion`, `listCleanVersions`, `listFoldersByMatter`, `listCleanCurrentVersionsByMatter`)
 - `src/metering-statements.ts` — the storage-meter delta/commit/tier/delete builders + `reconciliationDiff` + `normalizeR2StorageClass`
-- `src/upload-policy.ts` — per-firm policy checks (presign-time + gate-time) + the mode/zip-async threshold setting definitions
-- `src/zip-composition.ts` — pure selection → clean-current entries + folder-tree paths
+- `src/upload-policy.ts` — per-firm policy checks (presign-time + gate-time) + the mode threshold and the live-download threshold setting definitions (`liveMaxFileCount` / `liveMaxTotalBytes`, superseding `zipAsyncThreshold`)
+- `src/zip-composition.ts` — pure selection → clean-current entries + folder-tree paths, plus the content-addressed `bundleManifestHash` (the async-build dedup/artifact key)
 
 ## Invariants that apply here
 
@@ -77,6 +77,10 @@ runs logic mid-transaction.
 ## Gotchas
 
 - D1 has no interactive transactions — read before composing, or assert inside the batch.
-- The `zipAsyncThreshold` setting is read and recorded in the download audit row but not yet acted on —
-  the build-to-R2-artifact job lands with Plan 3 (async bulk download, the Durable Object path); the live
-  stream is the only path today.
+- **Bulk download has three delivery paths (Plan 3 built).** A single-file selection 302-redirects to a
+  presigned GET; a multi-file selection under both live thresholds (`liveMaxFileCount` /
+  `liveMaxTotalBytes`) streams a ZIP inline; over either threshold the worker download route hands off to
+  the background build job — a content-addressed `bundles/<manifestHash>.zip` coordinated by the
+  `BundleBuildCoordinator` Durable Object, built by streaming R2→`client-zip`→R2 (multipart, since the
+  zip stream has no known length) — and returns `202`, with a poll endpoint that mints a fresh signed URL
+  when ready. The superseded `zipAsyncThreshold` setting is kept readable for one release.
