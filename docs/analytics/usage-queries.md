@@ -21,7 +21,7 @@ ORDER BY approx_count DESC
 
 **Dead-feature candidates:** features in the taxonomy (`@magna-carta/telemetry/usage-features`) with no `reached` rows in the window — compute the set difference between the taxonomy and the `feature` values returned above.
 
-> `_sample_interval` weights for Analytics Engine's adaptive sampling under load (irrelevant at low volume; included so the counts stay correct as traffic grows). Retention is ~90 days; for longer horizons or exact unsampled counts, use the Iceberg layer.
+> `_sample_interval` weights for Analytics Engine's adaptive sampling under load (irrelevant at low volume; included so the counts stay correct as traffic grows). Retention is ~90 days (verify current); for longer horizons or exact unsampled counts, use the Iceberg layer.
 
 ## Iceberg / R2 Data Catalog (full-fidelity, with the Logpush→Pipelines tier)
 
