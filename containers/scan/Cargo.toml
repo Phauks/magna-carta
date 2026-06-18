@@ -22,6 +22,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Pure-Rust clamd socket client (no libclamav linkage); the `tokio` feature exposes the async module.
 clamav-client = { version = "2.2.0", default-features = false, features = ["tokio"] }
+# Pure-Rust YARA engine (the heuristic-rule scanner); no libyara C dependency.
+yara-x = "1.18"
 
 [dev-dependencies]
 reqwest = { version = "0.12", default-features = false }
