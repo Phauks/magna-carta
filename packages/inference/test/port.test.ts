@@ -8,6 +8,7 @@ import type {
   GenerateResult,
   InferencePort,
   StreamResult,
+  TokenUsage,
 } from "../src/port.ts";
 
 describe("InferencePort contract", () => {
@@ -27,7 +28,13 @@ describe("InferencePort contract", () => {
       Dispatch<StreamResult>
     >();
     expectTypeOf<StreamResult["stream"]>().toMatchTypeOf<AsyncIterable<string>>();
-    expectTypeOf<StreamResult["usage"]>().toMatchTypeOf<Promise<unknown>>();
+    expectTypeOf<StreamResult["usage"]>().toEqualTypeOf<Promise<TokenUsage>>();
+  });
+
+  it("generateDurable returns the same buffered Dispatch shape as generate (durable workflow step)", () => {
+    expectTypeOf<Awaited<ReturnType<InferencePort["generateDurable"]>>>().toEqualTypeOf<
+      Dispatch<GenerateResult>
+    >();
   });
 
   it("the embedding operation exposes NO firm-selectable model argument (the type-level invariant)", () => {
