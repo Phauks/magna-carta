@@ -14,8 +14,8 @@
 
 - **Version pins:** `@cloudflare/containers` 0.3.7 · `clamav-client` 2.2.0 · `yara-x` 1.17.0. Verify each against `docs.rs`/npm at build time — the Rust 1.x crates have evolving minor APIs (golden rule 11).
 - **Container is `linux/amd64` only.** clamd loads a ~1–2 GiB signature DB into RAM → **`instance_type: "standard-1"`** (4 GiB) minimum; size up only if measured.
-- **No outbound internet from the scan path** (`enableInternet = false`): the container processes untrusted bytes; signature updates run via `freshclam` on a controlled schedule, not per-scan (white paper, *Performance & concurrency model* — sandbox-hardened processing).
-- **Self-host only; no data-holding SaaS** — privileged client content never leaves our compute (golden rule 4; the white paper's *borrow expertise, never custody*).
+- **No outbound internet from the scan path** (`enableInternet = false`): the container processes untrusted bytes; signature updates run via `freshclam` on a controlled schedule, not per-scan (white paper, _Performance & concurrency model_ — sandbox-hardened processing).
+- **Self-host only; no data-holding SaaS** — privileged client content never leaves our compute (golden rule 4; the white paper's _borrow expertise, never custody_).
 - **Detection-only, no CDR at launch.** The scanner reports; it never rewrites or destroys the original.
 - **No process references in source/tests** (golden rule 13). **Full names** (golden rule 12).
 - **The `ScanResult` JSON contract is the boundary** — the Rust service and the TS adapter must agree on it exactly; it mirrors `packages/file-manager/src/scan-port.ts` (Plan 1, Task 1).
@@ -42,6 +42,7 @@
 ## File Structure
 
 **New `containers/scan/` (a new Cargo workspace member / standalone crate):**
+
 - `Cargo.toml` — the crate + pinned deps.
 - `Dockerfile` — multi-stage: build the Rust binary, then a runtime image with `clamav`/`clamd`/`freshclam` + the binary + an entrypoint that starts clamd and the HTTP service.
 - `entrypoint.sh` — start `freshclam` (initial DB), launch `clamd`, wait for its socket, exec the Rust server.
@@ -53,6 +54,7 @@
 - `tests/` — Rust unit tests (EICAR, an `/OpenAction` PDF, a nested-zip bomb fixture).
 
 **Modified `apps/worker/`:**
+
 - `src/files/scan-container.ts` (new) — `ScanContainer extends Container`.
 - `src/files/container-scan-adapter.ts` (new) — `containerScanAdapter(env): MalwareScanPort`.
 - `src/files/scan-port-binding.ts` — select the container adapter when its binding is present (Plan 1's seam).
@@ -67,6 +69,7 @@
 **Files:** Create `containers/scan/Cargo.toml`, `containers/scan/src/main.rs`. Test: `containers/scan/tests/health.rs`.
 
 **Interfaces:**
+
 - Produces: an HTTP server on `:8080` with `GET /ready` → `200 "ok"` and `POST /scan` returning a stub `{"verdict":"unscanned","reason":"no-engine","engineVersion":null}` (filled in by later tasks).
 
 - [ ] **Step 1: Write `Cargo.toml`** with pinned deps:
@@ -137,6 +140,7 @@ git commit -m "feat(scan): rust http skeleton with /ready and stub /scan"
 **Files:** Create `containers/scan/src/clamav.rs`; modify `main.rs`. Test: `containers/scan/tests/clamav_eicar.rs` (gated on a running clamd — see Step 2).
 
 **Interfaces:**
+
 - Produces: `async fn clamav_scan(bytes: &[u8]) -> ClamVerdict` where `ClamVerdict = Clean | Infected(String) | Unavailable`, scanning a local clamd at `/run/clamav/clamd.sock` via `clamav_client::Socket` + `tokio::scan_stream` (or `scan_buffer`), interpreting the response with `clamav_client::clean()` and parsing the signature name out of the `... FOUND` line.
 
 - [ ] **Step 1: Write the failing test** — feed the EICAR test string to `clamav_scan`; expect `Infected(sig)` where `sig` contains `EICAR`. (Marked `#[ignore]` unless `CLAMD_SOCKET` is set, so CI without clamd skips it; the Docker integration test in Task 8 is the real gate.)
@@ -184,6 +188,7 @@ git commit -m "feat(scan): clamd socket scanning via clamav-client"
 **Files:** Create `containers/scan/src/yara.rs`; modify `main.rs`. Test: `containers/scan/tests/yara_match.rs`.
 
 **Interfaces:**
+
 - Produces: `fn build_rules(sources: &[&str]) -> yara_x::Rules` (compile once at startup) and `fn yara_scan(rules: &Rules, bytes: &[u8]) -> Vec<String>` (matching-rule identifiers), per the verified 1.17.0 API (`Compiler::new().add_source(...).build()`, `Scanner::new(&rules).scan(bytes)?.matching_rules()`).
 
 - [ ] **Step 1: Write the failing test** — compile a trivial rule (`rule t { strings: $a = "malicious" condition: $a }`), scan a buffer containing "malicious", assert the identifier `t` comes back; scan a clean buffer, assert empty.
@@ -225,6 +230,7 @@ git commit -m "feat(scan): yara-x rule compile + buffer scan"
 **Files:** Create `containers/scan/src/heuristics/{mod.rs,pdf.rs,office.rs}`. Tests: `containers/scan/tests/heuristics.rs`.
 
 **Interfaces:**
+
 - Produces: `fn inspect(bytes: &[u8], sniffed: Option<&str>, caps: &ArchiveCaps) -> Heuristic` where `Heuristic = Clean | ActiveContent | Suspicious(Reason) | Encrypted`, with `Reason ∈ { DecompressionBomb, ArchiveNesting, ArchiveEntryCount }`. PDF JavaScript / Office macros surface as `ActiveContent` — a clean-with-badge signal, **not** a `Suspicious` reason (active content is common in legitimate legal forms; the safe-delivery sandbox is the execution defense). `ArchiveCaps` mirrors the Plan 1 `archiveCapsDefinition` (`maxDepth`, `maxEntries`, `maxUncompressedBytes`, `maxExpansionRatio`).
 
 - [ ] **Step 1: Write the failing tests**, one per signal, with fixtures:
@@ -254,10 +260,12 @@ git commit -m "feat(scan): pdf/office structural heuristics + archive bomb caps"
 **Files:** Create `containers/scan/src/verdict.rs`; wire `POST /scan` in `main.rs`. Test: `containers/scan/tests/verdict.rs`.
 
 **Interfaces:**
+
 - Consumes: `ClamVerdict` (Task 2), yara identifiers (Task 3), `Heuristic` (Task 4).
 - Produces: the precedence rule → the `ScanResult` JSON (the contract above).
 
 Precedence (most-dangerous wins; active content amplifies but never gates alone):
+
 1. clamd `Infected` **or** any yara match → `infected` (signature = clamd's name, else the yara identifier).
 2. heuristic `Suspicious(reason)` (bomb/nesting/entry-count) → `suspicious` with the mapped reason (`DecompressionBomb`→`decompression-bomb`, `ArchiveNesting`→`archive-nesting`, `ArchiveEntryCount`→`archive-entry-count`).
 3. heuristic `Encrypted` **or** clamd `Unavailable` with no other signal → `unscanned` (`reason: "encrypted"` / `"no-engine"`).
@@ -321,6 +329,7 @@ git commit -m "feat(scan): dockerfile bundling clamd + the rust scan service"
 **Files:** Create `apps/worker/src/files/scan-container.ts`, `apps/worker/src/files/container-scan-adapter.ts`; modify `apps/worker/src/files/scan-port-binding.ts`, `apps/worker/src/index.ts`, `apps/worker/wrangler.jsonc`, `apps/worker/package.json` (add `@cloudflare/containers`). Test: `apps/worker/test/container-scan-adapter.test.ts`.
 
 **Interfaces:**
+
 - Consumes: the `ScanResult` JSON contract; Plan 1's `resolveScanPort` seam.
 - Produces: `ScanContainer extends Container` (defaultPort 8080, `sleepAfter` generous, `enableInternet = false`); `containerScanAdapter(env): MalwareScanPort` that POSTs the body to the singleton container and maps the JSON to `ScanResult`, **throwing** on any non-200/malformed response.
 
@@ -334,8 +343,8 @@ import { Container } from "@cloudflare/containers";
 export class ScanContainer extends Container {
   defaultPort = 8080;
   requiredPorts = [8080];
-  sleepAfter = "30m";        // generous; the warm-poke cron keeps one instance alive
-  enableInternet = false;    // untrusted bytes never reach the network
+  sleepAfter = "30m"; // generous; the warm-poke cron keeps one instance alive
+  enableInternet = false; // untrusted bytes never reach the network
   pingEndpoint = "ready";
 }
 ```

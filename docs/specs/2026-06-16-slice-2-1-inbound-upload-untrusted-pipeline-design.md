@@ -1,6 +1,6 @@
 # Slice 2·1 — Inbound upload path + untrusted-file pipeline + async bulk download — Design
 
-**Status:** Design (brainstormed). **Phase 2, slice 2·1.** Reserves **ADR-0100** (scan engine & execution architecture), **ADR-0101** (untrusted-file hardening & uninspectable-file policy), **ADR-0102** (async bulk-download build job). Home concept: white paper, *Matters and File Manager*.
+**Status:** Design (brainstormed). **Phase 2, slice 2·1.** Reserves **ADR-0100** (scan engine & execution architecture), **ADR-0101** (untrusted-file hardening & uninspectable-file policy), **ADR-0102** (async bulk-download build job). Home concept: white paper, _Matters and File Manager_.
 
 **One-line goal:** Turn the launch-stub upload pipeline into a real one — a self-hosted, detection-only malware-scan engine, the untrusted-file hardening the launch ingest left on paper, and the async bulk-download build job — all as deltas on the working slice 1·1 seams.
 
@@ -39,11 +39,11 @@ The entire upload → ingest → commit → download skeleton ships and is wired
 
 A **Rust orchestration service in a Cloudflare Container** implementing `MalwareScanPort`, swapped in for `unscannedAdapter` in the ingest consumer:
 
-- **ClamAV** driven over a **socket** (`clamav-client`) — *not* libclamav FFI; the C engine stays in its own process for isolation. Signatures from freshclam/Talos feeds.
+- **ClamAV** driven over a **socket** (`clamav-client`) — _not_ libclamav FFI; the C engine stays in its own process for isolation. Signatures from freshclam/Talos feeds.
 - **yara-x** (pure-Rust) with the YARA-Forge-Core rule feed.
 - **Our Rust structural heuristics** — `lopdf` for PDF active content (`/OpenAction`, `/JS`, `/Launch`, `/EmbeddedFile`); `cfb` + `zip` / `quick-xml` for Office macro/OLE detection.
 - The three combine into one verdict: `clean` → commit; `infected` → quarantine; `unscanned` → policy (§5).
-- **Scope:** Office + PDF document formats at launch. **Detection-only — no CDR.** Rules are *pulled* from public feeds; we author none. The structural heuristics are static format facts we own.
+- **Scope:** Office + PDF document formats at launch. **Detection-only — no CDR.** Rules are _pulled_ from public feeds; we author none. The structural heuristics are static format facts we own.
 - **CI validator:** EICAR through the full pipeline (upload → ingest → scan → quarantine) is the end-to-end proof.
 
 ### Execution architecture (split lanes; strict gate deferred)
@@ -55,7 +55,7 @@ The `files-ingest` consumer keeps calling the scan port synchronously. Fairness 
 - The `bulk/` objects still **meter under the existing `files/` logical dimension** — the storage meter is a logical bucket, not the literal key prefix — so the metering model is unchanged and only the scheduled reconciliation LISTs the extra prefix. The lane benefit is queue topology, not a storage-model change.
 - Bounded global Container concurrency is the cap; the per-firm in-flight cap is approximate (queue-consumer concurrency), not a hard guarantee.
 
-**Deferred seam (the strict-fairness upgrade):** a per-firm Durable Object admission gate (leased slots + alarm-based leak reclamation) gives a *strict* per-tenant concurrency cap and ordering. It is **not built now** — the queue-consumer shape does not change to add it later, so it is deferred until real multi-tenant load measures the need (golden rule 10). The everyday user benefit (interactive feels fast under load) is already captured by the lanes; the DO only adds guarantees that a single-firm launch will not exercise.
+**Deferred seam (the strict-fairness upgrade):** a per-firm Durable Object admission gate (leased slots + alarm-based leak reclamation) gives a _strict_ per-tenant concurrency cap and ordering. It is **not built now** — the queue-consumer shape does not change to add it later, so it is deferred until real multi-tenant load measures the need (golden rule 10). The everyday user benefit (interactive feels fast under load) is already captured by the lanes; the DO only adds guarantees that a single-firm launch will not exercise.
 
 ---
 
@@ -77,7 +77,7 @@ The gates the launch `runIngest` lists but does not enforce, plus the uninspecta
 
 ### Uninspectable-file policy (the product-meaningful fork)
 
-Some files cannot be inspected. The policy splits on whether the inability *correlates with risk*:
+Some files cannot be inspected. The policy splits on whether the inability _correlates with risk_:
 
 - **Benign-uninspectable → commit as `unscanned` with a visible "not scanned" badge** on the file version:
   - **Password-protected / encrypted** documents (common and legitimate in legal practice — opposing counsel and clients routinely send them).
@@ -87,9 +87,9 @@ Some files cannot be inspected. The policy splits on whether the inability *corr
   - A **decompression-bomb signature** (compressed-to-uncompressed expansion ratio over a guard).
   - **Archive nesting depth** over the cap.
   - **Archive entry-count** over the cap.
-- **Active content → commit as `clean` with an "active-content" badge** (PDF JavaScript, Office macros). Active content is *not* uninspectable and is *not* a standalone quarantine trigger — it is common in legitimate legal documents (fillable court PDFs with calculation scripts, macro-enabled templates). The safe-delivery sandbox (slice 2·3) and the extension blocklist are the execution defenses; the badge warns staff. It escalates to quarantine only when a signature or bomb signal co-occurs — active content *amplifies*, it does not gate alone.
+- **Active content → commit as `clean` with an "active-content" badge** (PDF JavaScript, Office macros). Active content is _not_ uninspectable and is _not_ a standalone quarantine trigger — it is common in legitimate legal documents (fillable court PDFs with calculation scripts, macro-enabled templates). The safe-delivery sandbox (slice 2·3) and the extension blocklist are the execution defenses; the badge warns staff. It escalates to quarantine only when a signature or bomb signal co-occurs — active content _amplifies_, it does not gate alone.
 
-This keeps the common legitimate case frictionless and honest while treating the cases that *look like* evasion as quarantine.
+This keeps the common legitimate case frictionless and honest while treating the cases that _look like_ evasion as quarantine.
 
 ### Caps (recommended defaults — knobs, build-tuned against ClamAV limits, recorded)
 
@@ -98,7 +98,7 @@ This keeps the common legitimate case frictionless and honest while treating the
 - Per-archive uncompressed-size ceiling and entry-count ceiling (over → quarantine).
 - Compressed:uncompressed expansion-ratio guard (over → quarantine).
 
-Concrete numbers are configuration, tuned at build against ClamAV's own scan limits and recorded — not doctrine. The *policy* (what a limit-hit means) is the decided part.
+Concrete numbers are configuration, tuned at build against ClamAV's own scan limits and recorded — not doctrine. The _policy_ (what a limit-hit means) is the decided part.
 
 ---
 
@@ -137,6 +137,6 @@ The slice extends the volume harness in-area: a scan-verdict distribution (clean
 
 ## 10. References
 
-- White paper: *Matters and File Manager*, *Inline file preview* (the safe-delivery sandbox in slice 2·3 still guards rendering of anything committed `unscanned`), *Document versioning & storage tiering*, *Performance & concurrency model*.
+- White paper: _Matters and File Manager_, _Inline file preview_ (the safe-delivery sandbox in slice 2·3 still guards rendering of anything committed `unscanned`), _Document versioning & storage tiering_, _Performance & concurrency model_.
 - Slice 1·1 design: [`2026-06-11-slice-1-1-matters-locations-file-manager-design.md`](2026-06-11-slice-1-1-matters-locations-file-manager-design.md) (ADR-0081 upload path, ADR-0082 bulk download).
 - ADR-0078 (cheap seams up front), ADR-0083 (load-profile harness), ADR-0003 (firm-scoped data-access), ADR-0017/ADR-0038 (observability & no third-party SaaS for privileged content).

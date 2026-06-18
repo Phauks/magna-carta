@@ -22,17 +22,20 @@
 ## File Structure
 
 **Modified `packages/file-manager/`:**
+
 - `src/zip-composition.ts` — add `bundleManifestHash(entries, params)` (pure, content-addressed).
 - `src/upload-policy.ts` — `liveMaxFileCountDefinition` (default ~1000), `liveMaxTotalBytesDefinition` (default 2 GiB); the existing `zipAsyncThresholdDefinition` is superseded (keep the key readable for one release, but the route decides on the two new knobs).
 - `test/zip-composition.test.ts` — manifest-hash determinism + order-independence tests.
 
 **New `apps/worker/`:**
+
 - `src/downloads/bundle-coordinator.ts` — `BundleBuildCoordinator extends DurableObject` (the state machine + alarm).
 - `src/downloads/bundle-consumer.ts` — the `bundle-build` queue consumer (R2→zip→R2).
 - `src/downloads/bundle-types.ts` — the shared `BundleJobState`, `BundleBuildMessage`, and the DO RPC interface.
 - `src/routes/bundle-status.ts` — `GET /api/v1/downloads/bundles/{manifestHash}`.
 
 **Modified `apps/worker/`:**
+
 - `src/routes/downloads.ts` — threshold routing to the DO; `202` with the job handle.
 - `src/index.ts` — export `BundleBuildCoordinator`; bind the `bundle-build` consumer; register the status route.
 - `src/app.ts` — add `BUNDLE_COORDINATOR: DurableObjectNamespace` and `BUNDLE_BUILD` queue to `Bindings`.
@@ -49,8 +52,8 @@ export type BundleJobStatus = "building" | "ready" | "failed";
 export interface BundleJobState {
   readonly status: BundleJobStatus;
   readonly manifestHash: string;
-  readonly r2Key: string | null;   // set when ready
-  readonly error: string | null;   // set when failed
+  readonly r2Key: string | null; // set when ready
+  readonly error: string | null; // set when failed
 }
 
 export interface BundleBuildMessage {
@@ -76,6 +79,7 @@ export interface BundleCoordinator {
 **Files:** Modify `packages/file-manager/src/zip-composition.ts`. Test: `packages/file-manager/test/zip-composition.test.ts`.
 
 **Interfaces:**
+
 - Produces: `bundleManifestHash(entries: readonly { r2Key: string; path: string }[]): Promise<string>` — a hex SHA-256 over the **sorted** `r2Key\tpath` lines, so the same selection always hashes the same regardless of resolve order, and any change to the set or paths changes the hash.
 
 - [ ] **Step 1: Write the failing tests**
@@ -133,6 +137,7 @@ git commit -m "feat(file-manager): content-addressed bundle manifest hash"
 **Files:** Modify `packages/file-manager/src/upload-policy.ts`. Test: `packages/file-manager/test/upload-policy.test.ts`.
 
 **Interfaces:**
+
 - Produces: `liveMaxFileCountDefinition` (default 1000) and `liveMaxTotalBytesDefinition` (default 2 GiB) + reader helpers. The route hands off to a job when `fileCount > liveMaxFileCount` **or** `totalBytes > liveMaxTotalBytes`.
 
 - [ ] **Step 1: Write the failing test** — assert both defaults.
@@ -155,6 +160,7 @@ git commit -m "feat(file-manager): live-vs-async bulk-download threshold knobs"
 **Files:** Create `apps/worker/src/downloads/bundle-types.ts`, `apps/worker/src/downloads/bundle-coordinator.ts`; modify `apps/worker/src/app.ts` (Bindings), `apps/worker/src/index.ts` (export the class), `apps/worker/wrangler.jsonc` (DO binding + migration). Test: `apps/worker/test/bundle-coordinator.test.ts` (`cloudflare:test` with `runInDurableObject`).
 
 **Interfaces:**
+
 - Consumes: `BundleBuildMessage`, `BundleJobState` (Task 1 types).
 - Produces: `BundleBuildCoordinator extends DurableObject` implementing `BundleCoordinator`; state persisted in `this.ctx.storage`; `requestBundle` is single-flight (enqueues the `bundle-build` message + arms a 10-minute stuck alarm only on the first call); `markReady`/`markFailed` set terminal state; `alarm()` fails a build still `building` past its deadline.
 
@@ -180,7 +186,12 @@ export class BundleBuildCoordinator extends DurableObject<Bindings> {
   async requestBundle(message: BundleBuildMessage): Promise<BundleJobState> {
     const existing = (await this.ctx.storage.get<BundleJobState>("state")) ?? null;
     if (existing !== null && existing.status !== "failed") return existing;
-    const state: BundleJobState = { status: "building", manifestHash: message.manifestHash, r2Key: null, error: null };
+    const state: BundleJobState = {
+      status: "building",
+      manifestHash: message.manifestHash,
+      r2Key: null,
+      error: null,
+    };
     await this.ctx.storage.put("state", state);
     await this.ctx.storage.setAlarm(Date.now() + STUCK_DEADLINE_MS);
     await this.env.BUNDLE_BUILD.send(message);
@@ -198,8 +209,14 @@ export class BundleBuildCoordinator extends DurableObject<Bindings> {
     await this.ctx.storage.put("state", { ...state, status: "failed", error });
   }
   async status(): Promise<BundleJobState> {
-    return (await this.ctx.storage.get<BundleJobState>("state"))
-      ?? { status: "failed", manifestHash: "", r2Key: null, error: "unknown job" };
+    return (
+      (await this.ctx.storage.get<BundleJobState>("state")) ?? {
+        status: "failed",
+        manifestHash: "",
+        r2Key: null,
+        error: "unknown job",
+      }
+    );
   }
   async alarm(): Promise<void> {
     const state = await this.ctx.storage.get<BundleJobState>("state");
@@ -236,6 +253,7 @@ git commit -m "feat(worker): BundleBuildCoordinator durable object (single-fligh
 **Files:** Create `apps/worker/src/downloads/bundle-consumer.ts`; modify `apps/worker/src/index.ts`, `apps/worker/wrangler.jsonc`. Test: `apps/worker/test/bundle-consumer.test.ts`.
 
 **Interfaces:**
+
 - Consumes: `BundleBuildMessage`; the R2 binding; the `BUNDLE_COORDINATOR` namespace.
 - Produces: `bundleBuildQueue(batch, env)` — for each message, stream the entries' R2 bodies through `makeZip` into `env.R2.put("bundles/<manifestHash>.zip", zipStream)`, then `markReady`; on throw, `markFailed` and rethrow (queue retry → dead-letter).
 
@@ -272,10 +290,17 @@ async function buildOne(env: Bindings, message: BundleBuildMessage): Promise<voi
   }
 }
 
-export async function bundleBuildQueue(batch: MessageBatch<BundleBuildMessage>, env: Bindings): Promise<void> {
+export async function bundleBuildQueue(
+  batch: MessageBatch<BundleBuildMessage>,
+  env: Bindings,
+): Promise<void> {
   for (const message of batch.messages) {
-    try { await buildOne(env, message.body); message.ack(); }
-    catch { message.retry(); }
+    try {
+      await buildOne(env, message.body);
+      message.ack();
+    } catch {
+      message.retry();
+    }
   }
 }
 ```
@@ -298,6 +323,7 @@ git commit -m "feat(worker): bundle-build queue consumer (R2 -> client-zip -> R2
 **Files:** Modify `apps/worker/src/routes/downloads.ts`. Test: `apps/worker/test/downloads.test.ts` (extend).
 
 **Interfaces:**
+
 - Consumes: `bundleManifestHash` (Task 1), `readLiveMaxFileCount`/`readLiveMaxTotalBytes` (Task 2), `BUNDLE_COORDINATOR` (Task 3).
 - Produces: when `resolved.fileCount > liveMaxFileCount || resolved.totalBytes > liveMaxTotalBytes`, the route computes the manifest hash, checks R2 for an existing `bundles/<hash>.zip` (HEAD → fresh signed GET, `200` redirect-style payload), else calls `coordinator.requestBundle(...)` and returns **`202`** with `{ jobId: manifestHash, status }`. The existing single-file `302` and small-selection live ZIP paths are unchanged.
 
@@ -308,7 +334,7 @@ git commit -m "feat(worker): bundle-build queue consumer (R2 -> client-zip -> R2
 
 - [ ] **Step 2: Run and confirm failure.**
 
-- [ ] **Step 3: Implement** — after `resolveZipSelection` and the audit row, branch on the thresholds. Build the entry list `{ r2Key, path }` from `resolved.entries`, compute `bundleManifestHash`, `env.R2.head(\`bundles/${hash}.zip\`)`; if present, presign + return `200 { url }`; else `const state = await coordinator.requestBundle({ firmId: firm.firmId, bucketName: firm.bucketName, manifestHash: hash, entries })` and return `c.json({ jobId: hash, status: state.status }, 202)`. Add the `202`/`200`-with-url responses to the OpenAPI `responses` map.
+- [ ] **Step 3: Implement** — after `resolveZipSelection` and the audit row, branch on the thresholds. Build the entry list `{ r2Key, path }` from `resolved.entries`, compute `bundleManifestHash`, `env.R2.head(\`bundles/${hash}.zip\`)`; if present, presign + return `200 { url }`; else `const state = await coordinator.requestBundle({ firmId: firm.firmId, bucketName: firm.bucketName, manifestHash: hash, entries })`and return`c.json({ jobId: hash, status: state.status }, 202)`. Add the `202`/`200`-with-url responses to the OpenAPI `responses` map.
 
 - [ ] **Step 4: Run (PASS) + commit**
 
@@ -324,6 +350,7 @@ git commit -m "feat(worker): route large bulk downloads to the async build job"
 **Files:** Create `apps/worker/src/routes/bundle-status.ts`; modify `apps/worker/src/index.ts`. Test: `apps/worker/test/bundle-status.test.ts`.
 
 **Interfaces:**
+
 - Consumes: `BUNDLE_COORDINATOR`, the presigner.
 - Produces: `GET /api/v1/downloads/bundles/{manifestHash}` → `{ status, url? }` — `building`/`failed` carry no URL; `ready` mints a fresh short-TTL signed GET for `bundles/<hash>.zip`. Same chokepoint + `files:organize` permission + firm scoping as the download route; the DO is addressed by `firmId:manifestHash` so one firm can never poll another's job.
 
