@@ -12,6 +12,7 @@
     "test": "vp test run"
   },
   "dependencies": {
+    "@cloudflare/containers": "catalog:",
     "@hono/zod-openapi": "catalog:",
     "@magna-carta/access-control": "workspace:*",
     "@magna-carta/data-access": "workspace:*",

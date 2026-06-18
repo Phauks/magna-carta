@@ -51,6 +51,10 @@ export type Bindings = {
   >;
   // The bundle-build queue the coordinator enqueues onto; its consumer streams R2 -> client-zip -> R2.
   BUNDLE_BUILD: Queue<import("./downloads/bundle-types.ts").BundleBuildMessage>;
+  // The malware-scan Container (slice 2·1 Plan 2). Optional: absent in every test environment (the
+  // container cannot run under the local pool) and until the deploy-time wrangler activation, where
+  // resolveScanPort falls back to the engine-less adapter. Present in production once wired.
+  SCAN_CONTAINER?: DurableObjectNamespace<import("./files/scan-container.ts").ScanContainer>;
   // Better Auth's signing/encryption secret. Local dev + tests load it from .dev.vars;
   // production sets it with `wrangler secret put AUTH_SECRET`.
   AUTH_SECRET: string;
