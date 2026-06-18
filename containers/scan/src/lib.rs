@@ -5,6 +5,8 @@ use axum::{
 };
 use serde_json::json;
 
+pub mod clamav;
+
 /// Builds the scan service router. The binary serves it on :8080; tests serve it on an ephemeral port.
 pub fn app() -> Router {
     Router::new()
