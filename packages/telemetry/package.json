@@ -13,7 +13,8 @@
     "./logger": "./src/logger.ts",
     "./workers-logger": "./src/workers-logger.ts",
     "./pseudonymize": "./src/pseudonymize.ts",
-    "./usage-features": "./src/usage-features.ts"
+    "./usage-features": "./src/usage-features.ts",
+    "./usage-suppression": "./src/usage-suppression.ts"
   },
   "scripts": {
     "test": "vp test run"
