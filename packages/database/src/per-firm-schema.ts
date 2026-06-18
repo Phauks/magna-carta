@@ -31,6 +31,7 @@ import type {
   GrantId,
   IdempotencyRecordId,
   IncidentId,
+  IntegrationConnectionId,
   LedgerAccountId,
   LedgerEntryId,
   LedgerLineId,
@@ -45,6 +46,9 @@ import type {
   OutboxId,
   RoleId,
   RolePermissionId,
+  ShipmentId,
+  ShipmentLabelId,
+  TrackingEventId,
   UploadSessionId,
   UserId,
 } from "@magna-carta/identifiers/types";
@@ -832,6 +836,36 @@ export const directoryIdentifier = sqliteTable(
   ],
 );
 
+// One authorized external account per category (the grant). Firm-scoped today (shipping); the unique
+// index keys it on (category, principal) so a firm has exactly one connection per category.
+// `credential_ref` points at the firm_secret entry; `capability_snapshot` is the adapter descriptor
+// captured at connect time.
+export const integrationConnection = sqliteTable(
+  "integration_connection",
+  {
+    id: text("id").primaryKey().$type<IntegrationConnectionId>(),
+    category: text("category").notNull(),
+    adapterId: text("adapter_id").notNull(),
+    scope: text("scope", { enum: ["firm", "user"] }).notNull(),
+    principalRef: text("principal_ref").notNull(),
+    credentialRef: text("credential_ref").notNull(),
+    status: text("status", {
+      enum: ["connected", "degraded", "needs_reauth", "disabled"],
+    })
+      .notNull()
+      .default("connected"),
+    capabilitySnapshot: text("capability_snapshot").notNull(), // JSON-serialized CapabilityDescriptor
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("integration_connection_principal_category_unique_index").on(
+      table.category,
+      table.principalRef,
+    ),
+  ],
+);
+
 // A typed relationship edge between two directory entities. Temporal (valid_from/valid_to); edge_type
 // is open text constrained to a non-empty value so the catalog can grow without schema migrations.
 export const directoryEdge = sqliteTable(
@@ -1017,3 +1051,80 @@ export const entityMerge = sqliteTable("entity_merge", {
   mergedAt: text("merged_at").notNull(),
   mergedBy: text("merged_by").notNull().$type<UserId>(), // global user handle; no cross-plane FK
 });
+
+// A mailing/postage shipment. Addresses, parcel, and options are JSON text (never sub-queried).
+// postage_cost_minor / service_fee_minor are recorded at purchase — the cost-recovery seam the
+// financial core reads to post a matter disbursement. matter_ref is optional (a shipment may be
+// firm-administrative, not matter-linked).
+export const shipment = sqliteTable(
+  "shipment",
+  {
+    id: text("id").primaryKey().$type<ShipmentId>(),
+    matterRef: text("matter_ref")
+      .$type<MatterId>()
+      .references(() => matter.id),
+    status: text("status", {
+      enum: ["draft", "rated", "purchased", "in_transit", "delivered", "refunded"],
+    })
+      .notNull()
+      .default("draft"),
+    fromAddress: text("from_address").notNull(), // JSON
+    toAddress: text("to_address").notNull(), // JSON
+    parcel: text("parcel").notNull(), // JSON
+    options: text("options").notNull().default("{}"), // JSON ShipmentOptions
+    remoteShipmentId: text("remote_shipment_id"), // EasyPost shipment id, set once rated/bought
+    carrier: text("carrier"),
+    service: text("service"),
+    trackingCode: text("tracking_code"),
+    labelRef: text("label_ref").$type<ShipmentLabelId>(),
+    postageCostMinor: integer("postage_cost_minor"),
+    serviceFeeMinor: integer("service_fee_minor"),
+    currency: text("currency"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("shipment_matter_ref_index").on(table.matterRef),
+    index("shipment_tracking_code_index").on(table.trackingCode),
+  ],
+);
+
+// A bought label's metadata; the PDF bytes live in per-firm R2 at r2_key (bulk content never in D1).
+export const shipmentLabel = sqliteTable("shipment_label", {
+  id: text("id").primaryKey().$type<ShipmentLabelId>(),
+  shipmentRef: text("shipment_ref")
+    .notNull()
+    .$type<ShipmentId>()
+    .references(() => shipment.id),
+  format: text("format").notNull(), // content type, e.g. application/pdf
+  r2Key: text("r2_key").notNull(),
+  trackingCode: text("tracking_code").notNull(),
+  costMinor: integer("cost_minor").notNull(),
+  currency: text("currency").notNull(),
+  voided: integer("voided").notNull().default(0), // 0/1
+  createdAt: text("created_at").notNull(),
+});
+
+// A carrier tracking event, appended as tracking is pulled. Dedup by (shipment_ref, remote_id).
+export const trackingEvent = sqliteTable(
+  "tracking_event",
+  {
+    id: text("id").primaryKey().$type<TrackingEventId>(),
+    shipmentRef: text("shipment_ref")
+      .notNull()
+      .$type<ShipmentId>()
+      .references(() => shipment.id),
+    remoteId: text("remote_id").notNull(),
+    status: text("status").notNull(),
+    occurredAt: text("occurred_at"),
+    location: text("location"),
+    message: text("message"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("tracking_event_shipment_remote_unique_index").on(
+      table.shipmentRef,
+      table.remoteId,
+    ),
+  ],
+);

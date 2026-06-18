@@ -47,6 +47,10 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Pure render of a candidate numbering scheme against a sample context — no write, no counter touch.",
   "directory.duplicateCandidates":
     "Read-shaped POST: unions the phonetic/trigram/blind-index blocking channels for a prospective entity (match facts ride the body) — no write, no decrypt.",
+  "shipping.rateShipment":
+    "Live rate-shop read-through to the carrier — POSTs the package to fetch ephemeral rates, persists nothing.",
+  "shipping.tracking":
+    "Pulls current carrier tracking and caches events (INSERT OR IGNORE dedup) — a read-shaped sync, not an auditable business mutation.",
 };
 
 // Subsystems whose every route must be idempotency: required (money/trust/payment/outbound-comms).
@@ -111,6 +115,7 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string> = {
   locations: "location",
   files: "matter",
   directory: "directoryEntity",
+  shipping: "firm",
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
@@ -520,6 +525,13 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "numbering.get",
       "numbering.preview",
       "numbering.set",
+      "shipping.connect",
+      "shipping.createShipment",
+      "shipping.label",
+      "shipping.purchase",
+      "shipping.rateShipment",
+      "shipping.refund",
+      "shipping.tracking",
       "uploads.abort",
       "uploads.complete",
       "uploads.initiate",

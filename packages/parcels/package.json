@@ -9,10 +9,14 @@
     "./apn": "./src/apn.ts",
     "./platforms": "./src/platforms.ts",
     "./resolve": "./src/resolve.ts",
-    "./registry": "./src/registry.ts"
+    "./registry": "./src/registry.ts",
+    "./manifest": "./src/manifest.ts"
   },
   "scripts": {
     "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/integrations": "workspace:*"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

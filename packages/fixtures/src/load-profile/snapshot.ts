@@ -24,6 +24,7 @@ import { generateLedgerVolume, type VolumeProbes } from "./generate.ts";
 import { generatePracticeVolume, type PracticeProbes } from "./matters-generate.ts";
 import { generateProtectedVolume, type ProtectedProbes } from "./protected-generate.ts";
 import { generateDirectoryVolume, type DirectoryProbes } from "./directory-generate.ts";
+import { generateShippingVolume, type ShippingProbes } from "./shipping-generate.ts";
 import { GENERATOR_VERSION, type LedgerVolumeProfile } from "./profile.ts";
 
 // Snapshot identity: the resolved profile parameters, the generation seed, the per-firm schema
@@ -54,6 +55,12 @@ export interface SnapshotManifest {
   readonly directoryPersonCount: number;
   readonly directoryOrganizationCount: number;
   readonly directoryProbes: DirectoryProbes;
+  // The shipping volume laid over the practice book: total counts + the probe identifiers the
+  // shipping measurement layer binds its volume-shaped reads to.
+  readonly shipmentCount: number;
+  readonly purchasedShipmentCount: number;
+  readonly trackingEventCount: number;
+  readonly shippingProbes: ShippingProbes;
 }
 
 export interface LoadedSnapshot extends MigratedNodeDatabase {
@@ -140,12 +147,20 @@ export async function loadProfileSnapshot(
         practice.probes.responsibleMemberId,
         options,
       );
-      // The directory volume rides last — its matter-party links join entities to the matters the
+      // The directory volume rides next — its matter-party links join entities to the matters the
       // practice volume already laid down, so it must run after practice generation.
       const directoryVolume = await generateDirectoryVolume(
         generated.database,
         context,
         profile.directory,
+        options,
+      );
+      // The shipping volume rides last on the same FixtureContext, linking its shipments to the
+      // matters the practice generation laid down.
+      const shipping = await generateShippingVolume(
+        generated.database,
+        context,
+        profile.shipping,
         options,
       );
       const manifest: SnapshotManifest = {
@@ -166,6 +181,10 @@ export async function loadProfileSnapshot(
         directoryPersonCount: directoryVolume.personCount,
         directoryOrganizationCount: directoryVolume.organizationCount,
         directoryProbes: directoryVolume.probes,
+        shipmentCount: shipping.shipmentCount,
+        purchasedShipmentCount: shipping.purchasedCount,
+        trackingEventCount: shipping.trackingEventCount,
+        shippingProbes: shipping.probes,
       };
       // Artifact before manifest: the replay gate above requires BOTH files, so a crash between
       // the two writes leaves a regenerable miss, never a manifest pointing at a missing artifact.

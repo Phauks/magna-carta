@@ -27,6 +27,8 @@ export const PERMISSIONS = [
   "directory:viewSensitiveIdentifiers", // decrypt and read an entity's protected identifier (SSN/EIN/DL/account/DOB) — audited
   // Locations — the firm's offices/letterhead roots.
   "locations:manage", // create/update/close locations, addresses, staff assignment
+  // Shipping & postage — connect the firm's postage account and create/rate/buy/track/refund shipments.
+  "shipping:manage",
   // Files — the File Manager's upload, organization, and document-type configuration.
   "files:upload", // initiate uploads and commit versions
   "files:organize", // create/rename/move folders and files

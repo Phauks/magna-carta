@@ -21,6 +21,10 @@ import { registerFirmsRoute } from "./routes/firms.ts";
 import { registerFoldersRoutes } from "./routes/folders.ts";
 import { registerIncidentsRoute } from "./routes/incidents.ts";
 import { registerLocationsRoutes } from "./routes/locations.ts";
+import { workerPlugins } from "./plugins/registry.ts";
+import type { PluginRuntime } from "./plugins/runtime.ts";
+import { fetchHttpClient } from "@magna-carta/shipping/easypost/http";
+import { firmSecretStoreNotYetAvailable } from "./shipping/secret-store.ts";
 import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
 import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerMeRoute } from "./routes/me.ts";
@@ -129,6 +133,8 @@ export interface CreateAppOptions {
   loggerForEnv?: (env: Bindings) => Logger;
   clock?: () => number;
   includeTelemetryProbes?: boolean;
+  // Overrides the plugin runtime for tests (a fake EasyPost http client + an in-memory secret store).
+  pluginRuntime?: Partial<PluginRuntime>;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
@@ -190,6 +196,15 @@ export function createApp(options: CreateAppOptions = {}) {
   // Slice 1·3: the directory (persons/organizations, names, sensitive identifiers, edges,
   // categories, search, merge, matter-party link) — composed through the same chokepoint.
   registerDirectoryRoutes(app, chokepoint);
+
+  // The plugin runtime: production defaults (a fetch-backed http client; the firm_secret store seam
+  // that throws until the marketplace wires the live credential read), overridable in tests.
+  const pluginRuntime: PluginRuntime = {
+    httpClient: options.pluginRuntime?.httpClient ?? fetchHttpClient(),
+    secretStoreForFirm: options.pluginRuntime?.secretStoreForFirm ?? firmSecretStoreNotYetAvailable,
+  };
+  // Plugins mount from the registry — the core names no plugin. Each registers through the chokepoint.
+  for (const plugin of workerPlugins) plugin.registerRoutes?.(app, chokepoint, pluginRuntime);
 
   // Serve the same document the committed snapshot carries (root tags included), so the live endpoint
   // and the snapshot never diverge. A plain route, so it does not appear in the document itself.

@@ -223,8 +223,8 @@ describe("end-to-end", () => {
       // Owner/Admin's seeded role_permission rows: firm:manageMembers (0002) + firm:reportIncident
       // (0003, seeded onto every default role) + the slice 1·1 matters/locations/files grants
       // (0004_matters-locations-file-manager.sql) + the slice 1·2 firm:manageSecrets /
-      // incidents:viewDescription grants (0006) + the slice 1·3 directory:edit /
-      // directory:viewSensitiveIdentifiers grants (0008). Sorted.
+      // incidents:viewDescription grants (0006) + shipping:manage (0008_elite_genesis) + the slice
+      // 1·3 directory:edit / directory:viewSensitiveIdentifiers grants (0009_directory). Sorted.
       permissions: [
         "directory:edit",
         "directory:viewSensitiveIdentifiers",
@@ -245,6 +245,7 @@ describe("end-to-end", () => {
         "matters:open",
         "matters:renumber",
         "matters:reopen",
+        "shipping:manage",
       ],
     });
   });
@@ -379,6 +380,8 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
     const NON_MUTATING_POST_ALLOW_LIST = new Set([
       "numbering.preview",
       "directory.duplicateCandidates",
+      "shipping.rateShipment",
+      "shipping.tracking",
     ]);
 
     for (const { operation, label } of mutatingV1) {
@@ -470,7 +473,9 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       expect(response.status, label).toBe(401);
       expect(response.headers.get("content-type"), label).toContain("application/problem+json");
     }
-  }, 20000);
+    // The sweep fires one real request per authenticated operation, sequentially — it grows with the
+    // contract, so it carries a generous timeout rather than the 5s default.
+  }, 20_000);
 
   it("gives every /v1 operation a unique, well-formed operationId mirrored in x-mc-operationId", async () => {
     const document = await fetchOpenApiDocument();

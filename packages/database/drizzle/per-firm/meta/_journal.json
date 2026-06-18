@@ -61,8 +61,15 @@
     {
       "idx": 8,
       "version": "6",
-      "when": 1781659177265,
-      "tag": "0008_directory",
+      "when": 1781719384670,
+      "tag": "0008_elite_genesis",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1781719484670,
+      "tag": "0009_directory",
       "breakpoints": true
     }
   ]

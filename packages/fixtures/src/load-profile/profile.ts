@@ -43,6 +43,18 @@ export interface PracticeVolume {
   readonly fileSizeBytes: { readonly min: number; readonly max: number };
 }
 
+// The shipping volume laid over the practice book: drafts spread across the firm's matters, a
+// fraction taken through to a bought label, and a handful of tracking events per purchased shipment.
+// Every count is a PARAMETER here, never a generator constant — changing one bumps the profile
+// `version`. Sized like an established firm's mailing volume, not a stress run.
+export interface ShippingVolume {
+  readonly shipmentCount: number;
+  // Percentage of drafts taken through to a bought label (the rest stay drafts). 0–100.
+  readonly purchasedPercent: number;
+  // Tracking events appended per purchased shipment (the pulled carrier history).
+  readonly trackingEventsPerShipment: { readonly min: number; readonly max: number };
+}
+
 // The protected-field volume laid over the practice: diagnostic incidents whose user-authored
 // descriptions are SEALED at rest, and a handful of named firm secrets whose values are sealed too.
 // This is the queryable shadow of the crypto chokepoint — the encrypt-on-write
@@ -102,6 +114,8 @@ export interface LedgerVolumeProfile {
   readonly protected: ProtectedVolume;
   // The directory volume laid over the practice (entities, names, edges, identifiers, matter parties).
   readonly directory: DirectoryVolume;
+  // The shipping volume laid over the practice book (shipments/labels/tracking).
+  readonly shipping: ShippingVolume;
 }
 
 // A plausible established small firm: a few years of posting activity over a 200-client trust book,
@@ -109,7 +123,7 @@ export interface LedgerVolumeProfile {
 // files with multi-version histories.
 export const ledgerVolume: LedgerVolumeProfile = {
   name: "ledgerVolume",
-  version: 4,
+  version: 5,
   trustSubledgerCount: 200,
   entryCount: 25_000,
   postingSpanDays: 1_095,
@@ -151,6 +165,11 @@ export const ledgerVolume: LedgerVolumeProfile = {
     identifiersPerEntity: 250,
     matterPartyFraction: 0.35,
   },
+  shipping: {
+    shipmentCount: 300,
+    purchasedPercent: 70,
+    trackingEventsPerShipment: { min: 1, max: 5 },
+  },
 };
 
 // One profile, every scale: CI smoke (~0.01), local working scale (1), deliberate stress runs
@@ -187,6 +206,10 @@ export function scaleProfile(
       personCount: scaleCount(profile.directory.personCount, 12),
       organizationCount: scaleCount(profile.directory.organizationCount, 4),
       identifiersPerEntity: scaleCount(profile.directory.identifiersPerEntity, 6),
+    },
+    shipping: {
+      ...profile.shipping,
+      shipmentCount: scaleCount(profile.shipping.shipmentCount, 5),
     },
   };
 }

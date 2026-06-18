@@ -74,6 +74,10 @@ describe("permission registry", () => {
     expect(permissionsForNamespace("locations")).toEqual(["locations:manage"]);
   });
 
+  it("permissionsForNamespace('shipping') returns exactly the shipping keys", () => {
+    expect(permissionsForNamespace("shipping")).toEqual(["shipping:manage"]);
+  });
+
   it("permissionsForNamespace('files') returns exactly the files keys, in registry order", () => {
     expect(permissionsForNamespace("files")).toEqual([
       "files:upload",

@@ -1,0 +1,182 @@
+{
+  "profileName": "ledgerVolume",
+  "profileVersion": 5,
+  "cacheKey": "7f49d510d30b79c5",
+  "results": [
+    {
+      "name": "balance-read.busy-subledger",
+      "iterations": 30,
+      "minMs": 0.056,
+      "medianMs": 0.078,
+      "p95Ms": 0.166
+    },
+    {
+      "name": "create-account.trust-subledger",
+      "iterations": 30,
+      "minMs": 3.181,
+      "medianMs": 3.994,
+      "p95Ms": 5.298
+    },
+    {
+      "name": "directory.candidate-generation",
+      "iterations": 30,
+      "minMs": 6.275,
+      "medianMs": 63.941,
+      "p95Ms": 103.499
+    },
+    {
+      "name": "directory.find-by-identifier",
+      "iterations": 30,
+      "minMs": 0.308,
+      "medianMs": 0.354,
+      "p95Ms": 0.469
+    },
+    {
+      "name": "directory.graph-expansion",
+      "iterations": 30,
+      "minMs": 0.137,
+      "medianMs": 0.167,
+      "p95Ms": 0.35
+    },
+    {
+      "name": "directory.read-protected-list",
+      "iterations": 30,
+      "minMs": 228.17,
+      "medianMs": 314.29,
+      "p95Ms": 561.503
+    },
+    {
+      "name": "get-current-clean-version",
+      "iterations": 30,
+      "minMs": 0.086,
+      "medianMs": 0.102,
+      "p95Ms": 0.202
+    },
+    {
+      "name": "ledger-fitness.table-wide",
+      "iterations": 30,
+      "minMs": 331.742,
+      "medianMs": 383.013,
+      "p95Ms": 730.39
+    },
+    {
+      "name": "list-clean-versions.by-file",
+      "iterations": 30,
+      "minMs": 0.171,
+      "medianMs": 0.202,
+      "p95Ms": 0.289
+    },
+    {
+      "name": "list-consultations.by-member",
+      "iterations": 30,
+      "minMs": 0.305,
+      "medianMs": 0.489,
+      "p95Ms": 0.559
+    },
+    {
+      "name": "list-files.by-folder",
+      "iterations": 30,
+      "minMs": 0.092,
+      "medianMs": 0.107,
+      "p95Ms": 0.152
+    },
+    {
+      "name": "list-files.by-matter",
+      "iterations": 30,
+      "minMs": 0.145,
+      "medianMs": 0.193,
+      "p95Ms": 0.414
+    },
+    {
+      "name": "list-matters.filtered",
+      "iterations": 30,
+      "minMs": 0.199,
+      "medianMs": 0.335,
+      "p95Ms": 1.251
+    },
+    {
+      "name": "list-matters.first-page",
+      "iterations": 30,
+      "minMs": 0.317,
+      "medianMs": 0.495,
+      "p95Ms": 0.599
+    },
+    {
+      "name": "list-shipments.by-matter",
+      "iterations": 30,
+      "minMs": 0.087,
+      "medianMs": 0.131,
+      "p95Ms": 0.193
+    },
+    {
+      "name": "list-tracking-events.by-shipment",
+      "iterations": 30,
+      "minMs": 0.078,
+      "medianMs": 0.089,
+      "p95Ms": 0.116
+    },
+    {
+      "name": "matter-number.counter-draw",
+      "iterations": 30,
+      "minMs": 5.726,
+      "medianMs": 7.577,
+      "p95Ms": 15.239
+    },
+    {
+      "name": "post-entry.two-line",
+      "iterations": 30,
+      "minMs": 14.761,
+      "medianMs": 18.483,
+      "p95Ms": 22.59
+    },
+    {
+      "name": "protected.blind-index-compute",
+      "iterations": 30,
+      "minMs": 0.158,
+      "medianMs": 0.205,
+      "p95Ms": 0.502
+    },
+    {
+      "name": "protected.firm-secret-read",
+      "iterations": 30,
+      "minMs": 3.287,
+      "medianMs": 4.157,
+      "p95Ms": 6.29
+    },
+    {
+      "name": "protected.incident-decrypt-page",
+      "iterations": 30,
+      "minMs": 185.118,
+      "medianMs": 235.421,
+      "p95Ms": 266.869
+    },
+    {
+      "name": "reverse-entry.two-line",
+      "iterations": 30,
+      "minMs": 14.523,
+      "medianMs": 18.125,
+      "p95Ms": 22.66
+    },
+    {
+      "name": "storage-meter.summary",
+      "iterations": 30,
+      "minMs": 0.056,
+      "medianMs": 0.067,
+      "p95Ms": 0.18
+    },
+    {
+      "name": "zip-resolution.clean-current-versions",
+      "iterations": 30,
+      "minMs": 0.145,
+      "medianMs": 0.208,
+      "p95Ms": 0.35
+    },
+    {
+      "name": "zip-resolution.folders-by-matter",
+      "iterations": 30,
+      "minMs": 0.071,
+      "medianMs": 0.133,
+      "p95Ms": 0.19
+    }
+  ]
+}

@@ -14,11 +14,15 @@ const BASE_SHAPE = {
   raw: z.unknown().optional(),
 };
 
-// `Shape` may not redeclare `remoteId`/`raw`: those are the invariant base the boundary guarantees,
+// `fields` may not redeclare `remoteId`/`raw`: those are the invariant base the boundary guarantees,
 // and a spread override would silently weaken them. `raw` is the preserved vendor payload and is
 // intentionally unvalidated (`z.unknown()`) — a consumer that reaches into it bypasses the boundary.
-export function canonicalRecordSchema<
-  Shape extends z.ZodRawShape & { remoteId?: never; raw?: never },
->(fields: Shape) {
-  return z.object({ ...BASE_SHAPE, ...fields });
+// The forbidden-keys constraint lives on the *parameter* (`fields`), not on `Shape` itself, so
+// `Shape` is inferred clean and the output type carries `remoteId: string`, `raw?: unknown`, and the
+// caller's fields — never `never`. The internal cast strips the intersection before the spread so
+// the compiler does not widen the return type with the `{ remoteId?: never; raw?: never }` half.
+export function canonicalRecordSchema<Shape extends z.ZodRawShape>(
+  fields: Shape & { remoteId?: never; raw?: never },
+) {
+  return z.object({ ...BASE_SHAPE, ...(fields as Shape) });
 }
