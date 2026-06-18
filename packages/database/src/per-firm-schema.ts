@@ -89,6 +89,11 @@ export const member = sqliteTable("member", {
   status: text("status", { enum: ["active", "deactivated"] })
     .notNull()
     .default("active"),
+  // Per-user opt-out of product-usage analytics (the per-user override; the firm-level enable lives
+  // in the setting table). Default off (events flow) — a member sets this to opt themselves out.
+  optedOutOfUsageAnalytics: integer("opted_out_of_usage_analytics", { mode: "boolean" })
+    .notNull()
+    .default(false),
   createdAt: text("created_at").notNull(), // ISO-8601 instant
 });
 
