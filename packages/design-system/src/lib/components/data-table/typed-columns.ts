@@ -80,7 +80,10 @@ function formatValue(value: unknown, meta: ColumnMeta<RowData, unknown> | undefi
 
 /** The default cell that formats a value by its column's declared `meta.type`. */
 export function typedCell<TData extends RowData>(context: CellContext<TData, unknown>): string {
-  return formatValue(context.getValue(), context.column.columnDef.meta);
+  const value = context.getValue();
+  // A muted em-dash reads as "intentionally empty", not a rendering gap (the search path keeps "").
+  if (value == null || value === "") return "—";
+  return formatValue(value, context.column.columnDef.meta);
 }
 
 /**

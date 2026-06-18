@@ -9,6 +9,10 @@
   /* Width is a utility (w-full) on the element — `%` is not tokenizable, so it stays out of the recipe. */
   .mc-table-scroll {
     overflow-x: auto;
+    /* The table-card frame: a hairline, rounded surface so the table reads as a contained object
+       rather than floating bare on the page (the design language's hairline-structure identity). */
+    border: var(--mc-border-width-default) solid var(--mc-border-default);
+    border-radius: var(--mc-radius-lg);
   }
   /*
    * border-collapse SEPARATE (not collapse) with the hairline on the CELLS, not the row: under
@@ -31,12 +35,18 @@
     font-size: var(--mc-text-xs);
     text-align: start;
   }
+  /* Header cells: a sunken fill with an uppercase, tracked, small-caps-weight label — the column
+     header reads as structural chrome, distinct from the data, not just bold body text. */
   .mc-table-head {
     block-size: var(--mc-density-control-height);
     padding-inline: var(--mc-density-gutter);
+    background-color: var(--mc-surface-sunken);
     border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);
-    color: var(--mc-text-muted);
+    color: var(--mc-text-subtle);
+    font-size: var(--mc-text-xs);
     font-weight: var(--mc-weight-semibold);
+    letter-spacing: var(--mc-tracking-normal);
+    text-transform: uppercase;
     text-align: start;
     white-space: nowrap;
     vertical-align: middle;
@@ -47,15 +57,20 @@
     transition-timing-function: var(--mc-easing-standard);
   }
   /*
-   * Three distinguishable body-row states. Zebra is the faintest (sunken); hover is a touch stronger
-   * (secondary); selection shares the secondary fill BUT adds a brand accent bar on its leading edge,
-   * so it never reads as just another stripe (both fills are faint neutrals). The header does none.
+   * Three distinguishable body-row states, kept CALM — this is a work surface, so the identity lives
+   * at the row's EDGE, not washed across the data. Zebra is the faintest (sunken); hover is a neutral
+   * wash (secondary); selection takes the same neutral fill BUT a gold accent bar on its leading edge
+   * (below) — a thin gilt marker, not a gold row. The header does none.
    */
   .mc-table-body .mc-table-row:hover {
     background-color: var(--mc-action-secondary);
   }
   .mc-table-body .mc-table-row[data-state="selected"] {
     background-color: var(--mc-action-secondary);
+  }
+  /* The last body row drops its cell hairline so it meets the table-card frame cleanly. */
+  .mc-table-body .mc-table-row:last-child .mc-table-cell {
+    border-block-end-width: var(--mc-space-0);
   }
   .mc-table-cell {
     padding-block: var(--mc-density-stack);
@@ -70,7 +85,7 @@
     border-inline-start: var(--mc-focus-ring-width) solid transparent;
   }
   .mc-table-body .mc-table-row[data-state="selected"] .mc-table-cell:first-child {
-    border-inline-start-color: var(--mc-action-primary);
+    border-inline-start-color: var(--mc-accent-default);
   }
   /* Numeric / money / date columns right-align with tabular figures (set data-align="end" from the
      column's value type — see the typed-column meta + formatters). */
