@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="slate">
+<html lang="en" data-theme="chancery">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -7,9 +7,9 @@
       // No-FOUC theme boot. MIRRORS packages/design-system/src/lib/internal/theme-preference.ts
       // (readThemePreference + applyThemePreference) — it must run inline before first paint, so
       // it cannot import that module; keep keys, defaults, and the dark resolution rule in sync.
-      // The static data-theme="slate" above is the no-JavaScript fallback.
+      // The static data-theme="chancery" above is the no-JavaScript fallback.
       (function () {
-        var theme = localStorage.getItem("magna-carta.theme") || "slate";
+        var theme = localStorage.getItem("magna-carta.theme") || "chancery";
         var mode = localStorage.getItem("magna-carta.mode");
         if (mode !== "light" && mode !== "dark") mode = "system";
         var root = document.documentElement;

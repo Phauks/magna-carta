@@ -16,7 +16,7 @@ export type Mode = "light" | "dark" | "system";
 export const THEME_STORAGE_KEY = "magna-carta.theme";
 export const MODE_STORAGE_KEY = "magna-carta.mode";
 
-export const DEFAULT_THEME = "slate";
+export const DEFAULT_THEME = "chancery";
 const DEFAULT_MODE: Mode = "system";
 
 function isMode(value: string | null): value is Mode {
@@ -25,7 +25,7 @@ function isMode(value: string | null): value is Mode {
 
 /**
  * Reads the persisted theme preference. Unset or unrecognized stored values fall back to the
- * defaults (theme "slate", mode "system") rather than leaking garbage into the Mode union.
+ * defaults (theme "chancery", mode "system") rather than leaking garbage into the Mode union.
  */
 export function readThemePreference(): { theme: string; mode: Mode } {
   const storedMode = localStorage.getItem(MODE_STORAGE_KEY);
