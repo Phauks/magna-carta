@@ -50,6 +50,13 @@
   --color-accent-default: var(--mc-accent-default);
   --color-accent-subtle: var(--mc-accent-subtle);
   --color-accent-subtle-foreground: var(--mc-accent-subtle-foreground);
+  --color-chrome-surface: var(--mc-chrome-surface);
+  --color-chrome-surface-hover: var(--mc-chrome-surface-hover);
+  --color-chrome-text: var(--mc-chrome-text);
+  --color-chrome-text-muted: var(--mc-chrome-text-muted);
+  --color-chrome-text-strong: var(--mc-chrome-text-strong);
+  --color-chrome-border: var(--mc-chrome-border);
+  --color-chrome-accent: var(--mc-chrome-accent);
   --color-status-info: var(--mc-status-info);
   --color-status-info-foreground: var(--mc-status-info-foreground);
   --color-status-success: var(--mc-status-success);

@@ -44,6 +44,16 @@
     "subtle": { "$type": "color", "$value": "{color.accent.100}" },
     "subtle-foreground": { "$type": "color", "$value": "{color.accent.700}" }
   },
+  "chrome": {
+    "$description": "The application's EDGE chrome — the dark 'ink' register that FRAMES the work (app-shell rail + top bar). Identity lives here (gold accents read on this ground), so the work canvas can stay light and calm. Follows the brand 'ink' ramp, so the chrome travels with the theme.",
+    "surface": { "$type": "color", "$value": "{color.brand.900}" },
+    "surface-hover": { "$type": "color", "$value": "{color.brand.800}" },
+    "text": { "$type": "color", "$value": "{color.neutral.300}" },
+    "text-muted": { "$type": "color", "$value": "{color.neutral.400}" },
+    "text-strong": { "$type": "color", "$value": "{color.neutral.0}" },
+    "border": { "$type": "color", "$value": "{color.brand.800}" },
+    "accent": { "$type": "color", "$value": "{color.accent.400}" }
+  },
   "status": {
     "$description": "Status and feedback colors.",
     "info": { "$type": "color", "$value": "{color.blue.700}" },

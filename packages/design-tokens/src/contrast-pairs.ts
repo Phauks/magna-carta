@@ -85,7 +85,28 @@ export const CONTRAST_PAIRS: ReadonlyArray<ContrastPair> = [
     background: "accent-subtle",
     minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
   },
+  // The dark edge-chrome (app-shell rail + top bar) — text and the gold accent on the ink ground.
+  {
+    foreground: "chrome-text",
+    background: "chrome-surface",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
+  {
+    foreground: "chrome-text-muted",
+    background: "chrome-surface",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
+  {
+    foreground: "chrome-text-strong",
+    background: "chrome-surface",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
   // non-text UI (borders, focus ring, accent indicators) per WCAG 1.4.11:
+  {
+    foreground: "chrome-accent",
+    background: "chrome-surface",
+    minimumRatio: WCAG_NON_TEXT_MINIMUM_RATIO,
+  },
   {
     foreground: "accent-default",
     background: "surface-default",

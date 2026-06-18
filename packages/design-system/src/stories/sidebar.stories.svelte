@@ -74,13 +74,13 @@
       <div class="flex overflow-hidden">
         <Sidebar.Root bind:collapsed aria-label="Primary">
           <Sidebar.Header>
-            <Landmark class="mc-sidebar-icon" aria-hidden="true" />
+            <Landmark class="mc-sidebar-icon text-chrome-accent" aria-hidden="true" />
             <!-- Transparent (not sr-only) in the rail so the brand keeps its height — the header stays
                  the same size, so collapsing never shifts the icons below it — and fades with the rest. -->
             <span
               class="overflow-hidden font-semibold whitespace-nowrap transition-colors duration-normal {collapsed
                 ? 'text-transparent'
-                : 'text-default'}"
+                : 'text-chrome-text-strong'}"
             >
               Magna Carta
             </span>
