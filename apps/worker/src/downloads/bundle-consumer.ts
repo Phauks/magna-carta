@@ -1,0 +1,104 @@
+import { makeZip } from "client-zip";
+import type { Bindings } from "../app.ts";
+import type { BundleBuildMessage } from "./bundle-types.ts";
+
+// The bundle-build queue consumer: for each message, stream the selection's R2 object bodies through
+// client-zip into a single R2 object at bundles/<manifestHash>.zip (the firm's own bucket), then mark
+// the coordinator ready. Nothing buffers the whole archive — R2 bodies flow into the zip stream and
+// out through a multipart upload as fixed-size parts. A throw marks the job failed and rethrows so the
+// queue retries the message (and dead-letters after max attempts); a build that never reports back is
+// failed by the coordinator's stuck alarm instead.
+
+// R2's multipart minimum: every part except the last must be at least 5 MiB. A single streamed put
+// can't be used — client-zip produces a stream of unknown total length, which R2.put rejects (no
+// content-length) — so the archive is uploaded as uniform 5 MiB parts with a smaller final part.
+const PART_SIZE = 5 * 1024 * 1024;
+
+function concatChunks(chunks: readonly Uint8Array[], totalBytes: number): Uint8Array {
+  if (chunks.length === 1) return chunks[0] as Uint8Array;
+  const merged = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return merged;
+}
+
+// Streams a ReadableStream into an R2 object via a multipart upload, cutting uniform 5 MiB parts so no
+// part but the last is undersized and the whole archive never lives in memory at once. Aborts the
+// upload on any failure so a wedged build leaves no dangling multipart state.
+async function putStreamMultipart(
+  bucket: R2Bucket,
+  key: string,
+  stream: ReadableStream<Uint8Array>,
+): Promise<void> {
+  const upload = await bucket.createMultipartUpload(key);
+  try {
+    const parts: R2UploadedPart[] = [];
+    const reader = stream.getReader();
+    let pending: Uint8Array[] = [];
+    let pendingBytes = 0;
+    const uploadPart = async (bytes: Uint8Array) => {
+      parts.push(await upload.uploadPart(parts.length + 1, bytes));
+    };
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value.byteLength === 0) continue;
+      pending.push(value);
+      pendingBytes += value.byteLength;
+      while (pendingBytes >= PART_SIZE) {
+        const merged = concatChunks(pending, pendingBytes);
+        await uploadPart(merged.subarray(0, PART_SIZE));
+        const rest = merged.subarray(PART_SIZE);
+        pending = rest.byteLength > 0 ? [rest] : [];
+        pendingBytes = rest.byteLength;
+      }
+    }
+    // The final part carries the remainder (any size). Upload it, or — only if nothing was ever
+    // buffered — an empty part, so the upload always completes with at least one part.
+    if (pendingBytes > 0 || parts.length === 0) {
+      await uploadPart(concatChunks(pending, pendingBytes));
+    }
+    await upload.complete(parts);
+  } catch (error) {
+    await upload.abort();
+    throw error;
+  }
+}
+
+async function buildOne(env: Bindings, message: BundleBuildMessage): Promise<void> {
+  const key = `bundles/${message.manifestHash}.zip`;
+  async function* inputs() {
+    for (const entry of message.entries) {
+      const object = await env.R2.get(entry.r2Key);
+      if (object === null) continue; // reaped between resolve and build — skip, never abort the archive
+      yield { name: entry.path, input: object.body };
+    }
+  }
+  const coordinator = env.BUNDLE_COORDINATOR.get(
+    env.BUNDLE_COORDINATOR.idFromName(`${message.firmId}:${message.manifestHash}`),
+  );
+  try {
+    await putStreamMultipart(env.R2, key, makeZip(inputs()));
+    await coordinator.markReady(key);
+  } catch (error) {
+    await coordinator.markFailed(error instanceof Error ? error.message : "build failed");
+    throw error;
+  }
+}
+
+export async function bundleBuildQueue(
+  batch: MessageBatch<BundleBuildMessage>,
+  env: Bindings,
+): Promise<void> {
+  for (const message of batch.messages) {
+    try {
+      await buildOne(env, message.body);
+      message.ack();
+    } catch {
+      message.retry();
+    }
+  }
+}

@@ -1,12 +1,18 @@
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import { createApp, type Bindings } from "./app.ts";
+import { bundleBuildQueue } from "./downloads/bundle-consumer.ts";
+import type { BundleBuildMessage } from "./downloads/bundle-types.ts";
 import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
 import { runRescanSweep, runScheduledSweep, runStorageReconciliation } from "./scheduled.ts";
 
 // The async bulk-download coordinator Durable Object must be exported from the Worker's main entrypoint
 // so the runtime can instantiate the class named in wrangler.jsonc's durable_objects binding.
 export { BundleBuildCoordinator } from "./downloads/bundle-coordinator.ts";
+
+// The bundle-build queue's name (wrangler.jsonc queues.consumers) — the queue() handler routes its
+// batches to the bundle consumer, every other queue to the files-ingest consumer.
+const BUNDLE_BUILD_QUEUE = "magna-carta-production-bundle-build";
 
 const app = createApp();
 
@@ -42,6 +48,10 @@ export default {
     );
   },
   queue(batch, env) {
+    // The bundle-build queue routes to the async bulk-download consumer (R2 -> client-zip -> R2).
+    if (batch.queue === BUNDLE_BUILD_QUEUE) {
+      return bundleBuildQueue(batch as MessageBatch<BundleBuildMessage>, env);
+    }
     // Both the interactive files-ingest queue and the bulk files-ingest-bulk queue route to the
     // same ingest handler — the lane separation is entirely in queue topology and concurrency.
     return ingestQueue(batch as MessageBatch<R2EventMessage>, env);

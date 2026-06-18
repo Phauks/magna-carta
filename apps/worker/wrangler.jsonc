@@ -83,6 +83,9 @@
       { "binding": "QUEUE", "queue": "magna-carta-production-platform-jobs" },
       { "binding": "FILES_INGEST", "queue": "magna-carta-production-files-ingest" },
       { "binding": "FILES_INGEST_BULK", "queue": "magna-carta-production-files-ingest-bulk" },
+      // The async bulk-download build queue: the download route enqueues one build per
+      // content-addressed selection; the BundleBuildCoordinator DO is the single-flight producer.
+      { "binding": "BUNDLE_BUILD", "queue": "magna-carta-production-bundle-build" },
     ],
     // The files-ingest consumer (the queue() handler in src/index.ts over the ingest consumer): one
     // R2 object-create event per uploaded object → single-read gates + SHA-256 + scan port → commit
@@ -99,6 +102,15 @@
         "queue": "magna-carta-production-files-ingest-bulk",
         "max_concurrency": 2,
         "dead_letter_queue": "magna-carta-production-files-ingest-bulk-deadletter",
+      },
+      // The bundle-build consumer (the queue() handler routes this queue to the bundle consumer):
+      // one content-addressed selection per message → R2 bodies streamed through client-zip into
+      // bundles/<manifestHash>.zip. Low concurrency (a build is bandwidth-bound); dead-letters to its
+      // own queue after max retries so a wedged build never blocks the lane.
+      {
+        "queue": "magna-carta-production-bundle-build",
+        "max_concurrency": 2,
+        "dead_letter_queue": "magna-carta-production-bundle-build-deadletter",
       },
     ],
   },
