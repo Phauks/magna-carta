@@ -25,8 +25,9 @@
   import * as Tooltip from "../lib/components/tooltip/index.ts";
   import Button from "../lib/components/button/index.ts";
   import * as Avatar from "../lib/components/avatar/index.ts";
-  import { facetFilterFn } from "../lib/components/data-table/index.ts";
+  import { facetFilterFn, renderComponent } from "../lib/components/data-table/index.ts";
   import MattersTable from "./support/matters-table.svelte";
+  import MatterStatusCell from "./support/matter-status-cell.svelte";
 
   const { Story } = defineMeta({
     title: "Layout/App Shell",
@@ -46,7 +47,13 @@
   const columns: ColumnDef<Matter>[] = [
     { accessorKey: "reference", header: "Matter", filterFn: "includesString", meta: { filter: "text" } },
     { accessorKey: "client", header: "Client", filterFn: facetFilterFn, meta: { filter: "facet" } },
-    { accessorKey: "status", header: "Status", filterFn: facetFilterFn, meta: { filter: "facet" } },
+    {
+      accessorKey: "status",
+      header: "Status",
+      filterFn: facetFilterFn,
+      meta: { filter: "facet" },
+      cell: (context) => renderComponent(MatterStatusCell, { value: String(context.getValue()) }),
+    },
     { accessorKey: "opened", header: "Opened", meta: { type: "date" } },
     { accessorKey: "fees", header: "Trust", meta: { type: "money", currency: "USD" } },
   ];

@@ -284,13 +284,15 @@ describe("validateThemeAgainstContrastPairs", () => {
     // same mid lightness, every pair with a neutral/brand-aliased side (including status
     // pairs, whose foregrounds alias the neutral ramp) must fail in both modes.
     //
-    // The lone exception is accent-subtle-foreground on accent-subtle: gold-on-gold, both
-    // sides aliasing the SHARED accent ramp (color.accent, not the theme's neutral/brand),
-    // so it is theme-INDEPENDENT — flattening the theme ramps cannot touch it. That the
-    // accent chip's contrast holds regardless of theme is a guarantee, not a gap. Hence
+    // The exceptions are pairs whose BOTH sides alias a SHARED, non-theme-varying ramp: the gold
+    // accent ramp (gold-on-gold chips/CTAs) and the hand-authored status ramps (the subtle status
+    // pills are status-on-status). Flattening the theme's neutral/brand ramps cannot touch these, so
+    // their contrast holds regardless of theme — a guarantee, not a gap. Hence
     // (pairs - the theme-independent ones) x modes.
+    const isConstantRamp = (name: string) =>
+      name.startsWith("accent") || /^status-[a-z]+-subtle/.test(name);
     const THEME_INDEPENDENT_PAIRS = CONTRAST_PAIRS.filter(
-      (pair) => pair.foreground.startsWith("accent") && pair.background.startsWith("accent"),
+      (pair) => isConstantRamp(pair.foreground) && isConstantRamp(pair.background),
     ).length;
     const flat = structuredClone(chancery);
     for (const rampName of ["neutral", "brand"] as const) {

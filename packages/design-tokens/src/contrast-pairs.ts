@@ -90,6 +90,27 @@ export const CONTRAST_PAIRS: ReadonlyArray<ContrastPair> = [
     background: "accent-strong",
     minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
   },
+  // The subtle status register (pale-tint pills / inline callouts) — deep same-hue text on the tint.
+  {
+    foreground: "status-info-subtle-foreground",
+    background: "status-info-subtle",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
+  {
+    foreground: "status-success-subtle-foreground",
+    background: "status-success-subtle",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
+  {
+    foreground: "status-warning-subtle-foreground",
+    background: "status-warning-subtle",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
+  {
+    foreground: "status-danger-subtle-foreground",
+    background: "status-danger-subtle",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
   // The dark edge-chrome (app-shell rail + top bar) — text and the gold accent on the ink ground.
   {
     foreground: "chrome-text",

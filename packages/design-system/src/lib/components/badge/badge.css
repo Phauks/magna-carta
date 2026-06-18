@@ -1,9 +1,10 @@
 @layer components {
   /*
-   * Badge (Tier 1). A small status/label chip. The base carries a transparent hairline border
-   * so the outline variant can colour it without shifting layout; the tight radius reads as a
-   * chip rather than a button. Variants are color sets over the action.* roles, with `outline`
-   * the bordered neutral.
+   * Badge (Tier 1). A small status/label chip — a full-radius PILL, semibold, with a transparent
+   * hairline border so `outline` can colour it without shifting layout. Two registers: the solid
+   * action chips (primary/secondary/destructive/outline) and the pale-tint status pills
+   * (neutral/success/warning/danger/info/accent) — a pale same-hue tint + deep same-hue text, the
+   * calm status register for a work surface.
    */
   .mc-badge {
     display: inline-flex;
@@ -14,10 +15,10 @@
     border-style: solid;
     border-width: var(--mc-border-width-default);
     border-color: transparent;
-    border-radius: var(--mc-radius-sm);
+    border-radius: var(--mc-radius-full);
     font-family: var(--mc-font-sans);
     font-size: var(--mc-text-xs);
-    font-weight: var(--mc-weight-medium);
+    font-weight: var(--mc-weight-semibold);
     line-height: var(--mc-leading-tight);
     white-space: nowrap;
   }
@@ -37,5 +38,30 @@
     background-color: transparent;
     color: var(--mc-text-default);
     border-color: var(--mc-border-default);
+  }
+  /* Pale-tint status pills — a same-hue tint with deep same-hue text (calm, not a saturated block). */
+  .mc-badge-neutral {
+    background-color: var(--mc-surface-sunken);
+    color: var(--mc-text-muted);
+  }
+  .mc-badge-success {
+    background-color: var(--mc-status-success-subtle);
+    color: var(--mc-status-success-subtle-foreground);
+  }
+  .mc-badge-warning {
+    background-color: var(--mc-status-warning-subtle);
+    color: var(--mc-status-warning-subtle-foreground);
+  }
+  .mc-badge-danger {
+    background-color: var(--mc-status-danger-subtle);
+    color: var(--mc-status-danger-subtle-foreground);
+  }
+  .mc-badge-info {
+    background-color: var(--mc-status-info-subtle);
+    color: var(--mc-status-info-subtle-foreground);
+  }
+  .mc-badge-accent {
+    background-color: var(--mc-accent-subtle);
+    color: var(--mc-accent-subtle-foreground);
   }
 }

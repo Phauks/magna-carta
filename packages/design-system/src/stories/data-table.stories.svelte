@@ -12,9 +12,14 @@
   import { defineMeta } from "@storybook/addon-svelte-csf";
   import type { ColumnDef } from "@tanstack/table-core";
   import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test";
-  import { dateRangeFilterFn, facetFilterFn } from "../lib/components/data-table/index.ts";
+  import {
+    dateRangeFilterFn,
+    facetFilterFn,
+    renderComponent,
+  } from "../lib/components/data-table/index.ts";
   import DataTableRoot from "../lib/components/data-table/table.svelte";
   import MattersTable from "./support/matters-table.svelte";
+  import MatterStatusCell from "./support/matter-status-cell.svelte";
 
   const { Story } = defineMeta({
     title: "Data Display/DataTable",
@@ -46,7 +51,13 @@
     { accessorKey: "reference", header: "Reference", filterFn: "includesString", meta: { filter: "text" } },
     // Client uses a faceted filter — pick from all distinct values (select some, exclude others).
     { accessorKey: "client", header: "Client", filterFn: facetFilterFn, meta: { filter: "facet" } },
-    { accessorKey: "status", header: "Status", filterFn: facetFilterFn, meta: { filter: "facet" } },
+    {
+      accessorKey: "status",
+      header: "Status",
+      filterFn: facetFilterFn,
+      meta: { filter: "facet" },
+      cell: (context) => renderComponent(MatterStatusCell, { value: String(context.getValue()) }),
+    },
     { accessorKey: "opened", header: "Opened", filterFn: dateRangeFilterFn, meta: { type: "date" } },
     {
       accessorKey: "fees",

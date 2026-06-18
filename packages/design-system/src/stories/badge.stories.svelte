@@ -16,7 +16,18 @@
     argTypes: {
       variant: {
         control: "select",
-        options: ["primary", "secondary", "destructive", "outline"],
+        options: [
+          "primary",
+          "secondary",
+          "destructive",
+          "outline",
+          "neutral",
+          "success",
+          "warning",
+          "danger",
+          "info",
+          "accent",
+        ],
       },
     },
   });
@@ -42,3 +53,18 @@
 <Story name="Secondary" args={{ variant: "secondary" }} {template} />
 <Story name="Destructive" args={{ variant: "destructive" }} {template} />
 <Story name="Outline" args={{ variant: "outline" }} {template} />
+
+<!-- The pale-tint status register, shown as a set — the calm chips a work surface uses (a matter's
+     Open/Pending/Closed, the gold "Trust held"). Compared together so the same-hue tints read as a family. -->
+<Story name="Status pills">
+  {#snippet template()}
+    <div class="flex flex-wrap items-center gap-8">
+      <Badge variant="success">Open</Badge>
+      <Badge variant="warning">Pending</Badge>
+      <Badge variant="danger">Overdue</Badge>
+      <Badge variant="info">Filed</Badge>
+      <Badge variant="neutral">Closed</Badge>
+      <Badge variant="accent">Trust held</Badge>
+    </div>
+  {/snippet}
+</Story>

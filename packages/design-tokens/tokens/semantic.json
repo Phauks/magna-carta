@@ -57,15 +57,23 @@
     "accent": { "$type": "color", "$value": "{color.accent.400}" }
   },
   "status": {
-    "$description": "Status and feedback colors.",
+    "$description": "Status and feedback colors. The solid pair (saturated fill + light foreground) is for emphasis banners; the SUBTLE pair (pale same-hue tint + deep same-hue text) is the default register for chips/pills and inline callouts — calm on a work surface, not a saturated block.",
     "info": { "$type": "color", "$value": "{color.blue.700}" },
     "info-foreground": { "$type": "color", "$value": "{color.neutral.0}" },
+    "info-subtle": { "$type": "color", "$value": "{color.blue.100}" },
+    "info-subtle-foreground": { "$type": "color", "$value": "{color.blue.700}" },
     "success": { "$type": "color", "$value": "{color.green.700}" },
     "success-foreground": { "$type": "color", "$value": "{color.neutral.0}" },
+    "success-subtle": { "$type": "color", "$value": "{color.green.100}" },
+    "success-subtle-foreground": { "$type": "color", "$value": "{color.green.700}" },
     "warning": { "$type": "color", "$value": "{color.amber.500}" },
     "warning-foreground": { "$type": "color", "$value": "{color.neutral.1000}" },
+    "warning-subtle": { "$type": "color", "$value": "{color.amber.100}" },
+    "warning-subtle-foreground": { "$type": "color", "$value": "{color.amber.700}" },
     "danger": { "$type": "color", "$value": "{color.red.500}" },
-    "danger-foreground": { "$type": "color", "$value": "{color.neutral.0}" }
+    "danger-foreground": { "$type": "color", "$value": "{color.neutral.0}" },
+    "danger-subtle": { "$type": "color", "$value": "{color.red.100}" },
+    "danger-subtle-foreground": { "$type": "color", "$value": "{color.red.700}" }
   },
   "density": {
     "$description": "Layout density dimensions.",
