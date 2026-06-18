@@ -183,3 +183,53 @@ fn nested_zip_beyond_depth_is_suspicious() {
         Heuristic::Suspicious(Reason::ArchiveNesting)
     );
 }
+
+#[test]
+fn nested_archive_with_a_non_zip_name_is_still_detected() {
+    // The inner archive is stored under a non-".zip" name — descent is by content, so it is still
+    // walked and the depth cap still trips (H2: a filename rename must not evade nesting detection).
+    let caps = ArchiveCaps {
+        max_depth: 0,
+        ..ArchiveCaps::default()
+    };
+    let inner = zip_of(&[("inner.txt", b"x".to_vec(), zip::CompressionMethod::Stored)]);
+    let outer = zip_of(&[("payload.dat", inner, zip::CompressionMethod::Stored)]);
+    assert_eq!(
+        inspect(&outer, None, &caps),
+        Heuristic::Suspicious(Reason::ArchiveNesting)
+    );
+}
+
+#[test]
+fn a_zip_with_prepended_bytes_is_still_inspected() {
+    // A junk prefix defeats an offset-0 magic check but not a real unzip (which reads the tail EOCD),
+    // so structural inspection must still run (H1: prepended-bytes / polyglot must not bypass).
+    let caps = ArchiveCaps {
+        max_entries: 1,
+        ..ArchiveCaps::default()
+    };
+    let zip = zip_of(&[
+        ("a.txt", b"a".to_vec(), zip::CompressionMethod::Stored),
+        ("b.txt", b"b".to_vec(), zip::CompressionMethod::Stored),
+    ]);
+    let mut prefixed = vec![0x00, 0x01, 0x02, 0x03, 0x04];
+    prefixed.extend_from_slice(&zip);
+    assert_eq!(
+        inspect(&prefixed, None, &caps),
+        Heuristic::Suspicious(Reason::ArchiveEntryCount)
+    );
+}
+
+#[test]
+fn cumulative_declared_size_over_the_cap_is_a_bomb() {
+    // A single entry whose declared size exceeds the cumulative cap trips the budget guard.
+    let caps = ArchiveCaps {
+        max_uncompressed_bytes: 4,
+        ..ArchiveCaps::default()
+    };
+    let bytes = zip_of(&[("big.txt", vec![b'x'; 100], zip::CompressionMethod::Stored)]);
+    assert_eq!(
+        inspect(&bytes, None, &caps),
+        Heuristic::Suspicious(Reason::DecompressionBomb)
+    );
+}

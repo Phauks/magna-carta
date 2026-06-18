@@ -25,8 +25,7 @@ pub enum Heuristic {
 }
 
 /// The firm-tunable archive-expansion caps (mirrors the upload policy's `archiveCaps`): the guards that
-/// bound archive walking so a zip bomb cannot exhaust the scanner. Checked from entry metadata where
-/// possible (no decompression), so a bomb is caught before it is expanded.
+/// bound archive walking so a zip bomb cannot exhaust the scanner.
 #[derive(Debug, Clone, Copy)]
 pub struct ArchiveCaps {
     pub max_depth: u32,
@@ -46,6 +45,10 @@ impl Default for ArchiveCaps {
     }
 }
 
+// A nested archive is materialized in memory to be re-parsed; bound that single allocation so a nested
+// bomb can never exhaust the container even within the larger cumulative budget.
+const MAX_NESTED_BYTES: u64 = 256 * 1024 * 1024;
+
 fn starts_with(bytes: &[u8], magic: &[u8]) -> bool {
     bytes.len() >= magic.len() && &bytes[..magic.len()] == magic
 }
@@ -64,19 +67,32 @@ fn is_zip(bytes: &[u8]) -> bool {
         || starts_with(bytes, b"PK\x07\x08")
 }
 
-/// Inspects a file's structure for active content, encryption, or a structural attack. Dispatch is by
-/// magic bytes (the sniffed content-type is a hint only). A type we do not structurally inspect is
-/// `Clean` here — clamd and yara still scan it in the verdict layer.
+/// Inspects a file's structure for active content, encryption, or a structural attack. PDF and OLE are
+/// dispatched by leading magic; ZIP inspection is attempted UNCONDITIONALLY (not gated on offset-0
+/// magic), because the zip format is located by its tail end-of-central-directory record — a
+/// self-extracting stub or polyglot prefix yields a still-valid, extractable archive that an offset-0
+/// check would miss. `inspect_zip` is `Clean` for anything that is not a readable zip.
 pub fn inspect(bytes: &[u8], _sniffed: Option<&str>, caps: &ArchiveCaps) -> Heuristic {
     if is_pdf(bytes) {
         pdf::inspect_pdf(bytes)
     } else if is_ole(bytes) {
         office::inspect_ole(bytes)
-    } else if is_zip(bytes) {
-        inspect_zip(bytes, caps)
     } else {
-        Heuristic::Clean
+        inspect_zip(bytes, caps)
     }
+}
+
+// Reads up to buf.len() bytes from the reader, returning how many were read (tolerates short reads, the
+// common case for a decompressing stream). Used to peek an entry's leading bytes for an archive magic.
+fn read_prefix(reader: &mut impl Read, buf: &mut [u8]) -> usize {
+    let mut filled = 0;
+    while filled < buf.len() {
+        match reader.read(&mut buf[filled..]) {
+            Ok(0) | Err(_) => break,
+            Ok(read) => filled += read,
+        }
+    }
+    filled
 }
 
 #[derive(Default)]
@@ -104,9 +120,15 @@ fn inspect_zip(bytes: &[u8], caps: &ArchiveCaps) -> Heuristic {
     }
 }
 
-/// Recursively walks an archive, accumulating into `scan` and returning the first cap breach. Size and
-/// ratio checks read entry METADATA only (no decompression), so a bomb is detected before expansion;
-/// nested archives are descended within `max_depth` and the cumulative size cap.
+/// Recursively walks an archive, accumulating into `scan` and returning the first cap breach.
+///
+/// Bomb defenses, in order of cost: the declared-metadata ratio/cumulative pre-filter is a cheap
+/// early-out for a naively-declared bomb (a forged-size single-level bomb that lies in its headers is
+/// left to the clamd decompression backstop). NESTING is detected by **content** — each non-encrypted
+/// entry's leading bytes are peeked for an archive magic, so a nested archive renamed to anything is
+/// still walked — and a detected nested archive is materialized **bounded** by `MAX_NESTED_BYTES`
+/// (over-budget ⇒ `DecompressionBomb`), so a nested bomb cannot exhaust memory. A non-archive entry
+/// costs only the leading-byte peek.
 fn scan_archive(
     bytes: &[u8],
     caps: &ArchiveCaps,
@@ -116,11 +138,8 @@ fn scan_archive(
     if depth > caps.max_depth {
         return Some(Reason::ArchiveNesting);
     }
-    let mut archive = match zip::ZipArchive::new(Cursor::new(bytes)) {
-        Ok(archive) => archive,
-        // Not a readable zip at this level — stop descending; not a flagged structural attack.
-        Err(_) => return None,
-    };
+    // Opens regardless of leading bytes — the zip crate locates entries via the tail EOCD record.
+    let mut archive = zip::ZipArchive::new(Cursor::new(bytes)).ok()?;
     for index in 0..archive.len() {
         let mut entry = match archive.by_index(index) {
             Ok(entry) => entry,
@@ -133,28 +152,46 @@ fn scan_archive(
         if entry.is_dir() {
             continue;
         }
+        // A */vbaProject.bin part marks a macro-enabled OOXML document.
+        if entry
+            .name()
+            .to_ascii_lowercase()
+            .ends_with("vbaproject.bin")
+        {
+            scan.has_macros = true;
+        }
+        // Encrypted entries cannot be read or descended — flag and move on (never decompressed).
         if entry.encrypted() {
             scan.has_encrypted_entry = true;
+            continue;
         }
-        let uncompressed = entry.size();
+
+        // Cheap declared-metadata pre-filter: a naively-declared huge ratio, or a declared cumulative
+        // size over the cap, is a bomb without any decompression.
+        let declared = entry.size();
         let compressed = entry.compressed_size();
-        // Per-entry expansion ratio (metadata only — no decompression needed to catch the bomb).
-        if compressed > 0 && uncompressed / compressed > caps.max_expansion_ratio {
+        if compressed > 0 && declared / compressed > caps.max_expansion_ratio {
             return Some(Reason::DecompressionBomb);
         }
-        scan.total_uncompressed = scan.total_uncompressed.saturating_add(uncompressed);
+        scan.total_uncompressed = scan.total_uncompressed.saturating_add(declared);
         if scan.total_uncompressed > caps.max_uncompressed_bytes {
             return Some(Reason::DecompressionBomb);
         }
-        let name_lower = entry.name().to_ascii_lowercase();
-        // A */vbaProject.bin part marks a macro-enabled OOXML document.
-        if name_lower.ends_with("vbaproject.bin") {
-            scan.has_macros = true;
-        }
-        // Descend into a nested zip (bounded by depth above and the size caps already applied).
-        if name_lower.ends_with(".zip") && !entry.encrypted() {
-            let mut nested = Vec::new();
-            if entry.read_to_end(&mut nested).is_ok() {
+
+        // Detect a nested archive by CONTENT, not filename: peek the leading bytes for an archive magic.
+        let mut head = [0u8; 4];
+        let read = read_prefix(&mut entry, &mut head);
+        if is_zip(&head[..read]) {
+            let mut nested = head[..read].to_vec();
+            // Materialize the nested archive bounded by MAX_NESTED_BYTES; a read past the bound means
+            // the nested decompression is itself a bomb.
+            let limit = MAX_NESTED_BYTES
+                .saturating_add(1)
+                .saturating_sub(read as u64);
+            if entry.take(limit).read_to_end(&mut nested).is_ok() {
+                if nested.len() as u64 > MAX_NESTED_BYTES {
+                    return Some(Reason::DecompressionBomb);
+                }
                 if let Some(reason) = scan_archive(&nested, caps, depth + 1, scan) {
                     return Some(reason);
                 }
