@@ -5,7 +5,7 @@ import { writeFirmSettingStatement } from "../src/setting-statements.ts";
 
 // Builds an in-memory SQLite database with the tables and columns needed by the usage-consent
 // reads: the setting table (per-firm config) and the member table including the
-// opted_out_of_usage_analytics column added in migration 0007.
+// opted_out_of_usage_analytics column.
 function setupDatabase() {
   const database = new DatabaseSync(":memory:");
   database.exec(`
