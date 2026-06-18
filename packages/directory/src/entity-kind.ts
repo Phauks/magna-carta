@@ -13,6 +13,19 @@ export function entityKindFromId(entityId: string): EntityKind {
   );
 }
 
+// The node table each entity kind lives in. The one home for the kind→table mapping; every site that
+// needs the physical table for an entity id derives it from here rather than re-deriving the prefix.
+export const NODE_TABLE: Readonly<Record<EntityKind, string>> = {
+  person: "directory_person",
+  organization: "directory_organization",
+};
+
+// The node table an entity id addresses, resolved from its handle prefix. Reused by the merge repoint,
+// the candidate-channel merged-id resolution, and the existence check below.
+export function nodeTableForEntityId(entityId: string): string {
+  return NODE_TABLE[entityKindFromId(entityId)];
+}
+
 // The error thrown when a caller supplies an entity id that does not exist in the directory
 // or has been soft-deleted. Hard-deletion of directory entities is not permitted;
 // soft-deletion sets deleted_at.
@@ -28,8 +41,7 @@ export class UnknownEntityError extends Error {
 // based on the entity id prefix. Throws UnknownEntityError if the entity is missing or has a
 // non-null deleted_at.
 export async function assertEntityExists(database: BatchDatabase, entityId: string): Promise<void> {
-  const kind = entityKindFromId(entityId);
-  const table = kind === "person" ? "directory_person" : "directory_organization";
+  const table = nodeTableForEntityId(entityId);
   const { results } = await database
     .prepare(`SELECT id FROM ${table} WHERE id = ?1 AND deleted_at IS NULL`)
     .bind(entityId)

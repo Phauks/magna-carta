@@ -11,6 +11,7 @@ import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.ts"
 import { normalizeName } from "./normalize-name.ts";
 import { phoneticCodes } from "./phonetics.ts";
 import {
+  insertMatterPartyStatement,
   insertNameStatement,
   insertOrganizationStatement,
   insertPersonStatement,
@@ -201,11 +202,13 @@ export async function migrateClientDisplayFields(
 
     const statements: SqlStatement[] = [
       ...entityStatements,
-      database
-        .prepare(
-          `INSERT INTO matter_party (id, matter_id, entity_id, role, valid_from, valid_to, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, 'client', NULL, NULL, ?4, ?4, NULL)`,
-        )
-        .bind(matterPartyId, matterRow.id, entityId, now),
+      insertMatterPartyStatement(database, {
+        id: matterPartyId,
+        matterId: matterRow.id,
+        entityId,
+        role: "client",
+        createdAt: now,
+      }),
       directoryAuditStatement(database, options, auditEvent, entityId),
       directoryAuditStatement(database, options, "directory.matter_party.linked", matterPartyId),
     ];

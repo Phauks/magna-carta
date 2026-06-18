@@ -18,13 +18,14 @@ import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statement
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DirectoryIdentifierId } from "@magna-carta/identifiers/types";
 import { directoryAuditStatement } from "./audit.ts";
+import { assertEntityExists } from "./entity-kind.ts";
 import { runDirectoryEffect, type DirectoryIdempotencyContext } from "./run-directory-effect.ts";
 import { DIRECTORY_IDENTIFIER_TABLE } from "./statements.ts";
 import type { IdentifierType } from "./types.ts";
 
 // Sensitive typed identifiers (SSN, EIN, driver's license, account number, DOB, SSN-last-four) live in
 // directory_identifier, one physical (value_ciphertext, value_blind_index) column pair per row. Every
-// value is sealed through the slice 1·2 protected-field chokepoint — the plaintext never reaches a
+// value is sealed through the protected-field chokepoint in `@magna-carta/data-access` — the plaintext never reaches a
 // column or a log. The identifier_type discriminates the per-type policy: which exact-match blind-index
 // channel a value gets, and the frozen normalize transform feeding it. The blind index is the conflicts
 // exact-identifier channel — matched by indexed equality with no decrypt and no permission.
@@ -182,6 +183,11 @@ export async function addIdentifier(
   entityId: string,
   input: AddIdentifierInput,
 ): Promise<void> {
+  // Fail fast before sealing or writing: an identifier must attach to a live entity (directory_identifier
+  // carries no FK to the node tables, so an unchecked entity id would insert an orphan row and falsely
+  // report 201).
+  await assertEntityExists(context.database, entityId);
+
   const declaration = IDENTIFIER_DECLARATIONS[input.type];
   const identifierId = newIdentifier("directoryIdentifier", context.randomSource);
   const now = context.clock.now();
@@ -247,7 +253,7 @@ export async function findByIdentifier(
   return results.map((row) => row.entity_id);
 }
 
-// Decrypts an entity's identifier value of a given type — the slice 1·2 readProtected path: permission
+// Decrypts an entity's identifier value of a given type — the `@magna-carta/data-access` readProtected path: permission
 // check (absent → ProtectedReadForbiddenError, no decrypt, no audit) → an audit_log decrypt row committed
 // BEFORE any plaintext → AAD decrypt bound to the row. The gate, the audit, and the decrypt are
 // inseparable and fail-closed. Returns null when the entity holds no identifier of that type.

@@ -12,7 +12,7 @@
 ## Key files / entry points
 
 - `src/types.ts` — domain types: branded identifier re-exports (`dpe_`/`dor_`/`dnm_`/`did_`/`ded_`/`dct_`/`dpr_`/`mtp_`/`eme_`), `EntityKind`, `NameRole`, `PhoneticScheme`, `EdgeType`, `IdentifierType`
-- `src/entity-kind.ts` — `entityKindFromIdentifier` shared utility (derives `EntityKind` from the handle prefix; used by edges, party, and categories)
+- `src/entity-kind.ts` — `entityKindFromId` / `nodeTableForEntityId` / `assertEntityExists` shared utilities (derive `EntityKind` and the node table from the handle prefix, and assert an entity exists before a referencing write; used by edges, party, categories, name-history, identifiers, merge, and search)
 - `src/normalize-name.ts` — frozen name normalization: NFC, case-fold, diacritic/punctuation strip, suffix/title parse — produces the `normalized_display` stored at write time
 - `src/phonetics.ts` — scheme-keyed Double Metaphone computation (seam over `words/double-metaphone`); produces `directory_name_phonetic_code` rows for both primary and secondary codes
 - `src/statements.ts` — SQL statement builders (insert/update/repoint) for the atomic batch; the `directoryAuditStatement` helper
@@ -24,7 +24,7 @@
 - `src/edges.ts` — `createEdge` / `readEdges` (typed, temporal, directional)
 - `src/categories.ts` — `defineCategoryLabel` / `assignCategory` / `listCategories`
 - `src/merge.ts` — `mergeEntities` (non-destructive, atomic batch, full repoint set, `entity_merge` event + `audit_log` row)
-- `src/party.ts` — `linkMatterParty` / `readMatterParties` / `assertEntityExists`
+- `src/party.ts` — `linkMatterParty` / `readMatterParties` / `createPartyRole` / `listPartyRoles`
 - `src/client-migration.ts` — idempotent 1·1 `client_display_name`/`client_code` → Directory entity + `matter_party` migration
 - `src/audit.ts` — `directoryAuditStatement` (shared write-options type, audit-row builder used by all write paths)
 - `src/run-directory-effect.ts` — `runDirectoryEffect` top-level executor (threads the idempotency context + crypto context + actor for routes)
@@ -52,7 +52,7 @@
 
 ## Gotchas
 
-- D1 has no interactive transactions — everything an operation needs must be read before composing the batch; never plan logic "between" statements. Use `assertEntityExists` (from `party.ts`) before any write that references an entity handle.
+- D1 has no interactive transactions — everything an operation needs must be read before composing the batch; never plan logic "between" statements. Use `assertEntityExists` (from `entity-kind.ts`) before any write that references an entity handle.
 - `directory_name` must NOT be WITHOUT ROWID — the implicit SQLite rowid backs the FTS5 external-content table (`content_rowid='rowid'`). Removing or altering the rowid breaks the trigram index.
 - The FTS5 trigram table is kept in sync by triggers on `directory_name` (insert/update/soft-delete). The migration `0008_directory` creates these triggers via raw SQL — drizzle-kit cannot model FTS5 or triggers, so they live in the hand-written `.sql` file and are verified by the migration test.
 - `NameRole`, `EdgeType`, and `IdentifierType` are application-level open catalogs (the schema enforces only `length > 0`). Add new catalog values to the `as const` union in `src/types.ts` before using them in write paths.

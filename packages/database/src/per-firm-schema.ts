@@ -803,6 +803,10 @@ export const directoryNamePhoneticCode = sqliteTable(
   (table) => [
     primaryKey({ columns: [table.nameId, table.scheme] }),
     index("directory_name_phonetic_code_scheme_code_index").on(table.scheme, table.code),
+    // The duplicate-candidate phonetic channel filters `code` across all schemes (no scheme bound), so
+    // it cannot seek the (scheme, code) index above (leading column unbound). This code-leading index
+    // makes that hot-path probe an index seek rather than a scan.
+    index("directory_name_phonetic_code_code_index").on(table.code),
     check("directory_name_phonetic_code_scheme_check", sql`length(${table.scheme}) > 0`),
   ],
 );

@@ -9094,7 +9094,7 @@
     },
     "/api/v1/directory/duplicate-candidates": {
       "post": {
-        "description": "Returns duplicate candidates for a prospective or existing entity by unioning three blocking channels (phonetic, trigram, and blind-index identifier equality), ranked by how many channels matched. A read-shaped POST (the match facts ride the body) — no write, no decrypt.",
+        "description": "Returns duplicate candidates for a prospective or existing entity by unioning three blocking channels (phonetic, trigram, and blind-index identifier equality), ranked by how many channels matched. A read-shaped POST (the match facts ride the body) — no write, no decrypt — but it gates on directory:edit because it is the entry-time duplicate-prevention step of the create/edit workflow, not a general directory read.",
         "operationId": "directory.duplicateCandidates",
         "tags": [
           "directory"

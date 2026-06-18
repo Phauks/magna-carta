@@ -207,10 +207,15 @@ describe("load-profile smoke", () => {
 
     // The directory hot-path plans: same label-set-first guard, then the scan check. The
     // blind-index equality probe walks the (identifier_type, value_blind_index) index; the
-    // related-party graph expansion walks the from/to entity-id indexes.
+    // duplicate-candidate phonetic channel walks the code-leading index; the related-party graph
+    // expansion walks the from/to entity-id indexes.
     const directoryPlans = directoryHotPathPlans(snapshot);
     expect(directoryPlans.map((plan) => plan.label).sort()).toEqual(
-      ["directory.find-by-identifier", "directory.graph-expansion"].sort(),
+      [
+        "directory.candidate-generation.phonetic-channel",
+        "directory.find-by-identifier",
+        "directory.graph-expansion",
+      ].sort(),
     );
     expect(findFullScans(directoryPlans, DIRECTORY_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 

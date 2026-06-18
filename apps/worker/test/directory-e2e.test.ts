@@ -282,10 +282,12 @@ describe("directory e2e — full journey over the HTTP surface", () => {
       edgeType: "representation",
     });
     expect(dupEdge.status).toBe(201);
+    // A DIFFERENT role from the master's existing 'client' link on this matter, so the merge repoints it
+    // (the master ends up wearing both hats) rather than absorbing it as a same-matter+role duplicate.
     const dupParty = await post("/api/v1/directory/matter-parties", {
       matterId: createdEntityIdentifiers.matterId,
       entityId: createdEntityIdentifiers.duplicatePerson,
-      role: "client",
+      role: "guardian",
     });
     expect(dupParty.status).toBe(201);
 

@@ -24,8 +24,10 @@ import {
   MergeEntityNotFoundError,
   MergeKindMismatchError,
   MergeSameEntityError,
+  MergeUnknownFieldError,
 } from "@magna-carta/directory/merge";
 import { linkMatterParty } from "@magna-carta/directory/party";
+import { ProtectedReadForbiddenError } from "@magna-carta/data-access/protected-fields";
 import {
   EDGE_TYPES,
   ENTITY_KINDS,
@@ -63,8 +65,11 @@ import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 // service the firm-scoped per-firm database, the real clock, a crypto random source, and the
 // authenticated actor — none of which is ever client input. Reads of a sensitive identifier are the
 // one decrypt path: gated by directory:viewSensitiveIdentifiers and audited inside the protected-field
-// chokepoint. find/search reveal nothing they were not given (blind-index equality, FTS), so they
-// carry no decrypt and name no permission beyond an authenticated session.
+// chokepoint. Plain name search reveals nothing it was not given (blind-index equality, FTS), so it
+// carries no decrypt and names no permission beyond an authenticated session. Duplicate-candidate
+// generation is the one exception among the read-shaped surfaces: it gates on directory:edit because it
+// is the entry-time duplicate-prevention step of the create/edit workflow (and the framework requires a
+// named capability on any authenticated POST).
 
 // ---- shared service handles ----
 
@@ -357,6 +362,7 @@ function directoryErrorResponse(
   }
   if (
     caught instanceof MergeKindMismatchError ||
+    caught instanceof MergeUnknownFieldError ||
     caught instanceof InvalidEdgeTypeError ||
     caught instanceof CategoryAppliesToMismatchError ||
     caught instanceof IdentifierNotIndexableError
@@ -669,7 +675,9 @@ const duplicateCandidatesRoute = defineOpenAPIRoute(
     description:
       "Returns duplicate candidates for a prospective or existing entity by unioning three blocking " +
       "channels (phonetic, trigram, and blind-index identifier equality), ranked by how many channels " +
-      "matched. A read-shaped POST (the match facts ride the body) — no write, no decrypt.",
+      "matched. A read-shaped POST (the match facts ride the body) — no write, no decrypt — but it gates " +
+      "on directory:edit because it is the entry-time duplicate-prevention step of the create/edit " +
+      "workflow, not a general directory read.",
     request: {
       body: {
         content: { "application/json": { schema: DuplicateCandidatesRequest } },
@@ -898,8 +906,23 @@ export function registerDirectoryRoutes(app: DirectoryApp, chokepoint: Chokepoin
     async (c) => {
       const { id, type } = c.req.valid("param");
       const context = await identifierContext(c);
-      const value = await readIdentifier(context, id, type);
-      return c.json({ value } as z.infer<typeof IdentifierValueResponse>, 200);
+      try {
+        const value = await readIdentifier(context, id, type);
+        return c.json({ value } as z.infer<typeof IdentifierValueResponse>, 200);
+      } catch (caught) {
+        // The chokepoint already gates directory:viewSensitiveIdentifiers before this handler, so a
+        // forbidden read is normally unreachable — but if the protected-field gate ever refuses, surface
+        // a structured 403 (never a 500, never the plaintext) instead of an unhandled throw.
+        if (caught instanceof ProtectedReadForbiddenError) {
+          return problemJson(c, {
+            type: "permission-denied",
+            title: "Forbidden",
+            status: 403,
+            detail: caught.message,
+          });
+        }
+        throw caught;
+      }
     },
   );
 

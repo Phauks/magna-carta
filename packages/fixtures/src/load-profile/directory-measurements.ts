@@ -146,8 +146,9 @@ export const directoryMeasurements: readonly Measurement<DirectoryMeasurementHan
   },
 ];
 
-// Nothing is allowlisted: both EXPLAIN'd hot paths must walk an index. The blind-index lookup searches
-// the (identifier_type, value_blind_index) index; the edge expansion resolves as a two-index OR union.
+// Nothing is allowlisted: every EXPLAIN'd hot path must walk an index. The blind-index lookup searches
+// the (identifier_type, value_blind_index) index; the phonetic channel seeks the code-leading index; the
+// edge expansion resolves as a two-index OR union.
 export const DIRECTORY_PLAN_SCAN_ALLOWLIST: readonly string[] = [];
 
 // The snapshot database is the node:sqlite adapter, so every statement it prepares carries the SQL
@@ -184,12 +185,30 @@ function findByIdentifierPlanStatement(snapshot: LoadedSnapshot): NodeSqlStateme
   );
 }
 
+// The phonetic candidate channel's blocking probe: it matches `code` ACROSS all schemes (no scheme
+// bound), so it must seek the code-leading index, not the (scheme, code) index. The EXPLAIN here holds
+// that seek scan-free at volume — a single code value is the shape the channel's `code IN (...)` reduces
+// to per term. (Literal here: search.ts does not export the channel statement, and the code is derived.)
+function phoneticChannelPlanStatement(snapshot: LoadedSnapshot): NodeSqlStatement {
+  return captured(
+    snapshot.database
+      .prepare(
+        "SELECT dn.entity_id FROM directory_name_phonetic_code AS pc JOIN directory_name AS dn ON pc.name_id = dn.id WHERE pc.code = ?1 AND dn.entity_kind = ?2 AND dn.deleted_at IS NULL",
+      )
+      .bind("phonetic-code-probe", "person"),
+  );
+}
+
 export function directoryHotPathPlans(snapshot: LoadedSnapshot): LabeledPlan[] {
   const { directoryProbes } = snapshot.manifest;
   const statements: readonly { label: string; statement: NodeSqlStatement }[] = [
     {
       label: "directory.find-by-identifier",
       statement: findByIdentifierPlanStatement(snapshot),
+    },
+    {
+      label: "directory.candidate-generation.phonetic-channel",
+      statement: phoneticChannelPlanStatement(snapshot),
     },
     {
       label: "directory.graph-expansion",

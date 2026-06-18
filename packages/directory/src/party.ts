@@ -4,6 +4,7 @@ import type { DirectoryPartyRoleId, MatterPartyId } from "@magna-carta/identifie
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.ts";
 import { runDirectoryEffect } from "./run-directory-effect.ts";
 import { assertEntityExists } from "./entity-kind.ts";
+import { insertMatterPartyStatement } from "./statements.ts";
 
 // The caller-supplied fields for linking a directory entity to a matter in a role. The role is a
 // free-text value (e.g. 'client', 'opposing_party', 'guardian') — directory_party_role is the catalog
@@ -39,11 +40,13 @@ export async function linkMatterParty(
 
   return runDirectoryEffect(database, options.idempotency, options.clock, () => ({
     statements: [
-      database
-        .prepare(
-          `INSERT INTO matter_party (id, matter_id, entity_id, role, valid_from, valid_to, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, NULL, NULL, ?5, ?5, NULL)`,
-        )
-        .bind(matterPartyId, input.matterId, input.entityId, input.role, now),
+      insertMatterPartyStatement(database, {
+        id: matterPartyId,
+        matterId: input.matterId,
+        entityId: input.entityId,
+        role: input.role,
+        createdAt: now,
+      }),
       directoryAuditStatement(database, options, "directory.matter_party.linked", matterPartyId),
     ],
     outboxMessages: [],

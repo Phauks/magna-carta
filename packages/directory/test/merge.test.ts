@@ -20,6 +20,7 @@ import {
   MergeEntityNotFoundError,
   MergeKindMismatchError,
   MergeAlreadyMergedError,
+  MergeUnknownFieldError,
 } from "../src/merge.ts";
 import { DirectoryIdempotencyConflictError } from "../src/run-directory-effect.ts";
 import { assertNoDanglingToSubordinate } from "../src/fitness.ts";
@@ -89,8 +90,8 @@ async function seedMatter(database: BatchDatabase, matterId: string): Promise<vo
     .run();
 }
 
-// Seed a matter_party row directly — linkMatterParty is Task 14, but the table exists from Task 1 and
-// the merge must repoint it.
+// Seed a matter_party row directly rather than through linkMatterParty, so the merge-repoint tests
+// exercise the merge in isolation from the link API.
 async function seedMatterParty(
   database: BatchDatabase,
   matterId: string,
@@ -250,6 +251,153 @@ test("merge repoints both directory_edge endpoints and directory_entity_category
     .all<{ entity_id: string }>();
   expect(catRows.map((r) => r.entity_id)).toContain(master);
   expect(catRows.map((r) => r.entity_id)).not.toContain(dup);
+});
+
+test("merge ABSORBS a shared category instead of aborting on the composite primary key", async () => {
+  const { database, ctx, options } = await directoryTestContext("t13-cat-collide");
+
+  const master = await createPerson(
+    database,
+    { given: "Cat", family: "Master" },
+    { ...options, randomSource: seededRandomSource("t13cc-master") },
+  );
+  const dup = await createPerson(
+    database,
+    { given: "Cat", family: "Dup" },
+    { ...options, randomSource: seededRandomSource("t13cc-dup") },
+  );
+
+  // BOTH master and subordinate hold the same category — the collision the naive repoint aborts on.
+  const { id: categoryId } = await createCategory(
+    database,
+    { name: "VIP", appliesTo: "both" },
+    { ...options, randomSource: seededRandomSource("t13cc-cat") },
+  );
+  for (const [entityId, seed] of [
+    [master, "t13cc-assign-master"],
+    [dup, "t13cc-assign-dup"],
+  ] as const) {
+    await assignCategory(
+      database,
+      { entityId, categoryId },
+      { ...options, randomSource: seededRandomSource(seed) },
+    );
+  }
+
+  // The merge must succeed (not throw a PK-constraint error).
+  await mergeEntities(ctx, { masterId: master, subordinateId: dup, survivorship: {} });
+
+  // Exactly one (master, category) link survives — the subordinate's duplicate was absorbed (deleted).
+  const { results: catRows } = await database
+    .prepare("SELECT entity_id FROM directory_entity_category WHERE category_id = ?1")
+    .bind(categoryId)
+    .all<{ entity_id: string }>();
+  expect(catRows.map((r) => r.entity_id)).toEqual([master]);
+
+  // The absorption is recorded in the entity_merge event so the merge stays reversible.
+  const { results: events } = await database
+    .prepare("SELECT repointed FROM entity_merge WHERE subordinate_id = ?1")
+    .bind(dup)
+    .all<{ repointed: string }>();
+  expect(JSON.parse(events[0]!.repointed)).toContainEqual({
+    table: "directory_entity_category",
+    row: categoryId,
+    from: dup,
+    to: master,
+    absorbed: true,
+  });
+});
+
+test("merge ABSORBS a subordinate↔master edge instead of leaving a self-loop", async () => {
+  const { database, ctx, options } = await directoryTestContext("t13-selfloop");
+
+  const master = await createPerson(
+    database,
+    { given: "Loop", family: "Master" },
+    { ...options, randomSource: seededRandomSource("t13sl-master") },
+  );
+  const dup = await createPerson(
+    database,
+    { given: "Loop", family: "Dup" },
+    { ...options, randomSource: seededRandomSource("t13sl-dup") },
+  );
+
+  // An edge directly between the two entities being merged — repointing it would yield master→master.
+  const selfEdge = await createEdge(
+    database,
+    {
+      from: dup,
+      to: master,
+      edgeType: "relationship",
+      role: null,
+      note: null,
+      validFrom: null,
+      validTo: null,
+    },
+    { ...options, randomSource: seededRandomSource("t13sl-edge") },
+  );
+
+  await mergeEntities(ctx, { masterId: master, subordinateId: dup, survivorship: {} });
+
+  // The edge was deleted, not turned into a master→master self-loop.
+  const { results: edgeRows } = await database
+    .prepare("SELECT id FROM directory_edge WHERE id = ?1")
+    .bind(selfEdge)
+    .all<{ id: string }>();
+  expect(edgeRows).toHaveLength(0);
+});
+
+test("merge ABSORBS a duplicate matter party (same matter + role) rather than double-linking", async () => {
+  const { database, ctx, options } = await directoryTestContext("t13-party-dup");
+
+  const master = await createPerson(
+    database,
+    { given: "Party", family: "Master" },
+    { ...options, randomSource: seededRandomSource("t13pd-master") },
+  );
+  const dup = await createPerson(
+    database,
+    { given: "Party", family: "Dup" },
+    { ...options, randomSource: seededRandomSource("t13pd-dup") },
+  );
+
+  await seedMatter(database, "mat_dup");
+  // Both master and subordinate are the SAME role on the SAME matter.
+  await seedMatterParty(database, "mat_dup", master, "client");
+  await seedMatterParty(database, "mat_dup", dup, "client");
+
+  await mergeEntities(ctx, { masterId: master, subordinateId: dup, survivorship: {} });
+
+  // Exactly one client link to the master remains — the subordinate's duplicate was absorbed.
+  const { results: parties } = await database
+    .prepare(
+      "SELECT entity_id FROM matter_party WHERE matter_id = 'mat_dup' AND role = 'client' AND deleted_at IS NULL",
+    )
+    .all<{ entity_id: string }>();
+  expect(parties.map((p) => p.entity_id)).toEqual([master]);
+});
+
+test("merge rejects an unknown survivorship field with MergeUnknownFieldError", async () => {
+  const { database, ctx, options } = await directoryTestContext("t13-badfield");
+
+  const master = await createPerson(
+    database,
+    { given: "Field", family: "Master" },
+    { ...options, randomSource: seededRandomSource("t13bf-master") },
+  );
+  const dup = await createPerson(
+    database,
+    { given: "Field", family: "Dup" },
+    { ...options, randomSource: seededRandomSource("t13bf-dup") },
+  );
+
+  await expect(
+    mergeEntities(ctx, {
+      masterId: master,
+      subordinateId: dup,
+      survivorship: { not_a_column: "subordinate" },
+    }),
+  ).rejects.toBeInstanceOf(MergeUnknownFieldError);
 });
 
 test("a merged-away alias still matches in candidate generation and resolves to the master", async () => {

@@ -4,6 +4,7 @@ import {
   IdentifierNotIndexableError,
   type DirectoryIdentifierContext,
 } from "./identifiers.ts";
+import { nodeTableForEntityId } from "./entity-kind.ts";
 import { normalizeName } from "./normalize-name.ts";
 import { phoneticCodes } from "./phonetics.ts";
 import type { EntityKind, IdentifierType } from "./types.ts";
@@ -378,9 +379,7 @@ async function resolveMergedIds(
   if (entityIds.size === 0) return entityIds;
   const resolved = new Set<string>();
   for (const entityId of entityIds) {
-    const table = entityId.startsWith("directoryOrganization_")
-      ? "directory_organization"
-      : "directory_person";
+    const table = nodeTableForEntityId(entityId);
     const { results } = await database
       .prepare(`SELECT merged_into_id, deleted_at FROM ${table} WHERE id = ?1`)
       .bind(entityId)
@@ -391,9 +390,7 @@ async function resolveMergedIds(
     if (row.merged_into_id !== null) {
       // Subordinate: resolve to the master and check the master's deleted_at.
       const masterId = row.merged_into_id;
-      const masterTable = masterId.startsWith("directoryOrganization_")
-        ? "directory_organization"
-        : "directory_person";
+      const masterTable = nodeTableForEntityId(masterId);
       const { results: masterResults } = await database
         .prepare(`SELECT deleted_at FROM ${masterTable} WHERE id = ?1`)
         .bind(masterId)

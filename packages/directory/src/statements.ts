@@ -3,8 +3,11 @@ import type {
   DirectoryNameId,
   DirectoryOrganizationId,
   DirectoryPersonId,
+  MatterPartyId,
 } from "@magna-carta/identifiers/types";
 import type { EntityKind, NameRole, PhoneticScheme } from "./types.ts";
+
+export const MATTER_PARTY_TABLE = "matter_party";
 
 // Table names tracked against @magna-carta/database's per-firm schema by the schema-name-sync fitness
 // test.
@@ -52,6 +55,29 @@ export function insertPersonStatement(database: SqlDatabase, row: InsertPersonRo
       row.needsReview,
       row.createdAt,
     );
+}
+
+// A matter↔entity party link. role is free text (the directory_party_role catalog is what a UI lists
+// from, not a constraint). valid_from/valid_to are NULL at creation; the link is undated until a caller
+// sets a window. The one home for the matter_party INSERT — linkMatterParty and the 1·1 client-field
+// migration both compose through it so the column list never drifts between two hand-written copies.
+export interface InsertMatterPartyRow {
+  readonly id: MatterPartyId;
+  readonly matterId: string;
+  readonly entityId: string;
+  readonly role: string;
+  readonly createdAt: string;
+}
+
+export function insertMatterPartyStatement(
+  database: SqlDatabase,
+  row: InsertMatterPartyRow,
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${MATTER_PARTY_TABLE} (id, matter_id, entity_id, role, valid_from, valid_to, created_at, updated_at, deleted_at) VALUES (?1, ?2, ?3, ?4, NULL, NULL, ?5, ?5, NULL)`,
+    )
+    .bind(row.id, row.matterId, row.entityId, row.role, row.createdAt);
 }
 
 // A name row attached to an entity. entity_kind is a parameter so the organization service reuses

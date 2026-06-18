@@ -21,7 +21,7 @@ import {
 } from "../src/identifiers.ts";
 
 // End-to-end exercise of the directory sensitive-identifier path over real SQLite and a real seeded
-// firm key — write→match→read through the slice 1·2 protected-field chokepoint. The firm key is minted
+// firm key — write→match→read through the @magna-carta/data-access protected-field chokepoint. The firm key is minted
 // with encryption's generate+wrap and recovered through the committed firm-key provider, so the full
 // envelope, AAD, HKDF derivation, and blind index are under test, not stubbed. The blind index is the
 // conflicts exact-identifier channel: a formatted and an unformatted value collide; a decrypt requires

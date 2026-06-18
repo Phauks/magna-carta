@@ -8,7 +8,7 @@ import type {
 } from "@magna-carta/identifiers/types";
 import { directoryAuditStatement, type DirectoryWriteOptions } from "./audit.ts";
 import { runDirectoryEffect } from "./run-directory-effect.ts";
-import { entityKindFromId } from "./entity-kind.ts";
+import { assertEntityExists, entityKindFromId } from "./entity-kind.ts";
 import { normalizeName } from "./normalize-name.ts";
 import { phoneticCodes } from "./phonetics.ts";
 import {
@@ -233,6 +233,10 @@ export async function addName(
   input: AddNameInput,
   options: DirectoryWriteOptions,
 ): Promise<void> {
+  // Fail fast before any write: an alias must attach to a live entity (directory_name carries no FK to
+  // the node tables, so an unchecked entity id would insert an orphan name row and falsely report 201).
+  await assertEntityExists(database, entityId);
+
   const nameId: DirectoryNameId = newIdentifier("directoryName", options.randomSource);
   const now = options.clock.now();
   const entityKind = entityKindFromId(entityId);

@@ -4,7 +4,7 @@ import type { SqlStatement } from "@magna-carta/data-access/idempotency-statemen
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { EntityMergeId } from "@magna-carta/identifiers/types";
 import type { DirectoryWriteOptions } from "./audit.ts";
-import { entityKindFromId } from "./entity-kind.ts";
+import { entityKindFromId, NODE_TABLE } from "./entity-kind.ts";
 import type { DirectoryIdentifierContext } from "./identifiers.ts";
 import { runDirectoryEffect } from "./run-directory-effect.ts";
 import type { EntityKind } from "./types.ts";
@@ -47,6 +47,16 @@ export class MergeKindMismatchError extends Error {
   }
 }
 
+// Thrown when a survivorship map names a column that is not a survivable field for the entity kind —
+// a typo'd or unknown key must fail loudly (422) rather than silently no-op.
+export class MergeUnknownFieldError extends Error {
+  readonly code = "merge-unknown-field";
+  constructor(column: string, kind: EntityKind) {
+    super(`directory: ${column} is not a survivable field for a ${kind} (merge-unknown-field)`);
+    this.name = "MergeUnknownFieldError";
+  }
+}
+
 // Thrown when either endpoint has already been merged away (status='merged_into'). Merging a master
 // that is itself a subordinate, or re-merging an already-merged subordinate, would corrupt the merge
 // chain; both are refused.
@@ -73,12 +83,16 @@ export interface MergeEntitiesInput {
 
 // One recorded repoint: a reference that moved from the subordinate to the master. table/row locate
 // the exact row that changed; from/to are the old and new entity ids. The full list is stored in the
-// entity_merge event as the reversible record of what the merge touched.
+// entity_merge event as the reversible record of what the merge touched. `absorbed` marks a row that
+// could NOT be repointed because the master already carried the same reference (a duplicate that would
+// collide on a unique key) or because repointing would create a self-loop — that row is deleted from
+// the subordinate instead, and recorded here so the merge stays reversible.
 interface RepointRecord {
   readonly table: string;
   readonly row: string;
   readonly from: string;
   readonly to: string;
+  readonly absorbed?: boolean;
 }
 
 // The standard, single-valued fields a merge may survivorship per kind. Multi-valued child rows
@@ -97,20 +111,77 @@ const SURVIVABLE_COLUMNS: Readonly<Record<EntityKind, readonly string[]>> = {
   organization: ["legal_name", "display_name"],
 };
 
-const NODE_TABLE: Readonly<Record<EntityKind, string>> = {
-  person: "directory_person",
-  organization: "directory_organization",
-};
-
 // The inbound real-indexed reference columns a merge repoints from the subordinate to the master.
 // Kept in lockstep with fitness.ts INBOUND_REFERENCE_PROBES: this list is what moves, that list is
 // what must be empty afterward. The rowColumn names the row's identity (directory_entity_category has
-// a composite key with no id, so its category_id is the discriminator).
-const REPOINT_TARGETS: ReadonlyArray<{ table: string; column: string; rowColumn: string }> = [
-  { table: "matter_party", column: "entity_id", rowColumn: "id" },
-  { table: "directory_edge", column: "from_entity_id", rowColumn: "id" },
-  { table: "directory_edge", column: "to_entity_id", rowColumn: "id" },
-  { table: "directory_entity_category", column: "entity_id", rowColumn: "category_id" },
+// a composite key with no id, so its category_id is the discriminator). extraColumns are read alongside
+// the identity so `collides` can decide whether repointing this row would clash with a reference the
+// master already holds (a unique-key duplicate) or would create a self-loop — when it would, the row is
+// ABSORBED (deleted from the subordinate) instead of repointed, so the merge never aborts on a
+// constraint and never leaves a meaningless duplicate or self-relationship behind.
+interface RepointTarget {
+  readonly table: string;
+  readonly column: string;
+  readonly rowColumn: string;
+  readonly extraColumns: readonly string[];
+  readonly collides: (
+    database: BatchDatabase,
+    masterId: string,
+    row: Readonly<Record<string, string | null>>,
+  ) => Promise<boolean>;
+}
+
+const REPOINT_TARGETS: readonly RepointTarget[] = [
+  {
+    // A master already linked to the same matter in the same role makes a repoint a live duplicate.
+    table: "matter_party",
+    column: "entity_id",
+    rowColumn: "id",
+    extraColumns: ["matter_id", "role", "deleted_at"],
+    collides: async (database, masterId, row) => {
+      if (row.deleted_at !== null) return false; // a soft-deleted link cannot become a live duplicate
+      const { results } = await database
+        .prepare(
+          `SELECT 1 FROM matter_party WHERE entity_id = ?1 AND matter_id = ?2 AND role = ?3 AND deleted_at IS NULL LIMIT 1`,
+        )
+        .bind(masterId, row.matter_id, row.role)
+        .all();
+      return results.length > 0;
+    },
+  },
+  {
+    // Repointing the from-endpoint to the master when the to-endpoint is already the master is a self-loop.
+    table: "directory_edge",
+    column: "from_entity_id",
+    rowColumn: "id",
+    extraColumns: ["to_entity_id"],
+    collides: async (_database, masterId, row) => row.to_entity_id === masterId,
+  },
+  {
+    // Symmetric: repointing the to-endpoint to the master when the from-endpoint is already the master.
+    table: "directory_edge",
+    column: "to_entity_id",
+    rowColumn: "id",
+    extraColumns: ["from_entity_id"],
+    collides: async (_database, masterId, row) => row.from_entity_id === masterId,
+  },
+  {
+    // The composite primary key (entity_id, category_id): if the master already holds the category, a
+    // repoint to (master, category_id) collides on the PK. Absorb the subordinate's duplicate link.
+    table: "directory_entity_category",
+    column: "entity_id",
+    rowColumn: "category_id",
+    extraColumns: [],
+    collides: async (database, masterId, row) => {
+      const { results } = await database
+        .prepare(
+          `SELECT 1 FROM directory_entity_category WHERE entity_id = ?1 AND category_id = ?2 LIMIT 1`,
+        )
+        .bind(masterId, row.row)
+        .all();
+      return results.length > 0;
+    },
+  },
 ];
 
 interface NodeRow {
@@ -185,24 +256,46 @@ export async function mergeEntities(
   const statements: SqlStatement[] = [];
   const repointed: RepointRecord[] = [];
 
-  // 2. Repoint every inbound reference. Read the affected rows first (by their row-identity column) so
-  // the recorded repoint list names the exact rows, then issue a row-scoped UPDATE per match. A
-  // row-scoped UPDATE (not a blanket WHERE column = subordinate) keeps the recorded list and the
-  // actual writes provably identical.
+  // 2. Repoint every inbound reference. Read the affected rows first (by their row-identity column,
+  // plus any columns the collision check needs) so the recorded list names the exact rows, then issue a
+  // row-scoped UPDATE per match. A row-scoped UPDATE (not a blanket WHERE column = subordinate) keeps the
+  // recorded list and the actual writes provably identical. When repointing a row would collide with a
+  // reference the master already holds (a unique-key duplicate) or would create a self-loop, the row is
+  // ABSORBED instead — deleted from the subordinate and recorded as absorbed — so a merge of two real
+  // duplicates that share a category, a matter role, or a mutual edge never aborts on a constraint.
   for (const target of REPOINT_TARGETS) {
+    const selectColumns = [`${target.rowColumn} AS row`, ...target.extraColumns].join(", ");
     const { results } = await database
-      .prepare(`SELECT ${target.rowColumn} AS row FROM ${target.table} WHERE ${target.column} = ?1`)
+      .prepare(`SELECT ${selectColumns} FROM ${target.table} WHERE ${target.column} = ?1`)
       .bind(subordinateId)
-      .all<{ row: string }>();
-    for (const { row } of results) {
-      statements.push(
-        database
-          .prepare(
-            `UPDATE ${target.table} SET ${target.column} = ?2 WHERE ${target.rowColumn} = ?1 AND ${target.column} = ?3`,
-          )
-          .bind(row, masterId, subordinateId),
-      );
-      repointed.push({ table: target.table, row, from: subordinateId, to: masterId });
+      .all<Record<string, string | null>>();
+    for (const row of results) {
+      const rowId = row.row as string;
+      if (await target.collides(database, masterId, row)) {
+        statements.push(
+          database
+            .prepare(
+              `DELETE FROM ${target.table} WHERE ${target.rowColumn} = ?1 AND ${target.column} = ?2`,
+            )
+            .bind(rowId, subordinateId),
+        );
+        repointed.push({
+          table: target.table,
+          row: rowId,
+          from: subordinateId,
+          to: masterId,
+          absorbed: true,
+        });
+      } else {
+        statements.push(
+          database
+            .prepare(
+              `UPDATE ${target.table} SET ${target.column} = ?2 WHERE ${target.rowColumn} = ?1 AND ${target.column} = ?3`,
+            )
+            .bind(rowId, masterId, subordinateId),
+        );
+        repointed.push({ table: target.table, row: rowId, from: subordinateId, to: masterId });
+      }
     }
   }
 
@@ -218,9 +311,7 @@ export async function mergeEntities(
     let parameterIndex = 2; // ?1 is the id in the WHERE clause.
     for (const column of survivorshipColumns) {
       if (!allowed.has(column)) {
-        throw new Error(
-          `directory: ${column} is not a survivable field for a ${kind} (merge-unknown-field)`,
-        );
+        throw new MergeUnknownFieldError(column, kind);
       }
       priorMasterValues[column] = masterRow[column] ?? null;
       setClauses.push(`${column} = ?${parameterIndex}`);
