@@ -233,3 +233,23 @@ fn cumulative_declared_size_over_the_cap_is_a_bomb() {
         Heuristic::Suspicious(Reason::DecompressionBomb)
     );
 }
+
+#[test]
+fn unparseable_pdf_with_an_active_content_token_is_active_content() {
+    // %PDF magic dispatches to the PDF inspector, but the body is not a valid object graph, so lopdf
+    // errors. The byte-scan fallback must still surface the active-content marker (M4).
+    let bytes = b"%PDF-1.5\nnot a valid pdf body but it mentions /OpenAction here";
+    assert_eq!(
+        inspect(bytes, None, &ArchiveCaps::default()),
+        Heuristic::ActiveContent
+    );
+}
+
+#[test]
+fn unparseable_pdf_without_markers_is_clean() {
+    let bytes = b"%PDF-1.5\nnot a valid pdf body and no active-content markers at all";
+    assert_eq!(
+        inspect(bytes, None, &ArchiveCaps::default()),
+        Heuristic::Clean
+    );
+}

@@ -15,14 +15,23 @@ chown clamav:clamav /run/clamav 2>/dev/null || true
 clamd &
 
 echo "waiting for clamd on 127.0.0.1:3310 ..."
+clamd_ready=0
 for _ in $(seq 1 180); do
   if (exec 3<>/dev/tcp/127.0.0.1/3310) 2>/dev/null; then
     exec 3>&- 3<&-
+    clamd_ready=1
     echo "clamd is ready"
     break
   fi
   sleep 1
 done
+
+# Fail fast if clamd never came up: exit non-zero so the orchestrator restarts the container, rather
+# than serving in a permanently engine-degraded state where every scan silently degrades to unscanned.
+if [ "$clamd_ready" -ne 1 ]; then
+  echo "FATAL: clamd did not become ready within the timeout; exiting so the container restarts" >&2
+  exit 1
+fi
 
 # Hand off to the scan service (PID 1) on :8080.
 exec /usr/local/bin/scan

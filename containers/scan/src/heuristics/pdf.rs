@@ -12,9 +12,33 @@ pub fn inspect_pdf(bytes: &[u8]) -> Heuristic {
         Err(lopdf::Error::InvalidPassword) | Err(lopdf::Error::UnsupportedSecurityHandler(_)) => {
             return Heuristic::Encrypted;
         }
-        Err(_) => return Heuristic::Clean,
+        // lopdf is stricter than production viewers; a malformed-but-renderable PDF is a known evasion
+        // vector. On a parse failure, do not assume Clean — fall back to a raw token scan so an active-
+        // content marker a viewer would still execute is not silently dropped.
+        Err(_) => return byte_scan_fallback(bytes),
     };
     if has_active_content(&doc) {
+        Heuristic::ActiveContent
+    } else {
+        Heuristic::Clean
+    }
+}
+
+// Raw token scan for PDF active-content markers, used when the structured parse fails. Hex-escaped name
+// forms (e.g. /J#61vaScript) are a residual evasion this literal scan does not cover.
+fn byte_scan_fallback(bytes: &[u8]) -> Heuristic {
+    const MARKERS: [&[u8]; 6] = [
+        b"/JavaScript",
+        b"/JS",
+        b"/OpenAction",
+        b"/AA",
+        b"/Launch",
+        b"/EmbeddedFile",
+    ];
+    if MARKERS
+        .iter()
+        .any(|marker| bytes.windows(marker.len()).any(|window| window == *marker))
+    {
         Heuristic::ActiveContent
     } else {
         Heuristic::Clean
