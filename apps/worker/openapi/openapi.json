@@ -1861,6 +1861,32 @@
           }
         }
       },
+      "BundleReady": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "BundleBuildAccepted": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId",
+          "status"
+        ]
+      },
       "ZipDownloadRequest": {
         "type": "object",
         "properties": {
@@ -6712,12 +6738,27 @@
         },
         "responses": {
           "200": {
-            "description": "A streamed ZIP archive of the selected files",
+            "description": "A streamed ZIP archive of the selected files; or, when the selection exceeds the live threshold and an identical bundle was already built, a JSON body with a fresh signed URL.",
             "content": {
               "application/zip": {
                 "schema": {
                   "type": "string",
                   "format": "binary"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleReady"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "The selection exceeds the live-download threshold; a background build was started or is already in progress. Poll the bundle-status endpoint with the returned jobId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleBuildAccepted"
                 }
               }
             }

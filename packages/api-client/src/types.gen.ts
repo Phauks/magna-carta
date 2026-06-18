@@ -450,6 +450,15 @@ export type PatchFileRequest = {
     documentTypeId?: string | null;
 };
 
+export type BundleReady = {
+    url: string;
+};
+
+export type BundleBuildAccepted = {
+    jobId: string;
+    status: string;
+};
+
 export type ZipDownloadRequest = {
     matterId: string;
     folderIds?: Array<string>;
@@ -2551,9 +2560,13 @@ export type DownloadsZipError = DownloadsZipErrors[keyof DownloadsZipErrors];
 
 export type DownloadsZipResponses = {
     /**
-     * A streamed ZIP archive of the selected files
+     * A streamed ZIP archive of the selected files; or, when the selection exceeds the live threshold and an identical bundle was already built, a JSON body with a fresh signed URL.
      */
-    200: Blob | File;
+    200: BundleReady;
+    /**
+     * The selection exceeds the live-download threshold; a background build was started or is already in progress. Poll the bundle-status endpoint with the returned jobId.
+     */
+    202: BundleBuildAccepted;
 };
 
 export type DownloadsZipResponse = DownloadsZipResponses[keyof DownloadsZipResponses];
