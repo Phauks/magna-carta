@@ -16,7 +16,11 @@ export interface CatalogEntry {
   readonly modelId: InferenceModelId;
   // The pinned snapshot in effect — persisted per run so a result is reproducible.
   readonly snapshotId: string;
-  // The bare first-party id used only when verifying ZDR/retention against the Anthropic reference.
+  // The reference id used when verifying ZDR/retention facts. For Anthropic models this is the bare
+  // model name (without the gateway prefix) cross-checked against the Anthropic reference. For
+  // first-party Workers AI / on-Cloudflare models there is no separate Anthropic reference id, so
+  // referenceId echoes modelId — the entry's own comment records where the confidentiality facts were
+  // verified instead.
   readonly referenceId: string;
   // True only when the provider supports Zero-Data-Retention for this model under the gateway.
   readonly zdrEligible: boolean;
@@ -92,7 +96,7 @@ const RAW_CATALOG: readonly CatalogEntry[] = [
     // inference data under standard terms, and data does not leave the Cloudflare platform.
     slot: "embedding",
     modelId: PLATFORM_EMBEDDING_MODEL_ID,
-    snapshotId: `${PLATFORM_EMBEDDING_MODEL_ID}@vectorize-index-v1`,
+    snapshotId: "bge-large-en-v1.5-vectorize-index-v1",
     referenceId: PLATFORM_EMBEDDING_MODEL_ID,
     zdrEligible: true,
     noTrainingEligible: true,
@@ -121,6 +125,14 @@ const ZDR_IDS: ReadonlySet<string> = new Set(
   CATALOG.filter((entry) => entry.zdrEligible).map((entry) => entry.modelId),
 );
 
+// Precomputed at module init — consistent with REASONING_IDS/ZDR_IDS; validateCatalog already
+// guarantees exactly one embedding entry exists, so the find is safe to assert.
+const EMBEDDING_ENTRY: CatalogEntry = (() => {
+  const entry = CATALOG.find((e) => e.slot === "embedding");
+  if (entry === undefined) throw new Error("no embedding entry in the catalog");
+  return entry;
+})();
+
 // The ZDR-eligible reasoning subset a firm may select from (consumed by the setting schema).
 export function reasoningModelIds(): readonly InferenceModelId[] {
   return REASONING_IDS;
@@ -128,9 +140,7 @@ export function reasoningModelIds(): readonly InferenceModelId[] {
 
 // The single platform-fixed embedding entry the embedding operation closes over.
 export function embeddingEntry(): CatalogEntry {
-  const entry = CATALOG.find((candidate) => candidate.slot === "embedding");
-  if (entry === undefined) throw new Error("no embedding entry in the catalog");
-  return entry;
+  return EMBEDDING_ENTRY;
 }
 
 export function isZdrEligible(modelId: string): boolean {

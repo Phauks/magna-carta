@@ -23,6 +23,8 @@ describe("the curated model catalog", () => {
   });
 
   it("every reasoning entry is zdrEligible", () => {
+    // Guard: the loop would pass vacuously with zero reasoning entries.
+    expect(reasoningModelIds().length).toBeGreaterThan(0);
     for (const entry of CATALOG.filter((e) => e.slot === "reasoning")) {
       expect(entry.zdrEligible, entry.modelId).toBe(true);
     }
