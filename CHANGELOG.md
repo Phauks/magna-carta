@@ -2,11 +2,11 @@
 
 All notable changes to Magna Carta are recorded here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); releases will follow [Semantic Versioning](https://semver.org/) once they begin.
 
-This file **lives and breathes with the work:** every user-facing or otherwise notable change adds a line to `[Unreleased]` in the **same PR** — a definition-of-done item (see [`docs/conventions/documentation.md`](docs/conventions/documentation.md)). At release, `[Unreleased]` is cut into a dated, versioned section.
+This file **lives and breathes with the work:** every user-facing or otherwise notable change adds a **fragment** in `changelog.d/` in the **same commit** — a definition-of-done item (see [`docs/conventions/documentation.md`](docs/conventions/documentation.md)). The fragments are folded into `[Unreleased]` on `main`; at release, `[Unreleased]` is cut into a dated, versioned section.
 
 Categories: **Added · Changed · Deprecated · Removed · Fixed · Security.**
 
-> **Automation.** Hand-written `[Unreleased]` entries are the reliable baseline. Release-time aggregation and version cutting are wired up in **Phase 0** once CI exists; the tool (Conventional Commits + git-cliff / release-please / changesets) is a Phase-0 pick recorded in the [Decision Log](docs/Decision-Log.md) then. The propose-only **docs-maintenance agent** (white paper, _Maintenance agents_; ADR-0058) can later draft entries from merged PRs for human approval.
+> **Automation.** Notable changes are committed as per-entry fragments in `changelog.d/<slug>.md` on a branch; `vp run changelog-build` folds them into `[Unreleased]` on `main` (see [`documentation.md`](docs/conventions/documentation.md)). This in-house fragment assembler — the chosen approach over external tools (git-cliff / release-please / changesets) — keeps parallel worktrees from colliding on this file. Release-time version-cutting of `[Unreleased]` into a dated section is still to come. The propose-only **docs-maintenance agent** (white paper, _Maintenance agents_; ADR-0058) can later draft fragments from merged PRs for human approval.
 
 ## [Unreleased]
 
@@ -82,6 +82,7 @@ Categories: **Added · Changed · Deprecated · Removed · Fixed · Security.**
 - **Performance & concurrency model** (white paper §25, `performance.md`, ADR-0039): a foundational compute-placement model (work goes in the right tier — Workers/Containers/Queues/Durable Objects/Rust core/Web Workers/Tauri), resource discipline (stream, no-N+1, bounded memory), and a measure-first profiling discipline using the load-profile fixtures. Added as a golden rule; vertical-slice delivery made explicit.
 - **Settings & configuration framework** (white paper §26, `settings.md`, ADR-0040): a declarative settings registry that generates the Settings UI, with scope resolution (entity → user → location → firm → system), per-setting RBAC view/edit access enforced in the DAL, and storage that surfaces existing subsystem data without copying it.
 - Error logging & user-driven diagnostics method (white paper _Observability & diagnostics_, `error-logging.md`, ADR-0038): an in-house, Cloudflare-native pipeline with a one-click "send to developer" / "report a problem" flow, firm-scoped incidents, a propose-only diagnostics agent (triage → root-cause → draft PR → acknowledge), and a configurable diagnostics setting (off/standard/verbose-auto, the latter being the beta posture).
+- Documentation tooling: `vp run decisions-build` / `vp run changelog-build` assemble per-entry ADR and changelog fragments on `main`, so parallel worktrees no longer collide on the register or `CHANGELOG.md`. ADRs became a directory of per-file records (`docs/decisions/`) numbered at merge; the Decision-Log register is generated.
 
 ### Fixed
 

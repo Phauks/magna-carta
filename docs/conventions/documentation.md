@@ -45,9 +45,50 @@ A feature an engineer can use but a user cannot understand is half-built.
 
 Section numbers (`§N`) are navigation **inside the white paper only.** Any file pointing _into_ the white paper from outside references it by **document + topic/area name** (titles outlast numbers) or by a stable **`ADR-NNNN`** — never a section number, which shifts on reorganization. Link to a document and a name, not a number or line.
 
+## Fragment workflow (CHANGELOG and ADRs)
+
+Parallel worktrees — multiple branches open at once — collide on `CHANGELOG.md` and the ADR register when both try to append to the same file. The fragment workflow eliminates that conflict.
+
+**Core invariant:** branches add fragment files only; `main` assembles the rendered outputs.
+
+**On a branch, commit a fragment (or both):**
+
+- **Changelog fragment** — `changelog.d/<slug>.md` with YAML frontmatter `category: Added|Changed|Deprecated|Removed|Fixed|Security` and a body line. Example:
+
+  ```markdown
+  ---
+  category: Added
+  ---
+
+  Brief description of the change.
+  ```
+
+- **Decision fragment** — `docs/decisions/pending/<slug>.md` with frontmatter `slug`, `status`, `area`, `date`, optional `summary`, then the decision body. Reference it as `ADR-<slug>` until it is assigned a number at merge. Example:
+
+  ```markdown
+  ---
+  slug: my-decision
+  status: Accepted
+  area: Architecture
+  date: 2026-06-18
+  summary: One-line summary.
+  ---
+
+  Full decision body.
+  ```
+
+**On `main`, right after a merge, run the assemblers:**
+
+```
+vp run decisions-build    # consumes docs/decisions/pending/*.md → docs/decisions/NNNN-<slug>.md; updates the register
+vp run changelog-build    # consumes changelog.d/*.md → appends to CHANGELOG.md [Unreleased]
+```
+
+Each consumed fragment is deleted; the assembled output (`docs/decisions/NNNN-<slug>.md`, the register in `Decision-Log.md`, and the `[Unreleased]` entries in `CHANGELOG.md`) is committed to `main`. ADR numbers are assigned at merge in the order fragments are processed — contiguous and stable, never renumbered.
+
 ## Changelog (Keep a Changelog)
 
-Root [`CHANGELOG.md`](../../CHANGELOG.md), categories Added / Changed / Deprecated / Removed / Fixed / Security. Hand-written `[Unreleased]` entries per PR are the reliable baseline; release-time aggregation/version-cutting is automated in Phase 0 (tool picked then, logged as an ADR). The propose-only **docs-maintenance agent** (white paper, _Maintenance agents_; ADR-0058) may later draft entries from merged PRs for approval.
+Root [`CHANGELOG.md`](../../CHANGELOG.md), categories Added / Changed / Deprecated / Removed / Fixed / Security. Entries are added via the fragment workflow above (`changelog.d/<slug>.md` fragments assembled by `vp run changelog-build`); the `[Unreleased]` section is a build output — do not edit it by hand on a branch. Release-time version-cutting is still to come (a future Phase-0 pick). The propose-only **docs-maintenance agent** (white paper, _Maintenance agents_; ADR-0058) may later draft fragments from merged PRs for approval.
 
 ## Roadmap (living)
 

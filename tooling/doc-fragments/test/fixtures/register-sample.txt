@@ -1,0 +1,3 @@
+- **ADR-0001** · Accepted · Architecture — Web-first, **API-first** architecture.
+- **ADR-0028** · Superseded by ADR-0076 · Design system — Four enforced layers · tokens → Tailwind.
+- **ADR-0067** · Accepted · 2026-06-04 · API — Route-metadata model — one chokepoint.
