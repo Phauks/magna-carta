@@ -4,6 +4,10 @@ import { createApp, type Bindings } from "./app.ts";
 import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
 import { runRescanSweep, runScheduledSweep, runStorageReconciliation } from "./scheduled.ts";
 
+// The async bulk-download coordinator Durable Object must be exported from the Worker's main entrypoint
+// so the runtime can instantiate the class named in wrangler.jsonc's durable_objects binding.
+export { BundleBuildCoordinator } from "./downloads/bundle-coordinator.ts";
+
 const app = createApp();
 
 // The daily reconciliation Cron expression (wrangler.jsonc triggers.crons), distinct from the */5

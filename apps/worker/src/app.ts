@@ -43,6 +43,13 @@ export type Bindings = {
   FILES_INGEST?: Queue;
   // The files-ingest-bulk queue binding for the bulk lane (bulk/ prefix, lower concurrency).
   FILES_INGEST_BULK?: Queue;
+  // The async bulk-download coordinator (the codebase's first Durable Object): keyed
+  // firmId:manifestHash, it single-flights one ZIP build per content-addressed selection.
+  BUNDLE_COORDINATOR: DurableObjectNamespace<
+    import("./downloads/bundle-coordinator.ts").BundleBuildCoordinator
+  >;
+  // The bundle-build queue the coordinator enqueues onto; its consumer streams R2 -> client-zip -> R2.
+  BUNDLE_BUILD: Queue<import("./downloads/bundle-types.ts").BundleBuildMessage>;
   // Better Auth's signing/encryption secret. Local dev + tests load it from .dev.vars;
   // production sets it with `wrangler secret put AUTH_SECRET`.
   AUTH_SECRET: string;

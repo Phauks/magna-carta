@@ -102,6 +102,14 @@
       },
     ],
   },
+  // The async bulk-download coordinator — the codebase's first Durable Object. Keyed
+  // firmId:manifestHash, it single-flights one ZIP build per content-addressed file selection. The
+  // class is exported from src/index.ts (a binding to a class with no export fails the deploy).
+  "durable_objects": {
+    "bindings": [{ "name": "BUNDLE_COORDINATOR", "class_name": "BundleBuildCoordinator" }],
+  },
+  // SQLite-backed DO classes are introduced through a migration tag; this is the first one.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["BundleBuildCoordinator"] }],
   // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines
   // the telemetry Workers logger emits land here). Logpush → R2 is a deploy-time runbook step
   // (docs/conventions/operations.md), not code — it is account configuration (slice 0·6, ADR-0074).
