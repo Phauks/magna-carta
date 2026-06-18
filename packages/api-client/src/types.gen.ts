@@ -465,6 +465,11 @@ export type ZipDownloadRequest = {
     fileIds?: Array<string>;
 };
 
+export type BundleStatus = {
+    status: string;
+    url?: string;
+};
+
 export type HealthReadData = {
     body?: never;
     path?: never;
@@ -2570,3 +2575,42 @@ export type DownloadsZipResponses = {
 };
 
 export type DownloadsZipResponse = DownloadsZipResponses[keyof DownloadsZipResponses];
+
+export type DownloadsBundleStatusData = {
+    body?: never;
+    path: {
+        manifestHash: string;
+    };
+    query?: never;
+    url: '/api/v1/downloads/bundles/{manifestHash}';
+};
+
+export type DownloadsBundleStatusErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:organize
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DownloadsBundleStatusError = DownloadsBundleStatusErrors[keyof DownloadsBundleStatusErrors];
+
+export type DownloadsBundleStatusResponses = {
+    /**
+     * The job's current state, with a signed URL when ready
+     */
+    200: BundleStatus;
+};
+
+export type DownloadsBundleStatusResponse = DownloadsBundleStatusResponses[keyof DownloadsBundleStatusResponses];

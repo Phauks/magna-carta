@@ -1912,6 +1912,20 @@
         "required": [
           "matterId"
         ]
+      },
+      "BundleStatus": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ]
       }
     },
     "parameters": {}
@@ -6788,6 +6802,90 @@
           },
           "404": {
             "description": "The firm is unreachable, the member is deactivated, or the selection is empty",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/downloads/bundles/{manifestHash}": {
+      "get": {
+        "description": "Reports the state of an async bulk-download build (building, ready, or failed). A ready job carries a freshly minted, short-lived signed URL to the built ZIP artifact.",
+        "operationId": "downloads.bundleStatus",
+        "tags": [
+          "downloads"
+        ],
+        "x-mc-operationId": "downloads.bundleStatus",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "files:organize",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "downloads"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "manifestHash",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The job's current state, with a signed URL when ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks files:organize",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
             "content": {
               "application/problem+json": {
                 "schema": {

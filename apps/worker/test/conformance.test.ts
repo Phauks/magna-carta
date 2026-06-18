@@ -465,6 +465,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "documentTypes.deactivate",
       "documentTypes.list",
       "documentTypes.update",
+      "downloads.bundleStatus",
       "downloads.zip",
       "files.delete",
       "files.download",

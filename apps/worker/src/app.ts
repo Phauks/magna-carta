@@ -13,6 +13,7 @@ import { defaultHook } from "./contracts/problem.ts";
 import { registerHealthRoute } from "./routes/health.ts";
 import { createCloudflareEmailAdapter, type CloudflareEmailBinding } from "./email-cloudflare.ts";
 import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
+import { registerBundleStatusRoute } from "./routes/bundle-status.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerDownloadsRoutes } from "./routes/downloads.ts";
 import { registerFilesRoutes } from "./routes/files.ts";
@@ -197,6 +198,8 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFoldersRoutes(app, chokepoint);
   registerFilesRoutes(app, chokepoint);
   registerDownloadsRoutes(app, chokepoint);
+  // The async bulk-download poll endpoint — the status side of the download route's 202 hand-off.
+  registerBundleStatusRoute(app, chokepoint);
 
   // Serve the same document the committed snapshot carries (root tags included), so the live endpoint
   // and the snapshot never diverge. A plain route, so it does not appear in the document itself.
