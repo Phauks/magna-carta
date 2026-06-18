@@ -16,6 +16,10 @@ describe("GATEWAY_ID", () => {
     expect(typeof GATEWAY_ID).toBe("string");
     expect(GATEWAY_ID.length).toBeGreaterThan(0);
   });
+
+  it("is pinned to the exact Cloudflare AI Gateway routing identifier", () => {
+    expect(GATEWAY_ID).toBe("magna-carta-inference");
+  });
 });
 
 describe("GatewayOptions shape", () => {
