@@ -10,6 +10,7 @@ import {
   outboxDeadLettered,
   outboxSwept,
   requestCompleted,
+  usageFeature,
 } from "../src/events.ts";
 
 const context = { correlationId: "correlation_abc123", now: "2026-06-13T00:00:00.000Z" };
@@ -97,6 +98,34 @@ describe("event catalog", () => {
       attempts: 5,
     });
     expect(event.name).toBe("outbox.deadLettered");
+  });
+
+  it("usageFeature carries exactly its allowlist and strips undeclared keys", () => {
+    const event = usageFeature(
+      { correlationId: "correlation_x", now: "2026-06-18T00:00:00.000Z" },
+      {
+        feature: "matters.list",
+        phase: "reached",
+        surface: null,
+        firmIdHash: "abc123",
+        userIdHash: null,
+        appVersion: null,
+      },
+    );
+    expect(event.name).toBe("usage.feature");
+    expect(event.fields).toEqual({
+      feature: "matters.list",
+      phase: "reached",
+      surface: null,
+      firmIdHash: "abc123",
+      userIdHash: null,
+      appVersion: null,
+    });
+  });
+
+  it("includes usage.feature in EVENT_NAMES exactly once", () => {
+    const usageNames = EVENT_NAMES.filter((name) => name === "usage.feature");
+    expect(usageNames).toHaveLength(1);
   });
 
   it("every catalog event name is unique", () => {
