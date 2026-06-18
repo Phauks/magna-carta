@@ -82,4 +82,19 @@ describe("BundleBuildCoordinator", () => {
       expect(state.error).toBe("build timed out");
     });
   });
+
+  it("markFailed never clobbers a job that already reached ready (zombie attempt)", async () => {
+    const stub = coordinatorStub("firm_1:hash-zombie");
+    await runInDurableObject(stub, async (instance: BundleBuildCoordinator) => {
+      recordSends(instance);
+      await instance.requestBundle(message("hash-zombie"));
+      await instance.markReady("bundles/hash-zombie.zip");
+      // A late zombie attempt (from a timed-out / retried prior build) reports failure — it must be
+      // ignored so the completion the client may already have polled is not lost.
+      await instance.markFailed("zombie build failed");
+      const state = await instance.status();
+      expect(state.status).toBe("ready");
+      expect(state.r2Key).toBe("bundles/hash-zombie.zip");
+    });
+  });
 });

@@ -84,12 +84,20 @@ export function registerBundleStatusRoute(app: BundleStatusApp, chokepoint: Chok
       );
       const state = await coordinator.status();
       if (state.status === "ready" && state.r2Key !== null) {
-        const url = await presignerForEnv(c.env).presignGet(
-          bucket,
-          state.r2Key,
-          POLL_URL_TTL_SECONDS,
-        );
-        return c.json({ status: state.status, url }, 200);
+        // Guard against a reaped artifact: the `bundles/` R2 lifecycle rule expires the object after
+        // its TTL, but the DO state is durable and would keep reporting `ready` with a stale key —
+        // handing out a signed URL that 404s. HEAD the object first; if it is gone, report `expired`
+        // so the client re-requests a build (the download route rebuilds a missing artifact).
+        const artifact = await c.env.R2.head(state.r2Key);
+        if (artifact !== null) {
+          const url = await presignerForEnv(c.env).presignGet(
+            bucket,
+            state.r2Key,
+            POLL_URL_TTL_SECONDS,
+          );
+          return c.json({ status: "ready", url }, 200);
+        }
+        return c.json({ status: "expired" }, 200);
       }
       return c.json({ status: state.status }, 200);
     },

@@ -39,8 +39,12 @@ export class BundleBuildCoordinator extends DurableObject<Bindings> implements B
 
   async markFailed(error: string): Promise<void> {
     const state = await this.ctx.storage.get<BundleJobState>("state");
-    if (state === undefined) return;
+    // Only a job still `building` becomes failed. A zombie attempt from a prior (timed-out or retried)
+    // build must never clobber a `ready` a later attempt already produced — that would lose the
+    // completion the client may have already polled. A success is terminal; a stale failure is dropped.
+    if (state === undefined || state.status !== "building") return;
     await this.ctx.storage.put("state", { ...state, status: "failed", error });
+    await this.ctx.storage.deleteAlarm();
   }
 
   async status(): Promise<BundleJobState> {

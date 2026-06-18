@@ -76,6 +76,11 @@ async function putStreamMultipart(
 }
 
 async function buildOne(env: Bindings, message: BundleBuildMessage): Promise<void> {
+  // Reads and writes both go through env.R2 — the single bound bucket, which IS the firm's bucket in
+  // today's single-bucket deployment, so it matches the bucket the download/bundle-status routes
+  // presign against. message.bucketName is the forward-looking routing key for when per-firm buckets
+  // are provisioned: at that point this consumer and the routes must resolve the SAME per-firm R2
+  // handle from bucketName (read inputs, write the artifact, head, and presign all against it).
   const key = `bundles/${message.manifestHash}.zip`;
   async function* inputs() {
     for (const entry of message.entries) {
@@ -91,6 +96,9 @@ async function buildOne(env: Bindings, message: BundleBuildMessage): Promise<voi
     await putStreamMultipart(env.R2, key, makeZip(inputs()));
     await coordinator.markReady(key);
   } catch (error) {
+    // markFailed only transitions a still-`building` job (the coordinator guards it), so a transient
+    // failure here briefly shows `failed` but self-heals: the rethrow retries the queue message, and a
+    // later success calls markReady. A zombie attempt's markFailed can never clobber that ready.
     await coordinator.markFailed(error instanceof Error ? error.message : "build failed");
     throw error;
   }

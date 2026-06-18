@@ -75,8 +75,9 @@ describe("GET /api/v1/downloads/bundles/{manifestHash}", () => {
     expect(body.url).toBeUndefined();
   });
 
-  it("mints a fresh signed URL for a ready job", async () => {
+  it("mints a fresh signed URL for a ready job whose artifact exists", async () => {
     const hash = "b".repeat(64);
+    await env.R2.put(`bundles/${hash}.zip`, "PK-fake-zip");
     const stub = await primeBuilding(`${firmId}:${hash}`, hash);
     await stub.markReady(`bundles/${hash}.zip`);
     const response = await poll(hash);
@@ -84,6 +85,18 @@ describe("GET /api/v1/downloads/bundles/{manifestHash}", () => {
     const body = (await response.json()) as { status: string; url?: string };
     expect(body.status).toBe("ready");
     expect(body.url ?? "").toContain("dev-presigned=get");
+  });
+
+  it("reports expired (no URL) when the ready artifact has been reaped", async () => {
+    const hash = "d".repeat(64);
+    // Ready in the DO, but no object in R2 — the lifecycle rule reaped it. A poll must not hand out a
+    // URL that 404s; it reports `expired` so the client re-requests a build.
+    const stub = await primeBuilding(`${firmId}:${hash}`, hash);
+    await stub.markReady(`bundles/${hash}.zip`);
+    const response = await poll(hash);
+    const body = (await response.json()) as { status: string; url?: string };
+    expect(body.status).toBe("expired");
+    expect(body.url).toBeUndefined();
   });
 
   it("never reads another firm's job (the DO name carries the session firm id)", async () => {
