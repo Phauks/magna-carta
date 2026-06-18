@@ -17,7 +17,10 @@ describe("summarizeStorageMeterRows", () => {
     expect(summarizeStorageMeterRows([])).toEqual({
       totalBytes: 0,
       totalObjects: 0,
-      byStorageClass: { standard: { bytes: 0, objects: 0 }, infrequent_access: { bytes: 0, objects: 0 } },
+      byStorageClass: {
+        standard: { bytes: 0, objects: 0 },
+        infrequent_access: { bytes: 0, objects: 0 },
+      },
     });
   });
 
@@ -33,7 +36,9 @@ describe("summarizeStorageMeterRows", () => {
   });
 
   it("surfaces an unexpected class in the totals (never silently dropped)", () => {
-    const usage = summarizeStorageMeterRows([{ storageClass: "glacier", bytes: 9, objectCount: 1 }]);
+    const usage = summarizeStorageMeterRows([
+      { storageClass: "glacier", bytes: 9, objectCount: 1 },
+    ]);
     expect(usage.totalBytes).toBe(9);
     expect(usage.totalObjects).toBe(1);
     expect(usage.byStorageClass.standard).toEqual({ bytes: 0, objects: 0 });
@@ -46,7 +51,10 @@ describe("readStorageUsage", () => {
     expect(await readStorageUsage(database)).toEqual({
       totalBytes: 0,
       totalObjects: 0,
-      byStorageClass: { standard: { bytes: 0, objects: 0 }, infrequent_access: { bytes: 0, objects: 0 } },
+      byStorageClass: {
+        standard: { bytes: 0, objects: 0 },
+        infrequent_access: { bytes: 0, objects: 0 },
+      },
     });
   });
 

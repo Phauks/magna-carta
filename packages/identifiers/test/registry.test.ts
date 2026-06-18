@@ -25,6 +25,10 @@ describe("prefix registry", () => {
     expect(prefixFor("incident")).toBe("incident");
   });
 
+  it("maps the firm-secret entity type to its full-name prefix", () => {
+    expect(prefixFor("firmSecret")).toBe("firmSecret");
+  });
+
   it("has no duplicate prefixes (prefix space partitions the id space)", () => {
     const prefixes = Object.values(ENTITY_PREFIXES);
     expect(new Set(prefixes).size).toBe(prefixes.length);

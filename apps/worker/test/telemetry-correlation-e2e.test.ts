@@ -8,6 +8,7 @@ import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
   seedFirm,
+  seedFirmKey,
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
@@ -28,6 +29,9 @@ describe("slice 0·6 end-to-end — the correlation story", () => {
     const firmId = (
       await seedFirm({ name: "E2E Telemetry Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
     ).firmId;
+    // The incident route now encrypts the description, so the firm needs a minted key (the
+    // provisioner mints it in production; a directly-seeded test firm mints it here).
+    await seedFirmKey(firmId);
     const { userId } = await seedCredentialedUser("e2e-telemetry@example.com", {
       userName: "E2E Reporter",
       firmId,

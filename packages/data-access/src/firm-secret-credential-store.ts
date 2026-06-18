@@ -1,7 +1,8 @@
 import type { Credential, CredentialStore } from "@magna-carta/integrations/credentials";
 
-// The slice-1·2 per-firm secret store interface. A Credential is JSON-serialized into one secret
-// entry (envelope-encrypted at rest by that store). This module never logs the value.
+// The per-firm secret store interface — its real backing is the envelope-encrypted `firm_secret`
+// store, wired in once that store lands. A Credential is JSON-serialized into one secret entry
+// (encrypted at rest by that store). This module never logs the value.
 export interface SecretStore {
   getSecret(ref: string): Promise<string | null>;
   putSecret(ref: string, value: string): Promise<void>;

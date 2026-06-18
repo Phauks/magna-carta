@@ -22,11 +22,13 @@
 ### Task 1: Seed tools:firmUsage onto the Owner/Admin role
 
 **Files:**
+
 - Create: `packages/database/drizzle/per-firm/0006_seed-tools-firm-usage.sql`
 - Modify (drizzle-kit writes these): `packages/database/drizzle/per-firm/meta/_journal.json`, `packages/database/drizzle/per-firm/meta/0006_snapshot.json`
 - Test: `packages/database/test/generated-migrations.test.ts` (add a 0006 seed assertion)
 
 **Interfaces:**
+
 - Produces: per-firm migration `0006_seed-tools-firm-usage` granting `tools:firmUsage` to `role_Gw-zKO8hOHQuNv2bWokMp` (Owner/Admin) — applied by `applyPerFirmMigrations`, so the route's integration test (Task 2) sees an Owner member holding the permission.
 
 - [ ] **Step 1: Write the failing test**
@@ -34,18 +36,18 @@
 In `packages/database/test/generated-migrations.test.ts`, add (mirroring the existing per-migration parse tests; reuse the file's `loadLineage`, `parseSingleRowInsert`, and `isIdentifier` imports):
 
 ```ts
-  it("per-firm 0006 seeds tools:firmUsage onto the Owner/Admin role only", async () => {
-    const migrations = await loadLineage("per-firm");
-    const migration = migrations.find((m) => m.tag === "0006_seed-tools-firm-usage");
-    expect(migration, "0006_seed-tools-firm-usage missing from the per-firm lineage").toBeDefined();
-    const seeds = (migration?.statements ?? [])
-      .filter((statement) => statement.includes("INSERT INTO `role_permission`"))
-      .map(parseSingleRowInsert);
-    expect(seeds).toHaveLength(1);
-    expect(seeds[0]?.permission).toBe("tools:firmUsage");
-    expect(seeds[0]?.role_id).toBe("role_Gw-zKO8hOHQuNv2bWokMp"); // the Owner/Admin role (0002)
-    expect(isIdentifier(seeds[0]?.id, "rolePermission")).toBe(true);
-  });
+it("per-firm 0006 seeds tools:firmUsage onto the Owner/Admin role only", async () => {
+  const migrations = await loadLineage("per-firm");
+  const migration = migrations.find((m) => m.tag === "0006_seed-tools-firm-usage");
+  expect(migration, "0006_seed-tools-firm-usage missing from the per-firm lineage").toBeDefined();
+  const seeds = (migration?.statements ?? [])
+    .filter((statement) => statement.includes("INSERT INTO `role_permission`"))
+    .map(parseSingleRowInsert);
+  expect(seeds).toHaveLength(1);
+  expect(seeds[0]?.permission).toBe("tools:firmUsage");
+  expect(seeds[0]?.role_id).toBe("role_Gw-zKO8hOHQuNv2bWokMp"); // the Owner/Admin role (0002)
+  expect(isIdentifier(seeds[0]?.id, "rolePermission")).toBe(true);
+});
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
@@ -87,6 +89,7 @@ git commit -m "feat(database): seed tools:firmUsage onto the Owner/Admin role (p
 ### Task 2: GET /api/v1/firm-usage
 
 **Files:**
+
 - Create: `apps/worker/src/routes/firm-usage.ts`
 - Modify: `apps/worker/src/app.ts` (import + register beside `registerMeRoute`)
 - Modify: `apps/worker/test/conformance.test.ts` (add `tools: "firm"` to `RESOURCE_BY_PERMISSION_NAMESPACE`)
@@ -94,6 +97,7 @@ git commit -m "feat(database): seed tools:firmUsage onto the Owner/Admin role (p
 - Regenerate (committed): `apps/worker/openapi/openapi.json`, `packages/api-client`.
 
 **Interfaces:**
+
 - Consumes: `readStorageUsage`/`readFileCount`/`readCleanVersionCount`/`readFolderCount` (`@magna-carta/file-manager/usage`), `readMatterCounts` (`@magna-carta/matters/queries`), `readLocationCount` (`@magna-carta/locations/statements`); the Owner/Admin role holds `tools:firmUsage` (Task 1).
 - Produces: operation `firmUsage.get` at `GET /api/v1/firm-usage` returning `FirmUsageResponse` `{ storage: { totalBytes, totalObjects, byStorageClass: { standard: {bytes,objects}, infrequent_access: {bytes,objects} } }, counts: { matters: { total, prospective, open, closed }, files, fileVersions, folders, locations } }`.
 
@@ -345,7 +349,7 @@ import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
 and immediately after `registerMeRoute(app, chokepoint);`:
 
 ```ts
-  registerFirmUsageRoute(app, chokepoint);
+registerFirmUsageRoute(app, chokepoint);
 ```
 
 - [ ] **Step 5: Add the conformance resource binding**
@@ -385,6 +389,7 @@ git commit -m "feat(worker): GET /api/v1/firm-usage — the per-firm usage snaps
 ### Task 3: Update living docs
 
 **Files:**
+
 - Modify: `CHANGELOG.md`, `ROADMAP.md`, `STATUS.md`, `packages/tools/CLAUDE.md`
 
 - [ ] **Step 1: CHANGELOG entry**
@@ -415,6 +420,7 @@ git commit -m "docs(tools): record the firm-usage route + Owner/Admin role-seedi
 ## Self-Review
 
 **1. Spec coverage** (the deferred worker-route seam from the firm-usage design §4, plus the owner-chosen Owner/Admin seeding):
+
 - The firm-scoped `GET /api/v1/firm-usage` composing the snapshot → Task 2.
 - The `tools` → `firm` conformance entry the design flagged → Task 2 Step 5.
 - `tools:firmUsage` reachable in production → Task 1 (seeded onto Owner/Admin); the integration test exercises real role-based access (Owner → 200, never-mirrored → 403).

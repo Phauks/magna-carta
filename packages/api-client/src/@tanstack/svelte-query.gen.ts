@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, type MutationOptions, queryOptions } from '@tanstack/svelte-query';
 
 import { client } from '../client.gen';
-import { documentTypesCreate, documentTypesDeactivate, documentTypesList, documentTypesUpdate, downloadsZip, filesDelete, filesDownload, filesGet, filesList, filesUpdate, filesVersions, firmsProvision, firmUsageGet, foldersCreate, foldersDelete, foldersUpdate, healthRead, incidentsReport, locationsAssignMember, locationsClose, locationsCreate, locationsGet, locationsList, locationsSetAddresses, locationsUpdate, mattersClose, mattersCreate, mattersGet, mattersList, mattersListConsultations, mattersOpen, mattersRenumber, mattersReopen, mattersUpdate, matterTypesCreate, matterTypesDeactivate, matterTypesList, matterTypesUpdate, meGet, membersInvite, numberingGet, numberingPreview, numberingSet, type Options, uploadsAbort, uploadsComplete, uploadsInitiate, uploadsSignPart } from '../sdk.gen';
-import type { DocumentTypesCreateData, DocumentTypesCreateError, DocumentTypesCreateResponse, DocumentTypesDeactivateData, DocumentTypesDeactivateError, DocumentTypesDeactivateResponse, DocumentTypesListData, DocumentTypesListError, DocumentTypesListResponse, DocumentTypesUpdateData, DocumentTypesUpdateError, DocumentTypesUpdateResponse, DownloadsZipData, DownloadsZipError, DownloadsZipResponse, FilesDeleteData, FilesDeleteError, FilesDeleteResponse, FilesDownloadData, FilesDownloadError, FilesGetData, FilesGetError, FilesGetResponse, FilesListData, FilesListError, FilesListResponse, FilesUpdateData, FilesUpdateError, FilesUpdateResponse, FilesVersionsData, FilesVersionsError, FilesVersionsResponse, FirmsProvisionData, FirmsProvisionError, FirmsProvisionResponse, FirmUsageGetData, FirmUsageGetError, FirmUsageGetResponse, FoldersCreateData, FoldersCreateError, FoldersCreateResponse, FoldersDeleteData, FoldersDeleteError, FoldersDeleteResponse, FoldersUpdateData, FoldersUpdateError, FoldersUpdateResponse, HealthReadData, HealthReadError, HealthReadResponse, IncidentsReportData, IncidentsReportError, IncidentsReportResponse, LocationsAssignMemberData, LocationsAssignMemberError, LocationsAssignMemberResponse, LocationsCloseData, LocationsCloseError, LocationsCloseResponse, LocationsCreateData, LocationsCreateError, LocationsCreateResponse, LocationsGetData, LocationsGetError, LocationsGetResponse, LocationsListData, LocationsListError, LocationsListResponse, LocationsSetAddressesData, LocationsSetAddressesError, LocationsSetAddressesResponse, LocationsUpdateData, LocationsUpdateError, LocationsUpdateResponse, MattersCloseData, MattersCloseError, MattersCloseResponse, MattersCreateData, MattersCreateError, MattersCreateResponse, MattersGetData, MattersGetError, MattersGetResponse, MattersListConsultationsData, MattersListConsultationsError, MattersListConsultationsResponse, MattersListData, MattersListError, MattersListResponse, MattersOpenData, MattersOpenError, MattersOpenResponse, MattersRenumberData, MattersRenumberError, MattersRenumberResponse, MattersReopenData, MattersReopenError, MattersReopenResponse, MattersUpdateData, MattersUpdateError, MattersUpdateResponse, MatterTypesCreateData, MatterTypesCreateError, MatterTypesCreateResponse, MatterTypesDeactivateData, MatterTypesDeactivateError, MatterTypesDeactivateResponse, MatterTypesListData, MatterTypesListError, MatterTypesListResponse, MatterTypesUpdateData, MatterTypesUpdateError, MatterTypesUpdateResponse, MeGetData, MeGetError, MeGetResponse, MembersInviteData, MembersInviteError, MembersInviteResponse, NumberingGetData, NumberingGetError, NumberingGetResponse, NumberingPreviewData, NumberingPreviewError, NumberingPreviewResponse2, NumberingSetData, NumberingSetError, NumberingSetResponse, UploadsAbortData, UploadsAbortError, UploadsAbortResponse, UploadsCompleteData, UploadsCompleteError, UploadsCompleteResponse, UploadsInitiateData, UploadsInitiateError, UploadsInitiateResponse, UploadsSignPartData, UploadsSignPartError, UploadsSignPartResponse } from '../types.gen';
+import { directoryAddIdentifier, directoryAddName, directoryAssignCategory, directoryCreateCategory, directoryCreateEdge, directoryCreateOrganization, directoryCreatePerson, directoryDuplicateCandidates, directoryGetOrganization, directoryGetPerson, directoryLinkMatterParty, directoryMerge, directoryReadIdentifier, directorySearch, documentTypesCreate, documentTypesDeactivate, documentTypesList, documentTypesUpdate, downloadsZip, filesDelete, filesDownload, filesGet, filesList, filesUpdate, filesVersions, firmsProvision, firmUsageGet, foldersCreate, foldersDelete, foldersUpdate, healthRead, incidentsReport, locationsAssignMember, locationsClose, locationsCreate, locationsGet, locationsList, locationsSetAddresses, locationsUpdate, mattersClose, mattersCreate, mattersGet, mattersList, mattersListConsultations, mattersOpen, mattersRenumber, mattersReopen, mattersUpdate, matterTypesCreate, matterTypesDeactivate, matterTypesList, matterTypesUpdate, meGet, membersInvite, numberingGet, numberingPreview, numberingSet, type Options, shippingConnect, shippingCreateShipment, shippingLabel, shippingPurchase, shippingRateShipment, shippingRefund, shippingTracking, uploadsAbort, uploadsComplete, uploadsInitiate, uploadsSignPart } from '../sdk.gen';
+import type { DirectoryAddIdentifierData, DirectoryAddIdentifierError, DirectoryAddIdentifierResponse, DirectoryAddNameData, DirectoryAddNameError, DirectoryAddNameResponse, DirectoryAssignCategoryData, DirectoryAssignCategoryError, DirectoryAssignCategoryResponse, DirectoryCreateCategoryData, DirectoryCreateCategoryError, DirectoryCreateCategoryResponse, DirectoryCreateEdgeData, DirectoryCreateEdgeError, DirectoryCreateEdgeResponse, DirectoryCreateOrganizationData, DirectoryCreateOrganizationError, DirectoryCreateOrganizationResponse, DirectoryCreatePersonData, DirectoryCreatePersonError, DirectoryCreatePersonResponse, DirectoryDuplicateCandidatesData, DirectoryDuplicateCandidatesError, DirectoryDuplicateCandidatesResponse2, DirectoryGetOrganizationData, DirectoryGetOrganizationError, DirectoryGetOrganizationResponse, DirectoryGetPersonData, DirectoryGetPersonError, DirectoryGetPersonResponse, DirectoryLinkMatterPartyData, DirectoryLinkMatterPartyError, DirectoryLinkMatterPartyResponse, DirectoryMergeData, DirectoryMergeError, DirectoryMergeResponse2, DirectoryReadIdentifierData, DirectoryReadIdentifierError, DirectoryReadIdentifierResponse, DirectorySearchData, DirectorySearchError, DirectorySearchResponse2, DocumentTypesCreateData, DocumentTypesCreateError, DocumentTypesCreateResponse, DocumentTypesDeactivateData, DocumentTypesDeactivateError, DocumentTypesDeactivateResponse, DocumentTypesListData, DocumentTypesListError, DocumentTypesListResponse, DocumentTypesUpdateData, DocumentTypesUpdateError, DocumentTypesUpdateResponse, DownloadsZipData, DownloadsZipError, DownloadsZipResponse, FilesDeleteData, FilesDeleteError, FilesDeleteResponse, FilesDownloadData, FilesDownloadError, FilesGetData, FilesGetError, FilesGetResponse, FilesListData, FilesListError, FilesListResponse, FilesUpdateData, FilesUpdateError, FilesUpdateResponse, FilesVersionsData, FilesVersionsError, FilesVersionsResponse, FirmsProvisionData, FirmsProvisionError, FirmsProvisionResponse, FirmUsageGetData, FirmUsageGetError, FirmUsageGetResponse, FoldersCreateData, FoldersCreateError, FoldersCreateResponse, FoldersDeleteData, FoldersDeleteError, FoldersDeleteResponse, FoldersUpdateData, FoldersUpdateError, FoldersUpdateResponse, HealthReadData, HealthReadError, HealthReadResponse, IncidentsReportData, IncidentsReportError, IncidentsReportResponse, LocationsAssignMemberData, LocationsAssignMemberError, LocationsAssignMemberResponse, LocationsCloseData, LocationsCloseError, LocationsCloseResponse, LocationsCreateData, LocationsCreateError, LocationsCreateResponse, LocationsGetData, LocationsGetError, LocationsGetResponse, LocationsListData, LocationsListError, LocationsListResponse, LocationsSetAddressesData, LocationsSetAddressesError, LocationsSetAddressesResponse, LocationsUpdateData, LocationsUpdateError, LocationsUpdateResponse, MattersCloseData, MattersCloseError, MattersCloseResponse, MattersCreateData, MattersCreateError, MattersCreateResponse, MattersGetData, MattersGetError, MattersGetResponse, MattersListConsultationsData, MattersListConsultationsError, MattersListConsultationsResponse, MattersListData, MattersListError, MattersListResponse, MattersOpenData, MattersOpenError, MattersOpenResponse, MattersRenumberData, MattersRenumberError, MattersRenumberResponse, MattersReopenData, MattersReopenError, MattersReopenResponse, MattersUpdateData, MattersUpdateError, MattersUpdateResponse, MatterTypesCreateData, MatterTypesCreateError, MatterTypesCreateResponse, MatterTypesDeactivateData, MatterTypesDeactivateError, MatterTypesDeactivateResponse, MatterTypesListData, MatterTypesListError, MatterTypesListResponse, MatterTypesUpdateData, MatterTypesUpdateError, MatterTypesUpdateResponse, MeGetData, MeGetError, MeGetResponse, MembersInviteData, MembersInviteError, MembersInviteResponse, NumberingGetData, NumberingGetError, NumberingGetResponse, NumberingPreviewData, NumberingPreviewError, NumberingPreviewResponse2, NumberingSetData, NumberingSetError, NumberingSetResponse, ShippingConnectData, ShippingConnectError, ShippingConnectResponse, ShippingCreateShipmentData, ShippingCreateShipmentError, ShippingCreateShipmentResponse, ShippingLabelData, ShippingLabelError, ShippingLabelResponse, ShippingPurchaseData, ShippingPurchaseError, ShippingPurchaseResponse, ShippingRateShipmentData, ShippingRateShipmentError, ShippingRateShipmentResponse, ShippingRefundData, ShippingRefundError, ShippingRefundResponse, ShippingTrackingData, ShippingTrackingError, ShippingTrackingResponse, UploadsAbortData, UploadsAbortError, UploadsAbortResponse, UploadsCompleteData, UploadsCompleteError, UploadsCompleteResponse, UploadsInitiateData, UploadsInitiateError, UploadsInitiateResponse, UploadsSignPartData, UploadsSignPartError, UploadsSignPartResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -954,6 +954,368 @@ export const downloadsZipMutation = (options?: Partial<Options<DownloadsZipData>
     const mutationOptions: MutationOptions<DownloadsZipResponse, DownloadsZipError, Options<DownloadsZipData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await downloadsZip({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Creates a directory person from its structured name parts, seeding the current-name history row and its phonetic blocking codes.
+ */
+export const directoryCreatePersonMutation = (options?: Partial<Options<DirectoryCreatePersonData>>): MutationOptions<DirectoryCreatePersonResponse, DirectoryCreatePersonError, Options<DirectoryCreatePersonData>> => {
+    const mutationOptions: MutationOptions<DirectoryCreatePersonResponse, DirectoryCreatePersonError, Options<DirectoryCreatePersonData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await directoryCreatePerson({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const directoryGetPersonQueryKey = (options: Options<DirectoryGetPersonData>) => createQueryKey('directoryGetPerson', options);
+
+/**
+ * Returns one directory person's detail.
+ */
+export const directoryGetPersonOptions = (options: Options<DirectoryGetPersonData>) => queryOptions<DirectoryGetPersonResponse, DirectoryGetPersonError, DirectoryGetPersonResponse, ReturnType<typeof directoryGetPersonQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await directoryGetPerson({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: directoryGetPersonQueryKey(options)
+});
+
+/**
+ * Creates a directory organization from its legal name, seeding the current-name history row and its phonetic blocking codes.
+ */
+export const directoryCreateOrganizationMutation = (options?: Partial<Options<DirectoryCreateOrganizationData>>): MutationOptions<DirectoryCreateOrganizationResponse, DirectoryCreateOrganizationError, Options<DirectoryCreateOrganizationData>> => {
+    const mutationOptions: MutationOptions<DirectoryCreateOrganizationResponse, DirectoryCreateOrganizationError, Options<DirectoryCreateOrganizationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await directoryCreateOrganization({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const directoryGetOrganizationQueryKey = (options: Options<DirectoryGetOrganizationData>) => createQueryKey('directoryGetOrganization', options);
+
+/**
+ * Returns one directory organization's detail.
+ */
+export const directoryGetOrganizationOptions = (options: Options<DirectoryGetOrganizationData>) => queryOptions<DirectoryGetOrganizationResponse, DirectoryGetOrganizationError, DirectoryGetOrganizationResponse, ReturnType<typeof directoryGetOrganizationQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await directoryGetOrganization({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: directoryGetOrganizationQueryKey(options)
+});
+
+/**
+ * Appends a non-current alias (alias/aka/maiden/dba/former) to an entity without touching its current name. The entity kind is resolved from the id; supply the person OR organization name fields accordingly.
+ */
+export const directoryAddNameMutation = (options?: Partial<Options<DirectoryAddNameData>>): MutationOptions<DirectoryAddNameResponse, DirectoryAddNameError, Options<DirectoryAddNameData>> => {
+    const mutationOptions: MutationOptions<DirectoryAddNameResponse, DirectoryAddNameError, Options<DirectoryAddNameData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await directoryAddName({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Seals a typed sensitive identifier (SSN/EIN/DL/account/DOB/SSN-last-four) for an entity under the firm key — only the ciphertext (and, where the type is standalone-indexable, the exact-match blind index) is stored, never the plaintext. Adding a value needs no decrypt permission; reading it back does.
+ */
+export const directoryAddIdentifierMutation = (options?: Partial<Options<DirectoryAddIdentifierData>>): MutationOptions<DirectoryAddIdentifierResponse, DirectoryAddIdentifierError, Options<DirectoryAddIdentifierData>> => {
+    const mutationOptions: MutationOptions<DirectoryAddIdentifierResponse, DirectoryAddIdentifierError, Options<DirectoryAddIdentifierData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await directoryAddIdentifier({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const directoryReadIdentifierQueryKey = (options: Options<DirectoryReadIdentifierData>) => createQueryKey('directoryReadIdentifier', options);
+
+/**
+ * Decrypts and returns an entity's sensitive identifier of the given type. The decrypt is gated by directory:viewSensitiveIdentifiers and audited (an audit_log row is written before any plaintext is produced); a caller without the permission is refused at the chokepoint, before any decrypt.
+ */
+export const directoryReadIdentifierOptions = (options: Options<DirectoryReadIdentifierData>) => queryOptions<DirectoryReadIdentifierResponse, DirectoryReadIdentifierError, DirectoryReadIdentifierResponse, ReturnType<typeof directoryReadIdentifierQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await directoryReadIdentifier({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: directoryReadIdentifierQueryKey(options)
+});
+
+/**
+ * Creates a directed relationship edge between two directory entities (affiliation, corporate parent/subsidiary/successor, representation, role assignment). Both endpoints must exist.
+ */
+export const directoryCreateEdgeMutation = (options?: Partial<Options<DirectoryCreateEdgeData>>): MutationOptions<DirectoryCreateEdgeResponse, DirectoryCreateEdgeError, Options<DirectoryCreateEdgeData>> => {
+    const mutationOptions: MutationOptions<DirectoryCreateEdgeResponse, DirectoryCreateEdgeError, Options<DirectoryCreateEdgeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await directoryCreateEdge({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Creates a directory category (label) constrained to person, organization, or both entity kinds.
+ */
+export const directoryCreateCategoryMutation = (options?: Partial<Options<DirectoryCreateCategoryData>>): MutationOptions<DirectoryCreateCategoryResponse, DirectoryCreateCategoryError, Options<DirectoryCreateCategoryData>> => {
+    const mutationOptions: MutationOptions<DirectoryCreateCategoryResponse, DirectoryCreateCategoryError, Options<DirectoryCreateCategoryData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await directoryCreateCategory({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Links a directory entity to a category, enforcing the category's applies-to constraint against the entity kind.
+ */
+export const directoryAssignCategoryMutation = (options?: Partial<Options<DirectoryAssignCategoryData>>): MutationOptions<DirectoryAssignCategoryResponse, DirectoryAssignCategoryError, Options<DirectoryAssignCategoryData>> => {
+    const mutationOptions: MutationOptions<DirectoryAssignCategoryResponse, DirectoryAssignCategoryError, Options<DirectoryAssignCategoryData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await directoryAssignCategory({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const directorySearchQueryKey = (options: Options<DirectorySearchData>) => createQueryKey('directorySearch', options);
+
+/**
+ * Fuzzy name search over the directory: a trigram FTS match, tolerant of typos, ordered by relevance. Merged-away entities are excluded.
+ */
+export const directorySearchOptions = (options: Options<DirectorySearchData>) => queryOptions<DirectorySearchResponse2, DirectorySearchError, DirectorySearchResponse2, ReturnType<typeof directorySearchQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await directorySearch({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: directorySearchQueryKey(options)
+});
+
+/**
+ * Returns duplicate candidates for a prospective or existing entity by unioning three blocking channels (phonetic, trigram, and blind-index identifier equality), ranked by how many channels matched. A read-shaped POST (the match facts ride the body) — no write, no decrypt.
+ */
+export const directoryDuplicateCandidatesMutation = (options?: Partial<Options<DirectoryDuplicateCandidatesData>>): MutationOptions<DirectoryDuplicateCandidatesResponse2, DirectoryDuplicateCandidatesError, Options<DirectoryDuplicateCandidatesData>> => {
+    const mutationOptions: MutationOptions<DirectoryDuplicateCandidatesResponse2, DirectoryDuplicateCandidatesError, Options<DirectoryDuplicateCandidatesData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await directoryDuplicateCandidates({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Folds a duplicate (the subordinate) into the surviving record (the master) non-destructively: archives the subordinate, repoints its inbound references, applies field-level survivorship, and records the reversible merge event. merged_by is the authenticated actor.
+ */
+export const directoryMergeMutation = (options?: Partial<Options<DirectoryMergeData>>): MutationOptions<DirectoryMergeResponse2, DirectoryMergeError, Options<DirectoryMergeData>> => {
+    const mutationOptions: MutationOptions<DirectoryMergeResponse2, DirectoryMergeError, Options<DirectoryMergeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await directoryMerge({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Links a directory entity to a matter in a role (client, opposing party, guardian, …). One entity may wear several roles on the same matter — there is no uniqueness on (matter, entity).
+ */
+export const directoryLinkMatterPartyMutation = (options?: Partial<Options<DirectoryLinkMatterPartyData>>): MutationOptions<DirectoryLinkMatterPartyResponse, DirectoryLinkMatterPartyError, Options<DirectoryLinkMatterPartyData>> => {
+    const mutationOptions: MutationOptions<DirectoryLinkMatterPartyResponse, DirectoryLinkMatterPartyError, Options<DirectoryLinkMatterPartyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await directoryLinkMatterParty({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Connects the firm's EasyPost postage account by storing its API key as a firm secret.
+ */
+export const shippingConnectMutation = (options?: Partial<Options<ShippingConnectData>>): MutationOptions<ShippingConnectResponse, ShippingConnectError, Options<ShippingConnectData>> => {
+    const mutationOptions: MutationOptions<ShippingConnectResponse, ShippingConnectError, Options<ShippingConnectData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await shippingConnect({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Creates a draft shipment (recipient, package, options) optionally linked to a matter.
+ */
+export const shippingCreateShipmentMutation = (options?: Partial<Options<ShippingCreateShipmentData>>): MutationOptions<ShippingCreateShipmentResponse, ShippingCreateShipmentError, Options<ShippingCreateShipmentData>> => {
+    const mutationOptions: MutationOptions<ShippingCreateShipmentResponse, ShippingCreateShipmentError, Options<ShippingCreateShipmentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await shippingCreateShipment({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Returns live carrier rates for the draft shipment.
+ */
+export const shippingRateShipmentMutation = (options?: Partial<Options<ShippingRateShipmentData>>): MutationOptions<ShippingRateShipmentResponse, ShippingRateShipmentError, Options<ShippingRateShipmentData>> => {
+    const mutationOptions: MutationOptions<ShippingRateShipmentResponse, ShippingRateShipmentError, Options<ShippingRateShipmentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await shippingRateShipment({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Buys the chosen rate, stores the label PDF, and records postage + service fee.
+ */
+export const shippingPurchaseMutation = (options?: Partial<Options<ShippingPurchaseData>>): MutationOptions<ShippingPurchaseResponse, ShippingPurchaseError, Options<ShippingPurchaseData>> => {
+    const mutationOptions: MutationOptions<ShippingPurchaseResponse, ShippingPurchaseError, Options<ShippingPurchaseData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await shippingPurchase({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const shippingLabelQueryKey = (options: Options<ShippingLabelData>) => createQueryKey('shippingLabel', options);
+
+/**
+ * Streams the shipment's label PDF.
+ */
+export const shippingLabelOptions = (options: Options<ShippingLabelData>) => queryOptions<ShippingLabelResponse, ShippingLabelError, ShippingLabelResponse, ReturnType<typeof shippingLabelQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await shippingLabel({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: shippingLabelQueryKey(options)
+});
+
+/**
+ * Pulls and returns current tracking events.
+ */
+export const shippingTrackingMutation = (options?: Partial<Options<ShippingTrackingData>>): MutationOptions<ShippingTrackingResponse, ShippingTrackingError, Options<ShippingTrackingData>> => {
+    const mutationOptions: MutationOptions<ShippingTrackingResponse, ShippingTrackingError, Options<ShippingTrackingData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await shippingTracking({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Voids/refunds the shipment's label.
+ */
+export const shippingRefundMutation = (options?: Partial<Options<ShippingRefundData>>): MutationOptions<ShippingRefundResponse, ShippingRefundError, Options<ShippingRefundData>> => {
+    const mutationOptions: MutationOptions<ShippingRefundResponse, ShippingRefundError, Options<ShippingRefundData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await shippingRefund({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

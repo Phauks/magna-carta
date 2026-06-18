@@ -484,6 +484,235 @@ export type ZipDownloadRequest = {
     fileIds?: Array<string>;
 };
 
+export type CreatedDirectoryEntityResponse = {
+    id: string;
+};
+
+export type CreateDirectoryPersonRequest = {
+    given: string;
+    family: string;
+    prefix?: string | null;
+    middle?: string | null;
+    suffix?: string | null;
+};
+
+export type DirectoryPersonDetail = {
+    id: string;
+    prefix: string | null;
+    given: string | null;
+    middle: string | null;
+    family: string | null;
+    suffix: string | null;
+    displayName: string | null;
+    status: string;
+    mergedIntoId: string | null;
+};
+
+export type CreateDirectoryOrganizationRequest = {
+    legalName: string;
+    displayName?: string | null;
+};
+
+export type DirectoryOrganizationDetail = {
+    id: string;
+    legalName: string | null;
+    displayName: string | null;
+    status: string;
+    mergedIntoId: string | null;
+};
+
+export type DirectoryAckResponse = {
+    ok: boolean;
+};
+
+export type AddDirectoryNameRequest = {
+    nameRole: 'current' | 'former' | 'alias' | 'aka' | 'maiden' | 'dba';
+    given?: string;
+    family?: string;
+    prefix?: string | null;
+    middle?: string | null;
+    suffix?: string | null;
+    legalName?: string;
+    displayName?: string | null;
+};
+
+export type AddDirectoryIdentifierRequest = {
+    type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four';
+    value: string;
+    validFrom?: string | null;
+    validTo?: string | null;
+};
+
+export type DirectoryIdentifierValueResponse = {
+    value: string | null;
+};
+
+export type CreateDirectoryEdgeRequest = {
+    from: string;
+    to: string;
+    edgeType: 'affiliation' | 'relationship' | 'corporate_parent' | 'corporate_subsidiary' | 'corporate_successor' | 'representation' | 'role_assignment';
+    role?: string | null;
+    note?: string | null;
+    validFrom?: string | null;
+    validTo?: string | null;
+};
+
+export type CreateDirectoryCategoryRequest = {
+    name: string;
+    appliesTo: 'person' | 'organization' | 'both';
+    position?: number;
+};
+
+export type AssignDirectoryCategoryRequest = {
+    entityId: string;
+    categoryId: string;
+};
+
+export type DirectorySearchResponse = {
+    data: Array<DirectorySearchHit>;
+};
+
+export type DirectorySearchHit = {
+    entityId: string;
+    entityKind: string;
+    displayName: string;
+    relevance: number;
+};
+
+export type DirectoryDuplicateCandidatesResponse = {
+    data: Array<DirectoryDuplicateCandidate>;
+};
+
+export type DirectoryDuplicateCandidate = {
+    entityId: string;
+    signalCount: number;
+};
+
+export type DirectoryDuplicateCandidatesRequest = {
+    kind: 'person' | 'organization';
+    given?: string;
+    family?: string;
+    legalName?: string;
+    identifiers?: Array<{
+        type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four';
+        value: string;
+    }>;
+    excludeEntityId?: string;
+};
+
+export type DirectoryMergeResponse = {
+    mergeId: string;
+};
+
+export type DirectoryMergeRequest = {
+    masterId: string;
+    subordinateId: string;
+    survivorship?: {
+        [key: string]: 'subordinate';
+    };
+};
+
+export type MatterPartyResponse = {
+    id: string;
+};
+
+export type LinkMatterPartyRequest = {
+    matterId: string;
+    entityId: string;
+    role: string;
+};
+
+export type ShippingConnectAck = {
+    id: string;
+    status: string;
+};
+
+export type ShippingConnectRequest = {
+    apiKey: string;
+};
+
+export type ShipmentAck = {
+    id: string;
+};
+
+export type CreateShipmentRequest = {
+    matterRef?: string | null;
+    from: {
+        name: string;
+        company?: string | null;
+        street1: string;
+        street2?: string | null;
+        city: string;
+        state: string;
+        zip: string;
+        country: string;
+        phone?: string | null;
+    };
+    to: {
+        name: string;
+        company?: string | null;
+        street1: string;
+        street2?: string | null;
+        city: string;
+        state: string;
+        zip: string;
+        country: string;
+        phone?: string | null;
+    };
+    parcel: {
+        lengthIn?: number;
+        widthIn?: number;
+        heightIn?: number;
+        weightOz: number;
+        predefinedPackage?: string | null;
+    };
+    options?: {
+        certifiedMail?: boolean;
+        returnReceipt?: 'none' | 'electronic' | 'physical';
+        signatureConfirmation?: 'none' | 'signature' | 'adult';
+        insuranceAmountMinor?: number | null;
+    };
+};
+
+export type ShipmentRates = {
+    remoteShipmentId: string;
+    rates: Array<{
+        remoteId: string;
+        carrier: string;
+        service: string;
+        amountMinor: number;
+        currency: string;
+        deliveryDays: number | null;
+        estDeliveryDate: string | null;
+    }>;
+};
+
+export type PurchaseAck = {
+    id: string;
+    trackingCode: string;
+    labelId: string;
+};
+
+export type PurchaseRequest = {
+    remoteShipmentId: string;
+    remoteRateId: string;
+    serviceFeeMinor?: number;
+};
+
+export type TrackingResponse = {
+    events: Array<{
+        status: string;
+        occurredAt: string | null;
+        location: string | null;
+        message: string | null;
+    }>;
+};
+
+export type RefundAck = {
+    id: string;
+    status: string;
+};
+
 export type HealthReadData = {
     body?: never;
     path?: never;
@@ -2622,3 +2851,1018 @@ export type DownloadsZipResponses = {
 };
 
 export type DownloadsZipResponse = DownloadsZipResponses[keyof DownloadsZipResponses];
+
+export type DirectoryCreatePersonData = {
+    body: CreateDirectoryPersonRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/directory/persons';
+};
+
+export type DirectoryCreatePersonErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryCreatePersonError = DirectoryCreatePersonErrors[keyof DirectoryCreatePersonErrors];
+
+export type DirectoryCreatePersonResponses = {
+    /**
+     * The created person
+     */
+    201: CreatedDirectoryEntityResponse;
+};
+
+export type DirectoryCreatePersonResponse = DirectoryCreatePersonResponses[keyof DirectoryCreatePersonResponses];
+
+export type DirectoryGetPersonData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/persons/{id}';
+};
+
+export type DirectoryGetPersonErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryGetPersonError = DirectoryGetPersonErrors[keyof DirectoryGetPersonErrors];
+
+export type DirectoryGetPersonResponses = {
+    /**
+     * The person
+     */
+    200: DirectoryPersonDetail;
+};
+
+export type DirectoryGetPersonResponse = DirectoryGetPersonResponses[keyof DirectoryGetPersonResponses];
+
+export type DirectoryCreateOrganizationData = {
+    body: CreateDirectoryOrganizationRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/directory/organizations';
+};
+
+export type DirectoryCreateOrganizationErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryCreateOrganizationError = DirectoryCreateOrganizationErrors[keyof DirectoryCreateOrganizationErrors];
+
+export type DirectoryCreateOrganizationResponses = {
+    /**
+     * The created organization
+     */
+    201: CreatedDirectoryEntityResponse;
+};
+
+export type DirectoryCreateOrganizationResponse = DirectoryCreateOrganizationResponses[keyof DirectoryCreateOrganizationResponses];
+
+export type DirectoryGetOrganizationData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/organizations/{id}';
+};
+
+export type DirectoryGetOrganizationErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryGetOrganizationError = DirectoryGetOrganizationErrors[keyof DirectoryGetOrganizationErrors];
+
+export type DirectoryGetOrganizationResponses = {
+    /**
+     * The organization
+     */
+    200: DirectoryOrganizationDetail;
+};
+
+export type DirectoryGetOrganizationResponse = DirectoryGetOrganizationResponses[keyof DirectoryGetOrganizationResponses];
+
+export type DirectoryAddNameData = {
+    body: AddDirectoryNameRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/names';
+};
+
+export type DirectoryAddNameErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryAddNameError = DirectoryAddNameErrors[keyof DirectoryAddNameErrors];
+
+export type DirectoryAddNameResponses = {
+    /**
+     * The alias was added
+     */
+    201: DirectoryAckResponse;
+};
+
+export type DirectoryAddNameResponse = DirectoryAddNameResponses[keyof DirectoryAddNameResponses];
+
+export type DirectoryAddIdentifierData = {
+    body: AddDirectoryIdentifierRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/identifiers';
+};
+
+export type DirectoryAddIdentifierErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryAddIdentifierError = DirectoryAddIdentifierErrors[keyof DirectoryAddIdentifierErrors];
+
+export type DirectoryAddIdentifierResponses = {
+    /**
+     * The identifier was sealed and added
+     */
+    201: DirectoryAckResponse;
+};
+
+export type DirectoryAddIdentifierResponse = DirectoryAddIdentifierResponses[keyof DirectoryAddIdentifierResponses];
+
+export type DirectoryReadIdentifierData = {
+    body?: never;
+    path: {
+        id: string;
+        type: 'ssn' | 'ein' | 'dob' | 'account' | 'drivers_license' | 'ssn_last_four';
+    };
+    query?: never;
+    url: '/api/v1/directory/entities/{id}/identifiers/{type}';
+};
+
+export type DirectoryReadIdentifierErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryReadIdentifierError = DirectoryReadIdentifierErrors[keyof DirectoryReadIdentifierErrors];
+
+export type DirectoryReadIdentifierResponses = {
+    /**
+     * The decrypted identifier value (null when the entity holds none of this type)
+     */
+    200: DirectoryIdentifierValueResponse;
+};
+
+export type DirectoryReadIdentifierResponse = DirectoryReadIdentifierResponses[keyof DirectoryReadIdentifierResponses];
+
+export type DirectoryCreateEdgeData = {
+    body: CreateDirectoryEdgeRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/directory/edges';
+};
+
+export type DirectoryCreateEdgeErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryCreateEdgeError = DirectoryCreateEdgeErrors[keyof DirectoryCreateEdgeErrors];
+
+export type DirectoryCreateEdgeResponses = {
+    /**
+     * The created edge
+     */
+    201: CreatedDirectoryEntityResponse;
+};
+
+export type DirectoryCreateEdgeResponse = DirectoryCreateEdgeResponses[keyof DirectoryCreateEdgeResponses];
+
+export type DirectoryCreateCategoryData = {
+    body: CreateDirectoryCategoryRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/directory/categories';
+};
+
+export type DirectoryCreateCategoryErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryCreateCategoryError = DirectoryCreateCategoryErrors[keyof DirectoryCreateCategoryErrors];
+
+export type DirectoryCreateCategoryResponses = {
+    /**
+     * The created category
+     */
+    201: CreatedDirectoryEntityResponse;
+};
+
+export type DirectoryCreateCategoryResponse = DirectoryCreateCategoryResponses[keyof DirectoryCreateCategoryResponses];
+
+export type DirectoryAssignCategoryData = {
+    body: AssignDirectoryCategoryRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/directory/category-assignments';
+};
+
+export type DirectoryAssignCategoryErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryAssignCategoryError = DirectoryAssignCategoryErrors[keyof DirectoryAssignCategoryErrors];
+
+export type DirectoryAssignCategoryResponses = {
+    /**
+     * The category was assigned
+     */
+    201: DirectoryAckResponse;
+};
+
+export type DirectoryAssignCategoryResponse = DirectoryAssignCategoryResponses[keyof DirectoryAssignCategoryResponses];
+
+export type DirectorySearchData = {
+    body?: never;
+    path?: never;
+    query: {
+        q: string;
+    };
+    url: '/api/v1/directory/search';
+};
+
+export type DirectorySearchErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectorySearchError = DirectorySearchErrors[keyof DirectorySearchErrors];
+
+export type DirectorySearchResponses = {
+    /**
+     * The ranked hits
+     */
+    200: DirectorySearchResponse;
+};
+
+export type DirectorySearchResponse2 = DirectorySearchResponses[keyof DirectorySearchResponses];
+
+export type DirectoryDuplicateCandidatesData = {
+    body: DirectoryDuplicateCandidatesRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/directory/duplicate-candidates';
+};
+
+export type DirectoryDuplicateCandidatesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryDuplicateCandidatesError = DirectoryDuplicateCandidatesErrors[keyof DirectoryDuplicateCandidatesErrors];
+
+export type DirectoryDuplicateCandidatesResponses = {
+    /**
+     * The ranked candidates
+     */
+    200: DirectoryDuplicateCandidatesResponse;
+};
+
+export type DirectoryDuplicateCandidatesResponse2 = DirectoryDuplicateCandidatesResponses[keyof DirectoryDuplicateCandidatesResponses];
+
+export type DirectoryMergeData = {
+    body: DirectoryMergeRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/directory/merges';
+};
+
+export type DirectoryMergeErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryMergeError = DirectoryMergeErrors[keyof DirectoryMergeErrors];
+
+export type DirectoryMergeResponses = {
+    /**
+     * The recorded merge
+     */
+    201: DirectoryMergeResponse;
+};
+
+export type DirectoryMergeResponse2 = DirectoryMergeResponses[keyof DirectoryMergeResponses];
+
+export type DirectoryLinkMatterPartyData = {
+    body: LinkMatterPartyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/directory/matter-parties';
+};
+
+export type DirectoryLinkMatterPartyErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entity is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or a merge conflict
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DirectoryLinkMatterPartyError = DirectoryLinkMatterPartyErrors[keyof DirectoryLinkMatterPartyErrors];
+
+export type DirectoryLinkMatterPartyResponses = {
+    /**
+     * The matter-party link
+     */
+    201: MatterPartyResponse;
+};
+
+export type DirectoryLinkMatterPartyResponse = DirectoryLinkMatterPartyResponses[keyof DirectoryLinkMatterPartyResponses];
+
+export type ShippingConnectData = {
+    body: ShippingConnectRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/integrations/shipping/connection';
+};
+
+export type ShippingConnectErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks shipping:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the shipment is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the postage account is not connected
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ShippingConnectError = ShippingConnectErrors[keyof ShippingConnectErrors];
+
+export type ShippingConnectResponses = {
+    /**
+     * Connected
+     */
+    201: ShippingConnectAck;
+};
+
+export type ShippingConnectResponse = ShippingConnectResponses[keyof ShippingConnectResponses];
+
+export type ShippingCreateShipmentData = {
+    body: CreateShipmentRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/shipments';
+};
+
+export type ShippingCreateShipmentErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks shipping:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the shipment is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the postage account is not connected
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ShippingCreateShipmentError = ShippingCreateShipmentErrors[keyof ShippingCreateShipmentErrors];
+
+export type ShippingCreateShipmentResponses = {
+    /**
+     * Draft created
+     */
+    201: ShipmentAck;
+};
+
+export type ShippingCreateShipmentResponse = ShippingCreateShipmentResponses[keyof ShippingCreateShipmentResponses];
+
+export type ShippingRateShipmentData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/shipments/{id}/rates';
+};
+
+export type ShippingRateShipmentErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks shipping:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the shipment is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the postage account is not connected
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The postage provider rejected the request or is unavailable
+     */
+    502: Problem;
+};
+
+export type ShippingRateShipmentError = ShippingRateShipmentErrors[keyof ShippingRateShipmentErrors];
+
+export type ShippingRateShipmentResponses = {
+    /**
+     * Rates
+     */
+    200: ShipmentRates;
+};
+
+export type ShippingRateShipmentResponse = ShippingRateShipmentResponses[keyof ShippingRateShipmentResponses];
+
+export type ShippingPurchaseData = {
+    body: PurchaseRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/shipments/{id}/purchase';
+};
+
+export type ShippingPurchaseErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks shipping:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the shipment is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the postage account is not connected
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The postage provider rejected the request or is unavailable
+     */
+    502: Problem;
+};
+
+export type ShippingPurchaseError = ShippingPurchaseErrors[keyof ShippingPurchaseErrors];
+
+export type ShippingPurchaseResponses = {
+    /**
+     * Purchased
+     */
+    200: PurchaseAck;
+};
+
+export type ShippingPurchaseResponse = ShippingPurchaseResponses[keyof ShippingPurchaseResponses];
+
+export type ShippingLabelData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/shipments/{id}/label';
+};
+
+export type ShippingLabelErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks shipping:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the shipment is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ShippingLabelError = ShippingLabelErrors[keyof ShippingLabelErrors];
+
+export type ShippingLabelResponses = {
+    /**
+     * Label PDF
+     */
+    200: Blob | File;
+};
+
+export type ShippingLabelResponse = ShippingLabelResponses[keyof ShippingLabelResponses];
+
+export type ShippingTrackingData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/shipments/{id}/tracking';
+};
+
+export type ShippingTrackingErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks shipping:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the shipment is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the postage account is not connected
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The postage provider rejected the request or is unavailable
+     */
+    502: Problem;
+};
+
+export type ShippingTrackingError = ShippingTrackingErrors[keyof ShippingTrackingErrors];
+
+export type ShippingTrackingResponses = {
+    /**
+     * Tracking events
+     */
+    200: TrackingResponse;
+};
+
+export type ShippingTrackingResponse = ShippingTrackingResponses[keyof ShippingTrackingResponses];
+
+export type ShippingRefundData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/shipments/{id}/refund';
+};
+
+export type ShippingRefundErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks shipping:manage
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the shipment is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, or the postage account is not connected
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The postage provider rejected the request or is unavailable
+     */
+    502: Problem;
+};
+
+export type ShippingRefundError = ShippingRefundErrors[keyof ShippingRefundErrors];
+
+export type ShippingRefundResponses = {
+    /**
+     * Refund submitted
+     */
+    200: RefundAck;
+};
+
+export type ShippingRefundResponse = ShippingRefundResponses[keyof ShippingRefundResponses];

@@ -6,7 +6,11 @@ import memberRbacSql from "@magna-carta/database/drizzle/per-firm/0002_member-rb
 import incidentIntakeSql from "@magna-carta/database/drizzle/per-firm/0003_incident-intake.sql";
 import mattersLocationsFileManagerSql from "@magna-carta/database/drizzle/per-firm/0004_matters-locations-file-manager.sql";
 import listKeysetIndexesSql from "@magna-carta/database/drizzle/per-firm/0005_list-keyset-indexes.sql";
-import seedToolsFirmUsageSql from "@magna-carta/database/drizzle/per-firm/0006_seed-tools-firm-usage.sql";
+import protectedSecretsSql from "@magna-carta/database/drizzle/per-firm/0006_protected-secrets-and-incident-ciphertext.sql";
+import incidentDescriptionNullableSql from "@magna-carta/database/drizzle/per-firm/0007_incident-description-nullable.sql";
+import shippingTablesSql from "@magna-carta/database/drizzle/per-firm/0008_elite_genesis.sql";
+import directorySql from "@magna-carta/database/drizzle/per-firm/0009_directory.sql";
+import seedToolsFirmUsageSql from "@magna-carta/database/drizzle/per-firm/0010_seed-tools-firm-usage.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the firm
 // provisioner migrates a freshly created firm database to head at provisioning time, so the SQL
@@ -22,7 +26,11 @@ export function perFirmMigrations(): Migration[] {
     "0003_incident-intake": incidentIntakeSql,
     "0004_matters-locations-file-manager": mattersLocationsFileManagerSql,
     "0005_list-keyset-indexes": listKeysetIndexesSql,
-    "0006_seed-tools-firm-usage": seedToolsFirmUsageSql,
+    "0006_protected-secrets-and-incident-ciphertext": protectedSecretsSql,
+    "0007_incident-description-nullable": incidentDescriptionNullableSql,
+    "0008_elite_genesis": shippingTablesSql,
+    "0009_directory": directorySql,
+    "0010_seed-tools-firm-usage": seedToolsFirmUsageSql,
   });
 }
 

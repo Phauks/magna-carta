@@ -13,6 +13,23 @@ import {
   practiceHotPathPlans,
   PRACTICE_PLAN_SCAN_ALLOWLIST,
 } from "../src/load-profile/matters-measurements.ts";
+import {
+  protectedHotPathPlans,
+  protectedMeasurementHandle,
+  protectedMeasurements,
+  PROTECTED_PLAN_SCAN_ALLOWLIST,
+} from "../src/load-profile/protected-measurements.ts";
+import {
+  directoryHotPathPlans,
+  directoryMeasurementHandle,
+  directoryMeasurements,
+  DIRECTORY_PLAN_SCAN_ALLOWLIST,
+} from "../src/load-profile/directory-measurements.ts";
+import {
+  shippingHotPathPlans,
+  shippingMeasurements,
+  SHIPPING_PLAN_SCAN_ALLOWLIST,
+} from "../src/load-profile/shipping-measurements.ts";
 import { ledgerVolume, scaleProfile } from "../src/load-profile/profile.ts";
 import { findFullScans, findTempBtreeSorts, runMeasurements } from "../src/load-profile/runner.ts";
 import { loadProfileSnapshot, type LoadedSnapshot } from "../src/load-profile/snapshot.ts";
@@ -52,10 +69,14 @@ describe("load-profile smoke", () => {
     );
     const handle = measurementHandle(snapshot, "smoke-seed");
 
-    const results = await runMeasurements(handle, [...ledgerMeasurements, ...mattersMeasurements], {
-      warmupIterations: 1,
-      iterations: 2,
-    });
+    const results = await runMeasurements(
+      handle,
+      [...ledgerMeasurements, ...mattersMeasurements, ...shippingMeasurements],
+      {
+        warmupIterations: 1,
+        iterations: 2,
+      },
+    );
     expect(results.map((result) => result.name).sort()).toEqual(
       [
         "balance-read.busy-subledger",
@@ -74,9 +95,54 @@ describe("load-profile smoke", () => {
         "zip-resolution.folders-by-matter",
         "storage-meter.summary",
         "matter-number.counter-draw",
+        "list-shipments.by-matter",
+        "list-tracking-events.by-shipment",
       ].sort(),
     );
     for (const result of results) {
+      expect(result.iterations).toBe(2);
+      expect(result.minMs).toBeGreaterThanOrEqual(0);
+    }
+
+    // The protected() chokepoint set runs under its own (async) handle — the seed-derived firm key
+    // and owner permissions. Decrypts the cached sealed values, so a key-derivation regression would
+    // fail here, not silently.
+    const protectedHandle = await protectedMeasurementHandle(snapshot, "smoke-seed");
+    expect(protectedHandle.incidentCiphertexts.length).toBeGreaterThan(0);
+    const protectedResults = await runMeasurements(protectedHandle, protectedMeasurements, {
+      warmupIterations: 1,
+      iterations: 2,
+    });
+    expect(protectedResults.map((result) => result.name).sort()).toEqual(
+      [
+        "protected.incident-decrypt-page",
+        "protected.firm-secret-read",
+        "protected.blind-index-compute",
+      ].sort(),
+    );
+    for (const result of protectedResults) {
+      expect(result.iterations).toBe(2);
+      expect(result.minMs).toBeGreaterThanOrEqual(0);
+    }
+
+    // The directory measured set runs under its own (async) handle — the seed-derived firm key and
+    // viewSensitiveIdentifiers permission. Decrypts the cached sealed SSN ciphertexts on the
+    // read-protected-list op, so a key-derivation regression would surface here.
+    const directoryHandle = await directoryMeasurementHandle(snapshot, "smoke-seed");
+    expect(directoryHandle.sampleEntityCiphertexts.length).toBeGreaterThan(0);
+    const directoryResults = await runMeasurements(directoryHandle, directoryMeasurements, {
+      warmupIterations: 1,
+      iterations: 2,
+    });
+    expect(directoryResults.map((result) => result.name).sort()).toEqual(
+      [
+        "directory.find-by-identifier",
+        "directory.read-protected-list",
+        "directory.candidate-generation",
+        "directory.graph-expansion",
+      ].sort(),
+    );
+    for (const result of directoryResults) {
       expect(result.iterations).toBe(2);
       expect(result.minMs).toBeGreaterThanOrEqual(0);
     }
@@ -109,6 +175,13 @@ describe("load-profile smoke", () => {
     const practiceScans = findFullScans(practicePlans, PRACTICE_PLAN_SCAN_ALLOWLIST);
     expect(practiceScans).toEqual([]);
 
+    // The shipping hot-path plans: same label-set-first guard, then the scan check.
+    const shippingPlans = shippingHotPathPlans(snapshot);
+    expect(shippingPlans.map((plan) => plan.label).sort()).toEqual(
+      ["list-shipments.by-matter", "list-tracking-events.by-shipment"].sort(),
+    );
+    expect(findFullScans(shippingPlans, SHIPPING_PLAN_SCAN_ALLOWLIST)).toEqual([]);
+
     // The keyset-paginated list hot paths must satisfy their (created_at, id) ORDER BY from a
     // covering index — never a materialize-and-sort temporary B-tree, which defeats keyset
     // pagination at volume. A dropped or reordered covering index regresses the sort and fails here.
@@ -123,6 +196,23 @@ describe("load-profile smoke", () => {
     const sortedListPlans = practicePlans.filter((plan) => sortedListLabels.includes(plan.label));
     expect(sortedListPlans.map((plan) => plan.label).sort()).toEqual([...sortedListLabels].sort());
     expect(findTempBtreeSorts(sortedListPlans)).toEqual([]);
+
+    // The protected keyed-read hot paths: same label-set-first guard, then the scan check. Both the
+    // firm-secret name lookup and the by-id incident fetch must walk an index / the primary key.
+    const protectedPlans = protectedHotPathPlans(snapshot);
+    expect(protectedPlans.map((plan) => plan.label).sort()).toEqual(
+      ["firm-secret.read-by-name", "incident.read-by-id"].sort(),
+    );
+    expect(findFullScans(protectedPlans, PROTECTED_PLAN_SCAN_ALLOWLIST)).toEqual([]);
+
+    // The directory hot-path plans: same label-set-first guard, then the scan check. The
+    // blind-index equality probe walks the (identifier_type, value_blind_index) index; the
+    // related-party graph expansion walks the from/to entity-id indexes.
+    const directoryPlans = directoryHotPathPlans(snapshot);
+    expect(directoryPlans.map((plan) => plan.label).sort()).toEqual(
+      ["directory.find-by-identifier", "directory.graph-expansion"].sort(),
+    );
+    expect(findFullScans(directoryPlans, DIRECTORY_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
     snapshot.close();
   });

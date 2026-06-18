@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { DocumentTypesCreateData, DocumentTypesCreateErrors, DocumentTypesCreateResponses, DocumentTypesDeactivateData, DocumentTypesDeactivateErrors, DocumentTypesDeactivateResponses, DocumentTypesListData, DocumentTypesListErrors, DocumentTypesListResponses, DocumentTypesUpdateData, DocumentTypesUpdateErrors, DocumentTypesUpdateResponses, DownloadsZipData, DownloadsZipErrors, DownloadsZipResponses, FilesDeleteData, FilesDeleteErrors, FilesDeleteResponses, FilesDownloadData, FilesDownloadErrors, FilesGetData, FilesGetErrors, FilesGetResponses, FilesListData, FilesListErrors, FilesListResponses, FilesUpdateData, FilesUpdateErrors, FilesUpdateResponses, FilesVersionsData, FilesVersionsErrors, FilesVersionsResponses, FirmsProvisionData, FirmsProvisionErrors, FirmsProvisionResponses, FirmUsageGetData, FirmUsageGetErrors, FirmUsageGetResponses, FoldersCreateData, FoldersCreateErrors, FoldersCreateResponses, FoldersDeleteData, FoldersDeleteErrors, FoldersDeleteResponses, FoldersUpdateData, FoldersUpdateErrors, FoldersUpdateResponses, HealthReadData, HealthReadErrors, HealthReadResponses, IncidentsReportData, IncidentsReportErrors, IncidentsReportResponses, LocationsAssignMemberData, LocationsAssignMemberErrors, LocationsAssignMemberResponses, LocationsCloseData, LocationsCloseErrors, LocationsCloseResponses, LocationsCreateData, LocationsCreateErrors, LocationsCreateResponses, LocationsGetData, LocationsGetErrors, LocationsGetResponses, LocationsListData, LocationsListErrors, LocationsListResponses, LocationsSetAddressesData, LocationsSetAddressesErrors, LocationsSetAddressesResponses, LocationsUpdateData, LocationsUpdateErrors, LocationsUpdateResponses, MattersCloseData, MattersCloseErrors, MattersCloseResponses, MattersCreateData, MattersCreateErrors, MattersCreateResponses, MattersGetData, MattersGetErrors, MattersGetResponses, MattersListConsultationsData, MattersListConsultationsErrors, MattersListConsultationsResponses, MattersListData, MattersListErrors, MattersListResponses, MattersOpenData, MattersOpenErrors, MattersOpenResponses, MattersRenumberData, MattersRenumberErrors, MattersRenumberResponses, MattersReopenData, MattersReopenErrors, MattersReopenResponses, MattersUpdateData, MattersUpdateErrors, MattersUpdateResponses, MatterTypesCreateData, MatterTypesCreateErrors, MatterTypesCreateResponses, MatterTypesDeactivateData, MatterTypesDeactivateErrors, MatterTypesDeactivateResponses, MatterTypesListData, MatterTypesListErrors, MatterTypesListResponses, MatterTypesUpdateData, MatterTypesUpdateErrors, MatterTypesUpdateResponses, MeGetData, MeGetErrors, MeGetResponses, MembersInviteData, MembersInviteErrors, MembersInviteResponses, NumberingGetData, NumberingGetErrors, NumberingGetResponses, NumberingPreviewData, NumberingPreviewErrors, NumberingPreviewResponses, NumberingSetData, NumberingSetErrors, NumberingSetResponses, UploadsAbortData, UploadsAbortErrors, UploadsAbortResponses, UploadsCompleteData, UploadsCompleteErrors, UploadsCompleteResponses, UploadsInitiateData, UploadsInitiateErrors, UploadsInitiateResponses, UploadsSignPartData, UploadsSignPartErrors, UploadsSignPartResponses } from './types.gen';
+import type { DirectoryAddIdentifierData, DirectoryAddIdentifierErrors, DirectoryAddIdentifierResponses, DirectoryAddNameData, DirectoryAddNameErrors, DirectoryAddNameResponses, DirectoryAssignCategoryData, DirectoryAssignCategoryErrors, DirectoryAssignCategoryResponses, DirectoryCreateCategoryData, DirectoryCreateCategoryErrors, DirectoryCreateCategoryResponses, DirectoryCreateEdgeData, DirectoryCreateEdgeErrors, DirectoryCreateEdgeResponses, DirectoryCreateOrganizationData, DirectoryCreateOrganizationErrors, DirectoryCreateOrganizationResponses, DirectoryCreatePersonData, DirectoryCreatePersonErrors, DirectoryCreatePersonResponses, DirectoryDuplicateCandidatesData, DirectoryDuplicateCandidatesErrors, DirectoryDuplicateCandidatesResponses, DirectoryGetOrganizationData, DirectoryGetOrganizationErrors, DirectoryGetOrganizationResponses, DirectoryGetPersonData, DirectoryGetPersonErrors, DirectoryGetPersonResponses, DirectoryLinkMatterPartyData, DirectoryLinkMatterPartyErrors, DirectoryLinkMatterPartyResponses, DirectoryMergeData, DirectoryMergeErrors, DirectoryMergeResponses, DirectoryReadIdentifierData, DirectoryReadIdentifierErrors, DirectoryReadIdentifierResponses, DirectorySearchData, DirectorySearchErrors, DirectorySearchResponses, DocumentTypesCreateData, DocumentTypesCreateErrors, DocumentTypesCreateResponses, DocumentTypesDeactivateData, DocumentTypesDeactivateErrors, DocumentTypesDeactivateResponses, DocumentTypesListData, DocumentTypesListErrors, DocumentTypesListResponses, DocumentTypesUpdateData, DocumentTypesUpdateErrors, DocumentTypesUpdateResponses, DownloadsZipData, DownloadsZipErrors, DownloadsZipResponses, FilesDeleteData, FilesDeleteErrors, FilesDeleteResponses, FilesDownloadData, FilesDownloadErrors, FilesGetData, FilesGetErrors, FilesGetResponses, FilesListData, FilesListErrors, FilesListResponses, FilesUpdateData, FilesUpdateErrors, FilesUpdateResponses, FilesVersionsData, FilesVersionsErrors, FilesVersionsResponses, FirmsProvisionData, FirmsProvisionErrors, FirmsProvisionResponses, FirmUsageGetData, FirmUsageGetErrors, FirmUsageGetResponses, FoldersCreateData, FoldersCreateErrors, FoldersCreateResponses, FoldersDeleteData, FoldersDeleteErrors, FoldersDeleteResponses, FoldersUpdateData, FoldersUpdateErrors, FoldersUpdateResponses, HealthReadData, HealthReadErrors, HealthReadResponses, IncidentsReportData, IncidentsReportErrors, IncidentsReportResponses, LocationsAssignMemberData, LocationsAssignMemberErrors, LocationsAssignMemberResponses, LocationsCloseData, LocationsCloseErrors, LocationsCloseResponses, LocationsCreateData, LocationsCreateErrors, LocationsCreateResponses, LocationsGetData, LocationsGetErrors, LocationsGetResponses, LocationsListData, LocationsListErrors, LocationsListResponses, LocationsSetAddressesData, LocationsSetAddressesErrors, LocationsSetAddressesResponses, LocationsUpdateData, LocationsUpdateErrors, LocationsUpdateResponses, MattersCloseData, MattersCloseErrors, MattersCloseResponses, MattersCreateData, MattersCreateErrors, MattersCreateResponses, MattersGetData, MattersGetErrors, MattersGetResponses, MattersListConsultationsData, MattersListConsultationsErrors, MattersListConsultationsResponses, MattersListData, MattersListErrors, MattersListResponses, MattersOpenData, MattersOpenErrors, MattersOpenResponses, MattersRenumberData, MattersRenumberErrors, MattersRenumberResponses, MattersReopenData, MattersReopenErrors, MattersReopenResponses, MattersUpdateData, MattersUpdateErrors, MattersUpdateResponses, MatterTypesCreateData, MatterTypesCreateErrors, MatterTypesCreateResponses, MatterTypesDeactivateData, MatterTypesDeactivateErrors, MatterTypesDeactivateResponses, MatterTypesListData, MatterTypesListErrors, MatterTypesListResponses, MatterTypesUpdateData, MatterTypesUpdateErrors, MatterTypesUpdateResponses, MeGetData, MeGetErrors, MeGetResponses, MembersInviteData, MembersInviteErrors, MembersInviteResponses, NumberingGetData, NumberingGetErrors, NumberingGetResponses, NumberingPreviewData, NumberingPreviewErrors, NumberingPreviewResponses, NumberingSetData, NumberingSetErrors, NumberingSetResponses, ShippingConnectData, ShippingConnectErrors, ShippingConnectResponses, ShippingCreateShipmentData, ShippingCreateShipmentErrors, ShippingCreateShipmentResponses, ShippingLabelData, ShippingLabelErrors, ShippingLabelResponses, ShippingPurchaseData, ShippingPurchaseErrors, ShippingPurchaseResponses, ShippingRateShipmentData, ShippingRateShipmentErrors, ShippingRateShipmentResponses, ShippingRefundData, ShippingRefundErrors, ShippingRefundResponses, ShippingTrackingData, ShippingTrackingErrors, ShippingTrackingResponses, UploadsAbortData, UploadsAbortErrors, UploadsAbortResponses, UploadsCompleteData, UploadsCompleteErrors, UploadsCompleteResponses, UploadsInitiateData, UploadsInitiateErrors, UploadsInitiateResponses, UploadsSignPartData, UploadsSignPartErrors, UploadsSignPartResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -406,3 +406,199 @@ export const downloadsZip = <ThrowOnError extends boolean = false>(options: Opti
         ...options.headers
     }
 });
+
+/**
+ * Creates a directory person from its structured name parts, seeding the current-name history row and its phonetic blocking codes.
+ */
+export const directoryCreatePerson = <ThrowOnError extends boolean = false>(options: Options<DirectoryCreatePersonData, ThrowOnError>): RequestResult<DirectoryCreatePersonResponses, DirectoryCreatePersonErrors, ThrowOnError> => (options.client ?? client).post<DirectoryCreatePersonResponses, DirectoryCreatePersonErrors, ThrowOnError>({
+    url: '/api/v1/directory/persons',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Returns one directory person's detail.
+ */
+export const directoryGetPerson = <ThrowOnError extends boolean = false>(options: Options<DirectoryGetPersonData, ThrowOnError>): RequestResult<DirectoryGetPersonResponses, DirectoryGetPersonErrors, ThrowOnError> => (options.client ?? client).get<DirectoryGetPersonResponses, DirectoryGetPersonErrors, ThrowOnError>({ url: '/api/v1/directory/persons/{id}', ...options });
+
+/**
+ * Creates a directory organization from its legal name, seeding the current-name history row and its phonetic blocking codes.
+ */
+export const directoryCreateOrganization = <ThrowOnError extends boolean = false>(options: Options<DirectoryCreateOrganizationData, ThrowOnError>): RequestResult<DirectoryCreateOrganizationResponses, DirectoryCreateOrganizationErrors, ThrowOnError> => (options.client ?? client).post<DirectoryCreateOrganizationResponses, DirectoryCreateOrganizationErrors, ThrowOnError>({
+    url: '/api/v1/directory/organizations',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Returns one directory organization's detail.
+ */
+export const directoryGetOrganization = <ThrowOnError extends boolean = false>(options: Options<DirectoryGetOrganizationData, ThrowOnError>): RequestResult<DirectoryGetOrganizationResponses, DirectoryGetOrganizationErrors, ThrowOnError> => (options.client ?? client).get<DirectoryGetOrganizationResponses, DirectoryGetOrganizationErrors, ThrowOnError>({ url: '/api/v1/directory/organizations/{id}', ...options });
+
+/**
+ * Appends a non-current alias (alias/aka/maiden/dba/former) to an entity without touching its current name. The entity kind is resolved from the id; supply the person OR organization name fields accordingly.
+ */
+export const directoryAddName = <ThrowOnError extends boolean = false>(options: Options<DirectoryAddNameData, ThrowOnError>): RequestResult<DirectoryAddNameResponses, DirectoryAddNameErrors, ThrowOnError> => (options.client ?? client).post<DirectoryAddNameResponses, DirectoryAddNameErrors, ThrowOnError>({
+    url: '/api/v1/directory/entities/{id}/names',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Seals a typed sensitive identifier (SSN/EIN/DL/account/DOB/SSN-last-four) for an entity under the firm key — only the ciphertext (and, where the type is standalone-indexable, the exact-match blind index) is stored, never the plaintext. Adding a value needs no decrypt permission; reading it back does.
+ */
+export const directoryAddIdentifier = <ThrowOnError extends boolean = false>(options: Options<DirectoryAddIdentifierData, ThrowOnError>): RequestResult<DirectoryAddIdentifierResponses, DirectoryAddIdentifierErrors, ThrowOnError> => (options.client ?? client).post<DirectoryAddIdentifierResponses, DirectoryAddIdentifierErrors, ThrowOnError>({
+    url: '/api/v1/directory/entities/{id}/identifiers',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Decrypts and returns an entity's sensitive identifier of the given type. The decrypt is gated by directory:viewSensitiveIdentifiers and audited (an audit_log row is written before any plaintext is produced); a caller without the permission is refused at the chokepoint, before any decrypt.
+ */
+export const directoryReadIdentifier = <ThrowOnError extends boolean = false>(options: Options<DirectoryReadIdentifierData, ThrowOnError>): RequestResult<DirectoryReadIdentifierResponses, DirectoryReadIdentifierErrors, ThrowOnError> => (options.client ?? client).get<DirectoryReadIdentifierResponses, DirectoryReadIdentifierErrors, ThrowOnError>({ url: '/api/v1/directory/entities/{id}/identifiers/{type}', ...options });
+
+/**
+ * Creates a directed relationship edge between two directory entities (affiliation, corporate parent/subsidiary/successor, representation, role assignment). Both endpoints must exist.
+ */
+export const directoryCreateEdge = <ThrowOnError extends boolean = false>(options: Options<DirectoryCreateEdgeData, ThrowOnError>): RequestResult<DirectoryCreateEdgeResponses, DirectoryCreateEdgeErrors, ThrowOnError> => (options.client ?? client).post<DirectoryCreateEdgeResponses, DirectoryCreateEdgeErrors, ThrowOnError>({
+    url: '/api/v1/directory/edges',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Creates a directory category (label) constrained to person, organization, or both entity kinds.
+ */
+export const directoryCreateCategory = <ThrowOnError extends boolean = false>(options: Options<DirectoryCreateCategoryData, ThrowOnError>): RequestResult<DirectoryCreateCategoryResponses, DirectoryCreateCategoryErrors, ThrowOnError> => (options.client ?? client).post<DirectoryCreateCategoryResponses, DirectoryCreateCategoryErrors, ThrowOnError>({
+    url: '/api/v1/directory/categories',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Links a directory entity to a category, enforcing the category's applies-to constraint against the entity kind.
+ */
+export const directoryAssignCategory = <ThrowOnError extends boolean = false>(options: Options<DirectoryAssignCategoryData, ThrowOnError>): RequestResult<DirectoryAssignCategoryResponses, DirectoryAssignCategoryErrors, ThrowOnError> => (options.client ?? client).post<DirectoryAssignCategoryResponses, DirectoryAssignCategoryErrors, ThrowOnError>({
+    url: '/api/v1/directory/category-assignments',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Fuzzy name search over the directory: a trigram FTS match, tolerant of typos, ordered by relevance. Merged-away entities are excluded.
+ */
+export const directorySearch = <ThrowOnError extends boolean = false>(options: Options<DirectorySearchData, ThrowOnError>): RequestResult<DirectorySearchResponses, DirectorySearchErrors, ThrowOnError> => (options.client ?? client).get<DirectorySearchResponses, DirectorySearchErrors, ThrowOnError>({ url: '/api/v1/directory/search', ...options });
+
+/**
+ * Returns duplicate candidates for a prospective or existing entity by unioning three blocking channels (phonetic, trigram, and blind-index identifier equality), ranked by how many channels matched. A read-shaped POST (the match facts ride the body) — no write, no decrypt.
+ */
+export const directoryDuplicateCandidates = <ThrowOnError extends boolean = false>(options: Options<DirectoryDuplicateCandidatesData, ThrowOnError>): RequestResult<DirectoryDuplicateCandidatesResponses, DirectoryDuplicateCandidatesErrors, ThrowOnError> => (options.client ?? client).post<DirectoryDuplicateCandidatesResponses, DirectoryDuplicateCandidatesErrors, ThrowOnError>({
+    url: '/api/v1/directory/duplicate-candidates',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Folds a duplicate (the subordinate) into the surviving record (the master) non-destructively: archives the subordinate, repoints its inbound references, applies field-level survivorship, and records the reversible merge event. merged_by is the authenticated actor.
+ */
+export const directoryMerge = <ThrowOnError extends boolean = false>(options: Options<DirectoryMergeData, ThrowOnError>): RequestResult<DirectoryMergeResponses, DirectoryMergeErrors, ThrowOnError> => (options.client ?? client).post<DirectoryMergeResponses, DirectoryMergeErrors, ThrowOnError>({
+    url: '/api/v1/directory/merges',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Links a directory entity to a matter in a role (client, opposing party, guardian, …). One entity may wear several roles on the same matter — there is no uniqueness on (matter, entity).
+ */
+export const directoryLinkMatterParty = <ThrowOnError extends boolean = false>(options: Options<DirectoryLinkMatterPartyData, ThrowOnError>): RequestResult<DirectoryLinkMatterPartyResponses, DirectoryLinkMatterPartyErrors, ThrowOnError> => (options.client ?? client).post<DirectoryLinkMatterPartyResponses, DirectoryLinkMatterPartyErrors, ThrowOnError>({
+    url: '/api/v1/directory/matter-parties',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Connects the firm's EasyPost postage account by storing its API key as a firm secret.
+ */
+export const shippingConnect = <ThrowOnError extends boolean = false>(options: Options<ShippingConnectData, ThrowOnError>): RequestResult<ShippingConnectResponses, ShippingConnectErrors, ThrowOnError> => (options.client ?? client).post<ShippingConnectResponses, ShippingConnectErrors, ThrowOnError>({
+    url: '/api/v1/integrations/shipping/connection',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Creates a draft shipment (recipient, package, options) optionally linked to a matter.
+ */
+export const shippingCreateShipment = <ThrowOnError extends boolean = false>(options: Options<ShippingCreateShipmentData, ThrowOnError>): RequestResult<ShippingCreateShipmentResponses, ShippingCreateShipmentErrors, ThrowOnError> => (options.client ?? client).post<ShippingCreateShipmentResponses, ShippingCreateShipmentErrors, ThrowOnError>({
+    url: '/api/v1/shipments',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Returns live carrier rates for the draft shipment.
+ */
+export const shippingRateShipment = <ThrowOnError extends boolean = false>(options: Options<ShippingRateShipmentData, ThrowOnError>): RequestResult<ShippingRateShipmentResponses, ShippingRateShipmentErrors, ThrowOnError> => (options.client ?? client).post<ShippingRateShipmentResponses, ShippingRateShipmentErrors, ThrowOnError>({ url: '/api/v1/shipments/{id}/rates', ...options });
+
+/**
+ * Buys the chosen rate, stores the label PDF, and records postage + service fee.
+ */
+export const shippingPurchase = <ThrowOnError extends boolean = false>(options: Options<ShippingPurchaseData, ThrowOnError>): RequestResult<ShippingPurchaseResponses, ShippingPurchaseErrors, ThrowOnError> => (options.client ?? client).post<ShippingPurchaseResponses, ShippingPurchaseErrors, ThrowOnError>({
+    url: '/api/v1/shipments/{id}/purchase',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Streams the shipment's label PDF.
+ */
+export const shippingLabel = <ThrowOnError extends boolean = false>(options: Options<ShippingLabelData, ThrowOnError>): RequestResult<ShippingLabelResponses, ShippingLabelErrors, ThrowOnError> => (options.client ?? client).get<ShippingLabelResponses, ShippingLabelErrors, ThrowOnError>({ url: '/api/v1/shipments/{id}/label', ...options });
+
+/**
+ * Pulls and returns current tracking events.
+ */
+export const shippingTracking = <ThrowOnError extends boolean = false>(options: Options<ShippingTrackingData, ThrowOnError>): RequestResult<ShippingTrackingResponses, ShippingTrackingErrors, ThrowOnError> => (options.client ?? client).post<ShippingTrackingResponses, ShippingTrackingErrors, ThrowOnError>({ url: '/api/v1/shipments/{id}/tracking', ...options });
+
+/**
+ * Voids/refunds the shipment's label.
+ */
+export const shippingRefund = <ThrowOnError extends boolean = false>(options: Options<ShippingRefundData, ThrowOnError>): RequestResult<ShippingRefundResponses, ShippingRefundErrors, ThrowOnError> => (options.client ?? client).post<ShippingRefundResponses, ShippingRefundErrors, ThrowOnError>({ url: '/api/v1/shipments/{id}/refund', ...options });

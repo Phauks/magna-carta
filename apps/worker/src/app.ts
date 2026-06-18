@@ -13,6 +13,7 @@ import { defaultHook } from "./contracts/problem.ts";
 import { registerHealthRoute } from "./routes/health.ts";
 import { createCloudflareEmailAdapter, type CloudflareEmailBinding } from "./email-cloudflare.ts";
 import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
+import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerDownloadsRoutes } from "./routes/downloads.ts";
 import { registerFilesRoutes } from "./routes/files.ts";
@@ -20,6 +21,10 @@ import { registerFirmsRoute } from "./routes/firms.ts";
 import { registerFoldersRoutes } from "./routes/folders.ts";
 import { registerIncidentsRoute } from "./routes/incidents.ts";
 import { registerLocationsRoutes } from "./routes/locations.ts";
+import { workerPlugins } from "./plugins/registry.ts";
+import type { PluginRuntime } from "./plugins/runtime.ts";
+import { fetchHttpClient } from "@magna-carta/shipping/easypost/http";
+import { firmSecretStoreNotYetAvailable } from "./shipping/secret-store.ts";
 import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
 import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
@@ -47,6 +52,10 @@ export type Bindings = {
   // stand-in seam until a real platform-admin principal model exists). Local dev + tests load the
   // placeholder from .dev.vars; production sets it with `wrangler secret put PLATFORM_ADMIN_KEY`.
   PLATFORM_ADMIN_KEY: string;
+  // The root key-encryption key (base64, 32 bytes) at the top of the encryption key hierarchy —
+  // it wraps the per-firm data keys, so no plaintext data key is ever stored. Local dev + tests
+  // load the placeholder from .dev.vars; production sets it with `wrangler secret put ROOT_KEK`.
+  ROOT_KEK: string;
   // Cloudflare REST FirmResourceProvider credentials — DEPLOY-TIME secrets only (`wrangler
   // secret put`), deliberately absent from .dev.vars: locally the dev pool-claiming adapter runs
   // instead, selected by these being unset (see routes/firms.ts resourceProviderForEnv).
@@ -125,6 +134,8 @@ export interface CreateAppOptions {
   loggerForEnv?: (env: Bindings) => Logger;
   clock?: () => number;
   includeTelemetryProbes?: boolean;
+  // Overrides the plugin runtime for tests (a fake EasyPost http client + an in-memory secret store).
+  pluginRuntime?: Partial<PluginRuntime>;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
@@ -184,6 +195,18 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFoldersRoutes(app, chokepoint);
   registerFilesRoutes(app, chokepoint);
   registerDownloadsRoutes(app, chokepoint);
+  // Slice 1·3: the directory (persons/organizations, names, sensitive identifiers, edges,
+  // categories, search, merge, matter-party link) — composed through the same chokepoint.
+  registerDirectoryRoutes(app, chokepoint);
+
+  // The plugin runtime: production defaults (a fetch-backed http client; the firm_secret store seam
+  // that throws until the marketplace wires the live credential read), overridable in tests.
+  const pluginRuntime: PluginRuntime = {
+    httpClient: options.pluginRuntime?.httpClient ?? fetchHttpClient(),
+    secretStoreForFirm: options.pluginRuntime?.secretStoreForFirm ?? firmSecretStoreNotYetAvailable,
+  };
+  // Plugins mount from the registry — the core names no plugin. Each registers through the chokepoint.
+  for (const plugin of workerPlugins) plugin.registerRoutes?.(app, chokepoint, pluginRuntime);
 
   // Serve the same document the committed snapshot carries (root tags included), so the live endpoint
   // and the snapshot never diverge. A plain route, so it does not appear in the document itself.

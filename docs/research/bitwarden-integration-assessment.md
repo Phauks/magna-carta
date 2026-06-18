@@ -37,11 +37,11 @@ The ports-and-adapters framework and a credential-store seam are **built on the 
 
 ## 3. The three Bitwarden products, mapped to intent
 
-| Product | What it can access | Auth model | Serves "surface shared logins"? |
-| --- | --- | --- | --- |
-| **Public API** (org API key, `organization.ClientId`) | Org **management** only — members, collections, groups, policies, event logs | API key, `client_credentials`; Teams/Enterprise only | **No.** It cannot read vault item passwords at all. |
-| **Vault Management API / CLI** | Actual vault items, incl. passwords | Personal API key (`user.clientId`) **+ `bw unlock` with the master password** | Yes — but only with the master password (see §4). |
-| **Secrets Manager** | Machine secrets in a **separate** SM vault (not the login vault) | Machine-account **access token**; SDK decrypts client-side | No — it is a different vault; serves programmatic app secrets, not staff logins. |
+| Product                                               | What it can access                                                           | Auth model                                                                    | Serves "surface shared logins"?                                                  |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| **Public API** (org API key, `organization.ClientId`) | Org **management** only — members, collections, groups, policies, event logs | API key, `client_credentials`; Teams/Enterprise only                          | **No.** It cannot read vault item passwords at all.                              |
+| **Vault Management API / CLI**                        | Actual vault items, incl. passwords                                          | Personal API key (`user.clientId`) **+ `bw unlock` with the master password** | Yes — but only with the master password (see §4).                                |
+| **Secrets Manager**                                   | Machine secrets in a **separate** SM vault (not the login vault)             | Machine-account **access token**; SDK decrypts client-side                    | No — it is a different vault; serves programmatic app secrets, not staff logins. |
 
 ## 4. The central tension (the crux)
 
@@ -74,13 +74,13 @@ So the recorded intent is the **most expensive and most architecturally disrupti
 
 ## 7. Rough effort & risk (relative, pre-spec)
 
-| Item | Effort | Risk / notes |
-| --- | --- | --- |
-| Merge the framework + credential-store seam to `main` | Low | Already built; needs review + merge. |
-| Prerequisites (a)–(e) — real `firm_secret` store, connection D1 repo, worker routes, refresh DO, `Credential` variant | High | Shared with email/calendar; should be charged to that slice, not Bitwarden. Gates on slice 1·2 for (a). |
-| **Path A** adapter on top of prerequisites | Low–Medium | SDK integration, access-token credential, server-side. Licensing: separate paid add-on. |
-| **Path B** adapter on top of prerequisites | Low | Org-management reads only; no decryption. Public API gated to Teams/Enterprise. |
-| **Path C** adapter | High | New client-side adapter shape; `sdk-internal` WASM in web + Tauri; vault-unlock UX; feature parity. Largest design surface. |
+| Item                                                                                                                  | Effort     | Risk / notes                                                                                                                |
+| --------------------------------------------------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Merge the framework + credential-store seam to `main`                                                                 | Low        | Already built; needs review + merge.                                                                                        |
+| Prerequisites (a)–(e) — real `firm_secret` store, connection D1 repo, worker routes, refresh DO, `Credential` variant | High       | Shared with email/calendar; should be charged to that slice, not Bitwarden. Gates on slice 1·2 for (a).                     |
+| **Path A** adapter on top of prerequisites                                                                            | Low–Medium | SDK integration, access-token credential, server-side. Licensing: separate paid add-on.                                     |
+| **Path B** adapter on top of prerequisites                                                                            | Low        | Org-management reads only; no decryption. Public API gated to Teams/Enterprise.                                             |
+| **Path C** adapter                                                                                                    | High       | New client-side adapter shape; `sdk-internal` WASM in web + Tauri; vault-unlock UX; feature parity. Largest design surface. |
 
 ## 8. Open questions for the spec
 

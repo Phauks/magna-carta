@@ -2,8 +2,8 @@
 
 Owner-facing launchers for the things you open most. Every script works from any checkout of the repo (paths are relative to this folder), opens its own terminal window, and stays open so you can read the output.
 
-| Launcher                | What it does                                                                                                                                                                                                                         |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Launcher                | What it does                                                                                                                                                                                                                                                                                                                                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `open-coverage-map.cmd` | Opens the government-records **coverage map / verifier** in your browser. Toggle the layer (property → assessor/recorder/GIS sub-toggle, business, licensing); click a state to list its links, then **Open / Preview / mark ✓·✗** each and **Export** the verifications. Runs a small local server so the in-page **Rebuild data** button can regenerate from the live registry. Ctrl+C to stop. |
 
 Terminal equivalents:

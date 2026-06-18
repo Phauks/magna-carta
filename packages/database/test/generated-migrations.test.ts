@@ -247,10 +247,10 @@ describe("generated migrations (committed artifacts)", () => {
     }
   });
 
-  it("per-firm 0006 seeds tools:firmUsage onto the Owner/Admin role only", async () => {
+  it("per-firm 0010 seeds tools:firmUsage onto the Owner/Admin role only", async () => {
     const migrations = await loadLineage("per-firm");
-    const migration = migrations.find((m) => m.tag === "0006_seed-tools-firm-usage");
-    expect(migration, "0006_seed-tools-firm-usage missing from the per-firm lineage").toBeDefined();
+    const migration = migrations.find((m) => m.tag === "0010_seed-tools-firm-usage");
+    expect(migration, "0010_seed-tools-firm-usage missing from the per-firm lineage").toBeDefined();
     const seeds = (migration?.statements ?? [])
       .filter((statement) => statement.includes("INSERT INTO `role_permission`"))
       .map(parseSingleRowInsert);

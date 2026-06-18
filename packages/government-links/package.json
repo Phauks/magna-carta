@@ -12,13 +12,17 @@
     "./registry": "./src/registry.ts",
     "./property": "./src/property/registry.ts",
     "./business": "./src/business/registry.ts",
-    "./licensing": "./src/licensing/registry.ts"
+    "./licensing": "./src/licensing/registry.ts",
+    "./manifest": "./src/manifest.ts"
   },
   "scripts": {
     "test": "vp test run",
     "coverage:data": "tsx scripts/dump-coverage.mts",
     "coverage:serve": "tsx scripts/serve-coverage-map.mts",
     "coverage": "tsx scripts/dump-coverage.mts && start mockups/coverage-map.html"
+  },
+  "dependencies": {
+    "@magna-carta/integrations": "workspace:*"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

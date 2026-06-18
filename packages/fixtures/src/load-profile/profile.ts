@@ -2,7 +2,7 @@
 // seed (new archetype, changed faker call order, …) — it participates in snapshot identity, so a
 // stale cached artifact can never be measured against silently. Profile parameter changes bump
 // the profile's own `version` instead.
-export const GENERATOR_VERSION = 2;
+export const GENERATOR_VERSION = 4;
 
 // Transaction archetypes, weighted (faker.helpers.weightedArrayElement). The settlement archetype
 // is the multi-line tail; the rest are two-line entries. Weights are profile PARAMETERS, never
@@ -43,6 +43,58 @@ export interface PracticeVolume {
   readonly fileSizeBytes: { readonly min: number; readonly max: number };
 }
 
+// The shipping volume laid over the practice book: drafts spread across the firm's matters, a
+// fraction taken through to a bought label, and a handful of tracking events per purchased shipment.
+// Every count is a PARAMETER here, never a generator constant — changing one bumps the profile
+// `version`. Sized like an established firm's mailing volume, not a stress run.
+export interface ShippingVolume {
+  readonly shipmentCount: number;
+  // Percentage of drafts taken through to a bought label (the rest stay drafts). 0–100.
+  readonly purchasedPercent: number;
+  // Tracking events appended per purchased shipment (the pulled carrier history).
+  readonly trackingEventsPerShipment: { readonly min: number; readonly max: number };
+}
+
+// The protected-field volume laid over the practice: diagnostic incidents whose user-authored
+// descriptions are SEALED at rest, and a handful of named firm secrets whose values are sealed too.
+// This is the queryable shadow of the crypto chokepoint — the encrypt-on-write
+// and audited decrypt-on-read paths the protected() module introduces. Counts are PARAMETERS (scaling
+// bumps the profile version). Directory-scale protected volume — many blind-indexed sensitive
+// identifiers — rides slice 1·3, where an indexed protected column first exists.
+export interface ProtectedVolume {
+  // Diagnostic incidents with a sealed description (the protected list read decrypts a page of these).
+  readonly incidentCount: number;
+  // Named firm secrets with a sealed value (read by name through the secrets store).
+  readonly firmSecretCount: number;
+}
+
+// The directory volume laid over the practice: persons and organizations, their name history (former
+// names and aliases that stay in the conflicts corpus), the relationship graph between entities, the
+// blind-indexed sensitive identifiers (SSN) that ride the protected-field chokepoint, and the
+// matter-party links that join an entity to a matter in a role. This is the queryable shadow of the
+// conflicts/related-party surface — the blind-index identifier lookup, the protected-list decrypt, the
+// duplicate-candidate generation channels, and the inbound+outbound edge expansion. Every count and
+// distribution is a PARAMETER here, never a generator constant — changing one bumps the profile
+// `version`, so a baseline never silently compares two different shapes.
+export interface DirectoryVolume {
+  // Person entities (each created through createPerson, with a current name + phonetic codes).
+  readonly personCount: number;
+  // Organization entities (each created through createOrganization).
+  readonly organizationCount: number;
+  // Fraction of persons given a name change (changeName) — leaves a former name in the corpus.
+  readonly nameChangeFraction: number;
+  // Fraction of persons given an alias (addName, role "alias") — a non-current name in the corpus.
+  readonly aliasNameFraction: number;
+  // Directed edges per entity: each entity gets a draw in [min, max]; the probe entity is given the
+  // max both inbound and outbound so the graph-expansion read has its hot case.
+  readonly edgesPerEntity: { readonly min: number; readonly max: number };
+  // Persons given a blind-indexed SSN identifier through the protected-field chokepoint. The
+  // identifier write is the per-value HKDF+HMAC blind-index cost; the read decrypts a page of them.
+  readonly identifiersPerEntity: number;
+  // Fraction of persons linked to a matter as a party in a role (linkMatterParty).
+  readonly matterPartyFraction: number;
+}
+
 export interface LedgerVolumeProfile {
   readonly name: "ledgerVolume";
   // Profile identity: bump on ANY parameter change — baselines measured against different data
@@ -58,6 +110,12 @@ export interface LedgerVolumeProfile {
   readonly archetypeWeights: ArchetypeWeights;
   // The practice volume laid over the ledger book (matters/locations/file-manager).
   readonly practice: PracticeVolume;
+  // The protected-field volume laid over the practice (sealed incident descriptions + firm secrets).
+  readonly protected: ProtectedVolume;
+  // The directory volume laid over the practice (entities, names, edges, identifiers, matter parties).
+  readonly directory: DirectoryVolume;
+  // The shipping volume laid over the practice book (shipments/labels/tracking).
+  readonly shipping: ShippingVolume;
 }
 
 // A plausible established small firm: a few years of posting activity over a 200-client trust book,
@@ -65,7 +123,7 @@ export interface LedgerVolumeProfile {
 // files with multi-version histories.
 export const ledgerVolume: LedgerVolumeProfile = {
   name: "ledgerVolume",
-  version: 2,
+  version: 5,
   trustSubledgerCount: 200,
   entryCount: 25_000,
   postingSpanDays: 1_095,
@@ -89,6 +147,29 @@ export const ledgerVolume: LedgerVolumeProfile = {
     versionsPerFile: { min: 1, max: 4 },
     fileSizeBytes: { min: 20_000, max: 8_000_000 },
   },
+  protected: {
+    // A few years of self-filed diagnostics, and a dozen integration/config secrets.
+    incidentCount: 500,
+    firmSecretCount: 12,
+  },
+  directory: {
+    // A directory the size of an established small firm's contact book: a few hundred persons across
+    // the firm's matters, a hundred organizations, name history on a meaningful slice, a sparse
+    // relationship graph, sensitive identifiers on the persons who carry one, and matter-party links
+    // joining roughly a third of persons to a matter.
+    personCount: 600,
+    organizationCount: 100,
+    nameChangeFraction: 0.1,
+    aliasNameFraction: 0.15,
+    edgesPerEntity: { min: 0, max: 3 },
+    identifiersPerEntity: 250,
+    matterPartyFraction: 0.35,
+  },
+  shipping: {
+    shipmentCount: 300,
+    purchasedPercent: 70,
+    trackingEventsPerShipment: { min: 1, max: 5 },
+  },
 };
 
 // One profile, every scale: CI smoke (~0.01), local working scale (1), deliberate stress runs
@@ -111,6 +192,24 @@ export function scaleProfile(
       prospectiveMatterCount: scaleCount(profile.practice.prospectiveMatterCount, 2),
       openMatterCount: scaleCount(profile.practice.openMatterCount, 3),
       closedMatterCount: scaleCount(profile.practice.closedMatterCount, 2),
+    },
+    protected: {
+      // Floors keep a handful of incidents (enough for a multi-row decrypt page) and a couple of
+      // secrets at the smoke multiplier.
+      incidentCount: scaleCount(profile.protected.incidentCount, 5),
+      firmSecretCount: scaleCount(profile.protected.firmSecretCount, 2),
+    },
+    directory: {
+      ...profile.directory,
+      // Floors keep enough entities for a probe with edges both ways, a multi-row decrypt page of
+      // sensitive identifiers, and at least one matter-party link at the smoke multiplier.
+      personCount: scaleCount(profile.directory.personCount, 12),
+      organizationCount: scaleCount(profile.directory.organizationCount, 4),
+      identifiersPerEntity: scaleCount(profile.directory.identifiersPerEntity, 6),
+    },
+    shipping: {
+      ...profile.shipping,
+      shipmentCount: scaleCount(profile.shipping.shipmentCount, 5),
     },
   };
 }

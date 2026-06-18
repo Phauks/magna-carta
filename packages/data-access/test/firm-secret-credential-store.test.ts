@@ -13,12 +13,11 @@ function memorySecretStore(): SecretStore {
 }
 
 describe("firm_secret-backed CredentialStore", () => {
-  it("round-trips an oauth credential through the secret store", async () => {
+  it("round-trips an api-key credential through the secret store", async () => {
     const store = createFirmSecretCredentialStore(memorySecretStore());
-    const credential = { kind: "oauth" as const, refreshToken: "refresh_xyz" };
-    await store.put("cred_ref_1", credential);
+    await store.put("cred_ref_1", { kind: "apiKey", apiKey: "ezk_live_xyz" });
     const loaded = await store.get("cred_ref_1");
-    expect(loaded).toEqual(credential);
+    expect(loaded).toEqual({ kind: "apiKey", apiKey: "ezk_live_xyz" });
   });
 
   it("returns null for an unknown ref", async () => {

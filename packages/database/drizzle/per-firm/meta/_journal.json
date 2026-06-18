@@ -47,8 +47,36 @@
     {
       "idx": 6,
       "version": "6",
-      "when": 1781719063395,
-      "tag": "0006_seed-tools-firm-usage",
+      "when": 1781631922580,
+      "tag": "0006_protected-secrets-and-incident-ciphertext",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1781637646026,
+      "tag": "0007_incident-description-nullable",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1781719384670,
+      "tag": "0008_elite_genesis",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1781719484670,
+      "tag": "0009_directory",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1781720000000,
+      "tag": "0010_seed-tools-firm-usage",
       "breakpoints": true
     }
   ]

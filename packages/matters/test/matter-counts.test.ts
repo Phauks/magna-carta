@@ -17,7 +17,11 @@ async function seedMember(database: ReturnType<typeof freshDatabase>): Promise<v
     .run();
 }
 
-async function insertMatter(database: ReturnType<typeof freshDatabase>, id: string, status: string) {
+async function insertMatter(
+  database: ReturnType<typeof freshDatabase>,
+  id: string,
+  status: string,
+) {
   const t = "2026-01-01T00:00:00.000Z";
   await database
     .prepare(

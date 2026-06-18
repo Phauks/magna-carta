@@ -4,7 +4,7 @@
 **White-paper home:** _Plugin / Add-on system_ (the Tools area) · _Matters and File Manager_ (storage metering)
 **ADRs:** **ADR-0103 (firm usage snapshot — a read-only, per-firm usage view assembled from our own D1; per-firm compute/activity via the Cloudflare analytics API is a deferred credentialed seam — new)** · builds on ADR-0097 (the Tools layer), ADR-0078/0083 (storage metering + load-profile accretion), ADR-0003 (tenancy), ADR-0068 (access control).
 
-A **firm usage snapshot** — a read-only, per-firm view of what a firm is consuming, assembled entirely from our own per-firm D1: storage used and entity counts. It is the first **Diagnostics** tool with real data behind it (after the client-side speed test), surfaced through the Tools area. Firm-facing: a firm sees *its own* usage.
+A **firm usage snapshot** — a read-only, per-firm view of what a firm is consuming, assembled entirely from our own per-firm D1: storage used and entity counts. It is the first **Diagnostics** tool with real data behind it (after the client-side speed test), surfaced through the Tools area. Firm-facing: a firm sees _its own_ usage.
 
 **Scope discipline (owner, 2026-06-16):** only metrics that need **no API token** are in scope now — everything sourced from our own D1. Per-firm **compute/activity** (Workers CPU time, request volume) is account-level Cloudflare data reachable only through the **Cloudflare GraphQL Analytics API / Analytics Engine with an API-token credential**; it is designed here as a seam and built later. **No UI** in this work — the snapshot is headless (pure reads now; a worker read route next); the widget rides the design-system shell.
 
@@ -32,7 +32,7 @@ Deferred as explicit seams ("eventually more"):
 - `file` (non-deleted: `deleted_at IS NULL`), `file_version` (`status = 'clean'`), `folder` — the file-side counts.
 - `location` — the location count.
 
-Analytics Engine already carries storage *trends* indexed by firm (the `MeterTelemetry` seam) — advisory; D1 stays authoritative, so the snapshot reads D1, not AE.
+Analytics Engine already carries storage _trends_ indexed by firm (the `MeterTelemetry` seam) — advisory; D1 stays authoritative, so the snapshot reads D1, not AE.
 
 ## 3. Architecture & module placement
 
@@ -57,6 +57,7 @@ Each statement follows the package's established pattern: a builder returning a 
    - a **`firm-usage`** manifest in the **Diagnostics** subject group — `backing: { kind: "library" }` (a view of first-party firm data fetched from our own API — the refined `library` definition), `contextTags: ["none"]`, `matterContext: "none"`, icon `chart-pie`.
 
 **Deferred, flagged, not built:**
+
 - The firm-scoped **worker read route** (`GET /v1/firm-usage`, read-shaped) composing the `FirmUsageSnapshot` and returning it through the slice 0·5 chokepoint, gated by `tools:firmUsage`, audited as a read. **Note:** a route bound to a `tools:`-namespace permission needs a small `tools` → tenancy-resource entry in the route-conformance fitness (`RESOURCE_BY_PERMISSION_NAMESPACE` today knows only `firm` / `matters` / `files`) — resolved when the route is built.
 - The **compute/activity** Cloudflare Analytics-API seam (credentialed).
 - The **UI widget**.
