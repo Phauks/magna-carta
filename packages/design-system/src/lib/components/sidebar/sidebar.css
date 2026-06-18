@@ -1,0 +1,161 @@
+@layer components {
+  /*
+   * Sidebar (Tier 4 / app shell) — the global navigation rail (page-archetypes Layout A). A fixed
+   * width that animates to the icon-rail width when the root carries data-state="collapsed"; the rail
+   * hides labels + group labels (the destination name then rides a Tooltip). Height fills its
+   * container via the h-full utility on the <nav>; the content region scrolls (grow utility +
+   * overflow). Active items take the secondary tint; hover takes the sunken surface.
+   */
+  .mc-sidebar {
+    display: flex;
+    flex-direction: column;
+    /* flex: none (shrink 0) so the flex algorithm does not override (and snap) the animated width.
+       A unitless flex-shrink can't be a length token, so the keyword shorthand is the token-pure form. */
+    flex: none;
+    inline-size: var(--mc-size-sidebar);
+    background-color: var(--mc-surface-default);
+    border-inline-end: var(--mc-border-width-default) solid var(--mc-border-default);
+    overflow: hidden;
+    transition-property: inline-size;
+    transition-duration: var(--mc-duration-normal);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-sidebar[data-state="collapsed"] {
+    inline-size: var(--mc-size-sidebar-rail);
+  }
+  .mc-sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    min-block-size: var(--mc-control-lg);
+    /* The brand mark aligns with the nav icons below (content padding 8 + button padding 8 = 16). */
+    padding-inline: var(--mc-space-16);
+    padding-block: var(--mc-space-12);
+    border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);
+  }
+  .mc-sidebar-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-16);
+    padding: var(--mc-space-8);
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  .mc-sidebar-footer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    padding: var(--mc-space-8);
+    border-block-start: var(--mc-border-width-default) solid var(--mc-border-default);
+  }
+  .mc-sidebar-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+  }
+  .mc-sidebar-group-label {
+    padding-inline: var(--mc-space-8);
+    padding-block: var(--mc-space-4);
+    color: var(--mc-text-subtle);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-xs);
+    font-weight: var(--mc-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: var(--mc-tracking-normal);
+    white-space: nowrap;
+  }
+  .mc-sidebar-menu {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    margin: var(--mc-space-0);
+    padding: var(--mc-space-0);
+    list-style: none;
+  }
+  .mc-sidebar-menu-item {
+    display: block;
+  }
+  /*
+   * The button is a GRID (icon | label) so the collapse can ANIMATE: the label column interpolates
+   * from 1fr to 0fr (the label slides away) while the icon glides to centre — `justify-content`
+   * snaps to centre but is invisible while the grid still fills the button, so the motion reads as
+   * smooth. The label fades by going to `color: transparent` (opacity has no token and is gate-banned).
+   * The label stays in the DOM (not sr-only), so the link keeps its accessible name; a Tooltip
+   * surfaces the name visually in the rail.
+   */
+  .mc-sidebar-menu-button {
+    display: grid;
+    /* A FIXED icon track (not auto) so grid-template-columns is interpolatable — auto tracks don't
+       animate, fixed-length + fr tracks do. The icon is exactly this size (mc-sidebar-icon). */
+    grid-template-columns: var(--mc-space-20) 1fr;
+    align-items: center;
+    justify-content: start;
+    min-block-size: var(--mc-control-md);
+    padding-inline: var(--mc-space-8);
+    padding-block: var(--mc-space-8);
+    border-radius: var(--mc-radius-md);
+    background-color: transparent;
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-sm);
+    font-weight: var(--mc-weight-medium);
+    line-height: var(--mc-leading-tight);
+    text-align: start;
+    text-decoration-line: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition-property: grid-template-columns, background-color, color;
+    transition-duration: var(--mc-duration-normal);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-sidebar-menu-button:hover {
+    background-color: var(--mc-surface-sunken);
+  }
+  .mc-sidebar-menu-button:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-sidebar-menu-button[data-active="true"] {
+    background-color: var(--mc-action-secondary);
+    color: var(--mc-text-default);
+    font-weight: var(--mc-weight-semibold);
+  }
+  .mc-sidebar-icon {
+    flex: none;
+    inline-size: var(--mc-space-20);
+    block-size: var(--mc-space-20);
+  }
+  .mc-sidebar-label {
+    overflow: hidden;
+    padding-inline-start: var(--mc-space-8);
+    color: inherit;
+    text-overflow: ellipsis;
+    transition-property: color, padding-inline-start;
+    transition-duration: var(--mc-duration-normal);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  /* Collapsed icon rail: collapse the label column to 0 (its width AND its leading padding animate to
+     zero so it slides fully away) and fade its text. The icon does NOT recentre — it stays exactly
+     where it is (the rail width is sized so a left-aligned icon reads centred), so collapsing never
+     slides the icons sideways. Group labels fade; their height is reserved so icons never shift. */
+  .mc-sidebar[data-state="collapsed"] .mc-sidebar-menu-button {
+    grid-template-columns: var(--mc-space-20) 0fr;
+  }
+  .mc-sidebar[data-state="collapsed"] .mc-sidebar-label {
+    padding-inline-start: var(--mc-space-0);
+    color: transparent;
+  }
+  .mc-sidebar-group-label {
+    transition-property: color;
+    transition-duration: var(--mc-duration-normal);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-sidebar[data-state="collapsed"] .mc-sidebar-group-label {
+    color: transparent;
+  }
+  /* The collapse Trigger reuses the menu-button look (icon + "Collapse"/"Expand" label); it mutes its
+     icon to read as a control rather than a destination. */
+  .mc-sidebar-trigger .mc-sidebar-icon {
+    color: var(--mc-text-muted);
+  }
+}

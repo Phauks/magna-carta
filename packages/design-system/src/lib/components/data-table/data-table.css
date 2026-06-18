@@ -1,0 +1,258 @@
+@layer components {
+  /*
+   * Data Table (Tier 4) — the styled <table> primitives. Compact by default (the load-profile look):
+   * row geometry from the density tokens (gutter = horizontal padding, stack = vertical padding,
+   * control-height = the header-row height). Behaviour (sorting/selection/visibility) is wired by the
+   * consumer through the table-core adapter; these recipes are presentation only. Row hover and the
+   * selected-row tint are scoped to the BODY so header rows stay inert.
+   */
+  /* Width is a utility (w-full) on the element — `%` is not tokenizable, so it stays out of the recipe. */
+  .mc-table-scroll {
+    overflow-x: auto;
+  }
+  /*
+   * border-collapse SEPARATE (not collapse) with the hairline on the CELLS, not the row: under
+   * `collapse` a row's background shares the cell border box, so selecting a row (a background change)
+   * shifts its geometry by the border width. With separate borders + zero spacing the selected tint is
+   * a pure paint and the row height never moves.
+   */
+  .mc-table {
+    border-collapse: separate;
+    border-spacing: var(--mc-space-0);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-sm);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-default);
+    text-align: start;
+  }
+  .mc-table-caption {
+    margin-block-start: var(--mc-space-12);
+    color: var(--mc-text-muted);
+    font-size: var(--mc-text-xs);
+    text-align: start;
+  }
+  .mc-table-head {
+    block-size: var(--mc-density-control-height);
+    padding-inline: var(--mc-density-gutter);
+    border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);
+    color: var(--mc-text-muted);
+    font-weight: var(--mc-weight-semibold);
+    text-align: start;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+  .mc-table-row {
+    transition-property: background-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  /*
+   * Three distinguishable body-row states. Zebra is the faintest (sunken); hover is a touch stronger
+   * (secondary); selection shares the secondary fill BUT adds a brand accent bar on its leading edge,
+   * so it never reads as just another stripe (both fills are faint neutrals). The header does none.
+   */
+  .mc-table-body .mc-table-row:hover {
+    background-color: var(--mc-action-secondary);
+  }
+  .mc-table-body .mc-table-row[data-state="selected"] {
+    background-color: var(--mc-action-secondary);
+  }
+  .mc-table-cell {
+    padding-block: var(--mc-density-stack);
+    padding-inline: var(--mc-density-gutter);
+    border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);
+    vertical-align: middle;
+  }
+  /* The accent bar — transparent on every leading cell (reserved so colouring it shifts nothing),
+     brand-coloured on a selected row. */
+  .mc-table-head:first-child,
+  .mc-table-cell:first-child {
+    border-inline-start: var(--mc-focus-ring-width) solid transparent;
+  }
+  .mc-table-body .mc-table-row[data-state="selected"] .mc-table-cell:first-child {
+    border-inline-start-color: var(--mc-action-primary);
+  }
+  /* Numeric / money / date columns right-align with tabular figures (set data-align="end" from the
+     column's value type — see the typed-column meta + formatters). */
+  .mc-table-head[data-align="end"],
+  .mc-table-cell[data-align="end"] {
+    text-align: end;
+    font-variant-numeric: tabular-nums;
+  }
+  /*
+   * Appearance options — driven by the View menu via data-attributes on the <table>. Zebra tints
+   * even BODY rows (but never overrides hover or the selected tint — :not() keeps those winning);
+   * dividers draw vertical hairlines between cells; compact density trims the row padding + header
+   * height. Comfortable density is the default (no override).
+   */
+  /* Zebra is the faintest tint (raised = neutral-50), deliberately LIGHTER than the selection /
+     hover fill (secondary = neutral-100), so a striped row never competes with a selected one. */
+  .mc-table[data-zebra="on"]
+    .mc-table-body
+    .mc-table-row:nth-child(even):not(:hover):not([data-state="selected"]) {
+    background-color: var(--mc-surface-raised);
+  }
+  .mc-table[data-dividers="on"] .mc-table-head,
+  .mc-table[data-dividers="on"] .mc-table-cell {
+    border-inline-end: var(--mc-border-width-default) solid var(--mc-border-default);
+  }
+  .mc-table[data-dividers="on"] .mc-table-head:last-child,
+  .mc-table[data-dividers="on"] .mc-table-cell:last-child {
+    border-inline-end-width: var(--mc-space-0);
+  }
+  .mc-table[data-density="compact"] .mc-table-cell {
+    padding-block: var(--mc-space-4);
+  }
+  .mc-table[data-density="compact"] .mc-table-head {
+    block-size: var(--mc-control-sm);
+  }
+  /*
+   * Sortable column header — a borderless text button that fills the head cell, inherits its muted
+   * type, and darkens on hover. The trailing icon shows the sort direction (or the neutral
+   * up/down chevrons when unsorted). Inherits font + colour so it reads as the header, not a button.
+   */
+  .mc-table-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+    background-color: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: var(--mc-weight-semibold);
+    cursor: pointer;
+    border-radius: var(--mc-radius-sm);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-table-sort:hover {
+    color: var(--mc-text-default);
+  }
+  .mc-table-sort:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring);
+  }
+  .mc-table-sort-icon {
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+  /* Header cell content: the sort control + the filter funnel sit on one row (inline-flex, so the
+     head's text-align positions the group — leading for text columns, trailing for end-aligned ones). */
+  .mc-table-head-inner {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+  }
+  /* Empty / loading placeholders. The empty cell centres a muted message across the table; the
+     loading rows carry token-height skeletons (full width via the w-full utility on the element). */
+  .mc-table-empty {
+    color: var(--mc-text-muted);
+    text-align: center;
+  }
+  .mc-table-skeleton {
+    block-size: var(--mc-space-16);
+  }
+  /* The toolbar above the table — search on the leading edge, the Columns menu on the trailing edge. */
+  .mc-table-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--mc-space-12);
+  }
+  .mc-table-toolbar-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+  /*
+   * Per-column filter — a funnel button in the header that opens a popover with the type-appropriate
+   * control. The funnel mutes to a subtle tint and lights up (link colour) while the column is
+   * filtered. The popover content is a fixed-width stack; facets scroll past a few rows.
+   */
+  .mc-table-filter-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--mc-space-20);
+    block-size: var(--mc-space-20);
+    border-radius: var(--mc-radius-sm);
+    background-color: transparent;
+    color: var(--mc-text-subtle);
+    cursor: pointer;
+    transition-property: background-color, color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-table-filter-trigger:hover {
+    background-color: var(--mc-surface-sunken);
+    color: var(--mc-text-default);
+  }
+  .mc-table-filter-trigger[data-active="true"] {
+    color: var(--mc-text-link);
+  }
+  .mc-table-filter-trigger:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-table-filter-icon {
+    inline-size: var(--mc-space-12);
+    block-size: var(--mc-space-12);
+  }
+  .mc-table-filter-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-8);
+    /* At least the popover width, but grows to fit wider content (the date-range field). */
+    min-inline-size: var(--mc-size-popover);
+  }
+  .mc-table-filter-heading {
+    margin: var(--mc-space-0);
+    color: var(--mc-text-muted);
+    font-size: var(--mc-text-xs);
+    font-weight: var(--mc-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: var(--mc-tracking-normal);
+  }
+  .mc-table-filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+  }
+  .mc-table-filter-field-label {
+    color: var(--mc-text-muted);
+    font-size: var(--mc-text-xs);
+  }
+  .mc-table-filter-facets {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    max-block-size: var(--mc-size-popover);
+    padding-block-start: var(--mc-space-4);
+    overflow-y: auto;
+  }
+  .mc-table-filter-option {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    font-size: var(--mc-text-sm);
+    color: var(--mc-text-default);
+    cursor: pointer;
+  }
+  /* "Select all" sits above the value list with a hairline divider, like a sheet's filter dropdown. */
+  .mc-table-filter-selectall {
+    padding-block-end: var(--mc-space-8);
+    border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);
+    font-weight: var(--mc-weight-medium);
+  }
+  /* Date filter: a vertical list of quick-range presets (full-width, left-read), not a nested calendar. */
+  .mc-table-filter-presets {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--mc-space-4);
+  }
+  .mc-table-filter-preset {
+    justify-content: flex-start;
+  }
+  .mc-table-filter-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+}

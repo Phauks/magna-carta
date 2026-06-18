@@ -1,0 +1,32 @@
+@layer components {
+  /*
+   * Skeleton (Tier 1). A loading placeholder that pulses between two subtle neutral tokens
+   * (opacity literals are banned by the token-purity gate, so the pulse is a colour animation,
+   * not an opacity fade). Motion comes from the duration/easing tokens; `alternate` makes it ease
+   * back rather than jump. The placeholder is sized by the caller, never here. The pulse is
+   * disabled under prefers-reduced-motion (the OS signal; the data-motion user axis wires on in
+   * slice 0·7b).
+   */
+  .mc-skeleton {
+    background-color: var(--mc-action-disabled);
+    border-radius: var(--mc-radius-md);
+    animation-name: mc-skeleton-pulse;
+    animation-duration: var(--mc-duration-slow);
+    animation-timing-function: var(--mc-easing-standard);
+    animation-iteration-count: infinite;
+    animation-direction: alternate;
+  }
+  @keyframes mc-skeleton-pulse {
+    from {
+      background-color: var(--mc-action-disabled);
+    }
+    to {
+      background-color: var(--mc-surface-sunken);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mc-skeleton {
+      animation: none;
+    }
+  }
+}

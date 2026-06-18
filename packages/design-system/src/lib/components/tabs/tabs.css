@@ -1,0 +1,98 @@
+@layer components {
+  /*
+   * Tabs (Tier 2 exemplar, Bits UI). Underlined tabs: the List carries the hairline track; each
+   * Trigger is a quiet button that emphasises (text-default) and grows a brand underline on
+   * Bits' `data-state="active"` — a box-shadow line sitting over the track (offsets are tokens, so
+   * no `calc`). Focus is the system's flush ring; a disabled trigger mutes. Content takes the same
+   * flush focus ring (Bits makes the active panel focusable).
+   */
+  .mc-tabs {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-16);
+  }
+  .mc-tabs-list {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+    border-block-end-style: solid;
+    border-block-end-width: var(--mc-border-width-default);
+    border-block-end-color: var(--mc-border-default);
+  }
+  .mc-tabs-trigger {
+    display: inline-flex;
+    align-items: center;
+    padding-block: var(--mc-space-8);
+    padding-inline: var(--mc-space-12);
+    background-color: transparent;
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-sm);
+    font-weight: var(--mc-weight-medium);
+    line-height: var(--mc-leading-tight);
+    border-style: none;
+    cursor: pointer;
+    transition-property: color, box-shadow, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-tabs-trigger:hover {
+    color: var(--mc-text-default);
+  }
+  .mc-tabs-trigger[data-state="active"] {
+    color: var(--mc-text-default);
+    box-shadow: var(--mc-space-0) var(--mc-border-width-default) var(--mc-space-0) var(--mc-space-0)
+      var(--mc-action-primary);
+  }
+  /* Flush focus ring, same shape as the Button (borderless control). */
+  .mc-tabs-trigger:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-tabs-trigger:disabled {
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+  .mc-tabs-content {
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-sm);
+    line-height: var(--mc-leading-normal);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-tabs-content:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+  }
+  /*
+   * Vertical orientation (Bits sets data-orientation from the `orientation` prop): the root lays
+   * the list beside the content, the list becomes a side rail with an inline-end track, and the
+   * active indicator moves from the bottom edge to the inline-end edge (over the rail).
+   */
+  .mc-tabs[data-orientation="vertical"] {
+    flex-direction: row;
+  }
+  .mc-tabs-list[data-orientation="vertical"] {
+    flex-direction: column;
+    align-items: stretch;
+    border-block-end-style: none;
+    border-inline-end-style: solid;
+    border-inline-end-width: var(--mc-border-width-default);
+    border-inline-end-color: var(--mc-border-default);
+  }
+  .mc-tabs-list[data-orientation="vertical"] .mc-tabs-trigger {
+    justify-content: flex-start;
+  }
+  .mc-tabs-list[data-orientation="vertical"] .mc-tabs-trigger[data-state="active"] {
+    box-shadow: var(--mc-border-width-default) var(--mc-space-0) var(--mc-space-0) var(--mc-space-0)
+      var(--mc-action-primary);
+  }
+}

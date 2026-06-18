@@ -1,0 +1,52 @@
+@layer components {
+  /*
+   * Checkbox (Tier 2, Bits UI). A square box that fills with action-primary and shows the Lucide
+   * Check (or Minus for indeterminate) when set. Resting border like the Input, so the merged-edge
+   * focus (border + flush outline both focus-ring).
+   */
+  .mc-checkbox {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* Pin the inline baseline so an empty box and a checked box (which gains the Check glyph) sit on
+       the line identically — otherwise the checked state shifts the line box and, in a table, resizes
+       the whole row on select. */
+    vertical-align: middle;
+    inline-size: var(--mc-space-20);
+    block-size: var(--mc-space-20);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-sm);
+    background-color: var(--mc-surface-default);
+    color: var(--mc-action-primary-foreground);
+    cursor: pointer;
+    transition-property: background-color, border-color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-checkbox[data-state="checked"],
+  .mc-checkbox[data-state="indeterminate"] {
+    background-color: var(--mc-action-primary);
+    border-color: var(--mc-action-primary);
+  }
+  .mc-checkbox:focus-visible {
+    border-color: var(--mc-focus-ring);
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-checkbox:disabled {
+    background-color: var(--mc-action-disabled);
+    border-color: var(--mc-action-disabled);
+    cursor: not-allowed;
+  }
+  .mc-checkbox-icon {
+    inline-size: var(--mc-space-12);
+    block-size: var(--mc-space-12);
+  }
+}

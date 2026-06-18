@@ -1,0 +1,153 @@
+@layer components {
+  /*
+   * Sheet (Tier 3, Bits UI). A Dialog variant: a drawer that slides in from a screen EDGE over a
+   * scrim. Built on the SAME Dialog primitives — only the pinning and presence differ. The z-layers
+   * and presence (the scrim fades; the panel slides from its edge) come from the floating module;
+   * only the look lives here. Unlike Dialog, the panel is NOT centered — it is fixed to one edge via
+   * logical-property insets, full height on a vertical edge (right/left) or full width on a
+   * horizontal edge (top/bottom). The cross-axis size (width for right/left, height for top/bottom)
+   * is layout, set by a utility on the element, not here. The panel is a flex column (title,
+   * description, body, footer) with the elevation reserved for floating layers. The built-in corner
+   * dismiss is a quiet icon button (mc-sheet-close); the Trigger and the reusable Close part carry
+   * NO recipe — they are caller-styled buttons (typically the mc-button recipes), so nothing here
+   * fights the caller's chosen variant.
+   */
+  .mc-sheet-overlay {
+    position: fixed;
+    inset: var(--mc-space-0);
+    background-color: var(--mc-surface-scrim);
+  }
+  .mc-sheet-content {
+    position: fixed;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-16);
+    padding: var(--mc-space-24);
+    background-color: var(--mc-surface-raised);
+    color: var(--mc-text-default);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    box-shadow: var(--mc-elevation-3);
+    /*
+     * Slide presence — a CSS ANIMATION (keyframes in styles/animations.css), not a transition: a
+     * transition has nothing to animate from on first mount, so the panel would "pop" in and only
+     * slide out. animation-fill-mode: both holds the off-edge first frame before paint and the
+     * resting frame after, so the panel slides in AND out. Duration AND easing live here so the
+     * motion is UNIFORM — in matches out (same curve, same time) — and reduced motion overrides the
+     * duration once. The per-side rules below only pick the in/out keyframe NAME.
+     */
+    animation-duration: var(--mc-duration-slow);
+    animation-timing-function: var(--mc-easing-standard);
+    animation-fill-mode: both;
+  }
+  /*
+   * Pinned to a vertical edge: full height, flush right/left. data-state=open runs the in keyframe,
+   * data-state=closed the out keyframe (separate names so both directions replay). Bits keeps the
+   * panel mounted until the animation ends.
+   */
+  .mc-sheet-content-right {
+    inset-block: var(--mc-space-0);
+    inset-inline-end: var(--mc-space-0);
+  }
+  .mc-sheet-content-right[data-state="open"] {
+    animation-name: mc-sheet-in-right;
+  }
+  .mc-sheet-content-right[data-state="closed"] {
+    animation-name: mc-sheet-out-right;
+  }
+  .mc-sheet-content-left {
+    inset-block: var(--mc-space-0);
+    inset-inline-start: var(--mc-space-0);
+  }
+  .mc-sheet-content-left[data-state="open"] {
+    animation-name: mc-sheet-in-left;
+  }
+  .mc-sheet-content-left[data-state="closed"] {
+    animation-name: mc-sheet-out-left;
+  }
+  /* Pinned to a horizontal edge: full width, flush against the top or bottom of the viewport. */
+  .mc-sheet-content-top {
+    inset-inline: var(--mc-space-0);
+    inset-block-start: var(--mc-space-0);
+  }
+  .mc-sheet-content-top[data-state="open"] {
+    animation-name: mc-sheet-in-top;
+  }
+  .mc-sheet-content-top[data-state="closed"] {
+    animation-name: mc-sheet-out-top;
+  }
+  .mc-sheet-content-bottom {
+    inset-inline: var(--mc-space-0);
+    inset-block-end: var(--mc-space-0);
+  }
+  .mc-sheet-content-bottom[data-state="open"] {
+    animation-name: mc-sheet-in-bottom;
+  }
+  .mc-sheet-content-bottom[data-state="closed"] {
+    animation-name: mc-sheet-out-bottom;
+  }
+  /*
+   * Low-motion: collapse the slide to instant. Overriding the base duration (not each name)
+   * dodges any specificity fight with the per-side rules — they set the name, this sets 0ms, so
+   * the panel just appears. The OS prefers-reduced-motion signal today; the data-motion user axis
+   * (a firm/user setting) wires onto the same duration token in slice 0·7b.
+   */
+  @media (prefers-reduced-motion: reduce) {
+    .mc-sheet-content {
+      animation-duration: var(--mc-duration-instant);
+    }
+  }
+  .mc-sheet-title {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-lg);
+    font-weight: var(--mc-weight-semibold);
+    line-height: var(--mc-leading-tight);
+    color: var(--mc-text-default);
+  }
+  .mc-sheet-description {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-sm);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-muted);
+  }
+  /*
+   * Close — a quiet icon button pinned to the top-right corner. Transparent at rest, muting the
+   * Lucide X; hover lifts the icon to the default text colour. Borderless control, so the flush
+   * focus ring (same shape as the Button).
+   */
+  .mc-sheet-close {
+    position: absolute;
+    inset-block-start: var(--mc-space-16);
+    inset-inline-end: var(--mc-space-16);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--mc-space-4);
+    background-color: transparent;
+    border-style: none;
+    border-radius: var(--mc-radius-md);
+    color: var(--mc-text-muted);
+    cursor: pointer;
+    transition-property: color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-sheet-close:hover {
+    color: var(--mc-text-default);
+  }
+  .mc-sheet-close:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-sheet-close-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+}

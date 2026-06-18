@@ -1,0 +1,32 @@
+@layer components {
+  /*
+   * Avatar (Tier 2, Bits UI). A circular image with an initials fallback (shown while loading or on
+   * error). Default size is space-40 — override with a size utility; the image and fallback fill it
+   * (size-full on the component). The image covers; the fallback centres muted initials.
+   */
+  .mc-avatar {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--mc-space-40);
+    block-size: var(--mc-space-40);
+    border-radius: var(--mc-radius-full);
+    background-color: var(--mc-surface-sunken);
+    overflow: hidden;
+    user-select: none;
+  }
+  .mc-avatar-image {
+    border-radius: var(--mc-radius-full);
+    object-fit: cover;
+  }
+  .mc-avatar-fallback {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-sm);
+    font-weight: var(--mc-weight-medium);
+  }
+}

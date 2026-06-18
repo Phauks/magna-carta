@@ -1,0 +1,62 @@
+@layer components {
+  /*
+   * RadioGroup (Tier 2, Bits UI). A vertical group of circular options; the selected item gets a
+   * primary border and an inner primary dot (the indicator's background fades transparent → primary
+   * on data-state="checked"). Merged-edge focus like the Input.
+   */
+  .mc-radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-8);
+  }
+  .mc-radio-item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--mc-space-20);
+    block-size: var(--mc-space-20);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-full);
+    background-color: var(--mc-surface-default);
+    cursor: pointer;
+    transition-property: border-color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-radio-item[data-state="checked"] {
+    border-color: var(--mc-action-primary);
+  }
+  .mc-radio-item:focus-visible {
+    border-color: var(--mc-focus-ring);
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-radio-indicator {
+    inline-size: var(--mc-space-8);
+    block-size: var(--mc-space-8);
+    border-radius: var(--mc-radius-full);
+    background-color: transparent;
+    transition-property: background-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-radio-item[data-state="checked"] .mc-radio-indicator {
+    background-color: var(--mc-action-primary);
+  }
+  /* Disabled comes AFTER checked so it wins at equal specificity — a disabled item reads muted at
+     rest (border + dot), even when selected, not just on hover. */
+  .mc-radio-item:disabled {
+    border-color: var(--mc-action-disabled);
+    cursor: not-allowed;
+  }
+  .mc-radio-item:disabled[data-state="checked"] .mc-radio-indicator {
+    background-color: var(--mc-action-disabled-foreground);
+  }
+}

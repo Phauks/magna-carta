@@ -1,0 +1,41 @@
+@layer components {
+  /*
+   * Badge (Tier 1). A small status/label chip. The base carries a transparent hairline border
+   * so the outline variant can colour it without shifting layout; the tight radius reads as a
+   * chip rather than a button. Variants are color sets over the action.* roles, with `outline`
+   * the bordered neutral.
+   */
+  .mc-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: transparent;
+    border-radius: var(--mc-radius-sm);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-xs);
+    font-weight: var(--mc-weight-medium);
+    line-height: var(--mc-leading-tight);
+    white-space: nowrap;
+  }
+  .mc-badge-primary {
+    background-color: var(--mc-action-primary);
+    color: var(--mc-action-primary-foreground);
+  }
+  .mc-badge-secondary {
+    background-color: var(--mc-action-secondary);
+    color: var(--mc-action-secondary-foreground);
+  }
+  .mc-badge-destructive {
+    background-color: var(--mc-action-destructive);
+    color: var(--mc-action-destructive-foreground);
+  }
+  .mc-badge-outline {
+    background-color: transparent;
+    color: var(--mc-text-default);
+    border-color: var(--mc-border-default);
+  }
+}

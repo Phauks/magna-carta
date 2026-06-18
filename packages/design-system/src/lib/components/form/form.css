@@ -1,0 +1,25 @@
+@layer components {
+  /*
+   * Form field family (Tier 4, formsnap + superforms). Field/Control are logic (no recipe); the
+   * field wrapper stacks the label, control, description, and errors with a small gap, and the
+   * description/errors are the muted/danger satellites. formsnap wires id/aria/aria-describedby and
+   * aria-invalid automatically. The label reuses mc-label.
+   */
+  .mc-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+  }
+  .mc-form-description {
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-xs);
+    line-height: var(--mc-leading-normal);
+  }
+  .mc-form-errors {
+    color: var(--mc-status-danger);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-text-xs);
+    line-height: var(--mc-leading-normal);
+  }
+}

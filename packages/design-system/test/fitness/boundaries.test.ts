@@ -349,18 +349,44 @@ export function findUnitlessFlexMisuse(filePath: string, css: string): string[] 
     );
 }
 
-const COMPONENTS_CSS_PATH = "packages/design-system/src/lib/styles/components.css";
+// The carved recipe files: each component's co-located <name>.css plus the shared recipes under
+// styles/recipes/. styles/components.css is now only the @import index (no declarations) and
+// styles/animations.css holds the non-token keyframes — both correctly excluded here.
+const RECIPE_CSS_FILES: readonly string[] = [
+  ...collectSourceFiles(join(REPOSITORY_ROOT, "packages/design-system/src/lib/components"), {
+    extensions: [".css"],
+  }).map((relativePath) => `packages/design-system/src/lib/components/${relativePath}`),
+  ...collectSourceFiles(join(REPOSITORY_ROOT, "packages/design-system/src/lib/styles/recipes"), {
+    extensions: [".css"],
+  }).map((relativePath) => `packages/design-system/src/lib/styles/recipes/${relativePath}`),
+];
 
-describe("components.css token purity (golden rule 2; ADR-0076 component-layer discipline)", () => {
-  const componentsCss = readFileSync(join(REPOSITORY_ROOT, COMPONENTS_CSS_PATH), "utf8");
+describe("recipe-file token purity (golden rule 2; ADR-0076 component-layer discipline)", () => {
+  it("scans the carved recipe files (vacuity guard)", () => {
+    // The split moved recipes out of the monolith; the gate must follow them or it polices nothing.
+    expect(RECIPE_CSS_FILES).toContain(
+      "packages/design-system/src/lib/components/button/button.css",
+    );
+    expect(RECIPE_CSS_FILES).toContain(
+      "packages/design-system/src/lib/components/data-table/data-table.css",
+    );
+    expect(RECIPE_CSS_FILES).toContain(
+      "packages/design-system/src/lib/styles/recipes/presence.css",
+    );
+    expect(RECIPE_CSS_FILES.length).toBeGreaterThanOrEqual(30);
+  });
 
-  it("is the recipes layer we expect (vacuity guard)", () => {
-    // If the layer wrapper ever disappears, the parse below could be inspecting nothing.
-    expect(componentsCss).toContain("@layer components");
+  it("every recipe file is wrapped in @layer components (vacuity guard)", () => {
+    for (const file of RECIPE_CSS_FILES) {
+      expect(readFileSync(join(REPOSITORY_ROOT, file), "utf8")).toContain("@layer components");
+    }
   });
 
   it("every declaration value is a token reference or structural keyword", () => {
-    expect(findComponentsCssViolations(COMPONENTS_CSS_PATH, componentsCss)).toEqual([]);
+    const violations = RECIPE_CSS_FILES.flatMap((file) =>
+      findComponentsCssViolations(file, readFileSync(join(REPOSITORY_ROOT, file), "utf8")),
+    );
+    expect(violations).toEqual([]);
   });
 
   it("accepts a clean token-fed recipe (self-check)", () => {
@@ -433,11 +459,12 @@ describe("components.css token purity (golden rule 2; ADR-0076 component-layer d
   });
 });
 
-describe("components.css uses the flex shorthand, never standalone flex factors", () => {
-  const componentsCss = readFileSync(join(REPOSITORY_ROOT, COMPONENTS_CSS_PATH), "utf8");
-
+describe("recipe files use the flex shorthand, never standalone flex factors", () => {
   it("has no standalone flex-grow / flex-shrink declarations", () => {
-    expect(findUnitlessFlexMisuse(COMPONENTS_CSS_PATH, componentsCss)).toEqual([]);
+    const violations = RECIPE_CSS_FILES.flatMap((file) =>
+      findUnitlessFlexMisuse(file, readFileSync(join(REPOSITORY_ROOT, file), "utf8")),
+    );
+    expect(violations).toEqual([]);
   });
 
   it("catches a crafted standalone flex factor and allows the keyword shorthand (self-check)", () => {
