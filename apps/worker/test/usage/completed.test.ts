@@ -51,5 +51,6 @@ describe("maybeEmitCompleted", () => {
       topic: "matter.closed",
     });
     expect(log).not.toHaveBeenCalled();
+    expect(count).not.toHaveBeenCalled();
   });
 });

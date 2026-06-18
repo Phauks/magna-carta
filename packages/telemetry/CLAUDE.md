@@ -23,7 +23,7 @@
 
 ## Dependencies & contracts
 
-- Emits to Cloudflare **Analytics Engine** (`env.ANALYTICS`). The `usage` dataset name and the blob-slot layout (`blob1="usage"`, `blob2=feature`, `blob3=phase`, `blob4=surface`, `double1=1`) are the stable contract — changing them breaks the canonical queries in [`docs/analytics/usage-queries.md`](../../docs/analytics/usage-queries.md).
+- Emits to Cloudflare **Analytics Engine** (`env.TELEMETRY`). The `usage` dataset name and the blob-slot layout (`blob1="usage"`, `blob2=feature`, `blob3=phase`, `blob4=surface`, `double1=1`) are the stable contract — changing them breaks the canonical queries in [`docs/analytics/usage-queries.md`](../../docs/analytics/usage-queries.md).
 - The consent resolver reads `usage_analytics.enabled` (per-firm D1 `setting`) and `member.opted_out_of_usage_analytics` (per-firm D1 `member` row) via the firm-scoped data-access layer.
 - The server-side `reached` emitter is wired in the route→feature middleware; `completed` is emitted from the outbox sweep (topic→feature, firm-level). The client beacon for pure-client surfaces is a **documented seam** — not yet built (deferred until there is client traffic).
 
