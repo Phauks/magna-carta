@@ -44,8 +44,10 @@ runs logic mid-transaction.
   for being big. Files within the cap follow the normal scan path: an engine `unscanned` result (e.g.
   reason `encrypted`) commits with `scan_detail` set to that reason (a "not scanned" badge); an engine
   `suspicious` result (decompression-bomb / archive-nesting / archive-entry-count) quarantines with
-  reason `scan-suspicious`. This mapping exists now but is dormant — the launch `unscannedAdapter` only
-  ever returns `unscanned`/`no-engine`; the real engine lands with Plan 2.
+  reason `scan-suspicious`. The real engine is **built** — the `containers/scan` Rust Container (clamd +
+  yara-x + structural heuristics) behind the worker `containerScanAdapter` — but it is dormant until its
+  deploy-time wrangler activation; until then `resolveScanPort` runs the launch `unscannedAdapter`
+  (`unscanned`/`no-engine`), so this mapping does not yet fire in production.
 - **Scan verdict policy.** `clean` commits the version; `activeContent: true` (PDF JavaScript / Office
   macros — set by the Plan 2 engine) commits with `scan_detail: "active-content"` as a badge; execution
   defenses are the safe-delivery sandbox (a later slice) and the upload-policy extension blocklist. CDR
@@ -70,9 +72,11 @@ runs logic mid-transaction.
 - Depends on `@magna-carta/data-access`, `@magna-carta/database`, `@magna-carta/identifiers`,
   `client-zip` (store-mode ZIP64), `file-type` (magic-byte sniff). Holds no D1 binding; the Worker passes
   the database and the R2/presigner seams in.
-- The malware-scan engine (`MalwareScanPort`) and the real scan verdicts (`infected` / `suspicious`) land
-  with Plan 2 (the Container engine — ClamAV + yara-x + Rust heuristics). The launch adapter records an
-  honest `unscanned` verdict today; the `suspicious` path is exercised once the engine ships.
+- The malware-scan engine (`MalwareScanPort`) and the real scan verdicts (`infected` / `suspicious`) are
+  **built** — the `containers/scan` Container (ClamAV + yara-x + Rust structural heuristics) + the worker
+  `containerScanAdapter`, selected by `resolveScanPort` when its binding is present. The binding is a
+  deploy-time activation (the container can't run under the local test pool), so the launch adapter still
+  records an honest `unscanned` verdict in every test/dev env until the engine is wired in production.
 
 ## Gotchas
 
