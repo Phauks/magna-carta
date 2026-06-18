@@ -24,13 +24,15 @@
 
 ### Task 1: Register the `tools:` permission namespace
 
-Adds one block to the access-control permission registry. Independently testable against the access-control suite. The three `PERMISSIONS` cross-checks elsewhere (worker route conformance, database seed-migration fitness) are forward-only — they reject *seeded/route-bound* keys missing from the registry, never registered keys that are unseeded — so adding an unseeded namespace is safe.
+Adds one block to the access-control permission registry. Independently testable against the access-control suite. The three `PERMISSIONS` cross-checks elsewhere (worker route conformance, database seed-migration fitness) are forward-only — they reject _seeded/route-bound_ keys missing from the registry, never registered keys that are unseeded — so adding an unseeded namespace is safe.
 
 **Files:**
+
 - Modify: `packages/access-control/src/registry.ts` (insert the `tools:` block before the closing `] as const;`)
 - Test: `packages/access-control/test/registry.test.ts` (add one `it`)
 
 **Interfaces:**
+
 - Produces: registry keys `tools:propertyListings`, `tools:propertyRecords`, `tools:businessLookup`, `tools:attorneyLicense`, `tools:shipping` — consumed by Task 2's catalog and Task 3's tests via `assertPermission`.
 
 - [ ] **Step 1: Write the failing test**
@@ -38,15 +40,15 @@ Adds one block to the access-control permission registry. Independently testable
 Add this `it` block inside the `describe("permission registry", …)` in `packages/access-control/test/registry.test.ts` (after the `files` namespace test):
 
 ```ts
-  it("permissionsForNamespace('tools') returns exactly the tools keys, in registry order", () => {
-    expect(permissionsForNamespace("tools")).toEqual([
-      "tools:propertyListings",
-      "tools:propertyRecords",
-      "tools:businessLookup",
-      "tools:attorneyLicense",
-      "tools:shipping",
-    ]);
-  });
+it("permissionsForNamespace('tools') returns exactly the tools keys, in registry order", () => {
+  expect(permissionsForNamespace("tools")).toEqual([
+    "tools:propertyListings",
+    "tools:propertyRecords",
+    "tools:businessLookup",
+    "tools:attorneyLicense",
+    "tools:shipping",
+  ]);
+});
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -88,6 +90,7 @@ git commit -m "feat(access-control): register the tools: permission namespace"
 Creates the package and delivers a tested catalog of the tools that exist today.
 
 **Files:**
+
 - Create: `packages/tools/package.json`
 - Create: `packages/tools/tsconfig.json`
 - Create: `packages/tools/vitest.config.ts`
@@ -96,6 +99,7 @@ Creates the package and delivers a tested catalog of the tools that exist today.
 - Test: `packages/tools/test/catalog.test.ts`
 
 **Interfaces:**
+
 - Consumes: `Permission`, `isPermission`, `assertPermission` from `@magna-carta/access-control/registry` (Task 1's keys).
 - Produces:
   - `type SubjectGroup = "property" | "business-entities" | "people-licenses" | "mailing-shipping" | "printing" | "diagnostics"` and `const SUBJECT_GROUP_ORDER` (a `readonly` tuple in that order).
@@ -348,10 +352,12 @@ git commit -m "feat(tools): scaffold @magna-carta/tools with the manifest types 
 The two pure queries that feed the general (sidebar) and contextual surfaces.
 
 **Files:**
+
 - Create: `packages/tools/src/select.ts`
 - Test: `packages/tools/test/select.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ToolManifest`, `SubjectGroup`, `ContextTag`, `SUBJECT_GROUP_ORDER` (Task 2); `Permission`, `assertPermission` (Task 1).
 - Produces:
   - `interface GroupedTools { readonly group: SubjectGroup; readonly tools: ToolManifest[] }`.
@@ -388,9 +394,24 @@ const businessLookup = assertPermission("tools:businessLookup");
 const shipping = assertPermission("tools:shipping");
 
 const catalog: ToolManifest[] = [
-  makeTool({ id: "a", permission: propertyListings, subjectGroup: "property", contextTags: ["address"] }),
-  makeTool({ id: "b", permission: businessLookup, subjectGroup: "business-entities", contextTags: ["company"] }),
-  makeTool({ id: "c", permission: shipping, subjectGroup: "mailing-shipping", contextTags: ["address"] }),
+  makeTool({
+    id: "a",
+    permission: propertyListings,
+    subjectGroup: "property",
+    contextTags: ["address"],
+  }),
+  makeTool({
+    id: "b",
+    permission: businessLookup,
+    subjectGroup: "business-entities",
+    contextTags: ["company"],
+  }),
+  makeTool({
+    id: "c",
+    permission: shipping,
+    subjectGroup: "mailing-shipping",
+    contextTags: ["address"],
+  }),
 ];
 
 const allPermissions = new Set<Permission>([propertyListings, businessLookup, shipping]);
@@ -422,9 +443,9 @@ describe("toolsFor", () => {
   });
 
   it("excludes tools the principal cannot access", () => {
-    expect(toolsFor(catalog, "address", new Set<Permission>([propertyListings])).map((tool) => tool.id)).toEqual([
-      "a",
-    ]);
+    expect(
+      toolsFor(catalog, "address", new Set<Permission>([propertyListings])).map((tool) => tool.id),
+    ).toEqual(["a"]);
   });
 
   it("returns [] when nothing matches the tag", () => {
@@ -444,7 +465,12 @@ Expected: FAIL — cannot resolve `../src/select.ts`.
 
 ```ts
 import type { Permission } from "@magna-carta/access-control/registry";
-import { SUBJECT_GROUP_ORDER, type ContextTag, type SubjectGroup, type ToolManifest } from "./types.ts";
+import {
+  SUBJECT_GROUP_ORDER,
+  type ContextTag,
+  type SubjectGroup,
+  type ToolManifest,
+} from "./types.ts";
 
 export interface GroupedTools {
   readonly group: SubjectGroup;
@@ -503,10 +529,12 @@ git commit -m "feat(tools): add the toolsByGroup and toolsFor selectors"
 A source-scan guard that the catalog stays a pure presentation layer (no UI, no tool-logic package), the package's `CLAUDE.md`, and the full repo quality gate.
 
 **Files:**
+
 - Test: `packages/tools/test/purity.test.ts`
 - Create: `packages/tools/CLAUDE.md`
 
 **Interfaces:**
+
 - Consumes: the `src/` files from Tasks 2–3 (read from disk, not imported).
 
 - [ ] **Step 1: Write the fitness test**
@@ -538,9 +566,7 @@ describe("the tools catalog stays a pure presentation layer (fitness)", () => {
       if (!name.endsWith(".ts")) continue;
       for (const specifier of importSpecifiers(join(sourceDir, name))) {
         const allowed =
-          specifier.startsWith("./") ||
-          specifier.startsWith("../") ||
-          specifier === allowedPackage;
+          specifier.startsWith("./") || specifier.startsWith("../") || specifier === allowedPackage;
         expect(allowed, `${name} imports ${specifier}`).toBe(true);
       }
     }
@@ -601,6 +627,7 @@ git commit -m "test(tools): add the catalog-purity fitness function and local no
 Golden rule 5 (docs in the same change) and golden rule 8 (decisions as ADRs). This records ADR-0097 and adds the execution-tracking rows for the pure-package portion.
 
 **Files:**
+
 - Modify: `docs/Decision-Log.md` (add ADR-0097)
 - Modify: `ROADMAP.md` (a Cross-cutting row)
 - Modify: `STATUS.md` (a stage row)
@@ -610,7 +637,7 @@ Golden rule 5 (docs in the same change) and golden rule 8 (decisions as ADRs). T
 
 In `docs/Decision-Log.md`, add an entry following the existing ADR format:
 
-> **ADR-0097** · Accepted · 2026-06-16 · Tools area — **a presentation/IA catalog above the integration framework.** A top-level Tools area surfaces first-party utilities both generally (a sidebar grouped by subject) and contextually (queried by context tag), from one pure `@magna-carta/tools` catalog. **Decision:** the Tools layer is a thin presentation layer *above* the existing packages, not part of the integration framework — `library`-backed tools (link generators and interactive widgets) are self-contained; `integration`-backed tools reference an integration `category` and reflect its `Dispatch`/health, while the Tools layer itself never touches credentials. Honors the framework's "pure utilities are libraries, not plugins" boundary. **Consequences:** the pure package (types + catalog + selectors + the `tools:` permission namespace) builds independently of the UI; the sidebar/contextual rendering, the id->component map, the integration health branching, and role-seeding land with the design-system shell. Concretizes ADR-0015 on the presentation side; builds on ADR-0091/0092 (integration port system) and ADR-0068 (access control). Spec: `docs/specs/2026-06-16-tools-area-design.md`.
+> **ADR-0097** · Accepted · 2026-06-16 · Tools area — **a presentation/IA catalog above the integration framework.** A top-level Tools area surfaces first-party utilities both generally (a sidebar grouped by subject) and contextually (queried by context tag), from one pure `@magna-carta/tools` catalog. **Decision:** the Tools layer is a thin presentation layer _above_ the existing packages, not part of the integration framework — `library`-backed tools (link generators and interactive widgets) are self-contained; `integration`-backed tools reference an integration `category` and reflect its `Dispatch`/health, while the Tools layer itself never touches credentials. Honors the framework's "pure utilities are libraries, not plugins" boundary. **Consequences:** the pure package (types + catalog + selectors + the `tools:` permission namespace) builds independently of the UI; the sidebar/contextual rendering, the id->component map, the integration health branching, and role-seeding land with the design-system shell. Concretizes ADR-0015 on the presentation side; builds on ADR-0091/0092 (integration port system) and ADR-0068 (access control). Spec: `docs/specs/2026-06-16-tools-area-design.md`.
 
 - [ ] **Step 2: Add the ROADMAP row**
 
@@ -636,6 +663,7 @@ git commit -m "docs(tools): record ADR-0097 and update roadmap/status/changelog"
 ## Self-Review
 
 **1. Spec coverage** (against `docs/specs/2026-06-16-tools-area-design.md`):
+
 - §1 module placement (pure `@magna-carta/tools`, files `types`/`catalog`/`select`, depends only on access-control) → Task 2/3.
 - §2 the `ToolManifest` shape (all fields incl. `backing`, `contextTags`, `matterContext` seam) → Task 2.
 - §3 the two surfaces' selector behavior (grouped fixed-order/omit-empty; context-tag filter; permission gate) → Task 3.

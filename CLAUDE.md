@@ -8,20 +8,20 @@ This is the **entry point** for anyone working in this repo: the golden rules an
 
 Documentation is **segmented and non-duplicative.** Every fact has one authoritative home; everything else links to it. Put new information in its home.
 
-| You need…                                                | Home                                                                                  |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Why / what — design, rationale, feature map              | [`docs/Magna-Carta-White-Paper.md`](docs/Magna-Carta-White-Paper.md)                  |
-| Decisions + status (ADR register & standard)             | [`docs/Decision-Log.md`](docs/Decision-Log.md)                                        |
-| How to work here + golden rules + this map               | **this file**                                                                         |
-| Code standards (style, UI, testing, security, API, docs) | [`docs/conventions/`](docs/conventions/)                                              |
-| Subsystem design (spec → plan → build)                   | [`docs/specs/`](docs/specs/)                                                          |
-| Local rules & gotchas for a code area                    | a `CLAUDE.md` beside that code ([template](docs/conventions/area-claude-template.md)) |
-| End-user & admin guides (per feature)                    | [`docs/user/`](docs/user/)                                                            |
-| Live execution status (now / next / shipped / backlog)   | [`ROADMAP.md`](ROADMAP.md)                                                            |
-| Per-slice stage status (spec → plan → built → tested)    | [`STATUS.md`](STATUS.md)                                                              |
-| Notable changes                                          | [`CHANGELOG.md`](CHANGELOG.md)                                                        |
-| Recurring & associated costs (subscriptions, usage, one-time) | [`docs/operating-costs.md`](docs/operating-costs.md)                            |
-| Research (trust rules, competitive analysis)             | [`docs/research/`](docs/research/)                                                    |
+| You need…                                                     | Home                                                                                  |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Why / what — design, rationale, feature map                   | [`docs/Magna-Carta-White-Paper.md`](docs/Magna-Carta-White-Paper.md)                  |
+| Decisions + status (ADR register & standard)                  | [`docs/Decision-Log.md`](docs/Decision-Log.md)                                        |
+| How to work here + golden rules + this map                    | **this file**                                                                         |
+| Code standards (style, UI, testing, security, API, docs)      | [`docs/conventions/`](docs/conventions/)                                              |
+| Subsystem design (spec → plan → build)                        | [`docs/specs/`](docs/specs/)                                                          |
+| Local rules & gotchas for a code area                         | a `CLAUDE.md` beside that code ([template](docs/conventions/area-claude-template.md)) |
+| End-user & admin guides (per feature)                         | [`docs/user/`](docs/user/)                                                            |
+| Live execution status (now / next / shipped / backlog)        | [`ROADMAP.md`](ROADMAP.md)                                                            |
+| Per-slice stage status (spec → plan → built → tested)         | [`STATUS.md`](STATUS.md)                                                              |
+| Notable changes                                               | [`CHANGELOG.md`](CHANGELOG.md)                                                        |
+| Recurring & associated costs (subscriptions, usage, one-time) | [`docs/operating-costs.md`](docs/operating-costs.md)                                  |
+| Research (trust rules, competitive analysis)                  | [`docs/research/`](docs/research/)                                                    |
 
 **Cross-reference rule:** `§N` is navigation _inside_ the white paper only. From any other file, reference the white paper by **document + topic name** (or a stable **`ADR-NNNN`**), never a section number — they shift on reorganization.
 

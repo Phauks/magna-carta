@@ -6,7 +6,7 @@
 
 ## Decision
 
-Recorder/deed lookups are the *same pattern* parcels already implements: a per-county deep-link to a government portal, keyed by jurisdiction (FIPS), resolved through pluggable platform adapters. The recorder is just another county system on the same machinery — different vendor platforms (Tyler Eagle, Kofile/GovOS, Fidlar, AcclaimWeb), the same jurisdiction registry + adapter abstraction.
+Recorder/deed lookups are the _same pattern_ parcels already implements: a per-county deep-link to a government portal, keyed by jurisdiction (FIPS), resolved through pluggable platform adapters. The recorder is just another county system on the same machinery — different vendor platforms (Tyler Eagle, Kofile/GovOS, Fidlar, AcclaimWeb), the same jurisdiction registry + adapter abstraction.
 
 So a **separate package would duplicate parcels' jurisdiction/adapter engine** (golden rule 1). Instead:
 
@@ -20,7 +20,7 @@ So a **separate package would duplicate parcels' jurisdiction/adapter engine** (
 
 ### Honest caveat
 
-Recorder deed *images* are paywalled / portal-only (per the public-records research). So, exactly like the assessor, we **deep-link to the recorder's search — we do not pull deed data.** Chain-of-title work stays a human-on-the-portal task; parcels only removes the clicks to get there.
+Recorder deed _images_ are paywalled / portal-only (per the public-records research). So, exactly like the assessor, we **deep-link to the recorder's search — we do not pull deed data.** Chain-of-title work stays a human-on-the-portal task; parcels only removes the clicks to get there.
 
 ## The model generalization (begun — business domain first)
 
@@ -28,8 +28,8 @@ The pre-generalization model was `AssessorSite` (one assessor portal per jurisdi
 
 This was cheap exactly as predicted: the **`stateSites` builder insulates every per-county row** from the site shape, so all ~820 property rows took the new `category`/`system` fields from the builder with no row edits — a helper-level change, no retrofit.
 
-**The first proof was the business domain, not recorder/GIS** — because it needed no new property data to validate the seam, and it exercises the *harder* axis (a second category at a different jurisdiction granularity). **Nevada Secretary of State** is wired (`src/business/`): the SilverFlume business-entity search + the ORION UCC index, both search-only, keyed by state FIPS `32`. A generic `portalUrl(site, {key, year})` resolves any portal; `assessorUrl(site, {apn})` is now a thin property-domain wrapper over it. The `./business` subpath export and `siteForSystem` / `businessEntitySiteForState` / `uccSiteForState` accessors are the consumer surface.
+**The first proof was the business domain, not recorder/GIS** — because it needed no new property data to validate the seam, and it exercises the _harder_ axis (a second category at a different jurisdiction granularity). **Nevada Secretary of State** is wired (`src/business/`): the SilverFlume business-entity search + the ORION UCC index, both search-only, keyed by state FIPS `32`. A generic `portalUrl(site, {key, year})` resolves any portal; `assessorUrl(site, {apn})` is now a thin property-domain wrapper over it. The `./business` subpath export and `siteForSystem` / `businessEntitySiteForState` / `uccSiteForState` accessors are the consumer surface.
 
 **Done since:** the package is renamed to `@magna-carta/government-links` with `property/` and `business/` as subpath domains over the shared root engine (no legacy alias); the business domain now covers **all 50 states + DC** (each state's Secretary-of-State business-entity search, plus the UCC index where public) — proving the second category scales to national coverage with no shape changes.
 
-**Next:** the property recorder/GIS systems drop onto the *same* built seam when their data lands (extend `stateSites` for the new `system`, register under the existing key); broaden assessor coverage to the remaining states. The `property-links` aggregator consumes the property domain via its county-assessor provider.
+**Next:** the property recorder/GIS systems drop onto the _same_ built seam when their data lands (extend `stateSites` for the new `system`, register under the existing key); broaden assessor coverage to the remaining states. The `property-links` aggregator consumes the property domain via its county-assessor provider.

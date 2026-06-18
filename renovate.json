@@ -4,6 +4,7 @@
   "rangeStrategy": "pin",
   "schedule": ["before 9am on monday"],
   "prHourlyLimit": 0,
+  "osvVulnerabilityAlerts": true,
   "packageRules": [
     { "groupName": "non-major dependencies", "matchUpdateTypes": ["minor", "patch"] },
     {

@@ -25,12 +25,12 @@ In scope: the capture mechanisms, the matter-email record/data model, dedup, mul
 
 Every capture method converges on **one pipeline and one record** (§2–3); they differ only in friction, reach, and procurement gate. The competitive analysis and the technical research settle the order.
 
-| Mechanism | UX | Reach | CASA gate | Slice order |
-| --- | --- | --- | --- | --- |
-| **Add-in "Save &amp; File"** | one click, predictive matter suggestion + confidence (the LEAP/NetDocuments feel) | Outlook desktop/web/new · Gmail web/mobile | **none** (Outlook: no CASA exists; Gmail: `current.message.readonly` is _sensitive_, verification-only) | **first** |
-| **Forward / CC to a capture address** | forward gesture | **any** client, any device | none | **first** (universal fallback) |
-| **Full mailbox sync** | zero clicks, auto-capture + send-as | server-side | **yes** — restricted scopes (`gmail.readonly`) → CASA + Microsoft verification | **later** |
-| **Legacy bulk import** | one-time migration | from LEAP / PST / file shares | n/a | **deferred** (rides LEAP migration) |
+| Mechanism                             | UX                                                                                | Reach                                      | CASA gate                                                                                               | Slice order                         |
+| ------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| **Add-in "Save &amp; File"**          | one click, predictive matter suggestion + confidence (the LEAP/NetDocuments feel) | Outlook desktop/web/new · Gmail web/mobile | **none** (Outlook: no CASA exists; Gmail: `current.message.readonly` is _sensitive_, verification-only) | **first**                           |
+| **Forward / CC to a capture address** | forward gesture                                                                   | **any** client, any device                 | none                                                                                                    | **first** (universal fallback)      |
+| **Full mailbox sync**                 | zero clicks, auto-capture + send-as                                               | server-side                                | **yes** — restricted scopes (`gmail.readonly`) → CASA + Microsoft verification                          | **later**                           |
+| **Legacy bulk import**                | one-time migration                                                                | from LEAP / PST / file shares              | n/a                                                                                                     | **deferred** (rides LEAP migration) |
 
 **The load-bearing finding (drives ADR-0097):** the **add-in "Save &amp; File" UX is both the best experience and CASA-free.** Outlook reads the open message via `getAsFileAsync` (full EML, Mailbox req-set 1.14) with NAA auth — Microsoft has no CASA equivalent. Gmail's narrow `gmail.addons.current.message.readonly` is _sensitive, not restricted_ — OAuth verification (days–weeks) but **no CASA audit**. CASA only bites when you reach **beyond the open message** into full-mailbox scopes (mechanism 3). So we deliver the LEAP-parity workflow **before** paying the CASA tax.
 
@@ -68,6 +68,7 @@ Reconstruction: a matter's email view is assembled from all messages linked to t
 The hero mechanism. One panel: **predictive matter suggestion** (from the message's participants matched to Directory/matters, with a visible **confidence signal** — matching NetDocuments' Signal Strength, beating LEAP/Clio heuristics), confirm, **Save & File**; plus **Send & File** on compose.
 
 **Outlook (priority — most US firms / the owner's firm are Microsoft 365):**
+
 - Read the open message: **`getAsFileAsync`** → full Base64 EML (req-set 1.14); **Graph `/messages/{id}/$value`** fallback (mobile, server enrichment). Graph metadata (sender/recipients/subject/`conversationId`) drives the prediction.
 - Auth: **NAA + MSAL.js** (mandatory since Feb 2025; legacy Exchange/callback tokens retired). Mint a token for Graph _and_ our API; validate the Entra identity claims server-side.
 - **Send & File:** `OnMessageSend` Smart Alert (req-set 1.12) can block/confirm if no matter chosen. Auto-suggest on arrival via `OnNewMessageCompose`/read events — bounded by the 5-min handler / stay-on-item / max-5-add-ins limits.
@@ -76,6 +77,7 @@ The hero mechanism. One panel: **predictive matter suggestion** (from the messag
 - Gotchas (research): attachment IDs are session-scoped (capture in one pass; popping out a compose ends the session); cloud "Upload &amp; share" attachments aren't returned as bytes (§9); event handlers don't fire reliably for offline-drafted-then-sent; design the pane to queue/retry.
 
 **Gmail (fast-follow):**
+
 - **Workspace Add-on**, CardService UI (no arbitrary HTML), contextual trigger on open + compose trigger for Send & File; renders on web + mobile.
 - Scope: **`gmail.addons.current.message.readonly`** (+ `current.action.compose`) — **sensitive, verification-only, CASA-free.** Gives body + headers + `getAttachments()` for the open message. Raw RFC822 of _arbitrary_ messages would need restricted `gmail.readonly` → **avoid** (that's mechanism 3 / CASA).
 - Backend auth: alternate-runtime add-on; verify `systemIdToken` (request came from Google) + `userIdToken` (who), then mint our session.
@@ -125,11 +127,13 @@ Yes, attachments are saved — extracted into the matter's **File Manager** as f
 Two answers — storage is cheap by design; quoted-history redundancy becomes an _integrity asset_.
 
 **Storage levers:**
+
 - **Message dedup** (store each unique message once by `Message-ID`; thread = links, not a re-saved blob per reply) + **attachment dedup** (content hash) are the levers. A growing A→AB→ABD→ABCDE chain stores E once and links to existing A/B/D.
 - **Body kept verbatim** (it's KB), but the **search index gets only the _new_ content per message** — no N copies of quoted history bloating Tantivy/Vectorize.
 - **Reality check:** ~few KB/email → 100k emails ≈ a few hundred MB ≈ cents/mo (R2 ~$0.015/GB-mo). **Attachments dominate cost — and they're deduped.** No body delta-compression (complexity not worth it vs. evidentiary "keep verbatim").
 
 **Integrity (quoted history is untrusted):**
+
 - **The authenticated message is the unit of truth** — each individually-received message verified by its own **DKIM** signature, recorded immutably. Quoted history embedded in a later reply is unauthenticated hearsay.
 - **Tamper diff** — because we hold the real A _and_ a reply that quotes A, we **diff the quote against the original and flag discrepancies** ("…pay $50,000" vs the real "…pay $5,000"). A genuine forensic feature no incumbent offers.
 - **Threads are DAGs** — forks + late-surfacing "private" messages linked by ID/References; any segment known only from a quote is marked **"unauthenticated — from quote"** until the real message is filed.
@@ -155,6 +159,7 @@ The white paper's _Communications layer_ dual-send posture: **matter corresponde
 Laned with the owner (2026-06-16). The throughline: **MVP = everything the add-in + forward path needs to be genuinely useful and safe**; every "later" facet is parked because it **depends on a subsystem not yet built** (sync/CASA, Discovery, Notifications, the LEAP migration), not as an arbitrary cut. Several facets **split** — a cheap core ships MVP, the polish follows.
 
 **MVP — the launchable CASA-free filing slice:**
+
 - **Predictive matter-match (heuristic)** — a transparent ranked suggestion with an **explainable reason** + confidence badge, over the signal ladder: thread-continuation and subject matter-#/name (CASA-free, no Directory) → participants∩parties and sender-domain→org (need Directory 1·3) → recent-matters tiebreaker. Degrades gracefully pre-Directory. (ML / filing-history scoring → fast-follow.)
 - **Configurable auto-file rules (guardrailed)** — `condition → matter` rules, mostly learned from real filing, with the structural guardrails (ambiguity/conflict → never auto; DKIM-authenticated sender; reversible + surfaced in a review digest). Decided 2026-06-16 (§2/§3a) — the powerful option, made safe.
 - **Matter correspondence timeline (concept confirmed; UI deferred)** — the matter gets a **chronological correspondence view** of its filed threads (owner, 2026-06-16: "a timeline would be cool"). The **data model already supports it** (thread DAG, per-message new-content extraction, DKIM result, participant + attachment links), so the render is a pure UI-layer concern — **deferred to the UI plan** (post-0·7a/0·7b, as with the 1·1 / 1·3 UI plans), not designed here. Direction when it's built: collapsible conversation view, quoted history hidden by default, Directory-linked participants, attachment chips, provenance; the integrity markers (tamper-diff, "from quote") and any fork visualization are fast-follow render add-ons.
@@ -164,12 +169,14 @@ Laned with the owner (2026-06-16). The throughline: **MVP = everything the add-i
 - **Multi-matter visibility** — _inherent_ to the junction model; no extra build.
 
 **Fast-follow — polish &amp; reach, right after launch:**
+
 - **Confidence / ML matter-scoring** (Signal-Strength-style ranking beyond heuristics).
 - **Proactive "already filed" badge** on message-open (read-event trigger) vs. only on panel-open.
 - **Multi-select "file these N emails"** (needs the XML manifest path).
 - **Integrity-marker UX** — "unauthenticated — from quote" markers + tamper-diff surfacing on the timeline (§10).
 
 **Later — gated on other subsystems:**
+
 - **Platform send-as-attorney** (§11) — needs the mailbox-sync adapter + SPF/DKIM delegation; interim Send & File covers the need.
 - **Discovery indexing unit** (thread vs message) + **email-body redaction** — Phase 5; the capture record stays discovery-ready now (content hash, structure).
 - **Active notify-on-second-file** (§7 sub-question) — pinging the original filer needs the **Notifications** subsystem (still in backlog); passive visibility on both matter timelines is already inherent.
