@@ -2,7 +2,7 @@
 
 **Status:** Accepted (design) · **Date:** 2026-06-17 · **Owner:** Trevor Goldsmith
 **White-paper home:** _Plugin / Add-on system_ (the Tools area) · _Matters and File Manager_ (storage metering)
-**ADRs:** **ADR-0103 (firm usage snapshot — a read-only, per-firm usage view assembled from our own D1; per-firm compute/activity via the Cloudflare analytics API is a deferred credentialed seam — new)** · builds on ADR-0097 (the Tools layer), ADR-0078/0083 (storage metering + load-profile accretion), ADR-0003 (tenancy), ADR-0068 (access control).
+**ADRs:** **ADR-0103 (firm usage snapshot — a read-only, per-firm usage view assembled from our own D1; per-firm compute/activity via the Cloudflare analytics API is a deferred credentialed seam — new)** · builds on ADR-0101 (the Tools layer), ADR-0078/0083 (storage metering + load-profile accretion), ADR-0003 (tenancy), ADR-0068 (access control).
 
 A **firm usage snapshot** — a read-only, per-firm view of what a firm is consuming, assembled entirely from our own per-firm D1: storage used and entity counts. It is the first **Diagnostics** tool with real data behind it (after the client-side speed test), surfaced through the Tools area. Firm-facing: a firm sees _its own_ usage.
 
