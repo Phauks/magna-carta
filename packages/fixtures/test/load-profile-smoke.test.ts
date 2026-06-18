@@ -78,6 +78,7 @@ describe("load-profile smoke", () => {
         "list-clean-versions.by-file",
         "zip-resolution.clean-current-versions",
         "zip-resolution.folders-by-matter",
+        "rescan-sweep.find-unscanned",
         "storage-meter.summary",
         "matter-number.counter-draw",
       ].sort(),
@@ -130,6 +131,7 @@ describe("load-profile smoke", () => {
         "get-current-clean-version",
         "zip-resolution.clean-current-versions",
         "zip-resolution.folders-by-matter",
+        "rescan-sweep.find-unscanned",
         "storage-meter.summary",
       ].sort(),
     );

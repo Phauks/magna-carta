@@ -1,140 +1,147 @@
 {
   "profileName": "ledgerVolume",
-  "profileVersion": 3,
-  "cacheKey": "27e1a11c8972831d",
+  "profileVersion": 4,
+  "cacheKey": "0a053e1617dadfcf",
   "results": [
     {
       "name": "balance-read.busy-subledger",
       "iterations": 30,
-      "minMs": 0.051,
-      "medianMs": 0.058,
-      "p95Ms": 0.091
+      "minMs": 0.053,
+      "medianMs": 0.059,
+      "p95Ms": 0.156
     },
     {
       "name": "create-account.trust-subledger",
       "iterations": 30,
-      "minMs": 3.234,
-      "medianMs": 3.87,
-      "p95Ms": 6.158
+      "minMs": 2.964,
+      "medianMs": 3.941,
+      "p95Ms": 5.056
     },
     {
       "name": "get-current-clean-version",
       "iterations": 30,
-      "minMs": 0.08,
-      "medianMs": 0.098,
-      "p95Ms": 0.362
+      "minMs": 0.086,
+      "medianMs": 0.133,
+      "p95Ms": 0.359
     },
     {
       "name": "ledger-fitness.table-wide",
       "iterations": 30,
-      "minMs": 311.86,
-      "medianMs": 363.383,
-      "p95Ms": 396.264
+      "minMs": 311.146,
+      "medianMs": 354.32,
+      "p95Ms": 403.558
     },
     {
       "name": "list-clean-versions.by-file",
       "iterations": 30,
-      "minMs": 0.084,
-      "medianMs": 0.103,
-      "p95Ms": 0.605
+      "minMs": 0.086,
+      "medianMs": 0.113,
+      "p95Ms": 0.19
     },
     {
       "name": "list-consultations.by-member",
       "iterations": 30,
-      "minMs": 0.2,
-      "medianMs": 0.262,
-      "p95Ms": 0.372
+      "minMs": 0.292,
+      "medianMs": 0.321,
+      "p95Ms": 0.375
     },
     {
       "name": "list-files.by-folder",
       "iterations": 30,
-      "minMs": 0.089,
-      "medianMs": 0.103,
-      "p95Ms": 0.171
+      "minMs": 0.087,
+      "medianMs": 0.091,
+      "p95Ms": 0.109
     },
     {
       "name": "list-files.by-matter",
       "iterations": 30,
-      "minMs": 0.144,
-      "medianMs": 0.23,
-      "p95Ms": 0.332
+      "minMs": 0.133,
+      "medianMs": 0.174,
+      "p95Ms": 0.346
     },
     {
       "name": "list-matters.filtered",
       "iterations": 30,
-      "minMs": 0.161,
-      "medianMs": 0.193,
-      "p95Ms": 0.344
+      "minMs": 0.247,
+      "medianMs": 0.264,
+      "p95Ms": 0.355
     },
     {
       "name": "list-matters.first-page",
       "iterations": 30,
-      "minMs": 0.394,
-      "medianMs": 0.453,
-      "p95Ms": 0.51
+      "minMs": 0.393,
+      "medianMs": 0.454,
+      "p95Ms": 0.567
     },
     {
       "name": "matter-number.counter-draw",
       "iterations": 30,
-      "minMs": 4.789,
-      "medianMs": 6.742,
-      "p95Ms": 7.704
+      "minMs": 3.991,
+      "medianMs": 5.351,
+      "p95Ms": 8.458
     },
     {
       "name": "post-entry.two-line",
       "iterations": 30,
-      "minMs": 14.76,
-      "medianMs": 15.768,
-      "p95Ms": 17.465
+      "minMs": 13.558,
+      "medianMs": 16.751,
+      "p95Ms": 21.38
     },
     {
       "name": "protected.blind-index-compute",
       "iterations": 30,
-      "minMs": 0.121,
-      "medianMs": 0.149,
-      "p95Ms": 0.217
+      "minMs": 0.141,
+      "medianMs": 0.148,
+      "p95Ms": 0.328
     },
     {
       "name": "protected.firm-secret-read",
       "iterations": 30,
-      "minMs": 3.283,
-      "medianMs": 3.779,
-      "p95Ms": 5.135
+      "minMs": 3.416,
+      "medianMs": 4.644,
+      "p95Ms": 6.7
     },
     {
       "name": "protected.incident-decrypt-page",
       "iterations": 30,
-      "minMs": 184.78,
-      "medianMs": 239.143,
-      "p95Ms": 261.028
+      "minMs": 196.591,
+      "medianMs": 220.16,
+      "p95Ms": 253.782
+    },
+    {
+      "name": "rescan-sweep.find-unscanned",
+      "iterations": 30,
+      "minMs": 0.201,
+      "medianMs": 0.21,
+      "p95Ms": 0.261
     },
     {
       "name": "reverse-entry.two-line",
       "iterations": 30,
-      "minMs": 14.637,
-      "medianMs": 16.109,
-      "p95Ms": 17.508
+      "minMs": 13.058,
+      "medianMs": 16.645,
+      "p95Ms": 24.556
     },
     {
       "name": "storage-meter.summary",
       "iterations": 30,
-      "minMs": 0.051,
-      "medianMs": 0.062,
-      "p95Ms": 0.126
+      "minMs": 0.053,
+      "medianMs": 0.054,
+      "p95Ms": 0.063
     },
     {
       "name": "zip-resolution.clean-current-versions",
       "iterations": 30,
-      "minMs": 0.119,
-      "medianMs": 0.129,
-      "p95Ms": 0.18
+      "minMs": 0.117,
+      "medianMs": 0.124,
+      "p95Ms": 0.152
     },
     {
       "name": "zip-resolution.folders-by-matter",
       "iterations": 30,
-      "minMs": 0.062,
-      "medianMs": 0.077,
-      "p95Ms": 0.139
+      "minMs": 0.07,
+      "medianMs": 0.078,
+      "p95Ms": 0.213
     }
   ]
 }
