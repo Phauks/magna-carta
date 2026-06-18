@@ -42,11 +42,13 @@ describe("emitUsage", () => {
     const logger = recordingLogger();
     await emitUsage({ ...baseParams, pepper: undefined, logger, consented: true });
     expect(logger.log).not.toHaveBeenCalled();
+    expect(logger.count).not.toHaveBeenCalled();
   });
   it("passes a null userId through as a null hash (firm-level completed)", async () => {
     const logger = recordingLogger();
     await emitUsage({ ...baseParams, phase: "completed", userId: null, logger, consented: true });
     const event = (logger.log as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(event.fields.userIdHash).toBeNull();
+    expect(logger.count).toHaveBeenCalledOnce();
   });
 });
