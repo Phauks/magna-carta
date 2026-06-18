@@ -8,7 +8,7 @@ import { IDAHO_ASSESSOR_SITES } from "./idaho.ts";
 import { KANSAS_ASSESSOR_SITES } from "./kansas.ts";
 import { MONTANA_ASSESSOR_SITES } from "./montana.ts";
 import { NEBRASKA_ASSESSOR_SITES } from "./nebraska.ts";
-import { NEVADA_ASSESSOR_SITES, NEVADA_GIS_SITES, NEVADA_RECORDER_SITES } from "./nevada.ts";
+import { NEVADA_ASSESSOR_SITES, NEVADA_RECORDER_SITES } from "./nevada.ts";
 import { NEW_MEXICO_ASSESSOR_SITES } from "./newmexico.ts";
 import { NORTH_DAKOTA_ASSESSOR_SITES } from "./northdakota.ts";
 import { OKLAHOMA_ASSESSOR_SITES } from "./oklahoma.ts";
@@ -32,9 +32,11 @@ export interface StateRegistration {
   readonly code: string;
   readonly fipsPrefix: string;
   readonly count: number;
-  // The assessor sites (the `count` guards this array's length). `recorder` (deeds/liens search) and
-  // `gis` (parcel-map) are the other property systems for the same counties, added per state as they
-  // are wired — optional, since most states are assessor-only so far.
+  // The assessor sites (the `count` guards this array's length). `recorder` (deeds/liens search) is
+  // the other curated property system for the same counties, added per state as it is wired. `gis`
+  // (parcel-map) is a dormant seam — no state curates it (the platforms are too disparate to link
+  // usefully and mostly duplicate the assessor map), but the field/accessor remain so a future
+  // land-use need can populate it without re-plumbing.
   readonly sites: readonly AssessorSite[];
   readonly recorder?: readonly AssessorSite[];
   readonly gis?: readonly AssessorSite[];
@@ -59,7 +61,6 @@ export const STATES: readonly StateRegistration[] = [
     count: 17,
     sites: NEVADA_ASSESSOR_SITES,
     recorder: NEVADA_RECORDER_SITES,
-    gis: NEVADA_GIS_SITES,
   },
   { code: "NM", fipsPrefix: "35", count: 33, sites: NEW_MEXICO_ASSESSOR_SITES },
   { code: "ND", fipsPrefix: "38", count: 53, sites: NORTH_DAKOTA_ASSESSOR_SITES },

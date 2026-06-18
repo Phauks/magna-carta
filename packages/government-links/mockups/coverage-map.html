@@ -6,141 +6,769 @@
     <title>Government Records Coverage — Magna Carta</title>
     <style>
       :root {
-        --ink: #16181d; --muted: #6b7280; --line: #e5e7eb; --bg: #f6f6f3; --card: #fff;
+        --ink: #16181d;
+        --muted: #6b7280;
+        --line: #e5e7eb;
+        --bg: #f6f6f3;
+        --card: #fff;
         --uncovered: #e7e7e2;
-        --property: #1f6f57; --property-soft: #a9d3c5;
-        --business: #1f4f6b; --business-soft: #a9c1d0;
-        --licensing: #6b3f86; --licensing-soft: #cbb9d9;
-        --ok: #1d7a4d; --ok-soft: #e6f4ec; --bad: #b4471f; --bad-soft: #f8ece5;
+        --property: #1f6f57;
+        --property-soft: #a9d3c5;
+        --business: #1f4f6b;
+        --business-soft: #a9c1d0;
+        --licensing: #6b3f86;
+        --licensing-soft: #cbb9d9;
+        --ok: #1d7a4d;
+        --ok-soft: #e6f4ec;
+        --bad: #b4471f;
+        --bad-soft: #f8ece5;
+        --pending: #d3a23a;
+        --pending-soft: #f4e8cd;
       }
-      * { box-sizing: border-box; }
-      body { margin: 0; background: var(--bg); color: var(--ink);
-        font: 15px/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-      .wrap { max-width: 1240px; margin: 0 auto; padding: 28px 24px 70px; }
-      h1 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; font-size: 25px; margin: 0 0 3px; }
-      .sub { color: var(--muted); font-size: 14px; margin: 0 0 18px; }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.5 -apple-system,
+          "Segoe UI",
+          Roboto,
+          Helvetica,
+          Arial,
+          sans-serif;
+      }
+      .wrap {
+        max-width: 1320px;
+        margin: 0 auto;
+        padding: 28px 24px 70px;
+      }
+      h1 {
+        font-family: Georgia, "Times New Roman", serif;
+        font-weight: 600;
+        font-size: 25px;
+        margin: 0 0 3px;
+      }
+      .sub {
+        color: var(--muted);
+        font-size: 14px;
+        margin: 0 0 18px;
+      }
 
-      .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
-      .toggle { display: inline-flex; background: #ecece7; border-radius: 10px; padding: 4px; gap: 2px; }
-      .toggle button { border: 0; background: transparent; padding: 7px 14px; border-radius: 7px;
-        cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--muted); }
-      .toggle button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
-      .toggle button .dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px;
-        margin-right: 6px; vertical-align: middle; }
-      #subToggle[hidden] { display: none; }
-      select { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13.5px;
-        font-weight: 600; background: #fff; color: var(--ink); }
-      .spacer { flex: 1; }
-      .btn { padding: 8px 13px; border: 1px solid var(--line); border-radius: 8px; background: #fff;
-        font-size: 13px; font-weight: 600; color: var(--ink); cursor: pointer; }
-      .btn:hover { border-color: #c4d0d7; }
-      .btn:disabled { opacity: .6; cursor: default; }
-      .rebuild-msg { font-size: 12.5px; color: var(--muted); }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .toggle {
+        display: inline-flex;
+        background: #ecece7;
+        border-radius: 10px;
+        padding: 4px;
+        gap: 2px;
+      }
+      .toggle button {
+        border: 0;
+        background: transparent;
+        padding: 7px 14px;
+        border-radius: 7px;
+        cursor: pointer;
+        font-size: 13.5px;
+        font-weight: 600;
+        color: var(--muted);
+      }
+      .toggle button.on {
+        background: #fff;
+        color: var(--ink);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+      }
+      .toggle button .dot {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 3px;
+        margin-right: 6px;
+        vertical-align: middle;
+      }
+      select {
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        font-size: 13.5px;
+        font-weight: 600;
+        background: #fff;
+        color: var(--ink);
+      }
+      .spacer {
+        flex: 1;
+      }
+      .btn {
+        padding: 8px 13px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--ink);
+        cursor: pointer;
+        text-decoration: none;
+      }
+      .btn:hover {
+        border-color: #c4d0d7;
+      }
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+      .rebuild-msg {
+        font-size: 12.5px;
+        color: var(--muted);
+      }
 
-      .layout { display: grid; grid-template-columns: 1.35fr 1fr; gap: 18px; align-items: start; }
-      .mapcard { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,.04); }
-      svg { width: 100%; height: auto; display: block; }
-      .county { stroke: #fff; stroke-width: .2px; }
-      .state-fill { stroke: #fff; stroke-width: .5px; }
-      .state-border { fill: none; stroke: #fff; stroke-width: .7px; pointer-events: none; }
-      .nation { fill: none; stroke: #cfcfc7; stroke-width: .8px; pointer-events: none; }
-      .hoverable { cursor: pointer; }
-      .hoverable:hover { stroke: var(--ink); stroke-width: 1px; }
-      .sel-outline { fill: none; stroke: var(--ink); stroke-width: 1.4px; pointer-events: none; }
+      .kbd-hint {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 14px;
+        font-size: 12px;
+        color: var(--muted);
+        margin: -4px 0 16px;
+      }
+      .kbd-hint b {
+        color: var(--ink);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-size: 11px;
+      }
+      .kbd-hint .ap {
+        margin-left: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        cursor: pointer;
+      }
+      kbd {
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 11px;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-bottom-width: 2px;
+        border-radius: 5px;
+        padding: 1px 5px;
+        color: var(--ink);
+      }
+      .navbtns {
+        display: inline-flex;
+        gap: 4px;
+      }
+      .navbtns button {
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 700;
+        padding: 3px 9px;
+        color: var(--ink);
+      }
+      .navbtns button:hover {
+        border-color: #c4d0d7;
+      }
 
-      aside { position: sticky; top: 18px; }
-      .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
-      .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
-        margin: 0 0 4px; }
-      .panel .big { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
-      .panel .det { font-size: 13px; color: var(--muted); margin: 2px 0 12px; }
-      .legend { font-size: 12.5px; color: var(--muted); }
-      .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin: 0 5px 0 12px;
-        vertical-align: middle; }
-      .hint { margin-top: 14px; font-size: 12.5px; color: var(--muted); }
+      .layout {
+        display: grid;
+        grid-template-columns: 1.3fr 1fr;
+        gap: 18px;
+        align-items: start;
+      }
+      .leftcol {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-width: 0;
+      }
+      .mapcard {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      }
+      svg {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+      .county,
+      .state-fill {
+        stroke: #fff;
+        stroke-width: 0.5px;
+        vector-effect: non-scaling-stroke;
+        transition: fill 0.15s;
+      }
+      .county {
+        stroke-width: 0.3px;
+      }
+      .state-border {
+        fill: none;
+        stroke: #fff;
+        stroke-width: 0.7px;
+        pointer-events: none;
+        vector-effect: non-scaling-stroke;
+      }
+      .nation {
+        fill: none;
+        stroke: #cfcfc7;
+        stroke-width: 0.8px;
+        pointer-events: none;
+        vector-effect: non-scaling-stroke;
+      }
+      .hoverable {
+        cursor: pointer;
+      }
+      .hoverable:hover {
+        stroke: var(--ink);
+        stroke-width: 1px;
+      }
+      .sel-outline {
+        fill: none;
+        stroke: var(--ink);
+        stroke-width: 1.4px;
+        pointer-events: none;
+        vector-effect: non-scaling-stroke;
+      }
 
-      /* state-detail list */
-      .sd-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
-      .sd-title { font-family: Georgia, serif; font-size: 19px; font-weight: 600; }
-      .sd-sub { font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
-      .sd-close { border: 0; background: transparent; cursor: pointer; color: var(--muted); font-size: 18px; }
-      .rows { max-height: 460px; overflow: auto; border-top: 1px solid var(--line); }
-      .row { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: center;
-        padding: 9px 2px; border-bottom: 1px solid var(--line); }
-      .row.sel { background: #f3f7f9; }
-      .row .name { font-weight: 600; font-size: 14px; }
-      .row .url { grid-column: 1 / -1; font-family: ui-monospace, Menlo, Consolas, monospace;
-        font-size: 11px; color: var(--muted); word-break: break-all; }
-      .row .acts { display: flex; gap: 5px; }
-      .ico { border: 1px solid var(--line); background: #fff; border-radius: 6px; cursor: pointer;
-        font-size: 12px; font-weight: 700; padding: 4px 8px; color: var(--ink); white-space: nowrap; }
-      .ico:hover { border-color: #c4d0d7; }
-      .ico.good.on { background: var(--ok-soft); color: var(--ok); border-color: #c7e6d4; }
-      .ico.bad.on { background: var(--bad-soft); color: var(--bad); border-color: #eccdbf; }
-      .ico.open { color: var(--business); }
-      .sd-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
-      .sd-foot .prog { font-size: 12.5px; color: var(--muted); }
+      aside {
+        position: sticky;
+        top: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-width: 0;
+      }
+      .panel {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 16px 18px;
+      }
+      .panel h2 {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        margin: 0 0 4px;
+      }
+      .panel .big {
+        font-size: 24px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+      }
+      .panel .det {
+        font-size: 13px;
+        color: var(--muted);
+        margin: 2px 0 12px;
+      }
+      .legend {
+        font-size: 12.5px;
+        color: var(--muted);
+        line-height: 1.9;
+      }
+      .legend i {
+        display: inline-block;
+        width: 11px;
+        height: 11px;
+        border-radius: 3px;
+        margin: 0 5px 0 12px;
+        vertical-align: middle;
+      }
+      .legend i:first-child {
+        margin-left: 0;
+      }
+      .hint {
+        font-size: 12.5px;
+        color: var(--muted);
+      }
 
-      /* preview */
-      .preview { margin-top: 18px; background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-        overflow: hidden; }
-      .preview[hidden] { display: none; }
-      .pv-bar { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--line); }
-      .pv-bar .pv-url { flex: 1; font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--muted);
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .pv-frame { width: 100%; height: 560px; border: 0; background: #fafafa; }
-      .pv-note { font-size: 12px; color: var(--bad); padding: 0 12px 8px; }
+      /* state info header */
+      .sd-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .sd-title {
+        font-family: Georgia, serif;
+        font-size: 20px;
+        font-weight: 600;
+      }
+      .sd-title .code {
+        color: var(--muted);
+        font-weight: 400;
+        font-size: 14px;
+        margin-left: 6px;
+      }
+      .sd-sub {
+        font-size: 12.5px;
+        color: var(--muted);
+        margin: 2px 0 12px;
+      }
+      .prog {
+        height: 7px;
+        border-radius: 4px;
+        background: #eee;
+        overflow: hidden;
+        display: flex;
+        margin: 4px 0 6px;
+      }
+      .prog > span {
+        display: block;
+        height: 100%;
+      }
+      .prog-txt {
+        font-size: 12px;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
 
-      .tip { position: fixed; pointer-events: none; background: #16181d; color: #fff; font-size: 12.5px;
-        padding: 6px 9px; border-radius: 6px; opacity: 0; transition: opacity .1s; z-index: 9; white-space: nowrap; }
-      code { background: #ecece7; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
-      @media (max-width: 880px) { .layout { grid-template-columns: 1fr; } aside { position: static; } }
+      /* link list (below the map) */
+      .linkscard {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 6px 16px 10px;
+        outline: none;
+      }
+      .linkscard h2 {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        margin: 12px 0 4px;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 5px 10px;
+        align-items: center;
+        padding: 10px 2px;
+        border-top: 1px solid var(--line);
+      }
+      .row:first-of-type {
+        border-top: 0;
+      }
+      .row.active {
+        background: #eef5f8;
+        box-shadow: inset 3px 0 0 var(--business);
+        padding-left: 8px;
+        scroll-margin: 12px;
+      }
+      .row .name {
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .row .name .jid {
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 11px;
+        font-weight: 400;
+        color: var(--muted);
+        margin-left: 6px;
+      }
+      .badge {
+        font-size: 10.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: var(--pending);
+        background: var(--pending-soft);
+        border-radius: 4px;
+        padding: 1px 5px;
+        margin-left: 6px;
+        vertical-align: middle;
+      }
+      .row .url {
+        grid-column: 1 / -1;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 11px;
+        color: var(--muted);
+        word-break: break-all;
+      }
+      .row.placeholder .name {
+        color: var(--muted);
+      }
+      .badge.none {
+        color: var(--muted);
+        background: #ececec;
+      }
+      .row .acts {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      .ico {
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 4px 8px;
+        color: var(--ink);
+        white-space: nowrap;
+        text-decoration: none;
+      }
+      .ico:hover {
+        border-color: #c4d0d7;
+      }
+      .ico.good.on {
+        background: var(--ok-soft);
+        color: var(--ok);
+        border-color: #c7e6d4;
+      }
+      .ico.bad.on {
+        background: var(--bad-soft);
+        color: var(--bad);
+        border-color: #eccdbf;
+      }
+      .ico.fix.on {
+        background: var(--pending-soft);
+        color: var(--pending);
+        border-color: #e6d5a8;
+      }
+      .ico.open {
+        color: var(--business);
+      }
+      .fixed-url {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11px;
+        background: var(--pending-soft);
+        border-radius: 6px;
+        padding: 5px 8px;
+      }
+      .fixed-url .corr {
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: var(--pending);
+        font-size: 10px;
+      }
+      .fixed-url a {
+        flex: 1;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        color: var(--ink);
+        word-break: break-all;
+      }
+      .fixrow {
+        grid-column: 1 / -1;
+        display: flex;
+        gap: 6px;
+        margin-top: 2px;
+      }
+      .fixrow input {
+        flex: 1;
+        padding: 6px 9px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 12px;
+      }
+
+      /* preview (right column) */
+      .preview {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .pv-head {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+        background: #fcfcfb;
+      }
+      .pv-empty-head {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .pv-row1 {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .pv-title {
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .pv-title .jid {
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 11px;
+        font-weight: 400;
+        color: var(--muted);
+        margin-left: 6px;
+      }
+      .pill {
+        font-size: 10.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        border-radius: 4px;
+        padding: 1px 6px;
+        margin-left: 6px;
+        background: var(--pending-soft);
+        color: var(--pending);
+        vertical-align: middle;
+      }
+      .pill.good {
+        background: var(--ok-soft);
+        color: var(--ok);
+      }
+      .pill.bad {
+        background: var(--bad-soft);
+        color: var(--bad);
+      }
+      .pv-acts {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+      }
+      .pv-url {
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 7px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .pv-fixrow {
+        display: flex;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .pv-fixrow input {
+        flex: 1;
+        padding: 6px 9px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 12px;
+      }
+      .pv-fixed {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+        background: var(--pending-soft);
+        border-radius: 6px;
+        padding: 5px 8px;
+        font-size: 11px;
+      }
+      .pv-fixed .corr {
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: var(--pending);
+        font-size: 10px;
+      }
+      .pv-fixed a {
+        flex: 1;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        color: var(--ink);
+        word-break: break-all;
+      }
+
+      /* link-list header + status filter */
+      .links-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin: 12px 0 6px;
+      }
+      .links-head h2 {
+        margin: 0;
+      }
+      .filter {
+        display: inline-flex;
+        background: #ecece7;
+        border-radius: 8px;
+        padding: 3px;
+        gap: 2px;
+      }
+      .filter button {
+        border: 0;
+        background: transparent;
+        padding: 4px 9px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--muted);
+      }
+      .filter button.on {
+        background: #fff;
+        color: var(--ink);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+      }
+      .filter button .ct {
+        font-variant-numeric: tabular-nums;
+        opacity: 0.7;
+        margin-left: 3px;
+      }
+      .pv-frame {
+        width: 100%;
+        height: 620px;
+        border: 0;
+        background: #fafafa;
+        display: block;
+      }
+      .pv-empty {
+        height: 620px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        color: var(--muted);
+        font-size: 13px;
+        padding: 0 30px;
+      }
+      /* an explicit display overrides the UA [hidden] rule, so toggling .hidden needs its own rule */
+      .pv-frame[hidden],
+      .pv-empty[hidden] {
+        display: none;
+      }
+      .pv-note {
+        font-size: 11.5px;
+        color: var(--muted);
+        padding: 7px 12px;
+        border-top: 1px solid var(--line);
+        background: #fcfcfb;
+      }
+      .pv-note b {
+        color: var(--bad);
+      }
+
+      /* state jump dropdown — now lives in the info box */
+      .info-nav {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      select.state-jump {
+        width: 100%;
+      }
+
+      .tip {
+        position: fixed;
+        pointer-events: none;
+        background: #16181d;
+        color: #fff;
+        font-size: 12.5px;
+        padding: 6px 9px;
+        border-radius: 6px;
+        opacity: 0;
+        transition: opacity 0.1s;
+        z-index: 9;
+        white-space: nowrap;
+      }
+      code {
+        background: #ecece7;
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+      @media (max-width: 980px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        aside {
+          position: static;
+        }
+      }
     </style>
   </head>
   <body>
     <div class="wrap">
       <h1>Government Records Coverage</h1>
       <p class="sub">
-        Toggle the layer (and property system). <b>Click a state</b> to list and verify its links;
-        open or preview each, mark it, and export. (<code>@magna-carta/government-links</code>)
+        Pick a record system. <b>Click a state</b> — the map zooms in, its links list below, and the
+        preview opens on the right. Mark each <b>&#10003;</b> / <b>&#10007;</b>, add a corrected link,
+        then export. (<code>@magna-carta/government-links</code>)
       </p>
 
       <div class="controls">
         <div class="toggle" id="toggle">
-          <button data-layer="property" class="on"><span class="dot" style="background:var(--property)"></span>Property</button>
-          <button data-layer="business"><span class="dot" style="background:var(--business)"></span>Business</button>
-          <button data-layer="licensing"><span class="dot" style="background:var(--licensing)"></span>Licensing</button>
+          <button data-view="assessor" class="on">
+            <span class="dot" style="background: #1f6f57"></span>Assessor
+          </button>
+          <button data-view="recorder">
+            <span class="dot" style="background: #2f7d8a"></span>Recorder
+          </button>
+          <button data-view="sos">
+            <span class="dot" style="background: #1f4f6b"></span>SOS
+          </button>
+          <button data-view="bar">
+            <span class="dot" style="background: #6b3f86"></span>Bar License Lookup
+          </button>
         </div>
-        <div class="toggle" id="subToggle">
-          <button data-sys="assessor" class="on">Assessor</button>
-          <button data-sys="recorder">Recorder</button>
-          <button data-sys="gis">GIS</button>
-        </div>
-        <select id="stateSel"><option value="">Jump to state…</option></select>
         <span class="spacer"></span>
+        <button id="undo" class="btn" disabled title="Undo last mark (Ctrl+Z)">&#8634; Undo</button>
+        <button id="redo" class="btn" disabled title="Redo (Ctrl+Shift+Z)">&#8635; Redo</button>
         <button id="export" class="btn">Export verifications</button>
-        <button id="rebuild" class="btn" hidden title="Regenerate map data from the live registry">&#8635; Rebuild</button>
+        <button id="rebuild" class="btn" hidden title="Regenerate map data from the live registry">
+          &#8635; Rebuild
+        </button>
         <span id="rebuildMsg" class="rebuild-msg"></span>
       </div>
 
-      <div class="layout">
-        <div class="mapcard">
-          <svg id="map" viewBox="0 0 975 610" aria-label="US coverage map"></svg>
-        </div>
-        <aside>
-          <div class="panel" id="panel"></div>
-        </aside>
+      <div class="kbd-hint" id="kbdHint">
+        <b>Keys</b>
+        <span><kbd>&uarr;</kbd><kbd>&darr;</kbd> link</span>
+        <span><kbd>&larr;</kbd><kbd>&rarr;</kbd> state</span>
+        <span><kbd>G</kbd> / <kbd>1</kbd> verify</span>
+        <span><kbd>B</kbd> / <kbd>2</kbd> needs fix</span>
+        <span><kbd>F</kbd> fix link</span>
+        <span><kbd>O</kbd> open</span>
+        <span><kbd>U</kbd> next unchecked</span>
+        <span><kbd>Ctrl</kbd>+<kbd>Z</kbd> undo</span>
+        <span><kbd>Esc</kbd> back</span>
+        <label class="ap"><input type="checkbox" id="autoPv" checked /> auto-preview</label>
       </div>
 
-      <div class="preview" id="preview" hidden>
-        <div class="pv-bar">
-          <span class="pv-url" id="pvUrl"></span>
-          <a class="btn" id="pvOpen" target="_blank" rel="noopener noreferrer">Open &#8599;</a>
-          <button class="btn" id="pvClose">Close</button>
+      <div class="layout">
+        <div class="leftcol">
+          <div class="mapcard">
+            <svg id="map" viewBox="0 0 975 610" aria-label="US coverage map">
+              <g id="zoom"></g>
+            </svg>
+          </div>
+          <div class="linkscard" id="links" tabindex="-1"></div>
         </div>
-        <div class="pv-note" id="pvNote">If this stays blank, the site blocks embedding — use Open.</div>
-        <iframe class="pv-frame" id="pvFrame" referrerpolicy="no-referrer"></iframe>
+        <aside>
+          <div class="panel" id="info"></div>
+          <div class="preview" id="preview">
+            <div class="pv-head" id="pvHead">
+              <div class="pv-empty-head">Pick a link to verify — its controls appear here.</div>
+            </div>
+            <div class="pv-empty" id="pvEmpty">
+              Pick a link’s <b>&nbsp;Preview&nbsp;</b> to view the page here.
+            </div>
+            <iframe class="pv-frame" id="pvFrame" referrerpolicy="no-referrer" hidden></iframe>
+            <div class="pv-note" id="pvNote" hidden>
+              Blank? The site blocks embedding — try <b>Proxy</b> (static snapshot) or <b>Open</b>.
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
     <div class="tip" id="tip"></div>
@@ -150,220 +778,1091 @@
     <script src="coverage-data.js"></script>
     <script>
       const COV = window.COVERAGE || { property: [], business: [], licensing: [] };
-      const COLORS = { property: "#1f6f57", business: "#1f4f6b", licensing: "#6b3f86" };
-      const SOFT = { property: "#a9d3c5", business: "#a9c1d0", licensing: "#cbb9d9" };
-      const UNCOVERED = "#e7e7e2";
-      const SYS_LABEL = {
-        assessor: "Assessor", recorder: "Recorder", gis: "GIS",
-        businessEntity: "Business entity", ucc: "UCC", attorneyLicense: "Attorney",
+      // Each top-level view is one record system. `domain` is its COV bucket, `county` whether it's
+      // mapped at county (true) or state (false) granularity, and color/soft its map shades.
+      const VIEWS = {
+        assessor: { label: "Assessor", domain: "property", system: "assessor", county: true, color: "#1f6f57", soft: "#a9d3c5" },
+        recorder: { label: "Recorder", domain: "property", system: "recorder", county: true, color: "#2f7d8a", soft: "#aed2d8" },
+        sos: { label: "SOS", domain: "business", system: "businessEntity", county: false, color: "#1f4f6b", soft: "#a9c1d0" },
+        bar: { label: "Bar License Lookup", domain: "licensing", system: "attorneyLicense", county: false, color: "#6b3f86", soft: "#cbb9d9" },
       };
+      const UNCOVERED = "#e7e7e2";
+      const VOK = "#1d7a4d",
+        VBAD = "#b4471f",
+        VPENDING = "#e0b556";
 
       // fips(2) -> state code, from any layer's data.
       const fipsToCode = new Map();
       for (const layerSites of Object.values(COV))
         for (const s of layerSites) fipsToCode.set(s.id.slice(0, 2), s.state);
+      // every state that appears in any layer, alphabetical by code — [code, fips]
+      const STATE_OPTIONS = (() => {
+        const seen = new Map();
+        for (const [fips, code] of fipsToCode) seen.set(code, fips);
+        return [...seen.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+      })();
+      function stateSelectHtml() {
+        let opts = '<option value="">Jump to state…</option>';
+        for (const [code, fips] of STATE_OPTIONS)
+          opts +=
+            '<option value="' +
+            fips +
+            '"' +
+            (fips === selected ? " selected" : "") +
+            ">" +
+            code +
+            "</option>";
+        return (
+          '<div class="info-nav"><select id="stateSel" class="state-jump">' +
+          opts +
+          "</select></div>"
+        );
+      }
 
-      let layer = "property";
-      let propSys = "assessor";
+      let view = "assessor"; // one of VIEWS: assessor | recorder | sos | bar
+      const V = () => VIEWS[view];
       let selected = null; // 2-digit state FIPS
-      const activeSystem = () =>
-        layer === "property" ? propSys : layer === "business" ? "businessEntity" : "attorneyLicense";
-      const currentSites = () => COV[layer].filter((s) => s.system === activeSystem());
+      let editing = null; // jurisdiction id whose corrected-link editor is open
+      let previewing = null; // url currently in the preview frame
+      let activeIdx = null; // index (into selectedSites) of the active row — keyboard focus + preview target
+      let autoPreview = true; // auto-load the active row in the preview frame
+      let filter = "all"; // link-list status filter: all | unchecked | good | bad
+      const statusPass = (s) =>
+        filter === "all"
+          ? true
+          : filter === "unchecked"
+            ? !reviews[vkey(s)]
+            : reviews[vkey(s)] === filter;
+      const activeSystem = () => V().system;
+      const currentSites = () => COV[V().domain].filter((s) => s.system === V().system);
+      // assessor sites are the county backbone the recorder view attaches to
+      const assessorSites = () => COV.property.filter((s) => s.system === "assessor");
+      const isCountyBackbone = () => view === "recorder";
+      const sitesForState = (fips) => {
+        const code = fipsToCode.get(fips) || fips;
+        const sys = activeSystem();
+        const real = currentSites().filter((s) => s.state === code);
+        // Recorder/GIS: list every assessor county so a county with no link yet still shows and one
+        // can be added; counties without a real site become "placeholder" rows.
+        if (isCountyBackbone()) {
+          const byId = new Map(real.map((s) => [s.id, s]));
+          return assessorSites()
+            .filter((s) => s.state === code)
+            .map(
+              (c) =>
+                byId.get(c.id) || {
+                  id: c.id,
+                  name: c.name,
+                  state: code,
+                  system: sys,
+                  url: null,
+                  placeholder: true,
+                },
+            )
+            .sort((a, b) => a.name.localeCompare(b.name));
+        }
+        return real.sort((a, b) => a.name.localeCompare(b.name));
+      };
+      const selectedSites = () => (selected ? sitesForState(selected) : []);
+      // resolve a row id to its site, including the placeholder rows the backbone synthesizes
+      const resolveSite = (id) =>
+        siteById.get(id) || selectedSites().find((s) => s.id === id) || null;
+      // fips of every state with links in the current view (the recorder view uses the assessor
+      // backbone so empty states stay reachable), in dropdown order (by code)
+      const navStates = () => {
+        const src = isCountyBackbone() ? assessorSites() : currentSites();
+        const seen = new Map();
+        for (const s of src) seen.set(s.id.slice(0, 2), s.state);
+        return [...seen.entries()].sort((a, b) => a[1].localeCompare(b[1])).map((e) => e[0]);
+      };
 
-      // verification store
-      const KEY = "mc-coverage-verify-v1";
-      let reviews = {};
-      try { reviews = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { reviews = {}; }
+      // verification + corrected-link stores
+      const VKEY = "mc-coverage-verify-v1";
+      const FKEY = "mc-coverage-fixes-v1";
+      const load = (k) => {
+        try {
+          return JSON.parse(localStorage.getItem(k)) || {};
+        } catch (e) {
+          return {};
+        }
+      };
+      let reviews = load(VKEY);
+      let fixes = load(FKEY);
       const vkey = (s) => s.system + ":" + s.id;
-      const saveReviews = () => localStorage.setItem(KEY, JSON.stringify(reviews));
+      const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+
+      // A corrected link that now equals the catalog URL has been applied upstream (it shipped), so
+      // treat that item as verified and drop the now-redundant override. Runs once on load.
+      (function reconcileFixes() {
+        const byKey = new Map();
+        for (const arr of Object.values(COV)) for (const s of arr) byKey.set(vkey(s), s);
+        let changed = false;
+        for (const k of Object.keys(fixes)) {
+          const s = byKey.get(k);
+          if (s && s.url === fixes[k]) {
+            reviews[k] = "good";
+            delete fixes[k];
+            changed = true;
+          }
+        }
+        if (changed) {
+          save(VKEY, reviews);
+          save(FKEY, fixes);
+        }
+      })();
+
+      // undo/redo: snapshot reviews+fixes before each change so a mis-mark is one keystroke to revert
+      const undoStack = [];
+      const redoStack = [];
+      const snapshot = () => ({ reviews: { ...reviews }, fixes: { ...fixes } });
+      function pushUndo(target) {
+        undoStack.push({ state: snapshot(), target });
+        if (undoStack.length > 200) undoStack.shift();
+        redoStack.length = 0;
+      }
 
       const svg = d3.select("#map");
       const tip = d3.select("#tip");
       const $ = (id) => document.getElementById(id);
+      const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 
-      let gCounty, gState, selLayer, urlMap = new Map(), deepSet = new Set(), stateNames = new Map();
+      let gZoom,
+        gCounty,
+        gState,
+        selLayer,
+        path,
+        stateFeature = new Map(),
+        stateNames = new Map(),
+        urlMap = new Map(),
+        deepSet = new Set(),
+        siteById = new Map();
 
       d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json").then((us) => {
         const counties = topojson.feature(us, us.objects.counties).features;
         const states = topojson.feature(us, us.objects.states).features;
         const nation = topojson.feature(us, us.objects.nation);
         const projection = d3.geoAlbersUsa().fitSize([975, 610], nation);
-        const path = d3.geoPath(projection);
-        const stateName = new Map(states.map((s) => [s.id, s.properties.name]));
-        stateNames = stateName;
-        const stateFeature = new Map(states.map((s) => [s.id, s]));
+        path = d3.geoPath(projection);
+        stateNames = new Map(states.map((s) => [s.id, s.properties.name]));
+        stateFeature = new Map(states.map((s) => [s.id, s]));
 
-        gCounty = svg.append("g");
-        gState = svg.append("g");
-        gCounty.selectAll("path").data(counties).join("path").attr("class", "county hoverable")
-          .attr("d", path).on("mousemove", (e, d) => showTip(e, tipFor(d)))
-          .on("mouseleave", hideTip).on("click", (e, d) => selectState(d.id.slice(0, 2)));
-        gState.selectAll("path").data(states).join("path").attr("class", "state-fill hoverable")
-          .attr("d", path).on("mousemove", (e, d) => showTip(e, tipFor(d)))
-          .on("mouseleave", hideTip).on("click", (e, d) => selectState(d.id));
-        svg.append("path").attr("class", "state-border")
+        gZoom = svg.select("#zoom");
+        gCounty = gZoom.append("g");
+        gState = gZoom.append("g");
+        gCounty
+          .selectAll("path")
+          .data(counties)
+          .join("path")
+          .attr("class", "county hoverable")
+          .attr("d", path)
+          .on("mousemove", (e, d) => showTip(e, tipFor(d)))
+          .on("mouseleave", hideTip)
+          .on("click", (e, d) => selectState(d.id.slice(0, 2)));
+        gState
+          .selectAll("path")
+          .data(states)
+          .join("path")
+          .attr("class", "state-fill hoverable")
+          .attr("d", path)
+          .on("mousemove", (e, d) => showTip(e, tipFor(d)))
+          .on("mouseleave", hideTip)
+          .on("click", (e, d) => selectState(d.id));
+        gZoom
+          .append("path")
+          .attr("class", "state-border")
           .attr("d", path(topojson.mesh(us, us.objects.states, (a, b) => a !== b)));
-        svg.append("path").attr("class", "nation").attr("d", path(nation));
-        selLayer = svg.append("path").attr("class", "sel-outline");
-
-        function tipFor(d) {
-          const has = urlMap.has(d.id);
-          const nm = d.properties.name + (layer === "property" ? "" : "");
-          return has ? "<b>" + nm + "</b> &middot; covered" : nm + " — not yet";
-        }
-
-        window.__selOutline = () => {
-          if (selected && stateFeature.get(selected)) selLayer.attr("d", path(stateFeature.get(selected)));
-          else selLayer.attr("d", null);
-        };
+        gZoom.append("path").attr("class", "nation").attr("d", path(nation));
+        selLayer = gZoom.append("path").attr("class", "sel-outline");
 
         render();
       });
+
+      function tipFor(d) {
+        const has = urlMap.has(d.id);
+        const nm = d.properties.name;
+        if (!selected || d.id.slice(0, 2) !== selected)
+          return has ? "<b>" + nm + "</b> &middot; covered" : nm + " — not yet";
+        const s = siteById.get(d.id);
+        if (!s) return nm + " — not covered";
+        const st = reviews[vkey(s)];
+        const tag = st === "good" ? "verified" : st === "bad" ? "needs fix" : "unverified";
+        return "<b>" + s.name + "</b> &middot; " + tag;
+      }
+
+      function zoomTo(feature) {
+        if (!gZoom) return;
+        if (!feature) {
+          gZoom.transition().duration(650).attr("transform", null);
+          return;
+        }
+        const b = path.bounds(feature);
+        const dx = b[1][0] - b[0][0],
+          dy = b[1][1] - b[0][1];
+        const x = (b[0][0] + b[1][0]) / 2,
+          y = (b[0][1] + b[1][1]) / 2;
+        const scale = Math.max(1, Math.min(12, 0.9 / Math.max(dx / 975, dy / 610)));
+        const tx = 975 / 2 - scale * x,
+          ty = 610 / 2 - scale * y;
+        gZoom
+          .transition()
+          .duration(650)
+          .attr("transform", "translate(" + tx + "," + ty + ") scale(" + scale + ")");
+      }
+
+      function selOutline() {
+        if (!selLayer) return;
+        selLayer.attr(
+          "d",
+          selected && stateFeature.get(selected) ? path(stateFeature.get(selected)) : null,
+        );
+      }
 
       function recompute() {
         const sites = currentSites();
         urlMap = new Map(sites.map((s) => [s.id, s.url]));
         deepSet = new Set(sites.filter((s) => s.deep).map((s) => s.id));
+        siteById = new Map(sites.map((s) => [s.id, s]));
+      }
+
+      function fillFor(d) {
+        const id = d.id;
+        if (selected && id.slice(0, 2) === selected) {
+          const k = activeSystem() + ":" + id;
+          // covered by a real site, an added link, or a mark — otherwise not covered
+          if (!siteById.has(id) && !reviews[k] && !fixes[k]) return UNCOVERED;
+          const st = reviews[k];
+          return st === "good" ? VOK : st === "bad" ? VBAD : VPENDING;
+        }
+        if (!urlMap.has(id)) return UNCOVERED;
+        return deepSet.has(id) ? V().color : V().soft;
+      }
+
+      function colorMap() {
+        if (!gCounty) return;
+        gCounty.selectAll("path").attr("fill", fillFor);
+        gState.selectAll("path").attr("fill", fillFor);
       }
 
       function render() {
         recompute();
-        const c = COLORS[layer], soft = SOFT[layer], countyMode = layer === "property";
+        const countyMode = V().county;
         if (gCounty) {
-          gCounty.style("display", countyMode ? null : "none").selectAll("path")
-            .attr("fill", (d) => (!urlMap.has(d.id) ? UNCOVERED : deepSet.has(d.id) ? c : soft));
-          gState.style("display", countyMode ? "none" : null).selectAll("path")
-            .attr("fill", (d) => (!urlMap.has(d.id) ? UNCOVERED : deepSet.has(d.id) ? c : soft));
+          gCounty.style("display", countyMode ? null : "none");
+          gState.style("display", countyMode ? "none" : null);
+          colorMap();
+          selOutline();
         }
-        if (window.__selOutline) window.__selOutline();
-        $("subToggle").hidden = layer !== "property";
-        document.querySelectorAll("#toggle button").forEach((b) => b.classList.toggle("on", b.dataset.layer === layer));
-        document.querySelectorAll("#subToggle button").forEach((b) => b.classList.toggle("on", b.dataset.sys === propSys));
-        renderPanel();
+        document
+          .querySelectorAll("#toggle button")
+          .forEach((b) => b.classList.toggle("on", b.dataset.view === view));
+        renderInfo();
+        renderLinks();
       }
 
-      function statsPanel() {
+      // ----- right column: info / stats -----
+      function statsInfo() {
         const sites = currentSites();
         const deep = sites.filter((s) => s.deep).length;
-        const c = COLORS[layer];
         return (
-          '<h2>' + cap(layer) + " &middot; " + SYS_LABEL[activeSystem()] + "</h2>" +
-          '<div class="big">' + sites.length + "</div>" +
-          '<div class="det">' + deep + " deep-link &middot; " + (sites.length - deep) + " search-only</div>" +
-          '<div class="legend"><i style="background:' + c + '"></i>Deep-link<i style="background:' +
-          SOFT[layer] + '"></i>Search only<i style="background:' + UNCOVERED + '"></i>Not yet</div>' +
-          '<div class="hint">Click a state on the map (or use Jump to state) to list and verify its links.</div>'
+          stateSelectHtml() +
+          "<h2>" +
+          V().label +
+          "</h2>" +
+          '<div class="big">' +
+          sites.length +
+          "</div>" +
+          '<div class="det">' +
+          deep +
+          " deep-link &middot; " +
+          (sites.length - deep) +
+          " search-only</div>" +
+          '<div class="legend"><i style="background:' +
+          V().color +
+          '"></i>Deep-link<i style="background:' +
+          V().soft +
+          '"></i>Search only<i style="background:' +
+          UNCOVERED +
+          '"></i>Not yet</div>' +
+          '<div class="hint" style="margin-top:12px">Click a state on the map (or use Jump to state) to zoom in and verify its links.</div>'
         );
       }
 
-      function statePanel() {
+      function stateInfo() {
         const code = fipsToCode.get(selected) || selected;
-        const sites = currentSites()
-          .filter((s) => s.state === code)
-          .sort((a, b) => a.name.localeCompare(b.name));
-        let done = 0;
-        const rows = sites.map((s) => {
-            const st = reviews[vkey(s)];
-            if (st) done++;
-            return (
-              '<div class="row" data-id="' + s.id + '">' +
-              '<div class="name">' + s.name + "</div>" +
-              '<div class="acts">' +
-              '<a class="ico open" href="' + s.url + '" target="_blank" rel="noopener noreferrer">Open &#8599;</a>' +
-              '<button class="ico pv" data-id="' + s.id + '">Preview</button>' +
-              '<button class="ico good ' + (st === "good" ? "on" : "") + '" data-id="' + s.id + '" data-v="good">&#10003;</button>' +
-              '<button class="ico bad ' + (st === "bad" ? "on" : "") + '" data-id="' + s.id + '" data-v="bad">&#10007;</button>' +
-              "</div>" +
-              '<div class="url">' + s.url + "</div>" +
-              "</div>"
-            );
-          }).join("");
+        const sites = selectedSites();
+        let good = 0,
+          bad = 0;
+        for (const s of sites) {
+          const st = reviews[vkey(s)];
+          if (st === "good") good++;
+          else if (st === "bad") bad++;
+        }
+        const total = sites.length || 1;
+        const pend = sites.length - good - bad;
+        const bar =
+          '<div class="prog">' +
+          '<span style="width:' +
+          (good / total) * 100 +
+          "%;background:" +
+          VOK +
+          '"></span>' +
+          '<span style="width:' +
+          (bad / total) * 100 +
+          "%;background:" +
+          VBAD +
+          '"></span>' +
+          '<span style="width:' +
+          (pend / total) * 100 +
+          "%;background:" +
+          VPENDING +
+          '"></span>' +
+          "</div>";
         return (
-          '<div class="sd-head"><span class="sd-title">' + (stateNames.get(selected) || code) +
-          ' <span style="color:var(--muted);font-weight:400;font-size:14px">' + code + "</span></span>" +
-          '<button class="sd-close" id="sdClose" title="Back to overview">&times;</button></div>' +
-          '<div class="sd-sub">' + cap(layer) + " &middot; " + SYS_LABEL[activeSystem()] + " &middot; " +
-          sites.length + " " + (sites.length === 1 ? "portal" : "portals") + "</div>" +
-          (sites.length ? '<div class="rows">' + rows + "</div>" : '<div class="hint">No ' +
-            SYS_LABEL[activeSystem()].toLowerCase() + " portals wired for this state yet.</div>") +
-          '<div class="sd-foot"><span class="prog">' + done + " / " + sites.length + " marked</span></div>"
+          stateSelectHtml() +
+          '<div class="sd-head"><span class="sd-title">' +
+          (stateNames.get(selected) || code) +
+          '<span class="code">' +
+          code +
+          "</span></span>" +
+          '<span class="navbtns"><button id="prevState" title="Previous state (&larr;)">&#8249;</button>' +
+          '<button id="nextState" title="Next state (&rarr;)">&#8250;</button>' +
+          '<button class="btn" id="backBtn" style="margin-left:6px">All states</button></span></div>' +
+          '<div class="sd-sub">' +
+          V().label +
+          " &middot; " +
+          sites.length +
+          " " +
+          (sites.length === 1 ? "portal" : "portals") +
+          "</div>" +
+          bar +
+          '<div class="prog-txt">' +
+          good +
+          " verified &middot; " +
+          bad +
+          " need fix &middot; " +
+          pend +
+          " unchecked</div>" +
+          '<div class="legend" style="margin-top:10px"><i style="background:' +
+          VOK +
+          '"></i>Verified<i style="background:' +
+          VBAD +
+          '"></i>Needs fix<i style="background:' +
+          VPENDING +
+          '"></i>Unchecked<i style="background:' +
+          UNCOVERED +
+          '"></i>Not covered</div>'
         );
       }
 
-      function renderPanel() {
-        $("panel").innerHTML = selected ? statePanel() : statsPanel();
-        if (!selected) return;
-        $("sdClose").onclick = () => { selected = null; if (window.__selOutline) window.__selOutline(); renderPanel(); };
-        $("panel").querySelectorAll(".ico.good, .ico.bad").forEach((b) =>
-          (b.onclick = () => mark(b.dataset.id, b.dataset.v)));
-        $("panel").querySelectorAll(".ico.pv").forEach((b) => (b.onclick = () => preview(b.dataset.id)));
+      function renderInfo() {
+        $("info").innerHTML = selected ? stateInfo() : statsInfo();
+        const sel = $("stateSel");
+        if (sel) sel.onchange = () => (sel.value ? selectState(sel.value) : deselect());
+        if (selected) {
+          $("backBtn").onclick = deselect;
+          $("prevState").onclick = () => navState(-1);
+          $("nextState").onclick = () => navState(1);
+        }
       }
 
-      function mark(id, v) {
-        const s = currentSites().find((x) => x.id === id);
+      // ----- left column: link list below the map -----
+      function linkRow(s, idx) {
+        const st = reviews[vkey(s)];
+        const fix = fixes[vkey(s)];
+        const isEd = editing === s.id;
+        const ph = !s.url; // placeholder: a backbone county with no link wired yet
+        return (
+          '<div class="row ' +
+          (idx === activeIdx ? "active" : "") +
+          (ph ? " placeholder" : "") +
+          '" data-id="' +
+          s.id +
+          '">' +
+          '<div class="name">' +
+          s.name +
+          '<span class="jid">' +
+          s.id +
+          "</span>" +
+          (fix
+            ? '<span class="badge">added</span>'
+            : ph
+              ? '<span class="badge none">no link</span>'
+              : "") +
+          "</div>" +
+          '<div class="acts">' +
+          (ph
+            ? ""
+            : '<a class="ico open" href="' +
+              esc(s.url) +
+              '" target="_blank" rel="noopener noreferrer">Open &#8599;</a>' +
+              '<button class="ico pv" data-idx="' +
+              idx +
+              '">Preview</button>') +
+          '<button class="ico good ' +
+          (st === "good" ? "on" : "") +
+          '" data-id="' +
+          s.id +
+          '" data-v="good">&#10003;</button>' +
+          '<button class="ico bad ' +
+          (st === "bad" ? "on" : "") +
+          '" data-id="' +
+          s.id +
+          '" data-v="bad">&#10007;</button>' +
+          '<button class="ico fix ' +
+          (fix ? "on" : "") +
+          '" data-id="' +
+          s.id +
+          '" title="' +
+          (ph ? "Add a link for this county" : "Add a corrected link") +
+          '">' +
+          (ph && !fix ? "&#43; Add link" : "&#9998;") +
+          "</button>" +
+          "</div>" +
+          '<div class="url">' +
+          (s.url || (fix ? "" : "<i>no link yet — Add one</i>")) +
+          "</div>" +
+          (fix
+            ? '<div class="fixed-url"><span class="corr">fixed</span><a href="' +
+              esc(fix) +
+              '" target="_blank" rel="noopener noreferrer">' +
+              fix +
+              '</a><button class="ico pvfix" data-url="' +
+              esc(fix) +
+              '">Preview</button></div>'
+            : "") +
+          (isEd
+            ? '<div class="fixrow"><input class="fixinput" data-id="' +
+              s.id +
+              '" type="url" placeholder="https://corrected-url" value="' +
+              esc(fix || "") +
+              '" /><button class="ico save" data-id="' +
+              s.id +
+              '">Save</button><button class="ico cancel">Cancel</button></div>'
+            : "") +
+          "</div>"
+        );
+      }
+
+      function renderLinks() {
+        const box = $("links");
+        if (!selected) {
+          box.innerHTML =
+            '<div class="links-head"><h2>Links</h2></div><div class="hint" style="padding-bottom:6px">Select a state to list its ' +
+            V().label.toLowerCase() +
+            " links here for verification.</div>";
+          renderPreviewBar();
+          return;
+        }
+        const code = fipsToCode.get(selected) || selected;
+        const sites = selectedSites();
+        const counts = { all: sites.length, unchecked: 0, good: 0, bad: 0 };
+        for (const s of sites) {
+          const st = reviews[vkey(s)];
+          if (!st) counts.unchecked++;
+          else counts[st]++;
+        }
+        const fbtn = (key, label) =>
+          '<button data-f="' +
+          key +
+          '" class="' +
+          (filter === key ? "on" : "") +
+          '">' +
+          label +
+          '<span class="ct">' +
+          counts[key] +
+          "</span></button>";
+        const head =
+          '<div class="links-head"><h2>' +
+          (stateNames.get(selected) || code) +
+          " &middot; " +
+          V().label +
+          '</h2><div class="filter" id="filter">' +
+          fbtn("all", "All") +
+          fbtn("unchecked", "Unchecked") +
+          fbtn("good", "Verified") +
+          fbtn("bad", "Needs fix") +
+          "</div></div>";
+        const rows = sites
+          .map((s, i) => [s, i])
+          .filter((x) => statusPass(x[0]))
+          .map((x) => linkRow(x[0], x[1]))
+          .join("");
+        box.innerHTML =
+          head +
+          (!sites.length
+            ? '<div class="hint" style="padding-bottom:6px">No ' +
+              V().label.toLowerCase() +
+              " portals wired for this state yet.</div>"
+            : rows ||
+              '<div class="hint" style="padding-bottom:6px">No links are ' +
+                (filter === "good" ? "verified" : filter === "bad" ? "marked needs-fix" : filter) +
+                " in this state.</div>");
+        box
+          .querySelectorAll("#filter button")
+          .forEach((b) => (b.onclick = () => setFilter(b.dataset.f)));
+        box
+          .querySelectorAll(".ico.good, .ico.bad")
+          .forEach((b) => (b.onclick = () => mark(b.dataset.id, b.dataset.v)));
+        box
+          .querySelectorAll(".ico.pv")
+          .forEach((b) => (b.onclick = () => setActive(+b.dataset.idx)));
+        box
+          .querySelectorAll(".ico.pvfix")
+          .forEach((b) => (b.onclick = () => preview(b.dataset.url)));
+        box.querySelectorAll(".ico.fix").forEach(
+          (b) =>
+            (b.onclick = () => {
+              editing = editing === b.dataset.id ? null : b.dataset.id;
+              renderLinks();
+              const inp = box.querySelector(".fixinput");
+              if (inp) inp.focus();
+            }),
+        );
+        box
+          .querySelectorAll(".ico.save")
+          .forEach(
+            (b) =>
+              (b.onclick = () =>
+                saveFix(b.dataset.id, b.closest(".row").querySelector(".fixinput").value)),
+          );
+        box.querySelectorAll(".ico.cancel").forEach(
+          (b) =>
+            (b.onclick = () => {
+              editing = null;
+              renderLinks();
+            }),
+        );
+        renderPreviewBar();
+        const act = box.querySelector(".row.active");
+        if (act) act.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+
+      // the action bar above the preview — Verify / Needs-fix / Fix / Open / Clear for the active link
+      function renderPreviewBar() {
+        const head = $("pvHead");
+        const s = selected && activeIdx !== null ? selectedSites()[activeIdx] : null;
+        if (!s) {
+          head.innerHTML =
+            '<div class="pv-empty-head">Pick a link to verify — its controls appear here.</div>';
+          return;
+        }
+        const st = reviews[vkey(s)];
+        const fix = fixes[vkey(s)];
+        const isEd = editing === s.id;
+        const link = s.url || fix; // placeholder counties have only the added (fix) link, if any
+        const pill =
+          st === "good"
+            ? '<span class="pill good">verified</span>'
+            : st === "bad"
+              ? '<span class="pill bad">needs fix</span>'
+              : '<span class="pill">unchecked</span>';
+        head.innerHTML =
+          '<div class="pv-row1"><div class="pv-title">' +
+          s.name +
+          '<span class="jid">' +
+          s.id +
+          "</span>" +
+          pill +
+          '</div><div class="pv-acts">' +
+          '<button class="ico good ' +
+          (st === "good" ? "on" : "") +
+          '" id="pvGood">&#10003; Verify</button>' +
+          '<button class="ico bad ' +
+          (st === "bad" ? "on" : "") +
+          '" id="pvBad">&#10007; Needs fix</button>' +
+          '<button class="ico fix ' +
+          (fix ? "on" : "") +
+          '" id="pvFixBtn">&#9998; ' +
+          (link ? "Fix" : "Add link") +
+          "</button>" +
+          (link
+            ? '<a class="btn" id="pvOpen" href="' +
+              esc(link) +
+              '" target="_blank" rel="noopener noreferrer">Open &#8599;</a>' +
+              (served
+                ? '<button class="btn" id="pvProxy" title="Blocked / blank? Reload through the framing proxy">Proxy</button>'
+                : "")
+            : "") +
+          '<button class="btn" id="pvClose">Clear</button>' +
+          "</div></div>" +
+          '<div class="pv-url">' +
+          (previewing || link || "<i>no link yet — use Add link</i>") +
+          "</div>" +
+          (isEd
+            ? '<div class="pv-fixrow"><input class="fixinput" data-id="' +
+              s.id +
+              '" type="url" placeholder="https://corrected-url" value="' +
+              esc(fix || "") +
+              '" /><button class="ico save" data-id="' +
+              s.id +
+              '">Save</button><button class="ico cancel">Cancel</button></div>'
+            : "") +
+          (fix
+            ? '<div class="pv-fixed"><span class="corr">fixed</span><a href="' +
+              esc(fix) +
+              '" target="_blank" rel="noopener noreferrer">' +
+              fix +
+              '</a><button class="ico pvfix" data-url="' +
+              esc(fix) +
+              '">Preview</button></div>'
+            : "");
+        $("pvGood").onclick = () => mark(s.id, "good", true);
+        $("pvBad").onclick = () => mark(s.id, "bad", true);
+        $("pvFixBtn").onclick = () => {
+          editing = editing === s.id ? null : s.id;
+          renderLinks();
+          const i = head.querySelector(".fixinput");
+          if (i) i.focus();
+        };
+        $("pvClose").onclick = clearPreview;
+        const pp = $("pvProxy");
+        if (pp) pp.onclick = previewProxy;
+        if (isEd) {
+          head.querySelector(".ico.save").onclick = () =>
+            saveFix(s.id, head.querySelector(".fixinput").value);
+          head.querySelector(".ico.cancel").onclick = () => {
+            editing = null;
+            renderLinks();
+          };
+        }
+        const pvf = head.querySelector(".pvfix");
+        if (pvf) pvf.onclick = () => preview(pvf.dataset.url);
+      }
+
+      function setFilter(f) {
+        filter = f;
+        const sites = selectedSites();
+        if (activeIdx === null || !statusPass(sites[activeIdx])) {
+          const first = sites.findIndex(statusPass);
+          if (first >= 0) setActive(first);
+          else {
+            activeIdx = null;
+            renderLinks();
+            keepFocus();
+          }
+        } else renderLinks();
+        keepFocus();
+      }
+
+      function mark(id, v, advance) {
+        const s = resolveSite(id);
         if (!s) return;
+        pushUndo({ system: s.system, id: s.id });
         const k = vkey(s);
-        reviews[k] = reviews[k] === v ? undefined : v;
-        if (reviews[k] === undefined) delete reviews[k];
-        saveReviews();
-        renderPanel();
-        const row = $("panel").querySelector('.row[data-id="' + id + '"]');
-        if (row) row.classList.add("sel");
+        if (reviews[k] === v) delete reviews[k];
+        else reviews[k] = v;
+        save(VKEY, reviews);
+        colorMap();
+        renderInfo();
+        renderLinks();
+        updateHistoryButtons();
+        if (advance) nextUnchecked();
       }
 
-      function preview(id) {
-        const s = currentSites().find((x) => x.id === id);
+      // ----- keyboard-driven navigation -----
+      function setActive(idx, opts) {
+        const sites = selectedSites();
+        if (!sites.length) {
+          activeIdx = null;
+          return;
+        }
+        activeIdx = Math.max(0, Math.min(sites.length - 1, idx));
+        editing = null;
+        const s = sites[activeIdx];
+        const link = s.url || fixes[vkey(s)];
+        if (autoPreview && link && !(opts && opts.noPreview)) preview(link);
+        else {
+          renderLinks();
+          keepFocus();
+        }
+      }
+
+      // move the active row by delta, skipping rows hidden by the filter; off the end rolls states
+      function navRow(delta) {
+        if (!selected) {
+          const states = navStates();
+          if (states.length) selectState(states[0]);
+          return;
+        }
+        const sites = selectedSites();
+        let i = (activeIdx === null ? (delta > 0 ? -1 : sites.length) : activeIdx) + delta;
+        while (i >= 0 && i < sites.length && !statusPass(sites[i])) i += delta;
+        if (i < 0) {
+          navState(-1, "last");
+          return;
+        }
+        if (i >= sites.length) {
+          navState(1, "first");
+          return;
+        }
+        setActive(i);
+      }
+
+      // move to the prev/next state (in the current layer/system); `land` = which row to focus there
+      function navState(delta, land) {
+        const states = navStates();
+        if (!states.length) return;
+        let i = states.indexOf(selected);
+        if (i === -1) i = delta > 0 ? -1 : 0;
+        const ni = i + delta;
+        if (ni < 0 || ni >= states.length) return;
+        selectState(states[ni], land);
+      }
+
+      // jump to the next unchecked link, rolling forward across states; wraps once
+      function nextUnchecked() {
+        const states = navStates();
+        if (!states.length) return;
+        const si = Math.max(0, states.indexOf(selected));
+        // scan from the current state forward, then wrap to the start
+        const order = states.slice(si).concat(states.slice(0, si));
+        for (const fips of order) {
+          const sites = sitesForState(fips);
+          const startIdx = fips === selected ? (activeIdx === null ? 0 : activeIdx + 1) : 0;
+          for (let i = startIdx; i < sites.length; i++) {
+            if (!reviews[vkey(sites[i])]) {
+              if (fips !== selected) selectState(fips, i);
+              else setActive(i);
+              return;
+            }
+          }
+        }
+      }
+
+      function saveFix(id, val) {
+        const s = resolveSite(id);
         if (!s) return;
-        $("preview").hidden = false;
-        $("pvUrl").textContent = s.url;
-        $("pvOpen").href = s.url;
-        $("pvFrame").src = s.url;
-        $("preview").scrollIntoView({ behavior: "smooth", block: "nearest" });
+        val = (val || "").trim();
+        const k = vkey(s);
+        const next = val && val !== s.url ? val : undefined;
+        if ((fixes[k] || undefined) !== next) {
+          pushUndo({ system: s.system, id: s.id });
+          if (next) {
+            fixes[k] = next;
+            reviews[k] = "good"; // supplying the correct link is itself the verification
+            save(VKEY, reviews);
+          } else {
+            delete fixes[k];
+          }
+          save(FKEY, fixes);
+          updateHistoryButtons();
+          colorMap();
+          renderInfo();
+        }
+        editing = null;
+        renderLinks();
       }
 
-      function selectState(fips) {
+      // The dev server's framing proxy (served mode only) re-serves a page without its
+      // X-Frame-Options so blocked portals can preview. Used on demand via the Proxy button, not by
+      // default — loading direct keeps the sites that DO embed (DevNet, ArcGIS) fully working.
+      const served = location.protocol.startsWith("http");
+
+      function preview(url) {
+        previewing = url;
+        $("pvEmpty").hidden = true;
+        $("pvFrame").hidden = false;
+        $("pvNote").hidden = false;
+        const f = $("pvFrame");
+        // Embedded pages often autofocus an input, which pulls keyboard focus into the
+        // cross-origin frame and kills the shortcut loop — pull focus back once it loads.
+        f.onload = () => keepFocus();
+        f.removeAttribute("sandbox");
+        f.src = url;
+        renderLinks();
+        keepFocus();
+      }
+
+      // Reload the current preview through the framing proxy (for sites that send X-Frame-Options).
+      // Fully sandboxed (no scripts/forms/navigation): these pages otherwise postback or redirect to
+      // their real URL and re-trigger the block ("invalid response"). This shows a styled but static
+      // snapshot — enough to confirm it's the right portal; use Open to actually interact.
+      function previewProxy() {
+        if (!previewing || !served) return;
+        const f = $("pvFrame");
+        f.onload = () => keepFocus();
+        f.setAttribute("sandbox", "");
+        f.src = "/proxy?url=" + encodeURIComponent(previewing);
+        keepFocus();
+      }
+
+      // keep keyboard focus in the parent (on the links list) so the shortcut loop stays live
+      function keepFocus() {
+        const box = $("links");
+        if (box) box.focus({ preventScroll: true });
+      }
+
+      function clearPreview() {
+        previewing = null;
+        $("pvFrame").src = "about:blank";
+        $("pvFrame").hidden = true;
+        $("pvNote").hidden = true;
+        $("pvEmpty").hidden = false;
+        renderPreviewBar();
+      }
+
+      function applySnapshot(s) {
+        reviews = { ...s.reviews };
+        fixes = { ...s.fixes };
+        save(VKEY, reviews);
+        save(FKEY, fixes);
+      }
+
+      // after an undo/redo, jump back to the item that changed so the revert is visible in context
+      function focusTarget(target) {
+        if (!target) {
+          colorMap();
+          renderInfo();
+          renderLinks();
+          return;
+        }
+        const sysToView = {
+          assessor: "assessor",
+          recorder: "recorder",
+          businessEntity: "sos",
+          attorneyLicense: "bar",
+        };
+        if (sysToView[target.system]) view = sysToView[target.system];
+        render();
+        selectState(target.id.slice(0, 2));
+        const idx = selectedSites().findIndex((x) => x.id === target.id);
+        if (idx >= 0) setActive(idx);
+      }
+
+      function undo() {
+        if (!undoStack.length) return;
+        const top = undoStack.pop();
+        redoStack.push({ state: snapshot(), target: top.target });
+        applySnapshot(top.state);
+        focusTarget(top.target);
+        updateHistoryButtons();
+      }
+
+      function redo() {
+        if (!redoStack.length) return;
+        const top = redoStack.pop();
+        undoStack.push({ state: snapshot(), target: top.target });
+        applySnapshot(top.state);
+        focusTarget(top.target);
+        updateHistoryButtons();
+      }
+
+      function updateHistoryButtons() {
+        const u = $("undo"),
+          r = $("redo");
+        if (u) {
+          u.disabled = !undoStack.length;
+          u.textContent = undoStack.length ? "↺ Undo (" + undoStack.length + ")" : "↺ Undo";
+        }
+        if (r) {
+          r.disabled = !redoStack.length;
+          r.textContent = redoStack.length ? "↻ Redo (" + redoStack.length + ")" : "↻ Redo";
+        }
+      }
+
+      function selectState(fips, land) {
+        if (!currentSites().some((s) => s.id.slice(0, 2) === fips) && !stateFeature.get(fips))
+          return;
         selected = fips;
-        if (window.__selOutline) window.__selOutline();
-        $("stateSel").value = fips;
-        renderPanel();
+        editing = null;
+        zoomTo(stateFeature.get(fips));
+        selOutline();
+        colorMap();
+        renderInfo();
+        const sites = selectedSites();
+        const vis = [];
+        for (let i = 0; i < sites.length; i++) if (statusPass(sites[i])) vis.push(i);
+        activeIdx = vis.length
+          ? typeof land === "number"
+            ? land
+            : land === "last"
+              ? vis[vis.length - 1]
+              : vis[0]
+          : null;
+        if (activeIdx !== null && autoPreview) preview(sites[activeIdx].url);
+        else {
+          renderLinks();
+          keepFocus();
+        }
+      }
+
+      function deselect() {
+        selected = null;
+        editing = null;
+        activeIdx = null;
+        zoomTo(null);
+        selOutline();
+        colorMap();
+        renderInfo();
+        renderLinks();
       }
 
       function showTip(e, html) {
-        tip.html(html).style("opacity", 1).style("left", e.clientX + 14 + "px").style("top", e.clientY + 14 + "px");
+        tip
+          .html(html)
+          .style("opacity", 1)
+          .style("left", e.clientX + 14 + "px")
+          .style("top", e.clientY + 14 + "px");
       }
-      function hideTip() { tip.style("opacity", 0); }
-      const cap = (s) => s[0].toUpperCase() + s.slice(1);
-
-      // state dropdown — every state that appears in any layer, alphabetical by code
-      (function fillStates() {
-        const seen = new Map();
-        for (const [fips, code] of fipsToCode) seen.set(code, fips);
-        const opts = [...seen.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-        const sel = $("stateSel");
-        for (const [code, fips] of opts) {
-          const o = document.createElement("option");
-          o.value = fips; o.textContent = code;
-          sel.appendChild(o);
-        }
-        sel.onchange = () => { if (sel.value) selectState(sel.value); else { selected = null; if (window.__selOutline) window.__selOutline(); renderPanel(); } };
-      })();
+      function hideTip() {
+        tip.style("opacity", 0);
+      }
 
       $("toggle").addEventListener("click", (e) => {
-        const b = e.target.closest("button"); if (!b) return;
-        layer = b.dataset.layer; render();
+        const b = e.target.closest("button");
+        if (!b) return;
+        view = b.dataset.view;
+        editing = null;
+        render();
+        // stay on the current state, but reset the active row + preview to the new system's links
+        if (selected) selectState(selected);
       });
-      $("subToggle").addEventListener("click", (e) => {
-        const b = e.target.closest("button"); if (!b) return;
-        propSys = b.dataset.sys; render();
-      });
-      $("pvClose").onclick = () => { $("preview").hidden = true; $("pvFrame").src = "about:blank"; };
+      $("undo").onclick = undo;
+      $("redo").onclick = redo;
 
-      // export every marked verification across states/systems
+      $("autoPv").onchange = (e) => {
+        autoPreview = e.target.checked;
+        if (autoPreview && selected && activeIdx !== null) {
+          const s = selectedSites()[activeIdx];
+          if (s) preview(s.url);
+        }
+      };
+
+      // global shortcuts — the fast verification loop: judge what's in the preview, key it, auto-advance
+      document.addEventListener("keydown", (e) => {
+        const t = e.target;
+        if (t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA")) {
+          if (t.classList && t.classList.contains("fixinput")) {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              saveFix(t.dataset.id, t.value);
+            } else if (e.key === "Escape") {
+              editing = null;
+              renderLinks();
+            }
+          }
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && (e.key === "z" || e.key === "Z")) {
+          e.preventDefault();
+          if (e.shiftKey) redo();
+          else undo();
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && (e.key === "y" || e.key === "Y")) {
+          e.preventDefault();
+          redo();
+          return;
+        }
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        const active = () => (selected && activeIdx !== null ? selectedSites()[activeIdx] : null);
+        switch (e.key) {
+          case "ArrowDown":
+          case "j":
+            e.preventDefault();
+            navRow(1);
+            break;
+          case "ArrowUp":
+          case "k":
+            e.preventDefault();
+            navRow(-1);
+            break;
+          case "ArrowRight":
+          case "]":
+            e.preventDefault();
+            navState(1);
+            break;
+          case "ArrowLeft":
+          case "[":
+            e.preventDefault();
+            navState(-1);
+            break;
+          case "g":
+          case "1": {
+            const s = active();
+            if (s) mark(s.id, "good", true);
+            break;
+          }
+          case "b":
+          case "x":
+          case "2": {
+            const s = active();
+            if (s) mark(s.id, "bad", true);
+            break;
+          }
+          case "f": {
+            const s = active();
+            if (s) {
+              editing = editing === s.id ? null : s.id;
+              renderLinks();
+              const inp = $("links").querySelector(".fixinput");
+              if (inp) inp.focus();
+            }
+            break;
+          }
+          case "o": {
+            const s = active();
+            if (s) window.open(s.url, "_blank", "noopener");
+            break;
+          }
+          case "p":
+          case "Enter": {
+            const s = active();
+            if (s) preview(s.url);
+            break;
+          }
+          case "u":
+            e.preventDefault();
+            nextUnchecked();
+            break;
+          case "Escape":
+            if (editing) {
+              editing = null;
+              renderLinks();
+            } else if (selected) deselect();
+            else if (previewing) clearPreview();
+            break;
+        }
+      });
+
+      // export every marked verification + corrected link across states/systems
       $("export").onclick = () => {
         const all = [...COV.property, ...COV.business, ...COV.licensing];
+        const covKeys = new Set(all.map(vkey));
         const out = all
-          .filter((s) => reviews[vkey(s)])
-          .map((s) => ({ state: s.state, fips: s.id, system: s.system, name: s.name, status: reviews[vkey(s)], url: s.url }));
+          .filter((s) => reviews[vkey(s)] || fixes[vkey(s)])
+          .map((s) => {
+            const row = {
+              state: s.state,
+              fips: s.id,
+              system: s.system,
+              name: s.name,
+              status: reviews[vkey(s)] || "unmarked",
+              url: s.url,
+            };
+            if (fixes[vkey(s)]) row.correctedUrl = fixes[vkey(s)];
+            return row;
+          });
+        // added links / marks for counties that had no catalog entry (the placeholder rows)
+        const nameById = new Map(assessorSites().map((s) => [s.id, s.name]));
+        const orphans = new Set(
+          [...Object.keys(reviews), ...Object.keys(fixes)].filter((k) => !covKeys.has(k)),
+        );
+        for (const k of orphans) {
+          const c = k.indexOf(":");
+          const system = k.slice(0, c),
+            id = k.slice(c + 1);
+          const row = {
+            state: fipsToCode.get(id.slice(0, 2)) || "",
+            fips: id,
+            system,
+            name: nameById.get(id) || id,
+            status: reviews[k] || "added",
+            url: null,
+          };
+          if (fixes[k]) row.correctedUrl = fixes[k];
+          out.push(row);
+        }
         const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
@@ -372,16 +1871,21 @@
       };
 
       // rebuild (served mode only)
-      const rebuildBtn = $("rebuild"), rebuildMsg = $("rebuildMsg");
+      const rebuildBtn = $("rebuild"),
+        rebuildMsg = $("rebuildMsg");
       if (location.protocol.startsWith("http")) {
         rebuildBtn.hidden = false;
         rebuildBtn.onclick = async () => {
-          rebuildBtn.disabled = true; rebuildMsg.textContent = "Rebuilding…";
+          rebuildBtn.disabled = true;
+          rebuildMsg.textContent = "Rebuilding…";
           try {
             const r = await fetch("/rebuild", { method: "POST" });
             if (!r.ok) throw new Error(await r.text());
             location.reload();
-          } catch (e) { rebuildBtn.disabled = false; rebuildMsg.textContent = "Rebuild needs the server (tools/open-coverage-map.cmd)."; }
+          } catch (e) {
+            rebuildBtn.disabled = false;
+            rebuildMsg.textContent = "Rebuild needs the server (tools/open-coverage-map.cmd).";
+          }
         };
       }
     </script>
