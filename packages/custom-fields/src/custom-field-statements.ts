@@ -78,6 +78,9 @@ export function updateCustomFieldFlagsStatement(
     bindings.push(value as string | number | null);
     index += 1;
   }
+  if (sets.length === 0) {
+    throw new Error("updateCustomFieldFlagsStatement: at least one field must be provided");
+  }
   return database
     .prepare(`UPDATE ${CUSTOM_FIELD_TABLE} SET ${sets.join(", ")} WHERE id = ?1`)
     .bind(...bindings);
