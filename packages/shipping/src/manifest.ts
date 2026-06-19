@@ -1,7 +1,7 @@
+import { fetchHttpClient } from "@magna-carta/integrations/http";
 import type { IntegrationManifest } from "@magna-carta/integrations/manifest";
 import { z } from "zod";
 import { createEasyPostAdapter } from "./easypost/adapter.ts";
-import { fetchHttpClient } from "./easypost/http.ts";
 
 // EasyPost is the firm's postage account: one apiKey credential per firm. The capability descriptor
 // is the adapter's own (built with a throwaway client — descriptor construction makes no network

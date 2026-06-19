@@ -1,5 +1,5 @@
+import type { HttpClient, HttpRequest } from "@magna-carta/integrations/http";
 import { describe, expect, it } from "vitest";
-import type { HttpClient, HttpRequest } from "../src/easypost/http.ts";
 import { createEasyPostAdapter } from "../src/easypost/adapter.ts";
 import type { ShippingPort } from "../src/port.ts";
 

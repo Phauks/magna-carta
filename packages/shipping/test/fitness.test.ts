@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import type { HttpClient } from "@magna-carta/integrations/http";
 import { describe, expect, it } from "vitest";
 import { createEasyPostAdapter } from "../src/easypost/adapter.ts";
-import type { HttpClient } from "../src/easypost/http.ts";
 
 const http: HttpClient = {
   async request() {
