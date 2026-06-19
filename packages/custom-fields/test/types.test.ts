@@ -1,3 +1,4 @@
+import { expect, it } from "vitest";
 import { CUSTOM_FIELD_KINDS, isCustomFieldKind, CustomFieldError } from "../src/types.ts";
 
 it("lists exactly the twelve kinds", () => {
