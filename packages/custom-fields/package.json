@@ -5,6 +5,7 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
+    "./run-custom-field-effect": "./src/run-custom-field-effect.ts",
     "./types": "./src/types.ts",
     "./custom-field-service": "./src/custom-field-service.ts",
     "./picklist-option-service": "./src/picklist-option-service.ts",

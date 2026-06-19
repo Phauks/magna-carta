@@ -9,7 +9,11 @@ import {
   insertCurrentValueStatement,
 } from "./custom-field-value-statements.ts";
 import { updateCustomFieldFlagsStatement } from "./custom-field-statements.ts";
-import { runCustomFieldEffect, type CustomFieldWriteOptions } from "./run-custom-field-effect.ts";
+import {
+  runCustomFieldEffect,
+  type CustomFieldWriteOptions,
+  type ReplayFlag,
+} from "./run-custom-field-effect.ts";
 import { CustomFieldError, type CustomFieldKind } from "./types.ts";
 
 // One field's current value, paired with its target row, ready to classify for a kind change.
@@ -151,7 +155,7 @@ export async function applyConvert(
     parkedDisposition: "park" | "block";
   },
   options: CustomFieldWriteOptions,
-): Promise<{ ok: true }> {
+): Promise<{ ok: true } & ReplayFlag> {
   const fromKind = await fieldKind(database, input.fieldId);
   const values = await loadCurrentValues(database, input.fieldId, fromKind);
   const classified = values.map((value) => ({

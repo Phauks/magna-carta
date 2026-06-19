@@ -32,6 +32,7 @@ import {
   CUSTOM_FIELD_KINDS,
   type CustomFieldKind,
 } from "@magna-carta/custom-fields/types";
+import { CustomFieldIdempotencyConflictError } from "@magna-carta/custom-fields/run-custom-field-effect";
 import { cryptoRandomSource } from "@magna-carta/identifiers/random";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
@@ -45,6 +46,7 @@ import type { AppVariables } from "../chokepoint/ports.ts";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
+import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 
@@ -80,14 +82,19 @@ function writeOptions(
 }
 
 // Maps a custom-field domain refusal to its problem response. Codes — never messages — drive the
-// mapping; an unrecognized throw propagates to the standard error pipeline (a 500). unknown-field is
-// a 404; a field/option still referenced by values is a 409; purge is a not-yet-enabled 409; every
-// remaining refusal (a bad reference handle, a cap breach, a parked-value block, a protect refusal)
-// is a 422 invalid request.
+// mapping; an unrecognized throw propagates to the standard error pipeline (a 500).
+// CustomFieldIdempotencyConflictError is checked first: it surfaces an in-progress commit race (→ 409)
+// or a key reused with a different payload (→ 422) through the shared idempotency-conflict mapping.
+// unknown-field is a 404; a field/option still referenced by values is a 409; purge is a
+// not-yet-enabled 409; every remaining refusal (a bad reference handle, a cap breach, a parked-value
+// block, a protect refusal) is a 422 invalid request.
 function customFieldErrorResponse(
   c: Context,
-  error: CustomFieldError,
+  error: CustomFieldIdempotencyConflictError | CustomFieldError,
 ): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
+  if (error instanceof CustomFieldIdempotencyConflictError) {
+    return problemResponseForIdempotencyConflict(c, error);
+  }
   switch (error.code) {
     case "unknown-field":
       return problemJson(c, {
@@ -767,7 +774,11 @@ export function registerCustomFieldsRoutes(app: CustomFieldsApp, chokepoint: Cho
         if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
         return c.json({ id: result.customFieldId } as z.infer<typeof FieldAck>, 201);
       } catch (caught) {
-        if (caught instanceof CustomFieldError) return customFieldErrorResponse(c, caught);
+        if (
+          caught instanceof CustomFieldIdempotencyConflictError ||
+          caught instanceof CustomFieldError
+        )
+          return customFieldErrorResponse(c, caught);
         throw caught;
       }
     },
@@ -791,7 +802,11 @@ export function registerCustomFieldsRoutes(app: CustomFieldsApp, chokepoint: Cho
         if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
         return c.json({ ok: true } as z.infer<typeof OkAck>, 200);
       } catch (caught) {
-        if (caught instanceof CustomFieldError) return customFieldErrorResponse(c, caught);
+        if (
+          caught instanceof CustomFieldIdempotencyConflictError ||
+          caught instanceof CustomFieldError
+        )
+          return customFieldErrorResponse(c, caught);
         throw caught;
       }
     },
@@ -815,7 +830,11 @@ export function registerCustomFieldsRoutes(app: CustomFieldsApp, chokepoint: Cho
         if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
         return c.json({ ok: true } as z.infer<typeof OkAck>, 200);
       } catch (caught) {
-        if (caught instanceof CustomFieldError) return customFieldErrorResponse(c, caught);
+        if (
+          caught instanceof CustomFieldIdempotencyConflictError ||
+          caught instanceof CustomFieldError
+        )
+          return customFieldErrorResponse(c, caught);
         throw caught;
       }
     },
@@ -839,7 +858,11 @@ export function registerCustomFieldsRoutes(app: CustomFieldsApp, chokepoint: Cho
         if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
         return c.json({ ok: true } as z.infer<typeof OkAck>, 200);
       } catch (caught) {
-        if (caught instanceof CustomFieldError) return customFieldErrorResponse(c, caught);
+        if (
+          caught instanceof CustomFieldIdempotencyConflictError ||
+          caught instanceof CustomFieldError
+        )
+          return customFieldErrorResponse(c, caught);
         throw caught;
       }
     },
@@ -862,7 +885,11 @@ export function registerCustomFieldsRoutes(app: CustomFieldsApp, chokepoint: Cho
         if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
         return c.json({ ok: true } as z.infer<typeof OkAck>, 200);
       } catch (caught) {
-        if (caught instanceof CustomFieldError) return customFieldErrorResponse(c, caught);
+        if (
+          caught instanceof CustomFieldIdempotencyConflictError ||
+          caught instanceof CustomFieldError
+        )
+          return customFieldErrorResponse(c, caught);
         throw caught;
       }
     },
@@ -885,7 +912,11 @@ export function registerCustomFieldsRoutes(app: CustomFieldsApp, chokepoint: Cho
         if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
         return c.json({ ok: true } as z.infer<typeof OkAck>, 200);
       } catch (caught) {
-        if (caught instanceof CustomFieldError) return customFieldErrorResponse(c, caught);
+        if (
+          caught instanceof CustomFieldIdempotencyConflictError ||
+          caught instanceof CustomFieldError
+        )
+          return customFieldErrorResponse(c, caught);
         throw caught;
       }
     },
@@ -908,7 +939,11 @@ export function registerCustomFieldsRoutes(app: CustomFieldsApp, chokepoint: Cho
         if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
         return c.json({ ok: true } as z.infer<typeof OkAck>, 200);
       } catch (caught) {
-        if (caught instanceof CustomFieldError) return customFieldErrorResponse(c, caught);
+        if (
+          caught instanceof CustomFieldIdempotencyConflictError ||
+          caught instanceof CustomFieldError
+        )
+          return customFieldErrorResponse(c, caught);
         throw caught;
       }
     },
@@ -931,7 +966,11 @@ export function registerCustomFieldsRoutes(app: CustomFieldsApp, chokepoint: Cho
         );
         return c.json({ ok: true } as z.infer<typeof OkAck>, 200);
       } catch (caught) {
-        if (caught instanceof CustomFieldError) return customFieldErrorResponse(c, caught);
+        if (
+          caught instanceof CustomFieldIdempotencyConflictError ||
+          caught instanceof CustomFieldError
+        )
+          return customFieldErrorResponse(c, caught);
         throw caught;
       }
     },
@@ -959,7 +998,11 @@ export function registerCustomFieldsRoutes(app: CustomFieldsApp, chokepoint: Cho
         const preview = await previewConvert(firm.firmDatabase, { fieldId, toKind });
         return c.json(preview as z.infer<typeof ConvertPreviewResponse>, 200);
       } catch (caught) {
-        if (caught instanceof CustomFieldError) return customFieldErrorResponse(c, caught);
+        if (
+          caught instanceof CustomFieldIdempotencyConflictError ||
+          caught instanceof CustomFieldError
+        )
+          return customFieldErrorResponse(c, caught);
         throw caught;
       }
     },
@@ -975,16 +1018,19 @@ export function registerCustomFieldsRoutes(app: CustomFieldsApp, chokepoint: Cho
       const { fieldId } = c.req.valid("param");
       const { toKind, parkedDisposition } = c.req.valid("json");
       try {
-        // applyConvert declares its return as { ok: true } (the replay marker is internal to its
-        // idempotent commit), so the handler does not surface an Idempotency-Replayed header here.
-        await applyConvert(
+        const result = await applyConvert(
           firm.firmDatabase,
           { fieldId, toKind, parkedDisposition },
           writeOptions(userId, idempotency),
         );
+        if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
         return c.json({ ok: true } as z.infer<typeof OkAck>, 200);
       } catch (caught) {
-        if (caught instanceof CustomFieldError) return customFieldErrorResponse(c, caught);
+        if (
+          caught instanceof CustomFieldIdempotencyConflictError ||
+          caught instanceof CustomFieldError
+        )
+          return customFieldErrorResponse(c, caught);
         throw caught;
       }
     },
@@ -1008,7 +1054,11 @@ export function registerCustomFieldsRoutes(app: CustomFieldsApp, chokepoint: Cho
         if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
         return c.json({ id: result.optionId } as z.infer<typeof OptionAck>, 201);
       } catch (caught) {
-        if (caught instanceof CustomFieldError) return customFieldErrorResponse(c, caught);
+        if (
+          caught instanceof CustomFieldIdempotencyConflictError ||
+          caught instanceof CustomFieldError
+        )
+          return customFieldErrorResponse(c, caught);
         throw caught;
       }
     },
@@ -1032,7 +1082,11 @@ export function registerCustomFieldsRoutes(app: CustomFieldsApp, chokepoint: Cho
         if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
         return c.json({ ok: true } as z.infer<typeof OkAck>, 200);
       } catch (caught) {
-        if (caught instanceof CustomFieldError) return customFieldErrorResponse(c, caught);
+        if (
+          caught instanceof CustomFieldIdempotencyConflictError ||
+          caught instanceof CustomFieldError
+        )
+          return customFieldErrorResponse(c, caught);
         throw caught;
       }
     },
@@ -1056,7 +1110,11 @@ export function registerCustomFieldsRoutes(app: CustomFieldsApp, chokepoint: Cho
         if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
         return c.json({ ok: true } as z.infer<typeof OkAck>, 200);
       } catch (caught) {
-        if (caught instanceof CustomFieldError) return customFieldErrorResponse(c, caught);
+        if (
+          caught instanceof CustomFieldIdempotencyConflictError ||
+          caught instanceof CustomFieldError
+        )
+          return customFieldErrorResponse(c, caught);
         throw caught;
       }
     },
@@ -1079,7 +1137,11 @@ export function registerCustomFieldsRoutes(app: CustomFieldsApp, chokepoint: Cho
         if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
         return c.json({ ok: true } as z.infer<typeof OkAck>, 200);
       } catch (caught) {
-        if (caught instanceof CustomFieldError) return customFieldErrorResponse(c, caught);
+        if (
+          caught instanceof CustomFieldIdempotencyConflictError ||
+          caught instanceof CustomFieldError
+        )
+          return customFieldErrorResponse(c, caught);
         throw caught;
       }
     },
@@ -1105,7 +1167,11 @@ export function registerCustomFieldsRoutes(app: CustomFieldsApp, chokepoint: Cho
         if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
         return c.json({ ok: true } as z.infer<typeof OkAck>, 200);
       } catch (caught) {
-        if (caught instanceof CustomFieldError) return customFieldErrorResponse(c, caught);
+        if (
+          caught instanceof CustomFieldIdempotencyConflictError ||
+          caught instanceof CustomFieldError
+        )
+          return customFieldErrorResponse(c, caught);
         throw caught;
       }
     },
@@ -1129,7 +1195,11 @@ export function registerCustomFieldsRoutes(app: CustomFieldsApp, chokepoint: Cho
         if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
         return c.json({ id: result.customFieldValueId } as z.infer<typeof ValueAck>, 200);
       } catch (caught) {
-        if (caught instanceof CustomFieldError) return customFieldErrorResponse(c, caught);
+        if (
+          caught instanceof CustomFieldIdempotencyConflictError ||
+          caught instanceof CustomFieldError
+        )
+          return customFieldErrorResponse(c, caught);
         throw caught;
       }
     },
@@ -1152,7 +1222,11 @@ export function registerCustomFieldsRoutes(app: CustomFieldsApp, chokepoint: Cho
         if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
         return c.json({ ok: true } as z.infer<typeof OkAck>, 200);
       } catch (caught) {
-        if (caught instanceof CustomFieldError) return customFieldErrorResponse(c, caught);
+        if (
+          caught instanceof CustomFieldIdempotencyConflictError ||
+          caught instanceof CustomFieldError
+        )
+          return customFieldErrorResponse(c, caught);
         throw caught;
       }
     },
