@@ -96,6 +96,10 @@
         "queue": "magna-carta-production-files-ingest",
         "dead_letter_queue": "magna-carta-production-files-ingest-deadletter",
       },
+      {
+        "queue": "magna-carta-production-inference",
+        "dead_letter_queue": "magna-carta-production-inference-deadletter",
+      },
     ],
   },
   // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines

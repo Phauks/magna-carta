@@ -2,6 +2,7 @@ import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import { createApp, type Bindings } from "./app.ts";
 import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
+import { inferenceQueue, type InferenceJob } from "./inference/inference-consumer.ts";
 import { runScheduledSweep, runStorageReconciliation } from "./scheduled.ts";
 
 // createApp defaults the plugin runtime to the production seam — the firm_secret credential store
@@ -33,7 +34,11 @@ export default {
     );
   },
   queue(batch, env) {
-    // The only queue this Worker consumes is files-ingest; its messages are R2 events.
+    // Route by the producing queue's name: inference carries inference jobs; files-ingest carries R2
+    // events (the only other consumed queue). A queue with no branch here is a misconfigured binding.
+    if (batch.queue === "magna-carta-production-inference") {
+      return inferenceQueue(batch as MessageBatch<InferenceJob>, env);
+    }
     return ingestQueue(batch as MessageBatch<R2EventMessage>, env);
   },
 } satisfies ExportedHandler<Bindings>;
