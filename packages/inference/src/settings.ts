@@ -9,11 +9,9 @@ import { reasoningModelIds } from "./catalog.ts";
 // subset, so the existing setting write-time validation (writeFirmSettingStatement's schema.parse) is
 // the enforcement point: an off-catalog or non-ZDR id is rejected at the write path, no new machinery.
 // The read stays total — a missing/invalid stored value yields the safe default.
-const reasoningModelSchema = z
-  .string()
-  .refine((value) => (reasoningModelIds() as readonly string[]).includes(value), {
-    message: "not a selectable ZDR-eligible reasoning model",
-  });
+const reasoningModelSchema = z.string().refine((value) => reasoningModelIds().includes(value), {
+  message: "not a selectable ZDR-eligible reasoning model",
+});
 
 export const primaryReasoningModelDefinition: FirmSettingDefinition<string> = {
   key: "inference.primaryReasoningModel",

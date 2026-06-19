@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { AiBinding } from "@magna-carta/inference/gateway";
 import { inferencePortFor, resolveReasoningModel } from "../src/inference/call-site.ts";
 
@@ -29,12 +30,14 @@ function fakeFirmDatabase(stored?: string) {
 describe("resolveReasoningModel", () => {
   it("returns the firm's stored model through the firm-scoped read", async () => {
     expect(
-      await resolveReasoningModel(fakeFirmDatabase("anthropic/claude-sonnet-4-6") as never),
+      await resolveReasoningModel(
+        fakeFirmDatabase("anthropic/claude-sonnet-4-6") as unknown as SqlDatabase,
+      ),
     ).toBe("anthropic/claude-sonnet-4-6");
   });
 
   it("returns the safe default when no firm row is set", async () => {
-    expect(await resolveReasoningModel(fakeFirmDatabase() as never)).toBe(
+    expect(await resolveReasoningModel(fakeFirmDatabase() as unknown as SqlDatabase)).toBe(
       "anthropic/claude-opus-4-8",
     );
   });

@@ -69,8 +69,19 @@ export async function handleInferenceJob(env: Bindings, job: InferenceJob): Prom
 
   const entry = catalogEntryFor(modelId);
   const slot = entry?.slot ?? "reasoning";
-  const now = () => new Date().toISOString();
-  const key = tokenUsageKeyForDay(now(), slot, modelId);
+  // This path is at-least-once with NO idempotency guard. A redelivery of the SAME message — e.g.
+  // port.generate above succeeded but commitEffectBatch below then threw, so the queue retries the
+  // message — RE-RUNS the model (re-billing a frontier model) and re-meters (request_count += 1).
+  // Making it exactly-once requires a producer-set stable idempotency key on InferenceJob plus a dedup
+  // guard composed into the SAME batch as the metering write (and, because the model spend precedes the
+  // commit, ideally a pre-model-call check too). That lands with the first AI feature's producer — there
+  // is no producer and no key to guard on yet. The same-batch-commit precedent is
+  // apps/worker/src/files/ingest-consumer.ts (runIdempotentEffect): the dedup record and the effect
+  // commit or roll back together.
+  // One timestamp for the whole batch: the bucket day and any future batch-stamped row are then
+  // provably consistent (no latent UTC-midnight split between reading the day and writing the rows).
+  const nowIso = new Date().toISOString();
+  const key = tokenUsageKeyForDay(nowIso, slot, modelId);
   await commitEffectBatch(
     firmDatabase,
     {
@@ -82,7 +93,7 @@ export async function handleInferenceJob(env: Bindings, job: InferenceJob): Prom
       ),
       outboxMessages: [],
     },
-    { now },
+    { now: () => nowIso },
   );
 }
 

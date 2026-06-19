@@ -91,4 +91,29 @@ describe("aiProcessingEligibilityDefinition", () => {
       false,
     );
   });
+
+  it("accepts a boolean at the write path", async () => {
+    const database = fakeDatabase();
+    await writeFirmSettingStatement(
+      asDatabase(database),
+      aiProcessingEligibilityDefinition,
+      true,
+      "2026-06-18T00:00:00.000Z",
+    ).run();
+    expect(await readFirmSetting(asDatabase(database), aiProcessingEligibilityDefinition)).toBe(
+      true,
+    );
+  });
+
+  it("rejects a non-boolean at the write path (schema.parse fails loud)", () => {
+    const database = fakeDatabase();
+    expect(() =>
+      writeFirmSettingStatement(
+        asDatabase(database),
+        aiProcessingEligibilityDefinition,
+        "yes" as unknown as boolean,
+        "2026-06-18T00:00:00.000Z",
+      ),
+    ).toThrow();
+  });
 });

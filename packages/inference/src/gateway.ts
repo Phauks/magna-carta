@@ -56,16 +56,21 @@ export function gatewayOptions(firmId: FirmId, slot: string, env: string): Gatew
   };
 }
 
-// The fail-closed ZDR guard: before dispatch, assert the selected model is ZDR-eligible in the catalog.
-// On a miss it returns a caller-safe problem — never the model id or any upstream text. The category is
-// "validation" (non-retryable): this is a LOCAL fail-closed policy refusal, not an upstream failure, so
-// it must never be advertised as a retryable upstream error a caller would re-attempt.
-export function assertZdrEligible(modelId: string): IntegrationProblem | null {
-  if (isZdrEligible(modelId)) return null;
+// The single caller-safe ZDR-ineligible problem literal. The category is "validation" (non-retryable):
+// this is a LOCAL fail-closed policy refusal, not an upstream failure, so it must never be advertised as
+// a retryable upstream error a caller would re-attempt. The detail is caller-safe text only — never the
+// model id or any upstream body.
+function zdrIneligibleProblem(): IntegrationProblem {
   return integrationProblem("validation", 400, "Model is not eligible for zero-data-retention", {
     detail:
       "The selected model is not zero-data-retention eligible and cannot process firm content.",
   });
+}
+
+// The fail-closed ZDR guard: before dispatch, assert the selected model is ZDR-eligible in the catalog.
+// On a miss it returns the caller-safe problem above.
+export function assertZdrEligible(modelId: string): IntegrationProblem | null {
+  return isZdrEligible(modelId) ? null : zdrIneligibleProblem();
 }
 
 // AiBinding is a minimal structural type seam over the platform Ai binding so the pure package needs
@@ -164,13 +169,7 @@ export function createGatewayInferencePort(options: GatewayPortOptions): Inferen
     // combined check below ensures the binding is never called on rejection.
     const entry = catalogEntryFor(input.modelId);
     if (entry === undefined || !entry.zdrEligible) {
-      return adapterError<GenerateResult>(
-        assertZdrEligible(input.modelId) ??
-          integrationProblem("validation", 400, "Model is not eligible for zero-data-retention", {
-            detail:
-              "The selected model is not zero-data-retention eligible and cannot process firm content.",
-          }),
-      );
+      return adapterError<GenerateResult>(zdrIneligibleProblem());
     }
     const gateway = gatewayOptions(input.firmId, entry.slot, env);
     try {
@@ -193,13 +192,7 @@ export function createGatewayInferencePort(options: GatewayPortOptions): Inferen
     async generateStream(input): Promise<Dispatch<StreamResult>> {
       const entry = catalogEntryFor(input.modelId);
       if (entry === undefined || !entry.zdrEligible) {
-        return adapterError<StreamResult>(
-          assertZdrEligible(input.modelId) ??
-            integrationProblem("validation", 400, "Model is not eligible for zero-data-retention", {
-              detail:
-                "The selected model is not zero-data-retention eligible and cannot process firm content.",
-            }),
-        );
+        return adapterError<StreamResult>(zdrIneligibleProblem());
       }
       const gateway = gatewayOptions(input.firmId, entry.slot, env);
       try {
@@ -219,8 +212,16 @@ export function createGatewayInferencePort(options: GatewayPortOptions): Inferen
           resolveUsage = resolve;
         });
         async function* relay(): AsyncIterable<string> {
-          for await (const delta of stream) yield String(delta);
-          resolveUsage(extractUsage(response));
+          try {
+            for await (const delta of stream) yield String(delta);
+          } catch {
+            // Normalize a mid-stream failure to a caller-safe error — never propagate the raw upstream
+            // body (it can echo prompt/auth content past the caller-safe mapping).
+            throw new Error("The inference stream failed.");
+          } finally {
+            // Usage always settles, so a consumer awaiting it never hangs after a mid-stream failure.
+            resolveUsage(extractUsage(response));
+          }
         }
         return ok({ stream: relay(), usage, snapshotId: entry.snapshotId });
       } catch {

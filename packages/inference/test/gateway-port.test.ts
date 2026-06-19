@@ -140,6 +140,47 @@ describe("createGatewayInferencePort.generateStream", () => {
     // Usage resolves once the stream has drained.
     expect(await result.value.usage).toEqual({ inputTokens: 5, outputTokens: 7 });
   });
+
+  it("normalizes a mid-stream throw to a caller-safe error and still settles usage (no hang)", async () => {
+    // A stream that yields one delta, then throws an upstream error echoing a secret marker. The relay
+    // must map the throw to a caller-safe message (no leaked body) AND settle usage so an awaiting
+    // consumer never hangs.
+    async function* gen(): AsyncGenerator<string> {
+      yield "Draf";
+      throw new Error("upstream 500: secret-stream-leak");
+    }
+    const ai = { run: async () => gen() } satisfies AiBinding;
+    const port = createGatewayInferencePort({ ai, env: "production" });
+    const result = await port.generateStream({
+      modelId: "anthropic/claude-opus-4-8",
+      prompt: "Draft.",
+      firmId: FIRM,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const drain = (async () => {
+      for await (const _delta of result.value.stream) {
+        // drain to the mid-stream throw
+      }
+    })();
+    await expect(drain).rejects.toThrow();
+    await expect(drain).rejects.not.toThrow(/secret-stream-leak/);
+    // Usage settles (resolves, does not hang) even though the stream failed mid-iteration.
+    expect(await result.value.usage).toEqual({ inputTokens: 0, outputTokens: 0 });
+  });
+
+  it("rejects a non-ZDR model fail-closed without ever calling the binding", async () => {
+    const { ai, calls } = fakeAi({ response: "x", usage: {} });
+    const port = createGatewayInferencePort({ ai, env: "production" });
+    const result = await port.generateStream({
+      modelId: "anthropic/not-in-catalog",
+      prompt: "x",
+      firmId: FIRM,
+    });
+    expect(result).toMatchObject({ ok: false, reason: "adapter-error" });
+    if (!result.ok) expect(result.problem?.retryable).toBe(false);
+    expect(calls).toHaveLength(0);
+  });
 });
 
 describe("createGatewayInferencePort.embed", () => {
