@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { pad, parseAdrFile, serializeAdrFile } from "./adr-file.mjs";
 import { assignNumbers } from "./assign.mjs";
 import { planMigration } from "./migrate-decisions.mjs";
@@ -63,9 +63,38 @@ function rewriteReferences(slug, number) {
   walk(docsRoot);
 }
 
+function trackedPendingNames() {
+  const out = execFileSync("git", ["ls-files", "--", "docs/decisions/pending"], { cwd: ROOT });
+  return new Set(
+    out
+      .toString()
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((path) => path.split("/").pop()),
+  );
+}
+
+// A decision is only real once it is committed on the branch being merged. Numbering reads from
+// git's tracked set, not the raw directory, so an untracked fragment that another worktree left in
+// this tree is never swept into this merge's numbering. The documented workflow commits the fragment
+// on its branch before merge, so a legitimate one is always tracked by build time; anything left
+// untracked is announced (never silently dropped) so a forgotten `git add` is visible.
+export function partitionPending(presentNames, trackedNames) {
+  const number = presentNames.filter((name) => trackedNames.has(name));
+  const skipped = presentNames.filter((name) => !trackedNames.has(name));
+  return { number, skipped };
+}
+
 function assemblePending() {
   if (!existsSync(PENDING_DIR)) return;
-  const pendingNames = readdirSync(PENDING_DIR).filter((name) => name.endsWith(".md"));
+  const present = readdirSync(PENDING_DIR).filter((name) => name.endsWith(".md"));
+  const { number: pendingNames, skipped } = partitionPending(present, trackedPendingNames());
+  if (skipped.length > 0) {
+    console.log(
+      `decisions: skipped ${skipped.length} untracked pending fragment(s) — git add to number: ${skipped.join(", ")}`,
+    );
+  }
   if (pendingNames.length === 0) return;
   const ordered = pendingNames
     .map((name) => ({ name, time: firstCommitTime(join(PENDING_DIR, name)) }))
@@ -91,7 +120,11 @@ function regenerateRegister() {
   writeFileSync(LOG_PATH, replaceRegister(readFileSync(LOG_PATH, "utf8"), register));
 }
 
-if (process.argv.includes("--migrate")) migrate();
-assemblePending();
-regenerateRegister();
-console.log("decisions: register regenerated");
+// Run the side effects only when invoked as a script — importing this module (e.g. from a test for
+// partitionPending) must not rewrite the real register.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  if (process.argv.includes("--migrate")) migrate();
+  assemblePending();
+  regenerateRegister();
+  console.log("decisions: register regenerated");
+}
