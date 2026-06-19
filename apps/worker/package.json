@@ -23,6 +23,7 @@
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/integrations": "workspace:*",
     "@magna-carta/locations": "workspace:*",
+    "@magna-carta/custom-fields": "workspace:*",
     "@magna-carta/matters": "workspace:*",
     "@magna-carta/property-links": "workspace:*",
     "@magna-carta/shipping": "workspace:*",
