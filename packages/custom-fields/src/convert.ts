@@ -140,13 +140,24 @@ export async function previewConvert(
   return { clean, needsRule, parked };
 }
 
+// A field with at most this many current values has its Apply run inline in one effect-batch; above
+// it, the route sets converting = 1 and offloads the coercion to the Queue-driven background pass. The
+// ceiling is calibrated against the load profile: the per-field convert preview scan (the same load +
+// classify Apply performs) measures well under a millisecond over a field carrying one value per record
+// of its type, and Apply adds two statements per clean value to one batch. 500 keeps the inline batch
+// within a request's work budget with wide margin while covering every realistic per-field value count
+// (the firm volume profile's busiest single-field corpus is far smaller); only a field retyped across a
+// very large record population crosses it and earns the background pass. Re-derive against the load
+// profile, never raise on a guess.
+export const CONVERT_INLINE_VALUE_LIMIT = 500;
+
 // Retype a field non-destructively. Every original current row is flipped to history; clean values
 // gain a freshly coerced current row; parked values are left cleared (their history endures, so the
 // change is reversible). The whole batch commits atomically with the kind update and one audit event.
 //
-// The bulk path runs this same work in a Queue consumer after the route sets converting = 1; that
-// offload is wired when the per-request value-count threshold is calibrated. Until then Apply runs
-// inline, bounded by the field's current value count.
+// The bulk path runs this same work in a Queue consumer after the route sets converting = 1 once a
+// field's current-value count crosses CONVERT_INLINE_VALUE_LIMIT. Inline, Apply is bounded by the
+// field's current value count under that ceiling.
 export async function applyConvert(
   database: BatchDatabase,
   input: {

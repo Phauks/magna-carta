@@ -453,6 +453,9 @@ importers:
       '@faker-js/faker':
         specifier: 'catalog:'
         version: 10.4.0
+      '@magna-carta/custom-fields':
+        specifier: workspace:*
+        version: link:../custom-fields
       '@magna-carta/data-access':
         specifier: workspace:*
         version: link:../data-access

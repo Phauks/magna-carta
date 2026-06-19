@@ -16,7 +16,9 @@
     "./purge": "./src/purge.ts",
     "./fitness": "./src/fitness.ts"
   },
-  "scripts": { "test": "vp test run" },
+  "scripts": {
+    "test": "vp test run"
+  },
   "dependencies": {
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
