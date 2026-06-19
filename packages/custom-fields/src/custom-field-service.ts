@@ -97,12 +97,14 @@ export async function unarchiveCustomField(
 
 export async function setCustomFieldRequired(
   database: BatchDatabase,
-  input: { fieldId: CustomFieldId; required: number },
+  input: { fieldId: CustomFieldId; required: boolean },
   options: CustomFieldWriteOptions,
 ) {
   return runCustomFieldEffect<{ ok: true }>(database, options, 200, () => ({
     statements: [
-      updateCustomFieldFlagsStatement(database, input.fieldId, { required: input.required }),
+      updateCustomFieldFlagsStatement(database, input.fieldId, {
+        required: input.required ? 1 : 0,
+      }),
       customFieldAuditStatement(database, options, "custom_field.required_changed", input.fieldId),
     ],
     outboxMessages: [],

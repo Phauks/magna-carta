@@ -10,22 +10,6 @@ import {
 import { migratedFirmDatabase, fixtureWriteOptions } from "./helpers.ts";
 
 describe("defineCustomField", () => {
-  it("defines a field, then renames it without touching the kind or id", async () => {
-    const db = await migratedFirmDatabase();
-    const options = fixtureWriteOptions();
-    const { customFieldId } = await defineCustomField(
-      db,
-      { name: "Court Date", kind: "date", target: "matter", attachmentId: "matterType_pi" },
-      options,
-    );
-    await renameCustomField(db, { fieldId: customFieldId, name: "Hearing Date" }, options);
-    const { results } = await db
-      .prepare("SELECT name, kind FROM custom_field WHERE id = ?1")
-      .bind(customFieldId)
-      .all<{ name: string; kind: string }>();
-    expect(results[0]).toEqual({ name: "Hearing Date", kind: "date" });
-  });
-
   it("writes a custom_field.defined audit event on define", async () => {
     const db = await migratedFirmDatabase();
     const { customFieldId } = await defineCustomField(
@@ -52,6 +36,22 @@ describe("defineCustomField", () => {
 });
 
 describe("renameCustomField", () => {
+  it("changes the label but not the kind or id", async () => {
+    const db = await migratedFirmDatabase();
+    const options = fixtureWriteOptions();
+    const { customFieldId } = await defineCustomField(
+      db,
+      { name: "Court Date", kind: "date", target: "matter", attachmentId: "matterType_pi" },
+      options,
+    );
+    await renameCustomField(db, { fieldId: customFieldId, name: "Hearing Date" }, options);
+    const { results } = await db
+      .prepare("SELECT name, kind FROM custom_field WHERE id = ?1")
+      .bind(customFieldId)
+      .all<{ name: string; kind: string }>();
+    expect(results[0]).toEqual({ name: "Hearing Date", kind: "date" });
+  });
+
   it("writes a custom_field.renamed audit event", async () => {
     const db = await migratedFirmDatabase();
     const options = fixtureWriteOptions("rename-test");
@@ -152,7 +152,7 @@ describe("setCustomFieldRequired", () => {
       { name: "Optional Field", kind: "single-line", target: "matter", attachmentId: null },
       options,
     );
-    await setCustomFieldRequired(db, { fieldId: customFieldId, required: 1 }, options);
+    await setCustomFieldRequired(db, { fieldId: customFieldId, required: true }, options);
     const { results } = await db
       .prepare("SELECT required FROM custom_field WHERE id = ?1")
       .bind(customFieldId)
@@ -168,7 +168,7 @@ describe("setCustomFieldRequired", () => {
       { name: "RequiredAudit", kind: "single-line", target: "matter", attachmentId: null },
       options,
     );
-    await setCustomFieldRequired(db, { fieldId: customFieldId, required: 1 }, options);
+    await setCustomFieldRequired(db, { fieldId: customFieldId, required: true }, options);
     const { results } = await db
       .prepare(
         "SELECT event FROM audit_log WHERE subject_id = ?1 AND event = 'custom_field.required_changed'",
