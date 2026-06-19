@@ -12,6 +12,7 @@ import shippingTablesSql from "@magna-carta/database/drizzle/per-firm/0008_elite
 import directorySql from "@magna-carta/database/drizzle/per-firm/0009_directory.sql";
 import seedToolsFirmUsageSql from "@magna-carta/database/drizzle/per-firm/0010_seed-tools-firm-usage.sql";
 import directoryPhoneticCodeIndexSql from "@magna-carta/database/drizzle/per-firm/0011_directory-phonetic-code-index.sql";
+import inferenceTokenUsageSql from "@magna-carta/database/drizzle/per-firm/0012_inference-token-usage.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the firm
 // provisioner migrates a freshly created firm database to head at provisioning time, so the SQL
@@ -33,6 +34,7 @@ export function perFirmMigrations(): Migration[] {
     "0009_directory": directorySql,
     "0010_seed-tools-firm-usage": seedToolsFirmUsageSql,
     "0011_directory-phonetic-code-index": directoryPhoneticCodeIndexSql,
+    "0012_inference-token-usage": inferenceTokenUsageSql,
   });
 }
 

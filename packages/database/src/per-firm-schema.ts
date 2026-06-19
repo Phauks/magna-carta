@@ -628,6 +628,25 @@ export const storageMeter = sqliteTable(
   (table) => [primaryKey({ columns: [table.storageClass, table.artifactRole, table.prefix] })],
 );
 
+// Authoritative per-firm AI token usage, captured from the inference RESPONSE (the provider usage
+// object) — the durable, reconcilable billing source, never the gateway logs. Rolled up by
+// (day, slot, model_id) so the firm-usage diagnostics feed reads a compact per-day breakdown. Composite
+// NATURAL key (no handle) — the same documented exception as storage_meter; every key column is TEXT.
+// The rollup moves by delta (INSERT ... ON CONFLICT DO UPDATE SET col = col + excluded.col) in the same
+// batch as the run it counts.
+export const tokenUsageMeter = sqliteTable(
+  "token_usage_meter",
+  {
+    day: text("day").notNull(), // YYYY-MM-DD civil date bucket (UTC)
+    slot: text("slot").notNull(), // reasoning | utility | embedding
+    modelId: text("model_id").notNull(), // the gateway-routable, provider-prefixed id
+    inputTokens: integer("input_tokens").notNull(),
+    outputTokens: integer("output_tokens").notNull(),
+    requestCount: integer("request_count").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.day, table.slot, table.modelId] })],
+);
+
 // Per-firm key/value config (JSON values), read through a typed accessor with defaults in code: a
 // missing row IS the default. Natural-key PK (the setting key), not a handle.
 export const setting = sqliteTable("setting", {
