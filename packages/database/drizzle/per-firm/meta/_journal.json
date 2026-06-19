@@ -85,6 +85,13 @@
       "when": 1781810424941,
       "tag": "0011_directory-phonetic-code-index",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1781900000000,
+      "tag": "0012_custom-fields",
+      "breakpoints": true
     }
   ]
 }
