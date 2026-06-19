@@ -110,7 +110,9 @@ function validateCatalog(entries: readonly CatalogEntry[]): readonly CatalogEntr
   const validated = entries.map((entry) => catalogEntrySchema.parse(entry));
   const embeddings = validated.filter((entry) => entry.slot === "embedding");
   if (embeddings.length !== 1) {
-    throw new Error(`the catalog must declare exactly one embedding entry (found ${embeddings.length})`);
+    throw new Error(
+      `the catalog must declare exactly one embedding entry (found ${embeddings.length})`,
+    );
   }
   return validated;
 }
