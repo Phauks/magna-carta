@@ -8,7 +8,8 @@ import {
   updateCustomFieldFlagsStatement,
 } from "./custom-field-statements.ts";
 import { runCustomFieldEffect, type CustomFieldWriteOptions } from "./run-custom-field-effect.ts";
-import type { CustomFieldKind, CustomFieldTarget } from "./types.ts";
+import { CustomFieldError, type CustomFieldKind, type CustomFieldTarget } from "./types.ts";
+import { MAX_FIELDS_PER_SCOPE, MAX_FIELDS_PER_FIRM } from "./limits.ts";
 
 export interface DefineCustomFieldInput {
   readonly name: string;
@@ -19,11 +20,37 @@ export interface DefineCustomFieldInput {
   readonly required?: boolean;
 }
 
+async function assertWithinFieldCaps(
+  database: BatchDatabase,
+  input: DefineCustomFieldInput,
+): Promise<void> {
+  const { results: scopeRows } = await database
+    .prepare(
+      `SELECT COUNT(*) AS n FROM custom_field WHERE target = ?1 AND ((attachment_id IS NULL AND ?2 IS NULL) OR attachment_id = ?2) AND archived = 0`,
+    )
+    .bind(input.target, input.attachmentId)
+    .all<{ n: number }>();
+  if ((scopeRows[0]?.n ?? 0) >= MAX_FIELDS_PER_SCOPE)
+    throw new CustomFieldError(
+      "too-many-fields-for-scope",
+      `A scope may hold at most ${MAX_FIELDS_PER_SCOPE} active fields.`,
+    );
+  const { results: firmRows } = await database
+    .prepare(`SELECT COUNT(*) AS n FROM custom_field WHERE archived = 0`)
+    .all<{ n: number }>();
+  if ((firmRows[0]?.n ?? 0) >= MAX_FIELDS_PER_FIRM)
+    throw new CustomFieldError(
+      "too-many-fields-for-firm",
+      `A firm may hold at most ${MAX_FIELDS_PER_FIRM} active fields.`,
+    );
+}
+
 export async function defineCustomField(
   database: BatchDatabase,
   input: DefineCustomFieldInput,
   options: CustomFieldWriteOptions,
 ) {
+  await assertWithinFieldCaps(database, input);
   const fieldId = newIdentifier("customField", options.randomSource) as CustomFieldId;
   return runCustomFieldEffect<{ customFieldId: CustomFieldId }>(database, options, 201, () => {
     const now = options.clock.now();
@@ -121,6 +148,32 @@ export async function reorderCustomField(
     statements: [
       updateCustomFieldFlagsStatement(database, input.fieldId, { position: input.position }),
       customFieldAuditStatement(database, options, "custom_field.reordered", input.fieldId),
+    ],
+    outboxMessages: [],
+    value: { ok: true as const },
+  }));
+}
+
+export async function hardDeleteCustomField(
+  database: BatchDatabase,
+  input: { fieldId: CustomFieldId },
+  options: CustomFieldWriteOptions,
+) {
+  const { results: inUseRows } = await database
+    .prepare(`SELECT 1 FROM custom_field_value WHERE field_id = ?1 LIMIT 1`)
+    .bind(input.fieldId)
+    .all<{ 1: number }>();
+  if (inUseRows.length > 0) {
+    throw new CustomFieldError(
+      "field-in-use",
+      "Cannot hard-delete a field that has values; archive it instead.",
+    );
+  }
+  return runCustomFieldEffect<{ ok: true }>(database, options, 200, () => ({
+    statements: [
+      database.prepare(`DELETE FROM picklist_option WHERE field_id = ?1`).bind(input.fieldId),
+      database.prepare(`DELETE FROM custom_field WHERE id = ?1`).bind(input.fieldId),
+      customFieldAuditStatement(database, options, "custom_field.hard_deleted", input.fieldId),
     ],
     outboxMessages: [],
     value: { ok: true as const },

@@ -11,12 +11,22 @@ import {
   deletePicklistOptionStatement,
 } from "./picklist-option-statements.ts";
 import { CustomFieldError } from "./types.ts";
+import { MAX_OPTIONS_PER_FIELD } from "./limits.ts";
 
 export async function createPicklistOption(
   database: BatchDatabase,
   input: { fieldId: CustomFieldId; name: string },
   options: CustomFieldWriteOptions,
 ) {
+  const { results: countRows } = await database
+    .prepare(`SELECT COUNT(*) AS n FROM picklist_option WHERE field_id = ?1`)
+    .bind(input.fieldId)
+    .all<{ n: number }>();
+  if ((countRows[0]?.n ?? 0) >= MAX_OPTIONS_PER_FIELD)
+    throw new CustomFieldError(
+      "too-many-options-for-field",
+      `A picklist field may hold at most ${MAX_OPTIONS_PER_FIELD} options.`,
+    );
   const optionId = newIdentifier("picklistOption", options.randomSource) as PicklistOptionId;
   return runCustomFieldEffect<{ optionId: PicklistOptionId }>(database, options, 201, () => ({
     statements: [
