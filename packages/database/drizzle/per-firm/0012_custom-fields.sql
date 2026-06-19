@@ -58,5 +58,5 @@ CREATE INDEX `custom_field_value_reference_index` ON `custom_field_value` (`valu
 -- the single combined Owner/Admin role seeded in the member-rbac migration; the rolePermission_
 -- handles were minted once and committed as literals so every firm's defaults match byte-for-byte.
 INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES
-	('rolePermission_cf1ManageOwnerAdmin000000', 'role_Gw-zKO8hOHQuNv2bWokMp', 'customFields:manage'),
-	('rolePermission_cf2PurgeOwnerAdmin0000000', 'role_Gw-zKO8hOHQuNv2bWokMp', 'customFields:purge');
+	('rolePermission_cf1ManageOwnerAdmin00', 'role_Gw-zKO8hOHQuNv2bWokMp', 'customFields:manage'),
+	('rolePermission_cf2PurgeOwnerAdmin000', 'role_Gw-zKO8hOHQuNv2bWokMp', 'customFields:purge');
