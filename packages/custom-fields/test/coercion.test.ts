@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { assert, expect, it } from "vitest";
 import { classifyCoercion, coerceWithRule } from "../src/coercion.ts";
 
 // ── classifyCoercion ──────────────────────────────────────────────────────────
@@ -39,17 +39,15 @@ it("picklist to text uses the option label and is clean", () => {
 it("same kind is always a clean trivial coercion", () => {
   const result = classifyCoercion({ kind: "number", number: 42 }, "number", "number");
   expect(result.outcome).toBe("clean");
-  if (result.outcome === "clean") {
-    expect(result.coerced).toEqual({ column: "value_number", number: 42 });
-  }
+  assert(result.outcome === "clean");
+  expect(result.coerced).toEqual({ column: "value_number", number: 42 });
 });
 
 it("number → currency is clean (re-scale handled at apply time)", () => {
   const result = classifyCoercion({ kind: "number", number: 100 }, "number", "currency");
   expect(result.outcome).toBe("clean");
-  if (result.outcome === "clean") {
-    expect(result.coerced).toEqual({ column: "value_number", number: 100 });
-  }
+  assert(result.outcome === "clean");
+  expect(result.coerced).toEqual({ column: "value_number", number: 100 });
 });
 
 it("currency → number is clean", () => {
@@ -61,17 +59,15 @@ it("currency → number is clean", () => {
 it("text → number strips commas before checking", () => {
   const result = classifyCoercion({ kind: "single-line", text: "1,000" }, "single-line", "number");
   expect(result.outcome).toBe("clean");
-  if (result.outcome === "clean") {
-    expect(result.coerced).toEqual({ column: "value_number", number: 1000 });
-  }
+  assert(result.outcome === "clean");
+  expect(result.coerced).toEqual({ column: "value_number", number: 1000 });
 });
 
 it("text → number strips leading dollar sign", () => {
   const result = classifyCoercion({ kind: "single-line", text: "$500" }, "single-line", "number");
   expect(result.outcome).toBe("clean");
-  if (result.outcome === "clean") {
-    expect(result.coerced).toEqual({ column: "value_number", number: 500 });
-  }
+  assert(result.outcome === "clean");
+  expect(result.coerced).toEqual({ column: "value_number", number: 500 });
 });
 
 it("magnitude suffix k needs-rule against number", () => {
@@ -106,9 +102,8 @@ it("ISO date text → date is clean", () => {
     "date",
   );
   expect(result.outcome).toBe("clean");
-  if (result.outcome === "clean") {
-    expect(result.coerced).toEqual({ column: "value_date", date: "2025-01-15" });
-  }
+  assert(result.outcome === "clean");
+  expect(result.coerced).toEqual({ column: "value_date", date: "2025-01-15" });
 });
 
 it("ISO datetime text → date is clean (prefix match)", () => {
@@ -131,9 +126,8 @@ it("picklist → text yields the option label", () => {
     "single-line",
   );
   expect(result.outcome).toBe("clean");
-  if (result.outcome === "clean") {
-    expect(result.coerced).toEqual({ column: "value_text", text: "Closed" });
-  }
+  assert(result.outcome === "clean");
+  expect(result.coerced).toEqual({ column: "value_text", text: "Closed" });
 });
 
 it("url to email (both text family) is clean", () => {
@@ -145,9 +139,8 @@ it("url to email (both text family) is clean", () => {
 it("number to url (text family) is clean and stringifies", () => {
   const result = classifyCoercion({ kind: "number", number: 7 }, "number", "url");
   expect(result.outcome).toBe("clean");
-  if (result.outcome === "clean") {
-    expect(result.coerced).toEqual({ column: "value_text", text: "7" });
-  }
+  assert(result.outcome === "clean");
+  expect(result.coerced).toEqual({ column: "value_text", text: "7" });
 });
 
 // ── coerceWithRule ────────────────────────────────────────────────────────────

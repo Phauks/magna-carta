@@ -158,6 +158,11 @@ export function coerceWithRule(
     const suffix = stripped[stripped.length - 1]!.toLowerCase();
     const multiplier = MAGNITUDE_MULTIPLIERS[suffix] ?? 1;
     const base = parseFloat(stripped.slice(0, stripped.length - 1).trim());
+    if (Number.isNaN(base)) {
+      throw new Error(
+        `coerceWithRule: magnitude rule received a value whose numeric prefix could not be parsed: ${JSON.stringify(asText(value))}`,
+      );
+    }
     return { column: "value_number", number: base * multiplier };
   }
 
@@ -165,8 +170,9 @@ export function coerceWithRule(
     return { action: "create-option", label: rule.label };
   }
 
-  // Exhaustive — toKind unused here because the rule fully determines the path,
-  // but it's kept in the signature so callers can assert correctness at call sites.
+  // Exhaustive — toKind is kept in the signature so callers can assert
+  // correctness at call sites (rule kind → target kind pairing).
   void toKind;
-  return { outcome: "parked" } as never;
+  const exhaustive: never = rule;
+  throw new Error(`Unhandled coercion rule: ${JSON.stringify(exhaustive)}`);
 }
