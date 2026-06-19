@@ -51,6 +51,8 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Live rate-shop read-through to the carrier — POSTs the package to fetch ephemeral rates, persists nothing.",
   "shipping.tracking":
     "Pulls current carrier tracking and caches events (INSERT OR IGNORE dedup) — a read-shaped sync, not an auditable business mutation.",
+  "customFields.previewConvert":
+    "Read-shaped POST: counts how each current value would land under a kind change (the target kind rides the body) — no write, no audit.",
 };
 
 // Subsystems whose every route must be idempotency: required (money/trust/payment/outbound-comms).
@@ -117,6 +119,9 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string> = {
   directory: "directoryEntity",
   shipping: "firm",
   tools: "firm",
+  // customFields:* governs firm-defined fields on matter/entity records; its routes carry the
+  // matter resource (the nearest tenancy root — custom fields extend matter/entity records).
+  customFields: "matter",
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
@@ -470,6 +475,26 @@ describe("conformance — the committed contract holds, and each rule catches a 
   it("exposes the known committed operations (so the positive assertions are not vacuous)", () => {
     const ids = [...operations(document)].map((entry) => entry.operationId).sort();
     expect(ids).toEqual([
+      "customFields.applyConvert",
+      "customFields.archiveField",
+      "customFields.archiveOption",
+      "customFields.clearValue",
+      "customFields.createOption",
+      "customFields.defineField",
+      "customFields.hardDeleteField",
+      "customFields.hardDeleteOption",
+      "customFields.listRecordValues",
+      "customFields.previewConvert",
+      "customFields.purgeField",
+      "customFields.renameField",
+      "customFields.renameOption",
+      "customFields.reorderField",
+      "customFields.reorderOption",
+      "customFields.resolveField",
+      "customFields.setRequired",
+      "customFields.setValue",
+      "customFields.unarchiveField",
+      "customFields.valueHistory",
       "directory.addIdentifier",
       "directory.addName",
       "directory.assignCategory",

@@ -225,8 +225,11 @@ describe("end-to-end", () => {
       // (0004_matters-locations-file-manager.sql) + the slice 1·2 firm:manageSecrets /
       // incidents:viewDescription grants (0006) + shipping:manage (0008_elite_genesis) + the slice
       // 1·3 directory:edit / directory:viewSensitiveIdentifiers grants (0009_directory) +
-      // tools:firmUsage (0010_seed-tools-firm-usage.sql). Sorted.
+      // tools:firmUsage (0010_seed-tools-firm-usage.sql) + the slice 1·4 customFields:manage /
+      // customFields:purge grants (0012_custom-fields.sql). Sorted.
       permissions: [
+        "customFields:manage",
+        "customFields:purge",
         "directory:edit",
         "directory:viewSensitiveIdentifiers",
         "files:delete",
@@ -384,6 +387,7 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       "directory.duplicateCandidates",
       "shipping.rateShipment",
       "shipping.tracking",
+      "customFields.previewConvert",
     ]);
 
     for (const { operation, label } of mutatingV1) {
