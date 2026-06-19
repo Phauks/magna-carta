@@ -57,23 +57,27 @@
     "accent": { "$type": "color", "$value": "{color.accent.400}" }
   },
   "status": {
-    "$description": "Status and feedback colors. The solid pair (saturated fill + light foreground) is for emphasis banners; the SUBTLE pair (pale same-hue tint + deep same-hue text) is the default register for chips/pills and inline callouts — calm on a work surface, not a saturated block.",
+    "$description": "Status and feedback colors. The solid pair (saturated fill + light foreground) is for emphasis banners; the SUBTLE trio (pale same-hue tint + deep same-hue text + a soft same-hue hairline) is the default register for chips/pills and inline callouts — calm on a work surface, not a saturated block. The -subtle-border step sits one notch above the tint (a defined edge, not another saturated block); it is decorative, so it carries no contrast pair.",
     "info": { "$type": "color", "$value": "{color.blue.700}" },
     "info-foreground": { "$type": "color", "$value": "{color.neutral.0}" },
     "info-subtle": { "$type": "color", "$value": "{color.blue.100}" },
     "info-subtle-foreground": { "$type": "color", "$value": "{color.blue.700}" },
+    "info-subtle-border": { "$type": "color", "$value": "{color.blue.300}" },
     "success": { "$type": "color", "$value": "{color.green.700}" },
     "success-foreground": { "$type": "color", "$value": "{color.neutral.0}" },
     "success-subtle": { "$type": "color", "$value": "{color.green.100}" },
     "success-subtle-foreground": { "$type": "color", "$value": "{color.green.700}" },
+    "success-subtle-border": { "$type": "color", "$value": "{color.green.300}" },
     "warning": { "$type": "color", "$value": "{color.amber.500}" },
     "warning-foreground": { "$type": "color", "$value": "{color.neutral.1000}" },
     "warning-subtle": { "$type": "color", "$value": "{color.amber.100}" },
     "warning-subtle-foreground": { "$type": "color", "$value": "{color.amber.700}" },
+    "warning-subtle-border": { "$type": "color", "$value": "{color.amber.300}" },
     "danger": { "$type": "color", "$value": "{color.red.500}" },
     "danger-foreground": { "$type": "color", "$value": "{color.neutral.0}" },
     "danger-subtle": { "$type": "color", "$value": "{color.red.100}" },
-    "danger-subtle-foreground": { "$type": "color", "$value": "{color.red.700}" }
+    "danger-subtle-foreground": { "$type": "color", "$value": "{color.red.700}" },
+    "danger-subtle-border": { "$type": "color", "$value": "{color.red.300}" }
   },
   "density": {
     "$description": "Layout density dimensions.",

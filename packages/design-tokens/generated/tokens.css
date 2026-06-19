@@ -41,11 +41,13 @@
   --mc-color-amber-400: oklch(77% 0.12 80);
   --mc-color-amber-500: oklch(70% 0.13 80);
   --mc-color-amber-700: oklch(50.07% 0.1044 78.02);
+  --mc-color-amber-900: oklch(29% 0.04 80);
   --mc-color-blue-100: oklch(92.75% 0.0434 230.3);
   --mc-color-blue-300: oklch(75% 0.1 240);
   --mc-color-blue-400: oklch(65% 0.13 240);
   --mc-color-blue-500: oklch(55.76% 0.1396 244.7);
   --mc-color-blue-700: oklch(42.75% 0.1098 246);
+  --mc-color-blue-900: oklch(26% 0.045 240);
   --mc-color-brand-0: oklch(99% 0.0035 70);
   --mc-color-brand-50: oklch(97.5% 0.0063 70);
   --mc-color-brand-100: oklch(95% 0.0094 70);
@@ -63,6 +65,7 @@
   --mc-color-green-400: oklch(66% 0.11 150);
   --mc-color-green-500: oklch(56% 0.12 150);
   --mc-color-green-700: oklch(43% 0.1 150);
+  --mc-color-green-900: oklch(27% 0.045 150);
   --mc-color-neutral-0: oklch(99% 0.002 70);
   --mc-color-neutral-50: oklch(97.5% 0.0025 70);
   --mc-color-neutral-100: oklch(95% 0.0037 70);
@@ -80,6 +83,7 @@
   --mc-color-red-400: oklch(65% 0.15 25);
   --mc-color-red-500: oklch(55% 0.18 25);
   --mc-color-red-700: oklch(44% 0.15 25);
+  --mc-color-red-900: oklch(26% 0.05 25);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-color-scrim: oklch(13% 0.005 70 / 0.25);
   --mc-control-lg: 40px;
@@ -130,18 +134,22 @@
   --mc-status-danger: var(--mc-color-red-500);
   --mc-status-danger-foreground: var(--mc-color-neutral-0);
   --mc-status-danger-subtle: var(--mc-color-red-100);
+  --mc-status-danger-subtle-border: var(--mc-color-red-300);
   --mc-status-danger-subtle-foreground: var(--mc-color-red-700);
   --mc-status-info: var(--mc-color-blue-700);
   --mc-status-info-foreground: var(--mc-color-neutral-0);
   --mc-status-info-subtle: var(--mc-color-blue-100);
+  --mc-status-info-subtle-border: var(--mc-color-blue-300);
   --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
   --mc-status-success: var(--mc-color-green-700);
   --mc-status-success-foreground: var(--mc-color-neutral-0);
   --mc-status-success-subtle: var(--mc-color-green-100);
+  --mc-status-success-subtle-border: var(--mc-color-green-300);
   --mc-status-success-subtle-foreground: var(--mc-color-green-700);
   --mc-status-warning: var(--mc-color-amber-500);
   --mc-status-warning-foreground: var(--mc-color-neutral-1000);
   --mc-status-warning-subtle: var(--mc-color-amber-100);
+  --mc-status-warning-subtle-border: var(--mc-color-amber-300);
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
   --mc-surface-default: var(--mc-color-neutral-0);
   --mc-surface-overlay: var(--mc-color-neutral-0);
@@ -246,11 +254,13 @@
   --mc-color-amber-400: oklch(77% 0.12 80);
   --mc-color-amber-500: oklch(70% 0.13 80);
   --mc-color-amber-700: oklch(50.07% 0.1044 78.02);
+  --mc-color-amber-900: oklch(29% 0.04 80);
   --mc-color-blue-100: oklch(92.75% 0.0434 230.3);
   --mc-color-blue-300: oklch(75% 0.1 240);
   --mc-color-blue-400: oklch(65% 0.13 240);
   --mc-color-blue-500: oklch(55.76% 0.1396 244.7);
   --mc-color-blue-700: oklch(42.75% 0.1098 246);
+  --mc-color-blue-900: oklch(26% 0.045 240);
   --mc-color-brand-0: oklch(99% 0.0035 70);
   --mc-color-brand-50: oklch(97.5% 0.0063 70);
   --mc-color-brand-100: oklch(95% 0.0094 70);
@@ -268,6 +278,7 @@
   --mc-color-green-400: oklch(66% 0.11 150);
   --mc-color-green-500: oklch(56% 0.12 150);
   --mc-color-green-700: oklch(43% 0.1 150);
+  --mc-color-green-900: oklch(27% 0.045 150);
   --mc-color-neutral-0: oklch(99% 0.002 70);
   --mc-color-neutral-50: oklch(97.5% 0.0025 70);
   --mc-color-neutral-100: oklch(95% 0.0037 70);
@@ -285,6 +296,7 @@
   --mc-color-red-400: oklch(65% 0.15 25);
   --mc-color-red-500: oklch(55% 0.18 25);
   --mc-color-red-700: oklch(44% 0.15 25);
+  --mc-color-red-900: oklch(26% 0.05 25);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-color-scrim: oklch(13% 0.005 70 / 0.25);
   --mc-control-lg: 40px;
@@ -334,20 +346,24 @@
   --mc-space-96: 96px;
   --mc-status-danger: var(--mc-color-red-400);
   --mc-status-danger-foreground: var(--mc-color-neutral-1000);
-  --mc-status-danger-subtle: var(--mc-color-red-100);
-  --mc-status-danger-subtle-foreground: var(--mc-color-red-700);
+  --mc-status-danger-subtle: var(--mc-color-red-900);
+  --mc-status-danger-subtle-border: var(--mc-color-red-700);
+  --mc-status-danger-subtle-foreground: var(--mc-color-red-300);
   --mc-status-info: var(--mc-color-blue-400);
   --mc-status-info-foreground: var(--mc-color-neutral-1000);
-  --mc-status-info-subtle: var(--mc-color-blue-100);
-  --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
+  --mc-status-info-subtle: var(--mc-color-blue-900);
+  --mc-status-info-subtle-border: var(--mc-color-blue-700);
+  --mc-status-info-subtle-foreground: var(--mc-color-blue-300);
   --mc-status-success: var(--mc-color-green-400);
   --mc-status-success-foreground: var(--mc-color-neutral-1000);
-  --mc-status-success-subtle: var(--mc-color-green-100);
-  --mc-status-success-subtle-foreground: var(--mc-color-green-700);
+  --mc-status-success-subtle: var(--mc-color-green-900);
+  --mc-status-success-subtle-border: var(--mc-color-green-700);
+  --mc-status-success-subtle-foreground: var(--mc-color-green-300);
   --mc-status-warning: var(--mc-color-amber-500);
   --mc-status-warning-foreground: var(--mc-color-neutral-1000);
-  --mc-status-warning-subtle: var(--mc-color-amber-100);
-  --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
+  --mc-status-warning-subtle: var(--mc-color-amber-900);
+  --mc-status-warning-subtle-border: var(--mc-color-amber-700);
+  --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   --mc-surface-default: var(--mc-color-neutral-1000);
   --mc-surface-overlay: var(--mc-color-neutral-900);
   --mc-surface-raised: var(--mc-color-neutral-900);
@@ -386,12 +402,12 @@
     --mc-color-blue-500: oklch(55% 0.15 240);
     --mc-color-blue-700: oklch(42% 0.12 240);
     --mc-color-red-100: oklch(93.49% 0.0427 26.34);
-    --mc-status-danger-subtle: var(--mc-color-red-100);
+    --mc-status-danger-subtle: var(--mc-color-red-900);
     --mc-status-info: var(--mc-color-blue-400);
-    --mc-status-info-subtle: var(--mc-color-blue-100);
-    --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
-    --mc-status-warning-subtle: var(--mc-color-amber-100);
-    --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
+    --mc-status-info-subtle: var(--mc-color-blue-900);
+    --mc-status-info-subtle-foreground: var(--mc-color-blue-300);
+    --mc-status-warning-subtle: var(--mc-color-amber-900);
+    --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   }
 }
 
@@ -403,12 +419,12 @@
     --mc-color-blue-500: oklch(55% 0.15 240);
     --mc-color-blue-700: oklch(42% 0.12 240);
     --mc-color-red-100: oklch(94% 0.05 25);
-    --mc-status-danger-subtle: var(--mc-color-red-100);
+    --mc-status-danger-subtle: var(--mc-color-red-900);
     --mc-status-info: var(--mc-color-blue-400);
-    --mc-status-info-subtle: var(--mc-color-blue-100);
-    --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
-    --mc-status-warning-subtle: var(--mc-color-amber-100);
-    --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
+    --mc-status-info-subtle: var(--mc-color-blue-900);
+    --mc-status-info-subtle-foreground: var(--mc-color-blue-300);
+    --mc-status-warning-subtle: var(--mc-color-amber-900);
+    --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   }
 }
 
@@ -451,11 +467,13 @@
   --mc-color-amber-400: oklch(77% 0.12 80);
   --mc-color-amber-500: oklch(70% 0.13 80);
   --mc-color-amber-700: oklch(50.07% 0.1044 78.02);
+  --mc-color-amber-900: oklch(29% 0.04 80);
   --mc-color-blue-100: oklch(92.75% 0.0434 230.3);
   --mc-color-blue-300: oklch(75% 0.1 240);
   --mc-color-blue-400: oklch(65% 0.13 240);
   --mc-color-blue-500: oklch(55.76% 0.1396 244.7);
   --mc-color-blue-700: oklch(42.75% 0.1098 246);
+  --mc-color-blue-900: oklch(26% 0.045 240);
   --mc-color-brand-0: oklch(99% 0.007 165);
   --mc-color-brand-50: oklch(97.5% 0.0126 165);
   --mc-color-brand-100: oklch(95% 0.0189 165);
@@ -473,6 +491,7 @@
   --mc-color-green-400: oklch(66% 0.11 150);
   --mc-color-green-500: oklch(56% 0.12 150);
   --mc-color-green-700: oklch(43% 0.1 150);
+  --mc-color-green-900: oklch(27% 0.045 150);
   --mc-color-neutral-0: oklch(99% 0.002 165);
   --mc-color-neutral-50: oklch(97.5% 0.0021 165);
   --mc-color-neutral-100: oklch(95% 0.0032 165);
@@ -490,6 +509,7 @@
   --mc-color-red-400: oklch(65% 0.15 25);
   --mc-color-red-500: oklch(55% 0.18 25);
   --mc-color-red-700: oklch(44% 0.15 25);
+  --mc-color-red-900: oklch(26% 0.05 25);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-color-scrim: oklch(13% 0.005 70 / 0.25);
   --mc-control-lg: 40px;
@@ -540,18 +560,22 @@
   --mc-status-danger: var(--mc-color-red-500);
   --mc-status-danger-foreground: var(--mc-color-neutral-0);
   --mc-status-danger-subtle: var(--mc-color-red-100);
+  --mc-status-danger-subtle-border: var(--mc-color-red-300);
   --mc-status-danger-subtle-foreground: var(--mc-color-red-700);
   --mc-status-info: var(--mc-color-blue-700);
   --mc-status-info-foreground: var(--mc-color-neutral-0);
   --mc-status-info-subtle: var(--mc-color-blue-100);
+  --mc-status-info-subtle-border: var(--mc-color-blue-300);
   --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
   --mc-status-success: var(--mc-color-green-700);
   --mc-status-success-foreground: var(--mc-color-neutral-0);
   --mc-status-success-subtle: var(--mc-color-green-100);
+  --mc-status-success-subtle-border: var(--mc-color-green-300);
   --mc-status-success-subtle-foreground: var(--mc-color-green-700);
   --mc-status-warning: var(--mc-color-amber-500);
   --mc-status-warning-foreground: var(--mc-color-neutral-1000);
   --mc-status-warning-subtle: var(--mc-color-amber-100);
+  --mc-status-warning-subtle-border: var(--mc-color-amber-300);
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
   --mc-surface-default: var(--mc-color-neutral-0);
   --mc-surface-overlay: var(--mc-color-neutral-0);
@@ -656,11 +680,13 @@
   --mc-color-amber-400: oklch(77% 0.12 80);
   --mc-color-amber-500: oklch(70% 0.13 80);
   --mc-color-amber-700: oklch(50.07% 0.1044 78.02);
+  --mc-color-amber-900: oklch(29% 0.04 80);
   --mc-color-blue-100: oklch(92.75% 0.0434 230.3);
   --mc-color-blue-300: oklch(75% 0.1 240);
   --mc-color-blue-400: oklch(65% 0.13 240);
   --mc-color-blue-500: oklch(55.76% 0.1396 244.7);
   --mc-color-blue-700: oklch(42.75% 0.1098 246);
+  --mc-color-blue-900: oklch(26% 0.045 240);
   --mc-color-brand-0: oklch(99% 0.007 165);
   --mc-color-brand-50: oklch(97.5% 0.0126 165);
   --mc-color-brand-100: oklch(95% 0.0189 165);
@@ -678,6 +704,7 @@
   --mc-color-green-400: oklch(66% 0.11 150);
   --mc-color-green-500: oklch(56% 0.12 150);
   --mc-color-green-700: oklch(43% 0.1 150);
+  --mc-color-green-900: oklch(27% 0.045 150);
   --mc-color-neutral-0: oklch(99% 0.002 165);
   --mc-color-neutral-50: oklch(97.5% 0.0021 165);
   --mc-color-neutral-100: oklch(95% 0.0032 165);
@@ -695,6 +722,7 @@
   --mc-color-red-400: oklch(65% 0.15 25);
   --mc-color-red-500: oklch(55% 0.18 25);
   --mc-color-red-700: oklch(44% 0.15 25);
+  --mc-color-red-900: oklch(26% 0.05 25);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-color-scrim: oklch(13% 0.005 70 / 0.25);
   --mc-control-lg: 40px;
@@ -744,20 +772,24 @@
   --mc-space-96: 96px;
   --mc-status-danger: var(--mc-color-red-400);
   --mc-status-danger-foreground: var(--mc-color-neutral-1000);
-  --mc-status-danger-subtle: var(--mc-color-red-100);
-  --mc-status-danger-subtle-foreground: var(--mc-color-red-700);
+  --mc-status-danger-subtle: var(--mc-color-red-900);
+  --mc-status-danger-subtle-border: var(--mc-color-red-700);
+  --mc-status-danger-subtle-foreground: var(--mc-color-red-300);
   --mc-status-info: var(--mc-color-blue-400);
   --mc-status-info-foreground: var(--mc-color-neutral-1000);
-  --mc-status-info-subtle: var(--mc-color-blue-100);
-  --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
+  --mc-status-info-subtle: var(--mc-color-blue-900);
+  --mc-status-info-subtle-border: var(--mc-color-blue-700);
+  --mc-status-info-subtle-foreground: var(--mc-color-blue-300);
   --mc-status-success: var(--mc-color-green-400);
   --mc-status-success-foreground: var(--mc-color-neutral-1000);
-  --mc-status-success-subtle: var(--mc-color-green-100);
-  --mc-status-success-subtle-foreground: var(--mc-color-green-700);
+  --mc-status-success-subtle: var(--mc-color-green-900);
+  --mc-status-success-subtle-border: var(--mc-color-green-700);
+  --mc-status-success-subtle-foreground: var(--mc-color-green-300);
   --mc-status-warning: var(--mc-color-amber-500);
   --mc-status-warning-foreground: var(--mc-color-neutral-1000);
-  --mc-status-warning-subtle: var(--mc-color-amber-100);
-  --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
+  --mc-status-warning-subtle: var(--mc-color-amber-900);
+  --mc-status-warning-subtle-border: var(--mc-color-amber-700);
+  --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   --mc-surface-default: var(--mc-color-neutral-1000);
   --mc-surface-overlay: var(--mc-color-neutral-900);
   --mc-surface-raised: var(--mc-color-neutral-900);
@@ -796,12 +828,12 @@
     --mc-color-blue-500: oklch(55% 0.15 240);
     --mc-color-blue-700: oklch(42% 0.12 240);
     --mc-color-red-100: oklch(93.49% 0.0427 26.34);
-    --mc-status-danger-subtle: var(--mc-color-red-100);
+    --mc-status-danger-subtle: var(--mc-color-red-900);
     --mc-status-info: var(--mc-color-blue-400);
-    --mc-status-info-subtle: var(--mc-color-blue-100);
-    --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
-    --mc-status-warning-subtle: var(--mc-color-amber-100);
-    --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
+    --mc-status-info-subtle: var(--mc-color-blue-900);
+    --mc-status-info-subtle-foreground: var(--mc-color-blue-300);
+    --mc-status-warning-subtle: var(--mc-color-amber-900);
+    --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   }
 }
 
@@ -813,12 +845,12 @@
     --mc-color-blue-500: oklch(55% 0.15 240);
     --mc-color-blue-700: oklch(42% 0.12 240);
     --mc-color-red-100: oklch(94% 0.05 25);
-    --mc-status-danger-subtle: var(--mc-color-red-100);
+    --mc-status-danger-subtle: var(--mc-color-red-900);
     --mc-status-info: var(--mc-color-blue-400);
-    --mc-status-info-subtle: var(--mc-color-blue-100);
-    --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
-    --mc-status-warning-subtle: var(--mc-color-amber-100);
-    --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
+    --mc-status-info-subtle: var(--mc-color-blue-900);
+    --mc-status-info-subtle-foreground: var(--mc-color-blue-300);
+    --mc-status-warning-subtle: var(--mc-color-amber-900);
+    --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   }
 }
 
@@ -861,11 +893,13 @@
   --mc-color-amber-400: oklch(77% 0.12 80);
   --mc-color-amber-500: oklch(70% 0.13 80);
   --mc-color-amber-700: oklch(50.07% 0.1044 78.02);
+  --mc-color-amber-900: oklch(29% 0.04 80);
   --mc-color-blue-100: oklch(92.75% 0.0434 230.3);
   --mc-color-blue-300: oklch(75% 0.1 240);
   --mc-color-blue-400: oklch(65% 0.13 240);
   --mc-color-blue-500: oklch(55.76% 0.1396 244.7);
   --mc-color-blue-700: oklch(42.75% 0.1098 246);
+  --mc-color-blue-900: oklch(26% 0.045 240);
   --mc-color-brand-0: oklch(99% 0.005 60);
   --mc-color-brand-50: oklch(97.5% 0.009 60);
   --mc-color-brand-100: oklch(95% 0.0135 60);
@@ -883,6 +917,7 @@
   --mc-color-green-400: oklch(66% 0.11 150);
   --mc-color-green-500: oklch(56% 0.12 150);
   --mc-color-green-700: oklch(43% 0.1 150);
+  --mc-color-green-900: oklch(27% 0.045 150);
   --mc-color-neutral-0: oklch(99% 0.003 75);
   --mc-color-neutral-50: oklch(97.5% 0.0053 75);
   --mc-color-neutral-100: oklch(95% 0.0081 75);
@@ -900,6 +935,7 @@
   --mc-color-red-400: oklch(65% 0.15 25);
   --mc-color-red-500: oklch(55% 0.18 25);
   --mc-color-red-700: oklch(44% 0.15 25);
+  --mc-color-red-900: oklch(26% 0.05 25);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-color-scrim: oklch(13% 0.005 70 / 0.25);
   --mc-control-lg: 40px;
@@ -950,18 +986,22 @@
   --mc-status-danger: var(--mc-color-red-500);
   --mc-status-danger-foreground: var(--mc-color-neutral-0);
   --mc-status-danger-subtle: var(--mc-color-red-100);
+  --mc-status-danger-subtle-border: var(--mc-color-red-300);
   --mc-status-danger-subtle-foreground: var(--mc-color-red-700);
   --mc-status-info: var(--mc-color-blue-700);
   --mc-status-info-foreground: var(--mc-color-neutral-0);
   --mc-status-info-subtle: var(--mc-color-blue-100);
+  --mc-status-info-subtle-border: var(--mc-color-blue-300);
   --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
   --mc-status-success: var(--mc-color-green-700);
   --mc-status-success-foreground: var(--mc-color-neutral-0);
   --mc-status-success-subtle: var(--mc-color-green-100);
+  --mc-status-success-subtle-border: var(--mc-color-green-300);
   --mc-status-success-subtle-foreground: var(--mc-color-green-700);
   --mc-status-warning: var(--mc-color-amber-500);
   --mc-status-warning-foreground: var(--mc-color-neutral-1000);
   --mc-status-warning-subtle: var(--mc-color-amber-100);
+  --mc-status-warning-subtle-border: var(--mc-color-amber-300);
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
   --mc-surface-default: var(--mc-color-neutral-0);
   --mc-surface-overlay: var(--mc-color-neutral-0);
@@ -1066,11 +1106,13 @@
   --mc-color-amber-400: oklch(77% 0.12 80);
   --mc-color-amber-500: oklch(70% 0.13 80);
   --mc-color-amber-700: oklch(50.07% 0.1044 78.02);
+  --mc-color-amber-900: oklch(29% 0.04 80);
   --mc-color-blue-100: oklch(92.75% 0.0434 230.3);
   --mc-color-blue-300: oklch(75% 0.1 240);
   --mc-color-blue-400: oklch(65% 0.13 240);
   --mc-color-blue-500: oklch(55.76% 0.1396 244.7);
   --mc-color-blue-700: oklch(42.75% 0.1098 246);
+  --mc-color-blue-900: oklch(26% 0.045 240);
   --mc-color-brand-0: oklch(99% 0.005 60);
   --mc-color-brand-50: oklch(97.5% 0.009 60);
   --mc-color-brand-100: oklch(95% 0.0135 60);
@@ -1088,6 +1130,7 @@
   --mc-color-green-400: oklch(66% 0.11 150);
   --mc-color-green-500: oklch(56% 0.12 150);
   --mc-color-green-700: oklch(43% 0.1 150);
+  --mc-color-green-900: oklch(27% 0.045 150);
   --mc-color-neutral-0: oklch(99% 0.003 75);
   --mc-color-neutral-50: oklch(97.5% 0.0053 75);
   --mc-color-neutral-100: oklch(95% 0.0081 75);
@@ -1105,6 +1148,7 @@
   --mc-color-red-400: oklch(65% 0.15 25);
   --mc-color-red-500: oklch(55% 0.18 25);
   --mc-color-red-700: oklch(44% 0.15 25);
+  --mc-color-red-900: oklch(26% 0.05 25);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-color-scrim: oklch(13% 0.005 70 / 0.25);
   --mc-control-lg: 40px;
@@ -1154,20 +1198,24 @@
   --mc-space-96: 96px;
   --mc-status-danger: var(--mc-color-red-400);
   --mc-status-danger-foreground: var(--mc-color-neutral-1000);
-  --mc-status-danger-subtle: var(--mc-color-red-100);
-  --mc-status-danger-subtle-foreground: var(--mc-color-red-700);
+  --mc-status-danger-subtle: var(--mc-color-red-900);
+  --mc-status-danger-subtle-border: var(--mc-color-red-700);
+  --mc-status-danger-subtle-foreground: var(--mc-color-red-300);
   --mc-status-info: var(--mc-color-blue-400);
   --mc-status-info-foreground: var(--mc-color-neutral-1000);
-  --mc-status-info-subtle: var(--mc-color-blue-100);
-  --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
+  --mc-status-info-subtle: var(--mc-color-blue-900);
+  --mc-status-info-subtle-border: var(--mc-color-blue-700);
+  --mc-status-info-subtle-foreground: var(--mc-color-blue-300);
   --mc-status-success: var(--mc-color-green-400);
   --mc-status-success-foreground: var(--mc-color-neutral-1000);
-  --mc-status-success-subtle: var(--mc-color-green-100);
-  --mc-status-success-subtle-foreground: var(--mc-color-green-700);
+  --mc-status-success-subtle: var(--mc-color-green-900);
+  --mc-status-success-subtle-border: var(--mc-color-green-700);
+  --mc-status-success-subtle-foreground: var(--mc-color-green-300);
   --mc-status-warning: var(--mc-color-amber-500);
   --mc-status-warning-foreground: var(--mc-color-neutral-1000);
-  --mc-status-warning-subtle: var(--mc-color-amber-100);
-  --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
+  --mc-status-warning-subtle: var(--mc-color-amber-900);
+  --mc-status-warning-subtle-border: var(--mc-color-amber-700);
+  --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   --mc-surface-default: var(--mc-color-neutral-1000);
   --mc-surface-overlay: var(--mc-color-neutral-900);
   --mc-surface-raised: var(--mc-color-neutral-900);
@@ -1206,12 +1254,12 @@
     --mc-color-blue-500: oklch(55% 0.15 240);
     --mc-color-blue-700: oklch(42% 0.12 240);
     --mc-color-red-100: oklch(93.49% 0.0427 26.34);
-    --mc-status-danger-subtle: var(--mc-color-red-100);
+    --mc-status-danger-subtle: var(--mc-color-red-900);
     --mc-status-info: var(--mc-color-blue-400);
-    --mc-status-info-subtle: var(--mc-color-blue-100);
-    --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
-    --mc-status-warning-subtle: var(--mc-color-amber-100);
-    --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
+    --mc-status-info-subtle: var(--mc-color-blue-900);
+    --mc-status-info-subtle-foreground: var(--mc-color-blue-300);
+    --mc-status-warning-subtle: var(--mc-color-amber-900);
+    --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   }
 }
 
@@ -1223,12 +1271,12 @@
     --mc-color-blue-500: oklch(55% 0.15 240);
     --mc-color-blue-700: oklch(42% 0.12 240);
     --mc-color-red-100: oklch(94% 0.05 25);
-    --mc-status-danger-subtle: var(--mc-color-red-100);
+    --mc-status-danger-subtle: var(--mc-color-red-900);
     --mc-status-info: var(--mc-color-blue-400);
-    --mc-status-info-subtle: var(--mc-color-blue-100);
-    --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
-    --mc-status-warning-subtle: var(--mc-color-amber-100);
-    --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
+    --mc-status-info-subtle: var(--mc-color-blue-900);
+    --mc-status-info-subtle-foreground: var(--mc-color-blue-300);
+    --mc-status-warning-subtle: var(--mc-color-amber-900);
+    --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   }
 }
 
@@ -1271,11 +1319,13 @@
   --mc-color-amber-400: oklch(77% 0.12 80);
   --mc-color-amber-500: oklch(70% 0.13 80);
   --mc-color-amber-700: oklch(50.07% 0.1044 78.02);
+  --mc-color-amber-900: oklch(29% 0.04 80);
   --mc-color-blue-100: oklch(92.75% 0.0434 230.3);
   --mc-color-blue-300: oklch(75% 0.1 240);
   --mc-color-blue-400: oklch(65% 0.13 240);
   --mc-color-blue-500: oklch(55.76% 0.1396 244.7);
   --mc-color-blue-700: oklch(42.75% 0.1098 246);
+  --mc-color-blue-900: oklch(26% 0.045 240);
   --mc-color-brand-0: oklch(99% 0.0047 20);
   --mc-color-brand-50: oklch(97.5% 0.0121 20);
   --mc-color-brand-100: oklch(95% 0.0243 20);
@@ -1293,6 +1343,7 @@
   --mc-color-green-400: oklch(66% 0.11 150);
   --mc-color-green-500: oklch(56% 0.12 150);
   --mc-color-green-700: oklch(43% 0.1 150);
+  --mc-color-green-900: oklch(27% 0.045 150);
   --mc-color-neutral-0: oklch(99% 0.002 20);
   --mc-color-neutral-50: oklch(97.5% 0.002 20);
   --mc-color-neutral-100: oklch(95% 0.0027 20);
@@ -1310,6 +1361,7 @@
   --mc-color-red-400: oklch(65% 0.15 25);
   --mc-color-red-500: oklch(55% 0.18 25);
   --mc-color-red-700: oklch(44% 0.15 25);
+  --mc-color-red-900: oklch(26% 0.05 25);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-color-scrim: oklch(13% 0.005 70 / 0.25);
   --mc-control-lg: 40px;
@@ -1360,18 +1412,22 @@
   --mc-status-danger: var(--mc-color-red-500);
   --mc-status-danger-foreground: var(--mc-color-neutral-0);
   --mc-status-danger-subtle: var(--mc-color-red-100);
+  --mc-status-danger-subtle-border: var(--mc-color-red-300);
   --mc-status-danger-subtle-foreground: var(--mc-color-red-700);
   --mc-status-info: var(--mc-color-blue-700);
   --mc-status-info-foreground: var(--mc-color-neutral-0);
   --mc-status-info-subtle: var(--mc-color-blue-100);
+  --mc-status-info-subtle-border: var(--mc-color-blue-300);
   --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
   --mc-status-success: var(--mc-color-green-700);
   --mc-status-success-foreground: var(--mc-color-neutral-0);
   --mc-status-success-subtle: var(--mc-color-green-100);
+  --mc-status-success-subtle-border: var(--mc-color-green-300);
   --mc-status-success-subtle-foreground: var(--mc-color-green-700);
   --mc-status-warning: var(--mc-color-amber-500);
   --mc-status-warning-foreground: var(--mc-color-neutral-1000);
   --mc-status-warning-subtle: var(--mc-color-amber-100);
+  --mc-status-warning-subtle-border: var(--mc-color-amber-300);
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
   --mc-surface-default: var(--mc-color-neutral-0);
   --mc-surface-overlay: var(--mc-color-neutral-0);
@@ -1476,11 +1532,13 @@
   --mc-color-amber-400: oklch(77% 0.12 80);
   --mc-color-amber-500: oklch(70% 0.13 80);
   --mc-color-amber-700: oklch(50.07% 0.1044 78.02);
+  --mc-color-amber-900: oklch(29% 0.04 80);
   --mc-color-blue-100: oklch(92.75% 0.0434 230.3);
   --mc-color-blue-300: oklch(75% 0.1 240);
   --mc-color-blue-400: oklch(65% 0.13 240);
   --mc-color-blue-500: oklch(55.76% 0.1396 244.7);
   --mc-color-blue-700: oklch(42.75% 0.1098 246);
+  --mc-color-blue-900: oklch(26% 0.045 240);
   --mc-color-brand-0: oklch(99% 0.0047 20);
   --mc-color-brand-50: oklch(97.5% 0.0121 20);
   --mc-color-brand-100: oklch(95% 0.0243 20);
@@ -1498,6 +1556,7 @@
   --mc-color-green-400: oklch(66% 0.11 150);
   --mc-color-green-500: oklch(56% 0.12 150);
   --mc-color-green-700: oklch(43% 0.1 150);
+  --mc-color-green-900: oklch(27% 0.045 150);
   --mc-color-neutral-0: oklch(99% 0.002 20);
   --mc-color-neutral-50: oklch(97.5% 0.002 20);
   --mc-color-neutral-100: oklch(95% 0.0027 20);
@@ -1515,6 +1574,7 @@
   --mc-color-red-400: oklch(65% 0.15 25);
   --mc-color-red-500: oklch(55% 0.18 25);
   --mc-color-red-700: oklch(44% 0.15 25);
+  --mc-color-red-900: oklch(26% 0.05 25);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-color-scrim: oklch(13% 0.005 70 / 0.25);
   --mc-control-lg: 40px;
@@ -1564,20 +1624,24 @@
   --mc-space-96: 96px;
   --mc-status-danger: var(--mc-color-red-400);
   --mc-status-danger-foreground: var(--mc-color-neutral-1000);
-  --mc-status-danger-subtle: var(--mc-color-red-100);
-  --mc-status-danger-subtle-foreground: var(--mc-color-red-700);
+  --mc-status-danger-subtle: var(--mc-color-red-900);
+  --mc-status-danger-subtle-border: var(--mc-color-red-700);
+  --mc-status-danger-subtle-foreground: var(--mc-color-red-300);
   --mc-status-info: var(--mc-color-blue-400);
   --mc-status-info-foreground: var(--mc-color-neutral-1000);
-  --mc-status-info-subtle: var(--mc-color-blue-100);
-  --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
+  --mc-status-info-subtle: var(--mc-color-blue-900);
+  --mc-status-info-subtle-border: var(--mc-color-blue-700);
+  --mc-status-info-subtle-foreground: var(--mc-color-blue-300);
   --mc-status-success: var(--mc-color-green-400);
   --mc-status-success-foreground: var(--mc-color-neutral-1000);
-  --mc-status-success-subtle: var(--mc-color-green-100);
-  --mc-status-success-subtle-foreground: var(--mc-color-green-700);
+  --mc-status-success-subtle: var(--mc-color-green-900);
+  --mc-status-success-subtle-border: var(--mc-color-green-700);
+  --mc-status-success-subtle-foreground: var(--mc-color-green-300);
   --mc-status-warning: var(--mc-color-amber-500);
   --mc-status-warning-foreground: var(--mc-color-neutral-1000);
-  --mc-status-warning-subtle: var(--mc-color-amber-100);
-  --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
+  --mc-status-warning-subtle: var(--mc-color-amber-900);
+  --mc-status-warning-subtle-border: var(--mc-color-amber-700);
+  --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   --mc-surface-default: var(--mc-color-neutral-1000);
   --mc-surface-overlay: var(--mc-color-neutral-900);
   --mc-surface-raised: var(--mc-color-neutral-900);
@@ -1616,12 +1680,12 @@
     --mc-color-blue-500: oklch(55% 0.15 240);
     --mc-color-blue-700: oklch(42% 0.12 240);
     --mc-color-red-100: oklch(93.49% 0.0427 26.34);
-    --mc-status-danger-subtle: var(--mc-color-red-100);
+    --mc-status-danger-subtle: var(--mc-color-red-900);
     --mc-status-info: var(--mc-color-blue-400);
-    --mc-status-info-subtle: var(--mc-color-blue-100);
-    --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
-    --mc-status-warning-subtle: var(--mc-color-amber-100);
-    --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
+    --mc-status-info-subtle: var(--mc-color-blue-900);
+    --mc-status-info-subtle-foreground: var(--mc-color-blue-300);
+    --mc-status-warning-subtle: var(--mc-color-amber-900);
+    --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   }
 }
 
@@ -1633,12 +1697,12 @@
     --mc-color-blue-500: oklch(55% 0.15 240);
     --mc-color-blue-700: oklch(42% 0.12 240);
     --mc-color-red-100: oklch(94% 0.05 25);
-    --mc-status-danger-subtle: var(--mc-color-red-100);
+    --mc-status-danger-subtle: var(--mc-color-red-900);
     --mc-status-info: var(--mc-color-blue-400);
-    --mc-status-info-subtle: var(--mc-color-blue-100);
-    --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
-    --mc-status-warning-subtle: var(--mc-color-amber-100);
-    --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
+    --mc-status-info-subtle: var(--mc-color-blue-900);
+    --mc-status-info-subtle-foreground: var(--mc-color-blue-300);
+    --mc-status-warning-subtle: var(--mc-color-amber-900);
+    --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   }
 }
 
@@ -1681,11 +1745,13 @@
   --mc-color-amber-400: oklch(77% 0.12 80);
   --mc-color-amber-500: oklch(70% 0.13 80);
   --mc-color-amber-700: oklch(50.07% 0.1044 78.02);
+  --mc-color-amber-900: oklch(29% 0.04 80);
   --mc-color-blue-100: oklch(92.75% 0.0434 230.3);
   --mc-color-blue-300: oklch(75% 0.1 240);
   --mc-color-blue-400: oklch(65% 0.13 240);
   --mc-color-blue-500: oklch(55.76% 0.1396 244.7);
   --mc-color-blue-700: oklch(42.75% 0.1098 246);
+  --mc-color-blue-900: oklch(26% 0.045 240);
   --mc-color-brand-0: oklch(99% 0.0078 330);
   --mc-color-brand-50: oklch(97.5% 0.0162 330);
   --mc-color-brand-100: oklch(95% 0.0243 330);
@@ -1703,6 +1769,7 @@
   --mc-color-green-400: oklch(66% 0.11 150);
   --mc-color-green-500: oklch(56% 0.12 150);
   --mc-color-green-700: oklch(43% 0.1 150);
+  --mc-color-green-900: oklch(27% 0.045 150);
   --mc-color-neutral-0: oklch(99% 0.002 330);
   --mc-color-neutral-50: oklch(97.5% 0.002 330);
   --mc-color-neutral-100: oklch(95% 0.0027 330);
@@ -1720,6 +1787,7 @@
   --mc-color-red-400: oklch(65% 0.15 25);
   --mc-color-red-500: oklch(55% 0.18 25);
   --mc-color-red-700: oklch(44% 0.15 25);
+  --mc-color-red-900: oklch(26% 0.05 25);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-color-scrim: oklch(13% 0.005 70 / 0.25);
   --mc-control-lg: 40px;
@@ -1770,18 +1838,22 @@
   --mc-status-danger: var(--mc-color-red-500);
   --mc-status-danger-foreground: var(--mc-color-neutral-0);
   --mc-status-danger-subtle: var(--mc-color-red-100);
+  --mc-status-danger-subtle-border: var(--mc-color-red-300);
   --mc-status-danger-subtle-foreground: var(--mc-color-red-700);
   --mc-status-info: var(--mc-color-blue-700);
   --mc-status-info-foreground: var(--mc-color-neutral-0);
   --mc-status-info-subtle: var(--mc-color-blue-100);
+  --mc-status-info-subtle-border: var(--mc-color-blue-300);
   --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
   --mc-status-success: var(--mc-color-green-700);
   --mc-status-success-foreground: var(--mc-color-neutral-0);
   --mc-status-success-subtle: var(--mc-color-green-100);
+  --mc-status-success-subtle-border: var(--mc-color-green-300);
   --mc-status-success-subtle-foreground: var(--mc-color-green-700);
   --mc-status-warning: var(--mc-color-amber-500);
   --mc-status-warning-foreground: var(--mc-color-neutral-1000);
   --mc-status-warning-subtle: var(--mc-color-amber-100);
+  --mc-status-warning-subtle-border: var(--mc-color-amber-300);
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
   --mc-surface-default: var(--mc-color-neutral-0);
   --mc-surface-overlay: var(--mc-color-neutral-0);
@@ -1886,11 +1958,13 @@
   --mc-color-amber-400: oklch(77% 0.12 80);
   --mc-color-amber-500: oklch(70% 0.13 80);
   --mc-color-amber-700: oklch(50.07% 0.1044 78.02);
+  --mc-color-amber-900: oklch(29% 0.04 80);
   --mc-color-blue-100: oklch(92.75% 0.0434 230.3);
   --mc-color-blue-300: oklch(75% 0.1 240);
   --mc-color-blue-400: oklch(65% 0.13 240);
   --mc-color-blue-500: oklch(55.76% 0.1396 244.7);
   --mc-color-blue-700: oklch(42.75% 0.1098 246);
+  --mc-color-blue-900: oklch(26% 0.045 240);
   --mc-color-brand-0: oklch(99% 0.0078 330);
   --mc-color-brand-50: oklch(97.5% 0.0162 330);
   --mc-color-brand-100: oklch(95% 0.0243 330);
@@ -1908,6 +1982,7 @@
   --mc-color-green-400: oklch(66% 0.11 150);
   --mc-color-green-500: oklch(56% 0.12 150);
   --mc-color-green-700: oklch(43% 0.1 150);
+  --mc-color-green-900: oklch(27% 0.045 150);
   --mc-color-neutral-0: oklch(99% 0.002 330);
   --mc-color-neutral-50: oklch(97.5% 0.002 330);
   --mc-color-neutral-100: oklch(95% 0.0027 330);
@@ -1925,6 +2000,7 @@
   --mc-color-red-400: oklch(65% 0.15 25);
   --mc-color-red-500: oklch(55% 0.18 25);
   --mc-color-red-700: oklch(44% 0.15 25);
+  --mc-color-red-900: oklch(26% 0.05 25);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-color-scrim: oklch(13% 0.005 70 / 0.25);
   --mc-control-lg: 40px;
@@ -1974,20 +2050,24 @@
   --mc-space-96: 96px;
   --mc-status-danger: var(--mc-color-red-400);
   --mc-status-danger-foreground: var(--mc-color-neutral-1000);
-  --mc-status-danger-subtle: var(--mc-color-red-100);
-  --mc-status-danger-subtle-foreground: var(--mc-color-red-700);
+  --mc-status-danger-subtle: var(--mc-color-red-900);
+  --mc-status-danger-subtle-border: var(--mc-color-red-700);
+  --mc-status-danger-subtle-foreground: var(--mc-color-red-300);
   --mc-status-info: var(--mc-color-blue-400);
   --mc-status-info-foreground: var(--mc-color-neutral-1000);
-  --mc-status-info-subtle: var(--mc-color-blue-100);
-  --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
+  --mc-status-info-subtle: var(--mc-color-blue-900);
+  --mc-status-info-subtle-border: var(--mc-color-blue-700);
+  --mc-status-info-subtle-foreground: var(--mc-color-blue-300);
   --mc-status-success: var(--mc-color-green-400);
   --mc-status-success-foreground: var(--mc-color-neutral-1000);
-  --mc-status-success-subtle: var(--mc-color-green-100);
-  --mc-status-success-subtle-foreground: var(--mc-color-green-700);
+  --mc-status-success-subtle: var(--mc-color-green-900);
+  --mc-status-success-subtle-border: var(--mc-color-green-700);
+  --mc-status-success-subtle-foreground: var(--mc-color-green-300);
   --mc-status-warning: var(--mc-color-amber-500);
   --mc-status-warning-foreground: var(--mc-color-neutral-1000);
-  --mc-status-warning-subtle: var(--mc-color-amber-100);
-  --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
+  --mc-status-warning-subtle: var(--mc-color-amber-900);
+  --mc-status-warning-subtle-border: var(--mc-color-amber-700);
+  --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   --mc-surface-default: var(--mc-color-neutral-1000);
   --mc-surface-overlay: var(--mc-color-neutral-900);
   --mc-surface-raised: var(--mc-color-neutral-900);
@@ -2026,12 +2106,12 @@
     --mc-color-blue-500: oklch(55% 0.15 240);
     --mc-color-blue-700: oklch(42% 0.12 240);
     --mc-color-red-100: oklch(93.49% 0.0427 26.34);
-    --mc-status-danger-subtle: var(--mc-color-red-100);
+    --mc-status-danger-subtle: var(--mc-color-red-900);
     --mc-status-info: var(--mc-color-blue-400);
-    --mc-status-info-subtle: var(--mc-color-blue-100);
-    --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
-    --mc-status-warning-subtle: var(--mc-color-amber-100);
-    --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
+    --mc-status-info-subtle: var(--mc-color-blue-900);
+    --mc-status-info-subtle-foreground: var(--mc-color-blue-300);
+    --mc-status-warning-subtle: var(--mc-color-amber-900);
+    --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   }
 }
 
@@ -2043,12 +2123,12 @@
     --mc-color-blue-500: oklch(55% 0.15 240);
     --mc-color-blue-700: oklch(42% 0.12 240);
     --mc-color-red-100: oklch(94% 0.05 25);
-    --mc-status-danger-subtle: var(--mc-color-red-100);
+    --mc-status-danger-subtle: var(--mc-color-red-900);
     --mc-status-info: var(--mc-color-blue-400);
-    --mc-status-info-subtle: var(--mc-color-blue-100);
-    --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
-    --mc-status-warning-subtle: var(--mc-color-amber-100);
-    --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
+    --mc-status-info-subtle: var(--mc-color-blue-900);
+    --mc-status-info-subtle-foreground: var(--mc-color-blue-300);
+    --mc-status-warning-subtle: var(--mc-color-amber-900);
+    --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   }
 }
 
@@ -2091,11 +2171,13 @@
   --mc-color-amber-400: oklch(77% 0.12 80);
   --mc-color-amber-500: oklch(70% 0.13 80);
   --mc-color-amber-700: oklch(50.07% 0.1044 78.02);
+  --mc-color-amber-900: oklch(29% 0.04 80);
   --mc-color-blue-100: oklch(92.75% 0.0434 230.3);
   --mc-color-blue-300: oklch(75% 0.1 240);
   --mc-color-blue-400: oklch(65% 0.13 240);
   --mc-color-blue-500: oklch(55.76% 0.1396 244.7);
   --mc-color-blue-700: oklch(42.75% 0.1098 246);
+  --mc-color-blue-900: oklch(26% 0.045 240);
   --mc-color-brand-0: oklch(99% 0.002 265);
   --mc-color-brand-50: oklch(97.5% 0.0036 265);
   --mc-color-brand-100: oklch(95% 0.0054 265);
@@ -2113,6 +2195,7 @@
   --mc-color-green-400: oklch(66% 0.11 150);
   --mc-color-green-500: oklch(56% 0.12 150);
   --mc-color-green-700: oklch(43% 0.1 150);
+  --mc-color-green-900: oklch(27% 0.045 150);
   --mc-color-neutral-0: oklch(99% 0.002 265);
   --mc-color-neutral-50: oklch(97.5% 0.0021 265);
   --mc-color-neutral-100: oklch(95% 0.0032 265);
@@ -2130,6 +2213,7 @@
   --mc-color-red-400: oklch(65% 0.15 25);
   --mc-color-red-500: oklch(55% 0.18 25);
   --mc-color-red-700: oklch(44% 0.15 25);
+  --mc-color-red-900: oklch(26% 0.05 25);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-color-scrim: oklch(13% 0.005 70 / 0.25);
   --mc-control-lg: 40px;
@@ -2180,18 +2264,22 @@
   --mc-status-danger: var(--mc-color-red-500);
   --mc-status-danger-foreground: var(--mc-color-neutral-0);
   --mc-status-danger-subtle: var(--mc-color-red-100);
+  --mc-status-danger-subtle-border: var(--mc-color-red-300);
   --mc-status-danger-subtle-foreground: var(--mc-color-red-700);
   --mc-status-info: var(--mc-color-blue-700);
   --mc-status-info-foreground: var(--mc-color-neutral-0);
   --mc-status-info-subtle: var(--mc-color-blue-100);
+  --mc-status-info-subtle-border: var(--mc-color-blue-300);
   --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
   --mc-status-success: var(--mc-color-green-700);
   --mc-status-success-foreground: var(--mc-color-neutral-0);
   --mc-status-success-subtle: var(--mc-color-green-100);
+  --mc-status-success-subtle-border: var(--mc-color-green-300);
   --mc-status-success-subtle-foreground: var(--mc-color-green-700);
   --mc-status-warning: var(--mc-color-amber-500);
   --mc-status-warning-foreground: var(--mc-color-neutral-1000);
   --mc-status-warning-subtle: var(--mc-color-amber-100);
+  --mc-status-warning-subtle-border: var(--mc-color-amber-300);
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
   --mc-surface-default: var(--mc-color-neutral-0);
   --mc-surface-overlay: var(--mc-color-neutral-0);
@@ -2296,11 +2384,13 @@
   --mc-color-amber-400: oklch(77% 0.12 80);
   --mc-color-amber-500: oklch(70% 0.13 80);
   --mc-color-amber-700: oklch(50.07% 0.1044 78.02);
+  --mc-color-amber-900: oklch(29% 0.04 80);
   --mc-color-blue-100: oklch(92.75% 0.0434 230.3);
   --mc-color-blue-300: oklch(75% 0.1 240);
   --mc-color-blue-400: oklch(65% 0.13 240);
   --mc-color-blue-500: oklch(55.76% 0.1396 244.7);
   --mc-color-blue-700: oklch(42.75% 0.1098 246);
+  --mc-color-blue-900: oklch(26% 0.045 240);
   --mc-color-brand-0: oklch(99% 0.002 265);
   --mc-color-brand-50: oklch(97.5% 0.0036 265);
   --mc-color-brand-100: oklch(95% 0.0054 265);
@@ -2318,6 +2408,7 @@
   --mc-color-green-400: oklch(66% 0.11 150);
   --mc-color-green-500: oklch(56% 0.12 150);
   --mc-color-green-700: oklch(43% 0.1 150);
+  --mc-color-green-900: oklch(27% 0.045 150);
   --mc-color-neutral-0: oklch(99% 0.002 265);
   --mc-color-neutral-50: oklch(97.5% 0.0021 265);
   --mc-color-neutral-100: oklch(95% 0.0032 265);
@@ -2335,6 +2426,7 @@
   --mc-color-red-400: oklch(65% 0.15 25);
   --mc-color-red-500: oklch(55% 0.18 25);
   --mc-color-red-700: oklch(44% 0.15 25);
+  --mc-color-red-900: oklch(26% 0.05 25);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-color-scrim: oklch(13% 0.005 70 / 0.25);
   --mc-control-lg: 40px;
@@ -2384,20 +2476,24 @@
   --mc-space-96: 96px;
   --mc-status-danger: var(--mc-color-red-400);
   --mc-status-danger-foreground: var(--mc-color-neutral-1000);
-  --mc-status-danger-subtle: var(--mc-color-red-100);
-  --mc-status-danger-subtle-foreground: var(--mc-color-red-700);
+  --mc-status-danger-subtle: var(--mc-color-red-900);
+  --mc-status-danger-subtle-border: var(--mc-color-red-700);
+  --mc-status-danger-subtle-foreground: var(--mc-color-red-300);
   --mc-status-info: var(--mc-color-blue-400);
   --mc-status-info-foreground: var(--mc-color-neutral-1000);
-  --mc-status-info-subtle: var(--mc-color-blue-100);
-  --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
+  --mc-status-info-subtle: var(--mc-color-blue-900);
+  --mc-status-info-subtle-border: var(--mc-color-blue-700);
+  --mc-status-info-subtle-foreground: var(--mc-color-blue-300);
   --mc-status-success: var(--mc-color-green-400);
   --mc-status-success-foreground: var(--mc-color-neutral-1000);
-  --mc-status-success-subtle: var(--mc-color-green-100);
-  --mc-status-success-subtle-foreground: var(--mc-color-green-700);
+  --mc-status-success-subtle: var(--mc-color-green-900);
+  --mc-status-success-subtle-border: var(--mc-color-green-700);
+  --mc-status-success-subtle-foreground: var(--mc-color-green-300);
   --mc-status-warning: var(--mc-color-amber-500);
   --mc-status-warning-foreground: var(--mc-color-neutral-1000);
-  --mc-status-warning-subtle: var(--mc-color-amber-100);
-  --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
+  --mc-status-warning-subtle: var(--mc-color-amber-900);
+  --mc-status-warning-subtle-border: var(--mc-color-amber-700);
+  --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   --mc-surface-default: var(--mc-color-neutral-1000);
   --mc-surface-overlay: var(--mc-color-neutral-900);
   --mc-surface-raised: var(--mc-color-neutral-900);
@@ -2436,12 +2532,12 @@
     --mc-color-blue-500: oklch(55% 0.15 240);
     --mc-color-blue-700: oklch(42% 0.12 240);
     --mc-color-red-100: oklch(93.49% 0.0427 26.34);
-    --mc-status-danger-subtle: var(--mc-color-red-100);
+    --mc-status-danger-subtle: var(--mc-color-red-900);
     --mc-status-info: var(--mc-color-blue-400);
-    --mc-status-info-subtle: var(--mc-color-blue-100);
-    --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
-    --mc-status-warning-subtle: var(--mc-color-amber-100);
-    --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
+    --mc-status-info-subtle: var(--mc-color-blue-900);
+    --mc-status-info-subtle-foreground: var(--mc-color-blue-300);
+    --mc-status-warning-subtle: var(--mc-color-amber-900);
+    --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   }
 }
 
@@ -2453,11 +2549,11 @@
     --mc-color-blue-500: oklch(55% 0.15 240);
     --mc-color-blue-700: oklch(42% 0.12 240);
     --mc-color-red-100: oklch(94% 0.05 25);
-    --mc-status-danger-subtle: var(--mc-color-red-100);
+    --mc-status-danger-subtle: var(--mc-color-red-900);
     --mc-status-info: var(--mc-color-blue-400);
-    --mc-status-info-subtle: var(--mc-color-blue-100);
-    --mc-status-info-subtle-foreground: var(--mc-color-blue-700);
-    --mc-status-warning-subtle: var(--mc-color-amber-100);
-    --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
+    --mc-status-info-subtle: var(--mc-color-blue-900);
+    --mc-status-info-subtle-foreground: var(--mc-color-blue-300);
+    --mc-status-warning-subtle: var(--mc-color-amber-900);
+    --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   }
 }

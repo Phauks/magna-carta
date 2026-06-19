@@ -13,12 +13,13 @@
    * keeps every value a `var(--mc-…)` token (no literals anywhere).
    *
    * Intent → status token (so a success toast reads identically to a success Alert, which consumes
-   * the same status.* tokens):
+   * the same subtle status tokens):
    *   success → status.success   error (sonner's name for danger) → status.danger
    *   warning → status.warning    info → status.info
-   * Each intent gets background = status.<intent>, text = status.<intent>-foreground, and a matching
-   * border. That solid status panel is the contrast-safe pairing the gate guarantees AA across every
-   * theme × mode — the same choice Alert makes.
+   * Each intent gets the SUBTLE register: background = status.<intent>-subtle, text =
+   * status.<intent>-subtle-foreground, and a soft same-hue hairline = status.<intent>-subtle-border.
+   * That pale tint + deep same-hue text is the contrast-safe pairing the gate guarantees AA across
+   * every theme × mode — the same calm callout Alert makes, not a saturated block.
    *
    * richColors is set ON here: it is the flag that makes sonner apply the per-intent trios above
    * (sonner only reads `--success-*` etc. under `[data-rich-colors='true']`). Without it, success and
@@ -42,18 +43,18 @@
     "--normal-bg: var(--mc-surface-raised)",
     "--normal-text: var(--mc-text-default)",
     "--normal-border: var(--mc-border-default)",
-    "--success-bg: var(--mc-status-success)",
-    "--success-text: var(--mc-status-success-foreground)",
-    "--success-border: var(--mc-status-success)",
-    "--error-bg: var(--mc-status-danger)",
-    "--error-text: var(--mc-status-danger-foreground)",
-    "--error-border: var(--mc-status-danger)",
-    "--warning-bg: var(--mc-status-warning)",
-    "--warning-text: var(--mc-status-warning-foreground)",
-    "--warning-border: var(--mc-status-warning)",
-    "--info-bg: var(--mc-status-info)",
-    "--info-text: var(--mc-status-info-foreground)",
-    "--info-border: var(--mc-status-info)",
+    "--success-bg: var(--mc-status-success-subtle)",
+    "--success-text: var(--mc-status-success-subtle-foreground)",
+    "--success-border: var(--mc-status-success-subtle-border)",
+    "--error-bg: var(--mc-status-danger-subtle)",
+    "--error-text: var(--mc-status-danger-subtle-foreground)",
+    "--error-border: var(--mc-status-danger-subtle-border)",
+    "--warning-bg: var(--mc-status-warning-subtle)",
+    "--warning-text: var(--mc-status-warning-subtle-foreground)",
+    "--warning-border: var(--mc-status-warning-subtle-border)",
+    "--info-bg: var(--mc-status-info-subtle)",
+    "--info-text: var(--mc-status-info-subtle-foreground)",
+    "--info-border: var(--mc-status-info-subtle-border)",
   ].join("; ");
 
   let {

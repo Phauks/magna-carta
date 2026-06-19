@@ -63,16 +63,20 @@
   --color-status-info-foreground: var(--mc-status-info-foreground);
   --color-status-info-subtle: var(--mc-status-info-subtle);
   --color-status-info-subtle-foreground: var(--mc-status-info-subtle-foreground);
+  --color-status-info-subtle-border: var(--mc-status-info-subtle-border);
   --color-status-success: var(--mc-status-success);
   --color-status-success-foreground: var(--mc-status-success-foreground);
   --color-status-success-subtle: var(--mc-status-success-subtle);
   --color-status-success-subtle-foreground: var(--mc-status-success-subtle-foreground);
+  --color-status-success-subtle-border: var(--mc-status-success-subtle-border);
   --color-status-warning: var(--mc-status-warning);
   --color-status-warning-foreground: var(--mc-status-warning-foreground);
   --color-status-warning-subtle: var(--mc-status-warning-subtle);
   --color-status-warning-subtle-foreground: var(--mc-status-warning-subtle-foreground);
+  --color-status-warning-subtle-border: var(--mc-status-warning-subtle-border);
   --color-status-danger: var(--mc-status-danger);
   --color-status-danger-foreground: var(--mc-status-danger-foreground);
   --color-status-danger-subtle: var(--mc-status-danger-subtle);
   --color-status-danger-subtle-foreground: var(--mc-status-danger-subtle-foreground);
+  --color-status-danger-subtle-border: var(--mc-status-danger-subtle-border);
 }

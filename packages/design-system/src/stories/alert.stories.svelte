@@ -41,6 +41,11 @@
     await step("Info renders a polite live region (role=status)", async () => {
       await expect(canvas.getByRole("status")).toHaveTextContent("Trust balance below minimum");
     });
+    await step("It carries a decorative leading glyph (aria-hidden)", async () => {
+      const icon = canvas.getByRole("status").querySelector(".mc-alert-icon");
+      await expect(icon).not.toBeNull();
+      await expect(icon).toHaveAttribute("aria-hidden", "true");
+    });
   }}
 />
 <Story name="Success" args={{ variant: "success" }} {template} />
@@ -55,3 +60,30 @@
     });
   }}
 />
+
+<!-- The four intents shown together — the calm subtle register a work surface uses (a leading
+     same-hue glyph, a pale tint, a soft same-hue hairline), compared as a family. -->
+<Story name="Status set">
+  {#snippet template()}
+    <div class="flex flex-col gap-12">
+      <Alert.Root variant="info">
+        <Alert.Title>Conflicts check queued</Alert.Title>
+        <Alert.Description>We'll notify you when the search completes.</Alert.Description>
+      </Alert.Root>
+      <Alert.Root variant="success">
+        <Alert.Title>Time entry saved</Alert.Title>
+        <Alert.Description>1.4 hours billed to ACME-2026-014.</Alert.Description>
+      </Alert.Root>
+      <Alert.Root variant="warning">
+        <Alert.Title>Engagement letter unsigned</Alert.Title>
+        <Alert.Description>The matter cannot be billed until the letter is signed.</Alert.Description>
+      </Alert.Root>
+      <Alert.Root variant="danger">
+        <Alert.Title>Trust balance below minimum</Alert.Title>
+        <Alert.Description>
+          The trust ledger for ACME-2026-014 has fallen below the required minimum.
+        </Alert.Description>
+      </Alert.Root>
+    </div>
+  {/snippet}
+</Story>
