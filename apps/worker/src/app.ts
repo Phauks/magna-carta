@@ -45,6 +45,13 @@ export type Bindings = {
   DB_FIRM_POOL_2: D1Database;
   R2: R2Bucket;
   QUEUE: Queue;
+  // The off-hot-path AI inference dispatch queue: an inference request is enqueued here and the consumer
+  // (src/inference/inference-consumer.ts) runs env.AI.run, so a single firm cannot starve the shared
+  // gateway cap synchronously on the request path. Distinct from QUEUE (jobs) and FILES_INGEST.
+  INFERENCE: Queue;
+  // The authenticated Workers AI binding — the only path inference reaches the gateway through (no raw
+  // gateway token in any firm-reachable config). Pre-authenticated within the account.
+  AI: Ai;
   // Better Auth's signing/encryption secret. Local dev + tests load it from .dev.vars;
   // production sets it with `wrangler secret put AUTH_SECRET`.
   AUTH_SECRET: string;

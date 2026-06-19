@@ -162,6 +162,9 @@ importers:
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../../packages/identifiers
+      '@magna-carta/inference':
+        specifier: workspace:*
+        version: link:../../packages/inference
       '@magna-carta/integrations':
         specifier: workspace:*
         version: link:../../packages/integrations

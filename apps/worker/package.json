@@ -21,6 +21,7 @@
     "@magna-carta/file-manager": "workspace:*",
     "@magna-carta/government-links": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/inference": "workspace:*",
     "@magna-carta/integrations": "workspace:*",
     "@magna-carta/locations": "workspace:*",
     "@magna-carta/matters": "workspace:*",
