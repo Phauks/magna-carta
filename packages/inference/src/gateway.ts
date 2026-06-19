@@ -1,7 +1,16 @@
 import type { FirmId } from "@magna-carta/identifiers/types";
-import { adapterError, type Dispatch } from "@magna-carta/integrations/dispatch";
+import { adapterError, ok, type Dispatch } from "@magna-carta/integrations/dispatch";
 import { integrationProblem, type IntegrationProblem } from "@magna-carta/integrations/problem";
-import { isZdrEligible } from "./catalog.ts";
+import { catalogEntryFor, embeddingEntry, isZdrEligible } from "./catalog.ts";
+import type {
+  EmbedInput,
+  EmbeddingResult,
+  GenerateInput,
+  GenerateResult,
+  InferencePort,
+  StreamResult,
+  TokenUsage,
+} from "./port.ts";
 
 // All firms share one gateway per environment. The control plane below is pinned on EVERY request via
 // the AI binding's documented `gateway` options object (id/skipCache/collectLog/metadata) — NOT via
@@ -70,4 +79,171 @@ export function zdrRejection<T>(modelId: string): Dispatch<T> {
   // Only call this when a rejection is intended; a null here is a programming error, surfaced loud.
   if (problem === null) throw new Error("zdrRejection called for a ZDR-eligible model");
   return adapterError<T>(problem);
+}
+
+export interface GatewayPortOptions {
+  readonly ai: AiBinding;
+  // The deploy environment label that rides the firm metadata (e.g. "production"). Opaque to the gateway.
+  readonly env: string;
+}
+
+// Reads the authoritative per-request usage from the inference response. The gateway routes to different
+// providers (Workers AI native, Anthropic Messages, OpenAI-compatible), each using different field names:
+// Anthropic uses input_tokens/output_tokens; Workers AI and OpenAI-compatible use prompt_tokens/
+// completion_tokens. Both are read here so the parser is tolerant of whichever shape the gateway returns.
+// Stays tolerant of an absent usage object (zeros), so a malformed response never throws on the
+// metering path. The provider-native REQUEST-body translation and the live streaming-usage shape are
+// pinned when the worker binding is wired in the composition root.
+export function extractUsage(response: unknown): TokenUsage {
+  const usage = (
+    response as {
+      usage?: {
+        input_tokens?: number;
+        output_tokens?: number;
+        prompt_tokens?: number;
+        completion_tokens?: number;
+      };
+    }
+  ).usage;
+  return {
+    inputTokens: usage?.input_tokens ?? usage?.prompt_tokens ?? 0,
+    outputTokens: usage?.output_tokens ?? usage?.completion_tokens ?? 0,
+  };
+}
+
+// Resolves the text content from the response across the shapes the gateway returns.
+// Precedence: Workers AI native (response.response string) → Anthropic Messages
+// (response.content[0].text) → OpenAI-compatible (response.choices[0].message.content) → "".
+// Every access is guarded; the response is unknown and this function never throws.
+function responseText(response: unknown): string {
+  const r = response as Record<string, unknown>;
+  // Workers AI native shape
+  if (typeof r["response"] === "string") return r["response"];
+  // Anthropic Messages shape
+  const content = r["content"];
+  if (Array.isArray(content) && content.length > 0) {
+    const first = content[0] as Record<string, unknown>;
+    if (typeof first["text"] === "string") return first["text"];
+  }
+  // OpenAI-compatible shape
+  const choices = r["choices"];
+  if (Array.isArray(choices) && choices.length > 0) {
+    const message = (choices[0] as Record<string, unknown>)["message"];
+    if (message !== null && typeof message === "object") {
+      const msgContent = (message as Record<string, unknown>)["content"];
+      if (typeof msgContent === "string") return msgContent;
+    }
+  }
+  return "";
+}
+
+function responseVector(response: unknown): readonly number[] {
+  const data = (response as { data?: number[][] }).data;
+  return data?.[0] ?? [];
+}
+
+// Caller-safe failure mapping: a thrown gateway/model/network error becomes an adapter-error carrying a
+// normalized problem. The detail is a fixed caller-safe string — the raw error (which can echo tokens or
+// auth headers) is never spliced into it (it is reported through the standard redacting pipeline upstream).
+// upstream/502 is retryable, so a transient gateway failure is re-attempted off the hot path.
+function gatewayFailure<T>(): Dispatch<T> {
+  return adapterError<T>(
+    integrationProblem("upstream", 502, "Inference request failed", {
+      detail: "The inference request could not be completed.",
+    }),
+  );
+}
+
+export function createGatewayInferencePort(options: GatewayPortOptions): InferencePort {
+  const { ai, env } = options;
+
+  async function runGenerate(input: GenerateInput): Promise<Dispatch<GenerateResult>> {
+    // Fail-closed single lookup: reject both unknown and non-ZDR-eligible models with a caller-safe
+    // non-retryable problem. zdrRejection is NOT used here — that function throws for ZDR-eligible
+    // models and would create an uncaught-throw path if reached via a dead branch. Instead, the
+    // combined check below ensures the binding is never called on rejection.
+    const entry = catalogEntryFor(input.modelId);
+    if (entry === undefined || !entry.zdrEligible) {
+      return adapterError<GenerateResult>(
+        assertZdrEligible(input.modelId) ??
+          integrationProblem("validation", 400, "Model is not eligible for zero-data-retention", {
+            detail:
+              "The selected model is not zero-data-retention eligible and cannot process firm content.",
+          }),
+      );
+    }
+    const gateway = gatewayOptions(input.firmId, entry.slot, env);
+    try {
+      const response = await ai.run(input.modelId, { prompt: input.prompt }, { gateway });
+      return ok({
+        text: responseText(response),
+        usage: extractUsage(response),
+        snapshotId: entry.snapshotId,
+      });
+    } catch {
+      return gatewayFailure<GenerateResult>();
+    }
+  }
+
+  return {
+    generate: runGenerate,
+    // A durable Workflow step invokes one operation per step; the buffered result shape matches generate.
+    generateDurable: runGenerate,
+
+    async generateStream(input): Promise<Dispatch<StreamResult>> {
+      const entry = catalogEntryFor(input.modelId);
+      if (entry === undefined || !entry.zdrEligible) {
+        return adapterError<StreamResult>(
+          assertZdrEligible(input.modelId) ??
+            integrationProblem("validation", 400, "Model is not eligible for zero-data-retention", {
+              detail:
+                "The selected model is not zero-data-retention eligible and cannot process firm content.",
+            }),
+        );
+      }
+      const gateway = gatewayOptions(input.firmId, entry.slot, env);
+      try {
+        const response = await ai.run(
+          input.modelId,
+          { prompt: input.prompt, stream: true },
+          { gateway },
+        );
+        // The binding returns an async-iterable of text deltas under streaming; usage is read once the
+        // stream completes (response-scanning stays off this path — buffering would defeat streaming).
+        const stream = response as AsyncIterable<string>;
+        // Definite-assignment assertion avoids the lint-flagged dead-initializer pattern while keeping
+        // the same deferred-resolve semantics: resolveUsage is always assigned inside the Promise
+        // constructor before relay() can call it.
+        let resolveUsage!: (usage: TokenUsage) => void;
+        const usage = new Promise<TokenUsage>((resolve) => {
+          resolveUsage = resolve;
+        });
+        async function* relay(): AsyncIterable<string> {
+          for await (const delta of stream) yield String(delta);
+          resolveUsage(extractUsage(response));
+        }
+        return ok({ stream: relay(), usage, snapshotId: entry.snapshotId });
+      } catch {
+        return gatewayFailure<StreamResult>();
+      }
+    },
+
+    async embed(input: EmbedInput): Promise<Dispatch<EmbeddingResult>> {
+      const entry = embeddingEntry();
+      const gateway = gatewayOptions(input.firmId, entry.slot, env);
+      try {
+        const response = await ai.run(entry.modelId, { text: input.text }, { gateway });
+        // Workers AI embeddings return { shape, data: number[][] }; data[0] is the vector for a
+        // single-text embed. The documented embeddings response carries no usage object — embed
+        // usage from the response is legitimately zero; it is not a parser gap.
+        return ok({
+          vector: responseVector(response),
+          usage: extractUsage(response),
+          snapshotId: entry.snapshotId,
+        });
+      } catch {
+        return gatewayFailure<EmbeddingResult>();
+      }
+    },
+  };
 }
