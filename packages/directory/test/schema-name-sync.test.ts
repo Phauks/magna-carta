@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { getTableConfig, type SQLiteTable } from "drizzle-orm/sqlite-core";
 import {
   auditLog,
+  customFieldValue,
   directoryCategory,
   directoryEdge,
   directoryEntityCategory,
@@ -55,6 +56,10 @@ const TOUCHED_TABLES: readonly SQLiteTable[] = [
   entityMerge,
   matter,
   auditLog,
+  // The merge engine repoints custom-field reference values (value_reference_id) and absorbs owned
+  // values to history (target_row_id), and the fitness probe scans both — so this table's name and
+  // columns are now hand-written in directory SQL and must track the schema.
+  customFieldValue,
 ];
 
 const tableNames = new Set(TOUCHED_TABLES.map((table) => getTableConfig(table).name));
@@ -211,6 +216,8 @@ describe("schema name sync (directory SQL pinned to @magna-carta/database)", () 
       "status", // node-row lifecycle guard
       "deleted_at", // soft-delete guard
       "merged_into_id", // merge pointer
+      "value_reference_id", // custom_field_value contact-reference repoint + probe
+      "target_row_id", // custom_field_value owned-value repoint + probe
     ]) {
       expect(columnNames.has(dynamicColumn), `dynamic column "${dynamicColumn}"`).toBe(true);
     }
