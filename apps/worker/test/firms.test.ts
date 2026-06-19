@@ -186,7 +186,7 @@ describe("POST /api/v1/firms", () => {
     expect(firmRow).toEqual({
       status: "active",
       database_identifier: "DB_FIRM_POOL_1",
-      per_firm_schema_version: "0011_directory-phonetic-code-index",
+      per_firm_schema_version: "0012_inference-token-usage",
       // The dev provider records a per-firm-unique deterministic bucket name (the event→firm
       // resolution key), not a shared literal.
       bucket_name: await firmResourceName(firmOneBody.id as FirmId),
@@ -341,7 +341,7 @@ describe("POST /api/v1/firms", () => {
     expect(partialRow).toEqual({
       status: "provisioning",
       database_identifier: "DB_FIRM_POOL_2",
-      per_firm_schema_version: "0011_directory-phonetic-code-index",
+      per_firm_schema_version: "0012_inference-token-usage",
     });
 
     // Re-invoking with a FREE owner email (new key — a corrected request) resumes the partial
