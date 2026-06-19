@@ -73,6 +73,11 @@ export const ENTITY_PREFIXES = {
   shipment: "shipment",
   shipmentLabel: "shipmentLabel",
   trackingEvent: "trackingEvent",
+  // Custom fields — per-firm field definitions, picklist option values, and the per-entity field
+  // values that record what was entered. Three distinct entity types keep id-type confusion impossible.
+  customField: "customField",
+  picklistOption: "picklistOption",
+  customFieldValue: "customFieldValue",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

@@ -44,6 +44,9 @@ export const PERMISSIONS = [
   "tools:shipping", // shipping & postage (the shipping integration)
   "tools:speedTest", // in-app network speed test (runs client-side against the Cloudflare edge)
   "tools:firmUsage", // firm usage snapshot — storage + entity counts (read-only, per-firm)
+  // Custom fields — define and maintain field schemas; purge hard-deletes all values for a field.
+  "customFields:manage",
+  "customFields:purge",
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

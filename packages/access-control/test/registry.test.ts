@@ -109,6 +109,11 @@ describe("permission registry", () => {
     expect(permissionsForNamespace("")).toEqual([]);
   });
 
+  it("registers the custom-fields permissions", () => {
+    expect(isPermission("customFields:manage")).toBe(true);
+    expect(isPermission("customFields:purge")).toBe(true);
+  });
+
   it("every registered key is `<subsystem>:<action>` — lowercase-led camelCase segments", () => {
     for (const key of PERMISSIONS) {
       expect(key).toMatch(/^[a-z][a-zA-Z]*:[a-z][a-zA-Z]*$/);

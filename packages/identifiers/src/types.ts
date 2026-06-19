@@ -69,3 +69,6 @@ export type EntityMergeId = Identifier<"entityMerge">;
 export type ShipmentId = Identifier<"shipment">;
 export type ShipmentLabelId = Identifier<"shipmentLabel">;
 export type TrackingEventId = Identifier<"trackingEvent">;
+export type CustomFieldId = Identifier<"customField">;
+export type PicklistOptionId = Identifier<"picklistOption">;
+export type CustomFieldValueId = Identifier<"customFieldValue">;
