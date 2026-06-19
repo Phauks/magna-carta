@@ -523,6 +523,25 @@ A notification is telemetry-adjacent and must not become a leak (_Observability 
 
 ---
 
+## 15a. AI / inference
+
+**The shared model chokepoint — `@magna-carta/inference`.**
+
+Every AI feature in the platform reaches the model through a single credential-less pure package (`@magna-carta/inference`) that owns the confidentiality, tenant-isolation, and fairness control plane. No feature talks to the gateway directly.
+
+- **`InferencePort`** names two operation families: text generation (streaming for interactive first-token-latency paths; durable/Workflow-invocable for long or agentic runs that need resumption) and a platform-fixed embedding operation. The reasoning model id is an explicit operation parameter, read per call site through the firm-scoped data-access layer; the embedding model is a platform constant pinned to the Vectorize index version — per-firm embedding variation is unrepresentable in the signature by design (a swap would invalidate the index and force a full reindex).
+- **Curated model catalog.** An in-repo, `ToolManifest`-style data table — the single source of truth for which models exist, what they retain, and which slot they may fill. Every reasoning entry carries `zdrEligible: true`; a non-ZDR reasoning entry cannot enter the catalog. Module-load validation (zod) makes a malformed or non-ZDR entry fail loud at import, not at first inference. `claude-fable-5` is excluded (mandates 30-day retention; non-ZDR by construction).
+- **Per-firm model selection.** The firm's primary reasoning model is stored in the per-firm `setting` table via an inference-owned `FirmSettingDefinition`; the schema is a refinement over the ZDR-eligible reasoning subset, so an off-catalog or non-ZDR model id is rejected at the write path. Reads are total — a firm that never configured the setting gets the safe default.
+- **Confidentiality control plane (pinned on every request).** ZDR is on at the gateway level; `collectLog: false` is pinned via the AI binding's `gateway` options on every request (the binding toggle is all-or-nothing — no prompt or response body is ever logged); `skipCache: true` is pinned on every request (the default cache key carries no firm dimension under Unified Billing — a cross-firm cache collision is otherwise possible). A fail-closed per-request ZDR guard runs before dispatch and rejects with a non-retryable problem on a miss — it never silently downgrades. ZDR is a diligence obligation backed by named Cloudflare/Anthropic procurement artifacts; those artifacts gate the first real AI feature, not this plumbing layer.
+- **Tenant isolation.** Firm metadata (`firm_id`, `slot`, `env`) is derived in the implementation, never caller-supplied; keys are opaque ids, ≤5, never client/matter text. Authoritative per-request token usage is captured from the inference response (not the logs) and written through the firm-scoped data-access layer as the durable, reconcilable metering record — it feeds the firm-usage diagnostics surface (_Observability and diagnostics_). Gateway spend limits and metadata dimensions are real-time guardrails only, never the billing source.
+- **Multi-tenant fairness.** All firms share one gateway per environment (the 20-gateways-per-account cap forecloses gateway-per-firm). Inference dispatches off the hot path via a Queue so a single firm cannot exhaust the shared gateway rate cap or credit pool synchronously. A firm-scoped spend rule keyed to the `firm_id` metadata dimension is the real-time per-firm guardrail; an account-level credit alarm fires below exhaustion. The named scaling switch point is per-firm BYOK (rate-exempt) or an Enterprise rate lift when firm count grows.
+- **BYOK credentialed adapter (deferred seam).** Built when a firm attestation requires it or the shared rate cap is measured-binding. It is the one place the integration framework's `ConnectionStore`/`CredentialStore`/`needs_reauth` lifecycle actually applies. The Unified-Billing↔BYOK crossover is a per-firm config switch, not a code change (_AI / inference_ in `docs/operating-costs.md`).
+- **Client-consent model (open decision — ADR-0108 Proposed).** ABA Formal Op. 512 / Rule 1.6 make third-party-AI disclosure a confidentiality decision. Whether privileged matter content may go to a third-party frontier model, and under what consent, is an explicit owner decision recorded as ADR-0108 and required before the first AI feature ships. The strictest firms default to the on-Cloudflare Workers-AI path through the same gateway — the model-slot selection mechanism, not separate machinery.
+
+_Document Automation_ (template generation, merge fields, PDF form-filling) and _Discovery_ (semantic search over the Vectorize index, retrieval-augmented assistance) and _Search_ (semantic query expansion) each reference this subsystem by topic name. The first concrete AI feature (drafting / retrieval-augmented assistance / discovery AI review) is the named consumer of these seams and owns its own spec, the consent UI, and the per-matter enforcement layer. (ADR-0104, ADR-0105, ADR-0106, ADR-0107, ADR-0108)
+
+---
+
 ## Part III — Core Domain
 
 ---
