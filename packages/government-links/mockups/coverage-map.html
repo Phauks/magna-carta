@@ -702,8 +702,8 @@
       <h1>Government Records Coverage</h1>
       <p class="sub">
         Pick a record system. <b>Click a state</b> — the map zooms in, its links list below, and the
-        preview opens on the right. Mark each <b>&#10003;</b> / <b>&#10007;</b>, add a corrected link,
-        then export. (<code>@magna-carta/government-links</code>)
+        preview opens on the right. Mark each <b>&#10003;</b> / <b>&#10007;</b>, add a corrected
+        link, then export. (<code>@magna-carta/government-links</code>)
       </p>
 
       <div class="controls">
@@ -714,9 +714,7 @@
           <button data-view="recorder">
             <span class="dot" style="background: #2f7d8a"></span>Recorder
           </button>
-          <button data-view="sos">
-            <span class="dot" style="background: #1f4f6b"></span>SOS
-          </button>
+          <button data-view="sos"><span class="dot" style="background: #1f4f6b"></span>SOS</button>
           <button data-view="bar">
             <span class="dot" style="background: #6b3f86"></span>Bar License Lookup
           </button>
@@ -781,10 +779,38 @@
       // Each top-level view is one record system. `domain` is its COV bucket, `county` whether it's
       // mapped at county (true) or state (false) granularity, and color/soft its map shades.
       const VIEWS = {
-        assessor: { label: "Assessor", domain: "property", system: "assessor", county: true, color: "#1f6f57", soft: "#a9d3c5" },
-        recorder: { label: "Recorder", domain: "property", system: "recorder", county: true, color: "#2f7d8a", soft: "#aed2d8" },
-        sos: { label: "SOS", domain: "business", system: "businessEntity", county: false, color: "#1f4f6b", soft: "#a9c1d0" },
-        bar: { label: "Bar License Lookup", domain: "licensing", system: "attorneyLicense", county: false, color: "#6b3f86", soft: "#cbb9d9" },
+        assessor: {
+          label: "Assessor",
+          domain: "property",
+          system: "assessor",
+          county: true,
+          color: "#1f6f57",
+          soft: "#a9d3c5",
+        },
+        recorder: {
+          label: "Recorder",
+          domain: "property",
+          system: "recorder",
+          county: true,
+          color: "#2f7d8a",
+          soft: "#aed2d8",
+        },
+        sos: {
+          label: "SOS",
+          domain: "business",
+          system: "businessEntity",
+          county: false,
+          color: "#1f4f6b",
+          soft: "#a9c1d0",
+        },
+        bar: {
+          label: "Bar License Lookup",
+          domain: "licensing",
+          system: "attorneyLicense",
+          county: false,
+          color: "#6b3f86",
+          soft: "#cbb9d9",
+        },
       };
       const UNCOVERED = "#e7e7e2";
       const VOK = "#1d7a4d",

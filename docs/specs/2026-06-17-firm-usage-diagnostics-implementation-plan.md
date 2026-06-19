@@ -4,7 +4,7 @@
 
 **Goal:** Add the headless, no-credential half of a per-firm usage snapshot — pure reads over our own per-firm D1 (storage from `storage_meter`; entity counts for matters/files/versions/folders/locations) — plus the Tools catalog wiring, leaving the aggregate worker route, the Cloudflare-analytics compute seam, and the UI for later.
 
-**Architecture:** Each domain package gains a pure read of *its own* tables (golden rule 3 — no cross-domain query): `@magna-carta/file-manager` reads storage + file/version/folder counts, `@magna-carta/matters` reads matter counts by status, `@magna-carta/locations` reads the location count. Reads take an injected `SqlDatabase` and return plain data; a pure `summarizeStorageMeterRows` does the in-memory aggregation. A `tools:firmUsage` permission + a `firm-usage` Diagnostics manifest wire it into the Tools catalog. No aggregate snapshot type or worker route is built — they land with the consumer.
+**Architecture:** Each domain package gains a pure read of _its own_ tables (golden rule 3 — no cross-domain query): `@magna-carta/file-manager` reads storage + file/version/folder counts, `@magna-carta/matters` reads matter counts by status, `@magna-carta/locations` reads the location count. Reads take an injected `SqlDatabase` and return plain data; a pure `summarizeStorageMeterRows` does the in-memory aggregation. A `tools:firmUsage` permission + a `firm-usage` Diagnostics manifest wire it into the Tools catalog. No aggregate snapshot type or worker route is built — they land with the consumer.
 
 **Tech Stack:** TypeScript (strict, ESM, `.ts` imports), Vitest + node:sqlite (`createMigratedNodeDatabase`), pnpm workspace, Vite+ (`vp`).
 
@@ -22,10 +22,12 @@
 ### Task 1: Register the `tools:firmUsage` permission
 
 **Files:**
+
 - Modify: `packages/access-control/src/registry.ts` (add one key after `tools:speedTest`, before `] as const;`)
 - Test: `packages/access-control/test/registry.test.ts` (extend the `tools` namespace expectation)
 
 **Interfaces:**
+
 - Produces: registry key `tools:firmUsage` — consumed by Task 4's manifest via `assertPermission`.
 
 - [ ] **Step 1: Extend the failing test**
@@ -70,11 +72,13 @@ git commit -m "feat(access-control): register the tools:firmUsage permission"
 ### Task 2: file-manager usage reads (storage + counts)
 
 **Files:**
+
 - Create: `packages/file-manager/src/usage.ts`
 - Modify: `packages/file-manager/package.json` (add `"./usage": "./src/usage.ts"` to `exports`)
 - Test: `packages/file-manager/test/usage.test.ts`
 
 **Interfaces:**
+
 - Consumes: `SqlDatabase` from `@magna-carta/data-access/idempotency-statements`; table constants `STORAGE_METER_TABLE` (`./metering-statements.ts`), `FILE_TABLE` + `FILE_VERSION_TABLE` (`./file-statements.ts`), `FOLDER_TABLE` (`./folder-statements.ts`).
 - Produces:
   - `interface StorageClassTotals { readonly bytes: number; readonly objects: number }`
@@ -108,7 +112,10 @@ describe("summarizeStorageMeterRows", () => {
     expect(summarizeStorageMeterRows([])).toEqual({
       totalBytes: 0,
       totalObjects: 0,
-      byStorageClass: { standard: { bytes: 0, objects: 0 }, infrequent_access: { bytes: 0, objects: 0 } },
+      byStorageClass: {
+        standard: { bytes: 0, objects: 0 },
+        infrequent_access: { bytes: 0, objects: 0 },
+      },
     });
   });
 
@@ -124,7 +131,9 @@ describe("summarizeStorageMeterRows", () => {
   });
 
   it("surfaces an unexpected class in the totals (never silently dropped)", () => {
-    const usage = summarizeStorageMeterRows([{ storageClass: "glacier", bytes: 9, objectCount: 1 }]);
+    const usage = summarizeStorageMeterRows([
+      { storageClass: "glacier", bytes: 9, objectCount: 1 },
+    ]);
     expect(usage.totalBytes).toBe(9);
     expect(usage.totalObjects).toBe(1);
     expect(usage.byStorageClass.standard).toEqual({ bytes: 0, objects: 0 });
@@ -137,7 +146,10 @@ describe("readStorageUsage", () => {
     expect(await readStorageUsage(database)).toEqual({
       totalBytes: 0,
       totalObjects: 0,
-      byStorageClass: { standard: { bytes: 0, objects: 0 }, infrequent_access: { bytes: 0, objects: 0 } },
+      byStorageClass: {
+        standard: { bytes: 0, objects: 0 },
+        infrequent_access: { bytes: 0, objects: 0 },
+      },
     });
   });
 
@@ -315,12 +327,14 @@ git commit -m "feat(file-manager): firm storage usage + entity-count reads"
 ### Task 3: matters + locations count reads
 
 **Files:**
+
 - Modify: `packages/matters/src/queries.ts` (add `MatterCounts` + `readMatterCounts`)
 - Test: `packages/matters/test/matter-counts.test.ts`
 - Modify: `packages/locations/src/statements.ts` (add `readLocationCount`)
 - Test: `packages/locations/test/location-count.test.ts`
 
 **Interfaces:**
+
 - Consumes: `SqlDatabase` (`@magna-carta/data-access/idempotency-statements`); `MATTER_TABLE` (`../src/matter-statements.ts`), `LOCATION_TABLE` (`../src/statements.ts`).
 - Produces:
   - `interface MatterCounts { readonly total: number; readonly prospective: number; readonly open: number; readonly closed: number }`
@@ -340,7 +354,11 @@ function freshDatabase() {
   return createMigratedNodeDatabase("per-firm").database;
 }
 
-async function insertMatter(database: ReturnType<typeof freshDatabase>, id: string, status: string) {
+async function insertMatter(
+  database: ReturnType<typeof freshDatabase>,
+  id: string,
+  status: string,
+) {
   const t = "2026-01-01T00:00:00.000Z";
   await database
     .prepare(
@@ -488,10 +506,12 @@ git commit -m "feat(matters,locations): per-firm matter-count and location-count
 ### Task 4: Tools catalog manifest for firm usage
 
 **Files:**
+
 - Modify: `packages/tools/src/catalog.ts` (add the `firm-usage` manifest after `network-speed-test`)
 - Test: `packages/tools/test/catalog.test.ts` (extend the expected-ids list)
 
 **Interfaces:**
+
 - Consumes: `assertPermission` (`@magna-carta/access-control/registry`) — the `tools:firmUsage` key from Task 1.
 
 - [ ] **Step 1: Extend the failing test**
@@ -544,6 +564,7 @@ git commit -m "feat(tools): add the firm-usage diagnostics catalog manifest"
 ### Task 5: Record the decision and update living docs
 
 **Files:**
+
 - Modify: `docs/Decision-Log.md` (add ADR-0103)
 - Modify: `ROADMAP.md` (extend the Tools-area cross-cutting bullet)
 - Modify: `STATUS.md` (note the firm-usage reads under the Tools row)
@@ -554,7 +575,7 @@ git commit -m "feat(tools): add the firm-usage diagnostics catalog manifest"
 
 In `docs/Decision-Log.md`, add an entry following the existing ADR format:
 
-> **ADR-0103** · Accepted · 2026-06-17 · Tools / Diagnostics — **Firm usage snapshot: a read-only, per-firm usage view assembled from our own D1.** **Decision:** storage (summed from the `storage_meter` rollup) + entity counts (matters by status, non-deleted files, clean versions, folders, locations), read per-firm from D1 with no API token; each domain package owns the read of its own tables (no cross-domain query). **Deferred seams:** per-firm compute/activity (Workers CPU time, request volume) needs the Cloudflare Analytics Engine query + an API-token credential — designed as a seam, not built; the aggregate `FirmUsageSnapshot` type + worker read route land with the consumer; the UI rides the design-system shell. Builds on ADR-0097 (the Tools layer), ADR-0078/0083 (storage metering + load-profile accretion), ADR-0003 (tenancy), ADR-0068 (access control). Spec: `docs/specs/2026-06-17-firm-usage-diagnostics-design.md`.
+> **ADR-0103** · Accepted · 2026-06-17 · Tools / Diagnostics — **Firm usage snapshot: a read-only, per-firm usage view assembled from our own D1.** **Decision:** storage (summed from the `storage_meter` rollup) + entity counts (matters by status, non-deleted files, clean versions, folders, locations), read per-firm from D1 with no API token; each domain package owns the read of its own tables (no cross-domain query). **Deferred seams:** per-firm compute/activity (Workers CPU time, request volume) needs the Cloudflare Analytics Engine query + an API-token credential — designed as a seam, not built; the aggregate `FirmUsageSnapshot` type + worker read route land with the consumer; the UI rides the design-system shell. Builds on ADR-0101 (the Tools layer), ADR-0078/0083 (storage metering + load-profile accretion), ADR-0003 (tenancy), ADR-0068 (access control). Spec: `docs/specs/2026-06-17-firm-usage-diagnostics-design.md`.
 
 - [ ] **Step 2: Extend the ROADMAP Tools bullet**
 
@@ -584,6 +605,7 @@ git commit -m "docs(tools): record ADR-0103 and update roadmap/status/changelog 
 ## Self-Review
 
 **1. Spec coverage** (against `docs/specs/2026-06-17-firm-usage-diagnostics-design.md`):
+
 - §1 storage + entity counts → Tasks 2 (storage + file/version/folder), 3 (matters by status, locations).
 - §2 data sources (storage_meter, matter, file/version/folder, location) → the exact tables queried in Tasks 2–3.
 - §3 architecture (each domain owns its own read; no aggregator/route now) → Tasks 2–3 add reads to owning packages; no aggregate type built.

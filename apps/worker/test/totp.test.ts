@@ -1,5 +1,6 @@
 import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
+import { parseEnvelope, symmetricDecrypt } from "better-auth/crypto";
 import * as OTPAuth from "otpauth";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
@@ -75,10 +76,10 @@ describe("TOTP enrollment", () => {
 
     const secretBase32 = secretFromTotpUri(enableBody.totpURI);
 
-    // Encrypted at rest: the stored two_factor.secret is Better Auth's
-    // AUTH_SECRET-keyed symmetric encryption of the raw secret — it must match neither the base32
-    // form from the URI nor the raw (base32-decoded) secret, and an encryption envelope is longer
-    // than both.
+    // Encrypted at rest: the stored two_factor.secret is Better Auth's symmetric encryption of the
+    // raw seed under the configured rotation keyset (auth.ts `secrets`) — it must match neither the
+    // base32 form from the URI nor the raw (base32-decoded) seed, and an encryption envelope is
+    // longer than both.
     const storedBeforeVerify = await env.DB_CONTROL.prepare(
       "SELECT secret, verified FROM two_factor WHERE user_id = ?1",
     )
@@ -90,6 +91,23 @@ describe("TOTP enrollment", () => {
     expect(storedBeforeVerify?.secret).not.toContain(rawSecret);
     expect(storedBeforeVerify?.secret.length).toBeGreaterThan(secretBase32.length);
     expect(storedBeforeVerify?.verified).toBe(0);
+
+    // The load-bearing closure (the rotation-array config is verified by this round-trip): with
+    // `secrets` configured the stored value is Better Auth's versioned ENVELOPE format, and it
+    // round-trips through Better Auth's OWN decrypt path back to the raw seed — proving the at-rest
+    // value is the encrypted form, never the seed, and that our keyset decrypts it. The version-0
+    // key is the AUTH_SECRET the worker configured (auth.ts `secrets: [{ version: 0, ... }]`).
+    const storedSecret = storedBeforeVerify?.secret ?? "";
+    const envelope = parseEnvelope(storedSecret);
+    expect(envelope?.version).toBe(0); // the current-key version the keyset encrypts under
+    const decrypted = await symmetricDecrypt({
+      key: { keys: new Map([[0, env.AUTH_SECRET]]), currentVersion: 0 },
+      data: storedSecret,
+    });
+    // The decrypted plaintext is the raw seed (the ASCII bytes the URI base32-encodes), so it
+    // equals rawSecret and is NOT the stored ciphertext.
+    expect(decrypted).toBe(rawSecret);
+    expect(decrypted).not.toBe(storedSecret);
 
     // Proving possession: a generated code against the extracted secret completes activation.
     const verifyResponse = await postJson(

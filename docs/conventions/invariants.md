@@ -31,6 +31,15 @@ These are **scoped, not universal:** each binds only when you work in its area. 
 - **`protected()` for sensitive fields.** Encrypt/role-gate/audit sensitive identifiers via the DAL `protected()` field type — never hand-rolled crypto, never plaintext secrets in core tables. (_Encryption & key management_; ADR-0026)
 - **Secrets never leave core; plugins isolated.** Each integration is its own Worker behind a typed port; it receives plaintext at call time and never sees key material. (_Plugin system_; _Encryption & key management_; ADR-0015, ADR-0026)
 
+## Protected fields / encryption
+
+- **Decrypt = permission check + audit row, inseparable and fail-closed.** A protected read checks the field's decrypt permission first (absent → refuse, no decrypt, no audit), then commits the `protected.decrypt` audit row **before** any plaintext is returned — a failed audit write means no plaintext. (_Encryption & key management_; ADR-0084, ADR-0026)
+- **No plaintext path outside the chokepoint.** Every protected column is written via `composeProtectedWrite` and read via `readProtected`; no other code reaches a sealed value in the clear. Enforced by the no-plaintext-escape source scan. (_Encryption & key management_; ADR-0084)
+- **Envelope, AAD, and key versioning are frozen — a change is a new version.** The ciphertext frame `[algo_version | key_version | iv | AES-256-GCM]`, the AAD string `mc:aad:v1|firm|table|field|row_pk|versions`, the HKDF info/salt constants, and the blind-index `"1:"` prefix are pinned by golden vectors; evolving any of them adds a new version read alongside the old, never edits it. (_Encryption & key management_; ADR-0084, ADR-0046)
+- **Normalization transforms are frozen.** The blind-index normalization (digit-strip, uppercase-strip, state-prefix) is a frozen contract — changing one moves which values collide, so it is a new `indexName` (new subkey), never an edit; the decrypt-reindex cost is a documented maintenance job. (_Encryption & key management_; ADR-0084)
+- **Non-extractable keys end to end.** Every key handle — root KEK, the unwrapped per-firm HKDF base key, every derived purpose/index key — is `extractable: false`; raw bytes enter only at mint/import and never surface. (_Encryption & key management_; ADR-0084, ADR-0046)
+- **Crypto-shred is permanent unreadability.** Nulling a firm's `wrapped_firm_key` destroys the only path to every key derived from it, so the firm's entire protected corpus becomes permanently unreadable (reads fail closed); it commits with a `firm.key_shredded` audit row and invalidates the per-isolate key cache. (_Encryption & key management_; ADR-0084, ADR-0026)
+
 ---
 
 > Data access (firm-scoping through the DAL) and redact-by-default error logging used to live here; they are **core**, so they are now golden rules in [`CLAUDE.md`](../../CLAUDE.md). The `protected()` chokepoint above _is_ part of the data-access layer, but the rule "encrypt sensitive fields" is specific enough to stay a domain invariant.

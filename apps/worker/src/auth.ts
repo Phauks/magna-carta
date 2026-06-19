@@ -72,6 +72,17 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
   const twoFactorPatchByHookContext = new WeakMap<object, boolean>();
   return betterAuth({
     secret: env.AUTH_SECRET,
+    // The encryption-key ROTATION ARRAY. Better Auth uses this same keyset to encrypt at-rest
+    // credentials it owns outside the firm-keyed chokepoint — most importantly the TOTP seed (the
+    // twoFactor plugin's symmetricEncrypt of the secret). A TOTP seed is a USER credential read at
+    // login before any firm context exists, so it is encrypted here by structure, not oversight.
+    // In the pinned better-auth 1.6.16 the option is `secrets` (NOT `encryptionKeys` — verified
+    // against the pinned source; the rename is recorded in the slice's deviation note): an array of
+    // { version, value }, element 0 the CURRENT key that encrypts, every element a decrypt key. A
+    // future rotation prepends a new version and the old one keeps decrypting historical seeds —
+    // a dual-read migration, never a flag day. Version 0 is the existing AUTH_SECRET, so already
+    // stored values still decrypt; `secret` above stays set for signing and as the legacy fallback.
+    secrets: [{ version: 0, value: env.AUTH_SECRET }],
     // transaction: false — D1 has no interactive transactions (BEGIN is rejected), so the
     // adapter runs multi-operation flows sequentially instead of wrapping them in one.
     database: drizzleAdapter(database, {

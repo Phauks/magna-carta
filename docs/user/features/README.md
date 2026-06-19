@@ -4,4 +4,4 @@ One plain-language guide per user-visible feature. Naming: `<feature>.md` (e.g. 
 
 Each guide follows the per-feature pattern in [`../README.md`](../README.md): what it does, how to do the common tasks, tips/edge cases, related features — no internal architecture.
 
-_None yet — authored as features ship (a definition-of-done item)._
+- [`shipping.md`](shipping.md) — Shipping & postage (stub; backend built, screens pending).

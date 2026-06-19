@@ -1,0 +1,27 @@
+{
+  "name": "@magna-carta/shipping",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./port": "./src/port.ts",
+    "./canonical": "./src/canonical.ts",
+    "./easypost": "./src/easypost/adapter.ts",
+    "./easypost/http": "./src/easypost/http.ts",
+    "./manifest": "./src/manifest.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/integrations": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

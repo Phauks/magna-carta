@@ -33,17 +33,17 @@ Platform-level, cross-firm, public-read. Not per-firm D1; not the per-firm DAL.
 
 ```ts
 type PostStatus =
-  | "open"          // default on creation; not yet triaged
-  | "under_review"  // acknowledged, being considered
-  | "planned"       // accepted, on the roadmap
-  | "in_progress"   // being built
-  | "completed"     // shipped
-  | "declined"      // won't do
-  | "duplicate";    // merged into another post (see duplicateOfId)
+  | "open" // default on creation; not yet triaged
+  | "under_review" // acknowledged, being considered
+  | "planned" // accepted, on the roadmap
+  | "in_progress" // being built
+  | "completed" // shipped
+  | "declined" // won't do
+  | "duplicate"; // merged into another post (see duplicateOfId)
 
 type BoardCategory =
   | "feature_request" // the v1 board
-  | "discussion";     // dormant seam — see §5
+  | "discussion"; // dormant seam — see §5
 ```
 
 - **Post:** `id`, `number` (human-facing sequential, stable in URLs), `slug`, `title`, `body` (markdown), `authorUserId` (real account — admin/moderation only), `authorDisplayName` (the only author identity shown publicly), `category` (`BoardCategory`), `status`, `duplicateOfId` (nullable), `voteCount` (denormalized), `commentCount` (denormalized), `createdAt`, `updatedAt`.
@@ -66,7 +66,7 @@ The public roadmap is a **projection of the board by status** — kanban columns
 
 ## 5. Forum-ready seams (built, dormant)
 
-The decision was "board now, forum-ready seams." The `category` discriminator (`feature_request` | `discussion`) is the seam: open peer discussion categories switch on later by enabling `discussion` posts and a category index — **no schema reshaping.** Comments already give threaded discussion *within* a post, so v1 has "discussion" without standalone threads; the dormant seam covers standalone discussion topics not tied to a request. Moderation tooling (merge, edit/delete, block, status, tags) is built for the board and serves discussion unchanged when it switches on.
+The decision was "board now, forum-ready seams." The `category` discriminator (`feature_request` | `discussion`) is the seam: open peer discussion categories switch on later by enabling `discussion` posts and a category index — **no schema reshaping.** Comments already give threaded discussion _within_ a post, so v1 has "discussion" without standalone threads; the dormant seam covers standalone discussion topics not tied to a request. Moderation tooling (merge, edit/delete, block, status, tags) is built for the board and serves discussion unchanged when it switches on.
 
 ## 6. The loop — subscribers travel, one publish notifies
 

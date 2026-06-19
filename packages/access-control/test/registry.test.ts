@@ -46,6 +46,7 @@ describe("permission registry", () => {
       "firm:manageMembers",
       "firm:provision",
       "firm:reportIncident",
+      "firm:manageSecrets",
     ]);
   });
 
@@ -62,8 +63,19 @@ describe("permission registry", () => {
     ]);
   });
 
+  it("permissionsForNamespace('directory') returns exactly the directory keys", () => {
+    expect(permissionsForNamespace("directory")).toEqual([
+      "directory:edit",
+      "directory:viewSensitiveIdentifiers",
+    ]);
+  });
+
   it("permissionsForNamespace('locations') returns exactly the locations keys", () => {
     expect(permissionsForNamespace("locations")).toEqual(["locations:manage"]);
+  });
+
+  it("permissionsForNamespace('shipping') returns exactly the shipping keys", () => {
+    expect(permissionsForNamespace("shipping")).toEqual(["shipping:manage"]);
   });
 
   it("permissionsForNamespace('files') returns exactly the files keys, in registry order", () => {

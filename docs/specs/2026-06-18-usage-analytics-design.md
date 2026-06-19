@@ -2,7 +2,7 @@
 
 **Status:** Accepted (design) · **Date:** 2026-06-18 · **Owner:** Trevor Goldsmith
 **White-paper home:** _Observability and diagnostics_ (the telemetry pillar — new subsection _Product-usage analytics_; amends _Telemetry analytics tier_)
-**ADRs:** **ADR-0104 (product-usage analytics — always-on redacted reached/completed events on the telemetry path; firm-enable + per-user opt-out; cross-firm aggregate-only with small-n suppression; Analytics Engine for live counts + R2 Data Catalog Iceberg, via Logpush→Pipelines, for full-fidelity retention/BI — new)** · realizes **ADR-0056** (telemetry analytics / Iceberg tier — moves from _deferred_ to _adopted_, path updated to Logpush→Pipelines→R2 Data Catalog) · builds on ADR-0038/0017 (observability pillar, the one logging path), ADR-0003 (tenancy), ADR-0068 (access control), ADR-0078/0083 (storage metering + load-profile accretion).
+**ADRs:** **ADR-0106 (product-usage analytics — always-on redacted reached/completed events on the telemetry path; firm-enable + per-user opt-out; cross-firm aggregate-only with small-n suppression; Analytics Engine for live counts + R2 Data Catalog Iceberg, via Logpush→Pipelines, for full-fidelity retention/BI — new)** · realizes **ADR-0056** (telemetry analytics / Iceberg tier — moves from _deferred_ to _adopted_, path updated to Logpush→Pipelines→R2 Data Catalog) · builds on ADR-0038/0017 (observability pillar, the one logging path), ADR-0003 (tenancy), ADR-0068 (access control), ADR-0078/0083 (storage metering + load-profile accretion).
 
 A **product-usage analytics** capability that answers, for **us the builders**, cross-firm: **which features are reached, which are completed, and — later — which retain**, so investment and cut decisions rest on data rather than intuition. It rides the **one logging path** built in slice 0·6 (`@magna-carta/telemetry`), carries **no privileged content** (the same structural allowlist as every other event), and reports **only cross-firm aggregates with small-n suppression**.
 
@@ -159,10 +159,10 @@ These land as rows in `docs/operating-costs.md` (the Pipelines free/paid allowan
 
 ## 10. Decisions recorded & docs to update (same commit — golden rule 5)
 
-- **New ADR-0104** (Decision Log) — product-usage analytics tier (the scope, opt-out posture, event model, AE + Iceberg split).
-- **Amend ADR-0056** in the register — _deferred_ → _adopted (realized by ADR-0104)_; path updated to **Logpush → Pipelines → R2 Data Catalog**; note the maturity update (compaction + snapshot expiration, incl. data-file cleanup, now automated; AE retention ~90 days as of 2026-06).
+- **New decision fragment** `docs/decisions/pending/usage-analytics.md` (referenced as `ADR-0106`; numbered at merge by `vp run decisions-build`) — product-usage analytics tier (the scope, opt-out posture, event model, AE + Iceberg split).
+- **Amend ADR-0056** in its per-file record — _deferred_ → _adopted (realized by `ADR-0106`)_; path updated to **Logpush → Pipelines → R2 Data Catalog**; note the maturity update (compaction + snapshot expiration, incl. data-file cleanup, now automated; AE retention ~90 days as of 2026-06). The register regenerates from the per-file records.
 - **White paper** — add a subsection **_Product-usage analytics_** under _Observability and diagnostics_ (the usage event category, opt-out consent, aggregate-only + small-n, shared path/Iceberg tier); amend the **_Telemetry analytics tier_** subsection from "deferred / designed-but-unbuilt" to "built," correcting the stale facts (Parquet-only → Parquet via Pipelines, JSON also available; "~92-day" → "~90-day, verify current"; compaction + data-file cleanup now automated).
-- **ROADMAP.md / STATUS.md / CHANGELOG.md** — the usual rows (a new slice row in STATUS; an [Unreleased] → Added entry; a ROADMAP narrative entry under the appropriate phase).
+- **ROADMAP.md / STATUS.md / changelog fragment** — the usual rows (a new slice row in STATUS; an `Added` changelog fragment in `changelog.d/`; a ROADMAP narrative entry under the appropriate phase).
 - **`docs/operating-costs.md`** — the cost rows in §9.
 - **User-facing docs** — scaffold `docs/user/admin/` "what we measure" + the usage-analytics opt-out setting, authored when the settings UI ships (deferred with the diagnostics-settings UI to slice 0·7b; placeholder noted now).
 - **Per-area `CLAUDE.md`** — note in `packages/telemetry` that usage analytics is opt-out, per-firm + per-user override, resolved at emit time, hashes fail-closed on missing pepper.

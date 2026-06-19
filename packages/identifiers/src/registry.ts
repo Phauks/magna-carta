@@ -50,6 +50,29 @@ export const ENTITY_PREFIXES = {
   fileVersion: "fileVersion",
   uploadSession: "uploadSession",
   auditLog: "auditLog",
+  // A per-firm wrapped encryption key — the firm-secret row holding a data key sealed under the
+  // root key-encryption key. The full-name prefix keeps the handle self-describing in logs.
+  firmSecret: "firmSecret",
+  // Directory entity graph — persons, organizations, their names, identifiers, edges, and contact
+  // details. Each entity type has its own prefixed handle so id-type confusion is caught at the
+  // type level. Full-word prefixes (no abbreviations) per golden rule 12.
+  directoryPerson: "directoryPerson",
+  directoryOrganization: "directoryOrganization",
+  directoryName: "directoryName",
+  directoryIdentifier: "directoryIdentifier",
+  directoryEdge: "directoryEdge",
+  directoryCategory: "directoryCategory",
+  directoryEmail: "directoryEmail",
+  directoryPhone: "directoryPhone",
+  directoryAddress: "directoryAddress",
+  directoryPartyRole: "directoryPartyRole",
+  matterParty: "matterParty",
+  entityMerge: "entityMerge",
+  // Shipping & postage. `shipment` is a mailing; `shipmentLabel` is a bought label's metadata (PDF in
+  // R2); `trackingEvent` is one carrier scan appended as tracking is pulled.
+  shipment: "shipment",
+  shipmentLabel: "shipmentLabel",
+  trackingEvent: "trackingEvent",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

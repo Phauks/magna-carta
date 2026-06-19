@@ -2,7 +2,7 @@
 
 **Status:** Accepted (design) · **Date:** 2026-06-16 · **Owner:** Trevor Goldsmith
 **White-paper home:** _Plugin / Add-on system_ (build-in-vs-plugin rule; "pure utilities are libraries, not plugins")
-**ADRs:** **ADR-0097 (the Tools layer — a presentation/IA catalog above the integration framework; library-vs-integration tool backing — new)** · builds on ADR-0091/0092 (integration port system + connection model), ADR-0093 (property external-links), ADR-0068 (access control), ADR-0015 (uniform plugin model).
+**ADRs:** **ADR-0101 (the Tools layer — a presentation/IA catalog above the integration framework; library-vs-integration tool backing — new)** · builds on ADR-0091/0092 (integration port system + connection model), ADR-0093 (property external-links), ADR-0068 (access control), ADR-0015 (uniform plugin model).
 
 A growing set of first-party utilities — county property links, Secretary-of-State business lookups, attorney-license lookups, shipping/postage, an Avery template printer, and a family of diagnostics (a network speed test, firm usage/storage, server-connectivity checks, platform uptime) — currently has no shared home and no consistent way to be discovered. This design adds a **Tools** area: a top-level left-nav destination that catalogs these utilities and surfaces each one both **generally** (a permanent, discoverable place) and **contextually** (where it is relevant — an address tool on a Location, a person tool on a Directory entity). The catalog is one source of truth feeding both surfaces.
 
@@ -12,7 +12,7 @@ This is a **presentation / information-architecture layer only**. It does no out
 
 ---
 
-## 0. Why a Tools layer (ADR-0097)
+## 0. Why a Tools layer (ADR-0101)
 
 The integration framework (`@magna-carta/integrations`) answers a **backend** question: _can we perform capability X for this firm, behind a typed port, with what credential and connection health?_ Its registry is keyed `category → one adapter`, resolves to a `port + descriptor`, and returns a typed `Dispatch` (`not-connected` / `capability-unsupported` / `adapter-error`).
 
@@ -143,6 +143,6 @@ No new credential or connection concept is introduced by Tools. This keeps the f
 
 ## 9. Decisions recorded & docs to update
 
-New ADR (Decision Log): **ADR-0097** (the Tools layer — a presentation/IA catalog above the integration framework; the library-vs-integration tool-backing split). Concretizes the white paper's _Plugin / Add-on system_ build-in-vs-plugin rule on the presentation side.
+New ADR (Decision Log): **ADR-0101** (the Tools layer — a presentation/IA catalog above the integration framework; the library-vs-integration tool-backing split). Concretizes the white paper's _Plugin / Add-on system_ build-in-vs-plugin rule on the presentation side.
 
 On build: a new slice/cross-cutting row in [`ROADMAP.md`](../../ROADMAP.md) + [`STATUS.md`](../../STATUS.md), and `CHANGELOG.md` — same commit as the work (golden rule 5). User docs (`docs/user/`) begin when the first Tools surface ships (the 0·7a/0·7b precedent). The load-profile accretion rule (ADR-0083) does not bind — the catalog is static code, not per-firm data.

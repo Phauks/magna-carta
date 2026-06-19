@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **Spec home:** `docs/specs/2026-06-18-usage-analytics-design.md` (ADR-0104). Every task implements part of it.
+- **Spec home:** `docs/specs/2026-06-18-usage-analytics-design.md` (`ADR-0106`). Every task implements part of it.
 - **One logging path.** All emission goes through `logger.log(...)` / `logger.count(...)` — never `console.*`. The console-ban fitness (`packages/telemetry/test/console-ban.test.ts`) enforces this; do not add to its allowlist.
 - **Structural redaction.** Usage events carry only the `usage.feature` allowlist (`feature`, `phase`, `surface`, `firmIdHash`, `userIdHash`, `appVersion`) plus the implicit `correlationId` + `at`. No entity IDs, no free text, no content. `FieldValue` is `string | number | boolean | null` only.
 - **Full names — no shorthand** (golden rule 12): `@magna-carta/...` in full, `newIdentifier`, "the data-access layer". `Id`/`URL`/`JSON`/`SQL` are the allowed universal terms.
@@ -1333,9 +1333,9 @@ git commit -m "docs(analytics): canonical usage queries (Analytics Engine)"
 
 Per golden rule 5, fold these into the commits of the tasks that produce the behavior; this task is the checklist.
 
-- [ ] **Decision Log** — append **ADR-0104** (product-usage analytics tier) and amend the **ADR-0056** register line to _adopted (realized by ADR-0104)_ with the Logpush→Pipelines→R2 Data Catalog path + the maturity note (compaction + snapshot-expiration data-file cleanup automated; Analytics Engine retention ~90 days as of 2026-06).
+- [ ] **Decision fragment** — add `docs/decisions/pending/usage-analytics.md` (referenced as `ADR-0106`; `vp run decisions-build` numbers it at merge) for the product-usage analytics tier, and amend the **ADR-0056** per-file record to _adopted (realized by `ADR-0106`)_ with the Logpush→Pipelines→R2 Data Catalog path + the maturity note (compaction + snapshot-expiration data-file cleanup automated; Analytics Engine retention ~90 days as of 2026-06). The register regenerates from the per-file records.
 - [ ] **White paper** — add the _Product-usage analytics_ subsection under _Observability and diagnostics_; amend the _Telemetry analytics tier_ subsection from deferred to built, correcting the stale facts (Parquet via Pipelines/JSON also available; "~92-day" → "~90-day, verify current"; compaction + data-file cleanup automated).
-- [ ] **ROADMAP.md / STATUS.md / CHANGELOG.md** — a ROADMAP narrative entry under the current phase, a new STATUS slice row, and an `[Unreleased] → Added` CHANGELOG entry.
+- [ ] **ROADMAP.md / STATUS.md / changelog fragment** — a ROADMAP narrative entry under the current phase, a new STATUS slice row, and an `Added` changelog fragment in `changelog.d/`.
 - [ ] **`docs/operating-costs.md`** — Pipelines free/paid allowance (active/committed) and compaction `$0.005/GB + $2.00/M objects` (usage rates).
 - [ ] **`packages/telemetry/CLAUDE.md`** (or create per the area template) — usage analytics is opt-out, per-firm + per-user override, resolved at emit time, hashes fail closed on a missing pepper.
 - [ ] **`docs/user/admin/`** — scaffold a "what we measure" + opt-out-setting placeholder, to be authored when the settings UI ships (with the diagnostics-settings UI). Note the placeholder; do not write task walkthroughs for UI that does not exist yet.

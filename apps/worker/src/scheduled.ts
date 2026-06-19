@@ -1,5 +1,7 @@
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { purgeExpiredIdempotencyRecordsStatement } from "@magna-carta/data-access/idempotency-statements";
+import { incidentDescription } from "@magna-carta/data-access/protected-field-registry";
+import { composeProtectedWrite } from "@magna-carta/data-access/protected-fields";
 import {
   sweepOutbox,
   type OutboxRow,
@@ -19,7 +21,8 @@ import {
   type MeterRow,
 } from "@magna-carta/file-manager/metering-statements";
 import { listCleanVersionR2Keys } from "@magna-carta/file-manager/queries";
-import type { FileVersionId, UploadSessionId } from "@magna-carta/identifiers/types";
+import { generateFirmKeyBytes, importRootKek, wrapFirmKey } from "@magna-carta/encryption/keys";
+import type { FileVersionId, FirmId, UploadSessionId } from "@magna-carta/identifiers/types";
 import { outboxDeadLettered, outboxSwept } from "@magna-carta/telemetry/events";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
@@ -28,6 +31,7 @@ import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "./app.ts";
 import { presignerForEnv } from "./files/presigner-wiring.ts";
 import { resolveFirmDatabase } from "./firm-binding-resolver.ts";
+import { firmKeyProviderForEnv } from "./firm-key-provider-wiring.ts";
 import { consumeMemberProvision } from "./member-provision-consumer.ts";
 import { maybeEmitCompleted } from "./usage/completed.ts";
 
@@ -61,6 +65,10 @@ export interface ScheduledSweepReport {
   // Reachable active firms whose outbox sweep AND idempotency TTL purge BOTH succeeded this pass.
   readonly firmSweeps: number;
   readonly unprovisionedMembers: readonly UnprovisionedMember[];
+  // The one-off protected-module backfills run this pass (idempotent; permanent no-ops once the
+  // fleet is fully backfilled).
+  readonly keyMint: FirmBackfillReport;
+  readonly incidentEncrypt: FirmBackfillReport;
 }
 
 // Dead-letter surfacing: ids + topic + attempts only — payloads are never logged (redaction; the
@@ -266,7 +274,20 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
     logger.count("reconciliation.unprovisioned", {}, unprovisionedMembers.length);
   }
 
-  return { controlPlane, firmSweeps, unprovisionedMembers };
+  // The protected-module one-off backfills, run on the same pass that already enumerated the
+  // reachable active firms: mint keys for firms provisioned before the mint step existed, then seal
+  // any pre-slice plaintext incident descriptions. Both are idempotent and become permanent no-ops
+  // once the fleet is fully backfilled. A backfill is its own try/catch per firm inside the helper,
+  // so a single firm's failure never aborts the pass.
+  const keyMint = await runProtectedKeyMintBackfill(env, logger, correlationId);
+  const incidentEncrypt = await runIncidentDescriptionEncryptBackfill(
+    env,
+    firms,
+    logger,
+    correlationId,
+  );
+
+  return { controlPlane, firmSweeps, unprovisionedMembers, keyMint, incidentEncrypt };
 }
 
 // The stale-pending upload sweep: an upload session left open past its expiry (the client started an
@@ -415,4 +436,139 @@ export async function runStorageReconciliation(env: Bindings): Promise<Reconcili
     }
   }
   return { firmsReconciled, corrections };
+}
+
+// One-off, idempotent backfill sweeps — the migration-can't-encrypt half of the protected-module
+// expand-contract. A SQL migration adds the ciphertext column and mints nothing; the actual
+// encryption (and the firm-key mint for firms provisioned before the mint step existed) is code,
+// run here off the request path on the cron. Each sweep is idempotent PER FIRM: its step no-ops
+// when nothing qualifies, so re-running every pass is harmless and a sweep that has finished its
+// fleet simply does no work. Once every firm is backfilled these become permanent no-ops; removing
+// them is a later cleanup.
+
+export interface FirmBackfillReport {
+  // Firms whose step ran without throwing this pass (whether or not it changed any rows).
+  readonly firmsProcessed: number;
+  // Total rows the step affected across the fleet this pass (keys minted, incidents encrypted).
+  readonly rowsAffected: number;
+}
+
+// The generic per-firm backfill runner: walk a supplied set of firms, run one idempotent step
+// against each, and isolate a single firm's failure (logged through the one telemetry pipeline, the
+// next pass retries) so one broken firm cannot starve the rest of the fleet. The progress count
+// rides a counter (ids/totals only — never any protected value). `name` tags the operation label
+// and the counter so the two sweeps are distinguishable in telemetry.
+async function runFirmBackfill<TFirm extends { readonly firmId: string }>(
+  name: string,
+  logger: Logger,
+  correlationId: string,
+  firms: readonly TFirm[],
+  step: (firm: TFirm) => Promise<number>,
+): Promise<FirmBackfillReport> {
+  let firmsProcessed = 0;
+  let rowsAffected = 0;
+  for (const firm of firms) {
+    try {
+      const affected = await step(firm);
+      rowsAffected += affected;
+      firmsProcessed += 1;
+      if (affected > 0) logger.count(`backfill.${name}`, {}, affected);
+    } catch (caught) {
+      logOperationFailed(logger, `cron:backfill:${name}:${firm.firmId}`, caught, correlationId);
+    }
+  }
+  return { firmsProcessed, rowsAffected };
+}
+
+// `protected-key-mint`: a control-plane scan that mints the firm data key for every ACTIVE firm whose
+// wrapped_firm_key is still null — the firms provisioned before the provisioning mint step existed.
+// Idempotent: a firm with a key already minted is excluded by the WHERE, and a SHREDDED firm
+// (a firm.key_shredded audit row, null key permanent) is excluded by the NOT EXISTS so its key is
+// never resurrected. The mint mirrors the provisioner's step 4c — 32 random bytes, AES-KW-wrapped
+// under the root KEK; only the wrapped form is stored.
+export async function runProtectedKeyMintBackfill(
+  env: Bindings,
+  logger: Logger,
+  correlationId: string,
+): Promise<FirmBackfillReport> {
+  const { results } = await env.DB_CONTROL.prepare(
+    "SELECT id FROM firm WHERE status = 'active' AND wrapped_firm_key IS NULL " +
+      "AND NOT EXISTS (SELECT 1 FROM auth_audit WHERE event = 'firm.key_shredded' AND metadata LIKE '%' || firm.id || '%')",
+  ).all<{ id: string }>();
+  const candidates = results.map((row) => ({ firmId: row.id }));
+  const rootKek = await importRootKek(env.ROOT_KEK);
+
+  return runFirmBackfill("protected-key-mint", logger, correlationId, candidates, async (firm) => {
+    const wrappedFirmKey = await wrapFirmKey(rootKek, generateFirmKeyBytes());
+    // The IS NULL guard makes a concurrent mint (a provisioning run, an overlapping pass) a no-op
+    // rather than a clobber — the firm key is minted exactly once.
+    const result = await env.DB_CONTROL.prepare(
+      "UPDATE firm SET wrapped_firm_key = ?2 WHERE id = ?1 AND wrapped_firm_key IS NULL",
+    )
+      .bind(firm.firmId, wrappedFirmKey)
+      .run();
+    return result.meta.changes;
+  });
+}
+
+interface UnencryptedIncidentRow {
+  readonly id: string;
+  readonly description: string;
+}
+
+// `incident-description-encrypt`: a per-firm sweep that seals the plaintext description of every
+// pre-slice incident row (description_ciphertext IS NULL AND description IS NOT NULL) through the
+// same protected-field chokepoint new writes use. Idempotent: a row already sealed has a non-null
+// ciphertext and is excluded, so a re-run encrypts nothing. The plaintext column is LEFT IN PLACE
+// (the expand-contract contract drops it in a later slice after a verification window); the backfill
+// only fills the ciphertext. Each firm's rows are sealed and committed in one atomic batch so the
+// firm either gains all its ciphertexts this pass or none (the next pass retries).
+export async function runIncidentDescriptionEncryptBackfill(
+  env: Bindings,
+  firms: readonly ReachableActiveFirm[],
+  logger: Logger,
+  correlationId: string,
+): Promise<FirmBackfillReport> {
+  // The per-isolate key provider — the same wrapped-key read and non-extractable HKDF handle cache the
+  // request paths use, so a firm unwrapped in a request stays cached for this sweep and vice versa. It
+  // reads the live wrapped_firm_key, so a shredded firm yields null and fails closed here too.
+  const firmKeyProvider = firmKeyProviderForEnv(env);
+
+  return runFirmBackfill(
+    "incident-description-encrypt",
+    logger,
+    correlationId,
+    firms,
+    async (firm) => {
+      const { results } = await firm.database
+        .prepare(
+          "SELECT id, description FROM incident WHERE description_ciphertext IS NULL AND description IS NOT NULL",
+        )
+        .all<UnencryptedIncidentRow>();
+      if (results.length === 0) return 0;
+
+      const context = {
+        firmId: firm.firmId as FirmId,
+        firmKeyVersion: 1,
+        firmKeyProvider,
+      };
+      const statements = [];
+      for (const row of results) {
+        const sealed = await composeProtectedWrite(
+          context,
+          incidentDescription,
+          row.id,
+          row.description,
+        );
+        statements.push(
+          firm.database
+            .prepare("UPDATE incident SET description_ciphertext = ?2 WHERE id = ?1")
+            .bind(row.id, sealed.ciphertextValue),
+        );
+      }
+      // D1 has no interactive transactions — the atomic batch is the all-or-nothing primitive.
+      await firm.database.batch(statements);
+      return results.length;
+    },
+  );
 }

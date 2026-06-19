@@ -601,7 +601,7 @@ and contextual entry points. No D1, no Hono, no `env`, no Svelte, no network. De
 - The fitness test (`test/purity.test.ts`) forbids importing any tool-logic package or UI — keep the
   catalog above the tools, never below them.
 
-Seams (see `docs/specs/2026-06-16-tools-area-design.md`, ADR-0097): the sidebar/contextual UI + the
+Seams (see `docs/specs/2026-06-16-tools-area-design.md`, ADR-0101): the sidebar/contextual UI + the
 id->component map + the integration Dispatch/health branching land with the design-system shell; role-
 seeding the `tools:` permissions and the "every integration category resolves" fitness are worker-side
 follow-ons. Future catalog rows: an Avery template printer (printing) and a network speed test
@@ -624,24 +624,24 @@ git commit -m "test(tools): add the catalog-purity fitness function and local no
 
 ### Task 5: Record the decision and update living docs
 
-Golden rule 5 (docs in the same change) and golden rule 8 (decisions as ADRs). This records ADR-0097 and adds the execution-tracking rows for the pure-package portion.
+Golden rule 5 (docs in the same change) and golden rule 8 (decisions as ADRs). This records ADR-0101 and adds the execution-tracking rows for the pure-package portion.
 
 **Files:**
 
-- Modify: `docs/Decision-Log.md` (add ADR-0097)
+- Modify: `docs/Decision-Log.md` (add ADR-0101)
 - Modify: `ROADMAP.md` (a Cross-cutting row)
 - Modify: `STATUS.md` (a stage row)
 - Modify: `CHANGELOG.md` (an entry)
 
-- [ ] **Step 1: Add ADR-0097 to the Decision Log**
+- [ ] **Step 1: Add ADR-0101 to the Decision Log**
 
 In `docs/Decision-Log.md`, add an entry following the existing ADR format:
 
-> **ADR-0097** · Accepted · 2026-06-16 · Tools area — **a presentation/IA catalog above the integration framework.** A top-level Tools area surfaces first-party utilities both generally (a sidebar grouped by subject) and contextually (queried by context tag), from one pure `@magna-carta/tools` catalog. **Decision:** the Tools layer is a thin presentation layer _above_ the existing packages, not part of the integration framework — `library`-backed tools (link generators and interactive widgets) are self-contained; `integration`-backed tools reference an integration `category` and reflect its `Dispatch`/health, while the Tools layer itself never touches credentials. Honors the framework's "pure utilities are libraries, not plugins" boundary. **Consequences:** the pure package (types + catalog + selectors + the `tools:` permission namespace) builds independently of the UI; the sidebar/contextual rendering, the id->component map, the integration health branching, and role-seeding land with the design-system shell. Concretizes ADR-0015 on the presentation side; builds on ADR-0091/0092 (integration port system) and ADR-0068 (access control). Spec: `docs/specs/2026-06-16-tools-area-design.md`.
+> **ADR-0101** · Accepted · 2026-06-16 · Tools area — **a presentation/IA catalog above the integration framework.** A top-level Tools area surfaces first-party utilities both generally (a sidebar grouped by subject) and contextually (queried by context tag), from one pure `@magna-carta/tools` catalog. **Decision:** the Tools layer is a thin presentation layer _above_ the existing packages, not part of the integration framework — `library`-backed tools (link generators and interactive widgets) are self-contained; `integration`-backed tools reference an integration `category` and reflect its `Dispatch`/health, while the Tools layer itself never touches credentials. Honors the framework's "pure utilities are libraries, not plugins" boundary. **Consequences:** the pure package (types + catalog + selectors + the `tools:` permission namespace) builds independently of the UI; the sidebar/contextual rendering, the id->component map, the integration health branching, and role-seeding land with the design-system shell. Concretizes ADR-0015 on the presentation side; builds on ADR-0091/0092 (integration port system) and ADR-0068 (access control). Spec: `docs/specs/2026-06-16-tools-area-design.md`.
 
 - [ ] **Step 2: Add the ROADMAP row**
 
-In `ROADMAP.md`, under **Cross-cutting — phase-independent**, add a row noting: the Tools area design (ADR-0097), the pure `@magna-carta/tools` catalog built (types + catalog + selectors + the `tools:` namespace), with the sidebar/contextual UI gated on the design-system shell (slice 0·7a).
+In `ROADMAP.md`, under **Cross-cutting — phase-independent**, add a row noting: the Tools area design (ADR-0101), the pure `@magna-carta/tools` catalog built (types + catalog + selectors + the `tools:` namespace), with the sidebar/contextual UI gated on the design-system shell (slice 0·7a).
 
 - [ ] **Step 3: Add the STATUS row**
 
@@ -655,7 +655,7 @@ In `CHANGELOG.md`, add an entry under the appropriate heading: `@magna-carta/too
 
 ```bash
 git add docs/Decision-Log.md ROADMAP.md STATUS.md CHANGELOG.md
-git commit -m "docs(tools): record ADR-0097 and update roadmap/status/changelog"
+git commit -m "docs(tools): record ADR-0101 and update roadmap/status/changelog"
 ```
 
 ---
@@ -672,7 +672,7 @@ git commit -m "docs(tools): record ADR-0097 and update roadmap/status/changelog"
 - §6 seams (matter attachment as a field; connection-management/UI deferred) → represented as fields/notes; UI explicitly out of scope.
 - §7 build sequencing (pure package now, manifests for existing tools) → whole plan.
 - §8 testing & fitness: catalog well-formedness + unique ids + integration category non-empty (Task 2); selector tests (Task 3); import-purity fitness (Task 4). The "every integration category resolves in the registry" fitness is worker-side and explicitly deferred (scope boundary).
-- §9 docs (ADR-0097, ROADMAP/STATUS/CHANGELOG) → Task 5.
+- §9 docs (ADR-0101, ROADMAP/STATUS/CHANGELOG) → Task 5.
 - New permission keys (needed for §2's `permission` field) → Task 1.
 
 **2. Placeholder scan:** no TBD/TODO; every code step shows complete code; every command shows expected output. Clean.

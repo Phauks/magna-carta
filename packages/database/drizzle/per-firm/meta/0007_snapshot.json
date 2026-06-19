@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "b109388c-939f-434f-a900-f609a25a3d0f",
-  "prevId": "d1e1bc21-1cfc-4818-9e79-b34005a438a2",
+  "id": "c4441553-0c64-4d5e-ad6e-f56b0fda3924",
+  "prevId": "1b292037-799f-4cc5-b3e7-af2c0c8564d1",
   "tables": {
     "account_balance": {
       "name": "account_balance",
@@ -579,6 +579,57 @@
         }
       }
     },
+    "firm_secret": {
+      "name": "firm_secret",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ciphertext": {
+          "name": "ciphertext",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "firm_secret_name_unique": {
+          "name": "firm_secret_name_unique",
+          "columns": ["name"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "folder": {
       "name": "folder",
       "columns": {
@@ -764,7 +815,14 @@
           "name": "description",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "description_ciphertext": {
+          "name": "description_ciphertext",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "context": {
@@ -1545,14 +1603,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'active'"
-        },
-        "opted_out_of_usage_analytics": {
-          "name": "opted_out_of_usage_analytics",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
         },
         "created_at": {
           "name": "created_at",

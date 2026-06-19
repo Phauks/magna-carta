@@ -45,6 +45,12 @@ const PUBLIC_ALLOW_LIST: Record<string, string> = {
 const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
   "numbering.preview":
     "Pure render of a candidate numbering scheme against a sample context — no write, no counter touch.",
+  "directory.duplicateCandidates":
+    "Read-shaped POST: unions the phonetic/trigram/blind-index blocking channels for a prospective entity (match facts ride the body) — no write, no decrypt.",
+  "shipping.rateShipment":
+    "Live rate-shop read-through to the carrier — POSTs the package to fetch ephemeral rates, persists nothing.",
+  "shipping.tracking":
+    "Pulls current carrier tracking and caches events (INSERT OR IGNORE dedup) — a read-shaped sync, not an auditable business mutation.",
 };
 
 // Subsystems whose every route must be idempotency: required (money/trust/payment/outbound-comms).
@@ -108,6 +114,8 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string> = {
   matters: "matter",
   locations: "location",
   files: "matter",
+  directory: "directoryEntity",
+  shipping: "firm",
   tools: "firm",
 };
 
@@ -462,6 +470,20 @@ describe("conformance — the committed contract holds, and each rule catches a 
   it("exposes the known committed operations (so the positive assertions are not vacuous)", () => {
     const ids = [...operations(document)].map((entry) => entry.operationId).sort();
     expect(ids).toEqual([
+      "directory.addIdentifier",
+      "directory.addName",
+      "directory.assignCategory",
+      "directory.createCategory",
+      "directory.createEdge",
+      "directory.createOrganization",
+      "directory.createPerson",
+      "directory.duplicateCandidates",
+      "directory.getOrganization",
+      "directory.getPerson",
+      "directory.linkMatterParty",
+      "directory.merge",
+      "directory.readIdentifier",
+      "directory.search",
       "documentTypes.create",
       "documentTypes.deactivate",
       "documentTypes.list",
@@ -505,6 +527,13 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "numbering.get",
       "numbering.preview",
       "numbering.set",
+      "shipping.connect",
+      "shipping.createShipment",
+      "shipping.label",
+      "shipping.purchase",
+      "shipping.rateShipment",
+      "shipping.refund",
+      "shipping.tracking",
       "uploads.abort",
       "uploads.complete",
       "uploads.initiate",

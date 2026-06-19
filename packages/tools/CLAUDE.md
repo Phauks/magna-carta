@@ -15,7 +15,7 @@ and contextual entry points. No D1, no Hono, no `env`, no Svelte, no network. De
 - The fitness test (`test/purity.test.ts`) forbids importing any tool-logic package or UI — keep the
   catalog above the tools, never below them.
 
-Seams (see `docs/specs/2026-06-16-tools-area-design.md`, ADR-0097): the sidebar/contextual UI + the
+Seams (see `docs/specs/2026-06-16-tools-area-design.md`, ADR-0101): the sidebar/contextual UI + the
 id->component map + the integration Dispatch/health branching land with the design-system shell; role-
 seeding the `tools:` permissions and the "every integration category resolves" fitness are worker-side
 follow-ons. The network speed test (diagnostics) is already a catalog manifest (`network-speed-test`,

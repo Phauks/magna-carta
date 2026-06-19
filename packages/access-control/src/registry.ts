@@ -10,6 +10,9 @@ export const PERMISSIONS = [
   "firm:manageMembers", // invite/deactivate members, assign roles
   "firm:provision", // reserved: platform-level firm creation (guarded by secret this slice)
   "firm:reportIncident", // file a diagnostic incident (slice 0·6) — seeded to every default role
+  "firm:manageSecrets", // read/write the encrypted per-firm secret store (an audited decrypt on read)
+  // Incidents — gates on the user-authored incident report beyond filing it.
+  "incidents:viewDescription", // decrypt and read an incident's protected description (audited)
   // Matters — the matter shell, its lifecycle, and the per-firm type/numbering configuration.
   "matters:create", // open a consultation or a numbered matter
   "matters:open", // draw a number on a prospective matter (prospective -> open)
@@ -19,8 +22,13 @@ export const PERMISSIONS = [
   "matters:renumber", // assign a manual/court/legacy number
   "matters:manageTypes", // create/deactivate matter types
   "matters:manageNumbering", // edit the firm numbering scheme
+  // Directory — persons, organizations, and their sensitive typed identifiers.
+  "directory:edit", // create/edit directory entities, names, identifiers, edges, categories, merges, and matter-party links
+  "directory:viewSensitiveIdentifiers", // decrypt and read an entity's protected identifier (SSN/EIN/DL/account/DOB) — audited
   // Locations — the firm's offices/letterhead roots.
   "locations:manage", // create/update/close locations, addresses, staff assignment
+  // Shipping & postage — connect the firm's postage account and create/rate/buy/track/refund shipments.
+  "shipping:manage",
   // Files — the File Manager's upload, organization, and document-type configuration.
   "files:upload", // initiate uploads and commit versions
   "files:organize", // create/rename/move folders and files
