@@ -3,8 +3,16 @@
    * Sidebar (Tier 4 / app shell) — the global navigation rail (page-archetypes Layout A). This is
    * EDGE CHROME: it renders on the dark ink register (chrome-* tokens) so it frames the light work
    * canvas, and the identity gold lives here — the active destination takes a gilt left bar + gold
-   * icon. A fixed width that animates to the icon-rail width when collapsed; the rail hides labels
-   * (the name then rides a Tooltip). Height fills its container (h-full); the content region scrolls.
+   * icon. A fixed width that snaps to the icon-rail width when collapsed; the rail hides labels (the
+   * name then rides a Tooltip). Height fills its container (h-full); the content region scrolls.
+   *
+   * COLLAPSE MOTION is composited, not a layout transition. Animating `inline-size` (or the button's
+   * grid track) repaints the rail↔canvas seam every frame, and at a fractional device-pixel ratio
+   * (Windows 150% scaling) that 1px border edge shimmers/tears. So the collapsed-state widths/tracks
+   * change INSTANTLY and the sidebar carries a `view-transition-name`: the Trigger flips state through
+   * runViewTransition (internal/view-transition.ts), and the browser tweens the before/after layouts on
+   * the GPU. The seam is sampled, never re-rasterized → no tearing. Reduced-motion / unsupported
+   * browsers fall back to an instant collapse. Only interaction colour (hover/active) still transitions.
    */
   .mc-sidebar {
     display: flex;
@@ -17,9 +25,9 @@
     color: var(--mc-chrome-text);
     border-inline-end: var(--mc-border-width-default) solid var(--mc-chrome-border);
     overflow: hidden;
-    transition-property: inline-size;
-    transition-duration: var(--mc-duration-normal);
-    transition-timing-function: var(--mc-easing-standard);
+    /* Collapse is composited, not a width transition (see the recipe note above): the width snaps and
+       the view-transition tweens the rail↔canvas resize on the GPU, so the seam can't tear. */
+    view-transition-name: mc-sidebar;
   }
   .mc-sidebar[data-state="collapsed"] {
     inline-size: var(--mc-size-sidebar-rail);
@@ -80,17 +88,16 @@
     display: block;
   }
   /*
-   * The button is a GRID (icon | label) so the collapse can ANIMATE: the label column interpolates
-   * from 1fr to 0fr (the label slides away) while the icon glides to centre — `justify-content`
-   * snaps to centre but is invisible while the grid still fills the button, so the motion reads as
-   * smooth. The label fades by going to `color: transparent` (opacity has no token and is gate-banned).
-   * The label stays in the DOM (not sr-only), so the link keeps its accessible name; a Tooltip
-   * surfaces the name visually in the rail.
+   * The button is a GRID (icon | label): collapsed, the label column goes to 0fr (the label is
+   * removed from the row) and its text fades to `color: transparent` (opacity has no token and is
+   * gate-banned). This change is INSTANT — the view-transition on the sidebar composites the visual
+   * collapse, so the track isn't transitioned per-frame. The label stays in the DOM (not sr-only), so
+   * the link keeps its accessible name; a Tooltip surfaces the name visually in the rail.
    */
   .mc-sidebar-menu-button {
     display: grid;
-    /* A FIXED icon track (not auto) so grid-template-columns is interpolatable — auto tracks don't
-       animate, fixed-length + fr tracks do. The icon is exactly this size (mc-sidebar-icon). */
+    /* A FIXED icon track (not auto) keeps the icon a constant size as the label column collapses to
+       0fr. The icon is exactly this size (mc-sidebar-icon). */
     grid-template-columns: var(--mc-space-20) 1fr;
     align-items: center;
     justify-content: start;
@@ -108,7 +115,8 @@
     text-decoration-line: none;
     white-space: nowrap;
     cursor: pointer;
-    transition-property: grid-template-columns, background-color, color;
+    /* Interaction colour only — the collapse itself is composited (view-transition), not transitioned. */
+    transition-property: background-color, color;
     transition-duration: var(--mc-duration-normal);
     transition-timing-function: var(--mc-easing-standard);
   }
@@ -142,14 +150,16 @@
     padding-inline-start: var(--mc-space-8);
     color: inherit;
     text-overflow: ellipsis;
-    transition-property: color, padding-inline-start;
+    /* Colour follows the button on hover/active; the collapse (padding/colour to 0/transparent) is
+       instant and composited by the sidebar view-transition. */
+    transition-property: color;
     transition-duration: var(--mc-duration-normal);
     transition-timing-function: var(--mc-easing-standard);
   }
-  /* Collapsed icon rail: collapse the label column to 0 (its width AND its leading padding animate to
-     zero so it slides fully away) and fade its text. The icon does NOT recentre — it stays exactly
-     where it is (the rail width is sized so a left-aligned icon reads centred), so collapsing never
-     slides the icons sideways. Group labels fade; their height is reserved so icons never shift. */
+  /* Collapsed icon rail: the label column goes to 0 (its width AND its leading padding to zero so it
+     leaves the row) and its text fades. The icon does NOT recentre — it stays exactly where it is (the
+     rail width is sized so a left-aligned icon reads centred), so collapsing never slides the icons
+     sideways. The before→after change is composited by the sidebar view-transition. */
   .mc-sidebar[data-state="collapsed"] .mc-sidebar-menu-button {
     grid-template-columns: var(--mc-space-20) 0fr;
   }
@@ -157,11 +167,8 @@
     padding-inline-start: var(--mc-space-0);
     color: transparent;
   }
-  .mc-sidebar-group-label {
-    transition-property: color;
-    transition-duration: var(--mc-duration-normal);
-    transition-timing-function: var(--mc-easing-standard);
-  }
+  /* Group labels fade out in the rail; the change is instant and composited by the sidebar
+     view-transition (no per-frame colour transition needed). */
   .mc-sidebar[data-state="collapsed"] .mc-sidebar-group-label {
     color: transparent;
   }

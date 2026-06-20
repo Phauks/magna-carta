@@ -207,3 +207,21 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
   is the consumer layout's, not the separator's). Open decision for Fable: accept as an
   environmental hairline artifact, or adopt a device-pixel-snapping hairline technique
   system-wide — deliberate, not a quick patch.
+- **Sidebar collapse seam tearing — RESOLVED (owner-flagged "not acceptable"; fixed via View Transitions).**
+  The collapse used to animate **layout** properties (the rail `inline-size`, the menu-button
+  `grid-template-columns` `1fr→0fr`, the label `padding`), repainting the sidebar↔canvas seam every
+  frame; at a fractional device-pixel ratio (Windows 150% scaling) that 1px border edge shimmered/tore.
+  Profiling showed it was **not** a frame-rate problem (avg ~16.7ms/frame, 0 long frames) — purely the
+  sub-pixel **paint seam**. Fix: the collapsed-state widths/tracks now change **instantly** and the
+  collapse is composited via the **View Transitions API** — the Trigger flips state through
+  `runViewTransition` (`internal/view-transition.ts`), `.mc-sidebar` carries `view-transition-name:
+  mc-sidebar`, and the work canvas (in the shell/story) carries `view-transition-name: mc-app-canvas` so
+  it morphs rather than ghosting. The browser tweens before/after layouts on the GPU, so the seam is
+  sampled, never re-rasterized → no tear. Reduced-motion / unsupported browsers fall back to an instant
+  collapse. **The UX principle this establishes platform-wide: animate only compositor properties
+  (`transform`, `opacity`) — never `width`/`height`/`grid-template`/`top`/`left`/`margin`; for an
+  unavoidable layout change, wrap the mutation in `runViewTransition`.** Chosen over a hand-rolled
+  `translateX`/spacer rebuild because View Transitions is the project's motion stack (Svelte built-ins +
+  View Transitions at 0 kB) and far less invasive. Only collapse-unrelated interaction colour
+  (hover/active) still uses CSS transitions. (Play test asserts the now-deferred state flip via
+  `waitFor`.)

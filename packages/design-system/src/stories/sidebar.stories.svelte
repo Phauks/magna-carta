@@ -8,7 +8,7 @@
    * feature-slice concerns (§1.2), not the structural chrome shown here. svelte-csf v5.
    */
   import { defineMeta } from "@storybook/addon-svelte-csf";
-  import { expect, userEvent, within } from "storybook/test";
+  import { expect, userEvent, waitFor } from "storybook/test";
   import House from "@lucide/svelte/icons/house";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import Calendar from "@lucide/svelte/icons/calendar";
@@ -47,7 +47,9 @@
 
     await step("The trigger says Collapse, and collapsing switches to the icon rail", async () => {
       await userEvent.click(canvas.getByRole("button", { name: "Collapse sidebar" }));
-      await expect(nav).toHaveAttribute("data-state", "collapsed");
+      // Collapse runs through a View Transition, so the state flip is deferred to the transition's
+      // capture step — wait for it rather than asserting synchronously.
+      await waitFor(() => expect(nav).toHaveAttribute("data-state", "collapsed"));
       const expand = canvas.getByRole("button", { name: "Expand sidebar" });
       await expect(expand).toHaveAttribute("aria-expanded", "false");
       // The label went sr-only, so the link is still findable by its accessible name.
@@ -61,7 +63,7 @@
 
     await step("The trigger now says Expand, and expanding restores the labelled rail", async () => {
       await userEvent.click(canvas.getByRole("button", { name: "Expand sidebar" }));
-      await expect(nav).toHaveAttribute("data-state", "expanded");
+      await waitFor(() => expect(nav).toHaveAttribute("data-state", "expanded"));
       await expect(canvas.getByRole("button", { name: "Collapse sidebar" })).toHaveAttribute(
         "aria-expanded",
         "true",
@@ -149,7 +151,9 @@
           </Sidebar.Footer>
         </Sidebar.Root>
 
-        <div class="grow p-16">
+        <!-- Named so the work canvas resizes as its own view-transition group (geometry morph) rather
+             than crossfading with the page root when the rail collapses. -->
+        <div class="grow p-16" style="view-transition-name: mc-app-canvas">
           <p class="text-muted">Matters, Contacts, and the rest of the app render here.</p>
         </div>
       </div>

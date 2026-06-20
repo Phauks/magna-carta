@@ -9,6 +9,7 @@
   import type { HTMLAttributes } from "svelte/elements";
   import { mergeClasses } from "../../internal/merge-classes.ts";
   import type { WithElementRef } from "../../internal/types.ts";
+  import { runViewTransition } from "../../internal/view-transition.ts";
   import { setSidebarContext } from "./context.ts";
 
   let {
@@ -20,15 +21,22 @@
     ...restProps
   }: WithElementRef<HTMLAttributes<HTMLElement>, HTMLElement> & { collapsed?: boolean } = $props();
 
+  // Collapse runs through a View Transition so the rail↔canvas resize is composited (no per-frame
+  // reflow, no sub-pixel seam tearing); it falls back to an instant change under reduced motion or
+  // where the API is unavailable. See internal/view-transition.ts and the sidebar.css note.
   setSidebarContext({
     get collapsed() {
       return collapsed;
     },
     toggle() {
-      collapsed = !collapsed;
+      runViewTransition(() => {
+        collapsed = !collapsed;
+      });
     },
     setCollapsed(value) {
-      collapsed = value;
+      runViewTransition(() => {
+        collapsed = value;
+      });
     },
   });
 </script>

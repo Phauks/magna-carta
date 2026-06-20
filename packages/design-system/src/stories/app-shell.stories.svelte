@@ -59,16 +59,26 @@
   ];
 </script>
 
+<script lang="ts">
+  // Mirrors the brand label's collapse to the rail: it fades with the rest of the chrome so the rail
+  // shows only the gold mark (the Trigger flips this through Sidebar's view-transition).
+  let collapsed = $state(false);
+</script>
+
 <Story name="Matters">
   {#snippet template()}
     <Tooltip.Provider>
       <!-- Horizontal split: the sidebar (brand corner + nav) is the full-height left column; the top
            bar + work canvas are the right column, so the top bar starts to the RIGHT of the brand. -->
       <div class="flex h-screen overflow-hidden bg-surface-default">
-        <Sidebar.Root aria-label="Primary">
+        <Sidebar.Root bind:collapsed aria-label="Primary">
           <Sidebar.Header>
             <Scale class="mc-sidebar-icon text-chrome-accent" aria-hidden="true" />
-            <span class="font-semibold whitespace-nowrap text-chrome-text-strong">Magna Carta</span>
+            <span
+              class="font-semibold whitespace-nowrap {collapsed
+                ? 'text-transparent'
+                : 'text-chrome-text-strong'}">Magna Carta</span
+            >
           </Sidebar.Header>
           <Sidebar.Content>
             <Sidebar.Group>
@@ -131,7 +141,9 @@
           </Sidebar.Footer>
         </Sidebar.Root>
 
-        <div class="flex grow flex-col overflow-hidden">
+        <!-- Named so the work column resizes as its own view-transition group (geometry morph) rather
+             than crossfading with the page root when the rail collapses — no canvas ghosting. -->
+        <div class="flex grow flex-col overflow-hidden" style="view-transition-name: mc-app-canvas">
           <!-- Top bar — chrome, starting to the right of the brand corner. Its height matches the brand
                header (min-block-size control-lg) so their bottom hairlines line up into one row. -->
           <header
