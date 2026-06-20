@@ -1,4 +1,5 @@
 ---
+number: 113
 slug: ai-inference-tenant-isolation
 status: Accepted
 date: 2026-06-19
@@ -14,4 +15,4 @@ summary: "Tenant-isolation hard constraints: caching disabled for all firm-data 
 
 **Fitness tests:** caching-off (no cacheable request without a firm-scoped cache key); derived-firm-metadata (every request carries a derived non-empty `firm_id`, ≤5 keys, no `model` tag).
 
-**Builds on ADR-ai-inference-confidentiality-posture** (confidentiality posture), **ADR-0003** (tenancy isolation), **ADR-0103** (firm-usage diagnostics). Spec: [`docs/specs/2026-06-17-ai-inference-foundation-design.md`](../specs/2026-06-17-ai-inference-foundation-design.md).
+**Builds on ADR-0110** (confidentiality posture), **ADR-0003** (tenancy isolation), **ADR-0103** (firm-usage diagnostics). Spec: [`docs/specs/2026-06-17-ai-inference-foundation-design.md`](../specs/2026-06-17-ai-inference-foundation-design.md).

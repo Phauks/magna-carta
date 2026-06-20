@@ -1,4 +1,5 @@
 ---
+number: 111
 slug: ai-inference-foundation-placement
 status: Accepted
 date: 2026-06-19
