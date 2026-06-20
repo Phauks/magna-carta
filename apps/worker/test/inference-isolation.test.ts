@@ -1,5 +1,5 @@
 import { env } from "cloudflare:test";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-statements";
 import {
@@ -8,7 +8,11 @@ import {
 } from "@magna-carta/data-access/token-usage-statements";
 import { primaryReasoningModelDefinition } from "@magna-carta/inference/settings";
 import type { Bindings } from "../src/app.ts";
-import { handleInferenceJob } from "../src/inference/inference-consumer.ts";
+import {
+  handleInferenceJob,
+  inferenceQueue,
+  type InferenceJob,
+} from "../src/inference/inference-consumer.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 import { seedFirm } from "./support/test-auth.ts";
@@ -134,5 +138,176 @@ describe("inference per-firm isolation (the firm's own D1 handle)", () => {
     // Firm two must remain unaffected — the consumer's structural isolation guarantee.
     const firmTwoUsage = await readTokenUsage(env.DB_FIRM_POOL_2);
     expect(firmTwoUsage).toEqual([]);
+  });
+});
+
+describe("inference consumer resilience", () => {
+  // All four tests run against the real Miniflare D1 (POOL_1, the same firm seeded in beforeAll)
+  // with a fake AI binding. Each uses read-before/read-after delta assertions against the specific
+  // (slot, modelId) row so they are order-independent and never collide with Part A/B rows.
+
+  it("retryable AI failure throws so the queue redelivers, and no metering row is written", async () => {
+    // The AI binding throws (simulating a transient upstream error). The gateway catches the throw
+    // and maps it to an adapterError with category "upstream" (retryable: true). handleInferenceJob
+    // sees !result.ok && retryable === true and re-throws, signalling the queue to redeliver.
+    const throwingAi = {
+      run: async (_model: string, _input: unknown, _options: unknown): Promise<never> => {
+        throw new Error("upstream 503: transient");
+      },
+    };
+    const fakeEnv = {
+      DB_FIRM_POOL_1: env.DB_FIRM_POOL_1,
+      DB_FIRM_POOL_2: env.DB_FIRM_POOL_2,
+      AI: throwingAi,
+    } as unknown as Bindings;
+
+    // The firm setting is already anthropic/claude-sonnet-4-6 (written in Part A test 1).
+    // Read the sonnet row before the failing call so the delta can be checked.
+    const usageBefore = await readTokenUsage(env.DB_FIRM_POOL_1);
+    const sonnetBefore = usageBefore.find((r) => r.modelId === "anthropic/claude-sonnet-4-6");
+
+    await expect(
+      handleInferenceJob(fakeEnv, {
+        firmId: firmOneId,
+        databaseIdentifier: "DB_FIRM_POOL_1",
+        prompt: "trigger-retryable",
+      }),
+    ).rejects.toThrow();
+
+    // The failed run must not have written any new metering tokens — the throw exits before the
+    // commitEffectBatch call, so the row is unchanged.
+    const usageAfter = await readTokenUsage(env.DB_FIRM_POOL_1);
+    const sonnetAfter = usageAfter.find((r) => r.modelId === "anthropic/claude-sonnet-4-6");
+    expect(sonnetAfter?.requestCount ?? 0).toBe(sonnetBefore?.requestCount ?? 0);
+    expect(sonnetAfter?.inputTokens ?? 0).toBe(sonnetBefore?.inputTokens ?? 0);
+    expect(sonnetAfter?.outputTokens ?? 0).toBe(sonnetBefore?.outputTokens ?? 0);
+  });
+
+  it("unknown database identifier resolves to no DB — acks (no throw), no model call, no metering", async () => {
+    // resolveFirmDatabase returns null for an unrecognised identifier: the consumer acks without
+    // calling the model. Retrying cannot conjure a missing binding; the correct behaviour is a
+    // silent early return so the message does not re-enter the dead-letter queue.
+    const aiSpy = vi.fn();
+    const fakeEnv = {
+      DB_FIRM_POOL_1: env.DB_FIRM_POOL_1,
+      DB_FIRM_POOL_2: env.DB_FIRM_POOL_2,
+      AI: { run: aiSpy },
+    } as unknown as Bindings;
+
+    const usageBefore = await readTokenUsage(env.DB_FIRM_POOL_1);
+    const totalRequestsBefore = usageBefore.reduce((s, r) => s + r.requestCount, 0);
+
+    // The databaseIdentifier names a pool slot that does not exist in the binding map.
+    await expect(
+      handleInferenceJob(fakeEnv, {
+        firmId: firmOneId,
+        databaseIdentifier: "DB_FIRM_POOL_DOES_NOT_EXIST",
+        prompt: "should-never-reach-model",
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(aiSpy).not.toHaveBeenCalled();
+
+    const usageAfter = await readTokenUsage(env.DB_FIRM_POOL_1);
+    const totalRequestsAfter = usageAfter.reduce((s, r) => s + r.requestCount, 0);
+    expect(totalRequestsAfter).toBe(totalRequestsBefore);
+  });
+
+  it("inferenceQueue acks the successful message and retries only the failing one — per-message isolation", async () => {
+    // A batch of two messages: one with a normal prompt (succeeds) and one whose prompt contains
+    // "boom" (the conditional fake AI throws for it, simulating a transient upstream failure).
+    // The queue consumer must ack the good message and retry only the bad one — a single failure
+    // must never re-run a sibling that already committed.
+    const conditionalAi = {
+      run: async (_model: string, input: unknown, _options: unknown): Promise<unknown> => {
+        const typedInput = input as { prompt?: string };
+        if (typedInput.prompt?.includes("boom")) {
+          throw new Error("upstream 503: transient");
+        }
+        return { response: "ok", usage: { input_tokens: 3, output_tokens: 5 } };
+      },
+    };
+    const fakeEnv = {
+      DB_FIRM_POOL_1: env.DB_FIRM_POOL_1,
+      DB_FIRM_POOL_2: env.DB_FIRM_POOL_2,
+      AI: conditionalAi,
+      TELEMETRY: env.TELEMETRY,
+    } as unknown as Bindings;
+
+    const msgGood = {
+      id: "msg-good-1",
+      body: {
+        firmId: firmOneId,
+        databaseIdentifier: "DB_FIRM_POOL_1",
+        prompt: "good prompt",
+      } satisfies InferenceJob,
+      ack: vi.fn(),
+      retry: vi.fn(),
+    };
+    const msgBad = {
+      id: "msg-bad-1",
+      body: {
+        firmId: firmOneId,
+        databaseIdentifier: "DB_FIRM_POOL_1",
+        prompt: "boom",
+      } satisfies InferenceJob,
+      ack: vi.fn(),
+      retry: vi.fn(),
+    };
+
+    const fakeBatch = {
+      queue: "magna-carta-production-inference",
+      messages: [msgGood, msgBad],
+    };
+
+    await inferenceQueue(fakeBatch as unknown as MessageBatch<InferenceJob>, fakeEnv);
+
+    expect(msgGood.ack).toHaveBeenCalledOnce();
+    expect(msgGood.retry).not.toHaveBeenCalled();
+    expect(msgBad.retry).toHaveBeenCalledOnce();
+    expect(msgBad.ack).not.toHaveBeenCalled();
+  });
+
+  it("redelivery re-meters — at-least-once semantics write requestCount twice for the same job", async () => {
+    // A redelivered message (e.g. the metering commit succeeded but was not acked before the
+    // worker restarted) re-runs the model and increments requestCount again. This test pins that
+    // documented at-least-once behaviour so a future producer-set idempotency key + dedup guard
+    // that makes this exactly-once is visible as a deliberate change, not a silent regression.
+    const fixedAi = {
+      run: async (_model: string, _input: unknown, _options: unknown) => ({
+        response: "idempotency-test",
+        usage: { input_tokens: 50, output_tokens: 60 },
+      }),
+    };
+    const fakeEnv = {
+      DB_FIRM_POOL_1: env.DB_FIRM_POOL_1,
+      DB_FIRM_POOL_2: env.DB_FIRM_POOL_2,
+      AI: fixedAi,
+    } as unknown as Bindings;
+
+    // Read the sonnet row baseline before either call so we measure only this test's contribution.
+    const usageBefore = await readTokenUsage(env.DB_FIRM_POOL_1);
+    const sonnetBefore = usageBefore.find((r) => r.modelId === "anthropic/claude-sonnet-4-6");
+    const baseRequestCount = sonnetBefore?.requestCount ?? 0;
+    const baseInputTokens = sonnetBefore?.inputTokens ?? 0;
+    const baseOutputTokens = sonnetBefore?.outputTokens ?? 0;
+
+    const job: InferenceJob = {
+      firmId: firmOneId,
+      databaseIdentifier: "DB_FIRM_POOL_1",
+      prompt: "redelivery-rerun",
+    };
+
+    // First delivery — meters one run.
+    await handleInferenceJob(fakeEnv, job);
+    // Second delivery of the identical job — meters again (at-least-once).
+    await handleInferenceJob(fakeEnv, job);
+
+    const usageAfter = await readTokenUsage(env.DB_FIRM_POOL_1);
+    const sonnetAfter = usageAfter.find((r) => r.modelId === "anthropic/claude-sonnet-4-6");
+
+    expect(sonnetAfter?.requestCount).toBe(baseRequestCount + 2);
+    expect(sonnetAfter?.inputTokens).toBe(baseInputTokens + 100);
+    expect(sonnetAfter?.outputTokens).toBe(baseOutputTokens + 120);
   });
 });
