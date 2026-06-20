@@ -35,6 +35,7 @@ Every task's requirements implicitly include this section. Values copied from th
 ## File Structure
 
 **New package `packages/custom-fields/`:**
+
 - `package.json`, `tsconfig.json`, `vitest.config.ts` — scaffold (copies of the `@magna-carta/matters` versions).
 - `src/types.ts` — `CustomFieldKind`, `CustomFieldTarget`, input/row types, the named-error classes.
 - `src/custom-field-statements.ts` — definition statement builders.
@@ -53,6 +54,7 @@ Every task's requirements implicitly include this section. Values copied from th
 - `test/*.test.ts` — one test file per src module.
 
 **Edited existing files:**
+
 - `packages/identifiers/src/registry.ts`, `packages/identifiers/src/types.ts` — three new prefixes + branded types.
 - `packages/access-control/src/registry.ts` — `customFields:manage`, `customFields:purge`.
 - `packages/database/src/per-firm-schema.ts` — three Drizzle table definitions (schema types).
@@ -68,12 +70,14 @@ Every task's requirements implicitly include this section. Values copied from th
 ## Task 1: Register identifiers, branded types, and permissions
 
 **Files:**
+
 - Modify: `packages/identifiers/src/registry.ts` (add to `ENTITY_PREFIXES`, near line 75)
 - Modify: `packages/identifiers/src/types.ts` (add after the last `Identifier<>` alias, ~line 72)
 - Modify: `packages/access-control/src/registry.ts` (add to the `PERMISSIONS` array)
 - Test: `packages/identifiers/test/registry.test.ts` (existing fitness test should already assert registry/types parity — extend if needed)
 
 **Interfaces:**
+
 - Produces: `newIdentifier("customField" | "picklistOption" | "customFieldValue", randomSource)`; branded types `CustomFieldId`, `PicklistOptionId`, `CustomFieldValueId`; permission strings `"customFields:manage"`, `"customFields:purge"`.
 
 - [ ] **Step 1: Write the failing test** — assert the new prefixes and permissions exist.
@@ -143,6 +147,7 @@ git commit -m "feat(custom-fields): register identifier prefixes and permissions
 ## Task 2: Migration 0012 — the three tables and permission seed
 
 **Files:**
+
 - Modify: `packages/database/src/per-firm-schema.ts` (append three `sqliteTable` definitions)
 - Create: `packages/database/drizzle/per-firm/0012_custom-fields.sql`
 - Modify: `packages/database/drizzle/per-firm/meta/_journal.json` (append the `0012` entry)
@@ -150,6 +155,7 @@ git commit -m "feat(custom-fields): register identifier prefixes and permissions
 - Test: `apps/worker/test/per-firm-migrations.test.ts` (or the existing migration-apply integration test)
 
 **Interfaces:**
+
 - Produces: tables `custom_field`, `picklist_option`, `custom_field_value`; the Drizzle objects `customField`, `picklistOption`, `customFieldValue` exported from `per-firm-schema.ts`; the migration tag `"0012_custom-fields"`.
 
 - [ ] **Step 1: Write the failing test** — a freshly migrated per-firm DB has the three tables and the partial unique index.
@@ -159,7 +165,9 @@ git commit -m "feat(custom-fields): register identifier prefixes and permissions
 it("applies 0012 and creates the custom-fields tables", async () => {
   const db = await freshlyMigratedPerFirmDatabase(); // existing test helper
   const tables = await db
-    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('custom_field','picklist_option','custom_field_value')")
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('custom_field','picklist_option','custom_field_value')",
+    )
     .all<{ name: string }>();
   expect(tables.results.map((r) => r.name).sort()).toEqual([
     "custom_field",
@@ -167,7 +175,9 @@ it("applies 0012 and creates the custom-fields tables", async () => {
     "picklist_option",
   ]);
   const idx = await db
-    .prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='custom_field_value_current_unique_index'")
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type='index' AND name='custom_field_value_current_unique_index'",
+    )
     .all();
   expect(idx.results.length).toBe(1);
 });
@@ -271,7 +281,20 @@ export const customField = sqliteTable(
     id: text("id").primaryKey().$type<CustomFieldId>(),
     name: text("name").notNull(),
     kind: text("kind", {
-      enum: ["checkbox", "date", "time", "number", "currency", "picklist", "single-line", "multi-line", "url", "email", "matter-reference", "contact-reference"],
+      enum: [
+        "checkbox",
+        "date",
+        "time",
+        "number",
+        "currency",
+        "picklist",
+        "single-line",
+        "multi-line",
+        "url",
+        "email",
+        "matter-reference",
+        "contact-reference",
+      ],
     }).notNull(),
     target: text("target", { enum: ["matter", "entity"] }).notNull(),
     attachmentId: text("attachment_id"),
@@ -360,12 +383,14 @@ git commit -m "feat(custom-fields): add 0012 migration and per-firm schema"
 ## Task 3: Scaffold the `@magna-carta/custom-fields` package
 
 **Files:**
+
 - Create: `packages/custom-fields/package.json`, `packages/custom-fields/tsconfig.json`, `packages/custom-fields/vitest.config.ts`
 - Create: `packages/custom-fields/src/types.ts`
 - Modify: `apps/worker/package.json` (add the dependency)
 - Test: `packages/custom-fields/test/types.test.ts`
 
 **Interfaces:**
+
 - Produces: the package `@magna-carta/custom-fields`; `CustomFieldKind` (the 12-kind union), `CustomFieldTarget` (`"matter" | "entity"`), `CUSTOM_FIELD_KINDS` (the `as const` array), and the named-error base `CustomFieldError` (with a `.code` string).
 
 - [ ] **Step 1: Write the failing test**
@@ -435,8 +460,18 @@ Copy `packages/matters/tsconfig.json` and `packages/matters/vitest.config.ts` ve
 ```typescript
 // packages/custom-fields/src/types.ts
 export const CUSTOM_FIELD_KINDS = [
-  "checkbox", "date", "time", "number", "currency", "picklist",
-  "single-line", "multi-line", "url", "email", "matter-reference", "contact-reference",
+  "checkbox",
+  "date",
+  "time",
+  "number",
+  "currency",
+  "picklist",
+  "single-line",
+  "multi-line",
+  "url",
+  "email",
+  "matter-reference",
+  "contact-reference",
 ] as const;
 export type CustomFieldKind = (typeof CUSTOM_FIELD_KINDS)[number];
 export type CustomFieldTarget = "matter" | "entity";
@@ -494,6 +529,7 @@ git commit -m "feat(custom-fields): scaffold the domain package and shared types
 ## Task 4: Field-definition statements, audit adapter, and effect runner
 
 **Files:**
+
 - Create: `packages/custom-fields/src/custom-field-statements.ts`
 - Create: `packages/custom-fields/src/audit.ts`
 - Create: `packages/custom-fields/src/run-custom-field-effect.ts`
@@ -501,6 +537,7 @@ git commit -m "feat(custom-fields): scaffold the domain package and shared types
 - Test: `packages/custom-fields/test/custom-field-statements.test.ts`
 
 **Interfaces:**
+
 - Consumes: `SqlDatabase`, `SqlStatement` from `@magna-carta/data-access`; `domainAuditStatement`; `runIdempotentEffect`.
 - Produces: `insertCustomFieldStatement`, `updateCustomFieldNameStatement`, `updateCustomFieldFlagsStatement`, `deleteCustomFieldStatement`, `selectCustomFieldStatement`; `customFieldAuditStatement(database, options, event, subjectId)`; `runCustomFieldEffect(database, options, responseCode, build)`; `CustomFieldWriteOptions` (`{ clock, actorUserId, randomSource?, idempotency? }`); `InsertCustomFieldRow`.
 
@@ -517,7 +554,11 @@ export async function migratedFirmDatabase() {
   return createMigratedNodeDatabase("per-firm").database;
 }
 export function fixtureWriteOptions(seed = "cf-test"): CustomFieldWriteOptions {
-  return { clock: { now: () => "2026-06-18T00:00:00.000Z" }, actorUserId: null, randomSource: seededRandomSource(seed) };
+  return {
+    clock: { now: () => "2026-06-18T00:00:00.000Z" },
+    actorUserId: null,
+    randomSource: seededRandomSource(seed),
+  };
 }
 ```
 
@@ -529,11 +570,21 @@ import { migratedFirmDatabase } from "./helpers.ts";
 it("inserts a definition row that reads back", async () => {
   const db = await migratedFirmDatabase();
   await insertCustomFieldStatement(db, {
-    id: "customField_abc", name: "Court Date", kind: "date", target: "matter",
-    attachmentId: "matterType_pi", numberScale: null, required: 1, position: 3,
-    templateFieldKey: null, createdAt: "2026-06-18T00:00:00.000Z", createdBy: "user_x",
+    id: "customField_abc",
+    name: "Court Date",
+    kind: "date",
+    target: "matter",
+    attachmentId: "matterType_pi",
+    numberScale: null,
+    required: 1,
+    position: 3,
+    templateFieldKey: null,
+    createdAt: "2026-06-18T00:00:00.000Z",
+    createdBy: "user_x",
   }).run();
-  const row = await db.prepare("SELECT name, kind FROM custom_field WHERE id = 'customField_abc'").first<{ name: string; kind: string }>();
+  const row = await db
+    .prepare("SELECT name, kind FROM custom_field WHERE id = 'customField_abc'")
+    .first<{ name: string; kind: string }>();
   expect(row).toEqual({ name: "Court Date", kind: "date" });
 });
 ```
@@ -568,36 +619,70 @@ export interface InsertCustomFieldRow {
   readonly createdBy: string | null;
 }
 
-export function insertCustomFieldStatement(database: SqlDatabase, row: InsertCustomFieldRow): SqlStatement {
+export function insertCustomFieldStatement(
+  database: SqlDatabase,
+  row: InsertCustomFieldRow,
+): SqlStatement {
   return database
     .prepare(
       `INSERT INTO ${CUSTOM_FIELD_TABLE} (id, name, kind, target, attachment_id, number_scale, required, archived, converting, position, template_field_key, created_at, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, 0, ?8, ?9, ?10, ?11)`,
     )
-    .bind(row.id, row.name, row.kind, row.target, row.attachmentId, row.numberScale, row.required, row.position, row.templateFieldKey, row.createdAt, row.createdBy);
+    .bind(
+      row.id,
+      row.name,
+      row.kind,
+      row.target,
+      row.attachmentId,
+      row.numberScale,
+      row.required,
+      row.position,
+      row.templateFieldKey,
+      row.createdAt,
+      row.createdBy,
+    );
 }
 
-export function updateCustomFieldNameStatement(database: SqlDatabase, id: CustomFieldId, name: string): SqlStatement {
-  return database.prepare(`UPDATE ${CUSTOM_FIELD_TABLE} SET name = ?2 WHERE id = ?1`).bind(id, name);
+export function updateCustomFieldNameStatement(
+  database: SqlDatabase,
+  id: CustomFieldId,
+  name: string,
+): SqlStatement {
+  return database
+    .prepare(`UPDATE ${CUSTOM_FIELD_TABLE} SET name = ?2 WHERE id = ?1`)
+    .bind(id, name);
 }
 
 export function updateCustomFieldFlagsStatement(
   database: SqlDatabase,
   id: CustomFieldId,
-  fields: { required?: number; archived?: number; position?: number; converting?: number; kind?: string; numberScale?: number | null },
+  fields: {
+    required?: number;
+    archived?: number;
+    position?: number;
+    converting?: number;
+    kind?: string;
+    numberScale?: number | null;
+  },
 ): SqlStatement {
   const sets: string[] = [];
   const bindings: (string | number | null)[] = [id];
   let index = 2;
   for (const [column, value] of Object.entries({
-    required: fields.required, archived: fields.archived, position: fields.position,
-    converting: fields.converting, kind: fields.kind, number_scale: fields.numberScale,
+    required: fields.required,
+    archived: fields.archived,
+    position: fields.position,
+    converting: fields.converting,
+    kind: fields.kind,
+    number_scale: fields.numberScale,
   })) {
     if (value === undefined) continue;
     sets.push(`${column} = ?${index}`);
     bindings.push(value as string | number | null);
     index += 1;
   }
-  return database.prepare(`UPDATE ${CUSTOM_FIELD_TABLE} SET ${sets.join(", ")} WHERE id = ?1`).bind(...bindings);
+  return database
+    .prepare(`UPDATE ${CUSTOM_FIELD_TABLE} SET ${sets.join(", ")} WHERE id = ?1`)
+    .bind(...bindings);
 }
 
 export function deleteCustomFieldStatement(database: SqlDatabase, id: CustomFieldId): SqlStatement {
@@ -605,7 +690,11 @@ export function deleteCustomFieldStatement(database: SqlDatabase, id: CustomFiel
 }
 
 export function selectCustomFieldStatement(database: SqlDatabase, id: CustomFieldId): SqlStatement {
-  return database.prepare(`SELECT id, name, kind, target, attachment_id, number_scale, required, archived, converting, position FROM ${CUSTOM_FIELD_TABLE} WHERE id = ?1`).bind(id);
+  return database
+    .prepare(
+      `SELECT id, name, kind, target, attachment_id, number_scale, required, archived, converting, position FROM ${CUSTOM_FIELD_TABLE} WHERE id = ?1`,
+    )
+    .bind(id);
 }
 ```
 
@@ -622,7 +711,8 @@ export function customFieldAuditStatement(
   subjectId: string,
 ): SqlStatement {
   return domainAuditStatement(database, {
-    event, subjectId,
+    event,
+    subjectId,
     actorUserId: options.actorUserId,
     clock: options.clock,
     randomSource: options.randomSource,
@@ -660,10 +750,12 @@ git commit -m "feat(custom-fields): definition statements, audit adapter, effect
 ## Task 5: Field-definition service — define / rename / archive / reorder
 
 **Files:**
+
 - Create: `packages/custom-fields/src/custom-field-service.ts`
 - Test: `packages/custom-fields/test/custom-field-service.test.ts`
 
 **Interfaces:**
+
 - Consumes: the statement builders + `runCustomFieldEffect` from Task 4; `newIdentifier`.
 - Produces: `defineCustomField(database, input, options)`, `renameCustomField(...)`, `setCustomFieldRequired(...)`, `reorderCustomField(...)`, `archiveCustomField(...)`, `unarchiveCustomField(...)`. `DefineCustomFieldInput` (`{ name, kind, target, attachmentId, numberScale?, required? }`). Returns include the new `customFieldId`.
 
@@ -672,22 +764,40 @@ git commit -m "feat(custom-fields): definition statements, audit adapter, effect
 ```typescript
 // packages/custom-fields/test/custom-field-service.test.ts
 import { migratedFirmDatabase } from "@magna-carta/database/testing"; // existing helper used by matters tests
-import { defineCustomField, renameCustomField, archiveCustomField } from "../src/custom-field-service.ts";
+import {
+  defineCustomField,
+  renameCustomField,
+  archiveCustomField,
+} from "../src/custom-field-service.ts";
 import { fixtureWriteOptions } from "./helpers.ts"; // small local helper: { clock, actorUserId, randomSource }
 
 it("defines a field, then renames it without touching the kind or id", async () => {
   const db = await migratedFirmDatabase();
   const options = fixtureWriteOptions();
-  const { customFieldId } = await defineCustomField(db, { name: "Court Date", kind: "date", target: "matter", attachmentId: "matterType_pi" }, options);
+  const { customFieldId } = await defineCustomField(
+    db,
+    { name: "Court Date", kind: "date", target: "matter", attachmentId: "matterType_pi" },
+    options,
+  );
   await renameCustomField(db, { fieldId: customFieldId, name: "Hearing Date" }, options);
-  const row = await db.prepare("SELECT name, kind FROM custom_field WHERE id = ?1").bind(customFieldId).first<{ name: string; kind: string }>();
+  const row = await db
+    .prepare("SELECT name, kind FROM custom_field WHERE id = ?1")
+    .bind(customFieldId)
+    .first<{ name: string; kind: string }>();
   expect(row).toEqual({ name: "Hearing Date", kind: "date" });
 });
 
 it("writes a custom_field.defined audit event on define", async () => {
   const db = await migratedFirmDatabase();
-  const { customFieldId } = await defineCustomField(db, { name: "X", kind: "single-line", target: "entity", attachmentId: null }, fixtureWriteOptions());
-  const audit = await db.prepare("SELECT event, subject_id FROM audit_log WHERE subject_id = ?1").bind(customFieldId).first<{ event: string }>();
+  const { customFieldId } = await defineCustomField(
+    db,
+    { name: "X", kind: "single-line", target: "entity", attachmentId: null },
+    fixtureWriteOptions(),
+  );
+  const audit = await db
+    .prepare("SELECT event, subject_id FROM audit_log WHERE subject_id = ?1")
+    .bind(customFieldId)
+    .first<{ event: string }>();
   expect(audit?.event).toBe("custom_field.defined");
 });
 ```
@@ -705,7 +815,11 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { CustomFieldId } from "@magna-carta/identifiers/types";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { customFieldAuditStatement } from "./audit.ts";
-import { insertCustomFieldStatement, updateCustomFieldNameStatement, updateCustomFieldFlagsStatement } from "./custom-field-statements.ts";
+import {
+  insertCustomFieldStatement,
+  updateCustomFieldNameStatement,
+  updateCustomFieldFlagsStatement,
+} from "./custom-field-statements.ts";
 import { runCustomFieldEffect, type CustomFieldWriteOptions } from "./run-custom-field-effect.ts";
 import type { CustomFieldKind, CustomFieldTarget } from "./types.ts";
 
@@ -718,17 +832,28 @@ export interface DefineCustomFieldInput {
   readonly required?: boolean;
 }
 
-export async function defineCustomField(database: BatchDatabase, input: DefineCustomFieldInput, options: CustomFieldWriteOptions) {
+export async function defineCustomField(
+  database: BatchDatabase,
+  input: DefineCustomFieldInput,
+  options: CustomFieldWriteOptions,
+) {
   const fieldId = newIdentifier("customField", options.randomSource) as CustomFieldId;
   return runCustomFieldEffect<{ customFieldId: CustomFieldId }>(database, options, 201, () => {
     const now = options.clock.now();
     return {
       statements: [
         insertCustomFieldStatement(database, {
-          id: fieldId, name: input.name, kind: input.kind, target: input.target,
-          attachmentId: input.attachmentId, numberScale: input.numberScale ?? null,
-          required: input.required ? 1 : 0, position: 0, templateFieldKey: null,
-          createdAt: now, createdBy: options.actorUserId,
+          id: fieldId,
+          name: input.name,
+          kind: input.kind,
+          target: input.target,
+          attachmentId: input.attachmentId,
+          numberScale: input.numberScale ?? null,
+          required: input.required ? 1 : 0,
+          position: 0,
+          templateFieldKey: null,
+          createdAt: now,
+          createdBy: options.actorUserId,
         }),
         customFieldAuditStatement(database, options, "custom_field.defined", fieldId),
       ],
@@ -738,7 +863,11 @@ export async function defineCustomField(database: BatchDatabase, input: DefineCu
   });
 }
 
-export async function renameCustomField(database: BatchDatabase, input: { fieldId: CustomFieldId; name: string }, options: CustomFieldWriteOptions) {
+export async function renameCustomField(
+  database: BatchDatabase,
+  input: { fieldId: CustomFieldId; name: string },
+  options: CustomFieldWriteOptions,
+) {
   return runCustomFieldEffect<{ ok: true }>(database, options, 200, () => ({
     statements: [
       updateCustomFieldNameStatement(database, input.fieldId, input.name),
@@ -771,11 +900,13 @@ git commit -m "feat(custom-fields): field-definition service (define/rename/arch
 ## Task 6: Picklist-option service
 
 **Files:**
+
 - Create: `packages/custom-fields/src/picklist-option-statements.ts`
 - Create: `packages/custom-fields/src/picklist-option-service.ts`
 - Test: `packages/custom-fields/test/picklist-option-service.test.ts`
 
 **Interfaces:**
+
 - Produces: `createPicklistOption(database, { fieldId, name }, options)`, `renamePicklistOption(...)`, `reorderPicklistOption(...)`, `archivePicklistOption(...)`, `hardDeletePicklistOption(...)`. `hardDeletePicklistOption` throws `CustomFieldError("option-in-use", …)` if any value references the option.
 
 - [ ] **Step 1: Write the failing tests**
@@ -784,7 +915,11 @@ git commit -m "feat(custom-fields): field-definition service (define/rename/arch
 // packages/custom-fields/test/picklist-option-service.test.ts
 import { migratedFirmDatabase } from "@magna-carta/database/testing";
 import { defineCustomField } from "../src/custom-field-service.ts";
-import { createPicklistOption, renamePicklistOption, hardDeletePicklistOption } from "../src/picklist-option-service.ts";
+import {
+  createPicklistOption,
+  renamePicklistOption,
+  hardDeletePicklistOption,
+} from "../src/picklist-option-service.ts";
 import { setCustomFieldValue } from "../src/custom-field-value-service.ts";
 import { fixtureWriteOptions } from "./helpers.ts";
 import { CustomFieldError } from "../src/types.ts";
@@ -792,20 +927,37 @@ import { CustomFieldError } from "../src/types.ts";
 it("creates an option keyed by handle; rename does not change the id", async () => {
   const db = await migratedFirmDatabase();
   const o = fixtureWriteOptions();
-  const { customFieldId } = await defineCustomField(db, { name: "Stage", kind: "picklist", target: "matter", attachmentId: null }, o);
+  const { customFieldId } = await defineCustomField(
+    db,
+    { name: "Stage", kind: "picklist", target: "matter", attachmentId: null },
+    o,
+  );
   const { optionId } = await createPicklistOption(db, { fieldId: customFieldId, name: "Filed" }, o);
   await renamePicklistOption(db, { optionId, name: "Filed with court" }, o);
-  const row = await db.prepare("SELECT id, name FROM picklist_option WHERE id = ?1").bind(optionId).first<{ id: string; name: string }>();
+  const row = await db
+    .prepare("SELECT id, name FROM picklist_option WHERE id = ?1")
+    .bind(optionId)
+    .first<{ id: string; name: string }>();
   expect(row).toEqual({ id: optionId, name: "Filed with court" });
 });
 
 it("refuses hard-delete of an in-use option", async () => {
   const db = await migratedFirmDatabase();
   const o = fixtureWriteOptions();
-  const { customFieldId } = await defineCustomField(db, { name: "Stage", kind: "picklist", target: "matter", attachmentId: null }, o);
+  const { customFieldId } = await defineCustomField(
+    db,
+    { name: "Stage", kind: "picklist", target: "matter", attachmentId: null },
+    o,
+  );
   const { optionId } = await createPicklistOption(db, { fieldId: customFieldId, name: "Filed" }, o);
-  await setCustomFieldValue(db, { fieldId: customFieldId, targetRowId: "matter_1", value: { kind: "picklist", optionId } }, o);
-  await expect(hardDeletePicklistOption(db, { optionId }, o)).rejects.toMatchObject({ code: "option-in-use" });
+  await setCustomFieldValue(
+    db,
+    { fieldId: customFieldId, targetRowId: "matter_1", value: { kind: "picklist", optionId } },
+    o,
+  );
+  await expect(hardDeletePicklistOption(db, { optionId }, o)).rejects.toMatchObject({
+    code: "option-in-use",
+  });
 });
 ```
 
@@ -823,19 +975,41 @@ import type { PicklistOptionId, CustomFieldId } from "@magna-carta/identifiers/t
 
 const TABLE = "picklist_option";
 
-export function insertPicklistOptionStatement(database: SqlDatabase, row: { id: PicklistOptionId; fieldId: CustomFieldId; name: string; position: number }): SqlStatement {
-  return database.prepare(`INSERT INTO ${TABLE} (id, field_id, name, position, archived) VALUES (?1, ?2, ?3, ?4, 0)`).bind(row.id, row.fieldId, row.name, row.position);
+export function insertPicklistOptionStatement(
+  database: SqlDatabase,
+  row: { id: PicklistOptionId; fieldId: CustomFieldId; name: string; position: number },
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${TABLE} (id, field_id, name, position, archived) VALUES (?1, ?2, ?3, ?4, 0)`,
+    )
+    .bind(row.id, row.fieldId, row.name, row.position);
 }
-export function updatePicklistOptionNameStatement(database: SqlDatabase, id: PicklistOptionId, name: string): SqlStatement {
+export function updatePicklistOptionNameStatement(
+  database: SqlDatabase,
+  id: PicklistOptionId,
+  name: string,
+): SqlStatement {
   return database.prepare(`UPDATE ${TABLE} SET name = ?2 WHERE id = ?1`).bind(id, name);
 }
-export function setPicklistOptionArchivedStatement(database: SqlDatabase, id: PicklistOptionId, archived: number): SqlStatement {
+export function setPicklistOptionArchivedStatement(
+  database: SqlDatabase,
+  id: PicklistOptionId,
+  archived: number,
+): SqlStatement {
   return database.prepare(`UPDATE ${TABLE} SET archived = ?2 WHERE id = ?1`).bind(id, archived);
 }
-export function setPicklistOptionPositionStatement(database: SqlDatabase, id: PicklistOptionId, position: number): SqlStatement {
+export function setPicklistOptionPositionStatement(
+  database: SqlDatabase,
+  id: PicklistOptionId,
+  position: number,
+): SqlStatement {
   return database.prepare(`UPDATE ${TABLE} SET position = ?2 WHERE id = ?1`).bind(id, position);
 }
-export function deletePicklistOptionStatement(database: SqlDatabase, id: PicklistOptionId): SqlStatement {
+export function deletePicklistOptionStatement(
+  database: SqlDatabase,
+  id: PicklistOptionId,
+): SqlStatement {
   return database.prepare(`DELETE FROM ${TABLE} WHERE id = ?1`).bind(id);
 }
 ```
@@ -847,14 +1021,27 @@ import type { PicklistOptionId, CustomFieldId } from "@magna-carta/identifiers/t
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { customFieldAuditStatement } from "./audit.ts";
 import { runCustomFieldEffect, type CustomFieldWriteOptions } from "./run-custom-field-effect.ts";
-import { insertPicklistOptionStatement, deletePicklistOptionStatement, updatePicklistOptionNameStatement } from "./picklist-option-statements.ts";
+import {
+  insertPicklistOptionStatement,
+  deletePicklistOptionStatement,
+  updatePicklistOptionNameStatement,
+} from "./picklist-option-statements.ts";
 import { CustomFieldError } from "./types.ts";
 
-export async function createPicklistOption(database: BatchDatabase, input: { fieldId: CustomFieldId; name: string }, options: CustomFieldWriteOptions) {
+export async function createPicklistOption(
+  database: BatchDatabase,
+  input: { fieldId: CustomFieldId; name: string },
+  options: CustomFieldWriteOptions,
+) {
   const optionId = newIdentifier("picklistOption", options.randomSource) as PicklistOptionId;
   return runCustomFieldEffect<{ optionId: PicklistOptionId }>(database, options, 201, () => ({
     statements: [
-      insertPicklistOptionStatement(database, { id: optionId, fieldId: input.fieldId, name: input.name, position: 0 }),
+      insertPicklistOptionStatement(database, {
+        id: optionId,
+        fieldId: input.fieldId,
+        name: input.name,
+        position: 0,
+      }),
       customFieldAuditStatement(database, options, "custom_field.option_created", optionId),
     ],
     outboxMessages: [],
@@ -862,9 +1049,20 @@ export async function createPicklistOption(database: BatchDatabase, input: { fie
   }));
 }
 
-export async function hardDeletePicklistOption(database: BatchDatabase, input: { optionId: PicklistOptionId }, options: CustomFieldWriteOptions) {
-  const inUse = await database.prepare(`SELECT 1 FROM custom_field_value WHERE value_option_id = ?1 LIMIT 1`).bind(input.optionId).first();
-  if (inUse) throw new CustomFieldError("option-in-use", "Cannot delete a picklist option that has stored values; archive it instead.");
+export async function hardDeletePicklistOption(
+  database: BatchDatabase,
+  input: { optionId: PicklistOptionId },
+  options: CustomFieldWriteOptions,
+) {
+  const inUse = await database
+    .prepare(`SELECT 1 FROM custom_field_value WHERE value_option_id = ?1 LIMIT 1`)
+    .bind(input.optionId)
+    .first();
+  if (inUse)
+    throw new CustomFieldError(
+      "option-in-use",
+      "Cannot delete a picklist option that has stored values; archive it instead.",
+    );
   return runCustomFieldEffect<{ ok: true }>(database, options, 200, () => ({
     statements: [
       deletePicklistOptionStatement(database, input.optionId),
@@ -898,11 +1096,13 @@ git commit -m "feat(custom-fields): picklist-option service with in-use delete g
 ## Task 7: Value service — set / edit / clear (append-and-flip) + reference validation
 
 **Files:**
+
 - Create: `packages/custom-fields/src/custom-field-value-statements.ts`
 - Create: `packages/custom-fields/src/custom-field-value-service.ts`
 - Test: `packages/custom-fields/test/custom-field-value-service.test.ts`
 
 **Interfaces:**
+
 - Produces: `setCustomFieldValue(database, { fieldId, targetRowId, value }, options)`, `clearCustomFieldValue(database, { fieldId, targetRowId }, options)`. `value` is a tagged union: `{ kind: "text", text } | { kind: "number", number } | { kind: "date", date } | { kind: "picklist", optionId } | { kind: "reference", referenceId, referenceKind: "matter-reference" | "contact-reference" }`. `flipCurrentValueStatement`, `insertCurrentValueStatement`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -917,31 +1117,90 @@ import { fixtureWriteOptions } from "./helpers.ts";
 it("set then edit keeps exactly one current row and flips the prior to history", async () => {
   const db = await migratedFirmDatabase();
   const o = fixtureWriteOptions();
-  const { customFieldId } = await defineCustomField(db, { name: "Court Date", kind: "date", target: "matter", attachmentId: null }, o);
-  await setCustomFieldValue(db, { fieldId: customFieldId, targetRowId: "matter_1", value: { kind: "date", date: "2026-09-18" } }, o);
-  await setCustomFieldValue(db, { fieldId: customFieldId, targetRowId: "matter_1", value: { kind: "date", date: "2026-09-25" } }, o);
-  const current = await db.prepare("SELECT value_date FROM custom_field_value WHERE target_row_id='matter_1' AND field_id=?1 AND is_current=1").bind(customFieldId).all<{ value_date: string }>();
+  const { customFieldId } = await defineCustomField(
+    db,
+    { name: "Court Date", kind: "date", target: "matter", attachmentId: null },
+    o,
+  );
+  await setCustomFieldValue(
+    db,
+    {
+      fieldId: customFieldId,
+      targetRowId: "matter_1",
+      value: { kind: "date", date: "2026-09-18" },
+    },
+    o,
+  );
+  await setCustomFieldValue(
+    db,
+    {
+      fieldId: customFieldId,
+      targetRowId: "matter_1",
+      value: { kind: "date", date: "2026-09-25" },
+    },
+    o,
+  );
+  const current = await db
+    .prepare(
+      "SELECT value_date FROM custom_field_value WHERE target_row_id='matter_1' AND field_id=?1 AND is_current=1",
+    )
+    .bind(customFieldId)
+    .all<{ value_date: string }>();
   expect(current.results).toEqual([{ value_date: "2026-09-25" }]);
-  const history = await db.prepare("SELECT COUNT(*) AS n FROM custom_field_value WHERE target_row_id='matter_1' AND field_id=?1 AND is_current=0").bind(customFieldId).first<{ n: number }>();
+  const history = await db
+    .prepare(
+      "SELECT COUNT(*) AS n FROM custom_field_value WHERE target_row_id='matter_1' AND field_id=?1 AND is_current=0",
+    )
+    .bind(customFieldId)
+    .first<{ n: number }>();
   expect(history?.n).toBe(1);
 });
 
 it("rejects a contact-reference value whose handle is a matter", async () => {
   const db = await migratedFirmDatabase();
   const o = fixtureWriteOptions();
-  const { customFieldId } = await defineCustomField(db, { name: "Carrier", kind: "contact-reference", target: "matter", attachmentId: null }, o);
+  const { customFieldId } = await defineCustomField(
+    db,
+    { name: "Carrier", kind: "contact-reference", target: "matter", attachmentId: null },
+    o,
+  );
   await expect(
-    setCustomFieldValue(db, { fieldId: customFieldId, targetRowId: "matter_1", value: { kind: "reference", referenceId: "matter_9", referenceKind: "contact-reference" } }, o),
+    setCustomFieldValue(
+      db,
+      {
+        fieldId: customFieldId,
+        targetRowId: "matter_1",
+        value: { kind: "reference", referenceId: "matter_9", referenceKind: "contact-reference" },
+      },
+      o,
+    ),
   ).rejects.toMatchObject({ code: "reference-kind-handle-mismatch" });
 });
 
 it("clear flips the current row to history and leaves no current row", async () => {
   const db = await migratedFirmDatabase();
   const o = fixtureWriteOptions();
-  const { customFieldId } = await defineCustomField(db, { name: "Note", kind: "single-line", target: "entity", attachmentId: null }, o);
-  await setCustomFieldValue(db, { fieldId: customFieldId, targetRowId: "directoryPerson_1", value: { kind: "text", text: "vip" } }, o);
+  const { customFieldId } = await defineCustomField(
+    db,
+    { name: "Note", kind: "single-line", target: "entity", attachmentId: null },
+    o,
+  );
+  await setCustomFieldValue(
+    db,
+    {
+      fieldId: customFieldId,
+      targetRowId: "directoryPerson_1",
+      value: { kind: "text", text: "vip" },
+    },
+    o,
+  );
   await clearCustomFieldValue(db, { fieldId: customFieldId, targetRowId: "directoryPerson_1" }, o);
-  const current = await db.prepare("SELECT COUNT(*) AS n FROM custom_field_value WHERE target_row_id='directoryPerson_1' AND field_id=?1 AND is_current=1").bind(customFieldId).first<{ n: number }>();
+  const current = await db
+    .prepare(
+      "SELECT COUNT(*) AS n FROM custom_field_value WHERE target_row_id='directoryPerson_1' AND field_id=?1 AND is_current=1",
+    )
+    .bind(customFieldId)
+    .first<{ n: number }>();
   expect(current?.n).toBe(0);
 });
 ```
@@ -960,8 +1219,17 @@ import type { CustomFieldId, CustomFieldValueId } from "@magna-carta/identifiers
 
 const TABLE = "custom_field_value";
 
-export function flipCurrentValueStatement(database: SqlDatabase, fieldId: CustomFieldId, targetRowId: string, now: string): SqlStatement {
-  return database.prepare(`UPDATE ${TABLE} SET is_current = 0, valid_to = ?3 WHERE field_id = ?1 AND target_row_id = ?2 AND is_current = 1`).bind(fieldId, targetRowId, now);
+export function flipCurrentValueStatement(
+  database: SqlDatabase,
+  fieldId: CustomFieldId,
+  targetRowId: string,
+  now: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${TABLE} SET is_current = 0, valid_to = ?3 WHERE field_id = ?1 AND target_row_id = ?2 AND is_current = 1`,
+    )
+    .bind(fieldId, targetRowId, now);
 }
 
 export interface InsertValueRow {
@@ -977,10 +1245,26 @@ export interface InsertValueRow {
   readonly createdBy: string | null;
 }
 
-export function insertCurrentValueStatement(database: SqlDatabase, row: InsertValueRow): SqlStatement {
+export function insertCurrentValueStatement(
+  database: SqlDatabase,
+  row: InsertValueRow,
+): SqlStatement {
   return database
-    .prepare(`INSERT INTO ${TABLE} (id, field_id, target_row_id, value_text, value_number, value_date, value_option_id, value_reference_id, is_current, valid_from, valid_to, created_at, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9, NULL, ?9, ?10)`)
-    .bind(row.id, row.fieldId, row.targetRowId, row.valueText, row.valueNumber, row.valueDate, row.valueOptionId, row.valueReferenceId, row.now, row.createdBy);
+    .prepare(
+      `INSERT INTO ${TABLE} (id, field_id, target_row_id, value_text, value_number, value_date, value_option_id, value_reference_id, is_current, valid_from, valid_to, created_at, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 1, ?9, NULL, ?9, ?10)`,
+    )
+    .bind(
+      row.id,
+      row.fieldId,
+      row.targetRowId,
+      row.valueText,
+      row.valueNumber,
+      row.valueDate,
+      row.valueOptionId,
+      row.valueReferenceId,
+      row.now,
+      row.createdBy,
+    );
 }
 ```
 
@@ -991,7 +1275,10 @@ import type { CustomFieldId, CustomFieldValueId } from "@magna-carta/identifiers
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { customFieldAuditStatement } from "./audit.ts";
 import { runCustomFieldEffect, type CustomFieldWriteOptions } from "./run-custom-field-effect.ts";
-import { flipCurrentValueStatement, insertCurrentValueStatement } from "./custom-field-value-statements.ts";
+import {
+  flipCurrentValueStatement,
+  insertCurrentValueStatement,
+} from "./custom-field-value-statements.ts";
 import { CustomFieldError } from "./types.ts";
 
 export type CustomFieldValueInput =
@@ -999,43 +1286,83 @@ export type CustomFieldValueInput =
   | { kind: "number"; number: number }
   | { kind: "date"; date: string }
   | { kind: "picklist"; optionId: string }
-  | { kind: "reference"; referenceId: string; referenceKind: "matter-reference" | "contact-reference" };
+  | {
+      kind: "reference";
+      referenceId: string;
+      referenceKind: "matter-reference" | "contact-reference";
+    };
 
 function columnsFor(value: CustomFieldValueInput) {
-  const empty = { valueText: null, valueNumber: null, valueDate: null, valueOptionId: null, valueReferenceId: null };
+  const empty = {
+    valueText: null,
+    valueNumber: null,
+    valueDate: null,
+    valueOptionId: null,
+    valueReferenceId: null,
+  };
   switch (value.kind) {
-    case "text": return { ...empty, valueText: value.text };
-    case "number": return { ...empty, valueNumber: value.number };
-    case "date": return { ...empty, valueDate: value.date };
-    case "picklist": return { ...empty, valueOptionId: value.optionId };
+    case "text":
+      return { ...empty, valueText: value.text };
+    case "number":
+      return { ...empty, valueNumber: value.number };
+    case "date":
+      return { ...empty, valueDate: value.date };
+    case "picklist":
+      return { ...empty, valueOptionId: value.optionId };
     case "reference": {
-      const ok = value.referenceKind === "matter-reference"
-        ? value.referenceId.startsWith("matter_")
-        : value.referenceId.startsWith("directoryPerson_") || value.referenceId.startsWith("directoryOrganization_");
-      if (!ok) throw new CustomFieldError("reference-kind-handle-mismatch", `Handle ${value.referenceId} is not valid for ${value.referenceKind}.`);
+      const ok =
+        value.referenceKind === "matter-reference"
+          ? value.referenceId.startsWith("matter_")
+          : value.referenceId.startsWith("directoryPerson_") ||
+            value.referenceId.startsWith("directoryOrganization_");
+      if (!ok)
+        throw new CustomFieldError(
+          "reference-kind-handle-mismatch",
+          `Handle ${value.referenceId} is not valid for ${value.referenceKind}.`,
+        );
       return { ...empty, valueReferenceId: value.referenceId };
     }
   }
 }
 
-export async function setCustomFieldValue(database: BatchDatabase, input: { fieldId: CustomFieldId; targetRowId: string; value: CustomFieldValueInput }, options: CustomFieldWriteOptions) {
+export async function setCustomFieldValue(
+  database: BatchDatabase,
+  input: { fieldId: CustomFieldId; targetRowId: string; value: CustomFieldValueInput },
+  options: CustomFieldWriteOptions,
+) {
   const columns = columnsFor(input.value); // throws on a bad reference handle before any write
   const valueId = newIdentifier("customFieldValue", options.randomSource) as CustomFieldValueId;
-  return runCustomFieldEffect<{ customFieldValueId: CustomFieldValueId }>(database, options, 200, () => {
-    const now = options.clock.now();
-    return {
-      statements: [
-        flipCurrentValueStatement(database, input.fieldId, input.targetRowId, now),
-        insertCurrentValueStatement(database, { id: valueId, fieldId: input.fieldId, targetRowId: input.targetRowId, ...columns, now, createdBy: options.actorUserId }),
-        customFieldAuditStatement(database, options, "custom_field.value_set", valueId),
-      ],
-      outboxMessages: [],
-      value: { customFieldValueId: valueId },
-    };
-  });
+  return runCustomFieldEffect<{ customFieldValueId: CustomFieldValueId }>(
+    database,
+    options,
+    200,
+    () => {
+      const now = options.clock.now();
+      return {
+        statements: [
+          flipCurrentValueStatement(database, input.fieldId, input.targetRowId, now),
+          insertCurrentValueStatement(database, {
+            id: valueId,
+            fieldId: input.fieldId,
+            targetRowId: input.targetRowId,
+            ...columns,
+            now,
+            createdBy: options.actorUserId,
+          }),
+          customFieldAuditStatement(database, options, "custom_field.value_set", valueId),
+        ],
+        outboxMessages: [],
+        value: { customFieldValueId: valueId },
+      };
+    },
+  );
 }
 
-export async function clearCustomFieldValue(database: BatchDatabase, input: { fieldId: CustomFieldId; targetRowId: string }, options: CustomFieldWriteOptions) {
+export async function clearCustomFieldValue(
+  database: BatchDatabase,
+  input: { fieldId: CustomFieldId; targetRowId: string },
+  options: CustomFieldWriteOptions,
+) {
   return runCustomFieldEffect<{ ok: true }>(database, options, 200, () => ({
     statements: [
       flipCurrentValueStatement(database, input.fieldId, input.targetRowId, options.clock.now()),
@@ -1066,10 +1393,12 @@ git commit -m "feat(custom-fields): value service with append-and-flip history a
 ## Task 8: Read paths — resolve, current values, history
 
 **Files:**
+
 - Create: `packages/custom-fields/src/reads.ts`
 - Test: `packages/custom-fields/test/reads.test.ts`
 
 **Interfaces:**
+
 - Produces: `resolveCustomField(database, fieldId)` → `{ status: "active"; field: CustomFieldRow } | { status: "archived"; field: CustomFieldRow } | { status: "absent" }`; `readCurrentValues(database, targetRowId)` → `CustomFieldValueRow[]`; `readValueHistory(database, fieldId, targetRowId)` → `CustomFieldValueRow[]` ordered by `valid_from`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -1085,7 +1414,11 @@ import { fixtureWriteOptions } from "./helpers.ts";
 it("resolves active, archived, and absent fields", async () => {
   const db = await migratedFirmDatabase();
   const o = fixtureWriteOptions();
-  const { customFieldId } = await defineCustomField(db, { name: "A", kind: "single-line", target: "matter", attachmentId: null }, o);
+  const { customFieldId } = await defineCustomField(
+    db,
+    { name: "A", kind: "single-line", target: "matter", attachmentId: null },
+    o,
+  );
   expect((await resolveCustomField(db, customFieldId)).status).toBe("active");
   await archiveCustomField(db, { fieldId: customFieldId }, o);
   expect((await resolveCustomField(db, customFieldId)).status).toBe("archived");
@@ -1095,9 +1428,21 @@ it("resolves active, archived, and absent fields", async () => {
 it("readCurrentValues returns one row per field for a record", async () => {
   const db = await migratedFirmDatabase();
   const o = fixtureWriteOptions();
-  const { customFieldId } = await defineCustomField(db, { name: "A", kind: "single-line", target: "matter", attachmentId: null }, o);
-  await setCustomFieldValue(db, { fieldId: customFieldId, targetRowId: "matter_1", value: { kind: "text", text: "v1" } }, o);
-  await setCustomFieldValue(db, { fieldId: customFieldId, targetRowId: "matter_1", value: { kind: "text", text: "v2" } }, o);
+  const { customFieldId } = await defineCustomField(
+    db,
+    { name: "A", kind: "single-line", target: "matter", attachmentId: null },
+    o,
+  );
+  await setCustomFieldValue(
+    db,
+    { fieldId: customFieldId, targetRowId: "matter_1", value: { kind: "text", text: "v1" } },
+    o,
+  );
+  await setCustomFieldValue(
+    db,
+    { fieldId: customFieldId, targetRowId: "matter_1", value: { kind: "text", text: "v2" } },
+    o,
+  );
   const rows = await readCurrentValues(db, "matter_1");
   expect(rows).toHaveLength(1);
   expect(rows[0]?.valueText).toBe("v2");
@@ -1117,13 +1462,23 @@ import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statement
 import type { CustomFieldId } from "@magna-carta/identifiers/types";
 
 export interface CustomFieldRow {
-  readonly id: string; readonly name: string; readonly kind: string; readonly target: string;
-  readonly attachmentId: string | null; readonly archived: number;
+  readonly id: string;
+  readonly name: string;
+  readonly kind: string;
+  readonly target: string;
+  readonly attachmentId: string | null;
+  readonly archived: number;
 }
 export interface CustomFieldValueRow {
-  readonly id: string; readonly fieldId: string; readonly valueText: string | null; readonly valueNumber: number | null;
-  readonly valueDate: string | null; readonly valueOptionId: string | null; readonly valueReferenceId: string | null;
-  readonly validFrom: string; readonly validTo: string | null;
+  readonly id: string;
+  readonly fieldId: string;
+  readonly valueText: string | null;
+  readonly valueNumber: number | null;
+  readonly valueDate: string | null;
+  readonly valueOptionId: string | null;
+  readonly valueReferenceId: string | null;
+  readonly validFrom: string;
+  readonly validTo: string | null;
 }
 
 export type ResolvedCustomField =
@@ -1131,26 +1486,42 @@ export type ResolvedCustomField =
   | { status: "archived"; field: CustomFieldRow }
   | { status: "absent" };
 
-export async function resolveCustomField(database: SqlDatabase, fieldId: CustomFieldId | string): Promise<ResolvedCustomField> {
+export async function resolveCustomField(
+  database: SqlDatabase,
+  fieldId: CustomFieldId | string,
+): Promise<ResolvedCustomField> {
   const row = await database
-    .prepare(`SELECT id, name, kind, target, attachment_id AS attachmentId, archived FROM custom_field WHERE id = ?1`)
+    .prepare(
+      `SELECT id, name, kind, target, attachment_id AS attachmentId, archived FROM custom_field WHERE id = ?1`,
+    )
     .bind(fieldId)
     .first<CustomFieldRow>();
   if (!row) return { status: "absent" };
   return { status: row.archived === 1 ? "archived" : "active", field: row };
 }
 
-export async function readCurrentValues(database: SqlDatabase, targetRowId: string): Promise<CustomFieldValueRow[]> {
+export async function readCurrentValues(
+  database: SqlDatabase,
+  targetRowId: string,
+): Promise<CustomFieldValueRow[]> {
   const { results } = await database
-    .prepare(`SELECT id, field_id AS fieldId, value_text AS valueText, value_number AS valueNumber, value_date AS valueDate, value_option_id AS valueOptionId, value_reference_id AS valueReferenceId, valid_from AS validFrom, valid_to AS validTo FROM custom_field_value WHERE target_row_id = ?1 AND is_current = 1`)
+    .prepare(
+      `SELECT id, field_id AS fieldId, value_text AS valueText, value_number AS valueNumber, value_date AS valueDate, value_option_id AS valueOptionId, value_reference_id AS valueReferenceId, valid_from AS validFrom, valid_to AS validTo FROM custom_field_value WHERE target_row_id = ?1 AND is_current = 1`,
+    )
     .bind(targetRowId)
     .all<CustomFieldValueRow>();
   return results;
 }
 
-export async function readValueHistory(database: SqlDatabase, fieldId: CustomFieldId | string, targetRowId: string): Promise<CustomFieldValueRow[]> {
+export async function readValueHistory(
+  database: SqlDatabase,
+  fieldId: CustomFieldId | string,
+  targetRowId: string,
+): Promise<CustomFieldValueRow[]> {
   const { results } = await database
-    .prepare(`SELECT id, field_id AS fieldId, value_text AS valueText, value_number AS valueNumber, value_date AS valueDate, value_option_id AS valueOptionId, value_reference_id AS valueReferenceId, valid_from AS validFrom, valid_to AS validTo FROM custom_field_value WHERE field_id = ?1 AND target_row_id = ?2 ORDER BY valid_from`)
+    .prepare(
+      `SELECT id, field_id AS fieldId, value_text AS valueText, value_number AS valueNumber, value_date AS valueDate, value_option_id AS valueOptionId, value_reference_id AS valueReferenceId, valid_from AS validFrom, valid_to AS validTo FROM custom_field_value WHERE field_id = ?1 AND target_row_id = ?2 ORDER BY valid_from`,
+    )
     .bind(fieldId, targetRowId)
     .all<CustomFieldValueRow>();
   return results;
@@ -1174,11 +1545,13 @@ git commit -m "feat(custom-fields): read paths (resolve, current values, history
 ## Task 9: Governance guards — define-time caps and field hard-delete
 
 **Files:**
+
 - Modify: `packages/custom-fields/src/custom-field-service.ts` (add the cap checks to `defineCustomField` and the `hardDeleteCustomField` function)
 - Create: `packages/custom-fields/src/limits.ts` (the cap constants)
 - Test: `packages/custom-fields/test/governance.test.ts`
 
 **Interfaces:**
+
 - Produces: `hardDeleteCustomField(database, { fieldId }, options)` (throws `field-in-use` when any value row exists); cap enforcement in `defineCustomField` (throws `too-many-fields-for-scope` / `too-many-fields-for-firm`); `MAX_FIELDS_PER_SCOPE`, `MAX_FIELDS_PER_FIRM`, `MAX_OPTIONS_PER_FIELD` from `limits.ts`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -1194,17 +1567,34 @@ import { MAX_FIELDS_PER_SCOPE } from "../src/limits.ts";
 it("refuses hard-delete once the field has any value (current or historical)", async () => {
   const db = await migratedFirmDatabase();
   const o = fixtureWriteOptions();
-  const { customFieldId } = await defineCustomField(db, { name: "A", kind: "single-line", target: "matter", attachmentId: null }, o);
-  await setCustomFieldValue(db, { fieldId: customFieldId, targetRowId: "matter_1", value: { kind: "text", text: "x" } }, o);
-  await expect(hardDeleteCustomField(db, { fieldId: customFieldId }, o)).rejects.toMatchObject({ code: "field-in-use" });
+  const { customFieldId } = await defineCustomField(
+    db,
+    { name: "A", kind: "single-line", target: "matter", attachmentId: null },
+    o,
+  );
+  await setCustomFieldValue(
+    db,
+    { fieldId: customFieldId, targetRowId: "matter_1", value: { kind: "text", text: "x" } },
+    o,
+  );
+  await expect(hardDeleteCustomField(db, { fieldId: customFieldId }, o)).rejects.toMatchObject({
+    code: "field-in-use",
+  });
 });
 
 it("hard-deletes a clean, unused field", async () => {
   const db = await migratedFirmDatabase();
   const o = fixtureWriteOptions();
-  const { customFieldId } = await defineCustomField(db, { name: "A", kind: "single-line", target: "matter", attachmentId: null }, o);
+  const { customFieldId } = await defineCustomField(
+    db,
+    { name: "A", kind: "single-line", target: "matter", attachmentId: null },
+    o,
+  );
   await hardDeleteCustomField(db, { fieldId: customFieldId }, o);
-  const row = await db.prepare("SELECT 1 FROM custom_field WHERE id = ?1").bind(customFieldId).first();
+  const row = await db
+    .prepare("SELECT 1 FROM custom_field WHERE id = ?1")
+    .bind(customFieldId)
+    .first();
   expect(row).toBeNull();
 });
 
@@ -1212,10 +1602,18 @@ it("enforces the per-scope field cap", async () => {
   const db = await migratedFirmDatabase();
   const o = fixtureWriteOptions();
   for (let n = 0; n < MAX_FIELDS_PER_SCOPE; n += 1) {
-    await defineCustomField(db, { name: `f${n}`, kind: "single-line", target: "matter", attachmentId: "matterType_x" }, o);
+    await defineCustomField(
+      db,
+      { name: `f${n}`, kind: "single-line", target: "matter", attachmentId: "matterType_x" },
+      o,
+    );
   }
   await expect(
-    defineCustomField(db, { name: "overflow", kind: "single-line", target: "matter", attachmentId: "matterType_x" }, o),
+    defineCustomField(
+      db,
+      { name: "overflow", kind: "single-line", target: "matter", attachmentId: "matterType_x" },
+      o,
+    ),
   ).rejects.toMatchObject({ code: "too-many-fields-for-scope" });
 });
 ```
@@ -1240,20 +1638,46 @@ export const MAX_OPTIONS_PER_FIELD = 200;
 import { MAX_FIELDS_PER_SCOPE, MAX_FIELDS_PER_FIRM } from "./limits.ts";
 import { CustomFieldError } from "./types.ts";
 
-async function assertWithinFieldCaps(database: BatchDatabase, input: DefineCustomFieldInput): Promise<void> {
+async function assertWithinFieldCaps(
+  database: BatchDatabase,
+  input: DefineCustomFieldInput,
+): Promise<void> {
   const scope = await database
-    .prepare(`SELECT COUNT(*) AS n FROM custom_field WHERE target = ?1 AND ((attachment_id IS NULL AND ?2 IS NULL) OR attachment_id = ?2) AND archived = 0`)
+    .prepare(
+      `SELECT COUNT(*) AS n FROM custom_field WHERE target = ?1 AND ((attachment_id IS NULL AND ?2 IS NULL) OR attachment_id = ?2) AND archived = 0`,
+    )
     .bind(input.target, input.attachmentId)
     .first<{ n: number }>();
-  if ((scope?.n ?? 0) >= MAX_FIELDS_PER_SCOPE) throw new CustomFieldError("too-many-fields-for-scope", `A scope may hold at most ${MAX_FIELDS_PER_SCOPE} active fields.`);
-  const firm = await database.prepare(`SELECT COUNT(*) AS n FROM custom_field WHERE archived = 0`).first<{ n: number }>();
-  if ((firm?.n ?? 0) >= MAX_FIELDS_PER_FIRM) throw new CustomFieldError("too-many-fields-for-firm", `A firm may hold at most ${MAX_FIELDS_PER_FIRM} active fields.`);
+  if ((scope?.n ?? 0) >= MAX_FIELDS_PER_SCOPE)
+    throw new CustomFieldError(
+      "too-many-fields-for-scope",
+      `A scope may hold at most ${MAX_FIELDS_PER_SCOPE} active fields.`,
+    );
+  const firm = await database
+    .prepare(`SELECT COUNT(*) AS n FROM custom_field WHERE archived = 0`)
+    .first<{ n: number }>();
+  if ((firm?.n ?? 0) >= MAX_FIELDS_PER_FIRM)
+    throw new CustomFieldError(
+      "too-many-fields-for-firm",
+      `A firm may hold at most ${MAX_FIELDS_PER_FIRM} active fields.`,
+    );
 }
 // Call `await assertWithinFieldCaps(database, input);` as the first line of defineCustomField (before minting the id).
 
-export async function hardDeleteCustomField(database: BatchDatabase, input: { fieldId: CustomFieldId }, options: CustomFieldWriteOptions) {
-  const used = await database.prepare(`SELECT 1 FROM custom_field_value WHERE field_id = ?1 LIMIT 1`).bind(input.fieldId).first();
-  if (used) throw new CustomFieldError("field-in-use", "Cannot hard-delete a field that has values; archive it instead.");
+export async function hardDeleteCustomField(
+  database: BatchDatabase,
+  input: { fieldId: CustomFieldId },
+  options: CustomFieldWriteOptions,
+) {
+  const used = await database
+    .prepare(`SELECT 1 FROM custom_field_value WHERE field_id = ?1 LIMIT 1`)
+    .bind(input.fieldId)
+    .first();
+  if (used)
+    throw new CustomFieldError(
+      "field-in-use",
+      "Cannot hard-delete a field that has values; archive it instead.",
+    );
   return runCustomFieldEffect<{ ok: true }>(database, options, 200, () => ({
     statements: [
       database.prepare(`DELETE FROM picklist_option WHERE field_id = ?1`).bind(input.fieldId),
@@ -1285,10 +1709,12 @@ git commit -m "feat(custom-fields): define-time caps and unused-only hard-delete
 ## Task 10: The coercion classifier (pure)
 
 **Files:**
+
 - Create: `packages/custom-fields/src/coercion.ts`
 - Test: `packages/custom-fields/test/coercion.test.ts`
 
 **Interfaces:**
+
 - Produces: `classifyCoercion(rawValue, fromKind, toKind)` → `{ outcome: "clean"; coerced: CoercedValue } | { outcome: "needs-rule" } | { outcome: "parked" }`. `coerceWithRule(rawValue, toKind, rule)` for the confirmed-rule path. Pure functions — no database. `RawStoredValue` is the read shape (the populated `value_*` column).
 
 - [ ] **Step 1: Write the failing tests**
@@ -1298,19 +1724,30 @@ git commit -m "feat(custom-fields): define-time caps and unused-only hard-delete
 import { classifyCoercion } from "../src/coercion.ts";
 
 it("text that is plain digits converts cleanly to a number", () => {
-  expect(classifyCoercion({ kind: "single-line", text: "4250000" }, "single-line", "number").outcome).toBe("clean");
+  expect(
+    classifyCoercion({ kind: "single-line", text: "4250000" }, "single-line", "number").outcome,
+  ).toBe("clean");
 });
 it("currency text with a magnitude suffix needs a rule", () => {
-  expect(classifyCoercion({ kind: "single-line", text: "4.25M" }, "single-line", "currency").outcome).toBe("needs-rule");
+  expect(
+    classifyCoercion({ kind: "single-line", text: "4.25M" }, "single-line", "currency").outcome,
+  ).toBe("needs-rule");
 });
 it("free text with no number parks against a date", () => {
-  expect(classifyCoercion({ kind: "single-line", text: "approx five" }, "single-line", "date").outcome).toBe("parked");
+  expect(
+    classifyCoercion({ kind: "single-line", text: "approx five" }, "single-line", "date").outcome,
+  ).toBe("parked");
 });
 it("single-line to multi-line is always clean", () => {
-  expect(classifyCoercion({ kind: "single-line", text: "anything" }, "single-line", "multi-line").outcome).toBe("clean");
+  expect(
+    classifyCoercion({ kind: "single-line", text: "anything" }, "single-line", "multi-line")
+      .outcome,
+  ).toBe("clean");
 });
 it("picklist to text uses the option label and is clean", () => {
-  expect(classifyCoercion({ kind: "picklist", optionLabel: "Filed" }, "picklist", "single-line").outcome).toBe("clean");
+  expect(
+    classifyCoercion({ kind: "picklist", optionLabel: "Filed" }, "picklist", "single-line").outcome,
+  ).toBe("clean");
 });
 ```
 
@@ -1354,18 +1791,28 @@ function asText(value: RawStoredValue): string {
   return String(value.checkbox);
 }
 
-export function classifyCoercion(value: RawStoredValue, fromKind: CustomFieldKind, toKind: CustomFieldKind): Classification {
+export function classifyCoercion(
+  value: RawStoredValue,
+  fromKind: CustomFieldKind,
+  toKind: CustomFieldKind,
+): Classification {
   if (fromKind === toKind) return { outcome: "clean", coerced: trivialCoercion(value) };
   // Text family: any text kind <-> any text kind, and picklist/number/date -> text, are clean.
-  if (TEXTY.includes(toKind)) return { outcome: "clean", coerced: { column: "value_text", text: asText(value) } };
+  if (TEXTY.includes(toKind))
+    return { outcome: "clean", coerced: { column: "value_text", text: asText(value) } };
   // number <-> currency: re-scale is mechanical (handled with the field's number_scale at apply time).
-  if ((fromKind === "number" && toKind === "currency") || (fromKind === "currency" && toKind === "number")) {
-    if ("number" in value) return { outcome: "clean", coerced: { column: "value_number", number: value.number } };
+  if (
+    (fromKind === "number" && toKind === "currency") ||
+    (fromKind === "currency" && toKind === "number")
+  ) {
+    if ("number" in value)
+      return { outcome: "clean", coerced: { column: "value_number", number: value.number } };
   }
   // -> number / -> currency from text.
   if (toKind === "number" || toKind === "currency") {
     const text = asText(value).replaceAll(",", "").replace(/^\$/, "").trim();
-    if (INT_RE.test(text)) return { outcome: "clean", coerced: { column: "value_number", number: Number(text) } };
+    if (INT_RE.test(text))
+      return { outcome: "clean", coerced: { column: "value_number", number: Number(text) } };
     if (MAGNITUDE_RE.test(text)) return { outcome: "needs-rule" };
     return { outcome: "parked" };
   }
@@ -1374,7 +1821,8 @@ export function classifyCoercion(value: RawStoredValue, fromKind: CustomFieldKin
   // -> date / -> time from text: only an ISO-shaped string is clean.
   if (toKind === "date" || toKind === "time") {
     const text = asText(value).trim();
-    if (/^\d{4}-\d{2}-\d{2}/.test(text)) return { outcome: "clean", coerced: { column: "value_date", date: text } };
+    if (/^\d{4}-\d{2}-\d{2}/.test(text))
+      return { outcome: "clean", coerced: { column: "value_date", date: text } };
     return { outcome: "parked" };
   }
   return { outcome: "parked" };
@@ -1408,10 +1856,12 @@ git commit -m "feat(custom-fields): pure coercion classifier for retype preview"
 ## Task 11: The Convert operation — preview and apply
 
 **Files:**
+
 - Create: `packages/custom-fields/src/convert.ts`
 - Test: `packages/custom-fields/test/convert.test.ts`
 
 **Interfaces:**
+
 - Consumes: `classifyCoercion` (Task 10); the value statements (Task 7); `updateCustomFieldFlagsStatement` (Task 4).
 - Produces: `previewConvert(database, { fieldId, toKind })` → `{ clean: number; needsRule: number; parked: { targetRowId: string }[] }`; `applyConvert(database, { fieldId, toKind, parkedDisposition: "park" | "block" }, options)` → throws `convert-has-parked-values` when `parkedDisposition === "block"` and any value parks; otherwise appends coerced current rows, flips originals to history, clears parked records, updates `kind`, and writes one `custom_field.kind_changed` event.
 
@@ -1429,20 +1879,48 @@ import { fixtureWriteOptions } from "./helpers.ts";
 it("apply with park: coerces clean values, flips originals to history, clears parked, flips the kind", async () => {
   const db = await migratedFirmDatabase();
   const o = fixtureWriteOptions();
-  const { customFieldId } = await defineCustomField(db, { name: "Sum", kind: "single-line", target: "matter", attachmentId: null }, o);
-  await setCustomFieldValue(db, { fieldId: customFieldId, targetRowId: "matter_1", value: { kind: "text", text: "4250000" } }, o);
-  await setCustomFieldValue(db, { fieldId: customFieldId, targetRowId: "matter_2", value: { kind: "text", text: "approx five" } }, o);
+  const { customFieldId } = await defineCustomField(
+    db,
+    { name: "Sum", kind: "single-line", target: "matter", attachmentId: null },
+    o,
+  );
+  await setCustomFieldValue(
+    db,
+    { fieldId: customFieldId, targetRowId: "matter_1", value: { kind: "text", text: "4250000" } },
+    o,
+  );
+  await setCustomFieldValue(
+    db,
+    {
+      fieldId: customFieldId,
+      targetRowId: "matter_2",
+      value: { kind: "text", text: "approx five" },
+    },
+    o,
+  );
 
   const preview = await previewConvert(db, { fieldId: customFieldId, toKind: "number" });
   expect(preview.clean).toBe(1);
   expect(preview.parked).toEqual([{ targetRowId: "matter_2" }]);
 
-  await applyConvert(db, { fieldId: customFieldId, toKind: "number", parkedDisposition: "park" }, o);
+  await applyConvert(
+    db,
+    { fieldId: customFieldId, toKind: "number", parkedDisposition: "park" },
+    o,
+  );
 
   expect((await resolveCustomField(db, customFieldId)).field?.kind).toBe("number");
-  const m1 = await db.prepare("SELECT value_number FROM custom_field_value WHERE target_row_id='matter_1' AND is_current=1").first<{ value_number: number }>();
+  const m1 = await db
+    .prepare(
+      "SELECT value_number FROM custom_field_value WHERE target_row_id='matter_1' AND is_current=1",
+    )
+    .first<{ value_number: number }>();
   expect(m1?.value_number).toBe(4250000);
-  const m2current = await db.prepare("SELECT COUNT(*) AS n FROM custom_field_value WHERE target_row_id='matter_2' AND is_current=1").first<{ n: number }>();
+  const m2current = await db
+    .prepare(
+      "SELECT COUNT(*) AS n FROM custom_field_value WHERE target_row_id='matter_2' AND is_current=1",
+    )
+    .first<{ n: number }>();
   expect(m2current?.n).toBe(0); // parked -> cleared, original preserved as history
   const m1history = await readValueHistory(db, customFieldId, "matter_1");
   expect(m1history.length).toBe(2); // original text row + new number row
@@ -1451,9 +1929,23 @@ it("apply with park: coerces clean values, flips originals to history, clears pa
 it("apply with block throws when any value parks", async () => {
   const db = await migratedFirmDatabase();
   const o = fixtureWriteOptions();
-  const { customFieldId } = await defineCustomField(db, { name: "Sum", kind: "single-line", target: "matter", attachmentId: null }, o);
-  await setCustomFieldValue(db, { fieldId: customFieldId, targetRowId: "matter_2", value: { kind: "text", text: "approx five" } }, o);
-  await expect(applyConvert(db, { fieldId: customFieldId, toKind: "number", parkedDisposition: "block" }, o)).rejects.toMatchObject({ code: "convert-has-parked-values" });
+  const { customFieldId } = await defineCustomField(
+    db,
+    { name: "Sum", kind: "single-line", target: "matter", attachmentId: null },
+    o,
+  );
+  await setCustomFieldValue(
+    db,
+    {
+      fieldId: customFieldId,
+      targetRowId: "matter_2",
+      value: { kind: "text", text: "approx five" },
+    },
+    o,
+  );
+  await expect(
+    applyConvert(db, { fieldId: customFieldId, toKind: "number", parkedDisposition: "block" }, o),
+  ).rejects.toMatchObject({ code: "convert-has-parked-values" });
 });
 ```
 
@@ -1471,32 +1963,61 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { CustomFieldId, CustomFieldValueId } from "@magna-carta/identifiers/types";
 import { customFieldAuditStatement } from "./audit.ts";
 import { classifyCoercion, type RawStoredValue } from "./coercion.ts";
-import { flipCurrentValueStatement, insertCurrentValueStatement } from "./custom-field-value-statements.ts";
+import {
+  flipCurrentValueStatement,
+  insertCurrentValueStatement,
+} from "./custom-field-value-statements.ts";
 import { updateCustomFieldFlagsStatement } from "./custom-field-statements.ts";
 import { runCustomFieldEffect, type CustomFieldWriteOptions } from "./run-custom-field-effect.ts";
 import { CustomFieldError, type CustomFieldKind } from "./types.ts";
 
-interface CurrentValueForConvert { readonly targetRowId: string; readonly raw: RawStoredValue; }
+interface CurrentValueForConvert {
+  readonly targetRowId: string;
+  readonly raw: RawStoredValue;
+}
 
-async function loadCurrentValues(database: BatchDatabase, fieldId: CustomFieldId, fromKind: CustomFieldKind): Promise<CurrentValueForConvert[]> {
+async function loadCurrentValues(
+  database: BatchDatabase,
+  fieldId: CustomFieldId,
+  fromKind: CustomFieldKind,
+): Promise<CurrentValueForConvert[]> {
   const { results } = await database
-    .prepare(`SELECT target_row_id AS targetRowId, value_text, value_number, value_date, value_option_id, value_reference_id FROM custom_field_value WHERE field_id = ?1 AND is_current = 1`)
+    .prepare(
+      `SELECT target_row_id AS targetRowId, value_text, value_number, value_date, value_option_id, value_reference_id FROM custom_field_value WHERE field_id = ?1 AND is_current = 1`,
+    )
     .bind(fieldId)
-    .all<{ targetRowId: string; value_text: string | null; value_number: number | null; value_date: string | null; value_option_id: string | null; value_reference_id: string | null }>();
+    .all<{
+      targetRowId: string;
+      value_text: string | null;
+      value_number: number | null;
+      value_date: string | null;
+      value_option_id: string | null;
+      value_reference_id: string | null;
+    }>();
   // Map the populated column back to a RawStoredValue using fromKind. (picklist needs the option label — join picklist_option.)
   return results.map((row) => ({ targetRowId: row.targetRowId, raw: toRaw(row, fromKind) }));
 }
 
-async function fieldKind(database: BatchDatabase, fieldId: CustomFieldId): Promise<CustomFieldKind> {
-  const row = await database.prepare(`SELECT kind FROM custom_field WHERE id = ?1`).bind(fieldId).first<{ kind: CustomFieldKind }>();
+async function fieldKind(
+  database: BatchDatabase,
+  fieldId: CustomFieldId,
+): Promise<CustomFieldKind> {
+  const row = await database
+    .prepare(`SELECT kind FROM custom_field WHERE id = ?1`)
+    .bind(fieldId)
+    .first<{ kind: CustomFieldKind }>();
   if (!row) throw new CustomFieldError("unknown-field", "No such custom field.");
   return row.kind;
 }
 
-export async function previewConvert(database: BatchDatabase, input: { fieldId: CustomFieldId; toKind: CustomFieldKind }) {
+export async function previewConvert(
+  database: BatchDatabase,
+  input: { fieldId: CustomFieldId; toKind: CustomFieldKind },
+) {
   const fromKind = await fieldKind(database, input.fieldId);
   const values = await loadCurrentValues(database, input.fieldId, fromKind);
-  let clean = 0, needsRule = 0;
+  let clean = 0,
+    needsRule = 0;
   const parked: { targetRowId: string }[] = [];
   for (const v of values) {
     const c = classifyCoercion(v.raw, fromKind, input.toKind);
@@ -1507,12 +2028,19 @@ export async function previewConvert(database: BatchDatabase, input: { fieldId: 
   return { clean, needsRule, parked };
 }
 
-export async function applyConvert(database: BatchDatabase, input: { fieldId: CustomFieldId; toKind: CustomFieldKind; parkedDisposition: "park" | "block" }, options: CustomFieldWriteOptions) {
+export async function applyConvert(
+  database: BatchDatabase,
+  input: { fieldId: CustomFieldId; toKind: CustomFieldKind; parkedDisposition: "park" | "block" },
+  options: CustomFieldWriteOptions,
+) {
   const fromKind = await fieldKind(database, input.fieldId);
   const values = await loadCurrentValues(database, input.fieldId, fromKind);
   const classified = values.map((v) => ({ v, c: classifyCoercion(v.raw, fromKind, input.toKind) }));
   if (input.parkedDisposition === "block" && classified.some((x) => x.c.outcome === "parked")) {
-    throw new CustomFieldError("convert-has-parked-values", "Resolve or re-rule the parked values, or choose park.");
+    throw new CustomFieldError(
+      "convert-has-parked-values",
+      "Resolve or re-rule the parked values, or choose park.",
+    );
   }
   return runCustomFieldEffect<{ ok: true }>(database, options, 200, () => {
     const now = options.clock.now();
@@ -1520,14 +2048,37 @@ export async function applyConvert(database: BatchDatabase, input: { fieldId: Cu
     for (const { v, c } of classified) {
       statements.push(flipCurrentValueStatement(database, input.fieldId, v.targetRowId, now));
       if (c.outcome === "clean") {
-        const valueId = newIdentifier("customFieldValue", options.randomSource) as CustomFieldValueId;
-        const cols = { valueText: null, valueNumber: null, valueDate: null, valueOptionId: null, valueReferenceId: null, [columnField(c.coerced.column)]: columnValue(c.coerced) };
-        statements.push(insertCurrentValueStatement(database, { id: valueId, fieldId: input.fieldId, targetRowId: v.targetRowId, now, createdBy: options.actorUserId, ...(cols as any) }));
+        const valueId = newIdentifier(
+          "customFieldValue",
+          options.randomSource,
+        ) as CustomFieldValueId;
+        const cols = {
+          valueText: null,
+          valueNumber: null,
+          valueDate: null,
+          valueOptionId: null,
+          valueReferenceId: null,
+          [columnField(c.coerced.column)]: columnValue(c.coerced),
+        };
+        statements.push(
+          insertCurrentValueStatement(database, {
+            id: valueId,
+            fieldId: input.fieldId,
+            targetRowId: v.targetRowId,
+            now,
+            createdBy: options.actorUserId,
+            ...(cols as any),
+          }),
+        );
       }
       // needs-rule with no confirmed rule, and parked: original flipped to history, no new current row (cleared).
     }
-    statements.push(updateCustomFieldFlagsStatement(database, input.fieldId, { kind: input.toKind }));
-    statements.push(customFieldAuditStatement(database, options, "custom_field.kind_changed", input.fieldId));
+    statements.push(
+      updateCustomFieldFlagsStatement(database, input.fieldId, { kind: input.toKind }),
+    );
+    statements.push(
+      customFieldAuditStatement(database, options, "custom_field.kind_changed", input.fieldId),
+    );
     return { statements, outboxMessages: [], value: { ok: true } };
   });
 }
@@ -1557,12 +2108,14 @@ git commit -m "feat(custom-fields): non-destructive Convert (preview + apply, re
 ## Task 12: Extend the directory merge — repoint custom-field reference values
 
 **Files:**
+
 - Modify: `packages/directory/src/merge.ts` (the `RepointTarget` interface, `REPOINT_TARGETS`, the repoint loop)
 - Modify: `packages/directory/src/fitness.ts` (`INBOUND_REFERENCE_PROBES`)
 - Modify: `packages/directory/package.json` — no change (the table is named by string; no new dependency)
 - Test: `packages/directory/test/merge.test.ts` (extend the existing merge suite)
 
 **Interfaces:**
+
 - Consumes: nothing new (operates on the `custom_field_value` table by name).
 - Produces: a new `onCollision: "delete" | "archive-to-history"` field on `RepointTarget`; two new `REPOINT_TARGETS` entries (`custom_field_value.value_reference_id` and `custom_field_value.target_row_id`); two new `INBOUND_REFERENCE_PROBES` entries; the archive-to-history absorb branch.
 
@@ -1575,20 +2128,54 @@ git commit -m "feat(custom-fields): non-destructive Convert (preview + apply, re
 it("repoints a contact-reference custom value and absorbs an owned value to history on merge", async () => {
   // ...existing harness: build `context`, create `master` and `sub` organizations, get the `db` (= context.database)...
   // Target A: a matter field whose contact-reference points at the subordinate.
-  await db.prepare("INSERT INTO custom_field (id,name,kind,target,attachment_id,required,archived,converting,position,created_at) VALUES ('customField_ref','Carrier','contact-reference','matter',NULL,0,0,0,0,'t')").run();
-  await db.prepare("INSERT INTO custom_field_value (id,field_id,target_row_id,value_reference_id,is_current,valid_from,created_at) VALUES ('customFieldValue_a','customField_ref','matter_1',?1,1,'t','t')").bind(sub.id).run();
+  await db
+    .prepare(
+      "INSERT INTO custom_field (id,name,kind,target,attachment_id,required,archived,converting,position,created_at) VALUES ('customField_ref','Carrier','contact-reference','matter',NULL,0,0,0,0,'t')",
+    )
+    .run();
+  await db
+    .prepare(
+      "INSERT INTO custom_field_value (id,field_id,target_row_id,value_reference_id,is_current,valid_from,created_at) VALUES ('customFieldValue_a','customField_ref','matter_1',?1,1,'t','t')",
+    )
+    .bind(sub.id)
+    .run();
   // Target B: an entity field with values OWNED BY both master and subordinate (same field) -> collision -> absorb-to-history.
-  await db.prepare("INSERT INTO custom_field (id,name,kind,target,attachment_id,required,archived,converting,position,created_at) VALUES ('customField_own','Risk','single-line','entity',NULL,0,0,0,0,'t')").run();
-  await db.prepare("INSERT INTO custom_field_value (id,field_id,target_row_id,value_text,is_current,valid_from,created_at) VALUES ('customFieldValue_m','customField_own',?1,'A',1,'t','t')").bind(master.id).run();
-  await db.prepare("INSERT INTO custom_field_value (id,field_id,target_row_id,value_text,is_current,valid_from,created_at) VALUES ('customFieldValue_s','customField_own',?1,'B',1,'t','t')").bind(sub.id).run();
+  await db
+    .prepare(
+      "INSERT INTO custom_field (id,name,kind,target,attachment_id,required,archived,converting,position,created_at) VALUES ('customField_own','Risk','single-line','entity',NULL,0,0,0,0,'t')",
+    )
+    .run();
+  await db
+    .prepare(
+      "INSERT INTO custom_field_value (id,field_id,target_row_id,value_text,is_current,valid_from,created_at) VALUES ('customFieldValue_m','customField_own',?1,'A',1,'t','t')",
+    )
+    .bind(master.id)
+    .run();
+  await db
+    .prepare(
+      "INSERT INTO custom_field_value (id,field_id,target_row_id,value_text,is_current,valid_from,created_at) VALUES ('customFieldValue_s','customField_own',?1,'B',1,'t','t')",
+    )
+    .bind(sub.id)
+    .run();
 
   await mergeEntities(context, { masterId: master.id, subordinateId: sub.id });
 
-  const ref = await db.prepare("SELECT value_reference_id FROM custom_field_value WHERE id='customFieldValue_a'").first<{ value_reference_id: string }>();
+  const ref = await db
+    .prepare("SELECT value_reference_id FROM custom_field_value WHERE id='customFieldValue_a'")
+    .first<{ value_reference_id: string }>();
   expect(ref?.value_reference_id).toBe(master.id); // Target A repointed
-  const masterCurrent = await db.prepare("SELECT COUNT(*) AS n FROM custom_field_value WHERE field_id='customField_own' AND target_row_id=?1 AND is_current=1").bind(master.id).first<{ n: number }>();
+  const masterCurrent = await db
+    .prepare(
+      "SELECT COUNT(*) AS n FROM custom_field_value WHERE field_id='customField_own' AND target_row_id=?1 AND is_current=1",
+    )
+    .bind(master.id)
+    .first<{ n: number }>();
   expect(masterCurrent?.n).toBe(1); // master's value wins, still one current
-  const absorbed = await db.prepare("SELECT is_current, target_row_id FROM custom_field_value WHERE id='customFieldValue_s'").first<{ is_current: number; target_row_id: string }>();
+  const absorbed = await db
+    .prepare(
+      "SELECT is_current, target_row_id FROM custom_field_value WHERE id='customFieldValue_s'",
+    )
+    .first<{ is_current: number; target_row_id: string }>();
   expect(absorbed).toEqual({ is_current: 0, target_row_id: master.id }); // subordinate value -> history under master
 });
 ```
@@ -1611,7 +2198,11 @@ interface RepointTarget {
   readonly rowColumn: string;
   readonly extraColumns: readonly string[];
   readonly onCollision: "delete" | "archive-to-history";
-  readonly collides: (database: BatchDatabase, masterId: string, row: Readonly<Record<string, string | null>>) => Promise<boolean>;
+  readonly collides: (
+    database: BatchDatabase,
+    masterId: string,
+    row: Readonly<Record<string, string | null>>,
+  ) => Promise<boolean>;
 }
 ```
 
@@ -1655,15 +2246,33 @@ if (await target.collides(database, masterId, row)) {
     // Move the losing row to the master and flip it to history, preserving content (field-level survivorship).
     statements.push(
       database
-        .prepare(`UPDATE ${target.table} SET ${target.column} = ?2, is_current = 0, valid_to = ?3 WHERE ${target.rowColumn} = ?1`)
+        .prepare(
+          `UPDATE ${target.table} SET ${target.column} = ?2, is_current = 0, valid_to = ?3 WHERE ${target.rowColumn} = ?1`,
+        )
         .bind(rowId, masterId, now),
     );
-    repointed.push({ table: target.table, row: rowId, from: subordinateId, to: masterId, absorbed: true });
+    repointed.push({
+      table: target.table,
+      row: rowId,
+      from: subordinateId,
+      to: masterId,
+      absorbed: true,
+    });
   } else {
     statements.push(
-      database.prepare(`DELETE FROM ${target.table} WHERE ${target.rowColumn} = ?1 AND ${target.column} = ?2`).bind(rowId, subordinateId),
+      database
+        .prepare(
+          `DELETE FROM ${target.table} WHERE ${target.rowColumn} = ?1 AND ${target.column} = ?2`,
+        )
+        .bind(rowId, subordinateId),
     );
-    repointed.push({ table: target.table, row: rowId, from: subordinateId, to: masterId, absorbed: true });
+    repointed.push({
+      table: target.table,
+      row: rowId,
+      from: subordinateId,
+      to: masterId,
+      absorbed: true,
+    });
   }
 } else {
   // ...unchanged plain UPDATE repoint...
@@ -1709,10 +2318,12 @@ git commit -m "feat(directory): repoint custom-field reference values on merge (
 ## Task 13: The Purge seam
 
 **Files:**
+
 - Create: `packages/custom-fields/src/purge.ts`
 - Test: `packages/custom-fields/test/purge.test.ts`
 
 **Interfaces:**
+
 - Produces: `purgeCustomField(database, { fieldId, reason }, options)` — throws `CustomFieldError("purge-not-yet-enabled", …)`; the documented contract (irreversible erasure of a field and all its values; emits `custom_field.purged`; gated by `customFields:purge`).
 
 - [ ] **Step 1: Write the failing test**
@@ -1725,7 +2336,9 @@ import { fixtureWriteOptions } from "./helpers.ts";
 
 it("the purge seam refuses until a real erasure obligation enables it", async () => {
   const db = await migratedFirmDatabase();
-  await expect(purgeCustomField(db, { fieldId: "customField_x", reason: "gdpr" }, fixtureWriteOptions())).rejects.toMatchObject({ code: "purge-not-yet-enabled" });
+  await expect(
+    purgeCustomField(db, { fieldId: "customField_x", reason: "gdpr" }, fixtureWriteOptions()),
+  ).rejects.toMatchObject({ code: "purge-not-yet-enabled" });
 });
 ```
 
@@ -1775,6 +2388,7 @@ git commit -m "feat(custom-fields): purge seam (refuses until a real erasure obl
 ## Task 14: Worker route surface — `/v1/custom-fields/*`
 
 **Files:**
+
 - Create: `apps/worker/src/routes/custom-fields.ts`
 - Modify: `apps/worker/src/app.ts` (call `registerCustomFieldsRoutes(app, chokepoint)`)
 - Modify: `apps/worker/openapi/openapi.json` (regenerated, committed)
@@ -1782,6 +2396,7 @@ git commit -m "feat(custom-fields): purge seam (refuses until a real erasure obl
 - Test: `apps/worker/test/custom-fields-routes.test.ts` (Miniflare, mirrors `matters-routes.test.ts`)
 
 **Interfaces:**
+
 - Consumes: every service from Tasks 5–13; the chokepoint helpers (`requireChokepointFirmContext`, `requireChokepointUserId`, `requireChokepointIdempotency`), `runIdempotentEffect`, `problemJson`, `problemResponseForIdempotencyConflict`.
 - Produces: `registerCustomFieldsRoutes(app, chokepoint)`; the operations `customFields.defineField`, `.renameField`, `.setRequired`, `.reorderField`, `.archiveField`, `.unarchiveField`, `.hardDeleteField`, `.previewConvert`, `.applyConvert`, `.purgeField`, `.createOption`, `.renameOption`, `.reorderOption`, `.archiveOption`, `.hardDeleteOption`, `.setValue`, `.clearValue`, `.listRecordValues`, `.resolveField`.
 
@@ -1793,7 +2408,12 @@ git commit -m "feat(custom-fields): purge seam (refuses until a real erasure obl
 // apps/worker/test/custom-fields-routes.test.ts  (mirror apps/worker/test/matters-routes.test.ts setup)
 import { SELF } from "cloudflare:test";
 import { describe, it, expect, beforeEach } from "vitest";
-import { seedFirm, seedCredentialedUser, seedFirmKey, signInForSessionCookie } from "./test-auth.ts";
+import {
+  seedFirm,
+  seedCredentialedUser,
+  seedFirmKey,
+  signInForSessionCookie,
+} from "./test-auth.ts";
 // + the local authHeaders(cookie, withKey?) helper copied from matters-routes.test.ts
 
 describe("custom-fields routes", () => {
@@ -1807,14 +2427,23 @@ describe("custom-fields routes", () => {
     const define = await SELF.fetch("https://app.test/api/v1/custom-fields/fields", {
       method: "POST",
       headers: authHeaders(cookie, true), // includes a fresh Idempotency-Key
-      body: JSON.stringify({ name: "Court Date", kind: "date", target: "matter", attachmentId: null }),
+      body: JSON.stringify({
+        name: "Court Date",
+        kind: "date",
+        target: "matter",
+        attachmentId: null,
+      }),
     });
     expect(define.status).toBe(201);
     const { id } = (await define.json()) as { id: string };
     const set = await SELF.fetch("https://app.test/api/v1/custom-fields/values", {
       method: "PUT",
       headers: authHeaders(cookie, true),
-      body: JSON.stringify({ fieldId: id, targetRowId: "matter_1", value: { kind: "date", date: "2026-09-18" } }),
+      body: JSON.stringify({
+        fieldId: id,
+        targetRowId: "matter_1",
+        value: { kind: "date", date: "2026-09-18" },
+      }),
     });
     expect(set.status).toBe(200);
   });
@@ -1841,57 +2470,114 @@ import { CustomFieldError } from "@magna-carta/custom-fields/types";
 // chokepoint + problem imports as in routes/directory.ts. The service wraps idempotency internally
 // (the matters/directory pattern), so the route imports NEITHER runIdempotentEffect NOR canonicalJsonStringify.
 
-const FieldRequest = z.object({
-  name: z.string().min(1),
-  kind: z.enum(["checkbox","date","time","number","currency","picklist","single-line","multi-line","url","email","matter-reference","contact-reference"]),
-  target: z.enum(["matter","entity"]),
-  attachmentId: z.string().nullable(),
-  numberScale: z.number().int().nullable().optional(),
-  required: z.boolean().optional(),
-}).openapi("CustomFieldRequest");
+const FieldRequest = z
+  .object({
+    name: z.string().min(1),
+    kind: z.enum([
+      "checkbox",
+      "date",
+      "time",
+      "number",
+      "currency",
+      "picklist",
+      "single-line",
+      "multi-line",
+      "url",
+      "email",
+      "matter-reference",
+      "contact-reference",
+    ]),
+    target: z.enum(["matter", "entity"]),
+    attachmentId: z.string().nullable(),
+    numberScale: z.number().int().nullable().optional(),
+    required: z.boolean().optional(),
+  })
+  .openapi("CustomFieldRequest");
 const IdAck = z.object({ id: z.string() }).openapi("CustomFieldAck");
 
-function customFieldErrorResponse(c: Context, error: CustomFieldError): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
-  if (error.code === "unknown-field") return problemJson(c, { type: "not-found", title: "Not found", status: 404, detail: error.message });
-  if (error.code === "field-in-use" || error.code === "option-in-use") return problemJson(c, { type: "conflict", title: "In use", status: 409, detail: error.message });
-  if (error.code === "purge-not-yet-enabled") return problemJson(c, { type: "not-implemented", title: "Not enabled", status: 409, detail: error.message });
-  return problemJson(c, { type: "validation", title: "Invalid custom-field request", status: 422, detail: error.message });
+function customFieldErrorResponse(
+  c: Context,
+  error: CustomFieldError,
+): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
+  if (error.code === "unknown-field")
+    return problemJson(c, {
+      type: "not-found",
+      title: "Not found",
+      status: 404,
+      detail: error.message,
+    });
+  if (error.code === "field-in-use" || error.code === "option-in-use")
+    return problemJson(c, {
+      type: "conflict",
+      title: "In use",
+      status: 409,
+      detail: error.message,
+    });
+  if (error.code === "purge-not-yet-enabled")
+    return problemJson(c, {
+      type: "not-implemented",
+      title: "Not enabled",
+      status: 409,
+      detail: error.message,
+    });
+  return problemJson(c, {
+    type: "validation",
+    title: "Invalid custom-field request",
+    status: 422,
+    detail: error.message,
+  });
 }
 
 const defineFieldMeta: RouteMeta = {
-  operationId: "customFields.defineField", surface: "app", authenticated: true,
-  permission: "customFields:manage", resource: "customField", audited: true,
-  idempotency: "required", idempotencyStore: "firm", rateLimit: "default",
+  operationId: "customFields.defineField",
+  surface: "app",
+  authenticated: true,
+  permission: "customFields:manage",
+  resource: "customField",
+  audited: true,
+  idempotency: "required",
+  idempotencyStore: "firm",
+  rateLimit: "default",
 };
 const defineFieldRoute = defineOpenAPIRoute(defineFieldMeta, {
-  method: "post", path: "/api/v1/custom-fields/fields",
+  method: "post",
+  path: "/api/v1/custom-fields/fields",
   description: "Defines a custom field on a matter type or entity category.",
-  request: { headers: idempotencyKeyHeader, body: { content: { "application/json": { schema: FieldRequest } }, required: true } },
-  responses: { 201: { description: "Created", content: { "application/json": { schema: IdAck } } }, ...writeErrorResponses },
+  request: {
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: FieldRequest } }, required: true },
+  },
+  responses: {
+    201: { description: "Created", content: { "application/json": { schema: IdAck } } },
+    ...writeErrorResponses,
+  },
 });
 
 export function registerCustomFieldsRoutes(app: AppType, chokepoint: ChokepointType) {
-  app.openapi({ ...defineFieldRoute, middleware: chokepointMiddleware(chokepoint, defineFieldRoute) }, async (c) => {
-    const firm = requireChokepointFirmContext(c);
-    const userId = requireChokepointUserId(c);
-    const idempotency = requireChokepointIdempotency(c);
-    const body = c.req.valid("json");
-    try {
-      // The service wraps runIdempotentEffect internally (the matters/directory pattern); the route just
-      // calls it and serializes the returned value. Idempotency conflicts (in-progress / fingerprint-mismatch)
-      // are surfaced by the chokepoint middleware BEFORE the handler, exactly as for matters/directory.
-      const result = await defineCustomField(
-        firm.firmDatabase,
-        body,
-        { clock: { now: () => new Date().toISOString() }, actorUserId: userId, idempotency },
-      );
-      if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
-      return c.json({ id: result.customFieldId } as z.infer<typeof IdAck>, 201);
-    } catch (caught) {
-      if (caught instanceof CustomFieldError) return customFieldErrorResponse(c, caught);
-      throw caught;
-    }
-  });
+  app.openapi(
+    { ...defineFieldRoute, middleware: chokepointMiddleware(chokepoint, defineFieldRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const body = c.req.valid("json");
+      try {
+        // The service wraps runIdempotentEffect internally (the matters/directory pattern); the route just
+        // calls it and serializes the returned value. Idempotency conflicts (in-progress / fingerprint-mismatch)
+        // are surfaced by the chokepoint middleware BEFORE the handler, exactly as for matters/directory.
+        const result = await defineCustomField(firm.firmDatabase, body, {
+          clock: { now: () => new Date().toISOString() },
+          actorUserId: userId,
+          idempotency,
+        });
+        if (result.idempotentReplay) c.header("Idempotency-Replayed", "true");
+        return c.json({ id: result.customFieldId } as z.infer<typeof IdAck>, 201);
+      } catch (caught) {
+        if (caught instanceof CustomFieldError) return customFieldErrorResponse(c, caught);
+        throw caught;
+      }
+    },
+  );
   // ... repeat for every operation. Reads (resolveField, listRecordValues) are GET routes with permission: "customFields:manage"
   // for management reads, or null (any authenticated user) for value reads — match the matters/directory precedent.
   // The value PUT route multiplies a currency/number input by 10^number_scale into an integer before calling setCustomFieldValue.
@@ -1930,10 +2616,12 @@ git commit -m "feat(custom-fields): /v1/custom-fields worker routes and OpenAPI 
 ## Task 15: Domain fitness functions
 
 **Files:**
+
 - Create: `packages/custom-fields/src/fitness.ts`
 - Test: `packages/custom-fields/test/fitness.test.ts`
 
 **Interfaces:**
+
 - Produces: `assertCustomFieldsFitness(database)` — asserts (a) no float column on the three tables (PRAGMA table_info type scan, the ADR-0061 discipline), (b) every primary key is a TEXT handle, (c) the exactly-one-non-null CHECK and partial-unique index exist, (d) no `custom_field_value` row points at a `merged_into` entity (reuses the directory probe shape).
 
 - [ ] **Step 1: Write the failing test**
@@ -1969,17 +2657,30 @@ const TABLES = ["custom_field", "picklist_option", "custom_field_value"] as cons
 
 export async function assertCustomFieldsFitness(database: SqlDatabase): Promise<void> {
   for (const table of TABLES) {
-    const info = await database.prepare(`PRAGMA table_info(${table})`).all<{ name: string; type: string; pk: number }>();
+    const info = await database
+      .prepare(`PRAGMA table_info(${table})`)
+      .all<{ name: string; type: string; pk: number }>();
     for (const column of info.results) {
-      if (column.type.toUpperCase().includes("REAL") || column.type.toUpperCase().includes("FLOAT")) {
-        throw new Error(`custom-fields fitness: ${table}.${column.name} is a float column (ADR-0061 forbids floats).`);
+      if (
+        column.type.toUpperCase().includes("REAL") ||
+        column.type.toUpperCase().includes("FLOAT")
+      ) {
+        throw new Error(
+          `custom-fields fitness: ${table}.${column.name} is a float column (ADR-0061 forbids floats).`,
+        );
       }
     }
     const pk = info.results.find((c) => c.pk === 1);
-    if (!pk || pk.type.toUpperCase() !== "TEXT") throw new Error(`custom-fields fitness: ${table} primary key must be a TEXT handle.`);
+    if (!pk || pk.type.toUpperCase() !== "TEXT")
+      throw new Error(`custom-fields fitness: ${table} primary key must be a TEXT handle.`);
   }
-  const idx = await database.prepare(`SELECT name FROM sqlite_master WHERE type='index' AND name='custom_field_value_current_unique_index'`).all();
-  if (idx.results.length !== 1) throw new Error("custom-fields fitness: the partial-unique current-value index is missing.");
+  const idx = await database
+    .prepare(
+      `SELECT name FROM sqlite_master WHERE type='index' AND name='custom_field_value_current_unique_index'`,
+    )
+    .all();
+  if (idx.results.length !== 1)
+    throw new Error("custom-fields fitness: the partial-unique current-value index is missing.");
 }
 ```
 
@@ -2002,6 +2703,7 @@ git commit -m "feat(custom-fields): table-wide fitness (no floats, handle PKs, v
 ## Task 16: Load-profile extension
 
 **Files:**
+
 - Create: `packages/fixtures/src/load-profile/custom-field-generate.ts`
 - Create: `packages/fixtures/src/load-profile/custom-field-measurements.ts`
 - Modify: `packages/fixtures/src/load-profile/profile.ts` (add `CustomFieldVolume`, bump `version`)
@@ -2010,6 +2712,7 @@ git commit -m "feat(custom-fields): table-wide fitness (no floats, handle PKs, v
 - Test: existing fixtures suite + a new baseline file under `packages/fixtures/baselines/`
 
 **Interfaces:**
+
 - Consumes: the real write paths `defineCustomField`, `setCustomFieldValue` (Tasks 5, 7).
 - Produces: `generateCustomFieldVolume(database, context, volume, options)` → counts + `CustomFieldProbes` (a busiest record id, a sample reference field id); `customFieldMeasurements` (`current-values read`, `reference lookup`, `convert preview scan`, `merge repoint`); `customFieldHotPathPlans`, `CUSTOM_FIELD_PLAN_SCAN_ALLOWLIST = []`.
 
@@ -2062,12 +2765,14 @@ git commit -m "feat(custom-fields): extend the load profile with custom-field vo
 ## Task 17: End-to-end test, per-area docs, and status
 
 **Files:**
+
 - Create: `apps/worker/test/e2e/custom-fields.e2e.test.ts`
 - Create: `packages/custom-fields/CLAUDE.md` (from `docs/conventions/area-claude-template.md`)
 - Modify: `STATUS.md` (1·4 → Built), `ROADMAP.md` (1·4 Now/Shipped)
 - Add the changelog + (if applicable) ADR documentation per golden rule 5 — **fragment-aware** (see Step 3)
 
 **Interfaces:**
+
 - Consumes: the full HTTP surface (Task 14) and the directory merge route.
 
 - [ ] **Step 1: Write the end-to-end test** (the spec's §13 scenario)
@@ -2120,6 +2825,7 @@ git commit -m "test(custom-fields): end-to-end lifecycle; docs and status"
 ## Self-Review
 
 **Spec coverage** (each design section → task):
+
 - §1 package placement → Task 3. §2 data model → Task 2 (+ value/option in 6, 7). §3 identity/binding → Tasks 1, 4 (rename), 8 (resolve). §4 value lifecycle/audit → Tasks 7, 8. §5 Convert → Tasks 10, 11. §6 lifecycle/governance (archive/hard-delete/caps) → Tasks 5, 9; §6.4 Purge seam → Task 13. §7 picklist options → Task 6. §8 merge → Task 12. §9 protected seam → **none (intentional)**: §9/§15 keep the firm-facing protected toggle out of scope, so there is no protected custom field to wire or test in v1; the `protectedField` machinery already exists in `@magna-carta/data-access`. §10 API → Task 14. §11 templates seam → Task 2 (the `template_field_key` column ships; nothing else). §12 load profile → Task 16. §13 testing → woven through every task + Tasks 15, 17. §14 docs → Task 17.
 
 **Resolved spec inconsistency:** the spec §13 integration line "a sensitive custom field round-trips through `protectedField`" is dropped — it depends on the protected toggle that §9/§15 defer. Captured here so the implementer does not chase a non-deliverable.
@@ -2129,6 +2835,7 @@ git commit -m "test(custom-fields): end-to-end lifecycle; docs and status"
 **Type consistency:** `CustomFieldWriteOptions` (Task 4) is the single options type threaded through every service; `CustomFieldValueInput` (Task 7) is the tagged value union used by the value service, Convert (Task 11), and the routes; `CustomFieldError.code` strings (Task 3 `CustomFieldErrorCode`) are the single source mapped at the route boundary (Task 14). `runCustomFieldEffect`'s return carries the `effect` shape the routes consume — confirm the directory route's exact wrapping level during Task 14 to avoid a double idempotency wrap (called out in Task 14 Step 3).
 
 **Verified against the codebase (these were open assumptions, now closed):**
+
 - **Data-access subpaths confirmed:** `@magna-carta/data-access/idempotency-statements` (`SqlDatabase`/`SqlStatement`), `/effect-batch` (`BatchDatabase`/`EffectWrite`/`composeEffectBatch`), `/audit-statements` (`domainAuditStatement`), `/run-idempotent-effect` (`runIdempotentEffect`), `/canonical` (`canonicalJsonStringify` — **not** `/canonical-json`), `/protected-fields`.
 - **Idempotency is service-internal**, not route-level: the service wraps `runIdempotentEffect` (model `runCustomFieldEffect` on `runMatterEffect`); the route calls the service, reads `result.idempotentReplay`, and serializes with `c.json()` (Tasks 4, 14). This corrected a real double-wrap bug in the first draft.
 - **Test harness:** `createMigratedNodeDatabase("per-firm").database` + inline write-options built from `seededRandomSource` (`@magna-carta/identifiers/random`); the local `test/helpers.ts` supplies `migratedFirmDatabase`/`fixtureWriteOptions`. Worker tests use `SELF` from `cloudflare:test` + the `test-auth` seeding helpers (`seedFirm`/`seedCredentialedUser`/`seedFirmKey`/`signInForSessionCookie`) — there is no `appForTest`.
