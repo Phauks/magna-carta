@@ -22,10 +22,10 @@ import { registerFirmsRoute } from "./routes/firms.ts";
 import { registerFoldersRoutes } from "./routes/folders.ts";
 import { registerIncidentsRoute } from "./routes/incidents.ts";
 import { registerLocationsRoutes } from "./routes/locations.ts";
+import { fetchHttpClient } from "@magna-carta/integrations/http";
 import { workerPlugins } from "./plugins/registry.ts";
 import type { PluginRuntime } from "./plugins/runtime.ts";
-import { fetchHttpClient } from "@magna-carta/shipping/easypost/http";
-import { firmSecretStoreNotYetAvailable } from "./shipping/secret-store.ts";
+import { firmSecretStoreNotYetAvailable } from "./plugins/secret-store.ts";
 import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
 import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
@@ -34,6 +34,8 @@ import { registerMembersRoute } from "./routes/members.ts";
 import { registerNumberingRoutes } from "./routes/numbering.ts";
 import { registerUploadsRoutes } from "./routes/uploads.ts";
 import { telemetryErrorHandler, telemetryMiddleware } from "./telemetry-middleware.ts";
+import { createUsageConsentResolver } from "./usage/consent.ts";
+import { usageReachedMiddleware } from "./usage/reached-middleware.ts";
 
 // The Worker's runtime bindings, declared once here (the no-barrel single home for the app's env shape).
 // worker-env.d.ts mirrors this into the ambient `Cloudflare.Env` the vitest-pool-workers harness types `env` as.
@@ -81,6 +83,10 @@ export type Bindings = {
   // missing binding (dev/test, or a deployment without it) degrades to console-only logging, never
   // throws (createWorkersLogger handles undefined).
   TELEMETRY?: AnalyticsEngineDataset;
+  // The HMAC pepper for pseudonymizing firm and user ids in usage-analytics events. Optional: absent
+  // in dev/test (no binding set), which causes emitUsage to fail closed and emit nothing — so the
+  // global reached middleware is behaviorally inert in those environments.
+  USAGE_ANALYTICS_PEPPER?: string;
   // Cloudflare Email Service. Both optional: the Cloudflare adapter is selected
   // only when the send_email binding AND EMAIL_FROM are present (production); dev/test leave EMAIL_FROM
   // unset and keep the logging adapter, so no real email is sent and no domain onboarding is required.
@@ -152,6 +158,20 @@ export function createApp(options: CreateAppOptions = {}) {
   // not back up through middleware) — it logs error.captured and returns the 500.
   app.onError(telemetryErrorHandler(options.clock));
   app.use("*", telemetryMiddleware(loggerForEnv, options.clock));
+
+  // Usage reached events: runs on the OUTBOUND pass (after next()), after the chokepoint has
+  // populated tenancy. The consent resolver is created once per app instance so its isolate-local
+  // TTL cache persists across requests (a per-request resolver would re-query D1 on every request).
+  // Without USAGE_ANALYTICS_PEPPER the emitter fails closed and emits nothing — behaviorally inert
+  // in dev/test environments where the binding is absent.
+  const usageConsentResolver = createUsageConsentResolver();
+  app.use(
+    "*",
+    usageReachedMiddleware({
+      pepperFor: (env) => env.USAGE_ANALYTICS_PEPPER,
+      consent: usageConsentResolver,
+    }),
+  );
 
   // The chokepoint: built once over the REAL ports — session resolution, firm-context
   // resolution (control-plane lookup + firm-binding-resolver + member-active check), permission

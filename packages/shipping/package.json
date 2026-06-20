@@ -8,7 +8,6 @@
     "./port": "./src/port.ts",
     "./canonical": "./src/canonical.ts",
     "./easypost": "./src/easypost/adapter.ts",
-    "./easypost/http": "./src/easypost/http.ts",
     "./manifest": "./src/manifest.ts"
   },
   "scripts": {

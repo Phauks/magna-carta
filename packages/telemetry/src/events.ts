@@ -79,6 +79,19 @@ export const outboxDeadLettered = defineEvent("outbox.deadLettered", [
 // logged (the structural replacement for slice 0·4's interim console.error seam).
 export const authDenied = defineEvent("auth.denied", ["cause", "route", "errorId"] as const);
 
+// usage.feature — a product-usage signal: a feature was reached (an authorized route mapped to it
+// was served) or completed (an authoritative domain mutation for it occurred). Identifiers are
+// pseudonymous HMAC handles, never raw ids; surface/userIdHash/appVersion are null when the emit
+// site cannot supply them (server-derived reached/completed). No content slot exists.
+export const usageFeature = defineEvent("usage.feature", [
+  "feature",
+  "phase",
+  "surface",
+  "firmIdHash",
+  "userIdHash",
+  "appVersion",
+] as const);
+
 // The catalog's event names — derived from the builders themselves (each carries its `eventName`),
 // so this registry cannot drift from the real builders and the uniqueness fitness test checks the
 // actual catalog, not a hand-copied parallel list. Adding a builder above adds it here.
@@ -92,4 +105,5 @@ export const EVENT_NAMES = [
   operationFailed,
   outboxDeadLettered,
   authDenied,
+  usageFeature,
 ].map((builder) => builder.eventName);

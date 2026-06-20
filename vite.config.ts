@@ -11,8 +11,14 @@ export default defineConfig({
     // Generated artifacts whose exact bytes are fixed by their generator and re-derived/diff-gated by
     // CI (code-as-contract): the OpenAPI snapshot (apps/worker/scripts/emit-openapi.mts) and the Hey
     // API client (packages/api-client/openapi-ts.config.mjs). Never hand-edit them, and never let the
-    // formatter reflow them out from under the generate/diff contract.
-    ignorePatterns: ["apps/worker/openapi/openapi.json", "packages/api-client/src/**"],
+    // formatter reflow them out from under the generate/diff contract. docs/decisions/** is the same
+    // case: per-ADR files are assembled by tooling/doc-fragments/build-decisions.mjs with authored
+    // bodies passed through verbatim, so formatter reflow would fight the assembler.
+    ignorePatterns: [
+      "apps/worker/openapi/openapi.json",
+      "packages/api-client/src/**",
+      "docs/decisions/**",
+    ],
   },
   // typeCheck makes `vp check` run tsgolint TS type-checks (not just fmt+lint); a real `.ts` type error now fails the gate.
   // tsgolint does not parse `.svelte`, so the full gate (`pnpm check`) also runs svelte-check. See conventions/typescript.md.
@@ -30,7 +36,12 @@ export default defineConfig({
   },
   // Per-package test projects. apps/worker runs its tests inside Miniflare via @cloudflare/vitest-pool-workers, which only activates when its own config (apps/worker/vitest.config.ts) is loaded, so it is registered as a Vitest project here; otherwise root `vp test` would run the worker test under the default pool and `cloudflare:test` would not resolve.
   test: {
-    projects: ["apps/worker/vitest.config.ts", "packages/*/vitest.config.ts"],
+    projects: [
+      "apps/worker/vitest.config.ts",
+      "packages/*/vitest.config.ts",
+      "tooling/doc-fragments/vitest.config.ts",
+      "tooling/worktrees/vitest.config.ts",
+    ],
   },
   // vp reads test/lint/format defaults from here; run.tasks declares the monorepo graph.
   // Task keys are plain task names with a `command`; the `package#task` form is only valid inside `dependsOn` (see viteplus.dev/config/run).
@@ -52,6 +63,20 @@ export default defineConfig({
       "worker-dev": {
         command: 'vp run --filter "@magna-carta/worker" dev',
         dependsOn: ["@magna-carta/web#build"],
+      },
+      // Assemble doc fragments on main after a merge (see docs/conventions/documentation.md):
+      // number + fold pending ADRs into per-file decisions and regenerate the register.
+      "decisions-build": {
+        command: "node tooling/doc-fragments/build-decisions.mjs",
+      },
+      // Fold changelog.d/* fragments into CHANGELOG.md [Unreleased] and consume them.
+      "changelog-build": {
+        command: "node tooling/doc-fragments/build-changelog.mjs",
+      },
+      // Print the active-work registry: git worktrees + docs/active-work notes + touch-overlaps.
+      // Run before starting a stream or editing a cross-cutting file (see docs/active-work/README.md).
+      worktrees: {
+        command: "node tooling/worktrees/index.mjs",
       },
     },
   },

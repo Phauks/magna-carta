@@ -58,8 +58,8 @@ Every task's requirements implicitly include this section. Values copied from th
 - `packages/identifiers/src/registry.ts`, `packages/identifiers/src/types.ts` — three new prefixes + branded types.
 - `packages/access-control/src/registry.ts` — `customFields:manage`, `customFields:purge`.
 - `packages/database/src/per-firm-schema.ts` — three Drizzle table definitions (schema types).
-- `packages/database/drizzle/per-firm/0012_custom-fields.sql` (new) + `meta/_journal.json` — the migration.
-- `apps/worker/src/per-firm-migrations.ts` — register `0012`.
+- `packages/database/drizzle/per-firm/0013_custom-fields.sql` (new) + `meta/_journal.json` — the migration.
+- `apps/worker/src/per-firm-migrations.ts` — register `0013`.
 - `packages/directory/src/merge.ts`, `packages/directory/src/fitness.ts` — the merge extension.
 - `apps/worker/src/routes/custom-fields.ts` (new) + `apps/worker/src/app.ts` — the route surface.
 - `packages/fixtures/src/load-profile/*` — the volume profile + measurements.
@@ -149,14 +149,14 @@ git commit -m "feat(custom-fields): register identifier prefixes and permissions
 **Files:**
 
 - Modify: `packages/database/src/per-firm-schema.ts` (append three `sqliteTable` definitions)
-- Create: `packages/database/drizzle/per-firm/0012_custom-fields.sql`
+- Create: `packages/database/drizzle/per-firm/0013_custom-fields.sql`
 - Modify: `packages/database/drizzle/per-firm/meta/_journal.json` (append the `0012` entry)
 - Modify: `apps/worker/src/per-firm-migrations.ts` (import + register the new SQL)
 - Test: `apps/worker/test/per-firm-migrations.test.ts` (or the existing migration-apply integration test)
 
 **Interfaces:**
 
-- Produces: tables `custom_field`, `picklist_option`, `custom_field_value`; the Drizzle objects `customField`, `picklistOption`, `customFieldValue` exported from `per-firm-schema.ts`; the migration tag `"0012_custom-fields"`.
+- Produces: tables `custom_field`, `picklist_option`, `custom_field_value`; the Drizzle objects `customField`, `picklistOption`, `customFieldValue` exported from `per-firm-schema.ts`; the migration tag `"0013_custom-fields"`.
 
 - [ ] **Step 1: Write the failing test** — a freshly migrated per-firm DB has the three tables and the partial unique index.
 
@@ -191,7 +191,7 @@ Expected: FAIL (tables do not exist).
 - [ ] **Step 3: Write the migration SQL**
 
 ```sql
--- packages/database/drizzle/per-firm/0012_custom-fields.sql
+-- packages/database/drizzle/per-firm/0013_custom-fields.sql
 CREATE TABLE `custom_field` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text NOT NULL,
@@ -264,7 +264,7 @@ INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES
   "idx": 12,
   "version": "6",
   "when": 1781900000000,
-  "tag": "0012_custom-fields",
+  "tag": "0013_custom-fields",
   "breakpoints": true
 }
 ```
@@ -356,9 +356,9 @@ export const customFieldValue = sqliteTable(
 
 ```typescript
 // apps/worker/src/per-firm-migrations.ts
-import customFieldsSql from "@magna-carta/database/drizzle/per-firm/0012_custom-fields.sql";
+import customFieldsSql from "@magna-carta/database/drizzle/per-firm/0013_custom-fields.sql";
 // ... inside the sqlByTag object passed to migrationsFromJournal:
-  "0012_custom-fields": customFieldsSql,
+  "0013_custom-fields": customFieldsSql,
 ```
 
 - [ ] **Step 7: Run the test to verify it passes**
