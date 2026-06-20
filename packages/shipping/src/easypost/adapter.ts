@@ -1,9 +1,9 @@
 import { adapterError, ok, type Dispatch } from "@magna-carta/integrations/dispatch";
+import type { HttpClient } from "@magna-carta/integrations/http";
 import { integrationProblem } from "@magna-carta/integrations/problem";
 import type { Adapter, AdapterContext, CapabilityDescriptor } from "@magna-carta/integrations/port";
 import type { AddressInput, BuyLabelRequest, RateRequest } from "../canonical.ts";
 import type { ShippingPort } from "../port.ts";
-import type { HttpClient } from "./http.ts";
 import {
   classifyError,
   mapAddress,

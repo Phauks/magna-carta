@@ -28,7 +28,8 @@
     "./integration-connection-store": "./src/integration-connection-store.ts",
     "./firm-secret-credential-store": "./src/firm-secret-credential-store.ts",
     "./shipment-statements": "./src/shipment-statements.ts",
-    "./shipment-service": "./src/shipment-service.ts"
+    "./shipment-service": "./src/shipment-service.ts",
+    "./usage-consent-statements": "./src/usage-consent-statements.ts"
   },
   "scripts": {
     "test": "vp test run"

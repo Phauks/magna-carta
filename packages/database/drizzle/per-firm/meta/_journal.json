@@ -89,8 +89,22 @@
     {
       "idx": 12,
       "version": "6",
-      "when": 1781900989775,
-      "tag": "0012_inference-token-usage",
+      "when": 1781899585835,
+      "tag": "0012_usage-analytics-opt-out",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1781900000000,
+      "tag": "0013_custom-fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1781935813801,
+      "tag": "0014_inference-token-usage",
       "breakpoints": true
     }
   ]

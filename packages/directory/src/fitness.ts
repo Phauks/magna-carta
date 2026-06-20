@@ -33,6 +33,8 @@ const INBOUND_REFERENCE_PROBES: ReadonlyArray<{ table: string; column: string }>
   { table: "directory_edge", column: "from_entity_id" },
   { table: "directory_edge", column: "to_entity_id" },
   { table: "directory_entity_category", column: "entity_id" },
+  { table: "custom_field_value", column: "value_reference_id" },
+  { table: "custom_field_value", column: "target_row_id" },
 ];
 
 // findDanglingToSubordinate scans every inbound-reference column for rows that still point at the

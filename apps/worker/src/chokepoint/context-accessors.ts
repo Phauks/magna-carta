@@ -64,6 +64,20 @@ export function requireChokepointFirmContext(c: AppContext): FirmContext {
   return firmContext;
 }
 
+// Non-throwing variants for cross-cutting middleware that runs on BOTH public and authenticated
+// routes (the usage-analytics reached emitter): on a public/unauthenticated route the chokepoint
+// never populated tenancy, and the caller treats absence as "nothing to do" rather than a broken
+// invariant. Return undefined instead of throwing.
+export function optionalChokepointUserId(c: AppContext): SessionContext["userId"] | undefined {
+  return c.get("chokepointUserId") as SessionContext["userId"] | undefined;
+}
+export function optionalChokepointFirmId(c: AppContext): FirmId | undefined {
+  return c.get("chokepointFirmId") as FirmId | undefined;
+}
+export function optionalChokepointFirmContext(c: AppContext): FirmContext | undefined {
+  return c.get("chokepointFirmContext") as FirmContext | undefined;
+}
+
 // The idempotency context the chokepoint's idempotency gate stashed on a required-idempotency route,
 // or a throw if absent. A handler mounted on a required-idempotency route always runs after the gate
 // populated it; an absent value means the gate did not run (the route is misconfigured), so fail loud

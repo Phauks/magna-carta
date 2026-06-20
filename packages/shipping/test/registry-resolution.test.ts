@@ -1,9 +1,9 @@
 import type { ConnectionStore } from "@magna-carta/integrations/connection";
 import type { Credential, CredentialStore } from "@magna-carta/integrations/credentials";
+import type { HttpClient } from "@magna-carta/integrations/http";
 import { createIntegrationRegistry, requireCapability } from "@magna-carta/integrations/registry";
 import { describe, expect, it } from "vitest";
 import { createEasyPostAdapter } from "../src/easypost/adapter.ts";
-import type { HttpClient } from "../src/easypost/http.ts";
 import type { ShippingPort } from "../src/port.ts";
 
 const http: HttpClient = {

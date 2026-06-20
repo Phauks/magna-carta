@@ -30,6 +30,12 @@ import {
   shippingMeasurements,
   SHIPPING_PLAN_SCAN_ALLOWLIST,
 } from "../src/load-profile/shipping-measurements.ts";
+import {
+  customFieldHotPathPlans,
+  customFieldMeasurementHandle,
+  customFieldMeasurements,
+  CUSTOM_FIELD_PLAN_SCAN_ALLOWLIST,
+} from "../src/load-profile/custom-field-measurements.ts";
 import { ledgerVolume, scaleProfile } from "../src/load-profile/profile.ts";
 import { findFullScans, findTempBtreeSorts, runMeasurements } from "../src/load-profile/runner.ts";
 import { loadProfileSnapshot, type LoadedSnapshot } from "../src/load-profile/snapshot.ts";
@@ -147,6 +153,28 @@ describe("load-profile smoke", () => {
       expect(result.minMs).toBeGreaterThanOrEqual(0);
     }
 
+    // The custom-field measured set runs under its own handle. The merge-repoint op mints a fresh
+    // person pair + value references per iteration (a merge archives the subordinate, so the pair
+    // cannot be reused), then folds the subordinate into the master.
+    const customFieldHandle = await customFieldMeasurementHandle(snapshot, "smoke-seed");
+    expect(customFieldHandle.busiestRecordId).toMatch(/^matter_/);
+    const customFieldResults = await runMeasurements(customFieldHandle, customFieldMeasurements, {
+      warmupIterations: 1,
+      iterations: 2,
+    });
+    expect(customFieldResults.map((result) => result.name).sort()).toEqual(
+      [
+        "custom-field.read-current-values",
+        "custom-field.reference-lookup",
+        "custom-field.preview-convert-scan",
+        "custom-field.merge-repoint",
+      ].sort(),
+    );
+    for (const result of customFieldResults) {
+      expect(result.iterations).toBe(2);
+      expect(result.minMs).toBeGreaterThanOrEqual(0);
+    }
+
     // The structural no-N+1/no-missing-index check on the hot-path statements. The label set is
     // asserted first: an empty plan list would make the scan check pass vacuously, so dropped
     // probes must fail here, not slip through.
@@ -218,6 +246,21 @@ describe("load-profile smoke", () => {
       ].sort(),
     );
     expect(findFullScans(directoryPlans, DIRECTORY_PLAN_SCAN_ALLOWLIST)).toEqual([]);
+
+    // The custom-field hot-path plans: same label-set-first guard, then the scan check. The per-record
+    // read walks (target_row_id, is_current); the reference lookup walks (value_reference_id); the
+    // convert scan walks (field_id); the merge repoint's two reads walk those same indexes.
+    const customFieldPlans = customFieldHotPathPlans(snapshot);
+    expect(customFieldPlans.map((plan) => plan.label).sort()).toEqual(
+      [
+        "custom-field.read-current-values",
+        "custom-field.reference-lookup",
+        "custom-field.preview-convert-scan",
+        "custom-field.merge-repoint.reference-read",
+        "custom-field.merge-repoint.owned-read",
+      ].sort(),
+    );
+    expect(findFullScans(customFieldPlans, CUSTOM_FIELD_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
     snapshot.close();
   });
