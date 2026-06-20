@@ -1,0 +1,15 @@
+---
+slug: ai-inference-confidentiality-posture
+status: Accepted
+date: 2026-06-19
+area: AI / Inference
+summary: "Credential and confidentiality posture: Unified Billing + ZDR-on + payload-logging-off; ZDR is a diligence obligation backed by named Cloudflare/Anthropic procurement artifacts (which gate the first real AI feature, not this plumbing slice); a fail-closed per-request ZDR guard is built now; the residual classifier-retention disclosure is required in the firm-facing language."
+---
+
+**Credential and confidentiality posture: Unified Billing + ZDR-on + payload-logging-off; ZDR is a diligence obligation backed by named Cloudflare/Anthropic procurement artifacts (which gate the first real AI feature, not this plumbing slice); a fail-closed per-request ZDR guard is built now; the residual classifier-retention disclosure is required in the firm-facing language.**
+
+**Context:** under AI Gateway Unified Billing, credentials are Cloudflare-managed — no per-firm provider key at launch. The confidentiality risk is that ZDR under Unified Billing is asserted by a gateway flag propagating Cloudflare's commercial ZDR posture, which silently falls back to non-ZDR per provider if unsupported; and that even under ZDR, Anthropic retains User-Safety classifier results. ABA Rule 1.6(c)/Comment 8 is a reasonable-efforts process standard, satisfiable by diligence.
+
+**Decision:** (1) The gateway-level `zdr` configuration is on for Anthropic/OpenAI (set on the gateway, not per-request via the binding); `collectLog: false` is pinned on every request via the binding's `gateway` options — the binding's toggle is all-or-nothing, so no prompt/response body is ever logged (metering never depends on logs: token usage is read from the inference response). (2) The procurement diligence artifacts that back the ZDR claim — (a) Cloudflare's written confirmation that Unified-Billing ZDR for Anthropic/OpenAI is contractually backed and the platform is a covered beneficiary; (b) the AI Gateway + Workers AI DPA and subprocessor list — are named artifacts that gate the first real AI feature, not this plumbing slice. (3) A fail-closed per-request ZDR guard is built now: before dispatch the implementation asserts the selected model/provider is `zdrEligible` in the catalog; on any response signal of a non-ZDR fallback, it rejects — it never silently downgrades. (4) The firm-facing disclosure acknowledges Anthropic's residual classifier retention even under ZDR.
+
+**Consequences:** legal-grade confidentiality posture is locked in at the foundation, not retrofitted at the first feature; the first AI feature is gated on the procurement diligence artifacts; `claude-fable-5` is excluded from the catalog (mandates 30-day retention, non-ZDR). Builds on **ADR-ai-inference-foundation-placement** (placement), **ADR-0003** (tenancy). Relates to **ADR-ai-inference-tenant-isolation** (tenant-isolation hard constraints). Spec: [`docs/specs/2026-06-17-ai-inference-foundation-design.md`](../specs/2026-06-17-ai-inference-foundation-design.md).

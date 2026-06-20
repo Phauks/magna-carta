@@ -2,8 +2,8 @@
 
 > **As-built corrections (2026-06-19).** The following divergences from the as-authored plan were discovered and applied during execution:
 >
-> - **Migration number:** the token-usage table migration is **`0012_inference-token-usage`** (journal index 12), not `0007` as authored — the plan was written against a branch 113 commits behind `main`; migration `0011_directory-phonetic-code-index` was the live latest at execution time.
-> - **Tools-catalog row and `tools:inference` permission DROPPED this slice** — deferred to the first AI feature that has a real user surface. The `@magna-carta/tools` sidebar is for tools a user opens; this foundation ships no UI. Consequently there is also no seed migration (what the plan called `0008`). Exactly **one** new per-firm migration lands with this slice: `0012_inference-token-usage`.
+> - **Migration number:** the token-usage table migration is **`0014_inference-token-usage`** (journal index 14), not `0007` as authored — the plan was written against a branch 113 commits behind `main`; migration `0013_custom-fields` was the live latest at execution time.
+> - **Tools-catalog row and `tools:inference` permission DROPPED this slice** — deferred to the first AI feature that has a real user surface. The `@magna-carta/tools` sidebar is for tools a user opens; this foundation ships no UI. Consequently there is also no seed migration (what the plan called `0008`). Exactly **one** new per-firm migration lands with this slice: `0014_inference-token-usage`.
 > - **Standalone-resolver precedent:** the correct precedent is **`@magna-carta/government-links`** (formerly `@magna-carta/parcels`) — cited as `@magna-carta/property-links` in the as-authored plan; `government-links` is the actual standalone-library package the plan intends to cite.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
