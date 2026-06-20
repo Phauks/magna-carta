@@ -22,9 +22,13 @@ export function isCustomFieldKind(value: string): value is CustomFieldKind {
 export type CustomFieldErrorCode =
   | "unknown-field"
   | "field-in-use"
+  // Reserved seam: thrown when a convert is attempted while a field's converting flag is already
+  // set (the concurrent-convert guard). Not yet thrown — the converting-flag guard is not built.
   | "kind-immutable-during-convert"
   | "convert-has-parked-values"
   | "reference-kind-handle-mismatch"
+  // Reserved seam: thrown when protect is requested on a reference or picklist kind, which is not
+  // a supported protect target. Not yet thrown — the protect-kind rejection path is not built.
   | "cannot-protect-reference-or-picklist-kind"
   | "too-many-fields-for-scope"
   | "too-many-fields-for-firm"

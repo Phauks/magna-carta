@@ -386,6 +386,7 @@ describe("custom-fields e2e — full lifecycle over the HTTP surface", () => {
     expect(response.status).toBe(409);
     const body = await jsonOf<{ type: string; detail: string }>(response);
     expect(body.type).toContain("conflict");
+    expect(body.detail).toContain("field-in-use");
 
     // The field still exists — the refused delete changed nothing.
     const stillExists = await env.DB_FIRM_POOL_1.prepare(

@@ -166,7 +166,7 @@ export async function hardDeleteCustomField(
   if (inUseRows.length > 0) {
     throw new CustomFieldError(
       "field-in-use",
-      "Cannot hard-delete a field that has values; archive it instead.",
+      "field-in-use: Cannot hard-delete a field that has values; archive it instead.",
     );
   }
   return runCustomFieldEffect<{ ok: true }>(database, options, 200, () => ({

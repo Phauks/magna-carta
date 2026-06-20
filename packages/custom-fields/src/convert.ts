@@ -58,7 +58,15 @@ function toRaw(row: ConvertValueDbRow, fromKind: CustomFieldKind): RawStoredValu
   if (fromKind === "checkbox") {
     return { kind: "checkbox", checkbox: row.value_number ?? 0 };
   }
-  // picklist (and the reference kinds, which carry no coercible scalar) fall back to the label text.
+  if (fromKind === "matter-reference" || fromKind === "contact-reference") {
+    // Reference kinds carry no coercible scalar — they cannot be converted to another kind.
+    // Throwing here makes the restriction explicit rather than silently falling through to a
+    // picklist-shaped raw value that the classifier would park (masking the real problem).
+    throw new Error(
+      `reference kinds are not convertible: cannot retype a ${fromKind} field to another kind`,
+    );
+  }
+  // picklist: label text is the coercible scalar.
   return { kind: "picklist", optionLabel: row.option_label ?? "" };
 }
 
@@ -176,11 +184,14 @@ export async function applyConvert(
 
   if (
     input.parkedDisposition === "block" &&
-    classified.some((entry) => entry.classification.outcome === "parked")
+    classified.some(
+      (entry) =>
+        entry.classification.outcome === "parked" || entry.classification.outcome === "needs-rule",
+    )
   ) {
     throw new CustomFieldError(
       "convert-has-parked-values",
-      "Some values cannot be converted automatically. Resolve or re-rule them, or choose to park them.",
+      "Some values cannot be converted automatically (parked or unresolved). Resolve or re-rule them, or choose to park them.",
     );
   }
 

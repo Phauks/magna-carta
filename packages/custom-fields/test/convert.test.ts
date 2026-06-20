@@ -60,6 +60,32 @@ it("apply with park: coerces clean values, flips originals to history, clears pa
   expect(m1history.length).toBe(2); // original text row + new number row
 });
 
+it("toRaw throws when the field kind is a reference kind (reference kinds are not convertible)", async () => {
+  const db = await migratedFirmDatabase();
+  const o = fixtureWriteOptions();
+  const { customFieldId } = await defineCustomField(
+    db,
+    { name: "Ref", kind: "contact-reference", target: "entity", attachmentId: null },
+    o,
+  );
+  await setCustomFieldValue(
+    db,
+    {
+      fieldId: customFieldId,
+      targetRowId: "entity_1",
+      value: {
+        kind: "reference",
+        referenceId: "directoryPerson_abc",
+        referenceKind: "contact-reference",
+      },
+    },
+    o,
+  );
+  await expect(
+    previewConvert(db, { fieldId: customFieldId, toKind: "single-line" }),
+  ).rejects.toThrow("reference kinds are not convertible");
+});
+
 it("apply with block throws when any value parks", async () => {
   const db = await migratedFirmDatabase();
   const o = fixtureWriteOptions();
@@ -74,6 +100,29 @@ it("apply with block throws when any value parks", async () => {
       fieldId: customFieldId,
       targetRowId: "matter_2",
       value: { kind: "text", text: "approx five" },
+    },
+    o,
+  );
+  await expect(
+    applyConvert(db, { fieldId: customFieldId, toKind: "number", parkedDisposition: "block" }, o),
+  ).rejects.toMatchObject({ code: "convert-has-parked-values" });
+});
+
+it("apply with block throws when any value needs-rule (unresolved), not only when parked", async () => {
+  const db = await migratedFirmDatabase();
+  const o = fixtureWriteOptions();
+  const { customFieldId } = await defineCustomField(
+    db,
+    { name: "Budget", kind: "single-line", target: "matter", attachmentId: null },
+    o,
+  );
+  // "500k" classifies as needs-rule (magnitude suffix), not parked — block must refuse it.
+  await setCustomFieldValue(
+    db,
+    {
+      fieldId: customFieldId,
+      targetRowId: "matter_1",
+      value: { kind: "text", text: "500k" },
     },
     o,
   );
