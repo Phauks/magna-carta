@@ -117,6 +117,54 @@ describe("createGatewayInferencePort.generate", () => {
     expect(result).toMatchObject({ ok: false, reason: "adapter-error" });
     if (!result.ok) expect(result.problem?.detail ?? "").not.toContain("secret-token-leak");
   });
+
+  it("parses the OpenAI-compatible response shape (choices[0].message.content + prompt_tokens/completion_tokens)", async () => {
+    // The gateway can route to OpenAI-compatible providers; responseText and extractUsage must handle
+    // that shape in addition to the Workers AI native and Anthropic Messages shapes.
+    const { ai } = fakeAi({
+      choices: [{ message: { content: "Drafted via OpenAI shape." } }],
+      usage: { prompt_tokens: 9, completion_tokens: 4 },
+    });
+    const port = createGatewayInferencePort({ ai, env: "production" });
+    const result = await port.generate({
+      modelId: "anthropic/claude-opus-4-8",
+      prompt: "Draft a clause.",
+      firmId: FIRM,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.text).toBe("Drafted via OpenAI shape.");
+      expect(result.value.usage).toEqual({ inputTokens: 9, outputTokens: 4 });
+    }
+  });
+
+  it("respects a present-but-zero usage object (zero is not the same as missing)", async () => {
+    // extractUsage must treat { input_tokens: 0, output_tokens: 0 } as an explicit zero rather than
+    // falling back to a default — the distinction matters for accurate metering.
+    const { ai } = fakeAi({ response: "x", usage: { input_tokens: 0, output_tokens: 0 } });
+    const port = createGatewayInferencePort({ ai, env: "production" });
+    const result = await port.generate({
+      modelId: "anthropic/claude-opus-4-8",
+      prompt: "x",
+      firmId: FIRM,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.usage).toEqual({ inputTokens: 0, outputTokens: 0 });
+  });
+
+  it("yields zero usage when no usage field is present (absent usage does not throw)", async () => {
+    // A response with no usage field at all must not throw on the metering path; extractUsage
+    // defaults both token counts to 0 rather than propagating undefined.
+    const { ai } = fakeAi({ response: "x" });
+    const port = createGatewayInferencePort({ ai, env: "production" });
+    const result = await port.generate({
+      modelId: "anthropic/claude-opus-4-8",
+      prompt: "x",
+      firmId: FIRM,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.usage).toEqual({ inputTokens: 0, outputTokens: 0 });
+  });
 });
 
 describe("createGatewayInferencePort.generateStream", () => {

@@ -1,7 +1,7 @@
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { adapterError, ok, type Dispatch } from "@magna-carta/integrations/dispatch";
 import { integrationProblem, type IntegrationProblem } from "@magna-carta/integrations/problem";
-import { catalogEntryFor, embeddingEntry, isZdrEligible } from "./catalog.ts";
+import { catalogEntryFor, embeddingEntry, isZdrEligible, type CatalogEntry } from "./catalog.ts";
 import type {
   EmbedInput,
   EmbeddingResult,
@@ -65,6 +65,20 @@ function zdrIneligibleProblem(): IntegrationProblem {
     detail:
       "The selected model is not zero-data-retention eligible and cannot process firm content.",
   });
+}
+
+type ZdrEntryResult =
+  | { readonly ok: true; readonly entry: CatalogEntry }
+  | { readonly ok: false; readonly problem: IntegrationProblem };
+
+// Resolve a firm-selected reasoning model to its catalog entry, fail-closed: unknown or non-ZDR → a
+// caller-safe problem. Centralizes the combined unknown/non-eligible check so both generate ops share
+// one guard rather than repeating it inline.
+function resolveZdrEntry(modelId: string): ZdrEntryResult {
+  const entry = catalogEntryFor(modelId);
+  if (entry === undefined || !entry.zdrEligible)
+    return { ok: false, problem: zdrIneligibleProblem() };
+  return { ok: true, entry };
 }
 
 // The fail-closed ZDR guard: before dispatch, assert the selected model is ZDR-eligible in the catalog.
@@ -165,12 +179,11 @@ export function createGatewayInferencePort(options: GatewayPortOptions): Inferen
   async function runGenerate(input: GenerateInput): Promise<Dispatch<GenerateResult>> {
     // Fail-closed single lookup: reject both unknown and non-ZDR-eligible models with a caller-safe
     // non-retryable problem. zdrRejection is NOT used here — that function throws for ZDR-eligible
-    // models and would create an uncaught-throw path if reached via a dead branch. Instead, the
-    // combined check below ensures the binding is never called on rejection.
-    const entry = catalogEntryFor(input.modelId);
-    if (entry === undefined || !entry.zdrEligible) {
-      return adapterError<GenerateResult>(zdrIneligibleProblem());
-    }
+    // models and would create an uncaught-throw path if reached via a dead branch. Instead,
+    // resolveZdrEntry combines the unknown/non-eligible check so the binding is never called on rejection.
+    const resolved = resolveZdrEntry(input.modelId);
+    if (!resolved.ok) return adapterError<GenerateResult>(resolved.problem);
+    const entry = resolved.entry;
     const gateway = gatewayOptions(input.firmId, entry.slot, env);
     try {
       const response = await ai.run(input.modelId, { prompt: input.prompt }, { gateway });
@@ -190,10 +203,9 @@ export function createGatewayInferencePort(options: GatewayPortOptions): Inferen
     generateDurable: runGenerate,
 
     async generateStream(input): Promise<Dispatch<StreamResult>> {
-      const entry = catalogEntryFor(input.modelId);
-      if (entry === undefined || !entry.zdrEligible) {
-        return adapterError<StreamResult>(zdrIneligibleProblem());
-      }
+      const resolved = resolveZdrEntry(input.modelId);
+      if (!resolved.ok) return adapterError<StreamResult>(resolved.problem);
+      const entry = resolved.entry;
       const gateway = gatewayOptions(input.firmId, entry.slot, env);
       try {
         const response = await ai.run(
