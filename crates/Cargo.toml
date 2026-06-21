@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["pdf-core"]
+members = ["pdf-core", "pdf-eval"]
 
 [workspace.package]
 edition = "2021"
