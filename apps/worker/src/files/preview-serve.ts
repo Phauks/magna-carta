@@ -85,6 +85,9 @@ export function registerPreviewServeRoute(
     // Resolve the object. The null-object race (reaped between mint and fetch) is guarded explicitly
     // so a .body deref never throws into the telemetry error boundary (which would emit an error_ id
     // on the untrusted edge).
+    // Today, there is exactly one R2 binding (c.env.R2), so bytes are fetched via the signed, opaque
+    // payload.r2Key. The payload.bucket field is a forward seam for per-firm buckets: when multiple
+    // R2 bindings exist in the future, select the binding by payload.bucket here.
     const head = await c.env.R2.head(payload.r2Key);
     if (head === null) return previewNoLongerValid();
     const totalSize = head.size;
