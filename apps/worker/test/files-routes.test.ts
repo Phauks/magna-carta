@@ -60,13 +60,25 @@ async function seedFolder(name: string, parentFolderId: FolderId | null = null):
   return id;
 }
 
+interface SeedVersionOptions {
+  inlinePlayable?: "playable" | "download-only" | "indeterminate" | null;
+  storageClass?: "standard" | "infrequent_access";
+  storageEncoding?: string;
+  artifactRole?: "original" | "derived";
+  sniffedContentType?: string;
+}
+
 // Seeds a clean file with a single committed version, writing the bytes into the Miniflare R2 binding
 // at the version's key. status='clean' + current_version_id set is the visibility gate.
+// Optional fields in SeedVersionOptions override verdict/storage columns on the file_version row;
+// defaults preserve existing caller behaviour (sniffedContentType='text/plain', storageClass='standard',
+// storageEncoding='full', artifactRole='original', inlinePlayable=null).
 async function seedCleanFile(
   name: string,
   folderId: FolderId | null,
   bytes: string,
   createdAt = ISO,
+  options: SeedVersionOptions = {},
 ): Promise<{ fileId: FileId; versionId: FileVersionId; r2Key: string }> {
   const fileId = newIdentifier("file");
   const versionId = newIdentifier("fileVersion");
@@ -77,10 +89,22 @@ async function seedCleanFile(
     .bind(fileId, matterId, folderId, name, createdAt)
     .run();
   await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at) " +
-      "VALUES (?1, ?2, 1, ?3, ?4, 'text/plain', 'text/plain', 'hash', 'clean', ?5, ?6, ?6)",
+    "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at, inline_playable, storage_class, storage_encoding, artifact_role) " +
+      "VALUES (?1, ?2, 1, ?3, ?4, 'application/octet-stream', ?7, 'hash', 'clean', ?5, ?6, ?6, ?8, ?9, ?10, ?11)",
   )
-    .bind(versionId, fileId, r2Key, bytes.length, ownerUserId, createdAt)
+    .bind(
+      versionId,
+      fileId,
+      r2Key,
+      bytes.length,
+      ownerUserId,
+      createdAt,
+      options.sniffedContentType ?? "text/plain",
+      options.inlinePlayable ?? null,
+      options.storageClass ?? "standard",
+      options.storageEncoding ?? "full",
+      options.artifactRole ?? "original",
+    )
     .run();
   await env.DB_FIRM_POOL_1.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
     .bind(fileId, versionId)
