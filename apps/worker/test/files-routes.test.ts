@@ -332,6 +332,65 @@ describe("GET /api/v1/files/{id}/download", () => {
   });
 });
 
+describe("GET /api/v1/files/{id}/preview", () => {
+  it("files.preview: a playable/standard/full/original version yields inline-media + a files-host streamUrl", async () => {
+    const { fileId } = await seedCleanFile("clip.mp4", null, "0123456789".repeat(50), ISO, {
+      inlinePlayable: "playable",
+      sniffedContentType: "video/mp4",
+    });
+    const res = await get(`/api/v1/files/${fileId}/preview`);
+    expect(res.status).toBe(200);
+    const body = await res.json<{ mode: string; streamUrl: string }>();
+    expect(body.mode).toBe("inline-media");
+    expect(body.streamUrl).toContain(`https://${env.FILES_ORIGIN}/api/files-preview/`);
+  });
+
+  it("files.preview: a download-only verdict yields mode download-only + downloadUrl, no streamUrl", async () => {
+    const { fileId } = await seedCleanFile("contract.pdf", null, "pdfbytes", ISO, {
+      inlinePlayable: "download-only",
+      sniffedContentType: "application/pdf",
+    });
+    const res = await get(`/api/v1/files/${fileId}/preview`);
+    expect(res.status).toBe(200);
+    const body = await res.json<{ mode: string; downloadUrl: string; streamUrl?: string }>();
+    expect(body.mode).toBe("download-only");
+    expect(body.downloadUrl).toContain(`/api/v1/files/${fileId}/download`);
+    expect(body.streamUrl).toBeUndefined();
+  });
+
+  it("files.preview: a null verdict (never sniffed) yields mode download-only + reason unknown-verdict", async () => {
+    const { fileId } = await seedCleanFile("unknown.bin", null, "bytes", ISO, {
+      inlinePlayable: null,
+    });
+    const res = await get(`/api/v1/files/${fileId}/preview`);
+    expect(res.status).toBe(200);
+    const body = await res.json<{ mode: string; reason: string }>();
+    expect(body.mode).toBe("download-only");
+    expect(body.reason).toBe("unknown-verdict");
+  });
+
+  it("files.preview: 404 for an unknown file id", async () => {
+    const fakeId = newIdentifier("file");
+    const res = await get(`/api/v1/files/${fakeId}/preview`);
+    expect(res.status).toBe(404);
+  });
+
+  it("files.preview: no audit row is written for an inline-media grant", async () => {
+    const { fileId, versionId } = await seedCleanFile("audio.mp3", null, "audiobytes", ISO, {
+      inlinePlayable: "playable",
+      sniffedContentType: "audio/mpeg",
+    });
+    const res = await get(`/api/v1/files/${fileId}/preview`);
+    expect(res.status).toBe(200);
+    const audit = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT event FROM audit_log WHERE subject_id = ?1",
+    )
+      .bind(versionId)
+      .first<{ event: string }>();
+    expect(audit).toBeNull();
+  });
+});
+
 describe("POST /api/v1/downloads/zip", () => {
   async function zip(body: unknown, cookie = ownerCookie): Promise<Response> {
     return SELF.fetch("https://example.com/api/v1/downloads/zip", {
