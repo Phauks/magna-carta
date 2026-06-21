@@ -64,13 +64,13 @@ export function registerPreviewServeRoute(
   // token). It must register before the /api/v1 routes and before the ASSETS fallthrough, match only
   // on the files host, and return terminally — a files.* request that is not this path must never
   // fall through to the SPA shell. Reasoning home: docs/conventions/security.md.
-  app.get("/api/files-preview/:token", async (c) => {
+  app.get("/api/files-preview/:token", async (c, next) => {
     const filesOrigin = c.env.FILES_ORIGIN;
     const hostname = new URL(c.req.url).hostname;
-    // Host guard: only answer on the files host. Any other host falls through via c.next() so the
+    // Host guard: only answer on the files host. Any other host falls through via next() so the
     // /api/v1 routes and ASSETS handler can answer normally — the SPA shell is never served here.
     if (filesOrigin === undefined || hostname !== filesOrigin) {
-      return c.next();
+      return next();
     }
     const token = c.req.param("token");
     const nowSeconds = Math.floor(Date.now() / 1000);
