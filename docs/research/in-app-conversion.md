@@ -116,8 +116,8 @@ are per-firm.
 | --- | --- | --- | --- |
 | **LibreOffice headless** | Office (DOCX/XLSX/PPTX/ODF/legacy) ↔ PDF, and inter-office | **Launch spine — buildable now** | Same LibreOffice core as Collabora (2·2). Runtime survey + the concurrency/font findings in §5. No other-slice dependency. |
 | **email → PDF** | MSG/EML → PDF (exhibits) | **Launch spine — buildable now** | High litigation value. Pipeline + library survey firmed up below (2026-06-21). Render step has a real fidelity-vs-roster-weight choice + a network-isolation requirement. |
-| **libvips** | images; image ↔ PDF (raster) | **Fast-follow** | Mature; ImageMagick fallback per the published design. Low risk; deferred only to keep the first build tight. |
-| **FFmpeg (self-hosted)** | audio/video transcodes | **Fast-follow** | Same engine slated for inline-preview transcoding (2·3 deferred path); lands when that substrate is warm. |
+| **libvips** | images; image → PDF (raster wrap) | **Fast-follow** | **Security-favored over ImageMagick** (survey below); set `VIPS_BLOCK_UNTRUSTED`. The image→PDF *wrap* leans on the seamed PDF engine; libvips owns the pixel transforms. |
+| **FFmpeg (self-hosted)** | audio/video transcodes | **Fast-follow** | **Same engine + recipe as 2·3's deferred inline-preview transcoding** (MP4/H.264/AAC + `faststart`). **High untrusted-media risk** — survey below mandates a hardened sandbox. |
 | **PDF engine** | scanned-PDF structure, PDF as a conversion endpoint | **⟦SEAM⟧ — named port, recipe deferred** | Rides the in-flight **pure-Rust PDF engine** (succeeds the PDFium fork). The registry carries the edge; the engine binding fills in when that engine lands. No PDFium/`embedpdf`-era naming bleeds into the conversion design. |
 | **OCR (scanned → searchable PDF)** | image/scanned-PDF → searchable PDF | **⟦SEAM⟧ — named port, recipe deferred** | Rides Phase-5 Discovery's OCR engine (PaddleOCR PP-OCRv5 via ONNX/`ort`), which is **not built yet** — this path cannot run until it lands. Modelled now, bound later. |
 
@@ -174,6 +174,46 @@ existing save-vs-download choice).
    **Lean:** start on **LibreOffice headless** (no new engine, ships the spine) and only escalate to a
    network-isolated headless-Chromium renderer if exhibit-fidelity demands it — a clean fast-follow,
    not a launch blocker.
+
+### Fast-follow engines — libvips + FFmpeg survey (2026-06-21)
+
+Surveyed now so the roster's evidence base is complete; both are deferred from the launch build, not
+from the design.
+
+- **libvips (images; image → PDF raster wrap). Use it; do not default to ImageMagick.** libvips is
+  fast and low-memory and — the decisive point for untrusted input — **far safer than ImageMagick by
+  design**: ImageMagick's 200+ codecs and thousands of operations are "impossible to secure," whereas
+  libvips has a deliberately small, hardened surface and ships **`VIPS_BLOCK_UNTRUSTED`** (8.13+) to
+  refuse any operation tagged untrusted at runtime — set it. This **refines the published wording**
+  ("libvips, ImageMagick fallback"): prefer libvips, and treat ImageMagick as a sandboxed
+  last-resort for a format libvips genuinely can't handle, never a casual fallback. Note libvips's
+  PDF support is mainly *loading* (via PDFium/poppler); **image→PDF rendering wraps the raster into a
+  PDF via the seamed PDF engine**, so that direction inherits the PDF-engine seam.
+- **FFmpeg (A/V transcode). One engine, two consumers — and the roster's highest-risk component.**
+  - **Capability is settled:** the web-playable rendition is the standard recipe —
+    `ffmpeg -i in -c:v libx264 -crf 23 -preset medium -c:a aac -b:a 128k -movflags +faststart out.mp4`
+    — H.264/AAC in MP4 with **`+faststart`** (moves the `moov` atom to the front for progressive
+    playback). This is **the exact MP4/H.264/AAC rendition 2·3's deferred inline-preview transcoding
+    wants** — 2·4 conversion and the 2·3 preview path are the *same engine and recipe*, build once.
+  - **Security is the catch:** FFmpeg is a **high-risk parser of untrusted media** — a large, ongoing
+    CVE stream (heap/stack overflows, use-after-free, OOB across demuxers/decoders; recent
+    RCE-from-a-tiny-packet disclosures). Automatically processing user-supplied media is precisely
+    the dangerous scenario. **Mandatory hardening** (design-cycle requirement, not optional):
+    dedicated unprivileged user; **compile with `--disable-*` to drop unneeded demuxers/codecs**
+    (shrink the attack surface to what we actually convert); isolated Container with **no network
+    egress**, least-privilege filesystem, and **seccomp/AppArmor** confinement; media processing kept
+    off any sensitive service.
+
+### Untrusted-input engine posture (cross-cutting)
+
+A pattern spans email-render, libvips, FFmpeg, and the seamed PDF/OCR engines: **every conversion
+engine parses bytes that arrived from outside the firm.** The same posture binds all of them and
+should be stated once in the design, not per-engine: run **network-isolated** (no outbound fetch —
+kills SSRF-via-URL and remote-resource exfil), **least-privilege + sandboxed** (unprivileged user,
+seccomp/AppArmor, minimal FS), and **attack-surface-minimized** (build engines with only the
+codecs/demuxers/filters we convert). This is the *generation-time* twin of slice 2·1's scanning and
+slice 2·3's safe-delivery sandbox — the converter is another untrusted-bytes boundary and inherits
+the same rules.
 
 ## 5. Office ↔ PDF — LibreOffice runtime survey (2026-06-21)
 
@@ -293,6 +333,14 @@ are read. Recorded here only so the design cycle treats it as fixed.
   (load-bearing-needs-audit) and **choose the render engine** — LibreOffice headless (recommended
   start) vs a network-isolated headless-Chromium renderer if exhibit fidelity demands it. `mail-parser`
   for EML is settled. The render step **must be network-isolated** and **must not use `wkhtmltopdf`**.
+- **Fast-follow engines** (survey done 2026-06-21, §4): **libvips with `VIPS_BLOCK_UNTRUSTED`** (not
+  ImageMagick) for images, image→PDF wrapping via the seamed PDF engine; **FFmpeg built with
+  `--disable-*` to a minimal codec/demuxer set**, sharing the MP4/H.264/AAC+`faststart` recipe with
+  2·3's inline-preview transcoding.
+- **Untrusted-input engine posture (cross-cutting, §4):** state once in the design — every conversion
+  engine runs **network-isolated + least-privilege/sandboxed (seccomp/AppArmor) + attack-surface-
+  minimized**, the generation-time twin of 2·1 scanning and 2·3 safe-delivery. Especially load-bearing
+  for FFmpeg (high CVE surface).
 - **Substrate items inherited from 2·1** — per-tenant fairness, warm-pool sizing, caps; and the
   inline-vs-Container threshold against the load-profile harness.
 - **LibreOffice runtime — DECIDED 2026-06-21 (§5): Option A via the LOK fork-pool.** Residual
