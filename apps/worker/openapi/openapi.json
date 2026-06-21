@@ -1965,6 +1965,62 @@
           }
         }
       },
+      "PreviewGrant": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "inline-media",
+              "download-only"
+            ]
+          },
+          "verdict": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "playable",
+              "download-only",
+              "indeterminate",
+              null
+            ]
+          },
+          "streamUrl": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "verdict",
+              "unknown-verdict",
+              "tiered",
+              "encoded",
+              "derived",
+              "unknown-type",
+              "host-unavailable"
+            ]
+          },
+          "downloadUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode",
+          "verdict",
+          "downloadUrl"
+        ]
+      },
       "ZipDownloadRequest": {
         "type": "object",
         "properties": {
@@ -8300,6 +8356,80 @@
         "responses": {
           "302": {
             "description": "Redirect to the presigned download URL"
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/files/{id}/preview": {
+      "get": {
+        "description": "Authorizes inline preview of the file's current clean version and returns a delivery descriptor. When the verdict + storage facts permit inline media, the descriptor carries a short-lived signed streamUrl on the cookieless files host the player loads as a <video>/<audio> subresource; otherwise it carries download-only with a reason. downloadUrl (the audited download path) is always present. Untrusted bytes are served cookieless so a malicious file reaches only the media decoder, never a privileged origin. 404 when the file has no clean current version.",
+        "operationId": "files.preview",
+        "tags": [
+          "files"
+        ],
+        "x-mc-operationId": "files.preview",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "files"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The preview delivery descriptor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewGrant"
+                }
+              }
+            }
           },
           "401": {
             "description": "No valid session",
