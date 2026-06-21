@@ -40,54 +40,64 @@ fn reason_token(reason: Reason) -> &'static str {
     }
 }
 
-/// Combines the three engine results into one verdict by precedence (most dangerous wins):
+/// The outcome of combining the three engines: either a verdict to return, or a signal that the
+/// signature engine (clamd) could not run and nothing else flagged the file. The latter is a transient
+/// fault to RETRY — never a verdict. A running container always booted with clamd ready (the entrypoint
+/// fails fast otherwise), so a clamd-unavailable at scan time is exceptional; re-scanning it is correct,
+/// and committing it as `unscanned` — pretending a bound engine was never there — is not. The only
+/// honest `unscanned`/no-engine is the engine-less launch adapter in
+/// packages/file-manager/src/scan-port.ts, where no engine is deployed at all.
+pub enum CombineOutcome {
+    Verdict(ScanResult),
+    SignatureEngineUnavailable,
+}
+
+/// Combines the three engine results by precedence (most dangerous wins):
 /// 1. a signature hit — clamd, else any yara match — is `infected` (clamd's name takes priority);
 /// 2. a structural attack (bomb / nesting / entry-count) is `suspicious`;
-/// 3. an inability to inspect — encrypted content, or clamd unavailable with no other signal — is
-///    `unscanned`;
-/// 4. otherwise `clean`, badged when active content (PDF JS / Office macros) is present.
+/// 3. encrypted content that cannot be inspected is an honest `unscanned`;
+/// 4. clamd unavailable with no other signal is a retryable engine fault, not a verdict;
+/// 5. otherwise `clean`, badged when active content (PDF JS / Office macros) is present.
 ///
-/// Active content never alone gates to quarantine — the steps above take precedence over the badge.
+/// A definitive bad signal (infected / suspicious) wins even when clamd is unavailable — those are
+/// never retried. Active content never alone gates to quarantine — the steps above take precedence.
 pub fn combine(
     clam: &ClamVerdict,
     yara_matches: &[String],
     heuristic: Heuristic,
     engine_version: String,
-) -> ScanResult {
+) -> CombineOutcome {
     if let ClamVerdict::Infected(signature) = clam {
-        return ScanResult::Infected {
+        return CombineOutcome::Verdict(ScanResult::Infected {
             engine_version,
             signature: signature.clone(),
-        };
+        });
     }
     if let Some(identifier) = yara_matches.first() {
-        return ScanResult::Infected {
+        return CombineOutcome::Verdict(ScanResult::Infected {
             engine_version,
             signature: identifier.clone(),
-        };
+        });
     }
     if let Heuristic::Suspicious(reason) = heuristic {
-        return ScanResult::Suspicious {
+        return CombineOutcome::Verdict(ScanResult::Suspicious {
             engine_version,
             reason: reason_token(reason).to_string(),
-        };
+        });
     }
     if heuristic == Heuristic::Encrypted {
-        return ScanResult::Unscanned {
+        return CombineOutcome::Verdict(ScanResult::Unscanned {
             engine_version,
             reason: "encrypted".to_string(),
-        };
+        });
     }
     if matches!(clam, ClamVerdict::Unavailable) {
-        return ScanResult::Unscanned {
-            engine_version,
-            reason: "no-engine".to_string(),
-        };
+        return CombineOutcome::SignatureEngineUnavailable;
     }
-    ScanResult::Clean {
+    CombineOutcome::Verdict(ScanResult::Clean {
         engine_version,
         active_content: heuristic == Heuristic::ActiveContent,
-    }
+    })
 }
 
 #[cfg(test)]
@@ -99,18 +109,28 @@ mod tests {
         "engine/1".to_string()
     }
 
+    // Unwraps a definitive verdict; panics if combine signalled a retryable engine fault instead.
+    fn verdict(outcome: CombineOutcome) -> ScanResult {
+        match outcome {
+            CombineOutcome::Verdict(result) => result,
+            CombineOutcome::SignatureEngineUnavailable => {
+                panic!("expected a verdict, got a retryable engine fault")
+            }
+        }
+    }
+
     fn value(result: &ScanResult) -> serde_json::Value {
         serde_json::to_value(result).unwrap()
     }
 
     #[test]
     fn clamd_infection_is_infected_with_its_signature() {
-        let result = combine(
+        let result = verdict(combine(
             &ClamVerdict::Infected("Eicar".into()),
             &[],
             Heuristic::Clean,
             engine(),
-        );
+        ));
         assert_eq!(
             value(&result),
             json!({"verdict":"infected","engineVersion":"engine/1","signature":"Eicar"})
@@ -119,46 +139,46 @@ mod tests {
 
     #[test]
     fn yara_match_is_infected_when_clamd_is_clean() {
-        let result = combine(
+        let result = verdict(combine(
             &ClamVerdict::Clean,
             &["rule_x".into()],
             Heuristic::Clean,
             engine(),
-        );
+        ));
         assert_eq!(value(&result)["signature"], "rule_x");
         assert_eq!(value(&result)["verdict"], "infected");
     }
 
     #[test]
     fn clamd_signature_takes_priority_over_yara() {
-        let result = combine(
+        let result = verdict(combine(
             &ClamVerdict::Infected("Clam.Sig".into()),
             &["rule_x".into()],
             Heuristic::Clean,
             engine(),
-        );
+        ));
         assert_eq!(value(&result)["signature"], "Clam.Sig");
     }
 
     #[test]
     fn infected_takes_precedence_over_a_structural_attack() {
-        let result = combine(
+        let result = verdict(combine(
             &ClamVerdict::Infected("X".into()),
             &[],
             Heuristic::Suspicious(Reason::ArchiveNesting),
             engine(),
-        );
+        ));
         assert_eq!(value(&result)["verdict"], "infected");
     }
 
     #[test]
     fn structural_attack_is_suspicious_over_clean() {
-        let result = combine(
+        let result = verdict(combine(
             &ClamVerdict::Clean,
             &[],
             Heuristic::Suspicious(Reason::DecompressionBomb),
             engine(),
-        );
+        ));
         assert_eq!(
             value(&result),
             json!({"verdict":"suspicious","engineVersion":"engine/1","reason":"decompression-bomb"})
@@ -167,7 +187,12 @@ mod tests {
 
     #[test]
     fn encrypted_is_unscanned_encrypted() {
-        let result = combine(&ClamVerdict::Clean, &[], Heuristic::Encrypted, engine());
+        let result = verdict(combine(
+            &ClamVerdict::Clean,
+            &[],
+            Heuristic::Encrypted,
+            engine(),
+        ));
         assert_eq!(
             value(&result),
             json!({"verdict":"unscanned","reason":"encrypted","engineVersion":"engine/1"})
@@ -175,17 +200,50 @@ mod tests {
     }
 
     #[test]
-    fn clamd_unavailable_is_unscanned_no_engine() {
-        let result = combine(&ClamVerdict::Unavailable, &[], Heuristic::Clean, engine());
-        assert_eq!(
-            value(&result),
-            json!({"verdict":"unscanned","reason":"no-engine","engineVersion":"engine/1"})
-        );
+    fn clamd_unavailable_with_no_other_signal_is_a_retryable_fault() {
+        // The crux of the reconsidered combine: a clamd-unavailable, otherwise-clean file is NOT
+        // flattened to unscanned/no-engine (which would commit a never-virus-scanned file as usable) —
+        // it is a retryable engine fault the ingest consumer re-queues.
+        let outcome = combine(&ClamVerdict::Unavailable, &[], Heuristic::Clean, engine());
+        assert!(matches!(
+            outcome,
+            CombineOutcome::SignatureEngineUnavailable
+        ));
+    }
+
+    #[test]
+    fn a_definitive_signal_while_clamd_is_unavailable_is_still_a_verdict() {
+        // clamd down but yara matched -> infected verdict, never a retry: a definitive bad signal is
+        // acted on regardless of the signature engine's availability.
+        let result = verdict(combine(
+            &ClamVerdict::Unavailable,
+            &["rule_x".into()],
+            Heuristic::Clean,
+            engine(),
+        ));
+        assert_eq!(value(&result)["verdict"], "infected");
+    }
+
+    #[test]
+    fn encrypted_while_clamd_is_unavailable_is_still_unscanned_encrypted() {
+        // Encryption blocks inspection; re-scanning cannot help, so it is an honest verdict, not a fault.
+        let result = verdict(combine(
+            &ClamVerdict::Unavailable,
+            &[],
+            Heuristic::Encrypted,
+            engine(),
+        ));
+        assert_eq!(value(&result)["reason"], "encrypted");
     }
 
     #[test]
     fn clean_carries_the_active_content_badge() {
-        let result = combine(&ClamVerdict::Clean, &[], Heuristic::ActiveContent, engine());
+        let result = verdict(combine(
+            &ClamVerdict::Clean,
+            &[],
+            Heuristic::ActiveContent,
+            engine(),
+        ));
         assert_eq!(
             value(&result),
             json!({"verdict":"clean","engineVersion":"engine/1","activeContent":true})
@@ -194,7 +252,12 @@ mod tests {
 
     #[test]
     fn plain_clean_has_no_active_content() {
-        let result = combine(&ClamVerdict::Clean, &[], Heuristic::Clean, engine());
+        let result = verdict(combine(
+            &ClamVerdict::Clean,
+            &[],
+            Heuristic::Clean,
+            engine(),
+        ));
         assert_eq!(
             value(&result),
             json!({"verdict":"clean","engineVersion":"engine/1","activeContent":false})

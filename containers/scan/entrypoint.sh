@@ -6,6 +6,23 @@ set -euo pipefail
 CONF=/etc/clamav/clamd.conf
 grep -q '^TCPSocket' "$CONF" || printf 'TCPSocket 3310\nTCPAddr 127.0.0.1\n' >>"$CONF"
 
+# Align clamd's scan-size limits with the ingest pipeline's inspectable-size cap — the
+# fileManager.inspectableSizeCapBytes default (2 GiB) in packages/file-manager/src/upload-policy.ts.
+# clamd's stock limits are far below that (MaxScanSize/MaxFileSize 100M, StreamMaxLength 25M). clamd
+# enforces MaxScanSize/MaxFileSize on a path SCAN too, not only on INSTREAM, so a file between ~100 MiB
+# and the cap would be skipped and degrade to a retryable engine fault without these raised. Strip any
+# active directive first so a duplicate cannot error (commented samples are left).
+sed -i -E '/^[[:space:]]*(StreamMaxLength|MaxScanSize|MaxFileSize)[[:space:]]/d' "$CONF"
+printf 'StreamMaxLength 2048M\nMaxScanSize 2048M\nMaxFileSize 2048M\n' >>"$CONF"
+
+# Scratch directory for the direct file-scan fast path: the scan service writes the request body here and
+# sends clamd `SCAN <path>` so clamd reads the file itself — no INSTREAM socket copy or temp spool. Files
+# are written mode 0644 so the clamav user clamd drops to can read them; the directory is 0755. Swept on
+# every boot so a scratch file leaked by a SIGKILL/crash on a prior run cannot linger and exhaust disk.
+mkdir -p /scan
+chmod 0755 /scan
+rm -f /scan/* 2>/dev/null || true
+
 # clamd needs its runtime socket directory to exist and be owned by the clamav user it drops to.
 mkdir -p /run/clamav
 chown clamav:clamav /run/clamav 2>/dev/null || true

@@ -382,15 +382,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "clamav-client"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "205d13fb48b7a692b6575ee6db7249eefc0a21a029916bf8a4d9e652523b841c"
-dependencies = [
- "tokio",
-]
-
-[[package]]
 name = "cobs"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1591,8 +1582,9 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "cfb",
- "clamav-client",
+ "futures-util",
  "lopdf",
+ "memmap2",
  "reqwest",
  "serde",
  "serde_json",

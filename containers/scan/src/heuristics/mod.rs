@@ -147,35 +147,39 @@ fn scan_archive(
     // Opens regardless of leading bytes — the zip crate locates entries via the tail EOCD record.
     let mut archive = zip::ZipArchive::new(Cursor::new(bytes)).ok()?;
     for index in 0..archive.len() {
-        let mut entry = match archive.by_index(index) {
-            Ok(entry) => entry,
+        // Read metadata via `by_index_raw`: `by_index` returns an error for an encrypted entry (it
+        // cannot set up decryption without a password), which would skip it before `.encrypted()` could
+        // flag it — leaving an encrypted, uninspectable archive to serialize as `clean`. The raw
+        // accessor reads name/size/encrypted without decrypting, so an encrypted entry is flagged here.
+        let (is_dir, name, encrypted, declared, compressed) = match archive.by_index_raw(index) {
+            Ok(entry) => (
+                entry.is_dir(),
+                entry.name().to_ascii_lowercase(),
+                entry.encrypted(),
+                entry.size(),
+                entry.compressed_size(),
+            ),
             Err(_) => continue,
         };
         scan.total_entries += 1;
         if scan.total_entries > caps.max_entries as u64 {
             return Some(Reason::ArchiveEntryCount);
         }
-        if entry.is_dir() {
+        if is_dir {
             continue;
         }
         // A */vbaProject.bin part marks a macro-enabled OOXML document.
-        if entry
-            .name()
-            .to_ascii_lowercase()
-            .ends_with("vbaproject.bin")
-        {
+        if name.ends_with("vbaproject.bin") {
             scan.has_macros = true;
         }
         // Encrypted entries cannot be read or descended — flag and move on (never decompressed).
-        if entry.encrypted() {
+        if encrypted {
             scan.has_encrypted_entry = true;
             continue;
         }
 
         // Cheap declared-metadata pre-filter: a naively-declared huge ratio, or a declared cumulative
         // size over the cap, is a bomb without any decompression.
-        let declared = entry.size();
-        let compressed = entry.compressed_size();
         if compressed > 0 && declared / compressed > caps.max_expansion_ratio {
             return Some(Reason::DecompressionBomb);
         }
@@ -184,7 +188,12 @@ fn scan_archive(
             return Some(Reason::DecompressionBomb);
         }
 
-        // Detect a nested archive by CONTENT, not filename: peek the leading bytes for an archive magic.
+        // Detect a nested archive by CONTENT, not filename: the entry is not encrypted, so reopen it
+        // decompressed and peek the leading bytes for an archive magic.
+        let mut entry = match archive.by_index(index) {
+            Ok(entry) => entry,
+            Err(_) => continue,
+        };
         let mut head = [0u8; 4];
         let read = read_prefix(&mut entry, &mut head);
         if is_zip(&head[..read]) {

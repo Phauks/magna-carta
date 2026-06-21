@@ -20,17 +20,28 @@ contract: **clamd** (signatures), **yara-x** (heuristic rules), and **structural
 - `src/heuristics/{mod,pdf,office}.rs` — `inspect()` dispatches by magic bytes: PDF (lopdf) active-content
   / encrypted; OLE/CFB (cfb) macros / `EncryptedPackage`; ZIP (zip) archive caps + OOXML macros. Size/ratio
   checks read entry **metadata** only, so a zip bomb is caught before expansion.
-- `src/verdict.rs` — `combine()` (precedence: infected > suspicious > unscanned > clean+activeContent) →
-  the `ScanResult` serde union, byte-matching `packages/file-manager/src/scan-port.ts`.
-- `Dockerfile` / `entrypoint.sh` — multi-stage build; clamd + a **build-time-baked** signature DB.
+- `src/verdict.rs` — `combine()` → `CombineOutcome` (a verdict, or a retryable signature-engine fault);
+  precedence infected > suspicious > unscanned(encrypted) > retryable-fault > clean+activeContent. The
+  `ScanResult` serde union byte-matches `packages/file-manager/src/scan-port.ts`.
+- `Dockerfile` / `entrypoint.sh` — multi-stage build; clamd + a **build-time-baked** signature DB; the
+  entrypoint raises clamd's scan-size limits to the inspectable-size cap (see Local rules).
 
 ## Local rules / invariants
 
 - **`ScanResult` is the Rust⇄TS boundary.** Its JSON must stay identical to `scan-port.ts`; the worker
   adapter re-validates it with zod. A change is a change on both sides.
-- **Fail safe, never silent-clean.** clamd unavailable → `unscanned`/no-engine; an unparseable/locked file
-  → `unscanned`/encrypted or `clean` (clamd/yara still scan); active content is a clean-with-badge signal,
-  never a quarantine on its own. The worker adapter throws (retries the queue) on any non-200/malformed.
+- **Fail safe, never silent-clean.** A clamd fault with no other signal is a **retryable 503** (the worker
+  adapter throws → the ingest queue re-scans), never a verdict: a running container always booted with
+  clamd ready, so it never self-reports `unscanned`/no-engine — that honest verdict is the engine-less
+  launch adapter's alone (`packages/file-manager/src/scan-port.ts`). A locked file → `unscanned`/encrypted
+  (re-scanning cannot help); active content is a clean-with-badge signal, never a quarantine on its own.
+- **clamd limits track the inspectable-size cap.** `entrypoint.sh` raises clamd's `StreamMaxLength` /
+  `MaxScanSize` / `MaxFileSize` to 2048M (= `fileManager.inspectableSizeCapBytes`, 2 GiB) so clamd scans
+  every file the pipeline feeds it; the two must stay aligned, and the deploy instance must be sized for a
+  full-size scan (the service buffers the body, clamd its own copy, atop the resident DB) — operations.md §9.
+- **The `/scan` body limit tracks the cap too.** axum's `Bytes` extractor defaults to a 2 MiB body limit
+  — every real document would 413 before reaching any engine; `router()` raises `/scan` to 2 GiB
+  (`MAX_SCAN_BODY_BYTES` = `fileManager.inspectableSizeCapBytes`). Keep it aligned with the clamd limits.
 - **No runtime egress.** The Container runs `enableInternet = false`; the signature DB is baked at image
   build (freshclam), and a refresh is an image rebuild. clamd is loopback-TCP only.
 - **Cross-platform compile.** Talk to clamd over `Tcp` (loopback), not the Unix-socket client (which is
@@ -46,6 +57,7 @@ cargo test                                   # unit + integration (the EICAR tes
 cargo fmt --check && cargo clippy --all-targets -- -D warnings
 CLAMD_ADDRESS=127.0.0.1:3310 cargo test -- --ignored   # the EICAR test against a live clamd
 bash tests/eicar_e2e.sh                      # build the image + EICAR acceptance gate (needs Docker)
+node harness/scan-proxy.mjs                  # browser harness vs a running container (harness/README.md)
 ```
 
 ## Gotchas
@@ -58,6 +70,9 @@ bash tests/eicar_e2e.sh                      # build the image + EICAR acceptanc
 - Structural inspection covers **PDF, OLE, and ZIP** only. Archive bombs/nesting/encryption in other
   formats (7z, RAR, gzip, bzip2, xz, tar) are not structurally caught — clamd scans their contents, but
   an encrypted non-ZIP archive serializes as `clean` rather than `unscanned`. Documented follow-up.
+- Encrypted **ZIP** entries are flagged via `by_index_raw` (metadata only). `by_index` returns an error
+  for an encrypted entry, so the archive walk would `continue` past it and serialize the whole archive as
+  `clean` — don't switch the walk back to `by_index`.
 - Archive nesting is detected by **content** (a leading-byte peek for an archive magic), not the `.zip`
   filename, and ZIP inspection runs regardless of leading bytes (prepended-stub / polyglot zips), so a
   rename or junk prefix cannot bypass the caps. A forged-size single-level bomb still relies on clamd.

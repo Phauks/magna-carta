@@ -111,6 +111,36 @@ fn zip_of(entries: &[(&str, Vec<u8>, zip::CompressionMethod)]) -> Vec<u8> {
     writer.finish().expect("finish zip").into_inner()
 }
 
+// Synthesizes an encrypted ZIP entry by setting the general-purpose "encrypted" flag bit (bit 0) in the
+// central-directory header of a normal stored zip — the record `.encrypted()` reads. The zip writer in
+// this build has no encryption feature, and the bytes need not be real ciphertext: the heuristic flags
+// and skips an encrypted entry without ever reading it.
+fn encrypted_zip() -> Vec<u8> {
+    let mut bytes = zip_of(&[(
+        "secret.bin",
+        b"plaintext".to_vec(),
+        zip::CompressionMethod::Stored,
+    )]);
+    let signature = [0x50, 0x4b, 0x01, 0x02]; // central directory header
+    if let Some(position) = bytes.windows(signature.len()).position(|w| w == signature) {
+        // The general-purpose flag is the 2 bytes at offset 8 from a central-directory signature.
+        bytes[position + 8] |= 0x01;
+    }
+    bytes
+}
+
+#[test]
+fn encrypted_zip_entry_is_encrypted() {
+    // An encrypted entry cannot be inspected, so it must serialize as `Encrypted`, never `Clean`. The
+    // walker reads metadata via `by_index_raw` because `by_index` errors on an encrypted entry — without
+    // that, the entry is skipped and the archive wrongly reads clean (a real encrypted archive — both
+    // ZipCrypto and AES — slipped through as clean before this).
+    assert_eq!(
+        inspect(&encrypted_zip(), None, &ArchiveCaps::default()),
+        Heuristic::Encrypted
+    );
+}
+
 #[test]
 fn clean_zip_is_clean() {
     let bytes = zip_of(&[(

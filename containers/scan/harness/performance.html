@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scan engine performance — where the time goes</title>
+    <style>
+      /* A standalone developer explainer — open directly in a browser (file://), no server needed.
+         Not product UI, so it does not go through the design system. */
+      :root {
+        color-scheme: dark;
+        --bg: #0d1117;
+        --panel: #161b22;
+        --panel2: #1c2330;
+        --border: #283040;
+        --text: #d7dee7;
+        --muted: #8b97a6;
+        --blue: #58a6ff;
+        --red: #f85149;
+        --amber: #e0a008;
+        --green: #3fb950;
+        --purple: #bc8cff;
+        --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: radial-gradient(1200px 600px at 70% -10%, #16202e 0%, var(--bg) 55%);
+        color: var(--text);
+        font: 15px/1.65 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap { max-width: 1000px; margin: 0 auto; padding: 40px 24px 80px; }
+      header h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: -0.01em; }
+      header p.sub { color: var(--muted); margin: 0 0 4px; font-size: 16px; }
+      .eyebrow { color: var(--blue); font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 10px; }
+      section { margin-top: 44px; }
+      h2 { font-size: 19px; margin: 0 0 4px; display: flex; align-items: center; gap: 10px; }
+      h2 .n { font-family: var(--mono); color: var(--blue); font-size: 14px; border: 1px solid var(--border); border-radius: 6px; padding: 1px 8px; }
+      h2 + p.lede { color: var(--muted); margin: 4px 0 20px; max-width: 70ch; }
+      .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 22px 24px; }
+      .mono { font-family: var(--mono); }
+      .muted { color: var(--muted); }
+
+      /* hero numbers */
+      .hero { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 26px; }
+      .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+      .stat .label { color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.06em; }
+      .stat .big { font-family: var(--mono); font-size: 30px; font-weight: 600; margin: 6px 0 2px; }
+      .stat .big small { font-size: 16px; color: var(--muted); font-weight: 400; }
+      .stat.now { border-color: #2d4a6b; box-shadow: inset 0 0 0 1px #1d3552; }
+      .stat .foot { font-size: 13px; color: var(--muted); }
+      .green { color: var(--green); } .amber { color: var(--amber); } .red { color: var(--red); } .blue { color: var(--blue); } .purple { color: var(--purple); }
+
+      /* bar chart */
+      .bars { display: grid; gap: 14px; }
+      .bar-row { display: grid; grid-template-columns: 230px 1fr; align-items: center; gap: 14px; }
+      .bar-row .name { font-size: 13.5px; }
+      .bar-row .name small { color: var(--muted); display: block; font-size: 12px; }
+      .track { background: #0c1118; border: 1px solid var(--border); border-radius: 7px; height: 30px; position: relative; overflow: hidden; }
+      .fill { height: 100%; border-radius: 6px 0 0 6px; display: flex; align-items: center; justify-content: flex-end; padding-right: 9px; font-family: var(--mono); font-size: 12.5px; color: #06120a; font-weight: 700; min-width: 44px; transition: width .6s cubic-bezier(.2,.7,.2,1); }
+
+      /* stacked time chart */
+      .stack-row { display: grid; grid-template-columns: 150px 1fr 70px; align-items: center; gap: 14px; margin-bottom: 12px; }
+      .stack-row .lbl { font-size: 13px; }
+      .stack-row .lbl small { display: block; color: var(--muted); font-size: 11.5px; }
+      .stack { display: flex; height: 30px; border-radius: 7px; overflow: hidden; border: 1px solid var(--border); background: #0c1118; }
+      .seg { height: 100%; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 11.5px; color: #08110a; font-weight: 700; transition: width .6s cubic-bezier(.2,.7,.2,1); overflow: hidden; white-space: nowrap; }
+      .total { font-family: var(--mono); text-align: right; font-size: 13px; }
+      .legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 6px; font-size: 12.5px; color: var(--muted); }
+      .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+      /* pipeline */
+      .pipe { display: flex; gap: 8px; align-items: stretch; overflow-x: auto; padding-bottom: 6px; }
+      .stage { flex: 1 1 0; min-width: 120px; background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 12px 14px; position: relative; }
+      .stage h4 { margin: 0 0 6px; font-size: 13px; }
+      .stage p { margin: 0; font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+      .stage .cost { font-family: var(--mono); font-size: 12px; margin-top: 8px; font-weight: 700; }
+      .badge { display: inline-block; font-size: 10.5px; font-family: var(--mono); padding: 1px 7px; border-radius: 999px; margin-top: 8px; font-weight: 700; }
+      .b-fixed { background: rgba(63,185,80,.16); color: #56d364; }
+      .b-remain { background: rgba(224,160,8,.16); color: #e3b341; }
+      .b-floor { background: rgba(88,166,255,.16); color: #79c0ff; }
+      .arrow { align-self: center; color: var(--muted); font-size: 18px; flex: 0 0 auto; }
+
+      /* cards */
+      .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+      .card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+      .card h3 { margin: 0 0 4px; font-size: 15.5px; display: flex; align-items: baseline; gap: 8px; }
+      .card .tag { font-family: var(--mono); font-size: 11px; padding: 1px 7px; border-radius: 6px; }
+      .card p { margin: 6px 0 0; font-size: 13.5px; color: var(--muted); }
+      .card .win { font-family: var(--mono); font-size: 13px; margin-top: 10px; }
+      .tag-do { background: rgba(63,185,80,.14); color: #56d364; }
+      .tag-next { background: rgba(88,166,255,.14); color: #79c0ff; }
+      .tag-future { background: rgba(188,140,255,.14); color: #d2a8ff; }
+      .tag-limit { background: rgba(248,81,73,.14); color: #ff7b72; }
+      ul.tight { margin: 8px 0 0; padding-left: 18px; }
+      ul.tight li { margin: 5px 0; font-size: 13.5px; color: var(--muted); }
+      ul.tight li b { color: var(--text); font-weight: 600; }
+      .note { font-size: 12.5px; color: var(--muted); margin-top: 14px; border-left: 2px solid var(--border); padding-left: 12px; }
+      code { font-family: var(--mono); background: #0c1118; border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; font-size: 12.5px; }
+      a { color: var(--blue); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="eyebrow">Magna Carta · malware-scan container</div>
+        <h1>Scan engine performance: where the time goes</h1>
+        <p class="sub">A 1&nbsp;GiB file today scans in <b class="amber">~110&nbsp;s</b>. The engine itself could do it in <b class="green">~16&nbsp;s</b>. Here is the entire gap, what we have already closed, and what's left — measured, not guessed.</p>
+        <p class="muted" style="font-size:13px;">All numbers measured <b>inside the container</b> (no host network), on random data, single scan. Throughput = MiB&nbsp;/&nbsp;s.</p>
+      </header>
+
+      <!-- HERO -->
+      <div class="hero">
+        <div class="stat">
+          <div class="label">Where we started</div>
+          <div class="big red">4.7<small> MiB/s</small></div>
+          <div class="foot">4 KiB INSTREAM chunks · Nagle stalls · noisy</div>
+        </div>
+        <div class="stat now">
+          <div class="label">Where we are now</div>
+          <div class="big blue">~9–10<small> MiB/s</small></div>
+          <div class="foot">1 MiB chunks + <span class="mono">TCP_NODELAY</span> · consistent · <b>~2×</b></div>
+        </div>
+        <div class="stat">
+          <div class="label">The engine's real rate</div>
+          <div class="big green">~63<small> MiB/s</small></div>
+          <div class="foot">clamd reading a file directly — the ceiling we're chasing</div>
+        </div>
+      </div>
+
+      <!-- THROUGHPUT LADDER -->
+      <section>
+        <h2><span class="n">1</span> The throughput ladder</h2>
+        <p class="lede">Each step is a real measurement. We've climbed the first rung; the big jump (file-based <span class="mono">SCAN</span>) is still ahead. The bar length is proportional to speed — longer is faster.</p>
+        <div class="panel">
+          <div class="bars" id="ladder"></div>
+        </div>
+      </section>
+
+      <!-- TIME BREAKDOWN -->
+      <section>
+        <h2><span class="n">2</span> Where 256&nbsp;MiB of scan time actually goes</h2>
+        <p class="lede">Same scan, three configurations. The strategy is to peel off the overhead layers until only the irreducible work — clamd's actual scan — remains. Shorter is faster; the <span class="green">green</span> floor is the real work.</p>
+        <div class="panel">
+          <div id="stacks"></div>
+          <div class="legend">
+            <span><i style="background:var(--red)"></i>Nagle / delayed-ACK stalls — <b class="green">fixed</b></span>
+            <span><i style="background:var(--amber)"></i>INSTREAM structural cost (temp-spool + 1 KiB reads) — <b class="amber">next target</b></span>
+            <span><i style="background:var(--green)"></i>clamd scan — irreducible (the 63 MiB/s work)</span>
+          </div>
+          <p class="note">Decomposition is approximate but grounded: clamd's real scan of 256 MiB ≈ 4&nbsp;s (from the 63 MiB/s direct measurement); the rest is delivery overhead, split by the before/after-<span class="mono">NODELAY</span> delta (~26&nbsp;s of that was Nagle stalls, 256 chunks × ~200&nbsp;ms).</p>
+        </div>
+      </section>
+
+      <!-- PIPELINE -->
+      <section>
+        <h2><span class="n">3</span> What's causing the reductions — the pipeline</h2>
+        <p class="lede">A file's journey through the scanner. Two stages add almost all the overhead. We've eliminated the first; the second is structural to INSTREAM and only a direct file scan removes it.</p>
+        <div class="panel">
+          <div class="pipe">
+            <div class="stage">
+              <h4>1 · HTTP receive</h4>
+              <p>Worker streams the body to the container; axum reads it.</p>
+              <div class="cost muted">cheap (loopback)</div>
+            </div>
+            <div class="arrow">→</div>
+            <div class="stage">
+              <h4>2 · Buffer into memory</h4>
+              <p>axum collects the full body into one <span class="mono">Bytes</span> buffer (raised the 2&nbsp;MiB cap → 2&nbsp;GiB).</p>
+              <div class="cost muted">one copy, fast</div>
+            </div>
+            <div class="arrow">→</div>
+            <div class="stage">
+              <h4>3 · INSTREAM framing</h4>
+              <p>Each chunk = a 4-byte length prefix + data. With Nagle on, the tiny prefix stalled ~200&nbsp;ms waiting for clamd's delayed ACK.</p>
+              <span class="badge b-fixed">FIXED · TCP_NODELAY</span>
+            </div>
+            <div class="arrow">→</div>
+            <div class="stage">
+              <h4>4 · clamd intake</h4>
+              <p>clamd reads the socket <b>1&nbsp;KiB at a time</b> and <b>spools the whole stream to a temp file</b>, then scans <i>that</i>. INSTREAM = receive + temp-write + scan.</p>
+              <span class="badge b-remain">~24&nbsp;s · the remaining gap</span>
+            </div>
+            <div class="arrow">→</div>
+            <div class="stage">
+              <h4>5 · libclamav scan</h4>
+              <p>The actual signature + heuristic pass over the bytes. One thread, one core.</p>
+              <span class="badge b-floor">~4&nbsp;s · 63 MiB/s floor</span>
+            </div>
+          </div>
+          <p class="note">Stage&nbsp;4 is the whole story now: a direct <span class="mono">SCAN&nbsp;&lt;path&gt;</span> lets clamd open and read the file itself — no socket copy, no spool — collapsing stage&nbsp;4 to ~0 and landing on the stage&nbsp;5 floor.</p>
+        </div>
+      </section>
+
+      <!-- HOW TO GET FASTER -->
+      <section>
+        <h2><span class="n">4</span> How we get faster</h2>
+        <p class="lede">In priority order. The first is done; the second is the big remaining win.</p>
+        <div class="cards">
+          <div class="card">
+            <h3><span class="tag tag-do">DONE</span> TCP_NODELAY + 1 MiB chunks</h3>
+            <p>Drive INSTREAM directly and disable Nagle so each frame ships immediately. Removed the ~200&nbsp;ms per-chunk stalls.</p>
+            <div class="win green">4.7 → ~9–10 MiB/s · ~2×</div>
+          </div>
+          <div class="card">
+            <h3><span class="tag tag-next">NEXT</span> File-based SCAN</h3>
+            <p>Write the buffered body to a tmpfs file, send clamd <span class="mono">zSCAN&nbsp;&lt;path&gt;</span> over the existing socket, delete after. clamd reads it directly — no INSTREAM copy or spool. The path to the engine's native rate.</p>
+            <div class="win blue">~10 → ~63 MiB/s · ~6×  →  1 GiB in ~16 s</div>
+          </div>
+          <div class="card">
+            <h3><span class="tag tag-future">WITH YARA</span> Concurrent engines</h3>
+            <p>Today clamd → yara → heuristics run in series, but yara is rule-less (free). Once the YARA-Forge corpus is baked, run them in parallel (<span class="mono">spawn_blocking</span>) so the total is <span class="mono">max(clamd, yara)</span>, not the sum.</p>
+            <div class="win purple">~halves large-file latency once yara is a real cost</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- LIMITS -->
+      <section>
+        <h2><span class="n">5</span> Legitimate limits — the walls we can't move</h2>
+        <p class="lede">Honesty about the floor. After file-based SCAN, these are what's left, and most are fundamental.</p>
+        <div class="cards">
+          <div class="card">
+            <h3><span class="tag tag-limit">WALL</span> One file = one core</h3>
+            <p>A single scan is single-threaded inside libclamav. ~63 MiB/s is one core's rate with the full signature DB on this CPU. You <b>cannot</b> safely split one file across cores — malware signatures span chunk boundaries, so a split scan can miss a threat straddling the cut.</p>
+            <div class="win muted">≈ 16 s / GiB is the realistic single-file floor</div>
+          </div>
+          <div class="card">
+            <h3><span class="tag tag-limit">OFF-LIMITS</span> Don't scan less</h3>
+            <p>You could go faster by lowering <span class="mono">MaxScanSize</span>, skipping archives, or shortening recursion — but every one of those speeds the scan up <i>by scanning less</i>, i.e. weakening detection. For a legal-docs platform that's not on the table.</p>
+            <div class="win muted">speed that costs coverage isn't speed we want</div>
+          </div>
+          <div class="card">
+            <h3><span class="tag tag-limit">COMING</span> YARA-X is a real cost</h3>
+            <p>YARA scans the whole file in one linear pass. With a YARA-Forge-scale corpus, expect ~10–30 MiB/s over a large buffer — co-equal with clamd. Concurrency hides it behind clamd's time but doesn't make it free.</p>
+            <div class="win muted">plan for it; overlap it; can't erase it</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FUTURE -->
+      <section>
+        <h2><span class="n">6</span> Future avenues — and their ceilings</h2>
+        <p class="lede">Beyond single-file latency, the real scaling lever is throughput across files, which the async design is already built for.</p>
+        <div class="panel">
+          <ul class="tight">
+            <li><b>File-based SCAN</b> → the next ~6×, lands at clamd's native ~63 MiB/s. <span class="muted">Ceiling: stage-5 single-core scan.</span></li>
+            <li><b>Concurrent engines</b> (clamd ∥ yara) → folds yara's future cost under clamd's wall-time. <span class="muted">Ceiling: <span class="mono">max(clamd, yara)</span>, not lower.</span></li>
+            <li><b>tmpfs for clamd's temp dir</b> → a marginal extra on top of SCAN (RAM-speed spill). <span class="muted">Mostly moot once SCAN removes the spool.</span></li>
+            <li><b>Horizontal scale-out</b> → more container instances scan <i>different</i> files in parallel. This is how you raise <b>throughput</b> (files/sec) without limit. <span class="muted">Ceiling: $ per instance, and the per-instance memory needed for a 2 GiB scan.</span></li>
+            <li><b>The architecture already hides latency</b> → scanning is <b>asynchronous</b>: an upload returns instantly, the file becomes usable when its background scan finishes. So a 16-second scan is never a user-blocking wait — it's queue-drain latency, which scale-out addresses.</li>
+          </ul>
+          <p class="note">The honest summary: we can take a single 1 GiB file from ~110&nbsp;s → ~16&nbsp;s (file-based SCAN), and that ~16&nbsp;s is the wall for one file on one core. Everything past that is <b>scale-out for throughput</b>, not making one file scan faster — and because scanning is background work, throughput is what actually matters at volume.</p>
+        </div>
+      </section>
+
+      <section>
+        <h2><span class="n">7</span> The recommendation</h2>
+        <div class="panel">
+          <p style="margin-top:0;">Ship <b class="blue">file-based SCAN</b> next — it's the single change that closes most of the remaining gap (~10 → ~63 MiB/s), works over the socket we already have, and is roughly memory-neutral vs INSTREAM. The two things to get right: <b>bulletproof temp-file cleanup</b> (a leaked 2 GiB blob is a RAM-exhaustion DoS) and a small <b>instance-size note</b> for full-size scans. Bake the YARA corpus and add engine concurrency together, as one unit, when that lands.</p>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      // The throughput ladder — bar length ∝ speed (longer = faster).
+      const LADDER = [
+        { name: "4 KiB chunks", sub: "where we started", mibs: 4.7, color: "var(--red)" },
+        { name: "1 MiB + TCP_NODELAY", sub: "where we are now", mibs: 9.5, color: "var(--blue)" },
+        { name: "File-based SCAN", sub: "next step — clamd reads the file", mibs: 63, color: "var(--green)" },
+      ];
+      const maxMibs = 66;
+      document.getElementById("ladder").innerHTML = LADDER.map((d) => `
+        <div class="bar-row">
+          <div class="name">${d.name}<small>${d.sub}</small></div>
+          <div class="track"><div class="fill" style="width:${(d.mibs / maxMibs) * 100}%;background:${d.color}">${d.mibs} MiB/s</div></div>
+        </div>`).join("");
+
+      // The 256 MiB time breakdown — stacked seconds (shorter = faster).
+      const SCAN = 4, INSTREAM = 24, NAGLE = 26;
+      const STACKS = [
+        { lbl: "Before", sub: "4 KiB chunks", segs: [["Nagle", NAGLE, "var(--red)"], ["INSTREAM", INSTREAM, "var(--amber)"], ["scan", SCAN, "var(--green)"]] },
+        { lbl: "Now", sub: "+ TCP_NODELAY", segs: [["INSTREAM", INSTREAM, "var(--amber)"], ["scan", SCAN, "var(--green)"]] },
+        { lbl: "File SCAN", sub: "clamd direct", segs: [["scan", SCAN, "var(--green)"]] },
+      ];
+      const maxSecs = NAGLE + INSTREAM + SCAN;
+      document.getElementById("stacks").innerHTML = STACKS.map((row) => {
+        const total = row.segs.reduce((a, s) => a + s[1], 0);
+        const segs = row.segs.map(([n, v, c]) =>
+          `<div class="seg" style="width:${(v / maxSecs) * 100}%;background:${c}">${v >= 4 ? v + "s" : ""}</div>`).join("");
+        return `<div class="stack-row">
+          <div class="lbl">${row.lbl}<small>${row.sub}</small></div>
+          <div class="stack" style="width:${(total / maxSecs) * 100}%">${segs}</div>
+          <div class="total">${total}s</div>
+        </div>`;
+      }).join("");
+    </script>
+  </body>
+</html>
