@@ -104,8 +104,25 @@ more than one engine:
   new edges light up in that firm's **Convert to…** menu; disconnect → they disappear. The menu stays
   data-driven, now per-firm.
 
-**Open design question:** whether the registry is static platform configuration (code, with per-firm
-enablement as an overlay) or fully data-backed in D1. Recommendation to evaluate in design: **static
+**Data-model sketch (illustrative — the *shape*, not the storage decision).** Two layers:
+
+- **Platform-defined (security-sensitive — it drives what runs):**
+  - `Format` — node; id (mime/extension), label.
+  - `ConversionEdge` — `from Format → to Format`, carrying **1..N** `EngineCandidate`.
+  - `EngineCandidate` — `engineId` · `recipe` · `fidelity` · `cost` · **`confidentiality: in-tenant |
+    egress`**.
+  - `Engine` / adapter (behind one `ConversionPort`) — id · kind (`in-tenant container` |
+    `external credentialed`) · **capability descriptor** = the edge set it serves.
+- **Per-firm overlay (enablement + policy only):**
+  - `FirmEngineEnablement` — which engines the firm has connected (reuses `integration_connection` +
+    the credential store).
+  - `EgressPolicy` — which content-classes may use an `egress` engine (default: none — privileged
+    never egresses).
+  - **Derived:** a firm's *available conversions* = the union of its enabled engines' descriptors →
+    drives the data-driven **Convert to…** menu.
+
+**Open design question:** whether the platform layer is static configuration (code) or data-backed in
+D1; the per-firm overlay is data either way. Recommendation to evaluate in design: **static
 platform-defined edges/recipes with a per-firm enablement + policy overlay** — the format knowledge
 is platform-wide and security-sensitive (it drives what runs), while only *enablement* and *policy*
 are per-firm.
