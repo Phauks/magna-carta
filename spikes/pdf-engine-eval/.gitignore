@@ -1,0 +1,5 @@
+# Throwaway spike — keep source, never commit binaries/builds/corpus.
+/target/
+/out/
+/corpus/
+Cargo.lock

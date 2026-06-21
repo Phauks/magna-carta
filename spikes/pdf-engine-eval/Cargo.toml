@@ -1,0 +1,13 @@
+# Throwaway feasibility-spike harness — NOT a workspace member, NOT shipped.
+# See docs/specs/2026-06-21-pdf-engine-feasibility-spike.md.
+[package]
+name = "pdf-engine-eval"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+hayro = "0.7"
+
+[profile.release]
+opt-level = 3
