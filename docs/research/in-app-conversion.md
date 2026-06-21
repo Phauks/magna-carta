@@ -212,12 +212,36 @@ is purely *which runtime* 2·4 calls. Three real options:
    ship a broad font set incl. Carlito + Caladea** — a concrete build requirement for faithful
    DOCX→PDF, not a nicety.
 
-**Recommendation to confirm in design:** **(A) standalone headless with per-job isolated profiles**
-as the default — cleanest decoupling from the editing tier and full control of the warm pool — with
-**(B) Collabora `convert-to` as the credible fallback** if running a second LibreOffice runtime
-proves wasteful (it gives isolation/reliability for free). **(C) LOK-via-Rust** is the
-performance-ceiling option to revisit if conversion volume justifies the integration cost. Either
-way, the Container ships Carlito + Caladea.
+**Decision (owner, 2026-06-21): Option A — a standalone, decoupled conversion Container — implemented
+via the LibreOfficeKit fork-pool pattern (modeled on Collabora's `convert-to` internals), not naive
+`soffice --convert-to` CLI.** B is retained as the fallback; C is not a separate path — it *is* A's
+implementation. The owner's instinct ("look at how B does it and base A on that") is the design.
+
+**Why A and C converge — how Collabora's `convert-to` works inside (researched 2026-06-21).** Collabora
+is robust not because of the CLI but because of *how it isolates each job*:
+
+- `coolwsd` routes the request through `ConvertToBroker::startConversion()`; a **`ForKit`** process
+  holds **LibreOfficeKit pre-initialized once** (a warm template) and **forks one `kit` child per
+  conversion**.
+- Each `kit` runs in a **chroot jail** (modern builds use Linux namespaces — spawn ~40ms → ~6ms); LOK
+  loads the document, saves the target format, returns, and the jail is torn down.
+- Robustness = **process-per-job + jail**, and because **LOK is single-instance-per-process**, it is
+  structurally one conversion per process — concurrency is just *more processes*. (This is the same
+  root cause as the `soffice` profile-lock failure in the concurrency finding above: one LOK/LO state
+  per process, full stop.)
+
+**So the implementation pattern for A** is the LibreOffice Foundation's own recommended conversion
+architecture (TDF, 2024): a **warm LOK master** that **spawns an isolated worker process per
+conversion** (named-pipe dispatch), each worker its own LOK instance doing one job at a time, the pool
+**health-monitored and recycled** on crash/hang. A is the *placement* (our own Container, decoupled
+from the 2·2 editing tier — the benefit chosen); the LOK fork-pool is the *mechanism* (B's robustness,
+in our box).
+
+**We can base it on their code.** Collabora Online is **MPL-2.0** open source (mirror
+`CollaboraOnline/online`; the load-bearing files are `kit/Kit.cpp` and `ConvertToBroker`); existing
+LOK process-pool wrappers exist to crib from; and a **Rust LibreOfficeKit binding**
+(`jacobtread/libreofficekit`) fits the stack. **Build requirement carried regardless:** the Container
+ships a broad font set incl. **Carlito + Caladea**.
 
 ## 6. Execution and the shared substrate — reference, don't re-decide
 
@@ -271,7 +295,8 @@ are read. Recorded here only so the design cycle treats it as fixed.
   for EML is settled. The render step **must be network-isolated** and **must not use `wkhtmltopdf`**.
 - **Substrate items inherited from 2·1** — per-tenant fairness, warm-pool sizing, caps; and the
   inline-vs-Container threshold against the load-profile harness.
-- **LibreOffice runtime** (survey done 2026-06-21, §5) — confirm the runtime among standalone headless
-  + per-job isolated profiles (recommended), Collabora `/cool/convert-to` (fallback), or LOK-via-Rust;
-  **bind the build requirement to ship Carlito + Caladea fonts** in the conversion Container, and size
-  the warm pool as N isolated single-threaded instances (one conversion per instance).
+- **LibreOffice runtime — DECIDED 2026-06-21 (§5): Option A via the LOK fork-pool.** Residual
+  design-time tasks: study Collabora's `kit/Kit.cpp` + `ConvertToBroker` (MPL-2.0) and the existing
+  LOK process-pool wrappers; choose the binding (Rust `jacobtread/libreofficekit` vs direct LOK);
+  size the warm pool (N isolated single-instance LOK workers, health-monitored + recycled); **ship
+  Carlito + Caladea fonts** in the Container. B (Collabora `convert-to`) retained as the fallback.
