@@ -1,0 +1,11 @@
+[workspace]
+resolver = "2"
+members = ["pdf-core", "pdf-eval"]
+
+[workspace.package]
+edition = "2021"
+publish = false
+
+[workspace.dependencies]
+hayro = "0.7"
+image = "0.25"
