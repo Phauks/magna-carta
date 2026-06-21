@@ -15,6 +15,7 @@
     "./usage": "./src/usage.ts",
     "./ingest-core": "./src/ingest-core.ts",
     "./scan-port": "./src/scan-port.ts",
+    "./safe-rendition-port": "./src/safe-rendition-port.ts",
     "./upload-policy": "./src/upload-policy.ts",
     "./queries": "./src/queries.ts",
     "./preview-policy": "./src/preview-policy.ts",
