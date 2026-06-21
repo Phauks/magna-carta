@@ -256,8 +256,11 @@ impl Document {
             let dims = image::load_from_memory(&png).map_err(|_| PdfError::Render)?;
             return Ok(RenderedPage { width: dims.width(), height: dims.height(), data: png, png: true });
         }
-        // OPTIMIZATION SEAM: this round-trips through PNG to get RGBA. Replace with
-        // direct pixmap byte access once that accessor is confirmed in hayro.
+        // OPTIMIZATION SEAM: this round-trips through PNG to get *straight* RGBA8.
+        // Direct access exists (pixmap.width()/height()/data_as_u8_slice(), vello_common
+        // Pixmap) but yields PREMULTIPLIED RGBA (PremulRgba8) — a canvas wants straight
+        // alpha, so the direct path must un-premultiply first. The PNG round-trip already
+        // returns straight RGBA; keep it until the un-premultiply path is benchmarked.
         let img = image::load_from_memory(&png).map_err(|_| PdfError::Render)?.to_rgba8();
         let (width, height) = (img.width(), img.height());
         Ok(RenderedPage { data: img.into_raw(), width, height, png: false })
