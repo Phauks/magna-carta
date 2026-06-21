@@ -3,7 +3,7 @@ branch: slice-2-3-safe-delivery
 worktree: C:/dev/magna-carta (in-place; design cycle)
 area: Slice 2·3 — inline preview + safe-delivery sandbox (backend-only)
 status: designing
-touches: docs/specs/, docs/decisions/pending/, packages/database/src/per-firm-schema.ts, packages/file-manager/src/{queries.ts,preview-policy.ts,safe-rendition-port.ts}, apps/worker/src/routes/files.ts, apps/worker/src/files/preview-token.ts, apps/worker/src/app.ts, apps/worker/wrangler.jsonc, apps/worker/.dev.vars, docs/conventions/security.md, STATUS.md, ROADMAP.md
+touches: docs/specs/, docs/decisions/pending/, packages/database/src/per-firm-schema.ts, packages/file-manager/src/{queries.ts,preview-policy.ts,safe-rendition-port.ts}, apps/worker/src/routes/files.ts, apps/worker/src/files/preview-token.ts, apps/worker/src/app.ts, apps/worker/wrangler.jsonc (FILES_ORIGIN is a public hostname → the `vars` block, NOT `.dev.vars`), docs/conventions/security.md, STATUS.md, ROADMAP.md
 ---
 
 Slice 2·3 design cycle: the backend safe-delivery sandbox for inline file preview (video-first) plus

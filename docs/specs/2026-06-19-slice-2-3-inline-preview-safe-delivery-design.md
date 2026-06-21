@@ -227,7 +227,7 @@ const PreviewGrant = z.object({
   contentType: z.string().optional(),     // the SNIFFED type, echoed for the player
   sizeBytes: z.number().int().nullable().optional(),
   // present iff mode === "download-only":
-  reason: z.enum(["verdict","unknown-verdict","tiered","encoded","derived","unknown-type"]).optional(),
+  reason: z.enum(["verdict","unknown-verdict","tiered","encoded","derived","unknown-type","host-unavailable"]).optional(),
   downloadUrl: z.string(),                // ALWAYS present — the AUDITED /download path
 }).openapi("PreviewGrant");
 ```
@@ -274,7 +274,7 @@ The preview route is served over **real HTTP(S)** from the cookieless host on **
 
 ### 6.11 Pre-apex behavior — functional on the current deployment
 
-`FILES_ORIGIN` does not exist until `magnacarta.esq` attaches (both hosts are workers.dev-only today). The grant route **degrades to download-only whenever `FILES_ORIGIN` is unset**: `mode: "download-only"`, `reason: "unknown-verdict"`, no `streamUrl`, the always-present `downloadUrl`. This dovetails with the NULL-verdict launch reality (every grant is download-only anyway), so the route is testable and non-broken now, and the cookieless path lights up automatically once `FILES_ORIGIN` binds. For CI/staging exercise of the cookieless branch, `FILES_ORIGIN` is set in the test env binding (§9).
+`FILES_ORIGIN` does not exist until `magnacarta.esq` attaches (both hosts are workers.dev-only today). The grant route **degrades to download-only whenever `FILES_ORIGIN` is unset**: `mode: "download-only"`, `reason: "host-unavailable"`, no `streamUrl`, the always-present `downloadUrl`. (`host-unavailable` is a **route-level** reason the grant emits when delivery is impossible despite an otherwise-`inline-media` decision — distinct from the pure `decidePreview` reasons of §5, which never include it.) This dovetails with the NULL-verdict launch reality (every grant is download-only anyway), so the route is testable and non-broken now, and the cookieless path lights up automatically once `FILES_ORIGIN` binds. For CI/staging exercise of the cookieless branch, `FILES_ORIGIN` is set in the test env binding (§9).
 
 ---
 
