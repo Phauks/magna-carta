@@ -87,6 +87,16 @@ describe("matters / locations / file-manager schema", () => {
     expect(() => seedMatterRow("matter_goodstatus0000000", "prospective")).not.toThrow();
   });
 
+  it("file_version: inline_playable is a nullable enum column with no default + a matching CHECK", () => {
+    const config = getTableConfig(fileVersion);
+    const column = config.columns.find((c) => c.name === "inline_playable");
+    expect(column).toBeDefined();
+    expect(column?.notNull).toBe(false);
+    expect(column?.hasDefault).toBe(false);
+    expect(column?.enumValues).toEqual(["playable", "download-only", "indeterminate"]);
+    expect(config.checks.map((c) => c.name)).toContain("file_version_inline_playable_check");
+  });
+
   it("the file_version status CHECK fires at the DDL level — only the four known states are storable", () => {
     const raw = new DatabaseSync(":memory:");
     applyMigrations(raw, loadMigrationsFromDisk("per-firm"));
