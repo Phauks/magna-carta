@@ -8,6 +8,7 @@ use axum::{
 };
 use std::sync::Arc;
 
+pub mod atoms;
 pub mod clamav;
 pub mod heuristics;
 #[cfg(unix)]
