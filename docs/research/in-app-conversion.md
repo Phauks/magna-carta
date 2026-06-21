@@ -115,20 +115,65 @@ are per-firm.
 | Engine family | Edges | Status for the first build | Notes |
 | --- | --- | --- | --- |
 | **LibreOffice headless** | Office (DOCX/XLSX/PPTX/ODF/legacy) ↔ PDF, and inter-office | **Launch spine — buildable now** | Same LibreOffice core as Collabora (2·2); runtime choice in §5. No other-slice dependency. |
-| **email → PDF** | MSG/EML → PDF (exhibits) | **Launch spine — buildable now** | High litigation value. Realistic pipeline + candidate libraries below; freshness to verify at design time (golden rule 11). |
+| **email → PDF** | MSG/EML → PDF (exhibits) | **Launch spine — buildable now** | High litigation value. Pipeline + library survey firmed up below (2026-06-21). Render step has a real fidelity-vs-roster-weight choice + a network-isolation requirement. |
 | **libvips** | images; image ↔ PDF (raster) | **Fast-follow** | Mature; ImageMagick fallback per the published design. Low risk; deferred only to keep the first build tight. |
 | **FFmpeg (self-hosted)** | audio/video transcodes | **Fast-follow** | Same engine slated for inline-preview transcoding (2·3 deferred path); lands when that substrate is warm. |
 | **PDF engine** | scanned-PDF structure, PDF as a conversion endpoint | **⟦SEAM⟧ — named port, recipe deferred** | Rides the in-flight **pure-Rust PDF engine** (succeeds the PDFium fork). The registry carries the edge; the engine binding fills in when that engine lands. No PDFium/`embedpdf`-era naming bleeds into the conversion design. |
 | **OCR (scanned → searchable PDF)** | image/scanned-PDF → searchable PDF | **⟦SEAM⟧ — named port, recipe deferred** | Rides Phase-5 Discovery's OCR engine (PaddleOCR PP-OCRv5 via ONNX/`ort`), which is **not built yet** — this path cannot run until it lands. Modelled now, bound later. |
 
-**email → PDF, realistic pipeline (to firm up in design):** parse the message
-(EML = MIME; MSG = Outlook OLE compound file) → normalize headers + body + inline parts to a
-canonical HTML/print representation → render to PDF; attachments either embedded or surfaced as
-separate conversions. Candidate parsers to **verify for freshness/maintenance before adopting**
-(golden rule 11), with the owner's compiled-language preference in mind: `mail-parser` (Rust,
-Stalwart — strong MIME/RFC coverage) for EML, an MSG/OLE reader for Outlook messages; the
-HTML→PDF render step likely reuses an in-tenant engine (LibreOffice or the Rust PDF engine) rather
-than introducing a browser. **This library survey is a design-cycle task**, not settled here.
+### email → PDF — library survey (2026-06-21)
+
+Three-stage pipeline: **parse → normalize to print-HTML → render to PDF**. Findings, with the
+owner's compiled-language preference applied (freshness re-confirmed at build time, golden rule 11):
+
+**Stage 1 — parse.**
+
+- **EML / MIME → `mail-parser`** (Stalwart Labs). **Adopt.** 100% safe Rust, **no external
+  dependencies**, conforms to RFC 5322 + MIME (RFC 2045–2049) and many messaging RFCs, and returns a
+  *human-friendly* shape (text parts / HTML parts / attachments) instead of a raw nested MIME tree —
+  it even synthesizes the missing HTML-or-text alternative automatically. Runs in production in the
+  Stalwart Mail Server; **last published 2026-02-14** (actively maintained). This is the same library
+  family already favored elsewhere for MIME work.
+- **MSG (Outlook OLE compound) → `msg_parser`** (`marirs/msg-parser-rs`). **Candidate — audit
+  maintenance before relying.** Pure Rust, follows MS-OXMSG / MS-OXPROPS, extracts From/To/Cc/Bcc/
+  Subject/Date, plain-text **and** HTML bodies (incl. **compressed-RTF decompression** when only RTF
+  is present), attachments with raw bytes, SMTP transport headers, and MAPI named properties — i.e.
+  everything the render step needs. But it's a single-maintainer port and the published-date/activity
+  signal was inconclusive this pass, so treat it as **load-bearing-needs-audit** (the same posture
+  the malware research took toward `oletools_rs`): confirm coverage + maintenance at design time, with
+  "decompress RTF → HTML" as the fallback path if its HTML extraction has gaps.
+
+**Stage 2 — normalize to print-HTML.** Build one canonical document: a header block (From/To/Cc/
+Subject/Date/Message-ID), the body (prefer the HTML part, fall back to text), inline images resolved
+**only** from the message's own embedded CID parts, and an attachments policy (embed each in its
+original format vs append/convert them as trailing pages — make it a per-job option, mirroring the
+existing save-vs-download choice).
+
+**Stage 3 — render print-HTML → PDF. Two real constraints surfaced:**
+
+1. **Do NOT use `wkhtmltopdf`** — the route most off-the-shelf email→PDF tools take. It was **archived
+   in Jan 2023, declared unmaintained in Jul 2024**, and carries **CVE-2022-35583 (CVSS 9.8): an
+   injected `<iframe>` in user-supplied HTML triggers server-side request forgery** reaching internal
+   metadata endpoints. Email HTML is untrusted, externally-originated content — this is exactly the
+   threat. Adopting it would import a critical hole.
+2. **The render must run network-isolated** — no outbound fetch of any kind (remote images, external
+   CSS, iframes); inline only the message's own CID parts. This is the same untrusted-bytes posture as
+   slice 2·3's safe-delivery sandbox, applied at *generation* time, and it neutralizes the SSRF class
+   above regardless of engine.
+
+   Under those constraints the in-tenant render choice is a **fidelity-vs-roster-weight trade**, to
+   settle in design:
+   - **LibreOffice headless** — already in the roster (zero new engine), renders HTML→PDF, but modern
+     HTML/CSS-email fidelity is mediocre.
+   - **Headless Chromium** (Gotenberg-style) — best HTML/CSS-email fidelity, but adds a browser engine
+     to the Container roster and costs ~6–11× the CPU/RAM of a lightweight renderer.
+   - **The in-flight Rust PDF engine** is a PDF *writer/parser*, not an HTML layout engine, so it is
+     **not** a drop-in HTML→PDF renderer unless paired with an HTML layout stage — note it, don't bank
+     on it.
+
+   **Lean:** start on **LibreOffice headless** (no new engine, ships the spine) and only escalate to a
+   network-isolated headless-Chromium renderer if exhibit-fidelity demands it — a clean fast-follow,
+   not a launch blocker.
 
 ## 5. LibreOffice runtime — same core as Collabora, different runtime
 
@@ -199,8 +244,10 @@ are read. Recorded here only so the design cycle treats it as fixed.
   content classes may egress; the per-conversion "this leaves our systems" consent UX.
 - **The PDF-engine and OCR seam bindings** — fill in the deferred recipes when the pure-Rust PDF
   engine and the Phase-5 Discovery OCR engine land.
-- **The email → PDF library survey** — verify and choose the MIME/MSG parsers and the HTML→PDF render
-  step (golden rule 11).
+- **email → PDF residuals** (survey done 2026-06-21, §4): **audit `msg_parser` maintenance/coverage**
+  (load-bearing-needs-audit) and **choose the render engine** — LibreOffice headless (recommended
+  start) vs a network-isolated headless-Chromium renderer if exhibit fidelity demands it. `mail-parser`
+  for EML is settled. The render step **must be network-isolated** and **must not use `wkhtmltopdf`**.
 - **Substrate items inherited from 2·1** — per-tenant fairness, warm-pool sizing, caps; and the
   inline-vs-Container threshold against the load-profile harness.
 - **LibreOffice runtime** — confirm standalone headless vs Collabora `convert-to`.
