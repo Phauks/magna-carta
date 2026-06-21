@@ -44,6 +44,12 @@ export const PERMISSIONS = [
   "tools:shipping", // shipping & postage (the shipping integration)
   "tools:speedTest", // in-app network speed test (runs client-side against the Cloudflare edge)
   "tools:firmUsage", // firm usage snapshot — storage + entity counts (read-only, per-firm)
+  // Documents — in-app editing of a file's content (Collabora), versioning, and the offline
+  // check-out / reconciliation flow. Each document route is matter-scoped (RouteMeta resource: "matter").
+  "documents:edit", // open a document for editing; a deliberate Save or session-close cuts a version
+  "documents:checkout", // take an offline working copy, or an opt-in exclusive lock
+  "documents:forceReleaseLock", // release another member's exclusive lock
+  "documents:reconcile", // resolve a divergent check-in — choose which copy becomes authoritative
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);
