@@ -67,8 +67,8 @@ export function registerPreviewServeRoute(
   app.get("/api/files-preview/:token", async (c) => {
     const filesOrigin = c.env.FILES_ORIGIN;
     const hostname = new URL(c.req.url).hostname;
-    // Host guard: only answer on the files host. Anything else on this path 404s terminally (never
-    // falls through to /api/v1 or ASSETS) so the SPA shell never leaks onto the untrusted host.
+    // Host guard: only answer on the files host. Any other host falls through via c.next() so the
+    // /api/v1 routes and ASSETS handler can answer normally — the SPA shell is never served here.
     if (filesOrigin === undefined || hostname !== filesOrigin) {
       return c.next();
     }
