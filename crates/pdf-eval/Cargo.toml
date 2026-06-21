@@ -3,3 +3,12 @@ name = "pdf-eval"
 version = "0.0.0"
 edition.workspace = true
 publish = false
+
+[dependencies]
+pdf-core = { path = "../pdf-core" }
+hayro = { workspace = true }
+image = { workspace = true }
+lopdf = "0.41"
+pdf = "0.10"
+pdfium-render = "0.9"
+image-compare = "0.5"
