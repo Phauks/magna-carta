@@ -51,6 +51,11 @@ export type Bindings = {
   // Better Auth's signing/encryption secret. Local dev + tests load it from .dev.vars;
   // production sets it with `wrangler secret put AUTH_SECRET`.
   AUTH_SECRET: string;
+  // The cookieless files host (e.g. files.magnacarta.esq). Optional: does not exist until the apex
+  // domain attaches; while unset the preview grant degrades to download-only. The cookieless serve
+  // route only ever answers when the request hostname equals this value. A public hostname, not a
+  // secret — bound via wrangler.jsonc vars, never .dev.vars.
+  FILES_ORIGIN?: string;
   // The POST /api/v1/firms guard secret (constant-time-compared against X-Platform-Admin-Key — a
   // stand-in seam until a real platform-admin principal model exists). Local dev + tests load the
   // placeholder from .dev.vars; production sets it with `wrangler secret put PLATFORM_ADMIN_KEY`.
