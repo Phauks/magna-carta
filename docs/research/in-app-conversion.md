@@ -114,7 +114,7 @@ are per-firm.
 
 | Engine family | Edges | Status for the first build | Notes |
 | --- | --- | --- | --- |
-| **LibreOffice headless** | Office (DOCX/XLSX/PPTX/ODF/legacy) ↔ PDF, and inter-office | **Launch spine — buildable now** | Same LibreOffice core as Collabora (2·2); runtime choice in §5. No other-slice dependency. |
+| **LibreOffice headless** | Office (DOCX/XLSX/PPTX/ODF/legacy) ↔ PDF, and inter-office | **Launch spine — buildable now** | Same LibreOffice core as Collabora (2·2). Runtime survey + the concurrency/font findings in §5. No other-slice dependency. |
 | **email → PDF** | MSG/EML → PDF (exhibits) | **Launch spine — buildable now** | High litigation value. Pipeline + library survey firmed up below (2026-06-21). Render step has a real fidelity-vs-roster-weight choice + a network-isolation requirement. |
 | **libvips** | images; image ↔ PDF (raster) | **Fast-follow** | Mature; ImageMagick fallback per the published design. Low risk; deferred only to keep the first build tight. |
 | **FFmpeg (self-hosted)** | audio/video transcodes | **Fast-follow** | Same engine slated for inline-preview transcoding (2·3 deferred path); lands when that substrate is warm. |
@@ -175,28 +175,49 @@ existing save-vs-download choice).
    network-isolated headless-Chromium renderer if exhibit-fidelity demands it — a clean fast-follow,
    not a launch blocker.
 
-## 5. LibreOffice runtime — same core as Collabora, different runtime
+## 5. Office ↔ PDF — LibreOffice runtime survey (2026-06-21)
 
-LibreOffice and Collabora are **not** the same thing, and the difference matters for 2·4:
+LibreOffice and Collabora are **not** the same thing: LibreOffice is the conversion-capable office
+suite; **Collabora Online** (the `coolwsd` daemon 2·2 uses) is a *browser-based collaborative
+editing* server built **on top of** the same LibreOffice core — the WOPI tier the owner isolated to
+one container per open document. They share the core (identical conversion fidelity), so the choice
+is purely *which runtime* 2·4 calls. Three real options:
 
-- **LibreOffice headless** (`soffice --headless --convert-to …`, or LibreOfficeKit) is a one-shot,
-  non-interactive **conversion** runtime.
-- **Collabora Online** (the `coolwsd` daemon used by 2·2) is a *browser-based collaborative editing*
-  server built **on top of** the same LibreOffice core — the interactive WOPI tier the owner isolated
-  to one container per open document.
+- **(A) Standalone headless `soffice --headless --convert-to`** in a conversion Container — keeps
+  conversion off the interactive editing tier; conversion load never competes with live editing.
+- **(B) Collabora's `/cool/convert-to` REST endpoint** — **confirmed real**:
+  `curl -F "data=@in.docx" https://host:9980/cool/convert-to/pdf > out.pdf` (input auto-detected,
+  `-F format=` sets output). Collabora documents this path as **more reliable than driving headless
+  LibreOffice over remote UNO, and more secure because each conversion runs in an isolated
+  environment** — i.e. it hands you the isolation/reliability for free, at the cost of coupling
+  conversion to the editing tier's container model.
+- **(C) LibreOfficeKit (LOK)** — the programmatic C++ conversion interface (a **Rust binding exists**,
+  `jacobtread/libreofficekit`); The Document Foundation now promotes LOK for conversion. Best
+  performance and error-handling, fits the Rust-leaning stack, but the most integration work.
 
-They share the LibreOffice core (identical conversion fidelity), so the choice is purely *which
-runtime* 2·4 calls:
+**Two findings that bind regardless of option:**
 
-- **(A) Standalone headless `soffice --convert-to`** in a conversion Container — keeps conversion off
-  the interactive editing tier the owner deliberately isolated per-document; conversion load never
-  competes with live editing.
-- **(B) Route Office conversions through Collabora's `/cool/convert-to` endpoint** — reuses one
-  container image, but couples conversion throughput to the editing tier's isolation model.
+1. **Concurrency: one conversion per LibreOffice instance.** `soffice --convert-to` **fails silently
+   on concurrent requests from one user profile** (profile-lock contention — the second request
+   produces no output and reports no error); LibreOffice is **single-threaded per instance**. You
+   scale by **isolated instances**, not threads: either a per-conversion isolated `UserInstallation`
+   profile, or one instance per Container fanned out behind the queue. This is not a problem for us —
+   it **aligns exactly** with the DO-per-job + Container model and 2·2's per-document isolation
+   philosophy. Option (B)/(C) handle the isolation internally; option (A) must set an isolated profile
+   per job. **It does mean the inline (in-band, "feels instant") path cannot share one warm soffice
+   across requests** — size the warm pool as N isolated instances.
+2. **Fidelity: bundle Carlito + Caladea fonts.** Without them, LibreOffice substitutes the ubiquitous
+   MS Office defaults (Calibri/Cambria) with Liberation fonts and **layout shifts**; Carlito/Caladea
+   are metrically-compatible replacements that preserve layout. The conversion Container image **must
+   ship a broad font set incl. Carlito + Caladea** — a concrete build requirement for faithful
+   DOCX→PDF, not a nicety.
 
-**Recommendation to confirm in design: (A) standalone headless** — same fidelity, cleaner isolation,
-and it keeps the converter's scaling independent of editing. Worth a second look only if operating
-two LibreOffice runtimes proves wasteful in practice.
+**Recommendation to confirm in design:** **(A) standalone headless with per-job isolated profiles**
+as the default — cleanest decoupling from the editing tier and full control of the warm pool — with
+**(B) Collabora `convert-to` as the credible fallback** if running a second LibreOffice runtime
+proves wasteful (it gives isolation/reliability for free). **(C) LOK-via-Rust** is the
+performance-ceiling option to revisit if conversion volume justifies the integration cost. Either
+way, the Container ships Carlito + Caladea.
 
 ## 6. Execution and the shared substrate — reference, don't re-decide
 
@@ -250,4 +271,7 @@ are read. Recorded here only so the design cycle treats it as fixed.
   for EML is settled. The render step **must be network-isolated** and **must not use `wkhtmltopdf`**.
 - **Substrate items inherited from 2·1** — per-tenant fairness, warm-pool sizing, caps; and the
   inline-vs-Container threshold against the load-profile harness.
-- **LibreOffice runtime** — confirm standalone headless vs Collabora `convert-to`.
+- **LibreOffice runtime** (survey done 2026-06-21, §5) — confirm the runtime among standalone headless
+  + per-job isolated profiles (recommended), Collabora `/cool/convert-to` (fallback), or LOK-via-Rust;
+  **bind the build requirement to ship Carlito + Caladea fonts** in the conversion Container, and size
+  the warm pool as N isolated single-threaded instances (one conversion per instance).
