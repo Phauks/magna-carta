@@ -70,7 +70,7 @@ export function registerPreviewServeRoute(
     // Host guard: only answer on the files host. Anything else on this path 404s terminally (never
     // falls through to /api/v1 or ASSETS) so the SPA shell never leaks onto the untrusted host.
     if (filesOrigin === undefined || hostname !== filesOrigin) {
-      return previewNoLongerValid();
+      return c.next();
     }
     const token = c.req.param("token");
     const nowSeconds = Math.floor(Date.now() / 1000);
