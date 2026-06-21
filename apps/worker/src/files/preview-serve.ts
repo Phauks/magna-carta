@@ -64,13 +64,15 @@ export function registerPreviewServeRoute(
   // token). It must register before the /api/v1 routes and before the ASSETS fallthrough, match only
   // on the files host, and return terminally — a files.* request that is not this path must never
   // fall through to the SPA shell. Reasoning home: docs/conventions/security.md.
-  app.get("/api/files-preview/:token", async (c, next) => {
+  app.get("/api/files-preview/:token", async (c) => {
     const filesOrigin = c.env.FILES_ORIGIN;
     const hostname = new URL(c.req.url).hostname;
-    // Host guard: only answer on the files host. Any other host falls through via next() so the
-    // /api/v1 routes and ASSETS handler can answer normally — the SPA shell is never served here.
+    // Host guard: only answer on the files host. Any request to this path on any other host
+    // returns the same bare 404 as a forged/expired token — the preview path has no legitimate use
+    // outside the files host. No fall-through: the SPA shell must never be served in response to
+    // this path, regardless of host.
     if (filesOrigin === undefined || hostname !== filesOrigin) {
-      return next();
+      return previewNoLongerValid();
     }
     const token = c.req.param("token");
     const nowSeconds = Math.floor(Date.now() / 1000);
@@ -127,5 +129,19 @@ export function registerPreviewServeRoute(
       `bytes ${range.offset}-${range.offset + range.length - 1}/${totalSize}`,
     );
     return new Response(object.body, { status: 206, headers });
+  });
+
+  // Files-host catch-all: any path on the files host that did NOT match the preview route
+  // (registered above) returns a bare 404 — no SPA shell, no HTML, no error_ id. The preview
+  // origin is a locked-down delivery surface; only signed preview tokens have a valid use there.
+  // This catch-all sits before the ASSETS fallthrough so a request to files.* for any non-preview
+  // path can never be answered by the SPA. Reasoning home: docs/conventions/security.md.
+  app.get("*", (c, next) => {
+    const filesOrigin = c.env.FILES_ORIGIN;
+    const hostname = new URL(c.req.url).hostname;
+    if (filesOrigin !== undefined && hostname === filesOrigin) {
+      return previewNoLongerValid();
+    }
+    return next();
   });
 }
