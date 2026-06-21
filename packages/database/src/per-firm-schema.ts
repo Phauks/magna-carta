@@ -291,7 +291,7 @@ export const accountBalance = sqliteTable(
 // metering BEHAVIOR lives in @magna-carta/{locations,matters,file-manager}, composed through the
 // data-access effect batch. No domain logic here.
 
-// A firm office/branch: the root of trust-account jurisdiction and safe custody in later phases, and
+// A firm office/branch: the root of trust-account jurisdiction and the Custodian hierarchy in later phases, and
 // the source of per-location letterhead/remit-to. Soft close only (never deleted).
 export const location = sqliteTable(
   "location",

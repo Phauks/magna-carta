@@ -1,6 +1,6 @@
 # Magna Carta — CLAUDE.md
 
-Magna Carta is a legal practice-management platform the firm controls — matters, time, trust, billing, costs, conflicts, discovery, safe custody, documents & automation, a client portal, payments, and reporting — built on Cloudflare, multi-tenant from day one.
+Magna Carta is a legal practice-management platform the firm controls — matters, time, trust, billing, costs, conflicts, discovery, custodian, documents & automation, a client portal, payments, and reporting — built on Cloudflare, multi-tenant from day one.
 
 This is the **entry point** for anyone working in this repo: the golden rules and where everything lives. Read it, then follow the links — detail lives in the linked homes, not here.
 
