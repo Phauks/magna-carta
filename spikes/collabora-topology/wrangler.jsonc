@@ -1,0 +1,25 @@
+{
+  // Throwaway spike Worker. CLOUDFLARE_ACCOUNT_ID is supplied via the environment at deploy time
+  // (not committed here). Deploy: CLOUDFLARE_ACCOUNT_ID=<id> npx wrangler deploy
+  "name": "collabora-topology-spike",
+  "main": "worker.ts",
+  "compatibility_date": "2026-06-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "containers": [
+    {
+      "class_name": "DocumentSession",
+      "image": "./Dockerfile",
+      "max_instances": 3,
+      // Start point only — the RSS curve replaces this. standard-1 = ~1/2 vCPU / 4 GiB.
+      "instance_type": "standard-1"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "DOCUMENT_SESSION", "class_name": "DocumentSession" }]
+  },
+  // Container-backed Durable Objects must be SQLite-backed.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DocumentSession"] }],
+  // KEEP_ALIVE off = the #147 control run; flip to "on" + redeploy for the mitigation run.
+  "vars": { "KEEP_ALIVE": "off", "SLEEP_AFTER": "60s" }
+}

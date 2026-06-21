@@ -2,7 +2,7 @@
 
 **Purpose:** measure the three numbers that parameterize the slice 2·2 build (warm-standby instance sizing, cold-start budget, and whether the keep-alive mitigation is real). Throwaway harness — deploy, measure, record the results below, then tear down. The production image + `DocumentSession` DO are built separately during the slice.
 
-**Status: NOT YET RUN.** The deploy-and-measure step is billable and runs on real Cloudflare infrastructure (see _Prerequisites_); it needs an explicit go-ahead. Everything below is ready to deploy.
+**Status: harness BUILT, deploying (2026-06-21).** Implemented as a standalone Worker in this directory: `worker.ts` (the `DocumentSession` DO that owns the container + the alarm keep-alive toggle + lifecycle logging), `wrangler.jsonc` (container + DO + vars), and `Dockerfile` + `start-spike.sh` (collabora/code with the local-filesystem backend + baked text docs). **Two simplifications vs. the research notes below:** (1) documents open via Collabora's **local-filesystem backend** (`cool.html?file_path=…`), so no WOPI-host stub is needed to measure coolwsd; (2) memory is read from **Cloudflare's per-container memory metric** (the number that actually sizes the instance) rather than an in-container `/proc` sidecar — the Debian base ships neither busybox nor pgrep, and container memory is the right sizing number anyway. The `wrangler` snippet + DO sketch below are **superseded by the committed files**; the protocol, prerequisites, risks, and results template still apply. The deploy-and-measure step is billable.
 
 ## The three numbers
 
