@@ -8,6 +8,8 @@ publish = false
 
 [dependencies]
 hayro = "0.7"
+lopdf = "0.41.0"
+pdf = "0.10.0"
 
 [profile.release]
 opt-level = 3
