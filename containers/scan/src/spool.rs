@@ -20,6 +20,7 @@ const SCAN_DIR: &str = "/scan";
 static SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 /// Why spooling the body failed.
+#[derive(Debug)]
 pub enum SpoolError {
     /// The body exceeded the inspectable-size cap mid-stream — the raw `Body` stream bypasses axum's
     /// extractor body limit, so the cap is enforced here. The partial file is discarded.
@@ -56,17 +57,27 @@ impl Drop for Spooled {
     }
 }
 
-/// Streams the request body to a fresh scratch file, enforcing `max_bytes` as the bytes arrive, then
-/// maps the file read-only. The file is written mode 0644 so the `clamav` user clamd drops to can read
-/// it. On any error before success the partially-written file is removed.
+/// Streams the request body to a fresh scratch file under `SCAN_DIR`, enforcing `max_bytes` as the bytes
+/// arrive, then maps the file read-only. The file is written mode 0644 so the `clamav` user clamd drops
+/// to can read it. On any error before success the partially-written file is removed.
 pub async fn spool_body(body: Body, max_bytes: usize) -> Result<Spooled, SpoolError> {
+    spool_body_in(Path::new(SCAN_DIR), body, max_bytes).await
+}
+
+/// `spool_body` parameterized on the scratch directory so tests can target a temp dir instead of the
+/// container's `/scan`. Production always passes `SCAN_DIR`.
+pub async fn spool_body_in(
+    dir: &Path,
+    body: Body,
+    max_bytes: usize,
+) -> Result<Spooled, SpoolError> {
     // A process-unique name; the boot sweep clears any leftover from a prior run, so no collision.
     let name = format!(
         "{}-{}",
         std::process::id(),
         SEQUENCE.fetch_add(1, Ordering::Relaxed)
     );
-    let path = PathBuf::from(SCAN_DIR).join(name);
+    let path = dir.join(name);
 
     // Guard the partially-written file from the first byte: any early return below removes it. On
     // success its `Drop` is suppressed and ownership of cleanup passes to the returned `Spooled`.
@@ -78,7 +89,13 @@ pub async fn spool_body(body: Body, max_bytes: usize) -> Result<Spooled, SpoolEr
     }
     let partial = PartialFile(path.clone());
 
-    let mut file = tokio::fs::File::create(&path)
+    // `create_new` (O_EXCL): a name collision is a hard error, never a silent reuse of an existing file
+    // — which would violate the single-writer precondition the read-only mmap relies on. The boot sweep
+    // plus the process-unique name make a collision a should-never-happen, so failing loud is correct.
+    let mut file = tokio::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
         .await
         .map_err(SpoolError::Io)?;
     let mut written: usize = 0;
@@ -112,4 +129,102 @@ pub async fn spool_body(body: Body, max_bytes: usize) -> Result<Spooled, SpoolEr
     // Writing succeeded — suppress the partial-file guard; `Spooled`'s `Drop` now owns the cleanup.
     std::mem::forget(partial);
     Ok(Spooled { path, map })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{spool_body_in, SpoolError};
+    use axum::body::Body;
+    use futures_util::stream;
+    use std::io::Read;
+
+    // A fresh, empty temp directory under the OS temp root, removed when the returned guard drops. Keeps
+    // the tests off the real `/scan` and lets each assert on the directory's file count directly.
+    struct TempDir(std::path::PathBuf);
+    impl TempDir {
+        fn new() -> TempDir {
+            let path = std::env::temp_dir().join(format!(
+                "scan-spool-test-{}-{}",
+                std::process::id(),
+                super::SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            ));
+            std::fs::create_dir_all(&path).unwrap();
+            TempDir(path)
+        }
+        fn file_count(&self) -> usize {
+            std::fs::read_dir(&self.0).unwrap().count()
+        }
+    }
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[tokio::test]
+    async fn an_oversize_body_returns_too_large_and_leaves_zero_files() {
+        let dir = TempDir::new();
+        // Two 4-byte chunks against a 6-byte cap: the second pushes over, so it must abort and remove the
+        // partial file (the PartialFile Drop fires on the early return).
+        let body = Body::from_stream(stream::iter(vec![
+            Ok::<_, std::io::Error>(vec![1u8, 2, 3, 4]),
+            Ok::<_, std::io::Error>(vec![5u8, 6, 7, 8]),
+        ]));
+        let result = spool_body_in(&dir.0, body, 6).await;
+        assert!(matches!(result, Err(SpoolError::TooLarge)));
+        assert_eq!(
+            dir.file_count(),
+            0,
+            "the partial scratch file must be removed"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_mid_stream_error_leaves_zero_files() {
+        let dir = TempDir::new();
+        // A first good chunk, then a stream error — spool must surface Io and leave no scratch file.
+        let body = Body::from_stream(stream::iter(vec![
+            Ok::<_, std::io::Error>(vec![1u8, 2, 3]),
+            Err(std::io::Error::other("boom")),
+        ]));
+        let result = spool_body_in(&dir.0, body, 1024).await;
+        assert!(matches!(result, Err(SpoolError::Io(_))));
+        assert_eq!(
+            dir.file_count(),
+            0,
+            "the partial scratch file must be removed"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_successful_spool_removes_its_scratch_file_on_drop() {
+        let dir = TempDir::new();
+        {
+            let body = Body::from(vec![0xAAu8; 32]);
+            let spooled = spool_body_in(&dir.0, body, 1024).await.expect("spool");
+            assert_eq!(spooled.bytes().len(), 32);
+            // Read the scratch file back to confirm it exists and matches while the Spooled is live.
+            let mut on_disk = Vec::new();
+            std::fs::File::open(spooled.path())
+                .unwrap()
+                .read_to_end(&mut on_disk)
+                .unwrap();
+            assert_eq!(on_disk, vec![0xAAu8; 32]);
+            assert_eq!(dir.file_count(), 1);
+        }
+        // The Spooled dropped at the block end; its Drop removed the scratch file.
+        assert_eq!(dir.file_count(), 0, "Drop must remove the scratch file");
+    }
+
+    #[tokio::test]
+    async fn an_empty_body_maps_to_none_and_scans_as_empty_bytes() {
+        let dir = TempDir::new();
+        let spooled = spool_body_in(&dir.0, Body::from(Vec::<u8>::new()), 1024)
+            .await
+            .expect("spool");
+        // memmap2 refuses to map an empty file, so the map is None and `bytes()` lends `&[]` — the
+        // engines scan an empty buffer, never a panic on an empty mmap.
+        assert!(spooled.map.is_none());
+        assert_eq!(spooled.bytes(), &[] as &[u8]);
+    }
 }

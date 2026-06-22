@@ -76,12 +76,9 @@ async fn scan(
         match spool::spool_body(body, MAX_SCAN_BODY_BYTES).await {
             Ok(spooled) => {
                 let clam = clamav::scan_file_path(spooled.path(), &state.clamd_address).await;
-                finish(
-                    &state,
-                    params.content_type.as_deref(),
-                    clam,
-                    spooled.bytes(),
-                )
+                // The clamd await is done; move the spooled body (its mmap is `Send`) into the engine
+                // stage, which owns it for the scan and drops it — removing the scratch file — after.
+                finish(state, params.content_type, clam, spooled).await
             }
             Err(spool::SpoolError::TooLarge) => too_large(),
             // A scratch-write failure (e.g. the disk filled) is a transient engine fault, not a verdict.
@@ -97,7 +94,7 @@ async fn scan(
         match axum::body::to_bytes(body, MAX_SCAN_BODY_BYTES).await {
             Ok(bytes) => {
                 let clam = clamav::scan_buffer(&bytes, &state.clamd_address).await;
-                finish(&state, params.content_type.as_deref(), clam, &bytes)
+                finish(state, params.content_type, clam, bytes).await
             }
             Err(_) => too_large(),
         }
@@ -112,27 +109,142 @@ fn too_large() -> Response {
         .into_response()
 }
 
-// Runs yara and the structural heuristics over the body bytes, combines them with the clamd verdict, and
-// renders the response — a 200 verdict, or a 503 when clamd is the only signal and it is unavailable.
-fn finish(
-    state: &AppState,
-    content_type: Option<&str>,
+// Owns the body bytes for the engine stage so they can be moved (`'static + Send`) onto a blocking
+// thread. On Linux it is the spooled, memory-mapped scratch file (no heap copy; its `Drop` removes the
+// file); elsewhere it is the collected INSTREAM buffer. Either way `bytes()` lends the body to the
+// in-process engines, and dropping it after the scan releases the backing resource.
+trait BodyBytes: Send + 'static {
+    fn bytes(&self) -> &[u8];
+}
+
+#[cfg(unix)]
+impl BodyBytes for spool::Spooled {
+    fn bytes(&self) -> &[u8] {
+        spool::Spooled::bytes(self)
+    }
+}
+
+#[cfg(not(unix))]
+impl BodyBytes for axum::body::Bytes {
+    fn bytes(&self) -> &[u8] {
+        self.as_ref()
+    }
+}
+
+// The combined result of the in-process engines, or `None` if an engine panicked (a parser bug or a
+// pathological input). A panic is isolated to a retryable fault below, never a clean verdict.
+struct EngineOutput {
+    yara_matches: Vec<String>,
+    heuristic: heuristics::Heuristic,
+}
+
+// Runs yara and the structural heuristics on a blocking thread (they are CPU-bound — keep them off the
+// async reactor), combines them with the clamd verdict, and renders the response — a 200 verdict, or a
+// 503 when clamd is the only signal and it is unavailable, or a 503 when an engine panicked.
+//
+// PANIC ISOLATION: the engine work is wrapped in `catch_unwind`. An ordinary parser panic (yara or a
+// heuristic on a hostile input) is caught and mapped to the same retryable SERVICE_UNAVAILABLE as a
+// clamd fault — NEVER a dropped connection (which axum would surface as a 500/closed socket the consumer
+// might not retry safely) and NEVER a clean verdict. A panic does not poison anything: the blocking
+// thread is the unwind boundary, and `state`/`rules` are behind `Arc` (no locks held across the work).
+// An abort (e.g. a stack overflow `catch_unwind` cannot catch) is guarded upstream in the engines
+// themselves — see `heuristics::pdf` for the pre-parse nesting-depth bail.
+async fn finish(
+    state: AppState,
+    content_type: Option<String>,
     clam: clamav::ClamVerdict,
-    bytes: &[u8],
+    body: impl BodyBytes,
 ) -> Response {
-    let yara_matches = yara::yara_scan(&state.rules, bytes);
-    let heuristic = heuristics::inspect(bytes, content_type, &state.caps);
+    let engine_state = state.clone();
+    let output = tokio::task::spawn_blocking(move || {
+        // The body is owned by this closure; `body.bytes()` borrows it for the duration of the scan.
+        isolate_engines(|| {
+            let bytes = body.bytes();
+            EngineOutput {
+                yara_matches: yara::yara_scan(&engine_state.rules, bytes),
+                heuristic: heuristics::inspect(bytes, content_type.as_deref(), &engine_state.caps),
+            }
+        })
+    })
+    .await;
+
+    // A `JoinError` (the blocking thread panicked despite the catch, or was cancelled) and a caught panic
+    // (`Ok(None)`) both collapse to the same retryable fault — the in-process engines could not produce a
+    // sound result, so the file must be re-scanned, never recorded as clean.
+    let output = match output {
+        Ok(Some(output)) => output,
+        Ok(None) | Err(_) => return engines_unavailable(),
+    };
+
     match verdict::combine(
         &clam,
-        &yara_matches,
-        heuristic,
+        &output.yara_matches,
+        output.heuristic,
         state.engine_version.to_string(),
     ) {
         CombineOutcome::Verdict(result) => Json(result).into_response(),
-        CombineOutcome::SignatureEngineUnavailable => (
-            StatusCode::SERVICE_UNAVAILABLE,
-            "signature engine unavailable; retry",
-        )
-            .into_response(),
+        CombineOutcome::SignatureEngineUnavailable => signature_engine_unavailable(),
+    }
+}
+
+fn signature_engine_unavailable() -> Response {
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        "signature engine unavailable; retry",
+    )
+        .into_response()
+}
+
+fn engines_unavailable() -> Response {
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        "scan engine unavailable; retry",
+    )
+        .into_response()
+}
+
+// Runs the in-process engine work under `catch_unwind`: an ordinary parser panic (yara or a structural
+// heuristic on a hostile input) is caught and returned as `None` — never propagated — so `finish` maps
+// it to a retryable 503 rather than a dropped connection or, worse, a clean verdict. Pure and
+// synchronous so it is unit-testable on every host; `finish` calls it inside `spawn_blocking` to also
+// keep the CPU-bound work off the async reactor. (A stack-overflow abort, which `catch_unwind` cannot
+// catch, is prevented upstream — see `heuristics::pdf`'s nesting-depth pre-check.)
+fn isolate_engines(work: impl FnOnce() -> EngineOutput) -> Option<EngineOutput> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(work)).ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn isolate_engines_catches_a_panic_as_none() {
+        // A parser/engine panic on a hostile file MUST be caught here, not propagated — the caller maps
+        // `None` to a retryable 503 (never a dropped connection, never a clean verdict).
+        let caught = isolate_engines(|| panic!("induced engine panic"));
+        assert!(
+            caught.is_none(),
+            "a panicking engine run must be caught as None"
+        );
+    }
+
+    #[test]
+    fn isolate_engines_passes_a_normal_result_through() {
+        let output = isolate_engines(|| EngineOutput {
+            yara_matches: Vec::new(),
+            heuristic: heuristics::Heuristic::Clean,
+        });
+        assert!(output.is_some());
+    }
+
+    #[test]
+    fn an_engine_fault_renders_a_retryable_503_never_a_clean_200() {
+        // The arm `finish` takes when `isolate_engines` yields `None` (a caught panic) or the blocking
+        // task errors: a retryable SERVICE_UNAVAILABLE, so the ingest consumer re-scans — it must never
+        // be a 200 clean verdict.
+        assert_eq!(
+            engines_unavailable().status(),
+            StatusCode::SERVICE_UNAVAILABLE
+        );
     }
 }

@@ -35,6 +35,24 @@ contract: **clamd** (signatures), **yara-x** (heuristic rules), and **structural
   clamd ready, so it never self-reports `unscanned`/no-engine — that honest verdict is the engine-less
   launch adapter's alone (`packages/file-manager/src/scan-port.ts`). A locked file → `unscanned`/encrypted
   (re-scanning cannot help); active content is a clean-with-badge signal, never a quarantine on its own.
+  The fail-safe net is total: a clamd **timeout** (the whole exchange — connect + INSTREAM write + read —
+  is bounded in `clamav.rs`), an **engine panic** (yara/heuristics run under `spawn_blocking` +
+  `catch_unwind` in `lib.rs::finish`), or a clamd reply with **any non-OK record** all map to the same
+  retryable 503, never clean. `interpret_reply` parses the reply record-by-record so a `FOUND` can never
+  be masked by a sibling `OK`.
+- **No reachable panic/abort on the per-file path.** Ordinary engine panics are caught; the one fault
+  `catch_unwind` cannot catch is a **stack overflow → SIGABRT**, which lopdf 0.41's unbounded-recursion
+  parser can hit on a crafted deeply-nested PDF. `heuristics::pdf` guards it on two fronts before
+  `Document::load_mem`: a cheap iterative max-nesting-depth pre-check on the raw bytes, AND — because lopdf
+  also decompresses and recursively parses `/Type /ObjStm` object streams, where nesting is invisible to a
+  raw-byte scan — keeping any object-stream-bearing file away from `load_mem` entirely (it routes to an
+  inflate-then-scan active-content fallback instead). Don't reintroduce a `load_mem` call for a PDF that
+  carries an object stream; the structured walk is a detection aid, not the safety net (clamd + yara still
+  scan the raw bytes), so trading it for guaranteed abort-safety on those files is deliberate.
+- **Bounded engine memory.** The nested-archive walk (`heuristics/mod.rs`) accounts each level's REAL
+  materialized bytes (not the forgeable declared size) against `max_uncompressed_bytes` before recursing,
+  and `MAX_NESTED_BYTES` is sized so `max_depth * MAX_NESTED_BYTES` fits the instance — the recursion holds
+  every level's buffer live at once.
 - **clamd limits track the inspectable-size cap.** `entrypoint.sh` raises clamd's `StreamMaxLength` /
   `MaxScanSize` / `MaxFileSize` to 2048M (= `fileManager.inspectableSizeCapBytes`, 2 GiB) so clamd scans
   every file the pipeline feeds it; the two must stay aligned, and the deploy instance must be sized for a

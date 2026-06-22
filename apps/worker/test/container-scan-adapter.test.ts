@@ -51,4 +51,20 @@ describe("containerScanAdapter", () => {
     const adapter = containerScanAdapter(fakeContainer("<html>not json</html>"));
     await expect(adapter.scan(emptyBody(), meta)).rejects.toThrow();
   });
+
+  it("throws (never hangs/returns clean) when the container wedges past the request timeout", async () => {
+    // A wedged container: it never resolves on its own, but honors the request's AbortSignal — exactly
+    // the behavior the runtime gives `container.fetch`. The adapter's AbortSignal.timeout must fire and
+    // turn the hang into a retryable throw. A small injected timeout (50 ms) drives the real abort path
+    // without waiting out the production backstop.
+    const wedged: ScanContainerFetcher = {
+      fetch: (request) =>
+        new Promise((_resolve, reject) => {
+          request.signal?.addEventListener("abort", () =>
+            reject(request.signal?.reason ?? new Error("aborted")),
+          );
+        }),
+    };
+    await expect(containerScanAdapter(wedged, 50).scan(emptyBody(), meta)).rejects.toThrow();
+  });
 });

@@ -45,9 +45,14 @@ impl Default for ArchiveCaps {
     }
 }
 
-// A nested archive is materialized in memory to be re-parsed; bound that single allocation so a nested
-// bomb can never exhaust the container even within the larger cumulative budget.
-const MAX_NESTED_BYTES: u64 = 256 * 1024 * 1024;
+// A nested archive is materialized in memory to be re-parsed, and the recursion holds EVERY level's
+// buffer live simultaneously (each call frame owns its `nested` Vec until it returns). The transient
+// peak is therefore bounded by `max_depth * MAX_NESTED_BYTES`, NOT a single level — so this per-level
+// bound is sized small enough that the full-depth product fits a 4 GiB instance with room for the rest
+// of the resident set: 16 (the default `max_depth`) * 64 MiB = 1 GiB. The cumulative real-bytes check
+// in `scan_archive` (which adds each nested entry's MATERIALIZED length, not its forgeable declared
+// size) is the primary cap; this is the per-allocation backstop.
+const MAX_NESTED_BYTES: u64 = 64 * 1024 * 1024;
 
 fn starts_with(bytes: &[u8], magic: &[u8]) -> bool {
     bytes.len() >= magic.len() && &bytes[..magic.len()] == magic
@@ -207,6 +212,19 @@ fn scan_archive(
                 if nested.len() as u64 > MAX_NESTED_BYTES {
                     return Some(Reason::DecompressionBomb);
                 }
+                // Correct the cumulative tally to the REAL materialized length. The declared size was
+                // already added above; a bomb can forge a tiny declared size and zero-fill-deflate the
+                // real payload, sliding past the declared-size cap, so add only the SHORTFALL (real minus
+                // already-counted declared) — no double-count when the header is honest, full correction
+                // when it lied. Re-check the cap against actual decompressed bytes before descending, so
+                // the recursion's live heap (every level's buffer held at once) is bounded by the same
+                // `max_uncompressed_bytes` budget, not just the per-level `MAX_NESTED_BYTES`.
+                let real = nested.len() as u64;
+                let shortfall = real.saturating_sub(declared);
+                scan.total_uncompressed = scan.total_uncompressed.saturating_add(shortfall);
+                if scan.total_uncompressed > caps.max_uncompressed_bytes {
+                    return Some(Reason::DecompressionBomb);
+                }
                 if let Some(reason) = scan_archive(&nested, caps, depth + 1, scan) {
                     return Some(reason);
                 }
@@ -214,4 +232,119 @@ fn scan_archive(
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{inspect, ArchiveCaps, Heuristic, Reason};
+    use std::io::Write;
+    use zip::write::SimpleFileOptions;
+    use zip::{CompressionMethod, ZipWriter};
+
+    // Wraps `payload` as the single stored entry of a new zip — one nesting level. `Deflated` keeps the
+    // outer small when the payload is compressible (a chain of zeros), while the materialized inner is
+    // the real size the heap-bound check must account.
+    fn wrap_in_zip(payload: &[u8]) -> Vec<u8> {
+        let mut writer = ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+        writer.start_file("inner.bin", options).unwrap();
+        writer.write_all(payload).unwrap();
+        writer.finish().unwrap().into_inner()
+    }
+
+    // Wraps `payload` as a nested zip AND adds a sibling filler of `filler` zero-bytes at this level, so
+    // every descended level contributes real materialized bytes to the cumulative tally (not just the
+    // innermost). Models the realistic case where each archive layer also holds bulky decompressible data.
+    fn wrap_with_filler(payload: &[u8], filler: usize) -> Vec<u8> {
+        let mut writer = ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+        writer.start_file("inner.bin", options).unwrap();
+        writer.write_all(payload).unwrap();
+        writer.start_file("filler.bin", options).unwrap();
+        writer.write_all(&vec![0u8; filler]).unwrap();
+        writer.finish().unwrap().into_inner()
+    }
+
+    #[test]
+    fn a_deep_near_cap_nested_chain_is_flagged_with_a_bounded_peak() {
+        // A 30-level nested-zip chain whose innermost level alone materializes ~1 MiB. The walk
+        // materializes ONE level at a time and bails the moment a cap trips — either the nesting-depth
+        // cap or the cumulative real-bytes cap — so it is flagged `Suspicious` (a bounded structural
+        // attack) without ever holding the whole chain's expansion live. The peak transient heap is
+        // bounded by the levels actually descended times the per-level buffer, not the full chain.
+        let mut data = vec![0u8; 1024 * 1024];
+        for _ in 0..30 {
+            data = wrap_in_zip(&data);
+        }
+        let caps = ArchiveCaps {
+            max_uncompressed_bytes: 4 * 1024 * 1024,
+            ..ArchiveCaps::default()
+        };
+        assert!(matches!(
+            inspect(&data, None, &caps),
+            Heuristic::Suspicious(_)
+        ));
+    }
+
+    #[test]
+    fn cumulative_real_bytes_across_a_chain_trip_the_decompression_bomb_cap() {
+        // A short chain where EVERY level also carries a ~512 KiB filler, so the cumulative materialized
+        // bytes sum past the cap within a couple of descended levels. `max_depth` is raised so depth
+        // cannot be what trips — the cumulative real-bytes accounting added for each descended level is
+        // what flags the bomb. With a 1 MiB cap, the second descended level crosses it.
+        let mut data = vec![0u8; 512 * 1024];
+        for _ in 0..6 {
+            data = wrap_with_filler(&data, 512 * 1024);
+        }
+        let caps = ArchiveCaps {
+            max_depth: 1000,
+            max_uncompressed_bytes: 1024 * 1024,
+            ..ArchiveCaps::default()
+        };
+        assert_eq!(
+            inspect(&data, None, &caps),
+            Heuristic::Suspicious(Reason::DecompressionBomb)
+        );
+    }
+
+    #[test]
+    fn a_modest_nested_chain_within_the_cap_is_clean() {
+        // A shallow chain whose total real bytes stay under the cap must not false-positive.
+        let mut data = vec![0u8; 1024];
+        for _ in 0..3 {
+            data = wrap_in_zip(&data);
+        }
+        let caps = ArchiveCaps::default();
+        assert_eq!(inspect(&data, None, &caps), Heuristic::Clean);
+    }
+
+    #[test]
+    fn inspect_never_panics_on_malformed_or_pathological_input() {
+        // Hostile/garbage bytes through the full dispatch (PDF / OLE / ZIP). Each must return a verdict,
+        // never panic or abort — `inspect` returning at all is the assertion.
+        let caps = ArchiveCaps::default();
+        let deep_pdf = {
+            let mut bytes = b"%PDF-1.7\n".to_vec();
+            bytes.extend(std::iter::repeat_n(b'[', 100_000));
+            bytes
+        };
+        let truncated_ole = {
+            // The OLE/CFB magic followed by garbage — the parser must reject it without panicking.
+            let mut bytes = vec![0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
+            bytes.extend_from_slice(&[0xff; 64]);
+            bytes
+        };
+        let truncated_zip = b"PK\x03\x04 not really a zip".to_vec();
+        for input in [
+            &b""[..],
+            &b"%PDF"[..],
+            &deep_pdf[..],
+            &truncated_ole[..],
+            &truncated_zip[..],
+            &[0u8; 0][..],
+            &[0xff; 256][..],
+        ] {
+            let _ = inspect(input, None, &caps);
+        }
+    }
 }

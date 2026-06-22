@@ -1668,6 +1668,7 @@ dependencies = [
  "aho-corasick",
  "axum",
  "cfb",
+ "flate2",
  "futures-util",
  "lopdf",
  "md-5",
