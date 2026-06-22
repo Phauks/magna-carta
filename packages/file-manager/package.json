@@ -18,6 +18,7 @@
     "./safe-rendition-port": "./src/safe-rendition-port.ts",
     "./upload-policy": "./src/upload-policy.ts",
     "./queries": "./src/queries.ts",
+    "./scan-cache": "./src/scan-cache.ts",
     "./preview-policy": "./src/preview-policy.ts",
     "./zip-composition": "./src/zip-composition.ts",
     "./audit": "./src/audit.ts",

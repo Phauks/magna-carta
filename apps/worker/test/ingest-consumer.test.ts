@@ -519,3 +519,115 @@ describe("handleIngestMessage — verdict telemetry", () => {
     expect(verdictEvents).toHaveLength(0);
   });
 });
+
+describe("handleIngestMessage — access-triggered re-scan", () => {
+  async function seedCommittedVersion(name: string, bytes: Uint8Array) {
+    const { versionId, r2Key } = await seedPendingVersion(name, "application/pdf", bytes);
+    // Commit it as unscanned (the default engine-less adapter) — the stale starting state.
+    await handleIngestMessage(env, event(BUCKET, r2Key, bytes.byteLength));
+    const row = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT content_sha256 FROM file_version WHERE id = ?1",
+    )
+      .bind(versionId)
+      .first<{ content_sha256: string }>();
+    return { versionId, r2Key, contentSha256: row?.content_sha256 as string };
+  }
+  async function setCurrentEngine(version: string) {
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO setting (key, value, updated_at) VALUES ('fileManager.scanEngineVersion', ?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    )
+      .bind(JSON.stringify(version), clock.now())
+      .run();
+  }
+  async function clearCurrentEngine() {
+    await env.DB_FIRM_POOL_1.prepare(
+      "DELETE FROM setting WHERE key = 'fileManager.scanEngineVersion'",
+    ).run();
+  }
+  const uniqueBytes = (tag: number) => new Uint8Array([...PDF_BYTES, tag]);
+
+  it("re-scans a stale committed version FROM THE CACHE without calling the engine", async () => {
+    const { versionId, r2Key, contentSha256 } = await seedCommittedVersion("dup.pdf", uniqueBytes(1));
+    await setCurrentEngine("clamav/1.0");
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO scan_cache (content_sha256, engine_version, verdict, signature, scanned_at) VALUES (?1, 'clamav/1.0', 'clean', NULL, ?2)",
+    )
+      .bind(contentSha256, clock.now())
+      .run();
+
+    let scanCalls = 0;
+    const stub: MalwareScanPort = {
+      async scan(body) {
+        scanCalls++;
+        await body.cancel();
+        return { verdict: "clean", engineVersion: "clamav/1.0" };
+      },
+    };
+    await handleIngestMessage(env, event(BUCKET, r2Key, uniqueBytes(1).byteLength), stub);
+
+    expect(scanCalls).toBe(0); // cache hit → no engine call
+    const v = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT scan_verdict, scan_engine_version, status FROM file_version WHERE id = ?1",
+    )
+      .bind(versionId)
+      .first<{ scan_verdict: string; scan_engine_version: string; status: string }>();
+    expect(v).toMatchObject({
+      scan_verdict: "clean",
+      scan_engine_version: "clamav/1.0",
+      status: "clean",
+    });
+  });
+
+  it("re-scans on a cache MISS; an infected finding stays VISIBLE (informed access) + is cached", async () => {
+    const { versionId, r2Key, contentSha256 } = await seedCommittedVersion("bad.pdf", uniqueBytes(2));
+    await setCurrentEngine("clamav/2.0");
+
+    let scanCalls = 0;
+    const stub: MalwareScanPort = {
+      async scan(body) {
+        scanCalls++;
+        await body.cancel();
+        return { verdict: "infected", engineVersion: "clamav/2.0", signature: "Eicar-Test" };
+      },
+    };
+    await handleIngestMessage(env, event(BUCKET, r2Key, uniqueBytes(2).byteLength), stub);
+
+    expect(scanCalls).toBe(1);
+    const v = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT scan_verdict, status FROM file_version WHERE id = ?1",
+    )
+      .bind(versionId)
+      .first<{ scan_verdict: string; status: string }>();
+    // Informed access: flagged but still committed/visible.
+    expect(v).toMatchObject({ scan_verdict: "infected", status: "clean" });
+    const cached = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT verdict, signature FROM scan_cache WHERE content_sha256 = ?1 AND engine_version = 'clamav/2.0'",
+    )
+      .bind(contentSha256)
+      .first<{ verdict: string; signature: string }>();
+    expect(cached).toMatchObject({ verdict: "infected", signature: "Eicar-Test" });
+  });
+
+  it("does NOT re-scan when no current engine version is set (never fabricates a verdict)", async () => {
+    const { versionId, r2Key } = await seedCommittedVersion("noeng.pdf", uniqueBytes(3));
+    await clearCurrentEngine();
+
+    let scanCalls = 0;
+    const stub: MalwareScanPort = {
+      async scan(body) {
+        scanCalls++;
+        await body.cancel();
+        return { verdict: "clean", engineVersion: "x" };
+      },
+    };
+    await handleIngestMessage(env, event(BUCKET, r2Key, uniqueBytes(3).byteLength), stub);
+
+    expect(scanCalls).toBe(0);
+    const v = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT scan_verdict FROM file_version WHERE id = ?1",
+    )
+      .bind(versionId)
+      .first<{ scan_verdict: string }>();
+    expect(v?.scan_verdict).toBe("unscanned"); // unchanged — never downgraded or fabricated
+  });
+});

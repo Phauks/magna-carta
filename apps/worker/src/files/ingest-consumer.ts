@@ -1,12 +1,20 @@
+import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import {
   commitVersion,
   loadPendingVersionForIngest,
   quarantineVersion,
+  recordRescanVerdict,
 } from "@magna-carta/file-manager/file-service";
 import { runIngest } from "@magna-carta/file-manager/ingest-core";
+import { loadCommittedVersionByR2Key } from "@magna-carta/file-manager/queries";
+import { lookupScanCache } from "@magna-carta/file-manager/scan-cache";
 import type { MalwareScanPort } from "@magna-carta/file-manager/scan-port";
-import { readInspectableSizeCap, readUploadPolicy } from "@magna-carta/file-manager/upload-policy";
+import {
+  readInspectableSizeCap,
+  readScanEngineVersion,
+  readUploadPolicy,
+} from "@magna-carta/file-manager/upload-policy";
 import { ingestVerdict } from "@magna-carta/telemetry/events";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
@@ -65,7 +73,13 @@ export async function handleIngestMessage(
 
   // Status-first: only a pending version is ingested (the replay guard).
   const pending = await loadPendingVersionForIngest(firmDatabase, message.object.key);
-  if (pending === undefined) return;
+  if (pending === undefined) {
+    // No pending version → this may be an access-triggered re-scan of an ALREADY-COMMITTED version
+    // (the dispatch's second branch). It acks as a no-op unless it finds a committed version whose
+    // recorded engine version is stale relative to the firm's current scan engine.
+    await handleRescanMessage(env, message, firmDatabase, scanPort);
+    return;
+  }
 
   const object = await env.R2.get(message.object.key);
   if (object === null) {
@@ -163,6 +177,91 @@ export async function handleIngestMessage(
       ),
     );
   }
+}
+
+// The access-triggered re-scan path for an ALREADY-COMMITTED version (dispatched when a queued event
+// has no pending version). Only a committed version whose recorded engine version is STALE relative to
+// the firm's CURRENT engine is re-scanned; cache-first, so identical content already scanned under the
+// current engine reuses the verdict with no engine call. The verdict is stamped in place — no pointer
+// move, and an infected finding stays visible (informed access). NEVER-SILENT-CLEAN: a null current
+// engine (unset setting) is a no-op (never fabricate a key); an `unscanned`/`suspicious` engine result
+// leaves the version's prior verdict untouched (never downgraded without a definitive scan). Idempotent
+// on `rescan:<versionId>:<engineVersion>` so a redelivery under the same engine no-ops, while a later
+// engine version legitimately re-scans.
+async function handleRescanMessage(
+  env: Bindings,
+  message: R2EventMessage,
+  firmDatabase: SqlDatabase,
+  scanPort: MalwareScanPort,
+): Promise<void> {
+  const committed = await loadCommittedVersionByR2Key(firmDatabase, message.object.key);
+  if (committed === undefined) return; // not a committed version → nothing to re-scan
+  if (committed.contentSha256 === null) return; // no content hash (legacy) → cannot dedup/cache; skip
+
+  const currentEngineVersion = await readScanEngineVersion(firmDatabase);
+  if (currentEngineVersion === null) return; // no current engine recorded yet → never fabricate a key
+  if (committed.scanEngineVersion === currentEngineVersion) return; // already current → not stale
+
+  const contentSha256 = committed.contentSha256;
+  const now = () => new Date().toISOString();
+  const options = { clock: { now }, actorUserId: null };
+
+  await runIdempotentEffect({
+    database: firmDatabase,
+    key: `rescan:${committed.id}:${currentEngineVersion}`,
+    fingerprint: `${committed.id}:${currentEngineVersion}`,
+    now,
+    effect: async () => {
+      // Cache-first: identical content already scanned under THIS engine reuses the verdict (no scan).
+      let verdict: "clean" | "infected" | null = null;
+      let signature: string | null = null;
+      const cached = await lookupScanCache(firmDatabase, contentSha256, currentEngineVersion);
+      if (cached !== null) {
+        verdict = cached.verdict;
+        signature = cached.signature;
+      } else {
+        // Cache miss → scan the bytes. A not-yet-readable object is transient (throw → retry).
+        const object = await env.R2.get(message.object.key);
+        if (object === null) {
+          throw new Error(`R2 object not readable for a re-scan: ${message.object.key}`);
+        }
+        const result = await scanPort.scan(object.body, {
+          sizeBytes: object.size,
+          sniffedContentType: null,
+        });
+        if (result.verdict === "clean") {
+          verdict = "clean";
+        } else if (result.verdict === "infected") {
+          verdict = "infected";
+          signature = result.signature;
+        } else {
+          // `unscanned`/`suspicious` is NOT a definitive verdict — leave the version's prior verdict
+          // untouched (never downgrade without a real scan). The idempotency record still lands, so a
+          // redelivery under this engine does not re-scan; a future engine version will try again.
+          return { write: { statements: [], outboxMessages: [] }, responseCode: 200, responseBody: "{}" };
+        }
+      }
+
+      const rescan = recordRescanVerdict(
+        firmDatabase,
+        {
+          versionId: committed.id,
+          scanVerdict: verdict,
+          scanEngineVersion: currentEngineVersion,
+          scanDetail: signature,
+          signature,
+          contentSha256,
+          now: now(),
+        },
+        options,
+      );
+      return {
+        write: rescan.effect,
+        responseCode: 200,
+        responseBody: JSON.stringify({ versionId: committed.id }),
+      };
+    },
+  });
 }
 
 // The queue() handler: one message at a time, ack on success, retry on a transient throw. A retried
