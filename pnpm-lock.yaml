@@ -150,6 +150,9 @@ importers:
       '@magna-carta/access-control':
         specifier: workspace:*
         version: link:../../packages/access-control
+      '@magna-carta/conversion':
+        specifier: workspace:*
+        version: link:../../packages/conversion
       '@magna-carta/custom-fields':
         specifier: workspace:*
         version: link:../../packages/custom-fields
