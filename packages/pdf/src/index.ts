@@ -74,3 +74,44 @@ export class PdfDocument {
 export async function loadDocument(bytes: Uint8Array, wasmInput?: BufferSource | WebAssembly.Module): Promise<PdfDocument> {
   return PdfDocument.load(bytes, wasmInput);
 }
+
+export interface RedactionRect {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+export interface RedactionRegion {
+  page: number;
+  rect: RedactionRect;
+  reason?: string;
+}
+
+export interface RedactionOptions {
+  /** Raster resolution for flattened pages. Defaults to 300 (the legal-production standard). */
+  dpi?: number;
+  /** If supplied, redaction also verifies these strings are absent from the output. */
+  redactedText?: string[];
+}
+
+export interface RedactionResult {
+  pdf: Uint8Array;
+  pagesRedacted: number[];
+}
+
+import { redactDocument as wasmRedact } from "./pkg/pdf_core.js";
+
+/**
+ * Redact regions from a PDF by flattening each affected page to an image with
+ * opaque boxes, then verifying no redacted text survives. Throws if the
+ * verification gate fails (no unsafe PDF is ever returned).
+ */
+export async function redactDocument(
+  bytes: Uint8Array,
+  regions: RedactionRegion[],
+  opts: RedactionOptions = {},
+): Promise<RedactionResult> {
+  await ensureReady();
+  return wasmRedact(bytes, regions, opts) as RedactionResult;
+}
