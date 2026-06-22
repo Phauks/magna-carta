@@ -26,7 +26,7 @@ export class SsrfRejection extends Error {
   }
 }
 
-function classifyIpv4(parts: readonly number[]): TargetClass {
+function classifyIpv4(parts: readonly [number, number, number, number]): TargetClass {
   const [a, b] = parts;
   if (a === 127) return "loopback";
   if (a === 10) return "private";
@@ -38,11 +38,14 @@ function classifyIpv4(parts: readonly number[]): TargetClass {
   return "public";
 }
 
-function parseIpv4(host: string): readonly number[] | null {
+function parseIpv4(host: string): readonly [number, number, number, number] | null {
   const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
   if (!m) return null;
   const parts = m.slice(1, 5).map((p) => Number(p));
-  return parts.every((p) => p >= 0 && p <= 255) ? parts : null;
+  if (!parts.every((p) => p >= 0 && p <= 255)) return null;
+  // The regex guarantees exactly four capture groups, and the range check above ensures
+  // all four are valid octets — the tuple assertion is sound.
+  return parts as unknown as [number, number, number, number];
 }
 
 export function classifyHost(host: string): TargetClass {

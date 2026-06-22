@@ -63,7 +63,7 @@ export async function resolveRdapBase(
 
   for (const [matchKeys, baseUrls] of services) {
     if (matchKeys.includes(tld) && baseUrls.length > 0) {
-      return baseUrls[0];
+      return baseUrls[0] ?? null;
     }
   }
 
@@ -118,7 +118,9 @@ function extractTld(domain: string): string | null {
   const labels = domain.split(".");
   // At minimum "example.com" produces ["example", "com"]; bare hostnames are not domains.
   if (labels.length < 2) return null;
-  return labels[labels.length - 1].toLowerCase();
+  // labels.length >= 2 guarantees labels[labels.length - 1] is defined.
+  const lastLabel = labels[labels.length - 1] ?? null;
+  return lastLabel === null ? null : lastLabel.toLowerCase();
 }
 
 /**
@@ -142,8 +144,10 @@ function resolveIpBase(
 ): string | null {
   for (const [matchKeys, baseUrls] of services) {
     for (const prefix of matchKeys) {
-      if (ipAddress.startsWith(prefix.split("/")[0].split(".").slice(0, prefix.split("/")[0].split(".").length - 1).join(".") + ".") || ipAddress.startsWith(prefix.split("/")[0])) {
-        if (baseUrls.length > 0) return baseUrls[0];
+      const networkAddress = prefix.split("/")[0] ?? "";
+      const parentNetwork = networkAddress.split(".").slice(0, networkAddress.split(".").length - 1).join(".") + ".";
+      if (ipAddress.startsWith(parentNetwork) || ipAddress.startsWith(networkAddress)) {
+        if (baseUrls.length > 0) return baseUrls[0] ?? null;
       }
     }
   }
