@@ -11,6 +11,8 @@
     "./rate-statements": "./src/rate-statements.ts",
     "./rate-service": "./src/rate-service.ts",
     "./rate-resolution": "./src/rate-resolution.ts",
+    "./lifecycle": "./src/lifecycle.ts",
+    "./time-entry-validation": "./src/time-entry-validation.ts",
     "./rate-validation": "./src/rate-validation.ts"
   },
   "scripts": {
