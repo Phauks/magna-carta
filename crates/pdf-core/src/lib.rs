@@ -1,6 +1,9 @@
 #[cfg(target_arch = "wasm32")]
 mod wasm;
 
+mod redact;
+pub use redact::*;
+
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_syntax::Pdf;
 use hayro::{render, RenderCache, RenderSettings};
