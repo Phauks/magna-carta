@@ -13,7 +13,9 @@
     "./rate-resolution": "./src/rate-resolution.ts",
     "./lifecycle": "./src/lifecycle.ts",
     "./time-entry-validation": "./src/time-entry-validation.ts",
-    "./rate-validation": "./src/rate-validation.ts"
+    "./rate-validation": "./src/rate-validation.ts",
+    "./time-entry-statements": "./src/time-entry-statements.ts",
+    "./time-entry-service": "./src/time-entry-service.ts"
   },
   "scripts": {
     "test": "vp test run"

@@ -8,7 +8,9 @@ export type TimeEntryValidationCode =
   | "empty-narrative"
   | "non-positive-duration"
   | "non-billable-rate"
-  | "missing-utbms-code";
+  | "missing-utbms-code"
+  | "utbms-required"
+  | "draft-only";
 
 export class TimeEntryValidationError extends Error {
   constructor(
