@@ -18,6 +18,8 @@ pub enum Category {
     CoveredText,
     InvisibleText,
     WhiteoutText,
+    RemovableAnnotation,
+    HiddenLayer,
     MetadataLeak,
     OrphanedText,
 }
@@ -306,6 +308,87 @@ pub(crate) fn structural_findings(
     findings
 }
 
+fn inactive_ocgs(doc: &lopdf::Document) -> Vec<lopdf::ObjectId> {
+    doc.catalog()
+        .ok()
+        .and_then(|c| c.get(b"OCProperties").ok())
+        .and_then(|o| o.as_dict().ok())
+        .and_then(|ocp| ocp.get(b"D").ok())
+        .and_then(|o| o.as_dict().ok())
+        .and_then(|d| d.get(b"OFF").ok())
+        .and_then(|o| o.as_array().ok())
+        .map(|arr| arr.iter().filter_map(|o| o.as_reference().ok()).collect())
+        .unwrap_or_default()
+}
+
+fn property_ocg(doc: &lopdf::Document, page_id: lopdf::ObjectId, name: &[u8]) -> Option<lopdf::ObjectId> {
+    let page = doc.get_object(page_id).ok()?.as_dict().ok()?;
+    let resources = page.get(b"Resources").ok()?.as_dict().ok()?;
+    let properties = resources.get(b"Properties").ok()?.as_dict().ok()?;
+    properties.get(name).ok()?.as_reference().ok()
+}
+
+pub(crate) fn hidden_layer_findings(doc: &lopdf::Document) -> Vec<Finding> {
+    let off = inactive_ocgs(doc);
+    if off.is_empty() {
+        return Vec::new();
+    }
+    let mut findings = Vec::new();
+    for (page_number, page_id) in doc.get_pages() {
+        let content = match doc.get_and_decode_page_content(page_id) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+        let mut hidden_depth: u32 = 0;
+        let mut recovered = String::new();
+        for op in &content.operations {
+            match op.operator.as_str() {
+                "BDC" | "BMC" => {
+                    let is_hidden = op.operands.first().and_then(|o| o.as_name().ok()) == Some(b"OC")
+                        && op
+                            .operands
+                            .get(1)
+                            .and_then(|o| o.as_name().ok())
+                            .and_then(|name| property_ocg(doc, page_id, name))
+                            .map(|ocg| off.contains(&ocg))
+                            .unwrap_or(false);
+                    if is_hidden || hidden_depth > 0 {
+                        hidden_depth += 1;
+                    }
+                }
+                "EMC" => hidden_depth = hidden_depth.saturating_sub(1),
+                "Tj" if hidden_depth > 0 => {
+                    if let Some(s) = op.operands.first().and_then(|o| o.as_str().ok()) {
+                        recovered.push_str(&String::from_utf8_lossy(s));
+                    }
+                }
+                "TJ" if hidden_depth > 0 => {
+                    if let Some(arr) = op.operands.first().and_then(|o| o.as_array().ok()) {
+                        for item in arr {
+                            if let Ok(s) = item.as_str() {
+                                recovered.push_str(&String::from_utf8_lossy(s));
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        let recovered = recovered.trim().to_string();
+        if !recovered.is_empty() {
+            findings.push(Finding {
+                category: Category::HiddenLayer,
+                severity: Severity::High,
+                page: Some((page_number - 1) as usize),
+                region: None,
+                recovered_text: recovered,
+                detail: "Text drawn on an optional-content layer that the default view hides.".into(),
+            });
+        }
+    }
+    findings
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct SeveritySummary {
     pub critical: usize,
@@ -361,6 +444,7 @@ pub fn detect(bytes: Vec<u8>) -> Result<DetectionReport, DetectError> {
     // Structural pass over the detector's own object-model copy.
     if let Ok(mut doc) = lopdf::Document::load_mem(&bytes) {
         findings.extend(structural_findings(&mut doc, 3));
+        findings.extend(hidden_layer_findings(&doc));
     }
 
     findings.sort_by_key(|f| severity_rank(f.severity));
@@ -653,5 +737,53 @@ mod tests {
                     && f.recovered_text.contains("orphan secret")),
             "expected OrphanedText finding"
         );
+    }
+
+    #[test]
+    fn flags_text_hidden_in_an_inactive_optional_content_layer() {
+        use lopdf::{dictionary, Dictionary, Document, Object, Stream};
+        let mut doc = Document::with_version("1.5");
+        let pages_id = doc.new_object_id();
+        let ocg_id = doc.add_object(dictionary! {
+            "Type" => Object::Name(b"OCG".to_vec()),
+            "Name" => Object::string_literal("Secret Layer"),
+        });
+        let content = b"/OC /MC0 BDC BT /F1 12 Tf 72 700 Td (hidden layer text) Tj ET EMC".to_vec();
+        let content_id = doc.add_object(Stream::new(Dictionary::new(), content));
+        let mut properties = Dictionary::new();
+        properties.set("MC0", Object::Reference(ocg_id));
+        let mut resources = Dictionary::new();
+        resources.set("Properties", Object::Dictionary(properties));
+        let mut page = Dictionary::new();
+        page.set("Type", Object::Name(b"Page".to_vec()));
+        page.set("Parent", Object::Reference(pages_id));
+        page.set("Contents", Object::Reference(content_id));
+        page.set("Resources", Object::Dictionary(resources));
+        page.set("MediaBox", Object::Array(vec![0.into(), 0.into(), 612.into(), 792.into()]));
+        let page_id = doc.add_object(Object::Dictionary(page));
+        let mut pages = Dictionary::new();
+        pages.set("Type", Object::Name(b"Pages".to_vec()));
+        pages.set("Kids", Object::Array(vec![Object::Reference(page_id)]));
+        pages.set("Count", Object::Integer(1));
+        doc.objects.insert(pages_id, Object::Dictionary(pages));
+        let oc_properties = dictionary! {
+            "OCGs" => Object::Array(vec![Object::Reference(ocg_id)]),
+            "D" => Object::Dictionary(dictionary! {
+                "OFF" => Object::Array(vec![Object::Reference(ocg_id)]),
+                "ON" => Object::Array(vec![]),
+            }),
+        };
+        let catalog_id = doc.add_object(dictionary! {
+            "Type" => Object::Name(b"Catalog".to_vec()),
+            "Pages" => Object::Reference(pages_id),
+            "OCProperties" => Object::Dictionary(oc_properties),
+        });
+        doc.trailer.set("Root", Object::Reference(catalog_id));
+
+        let findings = hidden_layer_findings(&doc);
+        assert!(findings.iter().any(|f| matches!(f.category, Category::HiddenLayer)
+            && matches!(f.severity, Severity::High)
+            && f.recovered_text.contains("hidden layer text")
+            && f.page == Some(0)));
     }
 }
