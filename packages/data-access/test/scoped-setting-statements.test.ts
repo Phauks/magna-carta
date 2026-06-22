@@ -133,6 +133,20 @@ describe("resolveScopedSetting", () => {
       .run();
     expect(await resolveScopedSetting(database, incrementMinutes, { matterId: "matter_a" })).toBe(6);
   });
+
+  it("falls through a schema-invalid (parseable) stored value to the next tier", async () => {
+    const database = memoryDatabase();
+    // Valid JSON but wrong type — a string where a positive int is required. Insert raw so the
+    // validating builder does not block it. The resolver must fall through to the firm tier.
+    await database
+      .prepare(
+        "INSERT INTO scoped_setting (key, scope_tier, scoped_id, value, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+      )
+      .bind("time.increment_minutes", "matter", "matter_a", '"not-a-number"', "2026-06-22T00:00:00.000Z")
+      .run();
+    await put(database, "firm", null, 6);
+    expect(await resolveScopedSetting(database, incrementMinutes, { matterId: "matter_a" })).toBe(6);
+  });
 });
 
 describe("writeScopedSettingStatement", () => {

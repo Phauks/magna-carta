@@ -138,7 +138,6 @@ CREATE INDEX `matter_status_index` ON `matter` (`status`);--> statement-breakpoi
 CREATE INDEX `matter_responsible_member_id_created_at_id_index` ON `matter` (`responsible_member_id`,`created_at`,`id`);--> statement-breakpoint
 CREATE INDEX `matter_created_at_id_index` ON `matter` (`created_at`,`id`);
 --> statement-breakpoint
---> statement-breakpoint
 CREATE TABLE `scoped_setting` (
 	`key` text NOT NULL,
 	`scope_tier` text NOT NULL,
