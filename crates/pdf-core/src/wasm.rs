@@ -1,6 +1,7 @@
 //! Thin JS marshalling edge — compiled only for wasm32. No engine logic here.
 use crate::{
-    redact, sanitize, Document, PdfError, Rect, RedactionOptions, RedactionRegion, ScrubOptions,
+    detect, redact, sanitize, Category, Document, PdfError, Rect, RedactionOptions,
+    RedactionRegion, ScrubOptions, Severity,
 };
 use wasm_bindgen::prelude::*;
 
@@ -226,5 +227,82 @@ pub fn sanitize_document_edge(bytes: Vec<u8>, opts: JsValue) -> Result<JsValue, 
     let result = js_sys::Object::new();
     js_sys::Reflect::set(&result, &"pdf".into(), &js_sys::Uint8Array::from(&out[..]))
         .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    Ok(result.into())
+}
+
+impl From<crate::DetectError> for JsError {
+    fn from(e: crate::DetectError) -> Self {
+        match e {
+            crate::DetectError::Parse => JsError::new("failed to parse PDF"),
+        }
+    }
+}
+
+fn category_str(c: Category) -> &'static str {
+    match c {
+        Category::CoveredText => "coveredText",
+        Category::InvisibleText => "invisibleText",
+        Category::WhiteoutText => "whiteoutText",
+        Category::MetadataLeak => "metadataLeak",
+        Category::OrphanedText => "orphanedText",
+    }
+}
+
+fn severity_str(s: Severity) -> &'static str {
+    match s {
+        Severity::Critical => "critical",
+        Severity::High => "high",
+        Severity::Medium => "medium",
+        Severity::Low => "low",
+        Severity::Info => "info",
+    }
+}
+
+#[wasm_bindgen(js_name = detectDocument)]
+pub fn detect_document(bytes: Vec<u8>) -> Result<JsValue, JsError> {
+    let report = detect(bytes)?;
+    let set = |o: &js_sys::Object, k: &str, v: &JsValue| {
+        let _ = js_sys::Reflect::set(o, &k.into(), v);
+    };
+
+    let findings = js_sys::Array::new();
+    for f in &report.findings {
+        let o = js_sys::Object::new();
+        set(&o, "category", &category_str(f.category).into());
+        set(&o, "severity", &severity_str(f.severity).into());
+        set(&o, "page", &f.page.map(|p| JsValue::from(p as u32)).unwrap_or(JsValue::NULL));
+        match &f.region {
+            Some(r) => {
+                let ro = js_sys::Object::new();
+                set(&ro, "x0", &JsValue::from(r.x0));
+                set(&ro, "y0", &JsValue::from(r.y0));
+                set(&ro, "x1", &JsValue::from(r.x1));
+                set(&ro, "y1", &JsValue::from(r.y1));
+                set(&o, "region", &ro.into());
+            }
+            None => set(&o, "region", &JsValue::NULL),
+        }
+        set(&o, "recoveredText", &f.recovered_text.as_str().into());
+        set(&o, "detail", &f.detail.as_str().into());
+        findings.push(&o);
+    }
+
+    let summary = js_sys::Object::new();
+    set(&summary, "critical", &JsValue::from(report.summary.critical as u32));
+    set(&summary, "high", &JsValue::from(report.summary.high as u32));
+    set(&summary, "medium", &JsValue::from(report.summary.medium as u32));
+    set(&summary, "low", &JsValue::from(report.summary.low as u32));
+    set(&summary, "info", &JsValue::from(report.summary.info as u32));
+
+    let result = js_sys::Object::new();
+    set(&result, "findings", &findings);
+    set(&result, "summary", &summary);
+    set(&result, "pagesScanned", &JsValue::from(report.pages_scanned as u32));
+    set(&result, "glyphsExamined", &JsValue::from(report.glyphs_examined as u32));
+    let pages_unreadable = js_sys::Array::new();
+    for p in &report.pages_unreadable {
+        pages_unreadable.push(&JsValue::from(*p as u32));
+    }
+    set(&result, "pagesUnreadable", &pages_unreadable);
     Ok(result.into())
 }

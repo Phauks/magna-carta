@@ -154,3 +154,38 @@ export async function sanitizeDocument(
   await ensureReady();
   return wasmSanitize(bytes, opts) as SanitizeResult;
 }
+
+export interface DetectionFinding {
+  category:
+    | "coveredText"
+    | "invisibleText"
+    | "whiteoutText"
+    | "metadataLeak"
+    | "orphanedText";
+  severity: "critical" | "high" | "medium" | "low" | "info";
+  page: number | null;
+  region: { x0: number; y0: number; x1: number; y1: number } | null;
+  recoveredText: string;
+  detail: string;
+}
+
+export interface DetectionReport {
+  findings: DetectionFinding[];
+  summary: { critical: number; high: number; medium: number; low: number; info: number };
+  pagesScanned: number;
+  glyphsExamined: number;
+  pagesUnreadable: number[];
+}
+
+import { detectDocument as wasmDetect } from "./pkg/pdf_core.js";
+
+/**
+ * Scan a PDF for failed redactions — recoverable text that is covered, invisible,
+ * whitened-out, in metadata, or orphaned. Returns findings ranked by severity.
+ * Read-only: the input is never modified. An empty `findings` list means nothing
+ * was detected, not a guarantee that the document is safe.
+ */
+export async function detectDocument(bytes: Uint8Array): Promise<DetectionReport> {
+  await ensureReady();
+  return wasmDetect(bytes) as DetectionReport;
+}
