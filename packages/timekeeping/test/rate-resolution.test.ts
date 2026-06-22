@@ -71,7 +71,7 @@ describe("resolveRate precedence", () => {
     await seedRate(database, { rateCardId, tier: "role", scopedId: "role_associate", rateE4: 3_200_000, currency: "USD", validFrom: "2026-01-01" });
     await seedRate(database, { rateCardId, tier: "timekeeper", scopedId: "user_associate", rateE4: 3_500_000, currency: "USD", validFrom: "2026-01-01" });
 
-    expect((await resolveRate(database, baseContext(rateCardId)) as { rateSource: string }).rateSource).toBe("timekeeper");
+    expect(await resolveRate(database, baseContext(rateCardId))).toMatchObject({ rateSource: "timekeeper", rateE4: 3_500_000 });
   });
 
   it("the client tier wins over timekeeper", async () => {
@@ -80,7 +80,7 @@ describe("resolveRate precedence", () => {
     await seedRate(database, { rateCardId, tier: "timekeeper", scopedId: "user_associate", rateE4: 3_500_000, currency: "USD", validFrom: "2026-01-01" });
     await seedRate(database, { rateCardId, tier: "client", scopedId: "client_x", rateE4: 4_000_000, currency: "USD", validFrom: "2026-01-01" });
 
-    expect((await resolveRate(database, baseContext(rateCardId)) as { rateSource: string }).rateSource).toBe("client");
+    expect(await resolveRate(database, baseContext(rateCardId))).toMatchObject({ rateSource: "client", rateE4: 4_000_000 });
   });
 
   it("the matter tier wins over client", async () => {
@@ -132,13 +132,22 @@ describe("resolveRate effective-dating", () => {
     // work_date precedes the only version's valid_from.
     expect(await resolveRate(database, { ...baseContext(rateCardId), workDate: "2026-06-01" })).toEqual({ noRate: true });
   });
+
+  it("falls through a higher tier whose row is not in force on work_date to a lower tier that is", async () => {
+    const database = freshDatabase();
+    const rateCardId = await makeCard(database);
+    // The matter-tier row only becomes effective in the future — it does not cover workDate.
+    await seedRate(database, { rateCardId, tier: "matter", scopedId: "matter_a", rateE4: 4_500_000, currency: "USD", validFrom: "2026-07-01" });
+    // The timekeeper-tier row is already in force on workDate (2026-06-22).
+    await seedRate(database, { rateCardId, tier: "timekeeper", scopedId: "user_associate", rateE4: 3_500_000, currency: "USD", validFrom: "2026-01-01" });
+
+    expect(await resolveRate(database, baseContext(rateCardId))).toMatchObject({ rateSource: "timekeeper", rateE4: 3_500_000 });
+  });
 });
 
 describe("resolveRate no-rate path", () => {
   it("a non-billable context (no card chosen, no override) is the no-rate result", async () => {
     const database = freshDatabase();
-    const { rateCardId } = baseContext("rateCard_unused");
-    void rateCardId;
     expect(await resolveRate(database, { matterId: "matter_a", clientId: null, timekeeperUserId: "user_associate", roleId: null, workDate: "2026-06-22" })).toEqual({ noRate: true });
   });
 

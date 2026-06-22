@@ -82,6 +82,8 @@ export async function resolveRate(
       rateE4: context.overrideE4,
       rateCardId,
       rateSource: "override",
+      // The platform is single-currency (USD) today — every account and entry pins USD; multi-currency
+      // is a future schema change. USD is therefore the correct base when no stored row is in force.
       currency: resolved?.currency ?? "USD",
     };
   }
