@@ -56,6 +56,52 @@ pub enum RedactError {
     GateFailed { detail: String },
 }
 
+use crate::Document;
+
+// Called by the page-reassembly layer; allow until that module is wired.
+#[allow(dead_code)]
+pub(crate) fn render_redacted_page(
+    doc: &Document,
+    page: usize,
+    rects: &[Rect],
+    dpi: f32,
+) -> Result<(Vec<u8>, u32, u32), RedactError> {
+    let size = doc.page_size(page).map_err(|_| RedactError::PageOutOfRange)?;
+    let rendered = doc.render_page(page, dpi, false).map_err(|_| RedactError::Render)?;
+    let (w, h) = (rendered.width, rendered.height);
+    let mut rgba = rendered.data; // RGBA8, row-major
+
+    for r in rects {
+        let (x0, y0, x1, y1) = rect_to_pixels(r, size.width_pt, size.height_pt, w, h);
+        for y in y0..y1 {
+            for x in x0..x1 {
+                let i = ((y * w + x) * 4) as usize;
+                rgba[i] = 0;
+                rgba[i + 1] = 0;
+                rgba[i + 2] = 0;
+                rgba[i + 3] = 255;
+            }
+        }
+    }
+
+    // Composite over a white background and pack to RGB8 for a DeviceRGB image XObject.
+    // The renderer returns straight RGBA8; pages with no background content are transparent
+    // (alpha=0). Compositing alpha-over-white gives the correct white-page appearance and
+    // ensures redaction boxes (alpha=255, RGB=0) stay fully black.
+    let mut rgb = Vec::with_capacity((w * h * 3) as usize);
+    for px in rgba.chunks_exact(4) {
+        let a = px[3] as f32 / 255.0;
+        let composite = |channel: u8| -> u8 {
+            // Porter-Duff over white: out = src_alpha * src + (1 - src_alpha) * 255
+            ((a * channel as f32) + ((1.0 - a) * 255.0)).round() as u8
+        };
+        rgb.push(composite(px[0]));
+        rgb.push(composite(px[1]));
+        rgb.push(composite(px[2]));
+    }
+    Ok((rgb, w, h))
+}
+
 /// Map a display-point rect to a pixel rect on the rendered raster, applying the
 /// y-flip (PDF y-up, bottom-left → image y-down, top-left), corner ordering, and clamping.
 pub fn rect_to_pixels(r: &Rect, page_w_pt: f32, page_h_pt: f32, px_w: u32, px_h: u32) -> (u32, u32, u32, u32) {
@@ -74,6 +120,28 @@ pub fn rect_to_pixels(r: &Rect, page_w_pt: f32, page_h_pt: f32, px_w: u32, px_h:
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn blank_doc() -> crate::Document {
+        crate::Document::load(include_bytes!("../tests/fixtures/blank.pdf").to_vec()).unwrap()
+    }
+
+    #[test]
+    fn burns_an_opaque_black_box() {
+        let doc = blank_doc();
+        // 100x100 pt box near the bottom-left of a 612x792 page, at 72 dpi (1 px/pt).
+        let rects = [Rect { x0: 100.0, y0: 100.0, x1: 200.0, y1: 200.0 }];
+        let (rgb, w, h) = render_redacted_page(&doc, 0, &rects, 72.0).unwrap();
+        assert_eq!((w, h), (612, 792));
+        assert_eq!(rgb.len(), (w * h * 3) as usize);
+        // A pixel inside the box is black; a corner pixel (outside) is not.
+        let at = |x: u32, y: u32| {
+            let i = ((y * w + x) * 3) as usize;
+            (rgb[i], rgb[i + 1], rgb[i + 2])
+        };
+        // box pixel: x in [100,200], image-row in [792-200,792-100] = [592,692]
+        assert_eq!(at(150, 640), (0, 0, 0));
+        assert_ne!(at(5, 5), (0, 0, 0)); // blank page corner is white
+    }
 
     #[test]
     fn maps_rect_with_y_flip() {
