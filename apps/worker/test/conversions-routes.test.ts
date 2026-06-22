@@ -1,6 +1,8 @@
-import { env, SELF } from "cloudflare:test";
+import { env, runInDurableObject, SELF } from "cloudflare:test";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
+import type { ConversionJob } from "../src/conversions/conversion-coordinator.ts";
+import type { ConversionMessage } from "../src/conversions/conversion-types.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 import {
@@ -81,5 +83,78 @@ describe("GET /api/v1/conversions/{jobId}", () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as { status?: string; reason?: string };
     expect(body.status).toBe("failed");
+  });
+
+  it("mints a signed URL when the job is done and the artifact exists in R2", async () => {
+    const jobId = "job-done-test";
+    const sourceKey = `conversions/${firmId}/${jobId}/source`;
+    const resultKey = `conversions/${firmId}/${jobId}/result`;
+
+    // Prime the DO: swap the CONVERSION queue send for a no-op so start() does not enqueue,
+    // then call markDone to advance the state to `done` with the result key.
+    const stub = env.CONVERSION_JOB.get(env.CONVERSION_JOB.idFromName(`${firmId}:${jobId}`));
+    const startMessage: ConversionMessage = {
+      firmId,
+      jobId,
+      sourceKey,
+      resultKey,
+      from: "png",
+      to: "pdf",
+    };
+    await runInDurableObject(stub, async (instance: ConversionJob) => {
+      const mutable = instance as unknown as { env: Record<string, unknown> };
+      mutable.env = { ...mutable.env, CONVERSION: { send: async () => {} } };
+      await instance.start(startMessage);
+      await instance.markDone(resultKey, "application/pdf");
+    });
+
+    // Put the artifact in R2 so the route finds it.
+    await env.R2.put(resultKey, "converted-content");
+
+    const response = await SELF.fetch(`https://example.com/api/v1/conversions/${jobId}`, {
+      headers: { cookie: ownerCookie, origin: "https://example.com" },
+    });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      status?: string;
+      url?: string;
+      mediaType?: string;
+    };
+    expect(body.status).toBe("done");
+    expect(typeof body.url).toBe("string");
+    expect(body.url ?? "").toContain("dev-presigned=get");
+    expect(typeof body.mediaType).toBe("string");
+  });
+
+  it("reports expired when the job is done but the artifact has been reaped from R2", async () => {
+    const jobId = "job-expired-test";
+    const sourceKey = `conversions/${firmId}/${jobId}/source`;
+    const resultKey = `conversions/${firmId}/${jobId}/result`;
+
+    // Prime the DO to `done` without touching R2 — simulates a lifecycle-reaped artifact.
+    const stub = env.CONVERSION_JOB.get(env.CONVERSION_JOB.idFromName(`${firmId}:${jobId}`));
+    const startMessage: ConversionMessage = {
+      firmId,
+      jobId,
+      sourceKey,
+      resultKey,
+      from: "png",
+      to: "pdf",
+    };
+    await runInDurableObject(stub, async (instance: ConversionJob) => {
+      const mutable = instance as unknown as { env: Record<string, unknown> };
+      mutable.env = { ...mutable.env, CONVERSION: { send: async () => {} } };
+      await instance.start(startMessage);
+      await instance.markDone(resultKey, "application/pdf");
+    });
+
+    // No R2 put — the object does not exist, so the route must report `expired`.
+    const response = await SELF.fetch(`https://example.com/api/v1/conversions/${jobId}`, {
+      headers: { cookie: ownerCookie, origin: "https://example.com" },
+    });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { status?: string; url?: string };
+    expect(body.status).toBe("expired");
+    expect(body.url).toBeUndefined();
   });
 });

@@ -216,7 +216,7 @@ export function registerConversionRoutes(app: ConversionsApp, chokepoint: Chokep
     },
     async (c) => {
       const firmId = requireChokepointFirmId(c);
-      const { jobId, sourceKey, from, to } = c.req.valid("json");
+      const { jobId, from, to } = c.req.valid("json");
 
       // Reject unknown formats or pairs with no conversion path — the client asked for something
       // the registry cannot satisfy.
@@ -229,6 +229,10 @@ export function registerConversionRoutes(app: ConversionsApp, chokepoint: Chokep
         });
       }
 
+      // Pin both keys server-side from the session firm id and the client-supplied job id: the
+      // body's sourceKey field is ignored to prevent a caller from supplying a key outside their
+      // firm's prefix. The result key is constructed the same way for symmetry.
+      const sourceKey = `conversions/${firmId}/${jobId}/source`;
       const resultKey = `conversions/${firmId}/${jobId}/result`;
       const coordinator = c.env.CONVERSION_JOB.get(
         c.env.CONVERSION_JOB.idFromName(`${firmId}:${jobId}`),
