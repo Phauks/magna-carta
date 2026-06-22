@@ -683,6 +683,29 @@ export const setting = sqliteTable("setting", {
   updatedAt: text("updated_at").notNull(),
 });
 
+// Scope-resolved settings: most-specific-first precedence (matter -> client -> user -> location ->
+// firm -> in-code default). The first realization of the settings-precedence chain; the flat
+// `setting` table stays for firm-level-only knobs. A firm row carries a null scoped_id.
+export const scopedSetting = sqliteTable(
+  "scoped_setting",
+  {
+    key: text("key").notNull(),
+    scopeTier: text("scope_tier", {
+      enum: ["matter", "client", "user", "location", "firm"],
+    }).notNull(),
+    scopedId: text("scoped_id"), // null for the firm tier
+    value: text("value").notNull(), // JSON
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.key, table.scopeTier, table.scopedId] }),
+    check(
+      "scoped_setting_scope_tier_check",
+      sql`${table.scopeTier} IN ('matter', 'client', 'user', 'location', 'firm')`,
+    ),
+  ],
+);
+
 // Append-only per-firm audit log. Written in the same batch as the mutation it records; metadata is
 // redacted JSON (ids and non-privileged fields only, NEVER privileged content). actor_user_id is not
 // an FK — the audit fact must outlive the actor's member row.

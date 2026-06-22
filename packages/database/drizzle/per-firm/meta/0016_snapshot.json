@@ -4184,6 +4184,65 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "scoped_setting": {
+      "name": "scoped_setting",
+      "columns": {
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "scope_tier": {
+          "name": "scope_tier",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "scoped_id": {
+          "name": "scoped_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "scoped_setting_key_scope_tier_scoped_id_pk": {
+          "columns": [
+            "key",
+            "scope_tier",
+            "scoped_id"
+          ],
+          "name": "scoped_setting_key_scope_tier_scoped_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "scoped_setting_scope_tier_check": {
+          "name": "scoped_setting_scope_tier_check",
+          "value": "\"scoped_setting\".\"scope_tier\" IN ('matter', 'client', 'user', 'location', 'firm')"
+        }
+      }
+    },
     "shipment": {
       "name": "shipment",
       "columns": {

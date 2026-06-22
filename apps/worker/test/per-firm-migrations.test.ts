@@ -115,3 +115,18 @@ it("0016 seeds the six time: permissions onto the Owner/Admin role", async () =>
     "time:viewFirm",
   ]);
 });
+
+it("0016 creates the scoped_setting table with the (key, scope_tier, scoped_id) primary key", async () => {
+  const db = env.DB_FIRM_POOL_1;
+  const ddl = await db
+    .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='scoped_setting'")
+    .all<{ sql: string }>();
+  const sql = (ddl.results[0]?.sql ?? "").replace(/\s+/g, " ");
+  expect(sql).toContain("scoped_setting");
+  expect(sql).toContain("'matter'");
+  expect(sql).toContain("'client'");
+  expect(sql).toContain("'user'");
+  expect(sql).toContain("'location'");
+  expect(sql).toContain("'firm'");
+  expect(sql).toContain("PRIMARY KEY(`key`, `scope_tier`, `scoped_id`)");
+});

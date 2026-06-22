@@ -138,6 +138,17 @@ CREATE INDEX `matter_status_index` ON `matter` (`status`);--> statement-breakpoi
 CREATE INDEX `matter_responsible_member_id_created_at_id_index` ON `matter` (`responsible_member_id`,`created_at`,`id`);--> statement-breakpoint
 CREATE INDEX `matter_created_at_id_index` ON `matter` (`created_at`,`id`);
 --> statement-breakpoint
+--> statement-breakpoint
+CREATE TABLE `scoped_setting` (
+	`key` text NOT NULL,
+	`scope_tier` text NOT NULL,
+	`scoped_id` text,
+	`value` text NOT NULL,
+	`updated_at` text NOT NULL,
+	CONSTRAINT "scoped_setting_scope_tier_check" CHECK(`scope_tier` IN ('matter', 'client', 'user', 'location', 'firm')),
+	PRIMARY KEY(`key`, `scope_tier`, `scoped_id`)
+);
+--> statement-breakpoint
 -- Seed the six time: permissions onto the Owner/Admin role. The role_id is the single combined
 -- Owner/Admin role seeded in the member-rbac migration; the rolePermission_ handles were minted
 -- once and committed as literals so every firm's defaults match byte-for-byte.
