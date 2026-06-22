@@ -196,8 +196,8 @@ interface RedactionResult {
 ```ts
 import { sanitizeDocument } from "@magna-carta/pdf";
 
-const cleanBytes = await sanitizeDocument(new Uint8Array(inputBytes));
-// cleanBytes — Uint8Array of the sanitized PDF
+const { pdf } = await sanitizeDocument(new Uint8Array(inputBytes));
+// pdf — Uint8Array of the sanitized PDF
 ```
 
 Pass a `ScrubOptions` object as the second argument to opt individual surfaces out of removal. All flags default to `true` (remove the surface):
@@ -218,17 +218,19 @@ Pass a `ScrubOptions` object as the second argument to opt individual surfaces o
 
 ### Verification gate
 
-`sanitizeDocument` enforces the same hard-gate principle as `redactDocument`. After removing the surfaces it decompresses and scans the raw content streams for any strings you supply via `opts.redactedText`. If any supplied string is found — or if the document cannot be reassembled — the call throws rather than returning an output. When no `redactedText` is supplied, only structural removal is performed (no string scan).
+`sanitizeDocument` enforces a hard gate: after removing the surfaces, it verifies that every surface you asked to scrub is actually absent from the output. If a scrubbed surface survives — or the document cannot be reassembled — the call throws rather than returning an output. Surfaces you opt out of are not checked.
+
+`sanitizeDocument` takes no `redactedText` list; its gate is structural. The byte-level decompress-and-scan for specific strings (see the boundaries below) belongs to `redactDocument`, where you pass the text being redacted via `redactedText`. To flatten a region *and* verify a particular string is gone document-wide, use `redactDocument` — it is sanitized-by-default, so it scrubs these same surfaces too.
 
 ### Boundaries
 
 Three limitations apply and should be understood before use:
 
-1. **Optional-content scrub is configuration-level.** Setting `optionalContent: true` removes the `/OCProperties` entry, which means no layer stays hidden — all content that was toggled off becomes unconditionally visible. It does not excise the marked-content operators (`BMC`/`EMC` boundaries and their enclosed drawing instructions) from page content streams. Text within those operators therefore remains in the document as drawn content. The verification scan (`redactedText`) does catch a supplied string stored as text inside such operators, including inside compressed streams, so that path is covered for known strings.
+1. **Optional-content scrub is configuration-level.** Setting `optionalContent: true` removes the `/OCProperties` entry, which means no layer stays hidden — all content that was toggled off becomes unconditionally visible. It does not excise the marked-content operators (`BMC`/`EMC` boundaries and their enclosed drawing instructions) from page content streams. Text within those operators therefore remains in the document as drawn content. When you redact with `redactDocument` and pass that text via `redactedText`, the byte-level scan does catch it inside such operators, including inside compressed streams, so that path is covered for known strings.
 
 2. **Removing the structure tree drops accessibility tagging.** `structureTree: true` deletes the `/StructTreeRoot` and associated role maps. Screen readers and other assistive technologies rely on the structure tree; documents that must remain accessible should pass `structureTree: false`.
 
-3. **The supplied-text survival check is byte-level across content streams.** The gate decompresses streams and searches for the supplied string as literal bytes. It catches a string stored as plain text, including inside compressed (`FlateDecode`) streams. It does not decode custom-font glyph encodings or pixel-encoded images: a string that was rendered only as glyph codes (where the raw byte sequence does not spell out the text) or rasterized into a pixel image is not matched as literal text. If those encodings are a concern, use `redactDocument` with `dpi` set to rasterize the relevant pages.
+3. **The supplied-text survival check is byte-level.** When you pass `redactedText` to `redactDocument`, the gate decompresses streams and searches for each string as literal bytes. It catches a string stored as plain text, including inside compressed (`FlateDecode`) streams. It does not decode custom-font glyph encodings or pixel-encoded images: a string that was rendered only as glyph codes (where the raw byte sequence does not spell out the text) or rasterized into a pixel image is not matched as literal text. Redacting the region with `redactDocument` removes that page's content entirely (it becomes an image), which is the way to handle those encodings.
 
 ## Build notes
 
