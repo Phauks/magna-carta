@@ -99,8 +99,16 @@
         "dead_letter_queue": "magna-carta-production-files-ingest-deadletter",
       },
       {
+        // The bulk lane (migration / backfill). Higher concurrency than the interactive lane because
+        // this is where throughput is won: many files scanned in parallel across the autoscaling scan
+        // Container fleet. The ceiling here should track the deployed container `max_instances` × the
+        // per-instance concurrency the instance memory allows — and the SCAN+mmap transport (Option B,
+        // ~1× resident vs INSTREAM's ~2×) is what lets each instance run several large scans at once,
+        // so this lane can stay saturated. Raise both together for a large migration burst (the
+        // tuning lives in docs/conventions/operations.md §9); 10 is a sane steady-state default that a
+        // small fleet absorbs without overload.
         "queue": "magna-carta-production-files-ingest-bulk",
-        "max_concurrency": 2,
+        "max_concurrency": 10,
         "dead_letter_queue": "magna-carta-production-files-ingest-bulk-deadletter",
       },
       // The bundle-build consumer (the queue() handler routes this queue to the bundle consumer):
