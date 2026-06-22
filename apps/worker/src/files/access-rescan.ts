@@ -17,11 +17,11 @@ import { readScanEngineVersion } from "@magna-carta/file-manager/upload-policy";
 export async function maybeEnqueueRescanOnAccess(
   queue: Queue | undefined,
   firmDatabase: SqlDatabase,
-  bucketName: string,
+  bucketName: string | null,
   r2Key: string,
   sizeBytes: number | null,
 ): Promise<void> {
-  if (queue === undefined) return;
+  if (queue === undefined || bucketName === null) return; // unbound queue or unrecorded bucket → no-op
   const committed = await loadCommittedVersionByR2Key(firmDatabase, r2Key);
   if (committed === undefined) return;
   const current = await readScanEngineVersion(firmDatabase);

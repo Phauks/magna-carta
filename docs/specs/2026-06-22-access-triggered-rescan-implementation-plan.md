@@ -37,21 +37,27 @@
 ## Task 1: Per-firm `scanEngineVersion` setting + reader
 
 **Files:**
+
 - Modify: `packages/file-manager/src/upload-policy.ts`
 - Test: `packages/file-manager/test/upload-policy.test.ts`
 
 **Interfaces:**
+
 - Produces: `scanEngineVersionDefinition: FirmSettingDefinition<string | null>` (key `"fileManager.scanEngineVersion"`, default `null`); `readScanEngineVersion(database): Promise<string | null>`.
 
 - [ ] **Step 1 — failing test:** assert `readScanEngineVersion` returns `null` on an unset firm, and the value after a setting write.
+
 ```ts
 it("reads the configured scan engine version, null when unset", async () => {
   const database = freshDatabase();
   expect(await readScanEngineVersion(database)).toBeNull();
-  await database.batch([writeFirmSettingStatement(database, scanEngineVersionDefinition, "clamav/1.0+heuristics/1")]);
+  await database.batch([
+    writeFirmSettingStatement(database, scanEngineVersionDefinition, "clamav/1.0+heuristics/1"),
+  ]);
   expect(await readScanEngineVersion(database)).toBe("clamav/1.0+heuristics/1");
 });
 ```
+
 - [ ] **Step 2 — run it, confirm it fails** (`readScanEngineVersion` undefined).
 - [ ] **Step 3 — implement** the definition + reader following `inspectableSizeCapDefinition`/`readInspectableSizeCap` exactly (same `FirmSettingDefinition` shape, `readFirmSetting` delegate). Comment why null ⇒ "fall through to a real scan, never fabricate a cache key".
 - [ ] **Step 4 — run the test, green.**
@@ -60,10 +66,12 @@ it("reads the configured scan engine version, null when unset", async () => {
 ## Task 2: Stamp the engine version on commit
 
 **Files:**
+
 - Modify: `packages/file-manager/src/file-service.ts` (`commitVersion`)
 - Test: `packages/file-manager/test/file-service.test.ts`
 
 **Interfaces:**
+
 - Consumes: `scanEngineVersionDefinition` (Task 1). Produces: the commit batch also upserts `fileManager.scanEngineVersion` when committing a `clean` verdict with a non-null engine version.
 
 - [ ] **Step 1 — failing test:** after a clean commit with `scanEngineVersion: "X"`, `readScanEngineVersion(db)` returns `"X"`; an `unscanned` commit leaves it unchanged.
@@ -74,10 +82,12 @@ it("reads the configured scan engine version, null when unset", async () => {
 ## Task 3: In-place verdict-update statement + effect
 
 **Files:**
+
 - Modify: `packages/file-manager/src/file-statements.ts`, `packages/file-manager/src/file-service.ts`
 - Test: `packages/file-manager/test/file-service.test.ts`
 
 **Interfaces:**
+
 - Produces: `rescanVerdictStatement(database, { versionId, scanVerdict, scanEngineVersion, scanDetail, now })` — `UPDATE file_version SET scan_verdict=?, scan_engine_version=?, scan_detail=? WHERE id=? AND status='clean'` (idempotent; never touches a pending row, never moves `current_version_id`). And `recordRescanVerdict(database, input, options): { effect }` composing the statement + an audit row + the cache record + a `rescan.verdict` outbox/telemetry signal.
 
 - [ ] **Step 1 — failing test:** seed a committed `clean`+`unscanned` version; apply `recordRescanVerdict` with `clean`; assert the row's `scan_verdict='clean'`, `scan_engine_version` set, `current_version_id` UNCHANGED, a `scan_cache` row written, and an audit row. Repeat for `infected` (asserts `scan_verdict='infected'` but `status` STAYS `clean` — informed access).
@@ -88,10 +98,12 @@ it("reads the configured scan engine version, null when unset", async () => {
 ## Task 4: Committed-version read carrying `content_sha256` + non-pending loader
 
 **Files:**
+
 - Modify: `packages/file-manager/src/queries.ts`
 - Test: `packages/file-manager/test/queries.test.ts` (or the nearest read test)
 
 **Interfaces:**
+
 - Produces: `loadCommittedVersionByR2Key(database, r2Key): Promise<{ id, fileId, contentSha256, scanEngineVersion, scanVerdict } | undefined>` — loads a `status='clean'` version by its R2 key (the dispatch's non-pending branch). And ensure any re-scan candidate read returns `content_sha256`.
 
 - [ ] **Step 1 — failing test:** seed a committed version; `loadCommittedVersionByR2Key` returns its id + content hash + current scan_engine_version; returns `undefined` for a pending or unknown key.
@@ -102,10 +114,12 @@ it("reads the configured scan engine version, null when unset", async () => {
 ## Task 5: Consumer dispatch — pending vs committed-stale
 
 **Files:**
+
 - Modify: `apps/worker/src/files/ingest-consumer.ts`
 - Test: `apps/worker/test/ingest-consumer.test.ts`
 
 **Interfaces:**
+
 - Consumes: `loadCommittedVersionByR2Key` (T4), `readScanEngineVersion` (T1), `lookupScanCache` (exists), `recordRescanVerdict` (T3), the scan port. Produces: `handleIngestMessage` now branches — `pending` ⇒ the existing `runIngest`; `clean`+stale ⇒ the in-place re-scan path; else ack/no-op.
 
 - [ ] **Step 1 — failing test (cache hit):** a committed `clean`+`unscanned` version whose content hash is cached `clean` under the current engine ⇒ `handleIngestMessage` writes the verdict in place WITHOUT calling the scan port (assert the port stub is never invoked).
@@ -118,10 +132,12 @@ it("reads the configured scan engine version, null when unset", async () => {
 ## Task 6: Access trigger on open/preview/download
 
 **Files:**
+
 - Modify: `apps/worker/src/routes/files.ts`
 - Test: `apps/worker/test/files-routes.test.ts`
 
 **Interfaces:**
+
 - Consumes: `readScanEngineVersion`, `lookupScanCache`, the re-scan enqueue (to `FILES_INGEST`/bulk). Produces: an open/preview/download handler that, for a stale version, applies a cache hit synchronously or enqueues a background re-scan, never blocking the open.
 
 - [ ] **Step 1 — failing test:** opening a version whose `scan_engine_version` matches current serves immediately, no enqueue. Opening a STALE version with a cache hit applies the verdict; a stale MISS enqueues a re-scan and still serves (under last-known status).
@@ -132,11 +148,13 @@ it("reads the configured scan engine version, null when unset", async () => {
 ## Task 7: Informed-access download gate + read mediation + notification
 
 **Files:**
+
 - Modify: `apps/worker/src/routes/files.ts`, the download read mediation; `packages/file-manager/src/queries.ts` (download eligibility); add the notification emit.
 - Test: `apps/worker/test/files-routes.test.ts`
 - Docs: amend `docs/conventions/security.md` (the accepted/mitigated posture of serving a flagged file behind the gate).
 
 **Interfaces:**
+
 - Produces: a raw download of an `infected` committed version requires a confirmation + re-auth and is audited; listing still shows it; a fresh `infected` finding emits a notification.
 
 - [ ] **Step 1 — failing test:** an `infected` committed version still LISTS; a raw download without the confirm flag returns the gate (not the bytes); with confirm + re-auth it serves AND writes an audit row. A `clean`/`unscanned` version downloads normally.
@@ -147,6 +165,7 @@ it("reads the configured scan engine version, null when unset", async () => {
 ## Task 8: Remove the proactive weekly sweep
 
 **Files:**
+
 - Modify: `apps/worker/src/scheduled.ts` (drop `runRescanSweep` + its cron), `apps/worker/src/index.ts` (drop the import), `apps/worker/wrangler.jsonc` (drop the weekly cron trigger if scan-specific).
 - Test: update `apps/worker/test/*scheduled*`/`firms`/`conformance` as needed.
 

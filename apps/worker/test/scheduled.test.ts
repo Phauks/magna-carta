@@ -7,7 +7,7 @@ import {
 import { beforeAll, describe, expect, it } from "vitest";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { FileVersionId, FirmId, UserId } from "@magna-carta/identifiers/types";
+import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import worker from "../src/index.ts";
 import {
   findUnprovisionedMembers,

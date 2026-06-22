@@ -548,7 +548,10 @@ describe("handleIngestMessage — access-triggered re-scan", () => {
   const uniqueBytes = (tag: number) => new Uint8Array([...PDF_BYTES, tag]);
 
   it("re-scans a stale committed version FROM THE CACHE without calling the engine", async () => {
-    const { versionId, r2Key, contentSha256 } = await seedCommittedVersion("dup.pdf", uniqueBytes(1));
+    const { versionId, r2Key, contentSha256 } = await seedCommittedVersion(
+      "dup.pdf",
+      uniqueBytes(1),
+    );
     await setCurrentEngine("clamav/1.0");
     await env.DB_FIRM_POOL_1.prepare(
       "INSERT INTO scan_cache (content_sha256, engine_version, verdict, signature, scanned_at) VALUES (?1, 'clamav/1.0', 'clean', NULL, ?2)",
@@ -580,7 +583,10 @@ describe("handleIngestMessage — access-triggered re-scan", () => {
   });
 
   it("re-scans on a cache MISS; an infected finding stays VISIBLE (informed access) + is cached", async () => {
-    const { versionId, r2Key, contentSha256 } = await seedCommittedVersion("bad.pdf", uniqueBytes(2));
+    const { versionId, r2Key, contentSha256 } = await seedCommittedVersion(
+      "bad.pdf",
+      uniqueBytes(2),
+    );
     await setCurrentEngine("clamav/2.0");
 
     let scanCalls = 0;

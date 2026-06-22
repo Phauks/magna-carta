@@ -16,8 +16,8 @@ Malware scanning is a point-in-time judgment against the signature database **at
 
 ## Decisions (approved with the owner)
 
-1. **Trigger — file-level, access-triggered.** Re-scan a *file* when it is opened / previewed / downloaded, never a proactive corpus sweep and never a whole-matter pre-warm. A file nobody opens is never re-scanned (it can't harm anyone until accessed). Matter size is irrelevant to cost; only files actually opened cost anything. *(The existing weekly `runRescanSweep` proactive sweep is removed/disabled — it only scans dormant files no one is looking at.)*
-2. **Staleness gate.** A file is re-scanned on access only if its stored `scan_engine_version` differs from the **current** engine version. Same engine ⇒ no re-scan (instant). So a file is only ever *scanned* the first time it is accessed under a new engine version; every duplicate and repeat access is a cache hit.
+1. **Trigger — file-level, access-triggered.** Re-scan a _file_ when it is opened / previewed / downloaded, never a proactive corpus sweep and never a whole-matter pre-warm. A file nobody opens is never re-scanned (it can't harm anyone until accessed). Matter size is irrelevant to cost; only files actually opened cost anything. _(The existing weekly `runRescanSweep` proactive sweep is removed/disabled — it only scans dormant files no one is looking at.)_
+2. **Staleness gate.** A file is re-scanned on access only if its stored `scan_engine_version` differs from the **current** engine version. Same engine ⇒ no re-scan (instant). So a file is only ever _scanned_ the first time it is accessed under a new engine version; every duplicate and repeat access is a cache hit.
 3. **Cache-first, cache both verdicts.** Consult `lookupScanCache(content_sha256, currentEngineVersion)` before scanning. A hit applies the verdict with no clamd call; a miss scans then records. **Both `clean` and `infected`** are cached (the `engine_version` in the key makes a DB update a deliberate miss, so there is no stale-infected risk within an engine version).
 4. **Informed access — NO data loss.** A re-scan that finds a committed, user-visible version **infected** leaves it in place: same current-version pointer, still listed, `scan_verdict='infected'`. No quarantine-hide, no version-regress, no file going dark. Instead:
    - The **safe preview** renders the file's content through the conversion/preview pipeline (no raw bytes to the user's machine) — so "view" is always available and never touches the payload.
@@ -58,6 +58,7 @@ Opening is **never blocked** on a scan: a cache hit is instant; a true miss serv
 8. **Remove the proactive weekly sweep** (`runRescanSweep`) — superseded by access-triggered.
 
 ### Fast-follows
+
 - **Safe preview** of an infected file via the conversion/preview rendition.
 - **On-demand "scan this matter now"** button (user-initiated bulk pass over a matter, routed to the bulk lane).
 
@@ -72,12 +73,12 @@ A committed (visible) `file_version` may now hold `scan_verdict ∈ {unscanned, 
 
 ## Cost model (for sizing, not a constraint)
 
-With dedup + the engine-version gate, the unit of cost is **unique content actually opened, once per engine version**. A busy firm touching ~20 GB of distinct files/day with daily DB updates lands around **$1–5/month**; dormant archives, however large, are **$0**. Even the worst single case — first open of a 20k-file matter after a DB update, *matter-level* — is ~$0.025; *file-level* (this design) is a fraction of a cent because only the files actually opened are scanned. (Caveat: many-tiny-files pay fixed per-scan overhead, so effective throughput drops; still tens of dollars at corpus scale, not thousands.)
+With dedup + the engine-version gate, the unit of cost is **unique content actually opened, once per engine version**. A busy firm touching ~20 GB of distinct files/day with daily DB updates lands around **$1–5/month**; dormant archives, however large, are **$0**. Even the worst single case — first open of a 20k-file matter after a DB update, _matter-level_ — is ~$0.025; _file-level_ (this design) is a fraction of a cent because only the files actually opened are scanned. (Caveat: many-tiny-files pay fixed per-scan overhead, so effective throughput drops; still tens of dollars at corpus scale, not thousands.)
 
 ## Risks & open items
 
-- **Serving known-malware (security posture).** Informed access deliberately keeps flagged files reachable (gated, re-auth'd, audited) because they are the firm's own legal records where losing access can be worse than a controlled, consented risk — and the safe-preview path means *viewing* never touches the payload. This is a deliberate deviation from hard-quarantine DLP; record it in `security.md` as an accepted, mitigated posture.
-- **Race window.** A cache-miss file opens under its last-known status before the background scan finishes; the gate applies on the *next* open + a notification fires. For high-stakes types, optionally scan-before-serve (block briefly) — a tuning knob.
+- **Serving known-malware (security posture).** Informed access deliberately keeps flagged files reachable (gated, re-auth'd, audited) because they are the firm's own legal records where losing access can be worse than a controlled, consented risk — and the safe-preview path means _viewing_ never touches the payload. This is a deliberate deviation from hard-quarantine DLP; record it in `security.md` as an accepted, mitigated posture.
+- **Race window.** A cache-miss file opens under its last-known status before the background scan finishes; the gate applies on the _next_ open + a notification fires. For high-stakes types, optionally scan-before-serve (block briefly) — a tuning knob.
 - **Engine-version setting ownership.** The deploy/engine-rollout process must write `fileManager.scanEngineVersion` on every engine upgrade; a stale/unset setting is safe (falls through to scan), just less efficient.
 
 ## Testing

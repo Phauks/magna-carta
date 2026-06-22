@@ -21,9 +21,7 @@ import {
   type ListedObject,
   type MeterRow,
 } from "@magna-carta/file-manager/metering-statements";
-import {
-  listCleanVersionR2Keys,
-} from "@magna-carta/file-manager/queries";
+import { listCleanVersionR2Keys } from "@magna-carta/file-manager/queries";
 import { generateFirmKeyBytes, importRootKek, wrapFirmKey } from "@magna-carta/encryption/keys";
 import type { FileVersionId, FirmId, UploadSessionId } from "@magna-carta/identifiers/types";
 import { outboxDeadLettered, outboxSwept } from "@magna-carta/telemetry/events";

@@ -1,4 +1,3 @@
-import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import {
   commitVersion,
@@ -191,7 +190,7 @@ export async function handleIngestMessage(
 async function handleRescanMessage(
   env: Bindings,
   message: R2EventMessage,
-  firmDatabase: SqlDatabase,
+  firmDatabase: D1Database,
   scanPort: MalwareScanPort,
 ): Promise<void> {
   const committed = await loadCommittedVersionByR2Key(firmDatabase, message.object.key);
@@ -238,7 +237,11 @@ async function handleRescanMessage(
           // `unscanned`/`suspicious` is NOT a definitive verdict — leave the version's prior verdict
           // untouched (never downgrade without a real scan). The idempotency record still lands, so a
           // redelivery under this engine does not re-scan; a future engine version will try again.
-          return { write: { statements: [], outboxMessages: [] }, responseCode: 200, responseBody: "{}" };
+          return {
+            write: { statements: [], outboxMessages: [] },
+            responseCode: 200,
+            responseBody: "{}",
+          };
         }
       }
 
