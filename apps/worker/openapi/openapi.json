@@ -2094,13 +2094,21 @@
           },
           "accessTokenTtl": {
             "type": "number"
+          },
+          "capability": {
+            "type": "string",
+            "enum": [
+              "edit",
+              "view"
+            ]
           }
         },
         "required": [
           "editorUrl",
           "editorOrigin",
           "accessToken",
-          "accessTokenTtl"
+          "accessTokenTtl",
+          "capability"
         ]
       },
       "CheckoutResponse": {
@@ -2117,6 +2125,18 @@
           "checkoutId",
           "presignedGetUrl"
         ]
+      },
+      "CheckoutRequest": {
+        "type": "object",
+        "properties": {
+          "lockType": {
+            "type": "string",
+            "enum": [
+              "offline_working_copy",
+              "exclusive"
+            ]
+          }
+        }
       },
       "CheckinResponse": {
         "type": "object",
@@ -2203,6 +2223,28 @@
         },
         "required": [
           "keep"
+        ]
+      },
+      "ForceReleaseResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "released"
+            ]
+          },
+          "releasedCheckoutId": {
+            "type": "string"
+          },
+          "displacedHolderId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "releasedCheckoutId",
+          "displacedHolderId"
         ]
       },
       "BundleStatus": {
@@ -8898,7 +8940,7 @@
     },
     "/api/v1/documents/{fileId}/checkout": {
       "post": {
-        "description": "Take an offline working copy of a document: records a checkout against the current version and returns a short-lived presigned download URL for that version's bytes.",
+        "description": "Take a checkout of a document: an optimistic offline working copy (default) or an opt-in exclusive lock. Records a checkout against the current version and returns a short-lived presigned download URL for that version's bytes.",
         "operationId": "documents.checkout",
         "tags": [
           "documents"
@@ -8926,6 +8968,16 @@
             "in": "path"
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "The checkout handle and the presigned download URL",
@@ -8959,6 +9011,16 @@
           },
           "404": {
             "description": "The file does not exist in this firm, or has no committed version to check out",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "An exclusive lock was requested but one is already held",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -9147,6 +9209,90 @@
           },
           "404": {
             "description": "No such file in this firm, or it has nothing awaiting reconciliation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{fileId}/force-release": {
+      "post": {
+        "description": "Force-release another member's lock on a document (an exclusive lock or a stranded offline checkout): releases the active checkout, frees the document, and audits both the actor and the displaced holder.",
+        "operationId": "documents.forceRelease",
+        "tags": [
+          "documents"
+        ],
+        "x-mc-operationId": "documents.forceRelease",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "documents:forceReleaseLock",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "documents"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "fileId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The lock was released",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForceReleaseResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks documents:forceReleaseLock",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such file in this firm, or it has no active lock to release",
             "content": {
               "application/problem+json": {
                 "schema": {

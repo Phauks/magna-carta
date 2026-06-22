@@ -81,6 +81,7 @@ function checkout(fileId: FileId, cookie: string): Promise<Response> {
   return SELF.fetch(`https://example.com/api/v1/documents/${fileId}/checkout`, {
     method: "POST",
     headers: { "content-type": "application/json", origin: "https://example.com", cookie },
+    body: "{}",
   });
 }
 

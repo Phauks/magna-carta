@@ -2,7 +2,9 @@ import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import {
+  getActiveExclusiveLock,
   getCheckoutById,
+  getOpenCheckout,
   insertDocumentCheckoutStatement,
   setCheckoutStatusStatement,
 } from "@magna-carta/file-manager/checkout-statements";
@@ -10,6 +12,7 @@ import { initiateCheckin } from "@magna-carta/file-manager/file-service";
 import {
   markVersionReconciledStatement,
   setFileCurrentVersionStatement,
+  setFileEditStateStatement,
 } from "@magna-carta/file-manager/file-statements";
 import {
   getConflictPendingVersion,
@@ -43,6 +46,15 @@ const CHECKIN_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 // neutral content type the client uploads under — never a client-asserted type the host would trust.
 const CHECKIN_UPLOAD_CONTENT_TYPE = "application/octet-stream";
 
+const CheckoutRequest = z
+  .object({
+    // The kind of claim. 'offline_working_copy' (the default) is the optimistic, never-block offline
+    // copy — many may be out at once. 'exclusive' is an opt-in single-holder lock that forces every
+    // other member's edit launch read-only until released.
+    lockType: z.enum(["offline_working_copy", "exclusive"]).optional(),
+  })
+  .openapi("CheckoutRequest");
+
 const CheckoutResponse = z
   .object({
     // The opaque handle for this checkout — presented on check-in to reconcile against its base.
@@ -71,9 +83,12 @@ export const checkoutMeta: RouteMeta = {
 export const checkoutRoute = defineOpenAPIRoute(checkoutMeta, {
   method: "post",
   path: "/api/v1/documents/{fileId}/checkout",
-  request: { params: z.object({ fileId: identifierPathParam("file", "fileId") }) },
+  request: {
+    params: z.object({ fileId: identifierPathParam("file", "fileId") }),
+    body: { content: { "application/json": { schema: CheckoutRequest } }, required: false },
+  },
   description:
-    "Take an offline working copy of a document: records a checkout against the current version and returns a short-lived presigned download URL for that version's bytes.",
+    "Take a checkout of a document: an optimistic offline working copy (default) or an opt-in exclusive lock. Records a checkout against the current version and returns a short-lived presigned download URL for that version's bytes.",
   responses: {
     200: {
       description: "The checkout handle and the presigned download URL",
@@ -89,6 +104,10 @@ export const checkoutRoute = defineOpenAPIRoute(checkoutMeta, {
     },
     404: {
       description: "The file does not exist in this firm, or has no committed version to check out",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    409: {
+      description: "An exclusive lock was requested but one is already held",
       content: { "application/problem+json": { schema: Problem } },
     },
     429: {
@@ -241,6 +260,62 @@ export const reconcileRoute = defineOpenAPIRoute(reconcileMeta, {
   },
 });
 
+const ForceReleaseResponse = z
+  .object({
+    status: z.literal("released"),
+    // The checkout/lock that was released and the member it was taken from (the displaced holder).
+    releasedCheckoutId: z.string(),
+    displacedHolderId: z.string(),
+  })
+  .openapi("ForceReleaseResponse");
+
+// Force-releases another member's lock on a document — an exclusive lock, or a stranded offline
+// checkout (e.g. a deactivated member's). Releases the active checkout, frees the document
+// (edit_state -> idle), and audits both the actor and the displaced holder. The conflicting/version
+// state is untouched: this only clears the hold.
+export const forceReleaseMeta: RouteMeta = {
+  operationId: "documents.forceRelease",
+  surface: "app",
+  authenticated: true,
+  permission: "documents:forceReleaseLock",
+  resource: "matter",
+  audited: true,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+export const forceReleaseRoute = defineOpenAPIRoute(forceReleaseMeta, {
+  method: "post",
+  path: "/api/v1/documents/{fileId}/force-release",
+  request: { params: z.object({ fileId: identifierPathParam("file", "fileId") }) },
+  description:
+    "Force-release another member's lock on a document (an exclusive lock or a stranded offline " +
+    "checkout): releases the active checkout, frees the document, and audits both the actor and the " +
+    "displaced holder.",
+  responses: {
+    200: {
+      description: "The lock was released",
+      content: { "application/json": { schema: ForceReleaseResponse } },
+    },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "Authenticated, but the member lacks documents:forceReleaseLock",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    404: {
+      description: "No such file in this firm, or it has no active lock to release",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
 export function registerDocumentCheckoutRoutes(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
   chokepoint: Chokepoint,
@@ -253,6 +328,8 @@ export function registerDocumentCheckoutRoutes(
       const bucket = requireBucket(firm.bucketName);
       const fileId = c.req.param("fileId") as FileId;
 
+      const lockType = c.req.valid("json")?.lockType ?? "offline_working_copy";
+
       const version = await getCurrentCleanVersion(firm.firmDatabase, fileId);
       if (version === undefined) {
         return problemJson(c, {
@@ -261,6 +338,20 @@ export function registerDocumentCheckoutRoutes(
           title: "Not found",
           detail: "No such document with a committed version to check out.",
         });
+      }
+
+      // An exclusive lock is single-holder: refuse a second one while one is active. Offline working
+      // copies are optimistic and never block, so they skip this check.
+      if (lockType === "exclusive") {
+        const existing = await getActiveExclusiveLock(firm.firmDatabase, fileId);
+        if (existing !== undefined) {
+          return problemJson(c, {
+            type: "conflict",
+            status: 409,
+            title: "Already locked",
+            detail: "This document already has an active exclusive lock.",
+          });
+        }
       }
 
       const checkoutId = newIdentifier("documentCheckout");
@@ -273,16 +364,21 @@ export function registerDocumentCheckoutRoutes(
               id: checkoutId,
               fileId,
               holderMemberId: memberId,
-              lockType: "offline_working_copy",
+              lockType,
               baseVersionId: version.id,
               acquiredAt: now,
             }),
+            // An exclusive lock marks the document checked_out (others launch read-only); an offline
+            // working copy is optimistic and leaves the editing posture untouched.
+            ...(lockType === "exclusive"
+              ? [setFileEditStateStatement(firm.firmDatabase, fileId, "checked_out", now)]
+              : []),
             insertAuditLogStatement(firm.firmDatabase, {
               id: newIdentifier("auditLog"),
               event: "document.checkout_opened",
               actorUserId: memberId,
               subjectId: fileId,
-              metadata: null,
+              metadata: { lockType },
               now,
             }),
           ],
@@ -418,6 +514,60 @@ export function registerDocumentCheckoutRoutes(
           status: "reconciled" as const,
           reconciledVersionId: conflict.id,
           currentVersionId: currentVersion?.id ?? conflict.id,
+        },
+        200,
+      );
+    },
+  );
+
+  app.openapi(
+    { ...forceReleaseRoute, middleware: chokepointMiddleware(chokepoint, forceReleaseRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const memberId = requireChokepointUserId(c);
+      const fileId = c.req.param("fileId") as FileId;
+
+      // Release the active exclusive lock if one is held; otherwise a stranded offline checkout (the
+      // deactivated-member cleanup). No active lock of either kind → nothing to release.
+      const lock =
+        (await getActiveExclusiveLock(firm.firmDatabase, fileId)) ??
+        (await getOpenCheckout(firm.firmDatabase, fileId));
+      if (lock === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          status: 404,
+          title: "Not found",
+          detail: "No active lock to release on this document.",
+        });
+      }
+
+      const now = () => new Date().toISOString();
+      await commitEffectBatch(
+        firm.firmDatabase,
+        {
+          statements: [
+            setCheckoutStatusStatement(firm.firmDatabase, lock.id, "released"),
+            setFileEditStateStatement(firm.firmDatabase, fileId, "idle", now()),
+            insertAuditLogStatement(firm.firmDatabase, {
+              id: newIdentifier("auditLog"),
+              event: "document.lock_force_released",
+              actorUserId: memberId,
+              subjectId: fileId,
+              // Both parties are recorded: the actor (actorUserId) and the displaced holder.
+              metadata: { displacedHolder: lock.holderMemberId, lockType: lock.lockType },
+              now: now(),
+            }),
+          ],
+          outboxMessages: [],
+        },
+        { now },
+      );
+
+      return c.json(
+        {
+          status: "released" as const,
+          releasedCheckoutId: lock.id,
+          displacedHolderId: lock.holderMemberId,
         },
         200,
       );

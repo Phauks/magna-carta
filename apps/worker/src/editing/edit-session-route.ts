@@ -1,6 +1,7 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { getActiveExclusiveLock } from "@magna-carta/file-manager/checkout-statements";
 import {
   selectFileStatement,
   setFileEditStateStatement,
@@ -53,6 +54,9 @@ const SessionLaunchResponse = z
     accessToken: z.string(),
     // Absolute epoch-milliseconds expiry of the access token (the WOPI access_token_ttl convention).
     accessTokenTtl: z.number(),
+    // The capability granted: 'edit' for an editing session, or 'view' — including when an edit launch
+    // is forced read-only because another member holds an exclusive lock. The viewer is never blocked.
+    capability: z.enum(["edit", "view"]),
   })
   .openapi("SessionLaunchResponse");
 
@@ -125,6 +129,7 @@ async function buildLaunch(
     editorOrigin,
     accessToken,
     accessTokenTtl: exp,
+    capability: input.capability,
   };
 }
 
@@ -231,8 +236,31 @@ export function registerDocumentEditingRoutes(
       const target = await resolveLaunchTarget(firmContext.firmDatabase, fileId);
       if (target === "not-found" || target === "no-version") return launchProblem(c, target);
 
-      // Join the shared session (minting it on the first editor, reusing it for co-editors).
-      const { sessionId } = await documentSessionStub(c.env, fileId).joinEditor(memberId);
+      // An exclusive lock held by ANOTHER member forces this launch read-only (the holder still edits;
+      // everyone else can watch but not take the lock). An offline working copy never blocks editing.
+      const exclusiveLock = await getActiveExclusiveLock(firmContext.firmDatabase, fileId);
+      if (exclusiveLock !== undefined && exclusiveLock.holderMemberId !== memberId) {
+        // Read-only: do not join the editing session, flip edit_state, or audit an edit-open — the
+        // launch is a viewer onto the locked document (join the live session id read-only if present).
+        const sessionId =
+          (await documentSessionStub(c.env, fileId).getState()).sessionId ?? crypto.randomUUID();
+        const viewLaunch = await buildLaunch(c, {
+          firmId,
+          target,
+          fileId,
+          memberId,
+          capability: "view",
+          sessionId,
+        });
+        return c.json(viewLaunch, 200);
+      }
+
+      // Join the shared session (minting it on the first editor, reusing it for co-editors). The reap
+      // context lets the DO's idle alarm free the document if this session later dies.
+      const { sessionId } = await documentSessionStub(c.env, fileId).joinEditor(memberId, {
+        fileId,
+        bucketName: firmContext.bucketName,
+      });
 
       // Flip the file to co-editing and record the open in the same atomic batch.
       const now = new Date().toISOString();
