@@ -150,6 +150,48 @@ export async function getCurrentCleanVersion(
   };
 }
 
+export interface TierableVersion {
+  readonly id: FileVersionId;
+  readonly r2Key: string;
+  readonly sizeBytes: number;
+  readonly artifactRole: string;
+}
+
+// The tiering sweep's candidates: clean, still-Standard versions that are NOT their file's current
+// version and committed before the cutoff (the conservative IA-minimum window). The current/live
+// version is never returned — tiering only ever touches superseded history. Spans nothing risky: it
+// reads only committed (`clean`) versions and excludes the current pointer. The cutoff is an ISO
+// instant; ISO-8601 sorts lexicographically so the string compare is a chronological compare. Bounded
+// by `limit` so one daily pass never tiers an unbounded backlog. fitness:allow-no-status
+export async function listTierableVersions(
+  database: SqlDatabase,
+  committedBeforeIso: string,
+  limit: number,
+): Promise<TierableVersion[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT v.id, v.r2_key, v.size_bytes, v.artifact_role ` +
+        `FROM ${FILE_VERSION_TABLE} v JOIN ${FILE_TABLE} f ON f.id = v.file_id ` +
+        `WHERE v.status = 'clean' AND v.storage_class = 'standard' ` +
+        `AND v.committed_at IS NOT NULL AND v.committed_at < ?1 ` +
+        `AND (f.current_version_id IS NULL OR f.current_version_id <> v.id) ` +
+        `LIMIT ?2`,
+    )
+    .bind(committedBeforeIso, limit)
+    .all<{
+      id: FileVersionId;
+      r2_key: string;
+      size_bytes: number | null;
+      artifact_role: string;
+    }>();
+  return results.map((row) => ({
+    id: row.id,
+    r2Key: row.r2_key,
+    sizeBytes: row.size_bytes ?? 0,
+    artifactRole: row.artifact_role,
+  }));
+}
+
 export interface ConflictPendingVersion {
   readonly id: FileVersionId;
   readonly versionNumber: number;

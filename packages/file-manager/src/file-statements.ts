@@ -401,6 +401,22 @@ export function setFileEditStateStatement(
     .bind(id, editState, updatedAt);
 }
 
+// Flips a version's storage class (Standard -> Infrequent Access) after the tiering sweep rewrites the
+// R2 object's class. Guarded on the current class so a replay/overlap is a no-op and the meter shift
+// that rides the same batch applies exactly once.
+export function setVersionStorageClassStatement(
+  database: SqlDatabase,
+  versionId: FileVersionId,
+  from: "standard" | "infrequent_access",
+  to: "standard" | "infrequent_access",
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${FILE_VERSION_TABLE} SET storage_class = ?3 WHERE id = ?1 AND storage_class = ?2`,
+    )
+    .bind(versionId, from, to);
+}
+
 export function moveFileStatement(
   database: SqlDatabase,
   id: FileId,

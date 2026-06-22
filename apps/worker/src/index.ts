@@ -6,6 +6,7 @@ import type { BundleBuildMessage } from "./downloads/bundle-types.ts";
 import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
 import { pokeScanContainer } from "./files/scan-warm.ts";
 import { inferenceQueue, type InferenceJob } from "./inference/inference-consumer.ts";
+import { runTieringSweep } from "./editing/tiering-sweep.ts";
 import { runRescanSweep, runScheduledSweep, runStorageReconciliation } from "./scheduled.ts";
 
 // The async bulk-download coordinator Durable Object must be exported from the Worker's main entrypoint
@@ -55,7 +56,16 @@ export default {
   scheduled(controller, env, executionContext) {
     const pass =
       controller.cron === RECONCILIATION_CRON
-        ? { operation: "cron:storage-reconciliation", run: () => runStorageReconciliation(env) }
+        ? {
+            // The daily storage-maintenance pass: reconcile the meter against the authoritative R2
+            // LIST first, THEN tier cold superseded versions (so the tiering meter shift lands on an
+            // already-reconciled baseline; next day's reconciliation backstops any tiering drift).
+            operation: "cron:storage-reconciliation",
+            run: async () => {
+              await runStorageReconciliation(env);
+              await runTieringSweep(env);
+            },
+          }
         : controller.cron === RESCAN_SWEEP_CRON
           ? { operation: "cron:rescan-sweep", run: () => runRescanSweep(env) }
           : controller.cron === SCAN_WARM_CRON
