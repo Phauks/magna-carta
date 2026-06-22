@@ -1991,6 +1991,29 @@
           "matterId"
         ]
       },
+      "EditSessionResponse": {
+        "type": "object",
+        "properties": {
+          "editorUrl": {
+            "type": "string"
+          },
+          "editorOrigin": {
+            "type": "string"
+          },
+          "accessToken": {
+            "type": "string"
+          },
+          "accessTokenTtl": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "editorUrl",
+          "editorOrigin",
+          "accessToken",
+          "accessTokenTtl"
+        ]
+      },
       "CreatedDirectoryEntityResponse": {
         "type": "object",
         "properties": {
@@ -8421,6 +8444,90 @@
         }
       }
     },
+    "/api/v1/documents/{fileId}/edit-session": {
+      "post": {
+        "description": "Launch an editing session for a document: returns the editor URL to iframe, the editor origin, and a short-lived WOPI access token.",
+        "operationId": "documents.editSession",
+        "tags": [
+          "documents"
+        ],
+        "x-mc-operationId": "documents.editSession",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "documents:edit",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "documents"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "fileId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The editing session launch payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditSessionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks documents:edit",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The file does not exist in this firm, or has no committed version to open",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/directory/persons": {
       "post": {
         "description": "Creates a directory person from its structured name parts, seeding the current-name history row and its phonetic blocking codes.",
@@ -13193,6 +13300,9 @@
     },
     {
       "name": "documentTypes"
+    },
+    {
+      "name": "documents"
     },
     {
       "name": "downloads"

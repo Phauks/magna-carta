@@ -17,6 +17,7 @@ import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerDownloadsRoutes } from "./routes/downloads.ts";
+import { registerDocumentEditingRoutes } from "./editing/edit-session-route.ts";
 import { registerFilesRoutes } from "./routes/files.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
 import { registerFoldersRoutes } from "./routes/folders.ts";
@@ -103,6 +104,10 @@ export type Bindings = {
   // unset and keep the logging adapter, so no real email is sent and no domain onboarding is required.
   SEND_EMAIL?: CloudflareEmailBinding;
   EMAIL_FROM?: string;
+  // The Collabora editor entry URL (urlsrc) published by the editing container's /hosting/discovery.
+  // Optional: until that container is deployed the editor-launch route falls back to a local default,
+  // and the real discovery fetch replaces this static value when the container lands.
+  COLLABORA_DISCOVERY_URLSRC?: string;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
@@ -227,6 +232,9 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFoldersRoutes(app, chokepoint);
   registerFilesRoutes(app, chokepoint);
   registerDownloadsRoutes(app, chokepoint);
+  // Slice 2·2: in-app document editing — the editor-launch route that mints the WOPI access token and
+  // returns the editor URL to iframe (the WOPI host callback surface is its own token-guarded route).
+  registerDocumentEditingRoutes(app, chokepoint);
   // Slice 1·3: the directory (persons/organizations, names, sensitive identifiers, edges,
   // categories, search, merge, matter-party link) — composed through the same chokepoint.
   registerDirectoryRoutes(app, chokepoint);

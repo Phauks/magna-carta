@@ -53,6 +53,8 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Pulls current carrier tracking and caches events (INSERT OR IGNORE dedup) — a read-shaped sync, not an auditable business mutation.",
   "customFields.previewConvert":
     "Read-shaped POST: counts how each current value would land under a kind change (the target kind rides the body) — no write, no audit.",
+  "documents.editSession":
+    "Mints a short-lived WOPI access token and returns the editor URL — no write; the editing session's auditable events (version cuts) are audited where they occur.",
 };
 
 // Subsystems whose every route must be idempotency: required (money/trust/payment/outbound-comms).
@@ -122,6 +124,9 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string> = {
   // customFields:* governs firm-defined fields on matter/entity records; its routes carry the
   // matter resource (the nearest tenancy root — custom fields extend matter/entity records).
   customFields: "matter",
+  // documents:* governs in-app editing of matter-rooted file objects (the same tenancy root files:*
+  // carries), so its routes carry the matter resource.
+  documents: "matter",
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
@@ -513,6 +518,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "documentTypes.deactivate",
       "documentTypes.list",
       "documentTypes.update",
+      "documents.editSession",
       "downloads.zip",
       "files.delete",
       "files.download",
