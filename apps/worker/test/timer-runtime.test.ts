@@ -76,6 +76,15 @@ describe("elapsedMinutes", () => {
     const paused = pauseTimer(started(), t(10)); // open from 10
     expect(elapsedMinutes(paused, t(30))).toBe(10); // only 0..10 ran
   });
+
+  it("excludes multiple closed paused spans (two 5-minute pauses, 30 active out of 40 wall)", () => {
+    // start t(0), pause t(5), resume t(10), pause t(20), resume t(25), elapsed at t(40) → 30
+    const s1 = pauseTimer(started(), t(5));
+    const s2 = resumeTimer(s1, t(10));
+    const s3 = pauseTimer(s2, t(20));
+    const s4 = resumeTimer(s3, t(25));
+    expect(elapsedMinutes(s4, t(40))).toBe(30);
+  });
 });
 
 describe("beginCommit (compare-and-set)", () => {
@@ -92,6 +101,19 @@ describe("beginCommit (compare-and-set)", () => {
   it("flips a paused timer to committing too (stop from paused is legal)", () => {
     const paused = pauseTimer(started(), t(10));
     expect(beginCommit(paused).outcome).toBe("committing");
+  });
+
+  it("refuses an unbound (scratch) timer — state is unchanged, outcome is unbound", () => {
+    const scratch = startTimer({ liveRunId: RUN, now: t(0) }); // no matter
+    const result = beginCommit(scratch);
+    expect(result.outcome).toBe("unbound");
+    expect(result.state.status).toBe("running"); // state NOT flipped to committing
+    expect(result.state).toEqual(scratch); // fully unchanged
+  });
+
+  it("a bound timer's beginCommit returns committing", () => {
+    const bound = startTimer({ liveRunId: RUN, now: t(0), binding: { matterId: "matter_b" } });
+    expect(beginCommit(bound).outcome).toBe("committing");
   });
 });
 
