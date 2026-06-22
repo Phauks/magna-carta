@@ -46,7 +46,6 @@ fn to_display_rect(kbox: kurbo::Rect, page_height_pt: f32) -> Rect {
     }
 }
 
-#[allow(dead_code)]
 const OPAQUE: u8 = 250;
 
 #[allow(dead_code)]
@@ -64,12 +63,16 @@ fn is_light_color(rgba: [u8; 4]) -> bool {
 }
 
 /// The opaque cover (if any) painted after this glyph, over its center.
+/// Selects the topmost (highest paint-order) qualifying cover, because that is
+/// what the viewer actually sees — an earlier cover may be completely occluded
+/// by a later one, and classifying by it would misidentify the concealment kind.
 #[allow(dead_code)]
 fn covering<'a>(glyph: &GlyphMark, covers: &'a [CoverMark]) -> Option<&'a CoverMark> {
     let center = glyph.bbox.center();
     covers
         .iter()
-        .find(|c| c.order > glyph.order && c.rgba[3] >= OPAQUE && c.bbox.contains(center))
+        .filter(|c| c.order > glyph.order && c.rgba[3] >= OPAQUE && c.bbox.contains(center))
+        .max_by_key(|c| c.order)
 }
 
 #[allow(dead_code)]
