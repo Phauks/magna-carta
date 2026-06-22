@@ -1,16 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Fail fast if the baked prefilter database is missing: the service builds its Prefilter from /atoms.db at
-# boot, and a missing file means the image build's extraction did not bake (a broken build, never a safe
-# state). Exit non-zero so the orchestrator restarts rather than serving without the prefilter. The path
-# is the build-atoms output baked by the Dockerfile.
-ATOMS_DB="${ATOMS_DB:-/atoms.db}"
-if [ ! -s "$ATOMS_DB" ]; then
-  echo "FATAL: prefilter database $ATOMS_DB is missing or empty; the image build did not bake it" >&2
-  exit 1
-fi
-
 # clamav-client talks to clamd over loopback TCP (the cross-platform transport); the Debian package
 # defaults to a Unix socket, so add a TCP listener on 127.0.0.1:3310. Loopback only — no network egress.
 CONF=/etc/clamav/clamd.conf

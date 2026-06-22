@@ -8,6 +8,14 @@ use axum::{
 };
 use std::sync::Arc;
 
+// The prefilter (`atoms` extracts sound fixed-byte anchors from the ClamAV signature database;
+// `prefilter` matches them to clear files without clamd) is built and tested but is deliberately NOT
+// wired into the scan path. A prefilter can only clear a file by ruling out EVERY applicable signature,
+// and ClamAV's set contains irreducible any-type signatures (logical/byte-compare rules with no
+// necessary literal) that force every file through to clamd regardless — so a sound prefilter buys no
+// speedup over clamd's matcher. It is kept as a tested, self-maintaining foundation (the DB-derived
+// `tests/differential.rs` gate); scan throughput scales horizontally and via the per-firm content-dedup
+// cache instead.
 pub mod atoms;
 pub mod clamav;
 pub mod heuristics;
