@@ -260,7 +260,7 @@ interface DetectionFinding {
   category: "coveredText" | "invisibleText" | "whiteoutText" | "metadataLeak" | "orphanedText";
   severity: "critical" | "high" | "medium" | "low" | "info";
   page: number | null;      // 0-based page index; null for document-level findings
-  region: Rect | null;      // display-point bounding box; null for document-level findings
+  region: { x0: number; y0: number; x1: number; y1: number } | null; // display-point bbox; null for document-level findings
   recoveredText: string;    // the text string recovered from the hidden location
   detail: string;           // human-readable explanation of the finding
 }
@@ -276,13 +276,13 @@ interface DetectionFinding {
 | `metadataLeak` | `medium` | The document's information dictionary, XMP metadata stream, bookmark titles, or AcroForm field values carry text content. These surfaces survive even when page content is removed. |
 | `orphanedText` | `high` | Text present in a PDF object that no page references, but which remains in the file bytes. A copy-and-paste or search tool that reads the raw cross-reference table can recover it. |
 
-**Why `InvisibleText` is High rather than Critical:** PDF invisible text (rendering mode 3) is overwhelmingly benign in practice — OCR workflows commonly place a transparent text layer over a scanned image to enable selection and search. The finding is flagged because invisible text on a document that should not have a text layer is suspicious, but it is not treated as the most severe category.
+**Why `invisibleText` is `high` rather than `critical`:** PDF invisible text (rendering mode 3) is overwhelmingly benign in practice — OCR workflows commonly place a transparent text layer over a scanned image to enable selection and search. The finding is flagged because invisible text on a document that should not have a text layer is suspicious, but it is not treated as the most severe category.
 
 ### Honest boundaries
 
 Before acting on a detection report, understand these limits:
 
-1. **Metadata and orphaned findings are document-level.** `page` and `region` are `null` for `MetadataLeak` and `OrphanedText` findings — they describe content anywhere in the file, not a specific visible location.
+1. **Metadata and orphaned findings are document-level.** `page` and `region` are `null` for `metadataLeak` and `orphanedText` findings — they describe content anywhere in the file, not a specific visible location.
 
 2. **Custom-font glyph codes without a ToUnicode map may yield empty `recoveredText`.** When a font uses custom glyph codes and the PDF carries no `ToUnicode` mapping, the text extractor cannot decode the characters. The finding is still raised (a covered glyph is still a covered glyph), but `recoveredText` may be an empty string.
 
