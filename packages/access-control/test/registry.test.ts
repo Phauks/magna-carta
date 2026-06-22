@@ -114,6 +114,17 @@ describe("permission registry", () => {
     expect(isPermission("customFields:purge")).toBe(true);
   });
 
+  it("permissionsForNamespace('time') returns exactly the time keys, in registry order", () => {
+    expect(permissionsForNamespace("time")).toEqual([
+      "time:track",
+      "time:viewFirm",
+      "time:approve",
+      "time:manageRates",
+      "time:manageUtbms",
+      "time:manageSettings",
+    ]);
+  });
+
   it("every registered key is `<subsystem>:<action>` — lowercase-led camelCase segments", () => {
     for (const key of PERMISSIONS) {
       expect(key).toMatch(/^[a-z][a-zA-Z]*:[a-z][a-zA-Z]*$/);
