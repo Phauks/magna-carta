@@ -35,10 +35,20 @@ The Worker declares the `send_email` binding (`SEND_EMAIL`) and the code selects
 
 ## 3. Deploy secrets (the `secrets.required` gate)
 
-`wrangler.jsonc` lists `secrets.required: ["AUTH_SECRET", "PLATFORM_ADMIN_KEY"]`, so a deploy **fails loudly** with a missing-secret list rather than letting auth routes 500 at runtime. Set them once per environment:
+`wrangler.jsonc` lists `secrets.required` (currently five names), so a deploy **fails loudly** with a missing-secret list rather than letting routes 500 at runtime. Set each once per environment — Dashboard → the Worker → **Settings → Variables and Secrets**, or `wrangler secret put <NAME>` (paste the value at the prompt; keep it out of shell history and chat transcripts). `wrangler secret list` confirms the registered names.
 
-1. Dashboard → the Worker → **Settings → Variables and Secrets**, or `wrangler secret put AUTH_SECRET` / `wrangler secret put PLATFORM_ADMIN_KEY`.
-2. `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` are **optional** deploy-time secrets for the REST `FirmResourceProvider`; absent them, the dev pool-claiming adapter runs. Secrets posture detail lives in [`security.md`](security.md).
+| Secret | What it is | How to produce it | Rotatable? |
+| --- | --- | --- | --- |
+| `AUTH_SECRET` | Better Auth signing key — signs sessions and the cookieless preview-delivery tokens | `openssl rand -base64 32` (Windows, no openssl: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`) | Yes, but rotating logs out all sessions and invalidates in-flight preview tokens (harmless pre-launch) |
+| `PLATFORM_ADMIN_KEY` | Bearer key guarding the platform-admin routes | any high-entropy random string | Freely — rotate and update callers |
+| `R2_S3_ACCESS_KEY_ID` + `R2_S3_SECRET_ACCESS_KEY` | The R2 S3-API token the File Manager uses to presign upload/download URLs | Dashboard → **R2 → Manage R2 API Tokens → Create**, an _Object Read & Write_ token scoped to the production files bucket; copy the Access Key ID + Secret Access Key (the secret is shown once) | Freely — delete + re-mint the token; only breaks in-flight (~5 min) presigned URLs |
+| `ROOT_KEK` | The **root key-encryption-key**: AES-KW-wraps each firm's data key (envelope encryption — see [`security.md`](security.md)) | `openssl rand -base64 32` — base64 of 32 random bytes = a 256-bit key (the code `atob`-decodes it; standard base64, not base64url) | **No — generate once and back up.** See the warning |
+
+> **`ROOT_KEK` is not freely rotatable.** It wraps every per-firm key; replacing it without a re-wrap migration makes all `protected()` data permanently unrecoverable. Generate it **once**, set it, and **back it up in ≥2 secure places** (a secrets manager + a sealed offline copy) before any firm stores protected data. Rotation machinery is not built — the ciphertext frame reserves `algo_version | key_version` as the seam, and the re-wrap sweep is a scheduled hardening build (see [`../../ROADMAP.md`](../../ROADMAP.md) → _Hardening_), gated to before the first real client or a compromise event.
+
+`CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` are **optional** deploy-time secrets for the REST `FirmResourceProvider`; absent them, the dev pool-claiming adapter runs. Secrets posture detail lives in [`security.md`](security.md).
+
+> The gate covers **secrets** only. The Worker's declared **Queues** must also already exist in the target account — `wrangler deploy` aborts on the first missing one. The declared queues live in `apps/worker/wrangler.jsonc` (`…-platform-jobs`, `…-files-ingest` + `…-files-ingest-deadletter`, `…-inference` + `…-inference-deadletter`); create any that are absent with `wrangler queues create <name>` (or the dashboard) before deploying.
 
 ## 4. Adding a per-firm D1 binding (beyond the starter pool)
 
