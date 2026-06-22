@@ -9,6 +9,7 @@ import { createChokepoint } from "./chokepoint/chokepoint.ts";
 import { createChokepointIdempotency } from "./chokepoint/idempotency-port.ts";
 import { createChokepointPorts, type AppVariables, type FirmContext } from "./chokepoint/ports.ts";
 import { createInMemoryRateLimiter } from "./chokepoint/rate-limiter.ts";
+import { noindexResponseMiddleware } from "./crawler-directives.ts";
 import { defaultHook } from "./contracts/problem.ts";
 import { registerHealthRoute } from "./routes/health.ts";
 import { createCloudflareEmailAdapter, type CloudflareEmailBinding } from "./email-cloudflare.ts";
@@ -222,6 +223,13 @@ export function createApp(options: CreateAppOptions = {}) {
   // below are unaffected. A standing fitness test asserts /api/health and /api/auth/* return the bare
   // 404 on the files host, so this ordering seal cannot silently regress as routes are added.
   registerPreviewServeRoute(app);
+
+  // Stamp X-Robots-Tag: noindex on every response BELOW this point. Registered AFTER the cookieless
+  // preview route on purpose: Hono middleware only wraps routes registered after it, so the sealed
+  // files.* edge (attachment bytes + bare 404s, never an indexable page) keeps its exhaustive,
+  // payload-derived header set untouched, while the app origin, API, Better Auth, health, and the SPA
+  // shell — every private, firm-scoped surface this Worker serves — are kept out of search indexes.
+  app.use("*", noindexResponseMiddleware());
 
   // Health is platform plumbing: public, unauthenticated, no /api/v1 surface — it still rides the
   // chokepoint (rate-limit only, no session/firm/RBAC) so EVERY declared route is enforced through
