@@ -124,6 +124,27 @@ pub(crate) fn page_geometric_findings(obs: &PageObservation, page: usize) -> Vec
 
 use lopdf::{Object, ObjectId};
 
+fn catalog_ref(doc: &lopdf::Document, key: &[u8]) -> Option<lopdf::ObjectId> {
+    doc.catalog()
+        .ok()
+        .and_then(|c| c.get(key).ok())
+        .and_then(|o| o.as_reference().ok())
+}
+
+fn push_metadata_finding(findings: &mut Vec<Finding>, text: String, detail: &str, needle_min_len: usize) {
+    let text = text.trim().to_string();
+    if text.len() >= needle_min_len {
+        findings.push(Finding {
+            category: Category::MetadataLeak,
+            severity: Severity::Medium,
+            page: None,
+            region: None,
+            recovered_text: text,
+            detail: detail.into(),
+        });
+    }
+}
+
 #[allow(dead_code)]
 fn object_strings(obj: &Object, out: &mut String) {
     match obj {
@@ -158,19 +179,54 @@ pub(crate) fn structural_findings(doc: &mut lopdf::Document, needle_min_len: usi
             for (_, v) in info.iter() {
                 object_strings(v, &mut text);
             }
-            let text = text.trim().to_string();
-            if text.len() >= needle_min_len {
-                findings.push(Finding {
-                    category: Category::MetadataLeak,
-                    severity: Severity::Medium,
-                    page: None,
-                    region: None,
-                    recovered_text: text,
-                    detail: "Document information dictionary carries identifying metadata.".into(),
-                });
+            push_metadata_finding(&mut findings, text, "Document information dictionary carries identifying metadata.", needle_min_len);
+        }
+    }
+
+    // XMP metadata stream.
+    if let Some(meta_id) = catalog_ref(doc, b"Metadata") {
+        if let Ok(stream) = doc.get_object(meta_id).and_then(|o| o.as_stream()) {
+            let text = stream
+                .decompressed_content()
+                .map(|b| String::from_utf8_lossy(&b).into_owned())
+                .unwrap_or_else(|_| String::from_utf8_lossy(&stream.content).into_owned());
+            push_metadata_finding(&mut findings, text, "XMP metadata stream carries identifying text.", needle_min_len);
+        }
+    }
+
+    // Bookmark (/Outlines) titles — walk the outline tree via /First and /Next.
+    if let Some(outlines_id) = catalog_ref(doc, b"Outlines") {
+        let mut titles = String::new();
+        let mut stack = vec![outlines_id];
+        let mut seen = std::collections::BTreeSet::new();
+        while let Some(id) = stack.pop() {
+            if !seen.insert(id) {
+                continue;
+            }
+            if let Ok(item) = doc.get_object(id).and_then(|o| o.as_dict()) {
+                if let Ok(title) = item.get(b"Title") {
+                    object_strings(title, &mut titles);
+                }
+                for key in [b"First".as_slice(), b"Next".as_slice()] {
+                    if let Some(next) = item.get(key).ok().and_then(|o| o.as_reference().ok()) {
+                        stack.push(next);
+                    }
+                }
+            }
+        }
+        push_metadata_finding(&mut findings, titles, "Bookmark titles carry identifying text.", needle_min_len);
+    }
+
+    // AcroForm field values (/V).
+    let mut values = String::new();
+    for id in crate::scrub::collect_field_ids(doc) {
+        if let Ok(field) = doc.get_object(id).and_then(|o| o.as_dict()) {
+            if let Ok(value) = field.get(b"V") {
+                object_strings(value, &mut values);
             }
         }
     }
+    push_metadata_finding(&mut findings, values, "AcroForm field values carry entered data.", needle_min_len);
 
     // OrphanedText — objects not reachable from the trailer that carry text.
     let reachable: std::collections::BTreeSet<ObjectId> =
@@ -255,7 +311,7 @@ mod tests {
     }
 
     #[test]
-    fn flags_metadata_and_orphaned_text() {
+    fn flags_all_metadata_sources_and_orphaned_text() {
         use lopdf::{Dictionary, Document, Object, Stream};
         let mut doc = Document::with_version("1.5");
         let pages_id = doc.new_object_id();
@@ -269,20 +325,59 @@ mod tests {
         pages.set("Count", Object::Integer(0));
         doc.objects.insert(pages_id, Object::Dictionary(pages));
         doc.trailer.set("Root", Object::Reference(catalog_id));
-        // Metadata leak: an Info dictionary with an author.
+
+        // Info dictionary with an author.
         let info_id = doc.add_object(Object::Dictionary({
             let mut d = Dictionary::new();
             d.set("Author", Object::string_literal("Privileged Author"));
             d
         }));
         doc.trailer.set("Info", Object::Reference(info_id));
+
+        // XMP metadata stream with identifying content.
+        let xmp_content = b"<xmpmeta><rdf:Description rdf:about=''>XMP Author Name</rdf:Description></xmpmeta>".to_vec();
+        let meta_stream_id = doc.add_object(Stream::new(Dictionary::new(), xmp_content));
+        doc.catalog_mut().unwrap().set("Metadata", Object::Reference(meta_stream_id));
+
+        // /Outlines tree: a root dict pointing via /First to a bookmark item with a /Title.
+        let mut bookmark_item = Dictionary::new();
+        bookmark_item.set("Title", Object::string_literal("Secret Bookmark"));
+        let bookmark_item_id = doc.add_object(Object::Dictionary(bookmark_item));
+        let mut outlines_root = Dictionary::new();
+        outlines_root.set("Type", Object::Name(b"Outlines".to_vec()));
+        outlines_root.set("First", Object::Reference(bookmark_item_id));
+        let outlines_root_id = doc.add_object(Object::Dictionary(outlines_root));
+        doc.catalog_mut().unwrap().set("Outlines", Object::Reference(outlines_root_id));
+
+        // AcroForm with a field whose /V carries entered data.
+        let mut field = Dictionary::new();
+        field.set("T", Object::string_literal("secret_field"));
+        field.set("V", Object::string_literal("Form Secret Value"));
+        let field_id = doc.add_object(Object::Dictionary(field));
+        let mut acroform = Dictionary::new();
+        acroform.set("Fields", Object::Array(vec![Object::Reference(field_id)]));
+        let acroform_id = doc.add_object(Object::Dictionary(acroform));
+        doc.catalog_mut().unwrap().set("AcroForm", Object::Reference(acroform_id));
+
         // Orphaned text: a stream object referenced by nothing.
         doc.add_object(Stream::new(Dictionary::new(), b"(orphan secret) Tj".to_vec()));
 
         let findings = structural_findings(&mut doc, 3);
+
         assert!(findings.iter().any(|f| matches!(f.category, Category::MetadataLeak)
-            && f.recovered_text.contains("Privileged Author")));
+            && f.recovered_text.contains("Privileged Author")),
+            "expected Info-dict MetadataLeak finding");
+        assert!(findings.iter().any(|f| matches!(f.category, Category::MetadataLeak)
+            && f.recovered_text.contains("XMP Author Name")),
+            "expected XMP MetadataLeak finding");
+        assert!(findings.iter().any(|f| matches!(f.category, Category::MetadataLeak)
+            && f.recovered_text.contains("Secret Bookmark")),
+            "expected bookmark-title MetadataLeak finding");
+        assert!(findings.iter().any(|f| matches!(f.category, Category::MetadataLeak)
+            && f.recovered_text.contains("Form Secret Value")),
+            "expected AcroForm-value MetadataLeak finding");
         assert!(findings.iter().any(|f| matches!(f.category, Category::OrphanedText)
-            && f.recovered_text.contains("orphan secret")));
+            && f.recovered_text.contains("orphan secret")),
+            "expected OrphanedText finding");
     }
 }
