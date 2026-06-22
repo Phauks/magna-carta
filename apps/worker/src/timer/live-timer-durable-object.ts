@@ -2,10 +2,13 @@ import { DurableObject } from "cloudflare:workers";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { Bindings } from "../app.ts";
 import {
+  beginCommit,
   bindTimer,
+  markAbandoned,
   pauseTimer,
   resumeTimer,
   startTimer,
+  trimToLastActivity,
   type TimerBinding,
   type TimerState,
 } from "./timer-runtime.ts";
@@ -82,10 +85,61 @@ export class LiveTimerDurableObject extends DurableObject<Bindings> {
     await this.ctx.storage.deleteAlarm();
   }
 
+  // The single-threaded compare-and-set the route's idempotent commit anchors on. The first stop flips
+  // the live run to `committing` and cancels the alarm; a concurrent second stop sees it already
+  // committing and returns the SAME live_run_id, so two racing commits derive one chokepoint
+  // idempotency key + one time-entry handle and collapse to a single entry. An idle DO is refused.
+  // Route wiring (composing the time_entry, calling the chokepoint, clearing the DO) is handled in
+  // the timer routes, wired in the timer routes task.
+  async stopAndCommit(): Promise<{
+    liveRunId: string | null;
+    state: "committing" | "already-committing" | "already-committed" | "unbound" | "no-run";
+  }> {
+    const state = await this.load();
+    // An idle DO has no run to stop, and a scratch timer has no matter to bill — both are returned as
+    // discriminated outcomes, not thrown. A throw across the DO RPC boundary surfaces as an unhandled
+    // rejection in the workers runtime even when the caller catches it; the route maps every outcome
+    // to its own response (no-run -> 409, unbound -> 422, committing -> the WIP->A/R-free commit path).
+    if (state === null) {
+      return { liveRunId: null, state: "no-run" };
+    }
+    const { state: next, outcome } = beginCommit(state);
+    if (outcome === "unbound") {
+      return { liveRunId: next.liveRunId, state: "unbound" };
+    }
+    if (outcome === "committing") {
+      await this.save(next);
+      // The run is leaving the live state — no abandoned alarm should fire against a committing run.
+      await this.ctx.storage.deleteAlarm();
+    }
+    return { liveRunId: next.liveRunId, state: outcome };
+  }
+
+  // The next-interaction resolution of an abandoned run: keep (leave the captured span for a normal
+  // stop-commit), trim (clamp elapsed to the last recorded activity), or discard (clear entirely).
+  // Returns the resolved state, or null when discarded or no run exists.
+  async resolveAbandoned(
+    resolution: "keep" | "trim" | "discard",
+  ): Promise<TimerState | null> {
+    const state = await this.load();
+    if (state === null) return null;
+    if (resolution === "discard") {
+      await this.discard();
+      return null;
+    }
+    // keep restores the run to running as-is; trim additionally clamps elapsed to lastActivityAt.
+    const restored: TimerState = { ...state, status: "running" };
+    const next = resolution === "trim" ? trimToLastActivity(restored) : restored;
+    await this.save(next);
+    return next;
+  }
+
   // The abandoned alarm fires only for a still-live timer (start sets it; stop/discard/replace cancel or
-  // reschedule it). Marking abandoned does not auto-commit or auto-discard — the next interaction
-  // surfaces keep / trim / discard. Completed with the stop-commit behaviour in the next task.
+  // reschedule it), so reaching here means the run was never stopped. Flag it abandoned — no auto-commit,
+  // no auto-discard; the next interaction surfaces keep / trim / discard.
   override async alarm(): Promise<void> {
-    // Abandoned-flag transition is implemented with the stop-commit behaviour.
+    const state = await this.load();
+    if (state === null) return;
+    await this.save(markAbandoned(state));
   }
 }

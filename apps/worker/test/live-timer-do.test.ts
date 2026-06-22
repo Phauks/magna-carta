@@ -1,4 +1,4 @@
-import { env, listDurableObjectIds, runInDurableObject } from "cloudflare:test";
+import { env, listDurableObjectIds, runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { LiveTimerDurableObject } from "../src/timer/live-timer-durable-object.ts";
 
@@ -94,5 +94,81 @@ describe("LiveTimerDurableObject — lifecycle", () => {
     expect((await mine.read())?.matterId).toBe("matter_a");
     const countAfterTwo = (await listDurableObjectIds(env.DURABLE_TIMER)).length;
     expect(countAfterTwo).toBe(countBefore + 2);
+  });
+});
+
+describe("LiveTimerDurableObject — abandoned alarm + idempotent stop-commit", () => {
+  let name: string;
+
+  beforeEach(() => {
+    name = uniqueName();
+  });
+
+  it("the alarm flips a still-live timer to abandoned without committing or discarding", async () => {
+    const stub = env.DURABLE_TIMER.getByName(name);
+    await stub.start({ matterId: "matter_a", abandonedThresholdMinutes: 600 });
+    const ran = await runDurableObjectAlarm(stub);
+    expect(ran).toBe(true);
+    const read = await stub.read();
+    expect(read?.status).toBe("abandoned");
+    // Not committed, not discarded — the run is still present, flagged for resolution.
+    expect(read?.liveRunId).toMatch(/^timeEntry_/);
+  });
+
+  it("stopAndCommit then discard cancels the alarm so none fires afterward", async () => {
+    const stub = env.DURABLE_TIMER.getByName(name);
+    await stub.start({ matterId: "matter_a", abandonedThresholdMinutes: 600 });
+    const stop = await stub.stopAndCommit();
+    expect(stop.state).toBe("committing");
+    await stub.discard();
+    // After commit + discard, no alarm remains: runDurableObjectAlarm reports nothing to run.
+    expect(await runDurableObjectAlarm(stub)).toBe(false);
+  });
+
+  it("two concurrent stopAndCommit calls return one committing and one already-committing, same id", async () => {
+    const stub = env.DURABLE_TIMER.getByName(name);
+    const start = await stub.start({ matterId: "matter_a", abandonedThresholdMinutes: 600 });
+    const [a, b] = await Promise.all([stub.stopAndCommit(), stub.stopAndCommit()]);
+    const outcomes = [a.state, b.state].sort();
+    expect(outcomes).toEqual(["already-committing", "committing"]);
+    // Both report the same live_run_id (the dedup anchor the route derives its key + handle from).
+    expect(a.liveRunId).toBe(start.liveRunId);
+    expect(b.liveRunId).toBe(start.liveRunId);
+  });
+
+  it("stopAndCommit returns no-run for an idle DO with no live run", async () => {
+    const stub = env.DURABLE_TIMER.getByName(uniqueName("_idle"));
+    const stop = await stub.stopAndCommit();
+    expect(stop.state).toBe("no-run");
+    expect(stop.liveRunId).toBeNull();
+  });
+
+  it("an abandoned run resolves to keep (commit), surfacing committing on stop", async () => {
+    const stub = env.DURABLE_TIMER.getByName(name);
+    await stub.start({ matterId: "matter_a", abandonedThresholdMinutes: 600 });
+    await runDurableObjectAlarm(stub);
+    const stop = await stub.stopAndCommit();
+    expect(stop.state).toBe("committing");
+    expect(stop.liveRunId).toMatch(/^timeEntry_/);
+  });
+
+  it("an abandoned run resolves to trim, clamping elapsed to last activity", async () => {
+    const stub = env.DURABLE_TIMER.getByName(name);
+    await stub.start({ matterId: "matter_a", abandonedThresholdMinutes: 600 });
+    await runDurableObjectAlarm(stub);
+    const trimmed = await stub.resolveAbandoned("trim");
+    expect(trimmed?.status).toBe("running");
+    // A trailing open paused span from lastActivityAt onward marks the trim (future wall time excluded).
+    const tail = trimmed?.pausedIntervals.at(-1);
+    expect(tail?.to).toBeNull();
+  });
+
+  it("an abandoned run resolves to discard, clearing state and the alarm", async () => {
+    const stub = env.DURABLE_TIMER.getByName(name);
+    await stub.start({ matterId: "matter_a", abandonedThresholdMinutes: 600 });
+    await runDurableObjectAlarm(stub);
+    await stub.resolveAbandoned("discard");
+    expect(await stub.read()).toBeNull();
+    expect(await runDurableObjectAlarm(stub)).toBe(false);
   });
 });
