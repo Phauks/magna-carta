@@ -5,14 +5,17 @@
   "type": "module",
   "sideEffects": false,
   "exports": {
-    "./rounding": "./src/rounding.ts"
+    "./rounding": "./src/rounding.ts",
+    "./settings": "./src/settings.ts"
   },
   "scripts": {
     "test": "vp test run"
   },
   "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
-    "@magna-carta/money": "workspace:*"
+    "@magna-carta/money": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",
