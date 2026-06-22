@@ -321,6 +321,43 @@ describe("GET /api/v1/files/{id}/download", () => {
     expect(audit?.event).toBe("file.downloaded");
   });
 
+  it("gates a malware-flagged version: 409 without acknowledgment, 302 + override audit with it", async () => {
+    const { fileId, r2Key } = await seedCleanFile("flagged.txt", null, "flagged-bytes");
+    // A re-scan flagged the committed (still-visible) current version as malware — informed access.
+    await env.DB_FIRM_POOL_1.prepare(
+      "UPDATE file_version SET scan_verdict = 'infected', scan_detail = 'Eicar-Test' WHERE r2_key = ?1",
+    )
+      .bind(r2Key)
+      .run();
+
+    // Without acknowledgment → 409 carrying the signature (the UI prompts).
+    const blocked = await SELF.fetch(`https://example.com/api/v1/files/${fileId}/download`, {
+      headers: { cookie: ownerCookie, origin: "https://example.com" },
+      redirect: "manual",
+    });
+    expect(blocked.status).toBe(409);
+    const problem = await blocked.json<{ detail: string }>();
+    expect(problem.detail).toContain("Eicar-Test");
+
+    // With acknowledgment → 302, and the access is audited as an acknowledged malware override.
+    const allowed = await SELF.fetch(
+      `https://example.com/api/v1/files/${fileId}/download?acknowledgeMalware=true`,
+      { headers: { cookie: ownerCookie, origin: "https://example.com" }, redirect: "manual" },
+    );
+    expect(allowed.status).toBe(302);
+    const versionId = (
+      await env.DB_FIRM_POOL_1.prepare("SELECT current_version_id AS v FROM file WHERE id = ?1")
+        .bind(fileId)
+        .first<{ v: string }>()
+    )?.v;
+    const audit = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT event FROM audit_log WHERE subject_id = ?1 AND event = 'file.downloaded_malware_acknowledged'",
+    )
+      .bind(versionId)
+      .first<{ event: string }>();
+    expect(audit?.event).toBe("file.downloaded_malware_acknowledged");
+  });
+
   it("404s a file with no clean current version", async () => {
     const pendingFileId = newIdentifier("file");
     await env.DB_FIRM_POOL_1.prepare(

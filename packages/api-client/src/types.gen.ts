@@ -2946,7 +2946,9 @@ export type FilesDownloadData = {
     path: {
         id: string;
     };
-    query?: never;
+    query?: {
+        acknowledgeMalware?: 'true';
+    };
     url: '/api/v1/files/{id}/download';
 };
 
@@ -2959,6 +2961,10 @@ export type FilesDownloadErrors = {
      * The firm is unreachable, the member is deactivated, or the file is unknown
      */
     404: Problem;
+    /**
+     * The current version was flagged as malware; re-request with acknowledgeMalware=true to download it
+     */
+    409: Problem;
     /**
      * Rate limit exceeded
      */

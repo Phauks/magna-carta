@@ -117,7 +117,7 @@ export function selectCurrentCleanVersionStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT v.id, v.r2_key, v.size_bytes, v.version_number FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id WHERE f.id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean'`,
+      `SELECT v.id, v.r2_key, v.size_bytes, v.version_number, v.scan_verdict, v.scan_detail FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id WHERE f.id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean'`,
     )
     .bind(fileId);
 }
@@ -127,6 +127,11 @@ export interface CleanVersion {
   readonly r2Key: string;
   readonly sizeBytes: number | null;
   readonly versionNumber: number;
+  // The committed version's scan verdict + detail. A re-scan can flag an ALREADY-committed (still
+  // visible) version `infected` without hiding it (informed access) — so the download path must read
+  // the verdict here and gate an infected version, rather than assume status='clean' means safe.
+  readonly scanVerdict: "unscanned" | "clean" | "infected" | null;
+  readonly scanDetail: string | null;
 }
 
 export async function getCurrentCleanVersion(
@@ -138,6 +143,8 @@ export async function getCurrentCleanVersion(
     r2_key: string;
     size_bytes: number | null;
     version_number: number;
+    scan_verdict: "unscanned" | "clean" | "infected" | null;
+    scan_detail: string | null;
   }>();
   const row = results[0];
   if (row === undefined) return undefined;
@@ -146,6 +153,8 @@ export async function getCurrentCleanVersion(
     r2Key: row.r2_key,
     sizeBytes: row.size_bytes,
     versionNumber: row.version_number,
+    scanVerdict: row.scan_verdict,
+    scanDetail: row.scan_detail,
   };
 }
 

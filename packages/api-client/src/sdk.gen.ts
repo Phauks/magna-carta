@@ -391,7 +391,7 @@ export const filesUpdate = <ThrowOnError extends boolean = false>(options: Optio
 export const filesVersions = <ThrowOnError extends boolean = false>(options: Options<FilesVersionsData, ThrowOnError>): RequestResult<FilesVersionsResponses, FilesVersionsErrors, ThrowOnError> => (options.client ?? client).get<FilesVersionsResponses, FilesVersionsErrors, ThrowOnError>({ url: '/api/v1/files/{id}/versions', ...options });
 
 /**
- * Resolves the file's current clean version and redirects (302) to a short-TTL presigned GET URL the client downloads the bytes directly from. 404 when the file has no clean current version.
+ * Resolves the file's current clean version and redirects (302) to a short-TTL presigned GET URL the client downloads the bytes directly from. 404 when the file has no clean current version. When a re-scan has flagged the current version as malware, the file stays accessible (no data loss) but the raw download is gated: a 409 carrying the signature unless the caller re-requests with acknowledgeMalware=true, which proceeds and is audited as an acknowledged override.
  */
 export const filesDownload = <ThrowOnError extends boolean = false>(options: Options<FilesDownloadData, ThrowOnError>): RequestResult<unknown, FilesDownloadErrors, ThrowOnError> => (options.client ?? client).get<unknown, FilesDownloadErrors, ThrowOnError>({ url: '/api/v1/files/{id}/download', ...options });
 

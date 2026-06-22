@@ -932,7 +932,7 @@ export const filesVersionsOptions = (options: Options<FilesVersionsData>) => que
 export const filesDownloadQueryKey = (options: Options<FilesDownloadData>) => createQueryKey('filesDownload', options);
 
 /**
- * Resolves the file's current clean version and redirects (302) to a short-TTL presigned GET URL the client downloads the bytes directly from. 404 when the file has no clean current version.
+ * Resolves the file's current clean version and redirects (302) to a short-TTL presigned GET URL the client downloads the bytes directly from. 404 when the file has no clean current version. When a re-scan has flagged the current version as malware, the file stays accessible (no data loss) but the raw download is gated: a 409 carrying the signature unless the caller re-requests with acknowledgeMalware=true, which proceeds and is audited as an acknowledged override.
  */
 export const filesDownloadOptions = (options: Options<FilesDownloadData>) => queryOptions<unknown, FilesDownloadError, unknown, ReturnType<typeof filesDownloadQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

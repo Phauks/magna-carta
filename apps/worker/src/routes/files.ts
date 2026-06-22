@@ -364,12 +364,28 @@ const downloadFileRoute = defineOpenAPIRoute(downloadFileMeta, {
   path: "/api/v1/files/{id}/download",
   description:
     "Resolves the file's current clean version and redirects (302) to a short-TTL presigned GET URL " +
-    "the client downloads the bytes directly from. 404 when the file has no clean current version.",
-  request: { params: fileParam },
+    "the client downloads the bytes directly from. 404 when the file has no clean current version. " +
+    "When a re-scan has flagged the current version as malware, the file stays accessible (no data " +
+    "loss) but the raw download is gated: a 409 carrying the signature unless the caller re-requests " +
+    "with acknowledgeMalware=true, which proceeds and is audited as an acknowledged override.",
+  request: {
+    params: fileParam,
+    query: z.object({
+      // Informed access: a version a re-scan flagged infected stays downloadable, but only with an
+      // explicit acknowledgment — the member confirms they accept the risk. Absent it, the download
+      // returns 409 with the signature so the UI can prompt.
+      acknowledgeMalware: z.literal("true").optional(),
+    }),
+  },
   responses: {
     302: { description: "Redirect to the presigned download URL" },
     401: authErrors[401],
     404: authErrors[404],
+    409: {
+      description:
+        "The current version was flagged as malware; re-request with acknowledgeMalware=true to download it",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     429: authErrors[429],
   },
 });
@@ -704,6 +720,23 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
           detail: "No such file with a downloadable version in this firm.",
         });
       }
+      // Informed access: a version a re-scan flagged `infected` stays accessible (no data loss), but a
+      // raw download is gated — the member must explicitly acknowledge the risk. Without the
+      // acknowledgment, 409 carrying the signature so the UI can prompt; with it, the download proceeds
+      // and is audited as an acknowledged malware override. (Stronger re-authentication is a follow-up;
+      // the acknowledgment + audit is the first slice.)
+      const acknowledgedMalware = c.req.valid("query").acknowledgeMalware === "true";
+      if (version.scanVerdict === "infected" && !acknowledgedMalware) {
+        return problemJson(c, {
+          type: "malware-flagged",
+          title: "File flagged as malware",
+          status: 409,
+          detail:
+            "This file was flagged as containing malware" +
+            (version.scanDetail ? ` (${version.scanDetail})` : "") +
+            ". Re-request with acknowledgeMalware=true to download it anyway; the access is recorded.",
+        });
+      }
       // Access-triggered re-scan: if this version is stale vs the firm's current engine, re-scan it in
       // the background. Fire-and-forget — never blocks the download.
       runInBackground(
@@ -726,7 +759,12 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
           statements: [
             insertAuditLogStatement(firm.firmDatabase, {
               id: newIdentifier("auditLog"),
-              event: "file.downloaded",
+              // A distinct event when the member downloaded a malware-flagged file after acknowledging
+              // it — the audited override is the record of who pulled known-bad bytes and when.
+              event:
+                version.scanVerdict === "infected"
+                  ? "file.downloaded_malware_acknowledged"
+                  : "file.downloaded",
               actorUserId: userId,
               subjectId: version.id,
               metadata: { fileId: id, versionId: version.id },

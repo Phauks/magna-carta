@@ -8372,7 +8372,7 @@
     },
     "/api/v1/files/{id}/download": {
       "get": {
-        "description": "Resolves the file's current clean version and redirects (302) to a short-TTL presigned GET URL the client downloads the bytes directly from. 404 when the file has no clean current version.",
+        "description": "Resolves the file's current clean version and redirects (302) to a short-TTL presigned GET URL the client downloads the bytes directly from. 404 when the file has no clean current version. When a re-scan has flagged the current version as malware, the file stays accessible (no data loss) but the raw download is gated: a 409 carrying the signature unless the caller re-requests with acknowledgeMalware=true, which proceeds and is audited as an acknowledged override.",
         "operationId": "files.download",
         "tags": [
           "files"
@@ -8398,6 +8398,17 @@
             "required": true,
             "name": "id",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
+              ]
+            },
+            "required": false,
+            "name": "acknowledgeMalware",
+            "in": "query"
           }
         ],
         "responses": {
@@ -8416,6 +8427,16 @@
           },
           "404": {
             "description": "The firm is unreachable, the member is deactivated, or the file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current version was flagged as malware; re-request with acknowledgeMalware=true to download it",
             "content": {
               "application/problem+json": {
                 "schema": {
