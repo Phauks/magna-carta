@@ -512,6 +512,11 @@ export type ScanDiagnosis = {
     activeContent: boolean;
 };
 
+export type MatterRescanResult = {
+    enqueued: number;
+    capped: boolean;
+};
+
 export type BundleStatus = {
     status: string;
     url?: string;
@@ -3089,6 +3094,37 @@ export type ScanDiagnoseResponses = {
 };
 
 export type ScanDiagnoseResponse = ScanDiagnoseResponses[keyof ScanDiagnoseResponses];
+
+export type ScanMatterData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/scan/matter/{id}';
+};
+
+export type ScanMatterErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Problem;
+    /**
+     * The member lacks files:upload
+     */
+    403: Problem;
+};
+
+export type ScanMatterError = ScanMatterErrors[keyof ScanMatterErrors];
+
+export type ScanMatterResponses = {
+    /**
+     * The re-scan enqueue result
+     */
+    200: MatterRescanResult;
+};
+
+export type ScanMatterResponse = ScanMatterResponses[keyof ScanMatterResponses];
 
 export type DownloadsBundleStatusData = {
     body?: never;

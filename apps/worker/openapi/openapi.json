@@ -2122,6 +2122,21 @@
           "activeContent"
         ]
       },
+      "MatterRescanResult": {
+        "type": "object",
+        "properties": {
+          "enqueued": {
+            "type": "integer"
+          },
+          "capped": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enqueued",
+          "capped"
+        ]
+      },
       "BundleStatus": {
         "type": "object",
         "properties": {
@@ -8728,6 +8743,70 @@
           },
           "413": {
             "description": "The body exceeds the firm's inspectable-size cap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/scan/matter/{id}": {
+      "post": {
+        "description": "Queues a background malware re-scan of every current file in a matter whose scan is stale relative to the firm's current engine (a file already scanned under the current engine is skipped, so a matter already current enqueues nothing). User-initiated; the scans run off the request path on the bulk lane. No-op (enqueued 0) when no current engine version is recorded. `capped` is true when more stale files remain than one request fans out — re-run to continue (any uncapped file is still re-scanned on next access).",
+        "operationId": "scan.matter",
+        "tags": [
+          "scan"
+        ],
+        "x-mc-operationId": "scan.matter",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "files:upload",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "scan"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The re-scan enqueue result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterRescanResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks files:upload",
             "content": {
               "application/problem+json": {
                 "schema": {

@@ -290,6 +290,45 @@ export async function listCleanVersionR2Keys(
   }));
 }
 
+// The current clean version of each non-deleted file in a matter whose recorded scan engine version
+// is STALE relative to the firm's current engine — the work set for an on-demand "scan this matter
+// now" pass. Staleness is filtered in SQL (NULL engine = never scanned = stale; a differing engine =
+// stale) so a matter already current under the engine returns nothing and enqueues nothing; this
+// mirrors the access-triggered staleness gate, just batched over a matter. LIMIT is the caller's cap +
+// 1 so the caller can detect (and honestly report) that more remain beyond the cap.
+export function listStaleMatterVersionsForRescanStatement(
+  database: SqlDatabase,
+  matterId: MatterId,
+  currentEngineVersion: string,
+  limit: number,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT v.r2_key, v.size_bytes FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id WHERE f.matter_id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean' AND (v.scan_engine_version IS NULL OR v.scan_engine_version != ?2) LIMIT ?3`,
+    )
+    .bind(matterId, currentEngineVersion, limit);
+}
+
+export interface StaleMatterVersion {
+  readonly r2Key: string;
+  readonly sizeBytes: number | null;
+}
+
+export async function listStaleMatterVersionsForRescan(
+  database: SqlDatabase,
+  matterId: MatterId,
+  currentEngineVersion: string,
+  limit: number,
+): Promise<readonly StaleMatterVersion[]> {
+  const { results } = await listStaleMatterVersionsForRescanStatement(
+    database,
+    matterId,
+    currentEngineVersion,
+    limit,
+  ).all<{ r2_key: string; size_bytes: number | null }>();
+  return results.map((row) => ({ r2Key: row.r2_key, sizeBytes: row.size_bytes }));
+}
+
 // Committed versions (status = 'clean') whose scan has not yet been evaluated (scan_verdict =
 // 'unscanned'). Used by the weekly re-scan sweep to re-enqueue these versions once a real scan
 // engine is available. The status = 'clean' predicate is the legitimate status gate: only committed

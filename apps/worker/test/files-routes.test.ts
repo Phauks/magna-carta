@@ -3,7 +3,11 @@ import {
   insertMemberStatement,
   insertRoleAssignmentStatement,
 } from "@magna-carta/data-access/member-statements";
-import { liveMaxFileCountDefinition } from "@magna-carta/file-manager/upload-policy";
+import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-statements";
+import {
+  liveMaxFileCountDefinition,
+  scanEngineVersionDefinition,
+} from "@magna-carta/file-manager/upload-policy";
 import { bundleManifestHash } from "@magna-carta/file-manager/zip-composition";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
@@ -952,5 +956,41 @@ describe("POST /api/v1/scan/diagnose", () => {
       body: new Uint8Array([1, 2, 3]),
     });
     expect(res.status).toBe(401);
+  });
+});
+
+describe("POST /api/v1/scan/matter/{id}", () => {
+  it("enqueues nothing when no current engine version is recorded", async () => {
+    // No fileManager.scanEngineVersion set yet — never fabricate a staleness comparison or a scan.
+    const res = await SELF.fetch(`https://example.com/api/v1/scan/matter/${matterId}`, {
+      method: "POST",
+      headers: { cookie: ownerCookie, origin: "https://example.com" },
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ enqueued: 0, capped: false });
+  });
+
+  it("queues a matter's stale files for re-scan and audits the request", async () => {
+    await writeFirmSettingStatement(
+      env.DB_FIRM_POOL_1,
+      scanEngineVersionDefinition,
+      "clamav/9.9",
+      ISO,
+    ).run();
+    await seedCleanFile("matter-rescan-a.txt", null, "alpha");
+    await seedCleanFile("matter-rescan-b.txt", null, "beta");
+    const res = await SELF.fetch(`https://example.com/api/v1/scan/matter/${matterId}`, {
+      method: "POST",
+      headers: { cookie: ownerCookie, origin: "https://example.com" },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json<{ enqueued: number; capped: boolean }>();
+    // The matter's stale clean files (NULL scan_engine_version), including the two just seeded.
+    expect(body.enqueued).toBeGreaterThanOrEqual(2);
+    expect(body.capped).toBe(false);
+    const audit = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'matter.files_rescan_requested'",
+    ).first<{ n: number }>();
+    expect(audit?.n).toBeGreaterThanOrEqual(1);
   });
 });

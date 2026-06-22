@@ -20,6 +20,7 @@ import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerDownloadsRoutes } from "./routes/downloads.ts";
 import { registerFilesRoutes } from "./routes/files.ts";
 import { registerScanDiagnoseRoute } from "./routes/scan-diagnose.ts";
+import { registerScanMatterRoute } from "./routes/scan-matter.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
 import { registerFoldersRoutes } from "./routes/folders.ts";
 import { registerIncidentsRoute } from "./routes/incidents.ts";
@@ -257,6 +258,8 @@ export function createApp(options: CreateAppOptions = {}) {
   registerDownloadsRoutes(app, chokepoint);
   // The one-off, matter-less malware-scan diagnostic — stream a file through the engine, get a verdict.
   registerScanDiagnoseRoute(app, chokepoint);
+  // "Scan this matter now" — queue a background re-scan of a matter's stale files on the bulk lane.
+  registerScanMatterRoute(app, chokepoint);
   // The async bulk-download poll endpoint — the status side of the download route's 202 hand-off.
   registerBundleStatusRoute(app, chokepoint);
   // Slice 1·3: the directory (persons/organizations, names, sensitive identifiers, edges,
