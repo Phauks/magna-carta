@@ -1,13 +1,15 @@
 import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import type { UserId } from "@magna-carta/identifiers/types";
+import type { MatterId, UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
-import { appendRate, createRateCard } from "../src/rate-service.ts";
+import { appendRate, createRateCard, reRateUnbilledDrafts } from "../src/rate-service.ts";
 import { RateValidationError } from "../src/rate-validation.ts";
+import { captureTimeEntry } from "../src/time-entry-service.ts";
 
 const clock = { now: () => "2026-06-22T12:00:00.000Z" };
-const options = { clock, actorUserId: "user_partner" as UserId };
+const TIMEKEEPER = "user_partner" as UserId;
+const options = { clock, actorUserId: TIMEKEEPER };
 
 function freshDatabase(): BatchDatabase {
   return createMigratedNodeDatabase("per-firm").database;
@@ -201,4 +203,134 @@ describe("appendRate", () => {
 
 it("RateValidationError carries a stable code", () => {
   expect(new RateValidationError("overlapping-valid-from", "x").code).toBe("overlapping-valid-from");
+});
+
+async function seedMatter(database: BatchDatabase, matterId: string): Promise<void> {
+  await database
+    .prepare("INSERT OR IGNORE INTO member (user_id, display_name, status, created_at) VALUES (?1, 'Partner', 'active', ?2)")
+    .bind(TIMEKEEPER, clock.now())
+    .run();
+  await database
+    .prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, e_billing, created_at, updated_at) VALUES (?1, 'Smith v. Jones', 'open', ?2, 0, ?3, ?3)",
+    )
+    .bind(matterId, TIMEKEEPER, clock.now())
+    .run();
+}
+
+async function countAudits(database: BatchDatabase, event: string): Promise<number> {
+  const { results } = await database
+    .prepare("SELECT COUNT(*) AS n FROM audit_log WHERE event = ?1")
+    .bind(event)
+    .all<{ n: number }>();
+  return results[0]?.n ?? 0;
+}
+
+async function captureCardEntry(
+  database: BatchDatabase,
+  rateCardId: string,
+  finalStatus: "draft" | "approved" | "billed",
+): Promise<string> {
+  const { timeEntryId, effect } = await captureTimeEntry(
+    database,
+    {
+      matterId: "matter_1" as MatterId,
+      timekeeperUserId: TIMEKEEPER,
+      workDate: "2026-06-22",
+      rawDurationMinutes: 60,
+      durationMinutes: 60,
+      narrative: "research",
+      billable: true,
+      currency: "USD",
+      source: "manual",
+      rate: {
+        rateE4: 4500000,
+        rateCardId,
+        rateSource: "matter",
+        currency: "USD",
+        amountMinor: 45000,
+      },
+    },
+    options,
+  );
+  await commitEffectBatch(database, effect, { now: clock.now });
+  if (finalStatus === "approved") {
+    await database.prepare("UPDATE time_entry SET status = 'approved' WHERE id = ?1").bind(timeEntryId).run();
+  } else if (finalStatus === "billed") {
+    await database.prepare("UPDATE time_entry SET status = 'billed', invoice_id = 'invoice_x' WHERE id = ?1").bind(timeEntryId).run();
+  }
+  return timeEntryId;
+}
+
+async function rateOf(database: BatchDatabase, id: string) {
+  const { results } = await database
+    .prepare("SELECT rate_e4, amount_minor FROM time_entry WHERE id = ?1")
+    .bind(id)
+    .all<{ rate_e4: number; amount_minor: number }>();
+  return results[0];
+}
+
+describe("reRateUnbilledDrafts", () => {
+  it("rewrites rate_e4/amount_minor on unbilled entries in range and leaves billed/void untouched", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+
+    // A card with a matter-tier rate of 450.0000/hr in force from the work date.
+    const { rateCardId, effect: cardEffect } = await createRateCard(database, { name: "Standard" }, options);
+    await commitEffectBatch(database, cardEffect, { now: clock.now });
+    await commitEffectBatch(
+      database,
+      (await appendRate(
+        database,
+        {
+          rateCardId,
+          tier: "matter",
+          scopedId: "matter_1",
+          rateE4: 4500000,
+          currency: "USD",
+          validFrom: "2026-06-01",
+        },
+        options,
+      )).effect,
+      { now: clock.now },
+    );
+
+    // Three entries on the card: a draft, an approved, and a billed — all 60 min, 2026-06-22.
+    const draftId = await captureCardEntry(database, rateCardId, "draft");
+    const approvedId = await captureCardEntry(database, rateCardId, "approved");
+    const billedId = await captureCardEntry(database, rateCardId, "billed");
+
+    // A retroactive correction: a new matter-tier version of 500.0000/hr effective 2026-06-15.
+    await commitEffectBatch(
+      database,
+      (await appendRate(
+        database,
+        {
+          rateCardId,
+          tier: "matter",
+          scopedId: "matter_1",
+          rateE4: 5000000,
+          currency: "USD",
+          validFrom: "2026-06-15",
+        },
+        options,
+      )).effect,
+      { now: clock.now },
+    );
+
+    const { count, effect } = await reRateUnbilledDrafts(
+      database,
+      { rateCardId, fromDate: "2026-06-01", toDate: "2026-07-01" },
+      options,
+    );
+    await commitEffectBatch(database, effect, { now: clock.now });
+
+    expect(count).toBe(2); // draft + approved; billed excluded
+    // The draft + approved move to the 500.0000 rate; 60 min => 50000 minor.
+    expect(await rateOf(database, draftId)).toMatchObject({ rate_e4: 5000000, amount_minor: 50000 });
+    expect(await rateOf(database, approvedId)).toMatchObject({ rate_e4: 5000000, amount_minor: 50000 });
+    // The billed entry's captured rate never moves.
+    expect(await rateOf(database, billedId)).toMatchObject({ rate_e4: 4500000, amount_minor: 45000 });
+    expect(await countAudits(database, "time_entry.re_rated")).toBe(2);
+  });
 });

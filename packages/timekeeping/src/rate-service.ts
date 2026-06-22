@@ -4,6 +4,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { RateCardId, RateId, UserId } from "@magna-carta/identifiers/types";
 import { type AuditContext, timeAuditStatement } from "./audit.ts";
+import { resolveRate } from "./rate-resolution.ts";
 import { RateValidationError } from "./rate-validation.ts";
 import {
   closePriorOpenRateStatement,
@@ -12,6 +13,11 @@ import {
   type RateTier,
   selectRatesForScopeStatement,
 } from "./rate-statements.ts";
+import { computeAmountMinor } from "./rounding.ts";
+import {
+  reRateEntryStatement,
+  selectReRateCandidatesStatement,
+} from "./time-entry-statements.ts";
 
 // Wall-clock and actor arrive from the caller — the service reads no clock and trusts no ambient
 // identity. randomSource lets fixtures mint byte-deterministic ids. The shared options shape every
@@ -108,4 +114,67 @@ export async function appendRate(
     timeAuditStatement(database, options, "rate.appended", rateId),
   );
   return { rateId, effect: { statements, outboxMessages: [] } };
+}
+
+export interface ReRateUnbilledDraftsInput {
+  readonly rateCardId: RateCardId;
+  readonly fromDate: string;
+  readonly toDate: string;
+}
+
+// Re-resolves and rewrites the rate on every unbilled (draft/submitted/approved) entry the card
+// produced over a work-date range — the opt-in retroactive correction, never automatic, so amounts
+// never move silently. Billed/void rows are excluded by query AND by the statement's status guard, so a
+// captured rate on a billed entry can never move. Each rewrite re-resolves on the entry's OWN work_date,
+// so the effective-dated version in force on that date is the one applied. Batched into one EffectWrite.
+export async function reRateUnbilledDrafts(
+  database: SqlDatabase,
+  input: ReRateUnbilledDraftsInput,
+  options: TimekeepingServiceOptions,
+): Promise<{ count: number; effect: EffectWrite }> {
+  const { results } = await selectReRateCandidatesStatement(
+    database,
+    input.rateCardId,
+    input.fromDate,
+    input.toDate,
+  ).all<{
+    id: string;
+    matter_id: string;
+    timekeeper_user_id: string;
+    work_date: string;
+    duration_minutes: number;
+    currency: string;
+  }>();
+
+  const statements: SqlStatement[] = [];
+  const updatedAt = options.clock.now();
+  for (const row of results) {
+    const resolution = await resolveRate(database, {
+      matterId: row.matter_id,
+      clientId: null,
+      timekeeperUserId: row.timekeeper_user_id,
+      roleId: null,
+      workDate: row.work_date,
+      rateCardId: input.rateCardId,
+    });
+    // A candidate that no longer resolves a rate keeps its captured rate unchanged; re-rating only
+    // rewrites when the new version is in force. Non-billable entries are excluded at the query level
+    // (null rate_card_id) so they never appear here.
+    if ("noRate" in resolution) continue;
+    const amountMinor = computeAmountMinor(resolution.rateE4, row.duration_minutes, resolution.currency);
+    statements.push(
+      reRateEntryStatement(
+        database,
+        row.id,
+        resolution.rateE4,
+        amountMinor,
+        resolution.rateCardId,
+        resolution.rateSource,
+        updatedAt,
+      ),
+      timeAuditStatement(database, options, "time_entry.re_rated", row.id),
+    );
+  }
+
+  return { count: statements.length / 2, effect: { statements, outboxMessages: [] } };
 }

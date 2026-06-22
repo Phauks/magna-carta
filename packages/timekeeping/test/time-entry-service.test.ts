@@ -3,7 +3,15 @@ import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { MatterId, UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
-import { captureTimeEntry, type CaptureTimeEntryInput } from "../src/time-entry-service.ts";
+import {
+  approveTimeEntry,
+  captureTimeEntry,
+  type CaptureTimeEntryInput,
+  kickBackTimeEntry,
+  submitTimeEntry,
+  updateDraftTimeEntry,
+  voidTimeEntry,
+} from "../src/time-entry-service.ts";
 import { TimeEntryValidationError } from "../src/time-entry-validation.ts";
 
 const clock = { now: () => "2026-06-22T12:00:00.000Z" };
@@ -228,4 +236,129 @@ describe("captureTimeEntry", () => {
 
 it("TimeEntryValidationError carries a stable code", () => {
   expect(new TimeEntryValidationError("utbms-required", "x").code).toBe("utbms-required");
+});
+
+async function captureDraft(database: BatchDatabase, matterId = "matter_1"): Promise<string> {
+  const { timeEntryId, effect } = await captureTimeEntry(
+    database,
+    {
+      ...billableBase,
+      matterId: matterId as MatterId,
+      rate: {
+        rateE4: 4500000,
+        rateCardId: "rateCard_std",
+        rateSource: "matter",
+        currency: "USD",
+        amountMinor: 2250000,
+      },
+    },
+    options,
+  );
+  await commitEffectBatch(database, effect, { now: clock.now });
+  return timeEntryId;
+}
+
+async function statusOf(database: BatchDatabase, id: string): Promise<string | undefined> {
+  const { results } = await database
+    .prepare("SELECT status FROM time_entry WHERE id = ?1")
+    .bind(id)
+    .all<{ status: string }>();
+  return results[0]?.status;
+}
+
+async function billEntry(database: BatchDatabase, id: string): Promise<void> {
+  // Stand in for the billing lock the financial core sets when an entry is invoiced.
+  await database
+    .prepare("UPDATE time_entry SET status = 'billed', invoice_id = 'invoice_x' WHERE id = ?1")
+    .bind(id)
+    .run();
+}
+
+describe("time-entry lifecycle (review gate on)", () => {
+  const gateOn = { ...options, approvalRequired: true } as const;
+
+  it("rewrites a draft via updateDraftTimeEntry", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    await seedRateCard(database, "rateCard_std");
+    const id = await captureDraft(database);
+    const { effect } = await updateDraftTimeEntry(
+      database,
+      id as never,
+      { narrative: "revised narrative", durationMinutes: 42 },
+      options,
+    );
+    await commitEffectBatch(database, effect, { now: clock.now });
+    const { results } = await database
+      .prepare("SELECT narrative, duration_minutes FROM time_entry WHERE id = ?1")
+      .bind(id)
+      .all<{ narrative: string; duration_minutes: number }>();
+    expect(results[0]).toMatchObject({ narrative: "revised narrative", duration_minutes: 42 });
+  });
+
+  it("refuses to update a billed (frozen) entry", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    await seedRateCard(database, "rateCard_std");
+    const id = await captureDraft(database);
+    await billEntry(database, id);
+    await expect(
+      updateDraftTimeEntry(database, id as never, { narrative: "no" }, options),
+    ).rejects.toMatchObject({ code: "frozen-entry" });
+  });
+
+  it("walks draft -> submitted -> approved and audits each step", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    await seedRateCard(database, "rateCard_std");
+    const id = await captureDraft(database);
+
+    const submit = await submitTimeEntry(database, id as never, gateOn);
+    await commitEffectBatch(database, submit.effect, { now: clock.now });
+    expect(await statusOf(database, id)).toBe("submitted");
+
+    const approve = await approveTimeEntry(database, id as never, gateOn);
+    await commitEffectBatch(database, approve.effect, { now: clock.now });
+    expect(await statusOf(database, id)).toBe("approved");
+
+    expect(await countAudits(database, "time_entry.submitted")).toBe(1);
+    expect(await countAudits(database, "time_entry.approved")).toBe(1);
+  });
+
+  it("kicks a submitted entry back to draft with an audited reason", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    await seedRateCard(database, "rateCard_std");
+    const id = await captureDraft(database);
+    const submit = await submitTimeEntry(database, id as never, gateOn);
+    await commitEffectBatch(database, submit.effect, { now: clock.now });
+
+    const kick = await kickBackTimeEntry(database, id as never, { reason: "wrong matter" }, gateOn);
+    await commitEffectBatch(database, kick.effect, { now: clock.now });
+    expect(await statusOf(database, id)).toBe("draft");
+    expect(await countAudits(database, "time_entry.kicked_back")).toBe(1);
+  });
+
+  it("refuses an illegal transition (approve a draft directly when the gate is on)", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    await seedRateCard(database, "rateCard_std");
+    const id = await captureDraft(database);
+    await expect(approveTimeEntry(database, id as never, gateOn)).rejects.toMatchObject({
+      code: "illegal-transition",
+    });
+  });
+
+  it("voids a draft and then refuses any further update", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    await seedRateCard(database, "rateCard_std");
+    const id = await captureDraft(database);
+    const voided = await voidTimeEntry(database, id as never, options);
+    await commitEffectBatch(database, voided.effect, { now: clock.now });
+    expect(await statusOf(database, id)).toBe("void");
+    await expect(
+      updateDraftTimeEntry(database, id as never, { narrative: "no" }, options),
+    ).rejects.toMatchObject({ code: "frozen-entry" });
+  });
 });

@@ -10,7 +10,8 @@ export type TimeEntryValidationCode =
   | "non-billable-rate"
   | "missing-utbms-code"
   | "utbms-required"
-  | "draft-only";
+  | "draft-only"
+  | "not-found";
 
 export class TimeEntryValidationError extends Error {
   constructor(

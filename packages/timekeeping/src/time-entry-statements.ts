@@ -79,3 +79,117 @@ export function selectMatterEBillingStatement(
     .prepare(`SELECT e_billing FROM matter WHERE id = ?1`)
     .bind(matterId);
 }
+
+// A guarded status transition: the WHERE status = <from> clause is the freeze backstop — a billed/void
+// row never matches a pre-terminal `from`, so meta.changes === 0 means the row was not in the expected
+// state (frozen, already-transitioned, or missing) and the service refuses. updated_at moves with the
+// status; no business column is touched.
+export function transitionStatusStatement(
+  database: SqlDatabase,
+  id: TimeEntryId,
+  from: string,
+  to: string,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${TIME_ENTRY_TABLE} SET status = ?3, updated_at = ?4 WHERE id = ?1 AND status = ?2`,
+    )
+    .bind(id, from, to, updatedAt);
+}
+
+// The freeze-guarded draft edit: only a draft row matches, so a billed/void/submitted/approved row is
+// untouched (meta.changes === 0) and the service refuses. Only the editable business columns move.
+export interface DraftPatch {
+  readonly narrative?: string;
+  readonly durationMinutes?: number;
+  readonly rawDurationMinutes?: number;
+  readonly nonBillableCategoryId?: string | null;
+  readonly utbmsTaskCodeId?: string | null;
+  readonly utbmsActivityCodeId?: string | null;
+}
+
+export function updateDraftStatement(
+  database: SqlDatabase,
+  id: TimeEntryId,
+  patch: DraftPatch,
+  updatedAt: string,
+): SqlStatement {
+  const sets: string[] = [];
+  const bindings: (string | number | null)[] = [id];
+  let index = 2;
+  for (const [column, value] of Object.entries({
+    narrative: patch.narrative,
+    duration_minutes: patch.durationMinutes,
+    raw_duration_minutes: patch.rawDurationMinutes,
+    non_billable_category_id: patch.nonBillableCategoryId,
+    utbms_task_code_id: patch.utbmsTaskCodeId,
+    utbms_activity_code_id: patch.utbmsActivityCodeId,
+  })) {
+    if (value === undefined) continue;
+    sets.push(`${column} = ?${index}`);
+    bindings.push(value);
+    index += 1;
+  }
+  const updatedAtPlaceholder = `?${index}`;
+  bindings.push(updatedAt);
+  return database
+    .prepare(
+      `UPDATE ${TIME_ENTRY_TABLE} SET ${[...sets, `updated_at = ${updatedAtPlaceholder}`].join(", ")} WHERE id = ?1 AND status = 'draft'`,
+    )
+    .bind(...bindings);
+}
+
+// Reads the row the service guards against before composing a transition or freeze-guarded edit: the
+// service needs the current status to choose the legal target and to refuse a frozen row up front (the
+// WHERE-guard is the backstop; this read produces the human-facing refusal code).
+export function selectTimeEntryStatusStatement(
+  database: SqlDatabase,
+  id: TimeEntryId,
+): SqlStatement {
+  return database
+    .prepare(`SELECT status FROM ${TIME_ENTRY_TABLE} WHERE id = ?1`)
+    .bind(id);
+}
+
+// The re-rate rewrite: moves rate_e4 + amount_minor on ONE unbilled entry. Guarded to the unbilled set
+// (draft/submitted/approved) so a billed/void row can never be re-rated — the captured rate is frozen.
+export function reRateEntryStatement(
+  database: SqlDatabase,
+  id: string,
+  rateE4: number,
+  amountMinor: number,
+  rateCardId: string,
+  rateSource: string,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${TIME_ENTRY_TABLE} SET rate_e4 = ?2, amount_minor = ?3, rate_card_id = ?4, rate_source = ?5, updated_at = ?6 WHERE id = ?1 AND status IN ('draft','submitted','approved')`,
+    )
+    .bind(id, rateE4, amountMinor, rateCardId, rateSource, updatedAt);
+}
+
+// The unbilled entries a re-rate revisits for a card over a work-date range. Only billable, unbilled,
+// card-bound rows in range — billed/void and non-billable (null rate_card_id) are excluded by query.
+export interface ReRateCandidate {
+  readonly id: string;
+  readonly matter_id: string;
+  readonly timekeeper_user_id: string;
+  readonly work_date: string;
+  readonly duration_minutes: number;
+  readonly currency: string;
+}
+
+export function selectReRateCandidatesStatement(
+  database: SqlDatabase,
+  rateCardId: string,
+  fromDate: string,
+  toDate: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, matter_id, timekeeper_user_id, work_date, duration_minutes, currency FROM ${TIME_ENTRY_TABLE} WHERE rate_card_id = ?1 AND status IN ('draft','submitted','approved') AND work_date >= ?2 AND work_date < ?3 ORDER BY work_date`,
+    )
+    .bind(rateCardId, fromDate, toDate);
+}

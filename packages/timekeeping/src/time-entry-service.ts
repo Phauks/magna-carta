@@ -4,10 +4,15 @@ import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statement
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { TimeEntryId, UserId } from "@magna-carta/identifiers/types";
+import { assertTransition, isFrozen, type TimeEntryStatus } from "./lifecycle.ts";
 import type { RateResolution, RateSource } from "./rate-resolution.ts";
 import {
   insertTimeEntryStatement,
   selectMatterEBillingStatement,
+  selectTimeEntryStatusStatement,
+  transitionStatusStatement,
+  updateDraftStatement,
+  type DraftPatch,
   type TimeEntrySource,
 } from "./time-entry-statements.ts";
 import { TimeEntryValidationError } from "./time-entry-validation.ts";
@@ -73,6 +78,156 @@ async function isEBillingMatter(database: SqlDatabase, matterId: string): Promis
     e_billing: number;
   }>();
   return (results[0]?.e_billing ?? 0) === 1;
+}
+
+// The gate-aware option bag for the lifecycle methods: approvalRequired is the firm setting the route
+// has already resolved (off by default), threaded so the pure state machine knows which path is legal.
+export interface LifecycleOptions extends TimekeepingServiceOptions {
+  readonly approvalRequired?: boolean;
+}
+
+async function loadStatus(database: SqlDatabase, id: TimeEntryId): Promise<TimeEntryStatus> {
+  const { results } = await selectTimeEntryStatusStatement(database, id).all<{
+    status: TimeEntryStatus;
+  }>();
+  const status = results[0]?.status;
+  if (status === undefined) {
+    throw new TimeEntryValidationError("not-found", `no such time entry: ${id}`);
+  }
+  return status;
+}
+
+// One transition method body: load the current status, refuse a frozen row with a human-facing code,
+// assert the transition is legal for the gate, then compose the guarded UPDATE + audit. The WHERE-guard
+// in transitionStatusStatement is the concurrency backstop behind the up-front status read.
+async function transition(
+  database: SqlDatabase,
+  id: TimeEntryId,
+  to: TimeEntryStatus,
+  event: string,
+  options: LifecycleOptions,
+): Promise<{ timeEntryId: TimeEntryId; effect: EffectWrite }> {
+  const from = await loadStatus(database, id);
+  if (isFrozen(from)) {
+    throw new TimeEntryValidationError("frozen-entry", `time entry ${id} is ${from} and frozen`);
+  }
+  assertTransition(from, to, options.approvalRequired ?? false);
+  const updatedAt = options.clock.now();
+  return {
+    timeEntryId: id,
+    effect: {
+      statements: [
+        transitionStatusStatement(database, id, from, to, updatedAt),
+        audit(database, options, event, id),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+export async function updateDraftTimeEntry(
+  database: SqlDatabase,
+  timeEntryId: TimeEntryId,
+  patch: DraftPatch,
+  options: TimekeepingServiceOptions,
+): Promise<{ timeEntryId: TimeEntryId; effect: EffectWrite }> {
+  const status = await loadStatus(database, timeEntryId);
+  if (isFrozen(status)) {
+    throw new TimeEntryValidationError(
+      "frozen-entry",
+      `time entry ${timeEntryId} is ${status} and frozen`,
+    );
+  }
+  if (status !== "draft") {
+    throw new TimeEntryValidationError(
+      "draft-only",
+      `time entry ${timeEntryId} is ${status}, not draft`,
+    );
+  }
+  const updatedAt = options.clock.now();
+  return {
+    timeEntryId,
+    effect: {
+      statements: [
+        updateDraftStatement(database, timeEntryId, patch, updatedAt),
+        audit(database, options, "time_entry.updated", timeEntryId),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+export function submitTimeEntry(
+  database: SqlDatabase,
+  timeEntryId: TimeEntryId,
+  options: LifecycleOptions,
+): Promise<{ timeEntryId: TimeEntryId; effect: EffectWrite }> {
+  return transition(database, timeEntryId, "submitted", "time_entry.submitted", options);
+}
+
+export function approveTimeEntry(
+  database: SqlDatabase,
+  timeEntryId: TimeEntryId,
+  options: LifecycleOptions,
+): Promise<{ timeEntryId: TimeEntryId; effect: EffectWrite }> {
+  return transition(database, timeEntryId, "approved", "time_entry.approved", options);
+}
+
+// Kick-back records the reviewer's reason on the audit row (the only place a free-text reason lives —
+// the entry itself carries no reason column). subjectId stays the entry; the reason rides metadata.
+export async function kickBackTimeEntry(
+  database: SqlDatabase,
+  timeEntryId: TimeEntryId,
+  input: { reason: string },
+  options: LifecycleOptions,
+): Promise<{ timeEntryId: TimeEntryId; effect: EffectWrite }> {
+  const from = await loadStatus(database, timeEntryId);
+  if (isFrozen(from)) {
+    throw new TimeEntryValidationError("frozen-entry", `time entry ${timeEntryId} is ${from} and frozen`);
+  }
+  assertTransition(from, "draft", options.approvalRequired ?? false);
+  const updatedAt = options.clock.now();
+  return {
+    timeEntryId,
+    effect: {
+      statements: [
+        transitionStatusStatement(database, timeEntryId, from, "draft", updatedAt),
+        domainAuditStatement(database, {
+          event: "time_entry.kicked_back",
+          subjectId: timeEntryId,
+          actorUserId: options.actorUserId,
+          clock: options.clock,
+          randomSource: options.randomSource,
+        }),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+// Void is a terminal freeze reachable from any non-frozen state (a mistaken entry is voided, never
+// hard-deleted — the row stays for audit). assertTransition permits <any non-frozen> -> void.
+export async function voidTimeEntry(
+  database: SqlDatabase,
+  timeEntryId: TimeEntryId,
+  options: LifecycleOptions,
+): Promise<{ timeEntryId: TimeEntryId; effect: EffectWrite }> {
+  const from = await loadStatus(database, timeEntryId);
+  if (isFrozen(from)) {
+    throw new TimeEntryValidationError("frozen-entry", `time entry ${timeEntryId} is ${from} and frozen`);
+  }
+  assertTransition(from, "void", options.approvalRequired ?? false);
+  const updatedAt = options.clock.now();
+  return {
+    timeEntryId,
+    effect: {
+      statements: [
+        transitionStatusStatement(database, timeEntryId, from, "void", updatedAt),
+        audit(database, options, "time_entry.voided", timeEntryId),
+      ],
+      outboxMessages: [],
+    },
+  };
 }
 
 // The single WIP-store writer. The route has already resolved the rate (precedence + effective date)
