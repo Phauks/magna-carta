@@ -46,8 +46,9 @@ describe("schema conformance (fitness functions)", () => {
       matter_number_counter: "scope_key",
       setting: "key",
     };
-    // storage_meter is keyed by WHAT it rolls up — a composite natural key, no handle. Still all TEXT.
-    const compositeKeyTables = new Set(["storage_meter"]);
+    // storage_meter is keyed by WHAT it rolls up; scan_cache by the content hash + engine version whose
+    // verdict it caches — composite natural keys, no handle. Still all TEXT.
+    const compositeKeyTables = new Set(["storage_meter", "scan_cache"]);
 
     for (const table of ALL_TABLES) {
       const config = getTableConfig(table);
