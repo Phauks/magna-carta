@@ -20,8 +20,8 @@
 
 ## De-risk findings (spikes run before this plan)
 
-- **R1 (streaming through a service binding):** doc-confirmed — Workers stream multi-GB request bodies within the 128 MB limit *as long as the worker forwards the body without reading it*. The adapter and the proxy both forward (`body` passed straight through, never `.json()`/`.text()` on the request). Task 4 adds an empirical memory check.
-- **R2 (the `SCAN_SERVICE` binding in the test pool):** a `services` binding to an *undefined* service makes the workerd test pool refuse to boot (`"no such service is defined"` → zero tests run). Mitigation: register a stub `magna-carta-scan` worker in the `cloudflareTest` config that returns a no-engine `ScanResult`; the pool then boots and `resolveScanPort` observes `unscanned` through the remote path. Validated in Task 2.
+- **R1 (streaming through a service binding):** doc-confirmed — Workers stream multi-GB request bodies within the 128 MB limit _as long as the worker forwards the body without reading it_. The adapter and the proxy both forward (`body` passed straight through, never `.json()`/`.text()` on the request). Task 4 adds an empirical memory check.
+- **R2 (the `SCAN_SERVICE` binding in the test pool):** a `services` binding to an _undefined_ service makes the workerd test pool refuse to boot (`"no such service is defined"` → zero tests run). Mitigation: register a stub `magna-carta-scan` worker in the `cloudflareTest` config that returns a no-engine `ScanResult`; the pool then boots and `resolveScanPort` observes `unscanned` through the remote path. Validated in Task 2.
 - **Deploy/keys:** Workers Builds builds + deploys on git push with no GitHub token. Deploy Hooks (HTTP POST to a unique URL) let a Cron Trigger fire the daily rebuild. The whole pipeline is Cloudflare-native.
 
 ---
@@ -69,10 +69,13 @@ it("forwards POST /scan to the container and returns its response verbatim", asy
   const container = {
     fetch: async (request: Request) => {
       seen = request;
-      return new Response(JSON.stringify({ verdict: "infected", engineVersion: "x", signature: "EICAR" }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ verdict: "infected", engineVersion: "x", signature: "EICAR" }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
     },
   };
   const incoming = new Request("http://scan/scan?size=4&contentType=text/plain", {
@@ -133,7 +136,9 @@ export default {
       // Daily signature refresh: POST the Deploy Hook so Workers Builds rebuilds the image (fresh
       // freshclam) and redeploys. No-op until the hook secret is set. (Task 5 wires the hook.)
       if (env.SCAN_BUILD_DEPLOY_HOOK_URL !== undefined) {
-        ctx.waitUntil(fetch(env.SCAN_BUILD_DEPLOY_HOOK_URL, { method: "POST" }).then(() => undefined));
+        ctx.waitUntil(
+          fetch(env.SCAN_BUILD_DEPLOY_HOOK_URL, { method: "POST" }).then(() => undefined),
+        );
       }
       return;
     }
