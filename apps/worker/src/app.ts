@@ -23,12 +23,14 @@ import { registerFoldersRoutes } from "./routes/folders.ts";
 import { registerIncidentsRoute } from "./routes/incidents.ts";
 import { registerLocationsRoutes } from "./routes/locations.ts";
 import { fetchHttpClient } from "@magna-carta/integrations/http";
+import { connect } from "cloudflare:sockets";
 import { workerPlugins } from "./plugins/registry.ts";
 import type { PluginRuntime } from "./plugins/runtime.ts";
 import { firmSecretStoreNotYetAvailable } from "./plugins/secret-store.ts";
 import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
 import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
+import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 import { registerNumberingRoutes } from "./routes/numbering.ts";
@@ -156,6 +158,10 @@ export interface CreateAppOptions {
   includeTelemetryProbes?: boolean;
   // Overrides the plugin runtime for tests (a fake EasyPost http client + an in-memory secret store).
   pluginRuntime?: Partial<PluginRuntime>;
+  // Overrides the WHOIS route dependencies for tests (a fake RDAP http client + a fake socket).
+  // Production defaults: fetchHttpClient() for RDAP, the cloudflare:sockets connect() adapter for
+  // port-43 WHOIS, and no resolver (DNS-rebinding protection is deferred until a DoH adapter is wired).
+  whoisDeps?: Partial<WhoisRouteDeps>;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
@@ -222,6 +228,39 @@ export function createApp(options: CreateAppOptions = {}) {
   // middleware, run before the chokepoint's idempotency/rate-limit gates (see routes/firms.ts).
   registerMeRoute(app, chokepoint);
   registerFirmUsageRoute(app, chokepoint);
+
+  // The WHOIS route: RDAP-first domain/IP registration lookup with a port-43 fallback. All outbound
+  // effects go through injected deps so tests substitute fakes without touching global fetch or sockets.
+  // The production socket opens a raw TCP connection on port 43 via cloudflare:sockets connect().
+  const productionWhoisSocket: WhoisRouteDeps["socket"] = {
+    async query(host, request) {
+      const socket = connect({ hostname: host, port: 43 });
+      const writer = socket.writable.getWriter();
+      await writer.write(new TextEncoder().encode(request));
+      await writer.close();
+      const reader = socket.readable.getReader();
+      const chunks: Uint8Array[] = [];
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+      const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+      const merged = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        merged.set(chunk, offset);
+        offset += chunk.length;
+      }
+      return new TextDecoder().decode(merged);
+    },
+  };
+  const whoisDeps: WhoisRouteDeps = {
+    http: options.whoisDeps?.http ?? fetchHttpClient(),
+    socket: options.whoisDeps?.socket ?? productionWhoisSocket,
+    resolve: options.whoisDeps?.resolve,
+  };
+  registerWhoisRoute(app, chokepoint, whoisDeps);
   registerMembersRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
   registerIncidentsRoute(app, chokepoint);
