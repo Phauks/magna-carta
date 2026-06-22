@@ -206,6 +206,60 @@ fn scrub_attachments(doc: &mut Document) {
     }
 }
 
+/// Assert that every surface the caller chose to scrub is structurally absent
+/// from the document. Surfaces the caller opted out of are not checked.
+#[allow(dead_code)]
+pub(crate) fn verify_scrub_absence(doc: &Document, opts: &ScrubOptions) -> Result<(), ScrubError> {
+    let fail = |detail: &str| {
+        Err(ScrubError::GateFailed {
+            detail: detail.to_string(),
+        })
+    };
+    let catalog = doc.catalog().ok();
+    let catalog_has = |key: &[u8]| catalog.map(|c| c.has(key)).unwrap_or(false);
+
+    if opts.metadata {
+        if doc.trailer.has(b"Info") {
+            return fail("Info dictionary survived scrub");
+        }
+        if catalog_has(b"Metadata") {
+            return fail("XMP /Metadata survived scrub");
+        }
+    }
+    if opts.structure_tree && (catalog_has(b"StructTreeRoot") || catalog_has(b"MarkInfo")) {
+        return fail("structure tree survived scrub");
+    }
+    if opts.outlines && catalog_has(b"Outlines") {
+        return fail("/Outlines survived scrub");
+    }
+    if opts.optional_content && catalog_has(b"OCProperties") {
+        return fail("/OCProperties survived scrub");
+    }
+    if opts.xfa && catalog_subdict(doc, b"AcroForm").map(|a| a.has(b"XFA")).unwrap_or(false) {
+        return fail("AcroForm /XFA survived scrub");
+    }
+    if opts.attachments {
+        if catalog_subdict(doc, b"Names").map(|n| n.has(b"EmbeddedFiles")).unwrap_or(false) {
+            return fail("/Names/EmbeddedFiles survived scrub");
+        }
+        if catalog_has(b"Collection") {
+            return fail("/Collection survived scrub");
+        }
+    }
+    if opts.form_field_values {
+        let any_value = collect_field_ids(doc).into_iter().any(|id| {
+            doc.get_object(id)
+                .and_then(|o| o.as_dict())
+                .map(|d| d.has(b"V") || d.has(b"DV"))
+                .unwrap_or(false)
+        });
+        if any_value {
+            return fail("a form field value survived scrub");
+        }
+    }
+    Ok(())
+}
+
 /// Remove the document-level surfaces selected in `opts`, in place. Performs only
 /// the removals — the caller prunes orphaned objects and runs the gate.
 pub fn sanitize_document(doc: &mut Document, opts: &ScrubOptions) -> Result<(), ScrubError> {
@@ -355,6 +409,26 @@ mod tests {
         // NeedAppearances set so a viewer regenerates blank appearances.
         let acro = catalog_subdict(&doc, b"AcroForm").unwrap();
         assert_eq!(acro.get(b"NeedAppearances").unwrap().as_bool().unwrap(), true);
+    }
+
+    #[test]
+    fn absence_gate_passes_after_scrub_and_fails_when_surface_survives() {
+        let mut doc = base_doc();
+        set_on_catalog(&mut doc, "OCProperties", Object::Null);
+
+        // Before scrub: the surface is present, so the absence gate must fail.
+        let before = verify_scrub_absence(&doc, &ScrubOptions::default());
+        assert!(matches!(before, Err(ScrubError::GateFailed { .. })));
+
+        // After scrub: it is gone, so the gate passes.
+        sanitize_document(&mut doc, &ScrubOptions::default()).unwrap();
+        assert!(verify_scrub_absence(&doc, &ScrubOptions::default()).is_ok());
+
+        // If the caller opted out of optional_content, a surviving surface is allowed.
+        let mut doc2 = base_doc();
+        set_on_catalog(&mut doc2, "OCProperties", Object::Null);
+        let opts = ScrubOptions { optional_content: false, ..ScrubOptions::default() };
+        assert!(verify_scrub_absence(&doc2, &opts).is_ok());
     }
 
     #[test]

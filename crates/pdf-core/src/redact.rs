@@ -159,6 +159,50 @@ pub(crate) fn render_redacted_page(
     Ok((rgb, w, h))
 }
 
+fn match_in_bytes(bytes: &[u8], needles: &[String]) -> Option<String> {
+    needles
+        .iter()
+        .find(|s| !s.is_empty() && bytes.windows(s.len()).any(|w| w == s.as_bytes()))
+        .cloned()
+}
+
+fn match_in_object(obj: &Object, needles: &[String]) -> Option<String> {
+    match obj {
+        Object::String(bytes, _) => match_in_bytes(bytes, needles),
+        Object::Name(bytes) => match_in_bytes(bytes, needles),
+        Object::Array(items) => items.iter().find_map(|o| match_in_object(o, needles)),
+        Object::Dictionary(dict) => dict.iter().find_map(|(_, o)| match_in_object(o, needles)),
+        Object::Stream(stream) => {
+            if let Some(hit) = stream.dict.iter().find_map(|(_, o)| match_in_object(o, needles)) {
+                return Some(hit);
+            }
+            if let Some(hit) = match_in_bytes(&stream.content, needles) {
+                return Some(hit);
+            }
+            if let Ok(decoded) = stream.decompressed_content() {
+                if let Some(hit) = match_in_bytes(&decoded, needles) {
+                    return Some(hit);
+                }
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
+/// Scan the document's *logical* content — every decoded string/name and every
+/// decompressed stream — for any supplied needle. Immune to how bytes are stored
+/// (Flate, object streams, cross-reference streams). Returns the first survivor.
+pub(crate) fn scan_logical_content(doc: &lopdf::Document, needles: &[String]) -> Option<String> {
+    if needles.is_empty() {
+        return None;
+    }
+    doc.trailer
+        .iter()
+        .find_map(|(_, o)| match_in_object(o, needles))
+        .or_else(|| doc.objects.values().find_map(|o| match_in_object(o, needles)))
+}
+
 /// Return the first supplied string that still appears as raw bytes in the emitted
 /// PDF. Pruning removes orphaned text objects; this catches any uncompressed
 /// plaintext that nonetheless survived. Text rasterized into the (compressed) page
@@ -205,6 +249,11 @@ pub(crate) fn verify_gate(
                 });
             }
         }
+    }
+    if let Some(hit) = scan_logical_content(doc, redacted_text) {
+        return Err(RedactError::GateFailed {
+            detail: format!("redacted text present in document content: {hit}"),
+        });
     }
     Ok(())
 }
@@ -406,6 +455,33 @@ mod tests {
             !outcome.pdf.windows(5).any(|w| w == b"Hello"),
             "orphaned original text bytes survived in the output"
         );
+    }
+
+    #[test]
+    fn logical_scan_finds_string_in_a_compressed_stream() {
+        // A string hidden in a Flate-compressed stream is invisible to a raw-byte
+        // scan but must be found by the logical-content scan.
+        // The payload is repeated so lopdf's size guard (compressed+19 < original) fires
+        // and compression is actually applied.
+        let mut doc = lopdf::Document::with_version("1.5");
+        let content: Vec<u8> = b"top-secret-payload ".iter().cycle().take(200).cloned().collect();
+        let mut stream = lopdf::Stream::new(lopdf::Dictionary::new(), content);
+        stream.compress().unwrap(); // FlateDecode — bytes no longer literal
+        let id = doc.add_object(stream);
+        let _ = id;
+        // The literal must NOT survive in the serialized bytes...
+        let mut bytes = Vec::new();
+        doc.save_to(&mut bytes).unwrap();
+        assert!(!bytes.windows(6).any(|w| w == b"secret"));
+        // ...but the logical scan decompresses and finds it.
+        assert_eq!(
+            scan_logical_content(&doc, &["secret".to_string()]),
+            Some("secret".to_string())
+        );
+        // A string that is absent returns None (the scan is not a no-op the other way).
+        assert_eq!(scan_logical_content(&doc, &["absent".to_string()]), None);
+        // Empty needles are ignored.
+        assert_eq!(scan_logical_content(&doc, &[]), None);
     }
 
     #[test]
