@@ -8,6 +8,7 @@ import { inspectableSizeCapDefinition } from "@magna-carta/file-manager/upload-p
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import { createMemoryLogger } from "@magna-carta/telemetry/logger";
+import { maybeEnqueueRescanOnAccess } from "../src/files/access-rescan.ts";
 import { handleIngestMessage } from "../src/files/ingest-consumer.ts";
 import { resolveScanPort } from "../src/files/scan-port-binding.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
@@ -629,5 +630,39 @@ describe("handleIngestMessage — access-triggered re-scan", () => {
       .bind(versionId)
       .first<{ scan_verdict: string }>();
     expect(v?.scan_verdict).toBe("unscanned"); // unchanged — never downgraded or fabricated
+  });
+
+  it("maybeEnqueueRescanOnAccess enqueues only for a STALE version, with a current engine, bound queue", async () => {
+    const { versionId, r2Key } = await seedCommittedVersion("access.pdf", uniqueBytes(4));
+    const captured: Array<{ bucket: string; object: { key: string } }> = [];
+    const queue = {
+      async send(message: { bucket: string; object: { key: string } }) {
+        captured.push(message);
+      },
+    } as unknown as Queue;
+
+    // No current engine recorded → no-op (never fabricate).
+    await clearCurrentEngine();
+    await maybeEnqueueRescanOnAccess(queue, env.DB_FIRM_POOL_1, BUCKET, r2Key, 100);
+    expect(captured).toHaveLength(0);
+
+    // Current engine set + the version is stale (its scan_engine_version is null) → enqueues.
+    await setCurrentEngine("clamav/9.0");
+    await maybeEnqueueRescanOnAccess(queue, env.DB_FIRM_POOL_1, BUCKET, r2Key, 100);
+    expect(captured).toHaveLength(1);
+    expect(captured[0]).toMatchObject({ bucket: BUCKET, object: { key: r2Key } });
+
+    // An unbound queue is a no-op.
+    await maybeEnqueueRescanOnAccess(undefined, env.DB_FIRM_POOL_1, BUCKET, r2Key, 100);
+    expect(captured).toHaveLength(1);
+
+    // Once the version is current (scanned under the engine), it is no longer stale → no-op.
+    await env.DB_FIRM_POOL_1.prepare(
+      "UPDATE file_version SET scan_engine_version = 'clamav/9.0' WHERE id = ?1",
+    )
+      .bind(versionId)
+      .run();
+    await maybeEnqueueRescanOnAccess(queue, env.DB_FIRM_POOL_1, BUCKET, r2Key, 100);
+    expect(captured).toHaveLength(1);
   });
 });

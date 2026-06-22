@@ -36,6 +36,7 @@ import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { maybeEnqueueRescanOnAccess } from "../files/access-rescan.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
 import { requireBucket } from "../files/require-bucket.ts";
 import {
@@ -416,6 +417,18 @@ function fileErrorResponse(c: Context, error: FileManagerValidationError): Probl
   throw error;
 }
 
+// Fire-and-forget background work that must NEVER block or fail the response. Uses
+// executionCtx.waitUntil when an execution context is present (production + most test paths); falls
+// back to a detached, error-swallowed promise where there is none (some test harnesses construct a
+// request without one — c.executionCtx is a throwing getter there), so the handler still returns.
+function runInBackground(c: Context, work: Promise<unknown>): void {
+  try {
+    c.executionCtx.waitUntil(work);
+  } catch {
+    void Promise.resolve(work).catch(() => {});
+  }
+}
+
 // The visible file (clean current version, not soft-deleted) by id — the get/versions/download reads
 // all start here so a pending-only, quarantined, or deleted file is uniformly 404.
 async function loadVisibleFile(
@@ -691,6 +704,18 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
           detail: "No such file with a downloadable version in this firm.",
         });
       }
+      // Access-triggered re-scan: if this version is stale vs the firm's current engine, re-scan it in
+      // the background. Fire-and-forget — never blocks the download.
+      runInBackground(
+        c,
+        maybeEnqueueRescanOnAccess(
+          c.env.FILES_INGEST,
+          firm.firmDatabase,
+          firm.bucketName,
+          version.r2Key,
+          version.sizeBytes,
+        ),
+      );
       const presigner = presignerForEnv(c.env);
       const url = await presigner.presignGet(bucket, version.r2Key, DOWNLOAD_TTL_SECONDS);
       // The export is recorded before the redirect — metadata names the version exported, no content.
@@ -735,6 +760,17 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
           detail: "No such file with a previewable version in this firm.",
         });
       }
+      // Access-triggered re-scan (same as /download): a stale version is re-scanned in the background.
+      runInBackground(
+        c,
+        maybeEnqueueRescanOnAccess(
+          c.env.FILES_INGEST,
+          firm.firmDatabase,
+          firm.bucketName,
+          version.r2Key,
+          version.sizeBytes,
+        ),
+      );
       const downloadUrl = `/api/v1/files/${id}/download`;
       const decision = decidePreview(version);
       const filesOrigin = c.env.FILES_ORIGIN;
