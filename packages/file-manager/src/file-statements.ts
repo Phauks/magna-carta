@@ -194,6 +194,29 @@ export function commitVersionStatement(database: SqlDatabase, row: CommitVersion
     );
 }
 
+export interface RescanVerdictRow {
+  readonly versionId: FileVersionId;
+  readonly scanVerdict: "clean" | "infected";
+  readonly scanEngineVersion: string;
+  readonly scanDetail: string | null;
+}
+
+// The in-place re-scan stamp: an ALREADY-COMMITTED version (status = 'clean') is re-scanned under a
+// newer engine and its verdict recorded WITHOUT moving the current-version pointer or changing
+// visibility. Gated on status = 'clean' so it can never touch a pending row (the commit path owns
+// those, and an out-of-order commit must not be clobbered), and so an infected re-scan finding stays
+// VISIBLE — only scan_verdict moves to 'infected'; the status (and the file's current-version pointer)
+// is untouched. The download path gates an infected verdict; the listing does not (informed access,
+// no data loss). NOT to be confused with commitVersionStatement (which gates 'pending' and moves the
+// lifecycle) — a re-scan only stamps the safety result on a version that is already live.
+export function rescanVerdictStatement(database: SqlDatabase, row: RescanVerdictRow): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${FILE_VERSION_TABLE} SET scan_verdict = ?2, scan_engine_version = ?3, scan_detail = ?4 WHERE id = ?1 AND status = 'clean'`,
+    )
+    .bind(row.versionId, row.scanVerdict, row.scanEngineVersion, row.scanDetail);
+}
+
 // Monotonic: the current-version pointer only advances. Ingest commits can land out of order (v2
 // before v1, or a redelivery), so the pointer moves only when the committing version's number is
 // higher than the one it already points at — an older version committing late never regresses it.

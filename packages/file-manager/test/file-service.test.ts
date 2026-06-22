@@ -6,10 +6,12 @@ import {
   initiateUpload,
   moveFile,
   quarantineVersion,
+  recordRescanVerdict,
   softDeleteFile,
 } from "../src/file-service.ts";
 import { createFolder } from "../src/folder-service.ts";
 import { listFiles } from "../src/queries.ts";
+import { lookupScanCache } from "../src/scan-cache.ts";
 import { readScanEngineVersion } from "../src/upload-policy.ts";
 import { ACTOR, freshDatabase, now, options, seedMatter } from "./support.ts";
 
@@ -407,5 +409,94 @@ describe("initiateUpload — new version on an existing file", () => {
         options,
       ),
     ).rejects.toMatchObject({ code: "file-matter-mismatch" });
+  });
+});
+
+describe("recordRescanVerdict — in-place re-scan", () => {
+  async function committedVersion(database: ReturnType<typeof freshDatabase>, hash: string) {
+    const matterId = await seedMatter(database);
+    const { versionId } = (await initiate(database, matterId)) as { versionId: FileVersionId };
+    const committed = await commit(database, versionId, hash);
+    return { versionId, fileId: committed.fileId };
+  }
+
+  it("stamps a clean re-scan verdict in place — no pointer move, cache recorded", async () => {
+    const database = freshDatabase();
+    const { versionId, fileId } = await committedVersion(database, "hash-x");
+    const before = await database
+      .prepare("SELECT current_version_id FROM file WHERE id = ?1")
+      .bind(fileId)
+      .all<{ current_version_id: string }>();
+
+    await commitEffectBatch(
+      database,
+      recordRescanVerdict(
+        database,
+        {
+          versionId,
+          scanVerdict: "clean",
+          scanEngineVersion: "clamav/2.0",
+          scanDetail: null,
+          signature: null,
+          contentSha256: "hash-x",
+          now: now(),
+        },
+        options,
+      ).effect,
+      { now },
+    );
+
+    const row = await database
+      .prepare("SELECT scan_verdict, scan_engine_version, status FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .all<{ scan_verdict: string; scan_engine_version: string; status: string }>();
+    expect(row.results[0]).toMatchObject({
+      scan_verdict: "clean",
+      scan_engine_version: "clamav/2.0",
+      status: "clean",
+    });
+    const after = await database
+      .prepare("SELECT current_version_id FROM file WHERE id = ?1")
+      .bind(fileId)
+      .all<{ current_version_id: string }>();
+    expect(after.results[0]?.current_version_id).toBe(before.results[0]?.current_version_id);
+    expect(await lookupScanCache(database, "hash-x", "clamav/2.0")).toEqual({
+      verdict: "clean",
+      signature: null,
+    });
+  });
+
+  it("an infected re-scan keeps the version VISIBLE (status stays clean) — informed access, no data loss", async () => {
+    const database = freshDatabase();
+    const { versionId } = await committedVersion(database, "hash-bad");
+
+    await commitEffectBatch(
+      database,
+      recordRescanVerdict(
+        database,
+        {
+          versionId,
+          scanVerdict: "infected",
+          scanEngineVersion: "clamav/2.0",
+          scanDetail: "Eicar-Test-Signature",
+          signature: "Eicar-Test-Signature",
+          contentSha256: "hash-bad",
+          now: now(),
+        },
+        options,
+      ).effect,
+      { now },
+    );
+
+    const row = await database
+      .prepare("SELECT scan_verdict, status FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .all<{ scan_verdict: string; status: string }>();
+    // The hallmark of informed access: flagged but still committed/visible — never hidden or regressed.
+    expect(row.results[0]).toMatchObject({ scan_verdict: "infected", status: "clean" });
+    expect(await lookupScanCache(database, "hash-bad", "clamav/2.0")).toEqual({
+      verdict: "infected",
+      signature: "Eicar-Test-Signature",
+    });
   });
 });

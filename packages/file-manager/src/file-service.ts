@@ -26,6 +26,7 @@ import {
   moveFileStatement,
   quarantineVersionStatement,
   renameFileStatement,
+  rescanVerdictStatement,
   selectCurrentVersionHashStatement,
   selectFileStatement,
   selectMaxVersionNumberStatement,
@@ -378,6 +379,50 @@ export async function commitVersion(
           payload: { fileId: version.fileId, versionId: input.versionId },
         },
       ],
+    },
+  };
+}
+
+export interface RescanVerdictInput {
+  readonly versionId: FileVersionId;
+  readonly scanVerdict: "clean" | "infected";
+  readonly scanEngineVersion: string; // the engine that produced this verdict — never null on a re-scan
+  readonly scanDetail: string | null;
+  readonly signature: string | null; // malware signature name for 'infected'; null for 'clean'
+  readonly contentSha256: string;
+  readonly now: string;
+}
+
+// Applies an in-place re-scan verdict to an already-committed version: stamps scan_verdict /
+// scan_engine_version / scan_detail WITHOUT moving the current-version pointer or changing visibility
+// (an infected finding stays accessible behind the download gate — informed access, no data loss),
+// records the DEFINITIVE verdict in the per-firm dedup cache so identical content re-scanned under the
+// same engine reuses it, and writes one audit row. The caller passes only a real engine verdict; a scan
+// fault never reaches here, so a version's prior verdict is never downgraded without a real scan.
+export function recordRescanVerdict(
+  database: SqlDatabase,
+  input: RescanVerdictInput,
+  options: FileServiceOptions,
+): { effect: EffectWrite } {
+  return {
+    effect: {
+      statements: [
+        rescanVerdictStatement(database, {
+          versionId: input.versionId,
+          scanVerdict: input.scanVerdict,
+          scanEngineVersion: input.scanEngineVersion,
+          scanDetail: input.scanDetail,
+        }),
+        recordScanCacheStatement(database, {
+          contentSha256: input.contentSha256,
+          engineVersion: input.scanEngineVersion,
+          verdict: input.scanVerdict,
+          signature: input.signature,
+          scannedAt: input.now,
+        }),
+        fileAuditStatement(database, options, "file.version_rescanned", input.versionId),
+      ],
+      outboxMessages: [],
     },
   };
 }
