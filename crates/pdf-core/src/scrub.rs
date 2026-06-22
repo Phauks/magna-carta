@@ -234,8 +234,16 @@ pub(crate) fn verify_scrub_absence(doc: &Document, opts: &ScrubOptions) -> Resul
     if opts.structure_tree && (catalog_has(b"StructTreeRoot") || catalog_has(b"MarkInfo")) {
         return fail("structure tree survived scrub");
     }
-    if opts.outlines && catalog_has(b"Outlines") {
-        return fail("/Outlines survived scrub");
+    if opts.outlines {
+        if catalog_has(b"Outlines") {
+            return fail("/Outlines survived scrub");
+        }
+        if catalog_subdict(doc, b"Names")
+            .map(|n| n.has(b"Dests"))
+            .unwrap_or(false)
+        {
+            return fail("/Names/Dests survived scrub");
+        }
     }
     if opts.optional_content && catalog_has(b"OCProperties") {
         return fail("/OCProperties survived scrub");
@@ -256,6 +264,42 @@ pub(crate) fn verify_scrub_absence(doc: &Document, opts: &ScrubOptions) -> Resul
         }
         if catalog_has(b"Collection") {
             return fail("/Collection survived scrub");
+        }
+        if catalog_has(b"AF") {
+            return fail("catalog /AF survived scrub");
+        }
+        for page_id in doc.get_pages().values().copied().collect::<Vec<_>>() {
+            let page = match doc.get_object(page_id).and_then(|o| o.as_dict()) {
+                Ok(page) => page,
+                Err(_) => continue,
+            };
+            if page.has(b"AF") {
+                return fail("a page /AF survived scrub");
+            }
+            let annots = match page.get(b"Annots") {
+                Ok(Object::Array(array)) => array.clone(),
+                Ok(Object::Reference(id)) => doc
+                    .get_object(*id)
+                    .ok()
+                    .and_then(|o| o.as_array().ok())
+                    .cloned()
+                    .unwrap_or_default(),
+                _ => Vec::new(),
+            };
+            for annot in &annots {
+                let is_file_attachment = annot
+                    .as_reference()
+                    .ok()
+                    .and_then(|id| doc.get_object(id).ok())
+                    .and_then(|o| o.as_dict().ok())
+                    .and_then(|d| d.get(b"Subtype").ok())
+                    .and_then(|o| o.as_name().ok())
+                    .map(|name| name == b"FileAttachment")
+                    .unwrap_or(false);
+                if is_file_attachment {
+                    return fail("a FileAttachment annotation survived scrub");
+                }
+            }
         }
     }
     if opts.form_field_values {
@@ -509,7 +553,7 @@ mod tests {
             ]),
         );
         let page_id = doc.add_object(Object::Dictionary(page));
-        // Attach the page to the (Task-1 base) Pages tree so get_pages() finds it.
+        // Attach the page to the base Pages tree so get_pages() finds it.
         let pages_id = doc
             .catalog()
             .unwrap()
@@ -543,5 +587,36 @@ mod tests {
             .unwrap();
         assert_eq!(annots.len(), 1);
         assert_eq!(annots[0].as_reference().unwrap(), text_annot_id);
+    }
+
+    #[test]
+    fn absence_gate_flags_a_surviving_file_attachment_annotation() {
+        let mut doc = base_doc();
+        let mut annot = Dictionary::new();
+        annot.set("Subtype", Object::Name(b"FileAttachment".to_vec()));
+        let annot_id = doc.add_object(Object::Dictionary(annot));
+        let mut page = Dictionary::new();
+        page.set("Type", Object::Name(b"Page".to_vec()));
+        page.set("Annots", Object::Array(vec![Object::Reference(annot_id)]));
+        let page_id = doc.add_object(Object::Dictionary(page));
+        let pages_id = doc
+            .catalog()
+            .unwrap()
+            .get(b"Pages")
+            .unwrap()
+            .as_reference()
+            .unwrap();
+        let pages = doc.get_object_mut(pages_id).unwrap().as_dict_mut().unwrap();
+        pages.set("Kids", Object::Array(vec![Object::Reference(page_id)]));
+        pages.set("Count", Object::Integer(1));
+
+        // A surviving FileAttachment annotation must fail the absence gate.
+        assert!(matches!(
+            verify_scrub_absence(&doc, &ScrubOptions::default()),
+            Err(ScrubError::GateFailed { .. })
+        ));
+        // After scrub it is gone, so the gate passes.
+        sanitize_document(&mut doc, &ScrubOptions::default()).unwrap();
+        assert!(verify_scrub_absence(&doc, &ScrubOptions::default()).is_ok());
     }
 }

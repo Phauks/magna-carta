@@ -93,7 +93,7 @@ export interface RedactionOptions {
   dpi?: number;
   /** If supplied, redaction also verifies these strings are absent from the output. */
   redactedText?: string[];
-  /** When present, document-level surfaces are scrubbed after redaction. */
+  /** Document-level surfaces to scrub. Omitted means all surfaces are scrubbed (redaction is sanitized-by-default); pass individual `false` flags to retain a surface. */
   scrub?: ScrubOptions;
 }
 

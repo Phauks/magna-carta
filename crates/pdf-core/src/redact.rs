@@ -176,7 +176,11 @@ fn match_in_object(obj: &Object, needles: &[String]) -> Option<String> {
         Object::Array(items) => items.iter().find_map(|o| match_in_object(o, needles)),
         Object::Dictionary(dict) => dict.iter().find_map(|(_, o)| match_in_object(o, needles)),
         Object::Stream(stream) => {
-            if let Some(hit) = stream.dict.iter().find_map(|(_, o)| match_in_object(o, needles)) {
+            if let Some(hit) = stream
+                .dict
+                .iter()
+                .find_map(|(_, o)| match_in_object(o, needles))
+            {
                 return Some(hit);
             }
             if let Some(hit) = match_in_bytes(&stream.content, needles) {
@@ -203,7 +207,11 @@ pub(crate) fn scan_logical_content(doc: &lopdf::Document, needles: &[String]) ->
     doc.trailer
         .iter()
         .find_map(|(_, o)| match_in_object(o, needles))
-        .or_else(|| doc.objects.values().find_map(|o| match_in_object(o, needles)))
+        .or_else(|| {
+            doc.objects
+                .values()
+                .find_map(|o| match_in_object(o, needles))
+        })
 }
 
 /// Return the first supplied string that still appears as raw bytes in the emitted
@@ -478,7 +486,12 @@ mod tests {
         // The payload is repeated so lopdf's size guard (compressed+19 < original) fires
         // and compression is actually applied.
         let mut doc = lopdf::Document::with_version("1.5");
-        let content: Vec<u8> = b"top-secret-payload ".iter().cycle().take(200).cloned().collect();
+        let content: Vec<u8> = b"top-secret-payload "
+            .iter()
+            .cycle()
+            .take(200)
+            .cloned()
+            .collect();
         let mut stream = lopdf::Stream::new(lopdf::Dictionary::new(), content);
         stream.compress().unwrap(); // FlateDecode — bytes no longer literal
         let id = doc.add_object(stream);
@@ -513,7 +526,12 @@ mod tests {
 
         let regions = [RedactionRegion {
             page: 0,
-            rect: Rect { x0: 0.0, y0: 0.0, x1: 1000.0, y1: 1000.0 },
+            rect: Rect {
+                x0: 0.0,
+                y0: 0.0,
+                x1: 1000.0,
+                y1: 1000.0,
+            },
             reason: None,
         }];
         let outcome = redact(seeded, &regions, &RedactionOptions::default()).unwrap();
@@ -559,5 +577,43 @@ mod tests {
             .unwrap_or_default()
             .trim()
             .is_empty());
+    }
+
+    #[test]
+    fn redact_strips_metadata_string_supplied_as_redacted_text() {
+        // The sensitive string lives in the Info dictionary (a scrubbed surface) AND
+        // is supplied as redacted_text. Scrub removes /Info; the logical-content gate
+        // would catch it if it survived. Redaction must succeed and the string be gone.
+        let mut lo = lopdf::Document::load_mem(&hello_bytes()).unwrap();
+        let info_id = lo.add_object(lopdf::Object::Dictionary({
+            let mut d = lopdf::Dictionary::new();
+            d.set(
+                "Author",
+                lopdf::Object::string_literal("Sensitive McSecret"),
+            );
+            d
+        }));
+        lo.trailer.set("Info", lopdf::Object::Reference(info_id));
+        let mut seeded = Vec::new();
+        lo.save_to(&mut seeded).unwrap();
+
+        let regions = [RedactionRegion {
+            page: 0,
+            rect: Rect {
+                x0: 0.0,
+                y0: 0.0,
+                x1: 1000.0,
+                y1: 1000.0,
+            },
+            reason: None,
+        }];
+        let opts = RedactionOptions {
+            redacted_text: vec!["Sensitive McSecret".into()],
+            ..RedactionOptions::default()
+        };
+        let outcome = redact(seeded, &regions, &opts).expect("redaction succeeds");
+        assert!(!outcome.pdf.windows(9).any(|w| w == b"Sensitive"));
+        let reloaded = lopdf::Document::load_mem(&outcome.pdf).unwrap();
+        assert!(!reloaded.trailer.has(b"Info"));
     }
 }
