@@ -1,9 +1,9 @@
 ---
 branch: phase-3-financial-core
 worktree: C:/dev/magna-carta-worktrees/phase-3-financial-core
-area: Open Phase 3 (Financial Core) — firm up the provisional slice map, then run the 3·1 (Time) design cycle
+area: Phase 3 (Financial Core) — slice map firmed up; now in the 3·1 (Time tracking) design cycle
 status: designing
-touches: docs/specs/2026-06-21-phase-3-financial-core-slice-map.md, ROADMAP.md (Phase 3 section), STATUS.md (Phase 3 rows once 3·1 design opens)
+touches: docs/specs/2026-06-2*-phase-3-* + slice-3-1-time-tracking-design.md, docs/decisions/pending/ (4 ADR fragments), docs/research/2026-06-22-competitive-time-tracking-deep-dive.md, docs/Magna-Carta-White-Paper.md (§17.1 Time-tracking lifecycle line only), ROADMAP.md (Phase 3 section), STATUS.md (Phase 3 table). Soon: new packages/timekeeping + apps/worker (first Durable Object), per-firm migration slot after 0014, access-control/registry.ts (time:*), identifiers/registry.ts, scoped_setting in data-access.
 ---
 
 Opening Phase 3 as a track independent of the in-flight Phase 2 work (3·1 Time/WIP and 3·2 Trust
