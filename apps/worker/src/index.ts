@@ -6,7 +6,7 @@ import type { BundleBuildMessage } from "./downloads/bundle-types.ts";
 import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
 import { pokeScanContainer } from "./files/scan-warm.ts";
 import { inferenceQueue, type InferenceJob } from "./inference/inference-consumer.ts";
-import { runRescanSweep, runScheduledSweep, runStorageReconciliation } from "./scheduled.ts";
+import { runScheduledSweep, runStorageReconciliation } from "./scheduled.ts";
 
 // The async bulk-download coordinator Durable Object must be exported from the Worker's main entrypoint
 // so the runtime can instantiate the class named in wrangler.jsonc's durable_objects binding.
@@ -29,12 +29,6 @@ const app = createApp();
 // sweep — a full R2 LIST per firm is too heavy to run every five minutes.
 const RECONCILIATION_CRON = "0 3 * * *";
 
-// The weekly re-scan sweep: finds committed versions still marked scan_verdict = 'unscanned' and
-// re-enqueues them onto FILES_INGEST so a now-available scan engine can evaluate them in place.
-// Dormant until the scan engine lands; the sweep seam is built now so the engine can wire in
-// without touching the scheduling layer.
-const RESCAN_SWEEP_CRON = "0 4 * * 0";
-
 // The scan-container warm-poke: every 20 minutes (inside the container's 30-minute sleepAfter) a /ready
 // fetch keeps one instance — and clamd's resident signature DB — alive. Dormant until the scan engine
 // is wired (pokeScanContainer no-ops when the container is unbound).
@@ -52,11 +46,9 @@ export default {
     const pass =
       controller.cron === RECONCILIATION_CRON
         ? { operation: "cron:storage-reconciliation", run: () => runStorageReconciliation(env) }
-        : controller.cron === RESCAN_SWEEP_CRON
-          ? { operation: "cron:rescan-sweep", run: () => runRescanSweep(env) }
-          : controller.cron === SCAN_WARM_CRON
-            ? { operation: "cron:scan-warm", run: () => pokeScanContainer(env) }
-            : { operation: "cron:scheduled-sweep", run: () => runScheduledSweep(env) };
+        : controller.cron === SCAN_WARM_CRON
+          ? { operation: "cron:scan-warm", run: () => pokeScanContainer(env) }
+          : { operation: "cron:scheduled-sweep", run: () => runScheduledSweep(env) };
     executionContext.waitUntil(
       pass.run().catch((caught: unknown) => {
         logOperationFailed(createWorkersLogger(env.TELEMETRY), pass.operation, caught);

@@ -167,6 +167,6 @@
   // them in place; the */20 pass pokes the scan Container's /ready to keep one instance warm (dormant
   // until the engine is wired). src/index.ts routes each Cron expression to its handler.
   "triggers": {
-    "crons": ["*/5 * * * *", "0 3 * * *", "0 4 * * 0", "*/20 * * * *"],
+    "crons": ["*/5 * * * *", "0 3 * * *", "*/20 * * * *"],
   },
 }
