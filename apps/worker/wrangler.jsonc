@@ -136,6 +136,15 @@
         "queue": "magna-carta-production-inference",
         "dead_letter_queue": "magna-carta-production-inference-deadletter",
       },
+      // The conversion consumer (the queue() handler routes this queue to the conversion consumer):
+      // one ConversionJob DO message per job → ConversionPort adapter → R2 result. Low concurrency
+      // (conversion is CPU/memory-bound in the engine Container); dead-letters to its own queue
+      // after max retries so a wedged conversion never blocks the lane.
+      {
+        "queue": "magna-carta-production-conversion",
+        "max_concurrency": 2,
+        "dead_letter_queue": "magna-carta-production-conversion-deadletter",
+      },
     ],
   },
   // The async bulk-download coordinator — the codebase's first Durable Object. Keyed
