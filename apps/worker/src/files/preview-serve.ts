@@ -90,7 +90,15 @@ export function registerPreviewServeRoute(
     // Today, there is exactly one R2 binding (c.env.R2), so bytes are fetched via the signed, opaque
     // payload.r2Key. The payload.bucket field is a forward seam for per-firm buckets: when multiple
     // R2 bindings exist in the future, select the binding by payload.bucket here.
-    const head = await c.env.R2.head(payload.r2Key);
+    // Any transient R2 infrastructure failure is caught here so it never propagates to the global
+    // telemetry boundary (which would emit an error_ correlation id on the untrusted cookieless edge).
+    // Infrastructure errors are indistinguishable from a reaped object from the caller's perspective.
+    let head: R2Object | null;
+    try {
+      head = await c.env.R2.head(payload.r2Key);
+    } catch {
+      return previewNoLongerValid();
+    }
     if (head === null) return previewNoLongerValid();
     const totalSize = head.size;
 
@@ -113,15 +121,25 @@ export function registerPreviewServeRoute(
     }
 
     if (range === null) {
-      const object = await c.env.R2.get(payload.r2Key);
+      let object: R2ObjectBody | null;
+      try {
+        object = await c.env.R2.get(payload.r2Key);
+      } catch {
+        return previewNoLongerValid();
+      }
       if (object === null) return previewNoLongerValid();
       headers.set("Content-Length", String(totalSize));
       return new Response(object.body, { status: 200, headers });
     }
 
-    const object = await c.env.R2.get(payload.r2Key, {
-      range: { offset: range.offset, length: range.length },
-    });
+    let object: R2ObjectBody | null;
+    try {
+      object = await c.env.R2.get(payload.r2Key, {
+        range: { offset: range.offset, length: range.length },
+      });
+    } catch {
+      return previewNoLongerValid();
+    }
     if (object === null) return previewNoLongerValid();
     headers.set("Content-Length", String(range.length));
     headers.set(
@@ -136,7 +154,7 @@ export function registerPreviewServeRoute(
   // origin is a locked-down delivery surface; only signed preview tokens have a valid use there.
   // This catch-all sits before the ASSETS fallthrough so a request to files.* for any non-preview
   // path can never be answered by the SPA. Reasoning home: docs/conventions/security.md.
-  app.get("*", (c, next) => {
+  app.all("*", (c, next) => {
     const filesOrigin = c.env.FILES_ORIGIN;
     const hostname = new URL(c.req.url).hostname;
     if (filesOrigin !== undefined && hostname === filesOrigin) {
