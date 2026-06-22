@@ -1,6 +1,10 @@
 //! The bad-redaction detector: geometric detectors over an observed page, plus
 //! structural detectors over the object model, assembled into a ranked report.
 
+use std::collections::BTreeSet;
+
+use lopdf::{Object, ObjectId};
+
 use crate::textpos::{CoverMark, GlyphMark, PageObservation};
 use crate::Rect;
 
@@ -73,7 +77,11 @@ fn covering<'a>(glyph: &GlyphMark, covers: &'a [CoverMark]) -> Option<&'a CoverM
         .max_by_key(|c| c.order)
 }
 
-pub(crate) fn page_geometric_findings(obs: &PageObservation, page: usize) -> Vec<Finding> {
+pub(crate) fn page_geometric_findings(
+    obs: &PageObservation,
+    page: usize,
+    claimed: &std::collections::BTreeSet<usize>,
+) -> Vec<Finding> {
     // Group covered glyphs by the cover that hides them (identified by paint order).
     // This keeps the per-glyph detail for invisible text while producing one coherent
     // finding per cover region — so the recovered text reads as a contiguous run rather
@@ -85,12 +93,13 @@ pub(crate) fn page_geometric_findings(obs: &PageObservation, page: usize) -> Vec
     let mut covered_groups: BTreeMap<(usize, bool), (String, kurbo::Rect, kurbo::Rect)> =
         BTreeMap::new();
 
-    for g in &obs.glyphs {
+    for (i, g) in obs.glyphs.iter().enumerate() {
         if g.text.trim().is_empty() {
             continue;
         }
 
         if g.invisible {
+            // Invisible text is its own category and fires regardless of annotation claims.
             let region = Some(to_display_rect(g.bbox, obs.height_pt));
             findings.push(Finding {
                 category: Category::InvisibleText,
@@ -100,6 +109,12 @@ pub(crate) fn page_geometric_findings(obs: &PageObservation, page: usize) -> Vec
                 recovered_text: g.text.clone(),
                 detail: "Text drawn in an invisible render mode but extractable.".into(),
             });
+            continue;
+        }
+
+        if claimed.contains(&i) {
+            // This glyph is already reported under a RemovableAnnotation; skip the
+            // covered/whiteout determination to avoid double-reporting.
             continue;
         }
 
@@ -141,8 +156,6 @@ pub(crate) fn page_geometric_findings(obs: &PageObservation, page: usize) -> Vec
 
     findings
 }
-
-use lopdf::{Object, ObjectId};
 
 fn catalog_ref(doc: &lopdf::Document, key: &[u8]) -> Option<lopdf::ObjectId> {
     doc.catalog()
@@ -308,8 +321,6 @@ pub(crate) fn structural_findings(
     findings
 }
 
-use std::collections::BTreeSet;
-
 /// Annotation subtypes that paint over page content (and can be deleted to
 /// reveal it). `Redact` is the highest-signal: an unapplied redaction mark.
 const OBSCURING_ANNOTATIONS: &[&[u8]] = &[
@@ -373,8 +384,6 @@ fn rect_contains(r: &Rect, x: f32, y: f32) -> bool {
     x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1
 }
 
-// Wired into detect() in Task 3; allow dead_code until then.
-#[allow(dead_code)]
 pub(crate) fn annotation_findings(
     obs: &PageObservation,
     doc: &lopdf::Document,
@@ -544,6 +553,15 @@ pub fn detect(bytes: Vec<u8>) -> Result<DetectionReport, DetectError> {
     let pdf = hayro::hayro_syntax::Pdf::new(bytes.clone()).map_err(|_| DetectError::Parse)?;
     let page_count = pdf.pages().len();
 
+    // Load the lopdf document once for the per-page annotation pass. A separate
+    // fresh copy is used for structural_findings because that function mutates its
+    // document (traverse_objects takes &mut).
+    let lo = lopdf::Document::load_mem(&bytes).ok();
+    let page_ids: std::collections::BTreeMap<usize, lopdf::ObjectId> = lo
+        .as_ref()
+        .map(|doc| doc.get_pages().into_iter().map(|(n, id)| ((n - 1) as usize, id)).collect())
+        .unwrap_or_default();
+
     let mut findings = Vec::new();
     let mut glyphs_examined = 0;
     let mut pages_unreadable = Vec::new();
@@ -551,16 +569,23 @@ pub fn detect(bytes: Vec<u8>) -> Result<DetectionReport, DetectError> {
         match crate::textpos::observe_page(&pdf, page) {
             Some(obs) => {
                 glyphs_examined += obs.glyphs.len();
-                findings.extend(page_geometric_findings(&obs, page));
+                let (annot_findings, claimed) = match (lo.as_ref(), page_ids.get(&page)) {
+                    (Some(doc), Some(&page_id)) => annotation_findings(&obs, doc, page_id, page),
+                    _ => (Vec::new(), BTreeSet::new()),
+                };
+                findings.extend(annot_findings);
+                findings.extend(page_geometric_findings(&obs, page, &claimed));
             }
             None => pages_unreadable.push(page),
         }
     }
 
-    // Structural pass over the detector's own object-model copy.
-    if let Ok(mut doc) = lopdf::Document::load_mem(&bytes) {
-        findings.extend(structural_findings(&mut doc, 3));
-        findings.extend(hidden_layer_findings(&doc));
+    // Structural pass: needs its own mutable copy for traverse_objects; hidden_layer
+    // pass reuses the shared immutable reference loaded above.
+    if let Some(doc) = lo.as_ref() {
+        let mut doc_mut = lopdf::Document::load_mem(&bytes).unwrap_or_else(|_| doc.clone());
+        findings.extend(structural_findings(&mut doc_mut, 3));
+        findings.extend(hidden_layer_findings(doc));
     }
 
     findings.sort_by_key(|f| severity_rank(f.severity));
@@ -705,7 +730,7 @@ mod tests {
             width_pt: 600.0,
             height_pt: 800.0,
         };
-        let findings = page_geometric_findings(&obs, 0);
+        let findings = page_geometric_findings(&obs, 0, &BTreeSet::new());
         let covered: Vec<_> = findings
             .iter()
             .filter(|f| matches!(f.category, Category::CoveredText))
@@ -725,7 +750,7 @@ mod tests {
             width_pt: 600.0,
             height_pt: 800.0,
         };
-        let findings = page_geometric_findings(&obs, 0);
+        let findings = page_geometric_findings(&obs, 0, &BTreeSet::new());
         assert!(
             findings
                 .iter()
@@ -747,7 +772,7 @@ mod tests {
             width_pt: 600.0,
             height_pt: 800.0,
         };
-        let findings = page_geometric_findings(&obs, 0);
+        let findings = page_geometric_findings(&obs, 0, &BTreeSet::new());
         assert!(findings
             .iter()
             .any(|f| matches!(f.category, Category::WhiteoutText) && f.recovered_text == "white"));
@@ -1033,5 +1058,29 @@ mod tests {
                 && f.page == Some(0)),
             "expected HiddenLayer finding when /Resources is an indirect reference, got {findings:?}"
         );
+    }
+
+    #[test]
+    fn text_under_an_annotation_is_reported_once_as_removable_annotation() {
+        // hello.pdf with a Square annotation over the text region: the detector must
+        // report RemovableAnnotation, not (also) CoveredText, for that text.
+        use lopdf::dictionary;
+        let mut doc = lopdf::Document::load_mem(&corpus_bytes()).unwrap();
+        let page_id = *doc.get_pages().get(&1).unwrap();
+        let annot_id = doc.add_object(dictionary! {
+            "Type" => lopdf::Object::Name(b"Annot".to_vec()),
+            "Subtype" => lopdf::Object::Name(b"Square".to_vec()),
+            "Rect" => lopdf::Object::Array(vec![0.into(), 0.into(), 1000.into(), 1000.into()]),
+        });
+        let page = doc.get_dictionary_mut(page_id).unwrap();
+        page.set("Annots", lopdf::Object::Array(vec![lopdf::Object::Reference(annot_id)]));
+        let mut bytes = Vec::new();
+        doc.save_to(&mut bytes).unwrap();
+
+        let report = detect(bytes).expect("detect");
+        let removable = report.findings.iter().filter(|f| matches!(f.category, Category::RemovableAnnotation)).count();
+        let covered = report.findings.iter().filter(|f| matches!(f.category, Category::CoveredText)).count();
+        assert!(removable >= 1, "expected a RemovableAnnotation finding");
+        assert_eq!(covered, 0, "covered text under the annotation must not be double-reported");
     }
 }
