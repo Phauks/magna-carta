@@ -1,5 +1,6 @@
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
   DocumentTypeId,
@@ -38,7 +39,11 @@ import {
 import { selectFolderStatement } from "./folder-statements.ts";
 import { meterCommitStatements } from "./metering-statements.ts";
 import { recordScanCacheStatement } from "./scan-cache.ts";
-import { checkUploadPolicy, readUploadPolicy } from "./upload-policy.ts";
+import {
+  checkUploadPolicy,
+  readUploadPolicy,
+  scanEngineVersionDefinition,
+} from "./upload-policy.ts";
 import { FileManagerValidationError } from "./validation.ts";
 
 export type FileServiceOptions = AuditContext;
@@ -351,6 +356,19 @@ export async function commitVersion(
                 signature: null,
                 scannedAt: input.now,
               }),
+              // Stamp the firm's "current scan engine version" from the engine that just produced a
+              // real clean verdict — guarded identically to the cache record above, so it advances
+              // only on a definitive scan. This makes the current engine version an observable,
+              // auditable fact: the access-triggered re-scan path compares a version's stored
+              // scan_engine_version against this to decide staleness, and the dedup cache is keyed
+              // on it. An `unscanned`/no-engine commit never sets it, so it is never fabricated
+              // without a real scan.
+              writeFirmSettingStatement(
+                database,
+                scanEngineVersionDefinition,
+                input.scanEngineVersion,
+                input.now,
+              ),
             ]
           : []),
       ],

@@ -10,6 +10,7 @@ import {
 } from "../src/file-service.ts";
 import { createFolder } from "../src/folder-service.ts";
 import { listFiles } from "../src/queries.ts";
+import { readScanEngineVersion } from "../src/upload-policy.ts";
 import { ACTOR, freshDatabase, now, options, seedMatter } from "./support.ts";
 
 // A second matter (id + responsible member) alongside seedMatter's matter_a, for cross-matter guards.
@@ -215,6 +216,62 @@ describe("commitVersion — scan_detail persistence", () => {
       .bind(versionId)
       .all<{ scan_detail: string | null }>();
     expect(rows.results[0]?.scan_detail).toBe("trojan detected");
+  });
+});
+
+describe("commitVersion — current scan engine version stamp", () => {
+  it("stamps the firm's current scan engine version on a clean commit from a real engine", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    expect(await readScanEngineVersion(database)).toBeNull();
+    const { versionId } = await initiate(database, matterId);
+    const result = await commitVersion(
+      database,
+      {
+        versionId,
+        sizeBytes: 1024,
+        sniffedContentType: "application/pdf",
+        contentSha256: "hash-clean",
+        scanVerdict: "clean",
+        scanEngineVersion: "clamav/1.0+heuristics/1",
+        scanDetail: null,
+        now: now(),
+      },
+      options,
+    );
+    await commitEffectBatch(database, result.effect, { now });
+    expect(await readScanEngineVersion(database)).toBe("clamav/1.0+heuristics/1");
+  });
+
+  it("leaves the stamp unchanged on an unscanned commit (never fabricated without a real scan)", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { versionId } = await initiate(database, matterId);
+    await commit(database, versionId, "hash-unscanned");
+    // An `unscanned` commit carries no engine version — the stamp must stay null, never invented.
+    expect(await readScanEngineVersion(database)).toBeNull();
+  });
+
+  it("does not stamp a clean commit that carries no engine version", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { versionId } = await initiate(database, matterId);
+    const result = await commitVersion(
+      database,
+      {
+        versionId,
+        sizeBytes: 1024,
+        sniffedContentType: "application/pdf",
+        contentSha256: "hash-clean-noengine",
+        scanVerdict: "clean",
+        scanEngineVersion: null,
+        scanDetail: null,
+        now: now(),
+      },
+      options,
+    );
+    await commitEffectBatch(database, result.effect, { now });
+    expect(await readScanEngineVersion(database)).toBeNull();
   });
 });
 
