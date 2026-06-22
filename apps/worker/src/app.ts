@@ -31,6 +31,7 @@ import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
 import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
 import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
+import { registerDevWebToolsDemoRoute } from "./routes/dev-web-tools-demo.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 import { registerNumberingRoutes } from "./routes/numbering.ts";
@@ -112,6 +113,10 @@ export type Bindings = {
   // boot and run the full test suite without touching this binding; the route ALWAYS receives an
   // injected renderer dep in tests, so c.env.BROWSER is never accessed during testing.
   BROWSER?: unknown;
+  // Throwaway dev-only switch for the barebones /__dev/web-tools demo page (WHOIS + Safe Website
+  // Viewer). Unset in production, so the demo route answers 404 there; set DEV_DEMO_TOOLS=1 in
+  // .dev.vars to view it locally. Not part of any contract; remove the demo route when no longer needed.
+  DEV_DEMO_TOOLS?: string;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
@@ -332,6 +337,10 @@ export function createApp(options: CreateAppOptions = {}) {
       throw new Error("telemetry probe boom for leak@example.com");
     });
   }
+
+  // Throwaway dev-only demo page for the Websites & Domains tools (gated on DEV_DEMO_TOOLS; 404 in
+  // production). A bare route, so it never enters the OpenAPI contract. Remove with the demo file.
+  registerDevWebToolsDemoRoute(app);
 
   // Everything not handled above falls through to the static-asset SPA (Workers Static Assets binding).
   app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));
