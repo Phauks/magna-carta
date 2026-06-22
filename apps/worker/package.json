@@ -14,6 +14,7 @@
   "dependencies": {
     "@hono/zod-openapi": "catalog:",
     "@magna-carta/access-control": "workspace:*",
+    "@magna-carta/custom-fields": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
     "@magna-carta/directory": "workspace:*",
@@ -21,6 +22,7 @@
     "@magna-carta/file-manager": "workspace:*",
     "@magna-carta/government-links": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/inference": "workspace:*",
     "@magna-carta/integrations": "workspace:*",
     "@magna-carta/locations": "workspace:*",
     "@magna-carta/matters": "workspace:*",

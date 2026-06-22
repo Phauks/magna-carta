@@ -37,4 +37,14 @@ describe("plugin manifest fitness", () => {
     expect(appSource).not.toContain("routes/shipping");
     expect(appSource).not.toContain("registerShippingRoutes");
   });
+
+  it("the core (app.ts) imports nothing from a plugin package or folder (altitude guard)", () => {
+    // The platform seams app.ts builds the PluginRuntime from (the http client, the secret-store seam)
+    // must live in platform-neutral homes, not inside any one plugin. If a plugin package or the
+    // plugin-named ./shipping/ folder reappears in app.ts, a seam has drifted down to a plugin.
+    expect(appSource).not.toContain("@magna-carta/shipping");
+    expect(appSource).not.toContain("@magna-carta/parcels");
+    expect(appSource).not.toContain("@magna-carta/property-links");
+    expect(appSource).not.toContain("./shipping/");
+  });
 });

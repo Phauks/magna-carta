@@ -12,6 +12,8 @@ import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import type {
   AuditLogId,
+  CustomFieldId,
+  CustomFieldValueId,
   DirectoryAddressId,
   DirectoryCategoryId,
   DirectoryEdgeId,
@@ -44,6 +46,7 @@ import type {
   MemberRoleId,
   NumberingSchemeId,
   OutboxId,
+  PicklistOptionId,
   RoleId,
   RolePermissionId,
   ShipmentId,
@@ -106,6 +109,11 @@ export const member = sqliteTable("member", {
   status: text("status", { enum: ["active", "deactivated"] })
     .notNull()
     .default("active"),
+  // Per-user opt-out of product-usage analytics (the per-user override; the firm-level enable lives
+  // in the setting table). Default off (events flow) — a member sets this to opt themselves out.
+  optedOutOfUsageAnalytics: integer("opted_out_of_usage_analytics", { mode: "boolean" })
+    .notNull()
+    .default(false),
   createdAt: text("created_at").notNull(), // ISO-8601 instant
 });
 
@@ -283,7 +291,7 @@ export const accountBalance = sqliteTable(
 // metering BEHAVIOR lives in @magna-carta/{locations,matters,file-manager}, composed through the
 // data-access effect batch. No domain logic here.
 
-// A firm office/branch: the root of trust-account jurisdiction and safe custody in later phases, and
+// A firm office/branch: the root of trust-account jurisdiction and the Custodian hierarchy in later phases, and
 // the source of per-location letterhead/remit-to. Soft close only (never deleted).
 export const location = sqliteTable(
   "location",
@@ -626,6 +634,25 @@ export const storageMeter = sqliteTable(
     objectCount: integer("object_count").notNull(),
   },
   (table) => [primaryKey({ columns: [table.storageClass, table.artifactRole, table.prefix] })],
+);
+
+// Authoritative per-firm AI token usage, captured from the inference RESPONSE (the provider usage
+// object) — the durable, reconcilable billing source, never the gateway logs. Rolled up by
+// (day, slot, model_id) so the firm-usage diagnostics feed reads a compact per-day breakdown. Composite
+// NATURAL key (no handle) — the same documented exception as storage_meter; every key column is TEXT.
+// The rollup moves by delta (INSERT ... ON CONFLICT DO UPDATE SET col = col + excluded.col) in the same
+// batch as the run it counts.
+export const tokenUsageMeter = sqliteTable(
+  "token_usage_meter",
+  {
+    day: text("day").notNull(), // YYYY-MM-DD civil date bucket (UTC)
+    slot: text("slot").notNull(), // reasoning | utility | embedding
+    modelId: text("model_id").notNull(), // the gateway-routable, provider-prefixed id
+    inputTokens: integer("input_tokens").notNull(),
+    outputTokens: integer("output_tokens").notNull(),
+    requestCount: integer("request_count").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.day, table.slot, table.modelId] })],
 );
 
 // Per-firm key/value config (JSON values), read through a typed accessor with defaults in code: a
@@ -1130,5 +1157,89 @@ export const trackingEvent = sqliteTable(
       table.shipmentRef,
       table.remoteId,
     ),
+  ],
+);
+
+// Firm-defined fields that extend matter or entity records with arbitrary typed data.
+// kind controls which value_* column is populated in custom_field_value; attachment_id scopes
+// the field to a specific matter type or entity category (null = applies to all).
+// number_scale is the number of decimal places implied by value_number (integer storage).
+export const customField = sqliteTable(
+  "custom_field",
+  {
+    id: text("id").primaryKey().$type<CustomFieldId>(),
+    name: text("name").notNull(),
+    kind: text("kind", {
+      enum: [
+        "checkbox",
+        "date",
+        "time",
+        "number",
+        "currency",
+        "picklist",
+        "single-line",
+        "multi-line",
+        "url",
+        "email",
+        "matter-reference",
+        "contact-reference",
+      ],
+    }).notNull(),
+    target: text("target", { enum: ["matter", "entity"] }).notNull(),
+    attachmentId: text("attachment_id"),
+    numberScale: integer("number_scale"),
+    required: integer("required").notNull().default(0),
+    archived: integer("archived").notNull().default(0),
+    converting: integer("converting").notNull().default(0),
+    position: integer("position").notNull().default(0),
+    templateFieldKey: text("template_field_key"),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (table) => [index("custom_field_scope_index").on(table.target, table.attachmentId)],
+);
+
+// Available choices for a picklist custom field. Soft-archived (never deleted); position controls
+// display order. field_id must reference a custom_field of kind 'picklist'.
+export const picklistOption = sqliteTable(
+  "picklist_option",
+  {
+    id: text("id").primaryKey().$type<PicklistOptionId>(),
+    fieldId: text("field_id").notNull().$type<CustomFieldId>(),
+    name: text("name").notNull(),
+    position: integer("position").notNull().default(0),
+    archived: integer("archived").notNull().default(0),
+  },
+  (table) => [index("picklist_option_field_id_index").on(table.fieldId)],
+);
+
+// Temporal value rows for a custom field on a target record (matter or entity). Exactly one of the
+// five value_* columns must be non-null (enforced by CHECK). The partial unique index on
+// (target_row_id, field_id) WHERE is_current = 1 guarantees at most one live value per field per
+// record; superseded rows are retained (is_current = 0) for history and audit.
+export const customFieldValue = sqliteTable(
+  "custom_field_value",
+  {
+    id: text("id").primaryKey().$type<CustomFieldValueId>(),
+    fieldId: text("field_id").notNull().$type<CustomFieldId>(),
+    targetRowId: text("target_row_id").notNull(),
+    valueText: text("value_text"),
+    valueNumber: integer("value_number"),
+    valueDate: text("value_date"),
+    valueOptionId: text("value_option_id").$type<PicklistOptionId>(),
+    valueReferenceId: text("value_reference_id"),
+    isCurrent: integer("is_current").notNull().default(1),
+    validFrom: text("valid_from").notNull(),
+    validTo: text("valid_to"),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (table) => [
+    uniqueIndex("custom_field_value_current_unique_index")
+      .on(table.targetRowId, table.fieldId)
+      .where(sql`${table.isCurrent} = 1`),
+    index("custom_field_value_record_index").on(table.targetRowId, table.isCurrent),
+    index("custom_field_value_field_index").on(table.fieldId),
+    index("custom_field_value_reference_index").on(table.valueReferenceId),
   ],
 );

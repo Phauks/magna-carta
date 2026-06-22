@@ -24,7 +24,9 @@
     "./load-profile/protected-measurements": "./src/load-profile/protected-measurements.ts",
     "./load-profile/directory-generate": "./src/load-profile/directory-generate.ts",
     "./load-profile/directory-measurements": "./src/load-profile/directory-measurements.ts",
-    "./load-profile/shipping-measurements": "./src/load-profile/shipping-measurements.ts"
+    "./load-profile/shipping-measurements": "./src/load-profile/shipping-measurements.ts",
+    "./load-profile/custom-field-generate": "./src/load-profile/custom-field-generate.ts",
+    "./load-profile/custom-field-measurements": "./src/load-profile/custom-field-measurements.ts"
   },
   "scripts": {
     "measure": "node --experimental-transform-types src/load-profile/measure-cli.ts",
@@ -32,6 +34,7 @@
   },
   "dependencies": {
     "@faker-js/faker": "catalog:",
+    "@magna-carta/custom-fields": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
     "@magna-carta/directory": "workspace:*",

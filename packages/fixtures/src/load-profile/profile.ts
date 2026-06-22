@@ -95,6 +95,36 @@ export interface DirectoryVolume {
   readonly matterPartyFraction: number;
 }
 
+// The custom-field volume laid over the practice + directory: firm-defined fields attached to the
+// matter types and entity categories the practice/directory generators created, picklist options on
+// the picklist fields, and temporal value rows on the busiest matters and entities. This is the
+// queryable shadow of the custom-fields surface — the per-record current-value read (the matter/entity
+// detail panel), the contact-reference back-reference lookup (which records point at an entity, the
+// merge repoint's read), and the convert preview scan (a field's whole current-value set classified for
+// a kind change). Every count is a PARAMETER here, never a generator constant — changing one bumps the
+// profile `version`, so a baseline never silently compares two different shapes. Sized like an
+// established firm's field usage, not a stress run; the per-scope and per-field counts stay well under
+// the limits.ts caps so the measured per-record read keeps its realistic ceiling.
+export interface CustomFieldVolume {
+  // Fields defined on each matter type (attachment_id = the matter type) — the matter detail panel
+  // renders this many custom rows for a matter of that type.
+  readonly fieldsPerMatterType: number;
+  // Fields defined on each entity category (attachment_id = the category) — the same for an entity.
+  readonly fieldsPerCategory: number;
+  // Picklist options created on each picklist field (the choice list a picklist field offers).
+  readonly optionsPerPicklist: number;
+  // Current values set on each of the busiest records (one per field in the record's scope) — the
+  // per-record read fans over this many rows. The probe record is given the full set so its read is
+  // the volume-shaped hot case.
+  readonly valuesPerRecord: number;
+  // History depth per value on the probe field: each value is re-set this many times, so the field's
+  // table carries history rows (is_current = 0) the convert scan must still skip over via the index.
+  readonly historyDepth: number;
+  // Fraction of the entity records' values that are contact-reference values pointing at another
+  // entity — the back-reference corpus the merge repoint and the reference lookup traverse.
+  readonly referenceShare: number;
+}
+
 export interface LedgerVolumeProfile {
   readonly name: "ledgerVolume";
   // Profile identity: bump on ANY parameter change — baselines measured against different data
@@ -116,6 +146,8 @@ export interface LedgerVolumeProfile {
   readonly directory: DirectoryVolume;
   // The shipping volume laid over the practice book (shipments/labels/tracking).
   readonly shipping: ShippingVolume;
+  // The custom-field volume laid over the practice + directory (fields, options, values, history).
+  readonly customFields: CustomFieldVolume;
 }
 
 // A plausible established small firm: a few years of posting activity over a 200-client trust book,
@@ -123,7 +155,7 @@ export interface LedgerVolumeProfile {
 // files with multi-version histories.
 export const ledgerVolume: LedgerVolumeProfile = {
   name: "ledgerVolume",
-  version: 5,
+  version: 6,
   trustSubledgerCount: 200,
   entryCount: 25_000,
   postingSpanDays: 1_095,
@@ -170,6 +202,18 @@ export const ledgerVolume: LedgerVolumeProfile = {
     purchasedPercent: 70,
     trackingEventsPerShipment: { min: 1, max: 5 },
   },
+  customFields: {
+    // An established firm's field usage: a handful of fields per matter type and per entity category
+    // (well under the 60-per-scope cap), a modest picklist, a full set of current values on the busiest
+    // records, a few re-sets of history per value, and a fifth of an entity's values being
+    // contact-references into the directory.
+    fieldsPerMatterType: 8,
+    fieldsPerCategory: 6,
+    optionsPerPicklist: 12,
+    valuesPerRecord: 14,
+    historyDepth: 3,
+    referenceShare: 0.2,
+  },
 };
 
 // One profile, every scale: CI smoke (~0.01), local working scale (1), deliberate stress runs
@@ -210,6 +254,17 @@ export function scaleProfile(
     shipping: {
       ...profile.shipping,
       shipmentCount: scaleCount(profile.shipping.shipmentCount, 5),
+    },
+    customFields: {
+      ...profile.customFields,
+      // Floors keep a couple of fields per scope, a short picklist, a multi-row value set per record
+      // (so the per-record read has its fan and the convert scan has values), and at least one history
+      // re-set at the smoke multiplier. referenceShare is a fraction (not scaled).
+      fieldsPerMatterType: scaleCount(profile.customFields.fieldsPerMatterType, 2),
+      fieldsPerCategory: scaleCount(profile.customFields.fieldsPerCategory, 2),
+      optionsPerPicklist: scaleCount(profile.customFields.optionsPerPicklist, 2),
+      valuesPerRecord: scaleCount(profile.customFields.valuesPerRecord, 3),
+      historyDepth: scaleCount(profile.customFields.historyDepth, 1),
     },
   };
 }

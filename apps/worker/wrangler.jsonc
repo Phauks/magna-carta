@@ -81,6 +81,9 @@
     "bindings": [{ "name": "DOCUMENT_SESSION", "class_name": "DocumentSession" }],
   },
   "migrations": [{ "tag": "v1-editing-document-session", "new_sqlite_classes": ["DocumentSession"] }],
+  // Workers AI — the authenticated binding the inference foundation reaches the AI Gateway through.
+  // No per-firm provider key at launch (Unified Billing, Cloudflare-managed credentials).
+  "ai": { "binding": "AI" },
   // FILES_INGEST carries one R2 event per uploaded object to the ingest consumer (single read:
   // magic-byte gates + streaming SHA-256 + scan port, then commit or quarantine). It is a distinct
   // queue from the platform job queue so upload bursts cannot starve the outbox relay, and so its
@@ -90,6 +93,7 @@
     "producers": [
       { "binding": "QUEUE", "queue": "magna-carta-production-platform-jobs" },
       { "binding": "FILES_INGEST", "queue": "magna-carta-production-files-ingest" },
+      { "binding": "INFERENCE", "queue": "magna-carta-production-inference" },
     ],
     // The files-ingest consumer (the queue() handler in src/index.ts over the ingest consumer): one
     // R2 object-create event per uploaded object → single-read gates + SHA-256 + scan port → commit
@@ -99,6 +103,10 @@
       {
         "queue": "magna-carta-production-files-ingest",
         "dead_letter_queue": "magna-carta-production-files-ingest-deadletter",
+      },
+      {
+        "queue": "magna-carta-production-inference",
+        "dead_letter_queue": "magna-carta-production-inference-deadletter",
       },
     ],
   },

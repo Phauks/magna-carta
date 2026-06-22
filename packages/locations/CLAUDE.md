@@ -2,7 +2,7 @@
 
 **Purpose.** The firm-office (Location) domain module: addresses, letterhead/remit-to text, the
 matter-numbering location code, staff assignment, and soft close. A Location is the root of trust-account
-jurisdiction and safe custody in later phases. Validates in memory and composes statements into
+jurisdiction and the Custodian hierarchy in later phases. Validates in memory and composes statements into
 @magna-carta/data-access's `composeEffectBatch`; never runs logic mid-transaction and never calls
 external services.
 

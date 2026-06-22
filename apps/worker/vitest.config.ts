@@ -21,6 +21,9 @@ export default defineConfig({
   root: import.meta.dirname,
   plugins: [
     sqlAsText(),
-    cloudflareTest({ wrangler: { configPath: `${import.meta.dirname}/wrangler.jsonc` } }),
+    cloudflareTest({
+      wrangler: { configPath: `${import.meta.dirname}/wrangler.jsonc` },
+      remoteBindings: false,
+    }),
   ],
 });

@@ -1,0 +1,210 @@
+{
+  "profileName": "ledgerVolume",
+  "profileVersion": 6,
+  "cacheKey": "eeba563cca2f70f1",
+  "results": [
+    {
+      "name": "balance-read.busy-subledger",
+      "iterations": 30,
+      "minMs": 0.063,
+      "medianMs": 0.077,
+      "p95Ms": 0.171
+    },
+    {
+      "name": "create-account.trust-subledger",
+      "iterations": 30,
+      "minMs": 3.202,
+      "medianMs": 3.547,
+      "p95Ms": 4.31
+    },
+    {
+      "name": "custom-field.merge-repoint",
+      "iterations": 30,
+      "minMs": 4.938,
+      "medianMs": 5.828,
+      "p95Ms": 7.481
+    },
+    {
+      "name": "custom-field.preview-convert-scan",
+      "iterations": 30,
+      "minMs": 0.225,
+      "medianMs": 0.267,
+      "p95Ms": 0.461
+    },
+    {
+      "name": "custom-field.read-current-values",
+      "iterations": 30,
+      "minMs": 0.082,
+      "medianMs": 0.086,
+      "p95Ms": 0.138
+    },
+    {
+      "name": "custom-field.reference-lookup",
+      "iterations": 30,
+      "minMs": 0.066,
+      "medianMs": 0.069,
+      "p95Ms": 0.09
+    },
+    {
+      "name": "directory.candidate-generation",
+      "iterations": 30,
+      "minMs": 1.24,
+      "medianMs": 1.414,
+      "p95Ms": 3.463
+    },
+    {
+      "name": "directory.find-by-identifier",
+      "iterations": 30,
+      "minMs": 0.349,
+      "medianMs": 0.359,
+      "p95Ms": 0.427
+    },
+    {
+      "name": "directory.graph-expansion",
+      "iterations": 30,
+      "minMs": 0.09,
+      "medianMs": 0.095,
+      "p95Ms": 0.166
+    },
+    {
+      "name": "directory.read-protected-list",
+      "iterations": 30,
+      "minMs": 197.791,
+      "medianMs": 213.057,
+      "p95Ms": 235.319
+    },
+    {
+      "name": "get-current-clean-version",
+      "iterations": 30,
+      "minMs": 0.109,
+      "medianMs": 0.119,
+      "p95Ms": 0.155
+    },
+    {
+      "name": "ledger-fitness.table-wide",
+      "iterations": 30,
+      "minMs": 323.346,
+      "medianMs": 380.805,
+      "p95Ms": 420.926
+    },
+    {
+      "name": "list-clean-versions.by-file",
+      "iterations": 30,
+      "minMs": 0.12,
+      "medianMs": 0.138,
+      "p95Ms": 0.196
+    },
+    {
+      "name": "list-consultations.by-member",
+      "iterations": 30,
+      "minMs": 0.301,
+      "medianMs": 0.312,
+      "p95Ms": 0.385
+    },
+    {
+      "name": "list-files.by-folder",
+      "iterations": 30,
+      "minMs": 0.128,
+      "medianMs": 0.132,
+      "p95Ms": 0.191
+    },
+    {
+      "name": "list-files.by-matter",
+      "iterations": 30,
+      "minMs": 0.199,
+      "medianMs": 0.217,
+      "p95Ms": 0.276
+    },
+    {
+      "name": "list-matters.filtered",
+      "iterations": 30,
+      "minMs": 0.239,
+      "medianMs": 0.262,
+      "p95Ms": 0.345
+    },
+    {
+      "name": "list-matters.first-page",
+      "iterations": 30,
+      "minMs": 0.398,
+      "medianMs": 0.427,
+      "p95Ms": 0.504
+    },
+    {
+      "name": "list-shipments.by-matter",
+      "iterations": 30,
+      "minMs": 0.113,
+      "medianMs": 0.122,
+      "p95Ms": 0.171
+    },
+    {
+      "name": "list-tracking-events.by-shipment",
+      "iterations": 30,
+      "minMs": 0.11,
+      "medianMs": 0.118,
+      "p95Ms": 0.141
+    },
+    {
+      "name": "matter-number.counter-draw",
+      "iterations": 30,
+      "minMs": 4.857,
+      "medianMs": 5.888,
+      "p95Ms": 7.734
+    },
+    {
+      "name": "post-entry.two-line",
+      "iterations": 30,
+      "minMs": 13.6,
+      "medianMs": 16.021,
+      "p95Ms": 22.514
+    },
+    {
+      "name": "protected.blind-index-compute",
+      "iterations": 30,
+      "minMs": 0.166,
+      "medianMs": 0.193,
+      "p95Ms": 0.368
+    },
+    {
+      "name": "protected.firm-secret-read",
+      "iterations": 30,
+      "minMs": 3.658,
+      "medianMs": 4.409,
+      "p95Ms": 5.962
+    },
+    {
+      "name": "protected.incident-decrypt-page",
+      "iterations": 30,
+      "minMs": 198.159,
+      "medianMs": 221.69,
+      "p95Ms": 255.724
+    },
+    {
+      "name": "reverse-entry.two-line",
+      "iterations": 30,
+      "minMs": 13.543,
+      "medianMs": 15.736,
+      "p95Ms": 20.691
+    },
+    {
+      "name": "storage-meter.summary",
+      "iterations": 30,
+      "minMs": 0.056,
+      "medianMs": 0.057,
+      "p95Ms": 0.075
+    },
+    {
+      "name": "zip-resolution.clean-current-versions",
+      "iterations": 30,
+      "minMs": 0.193,
+      "medianMs": 0.229,
+      "p95Ms": 0.322
+    },
+    {
+      "name": "zip-resolution.folders-by-matter",
+      "iterations": 30,
+      "minMs": 0.069,
+      "medianMs": 0.083,
+      "p95Ms": 0.538
+    }
+  ]
+}

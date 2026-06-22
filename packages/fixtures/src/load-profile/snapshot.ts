@@ -25,6 +25,7 @@ import { generatePracticeVolume, type PracticeProbes } from "./matters-generate.
 import { generateProtectedVolume, type ProtectedProbes } from "./protected-generate.ts";
 import { generateDirectoryVolume, type DirectoryProbes } from "./directory-generate.ts";
 import { generateShippingVolume, type ShippingProbes } from "./shipping-generate.ts";
+import { generateCustomFieldVolume, type CustomFieldProbes } from "./custom-field-generate.ts";
 import { GENERATOR_VERSION, type LedgerVolumeProfile } from "./profile.ts";
 
 // Snapshot identity: the resolved profile parameters, the generation seed, the per-firm schema
@@ -61,6 +62,13 @@ export interface SnapshotManifest {
   readonly purchasedShipmentCount: number;
   readonly trackingEventCount: number;
   readonly shippingProbes: ShippingProbes;
+  // The custom-field volume laid over the practice + directory (fields on matter types + entity
+  // categories, picklist options, temporal values) and the probe identifiers the custom-field
+  // measurement layer binds its per-record read / reference lookup / convert scan / merge repoint to.
+  readonly customFieldDefinitionCount: number;
+  readonly picklistOptionCount: number;
+  readonly customFieldValueCount: number;
+  readonly customFieldProbes: CustomFieldProbes;
 }
 
 export interface LoadedSnapshot extends MigratedNodeDatabase {
@@ -155,12 +163,21 @@ export async function loadProfileSnapshot(
         profile.directory,
         options,
       );
-      // The shipping volume rides last on the same FixtureContext, linking its shipments to the
+      // The shipping volume rides next on the same FixtureContext, linking its shipments to the
       // matters the practice generation laid down.
       const shipping = await generateShippingVolume(
         generated.database,
         context,
         profile.shipping,
+        options,
+      );
+      // The custom-field volume rides last — it attaches fields to the matter types the practice
+      // generator made and sets reference values pointing at the directory generator's entities, so it
+      // must run after both.
+      const customFields = await generateCustomFieldVolume(
+        generated.database,
+        context,
+        profile.customFields,
         options,
       );
       const manifest: SnapshotManifest = {
@@ -185,6 +202,10 @@ export async function loadProfileSnapshot(
         purchasedShipmentCount: shipping.purchasedCount,
         trackingEventCount: shipping.trackingEventCount,
         shippingProbes: shipping.probes,
+        customFieldDefinitionCount: customFields.customFieldDefinitionCount,
+        picklistOptionCount: customFields.picklistOptionCount,
+        customFieldValueCount: customFields.customFieldValueCount,
+        customFieldProbes: customFields.probes,
       };
       // Artifact before manifest: the replay gate above requires BOTH files, so a crash between
       // the two writes leaves a regenerable miss, never a manifest pointing at a missing artifact.

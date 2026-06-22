@@ -622,6 +622,133 @@ export type LinkMatterPartyRequest = {
     role: string;
 };
 
+export type CustomFieldAck = {
+    id: string;
+};
+
+export type DefineCustomFieldRequest = {
+    name: string;
+    kind: 'checkbox' | 'date' | 'time' | 'number' | 'currency' | 'picklist' | 'single-line' | 'multi-line' | 'url' | 'email' | 'matter-reference' | 'contact-reference';
+    target: 'matter' | 'entity';
+    attachmentId: string | null;
+    numberScale?: number | null;
+    required?: boolean;
+};
+
+export type CustomFieldOkAck = {
+    ok: boolean;
+};
+
+export type RenameCustomFieldRequest = {
+    name: string;
+};
+
+export type SetCustomFieldRequiredRequest = {
+    required: boolean;
+};
+
+export type ReorderCustomFieldRequest = {
+    position: number;
+};
+
+export type PurgeCustomFieldRequest = {
+    reason: string;
+};
+
+export type ResolvedCustomFieldResponse = {
+    status: 'active' | 'archived' | 'absent';
+    field: {
+        id: string;
+        name: string;
+        kind: string;
+        target: string;
+        attachmentId: string | null;
+        archived: number;
+    } | null;
+};
+
+export type ConvertCustomFieldPreviewResponse = {
+    clean: number;
+    needsRule: number;
+    parked: Array<{
+        targetRowId: string;
+    }>;
+};
+
+export type ConvertCustomFieldPreviewRequest = {
+    toKind: 'checkbox' | 'date' | 'time' | 'number' | 'currency' | 'picklist' | 'single-line' | 'multi-line' | 'url' | 'email' | 'matter-reference' | 'contact-reference';
+};
+
+export type ConvertCustomFieldApplyRequest = {
+    toKind: 'checkbox' | 'date' | 'time' | 'number' | 'currency' | 'picklist' | 'single-line' | 'multi-line' | 'url' | 'email' | 'matter-reference' | 'contact-reference';
+    parkedDisposition: 'park' | 'block';
+};
+
+export type PicklistOptionAck = {
+    id: string;
+};
+
+export type CreatePicklistOptionRequest = {
+    name: string;
+};
+
+export type RenamePicklistOptionRequest = {
+    name: string;
+};
+
+export type ReorderPicklistOptionRequest = {
+    position: number;
+};
+
+export type CustomFieldValueAck = {
+    id: string;
+};
+
+export type SetCustomFieldValueRequest = {
+    fieldId: string;
+    targetRowId: string;
+    value: CustomFieldValueInput;
+};
+
+export type CustomFieldValueInput = {
+    kind: 'text';
+    text: string;
+} | {
+    kind: 'number';
+    number: number;
+} | {
+    kind: 'date';
+    date: string;
+} | {
+    kind: 'picklist';
+    optionId: string;
+} | {
+    kind: 'reference';
+    referenceId: string;
+    referenceKind: 'matter-reference' | 'contact-reference';
+};
+
+export type ClearCustomFieldValueRequest = {
+    fieldId: string;
+    targetRowId: string;
+};
+
+export type CustomFieldValueListResponse = {
+    data: Array<CustomFieldValueRow>;
+};
+
+export type CustomFieldValueRow = {
+    id: string;
+    fieldId: string;
+    valueText: string | null;
+    valueNumber: number | null;
+    valueDate: string | null;
+    valueOptionId: string | null;
+    valueReferenceId: string | null;
+    validFrom: string;
+    validTo: string | null;
+};
+
 export type ShippingConnectAck = {
     id: string;
     status: string;
@@ -3505,6 +3632,1017 @@ export type DirectoryLinkMatterPartyResponses = {
 };
 
 export type DirectoryLinkMatterPartyResponse = DirectoryLinkMatterPartyResponses[keyof DirectoryLinkMatterPartyResponses];
+
+export type CustomFieldsDefineFieldData = {
+    body: DefineCustomFieldRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/custom-fields/fields';
+};
+
+export type CustomFieldsDefineFieldErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the field is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the field/option is in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustomFieldsDefineFieldError = CustomFieldsDefineFieldErrors[keyof CustomFieldsDefineFieldErrors];
+
+export type CustomFieldsDefineFieldResponses = {
+    /**
+     * The created field
+     */
+    201: CustomFieldAck;
+};
+
+export type CustomFieldsDefineFieldResponse = CustomFieldsDefineFieldResponses[keyof CustomFieldsDefineFieldResponses];
+
+export type CustomFieldsRenameFieldData = {
+    body: RenameCustomFieldRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        fieldId: string;
+    };
+    query?: never;
+    url: '/api/v1/custom-fields/fields/{fieldId}/name';
+};
+
+export type CustomFieldsRenameFieldErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the field is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the field/option is in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustomFieldsRenameFieldError = CustomFieldsRenameFieldErrors[keyof CustomFieldsRenameFieldErrors];
+
+export type CustomFieldsRenameFieldResponses = {
+    /**
+     * The field was renamed
+     */
+    200: CustomFieldOkAck;
+};
+
+export type CustomFieldsRenameFieldResponse = CustomFieldsRenameFieldResponses[keyof CustomFieldsRenameFieldResponses];
+
+export type CustomFieldsSetRequiredData = {
+    body: SetCustomFieldRequiredRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        fieldId: string;
+    };
+    query?: never;
+    url: '/api/v1/custom-fields/fields/{fieldId}/required';
+};
+
+export type CustomFieldsSetRequiredErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the field is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the field/option is in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustomFieldsSetRequiredError = CustomFieldsSetRequiredErrors[keyof CustomFieldsSetRequiredErrors];
+
+export type CustomFieldsSetRequiredResponses = {
+    /**
+     * The field's required flag was set
+     */
+    200: CustomFieldOkAck;
+};
+
+export type CustomFieldsSetRequiredResponse = CustomFieldsSetRequiredResponses[keyof CustomFieldsSetRequiredResponses];
+
+export type CustomFieldsReorderFieldData = {
+    body: ReorderCustomFieldRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        fieldId: string;
+    };
+    query?: never;
+    url: '/api/v1/custom-fields/fields/{fieldId}/position';
+};
+
+export type CustomFieldsReorderFieldErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the field is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the field/option is in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustomFieldsReorderFieldError = CustomFieldsReorderFieldErrors[keyof CustomFieldsReorderFieldErrors];
+
+export type CustomFieldsReorderFieldResponses = {
+    /**
+     * The field was repositioned
+     */
+    200: CustomFieldOkAck;
+};
+
+export type CustomFieldsReorderFieldResponse = CustomFieldsReorderFieldResponses[keyof CustomFieldsReorderFieldResponses];
+
+export type CustomFieldsArchiveFieldData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        fieldId: string;
+    };
+    query?: never;
+    url: '/api/v1/custom-fields/fields/{fieldId}/archive';
+};
+
+export type CustomFieldsArchiveFieldErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the field is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the field/option is in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustomFieldsArchiveFieldError = CustomFieldsArchiveFieldErrors[keyof CustomFieldsArchiveFieldErrors];
+
+export type CustomFieldsArchiveFieldResponses = {
+    /**
+     * The field was archived
+     */
+    200: CustomFieldOkAck;
+};
+
+export type CustomFieldsArchiveFieldResponse = CustomFieldsArchiveFieldResponses[keyof CustomFieldsArchiveFieldResponses];
+
+export type CustomFieldsUnarchiveFieldData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        fieldId: string;
+    };
+    query?: never;
+    url: '/api/v1/custom-fields/fields/{fieldId}/unarchive';
+};
+
+export type CustomFieldsUnarchiveFieldErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the field is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the field/option is in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustomFieldsUnarchiveFieldError = CustomFieldsUnarchiveFieldErrors[keyof CustomFieldsUnarchiveFieldErrors];
+
+export type CustomFieldsUnarchiveFieldResponses = {
+    /**
+     * The field was restored
+     */
+    200: CustomFieldOkAck;
+};
+
+export type CustomFieldsUnarchiveFieldResponse = CustomFieldsUnarchiveFieldResponses[keyof CustomFieldsUnarchiveFieldResponses];
+
+export type CustomFieldsHardDeleteFieldData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        fieldId: string;
+    };
+    query?: never;
+    url: '/api/v1/custom-fields/fields/{fieldId}';
+};
+
+export type CustomFieldsHardDeleteFieldErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the field is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the field/option is in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustomFieldsHardDeleteFieldError = CustomFieldsHardDeleteFieldErrors[keyof CustomFieldsHardDeleteFieldErrors];
+
+export type CustomFieldsHardDeleteFieldResponses = {
+    /**
+     * The field was deleted
+     */
+    200: CustomFieldOkAck;
+};
+
+export type CustomFieldsHardDeleteFieldResponse = CustomFieldsHardDeleteFieldResponses[keyof CustomFieldsHardDeleteFieldResponses];
+
+export type CustomFieldsResolveFieldData = {
+    body?: never;
+    path: {
+        fieldId: string;
+    };
+    query?: never;
+    url: '/api/v1/custom-fields/fields/{fieldId}';
+};
+
+export type CustomFieldsResolveFieldErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the field is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustomFieldsResolveFieldError = CustomFieldsResolveFieldErrors[keyof CustomFieldsResolveFieldErrors];
+
+export type CustomFieldsResolveFieldResponses = {
+    /**
+     * The resolved field
+     */
+    200: ResolvedCustomFieldResponse;
+};
+
+export type CustomFieldsResolveFieldResponse = CustomFieldsResolveFieldResponses[keyof CustomFieldsResolveFieldResponses];
+
+export type CustomFieldsPurgeFieldData = {
+    body: PurgeCustomFieldRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        fieldId: string;
+    };
+    query?: never;
+    url: '/api/v1/custom-fields/fields/{fieldId}/purge';
+};
+
+export type CustomFieldsPurgeFieldErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the field is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the field/option is in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustomFieldsPurgeFieldError = CustomFieldsPurgeFieldErrors[keyof CustomFieldsPurgeFieldErrors];
+
+export type CustomFieldsPurgeFieldResponses = {
+    /**
+     * The field was purged
+     */
+    200: CustomFieldOkAck;
+};
+
+export type CustomFieldsPurgeFieldResponse = CustomFieldsPurgeFieldResponses[keyof CustomFieldsPurgeFieldResponses];
+
+export type CustomFieldsPreviewConvertData = {
+    body: ConvertCustomFieldPreviewRequest;
+    path: {
+        fieldId: string;
+    };
+    query?: never;
+    url: '/api/v1/custom-fields/fields/{fieldId}/convert/preview';
+};
+
+export type CustomFieldsPreviewConvertErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the field is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the field/option is in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustomFieldsPreviewConvertError = CustomFieldsPreviewConvertErrors[keyof CustomFieldsPreviewConvertErrors];
+
+export type CustomFieldsPreviewConvertResponses = {
+    /**
+     * The conversion preview counts
+     */
+    200: ConvertCustomFieldPreviewResponse;
+};
+
+export type CustomFieldsPreviewConvertResponse = CustomFieldsPreviewConvertResponses[keyof CustomFieldsPreviewConvertResponses];
+
+export type CustomFieldsApplyConvertData = {
+    body: ConvertCustomFieldApplyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        fieldId: string;
+    };
+    query?: never;
+    url: '/api/v1/custom-fields/fields/{fieldId}/convert';
+};
+
+export type CustomFieldsApplyConvertErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the field is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the field/option is in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustomFieldsApplyConvertError = CustomFieldsApplyConvertErrors[keyof CustomFieldsApplyConvertErrors];
+
+export type CustomFieldsApplyConvertResponses = {
+    /**
+     * The field was retyped
+     */
+    200: CustomFieldOkAck;
+};
+
+export type CustomFieldsApplyConvertResponse = CustomFieldsApplyConvertResponses[keyof CustomFieldsApplyConvertResponses];
+
+export type CustomFieldsCreateOptionData = {
+    body: CreatePicklistOptionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        fieldId: string;
+    };
+    query?: never;
+    url: '/api/v1/custom-fields/fields/{fieldId}/options';
+};
+
+export type CustomFieldsCreateOptionErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the field is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the field/option is in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustomFieldsCreateOptionError = CustomFieldsCreateOptionErrors[keyof CustomFieldsCreateOptionErrors];
+
+export type CustomFieldsCreateOptionResponses = {
+    /**
+     * The created option
+     */
+    201: PicklistOptionAck;
+};
+
+export type CustomFieldsCreateOptionResponse = CustomFieldsCreateOptionResponses[keyof CustomFieldsCreateOptionResponses];
+
+export type CustomFieldsRenameOptionData = {
+    body: RenamePicklistOptionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        optionId: string;
+    };
+    query?: never;
+    url: '/api/v1/custom-fields/options/{optionId}/name';
+};
+
+export type CustomFieldsRenameOptionErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the field is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the field/option is in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustomFieldsRenameOptionError = CustomFieldsRenameOptionErrors[keyof CustomFieldsRenameOptionErrors];
+
+export type CustomFieldsRenameOptionResponses = {
+    /**
+     * The option was renamed
+     */
+    200: CustomFieldOkAck;
+};
+
+export type CustomFieldsRenameOptionResponse = CustomFieldsRenameOptionResponses[keyof CustomFieldsRenameOptionResponses];
+
+export type CustomFieldsReorderOptionData = {
+    body: ReorderPicklistOptionRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        optionId: string;
+    };
+    query?: never;
+    url: '/api/v1/custom-fields/options/{optionId}/position';
+};
+
+export type CustomFieldsReorderOptionErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the field is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the field/option is in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustomFieldsReorderOptionError = CustomFieldsReorderOptionErrors[keyof CustomFieldsReorderOptionErrors];
+
+export type CustomFieldsReorderOptionResponses = {
+    /**
+     * The option was repositioned
+     */
+    200: CustomFieldOkAck;
+};
+
+export type CustomFieldsReorderOptionResponse = CustomFieldsReorderOptionResponses[keyof CustomFieldsReorderOptionResponses];
+
+export type CustomFieldsArchiveOptionData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        optionId: string;
+    };
+    query?: never;
+    url: '/api/v1/custom-fields/options/{optionId}/archive';
+};
+
+export type CustomFieldsArchiveOptionErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the field is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the field/option is in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustomFieldsArchiveOptionError = CustomFieldsArchiveOptionErrors[keyof CustomFieldsArchiveOptionErrors];
+
+export type CustomFieldsArchiveOptionResponses = {
+    /**
+     * The option was archived
+     */
+    200: CustomFieldOkAck;
+};
+
+export type CustomFieldsArchiveOptionResponse = CustomFieldsArchiveOptionResponses[keyof CustomFieldsArchiveOptionResponses];
+
+export type CustomFieldsHardDeleteOptionData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        optionId: string;
+    };
+    query?: never;
+    url: '/api/v1/custom-fields/options/{optionId}';
+};
+
+export type CustomFieldsHardDeleteOptionErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the field is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the field/option is in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustomFieldsHardDeleteOptionError = CustomFieldsHardDeleteOptionErrors[keyof CustomFieldsHardDeleteOptionErrors];
+
+export type CustomFieldsHardDeleteOptionResponses = {
+    /**
+     * The option was deleted
+     */
+    200: CustomFieldOkAck;
+};
+
+export type CustomFieldsHardDeleteOptionResponse = CustomFieldsHardDeleteOptionResponses[keyof CustomFieldsHardDeleteOptionResponses];
+
+export type CustomFieldsClearValueData = {
+    body: ClearCustomFieldValueRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/custom-fields/values';
+};
+
+export type CustomFieldsClearValueErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the field is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the field/option is in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustomFieldsClearValueError = CustomFieldsClearValueErrors[keyof CustomFieldsClearValueErrors];
+
+export type CustomFieldsClearValueResponses = {
+    /**
+     * The value was cleared
+     */
+    200: CustomFieldOkAck;
+};
+
+export type CustomFieldsClearValueResponse = CustomFieldsClearValueResponses[keyof CustomFieldsClearValueResponses];
+
+export type CustomFieldsSetValueData = {
+    body: SetCustomFieldValueRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/custom-fields/values';
+};
+
+export type CustomFieldsSetValueErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required permission
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the field is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress, or the field/option is in use
+     */
+    409: Problem;
+    /**
+     * The request is invalid, or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustomFieldsSetValueError = CustomFieldsSetValueErrors[keyof CustomFieldsSetValueErrors];
+
+export type CustomFieldsSetValueResponses = {
+    /**
+     * The value was set
+     */
+    200: CustomFieldValueAck;
+};
+
+export type CustomFieldsSetValueResponse = CustomFieldsSetValueResponses[keyof CustomFieldsSetValueResponses];
+
+export type CustomFieldsListRecordValuesData = {
+    body?: never;
+    path: {
+        targetRowId: string;
+    };
+    query?: never;
+    url: '/api/v1/custom-fields/records/{targetRowId}/values';
+};
+
+export type CustomFieldsListRecordValuesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the field is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustomFieldsListRecordValuesError = CustomFieldsListRecordValuesErrors[keyof CustomFieldsListRecordValuesErrors];
+
+export type CustomFieldsListRecordValuesResponses = {
+    /**
+     * The record's current values
+     */
+    200: CustomFieldValueListResponse;
+};
+
+export type CustomFieldsListRecordValuesResponse = CustomFieldsListRecordValuesResponses[keyof CustomFieldsListRecordValuesResponses];
+
+export type CustomFieldsValueHistoryData = {
+    body?: never;
+    path: {
+        fieldId: string;
+        targetRowId: string;
+    };
+    query?: never;
+    url: '/api/v1/custom-fields/fields/{fieldId}/records/{targetRowId}/history';
+};
+
+export type CustomFieldsValueHistoryErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the field is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CustomFieldsValueHistoryError = CustomFieldsValueHistoryErrors[keyof CustomFieldsValueHistoryErrors];
+
+export type CustomFieldsValueHistoryResponses = {
+    /**
+     * The value history
+     */
+    200: CustomFieldValueListResponse;
+};
+
+export type CustomFieldsValueHistoryResponse = CustomFieldsValueHistoryResponses[keyof CustomFieldsValueHistoryResponses];
 
 export type ShippingConnectData = {
     body: ShippingConnectRequest;

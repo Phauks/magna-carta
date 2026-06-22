@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { DirectoryAddIdentifierData, DirectoryAddIdentifierErrors, DirectoryAddIdentifierResponses, DirectoryAddNameData, DirectoryAddNameErrors, DirectoryAddNameResponses, DirectoryAssignCategoryData, DirectoryAssignCategoryErrors, DirectoryAssignCategoryResponses, DirectoryCreateCategoryData, DirectoryCreateCategoryErrors, DirectoryCreateCategoryResponses, DirectoryCreateEdgeData, DirectoryCreateEdgeErrors, DirectoryCreateEdgeResponses, DirectoryCreateOrganizationData, DirectoryCreateOrganizationErrors, DirectoryCreateOrganizationResponses, DirectoryCreatePersonData, DirectoryCreatePersonErrors, DirectoryCreatePersonResponses, DirectoryDuplicateCandidatesData, DirectoryDuplicateCandidatesErrors, DirectoryDuplicateCandidatesResponses, DirectoryGetOrganizationData, DirectoryGetOrganizationErrors, DirectoryGetOrganizationResponses, DirectoryGetPersonData, DirectoryGetPersonErrors, DirectoryGetPersonResponses, DirectoryLinkMatterPartyData, DirectoryLinkMatterPartyErrors, DirectoryLinkMatterPartyResponses, DirectoryMergeData, DirectoryMergeErrors, DirectoryMergeResponses, DirectoryReadIdentifierData, DirectoryReadIdentifierErrors, DirectoryReadIdentifierResponses, DirectorySearchData, DirectorySearchErrors, DirectorySearchResponses, DocumentTypesCreateData, DocumentTypesCreateErrors, DocumentTypesCreateResponses, DocumentTypesDeactivateData, DocumentTypesDeactivateErrors, DocumentTypesDeactivateResponses, DocumentTypesListData, DocumentTypesListErrors, DocumentTypesListResponses, DocumentTypesUpdateData, DocumentTypesUpdateErrors, DocumentTypesUpdateResponses, DownloadsZipData, DownloadsZipErrors, DownloadsZipResponses, FilesDeleteData, FilesDeleteErrors, FilesDeleteResponses, FilesDownloadData, FilesDownloadErrors, FilesGetData, FilesGetErrors, FilesGetResponses, FilesListData, FilesListErrors, FilesListResponses, FilesUpdateData, FilesUpdateErrors, FilesUpdateResponses, FilesVersionsData, FilesVersionsErrors, FilesVersionsResponses, FirmsProvisionData, FirmsProvisionErrors, FirmsProvisionResponses, FirmUsageGetData, FirmUsageGetErrors, FirmUsageGetResponses, FoldersCreateData, FoldersCreateErrors, FoldersCreateResponses, FoldersDeleteData, FoldersDeleteErrors, FoldersDeleteResponses, FoldersUpdateData, FoldersUpdateErrors, FoldersUpdateResponses, HealthReadData, HealthReadErrors, HealthReadResponses, IncidentsReportData, IncidentsReportErrors, IncidentsReportResponses, LocationsAssignMemberData, LocationsAssignMemberErrors, LocationsAssignMemberResponses, LocationsCloseData, LocationsCloseErrors, LocationsCloseResponses, LocationsCreateData, LocationsCreateErrors, LocationsCreateResponses, LocationsGetData, LocationsGetErrors, LocationsGetResponses, LocationsListData, LocationsListErrors, LocationsListResponses, LocationsSetAddressesData, LocationsSetAddressesErrors, LocationsSetAddressesResponses, LocationsUpdateData, LocationsUpdateErrors, LocationsUpdateResponses, MattersCloseData, MattersCloseErrors, MattersCloseResponses, MattersCreateData, MattersCreateErrors, MattersCreateResponses, MattersGetData, MattersGetErrors, MattersGetResponses, MattersListConsultationsData, MattersListConsultationsErrors, MattersListConsultationsResponses, MattersListData, MattersListErrors, MattersListResponses, MattersOpenData, MattersOpenErrors, MattersOpenResponses, MattersRenumberData, MattersRenumberErrors, MattersRenumberResponses, MattersReopenData, MattersReopenErrors, MattersReopenResponses, MattersUpdateData, MattersUpdateErrors, MattersUpdateResponses, MatterTypesCreateData, MatterTypesCreateErrors, MatterTypesCreateResponses, MatterTypesDeactivateData, MatterTypesDeactivateErrors, MatterTypesDeactivateResponses, MatterTypesListData, MatterTypesListErrors, MatterTypesListResponses, MatterTypesUpdateData, MatterTypesUpdateErrors, MatterTypesUpdateResponses, MeGetData, MeGetErrors, MeGetResponses, MembersInviteData, MembersInviteErrors, MembersInviteResponses, NumberingGetData, NumberingGetErrors, NumberingGetResponses, NumberingPreviewData, NumberingPreviewErrors, NumberingPreviewResponses, NumberingSetData, NumberingSetErrors, NumberingSetResponses, ShippingConnectData, ShippingConnectErrors, ShippingConnectResponses, ShippingCreateShipmentData, ShippingCreateShipmentErrors, ShippingCreateShipmentResponses, ShippingLabelData, ShippingLabelErrors, ShippingLabelResponses, ShippingPurchaseData, ShippingPurchaseErrors, ShippingPurchaseResponses, ShippingRateShipmentData, ShippingRateShipmentErrors, ShippingRateShipmentResponses, ShippingRefundData, ShippingRefundErrors, ShippingRefundResponses, ShippingTrackingData, ShippingTrackingErrors, ShippingTrackingResponses, UploadsAbortData, UploadsAbortErrors, UploadsAbortResponses, UploadsCompleteData, UploadsCompleteErrors, UploadsCompleteResponses, UploadsInitiateData, UploadsInitiateErrors, UploadsInitiateResponses, UploadsSignPartData, UploadsSignPartErrors, UploadsSignPartResponses } from './types.gen';
+import type { CustomFieldsApplyConvertData, CustomFieldsApplyConvertErrors, CustomFieldsApplyConvertResponses, CustomFieldsArchiveFieldData, CustomFieldsArchiveFieldErrors, CustomFieldsArchiveFieldResponses, CustomFieldsArchiveOptionData, CustomFieldsArchiveOptionErrors, CustomFieldsArchiveOptionResponses, CustomFieldsClearValueData, CustomFieldsClearValueErrors, CustomFieldsClearValueResponses, CustomFieldsCreateOptionData, CustomFieldsCreateOptionErrors, CustomFieldsCreateOptionResponses, CustomFieldsDefineFieldData, CustomFieldsDefineFieldErrors, CustomFieldsDefineFieldResponses, CustomFieldsHardDeleteFieldData, CustomFieldsHardDeleteFieldErrors, CustomFieldsHardDeleteFieldResponses, CustomFieldsHardDeleteOptionData, CustomFieldsHardDeleteOptionErrors, CustomFieldsHardDeleteOptionResponses, CustomFieldsListRecordValuesData, CustomFieldsListRecordValuesErrors, CustomFieldsListRecordValuesResponses, CustomFieldsPreviewConvertData, CustomFieldsPreviewConvertErrors, CustomFieldsPreviewConvertResponses, CustomFieldsPurgeFieldData, CustomFieldsPurgeFieldErrors, CustomFieldsPurgeFieldResponses, CustomFieldsRenameFieldData, CustomFieldsRenameFieldErrors, CustomFieldsRenameFieldResponses, CustomFieldsRenameOptionData, CustomFieldsRenameOptionErrors, CustomFieldsRenameOptionResponses, CustomFieldsReorderFieldData, CustomFieldsReorderFieldErrors, CustomFieldsReorderFieldResponses, CustomFieldsReorderOptionData, CustomFieldsReorderOptionErrors, CustomFieldsReorderOptionResponses, CustomFieldsResolveFieldData, CustomFieldsResolveFieldErrors, CustomFieldsResolveFieldResponses, CustomFieldsSetRequiredData, CustomFieldsSetRequiredErrors, CustomFieldsSetRequiredResponses, CustomFieldsSetValueData, CustomFieldsSetValueErrors, CustomFieldsSetValueResponses, CustomFieldsUnarchiveFieldData, CustomFieldsUnarchiveFieldErrors, CustomFieldsUnarchiveFieldResponses, CustomFieldsValueHistoryData, CustomFieldsValueHistoryErrors, CustomFieldsValueHistoryResponses, DirectoryAddIdentifierData, DirectoryAddIdentifierErrors, DirectoryAddIdentifierResponses, DirectoryAddNameData, DirectoryAddNameErrors, DirectoryAddNameResponses, DirectoryAssignCategoryData, DirectoryAssignCategoryErrors, DirectoryAssignCategoryResponses, DirectoryCreateCategoryData, DirectoryCreateCategoryErrors, DirectoryCreateCategoryResponses, DirectoryCreateEdgeData, DirectoryCreateEdgeErrors, DirectoryCreateEdgeResponses, DirectoryCreateOrganizationData, DirectoryCreateOrganizationErrors, DirectoryCreateOrganizationResponses, DirectoryCreatePersonData, DirectoryCreatePersonErrors, DirectoryCreatePersonResponses, DirectoryDuplicateCandidatesData, DirectoryDuplicateCandidatesErrors, DirectoryDuplicateCandidatesResponses, DirectoryGetOrganizationData, DirectoryGetOrganizationErrors, DirectoryGetOrganizationResponses, DirectoryGetPersonData, DirectoryGetPersonErrors, DirectoryGetPersonResponses, DirectoryLinkMatterPartyData, DirectoryLinkMatterPartyErrors, DirectoryLinkMatterPartyResponses, DirectoryMergeData, DirectoryMergeErrors, DirectoryMergeResponses, DirectoryReadIdentifierData, DirectoryReadIdentifierErrors, DirectoryReadIdentifierResponses, DirectorySearchData, DirectorySearchErrors, DirectorySearchResponses, DocumentTypesCreateData, DocumentTypesCreateErrors, DocumentTypesCreateResponses, DocumentTypesDeactivateData, DocumentTypesDeactivateErrors, DocumentTypesDeactivateResponses, DocumentTypesListData, DocumentTypesListErrors, DocumentTypesListResponses, DocumentTypesUpdateData, DocumentTypesUpdateErrors, DocumentTypesUpdateResponses, DownloadsZipData, DownloadsZipErrors, DownloadsZipResponses, FilesDeleteData, FilesDeleteErrors, FilesDeleteResponses, FilesDownloadData, FilesDownloadErrors, FilesGetData, FilesGetErrors, FilesGetResponses, FilesListData, FilesListErrors, FilesListResponses, FilesUpdateData, FilesUpdateErrors, FilesUpdateResponses, FilesVersionsData, FilesVersionsErrors, FilesVersionsResponses, FirmsProvisionData, FirmsProvisionErrors, FirmsProvisionResponses, FirmUsageGetData, FirmUsageGetErrors, FirmUsageGetResponses, FoldersCreateData, FoldersCreateErrors, FoldersCreateResponses, FoldersDeleteData, FoldersDeleteErrors, FoldersDeleteResponses, FoldersUpdateData, FoldersUpdateErrors, FoldersUpdateResponses, HealthReadData, HealthReadErrors, HealthReadResponses, IncidentsReportData, IncidentsReportErrors, IncidentsReportResponses, LocationsAssignMemberData, LocationsAssignMemberErrors, LocationsAssignMemberResponses, LocationsCloseData, LocationsCloseErrors, LocationsCloseResponses, LocationsCreateData, LocationsCreateErrors, LocationsCreateResponses, LocationsGetData, LocationsGetErrors, LocationsGetResponses, LocationsListData, LocationsListErrors, LocationsListResponses, LocationsSetAddressesData, LocationsSetAddressesErrors, LocationsSetAddressesResponses, LocationsUpdateData, LocationsUpdateErrors, LocationsUpdateResponses, MattersCloseData, MattersCloseErrors, MattersCloseResponses, MattersCreateData, MattersCreateErrors, MattersCreateResponses, MattersGetData, MattersGetErrors, MattersGetResponses, MattersListConsultationsData, MattersListConsultationsErrors, MattersListConsultationsResponses, MattersListData, MattersListErrors, MattersListResponses, MattersOpenData, MattersOpenErrors, MattersOpenResponses, MattersRenumberData, MattersRenumberErrors, MattersRenumberResponses, MattersReopenData, MattersReopenErrors, MattersReopenResponses, MattersUpdateData, MattersUpdateErrors, MattersUpdateResponses, MatterTypesCreateData, MatterTypesCreateErrors, MatterTypesCreateResponses, MatterTypesDeactivateData, MatterTypesDeactivateErrors, MatterTypesDeactivateResponses, MatterTypesListData, MatterTypesListErrors, MatterTypesListResponses, MatterTypesUpdateData, MatterTypesUpdateErrors, MatterTypesUpdateResponses, MeGetData, MeGetErrors, MeGetResponses, MembersInviteData, MembersInviteErrors, MembersInviteResponses, NumberingGetData, NumberingGetErrors, NumberingGetResponses, NumberingPreviewData, NumberingPreviewErrors, NumberingPreviewResponses, NumberingSetData, NumberingSetErrors, NumberingSetResponses, ShippingConnectData, ShippingConnectErrors, ShippingConnectResponses, ShippingCreateShipmentData, ShippingCreateShipmentErrors, ShippingCreateShipmentResponses, ShippingLabelData, ShippingLabelErrors, ShippingLabelResponses, ShippingPurchaseData, ShippingPurchaseErrors, ShippingPurchaseResponses, ShippingRateShipmentData, ShippingRateShipmentErrors, ShippingRateShipmentResponses, ShippingRefundData, ShippingRefundErrors, ShippingRefundResponses, ShippingTrackingData, ShippingTrackingErrors, ShippingTrackingResponses, UploadsAbortData, UploadsAbortErrors, UploadsAbortResponses, UploadsCompleteData, UploadsCompleteErrors, UploadsCompleteResponses, UploadsInitiateData, UploadsInitiateErrors, UploadsInitiateResponses, UploadsSignPartData, UploadsSignPartErrors, UploadsSignPartResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -512,7 +512,7 @@ export const directoryAssignCategory = <ThrowOnError extends boolean = false>(op
 export const directorySearch = <ThrowOnError extends boolean = false>(options: Options<DirectorySearchData, ThrowOnError>): RequestResult<DirectorySearchResponses, DirectorySearchErrors, ThrowOnError> => (options.client ?? client).get<DirectorySearchResponses, DirectorySearchErrors, ThrowOnError>({ url: '/api/v1/directory/search', ...options });
 
 /**
- * Returns duplicate candidates for a prospective or existing entity by unioning three blocking channels (phonetic, trigram, and blind-index identifier equality), ranked by how many channels matched. A read-shaped POST (the match facts ride the body) — no write, no decrypt.
+ * Returns duplicate candidates for a prospective or existing entity by unioning three blocking channels (phonetic, trigram, and blind-index identifier equality), ranked by how many channels matched. A read-shaped POST (the match facts ride the body) — no write, no decrypt — but it gates on directory:edit because it is the entry-time duplicate-prevention step of the create/edit workflow, not a general directory read.
  */
 export const directoryDuplicateCandidates = <ThrowOnError extends boolean = false>(options: Options<DirectoryDuplicateCandidatesData, ThrowOnError>): RequestResult<DirectoryDuplicateCandidatesResponses, DirectoryDuplicateCandidatesErrors, ThrowOnError> => (options.client ?? client).post<DirectoryDuplicateCandidatesResponses, DirectoryDuplicateCandidatesErrors, ThrowOnError>({
     url: '/api/v1/directory/duplicate-candidates',
@@ -546,6 +546,190 @@ export const directoryLinkMatterParty = <ThrowOnError extends boolean = false>(o
         ...options.headers
     }
 });
+
+/**
+ * Defines a custom field on a matter type or entity category.
+ */
+export const customFieldsDefineField = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsDefineFieldData, ThrowOnError>): RequestResult<CustomFieldsDefineFieldResponses, CustomFieldsDefineFieldErrors, ThrowOnError> => (options.client ?? client).post<CustomFieldsDefineFieldResponses, CustomFieldsDefineFieldErrors, ThrowOnError>({
+    url: '/api/v1/custom-fields/fields',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Renames a custom field.
+ */
+export const customFieldsRenameField = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsRenameFieldData, ThrowOnError>): RequestResult<CustomFieldsRenameFieldResponses, CustomFieldsRenameFieldErrors, ThrowOnError> => (options.client ?? client).patch<CustomFieldsRenameFieldResponses, CustomFieldsRenameFieldErrors, ThrowOnError>({
+    url: '/api/v1/custom-fields/fields/{fieldId}/name',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Sets whether a custom field is required.
+ */
+export const customFieldsSetRequired = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsSetRequiredData, ThrowOnError>): RequestResult<CustomFieldsSetRequiredResponses, CustomFieldsSetRequiredErrors, ThrowOnError> => (options.client ?? client).patch<CustomFieldsSetRequiredResponses, CustomFieldsSetRequiredErrors, ThrowOnError>({
+    url: '/api/v1/custom-fields/fields/{fieldId}/required',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Sets a custom field's display position.
+ */
+export const customFieldsReorderField = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsReorderFieldData, ThrowOnError>): RequestResult<CustomFieldsReorderFieldResponses, CustomFieldsReorderFieldErrors, ThrowOnError> => (options.client ?? client).patch<CustomFieldsReorderFieldResponses, CustomFieldsReorderFieldErrors, ThrowOnError>({
+    url: '/api/v1/custom-fields/fields/{fieldId}/position',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Archives a custom field (it stops appearing on forms; its values endure).
+ */
+export const customFieldsArchiveField = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsArchiveFieldData, ThrowOnError>): RequestResult<CustomFieldsArchiveFieldResponses, CustomFieldsArchiveFieldErrors, ThrowOnError> => (options.client ?? client).post<CustomFieldsArchiveFieldResponses, CustomFieldsArchiveFieldErrors, ThrowOnError>({ url: '/api/v1/custom-fields/fields/{fieldId}/archive', ...options });
+
+/**
+ * Restores an archived custom field.
+ */
+export const customFieldsUnarchiveField = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsUnarchiveFieldData, ThrowOnError>): RequestResult<CustomFieldsUnarchiveFieldResponses, CustomFieldsUnarchiveFieldErrors, ThrowOnError> => (options.client ?? client).post<CustomFieldsUnarchiveFieldResponses, CustomFieldsUnarchiveFieldErrors, ThrowOnError>({ url: '/api/v1/custom-fields/fields/{fieldId}/unarchive', ...options });
+
+/**
+ * Hard-deletes a custom field that holds no values (with its picklist options). Refuses a field that has stored values — archive it instead.
+ */
+export const customFieldsHardDeleteField = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsHardDeleteFieldData, ThrowOnError>): RequestResult<CustomFieldsHardDeleteFieldResponses, CustomFieldsHardDeleteFieldErrors, ThrowOnError> => (options.client ?? client).delete<CustomFieldsHardDeleteFieldResponses, CustomFieldsHardDeleteFieldErrors, ThrowOnError>({ url: '/api/v1/custom-fields/fields/{fieldId}', ...options });
+
+/**
+ * Resolves a custom-field handle to its definition (active, archived, or absent).
+ */
+export const customFieldsResolveField = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsResolveFieldData, ThrowOnError>): RequestResult<CustomFieldsResolveFieldResponses, CustomFieldsResolveFieldErrors, ThrowOnError> => (options.client ?? client).get<CustomFieldsResolveFieldResponses, CustomFieldsResolveFieldErrors, ThrowOnError>({ url: '/api/v1/custom-fields/fields/{fieldId}', ...options });
+
+/**
+ * Compliance erasure: irreversibly removes a custom field and all of its values, current and historical. The executing pass is not yet enabled, so this refuses.
+ */
+export const customFieldsPurgeField = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsPurgeFieldData, ThrowOnError>): RequestResult<CustomFieldsPurgeFieldResponses, CustomFieldsPurgeFieldErrors, ThrowOnError> => (options.client ?? client).post<CustomFieldsPurgeFieldResponses, CustomFieldsPurgeFieldErrors, ThrowOnError>({
+    url: '/api/v1/custom-fields/fields/{fieldId}/purge',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Previews a kind change without writing: counts how each current value would land (clean, needs-rule, or parked). A read-shaped POST — the target kind rides the body.
+ */
+export const customFieldsPreviewConvert = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsPreviewConvertData, ThrowOnError>): RequestResult<CustomFieldsPreviewConvertResponses, CustomFieldsPreviewConvertErrors, ThrowOnError> => (options.client ?? client).post<CustomFieldsPreviewConvertResponses, CustomFieldsPreviewConvertErrors, ThrowOnError>({
+    url: '/api/v1/custom-fields/fields/{fieldId}/convert/preview',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Retypes a custom field non-destructively: each original value moves to history, clean values gain a coerced current row, and parked values are left cleared (reversibly). With parkedDisposition 'block' the whole change is refused when any value cannot be coerced.
+ */
+export const customFieldsApplyConvert = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsApplyConvertData, ThrowOnError>): RequestResult<CustomFieldsApplyConvertResponses, CustomFieldsApplyConvertErrors, ThrowOnError> => (options.client ?? client).post<CustomFieldsApplyConvertResponses, CustomFieldsApplyConvertErrors, ThrowOnError>({
+    url: '/api/v1/custom-fields/fields/{fieldId}/convert',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Creates a picklist option on a custom field.
+ */
+export const customFieldsCreateOption = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsCreateOptionData, ThrowOnError>): RequestResult<CustomFieldsCreateOptionResponses, CustomFieldsCreateOptionErrors, ThrowOnError> => (options.client ?? client).post<CustomFieldsCreateOptionResponses, CustomFieldsCreateOptionErrors, ThrowOnError>({
+    url: '/api/v1/custom-fields/fields/{fieldId}/options',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Renames a picklist option.
+ */
+export const customFieldsRenameOption = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsRenameOptionData, ThrowOnError>): RequestResult<CustomFieldsRenameOptionResponses, CustomFieldsRenameOptionErrors, ThrowOnError> => (options.client ?? client).patch<CustomFieldsRenameOptionResponses, CustomFieldsRenameOptionErrors, ThrowOnError>({
+    url: '/api/v1/custom-fields/options/{optionId}/name',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Sets a picklist option's display position.
+ */
+export const customFieldsReorderOption = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsReorderOptionData, ThrowOnError>): RequestResult<CustomFieldsReorderOptionResponses, CustomFieldsReorderOptionErrors, ThrowOnError> => (options.client ?? client).patch<CustomFieldsReorderOptionResponses, CustomFieldsReorderOptionErrors, ThrowOnError>({
+    url: '/api/v1/custom-fields/options/{optionId}/position',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Archives a picklist option (it stops appearing as a choice; stored values endure).
+ */
+export const customFieldsArchiveOption = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsArchiveOptionData, ThrowOnError>): RequestResult<CustomFieldsArchiveOptionResponses, CustomFieldsArchiveOptionErrors, ThrowOnError> => (options.client ?? client).post<CustomFieldsArchiveOptionResponses, CustomFieldsArchiveOptionErrors, ThrowOnError>({ url: '/api/v1/custom-fields/options/{optionId}/archive', ...options });
+
+/**
+ * Hard-deletes a picklist option that holds no stored values. Refuses one still referenced — archive it instead.
+ */
+export const customFieldsHardDeleteOption = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsHardDeleteOptionData, ThrowOnError>): RequestResult<CustomFieldsHardDeleteOptionResponses, CustomFieldsHardDeleteOptionErrors, ThrowOnError> => (options.client ?? client).delete<CustomFieldsHardDeleteOptionResponses, CustomFieldsHardDeleteOptionErrors, ThrowOnError>({ url: '/api/v1/custom-fields/options/{optionId}', ...options });
+
+/**
+ * Clears a custom field's current value on a record (its history endures).
+ */
+export const customFieldsClearValue = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsClearValueData, ThrowOnError>): RequestResult<CustomFieldsClearValueResponses, CustomFieldsClearValueErrors, ThrowOnError> => (options.client ?? client).delete<CustomFieldsClearValueResponses, CustomFieldsClearValueErrors, ThrowOnError>({
+    url: '/api/v1/custom-fields/values',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Sets or replaces a custom field's value on a record (the prior value, if any, moves to history). A number/currency input is a plain decimal; it is scaled by the field's number_scale into the integer the value column stores.
+ */
+export const customFieldsSetValue = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsSetValueData, ThrowOnError>): RequestResult<CustomFieldsSetValueResponses, CustomFieldsSetValueErrors, ThrowOnError> => (options.client ?? client).put<CustomFieldsSetValueResponses, CustomFieldsSetValueErrors, ThrowOnError>({
+    url: '/api/v1/custom-fields/values',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Returns a record's current custom-field values.
+ */
+export const customFieldsListRecordValues = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsListRecordValuesData, ThrowOnError>): RequestResult<CustomFieldsListRecordValuesResponses, CustomFieldsListRecordValuesErrors, ThrowOnError> => (options.client ?? client).get<CustomFieldsListRecordValuesResponses, CustomFieldsListRecordValuesErrors, ThrowOnError>({ url: '/api/v1/custom-fields/records/{targetRowId}/values', ...options });
+
+/**
+ * Returns the full value history of one custom field on one record, oldest first.
+ */
+export const customFieldsValueHistory = <ThrowOnError extends boolean = false>(options: Options<CustomFieldsValueHistoryData, ThrowOnError>): RequestResult<CustomFieldsValueHistoryResponses, CustomFieldsValueHistoryErrors, ThrowOnError> => (options.client ?? client).get<CustomFieldsValueHistoryResponses, CustomFieldsValueHistoryErrors, ThrowOnError>({ url: '/api/v1/custom-fields/fields/{fieldId}/records/{targetRowId}/history', ...options });
 
 /**
  * Connects the firm's EasyPost postage account by storing its API key as a firm secret.

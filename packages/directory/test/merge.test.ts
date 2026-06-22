@@ -377,6 +377,110 @@ test("merge ABSORBS a duplicate matter party (same matter + role) rather than do
   expect(parties.map((p) => p.entity_id)).toEqual([master]);
 });
 
+test("repoints a contact-reference custom value and absorbs an owned value to history on merge", async () => {
+  const { database, ctx, options } = await directoryTestContext("t13-customfields");
+
+  const master = await createPerson(
+    database,
+    { given: "Custom", family: "Master" },
+    { ...options, randomSource: seededRandomSource("t13cf-master") },
+  );
+  const sub = await createPerson(
+    database,
+    { given: "Custom", family: "Dup" },
+    { ...options, randomSource: seededRandomSource("t13cf-dup") },
+  );
+
+  // Target A: a matter field whose contact-reference points at the subordinate. The value's own row
+  // (target_row_id = a matter) does not move; only its value_reference_id repoints to the master.
+  await database
+    .prepare(
+      "INSERT INTO custom_field (id,name,kind,target,attachment_id,required,archived,converting,position,created_at) VALUES ('customField_ref','Carrier','contact-reference','matter',NULL,0,0,0,0,'t')",
+    )
+    .run();
+  await database
+    .prepare(
+      "INSERT INTO custom_field_value (id,field_id,target_row_id,value_reference_id,is_current,valid_from,created_at) VALUES ('customFieldValue_a','customField_ref','matter_1',?1,1,'t','t')",
+    )
+    .bind(sub)
+    .run();
+
+  // Target B: an entity field with current values OWNED BY both master and subordinate (same field).
+  // Repointing the subordinate's value to the master collides on the partial unique index, so it is
+  // absorbed to history (moved under the master, is_current = 0) rather than deleted.
+  await database
+    .prepare(
+      "INSERT INTO custom_field (id,name,kind,target,attachment_id,required,archived,converting,position,created_at) VALUES ('customField_own','Risk','single-line','entity',NULL,0,0,0,0,'t')",
+    )
+    .run();
+  await database
+    .prepare(
+      "INSERT INTO custom_field_value (id,field_id,target_row_id,value_text,is_current,valid_from,created_at) VALUES ('customFieldValue_m','customField_own',?1,'A',1,'t','t')",
+    )
+    .bind(master)
+    .run();
+  await database
+    .prepare(
+      "INSERT INTO custom_field_value (id,field_id,target_row_id,value_text,is_current,valid_from,created_at) VALUES ('customFieldValue_s','customField_own',?1,'B',1,'t','t')",
+    )
+    .bind(sub)
+    .run();
+
+  await mergeEntities(ctx, { masterId: master, subordinateId: sub, survivorship: {} });
+
+  // Target A: the contact-reference value repointed to the master.
+  const { results: refRows } = await database
+    .prepare("SELECT value_reference_id FROM custom_field_value WHERE id = 'customFieldValue_a'")
+    .all<{ value_reference_id: string }>();
+  expect(refRows[0]?.value_reference_id).toBe(master);
+
+  // Target B: master's value wins — exactly one current value for the field on the master.
+  const { results: currentRows } = await database
+    .prepare(
+      "SELECT COUNT(*) AS n FROM custom_field_value WHERE field_id = 'customField_own' AND target_row_id = ?1 AND is_current = 1",
+    )
+    .bind(master)
+    .all<{ n: number }>();
+  expect(currentRows[0]?.n).toBe(1);
+
+  // The subordinate's owned value is preserved as history under the master (content intact).
+  const { results: absorbedRows } = await database
+    .prepare(
+      "SELECT is_current, target_row_id, value_text, valid_to FROM custom_field_value WHERE id = 'customFieldValue_s'",
+    )
+    .all<{
+      is_current: number;
+      target_row_id: string;
+      value_text: string;
+      valid_to: string | null;
+    }>();
+  const absorbed = absorbedRows[0];
+  expect(absorbed?.is_current).toBe(0);
+  expect(absorbed?.target_row_id).toBe(master);
+  expect(absorbed?.value_text).toBe("B");
+  expect(absorbed?.valid_to).toBe(clock.now());
+
+  // Both repoints are recorded in the entity_merge event so the merge stays reversible.
+  const { results: eventRows } = await database
+    .prepare("SELECT repointed FROM entity_merge WHERE subordinate_id = ?1")
+    .bind(sub)
+    .all<{ repointed: string }>();
+  const repointed = JSON.parse(eventRows[0]!.repointed) as Array<Record<string, unknown>>;
+  expect(repointed).toContainEqual({
+    table: "custom_field_value",
+    row: "customFieldValue_a",
+    from: sub,
+    to: master,
+  });
+  expect(repointed).toContainEqual({
+    table: "custom_field_value",
+    row: "customFieldValue_s",
+    from: sub,
+    to: master,
+    absorbed: true,
+  });
+});
+
 test("merge rejects an unknown survivorship field with MergeUnknownFieldError", async () => {
   const { database, ctx, options } = await directoryTestContext("t13-badfield");
 

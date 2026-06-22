@@ -141,6 +141,9 @@ importers:
       '@magna-carta/access-control':
         specifier: workspace:*
         version: link:../../packages/access-control
+      '@magna-carta/custom-fields':
+        specifier: workspace:*
+        version: link:../../packages/custom-fields
       '@magna-carta/data-access':
         specifier: workspace:*
         version: link:../../packages/data-access
@@ -162,6 +165,9 @@ importers:
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../../packages/identifiers
+      '@magna-carta/inference':
+        specifier: workspace:*
+        version: link:../../packages/inference
       '@magna-carta/integrations':
         specifier: workspace:*
         version: link:../../packages/integrations
@@ -258,6 +264,37 @@ importers:
       '@magna-carta/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
+
+  packages/custom-fields:
+    dependencies:
+      '@magna-carta/data-access':
+        specifier: workspace:*
+        version: link:../data-access
+      '@magna-carta/database':
+        specifier: workspace:*
+        version: link:../database
+      '@magna-carta/identifiers':
+        specifier: workspace:*
+        version: link:../identifiers
+      '@magna-carta/money':
+        specifier: workspace:*
+        version: link:../money
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.1
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.2(@cloudflare/workers-types@4.20260604.1)(kysely@0.29.2)
+      vitest:
+        specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))(yaml@2.9.0)'
 
   packages/data-access:
     dependencies:
@@ -419,6 +456,9 @@ importers:
       '@faker-js/faker':
         specifier: 'catalog:'
         version: 10.4.0
+      '@magna-carta/custom-fields':
+        specifier: workspace:*
+        version: link:../custom-fields
       '@magna-carta/data-access':
         specifier: workspace:*
         version: link:../data-access
@@ -484,6 +524,31 @@ importers:
       nanoid:
         specifier: 'catalog:'
         version: 5.1.11
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.1
+      vitest:
+        specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))(yaml@2.9.0)'
+
+  packages/inference:
+    dependencies:
+      '@magna-carta/data-access':
+        specifier: workspace:*
+        version: link:../data-access
+      '@magna-carta/identifiers':
+        specifier: workspace:*
+        version: link:../identifiers
+      '@magna-carta/integrations':
+        specifier: workspace:*
+        version: link:../integrations
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*

@@ -78,6 +78,6 @@ Use the left term, avoid the right, in **all** docs — this is the shared gloss
 | client portal                     | extranet, sharing site        |                                                   |
 | share / grant                     | permission (loosely)          | a `PortalGrant`                                   |
 | conflicts check                   | conflict search               |                                                   |
-| safe custody                      | document storage              | the register of physical originals                |
+| Custodian                         | document storage              | the register of physical originals                |
 
 > Cross-reference rule (recap from [`documentation.md`](documentation.md)): reference the white paper by **document + topic name** or a stable **`ADR-NNNN`**, never a `§` number.

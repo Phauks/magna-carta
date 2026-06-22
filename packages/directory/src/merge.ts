@@ -124,6 +124,13 @@ interface RepointTarget {
   readonly column: string;
   readonly rowColumn: string;
   readonly extraColumns: readonly string[];
+  // What to do with a colliding row. "delete" removes the subordinate's duplicate (the original four
+  // targets: a real-indexed reference the master already holds, or a would-be self-loop, carries no
+  // content worth keeping). "archive-to-history" instead moves the losing row onto the master and flips
+  // it to history (is_current = 0, valid_to = now) — used where the row carries content the user entered
+  // (a custom-field value), so a field-level survivorship preserves the loser as a prior value rather
+  // than discarding it.
+  readonly onCollision: "delete" | "archive-to-history";
   readonly collides: (
     database: BatchDatabase,
     masterId: string,
@@ -138,6 +145,7 @@ const REPOINT_TARGETS: readonly RepointTarget[] = [
     column: "entity_id",
     rowColumn: "id",
     extraColumns: ["matter_id", "role", "deleted_at"],
+    onCollision: "delete",
     collides: async (database, masterId, row) => {
       if (row.deleted_at !== null) return false; // a soft-deleted link cannot become a live duplicate
       const { results } = await database
@@ -155,6 +163,7 @@ const REPOINT_TARGETS: readonly RepointTarget[] = [
     column: "from_entity_id",
     rowColumn: "id",
     extraColumns: ["to_entity_id"],
+    onCollision: "delete",
     collides: async (_database, masterId, row) => row.to_entity_id === masterId,
   },
   {
@@ -163,6 +172,7 @@ const REPOINT_TARGETS: readonly RepointTarget[] = [
     column: "to_entity_id",
     rowColumn: "id",
     extraColumns: ["from_entity_id"],
+    onCollision: "delete",
     collides: async (_database, masterId, row) => row.from_entity_id === masterId,
   },
   {
@@ -172,12 +182,47 @@ const REPOINT_TARGETS: readonly RepointTarget[] = [
     column: "entity_id",
     rowColumn: "category_id",
     extraColumns: [],
+    onCollision: "delete",
     collides: async (database, masterId, row) => {
       const { results } = await database
         .prepare(
           `SELECT 1 FROM directory_entity_category WHERE entity_id = ?1 AND category_id = ?2 LIMIT 1`,
         )
         .bind(masterId, row.row)
+        .all();
+      return results.length > 0;
+    },
+  },
+  {
+    // A custom-field value that POINTS AT the merged entity (a contact-reference value's
+    // value_reference_id). The value's own row stays put — its target_row_id (the matter or entity the
+    // value belongs to) does not move — so only the reference is repointed; nothing can collide.
+    table: "custom_field_value",
+    column: "value_reference_id",
+    rowColumn: "id",
+    extraColumns: [],
+    onCollision: "delete", // unreachable: collides() is always false for this target.
+    collides: async () => false,
+  },
+  {
+    // Custom-field values OWNED BY the merged entity (the value's target_row_id is the entity). Moving
+    // target_row_id to the master can collide with the master's own current value of the same field on
+    // the partial unique index (target_row_id, field_id) WHERE is_current = 1. On collision the
+    // subordinate's value is content the user entered, so it is archived to history under the master
+    // (field-level survivorship: master keeps its current value, the loser becomes a prior value)
+    // rather than deleted.
+    table: "custom_field_value",
+    column: "target_row_id",
+    rowColumn: "id",
+    extraColumns: ["field_id", "is_current"],
+    onCollision: "archive-to-history",
+    collides: async (database, masterId, row) => {
+      if (String(row.is_current) !== "1") return false; // only a live value can clash on the partial unique
+      const { results } = await database
+        .prepare(
+          `SELECT 1 FROM custom_field_value WHERE target_row_id = ?1 AND field_id = ?2 AND is_current = 1 LIMIT 1`,
+        )
+        .bind(masterId, row.field_id)
         .all();
       return results.length > 0;
     },
@@ -272,13 +317,25 @@ export async function mergeEntities(
     for (const row of results) {
       const rowId = row.row as string;
       if (await target.collides(database, masterId, row)) {
-        statements.push(
-          database
-            .prepare(
-              `DELETE FROM ${target.table} WHERE ${target.rowColumn} = ?1 AND ${target.column} = ?2`,
-            )
-            .bind(rowId, subordinateId),
-        );
+        if (target.onCollision === "archive-to-history") {
+          // Move the losing row onto the master and flip it to history, preserving its content — the
+          // master's current value wins, the subordinate's becomes a prior value under the master.
+          statements.push(
+            database
+              .prepare(
+                `UPDATE ${target.table} SET ${target.column} = ?2, is_current = 0, valid_to = ?3 WHERE ${target.rowColumn} = ?1`,
+              )
+              .bind(rowId, masterId, now),
+          );
+        } else {
+          statements.push(
+            database
+              .prepare(
+                `DELETE FROM ${target.table} WHERE ${target.rowColumn} = ?1 AND ${target.column} = ?2`,
+              )
+              .bind(rowId, subordinateId),
+          );
+        }
         repointed.push({
           table: target.table,
           row: rowId,

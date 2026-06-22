@@ -50,6 +50,9 @@ export const PERMISSIONS = [
   "documents:checkout", // take an offline working copy, or an opt-in exclusive lock
   "documents:forceReleaseLock", // release another member's exclusive lock
   "documents:reconcile", // resolve a divergent check-in — choose which copy becomes authoritative
+  // Custom fields — define and maintain field schemas; purge hard-deletes all values for a field.
+  "customFields:manage",
+  "customFields:purge",
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

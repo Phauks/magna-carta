@@ -17,12 +17,12 @@ describe("schema conformance (fitness functions)", () => {
     // member, role, role_permission, member_role, direct_grant, incident (12) + location,
     // location_address, member_location, matter_type, document_type, numbering_scheme,
     // matter_number_counter, matter, folder, file, file_version, upload_session, storage_meter,
-    // setting, audit_log (15) = 27 per-firm + directory_person, directory_organization,
+    // token_usage_meter, setting, audit_log (16) = 28 per-firm + directory_person, directory_organization,
     // directory_name, directory_name_phonetic_code, directory_identifier, directory_edge,
     // directory_category, directory_entity_category, directory_email, directory_phone,
-    // directory_address, directory_party_role, matter_party, entity_merge (14 directory) = 41 per-firm;
-    // 9 + 41 = 50 across both lineages.
-    expect(ALL_TABLES.length).toBeGreaterThanOrEqual(50);
+    // directory_address, directory_party_role, matter_party, entity_merge (14 directory) = 42 per-firm;
+    // 9 + 42 = 51 across both lineages.
+    expect(ALL_TABLES.length).toBeGreaterThanOrEqual(51);
   });
 
   it("auth tables exist ONLY in the control-plane lineage — never in the per-firm schema", () => {
@@ -51,6 +51,7 @@ describe("schema conformance (fitness functions)", () => {
       setting: "key",
     };
     // storage_meter is keyed by WHAT it rolls up — a composite natural key, no handle. Still all TEXT.
+    // token_usage_meter is the same shape — keyed by (day, slot, model_id), all TEXT, append-by-delta.
     // directory_name_phonetic_code is keyed by (name_id, scheme) — a phonetic code row IS its
     // (name, scheme) pair; a separate handle would add nothing and would cost a unique lookup at every
     // phonetic-search join.
@@ -58,6 +59,7 @@ describe("schema conformance (fitness functions)", () => {
     // the pair (entity_id, category_id) is the natural key; no handle is warranted.
     const compositeKeyTables = new Set([
       "storage_meter",
+      "token_usage_meter",
       "directory_name_phonetic_code",
       "directory_entity_category",
     ]);

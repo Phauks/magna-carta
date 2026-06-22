@@ -18,8 +18,18 @@ import { PROTECTED_COLUMNS } from "@magna-carta/database/protected-columns";
 
 const REPO_ROOT = join(import.meta.dirname, "..", "..", "..");
 
-// Directories never worth scanning (build output, dependencies, VCS).
-const SKIP_DIRECTORIES = new Set(["node_modules", ".git", "dist", "build", ".turbo", ".wrangler"]);
+// Directories never worth scanning (build output, dependencies, VCS, and nested git worktrees —
+// `.claude/worktrees/` holds checkouts of other branches whose duplicate source would be scanned as
+// if it lived in this tree).
+const SKIP_DIRECTORIES = new Set([
+  "node_modules",
+  ".git",
+  ".claude",
+  "dist",
+  "build",
+  ".turbo",
+  ".wrangler",
+]);
 
 // Sanctioned homes for a protected column name, by repo-relative path. The chokepoint modules and
 // field registry read/write protected columns through the audited seam; the schema and migrations
