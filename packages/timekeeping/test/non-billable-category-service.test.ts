@@ -12,6 +12,7 @@ import {
   createNonBillableCategory,
   updateNonBillableCategory,
 } from "../src/non-billable-category-service.ts";
+import { TimeEntryValidationError } from "../src/time-entry-validation.ts";
 
 const clock = { now: () => "2026-06-22T12:00:00.000Z" };
 const ADMIN = "user_admin" as UserId;
@@ -78,5 +79,42 @@ describe("non-billable category CRUD", () => {
     await expect(
       createNonBillableCategory(database, { name: "  " }, options),
     ).rejects.toMatchObject({ code: "empty-name" });
+  });
+
+  it("updateNonBillableCategory throws not-found for an unknown id and writes no audit row", async () => {
+    const database = freshDatabase();
+    const bogusId = "nonBillableCategory_not_real" as never;
+    let thrown: unknown;
+    try {
+      await updateNonBillableCategory(database, bogusId, { name: "Whatever" }, options);
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(TimeEntryValidationError);
+    expect((thrown as TimeEntryValidationError).code).toBe("not-found");
+    // No phantom audit row must land for a subject that never existed.
+    const { results: audits } = await database
+      .prepare("SELECT COUNT(*) AS n FROM audit_log WHERE subject_id = ?1")
+      .bind(bogusId)
+      .all<{ n: number }>();
+    expect(audits[0]?.n).toBe(0);
+  });
+
+  it("archiveNonBillableCategory throws not-found for an unknown id and writes no audit row", async () => {
+    const database = freshDatabase();
+    const bogusId = "nonBillableCategory_not_real" as never;
+    let thrown: unknown;
+    try {
+      await archiveNonBillableCategory(database, bogusId, options);
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(TimeEntryValidationError);
+    expect((thrown as TimeEntryValidationError).code).toBe("not-found");
+    const { results: audits } = await database
+      .prepare("SELECT COUNT(*) AS n FROM audit_log WHERE subject_id = ?1")
+      .bind(bogusId)
+      .all<{ n: number }>();
+    expect(audits[0]?.n).toBe(0);
   });
 });

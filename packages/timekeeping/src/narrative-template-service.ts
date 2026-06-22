@@ -8,6 +8,7 @@ import { TimeEntryValidationError } from "./time-entry-validation.ts";
 import {
   archiveNarrativeTemplateStatement,
   insertNarrativeTemplateStatement,
+  selectNarrativeTemplateExistsStatement,
   updateNarrativeTemplateStatement,
 } from "./narrative-template-statements.ts";
 
@@ -24,6 +25,18 @@ function audit(
     clock: options.clock,
     randomSource: options.randomSource,
   });
+}
+
+// Pre-read the row's existence so the service refuses an unknown id without writing a misleading
+// audit row for a mutation that never happened. Mirrors assertUtbmsCodeExists in utbms-service.ts.
+async function assertNarrativeTemplateExists(
+  database: SqlDatabase,
+  id: NarrativeTemplateId,
+): Promise<void> {
+  const { results } = await selectNarrativeTemplateExistsStatement(database, id).all<{ found: number }>();
+  if (results.length === 0) {
+    throw new TimeEntryValidationError("not-found", `no such narrative template: ${id}`);
+  }
 }
 
 export interface CreateNarrativeTemplateInput {
@@ -69,6 +82,16 @@ export async function updateNarrativeTemplate(
   if (patch.narrativeTemplate !== undefined && patch.narrativeTemplate.trim().length === 0) {
     throw new TimeEntryValidationError("empty-name", "a narrative template needs a body");
   }
+  // Refuse a patch that carries no changed fields: the statement would only bump updated_at and still
+  // emit an audit row — a meaningless no-op on a legal audit trail.
+  const hasFields =
+    patch.narrativeTemplate !== undefined ||
+    patch.utbmsTaskCodeId !== undefined ||
+    patch.defaultRateE4 !== undefined;
+  if (!hasFields) {
+    throw new TimeEntryValidationError("empty-patch", "update patch must contain at least one field");
+  }
+  await assertNarrativeTemplateExists(database, id);
   return {
     narrativeTemplateId: id,
     effect: {
@@ -88,6 +111,7 @@ export async function archiveNarrativeTemplate(
   id: NarrativeTemplateId,
   options: TimekeepingServiceOptions,
 ): Promise<{ narrativeTemplateId: NarrativeTemplateId; effect: EffectWrite }> {
+  await assertNarrativeTemplateExists(database, id);
   return {
     narrativeTemplateId: id,
     effect: {

@@ -9,6 +9,7 @@ import {
   archiveNonBillableCategoryStatement,
   insertNonBillableCategoryStatement,
   renameNonBillableCategoryStatement,
+  selectNonBillableCategoryExistsStatement,
 } from "./non-billable-category-statements.ts";
 
 function audit(
@@ -29,6 +30,18 @@ function audit(
 function requireNonEmpty(name: string): void {
   if (name.trim().length === 0) {
     throw new TimeEntryValidationError("empty-name", "a non-billable category needs a name");
+  }
+}
+
+// Pre-read the row's existence so the service refuses an unknown id without writing a misleading
+// audit row for a mutation that never happened. Mirrors assertUtbmsCodeExists in utbms-service.ts.
+async function assertNonBillableCategoryExists(
+  database: SqlDatabase,
+  id: NonBillableCategoryId,
+): Promise<void> {
+  const { results } = await selectNonBillableCategoryExistsStatement(database, id).all<{ found: number }>();
+  if (results.length === 0) {
+    throw new TimeEntryValidationError("not-found", `no such non-billable category: ${id}`);
   }
 }
 
@@ -63,6 +76,7 @@ export async function updateNonBillableCategory(
   options: TimekeepingServiceOptions,
 ): Promise<{ nonBillableCategoryId: NonBillableCategoryId; effect: EffectWrite }> {
   requireNonEmpty(patch.name);
+  await assertNonBillableCategoryExists(database, id);
   return {
     nonBillableCategoryId: id,
     effect: {
@@ -81,6 +95,7 @@ export async function archiveNonBillableCategory(
   id: NonBillableCategoryId,
   options: TimekeepingServiceOptions,
 ): Promise<{ nonBillableCategoryId: NonBillableCategoryId; effect: EffectWrite }> {
+  await assertNonBillableCategoryExists(database, id);
   return {
     nonBillableCategoryId: id,
     effect: {

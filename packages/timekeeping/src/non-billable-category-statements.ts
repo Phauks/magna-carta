@@ -45,6 +45,17 @@ export function seedNonBillableCategoryStatements(
   );
 }
 
+// Existence check used by the service before composing an update or archive effect: prevents a
+// phantom audit row from being written for a subject that does not exist.
+export function selectNonBillableCategoryExistsStatement(
+  database: SqlDatabase,
+  id: NonBillableCategoryId,
+): SqlStatement {
+  return database
+    .prepare(`SELECT 1 AS found FROM ${NON_BILLABLE_CATEGORY_TABLE} WHERE id = ?1`)
+    .bind(id);
+}
+
 export function renameNonBillableCategoryStatement(
   database: SqlDatabase,
   id: NonBillableCategoryId,

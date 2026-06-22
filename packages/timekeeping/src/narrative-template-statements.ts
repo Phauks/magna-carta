@@ -24,6 +24,17 @@ export function insertNarrativeTemplateStatement(
     .bind(row.id, row.utbmsTaskCodeId, row.narrativeTemplate, row.defaultRateE4, row.createdAt);
 }
 
+// Existence check used by the service before composing an update or archive effect: prevents a
+// phantom audit row from being written for a subject that does not exist.
+export function selectNarrativeTemplateExistsStatement(
+  database: SqlDatabase,
+  id: NarrativeTemplateId,
+): SqlStatement {
+  return database
+    .prepare(`SELECT 1 AS found FROM ${NARRATIVE_TEMPLATE_TABLE} WHERE id = ?1`)
+    .bind(id);
+}
+
 export function updateNarrativeTemplateStatement(
   database: SqlDatabase,
   id: NarrativeTemplateId,
@@ -72,7 +83,9 @@ export function listNarrativeTemplatesStatement(database: SqlDatabase): SqlState
 }
 
 // The timekeeper's distinct recent narratives, most recent first — the one-tap re-pick read. DISTINCT
-// de-dups a repeated narrative; MAX(work_date) orders by the most recent use. Reads time_entry directly.
+// de-dups a repeated narrative; MAX(work_date) orders by the most recent use. The secondary
+// MAX(created_at) tiebreaker makes the order deterministic when two narratives share their
+// latest work_date, so pagination and tests produce a stable sequence.
 export function recentNarrativesStatement(
   database: SqlDatabase,
   timekeeperUserId: string,
@@ -80,7 +93,7 @@ export function recentNarrativesStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT narrative FROM time_entry WHERE timekeeper_user_id = ?1 GROUP BY narrative ORDER BY MAX(work_date) DESC LIMIT ?2`,
+      `SELECT narrative FROM time_entry WHERE timekeeper_user_id = ?1 GROUP BY narrative ORDER BY MAX(work_date) DESC, MAX(created_at) DESC LIMIT ?2`,
     )
     .bind(timekeeperUserId, limit);
 }
