@@ -6,6 +6,26 @@
 
 > **Deploy deferred.** The `collabora/code` image is **~2 GB** (a single 1.39 GB LibreOffice layer). Pushing it to `registry.cloudflare.com` from a home connection failed repeatedly (`use of closed network connection`), and the registry does not persist partial uploads, so retries don't accumulate. **Run the deploy + measurement from datacenter bandwidth** — wire this to **Cloudflare Workers Builds** or a GitHub Actions job (build + push from CI), or use a wired/high-upload connection. The editor choice (Collabora) is settled, so this spike only swaps the *reported* sizing/cold-start/keep-alive figures for *measured* ones — defer until convenient.
 
+## Running the spike in CI (datacenter bandwidth)
+
+The deploy is wired to a manual GitHub Actions workflow, [`.github/workflows/collabora-topology-spike.yml`](../../.github/workflows/collabora-topology-spike.yml), so the 2 GB image builds and pushes from a GitHub-hosted runner (which has the upstream bandwidth a home connection lacks). The deployed Worker is named `collabora-topology-harness`.
+
+**Cost / risk:** this deploys a **billable ~2 GB container** to a **Workers Paid** account, runs cold-start cycling and two keep-alive observation windows (single-digit to low-tens of dollars per run), and **tears the deployment down at the end** (Worker + container application + image), even on failure. Trigger it deliberately, not on a schedule.
+
+**Required repository secrets** (Settings → Secrets and variables → Actions):
+
+- `CLOUDFLARE_API_TOKEN` — a token with Workers Scripts edit + Workers Containers edit on the target account.
+- `CLOUDFLARE_ACCOUNT_ID` — the target account id (kept in a secret because the image registry is per-account; never hardcoded).
+
+**Trigger it:** GitHub → Actions → "Collabora topology measurement (manual)" → **Run workflow**. It is `workflow_dispatch` only — never runs on push or pull request. Optional inputs: `cold_starts` (default 10), `keepalive_window_seconds` (default 240), `sleep_after_seconds` (default 60). Instance sizing is set in `wrangler.jsonc` (`standard-2` = 1 vCPU / 6 GiB start point), not as a workflow input, because wrangler reads it from config.
+
+**Where the numbers land:**
+
+- **Cold-start** and **keep-alive (control + mitigation)** are scripted by [`measure.mjs`](measure.mjs): printed to the job log, summarized in the run's job summary, and uploaded as the `measurement-results` artifact (`results-coldstart.json`, `results-keepalive-control.json`, `results-keepalive-mitigation.json`, plus `worker-tail.log` with the `container.onStart` / `keepAlive.renew` / `onActivityExpired` lifecycle lines).
+- **coolwsd RSS curve** is **not** scripted (it is read from Cloudflare's per-container memory metric, the number that sizes the instance, not an in-container probe). After the run, open idle / +1 / +Nth / a heavy document and read the per-container memory metric from Workers observability, then record the curve into the results table below.
+
+The control deploy (keep-alive off) is expected to sleep near `sleepAfter`; the mitigation deploy (alarm `renewActivityTimeout` on) is expected to survive past it. The mitigation surviving while the control sleeps is the empirical proof that the alarm keep-alive defeats the still-open issue where WebSocket frames do not renew the activity timer.
+
 ## The three numbers
 
 1. **coolwsd RSS curve** — idle baseline / +1 document / +Nth document (the per-kit slope) / a heavy document. → sets the warm-standby `instance_type`.
@@ -123,7 +143,9 @@ export class DocumentSession extends Container<Env> {
 
 ## Measurement protocol
 
-Prereqs done: image built/pushed (`wrangler deploy`), the DO + container deployed, an `ssh-ed25519` key in `authorized_keys`, observability on, and a throwaway WOPI-host stub reachable from the container.
+The CI workflow above scripts the externally observable halves — **cold-start (step 7)** and the **keep-alive control + mitigation (steps 8–9)** — via `measure.mjs` against the deployed Worker URL, and handles teardown (step 11). The steps below are the full manual protocol; the **RSS curve (steps 1–6)** is still read by hand from Workers observability / SSH because it needs an in-container view, and is the part to record after a CI run.
+
+Prereqs done: image built/pushed (`wrangler deploy`, or the CI workflow), the DO + container deployed, an `ssh-ed25519` key in `authorized_keys`, observability on, and a throwaway WOPI-host stub reachable from the container.
 
 1. **Enumerate the instance.** `wrangler containers instances <APPLICATION_ID> --json` → capture `id` (INSTANCE_ID), `state`, `location`, `version`. All SSH/GraphQL queries key off `id`.
 2. **Idle RSS baseline (1A).** Zero documents open. Read coolwsd-tree RSS two ways: (a) `wrangler containers ssh <INSTANCE_ID> -- sh -c 'for p in $(pgrep coolwsd coolforkit coolkit); do awk "/VmRSS/{print \$2}" /proc/$p/status; done'` summed; (b) `containerFetch(<url>/__rss, 9981)` summing `vmrss_kib`. Agree within jitter; trust `/proc` if they diverge.

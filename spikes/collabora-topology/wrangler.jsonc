@@ -1,7 +1,7 @@
 {
   // Throwaway spike Worker. CLOUDFLARE_ACCOUNT_ID is supplied via the environment at deploy time
   // (not committed here). Deploy: CLOUDFLARE_ACCOUNT_ID=<id> npx wrangler deploy
-  "name": "collabora-topology-spike",
+  "name": "collabora-topology-harness",
   "main": "worker.ts",
   "compatibility_date": "2026-06-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -11,8 +11,10 @@
       "class_name": "DocumentSession",
       "image": "./Dockerfile",
       "max_instances": 3,
-      // Start point only — the RSS curve replaces this. standard-1 = ~1/2 vCPU / 4 GiB.
-      "instance_type": "standard-1"
+      // Start point only — the measured RSS curve replaces this. standard-2 = 1 vCPU / 6 GiB, the
+      // smallest box that gives coolwsd room for several jailed kits; step to standard-3 (2 vCPU /
+      // 8 GiB) or standard-4 (4 vCPU / 12 GiB) if a heavy document plus N kits exceeds 6 GiB.
+      "instance_type": "standard-2"
     }
   ],
   "durable_objects": {

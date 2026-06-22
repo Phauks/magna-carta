@@ -1,0 +1,211 @@
+name: Collabora topology measurement (manual)
+
+# Runs the deferred Collabora-on-Containers measurement harness from a datacenter-bandwidth runner.
+# The collabora/code image is ~2 GB (a single ~1.39 GB LibreOffice layer); pushing it to
+# registry.cloudflare.com fails from a home upstream and the registry does not persist partial uploads,
+# so retries never accumulate. A GitHub-hosted runner has the bandwidth to push it in one shot.
+#
+# This workflow DEPLOYS A BILLABLE 2 GB CONTAINER to a Cloudflare Workers Paid account, measures, then
+# tears it down. It is therefore manual-trigger ONLY — never on push or pull_request.
+#
+# Required repository secrets:
+#   CLOUDFLARE_API_TOKEN  - a token with Workers Scripts + Workers Containers edit on the target account.
+#   CLOUDFLARE_ACCOUNT_ID - the target account id (never hardcoded; the image registry is per-account).
+#
+# What it measures and where the numbers land:
+#   - Cold-start (request -> /hosting/discovery 200 -> first document open): job log + the uploaded
+#     measurement-results artifact (results-coldstart.json).
+#   - Keep-alive defeats sleep: a CONTROL deploy (keep-alive off, container expected to sleep at
+#     sleepAfter) and a MITIGATION deploy (alarm renewActivityTimeout on, expected to survive past
+#     sleepAfter). Job log + results-keepalive-control.json / results-keepalive-mitigation.json.
+#   - coolwsd RSS curve: read out of band from Workers observability (the per-container memory metric),
+#     not scriptable here; the operator records it into spikes/collabora-topology/README.md afterward.
+#
+# Instance sizing (standard-2 = 1 vCPU / 6 GiB as the coolwsd start point) is set in
+# spikes/collabora-topology/wrangler.jsonc, not here, because wrangler reads it from config, not a flag.
+
+on:
+  workflow_dispatch:
+    inputs:
+      cold_starts:
+        description: "Cold-start cycles to time (median + p95)"
+        required: false
+        default: "10"
+      keepalive_window_seconds:
+        description: "Seconds to hold a session open while proving the keep-alive (should exceed 2x sleep_after_seconds)"
+        required: false
+        default: "240"
+      sleep_after_seconds:
+        description: "Container sleepAfter for the run (short, to hit the activity timeout fast)"
+        required: false
+        default: "60"
+
+# A single concurrent run — two of these would fight over the same per-account image and Worker name.
+concurrency:
+  group: collabora-topology-measurement
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    # Cold-start cycling plus two keep-alive observation windows take a while; cap generously.
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: spikes/collabora-topology
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WORKER_NAME: collabora-topology-harness
+
+    steps:
+      - uses: actions/checkout@v6
+
+      # ubuntu-latest ships Node and a running Docker daemon. wrangler deploy builds the image locally
+      # with Docker, then pushes it to the per-account Cloudflare registry. Confirm the daemon is up
+      # before a 2 GB build so a missing daemon fails fast rather than mid-build.
+      - name: Confirm Docker daemon is available
+        run: docker info
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "25"
+
+      # The harness is a standalone package (its own lockfile, NOT a workspace member), so install it in
+      # place rather than through the repo's vp/pnpm toolchain. This pins wrangler 4.98.0 from its
+      # devDependencies.
+      - name: Install harness dependencies
+        run: npm ci
+
+      # Preflight: bundle without publishing, so a config/bundling regression fails before the 2 GB
+      # push burns time and bandwidth.
+      - name: Validate bundle (no publish)
+        run: npx wrangler deploy --dry-run
+
+      # --- CONTROL: keep-alive OFF. Expected to sleep around sleepAfter (the unmitigated behaviour the
+      # mitigation must beat). This is the same deploy used to time cold-start. ---
+      - name: Deploy (control - keep-alive off)
+        id: deploy_control
+        run: |
+          set -euo pipefail
+          npx wrangler deploy \
+            --var KEEP_ALIVE:off \
+            --var "SLEEP_AFTER:${{ inputs.sleep_after_seconds }}s" \
+            2>&1 | tee deploy-control.log
+          url="$(grep -Eo 'https://[a-zA-Z0-9.-]+\.workers\.dev' deploy-control.log | head -n1)"
+          if [ -z "$url" ]; then
+            echo "Could not parse the deployed Worker URL from wrangler output." >&2
+            exit 1
+          fi
+          echo "Deployed control Worker at $url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Measure cold-start (control deploy)
+        run: |
+          node measure.mjs \
+            --url "${{ steps.deploy_control.outputs.url }}" \
+            --mode coldstart \
+            --cold-starts "${{ inputs.cold_starts }}" \
+            --out results-coldstart.json
+
+      - name: Observe control keep-alive (expected to sleep near sleepAfter)
+        run: |
+          node measure.mjs \
+            --url "${{ steps.deploy_control.outputs.url }}" \
+            --mode keepalive \
+            --keepalive-window-seconds "${{ inputs.keepalive_window_seconds }}" \
+            --sleep-after-seconds "${{ inputs.sleep_after_seconds }}" \
+            --out results-keepalive-control.json || true
+
+      # --- MITIGATION: keep-alive ON. Expected to survive past sleepAfter via the alarm-driven
+      # renewActivityTimeout. This is the load-bearing proof: the WebSocket-frames-do-not-renew issue is
+      # still open upstream, so the alarm mitigation must be demonstrated, not assumed. ---
+      - name: Deploy (mitigation - keep-alive on)
+        id: deploy_mitigation
+        run: |
+          set -euo pipefail
+          npx wrangler deploy \
+            --var KEEP_ALIVE:on \
+            --var "SLEEP_AFTER:${{ inputs.sleep_after_seconds }}s" \
+            2>&1 | tee deploy-mitigation.log
+          url="$(grep -Eo 'https://[a-zA-Z0-9.-]+\.workers\.dev' deploy-mitigation.log | head -n1)"
+          if [ -z "$url" ]; then
+            echo "Could not parse the deployed Worker URL from wrangler output." >&2
+            exit 1
+          fi
+          echo "Deployed mitigation Worker at $url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Prove mitigation keep-alive (expected to survive past sleepAfter)
+        run: |
+          node measure.mjs \
+            --url "${{ steps.deploy_mitigation.outputs.url }}" \
+            --mode keepalive \
+            --keepalive-window-seconds "${{ inputs.keepalive_window_seconds }}" \
+            --sleep-after-seconds "${{ inputs.sleep_after_seconds }}" \
+            --out results-keepalive-mitigation.json
+
+      # Lifecycle logs (container.onStart / keepAlive.renew / onActivityExpired / container.onStop) are
+      # the qualitative half of the keep-alive proof; capture a short tail window for the artifact.
+      - name: Capture a lifecycle log tail
+        run: |
+          timeout 45s npx wrangler tail "$WORKER_NAME" --format json > worker-tail.log 2>&1 || true
+          echo "Captured $(wc -l < worker-tail.log) tail line(s)."
+
+      - name: Summarize the three numbers
+        if: always()
+        run: |
+          {
+            echo "## Collabora topology measurement results"
+            echo ""
+            echo "Cold-start, keep-alive control, and keep-alive mitigation JSON are in the measurement-results artifact."
+            echo "The coolwsd RSS curve is read out of band from Workers observability and recorded into README.md."
+            echo ""
+            for f in results-coldstart.json results-keepalive-control.json results-keepalive-mitigation.json; do
+              if [ -f "$f" ]; then
+                echo "### $f"
+                echo '```json'
+                cat "$f"
+                echo '```'
+                echo ""
+              fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload measurement results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: measurement-results
+          path: |
+            spikes/collabora-topology/results-*.json
+            spikes/collabora-topology/deploy-*.log
+            spikes/collabora-topology/worker-tail.log
+          if-no-files-found: warn
+
+      # Teardown ALWAYS runs so a failed measurement never leaves a billable container live. Deleting
+      # the Worker also tears down its container application; the image is then removed from the
+      # per-account registry to stay under the image-storage cap. Both steps are non-fatal so one
+      # cleanup miss does not mask the real measurement result, but any miss is logged loudly for a
+      # manual sweep (wrangler containers list / wrangler containers images list).
+      - name: Teardown (delete Worker, container application, and image)
+        if: always()
+        run: |
+          npx wrangler delete --name "$WORKER_NAME" --force \
+            || echo "WARNING: Worker delete failed or already gone — verify with 'wrangler containers list'."
+          # The container application id and image tag are not the Worker name; resolve them from the
+          # account listings and delete by id/tag. JSON output keeps the parse stable across versions.
+          app_id="$(npx wrangler containers list --json 2>/dev/null \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const a=JSON.parse(s);const m=a.find(c=>(c.name||"").includes(process.env.WORKER_NAME));process.stdout.write(m?(m.id||""):"");}catch{process.stdout.write("");}})')" || true
+          if [ -n "$app_id" ]; then
+            npx wrangler containers delete "$app_id" --force \
+              || echo "WARNING: container application $app_id delete failed — sweep manually."
+          fi
+          image="$(npx wrangler containers images list --json 2>/dev/null \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const a=JSON.parse(s);const m=a.find(i=>JSON.stringify(i).includes(process.env.WORKER_NAME));process.stdout.write(m?(m.name||m.image||m.tag||""):"");}catch{process.stdout.write("");}})')" || true
+          if [ -n "$image" ]; then
+            npx wrangler containers images delete "$image" \
+              || echo "WARNING: image $image delete failed — remove via 'wrangler containers images delete' to stay under the storage cap."
+          else
+            echo "No matching image found to delete (Worker delete may have already removed it)."
+          fi

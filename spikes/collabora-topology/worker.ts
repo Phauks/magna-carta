@@ -55,6 +55,20 @@ export default {
     // measures coolwsd's per-kit behaviour inside a single instance). All requests → coolwsd on 9980
     // (HTTP + WebSocket; the WebSocket upgrade must go through the DO's fetch).
     const stub = getContainer(env.DOCUMENT_SESSION, "spike");
+
+    // Liveness probe consumed by the measurement script: returns the container lifecycle state so the
+    // keep-alive proof can assert the session is still "healthy" past sleepAfter without driving a
+    // real editor WebSocket. Cheap (one in-Durable-Object call), no container round-trip, no bytes.
+    const url = new URL(request.url);
+    if (url.pathname === "/__spike/state") {
+      const state = await stub.getState();
+      // state.status is one of running | stopping | stopped | healthy | stopped_with_code — the
+      // measurement script keys the keep-alive pass/fail on this string.
+      return new Response(JSON.stringify({ status: state.status, ts: Date.now() }), {
+        headers: { "content-type": "application/json" },
+      });
+    }
+
     return stub.fetch(request);
   },
 };
