@@ -106,6 +106,10 @@
       },
     ],
   },
+  // Browser Rendering Workers binding — used by POST /api/v1/safe-browse to render suspect URLs
+  // in Cloudflare's isolated remote browser. Requires compatibility_date >= 2026-03-24 for
+  // quickAction(); the current compatibility_date (2026-06-05) already satisfies that requirement.
+  "browser": { "binding": "BROWSER" },
   // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines
   // the telemetry Workers logger emits land here). Logpush → R2 is a deploy-time runbook step
   // (docs/conventions/operations.md), not code — it is account configuration (slice 0·6, ADR-0074).

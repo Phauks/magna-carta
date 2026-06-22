@@ -59,7 +59,8 @@ describe("GET /api/v1/me", () => {
       // firm:manageSecrets / incidents:viewDescription grants (0006) + shipping:manage
       // (0008_elite_genesis) + the slice 1·3 directory:edit / directory:viewSensitiveIdentifiers
       // grants (0009_directory) + tools:firmUsage (0010_seed-tools-firm-usage.sql) + the slice 1·4
-      // customFields:manage / customFields:purge grants (0013_custom-fields.sql). Sorted.
+      // customFields:manage / customFields:purge grants (0013_custom-fields.sql) + tools:whois /
+      // tools:safeBrowse (0016_seed-tools-web-domains.sql, seeded onto every default role). Sorted.
       permissions: [
         "customFields:manage",
         "customFields:purge",
@@ -84,6 +85,8 @@ describe("GET /api/v1/me", () => {
         "matters:reopen",
         "shipping:manage",
         "tools:firmUsage",
+        "tools:safeBrowse",
+        "tools:whois",
       ],
     });
   });

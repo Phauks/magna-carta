@@ -183,6 +183,9 @@ importers:
       '@magna-carta/property-links':
         specifier: workspace:*
         version: link:../../packages/property-links
+      '@magna-carta/safe-browse':
+        specifier: workspace:*
+        version: link:../../packages/safe-browse
       '@magna-carta/shipping':
         specifier: workspace:*
         version: link:../../packages/shipping

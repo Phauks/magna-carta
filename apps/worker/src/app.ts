@@ -23,7 +23,6 @@ import { registerFoldersRoutes } from "./routes/folders.ts";
 import { registerIncidentsRoute } from "./routes/incidents.ts";
 import { registerLocationsRoutes } from "./routes/locations.ts";
 import { fetchHttpClient } from "@magna-carta/integrations/http";
-import { connect } from "cloudflare:sockets";
 import { workerPlugins } from "./plugins/registry.ts";
 import type { PluginRuntime } from "./plugins/runtime.ts";
 import { firmSecretStoreNotYetAvailable } from "./plugins/secret-store.ts";
@@ -31,6 +30,7 @@ import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
 import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
 import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
+import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 import { registerNumberingRoutes } from "./routes/numbering.ts";
@@ -107,6 +107,11 @@ export type Bindings = {
   // unset and keep the logging adapter, so no real email is sent and no domain onboarding is required.
   SEND_EMAIL?: CloudflareEmailBinding;
   EMAIL_FROM?: string;
+  // Browser Rendering Workers binding — used by POST /api/v1/safe-browse to render a URL in an
+  // isolated remote browser. Optional here so Miniflare (which has no local browser emulation) can
+  // boot and run the full test suite without touching this binding; the route ALWAYS receives an
+  // injected renderer dep in tests, so c.env.BROWSER is never accessed during testing.
+  BROWSER?: unknown;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
@@ -162,6 +167,10 @@ export interface CreateAppOptions {
   // Production defaults: fetchHttpClient() for RDAP, the cloudflare:sockets connect() adapter for
   // port-43 WHOIS, and no resolver (DNS-rebinding protection is deferred until a DoH adapter is wired).
   whoisDeps?: Partial<WhoisRouteDeps>;
+  // Overrides the safe-browse route dependencies for tests (a fake renderer + a fake probe).
+  // Production defaults: createBrowserRenderer(c.env.BROWSER) + createFetchRedirectProbe().
+  // Tests ALWAYS supply safeBrowseDeps so c.env.BROWSER is never accessed in the test pool.
+  safeBrowseDeps?: SafeBrowseRouteDeps;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
@@ -234,6 +243,9 @@ export function createApp(options: CreateAppOptions = {}) {
   // The production socket opens a raw TCP connection on port 43 via cloudflare:sockets connect().
   const productionWhoisSocket: WhoisRouteDeps["socket"] = {
     async query(host, request) {
+      // Imported lazily: cloudflare:sockets is a Workers-only module, so a top-level import would
+      // break Node-based tooling (the emit-openapi script loads this file outside the Worker runtime).
+      const { connect } = await import("cloudflare:sockets");
       const socket = connect({ hostname: host, port: 43 });
       const writer = socket.writable.getWriter();
       await writer.write(new TextEncoder().encode(request));
@@ -268,6 +280,11 @@ export function createApp(options: CreateAppOptions = {}) {
     resolve: options.whoisDeps?.resolve,
   };
   registerWhoisRoute(app, chokepoint, whoisDeps);
+  // The safe-browse route: renders a suspect URL in an isolated remote browser and returns a
+  // static snapshot. All outbound effects go through injected deps so tests substitute fakes
+  // without touching the BROWSER binding. Production: createBrowserRenderer(c.env.BROWSER) +
+  // createFetchRedirectProbe() — built lazily in the handler, never at startup.
+  registerSafeBrowseRoute(app, chokepoint, options.safeBrowseDeps ?? {});
   registerMembersRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
   registerIncidentsRoute(app, chokepoint);
