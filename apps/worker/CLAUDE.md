@@ -74,6 +74,24 @@ artifact lives in the firm's own bucket and is expired by a `bundles/` R2 lifecy
 runbook, section 8) — a regenerable cache, so expiry only forces a later rebuild. Notifications-push
 delivery (instead of polling) and a Container escalation for outlier-large bundles are named seams.
 
+## Conversion subsystem — deploy-time activation
+
+The server-side file conversion path (`src/conversions/`) is wired but **dormant until the real libvips Container is deployed.** `resolveEnginePort` in `conversion-engine.ts` checks for the `LIBVIPS_CONTAINER` binding at request time and falls back to the deferred port (returns `engine-not-implemented`) when absent — so the routes are fully functional in tests and in production without the Container, they just cannot yet execute real conversions.
+
+To activate real conversions in a production deployment:
+
+1. **Build and push the libvips Container image** (the `containers/libvips` crate or equivalent Docker image) to a registry accessible from Cloudflare Containers.
+2. **Add the `containers` binding** in `wrangler.jsonc`:
+   ```jsonc
+   "containers": [
+     { "class_name": "LibvipsContainer", "name": "LIBVIPS_CONTAINER" }
+   ]
+   ```
+   and ensure `LibvipsContainer` is exported from `src/index.ts` (the `libvips-container.ts` stub is already present).
+3. **Add the R2 lifecycle rule** expiring the `conversions/` prefix (~24 h). Conversion result objects are transient presigned-GET artifacts; expiry forces the client to re-convert rather than accumulate stale files.
+
+Until step 2 is done, `resolveEnginePort` returns the deferred port and all three conversion routes operate correctly (upload, submit → 202, poll → `engine-not-implemented` failure). The Container binding cannot run under the local Miniflare test pool, which is why `resolveEnginePort` is injectable and the e2e tests supply a fake engine.
+
 ## Gotchas
 
 - A declared queue **consumer** with no exported handler fails the deploy; a declared **producer** does

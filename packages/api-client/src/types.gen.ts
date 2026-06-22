@@ -774,6 +774,31 @@ export type CustomFieldValueRow = {
     validTo: string | null;
 };
 
+export type ConversionUploadResponse = {
+    jobId: string;
+    uploadUrl: string;
+    sourceKey: string;
+};
+
+export type ConversionSubmitResponse = {
+    jobId: string;
+    status: 'queued';
+};
+
+export type ConversionSubmitRequest = {
+    jobId: string;
+    sourceKey: string;
+    from: string;
+    to: string;
+};
+
+export type ConversionStatus = {
+    status: string;
+    url?: string;
+    mediaType?: string;
+    reason?: string;
+};
+
 export type ShippingConnectAck = {
     id: string;
     status: string;
@@ -4746,6 +4771,123 @@ export type CustomFieldsValueHistoryResponses = {
 };
 
 export type CustomFieldsValueHistoryResponse = CustomFieldsValueHistoryResponses[keyof CustomFieldsValueHistoryResponses];
+
+export type ConversionsUploadData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/conversions/upload';
+};
+
+export type ConversionsUploadErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks tools:fileConverter
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConversionsUploadError = ConversionsUploadErrors[keyof ConversionsUploadErrors];
+
+export type ConversionsUploadResponses = {
+    /**
+     * A jobId, the presigned upload URL, and the source R2 key
+     */
+    200: ConversionUploadResponse;
+};
+
+export type ConversionsUploadResponse = ConversionsUploadResponses[keyof ConversionsUploadResponses];
+
+export type ConversionsSubmitData = {
+    body: ConversionSubmitRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/conversions';
+};
+
+export type ConversionsSubmitErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks tools:fileConverter
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The requested format conversion is not supported (no conversion path found)
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConversionsSubmitError = ConversionsSubmitErrors[keyof ConversionsSubmitErrors];
+
+export type ConversionsSubmitResponses = {
+    /**
+     * The job was accepted and is now queued for conversion
+     */
+    202: ConversionSubmitResponse;
+};
+
+export type ConversionsSubmitResponse = ConversionsSubmitResponses[keyof ConversionsSubmitResponses];
+
+export type ConversionsStatusData = {
+    body?: never;
+    path: {
+        jobId: string;
+    };
+    query?: never;
+    url: '/api/v1/conversions/{jobId}';
+};
+
+export type ConversionsStatusErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks tools:fileConverter
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConversionsStatusError = ConversionsStatusErrors[keyof ConversionsStatusErrors];
+
+export type ConversionsStatusResponses = {
+    /**
+     * The job's current state; a done job includes a presigned URL and media type
+     */
+    200: ConversionStatus;
+};
+
+export type ConversionsStatusResponse = ConversionsStatusResponses[keyof ConversionsStatusResponses];
 
 export type ShippingConnectData = {
     body: ShippingConnectRequest;
