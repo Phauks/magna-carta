@@ -3,7 +3,7 @@ branch: slice-2-4-conversion
 worktree: C:/dev/magna-carta-worktrees/slice-2-4-conversion
 area: Slice 2·4a — in-app conversion: substrate-independent core (ConversionPort + registry) + libvips adapter
 status: building
-touches: packages/conversion, docs/research/in-app-conversion.md, docs/specs/2026-06-21-slice-2-4a-conversion-core-design.md, docs/decisions/pending/conversion-in-house-only-single-engine.md, docs/active-work/slice-2-4-conversion.md
+touches: packages/conversion, pnpm-workspace.yaml, docs/research/in-app-conversion.md, docs/specs/2026-06-21-slice-2-4a-conversion-core-design.md, docs/specs/2026-06-21-slice-2-4a-conversion-core-implementation-plan.md, docs/decisions/pending/conversion-in-house-only-single-engine.md, docs/active-work/slice-2-4-conversion.md
 ---
 
 Building the **substrate-independent carve-out** of slice 2·4 (in-app conversion) while the full 2·4
