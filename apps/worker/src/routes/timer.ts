@@ -390,7 +390,15 @@ export function registerTimerRoutes(app: TimerApp, chokepoint: Chokepoint): void
       const rawElapsed =
         state !== null ? elapsedMinutes(state, nowString) : 0;
 
+      // A committing DO is always matter-bound: the DO's stopAndCommit refuses an unbound timer
+      // (returns 'unbound', handled above) and is single-threaded, so reaching this point with a
+      // null or missing matterId is a programming error, not a user error.
       const matterId = state?.matterId;
+      if (!matterId) {
+        throw new Error(
+          "invariant: committing timer has no bound matter after stopAndCommit returned committing",
+        );
+      }
       const narrative = state?.narrative ?? "";
       const utbmsTaskCodeId = state?.utbmsTaskCodeId;
       const startedAt = state?.startedAt ?? nowString;
@@ -420,7 +428,7 @@ export function registerTimerRoutes(app: TimerApp, chokepoint: Chokepoint): void
         .all<{ role_id: string | null }>();
 
       const rateResolution = await resolveRate(firm.firmDatabase, {
-        matterId: matterId ?? "",
+        matterId,
         clientId: null,
         timekeeperUserId: userId,
         roleId: memberRows[0]?.role_id ?? null,
@@ -454,7 +462,7 @@ export function registerTimerRoutes(app: TimerApp, chokepoint: Chokepoint): void
             firm.firmDatabase,
             {
               id: timeEntryId,
-              matterId: matterId ?? "",
+              matterId,
               timekeeperUserId: userId,
               workDate,
               rawDurationMinutes: rawElapsed,

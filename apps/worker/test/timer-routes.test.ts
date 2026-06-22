@@ -174,7 +174,13 @@ describe("two racing stop-commits collapse to one entry", () => {
       post("/api/v1/timer/stop-commit", {}),
       post("/api/v1/timer/stop-commit", {}),
     ]);
-    expect([a.status, b.status].filter((s) => s === 201).length).toBeGreaterThanOrEqual(1);
+    // Both requests must succeed with 201: the first commits, the second replays the same result.
+    expect(a.status).toBe(201);
+    expect(b.status).toBe(201);
+    // Both must return the identical timeEntryId — the idempotent replay yields the first entry handle.
+    const { timeEntryId: idA } = (await a.json()) as { timeEntryId: string };
+    const { timeEntryId: idB } = (await b.json()) as { timeEntryId: string };
+    expect(idA).toBe(idB);
 
     const after = await env.DB_FIRM_POOL_1.prepare(
       "SELECT COUNT(*) AS c FROM time_entry WHERE live_run_id = ?1",
