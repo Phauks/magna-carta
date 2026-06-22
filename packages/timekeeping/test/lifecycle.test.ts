@@ -57,6 +57,11 @@ describe("assertTransition with the review gate OFF", () => {
   it("still allows voiding a draft", () => {
     expect(() => assertTransition("draft", "void", false)).not.toThrow();
   });
+
+  it("allows voiding mid-states even with the gate off", () => {
+    expect(() => assertTransition("submitted", "void", false)).not.toThrow();
+    expect(() => assertTransition("approved", "void", false)).not.toThrow();
+  });
 });
 
 describe("frozen states are terminal", () => {
@@ -75,6 +80,10 @@ describe("canTransition mirrors assertTransition without throwing", () => {
     expect(canTransition("draft", "submitted", true)).toBe(true);
     expect(canTransition("draft", "approved", true)).toBe(false);
     expect(canTransition("billed", "void", true)).toBe(false);
+  });
+
+  it("reflects gate-off legal transitions", () => {
+    expect(canTransition("draft", "billed", false)).toBe(true);
   });
 });
 
