@@ -130,7 +130,7 @@ Wrap calls in `try/catch` and inspect `error.message` to distinguish these cases
 
 ## Redaction
 
-`redactDocument(bytes, regions, opts)` permanently removes content from one or more pages by rasterizing each affected page, painting a solid fill over the specified region, and replacing the page's entire content stream with the resulting image. Original text, vector graphics, and font data do not survive in the output.
+`redactDocument(bytes, regions, opts)` permanently removes content from one or more pages by rasterizing each affected page, painting an opaque black box over the specified region, and replacing the page's entire content stream with the resulting image. Original text, vector graphics, and font data do not survive in the output.
 
 ### `redactDocument(bytes, regions, opts)`
 
@@ -140,16 +140,16 @@ import { redactDocument } from "@magna-carta/pdf";
 const regions = [
   {
     page: 0,            // 0-based page index
-    rect: { x0: 50, y0: 100, x1: 300, y1: 200 },  // display-space pixels at the render DPI
+    rect: { x0: 50, y0: 100, x1: 300, y1: 200 },  // display points, bottom-left origin (same units as the page size)
     reason: "privileged",  // optional — not written into the output PDF
   },
 ];
 const result = await redactDocument(new Uint8Array(inputBytes), regions, { dpi: 300 });
-// result.pdf  — Uint8Array of the redacted PDF
-// result.report.pagesRedacted — array of page indices that were modified
+// result.pdf — Uint8Array of the redacted PDF
+// result.pagesRedacted — array of page indices that were modified
 ```
 
-**Coordinate convention.** `rect` values are in rendered display space at the DPI specified in `opts.dpi` (default 300). `x0`/`y0` is the top-left corner of the region; `x1`/`y1` is the bottom-right corner. The hayro render pipeline absorbs page rotation and non-zero `MediaBox` origins automatically, so callers do not need to adjust for those.
+**Coordinate convention.** `rect` values are in display points with a bottom-left origin — the same units and orientation as the page dimensions (a US-Letter page is 612 × 792 points). The two corners may be given in any order; they are normalized internally. The hayro render pipeline absorbs page rotation and non-zero `MediaBox` origins automatically, so callers do not need to adjust for those.
 
 **DPI.** The default is 300, which exceeds typical court-filing requirements without producing unreasonably large files. Lower values produce smaller files at the cost of image quality for the remaining (non-redacted) page content.
 
@@ -174,17 +174,16 @@ try {
 | Field | Type | Default | Description |
 | --- | --- | --- | --- |
 | `dpi` | `number` | `300` | Render resolution for rasterization. |
-| `fillColor` | `[r, g, b]` | `[0, 0, 0]` | RGB fill colour painted over the redacted region (0–255 per channel). |
 | `redactedText` | `string[]` | `[]` | Strings the gate checks for survival in the output. Pass the verbatim text you are redacting so the gate can verify it does not appear. |
+
+Redaction always paints an opaque black box (the standard for legal production); the fill colour is not configurable.
 
 ### `RedactionResult`
 
 ```ts
 interface RedactionResult {
-  pdf: Uint8Array;              // the redacted PDF bytes
-  report: {
-    pagesRedacted: number[];    // page indices (0-based) that were modified
-  };
+  pdf: Uint8Array;          // the redacted PDF bytes
+  pagesRedacted: number[];  // page indices (0-based) that were modified
 }
 ```
 
