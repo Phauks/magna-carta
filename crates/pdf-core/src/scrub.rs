@@ -66,8 +66,6 @@ pub(crate) fn catalog_subdict_mut<'a>(doc: &'a mut Document, key: &[u8]) -> Opti
 }
 
 /// The immutable counterpart of `catalog_subdict_mut`.
-// Used in tests today; later tasks call this from non-test surface-gate code.
-#[allow(dead_code)]
 pub(crate) fn catalog_subdict<'a>(doc: &'a Document, key: &[u8]) -> Option<&'a Dictionary> {
     let obj = doc.catalog().ok()?.get(key).ok()?;
     match obj {
@@ -103,6 +101,50 @@ fn scrub_outlines(doc: &mut Document) {
 fn scrub_optional_content(doc: &mut Document) {
     if let Ok(catalog) = doc.catalog_mut() {
         catalog.remove(b"OCProperties");
+    }
+}
+
+/// Every field/widget object reachable from `AcroForm /Fields` (depth-first
+/// through `/Kids`). Used to clear values and, by the gate, to verify none survive.
+pub(crate) fn collect_field_ids(doc: &Document) -> Vec<ObjectId> {
+    let mut stack: Vec<ObjectId> = catalog_subdict(doc, b"AcroForm")
+        .and_then(|acro| acro.get(b"Fields").ok())
+        .and_then(|o| o.as_array().ok())
+        .map(|arr| arr.iter().filter_map(|o| o.as_reference().ok()).collect())
+        .unwrap_or_default();
+    let mut seen = std::collections::BTreeSet::new();
+    let mut ids = Vec::new();
+    while let Some(id) = stack.pop() {
+        if !seen.insert(id) {
+            continue;
+        }
+        ids.push(id);
+        if let Ok(kids) = doc
+            .get_object(id)
+            .and_then(|o| o.as_dict())
+            .and_then(|d| d.get(b"Kids"))
+            .and_then(|o| o.as_array())
+        {
+            for kid in kids {
+                if let Ok(kid_id) = kid.as_reference() {
+                    stack.push(kid_id);
+                }
+            }
+        }
+    }
+    ids
+}
+
+fn scrub_form_field_values(doc: &mut Document) {
+    for id in collect_field_ids(doc) {
+        if let Ok(field) = doc.get_object_mut(id).and_then(|o| o.as_dict_mut()) {
+            field.remove(b"V");
+            field.remove(b"DV");
+            field.remove(b"AP");
+        }
+    }
+    if let Some(acroform) = catalog_subdict_mut(doc, b"AcroForm") {
+        acroform.set("NeedAppearances", Object::Boolean(true));
     }
 }
 
@@ -175,6 +217,9 @@ pub fn sanitize_document(doc: &mut Document, opts: &ScrubOptions) -> Result<(), 
     }
     if opts.attachments {
         scrub_attachments(doc);
+    }
+    if opts.form_field_values {
+        scrub_form_field_values(doc);
     }
     if opts.structure_tree {
         scrub_structure_tree(doc);
@@ -276,6 +321,40 @@ mod tests {
         let acro = catalog_subdict(&doc, b"AcroForm").expect("AcroForm kept");
         assert!(!acro.has(b"XFA"));
         assert!(acro.has(b"Fields"));
+    }
+
+    #[test]
+    fn clears_form_field_values_keeping_blank_fields() {
+        let mut doc = base_doc();
+        // A parent field with one child widget; both carry a value.
+        let mut child = Dictionary::new();
+        child.set("V", Object::string_literal("SSN 123-45-6789"));
+        child.set("AP", Object::Null);
+        let child_id = doc.add_object(Object::Dictionary(child));
+        let mut parent = Dictionary::new();
+        parent.set("T", Object::string_literal("ssn"));
+        parent.set("V", Object::string_literal("SSN 123-45-6789"));
+        parent.set("DV", Object::string_literal("SSN 123-45-6789"));
+        parent.set("Kids", Object::Array(vec![Object::Reference(child_id)]));
+        let parent_id = doc.add_object(Object::Dictionary(parent));
+        let mut acro = Dictionary::new();
+        acro.set("Fields", Object::Array(vec![Object::Reference(parent_id)]));
+        let acro_id = doc.add_object(Object::Dictionary(acro));
+        set_on_catalog(&mut doc, "AcroForm", Object::Reference(acro_id));
+
+        sanitize_document(&mut doc, &ScrubOptions::default()).unwrap();
+
+        // Values and appearances cleared on the field and its widget; field kept.
+        let parent = doc.get_object(parent_id).unwrap().as_dict().unwrap();
+        assert!(!parent.has(b"V"));
+        assert!(!parent.has(b"DV"));
+        assert!(parent.has(b"T")); // the field itself remains (blank)
+        let child = doc.get_object(child_id).unwrap().as_dict().unwrap();
+        assert!(!child.has(b"V"));
+        assert!(!child.has(b"AP"));
+        // NeedAppearances set so a viewer regenerates blank appearances.
+        let acro = catalog_subdict(&doc, b"AcroForm").unwrap();
+        assert_eq!(acro.get(b"NeedAppearances").unwrap().as_bool().unwrap(), true);
     }
 
     #[test]
