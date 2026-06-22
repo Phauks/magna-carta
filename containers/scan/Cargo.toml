@@ -13,6 +13,13 @@ path = "src/lib.rs"
 name = "magna-carta-scan"
 path = "src/main.rs"
 
+# The build-time signature-database extractor. Runs in the image build (never at runtime): reads the
+# unpacked CVD/CLD signature files and writes the prefilter's atoms.db. Fail-closed + fail-loud — see
+# src/bin/build-atoms.rs. Depends only on the lib's atoms.rs parsers + serde_json (already direct deps).
+[[bin]]
+name = "build-atoms"
+path = "src/bin/build-atoms.rs"
+
 # Heavy engine dependencies (yara-x, lopdf, cfb, zip) are added in the tasks that introduce them, so the
 # early skeleton builds fast.
 [dependencies]
