@@ -1325,7 +1325,12 @@ export const rate = sqliteTable(
     uniqueIndex("rate_open_row_unique_index")
       .on(table.rateCardId, table.tier, table.scopedId)
       .where(sql`${table.validTo} IS NULL`),
-    index("rate_resolution_index").on(table.rateCardId, table.tier, table.scopedId, table.validFrom),
+    index("rate_resolution_index").on(
+      table.rateCardId,
+      table.tier,
+      table.scopedId,
+      table.validFrom,
+    ),
     check("rate_tier_check", sql`${table.tier} IN ('matter', 'client', 'timekeeper', 'role')`),
     check("rate_currency_check", sql`${table.currency} IN ('USD')`),
   ],
@@ -1360,9 +1365,7 @@ export const nonBillableCategory = sqliteTable(
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
-  (table) => [
-    check("non_billable_category_name_nonempty_check", sql`length(${table.name}) > 0`),
-  ],
+  (table) => [check("non_billable_category_name_nonempty_check", sql`length(${table.name}) > 0`)],
 );
 
 // Per-task-code narrative templates: a reusable description plus an optional default rate, filled
@@ -1380,9 +1383,7 @@ export const narrativeTemplate = sqliteTable(
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
-  (table) => [
-    index("narrative_template_utbms_task_code_index").on(table.utbmsTaskCodeId),
-  ],
+  (table) => [index("narrative_template_utbms_task_code_index").on(table.utbmsTaskCodeId)],
 );
 
 // The work-in-progress store: one committed unit of captured time. The resolved rate is SNAPSHOT on

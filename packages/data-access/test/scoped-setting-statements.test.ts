@@ -71,7 +71,10 @@ describe("resolveScopedSetting", () => {
   it("returns the in-code default when no row exists at any tier", async () => {
     const database = memoryDatabase();
     expect(
-      await resolveScopedSetting(database, incrementMinutes, { matterId: "matter_a", userId: "user_a" }),
+      await resolveScopedSetting(database, incrementMinutes, {
+        matterId: "matter_a",
+        userId: "user_a",
+      }),
     ).toBe(6);
   });
 
@@ -131,7 +134,9 @@ describe("resolveScopedSetting", () => {
       )
       .bind("time.increment_minutes", "matter", "matter_a", "{not json", "2026-06-22T00:00:00.000Z")
       .run();
-    expect(await resolveScopedSetting(database, incrementMinutes, { matterId: "matter_a" })).toBe(6);
+    expect(await resolveScopedSetting(database, incrementMinutes, { matterId: "matter_a" })).toBe(
+      6,
+    );
   });
 
   it("falls through a schema-invalid (parseable) stored value to the next tier", async () => {
@@ -142,10 +147,18 @@ describe("resolveScopedSetting", () => {
       .prepare(
         "INSERT INTO scoped_setting (key, scope_tier, scoped_id, value, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
       )
-      .bind("time.increment_minutes", "matter", "matter_a", '"not-a-number"', "2026-06-22T00:00:00.000Z")
+      .bind(
+        "time.increment_minutes",
+        "matter",
+        "matter_a",
+        '"not-a-number"',
+        "2026-06-22T00:00:00.000Z",
+      )
       .run();
     await put(database, "firm", null, 6);
-    expect(await resolveScopedSetting(database, incrementMinutes, { matterId: "matter_a" })).toBe(6);
+    expect(await resolveScopedSetting(database, incrementMinutes, { matterId: "matter_a" })).toBe(
+      6,
+    );
   });
 });
 

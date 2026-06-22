@@ -39,7 +39,9 @@ async function assertNonBillableCategoryExists(
   database: SqlDatabase,
   id: NonBillableCategoryId,
 ): Promise<void> {
-  const { results } = await selectNonBillableCategoryExistsStatement(database, id).all<{ found: number }>();
+  const { results } = await selectNonBillableCategoryExistsStatement(database, id).all<{
+    found: number;
+  }>();
   if (results.length === 0) {
     throw new TimeEntryValidationError("not-found", `no such non-billable category: ${id}`);
   }

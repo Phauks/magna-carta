@@ -9,7 +9,13 @@ export const TIME_ENTRY_TABLE = "time_entry";
 
 // Mirrors the CHECK constraint on time_entry.source — kept in sync so an invalid value is caught
 // at the TypeScript boundary before it reaches the database layer.
-export type TimeEntrySource = "timer" | "manual" | "quick_add" | "grid" | "offline_sync" | "calendar";
+export type TimeEntrySource =
+  | "timer"
+  | "manual"
+  | "quick_add"
+  | "grid"
+  | "offline_sync"
+  | "calendar";
 
 // The resolved rate snapshot the route hands in, already frozen for this entry. amount_minor and
 // rate_e4 are paired by the table CHECK: both set (billable) or both null (non-billable internal time).
@@ -75,9 +81,7 @@ export function selectMatterEBillingStatement(
   database: SqlDatabase,
   matterId: string,
 ): SqlStatement {
-  return database
-    .prepare(`SELECT e_billing FROM matter WHERE id = ?1`)
-    .bind(matterId);
+  return database.prepare(`SELECT e_billing FROM matter WHERE id = ?1`).bind(matterId);
 }
 
 // A guarded status transition: the WHERE status = <from> clause is the freeze backstop — a billed/void
@@ -147,9 +151,7 @@ export function selectTimeEntryStatusStatement(
   database: SqlDatabase,
   id: TimeEntryId,
 ): SqlStatement {
-  return database
-    .prepare(`SELECT status FROM ${TIME_ENTRY_TABLE} WHERE id = ?1`)
-    .bind(id);
+  return database.prepare(`SELECT status FROM ${TIME_ENTRY_TABLE} WHERE id = ?1`).bind(id);
 }
 
 // Sets the reviewer's kick-back reason text on the entry. Runs in the same batch as the status
@@ -162,9 +164,7 @@ export function setKickBackReasonStatement(
   updatedAt: string,
 ): SqlStatement {
   return database
-    .prepare(
-      `UPDATE ${TIME_ENTRY_TABLE} SET kick_back_reason = ?2, updated_at = ?3 WHERE id = ?1`,
-    )
+    .prepare(`UPDATE ${TIME_ENTRY_TABLE} SET kick_back_reason = ?2, updated_at = ?3 WHERE id = ?1`)
     .bind(id, reason, updatedAt);
 }
 

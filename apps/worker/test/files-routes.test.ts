@@ -589,7 +589,13 @@ describe("inline preview grant + cookieless delivery", () => {
     const res = await get(`/api/v1/files/${fileId}/preview`);
     expect(res.status).toBe(200);
     expect(res.headers.get("Cache-Control")).toBe("private, no-store");
-    const body = await res.json<{ mode: string; verdict: string; streamUrl: string; contentType: string; downloadUrl: string }>();
+    const body = await res.json<{
+      mode: string;
+      verdict: string;
+      streamUrl: string;
+      contentType: string;
+      downloadUrl: string;
+    }>();
     expect(body.mode).toBe("inline-media");
     expect(body.verdict).toBe("playable");
     expect(body.contentType).toBe("video/mp4");
@@ -597,7 +603,9 @@ describe("inline preview grant + cookieless delivery", () => {
     expect(body.downloadUrl).toBe(`/api/v1/files/${fileId}/download`);
     const audit = await env.DB_FIRM_POOL_1.prepare(
       "SELECT event FROM audit_log WHERE event = 'file.downloaded' AND subject_id IN (SELECT id FROM file_version WHERE file_id = ?1)",
-    ).bind(fileId).all();
+    )
+      .bind(fileId)
+      .all();
     expect(audit.results).toHaveLength(0);
   });
 
@@ -606,7 +614,9 @@ describe("inline preview grant + cookieless delivery", () => {
       inlinePlayable: "playable",
       sniffedContentType: "video/mp4", // declared_content_type is application/octet-stream
     });
-    const grant = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ streamUrl: string }>();
+    const grant = await (
+      await get(`/api/v1/files/${fileId}/preview`)
+    ).json<{ streamUrl: string }>();
     const res = await SELF.fetch(grant.streamUrl); // NO cookie
     expect(res.status).toBe(200);
     expect(res.headers.get("Content-Disposition")).toBe("attachment");
@@ -624,7 +634,9 @@ describe("inline preview grant + cookieless delivery", () => {
       inlinePlayable: "playable",
       sniffedContentType: "video/mp4",
     });
-    const grant = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ streamUrl: string }>();
+    const grant = await (
+      await get(`/api/v1/files/${fileId}/preview`)
+    ).json<{ streamUrl: string }>();
     const res = await SELF.fetch(grant.streamUrl, { headers: { Range: "bytes=0-99" } });
     expect(res.status).toBe(206);
     expect(res.headers.get("Content-Range")).toBe("bytes 0-99/500");
@@ -642,7 +654,9 @@ describe("inline preview grant + cookieless delivery", () => {
       inlinePlayable: "playable",
       sniffedContentType: "video/mp4",
     });
-    const grant = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ streamUrl: string }>();
+    const grant = await (
+      await get(`/api/v1/files/${fileId}/preview`)
+    ).json<{ streamUrl: string }>();
     const res = await SELF.fetch(grant.streamUrl, { headers: { Range: "bytes=9000-9999" } });
     expect(res.status).toBe(416);
     expect(res.headers.get("Content-Range")).toBe("bytes */500");
@@ -654,16 +668,22 @@ describe("inline preview grant + cookieless delivery", () => {
       inlinePlayable: "playable",
       sniffedContentType: "video/mp4",
     });
-    const grant = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ streamUrl: string }>();
+    const grant = await (
+      await get(`/api/v1/files/${fileId}/preview`)
+    ).json<{ streamUrl: string }>();
     // Discover the real ETag.
     const probe = await SELF.fetch(grant.streamUrl, { headers: { Range: "bytes=0-99" } });
     const etag = probe.headers.get("ETag");
     expect(etag).toBeTruthy();
     // Matching If-Range -> 206.
-    const matched = await SELF.fetch(grant.streamUrl, { headers: { Range: "bytes=0-99", "If-Range": etag as string } });
+    const matched = await SELF.fetch(grant.streamUrl, {
+      headers: { Range: "bytes=0-99", "If-Range": etag as string },
+    });
     expect(matched.status).toBe(206);
     // Stale If-Range -> ignore the Range, full 200.
-    const stale = await SELF.fetch(grant.streamUrl, { headers: { Range: "bytes=0-99", "If-Range": '"a-stale-etag"' } });
+    const stale = await SELF.fetch(grant.streamUrl, {
+      headers: { Range: "bytes=0-99", "If-Range": '"a-stale-etag"' },
+    });
     expect(stale.status).toBe(200);
     expect((await stale.arrayBuffer()).byteLength).toBe(500);
   });
@@ -677,7 +697,9 @@ describe("inline preview grant + cookieless delivery", () => {
 
   it("download-only: a NULL-verdict (never sniffed) version -> mode download-only, no streamUrl", async () => {
     const { fileId } = await seedCleanFile("doc.bin", null, "data", ISO, { inlinePlayable: null });
-    const body = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ mode: string; reason: string; streamUrl?: string; downloadUrl: string }>();
+    const body = await (
+      await get(`/api/v1/files/${fileId}/preview`)
+    ).json<{ mode: string; reason: string; streamUrl?: string; downloadUrl: string }>();
     expect(body.mode).toBe("download-only");
     expect(body.reason).toBe("unknown-verdict");
     expect(body.streamUrl).toBeUndefined();
@@ -690,7 +712,9 @@ describe("inline preview grant + cookieless delivery", () => {
       sniffedContentType: "video/mp4",
       storageClass: "infrequent_access",
     });
-    const body = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ mode: string; reason: string }>();
+    const body = await (
+      await get(`/api/v1/files/${fileId}/preview`)
+    ).json<{ mode: string; reason: string }>();
     expect(body.mode).toBe("download-only");
     expect(body.reason).toBe("tiered");
   });
@@ -711,7 +735,9 @@ describe("inline preview grant + cookieless delivery", () => {
       inlinePlayable: "playable",
       sniffedContentType: "video/mp4",
     });
-    const grant = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ streamUrl: string }>();
+    const grant = await (
+      await get(`/api/v1/files/${fileId}/preview`)
+    ).json<{ streamUrl: string }>();
     const cold = await SELF.fetch(grant.streamUrl); // no session at all
     expect(cold.status).toBe(200);
   });
@@ -774,7 +800,12 @@ describe("inline preview grant + cookieless delivery", () => {
       envWithoutFilesOrigin as never,
     );
     expect(res.status).toBe(200);
-    const body = await res.json<{ mode: string; reason: string; streamUrl?: string; downloadUrl: string }>();
+    const body = await res.json<{
+      mode: string;
+      reason: string;
+      streamUrl?: string;
+      downloadUrl: string;
+    }>();
     expect(body.mode).toBe("download-only");
     expect(body.reason).toBe("host-unavailable");
     expect(body.streamUrl).toBeUndefined();

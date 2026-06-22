@@ -20,7 +20,11 @@ function started(): TimerState {
 
 describe("startTimer", () => {
   it("mints a running state carrying the run id, start instant, and binding", () => {
-    const state = startTimer({ liveRunId: RUN, now: t(0), binding: { matterId: "matter_a", label: "research" } });
+    const state = startTimer({
+      liveRunId: RUN,
+      now: t(0),
+      binding: { matterId: "matter_a", label: "research" },
+    });
     expect(state).toEqual({
       liveRunId: RUN,
       startedAt: t(0),

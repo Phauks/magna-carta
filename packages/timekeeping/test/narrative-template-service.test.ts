@@ -25,7 +25,9 @@ function freshDatabase(): BatchDatabase {
 
 async function seedUtbms(database: BatchDatabase): Promise<void> {
   await database
-    .prepare("INSERT INTO utbms_code (id, code_set, code, label, active) VALUES ('utbmsCode_l120', 'task', 'L120', 'Analysis/Strategy', 1)")
+    .prepare(
+      "INSERT INTO utbms_code (id, code_set, code, label, active) VALUES ('utbmsCode_l120', 'task', 'L120', 'Analysis/Strategy', 1)",
+    )
     .run();
 }
 
@@ -80,11 +82,22 @@ describe("narrative templates", () => {
 
   it("updates and soft-archives a template, auditing each", async () => {
     const database = freshDatabase();
-    const created = await createNarrativeTemplate(database, { narrativeTemplate: "Draft memo" }, options);
+    const created = await createNarrativeTemplate(
+      database,
+      { narrativeTemplate: "Draft memo" },
+      options,
+    );
     await commitEffectBatch(database, created.effect, { now: clock.now });
     await commitEffectBatch(
       database,
-      (await updateNarrativeTemplate(database, created.narrativeTemplateId, { narrativeTemplate: "Draft memorandum" }, options)).effect,
+      (
+        await updateNarrativeTemplate(
+          database,
+          created.narrativeTemplateId,
+          { narrativeTemplate: "Draft memorandum" },
+          options,
+        )
+      ).effect,
       { now: clock.now },
     );
     await commitEffectBatch(
@@ -152,7 +165,11 @@ describe("narrative templates", () => {
   it("updateNarrativeTemplate throws empty-patch when no fields are supplied and writes no audit row", async () => {
     const database = freshDatabase();
     // Create a real template so the id is valid — the empty-patch check fires before the existence check.
-    const created = await createNarrativeTemplate(database, { narrativeTemplate: "Draft memo" }, options);
+    const created = await createNarrativeTemplate(
+      database,
+      { narrativeTemplate: "Draft memo" },
+      options,
+    );
     await commitEffectBatch(database, created.effect, { now: clock.now });
     let thrown: unknown;
     try {
@@ -174,8 +191,18 @@ describe("narrative templates", () => {
 describe("recent narratives", () => {
   it("stable tiebreaker: two narratives on the same work_date are ordered by MAX(created_at) DESC", async () => {
     const database = freshDatabase();
-    await database.prepare("INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'A', 'active', ?2)").bind(TIMEKEEPER, clock.now()).run();
-    await database.prepare("INSERT INTO matter (id, title, status, responsible_member_id, e_billing, created_at, updated_at) VALUES ('matter_1', 'M', 'open', ?1, 0, ?2, ?2)").bind(TIMEKEEPER, clock.now()).run();
+    await database
+      .prepare(
+        "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'A', 'active', ?2)",
+      )
+      .bind(TIMEKEEPER, clock.now())
+      .run();
+    await database
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, e_billing, created_at, updated_at) VALUES ('matter_1', 'M', 'open', ?1, 0, ?2, ?2)",
+      )
+      .bind(TIMEKEEPER, clock.now())
+      .run();
 
     // Both entries share the same work_date; the later created_at determines stable order.
     await database
@@ -191,7 +218,9 @@ describe("recent narratives", () => {
       .bind("timeEntry_2", TIMEKEEPER, "beta narrative", "2026-06-22T11:00:00.000Z")
       .run();
 
-    const { results } = await recentNarrativesStatement(database, TIMEKEEPER, 10).all<{ narrative: string }>();
+    const { results } = await recentNarrativesStatement(database, TIMEKEEPER, 10).all<{
+      narrative: string;
+    }>();
     // beta was created later so MAX(created_at) DESC puts it first.
     expect(results.map((r) => r.narrative)).toEqual(["beta narrative", "alpha narrative"]);
   });
@@ -199,8 +228,18 @@ describe("recent narratives", () => {
   it("returns the timekeeper's distinct recent narratives, most recent first", async () => {
     const database = freshDatabase();
     // Seed the matter + timekeeper the entries reference.
-    await database.prepare("INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'A', 'active', ?2)").bind(TIMEKEEPER, clock.now()).run();
-    await database.prepare("INSERT INTO matter (id, title, status, responsible_member_id, e_billing, created_at, updated_at) VALUES ('matter_1', 'M', 'open', ?1, 0, ?2, ?2)").bind(TIMEKEEPER, clock.now()).run();
+    await database
+      .prepare(
+        "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'A', 'active', ?2)",
+      )
+      .bind(TIMEKEEPER, clock.now())
+      .run();
+    await database
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, e_billing, created_at, updated_at) VALUES ('matter_1', 'M', 'open', ?1, 0, ?2, ?2)",
+      )
+      .bind(TIMEKEEPER, clock.now())
+      .run();
 
     // Three entries; two share a narrative — the read must de-dup.
     let n = 0;

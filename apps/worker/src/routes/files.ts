@@ -100,7 +100,15 @@ const PreviewGrant = z
     // Present iff mode === "download-only". "host-unavailable" = the files host is not yet bound
     // (the verdict may have been playable); distinct from "unknown-verdict" (never-sniffed).
     reason: z
-      .enum(["verdict", "unknown-verdict", "tiered", "encoded", "derived", "unknown-type", "host-unavailable"])
+      .enum([
+        "verdict",
+        "unknown-verdict",
+        "tiered",
+        "encoded",
+        "derived",
+        "unknown-type",
+        "host-unavailable",
+      ])
       .optional(),
     // ALWAYS present, download-intent only — the AUDITED /download path (302), never a raw inline URL,
     // so an active format can only ever reach an explicit download, never an auto-embedding context.

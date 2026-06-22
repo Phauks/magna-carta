@@ -41,9 +41,7 @@ export function selectUtbmsCodeExistsStatement(
   database: SqlDatabase,
   id: UtbmsCodeId,
 ): SqlStatement {
-  return database
-    .prepare(`SELECT 1 AS found FROM ${UTBMS_CODE_TABLE} WHERE id = ?1`)
-    .bind(id);
+  return database.prepare(`SELECT 1 AS found FROM ${UTBMS_CODE_TABLE} WHERE id = ?1`).bind(id);
 }
 
 // The read the routes and the costs/billing slices consume: every code in a set, active flag included.

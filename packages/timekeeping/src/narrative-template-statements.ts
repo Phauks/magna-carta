@@ -38,7 +38,11 @@ export function selectNarrativeTemplateExistsStatement(
 export function updateNarrativeTemplateStatement(
   database: SqlDatabase,
   id: NarrativeTemplateId,
-  patch: { narrativeTemplate?: string; utbmsTaskCodeId?: string | null; defaultRateE4?: number | null },
+  patch: {
+    narrativeTemplate?: string;
+    utbmsTaskCodeId?: string | null;
+    defaultRateE4?: number | null;
+  },
   updatedAt: string,
 ): SqlStatement {
   const sets: string[] = [];

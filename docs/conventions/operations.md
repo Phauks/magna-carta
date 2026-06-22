@@ -173,6 +173,6 @@ Both need things that don't exist yet during early build: **real endpoint traffi
   - [ ] Custom Error Rule 1 — `http.request.uri.path starts_with "/api"` + error → serve `mc-error-api-json` (add a Response Header Transform Rule for `Content-Type: application/json` if needed).
   - [ ] Custom Error Rule 2 — browser catch-all → serve `mc-error-page-generic`.
   - [ ] Error Pages (zone) — brand the **Managed Challenge / challenge** page (what rate-limit + WAF challenge actions show; Custom Error Rules can't touch it).
-  - [ ] *(Later, §8.4)* portal-specific page matched on `Host` once custom hostnames exist.
+  - [ ] _(Later, §8.4)_ portal-specific page matched on `Host` once custom hostnames exist.
 
 > Re-evaluation seam: the OFF list above is correct **while the architecture stays Workers-native with no external origin**. If a future slice adds a self-hosted/third-party origin, re-open Argo and Load Balancing for that origin specifically.

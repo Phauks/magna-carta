@@ -91,7 +91,12 @@ export async function resolveRate(
   for (const candidate of candidatesFor(context)) {
     const hit = await resolveTier(database, rateCardId, candidate, context.workDate);
     if (hit !== undefined) {
-      return { rateE4: hit.rateE4, rateCardId, rateSource: candidate.source, currency: hit.currency };
+      return {
+        rateE4: hit.rateE4,
+        rateCardId,
+        rateSource: candidate.source,
+        currency: hit.currency,
+      };
     }
   }
   return { noRate: true };

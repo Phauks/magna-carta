@@ -166,7 +166,10 @@ export async function submitTimeEntry(
 ): Promise<{ timeEntryId: TimeEntryId; effect: EffectWrite }> {
   const from = await loadStatus(database, timeEntryId);
   if (isFrozen(from)) {
-    throw new TimeEntryValidationError("frozen-entry", `time entry ${timeEntryId} is ${from} and frozen`);
+    throw new TimeEntryValidationError(
+      "frozen-entry",
+      `time entry ${timeEntryId} is ${from} and frozen`,
+    );
   }
   assertTransition(from, "submitted", options.approvalRequired ?? false);
   const updatedAt = options.clock.now();
@@ -202,7 +205,10 @@ export async function kickBackTimeEntry(
 ): Promise<{ timeEntryId: TimeEntryId; effect: EffectWrite }> {
   const from = await loadStatus(database, timeEntryId);
   if (isFrozen(from)) {
-    throw new TimeEntryValidationError("frozen-entry", `time entry ${timeEntryId} is ${from} and frozen`);
+    throw new TimeEntryValidationError(
+      "frozen-entry",
+      `time entry ${timeEntryId} is ${from} and frozen`,
+    );
   }
   assertTransition(from, "draft", options.approvalRequired ?? false);
   const updatedAt = options.clock.now();
@@ -234,7 +240,10 @@ export async function voidTimeEntry(
 ): Promise<{ timeEntryId: TimeEntryId; effect: EffectWrite }> {
   const from = await loadStatus(database, timeEntryId);
   if (isFrozen(from)) {
-    throw new TimeEntryValidationError("frozen-entry", `time entry ${timeEntryId} is ${from} and frozen`);
+    throw new TimeEntryValidationError(
+      "frozen-entry",
+      `time entry ${timeEntryId} is ${from} and frozen`,
+    );
   }
   assertTransition(from, "void", options.approvalRequired ?? false);
   const updatedAt = options.clock.now();
@@ -261,7 +270,11 @@ export async function captureTimeEntry(
 ): Promise<{ timeEntryId: TimeEntryId; effect: EffectWrite }> {
   // An electronic-billing matter cannot carry a billable entry without a UTBMS task code — the LEDES
   // exporter rejects an uncoded line, so refusing here keeps an uncodeable entry out of the WIP store.
-  if (input.billable && input.utbmsTaskCodeId === undefined && (await isEBillingMatter(database, input.matterId))) {
+  if (
+    input.billable &&
+    input.utbmsTaskCodeId === undefined &&
+    (await isEBillingMatter(database, input.matterId))
+  ) {
     throw new TimeEntryValidationError(
       "utbms-required",
       "an electronic-billing matter requires a UTBMS task code on a billable entry",

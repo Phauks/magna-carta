@@ -79,7 +79,5 @@ export function closePriorOpenRateStatement(
   id: RateId,
   validTo: string,
 ): SqlStatement {
-  return database
-    .prepare(`UPDATE ${RATE_TABLE} SET valid_to = ?2 WHERE id = ?1`)
-    .bind(id, validTo);
+  return database.prepare(`UPDATE ${RATE_TABLE} SET valid_to = ?2 WHERE id = ?1`).bind(id, validTo);
 }

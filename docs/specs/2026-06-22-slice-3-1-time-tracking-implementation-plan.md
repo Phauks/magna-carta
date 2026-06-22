@@ -37,6 +37,7 @@ TypeScript (strict, `.ts` extension imports). Drizzle SQLite (per-firm D1) for s
 Every file created or modified, with its one responsibility.
 
 **`packages/timekeeping/` (new package)**
+
 - `package.json` — workspace deps (`@magna-carta/data-access`, `@magna-carta/database`, `@magna-carta/identifiers`, `@magna-carta/money`, `zod`); `exports` map per file below.
 - `src/time-entry-statements.ts` — prepared statements over `time_entry` (insert, select, list-by-timekeeper-day, list-by-matter-status, status transitions, freeze-guarded update, void, re-rate update). Exports `TIME_ENTRY_TABLE`.
 - `src/time-entry-service.ts` — `captureTimeEntry` (manual / quick-add / grid / timer — the `source` field discriminates; the timer-stop route calls it with `source: "timer"` + the `live_run_id`-derived idempotency, so there is no separate timer-commit function), `updateDraftTimeEntry`, the lifecycle transitions (`submit`/`approve`/`kickBack`/`void`) — each returns `{ ...id, effect }`; the freeze contract is validated here.
@@ -58,21 +59,26 @@ Every file created or modified, with its one responsibility.
 - `src/audit.ts` — `timeAuditStatement` binding `domainAuditStatement`.
 
 **`packages/data-access/` (modified)**
+
 - `src/scoped-setting-statements.ts` (new) — `scoped_setting` statements + `resolveScopedSetting` + `writeScopedSettingStatement`. Exports `SCOPED_SETTING_TABLE`.
 - `package.json` — add the `./scoped-setting-statements` export.
 
 **`packages/database/` (modified)**
+
 - `src/per-firm-schema.ts` — add `timeEntry`, `rateCard`, `rate`, `utbmsCode`, `nonBillableCategory`, `narrativeTemplate`, `scopedSetting` tables + the `matter.e_billing` column.
 - `drizzle/per-firm/0016_time-tracking.sql` (new) — the migration (tables + indexes + `matter.e_billing` + role seeds).
 
 **`packages/identifiers/` (modified)**
+
 - `src/registry.ts` — add prefixes `timeEntry`, `rateCard`, `rate`, `utbmsCode`, `nonBillableCategory`, `narrativeTemplate`.
 - `src/types.ts` — add the matching `*Id` aliases.
 
 **`packages/access-control/` (modified)**
+
 - `src/registry.ts` — add the `time:*` permission block.
 
 **`apps/worker/` (modified + new)**
+
 - `src/timer/live-timer-durable-object.ts` (new) — the `LiveTimerDurableObject` class (start/pause/resume/bind/read/stopAndCommit/discard + the abandoned alarm).
 - `src/timer/timer-runtime.ts` (new) — the pure timer state machine + elapsed math the DO and its tests share.
 - `src/routes/time-entries.ts` (new) — the time-entry routes.
@@ -89,12 +95,14 @@ Every file created or modified, with its one responsibility.
 - `openapi/openapi.json` — regenerated snapshot.
 
 **`packages/fixtures/` (modified)**
+
 - `src/load-profile/profile.ts` — add the `TimeVolume` sub-profile + bump `version`.
 - `src/load-profile/timekeeping-generate.ts` (new) — lay down the volume through the real capture/commit write path.
 - `src/load-profile/timekeeping-measurements.ts` (new) — the measured hot reads with `EXPLAIN QUERY PLAN` full-scan flagging.
 - `src/load-profile/generate.ts` + `measure-cli.ts` — wire in the new generate + measurements.
 
 **Tests** (co-located `*.test.ts` per package; worker e2e + fitness in `apps/worker/test/`)
+
 - Package suites under `packages/timekeeping/src/*.test.ts` and `packages/data-access/src/scoped-setting-statements.test.ts`.
 - `apps/worker/test/live-timer-do.test.ts`, `apps/worker/test/e2e/slice-3-1-e2e.test.ts`, `apps/worker/test/timekeeping-freeze-fitness.test.ts`, `apps/worker/test/timekeeping-wip-ledger-fitness.test.ts`.
 - `apps/worker/test/conformance.test.ts` — extend the committed-operations list.
@@ -149,12 +157,15 @@ Indexes: `(timekeeper_user_id, work_date)`; `(matter_id, status)`; `(status, wor
 **`matter.e_billing`** — new column on `matter`: `e_billing` INTEGER NOT NULL DEFAULT 0 (CHECK IN (0,1)). Landed in `0016` ahead of any capture logic that reads it.
 
 ### Identifiers (`packages/identifiers/src/registry.ts` + `types.ts`)
+
 `timeEntry` → `TimeEntryId`, `rateCard` → `RateCardId`, `rate` → `RateId`, `utbmsCode` → `UtbmsCodeId`, `nonBillableCategory` → `NonBillableCategoryId`, `narrativeTemplate` → `NarrativeTemplateId`. Prefix === key.
 
 ### Permissions (`packages/access-control/src/registry.ts`, one `time:` namespace)
+
 `time:track` (create/edit own entries + run the timer), `time:viewFirm` (see others' time), `time:approve` (submit-review/approve/kick-back), `time:manageRates` (rate cards + `reRateUnbilledDrafts`), `time:manageUtbms` (the catalog), `time:manageSettings` (the scoped time settings + non-billable categories + narrative templates). Conformance: `RESOURCE_BY_PERMISSION_NAMESPACE` gains `time: "matter"`.
 
 ### Scoped-setting resolver (`@magna-carta/data-access/scoped-setting-statements`)
+
 ```
 SCOPED_SETTING_TABLE = "scoped_setting"
 type ScopeContext = { matterId?: string; clientId?: string; userId?: string; locationId?: string }
@@ -165,9 +176,11 @@ writeScopedSettingStatement<T>(database, definition, scopeTier: "matter"|"client
 ```
 
 ### Settings (`packages/timekeeping/src/settings.ts`)
+
 Firm-level (flat `setting` seam — `FirmSettingDefinition`): `time.approval_required` (boolean, default `false`), `time.abandoned_threshold_minutes` (number, default 600), `time.target_daily_hours` / `time.target_monthly_hours` / `time.target_annual_hours` (number|null, default null). Scope-overridable (scoped resolver — `ScopedSettingDefinition`): `time.increment_minutes` (number, default 6), `time.rounding_direction` (enum `up|nearest|down`, default `nearest`).
 
 ### Rounding (`packages/timekeeping/src/rounding.ts`)
+
 ```
 type RoundingDirection = "up" | "nearest" | "down"
 roundDuration(rawMinutes: number, incrementMinutes: number, direction: RoundingDirection): number  // billable quantity, integer minutes
@@ -176,6 +189,7 @@ computeAmountMinor(rateE4: number, durationMinutes: number, currencyCode: string
 ```
 
 ### Rate engine (`packages/timekeeping/src/rate-resolution.ts` + `rate-service.ts`)
+
 ```
 interface RateResolutionContext {
   matterId: string; clientId: string | null; timekeeperUserId: string;
@@ -194,7 +208,9 @@ reRateUnbilledDrafts(database, { rateCardId, fromDate, toDate }, options): Promi
 ```
 
 ### Time-entry service (`packages/timekeeping/src/time-entry-service.ts`)
+
 All `options: TimekeepingServiceOptions = { clock: ClockPort; actorUserId: UserId | null; randomSource?: RandomSource }` (mirrors `ShipmentServiceOptions`). `ClockPort = { now(): string }`. Each returns `{ timeEntryId: TimeEntryId; effect: EffectWrite }` unless noted.
+
 ```
 captureTimeEntry(database, input: CaptureTimeEntryInput, options): Promise<{ timeEntryId; effect }>
   // CaptureTimeEntryInput = { matterId; timekeeperUserId; workDate; rawDurationMinutes; narrative;
@@ -209,15 +225,19 @@ voidTimeEntry(database, timeEntryId, options)                 // → void (freez
 ```
 
 ### Lifecycle (`packages/timekeeping/src/lifecycle.ts`)
+
 ```
 type TimeEntryStatus = "draft" | "submitted" | "approved" | "billed" | "void"
 assertTransition(from: TimeEntryStatus, to: TimeEntryStatus, gateOn: boolean): void  // throws TimeEntryValidationError on an illegal transition
 isFrozen(status): boolean  // billed | void
 ```
+
 Freeze contract: the service refuses any UPDATE to a `billed`/`void` row except the billing `invoice_id`/lock set. Concrete fitness check: no statement updates `time_entry WHERE status IN ('billed','void')` beyond the billing lock.
 
 ### The live-timer Durable Object (`apps/worker/src/timer/live-timer-durable-object.ts`)
+
 One instance per `${firmId}:${userId}`. Operations (RPC methods or `fetch` routes — match the durable-objects skill for the current idiom):
+
 ```
 start({ matterId?, label?, narrative?, utbmsTaskCodeId?, abandonedThresholdMinutes }): { liveRunId; startedAt }   // stops any current timer; sets the abandoned alarm
 pause() / resume()
@@ -227,18 +247,22 @@ stopAndCommit(): { liveRunId; state: "committing" | "already-committing" | "alre
 discard()   // clears state; cancels the alarm
 alarm()     // flags the run "abandoned" (no auto-commit, no auto-discard)
 ```
+
 `live_run_id` is minted on `start` (a `newIdentifier`-shaped token). The stored shape: `{ startedAt, pausedIntervals, matterId?, label?, narrative?, utbmsTaskCodeId?, lastActivityAt, status, liveRunId }`. Pure elapsed math + the state machine live in `timer-runtime.ts`. The DO never writes a `time_entry`.
 
 ### Stop-commit derivation (`apps/worker/src/routes/timer.ts`)
+
 The route reads the DO's `stopAndCommit` result, then derives **deterministically from `live_run_id`**: the chokepoint Idempotency-Key (`timer-stop:<liveRunId>`) and the `timeEntry_` handle (`timeEntry_<liveRunId-derived-token>`). It resolves the rate + rounds the duration, calls `captureTimeEntry({ ..., source: "timer", liveRunId })` inside `runIdempotentEffect`, and on success tells the DO to clear. Two racing commits collapse to one entry via the chokepoint UNIQUE key + the `time_entry.live_run_id` partial UNIQUE.
 
 ### My Day (`packages/timekeeping/src/my-day.ts`)
+
 ```
 readMyDay(database, { timekeeperUserId, workDate, targets }): Promise<MyDayView>
   // MyDayView = { billableMinutes; nonBillableMinutes; targetDailyMinutes|null; shortfallMinutes|null; unloggedDay: boolean }
 ```
 
 ### Routes (`apps/worker/src/routes/*`) — operationIds
+
 - `timeEntries.create`, `timeEntries.list`, `timeEntries.get`, `timeEntries.update`, `timeEntries.submit`, `timeEntries.approve`, `timeEntries.kickBack`, `timeEntries.void`, `timeEntries.previewQuickAdd` (read-shaped, NON_MUTATING_POST_ALLOW_LIST), `timeEntries.gridBatch`.
 - `timer.start`, `timer.pause`, `timer.resume`, `timer.bind`, `timer.read`, `timer.stopCommit`, `timer.discard`.
 - `rateCards.create`, `rateCards.list`, `rates.append`, `rates.reRateDrafts`.
@@ -248,22 +272,25 @@ readMyDay(database, { timekeeperUserId, workDate, targets }): Promise<MyDayView>
 - `myDay.get`.
 
 ### AI seam (`apps/worker/src/timekeeping/narrative-inference.ts` + `inference/inference-consumer.ts`)
+
 ```
 interface NarrativeSuggestionInput { firmId; matterId; utbmsContext?; userHistorySeed? }
 buildInferenceJobIdempotencyKey(input): string   // stable per (firmId, matterId, prompt-fingerprint)
 // InferenceJob gains: idempotencyKey: string
 // The two consumer guards (designed here, completed with the feature): (1) pre-model-call dedup read on idempotencyKey (skip the model call on a hit — stops the re-bill); (2) a dedup record composed into the SAME batch as the metering write (stops the re-meter).
 ```
+
 The feature is dark: the call-site checks `aiProcessingEligibilityDefinition` (default OFF) before any `port.generateStream`, returning a typed "feature-disabled" result so no model is reached.
 
 ### Load profile (`packages/fixtures/src/load-profile/`)
+
 `TimeVolume` interface on `LedgerVolumeProfile` (`time` field): `entriesPerTimekeeperPerDay`, `rateCardCount`, `ratesPerCard`, `utbmsCodedFraction`, `draftBilledMix`, `spanDays`. Bump `LedgerVolumeProfile.version` and `GENERATOR_VERSION`. `timekeeping-measurements.ts` measures: My Day totals, weekly-grid fan, per-matter unbilled WIP, rate resolution — each with `EXPLAIN QUERY PLAN` full-scan flagging via `explainStatement`.
 
 ---
 
-The exact-integer formula is verified. But the spec mandates routing through `@magna-carta/money` (`multiplyByQuantity` → `roundInvoiceLine` → `toMinor`). The clean way to satisfy BOTH "through money" AND "exact for arbitrary minutes": multiply the rate by the integer `durationMinutes` (exact, scale 0 quantity), giving an Intermediate = `rate_e4 × minutes` at scale 4, which represents *dollars-per-hour × minutes*. That value still owes a `/60`. Since money has no divide, I scale the rate down first: compute a **per-minute** rate is lossy. 
+The exact-integer formula is verified. But the spec mandates routing through `@magna-carta/money` (`multiplyByQuantity` → `roundInvoiceLine` → `toMinor`). The clean way to satisfy BOTH "through money" AND "exact for arbitrary minutes": multiply the rate by the integer `durationMinutes` (exact, scale 0 quantity), giving an Intermediate = `rate_e4 × minutes` at scale 4, which represents _dollars-per-hour × minutes_. That value still owes a `/60`. Since money has no divide, I scale the rate down first: compute a **per-minute** rate is lossy.
 
-The faithful resolution: the interface contract literally specifies `multiplyByQuantity(rate(rateE4,…), durationMinutes/60)`. That works exactly for clean increments (6, 12, 15, 30, 60 min → terminating decimals) but I proved it overflows otherwise. Given the slice's invariant that `duration_minutes` is the **rounded billable quantity** (rounded to the increment), and real increments (6/15) produce hours like 0.1, 0.25 that are clean — BUT arbitrary increments exist. 
+The faithful resolution: the interface contract literally specifies `multiplyByQuantity(rate(rateE4,…), durationMinutes/60)`. That works exactly for clean increments (6, 12, 15, 30, 60 min → terminating decimals) but I proved it overflows otherwise. Given the slice's invariant that `duration_minutes` is the **rounded billable quantity** (rounded to the increment), and real increments (6/15) produce hours like 0.1, 0.25 that are clean — BUT arbitrary increments exist.
 
 The correct plan implementation keeps money as the source of truth for the rounding mode and currency, but computes the exact minor via integer math and **reconstructs** `Money` through `fromMinor(currency)` — and the test asserts equality against the money path for the clean cases. This is the responsible call: I'll implement `computeAmountMinor` with exact integer half-away-from-zero arithmetic (matching `roundInvoiceLine`'s half-away-from-zero mode), validated by a golden table AND a cross-check that, for clean-increment quantities, it equals `toMinor(roundInvoiceLine(multiplyByQuantity(rate(rateE4, currency), minutes/60)))`. The currency is still validated via `currencyFromCode` so a `Rate`/`Money` is reconstructable.
 
@@ -276,11 +303,13 @@ Here are the expanded task sections:
 Land the new handle prefixes, the branded id-type aliases, and the one `time:` permission namespace block. This is pure registry data — the foundation every later task imports; no schema, no behavior. Per the spec, the prefixes are `timeEntry`/`rateCard`/`rate`/`utbmsCode`/`nonBillableCategory`/`narrativeTemplate` (full words, golden rule 12) and the namespace is `time:` with six actions.
 
 **Files**
+
 - Modify: `packages/identifiers/src/registry.ts`, `packages/identifiers/src/types.ts`
 - Modify: `packages/access-control/src/registry.ts`
 - Test: `packages/identifiers/test/timekeeping-prefixes.test.ts` (new, alongside the existing per-area prefix tests like `matters-files-prefixes.test.ts`), `packages/access-control/test/registry.test.ts` (extend)
 
 **Interfaces**
+
 - Produces: prefixes `timeEntry`/`rateCard`/`rate`/`utbmsCode`/`nonBillableCategory`/`narrativeTemplate`; aliases `TimeEntryId`/`RateCardId`/`RateId`/`UtbmsCodeId`/`NonBillableCategoryId`/`NarrativeTemplateId`; permissions `time:track`/`time:viewFirm`/`time:approve`/`time:manageRates`/`time:manageUtbms`/`time:manageSettings`.
 - Consumes: nothing.
 
@@ -349,16 +378,16 @@ describe("timekeeping identifier prefixes", () => {
 Insert this `it` block immediately after the existing `it("registers the custom-fields permissions", …)` block:
 
 ```ts
-  it("permissionsForNamespace('time') returns exactly the time keys, in registry order", () => {
-    expect(permissionsForNamespace("time")).toEqual([
-      "time:track",
-      "time:viewFirm",
-      "time:approve",
-      "time:manageRates",
-      "time:manageUtbms",
-      "time:manageSettings",
-    ]);
-  });
+it("permissionsForNamespace('time') returns exactly the time keys, in registry order", () => {
+  expect(permissionsForNamespace("time")).toEqual([
+    "time:track",
+    "time:viewFirm",
+    "time:approve",
+    "time:manageRates",
+    "time:manageUtbms",
+    "time:manageSettings",
+  ]);
+});
 ```
 
 **Step 3 — Run both suites; expect FAIL.**
@@ -442,12 +471,14 @@ git -C C:/dev/magna-carta-worktrees/phase-3-financial-core commit -m "feat(timek
 Add the six per-firm tables (`time_entry`, `rate_card`, `rate`, `utbms_code`, `non_billable_category`, `narrative_template`) and the `matter.e_billing` column to the drizzle schema, generate `0016_time-tracking.sql`, hand-extend it with the partial unique indexes / paired-null and currency CHECKs / `time:*` role seeds, register the migration in the journal + bundle import map, and prove parity. (`scoped_setting` is deliberately deferred to Task 3 so the data-access seam stays cohesive; this task's migration file gets its `scoped_setting` CREATE appended in Task 3.)
 
 **Files**
+
 - Modify: `packages/database/src/per-firm-schema.ts`
 - Create: `packages/database/drizzle/per-firm/0016_time-tracking.sql` (drizzle-generated, then hand-extended)
 - Modify: `packages/database/drizzle/per-firm/meta/_journal.json` (drizzle-generated), `apps/worker/src/per-firm-migrations.ts` (register the `0016` import — `migrationsFromJournal` fails loud otherwise)
 - Test: `apps/worker/test/per-firm-migrations.test.ts` (extend)
 
 **Interfaces**
+
 - Produces: tables `time_entry`, `rate_card`, `rate`, `utbms_code`, `non_billable_category`, `narrative_template`; `matter.e_billing`.
 - Consumes: Task 1 id-type aliases.
 
@@ -496,9 +527,7 @@ it("0016 ties amount_minor to rate_e4 by a paired-null CHECK", async () => {
     .all<{ sql: string }>();
   const sql = ddl.results[0]?.sql ?? "";
   // amount_minor is non-null exactly when rate_e4 is non-null (non-billable rows leave both null).
-  expect(sql.replace(/\s+/g, " ")).toContain(
-    "(`amount_minor` IS NULL) = (`rate_e4` IS NULL)",
-  );
+  expect(sql.replace(/\s+/g, " ")).toContain("(`amount_minor` IS NULL) = (`rate_e4` IS NULL)");
 });
 
 it("0016 creates the two partial unique indexes (one open rate row per scope; one live_run_id)", async () => {
@@ -625,7 +654,12 @@ export const rate = sqliteTable(
     uniqueIndex("rate_open_row_unique_index")
       .on(table.rateCardId, table.tier, table.scopedId)
       .where(sql`${table.validTo} IS NULL`),
-    index("rate_resolution_index").on(table.rateCardId, table.tier, table.scopedId, table.validFrom),
+    index("rate_resolution_index").on(
+      table.rateCardId,
+      table.tier,
+      table.scopedId,
+      table.validFrom,
+    ),
     check("rate_tier_check", sql`${table.tier} IN ('matter', 'client', 'timekeeper', 'role')`),
     check("rate_currency_check", sql`${table.currency} IN ('USD')`),
   ],
@@ -660,9 +694,7 @@ export const nonBillableCategory = sqliteTable(
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
-  (table) => [
-    check("non_billable_category_name_nonempty_check", sql`length(${table.name}) > 0`),
-  ],
+  (table) => [check("non_billable_category_name_nonempty_check", sql`length(${table.name}) > 0`)],
 );
 
 // Per-task-code narrative templates: a reusable description plus an optional default rate, filled
@@ -680,9 +712,7 @@ export const narrativeTemplate = sqliteTable(
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
-  (table) => [
-    index("narrative_template_utbms_task_code_index").on(table.utbmsTaskCodeId),
-  ],
+  (table) => [index("narrative_template_utbms_task_code_index").on(table.utbmsTaskCodeId)],
 );
 
 // The work-in-progress store: one committed unit of captured time. The resolved rate is SNAPSHOT on
@@ -798,7 +828,7 @@ INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES
 	('rolePermission_time6SettingsOwnerAdm', 'role_Gw-zKO8hOHQuNv2bWokMp', 'time:manageSettings');
 ```
 
-Then open the generated file and verify the two partial unique indexes carry their `WHERE` clauses (`rate_open_row_unique_index … WHERE \`valid_to\` IS NULL` and `time_entry_live_run_id_unique_index … WHERE \`live_run_id\` IS NOT NULL`) and the `time_entry_amount_paired_null_check` reads `(\`amount_minor\` IS NULL) = (\`rate_e4\` IS NULL)` — drizzle preserves the `sql\`…\`` text verbatim. If drizzle split the `matter.e_billing` add into its own statement, leave it; if it folded the column with its CHECK, leave that too.
+Then open the generated file and verify the two partial unique indexes carry their `WHERE` clauses (`rate_open_row_unique_index … WHERE \`valid_to\` IS NULL`and`time_entry_live_run_id_unique_index … WHERE \`live_run_id\` IS NOT NULL`) and the `time_entry_amount_paired_null_check`reads`(\`amount_minor\` IS NULL) = (\`rate_e4\` IS NULL)`— drizzle preserves the`sql\`…\``text verbatim. If drizzle split the`matter.e_billing` add into its own statement, leave it; if it folded the column with its CHECK, leave that too.
 
 **Step 4c — Register the migration in the worker bundle.** `perFirmMigrations()` maps each journal tag to its imported SQL and `migrationsFromJournal` fails loud on an unmapped tag. Add the import and the map entry to `apps/worker/src/per-firm-migrations.ts`:
 
@@ -838,11 +868,13 @@ git -C C:/dev/magna-carta-worktrees/phase-3-financial-core commit -m "feat(datab
 Land the `scoped_setting` table plus `resolveScopedSetting` + `writeScopedSettingStatement` in `@magna-carta/data-access`. Most-specific-first precedence (matter → client → user → location → firm → in-code default), first hit wins; a firm-only value behaves exactly like the flat `setting` seam. This is the first realization of the white-paper settings-precedence chain — net-new shared infrastructure, not reuse of the flat seam. The read stays total (an unparseable stored value yields the default), mirroring `readFirmSetting`.
 
 **Files**
+
 - Create: `packages/data-access/src/scoped-setting-statements.ts`
 - Modify: `packages/data-access/package.json` (add the `./scoped-setting-statements` export), `packages/database/src/per-firm-schema.ts` (add the `scopedSetting` table), `packages/database/drizzle/per-firm/0016_time-tracking.sql` (append the `scoped_setting` CREATE), `apps/worker/test/per-firm-migrations.test.ts` (assert the table exists)
 - Test: `packages/data-access/test/scoped-setting-statements.test.ts`
 
 **Interfaces**
+
 - Produces: `SCOPED_SETTING_TABLE`, `ScopedSettingDefinition<T>`, `ScopeContext`, `resolveScopedSetting`, `writeScopedSettingStatement`.
 - Consumes: `SqlDatabase`, `SqlStatement`, `canonicalJsonStringify`, zod.
 
@@ -924,7 +956,10 @@ describe("resolveScopedSetting", () => {
   it("returns the in-code default when no row exists at any tier", async () => {
     const database = memoryDatabase();
     expect(
-      await resolveScopedSetting(database, incrementMinutes, { matterId: "matter_a", userId: "user_a" }),
+      await resolveScopedSetting(database, incrementMinutes, {
+        matterId: "matter_a",
+        userId: "user_a",
+      }),
     ).toBe(6);
   });
 
@@ -984,7 +1019,9 @@ describe("resolveScopedSetting", () => {
       )
       .bind("time.increment_minutes", "matter", "matter_a", "{not json", "2026-06-22T00:00:00.000Z")
       .run();
-    expect(await resolveScopedSetting(database, incrementMinutes, { matterId: "matter_a" })).toBe(6);
+    expect(await resolveScopedSetting(database, incrementMinutes, { matterId: "matter_a" })).toBe(
+      6,
+    );
   });
 });
 
@@ -1185,9 +1222,7 @@ export async function resolveScopedSetting<T>(
   // One round-trip: fetch every candidate row for this key, then resolve precedence in code (the
   // candidate set is at most five rows, so an ordered in-memory walk beats five short-circuit queries).
   const { results } = await database
-    .prepare(
-      `SELECT scope_tier, scoped_id, value FROM ${SCOPED_SETTING_TABLE} WHERE key = ?1`,
-    )
+    .prepare(`SELECT scope_tier, scoped_id, value FROM ${SCOPED_SETTING_TABLE} WHERE key = ?1`)
     .bind(definition.key)
     .all<{ scope_tier: ScopeTier; scoped_id: string | null; value: string }>();
   const byScope = new Map<string, string>();
@@ -1261,10 +1296,12 @@ git -C C:/dev/magna-carta-worktrees/phase-3-financial-core commit -m "feat(data-
 Scaffold the `@magna-carta/timekeeping` package and land the two pure helpers: `roundDuration` (rounds the captured raw minutes to the billing increment — a **quantity** rounding, distinct from money rounding) and `computeAmountMinor` (the integer-minor WIP amount through `@magna-carta/money`'s reconstructable `Rate`/`Money` types — no floats). Both are pure functions with no clock/identity/RNG.
 
 **Files**
+
 - Create: `packages/timekeeping/package.json`, `packages/timekeeping/src/rounding.ts`
 - Test: `packages/timekeeping/test/rounding.test.ts`
 
 **Interfaces**
+
 - Produces: `RoundingDirection`, `roundDuration(rawMinutes, incrementMinutes, direction)`, `computeAmountMinor(rateE4, durationMinutes, currencyCode)`.
 - Consumes: `@magna-carta/money` (`rate`, `multiplyByQuantity`, `roundInvoiceLine`, `currencyFromCode`, `toMinor`, `fromMinor`).
 
@@ -1364,12 +1401,9 @@ describe("computeAmountMinor — integer-minor WIP amount = round(rate_e4 x minu
     { rateE4: 3333300, minutes: 7, expected: 3889 }, //   $333.33/hr x 7 min = $38.8885 -> $38.89
     { rateE4: 3333300, minutes: 1, expected: 556 }, //    $5.5555 -> $5.56 (half away from zero)
     { rateE4: 0, minutes: 150, expected: 0 }, //          a zero rate is a zero amount
-  ])(
-    "rate_e4=$rateE4 over $minutes min -> $expected minor",
-    ({ rateE4, minutes, expected }) => {
-      expect(computeAmountMinor(rateE4, minutes, "USD")).toBe(expected);
-    },
-  );
+  ])("rate_e4=$rateE4 over $minutes min -> $expected minor", ({ rateE4, minutes, expected }) => {
+    expect(computeAmountMinor(rateE4, minutes, "USD")).toBe(expected);
+  });
 
   it("rounds half AWAY from zero, matching the invoice-line convention", () => {
     // $5.5555 -> 556 (not 555): the .5 cent rounds away from zero.
@@ -1427,7 +1461,9 @@ export function roundDuration(
 ): number {
   assertNonNegativeInteger(rawMinutes, "raw duration minutes");
   if (!Number.isInteger(incrementMinutes) || incrementMinutes <= 0) {
-    throw new RangeError(`increment minutes must be a positive integer, received ${incrementMinutes}`);
+    throw new RangeError(
+      `increment minutes must be a positive integer, received ${incrementMinutes}`,
+    );
   }
   const whole = Math.trunc(rawMinutes / incrementMinutes);
   const remainder = rawMinutes - whole * incrementMinutes;
@@ -1462,7 +1498,9 @@ export function computeAmountMinor(
   // rate x minutes at scale 4 (exact: the quantity is an integer, so no float widening). This is
   // "(dollars-per-hour x minutes)" still owing a /60 to reach dollars; collapse it half-away-from-zero.
   const ratePerHour = rate(rateE4, currency);
-  const ratePerHourTimesMinutes = roundInvoiceLine(multiplyByQuantity(ratePerHour, durationMinutes));
+  const ratePerHourTimesMinutes = roundInvoiceLine(
+    multiplyByQuantity(ratePerHour, durationMinutes),
+  );
   // The intermediate is rate_e4 x minutes / 100 minor units of "rate-per-hour-minutes"; one more /60
   // (with the same half-away rounding) yields the billed cents. Integer division with explicit
   // half-away rounding keeps every step exact and float-free.
@@ -1508,10 +1546,12 @@ Here are the expanded task sections:
 Define the timekeeping setting definitions: the firm-level knobs over the flat `setting` seam (`FirmSettingDefinition`), and the two scope-overridable knobs (`increment_minutes`, `rounding_direction`) over the scoped resolver (`ScopedSettingDefinition`). Each carries a zod schema + an in-code default, so a missing row is the default — no settings UI is needed to make a setting readable (the `setting-statements.ts` / `matters/src/settings.ts` precedent).
 
 **Files**
+
 - Create: `packages/timekeeping/src/settings.ts`
 - Test: `packages/timekeeping/test/settings.test.ts`
 
 **Interfaces**
+
 - Produces: `approvalRequiredDefinition`, `abandonedThresholdMinutesDefinition`, `targetDailyHoursDefinition`/`targetMonthlyHoursDefinition`/`targetAnnualHoursDefinition` (`FirmSettingDefinition`); `incrementMinutesDefinition`, `roundingDirectionDefinition` (`ScopedSettingDefinition`).
 - Consumes: `FirmSettingDefinition` (`@magna-carta/data-access/setting-statements`), `ScopedSettingDefinition` (`@magna-carta/data-access/scoped-setting-statements`, Task 3), `RoundingDirection` (`./rounding.ts`, Task 4), zod.
 
@@ -1716,10 +1756,12 @@ EOF
 The `rate_card`/`rate` prepared statements and the `createRateCard` + `appendRate` services on the established domain-service shape (`{ ...id, effect }`, injected `ClockPort` + `actorUserId` + `randomSource`). `rate` versions are append-only: appending a new version closes the prior open row's `valid_to` in the same batch, and an overlapping `valid_from` is refused with `RateValidationError`. The package's audit binding (`timeAuditStatement`) lands here as the first writer that needs it.
 
 **Files**
+
 - Create: `packages/timekeeping/src/audit.ts`, `packages/timekeeping/src/rate-statements.ts`, `packages/timekeeping/src/rate-service.ts`, `packages/timekeeping/src/rate-validation.ts`
 - Test: `packages/timekeeping/test/rate-service.test.ts`
 
 **Interfaces**
+
 - Produces: `RATE_CARD_TABLE`, `RATE_TABLE`, `TimekeepingServiceOptions`, `ClockPort`, `timeAuditStatement`, `createRateCard`, `appendRate`, `RateValidationError`.
 - Consumes: `EffectWrite`/`commitEffectBatch` (`@magna-carta/data-access/effect-batch`), `SqlDatabase` (`@magna-carta/data-access/idempotency-statements`), `domainAuditStatement` (`@magna-carta/data-access/audit-statements`), `newIdentifier`, the Task 2 schema (`rate_card`, `rate`).
 
@@ -1839,10 +1881,33 @@ describe("appendRate", () => {
   it("closes the prior open row when a later version is appended", async () => {
     const database = freshDatabase();
     const rateCardId = await withCard(database);
-    const scope = { rateCardId, tier: "timekeeper", scopedId: "user_associate", currency: "USD" } as const;
+    const scope = {
+      rateCardId,
+      tier: "timekeeper",
+      scopedId: "user_associate",
+      currency: "USD",
+    } as const;
 
-    await commit(database, (await appendRate(database, { ...scope, rateE4: 3_500_000, validFrom: "2026-01-01" }, options)).effect);
-    await commit(database, (await appendRate(database, { ...scope, rateE4: 4_000_000, validFrom: "2026-07-01" }, options)).effect);
+    await commit(
+      database,
+      (
+        await appendRate(
+          database,
+          { ...scope, rateE4: 3_500_000, validFrom: "2026-01-01" },
+          options,
+        )
+      ).effect,
+    );
+    await commit(
+      database,
+      (
+        await appendRate(
+          database,
+          { ...scope, rateE4: 4_000_000, validFrom: "2026-07-01" },
+          options,
+        )
+      ).effect,
+    );
 
     const rows = await listRates(database, rateCardId);
     expect(rows).toEqual([
@@ -1868,9 +1933,23 @@ describe("appendRate", () => {
   it("refuses a valid_from that lands inside an existing interval", async () => {
     const database = freshDatabase();
     const rateCardId = await withCard(database);
-    const scope = { rateCardId, tier: "timekeeper", scopedId: "user_associate", currency: "USD" } as const;
+    const scope = {
+      rateCardId,
+      tier: "timekeeper",
+      scopedId: "user_associate",
+      currency: "USD",
+    } as const;
 
-    await commit(database, (await appendRate(database, { ...scope, rateE4: 3_500_000, validFrom: "2026-01-01" }, options)).effect);
+    await commit(
+      database,
+      (
+        await appendRate(
+          database,
+          { ...scope, rateE4: 3_500_000, validFrom: "2026-01-01" },
+          options,
+        )
+      ).effect,
+    );
     // The open row starts 2026-01-01; a new version dated earlier would overlap it.
     await expect(
       appendRate(database, { ...scope, rateE4: 4_000_000, validFrom: "2025-12-01" }, options),
@@ -1885,8 +1964,26 @@ describe("appendRate", () => {
     const rateCardId = await withCard(database);
     const scope = { rateCardId, tier: "matter", scopedId: "matter_a", currency: "USD" } as const;
 
-    await commit(database, (await appendRate(database, { ...scope, rateE4: 5_000_000, validFrom: "2026-01-01" }, options)).effect);
-    await commit(database, (await appendRate(database, { ...scope, rateE4: 5_500_000, validFrom: "2026-06-01" }, options)).effect);
+    await commit(
+      database,
+      (
+        await appendRate(
+          database,
+          { ...scope, rateE4: 5_000_000, validFrom: "2026-01-01" },
+          options,
+        )
+      ).effect,
+    );
+    await commit(
+      database,
+      (
+        await appendRate(
+          database,
+          { ...scope, rateE4: 5_500_000, validFrom: "2026-06-01" },
+          options,
+        )
+      ).effect,
+    );
 
     const rows = await listRates(database, rateCardId);
     expect(rows.map((r) => r.valid_to)).toEqual(["2026-06-01", null]);
@@ -1896,8 +1993,40 @@ describe("appendRate", () => {
     const database = freshDatabase();
     const rateCardId = await withCard(database);
 
-    await commit(database, (await appendRate(database, { rateCardId, tier: "role", scopedId: null, rateE4: 3_000_000, currency: "USD", validFrom: "2026-01-01" }, options)).effect);
-    await commit(database, (await appendRate(database, { rateCardId, tier: "timekeeper", scopedId: "user_associate", rateE4: 3_500_000, currency: "USD", validFrom: "2026-01-01" }, options)).effect);
+    await commit(
+      database,
+      (
+        await appendRate(
+          database,
+          {
+            rateCardId,
+            tier: "role",
+            scopedId: null,
+            rateE4: 3_000_000,
+            currency: "USD",
+            validFrom: "2026-01-01",
+          },
+          options,
+        )
+      ).effect,
+    );
+    await commit(
+      database,
+      (
+        await appendRate(
+          database,
+          {
+            rateCardId,
+            tier: "timekeeper",
+            scopedId: "user_associate",
+            rateE4: 3_500_000,
+            currency: "USD",
+            validFrom: "2026-01-01",
+          },
+          options,
+        )
+      ).effect,
+    );
 
     const rows = await listRates(database, rateCardId);
     // Two distinct scopes -> two open rows, neither closes the other.
@@ -1906,7 +2035,9 @@ describe("appendRate", () => {
 });
 
 it("RateValidationError carries a stable code", () => {
-  expect(new RateValidationError("overlapping-valid-from", "x").code).toBe("overlapping-valid-from");
+  expect(new RateValidationError("overlapping-valid-from", "x").code).toBe(
+    "overlapping-valid-from",
+  );
 });
 ```
 
@@ -2058,9 +2189,7 @@ export function closePriorOpenRateStatement(
   id: RateId,
   validTo: string,
 ): SqlStatement {
-  return database
-    .prepare(`UPDATE ${RATE_TABLE} SET valid_to = ?2 WHERE id = ?1`)
-    .bind(id, validTo);
+  return database.prepare(`UPDATE ${RATE_TABLE} SET valid_to = ?2 WHERE id = ?1`).bind(id, validTo);
 }
 ```
 
@@ -2214,10 +2343,12 @@ EOF
 The pure `resolveRate`: walk the precedence order per-entry **override → matter → client → timekeeper → role → card default**, filtered to the effective-date interval `[valid_from, valid_to)` containing `work_date`, returning the first hit's `{ rateE4, rateCardId, rateSource, currency }` or `{ noRate: true }` for the non-billable path. A flat-fee/contingency matter still resolves the standard rate — a null rate means non-billable, never flat-fee.
 
 **Files**
+
 - Create: `packages/timekeeping/src/rate-resolution.ts`
 - Test: `packages/timekeeping/test/rate-resolution.test.ts`
 
 **Interfaces**
+
 - Produces: `RateResolutionContext`, `RateSource`, `RateResolution`, `resolveRate`.
 - Consumes: `RATE_TABLE` (`./rate-statements.ts`, Task 6), `SqlDatabase`.
 
@@ -2278,7 +2409,14 @@ describe("resolveRate precedence", () => {
   it("resolves the card default (role tier, scoped_id null) when no more-specific row exists", async () => {
     const database = freshDatabase();
     const rateCardId = await makeCard(database);
-    await seedRate(database, { rateCardId, tier: "role", scopedId: null, rateE4: 3_000_000, currency: "USD", validFrom: "2026-01-01" });
+    await seedRate(database, {
+      rateCardId,
+      tier: "role",
+      scopedId: null,
+      rateE4: 3_000_000,
+      currency: "USD",
+      validFrom: "2026-01-01",
+    });
 
     expect(await resolveRate(database, baseContext(rateCardId))).toEqual({
       rateE4: 3_000_000,
@@ -2291,10 +2429,29 @@ describe("resolveRate precedence", () => {
   it("the role tier (scoped to roleId) wins over the card default", async () => {
     const database = freshDatabase();
     const rateCardId = await makeCard(database);
-    await seedRate(database, { rateCardId, tier: "role", scopedId: null, rateE4: 3_000_000, currency: "USD", validFrom: "2026-01-01" });
-    await seedRate(database, { rateCardId, tier: "role", scopedId: "role_associate", rateE4: 3_200_000, currency: "USD", validFrom: "2026-01-01" });
+    await seedRate(database, {
+      rateCardId,
+      tier: "role",
+      scopedId: null,
+      rateE4: 3_000_000,
+      currency: "USD",
+      validFrom: "2026-01-01",
+    });
+    await seedRate(database, {
+      rateCardId,
+      tier: "role",
+      scopedId: "role_associate",
+      rateE4: 3_200_000,
+      currency: "USD",
+      validFrom: "2026-01-01",
+    });
 
-    expect((await resolveRate(database, baseContext(rateCardId)) as { rateSource: string; rateE4: number })).toMatchObject({
+    expect(
+      (await resolveRate(database, baseContext(rateCardId))) as {
+        rateSource: string;
+        rateE4: number;
+      },
+    ).toMatchObject({
       rateSource: "role",
       rateE4: 3_200_000,
     });
@@ -2303,28 +2460,79 @@ describe("resolveRate precedence", () => {
   it("the timekeeper tier wins over role", async () => {
     const database = freshDatabase();
     const rateCardId = await makeCard(database);
-    await seedRate(database, { rateCardId, tier: "role", scopedId: "role_associate", rateE4: 3_200_000, currency: "USD", validFrom: "2026-01-01" });
-    await seedRate(database, { rateCardId, tier: "timekeeper", scopedId: "user_associate", rateE4: 3_500_000, currency: "USD", validFrom: "2026-01-01" });
+    await seedRate(database, {
+      rateCardId,
+      tier: "role",
+      scopedId: "role_associate",
+      rateE4: 3_200_000,
+      currency: "USD",
+      validFrom: "2026-01-01",
+    });
+    await seedRate(database, {
+      rateCardId,
+      tier: "timekeeper",
+      scopedId: "user_associate",
+      rateE4: 3_500_000,
+      currency: "USD",
+      validFrom: "2026-01-01",
+    });
 
-    expect((await resolveRate(database, baseContext(rateCardId)) as { rateSource: string }).rateSource).toBe("timekeeper");
+    expect(
+      ((await resolveRate(database, baseContext(rateCardId))) as { rateSource: string }).rateSource,
+    ).toBe("timekeeper");
   });
 
   it("the client tier wins over timekeeper", async () => {
     const database = freshDatabase();
     const rateCardId = await makeCard(database);
-    await seedRate(database, { rateCardId, tier: "timekeeper", scopedId: "user_associate", rateE4: 3_500_000, currency: "USD", validFrom: "2026-01-01" });
-    await seedRate(database, { rateCardId, tier: "client", scopedId: "client_x", rateE4: 4_000_000, currency: "USD", validFrom: "2026-01-01" });
+    await seedRate(database, {
+      rateCardId,
+      tier: "timekeeper",
+      scopedId: "user_associate",
+      rateE4: 3_500_000,
+      currency: "USD",
+      validFrom: "2026-01-01",
+    });
+    await seedRate(database, {
+      rateCardId,
+      tier: "client",
+      scopedId: "client_x",
+      rateE4: 4_000_000,
+      currency: "USD",
+      validFrom: "2026-01-01",
+    });
 
-    expect((await resolveRate(database, baseContext(rateCardId)) as { rateSource: string }).rateSource).toBe("client");
+    expect(
+      ((await resolveRate(database, baseContext(rateCardId))) as { rateSource: string }).rateSource,
+    ).toBe("client");
   });
 
   it("the matter tier wins over client", async () => {
     const database = freshDatabase();
     const rateCardId = await makeCard(database);
-    await seedRate(database, { rateCardId, tier: "client", scopedId: "client_x", rateE4: 4_000_000, currency: "USD", validFrom: "2026-01-01" });
-    await seedRate(database, { rateCardId, tier: "matter", scopedId: "matter_a", rateE4: 4_500_000, currency: "USD", validFrom: "2026-01-01" });
+    await seedRate(database, {
+      rateCardId,
+      tier: "client",
+      scopedId: "client_x",
+      rateE4: 4_000_000,
+      currency: "USD",
+      validFrom: "2026-01-01",
+    });
+    await seedRate(database, {
+      rateCardId,
+      tier: "matter",
+      scopedId: "matter_a",
+      rateE4: 4_500_000,
+      currency: "USD",
+      validFrom: "2026-01-01",
+    });
 
-    expect((await resolveRate(database, baseContext(rateCardId)) as { rateSource: string; rateE4: number })).toMatchObject({
+    expect(
+      (await resolveRate(database, baseContext(rateCardId))) as {
+        rateSource: string;
+        rateE4: number;
+      },
+    ).toMatchObject({
       rateSource: "matter",
       rateE4: 4_500_000,
     });
@@ -2333,9 +2541,18 @@ describe("resolveRate precedence", () => {
   it("a per-entry override beats every stored tier and reaches no row", async () => {
     const database = freshDatabase();
     const rateCardId = await makeCard(database);
-    await seedRate(database, { rateCardId, tier: "matter", scopedId: "matter_a", rateE4: 4_500_000, currency: "USD", validFrom: "2026-01-01" });
+    await seedRate(database, {
+      rateCardId,
+      tier: "matter",
+      scopedId: "matter_a",
+      rateE4: 4_500_000,
+      currency: "USD",
+      validFrom: "2026-01-01",
+    });
 
-    expect(await resolveRate(database, { ...baseContext(rateCardId), overrideE4: 9_000_000 })).toEqual({
+    expect(
+      await resolveRate(database, { ...baseContext(rateCardId), overrideE4: 9_000_000 }),
+    ).toEqual({
       rateE4: 9_000_000,
       rateCardId,
       rateSource: "override",
@@ -2348,12 +2565,23 @@ describe("resolveRate effective-dating", () => {
   it("picks the version whose [valid_from, valid_to) contains work_date; valid_to is exclusive", async () => {
     const database = freshDatabase();
     const rateCardId = await makeCard(database);
-    const scope = { rateCardId, tier: "timekeeper", scopedId: "user_associate", currency: "USD" } as const;
+    const scope = {
+      rateCardId,
+      tier: "timekeeper",
+      scopedId: "user_associate",
+      currency: "USD",
+    } as const;
     await seedRate(database, { ...scope, rateE4: 3_500_000, validFrom: "2026-01-01" });
     await seedRate(database, { ...scope, rateE4: 4_000_000, validFrom: "2026-07-01" }); // closes the first at 2026-07-01
 
-    const onJune = await resolveRate(database, { ...baseContext(rateCardId), workDate: "2026-06-30" });
-    const onJuly = await resolveRate(database, { ...baseContext(rateCardId), workDate: "2026-07-01" });
+    const onJune = await resolveRate(database, {
+      ...baseContext(rateCardId),
+      workDate: "2026-06-30",
+    });
+    const onJuly = await resolveRate(database, {
+      ...baseContext(rateCardId),
+      workDate: "2026-07-01",
+    });
     expect((onJune as { rateE4: number }).rateE4).toBe(3_500_000);
     // valid_to (2026-07-01) is exclusive on the first row and inclusive valid_from on the second.
     expect((onJuly as { rateE4: number }).rateE4).toBe(4_000_000);
@@ -2362,10 +2590,19 @@ describe("resolveRate effective-dating", () => {
   it("returns the no-rate result when no version is in force on work_date", async () => {
     const database = freshDatabase();
     const rateCardId = await makeCard(database);
-    await seedRate(database, { rateCardId, tier: "timekeeper", scopedId: "user_associate", rateE4: 3_500_000, currency: "USD", validFrom: "2026-07-01" });
+    await seedRate(database, {
+      rateCardId,
+      tier: "timekeeper",
+      scopedId: "user_associate",
+      rateE4: 3_500_000,
+      currency: "USD",
+      validFrom: "2026-07-01",
+    });
 
     // work_date precedes the only version's valid_from.
-    expect(await resolveRate(database, { ...baseContext(rateCardId), workDate: "2026-06-01" })).toEqual({ noRate: true });
+    expect(
+      await resolveRate(database, { ...baseContext(rateCardId), workDate: "2026-06-01" }),
+    ).toEqual({ noRate: true });
   });
 });
 
@@ -2374,17 +2611,34 @@ describe("resolveRate no-rate path", () => {
     const database = freshDatabase();
     const { rateCardId } = baseContext("rateCard_unused");
     void rateCardId;
-    expect(await resolveRate(database, { matterId: "matter_a", clientId: null, timekeeperUserId: "user_associate", roleId: null, workDate: "2026-06-22" })).toEqual({ noRate: true });
+    expect(
+      await resolveRate(database, {
+        matterId: "matter_a",
+        clientId: null,
+        timekeeperUserId: "user_associate",
+        roleId: null,
+        workDate: "2026-06-22",
+      }),
+    ).toEqual({ noRate: true });
   });
 
   it("a flat-fee matter still resolves the standard rate (a null rate means non-billable, never flat-fee)", async () => {
     const database = freshDatabase();
     const rateCardId = await makeCard(database);
-    await seedRate(database, { rateCardId, tier: "role", scopedId: null, rateE4: 3_000_000, currency: "USD", validFrom: "2026-01-01" });
+    await seedRate(database, {
+      rateCardId,
+      tier: "role",
+      scopedId: null,
+      rateE4: 3_000_000,
+      currency: "USD",
+      validFrom: "2026-01-01",
+    });
 
     // The matter being flat-fee is a billing concern; resolution still returns the standard rate so
     // realization can be reported.
-    expect((await resolveRate(database, baseContext(rateCardId)) as { noRate?: true }).noRate).toBeUndefined();
+    expect(
+      ((await resolveRate(database, baseContext(rateCardId))) as { noRate?: true }).noRate,
+    ).toBeUndefined();
   });
 });
 ```
@@ -2491,7 +2745,12 @@ export async function resolveRate(
   for (const candidate of candidatesFor(context)) {
     const hit = await resolveTier(database, rateCardId, candidate, context.workDate);
     if (hit !== undefined) {
-      return { rateE4: hit.rateE4, rateCardId, rateSource: candidate.source, currency: hit.currency };
+      return {
+        rateE4: hit.rateE4,
+        rateCardId,
+        rateSource: candidate.source,
+        currency: hit.currency,
+      };
     }
   }
   return { noRate: true };
@@ -2545,10 +2804,12 @@ EOF
 The pure Draft→(Submitted→Approved)→Billed state machine, gate-on/off aware, plus the `isFrozen` predicate the time-entry service enforces (the service refuses any UPDATE to a `billed`/`void` row beyond the billing lock). `assertTransition` throws `TimeEntryValidationError` on an illegal move. No database access — pure functions over the status enum.
 
 **Files**
+
 - Create: `packages/timekeeping/src/lifecycle.ts`, `packages/timekeeping/src/time-entry-validation.ts`
 - Test: `packages/timekeeping/test/lifecycle.test.ts`
 
 **Interfaces**
+
 - Produces: `TimeEntryStatus`, `assertTransition(from, to, gateOn)`, `canTransition(from, to, gateOn)`, `isFrozen(status)`, `TimeEntryValidationError` + `TimeEntryValidationCode`.
 - Consumes: nothing (pure).
 
@@ -2566,7 +2827,12 @@ Create `packages/timekeeping/test/lifecycle.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest";
-import { assertTransition, canTransition, isFrozen, type TimeEntryStatus } from "../src/lifecycle.ts";
+import {
+  assertTransition,
+  canTransition,
+  isFrozen,
+  type TimeEntryStatus,
+} from "../src/lifecycle.ts";
 import { TimeEntryValidationError } from "../src/time-entry-validation.ts";
 
 const STATUSES: TimeEntryStatus[] = ["draft", "submitted", "approved", "billed", "void"];
@@ -2618,7 +2884,9 @@ describe("assertTransition with the review gate OFF", () => {
 
   it("refuses the gated states when the gate is off", () => {
     expect(() => assertTransition("draft", "submitted", false)).toThrow(TimeEntryValidationError);
-    expect(() => assertTransition("submitted", "approved", false)).toThrow(TimeEntryValidationError);
+    expect(() => assertTransition("submitted", "approved", false)).toThrow(
+      TimeEntryValidationError,
+    );
   });
 
   it("still allows voiding a draft", () => {
@@ -2781,10 +3049,12 @@ Here are the expanded Tasks 9–12.
 The `time_entry` prepared statements and `captureTimeEntry` — the single WIP-store writer. The route resolves the rate (Task 7) and rounds the duration (Task 4), then hands the resolved values in; this service composes the insert + audit into one `EffectWrite`, honouring the `amount_minor` ⟺ `rate_e4` paired-null CHECK, the `e_billing`-requires-UTBMS guard, and the `live_run_id` passthrough.
 
 **Files**
+
 - Create: `packages/timekeeping/src/time-entry-statements.ts`, `packages/timekeeping/src/time-entry-service.ts`
 - Test: `packages/timekeeping/test/time-entry-service.test.ts`
 
 **Interfaces**
+
 - Produces: `TIME_ENTRY_TABLE`, `TimekeepingServiceOptions`, `ClockPort`, `CaptureTimeEntryInput`, `captureTimeEntry`.
 - Consumes: Task 4 (`computeAmountMinor` — already folded into the resolved values the route passes in), Task 7 (`RateResolution`), Task 8 (`TimeEntryValidationError`), `domainAuditStatement`, `newIdentifier`.
 
@@ -2810,13 +3080,11 @@ function freshDatabase(): BatchDatabase {
 }
 
 // A matter the capture binds to; e_billing defaults to 0 (off) unless overridden here.
-async function seedMatter(
-  database: BatchDatabase,
-  matterId: string,
-  eBilling = 0,
-): Promise<void> {
+async function seedMatter(database: BatchDatabase, matterId: string, eBilling = 0): Promise<void> {
   await database
-    .prepare("INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'Attorney', 'active', ?2)")
+    .prepare(
+      "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'Attorney', 'active', ?2)",
+    )
     .bind(TIMEKEEPER, clock.now())
     .run();
   await database
@@ -2827,7 +3095,12 @@ async function seedMatter(
     .run();
 }
 
-async function seedUtbms(database: BatchDatabase, id: string, codeSet: string, code: string): Promise<void> {
+async function seedUtbms(
+  database: BatchDatabase,
+  id: string,
+  codeSet: string,
+  code: string,
+): Promise<void> {
   await database
     .prepare(
       "INSERT INTO utbms_code (id, code_set, code, label, active) VALUES (?1, ?2, ?3, ?4, 1)",
@@ -3109,9 +3382,7 @@ export function selectMatterEBillingStatement(
   database: SqlDatabase,
   matterId: string,
 ): SqlStatement {
-  return database
-    .prepare(`SELECT e_billing FROM matter WHERE id = ?1`)
-    .bind(matterId);
+  return database.prepare(`SELECT e_billing FROM matter WHERE id = ?1`).bind(matterId);
 }
 ```
 
@@ -3205,7 +3476,11 @@ export async function captureTimeEntry(
 ): Promise<{ timeEntryId: TimeEntryId; effect: EffectWrite }> {
   // An electronic-billing matter cannot carry a billable entry without a UTBMS task code — the LEDES
   // exporter rejects an uncoded line, so refusing here keeps an uncodeable entry out of the WIP store.
-  if (input.billable && input.utbmsTaskCodeId === undefined && (await isEBillingMatter(database, input.matterId))) {
+  if (
+    input.billable &&
+    input.utbmsTaskCodeId === undefined &&
+    (await isEBillingMatter(database, input.matterId))
+  ) {
     throw new TimeEntryValidationError(
       "utbms-required",
       "an electronic-billing matter requires a UTBMS task code on a billable entry",
@@ -3305,10 +3580,12 @@ EOF
 The mutating lifecycle methods (`updateDraftTimeEntry`, `submit`/`approve`/`kickBack`/`void`) enforcing the column-level freeze contract through guarded `WHERE status = <from>` UPDATEs, plus `reRateUnbilledDrafts` on the rate service — re-resolving and rewriting `rate_e4`/`amount_minor` on draft/submitted/approved entries in range while leaving billed/void frozen.
 
 **Files**
+
 - Modify: `packages/timekeeping/src/time-entry-statements.ts` (transition + freeze-guarded-update + re-rate statements), `packages/timekeeping/src/time-entry-service.ts`, `packages/timekeeping/src/rate-service.ts` (`reRateUnbilledDrafts`)
 - Test: `packages/timekeeping/test/time-entry-service.test.ts` (extend), `packages/timekeeping/test/rate-service.test.ts` (extend)
 
 **Interfaces**
+
 - Produces: `updateDraftTimeEntry`, `submitTimeEntry`, `approveTimeEntry`, `kickBackTimeEntry`, `voidTimeEntry`, `reRateUnbilledDrafts`.
 - Consumes: Task 8 (`assertTransition`/`isFrozen`/`TimeEntryValidationError`), Task 7 (`resolveRate`), Task 4 (`computeAmountMinor`).
 
@@ -3527,9 +3804,7 @@ export function selectTimeEntryStatusStatement(
   database: SqlDatabase,
   id: TimeEntryId,
 ): SqlStatement {
-  return database
-    .prepare(`SELECT status FROM ${TIME_ENTRY_TABLE} WHERE id = ?1`)
-    .bind(id);
+  return database.prepare(`SELECT status FROM ${TIME_ENTRY_TABLE} WHERE id = ?1`).bind(id);
 }
 
 // The re-rate rewrite: moves rate_e4 + amount_minor on ONE unbilled entry. Guarded to the unbilled set
@@ -3690,7 +3965,10 @@ export async function kickBackTimeEntry(
 ): Promise<{ timeEntryId: TimeEntryId; effect: EffectWrite }> {
   const from = await loadStatus(database, timeEntryId);
   if (isFrozen(from)) {
-    throw new TimeEntryValidationError("frozen-entry", `time entry ${timeEntryId} is ${from} and frozen`);
+    throw new TimeEntryValidationError(
+      "frozen-entry",
+      `time entry ${timeEntryId} is ${from} and frozen`,
+    );
   }
   assertTransition(from, "draft", options.approvalRequired ?? false);
   const updatedAt = options.clock.now();
@@ -3721,7 +3999,10 @@ export async function voidTimeEntry(
 ): Promise<{ timeEntryId: TimeEntryId; effect: EffectWrite }> {
   const from = await loadStatus(database, timeEntryId);
   if (isFrozen(from)) {
-    throw new TimeEntryValidationError("frozen-entry", `time entry ${timeEntryId} is ${from} and frozen`);
+    throw new TimeEntryValidationError(
+      "frozen-entry",
+      `time entry ${timeEntryId} is ${from} and frozen`,
+    );
   }
   assertTransition(from, "void", options.approvalRequired ?? false);
   const updatedAt = options.clock.now();
@@ -3739,6 +4020,7 @@ export async function voidTimeEntry(
 ```
 
 > Add the `not-found` and `draft-only` codes to Task 8's `TimeEntryValidationCode` union if not already present:
+>
 > ```ts
 > export type TimeEntryValidationCode =
 >   | "illegal-transition"
@@ -3780,18 +4062,20 @@ describe("reRateUnbilledDrafts", () => {
     const { rateCardId } = await createRateCard(database, { name: "Standard" }, options);
     await commitEffectBatch(
       database,
-      (await appendRate(
-        database,
-        {
-          rateCardId,
-          tier: "matter",
-          scopedId: "matter_1",
-          rateE4: 4500000,
-          currency: "USD",
-          validFrom: "2026-06-01",
-        },
-        options,
-      )).effect,
+      (
+        await appendRate(
+          database,
+          {
+            rateCardId,
+            tier: "matter",
+            scopedId: "matter_1",
+            rateE4: 4500000,
+            currency: "USD",
+            validFrom: "2026-06-01",
+          },
+          options,
+        )
+      ).effect,
       { now: clock.now },
     );
 
@@ -3803,18 +4087,20 @@ describe("reRateUnbilledDrafts", () => {
     // A retroactive correction: a new matter-tier version of 500.0000/hr effective 2026-06-01.
     await commitEffectBatch(
       database,
-      (await appendRate(
-        database,
-        {
-          rateCardId,
-          tier: "matter",
-          scopedId: "matter_1",
-          rateE4: 5000000,
-          currency: "USD",
-          validFrom: "2026-06-15",
-        },
-        options,
-      )).effect,
+      (
+        await appendRate(
+          database,
+          {
+            rateCardId,
+            tier: "matter",
+            scopedId: "matter_1",
+            rateE4: 5000000,
+            currency: "USD",
+            validFrom: "2026-06-15",
+          },
+          options,
+        )
+      ).effect,
       { now: clock.now },
     );
 
@@ -3827,10 +4113,19 @@ describe("reRateUnbilledDrafts", () => {
 
     expect(count).toBe(2); // draft + approved; billed excluded
     // The draft + approved move to the 500.0000 rate; 60 min => 50000 minor.
-    expect(await rateOf(database, draftId)).toMatchObject({ rate_e4: 5000000, amount_minor: 50000 });
-    expect(await rateOf(database, approvedId)).toMatchObject({ rate_e4: 5000000, amount_minor: 50000 });
+    expect(await rateOf(database, draftId)).toMatchObject({
+      rate_e4: 5000000,
+      amount_minor: 50000,
+    });
+    expect(await rateOf(database, approvedId)).toMatchObject({
+      rate_e4: 5000000,
+      amount_minor: 50000,
+    });
     // The billed entry's captured rate never moves.
-    expect(await rateOf(database, billedId)).toMatchObject({ rate_e4: 4500000, amount_minor: 45000 });
+    expect(await rateOf(database, billedId)).toMatchObject({
+      rate_e4: 4500000,
+      amount_minor: 45000,
+    });
     expect(await countAudits(database, "time_entry.re_rated")).toBe(2);
   });
 });
@@ -3868,9 +4163,15 @@ async function captureCardEntry(
   );
   await commitEffectBatch(database, effect, { now: clock.now });
   if (finalStatus === "approved") {
-    await database.prepare("UPDATE time_entry SET status = 'approved' WHERE id = ?1").bind(timeEntryId).run();
+    await database
+      .prepare("UPDATE time_entry SET status = 'approved' WHERE id = ?1")
+      .bind(timeEntryId)
+      .run();
   } else if (finalStatus === "billed") {
-    await database.prepare("UPDATE time_entry SET status = 'billed', invoice_id = 'invoice_x' WHERE id = ?1").bind(timeEntryId).run();
+    await database
+      .prepare("UPDATE time_entry SET status = 'billed', invoice_id = 'invoice_x' WHERE id = ?1")
+      .bind(timeEntryId)
+      .run();
   }
   return timeEntryId;
 }
@@ -3903,10 +4204,7 @@ Error: No "reRateUnbilledDrafts" export is defined on the "../src/rate-service.t
 ```ts
 import { computeAmountMinor } from "./rounding.ts";
 import { resolveRate } from "./rate-resolution.ts";
-import {
-  reRateEntryStatement,
-  selectReRateCandidatesStatement,
-} from "./time-entry-statements.ts";
+import { reRateEntryStatement, selectReRateCandidatesStatement } from "./time-entry-statements.ts";
 
 export interface ReRateUnbilledDraftsInput {
   readonly rateCardId: RateCardId;
@@ -3950,7 +4248,11 @@ export async function reRateUnbilledDrafts(
       rateCardId: input.rateCardId,
     });
     if ("noRate" in resolution) continue; // a candidate that no longer resolves a rate keeps its capture
-    const amountMinor = computeAmountMinor(resolution.rateE4, row.duration_minutes, resolution.currency);
+    const amountMinor = computeAmountMinor(
+      resolution.rateE4,
+      row.duration_minutes,
+      resolution.currency,
+    );
     statements.push(
       reRateEntryStatement(
         database,
@@ -4016,10 +4318,12 @@ EOF
 The `utbms_code` statements, the published-set seed data as code, the seed composer, and the enable/disable service. This catalog is owned here; the costs and billing slices read it. A firm enables or disables seeded ABA codes but never invents one.
 
 **Files**
+
 - Create: `packages/timekeeping/src/utbms-catalog.ts`, `packages/timekeeping/src/utbms-statements.ts`, `packages/timekeeping/src/utbms-service.ts`
 - Test: `packages/timekeeping/test/utbms-service.test.ts`
 
 **Interfaces**
+
 - Produces: `UTBMS_CODE_TABLE`, `utbmsSeedData`, `seedUtbmsCatalogStatements`, `enableUtbmsCode`, `disableUtbmsCode`, `listUtbmsCodesBySetStatement`.
 - Consumes: `newIdentifier`, `domainAuditStatement`, Task 2 schema, `TimekeepingServiceOptions`.
 
@@ -4112,8 +4416,16 @@ describe("enable/disable", () => {
     const database = freshDatabase();
     await seedCatalog(database);
     const id = (await listSet(database, "task")).find((row) => row.code === "L120")!.id;
-    await commitEffectBatch(database, (await disableUtbmsCode(database, id as never, options)).effect, { now: clock.now });
-    await commitEffectBatch(database, (await enableUtbmsCode(database, id as never, options)).effect, { now: clock.now });
+    await commitEffectBatch(
+      database,
+      (await disableUtbmsCode(database, id as never, options)).effect,
+      { now: clock.now },
+    );
+    await commitEffectBatch(
+      database,
+      (await enableUtbmsCode(database, id as never, options)).effect,
+      { now: clock.now },
+    );
     expect((await listSet(database, "task")).find((r) => r.code === "L120")!.active).toBe(1);
   });
 
@@ -4158,20 +4470,50 @@ export interface UtbmsSeedCode {
 
 export const utbmsSeedData: readonly UtbmsSeedCode[] = [
   // Litigation task codes (L-set).
-  { codeSet: "task", code: "L110", label: "Fact Investigation/Development", practiceArea: "litigation" },
+  {
+    codeSet: "task",
+    code: "L110",
+    label: "Fact Investigation/Development",
+    practiceArea: "litigation",
+  },
   { codeSet: "task", code: "L120", label: "Analysis/Strategy", practiceArea: "litigation" },
   { codeSet: "task", code: "L130", label: "Experts/Consultants", practiceArea: "litigation" },
   { codeSet: "task", code: "L140", label: "Document/File Management", practiceArea: "litigation" },
-  { codeSet: "task", code: "L160", label: "Settlement/Non-Binding ADR", practiceArea: "litigation" },
+  {
+    codeSet: "task",
+    code: "L160",
+    label: "Settlement/Non-Binding ADR",
+    practiceArea: "litigation",
+  },
   { codeSet: "task", code: "L210", label: "Pleadings", practiceArea: "litigation" },
-  { codeSet: "task", code: "L230", label: "Court Mandated Conferences", practiceArea: "litigation" },
+  {
+    codeSet: "task",
+    code: "L230",
+    label: "Court Mandated Conferences",
+    practiceArea: "litigation",
+  },
   { codeSet: "task", code: "L240", label: "Dispositive Motions", practiceArea: "litigation" },
-  { codeSet: "task", code: "L250", label: "Other Written Motions and Submissions", practiceArea: "litigation" },
+  {
+    codeSet: "task",
+    code: "L250",
+    label: "Other Written Motions and Submissions",
+    practiceArea: "litigation",
+  },
   { codeSet: "task", code: "L310", label: "Written Discovery", practiceArea: "litigation" },
   { codeSet: "task", code: "L330", label: "Depositions", practiceArea: "litigation" },
   { codeSet: "task", code: "L390", label: "Other Discovery", practiceArea: "litigation" },
-  { codeSet: "task", code: "L440", label: "Other Trial Preparation and Support", practiceArea: "litigation" },
-  { codeSet: "task", code: "L450", label: "Trial and Hearing Attendance", practiceArea: "litigation" },
+  {
+    codeSet: "task",
+    code: "L440",
+    label: "Other Trial Preparation and Support",
+    practiceArea: "litigation",
+  },
+  {
+    codeSet: "task",
+    code: "L450",
+    label: "Trial and Hearing Attendance",
+    practiceArea: "litigation",
+  },
   // Activity codes (A-set), practice-area-independent.
   { codeSet: "activity", code: "A101", label: "Plan and prepare for", practiceArea: null },
   { codeSet: "activity", code: "A102", label: "Research", practiceArea: null },
@@ -4179,7 +4521,12 @@ export const utbmsSeedData: readonly UtbmsSeedCode[] = [
   { codeSet: "activity", code: "A104", label: "Review/analyze", practiceArea: null },
   { codeSet: "activity", code: "A105", label: "Communicate (in firm)", practiceArea: null },
   { codeSet: "activity", code: "A106", label: "Communicate (with client)", practiceArea: null },
-  { codeSet: "activity", code: "A107", label: "Communicate (other outside counsel)", practiceArea: null },
+  {
+    codeSet: "activity",
+    code: "A107",
+    label: "Communicate (other outside counsel)",
+    practiceArea: null,
+  },
   { codeSet: "activity", code: "A108", label: "Communicate (other external)", practiceArea: null },
   { codeSet: "activity", code: "A109", label: "Appear for/attend", practiceArea: null },
   { codeSet: "activity", code: "A110", label: "Manage data/files", practiceArea: null },
@@ -4352,10 +4699,12 @@ EOF
 The firm-configurable `non_billable_category` (seed-and-fork defaults, soft-archive) and the per-task-code `narrative_template` store with the recent-narrative read.
 
 **Files**
+
 - Create: `packages/timekeeping/src/non-billable-category-statements.ts`, `packages/timekeeping/src/non-billable-category-service.ts`, `packages/timekeeping/src/narrative-template-statements.ts`, `packages/timekeeping/src/narrative-template-service.ts`
 - Test: `packages/timekeeping/test/non-billable-category-service.test.ts`, `packages/timekeeping/test/narrative-template-service.test.ts`
 
 **Interfaces**
+
 - Produces: `NON_BILLABLE_CATEGORY_TABLE`, `seedNonBillableCategoryStatements`, `createNonBillableCategory`, `updateNonBillableCategory`, `archiveNonBillableCategory`; `NARRATIVE_TEMPLATE_TABLE`, `createNarrativeTemplate`, `updateNarrativeTemplate`, `archiveNarrativeTemplate`, `recentNarrativesStatement`, `listNarrativeTemplatesStatement`.
 - Consumes: `newIdentifier`, `domainAuditStatement`, `TimekeepingServiceOptions`.
 
@@ -4410,9 +4759,16 @@ describe("non-billable category seed-and-fork", () => {
 describe("non-billable category CRUD", () => {
   it("creates, renames, and soft-archives (never hard delete), auditing each", async () => {
     const database = freshDatabase();
-    const created = await createNonBillableCategory(database, { name: "Knowledge Management" }, options);
+    const created = await createNonBillableCategory(
+      database,
+      { name: "Knowledge Management" },
+      options,
+    );
     await commitEffectBatch(database, created.effect, { now: clock.now });
-    expect((await listCategories(database))[0]).toMatchObject({ name: "Knowledge Management", archived_at: null });
+    expect((await listCategories(database))[0]).toMatchObject({
+      name: "Knowledge Management",
+      archived_at: null,
+    });
 
     const renamed = await updateNonBillableCategory(
       database,
@@ -4423,7 +4779,11 @@ describe("non-billable category CRUD", () => {
     await commitEffectBatch(database, renamed.effect, { now: clock.now });
     expect((await listCategories(database))[0]?.name).toBe("Knowledge Mgmt");
 
-    const archived = await archiveNonBillableCategory(database, created.nonBillableCategoryId, options);
+    const archived = await archiveNonBillableCategory(
+      database,
+      created.nonBillableCategoryId,
+      options,
+    );
     await commitEffectBatch(database, archived.effect, { now: clock.now });
     const row = (await listCategories(database))[0];
     expect(row?.archived_at).not.toBeNull(); // soft-archive: the row survives
@@ -4477,7 +4837,9 @@ function freshDatabase(): BatchDatabase {
 
 async function seedUtbms(database: BatchDatabase): Promise<void> {
   await database
-    .prepare("INSERT INTO utbms_code (id, code_set, code, label, active) VALUES ('utbmsCode_l120', 'task', 'L120', 'Analysis/Strategy', 1)")
+    .prepare(
+      "INSERT INTO utbms_code (id, code_set, code, label, active) VALUES ('utbmsCode_l120', 'task', 'L120', 'Analysis/Strategy', 1)",
+    )
     .run();
 }
 
@@ -4532,11 +4894,22 @@ describe("narrative templates", () => {
 
   it("updates and soft-archives a template, auditing each", async () => {
     const database = freshDatabase();
-    const created = await createNarrativeTemplate(database, { narrativeTemplate: "Draft memo" }, options);
+    const created = await createNarrativeTemplate(
+      database,
+      { narrativeTemplate: "Draft memo" },
+      options,
+    );
     await commitEffectBatch(database, created.effect, { now: clock.now });
     await commitEffectBatch(
       database,
-      (await updateNarrativeTemplate(database, created.narrativeTemplateId, { narrativeTemplate: "Draft memorandum" }, options)).effect,
+      (
+        await updateNarrativeTemplate(
+          database,
+          created.narrativeTemplateId,
+          { narrativeTemplate: "Draft memorandum" },
+          options,
+        )
+      ).effect,
       { now: clock.now },
     );
     await commitEffectBatch(
@@ -4569,8 +4942,18 @@ describe("recent narratives", () => {
   it("returns the timekeeper's distinct recent narratives, most recent first", async () => {
     const database = freshDatabase();
     // Seed the matter + timekeeper the entries reference.
-    await database.prepare("INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'A', 'active', ?2)").bind(TIMEKEEPER, clock.now()).run();
-    await database.prepare("INSERT INTO matter (id, title, status, responsible_member_id, e_billing, created_at) VALUES ('matter_1', 'M', 'open', ?1, 0, ?2)").bind(TIMEKEEPER, clock.now()).run();
+    await database
+      .prepare(
+        "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'A', 'active', ?2)",
+      )
+      .bind(TIMEKEEPER, clock.now())
+      .run();
+    await database
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, e_billing, created_at) VALUES ('matter_1', 'M', 'open', ?1, 0, ?2)",
+      )
+      .bind(TIMEKEEPER, clock.now())
+      .run();
 
     // Three entries; two share a narrative — the read must de-dup.
     let n = 0;
@@ -4666,9 +5049,7 @@ export function renameNonBillableCategoryStatement(
   updatedAt: string,
 ): SqlStatement {
   return database
-    .prepare(
-      `UPDATE ${NON_BILLABLE_CATEGORY_TABLE} SET name = ?2, updated_at = ?3 WHERE id = ?1`,
-    )
+    .prepare(`UPDATE ${NON_BILLABLE_CATEGORY_TABLE} SET name = ?2, updated_at = ?3 WHERE id = ?1`)
     .bind(id, name, updatedAt);
 }
 
@@ -4820,7 +5201,11 @@ export function insertNarrativeTemplateStatement(
 export function updateNarrativeTemplateStatement(
   database: SqlDatabase,
   id: NarrativeTemplateId,
-  patch: { narrativeTemplate?: string; utbmsTaskCodeId?: string | null; defaultRateE4?: number | null },
+  patch: {
+    narrativeTemplate?: string;
+    utbmsTaskCodeId?: string | null;
+    defaultRateE4?: number | null;
+  },
   updatedAt: string,
 ): SqlStatement {
   const sets: string[] = [];
@@ -4947,7 +5332,11 @@ export async function createNarrativeTemplate(
 export async function updateNarrativeTemplate(
   database: SqlDatabase,
   id: NarrativeTemplateId,
-  patch: { narrativeTemplate?: string; utbmsTaskCodeId?: string | null; defaultRateE4?: number | null },
+  patch: {
+    narrativeTemplate?: string;
+    utbmsTaskCodeId?: string | null;
+    defaultRateE4?: number | null;
+  },
   options: TimekeepingServiceOptions,
 ): Promise<{ narrativeTemplateId: NarrativeTemplateId; effect: EffectWrite }> {
   if (patch.narrativeTemplate !== undefined && patch.narrativeTemplate.trim().length === 0) {
@@ -5039,11 +5428,13 @@ I have everything I need. Now I'll write the four task sections (13, 14, 15, 16)
 The one-line quick-add parser (duration + matter fuzzy-match candidate + narrative), the My Day visibility projection, and the WIP read queries (weekly grid, per-matter unbilled). All three read-only — no audit, no `EffectWrite`. The queries ride the keyset-pagination toolkit and the `(timekeeper_user_id, work_date)` / `(matter_id, status)` indexes the migration lands.
 
 **Files**
+
 - Create: `packages/timekeeping/src/quick-add-parser.ts`, `packages/timekeeping/src/my-day.ts`, `packages/timekeeping/src/queries.ts`
 - Modify: `packages/timekeeping/package.json` (add the three `exports`)
 - Test: `packages/timekeeping/test/quick-add-parser.test.ts`, `packages/timekeeping/test/my-day.test.ts`, `packages/timekeeping/test/queries.test.ts`
 
 **Interfaces**
+
 - Produces: `parseQuickAdd(text)` → `{ durationMinutes; matterHint; narrative }`; `readMyDay`, `MyDayView`, `MyDayTargets`; `listTimeEntriesForTimekeeperDay`, `listWeeklyGrid`, `listUnbilledByMatter`.
 - Consumes: `TIME_ENTRY_TABLE` (Task 9), the `@magna-carta/data-access/cursor-pagination` toolkit, `@magna-carta/database/node-sqlite` (tests).
 
@@ -5240,7 +5631,14 @@ async function seedEntry(database: BatchDatabase, entry: SeedEntry): Promise<voi
     .prepare(
       "INSERT INTO time_entry (id, matter_id, timekeeper_user_id, work_date, duration_minutes, raw_duration_minutes, narrative, billable, non_billable_category_id, currency, rate_e4, rate_card_id, rate_source, amount_minor, utbms_task_code_id, utbms_activity_code_id, status, source, live_run_id, invoice_id, created_at, updated_at, created_by) VALUES (?1, 'matter_a', ?2, ?3, ?4, ?4, 'work', ?5, NULL, 'USD', NULL, NULL, NULL, NULL, NULL, NULL, ?6, 'manual', NULL, NULL, '2026-06-22T00:00:00.000Z', '2026-06-22T00:00:00.000Z', ?2)",
     )
-    .bind(entry.id, TIMEKEEPER, entry.workDate, entry.durationMinutes, entry.billable, entry.status ?? "draft")
+    .bind(
+      entry.id,
+      TIMEKEEPER,
+      entry.workDate,
+      entry.durationMinutes,
+      entry.billable,
+      entry.status ?? "draft",
+    )
     .run();
 }
 
@@ -5253,9 +5651,24 @@ async function setup(): Promise<BatchDatabase> {
 describe("readMyDay", () => {
   it("totals billable and non-billable minutes for the work date, excluding void", async () => {
     const database = await setup();
-    await seedEntry(database, { id: "timeEntry_1", workDate: "2026-06-22", durationMinutes: 120, billable: 1 });
-    await seedEntry(database, { id: "timeEntry_2", workDate: "2026-06-22", durationMinutes: 90, billable: 1 });
-    await seedEntry(database, { id: "timeEntry_3", workDate: "2026-06-22", durationMinutes: 30, billable: 0 });
+    await seedEntry(database, {
+      id: "timeEntry_1",
+      workDate: "2026-06-22",
+      durationMinutes: 120,
+      billable: 1,
+    });
+    await seedEntry(database, {
+      id: "timeEntry_2",
+      workDate: "2026-06-22",
+      durationMinutes: 90,
+      billable: 1,
+    });
+    await seedEntry(database, {
+      id: "timeEntry_3",
+      workDate: "2026-06-22",
+      durationMinutes: 30,
+      billable: 0,
+    });
     // A void entry never counts toward the day's totals.
     await seedEntry(database, {
       id: "timeEntry_void",
@@ -5265,7 +5678,12 @@ describe("readMyDay", () => {
       status: "void",
     });
     // A different day must not bleed in.
-    await seedEntry(database, { id: "timeEntry_other", workDate: "2026-06-21", durationMinutes: 240, billable: 1 });
+    await seedEntry(database, {
+      id: "timeEntry_other",
+      workDate: "2026-06-21",
+      durationMinutes: 240,
+      billable: 1,
+    });
 
     const view = await readMyDay(database, {
       timekeeperUserId: TIMEKEEPER,
@@ -5299,7 +5717,12 @@ describe("readMyDay", () => {
 
   it("clamps the shortfall to zero once the billable target is met", async () => {
     const database = await setup();
-    await seedEntry(database, { id: "timeEntry_1", workDate: "2026-06-22", durationMinutes: 540, billable: 1 });
+    await seedEntry(database, {
+      id: "timeEntry_1",
+      workDate: "2026-06-22",
+      durationMinutes: 540,
+      billable: 1,
+    });
     const view = await readMyDay(database, {
       timekeeperUserId: TIMEKEEPER,
       workDate: "2026-06-22",
@@ -5318,7 +5741,11 @@ import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
 import type { MatterId, UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
-import { listTimeEntriesForTimekeeperDay, listUnbilledByMatter, listWeeklyGrid } from "../src/queries.ts";
+import {
+  listTimeEntriesForTimekeeperDay,
+  listUnbilledByMatter,
+  listWeeklyGrid,
+} from "../src/queries.ts";
 
 const TIMEKEEPER = "user_attorney" as UserId;
 
@@ -5350,7 +5777,16 @@ async function seedEntry(database: BatchDatabase, entry: SeedEntry): Promise<voi
     .prepare(
       "INSERT INTO time_entry (id, matter_id, timekeeper_user_id, work_date, duration_minutes, raw_duration_minutes, narrative, billable, non_billable_category_id, currency, rate_e4, rate_card_id, rate_source, amount_minor, utbms_task_code_id, utbms_activity_code_id, status, source, live_run_id, invoice_id, created_at, updated_at, created_by) VALUES (?1, ?2, ?3, ?4, ?5, ?5, 'work', 1, NULL, 'USD', 30000, 'rateCard_a', 'matter', ?6, NULL, NULL, ?7, 'manual', NULL, NULL, ?8, ?8, ?3)",
     )
-    .bind(entry.id, entry.matterId, TIMEKEEPER, entry.workDate, entry.durationMinutes, entry.amountMinor, entry.status, entry.createdAt)
+    .bind(
+      entry.id,
+      entry.matterId,
+      TIMEKEEPER,
+      entry.workDate,
+      entry.durationMinutes,
+      entry.amountMinor,
+      entry.status,
+      entry.createdAt,
+    )
     .run();
 }
 
@@ -5367,25 +5803,77 @@ const at = (n: number) => `2026-06-${String(n).padStart(2, "0")}T12:00:00.000Z`;
 describe("listTimeEntriesForTimekeeperDay", () => {
   it("returns the timekeeper's entries for the work date, newest first", async () => {
     const database = await setup();
-    await seedEntry(database, { id: "timeEntry_1", matterId: "matter_a", workDate: day(22), durationMinutes: 60, status: "draft", amountMinor: 30000, createdAt: at(22) });
-    await seedEntry(database, { id: "timeEntry_2", matterId: "matter_b", workDate: day(22), durationMinutes: 30, status: "draft", amountMinor: 15000, createdAt: at(21) });
-    await seedEntry(database, { id: "timeEntry_other", matterId: "matter_a", workDate: day(21), durationMinutes: 90, status: "draft", amountMinor: 45000, createdAt: at(20) });
+    await seedEntry(database, {
+      id: "timeEntry_1",
+      matterId: "matter_a",
+      workDate: day(22),
+      durationMinutes: 60,
+      status: "draft",
+      amountMinor: 30000,
+      createdAt: at(22),
+    });
+    await seedEntry(database, {
+      id: "timeEntry_2",
+      matterId: "matter_b",
+      workDate: day(22),
+      durationMinutes: 30,
+      status: "draft",
+      amountMinor: 15000,
+      createdAt: at(21),
+    });
+    await seedEntry(database, {
+      id: "timeEntry_other",
+      matterId: "matter_a",
+      workDate: day(21),
+      durationMinutes: 90,
+      status: "draft",
+      amountMinor: 45000,
+      createdAt: at(20),
+    });
     const { data } = await listTimeEntriesForTimekeeperDay(database, {
       timekeeperUserId: TIMEKEEPER,
       workDate: day(22),
     });
     expect(data.map((row) => row.id)).toEqual(["timeEntry_1", "timeEntry_2"]);
-    expect(data[0]).toMatchObject({ matterId: "matter_a", durationMinutes: 60, amountMinor: 30000 });
+    expect(data[0]).toMatchObject({
+      matterId: "matter_a",
+      durationMinutes: 60,
+      amountMinor: 30000,
+    });
   });
 });
 
 describe("listWeeklyGrid", () => {
   it("returns the timekeeper's entries across the week window, oldest day first", async () => {
     const database = await setup();
-    await seedEntry(database, { id: "timeEntry_mon", matterId: "matter_a", workDate: day(22), durationMinutes: 60, status: "draft", amountMinor: 30000, createdAt: at(22) });
-    await seedEntry(database, { id: "timeEntry_tue", matterId: "matter_a", workDate: day(23), durationMinutes: 120, status: "draft", amountMinor: 60000, createdAt: at(23) });
+    await seedEntry(database, {
+      id: "timeEntry_mon",
+      matterId: "matter_a",
+      workDate: day(22),
+      durationMinutes: 60,
+      status: "draft",
+      amountMinor: 30000,
+      createdAt: at(22),
+    });
+    await seedEntry(database, {
+      id: "timeEntry_tue",
+      matterId: "matter_a",
+      workDate: day(23),
+      durationMinutes: 120,
+      status: "draft",
+      amountMinor: 60000,
+      createdAt: at(23),
+    });
     // Outside the window — excluded.
-    await seedEntry(database, { id: "timeEntry_prev", matterId: "matter_a", workDate: day(21), durationMinutes: 30, status: "draft", amountMinor: 15000, createdAt: at(21) });
+    await seedEntry(database, {
+      id: "timeEntry_prev",
+      matterId: "matter_a",
+      workDate: day(21),
+      durationMinutes: 30,
+      status: "draft",
+      amountMinor: 15000,
+      createdAt: at(21),
+    });
     const rows = await listWeeklyGrid(database, {
       timekeeperUserId: TIMEKEEPER,
       fromDate: day(22),
@@ -5399,11 +5887,43 @@ describe("listWeeklyGrid", () => {
 describe("listUnbilledByMatter", () => {
   it("sums unbilled minutes and amount per matter, excluding billed and void", async () => {
     const database = await setup();
-    await seedEntry(database, { id: "timeEntry_1", matterId: "matter_a", workDate: day(22), durationMinutes: 60, status: "draft", amountMinor: 30000, createdAt: at(22) });
-    await seedEntry(database, { id: "timeEntry_2", matterId: "matter_a", workDate: day(22), durationMinutes: 30, status: "approved", amountMinor: 15000, createdAt: at(22) });
+    await seedEntry(database, {
+      id: "timeEntry_1",
+      matterId: "matter_a",
+      workDate: day(22),
+      durationMinutes: 60,
+      status: "draft",
+      amountMinor: 30000,
+      createdAt: at(22),
+    });
+    await seedEntry(database, {
+      id: "timeEntry_2",
+      matterId: "matter_a",
+      workDate: day(22),
+      durationMinutes: 30,
+      status: "approved",
+      amountMinor: 15000,
+      createdAt: at(22),
+    });
     // Billed and void must not appear in unbilled WIP.
-    await seedEntry(database, { id: "timeEntry_billed", matterId: "matter_a", workDate: day(22), durationMinutes: 120, status: "billed", amountMinor: 60000, createdAt: at(22) });
-    await seedEntry(database, { id: "timeEntry_void", matterId: "matter_a", workDate: day(22), durationMinutes: 45, status: "void", amountMinor: 22500, createdAt: at(22) });
+    await seedEntry(database, {
+      id: "timeEntry_billed",
+      matterId: "matter_a",
+      workDate: day(22),
+      durationMinutes: 120,
+      status: "billed",
+      amountMinor: 60000,
+      createdAt: at(22),
+    });
+    await seedEntry(database, {
+      id: "timeEntry_void",
+      matterId: "matter_a",
+      workDate: day(22),
+      durationMinutes: 45,
+      status: "void",
+      amountMinor: 22500,
+      createdAt: at(22),
+    });
     const rows = await listUnbilledByMatter(database, { matterId: "matter_a" as MatterId });
     expect(rows).toEqual([
       { matterId: "matter_a", unbilledMinutes: 90, unbilledAmountMinor: 45000, entryCount: 2 },
@@ -5718,10 +6238,12 @@ EOF
 The pure timer state machine + elapsed computation the Durable Object and its tests share — start/pause/resume/bind, the `committing` compare-and-set, the abandoned flag, and client-computed elapsed from `startedAt` + `pausedIntervals`. Pure (no clock, no I/O): the `now` and the minted `liveRunId` arrive as arguments so the DO owns the side effects and the runtime stays exhaustively testable. Lives in `apps/worker` (the DO's home), not the package — the package never imports the DO.
 
 **Files**
+
 - Create: `apps/worker/src/timer/timer-runtime.ts`
 - Test: `apps/worker/test/timer-runtime.test.ts`
 
 **Interfaces**
+
 - Produces: `TimerState`, `TimerStatus` (`running`|`paused`|`committing`|`abandoned`), `PausedInterval`, `TimerBinding`, `startTimer`, `pauseTimer`, `resumeTimer`, `bindTimer`, `beginCommit` (compare-and-set), `markAbandoned`, `elapsedMinutes(state, now)`, `trimToLastActivity(state)`.
 - Consumes: nothing (pure).
 
@@ -5752,7 +6274,11 @@ function started(): TimerState {
 
 describe("startTimer", () => {
   it("mints a running state carrying the run id, start instant, and binding", () => {
-    const state = startTimer({ liveRunId: RUN, now: t(0), binding: { matterId: "matter_a", label: "research" } });
+    const state = startTimer({
+      liveRunId: RUN,
+      now: t(0),
+      binding: { matterId: "matter_a", label: "research" },
+    });
     expect(state).toEqual({
       liveRunId: RUN,
       startedAt: t(0),
@@ -6043,11 +6569,13 @@ EOF
 The codebase's first Durable Object: one instance per `${firmId}:${userId}`, wrapping the Task 14 runtime, holding only transient timer state in DO key-value storage, with the abandoned-timer alarm. Wire the `durable_objects` block + the `new_sqlite_classes` migration tag + the class export + the `DURABLE_TIMER` binding. It is **not** a business-data store — committing a `time_entry` flows through the route + the data-access chokepoint (Task 18), never the DO.
 
 **Files**
+
 - Create: `apps/worker/src/timer/live-timer-durable-object.ts`
 - Modify: `apps/worker/wrangler.jsonc` (durable_objects binding + migration tag), `apps/worker/src/index.ts` (export the class), `apps/worker/src/app.ts` (`DURABLE_TIMER` in `Bindings`)
 - Test: `apps/worker/test/live-timer-do.test.ts` (Miniflare)
 
 **Interfaces**
+
 - Produces: `LiveTimerDurableObject` with `start`/`pause`/`resume`/`bind`/`read`/`stopAndCommit`/`discard`/`alarm`; the `DURABLE_TIMER` namespace binding.
 - Consumes: Task 14 runtime; `newIdentifier("timeEntry", …)` for the `live_run_id` token shape.
 
@@ -6263,10 +6791,12 @@ Add to `apps/worker/wrangler.jsonc`, after the `analytics_engine_datasets` block
 Add the `DURABLE_TIMER` field to the `Bindings` type in `apps/worker/src/app.ts` (after the `EMAIL_FROM?` line, before the closing `};`):
 
 ```typescript
-  // The per-timekeeper live-timer Durable Object namespace (the first DO). The timer routes proxy to
-  // one instance per `${firmId}:${userId}`; the stop-commit reads the DO's final state and writes the
-  // time entry through the data-access chokepoint. The DO holds no business rows.
-  DURABLE_TIMER: DurableObjectNamespace<import("./timer/live-timer-durable-object.ts").LiveTimerDurableObject>;
+// The per-timekeeper live-timer Durable Object namespace (the first DO). The timer routes proxy to
+// one instance per `${firmId}:${userId}`; the stop-commit reads the DO's final state and writes the
+// time entry through the data-access chokepoint. The DO holds no business rows.
+DURABLE_TIMER: DurableObjectNamespace<
+  import("./timer/live-timer-durable-object.ts").LiveTimerDurableObject
+>;
 ```
 
 Export the class from `apps/worker/src/index.ts` (add the import + re-export near the top, after the existing imports):
@@ -6314,10 +6844,12 @@ EOF
 The DO's correctness behavior: the abandoned alarm fires only for a still-live timer (cancelled on stop/discard/replace), and `stopAndCommit` is the single-threaded compare-and-set that anchors the route's idempotent commit on `live_run_id`. Two racing stop-commits return one `committing` and one `already-committing` with the same id; the alarm flag never re-flags a committed run; the keep/trim/discard resolutions each resolve a flagged run.
 
 **Files**
+
 - Modify: `apps/worker/src/timer/live-timer-durable-object.ts`
 - Test: `apps/worker/test/live-timer-do.test.ts` (extend)
 
 **Interfaces**
+
 - Produces: `stopAndCommit` returning `{ liveRunId; state: "committing"|"already-committing"|"already-committed" }`; `alarm()` flagging `abandoned`; `resolveAbandoned("keep"|"trim"|"discard")` surfacing the resolution.
 - Consumes: Task 14 (`beginCommit`, `markAbandoned`, `trimToLastActivity`).
 
@@ -6520,11 +7052,13 @@ The time-entry HTTP surface, every write through the chokepoint over `runIdempot
 This task matches `apps/worker/src/routes/locations.ts` exactly: a shared `commitTimeEntryEffect` helper modeled on `commitLocationEffect`, the same `RouteMeta` builders, the same `writeErrorResponses`/`readErrorResponses` blocks, the same `Idempotency-Replayed` surfacing.
 
 **Files**
+
 - Create: `apps/worker/src/routes/time-entries.ts`
 - Modify: `apps/worker/src/app.ts` (register), `packages/timekeeping/package.json` (the consumed exports must be declared)
 - Test: `apps/worker/test/time-entries-routes.test.ts`
 
 **Interfaces**
+
 - Produces routes: `timeEntries.create`/`list`/`get`/`update`/`submit`/`approve`/`kickBack`/`void`/`previewQuickAdd`/`gridBatch`.
 - Consumes: `captureTimeEntry`/`updateDraftTimeEntry`/`submitTimeEntry`/`approveTimeEntry`/`kickBackTimeEntry`/`voidTimeEntry` (Task 9/10), `resolveRate` (Task 7), `roundDuration`/`computeAmountMinor` (Task 4), `resolveScopedSetting` (Task 3) + `incrementMinutesDefinition`/`roundingDirectionDefinition` (Task 5), `parseQuickAdd`/`listTimeEntriesForTimekeeperDay`/`listUnbilledByMatter` (Task 13), `TimeEntryValidationError` (Task 8), `defineOpenAPIRoute`/`chokepointMiddleware`/`runIdempotentEffect`.
 
@@ -6618,7 +7152,11 @@ beforeAll(async () => {
       cookie: ownerCookie,
       "Idempotency-Key": crypto.randomUUID(),
     },
-    body: JSON.stringify({ title: "Smith v. Jones", status: "open", responsibleMemberId: ownerUserId }),
+    body: JSON.stringify({
+      title: "Smith v. Jones",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+    }),
   });
   matterId = ((await created.json()) as { matterId: string }).matterId;
 
@@ -6806,9 +7344,9 @@ describe("draft-only freeze and the review path", () => {
 
 describe("quick-add preview is read-shaped", () => {
   it("returns parsed candidates and writes nothing", async () => {
-    const before = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM time_entry",
-    ).first<{ c: number }>();
+    const before = await env.DB_FIRM_POOL_1.prepare("SELECT COUNT(*) AS c FROM time_entry").first<{
+      c: number;
+    }>();
     const response = await post("/api/v1/time-entries/quick-add-preview", {
       text: "0.5 Smith — drafted demand letter",
     });
@@ -6823,9 +7361,9 @@ describe("quick-add preview is read-shaped", () => {
     expect(body.matterHint).toBe("Smith");
     expect(body.narrative).toBe("drafted demand letter");
     expect(body.candidates.some((c) => c.id === matterId)).toBe(true);
-    const after = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM time_entry",
-    ).first<{ c: number }>();
+    const after = await env.DB_FIRM_POOL_1.prepare("SELECT COUNT(*) AS c FROM time_entry").first<{
+      c: number;
+    }>();
     expect(after?.c).toBe(before?.c);
   });
 });
@@ -6983,7 +7521,10 @@ const PatchTimeEntryRequest = z
   .object({
     narrative: z.string().min(1).optional(),
     rawDurationMinutes: z.number().int().positive().optional(),
-    workDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    workDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
     utbmsTaskCodeId: identifierField("utbmsCode").nullable().optional(),
     utbmsActivityCodeId: identifierField("utbmsCode").nullable().optional(),
   })
@@ -7035,21 +7576,60 @@ const timeEntryParam = z.object({ id: identifierPathParam("timeEntry", "id") });
 const listQuery = z.object({
   timekeeperUserId: identifierField("user").optional(),
   matterId: identifierField("matter").optional(),
-  workDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  workDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   status: z.enum(["draft", "submitted", "approved", "billed", "void"]).optional(),
 });
 
 const authErrors = {
-  400: { description: "Missing Idempotency-Key (this operation requires one)", content: { "application/problem+json": { schema: Problem } } },
-  401: { description: "No valid session", content: { "application/problem+json": { schema: Problem } } },
-  403: { description: "The session member lacks the required capability", content: { "application/problem+json": { schema: Problem } } },
-  404: { description: "The firm is unreachable, the member is deactivated, or the entry is unknown", content: { "application/problem+json": { schema: Problem } } },
-  409: { description: "A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal", content: { "application/problem+json": { schema: Problem } } },
-  422: { description: "The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry", content: { "application/problem+json": { schema: Problem } } },
-  429: { description: "Rate limit exceeded", content: { "application/problem+json": { schema: Problem } } },
+  400: {
+    description: "Missing Idempotency-Key (this operation requires one)",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  401: {
+    description: "No valid session",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  403: {
+    description: "The session member lacks the required capability",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  404: {
+    description: "The firm is unreachable, the member is deactivated, or the entry is unknown",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  409: {
+    description:
+      "A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  422: {
+    description:
+      "The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  429: {
+    description: "Rate limit exceeded",
+    content: { "application/problem+json": { schema: Problem } },
+  },
 } as const;
-const writeErrorResponses = { 400: authErrors[400], 401: authErrors[401], 403: authErrors[403], 404: authErrors[404], 409: authErrors[409], 422: authErrors[422], 429: authErrors[429] } as const;
-const readErrorResponses = { 401: authErrors[401], 403: authErrors[403], 404: authErrors[404], 429: authErrors[429] } as const;
+const writeErrorResponses = {
+  400: authErrors[400],
+  401: authErrors[401],
+  403: authErrors[403],
+  404: authErrors[404],
+  409: authErrors[409],
+  422: authErrors[422],
+  429: authErrors[429],
+} as const;
+const readErrorResponses = {
+  401: authErrors[401],
+  403: authErrors[403],
+  404: authErrors[404],
+  429: authErrors[429],
+} as const;
 
 function writeMeta(operationId: string, permission: typeof TRACK | typeof APPROVE): RouteMeta {
   return {
@@ -7072,28 +7652,78 @@ const gridBatchMeta = writeMeta("timeEntries.gridBatch", TRACK);
 const submitMeta = writeMeta("timeEntries.submit", APPROVE);
 const approveMeta = writeMeta("timeEntries.approve", APPROVE);
 const kickBackMeta = writeMeta("timeEntries.kickBack", APPROVE);
-const listMeta: RouteMeta = { operationId: "timeEntries.list", surface: "app", authenticated: true, permission: TRACK, resource: "matter", audited: false, idempotency: "optional", rateLimit: "default" };
-const getMeta: RouteMeta = { operationId: "timeEntries.get", surface: "app", authenticated: true, permission: TRACK, resource: "matter", audited: false, idempotency: "optional", rateLimit: "default" };
+const listMeta: RouteMeta = {
+  operationId: "timeEntries.list",
+  surface: "app",
+  authenticated: true,
+  permission: TRACK,
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+const getMeta: RouteMeta = {
+  operationId: "timeEntries.get",
+  surface: "app",
+  authenticated: true,
+  permission: TRACK,
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
 // A pure parse: read-shaped POST, no write, no audit (the numbering.preview precedent).
-const previewMeta: RouteMeta = { operationId: "timeEntries.previewQuickAdd", surface: "app", authenticated: true, permission: TRACK, resource: "matter", audited: false, idempotency: "optional", rateLimit: "default" };
+const previewMeta: RouteMeta = {
+  operationId: "timeEntries.previewQuickAdd",
+  surface: "app",
+  authenticated: true,
+  permission: TRACK,
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
 
 const createRoute = defineOpenAPIRoute(createMeta, {
   method: "post",
   path: "/api/v1/time-entries",
-  description: "Captures a time entry: resolves the rate in force on the work date, rounds the raw duration to the firm/timekeeper increment, and stores the work-in-progress row.",
-  request: { headers: idempotencyKeyHeader, body: { content: { "application/json": { schema: CreateTimeEntryRequest } }, required: true } },
+  description:
+    "Captures a time entry: resolves the rate in force on the work date, rounds the raw duration to the firm/timekeeper increment, and stores the work-in-progress row.",
+  request: {
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: CreateTimeEntryRequest } }, required: true },
+  },
   responses: {
-    201: { description: "The time entry was captured", content: { "application/json": { schema: TimeEntryAck } } },
-    400: writeErrorResponses[400], 401: writeErrorResponses[401], 403: writeErrorResponses[403], 404: writeErrorResponses[404], 409: writeErrorResponses[409], 422: writeErrorResponses[422], 429: writeErrorResponses[429],
+    201: {
+      description: "The time entry was captured",
+      content: { "application/json": { schema: TimeEntryAck } },
+    },
+    400: writeErrorResponses[400],
+    401: writeErrorResponses[401],
+    403: writeErrorResponses[403],
+    404: writeErrorResponses[404],
+    409: writeErrorResponses[409],
+    422: writeErrorResponses[422],
+    429: writeErrorResponses[429],
   },
 });
 
 const listRoute = defineOpenAPIRoute(listMeta, {
   method: "get",
   path: "/api/v1/time-entries",
-  description: "Lists time entries filtered by timekeeper and work date (the daily view) or by matter and status (the unbilled work-in-progress view).",
+  description:
+    "Lists time entries filtered by timekeeper and work date (the daily view) or by matter and status (the unbilled work-in-progress view).",
   request: { query: listQuery },
-  responses: { 200: { description: "The time entries", content: { "application/json": { schema: TimeEntryListResponse } } }, 401: readErrorResponses[401], 403: readErrorResponses[403], 404: readErrorResponses[404], 429: readErrorResponses[429] },
+  responses: {
+    200: {
+      description: "The time entries",
+      content: { "application/json": { schema: TimeEntryListResponse } },
+    },
+    401: readErrorResponses[401],
+    403: readErrorResponses[403],
+    404: readErrorResponses[404],
+    429: readErrorResponses[429],
+  },
 });
 
 const getRoute = defineOpenAPIRoute(getMeta, {
@@ -7101,18 +7731,48 @@ const getRoute = defineOpenAPIRoute(getMeta, {
   path: "/api/v1/time-entries/{id}",
   description: "Returns one time entry's detail.",
   request: { params: timeEntryParam },
-  responses: { 200: { description: "The time entry", content: { "application/json": { schema: TimeEntrySummary } } }, 401: readErrorResponses[401], 403: readErrorResponses[403], 404: readErrorResponses[404], 429: readErrorResponses[429] },
+  responses: {
+    200: {
+      description: "The time entry",
+      content: { "application/json": { schema: TimeEntrySummary } },
+    },
+    401: readErrorResponses[401],
+    403: readErrorResponses[403],
+    404: readErrorResponses[404],
+    429: readErrorResponses[429],
+  },
 });
 
 const updateRoute = defineOpenAPIRoute(updateMeta, {
   method: "patch",
   path: "/api/v1/time-entries/{id}",
   description: "Updates a draft time entry. A billed or void entry is frozen and cannot be edited.",
-  request: { headers: idempotencyKeyHeader, params: timeEntryParam, body: { content: { "application/json": { schema: PatchTimeEntryRequest } }, required: true } },
-  responses: { 200: { description: "The time entry was updated", content: { "application/json": { schema: TimeEntryAck } } }, 400: writeErrorResponses[400], 401: writeErrorResponses[401], 403: writeErrorResponses[403], 404: writeErrorResponses[404], 409: writeErrorResponses[409], 422: writeErrorResponses[422], 429: writeErrorResponses[429] },
+  request: {
+    headers: idempotencyKeyHeader,
+    params: timeEntryParam,
+    body: { content: { "application/json": { schema: PatchTimeEntryRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The time entry was updated",
+      content: { "application/json": { schema: TimeEntryAck } },
+    },
+    400: writeErrorResponses[400],
+    401: writeErrorResponses[401],
+    403: writeErrorResponses[403],
+    404: writeErrorResponses[404],
+    409: writeErrorResponses[409],
+    422: writeErrorResponses[422],
+    429: writeErrorResponses[429],
+  },
 });
 
-function transitionRoute(meta: RouteMeta, action: string, description: string, withBody?: z.ZodTypeAny) {
+function transitionRoute(
+  meta: RouteMeta,
+  action: string,
+  description: string,
+  withBody?: z.ZodTypeAny,
+) {
   return defineOpenAPIRoute(meta, {
     method: "post",
     path: `/api/v1/time-entries/{id}/${action}`,
@@ -7120,40 +7780,117 @@ function transitionRoute(meta: RouteMeta, action: string, description: string, w
     request: {
       headers: idempotencyKeyHeader,
       params: timeEntryParam,
-      ...(withBody ? { body: { content: { "application/json": { schema: withBody } }, required: true } } : {}),
+      ...(withBody
+        ? { body: { content: { "application/json": { schema: withBody } }, required: true } }
+        : {}),
     },
-    responses: { 200: { description: "The transition was applied", content: { "application/json": { schema: TimeEntryAck } } }, 400: writeErrorResponses[400], 401: writeErrorResponses[401], 403: writeErrorResponses[403], 404: writeErrorResponses[404], 409: writeErrorResponses[409], 422: writeErrorResponses[422], 429: writeErrorResponses[429] },
+    responses: {
+      200: {
+        description: "The transition was applied",
+        content: { "application/json": { schema: TimeEntryAck } },
+      },
+      400: writeErrorResponses[400],
+      401: writeErrorResponses[401],
+      403: writeErrorResponses[403],
+      404: writeErrorResponses[404],
+      409: writeErrorResponses[409],
+      422: writeErrorResponses[422],
+      429: writeErrorResponses[429],
+    },
   });
 }
-const submitRoute = transitionRoute(submitMeta, "submit", "Submits a draft entry for review (only when the firm's review gate is on).");
-const approveRoute = transitionRoute(approveMeta, "approve", "Approves a submitted entry, making it billable.");
-const kickBackRoute = transitionRoute(kickBackMeta, "kick-back", "Returns a submitted entry to draft with an audited reason.", KickBackRequest);
-const voidRoute = transitionRoute(voidMeta, "void", "Voids a time entry. The row freezes — it can no longer be edited or billed.");
+const submitRoute = transitionRoute(
+  submitMeta,
+  "submit",
+  "Submits a draft entry for review (only when the firm's review gate is on).",
+);
+const approveRoute = transitionRoute(
+  approveMeta,
+  "approve",
+  "Approves a submitted entry, making it billable.",
+);
+const kickBackRoute = transitionRoute(
+  kickBackMeta,
+  "kick-back",
+  "Returns a submitted entry to draft with an audited reason.",
+  KickBackRequest,
+);
+const voidRoute = transitionRoute(
+  voidMeta,
+  "void",
+  "Voids a time entry. The row freezes — it can no longer be edited or billed.",
+);
 
 const previewRoute = defineOpenAPIRoute(previewMeta, {
   method: "post",
   path: "/api/v1/time-entries/quick-add-preview",
-  description: "Parses a one-line quick-add string into a duration, a matter hint, and a narrative, returning matching matters for the timekeeper to confirm. Writes nothing.",
-  request: { body: { content: { "application/json": { schema: QuickAddPreviewRequest } }, required: true } },
-  responses: { 200: { description: "The parsed candidate", content: { "application/json": { schema: QuickAddPreviewResponse } } }, 401: readErrorResponses[401], 403: readErrorResponses[403], 404: readErrorResponses[404], 429: readErrorResponses[429] },
+  description:
+    "Parses a one-line quick-add string into a duration, a matter hint, and a narrative, returning matching matters for the timekeeper to confirm. Writes nothing.",
+  request: {
+    body: { content: { "application/json": { schema: QuickAddPreviewRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The parsed candidate",
+      content: { "application/json": { schema: QuickAddPreviewResponse } },
+    },
+    401: readErrorResponses[401],
+    403: readErrorResponses[403],
+    404: readErrorResponses[404],
+    429: readErrorResponses[429],
+  },
 });
 
 const gridBatchRoute = defineOpenAPIRoute(gridBatchMeta, {
   method: "post",
   path: "/api/v1/time-entries/grid-batch",
-  description: "Captures a batch of time entries from the weekly grid in one request. Each entry resolves its rate and rounds its duration independently.",
-  request: { headers: idempotencyKeyHeader, body: { content: { "application/json": { schema: GridBatchRequest } }, required: true } },
-  responses: { 201: { description: "The batch was captured", content: { "application/json": { schema: GridBatchAck } } }, 400: writeErrorResponses[400], 401: writeErrorResponses[401], 403: writeErrorResponses[403], 404: writeErrorResponses[404], 409: writeErrorResponses[409], 422: writeErrorResponses[422], 429: writeErrorResponses[429] },
+  description:
+    "Captures a batch of time entries from the weekly grid in one request. Each entry resolves its rate and rounds its duration independently.",
+  request: {
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: GridBatchRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The batch was captured",
+      content: { "application/json": { schema: GridBatchAck } },
+    },
+    400: writeErrorResponses[400],
+    401: writeErrorResponses[401],
+    403: writeErrorResponses[403],
+    404: writeErrorResponses[404],
+    409: writeErrorResponses[409],
+    422: writeErrorResponses[422],
+    429: writeErrorResponses[429],
+  },
 });
 
-function timeEntryErrorResponse(c: Context, error: TimeEntryValidationError): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
+function timeEntryErrorResponse(
+  c: Context,
+  error: TimeEntryValidationError,
+): ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> {
   if (error.code === "entry-not-found") {
-    return problemJson(c, { type: "not-found", title: "Not found", status: 404, detail: "No such time entry." });
+    return problemJson(c, {
+      type: "not-found",
+      title: "Not found",
+      status: 404,
+      detail: "No such time entry.",
+    });
   }
   if (error.code === "entry-frozen" || error.code === "illegal-transition") {
-    return problemJson(c, { type: "conflict", title: "The time entry cannot change", status: 409, detail: error.message });
+    return problemJson(c, {
+      type: "conflict",
+      title: "The time entry cannot change",
+      status: 409,
+      detail: error.message,
+    });
   }
-  return problemJson(c, { type: "validation", title: "Invalid time-entry request", status: 422, detail: error.message });
+  return problemJson(c, {
+    type: "validation",
+    title: "Invalid time-entry request",
+    status: 422,
+    detail: error.message,
+  });
 }
 
 type TimeApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
@@ -7202,168 +7939,309 @@ async function resolveCaptureValues(
 
 export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint): void {
   // POST /api/v1/time-entries — capture
-  app.openapi({ ...createRoute, middleware: chokepointMiddleware(chokepoint, createRoute) }, async (c) => {
-    const firm = requireChokepointFirmContext(c);
-    const userId = requireChokepointUserId(c);
-    const idempotency = requireChokepointIdempotency(c);
-    const request = c.req.valid("json");
-    const now = () => new Date().toISOString();
-    let result;
-    try {
-      const { durationMinutes, rate, currency } = await resolveCaptureValues(firm.firmDatabase, request, userId);
-      result = await runIdempotentEffect({
-        database: firm.firmDatabase,
-        key: idempotency.key,
-        fingerprint: idempotency.fingerprint,
-        now,
-        effect: async () => {
-          const captured = await captureTimeEntry(
-            firm.firmDatabase,
-            {
-              matterId: request.matterId,
-              timekeeperUserId: request.timekeeperUserId,
-              workDate: request.workDate,
-              rawDurationMinutes: request.rawDurationMinutes,
-              durationMinutes,
-              narrative: request.narrative,
-              billable: request.billable,
-              nonBillableCategoryId: request.nonBillableCategoryId ?? null,
-              source: request.source,
-              utbmsTaskCodeId: request.utbmsTaskCodeId ?? null,
-              utbmsActivityCodeId: request.utbmsActivityCodeId ?? null,
-              rate,
-              currency,
-            },
-            { clock: { now }, actorUserId: userId },
-          );
-          return { write: captured.effect, responseCode: 201, responseBody: canonicalJsonStringify({ timeEntryId: captured.timeEntryId }) };
-        },
-      });
-    } catch (caught) {
-      if (caught instanceof TimeEntryValidationError) return timeEntryErrorResponse(c, caught);
-      throw caught;
-    }
-    if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") return problemResponseForIdempotencyConflict(c, result);
-    if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
-    return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof TimeEntryAck>, 201);
-  });
-
-  // GET /api/v1/time-entries — list (My-Day or per-matter shape)
-  app.openapi({ ...listRoute, middleware: chokepointMiddleware(chokepoint, listRoute) }, async (c) => {
-    const firm = requireChokepointFirmContext(c);
-    const query = c.req.valid("query");
-    const rows =
-      query.timekeeperUserId !== undefined && query.workDate !== undefined
-        ? await listTimeEntriesForTimekeeperDay(firm.firmDatabase, { timekeeperUserId: query.timekeeperUserId, workDate: query.workDate })
-        : query.matterId !== undefined
-          ? await listUnbilledByMatter(firm.firmDatabase, { matterId: query.matterId, status: query.status ?? "draft" })
-          : [];
-    return c.json({ data: rows }, 200);
-  });
-
-  // GET /api/v1/time-entries/{id} — detail
-  app.openapi({ ...getRoute, middleware: chokepointMiddleware(chokepoint, getRoute) }, async (c) => {
-    const firm = requireChokepointFirmContext(c);
-    const { id } = c.req.valid("param");
-    const row = await firm.firmDatabase
-      .prepare("SELECT id, matter_id, timekeeper_user_id, work_date, duration_minutes, raw_duration_minutes, narrative, billable, amount_minor, currency, status FROM time_entry WHERE id = ?1")
-      .bind(id)
-      .first<{
-        id: string; matter_id: string; timekeeper_user_id: string; work_date: string;
-        duration_minutes: number; raw_duration_minutes: number; narrative: string; billable: number;
-        amount_minor: number | null; currency: string;
-        status: "draft" | "submitted" | "approved" | "billed" | "void";
-      }>();
-    if (row === null) return problemJson(c, { type: "not-found", title: "Not found", status: 404, detail: "No such time entry in this firm." });
-    return c.json({ id: row.id, matterId: row.matter_id, timekeeperUserId: row.timekeeper_user_id, workDate: row.work_date, durationMinutes: row.duration_minutes, rawDurationMinutes: row.raw_duration_minutes, narrative: row.narrative, billable: row.billable === 1, amountMinor: row.amount_minor, currency: row.currency, status: row.status }, 200);
-  });
-
-  // PATCH /api/v1/time-entries/{id} — update a draft
-  app.openapi({ ...updateRoute, middleware: chokepointMiddleware(chokepoint, updateRoute) }, async (c) => {
-    const firm = requireChokepointFirmContext(c);
-    const userId = requireChokepointUserId(c);
-    const idempotency = requireChokepointIdempotency(c);
-    const { id } = c.req.valid("param");
-    const patch = c.req.valid("json");
-    const outcome = await commitTimeEntryEffect(c, firm.firmDatabase, idempotency, id, () =>
-      updateDraftTimeEntry(firm.firmDatabase, id, patch, { clock: { now: () => new Date().toISOString() }, actorUserId: userId }),
-    );
-    if (!outcome.ok) return outcome.problem;
-    if (outcome.replayed) c.header("Idempotency-Replayed", "true");
-    return c.json({ timeEntryId: outcome.id } as z.infer<typeof TimeEntryAck>, 200);
-  });
-
-  // POST .../{id}/submit | /approve | /kick-back | /void — lifecycle transitions
-  app.openapi({ ...submitRoute, middleware: chokepointMiddleware(chokepoint, submitRoute) }, async (c) => transitionHandler(c, chokepoint, (db, id, userId) => submitTimeEntry(db, id, { clock: { now: () => new Date().toISOString() }, actorUserId: userId })));
-  app.openapi({ ...approveRoute, middleware: chokepointMiddleware(chokepoint, approveRoute) }, async (c) => transitionHandler(c, chokepoint, (db, id, userId) => approveTimeEntry(db, id, { clock: { now: () => new Date().toISOString() }, actorUserId: userId })));
-  app.openapi({ ...kickBackRoute, middleware: chokepointMiddleware(chokepoint, kickBackRoute) }, async (c) => {
-    const reason = (c.req.valid("json") as z.infer<typeof KickBackRequest>).reason;
-    return transitionHandler(c, chokepoint, (db, id, userId) => kickBackTimeEntry(db, id, { reason }, { clock: { now: () => new Date().toISOString() }, actorUserId: userId }));
-  });
-  app.openapi({ ...voidRoute, middleware: chokepointMiddleware(chokepoint, voidRoute) }, async (c) => transitionHandler(c, chokepoint, (db, id, userId) => voidTimeEntry(db, id, { clock: { now: () => new Date().toISOString() }, actorUserId: userId })));
-
-  // POST /api/v1/time-entries/quick-add-preview — pure parse, no write
-  app.openapi({ ...previewRoute, middleware: chokepointMiddleware(chokepoint, previewRoute) }, async (c) => {
-    const firm = requireChokepointFirmContext(c);
-    const { text } = c.req.valid("json");
-    const parsed = parseQuickAdd(text);
-    const candidates =
-      parsed.matterHint === null
-        ? { results: [] as { id: string; title: string }[] }
-        : await firm.firmDatabase
-            .prepare("SELECT id, title FROM matter WHERE title LIKE ?1 AND status != 'prospective' ORDER BY title LIMIT 10")
-            .bind(`%${parsed.matterHint}%`)
-            .all<{ id: string; title: string }>();
-    return c.json({ durationMinutes: parsed.durationMinutes, matterHint: parsed.matterHint, narrative: parsed.narrative, candidates: candidates.results }, 200);
-  });
-
-  // POST /api/v1/time-entries/grid-batch — bulk weekly-grid capture
-  app.openapi({ ...gridBatchRoute, middleware: chokepointMiddleware(chokepoint, gridBatchRoute) }, async (c) => {
-    const firm = requireChokepointFirmContext(c);
-    const userId = requireChokepointUserId(c);
-    const idempotency = requireChokepointIdempotency(c);
-    const { entries } = c.req.valid("json");
-    const now = () => new Date().toISOString();
-    let result;
-    try {
-      const resolved = await Promise.all(entries.map((entry) => resolveCaptureValues(firm.firmDatabase, entry, userId)));
-      result = await runIdempotentEffect({
-        database: firm.firmDatabase,
-        key: idempotency.key,
-        fingerprint: idempotency.fingerprint,
-        now,
-        effect: async () => {
-          const statements: EffectWrite["statements"][number][] = [];
-          const outboxMessages: EffectWrite["outboxMessages"][number][] = [];
-          const ids: string[] = [];
-          for (let i = 0; i < entries.length; i++) {
+  app.openapi(
+    { ...createRoute, middleware: chokepointMiddleware(chokepoint, createRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const request = c.req.valid("json");
+      const now = () => new Date().toISOString();
+      let result;
+      try {
+        const { durationMinutes, rate, currency } = await resolveCaptureValues(
+          firm.firmDatabase,
+          request,
+          userId,
+        );
+        result = await runIdempotentEffect({
+          database: firm.firmDatabase,
+          key: idempotency.key,
+          fingerprint: idempotency.fingerprint,
+          now,
+          effect: async () => {
             const captured = await captureTimeEntry(
               firm.firmDatabase,
-              { matterId: entries[i].matterId, timekeeperUserId: entries[i].timekeeperUserId, workDate: entries[i].workDate, rawDurationMinutes: entries[i].rawDurationMinutes, durationMinutes: resolved[i].durationMinutes, narrative: entries[i].narrative, billable: entries[i].billable, nonBillableCategoryId: entries[i].nonBillableCategoryId ?? null, source: "grid", utbmsTaskCodeId: entries[i].utbmsTaskCodeId ?? null, utbmsActivityCodeId: entries[i].utbmsActivityCodeId ?? null, rate: resolved[i].rate, currency: resolved[i].currency },
+              {
+                matterId: request.matterId,
+                timekeeperUserId: request.timekeeperUserId,
+                workDate: request.workDate,
+                rawDurationMinutes: request.rawDurationMinutes,
+                durationMinutes,
+                narrative: request.narrative,
+                billable: request.billable,
+                nonBillableCategoryId: request.nonBillableCategoryId ?? null,
+                source: request.source,
+                utbmsTaskCodeId: request.utbmsTaskCodeId ?? null,
+                utbmsActivityCodeId: request.utbmsActivityCodeId ?? null,
+                rate,
+                currency,
+              },
               { clock: { now }, actorUserId: userId },
             );
-            statements.push(...captured.effect.statements);
-            outboxMessages.push(...captured.effect.outboxMessages);
-            ids.push(captured.timeEntryId);
-          }
-          return { write: { statements, outboxMessages }, responseCode: 201, responseBody: canonicalJsonStringify({ timeEntryIds: ids }) };
+            return {
+              write: captured.effect,
+              responseCode: 201,
+              responseBody: canonicalJsonStringify({ timeEntryId: captured.timeEntryId }),
+            };
+          },
+        });
+      } catch (caught) {
+        if (caught instanceof TimeEntryValidationError) return timeEntryErrorResponse(c, caught);
+        throw caught;
+      }
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
+        return problemResponseForIdempotencyConflict(c, result);
+      if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
+      return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof TimeEntryAck>, 201);
+    },
+  );
+
+  // GET /api/v1/time-entries — list (My-Day or per-matter shape)
+  app.openapi(
+    { ...listRoute, middleware: chokepointMiddleware(chokepoint, listRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const query = c.req.valid("query");
+      const rows =
+        query.timekeeperUserId !== undefined && query.workDate !== undefined
+          ? await listTimeEntriesForTimekeeperDay(firm.firmDatabase, {
+              timekeeperUserId: query.timekeeperUserId,
+              workDate: query.workDate,
+            })
+          : query.matterId !== undefined
+            ? await listUnbilledByMatter(firm.firmDatabase, {
+                matterId: query.matterId,
+                status: query.status ?? "draft",
+              })
+            : [];
+      return c.json({ data: rows }, 200);
+    },
+  );
+
+  // GET /api/v1/time-entries/{id} — detail
+  app.openapi(
+    { ...getRoute, middleware: chokepointMiddleware(chokepoint, getRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { id } = c.req.valid("param");
+      const row = await firm.firmDatabase
+        .prepare(
+          "SELECT id, matter_id, timekeeper_user_id, work_date, duration_minutes, raw_duration_minutes, narrative, billable, amount_minor, currency, status FROM time_entry WHERE id = ?1",
+        )
+        .bind(id)
+        .first<{
+          id: string;
+          matter_id: string;
+          timekeeper_user_id: string;
+          work_date: string;
+          duration_minutes: number;
+          raw_duration_minutes: number;
+          narrative: string;
+          billable: number;
+          amount_minor: number | null;
+          currency: string;
+          status: "draft" | "submitted" | "approved" | "billed" | "void";
+        }>();
+      if (row === null)
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such time entry in this firm.",
+        });
+      return c.json(
+        {
+          id: row.id,
+          matterId: row.matter_id,
+          timekeeperUserId: row.timekeeper_user_id,
+          workDate: row.work_date,
+          durationMinutes: row.duration_minutes,
+          rawDurationMinutes: row.raw_duration_minutes,
+          narrative: row.narrative,
+          billable: row.billable === 1,
+          amountMinor: row.amount_minor,
+          currency: row.currency,
+          status: row.status,
         },
-      });
-    } catch (caught) {
-      if (caught instanceof TimeEntryValidationError) return timeEntryErrorResponse(c, caught);
-      throw caught;
-    }
-    if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") return problemResponseForIdempotencyConflict(c, result);
-    if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
-    return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof GridBatchAck>, 201);
-  });
+        200,
+      );
+    },
+  );
+
+  // PATCH /api/v1/time-entries/{id} — update a draft
+  app.openapi(
+    { ...updateRoute, middleware: chokepointMiddleware(chokepoint, updateRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const patch = c.req.valid("json");
+      const outcome = await commitTimeEntryEffect(c, firm.firmDatabase, idempotency, id, () =>
+        updateDraftTimeEntry(firm.firmDatabase, id, patch, {
+          clock: { now: () => new Date().toISOString() },
+          actorUserId: userId,
+        }),
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ timeEntryId: outcome.id } as z.infer<typeof TimeEntryAck>, 200);
+    },
+  );
+
+  // POST .../{id}/submit | /approve | /kick-back | /void — lifecycle transitions
+  app.openapi(
+    { ...submitRoute, middleware: chokepointMiddleware(chokepoint, submitRoute) },
+    async (c) =>
+      transitionHandler(c, chokepoint, (db, id, userId) =>
+        submitTimeEntry(db, id, {
+          clock: { now: () => new Date().toISOString() },
+          actorUserId: userId,
+        }),
+      ),
+  );
+  app.openapi(
+    { ...approveRoute, middleware: chokepointMiddleware(chokepoint, approveRoute) },
+    async (c) =>
+      transitionHandler(c, chokepoint, (db, id, userId) =>
+        approveTimeEntry(db, id, {
+          clock: { now: () => new Date().toISOString() },
+          actorUserId: userId,
+        }),
+      ),
+  );
+  app.openapi(
+    { ...kickBackRoute, middleware: chokepointMiddleware(chokepoint, kickBackRoute) },
+    async (c) => {
+      const reason = (c.req.valid("json") as z.infer<typeof KickBackRequest>).reason;
+      return transitionHandler(c, chokepoint, (db, id, userId) =>
+        kickBackTimeEntry(
+          db,
+          id,
+          { reason },
+          { clock: { now: () => new Date().toISOString() }, actorUserId: userId },
+        ),
+      );
+    },
+  );
+  app.openapi(
+    { ...voidRoute, middleware: chokepointMiddleware(chokepoint, voidRoute) },
+    async (c) =>
+      transitionHandler(c, chokepoint, (db, id, userId) =>
+        voidTimeEntry(db, id, {
+          clock: { now: () => new Date().toISOString() },
+          actorUserId: userId,
+        }),
+      ),
+  );
+
+  // POST /api/v1/time-entries/quick-add-preview — pure parse, no write
+  app.openapi(
+    { ...previewRoute, middleware: chokepointMiddleware(chokepoint, previewRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { text } = c.req.valid("json");
+      const parsed = parseQuickAdd(text);
+      const candidates =
+        parsed.matterHint === null
+          ? { results: [] as { id: string; title: string }[] }
+          : await firm.firmDatabase
+              .prepare(
+                "SELECT id, title FROM matter WHERE title LIKE ?1 AND status != 'prospective' ORDER BY title LIMIT 10",
+              )
+              .bind(`%${parsed.matterHint}%`)
+              .all<{ id: string; title: string }>();
+      return c.json(
+        {
+          durationMinutes: parsed.durationMinutes,
+          matterHint: parsed.matterHint,
+          narrative: parsed.narrative,
+          candidates: candidates.results,
+        },
+        200,
+      );
+    },
+  );
+
+  // POST /api/v1/time-entries/grid-batch — bulk weekly-grid capture
+  app.openapi(
+    { ...gridBatchRoute, middleware: chokepointMiddleware(chokepoint, gridBatchRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { entries } = c.req.valid("json");
+      const now = () => new Date().toISOString();
+      let result;
+      try {
+        const resolved = await Promise.all(
+          entries.map((entry) => resolveCaptureValues(firm.firmDatabase, entry, userId)),
+        );
+        result = await runIdempotentEffect({
+          database: firm.firmDatabase,
+          key: idempotency.key,
+          fingerprint: idempotency.fingerprint,
+          now,
+          effect: async () => {
+            const statements: EffectWrite["statements"][number][] = [];
+            const outboxMessages: EffectWrite["outboxMessages"][number][] = [];
+            const ids: string[] = [];
+            for (let i = 0; i < entries.length; i++) {
+              const captured = await captureTimeEntry(
+                firm.firmDatabase,
+                {
+                  matterId: entries[i].matterId,
+                  timekeeperUserId: entries[i].timekeeperUserId,
+                  workDate: entries[i].workDate,
+                  rawDurationMinutes: entries[i].rawDurationMinutes,
+                  durationMinutes: resolved[i].durationMinutes,
+                  narrative: entries[i].narrative,
+                  billable: entries[i].billable,
+                  nonBillableCategoryId: entries[i].nonBillableCategoryId ?? null,
+                  source: "grid",
+                  utbmsTaskCodeId: entries[i].utbmsTaskCodeId ?? null,
+                  utbmsActivityCodeId: entries[i].utbmsActivityCodeId ?? null,
+                  rate: resolved[i].rate,
+                  currency: resolved[i].currency,
+                },
+                { clock: { now }, actorUserId: userId },
+              );
+              statements.push(...captured.effect.statements);
+              outboxMessages.push(...captured.effect.outboxMessages);
+              ids.push(captured.timeEntryId);
+            }
+            return {
+              write: { statements, outboxMessages },
+              responseCode: 201,
+              responseBody: canonicalJsonStringify({ timeEntryIds: ids }),
+            };
+          },
+        });
+      } catch (caught) {
+        if (caught instanceof TimeEntryValidationError) return timeEntryErrorResponse(c, caught);
+        throw caught;
+      }
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
+        return problemResponseForIdempotencyConflict(c, result);
+      if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
+      return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof GridBatchAck>, 201);
+    },
+  );
 }
 
 // The shared idempotent commit for an effect-returning time-entry mutation, mapping a frozen/illegal
 // transition to 409 and an unknown entry to 404 — the locations commitLocationEffect shape.
 type TimeEntryEffectOutcome =
   | { ok: true; id: string; replayed: boolean }
-  | { ok: false; problem: ProblemResponse<400> | ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> };
+  | {
+      ok: false;
+      problem:
+        | ProblemResponse<400>
+        | ProblemResponse<404>
+        | ProblemResponse<409>
+        | ProblemResponse<422>;
+    };
 
 async function commitTimeEntryEffect(
   c: Context,
@@ -7382,14 +8260,20 @@ async function commitTimeEntryEffect(
       now,
       effect: async () => {
         const { effect } = await call();
-        return { write: effect, responseCode: 200, responseBody: canonicalJsonStringify({ timeEntryId: id }) };
+        return {
+          write: effect,
+          responseCode: 200,
+          responseBody: canonicalJsonStringify({ timeEntryId: id }),
+        };
       },
     });
   } catch (caught) {
-    if (caught instanceof TimeEntryValidationError) return { ok: false, problem: timeEntryErrorResponse(c, caught) };
+    if (caught instanceof TimeEntryValidationError)
+      return { ok: false, problem: timeEntryErrorResponse(c, caught) };
     throw caught;
   }
-  if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") return { ok: false, problem: problemResponseForIdempotencyConflict(c, result) };
+  if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
+    return { ok: false, problem: problemResponseForIdempotencyConflict(c, result) };
   const body = JSON.parse(result.responseBody ?? "{}") as { timeEntryId: string };
   return { ok: true, id: body.timeEntryId, replayed: result.kind === "replayed" };
 }
@@ -7405,7 +8289,9 @@ async function transitionHandler(
   const userId = requireChokepointUserId(c as never);
   const idempotency = requireChokepointIdempotency(c as never);
   const { id } = c.req.valid("param" as never) as { id: string };
-  const outcome = await commitTimeEntryEffect(c, firm.firmDatabase, idempotency, id, () => call(firm.firmDatabase, id, userId));
+  const outcome = await commitTimeEntryEffect(c, firm.firmDatabase, idempotency, id, () =>
+    call(firm.firmDatabase, id, userId),
+  );
   if (!outcome.ok) return outcome.problem;
   if (outcome.replayed) c.header("Idempotency-Replayed", "true");
   return c.json({ timeEntryId: outcome.id } as z.infer<typeof TimeEntryAck>, 200);
@@ -7417,9 +8303,10 @@ Register in `apps/worker/src/app.ts` — add the import beside the other route i
 ```ts
 import { registerTimeEntriesRoutes } from "./routes/time-entries.ts";
 ```
+
 ```ts
-  // Time tracking — the work-in-progress entry surface, composed through the same chokepoint.
-  registerTimeEntriesRoutes(app, chokepoint);
+// Time tracking — the work-in-progress entry surface, composed through the same chokepoint.
+registerTimeEntriesRoutes(app, chokepoint);
 ```
 
 #### Step 4 — Run the test (expect PASS)
@@ -7441,14 +8328,16 @@ git commit -m "feat(worker): time-entry routes through the chokepoint (capture/l
 
 ### Task 18: timer routes (proxy + idempotent stop-commit)
 
-The timer HTTP surface. `start`/`pause`/`resume`/`bind`/`read`/`discard` are thin proxies to the per-timekeeper Durable Object reached at `c.env.DURABLE_TIMER.idFromName(\`${firmId}:${userId}\`)` (the firm-namespaced identity from §4.2). `stopCommit` is the two-phase commit (§4.3): it calls the DO's `stopAndCommit`, and on `committing` derives **both** the chokepoint Idempotency-Key (`timer-stop:<liveRunId>`) and the `timeEntry_` handle deterministically from `live_run_id`, resolves the rate + rounds the duration, commits one `time_entry` with `source: "timer"` through `runIdempotentEffect`, then tells the DO to clear. Two racing stop-commits collapse to one entry via the chokepoint key + the `time_entry.live_run_id` partial UNIQUE. An unbound timer is refused 422.
+The timer HTTP surface. `start`/`pause`/`resume`/`bind`/`read`/`discard` are thin proxies to the per-timekeeper Durable Object reached at `c.env.DURABLE_TIMER.idFromName(\`${firmId}:${userId}\`)`(the firm-namespaced identity from §4.2).`stopCommit`is the two-phase commit (§4.3): it calls the DO's`stopAndCommit`, and on `committing` derives **both** the chokepoint Idempotency-Key (`timer-stop:<liveRunId>`) and the `timeEntry\_`handle deterministically from`live_run_id`, resolves the rate + rounds the duration, commits one `time_entry`with`source: "timer"`through`runIdempotentEffect`, then tells the DO to clear. Two racing stop-commits collapse to one entry via the chokepoint key + the `time_entry.live_run_id` partial UNIQUE. An unbound timer is refused 422.
 
 **Files**
+
 - Create: `apps/worker/src/routes/timer.ts`
 - Modify: `apps/worker/src/app.ts` (register)
 - Test: `apps/worker/test/timer-routes.test.ts` (Miniflare)
 
 **Interfaces**
+
 - Produces routes: `timer.start`/`pause`/`resume`/`bind`/`read`/`stopCommit`/`discard`.
 - Consumes: `DURABLE_TIMER` (Task 15/16), `captureTimeEntry` (Task 9), `resolveRate` (Task 7), `roundDuration`/`computeAmountMinor` (Task 4), `resolveScopedSetting` (Task 3), `runIdempotentEffect`.
 
@@ -7644,7 +8533,9 @@ const BindRequest = z
   .openapi("TimerBindRequest");
 const EmptyRequest = z.object({}).openapi("TimerEmptyRequest");
 
-const StartAck = z.object({ liveRunId: z.string(), startedAt: z.string() }).openapi("TimerStartAck");
+const StartAck = z
+  .object({ liveRunId: z.string(), startedAt: z.string() })
+  .openapi("TimerStartAck");
 const TimerStateResponse = z
   .object({
     status: z.enum(["running", "paused", "committing", "abandoned", "idle"]),
@@ -7658,19 +8549,64 @@ const StopCommitAck = z.object({ timeEntryId: z.string() }).openapi("TimerStopCo
 const TimerAck = z.object({ ok: z.boolean() }).openapi("TimerAck");
 
 const authErrors = {
-  400: { description: "Missing Idempotency-Key (this operation requires one)", content: { "application/problem+json": { schema: Problem } } },
-  401: { description: "No valid session", content: { "application/problem+json": { schema: Problem } } },
-  403: { description: "The session member lacks time:track", content: { "application/problem+json": { schema: Problem } } },
-  404: { description: "The firm is unreachable or the member is deactivated", content: { "application/problem+json": { schema: Problem } } },
-  409: { description: "A request with this Idempotency-Key is in progress", content: { "application/problem+json": { schema: Problem } } },
-  422: { description: "The request is invalid, the Idempotency-Key was reused with a different payload, or the timer has no bound matter to commit", content: { "application/problem+json": { schema: Problem } } },
-  429: { description: "Rate limit exceeded", content: { "application/problem+json": { schema: Problem } } },
+  400: {
+    description: "Missing Idempotency-Key (this operation requires one)",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  401: {
+    description: "No valid session",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  403: {
+    description: "The session member lacks time:track",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  404: {
+    description: "The firm is unreachable or the member is deactivated",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  409: {
+    description: "A request with this Idempotency-Key is in progress",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  422: {
+    description:
+      "The request is invalid, the Idempotency-Key was reused with a different payload, or the timer has no bound matter to commit",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  429: {
+    description: "Rate limit exceeded",
+    content: { "application/problem+json": { schema: Problem } },
+  },
 } as const;
-const writeErrorResponses = { 400: authErrors[400], 401: authErrors[401], 403: authErrors[403], 404: authErrors[404], 409: authErrors[409], 422: authErrors[422], 429: authErrors[429] } as const;
-const readErrorResponses = { 401: authErrors[401], 403: authErrors[403], 404: authErrors[404], 429: authErrors[429] } as const;
+const writeErrorResponses = {
+  400: authErrors[400],
+  401: authErrors[401],
+  403: authErrors[403],
+  404: authErrors[404],
+  409: authErrors[409],
+  422: authErrors[422],
+  429: authErrors[429],
+} as const;
+const readErrorResponses = {
+  401: authErrors[401],
+  403: authErrors[403],
+  404: authErrors[404],
+  429: authErrors[429],
+} as const;
 
 function writeMeta(operationId: string): RouteMeta {
-  return { operationId, surface: "app", authenticated: true, permission: TRACK, resource: "matter", audited: true, idempotency: "required", idempotencyStore: "firm", rateLimit: "default" };
+  return {
+    operationId,
+    surface: "app",
+    authenticated: true,
+    permission: TRACK,
+    resource: "matter",
+    audited: true,
+    idempotency: "required",
+    idempotencyStore: "firm",
+    rateLimit: "default",
+  };
 }
 const startMeta = writeMeta("timer.start");
 const pauseMeta = writeMeta("timer.pause");
@@ -7678,28 +8614,108 @@ const resumeMeta = writeMeta("timer.resume");
 const bindMeta = writeMeta("timer.bind");
 const stopCommitMeta = writeMeta("timer.stopCommit");
 const discardMeta = writeMeta("timer.discard");
-const readMeta: RouteMeta = { operationId: "timer.read", surface: "app", authenticated: true, permission: TRACK, resource: "matter", audited: false, idempotency: "optional", rateLimit: "default" };
+const readMeta: RouteMeta = {
+  operationId: "timer.read",
+  surface: "app",
+  authenticated: true,
+  permission: TRACK,
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
 
-function proxyRoute(meta: RouteMeta, action: string, description: string, body: z.ZodTypeAny, ackSchema: z.ZodTypeAny, code: 200 | 201) {
+function proxyRoute(
+  meta: RouteMeta,
+  action: string,
+  description: string,
+  body: z.ZodTypeAny,
+  ackSchema: z.ZodTypeAny,
+  code: 200 | 201,
+) {
   return defineOpenAPIRoute(meta, {
     method: "post",
     path: `/api/v1/timer/${action}`,
     description,
-    request: { headers: idempotencyKeyHeader, body: { content: { "application/json": { schema: body } }, required: true } },
-    responses: { [code]: { description: "Applied", content: { "application/json": { schema: ackSchema } } }, 400: writeErrorResponses[400], 401: writeErrorResponses[401], 403: writeErrorResponses[403], 404: writeErrorResponses[404], 409: writeErrorResponses[409], 422: writeErrorResponses[422], 429: writeErrorResponses[429] },
+    request: {
+      headers: idempotencyKeyHeader,
+      body: { content: { "application/json": { schema: body } }, required: true },
+    },
+    responses: {
+      [code]: { description: "Applied", content: { "application/json": { schema: ackSchema } } },
+      400: writeErrorResponses[400],
+      401: writeErrorResponses[401],
+      403: writeErrorResponses[403],
+      404: writeErrorResponses[404],
+      409: writeErrorResponses[409],
+      422: writeErrorResponses[422],
+      429: writeErrorResponses[429],
+    },
   });
 }
-const startRoute = proxyRoute(startMeta, "start", "Starts the timekeeper's live timer, stopping any timer already running (single-active). Mints a live run id and sets the abandoned alarm.", StartRequest, StartAck, 200);
-const pauseRoute = proxyRoute(pauseMeta, "pause", "Pauses the running timer.", EmptyRequest, TimerAck, 200);
-const resumeRoute = proxyRoute(resumeMeta, "resume", "Resumes a paused timer.", EmptyRequest, TimerAck, 200);
-const bindRoute = proxyRoute(bindMeta, "bind", "Binds the running timer to a matter (required before commit).", BindRequest, TimerAck, 200);
-const stopCommitRoute = proxyRoute(stopCommitMeta, "stop-commit", "Stops the timer and commits its elapsed time as a draft entry. Refuses an unbound timer. Idempotent on the live run id — two racing commits collapse to one entry.", EmptyRequest, StopCommitAck, 201);
-const discardRoute = proxyRoute(discardMeta, "discard", "Discards the running timer without committing.", EmptyRequest, TimerAck, 200);
+const startRoute = proxyRoute(
+  startMeta,
+  "start",
+  "Starts the timekeeper's live timer, stopping any timer already running (single-active). Mints a live run id and sets the abandoned alarm.",
+  StartRequest,
+  StartAck,
+  200,
+);
+const pauseRoute = proxyRoute(
+  pauseMeta,
+  "pause",
+  "Pauses the running timer.",
+  EmptyRequest,
+  TimerAck,
+  200,
+);
+const resumeRoute = proxyRoute(
+  resumeMeta,
+  "resume",
+  "Resumes a paused timer.",
+  EmptyRequest,
+  TimerAck,
+  200,
+);
+const bindRoute = proxyRoute(
+  bindMeta,
+  "bind",
+  "Binds the running timer to a matter (required before commit).",
+  BindRequest,
+  TimerAck,
+  200,
+);
+const stopCommitRoute = proxyRoute(
+  stopCommitMeta,
+  "stop-commit",
+  "Stops the timer and commits its elapsed time as a draft entry. Refuses an unbound timer. Idempotent on the live run id — two racing commits collapse to one entry.",
+  EmptyRequest,
+  StopCommitAck,
+  201,
+);
+const discardRoute = proxyRoute(
+  discardMeta,
+  "discard",
+  "Discards the running timer without committing.",
+  EmptyRequest,
+  TimerAck,
+  200,
+);
 const readRoute = defineOpenAPIRoute(readMeta, {
   method: "get",
   path: "/api/v1/timer/read",
-  description: "Returns the timekeeper's current timer state. The client computes elapsed time from startedAt.",
-  responses: { 200: { description: "The timer state", content: { "application/json": { schema: TimerStateResponse } } }, 401: readErrorResponses[401], 403: readErrorResponses[403], 404: readErrorResponses[404], 429: readErrorResponses[429] },
+  description:
+    "Returns the timekeeper's current timer state. The client computes elapsed time from startedAt.",
+  responses: {
+    200: {
+      description: "The timer state",
+      content: { "application/json": { schema: TimerStateResponse } },
+    },
+    401: readErrorResponses[401],
+    403: readErrorResponses[403],
+    404: readErrorResponses[404],
+    429: readErrorResponses[429],
+  },
 });
 
 // The deterministic timeEntry handle for a live run: the same input always yields the same handle, so
@@ -7719,113 +8735,191 @@ function durableTimerStub(c: { env: Bindings }, firmId: string, userId: string) 
 
 export function registerTimerRoutes(app: TimerApp, chokepoint: Chokepoint): void {
   // POST /api/v1/timer/start
-  app.openapi({ ...startRoute, middleware: chokepointMiddleware(chokepoint, startRoute) }, async (c) => {
-    const firmId = requireChokepointFirmId(c);
-    const userId = requireChokepointUserId(c);
-    const firm = requireChokepointFirmContext(c);
-    const request = c.req.valid("json");
-    const threshold = await readFirmSetting(firm.firmDatabase, abandonedThresholdMinutesDefinition);
-    const stub = durableTimerStub(c, firmId, userId);
-    const started = await stub.start({
-      matterId: request.matterId ?? undefined,
-      label: request.label ?? undefined,
-      narrative: request.narrative ?? undefined,
-      utbmsTaskCodeId: request.utbmsTaskCodeId ?? undefined,
-      abandonedThresholdMinutes: threshold,
-    });
-    return c.json({ liveRunId: started.liveRunId, startedAt: started.startedAt }, 200);
-  });
+  app.openapi(
+    { ...startRoute, middleware: chokepointMiddleware(chokepoint, startRoute) },
+    async (c) => {
+      const firmId = requireChokepointFirmId(c);
+      const userId = requireChokepointUserId(c);
+      const firm = requireChokepointFirmContext(c);
+      const request = c.req.valid("json");
+      const threshold = await readFirmSetting(
+        firm.firmDatabase,
+        abandonedThresholdMinutesDefinition,
+      );
+      const stub = durableTimerStub(c, firmId, userId);
+      const started = await stub.start({
+        matterId: request.matterId ?? undefined,
+        label: request.label ?? undefined,
+        narrative: request.narrative ?? undefined,
+        utbmsTaskCodeId: request.utbmsTaskCodeId ?? undefined,
+        abandonedThresholdMinutes: threshold,
+      });
+      return c.json({ liveRunId: started.liveRunId, startedAt: started.startedAt }, 200);
+    },
+  );
 
   // POST pause | resume | bind | discard — direct proxies
-  app.openapi({ ...pauseRoute, middleware: chokepointMiddleware(chokepoint, pauseRoute) }, async (c) => {
-    await durableTimerStub(c, requireChokepointFirmId(c), requireChokepointUserId(c)).pause();
-    return c.json({ ok: true }, 200);
-  });
-  app.openapi({ ...resumeRoute, middleware: chokepointMiddleware(chokepoint, resumeRoute) }, async (c) => {
-    await durableTimerStub(c, requireChokepointFirmId(c), requireChokepointUserId(c)).resume();
-    return c.json({ ok: true }, 200);
-  });
-  app.openapi({ ...bindRoute, middleware: chokepointMiddleware(chokepoint, bindRoute) }, async (c) => {
-    const request = c.req.valid("json");
-    await durableTimerStub(c, requireChokepointFirmId(c), requireChokepointUserId(c)).bind({
-      matterId: request.matterId,
-      label: request.label ?? undefined,
-      narrative: request.narrative ?? undefined,
-      utbmsTaskCodeId: request.utbmsTaskCodeId ?? undefined,
-    });
-    return c.json({ ok: true }, 200);
-  });
-  app.openapi({ ...discardRoute, middleware: chokepointMiddleware(chokepoint, discardRoute) }, async (c) => {
-    await durableTimerStub(c, requireChokepointFirmId(c), requireChokepointUserId(c)).discard();
-    return c.json({ ok: true }, 200);
-  });
+  app.openapi(
+    { ...pauseRoute, middleware: chokepointMiddleware(chokepoint, pauseRoute) },
+    async (c) => {
+      await durableTimerStub(c, requireChokepointFirmId(c), requireChokepointUserId(c)).pause();
+      return c.json({ ok: true }, 200);
+    },
+  );
+  app.openapi(
+    { ...resumeRoute, middleware: chokepointMiddleware(chokepoint, resumeRoute) },
+    async (c) => {
+      await durableTimerStub(c, requireChokepointFirmId(c), requireChokepointUserId(c)).resume();
+      return c.json({ ok: true }, 200);
+    },
+  );
+  app.openapi(
+    { ...bindRoute, middleware: chokepointMiddleware(chokepoint, bindRoute) },
+    async (c) => {
+      const request = c.req.valid("json");
+      await durableTimerStub(c, requireChokepointFirmId(c), requireChokepointUserId(c)).bind({
+        matterId: request.matterId,
+        label: request.label ?? undefined,
+        narrative: request.narrative ?? undefined,
+        utbmsTaskCodeId: request.utbmsTaskCodeId ?? undefined,
+      });
+      return c.json({ ok: true }, 200);
+    },
+  );
+  app.openapi(
+    { ...discardRoute, middleware: chokepointMiddleware(chokepoint, discardRoute) },
+    async (c) => {
+      await durableTimerStub(c, requireChokepointFirmId(c), requireChokepointUserId(c)).discard();
+      return c.json({ ok: true }, 200);
+    },
+  );
 
   // GET /api/v1/timer/read
-  app.openapi({ ...readRoute, middleware: chokepointMiddleware(chokepoint, readRoute) }, async (c) => {
-    const state = await durableTimerStub(c, requireChokepointFirmId(c), requireChokepointUserId(c)).read();
-    if (state === null) {
-      return c.json({ status: "idle", liveRunId: null, startedAt: null, matterId: null, narrative: null }, 200);
-    }
-    return c.json({ status: state.status, liveRunId: state.liveRunId, startedAt: state.startedAt, matterId: state.matterId ?? null, narrative: state.narrative ?? null }, 200);
-  });
+  app.openapi(
+    { ...readRoute, middleware: chokepointMiddleware(chokepoint, readRoute) },
+    async (c) => {
+      const state = await durableTimerStub(
+        c,
+        requireChokepointFirmId(c),
+        requireChokepointUserId(c),
+      ).read();
+      if (state === null) {
+        return c.json(
+          { status: "idle", liveRunId: null, startedAt: null, matterId: null, narrative: null },
+          200,
+        );
+      }
+      return c.json(
+        {
+          status: state.status,
+          liveRunId: state.liveRunId,
+          startedAt: state.startedAt,
+          matterId: state.matterId ?? null,
+          narrative: state.narrative ?? null,
+        },
+        200,
+      );
+    },
+  );
 
   // POST /api/v1/timer/stop-commit — the two-phase commit
-  app.openapi({ ...stopCommitRoute, middleware: chokepointMiddleware(chokepoint, stopCommitRoute) }, async (c) => {
-    const firmId = requireChokepointFirmId(c);
-    const userId = requireChokepointUserId(c);
-    const firm = requireChokepointFirmContext(c);
-    const stub = durableTimerStub(c, firmId, userId);
+  app.openapi(
+    { ...stopCommitRoute, middleware: chokepointMiddleware(chokepoint, stopCommitRoute) },
+    async (c) => {
+      const firmId = requireChokepointFirmId(c);
+      const userId = requireChokepointUserId(c);
+      const firm = requireChokepointFirmContext(c);
+      const stub = durableTimerStub(c, firmId, userId);
 
-    // Phase 1: the DO's single-threaded compare-and-set returns the live run id (and whether this call
-    // is the committer or a loser that should still serve the winner's entry).
-    const stop = await stub.stopAndCommit();
-    const state = await stub.read();
-    if (state === null || state.matterId === undefined || state.matterId === null) {
-      // bind is required before commit — the DO holds no matter to attribute the time to.
-      return problemJson(c, { type: "validation", title: "The timer is not bound to a matter", status: 422, detail: "Bind the timer to a matter before committing." });
-    }
+      // Phase 1: the DO's single-threaded compare-and-set returns the live run id (and whether this call
+      // is the committer or a loser that should still serve the winner's entry).
+      const stop = await stub.stopAndCommit();
+      const state = await stub.read();
+      if (state === null || state.matterId === undefined || state.matterId === null) {
+        // bind is required before commit — the DO holds no matter to attribute the time to.
+        return problemJson(c, {
+          type: "validation",
+          title: "The timer is not bound to a matter",
+          status: 422,
+          detail: "Bind the timer to a matter before committing.",
+        });
+      }
 
-    // Phase 2: derive BOTH the chokepoint key and the entry handle from the live run id, so two racing
-    // commits write the same primary key and the loser replays the winner's response.
-    const liveRunId = stop.liveRunId;
-    const timeEntryId = deriveTimeEntryHandle(liveRunId);
-    const elapsedMinutes = state.elapsedMinutes ?? 0;
-    const increment = await resolveScopedSetting(firm.firmDatabase, incrementMinutesDefinition, { matterId: state.matterId, userId });
-    const direction = await resolveScopedSetting(firm.firmDatabase, roundingDirectionDefinition, { matterId: state.matterId, userId });
-    const durationMinutes = roundDuration(elapsedMinutes, increment, direction);
+      // Phase 2: derive BOTH the chokepoint key and the entry handle from the live run id, so two racing
+      // commits write the same primary key and the loser replays the winner's response.
+      const liveRunId = stop.liveRunId;
+      const timeEntryId = deriveTimeEntryHandle(liveRunId);
+      const elapsedMinutes = state.elapsedMinutes ?? 0;
+      const increment = await resolveScopedSetting(firm.firmDatabase, incrementMinutesDefinition, {
+        matterId: state.matterId,
+        userId,
+      });
+      const direction = await resolveScopedSetting(firm.firmDatabase, roundingDirectionDefinition, {
+        matterId: state.matterId,
+        userId,
+      });
+      const durationMinutes = roundDuration(elapsedMinutes, increment, direction);
 
-    const matterRow = await firm.firmDatabase.prepare("SELECT client_code FROM matter WHERE id = ?1").bind(state.matterId).first<{ client_code: string | null }>();
-    const memberRow = await firm.firmDatabase.prepare("SELECT role_id FROM member_role WHERE member_user_id = ?1 LIMIT 1").bind(userId).first<{ role_id: string | null }>();
-    const rate = await resolveRate(firm.firmDatabase, {
-      matterId: state.matterId,
-      clientId: matterRow?.client_code ?? null,
-      timekeeperUserId: userId,
-      roleId: memberRow?.role_id ?? null,
-      workDate: (state.startedAt ?? new Date().toISOString()).slice(0, 10),
-    });
-    const currency = "noRate" in rate ? "USD" : rate.currency;
-    const now = () => new Date().toISOString();
+      const matterRow = await firm.firmDatabase
+        .prepare("SELECT client_code FROM matter WHERE id = ?1")
+        .bind(state.matterId)
+        .first<{ client_code: string | null }>();
+      const memberRow = await firm.firmDatabase
+        .prepare("SELECT role_id FROM member_role WHERE member_user_id = ?1 LIMIT 1")
+        .bind(userId)
+        .first<{ role_id: string | null }>();
+      const rate = await resolveRate(firm.firmDatabase, {
+        matterId: state.matterId,
+        clientId: matterRow?.client_code ?? null,
+        timekeeperUserId: userId,
+        roleId: memberRow?.role_id ?? null,
+        workDate: (state.startedAt ?? new Date().toISOString()).slice(0, 10),
+      });
+      const currency = "noRate" in rate ? "USD" : rate.currency;
+      const now = () => new Date().toISOString();
 
-    const result = await runIdempotentEffect({
-      database: firm.firmDatabase,
-      key: `timer-stop:${liveRunId}`,
-      fingerprint: liveRunId,
-      now,
-      effect: async () => {
-        const captured = await captureTimeEntry(
-          firm.firmDatabase,
-          { id: timeEntryId, matterId: state.matterId!, timekeeperUserId: userId, workDate: (state.startedAt ?? now()).slice(0, 10), rawDurationMinutes: elapsedMinutes, durationMinutes, narrative: state.narrative ?? "", billable: true, nonBillableCategoryId: null, source: "timer", liveRunId, utbmsTaskCodeId: state.utbmsTaskCodeId ?? null, utbmsActivityCodeId: null, rate, currency },
-          { clock: { now }, actorUserId: userId },
-        );
-        return { write: captured.effect, responseCode: 201, responseBody: canonicalJsonStringify({ timeEntryId: captured.timeEntryId }) };
-      },
-    });
-    if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") return problemResponseForIdempotencyConflict(c, result);
-    // The commit is confirmed (executed or replayed) — clear the DO so a new timer can start.
-    await stub.discard();
-    if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
-    return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof StopCommitAck>, 201);
-  });
+      const result = await runIdempotentEffect({
+        database: firm.firmDatabase,
+        key: `timer-stop:${liveRunId}`,
+        fingerprint: liveRunId,
+        now,
+        effect: async () => {
+          const captured = await captureTimeEntry(
+            firm.firmDatabase,
+            {
+              id: timeEntryId,
+              matterId: state.matterId!,
+              timekeeperUserId: userId,
+              workDate: (state.startedAt ?? now()).slice(0, 10),
+              rawDurationMinutes: elapsedMinutes,
+              durationMinutes,
+              narrative: state.narrative ?? "",
+              billable: true,
+              nonBillableCategoryId: null,
+              source: "timer",
+              liveRunId,
+              utbmsTaskCodeId: state.utbmsTaskCodeId ?? null,
+              utbmsActivityCodeId: null,
+              rate,
+              currency,
+            },
+            { clock: { now }, actorUserId: userId },
+          );
+          return {
+            write: captured.effect,
+            responseCode: 201,
+            responseBody: canonicalJsonStringify({ timeEntryId: captured.timeEntryId }),
+          };
+        },
+      });
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
+        return problemResponseForIdempotencyConflict(c, result);
+      // The commit is confirmed (executed or replayed) — clear the DO so a new timer can start.
+      await stub.discard();
+      if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
+      return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof StopCommitAck>, 201);
+    },
+  );
 }
 ```
 
@@ -7836,8 +8930,9 @@ Register in `apps/worker/src/app.ts`:
 ```ts
 import { registerTimerRoutes } from "./routes/timer.ts";
 ```
+
 ```ts
-  registerTimerRoutes(app, chokepoint);
+registerTimerRoutes(app, chokepoint);
 ```
 
 #### Step 4 — Run the test (expect PASS)
@@ -7862,11 +8957,13 @@ git commit -m "feat(worker): timer routes — DO proxy + idempotent stop-commit 
 The remaining HTTP surface, each through the chokepoint over `runIdempotentEffect`, each permission-gated per §11: rates → `time:manageRates`, UTBMS → `time:manageUtbms`, categories + templates → `time:manageSettings`, My Day → `time:track` (read). All five route files follow `routes/locations.ts` exactly. The My Day read pulls the firm-level targets (`time.target_daily_hours`, the flat `setting` seam) and hands them to `readMyDay` (Task 13).
 
 **Files**
+
 - Create: `apps/worker/src/routes/rate-cards.ts`, `apps/worker/src/routes/utbms-codes.ts`, `apps/worker/src/routes/non-billable-categories.ts`, `apps/worker/src/routes/narrative-templates.ts`, `apps/worker/src/routes/my-day.ts`
 - Modify: `apps/worker/src/app.ts` (register all five)
 - Test: `apps/worker/test/rate-cards-routes.test.ts`, `apps/worker/test/utbms-routes.test.ts`, `apps/worker/test/non-billable-categories-routes.test.ts`, `apps/worker/test/narrative-templates-routes.test.ts`, `apps/worker/test/my-day-routes.test.ts`
 
 **Interfaces**
+
 - Produces routes: `rateCards.create`/`list`, `rates.append`/`reRateDrafts`; `utbmsCodes.list`/`enable`/`disable`; `nonBillableCategories.create`/`list`/`update`/`archive`; `narrativeTemplates.create`/`list`/`recentNarratives`; `myDay.get`.
 - Consumes: `createRateCard`/`appendRate`/`reRateUnbilledDrafts` (Task 6/10), `RateValidationError` (Task 6); `enableUtbmsCode`/`disableUtbmsCode`/list statement (Task 11); the non-billable + narrative services (Task 12); `readMyDay` (Task 13); `readFirmSetting` + the target definitions (Task 5).
 
@@ -7954,7 +9051,12 @@ import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
-import { mirrorMemberWithOwnerRole, seedCredentialedUser, seedFirm, signInForSessionCookie } from "./support/test-auth.ts";
+import {
+  mirrorMemberWithOwnerRole,
+  seedCredentialedUser,
+  seedFirm,
+  signInForSessionCookie,
+} from "./support/test-auth.ts";
 
 // The My Day visibility read: billable/non-billable totals + target shortfall + un-logged-day flag.
 
@@ -7965,9 +9067,15 @@ let ownerUserId: UserId;
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
   await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  poolFirmId = (await seedFirm({ name: "MyDay Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })).firmId;
-  await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1").bind(poolFirmId).run();
-  const owner = await seedCredentialedUser("myday-owner@example.com", { userName: "MyDay Owner", firmId: poolFirmId });
+  poolFirmId = (await seedFirm({ name: "MyDay Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
+    .firmId;
+  await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
+    .bind(poolFirmId)
+    .run();
+  const owner = await seedCredentialedUser("myday-owner@example.com", {
+    userName: "MyDay Owner",
+    firmId: poolFirmId,
+  });
   ownerUserId = owner.userId;
   await mirrorMemberWithOwnerRole(owner.userId, "MyDay Owner");
   ownerCookie = await signInForSessionCookie("myday-owner@example.com");
@@ -7975,12 +9083,16 @@ beforeAll(async () => {
 });
 
 async function get(path: string): Promise<Response> {
-  return SELF.fetch(`https://example.com${path}`, { headers: { origin: "https://example.com", cookie: ownerCookie } });
+  return SELF.fetch(`https://example.com${path}`, {
+    headers: { origin: "https://example.com", cookie: ownerCookie },
+  });
 }
 
 describe("my-day read", () => {
   it("reports totals and the un-logged-day flag for a day with no entries", async () => {
-    const response = await get(`/api/v1/my-day?timekeeperUserId=${ownerUserId}&workDate=2026-06-22`);
+    const response = await get(
+      `/api/v1/my-day?timekeeperUserId=${ownerUserId}&workDate=2026-06-22`,
+    );
     expect(response.status).toBe(200);
     const body = (await response.json()) as {
       billableMinutes: number;
@@ -8014,12 +9126,21 @@ import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
-import { createRateCard, appendRate, reRateUnbilledDrafts, RateValidationError } from "@magna-carta/timekeeping/rate-service";
+import {
+  createRateCard,
+  appendRate,
+  reRateUnbilledDrafts,
+  RateValidationError,
+} from "@magna-carta/timekeeping/rate-service";
 import { RATE_CARD_TABLE } from "@magna-carta/timekeeping/rate-statements";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
-import { requireChokepointFirmContext, requireChokepointUserId, requireChokepointIdempotency } from "../chokepoint/context-accessors.ts";
+import {
+  requireChokepointFirmContext,
+  requireChokepointUserId,
+  requireChokepointIdempotency,
+} from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../contracts/common.ts";
@@ -8044,11 +9165,18 @@ const AppendRateRequest = z
   })
   .openapi("AppendRateRequest");
 const ReRateRequest = z
-  .object({ fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })
+  .object({
+    fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  })
   .openapi("ReRateRequest");
 
-const RateCardSummary = z.object({ id: z.string(), name: z.string(), archivedAt: z.string().nullable() }).openapi("RateCardSummary");
-const RateCardListResponse = z.object({ data: z.array(RateCardSummary) }).openapi("RateCardListResponse");
+const RateCardSummary = z
+  .object({ id: z.string(), name: z.string(), archivedAt: z.string().nullable() })
+  .openapi("RateCardSummary");
+const RateCardListResponse = z
+  .object({ data: z.array(RateCardSummary) })
+  .openapi("RateCardListResponse");
 const RateCardAck = z.object({ rateCardId: z.string() }).openapi("RateCardAck");
 const RateAck = z.object({ rateId: z.string() }).openapi("RateAck");
 const ReRateAck = z.object({ count: z.number().int() }).openapi("ReRateAck");
@@ -8056,129 +9184,329 @@ const ReRateAck = z.object({ count: z.number().int() }).openapi("ReRateAck");
 const cardParam = z.object({ id: identifierPathParam("rateCard", "id") });
 
 const authErrors = {
-  400: { description: "Missing Idempotency-Key (this operation requires one)", content: { "application/problem+json": { schema: Problem } } },
-  401: { description: "No valid session", content: { "application/problem+json": { schema: Problem } } },
-  403: { description: "The session member lacks time:manageRates", content: { "application/problem+json": { schema: Problem } } },
-  404: { description: "The firm is unreachable, the member is deactivated, or the card is unknown", content: { "application/problem+json": { schema: Problem } } },
-  409: { description: "A request with this Idempotency-Key is in progress", content: { "application/problem+json": { schema: Problem } } },
-  422: { description: "The request is invalid, the Idempotency-Key was reused with a different payload, or the rate version overlaps an existing interval", content: { "application/problem+json": { schema: Problem } } },
-  429: { description: "Rate limit exceeded", content: { "application/problem+json": { schema: Problem } } },
+  400: {
+    description: "Missing Idempotency-Key (this operation requires one)",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  401: {
+    description: "No valid session",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  403: {
+    description: "The session member lacks time:manageRates",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  404: {
+    description: "The firm is unreachable, the member is deactivated, or the card is unknown",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  409: {
+    description: "A request with this Idempotency-Key is in progress",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  422: {
+    description:
+      "The request is invalid, the Idempotency-Key was reused with a different payload, or the rate version overlaps an existing interval",
+    content: { "application/problem+json": { schema: Problem } },
+  },
+  429: {
+    description: "Rate limit exceeded",
+    content: { "application/problem+json": { schema: Problem } },
+  },
 } as const;
-const writeErrorResponses = { 400: authErrors[400], 401: authErrors[401], 403: authErrors[403], 404: authErrors[404], 409: authErrors[409], 422: authErrors[422], 429: authErrors[429] } as const;
-const readErrorResponses = { 401: authErrors[401], 403: authErrors[403], 404: authErrors[404], 429: authErrors[429] } as const;
+const writeErrorResponses = {
+  400: authErrors[400],
+  401: authErrors[401],
+  403: authErrors[403],
+  404: authErrors[404],
+  409: authErrors[409],
+  422: authErrors[422],
+  429: authErrors[429],
+} as const;
+const readErrorResponses = {
+  401: authErrors[401],
+  403: authErrors[403],
+  404: authErrors[404],
+  429: authErrors[429],
+} as const;
 
 function writeMeta(operationId: string): RouteMeta {
-  return { operationId, surface: "app", authenticated: true, permission: MANAGE, resource: "matter", audited: true, idempotency: "required", idempotencyStore: "firm", rateLimit: "default" };
+  return {
+    operationId,
+    surface: "app",
+    authenticated: true,
+    permission: MANAGE,
+    resource: "matter",
+    audited: true,
+    idempotency: "required",
+    idempotencyStore: "firm",
+    rateLimit: "default",
+  };
 }
 const createMeta = writeMeta("rateCards.create");
 const appendMeta = writeMeta("rates.append");
 const reRateMeta = writeMeta("rates.reRateDrafts");
-const listMeta: RouteMeta = { operationId: "rateCards.list", surface: "app", authenticated: true, permission: MANAGE, resource: "matter", audited: false, idempotency: "optional", rateLimit: "default" };
+const listMeta: RouteMeta = {
+  operationId: "rateCards.list",
+  surface: "app",
+  authenticated: true,
+  permission: MANAGE,
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
 
 const createRoute = defineOpenAPIRoute(createMeta, {
-  method: "post", path: "/api/v1/rate-cards",
+  method: "post",
+  path: "/api/v1/rate-cards",
   description: "Creates a named rate card.",
-  request: { headers: idempotencyKeyHeader, body: { content: { "application/json": { schema: RateCardRequest } }, required: true } },
-  responses: { 201: { description: "The rate card was created", content: { "application/json": { schema: RateCardAck } } }, ...writeErrorResponses },
+  request: {
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: RateCardRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The rate card was created",
+      content: { "application/json": { schema: RateCardAck } },
+    },
+    ...writeErrorResponses,
+  },
 });
 const listRoute = defineOpenAPIRoute(listMeta, {
-  method: "get", path: "/api/v1/rate-cards",
+  method: "get",
+  path: "/api/v1/rate-cards",
   description: "Lists the firm's rate cards, ordered by name.",
-  responses: { 200: { description: "The rate cards", content: { "application/json": { schema: RateCardListResponse } } }, ...readErrorResponses },
+  responses: {
+    200: {
+      description: "The rate cards",
+      content: { "application/json": { schema: RateCardListResponse } },
+    },
+    ...readErrorResponses,
+  },
 });
 const appendRoute = defineOpenAPIRoute(appendMeta, {
-  method: "post", path: "/api/v1/rate-cards/{id}/rates",
-  description: "Appends an effective-dated rate version to a card's scope tier, closing the prior open version. An overlapping start date is refused.",
-  request: { headers: idempotencyKeyHeader, params: cardParam, body: { content: { "application/json": { schema: AppendRateRequest } }, required: true } },
-  responses: { 201: { description: "The rate version was appended", content: { "application/json": { schema: RateAck } } }, ...writeErrorResponses },
+  method: "post",
+  path: "/api/v1/rate-cards/{id}/rates",
+  description:
+    "Appends an effective-dated rate version to a card's scope tier, closing the prior open version. An overlapping start date is refused.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: cardParam,
+    body: { content: { "application/json": { schema: AppendRateRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The rate version was appended",
+      content: { "application/json": { schema: RateAck } },
+    },
+    ...writeErrorResponses,
+  },
 });
 const reRateRoute = defineOpenAPIRoute(reRateMeta, {
-  method: "post", path: "/api/v1/rate-cards/{id}/re-rate-drafts",
-  description: "Re-resolves and rewrites the rate and amount on unbilled draft, submitted, and approved entries in a date range. Billed and void entries never change.",
-  request: { headers: idempotencyKeyHeader, params: cardParam, body: { content: { "application/json": { schema: ReRateRequest } }, required: true } },
-  responses: { 200: { description: "The drafts were re-rated", content: { "application/json": { schema: ReRateAck } } }, ...writeErrorResponses },
+  method: "post",
+  path: "/api/v1/rate-cards/{id}/re-rate-drafts",
+  description:
+    "Re-resolves and rewrites the rate and amount on unbilled draft, submitted, and approved entries in a date range. Billed and void entries never change.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: cardParam,
+    body: { content: { "application/json": { schema: ReRateRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The drafts were re-rated",
+      content: { "application/json": { schema: ReRateAck } },
+    },
+    ...writeErrorResponses,
+  },
 });
 
-function rateErrorResponse(c: Context, error: RateValidationError): ProblemResponse<404> | ProblemResponse<422> {
-  if (error.code === "rate-card-not-found") return problemJson(c, { type: "not-found", title: "Not found", status: 404, detail: "No such rate card." });
-  return problemJson(c, { type: "validation", title: "Invalid rate request", status: 422, detail: error.message });
+function rateErrorResponse(
+  c: Context,
+  error: RateValidationError,
+): ProblemResponse<404> | ProblemResponse<422> {
+  if (error.code === "rate-card-not-found")
+    return problemJson(c, {
+      type: "not-found",
+      title: "Not found",
+      status: 404,
+      detail: "No such rate card.",
+    });
+  return problemJson(c, {
+    type: "validation",
+    title: "Invalid rate request",
+    status: 422,
+    detail: error.message,
+  });
 }
 
 type RatesApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
 async function commitRateEffect<T extends Record<string, string | number>>(
-  c: Context, database: BatchDatabase, idempotency: { key: string | undefined; fingerprint: string }, code: 200 | 201, value: T, call: () => Promise<{ effect: EffectWrite }>,
-): Promise<{ ok: true; body: T; replayed: boolean } | { ok: false; problem: ProblemResponse<400> | ProblemResponse<404> | ProblemResponse<409> | ProblemResponse<422> }> {
+  c: Context,
+  database: BatchDatabase,
+  idempotency: { key: string | undefined; fingerprint: string },
+  code: 200 | 201,
+  value: T,
+  call: () => Promise<{ effect: EffectWrite }>,
+): Promise<
+  | { ok: true; body: T; replayed: boolean }
+  | {
+      ok: false;
+      problem:
+        | ProblemResponse<400>
+        | ProblemResponse<404>
+        | ProblemResponse<409>
+        | ProblemResponse<422>;
+    }
+> {
   const now = () => new Date().toISOString();
   let result;
   try {
-    result = await runIdempotentEffect({ database, key: idempotency.key, fingerprint: idempotency.fingerprint, now, effect: async () => ({ write: (await call()).effect, responseCode: code, responseBody: canonicalJsonStringify(value) }) });
+    result = await runIdempotentEffect({
+      database,
+      key: idempotency.key,
+      fingerprint: idempotency.fingerprint,
+      now,
+      effect: async () => ({
+        write: (await call()).effect,
+        responseCode: code,
+        responseBody: canonicalJsonStringify(value),
+      }),
+    });
   } catch (caught) {
-    if (caught instanceof RateValidationError) return { ok: false, problem: rateErrorResponse(c, caught) };
+    if (caught instanceof RateValidationError)
+      return { ok: false, problem: rateErrorResponse(c, caught) };
     throw caught;
   }
-  if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") return { ok: false, problem: problemResponseForIdempotencyConflict(c, result) };
-  return { ok: true, body: JSON.parse(result.responseBody ?? "{}") as T, replayed: result.kind === "replayed" };
+  if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
+    return { ok: false, problem: problemResponseForIdempotencyConflict(c, result) };
+  return {
+    ok: true,
+    body: JSON.parse(result.responseBody ?? "{}") as T,
+    replayed: result.kind === "replayed",
+  };
 }
 
 export function registerRateCardsRoutes(app: RatesApp, chokepoint: Chokepoint): void {
-  app.openapi({ ...createRoute, middleware: chokepointMiddleware(chokepoint, createRoute) }, async (c) => {
-    const firm = requireChokepointFirmContext(c);
-    const userId = requireChokepointUserId(c);
-    const idempotency = requireChokepointIdempotency(c);
-    const request = c.req.valid("json");
-    const now = () => new Date().toISOString();
-    const result = await runIdempotentEffect({
-      database: firm.firmDatabase, key: idempotency.key, fingerprint: idempotency.fingerprint, now,
-      effect: async () => {
-        const created = await createRateCard(firm.firmDatabase, { name: request.name }, { clock: { now }, actorUserId: userId });
-        return { write: created.effect, responseCode: 201, responseBody: canonicalJsonStringify({ rateCardId: created.rateCardId }) };
-      },
-    });
-    if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") return problemResponseForIdempotencyConflict(c, result);
-    if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
-    return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof RateCardAck>, 201);
-  });
+  app.openapi(
+    { ...createRoute, middleware: chokepointMiddleware(chokepoint, createRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const request = c.req.valid("json");
+      const now = () => new Date().toISOString();
+      const result = await runIdempotentEffect({
+        database: firm.firmDatabase,
+        key: idempotency.key,
+        fingerprint: idempotency.fingerprint,
+        now,
+        effect: async () => {
+          const created = await createRateCard(
+            firm.firmDatabase,
+            { name: request.name },
+            { clock: { now }, actorUserId: userId },
+          );
+          return {
+            write: created.effect,
+            responseCode: 201,
+            responseBody: canonicalJsonStringify({ rateCardId: created.rateCardId }),
+          };
+        },
+      });
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
+        return problemResponseForIdempotencyConflict(c, result);
+      if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
+      return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof RateCardAck>, 201);
+    },
+  );
 
-  app.openapi({ ...listRoute, middleware: chokepointMiddleware(chokepoint, listRoute) }, async (c) => {
-    const firm = requireChokepointFirmContext(c);
-    const { results } = await firm.firmDatabase.prepare(`SELECT id, name, archived_at FROM ${RATE_CARD_TABLE} ORDER BY name`).all<{ id: string; name: string; archived_at: string | null }>();
-    return c.json({ data: results.map((row) => ({ id: row.id, name: row.name, archivedAt: row.archived_at })) }, 200);
-  });
+  app.openapi(
+    { ...listRoute, middleware: chokepointMiddleware(chokepoint, listRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const { results } = await firm.firmDatabase
+        .prepare(`SELECT id, name, archived_at FROM ${RATE_CARD_TABLE} ORDER BY name`)
+        .all<{ id: string; name: string; archived_at: string | null }>();
+      return c.json(
+        {
+          data: results.map((row) => ({ id: row.id, name: row.name, archivedAt: row.archived_at })),
+        },
+        200,
+      );
+    },
+  );
 
-  app.openapi({ ...appendRoute, middleware: chokepointMiddleware(chokepoint, appendRoute) }, async (c) => {
-    const firm = requireChokepointFirmContext(c);
-    const userId = requireChokepointUserId(c);
-    const idempotency = requireChokepointIdempotency(c);
-    const { id } = c.req.valid("param");
-    const request = c.req.valid("json");
-    let rateId = "";
-    const outcome = await commitRateEffect(c, firm.firmDatabase, idempotency, 201, { rateId: "" }, async () => {
-      const appended = await appendRate(firm.firmDatabase, { rateCardId: id, tier: request.tier, scopedId: request.scopedId, rateE4: request.rateE4, currency: request.currency, validFrom: request.validFrom }, { clock: { now: () => new Date().toISOString() }, actorUserId: userId });
-      rateId = appended.rateId;
-      return appended;
-    });
-    if (!outcome.ok) return outcome.problem;
-    if (outcome.replayed) c.header("Idempotency-Replayed", "true");
-    return c.json({ rateId: outcome.body.rateId || rateId } as z.infer<typeof RateAck>, 201);
-  });
+  app.openapi(
+    { ...appendRoute, middleware: chokepointMiddleware(chokepoint, appendRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const request = c.req.valid("json");
+      let rateId = "";
+      const outcome = await commitRateEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        201,
+        { rateId: "" },
+        async () => {
+          const appended = await appendRate(
+            firm.firmDatabase,
+            {
+              rateCardId: id,
+              tier: request.tier,
+              scopedId: request.scopedId,
+              rateE4: request.rateE4,
+              currency: request.currency,
+              validFrom: request.validFrom,
+            },
+            { clock: { now: () => new Date().toISOString() }, actorUserId: userId },
+          );
+          rateId = appended.rateId;
+          return appended;
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ rateId: outcome.body.rateId || rateId } as z.infer<typeof RateAck>, 201);
+    },
+  );
 
-  app.openapi({ ...reRateRoute, middleware: chokepointMiddleware(chokepoint, reRateRoute) }, async (c) => {
-    const firm = requireChokepointFirmContext(c);
-    const userId = requireChokepointUserId(c);
-    const idempotency = requireChokepointIdempotency(c);
-    const { id } = c.req.valid("param");
-    const request = c.req.valid("json");
-    let count = 0;
-    const outcome = await commitRateEffect(c, firm.firmDatabase, idempotency, 200, { count: 0 }, async () => {
-      const reRated = await reRateUnbilledDrafts(firm.firmDatabase, { rateCardId: id, fromDate: request.fromDate, toDate: request.toDate }, { clock: { now: () => new Date().toISOString() }, actorUserId: userId });
-      count = reRated.count;
-      return reRated;
-    });
-    if (!outcome.ok) return outcome.problem;
-    if (outcome.replayed) c.header("Idempotency-Replayed", "true");
-    return c.json({ count } as z.infer<typeof ReRateAck>, 200);
-  });
+  app.openapi(
+    { ...reRateRoute, middleware: chokepointMiddleware(chokepoint, reRateRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const request = c.req.valid("json");
+      let count = 0;
+      const outcome = await commitRateEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        200,
+        { count: 0 },
+        async () => {
+          const reRated = await reRateUnbilledDrafts(
+            firm.firmDatabase,
+            { rateCardId: id, fromDate: request.fromDate, toDate: request.toDate },
+            { clock: { now: () => new Date().toISOString() }, actorUserId: userId },
+          );
+          count = reRated.count;
+          return reRated;
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ count } as z.infer<typeof ReRateAck>, 200);
+    },
+  );
 }
 ```
 
@@ -8206,12 +9534,13 @@ import { registerNonBillableCategoriesRoutes } from "./routes/non-billable-categ
 import { registerNarrativeTemplatesRoutes } from "./routes/narrative-templates.ts";
 import { registerMyDayRoutes } from "./routes/my-day.ts";
 ```
+
 ```ts
-  registerRateCardsRoutes(app, chokepoint);
-  registerUtbmsCodesRoutes(app, chokepoint);
-  registerNonBillableCategoriesRoutes(app, chokepoint);
-  registerNarrativeTemplatesRoutes(app, chokepoint);
-  registerMyDayRoutes(app, chokepoint);
+registerRateCardsRoutes(app, chokepoint);
+registerUtbmsCodesRoutes(app, chokepoint);
+registerNonBillableCategoriesRoutes(app, chokepoint);
+registerNarrativeTemplatesRoutes(app, chokepoint);
+registerMyDayRoutes(app, chokepoint);
 ```
 
 Add the consumed `@magna-carta/timekeeping` exports declared in this task to `packages/timekeeping/package.json` (`./rate-statements`, `./utbms-statements`, `./utbms-service`, `./non-billable-category-service`, `./narrative-template-service`, `./narrative-template-statements`, `./my-day`).
@@ -8238,10 +9567,12 @@ git commit -m "feat(worker): rate-card, UTBMS, non-billable, narrative-template,
 Regenerate the committed OpenAPI snapshot to carry every Task-17/18/19 operation, extend the conformance suite's committed-operations list + `RESOURCE_BY_PERMISSION_NAMESPACE` (the `time → matter` binding) + `NON_MUTATING_POST_ALLOW_LIST` (the read-shaped `timeEntries.previewQuickAdd`), and confirm `chokepointCompositionViolations` stays clean — every new `/api/v1` route was registered through `defineOpenAPIRoute`, so it composes the chokepoint.
 
 **Files**
+
 - Modify: `apps/worker/openapi/openapi.json` (regenerated), `apps/worker/test/conformance.test.ts`
 - Test: `apps/worker/test/conformance.test.ts`, `apps/worker/test/contracts/openapi-snapshot.test.ts`
 
 **Interfaces**
+
 - Produces: the regenerated snapshot; `RESOURCE_BY_PERMISSION_NAMESPACE.time = "matter"`; `NON_MUTATING_POST_ALLOW_LIST["timeEntries.previewQuickAdd"]`.
 - Consumes: all Task 17–19 routes.
 
@@ -8361,11 +9692,13 @@ Here are my assigned task sections:
 The producer seam, feature dark. The call-site reaches `InferencePort.generateStream` **only** after the firm's `aiProcessingEligibility` gate is on (default OFF, so no model is reached); `buildInferenceJobIdempotencyKey` is a stable per-`(firmId, matterId, prompt-fingerprint)` token; and `InferenceJob` gains the `idempotencyKey` field plus the two consumer dedup guards' design (a pre-model-call read that skips the spend on a key hit, and a same-batch dedup record beside the metering write). No route wires the feature live — it ships dark.
 
 **Files**
+
 - Create: `apps/worker/src/timekeeping/narrative-inference.ts`
 - Modify: `apps/worker/src/inference/inference-consumer.ts` (add `idempotencyKey` to `InferenceJob`; the two-guard design)
 - Test: `apps/worker/test/narrative-inference.test.ts` (new), `apps/worker/test/inference-consumer-unit.test.ts` (extend)
 
 **Interfaces**
+
 - Produces: `NarrativeSuggestionInput`, `NarrativeSuggestionResult`, `buildInferenceJobIdempotencyKey(input)`, `suggestNarrative(...)`; `InferenceJob.idempotencyKey: string`.
 - Consumes: `InferencePort` (`packages/inference/src/port.ts`), `aiProcessingEligibilityDefinition` + `readFirmSetting`, `resolveReasoningModel`/`inferencePortFor` (`call-site.ts`), `tokenUsageIdempotencyStatements` (the new same-batch dedup builder beside `tokenUsageCommitStatements`).
 
@@ -8546,41 +9879,41 @@ export function inferenceJobDedupKey(producerKey: string): string {
 Replace the at-least-once comment block + the unguarded commit (lines around the `// This path is at-least-once with NO idempotency guard.` comment) with the two-guard design. The body still meters, but now reads the dedup record first and writes it in the same batch as the meter:
 
 ```ts
-  const entry = catalogEntryFor(modelId);
-  const slot = entry?.slot ?? "reasoning";
-  // EXACTLY-ONCE on a redelivery is two guards over the producer's idempotency key. The queue is
-  // at-least-once, and the model spend at port.generate above precedes the commit below, so a
-  // redelivery would otherwise both re-bill the frontier model AND re-meter.
-  //   Guard 1 (the re-BILL stop): a pre-model-call read of the dedup record (key
-  //   inferenceJobDedupKey(idempotencyKey)). On a hit the run already committed, so the model call is
-  //   skipped entirely — the spend never repeats. (The feature's producer wires this read in ahead of
-  //   port.generate when it ships; the gated dark producer reaches no model, so there is nothing to
-  //   re-bill today — the record family + key derivation are what land now.)
-  //   Guard 2 (the re-METER stop): the dedup record INSERT is composed into the SAME batch as the
-  //   metering write, so the second delivery loses the UNIQUE(key) race and its whole batch — meter
-  //   increment included — rolls back. The same-batch precedent is
-  //   apps/worker/src/files/ingest-consumer.ts (runIdempotentEffect): the dedup record and the effect
-  //   commit or roll back together.
-  // One timestamp for the whole batch: the bucket day and the dedup row are then provably consistent
-  // (no latent UTC-midnight split between reading the day and writing the rows).
-  const nowIso = new Date().toISOString();
-  const key = tokenUsageKeyForDay(nowIso, slot, modelId);
-  await commitEffectBatch(
-    firmDatabase,
-    {
-      statements: [
-        ...tokenUsageCommitStatements(
-          firmDatabase,
-          key,
-          result.value.usage.inputTokens,
-          result.value.usage.outputTokens,
-        ),
-        ...inferenceDedupStatements(firmDatabase, inferenceJobDedupKey(job.idempotencyKey), nowIso),
-      ],
-      outboxMessages: [],
-    },
-    { now: () => nowIso },
-  );
+const entry = catalogEntryFor(modelId);
+const slot = entry?.slot ?? "reasoning";
+// EXACTLY-ONCE on a redelivery is two guards over the producer's idempotency key. The queue is
+// at-least-once, and the model spend at port.generate above precedes the commit below, so a
+// redelivery would otherwise both re-bill the frontier model AND re-meter.
+//   Guard 1 (the re-BILL stop): a pre-model-call read of the dedup record (key
+//   inferenceJobDedupKey(idempotencyKey)). On a hit the run already committed, so the model call is
+//   skipped entirely — the spend never repeats. (The feature's producer wires this read in ahead of
+//   port.generate when it ships; the gated dark producer reaches no model, so there is nothing to
+//   re-bill today — the record family + key derivation are what land now.)
+//   Guard 2 (the re-METER stop): the dedup record INSERT is composed into the SAME batch as the
+//   metering write, so the second delivery loses the UNIQUE(key) race and its whole batch — meter
+//   increment included — rolls back. The same-batch precedent is
+//   apps/worker/src/files/ingest-consumer.ts (runIdempotentEffect): the dedup record and the effect
+//   commit or roll back together.
+// One timestamp for the whole batch: the bucket day and the dedup row are then provably consistent
+// (no latent UTC-midnight split between reading the day and writing the rows).
+const nowIso = new Date().toISOString();
+const key = tokenUsageKeyForDay(nowIso, slot, modelId);
+await commitEffectBatch(
+  firmDatabase,
+  {
+    statements: [
+      ...tokenUsageCommitStatements(
+        firmDatabase,
+        key,
+        result.value.usage.inputTokens,
+        result.value.usage.outputTokens,
+      ),
+      ...inferenceDedupStatements(firmDatabase, inferenceJobDedupKey(job.idempotencyKey), nowIso),
+    ],
+    outboxMessages: [],
+  },
+  { now: () => nowIso },
+);
 ```
 
 Add the import for the dedup-record builder (beside the existing `tokenUsageCommitStatements` import):
@@ -8731,11 +10064,13 @@ EOF
 Extend the load profile with a `TimeVolume` sub-profile laid down through the real `appendRate`/`captureTimeEntry` write path (valid by construction), and a `timekeeping-measurements.ts` measuring the hot reads — My Day totals, the weekly-grid fan, per-matter unbilled WIP, and rate resolution — each with `EXPLAIN QUERY PLAN` full-scan flagging. Bump `LedgerVolumeProfile.version` and `GENERATOR_VERSION`, wire the generator into `snapshot.ts`, and the measurements into `measure-cli.ts`.
 
 **Files**
+
 - Modify: `packages/fixtures/src/load-profile/profile.ts` (TimeVolume + `version` bump + `scaleProfile`), `packages/fixtures/src/load-profile/generate.ts` is untouched; `packages/fixtures/src/load-profile/snapshot.ts` (run the generator + manifest fields), `packages/fixtures/src/load-profile/measure-cli.ts` (wire the measurements + plan scan)
 - Create: `packages/fixtures/src/load-profile/timekeeping-generate.ts`, `packages/fixtures/src/load-profile/timekeeping-measurements.ts`
 - Test: `packages/fixtures/src/load-profile/timekeeping-measurements.test.ts` (new — the plan-scan guard)
 
 **Interfaces**
+
 - Produces: `TimeVolume` on `LedgerVolumeProfile` (`time` field); `generateTimeVolume` + `TimeProbes`; `timekeepingMeasurements`, `timekeepingHotPathPlans`, `TIMEKEEPING_PLAN_SCAN_ALLOWLIST`, `timekeepingMeasurementHandle`.
 - Consumes: `captureTimeEntry`/`appendRate`/`createRateCard` (the real write path, `@magna-carta/timekeeping`), `resolveRate`, the My Day / WIP read statements (`@magna-carta/timekeeping/queries`), `explainStatement`/`Measurement`/`findFullScans` (`runner.ts`).
 
@@ -8773,10 +10108,7 @@ describe("timekeeping hot reads are index-served at volume", () => {
     expect(snapshot.manifest.timeEntryCount).toBeGreaterThan(0);
     expect(snapshot.manifest.rateCount).toBeGreaterThan(0);
 
-    const scans = findFullScans(
-      timekeepingHotPathPlans(snapshot),
-      TIMEKEEPING_PLAN_SCAN_ALLOWLIST,
-    );
+    const scans = findFullScans(timekeepingHotPathPlans(snapshot), TIMEKEEPING_PLAN_SCAN_ALLOWLIST);
     expect(scans, scans.join(", ")).toEqual([]);
   });
 });
@@ -9271,18 +10603,18 @@ Add the manifest fields to `SnapshotManifest` (after the custom-field block):
 Run the generator after the custom-field volume (it binds to the practice member + matters), inside `loadProfileSnapshot`'s generation block:
 
 ```ts
-      // The timekeeping volume rides last on the practice book — it binds its entries to the matters the
-      // practice generation laid down and the responsible member, so it must run after practice.
-      const time = await generateTimeVolume(
-        generated.database,
-        context,
-        profile.time,
-        {
-          timekeeperUserId: practice.probes.responsibleMemberId,
-          matterIds: [practice.probes.busiestMatterId],
-        },
-        options,
-      );
+// The timekeeping volume rides last on the practice book — it binds its entries to the matters the
+// practice generation laid down and the responsible member, so it must run after practice.
+const time = await generateTimeVolume(
+  generated.database,
+  context,
+  profile.time,
+  {
+    timekeeperUserId: practice.probes.responsibleMemberId,
+    matterIds: [practice.probes.busiestMatterId],
+  },
+  options,
+);
 ```
 
 Add the manifest assignments (in the `manifest` object literal, after the custom-field fields):
@@ -9371,10 +10703,12 @@ EOF
 The end-to-end journey over the real HTTP surface (timer → bind → stop-commit → quick-add → grid batch → optional submit/approve → My Day → a rate change keeps the captured rate → `reRateUnbilledDrafts` moves a draft → the billing-lock seam freezes a billed entry), plus the two source-scan fitness functions: WIP-never-posts-to-the-ledger and the billed/void freeze contract.
 
 **Files**
+
 - Create: `apps/worker/test/e2e/slice-3-1-e2e.test.ts`, `apps/worker/test/timekeeping-wip-ledger-fitness.test.ts`, `apps/worker/test/timekeeping-freeze-fitness.test.ts`
 - Test: the three files above
 
 **Interfaces**
+
 - Consumes: the full route surface (time-entries / timer / rate-cards / utbms / non-billable / my-day, Tasks 17–19), the DO (Tasks 15/16), the package services.
 - Produces: the e2e coverage + the two fitness guards.
 
@@ -9612,9 +10946,9 @@ describe("time tracking end-to-end", () => {
     expect(firm.status).toBe("active");
 
     const { token } = await captureResetToken(FIRM_INPUT.owner.email);
-    expect((await postJson("/api/auth/reset-password", { newPassword: PASSWORD, token })).status).toBe(
-      200,
-    );
+    expect(
+      (await postJson("/api/auth/reset-password", { newPassword: PASSWORD, token })).status,
+    ).toBe(200);
     const signInResponse = await signIn(FIRM_INPUT.owner.email);
     expect(signInResponse.status).toBe(200);
     ownerCookie = liveCookie(setCookies(signInResponse), "session_token")?.pair ?? "";
@@ -9735,9 +11069,7 @@ describe("time tracking end-to-end", () => {
     expect(rateResponse.status).toBe(201);
 
     // The captured timer entry kept its snapshot rate (the effective-dating rule).
-    const row = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT rate_e4 FROM time_entry WHERE id = ?1",
-    )
+    const row = await env.DB_FIRM_POOL_1.prepare("SELECT rate_e4 FROM time_entry WHERE id = ?1")
       .bind(timerEntryId)
       .first<{ rate_e4: number }>();
     expect(row?.rate_e4).toBe(2_500_000);
@@ -9760,9 +11092,7 @@ describe("time tracking end-to-end", () => {
     });
     expect(reRate.status).toBe(200);
 
-    const draft = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT rate_e4 FROM time_entry WHERE id = ?1",
-    )
+    const draft = await env.DB_FIRM_POOL_1.prepare("SELECT rate_e4 FROM time_entry WHERE id = ?1")
       .bind(draftEntryId)
       .first<{ rate_e4: number }>();
     expect(draft?.rate_e4).toBe(2_750_000);
@@ -9785,9 +11115,7 @@ describe("time tracking end-to-end", () => {
     });
     expect([403, 409, 422]).toContain(update.status);
 
-    const row = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT narrative FROM time_entry WHERE id = ?1",
-    )
+    const row = await env.DB_FIRM_POOL_1.prepare("SELECT narrative FROM time_entry WHERE id = ?1")
       .bind(draftEntryId)
       .first<{ narrative: string }>();
     expect(row?.narrative).toBe("Reviewed discovery responses");
@@ -9840,12 +11168,14 @@ EOF
 Close the slice per golden rule 5: confirm/complete the three ADR pending fragments, write the changelog fragment, confirm the white-paper §17.1 amendment, add the area card, and flip the status rows — same stream. Developer docs only (user docs ride the 0·7 UI).
 
 **Files**
+
 - Confirm/complete: `docs/decisions/pending/time-entry-lifecycle-optional-review-gate.md`, `docs/decisions/pending/live-timer-durable-object.md`, `docs/decisions/pending/effective-dated-rate-engine.md`, `docs/decisions/pending/scoped-setting-resolver.md`
 - Create: `changelog.d/slice-3-1-time-tracking.md`, `packages/timekeeping/CLAUDE.md`
 - Confirm: `docs/Magna-Carta-White-Paper.md` (§17.1 lifecycle line — already amended in the design cycle)
 - Modify: `STATUS.md` (the 3·1 row), `ROADMAP.md` (the 3·1 line), `docs/active-work/phase-3-financial-core.md`
 
 **Interfaces**
+
 - Consumes: the whole built slice.
 - Produces: the merge-ready documentation set (fragments, never hand-edited rendered files on a branch).
 
@@ -9962,7 +11292,7 @@ external services. Pure services returning `EffectWrite` with an injected `Clock
 Edit `STATUS.md` — the 3·1 row only. Change the Plan/Built/Load-profile/Tested cells from `[ ]` to built, and rewrite the Notes to as-built:
 
 ```md
-| 3·1 — Time tracking + WIP + rate engine | [x] Opus 4.8    | [x] Opus 4.8    | [x] Opus 4.8 | [x] Opus 4.8 | [ ] | [x] Opus 4.8 | [x] Opus 4.8 | **Built + tested 2026-06-22 (Opus 4.8); no UI (rides 0·7).** New `@magna-carta/timekeeping` package (WIP store + Draft→Billed lifecycle, effective-dated rate engine, UTBMS catalog, non-billable categories, narrative templates); the codebase's **first Durable Object** (`LiveTimerDurableObject`, per-timekeeper, abandoned alarm, `live_run_id`-idempotent stop-commit); the **net-new scoped-setting resolver** in `@magna-carta/data-access`; migration `0016_time-tracking` (+ `matter.e_billing`); routes through the chokepoint with a regenerated OpenAPI snapshot + extended conformance; load-profile `TimeVolume` + measurements (plan-scan clean); e2e + the WIP-ledger and billed/void freeze fitness scans. AI narrative/UTBMS seam shipped dark (consent-gated, no model reached). ADR fragments: `time-entry-lifecycle-optional-review-gate`, `live-timer-durable-object`, `effective-dated-rate-engine`, `scoped-setting-resolver`. Spec: [`docs/specs/2026-06-22-slice-3-1-time-tracking-design.md`](docs/specs/2026-06-22-slice-3-1-time-tracking-design.md). |
+| 3·1 — Time tracking + WIP + rate engine | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8 | [ ] | [x] Opus 4.8 | [x] Opus 4.8 | **Built + tested 2026-06-22 (Opus 4.8); no UI (rides 0·7).** New `@magna-carta/timekeeping` package (WIP store + Draft→Billed lifecycle, effective-dated rate engine, UTBMS catalog, non-billable categories, narrative templates); the codebase's **first Durable Object** (`LiveTimerDurableObject`, per-timekeeper, abandoned alarm, `live_run_id`-idempotent stop-commit); the **net-new scoped-setting resolver** in `@magna-carta/data-access`; migration `0016_time-tracking` (+ `matter.e_billing`); routes through the chokepoint with a regenerated OpenAPI snapshot + extended conformance; load-profile `TimeVolume` + measurements (plan-scan clean); e2e + the WIP-ledger and billed/void freeze fitness scans. AI narrative/UTBMS seam shipped dark (consent-gated, no model reached). ADR fragments: `time-entry-lifecycle-optional-review-gate`, `live-timer-durable-object`, `effective-dated-rate-engine`, `scoped-setting-resolver`. Spec: [`docs/specs/2026-06-22-slice-3-1-time-tracking-design.md`](docs/specs/2026-06-22-slice-3-1-time-tracking-design.md). |
 ```
 
 Edit `ROADMAP.md` — the 3·1 line (line 71): change "designed 2026-06-22" to "built 2026-06-22" and append the as-built note + the implementation-plan reference, leaving the rest of the line's prose intact:

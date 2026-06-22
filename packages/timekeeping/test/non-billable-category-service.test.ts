@@ -45,9 +45,16 @@ describe("non-billable category seed-and-fork", () => {
 describe("non-billable category CRUD", () => {
   it("creates, renames, and soft-archives (never hard delete), auditing each", async () => {
     const database = freshDatabase();
-    const created = await createNonBillableCategory(database, { name: "Knowledge Management" }, options);
+    const created = await createNonBillableCategory(
+      database,
+      { name: "Knowledge Management" },
+      options,
+    );
     await commitEffectBatch(database, created.effect, { now: clock.now });
-    expect((await listCategories(database))[0]).toMatchObject({ name: "Knowledge Management", archived_at: null });
+    expect((await listCategories(database))[0]).toMatchObject({
+      name: "Knowledge Management",
+      archived_at: null,
+    });
 
     const renamed = await updateNonBillableCategory(
       database,
@@ -58,7 +65,11 @@ describe("non-billable category CRUD", () => {
     await commitEffectBatch(database, renamed.effect, { now: clock.now });
     expect((await listCategories(database))[0]?.name).toBe("Knowledge Mgmt");
 
-    const archived = await archiveNonBillableCategory(database, created.nonBillableCategoryId, options);
+    const archived = await archiveNonBillableCategory(
+      database,
+      created.nonBillableCategoryId,
+      options,
+    );
     await commitEffectBatch(database, archived.effect, { now: clock.now });
     const row = (await listCategories(database))[0];
     expect(row?.archived_at).not.toBeNull(); // soft-archive: the row survives

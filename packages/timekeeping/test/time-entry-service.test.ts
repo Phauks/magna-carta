@@ -23,13 +23,11 @@ function freshDatabase(): BatchDatabase {
 }
 
 // A matter the capture binds to; e_billing defaults to 0 (off) unless overridden here.
-async function seedMatter(
-  database: BatchDatabase,
-  matterId: string,
-  eBilling = 0,
-): Promise<void> {
+async function seedMatter(database: BatchDatabase, matterId: string, eBilling = 0): Promise<void> {
   await database
-    .prepare("INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'Attorney', 'active', ?2)")
+    .prepare(
+      "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'Attorney', 'active', ?2)",
+    )
     .bind(TIMEKEEPER, clock.now())
     .run();
   await database
@@ -42,7 +40,9 @@ async function seedMatter(
 
 async function seedRateCard(database: BatchDatabase, id: string): Promise<void> {
   await database
-    .prepare("INSERT INTO rate_card (id, name, created_at, updated_at) VALUES (?1, 'Standard', ?2, ?2)")
+    .prepare(
+      "INSERT INTO rate_card (id, name, created_at, updated_at) VALUES (?1, 'Standard', ?2, ?2)",
+    )
     .bind(id, clock.now())
     .run();
 }
@@ -56,7 +56,12 @@ async function seedNonBillableCategory(database: BatchDatabase, id: string): Pro
     .run();
 }
 
-async function seedUtbms(database: BatchDatabase, id: string, codeSet: string, code: string): Promise<void> {
+async function seedUtbms(
+  database: BatchDatabase,
+  id: string,
+  codeSet: string,
+  code: string,
+): Promise<void> {
   await database
     .prepare(
       "INSERT INTO utbms_code (id, code_set, code, label, active) VALUES (?1, ?2, ?3, ?4, 1)",

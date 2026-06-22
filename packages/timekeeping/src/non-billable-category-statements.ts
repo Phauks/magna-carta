@@ -63,9 +63,7 @@ export function renameNonBillableCategoryStatement(
   updatedAt: string,
 ): SqlStatement {
   return database
-    .prepare(
-      `UPDATE ${NON_BILLABLE_CATEGORY_TABLE} SET name = ?2, updated_at = ?3 WHERE id = ?1`,
-    )
+    .prepare(`UPDATE ${NON_BILLABLE_CATEGORY_TABLE} SET name = ?2, updated_at = ?3 WHERE id = ?1`)
     .bind(id, name, updatedAt);
 }
 

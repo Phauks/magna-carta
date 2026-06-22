@@ -107,12 +107,12 @@ A single additive, nullable column on `file_version` in [`packages/database/src/
 
 The verdict is **two-axis** — a render-disposition axis (`playable` | `download-only`) plus an honest `indeterminate` ("sniffed but undecidable"), with **NULL = never-sniffed**. Four first-class states, three non-error:
 
-| Value | Meaning | Reader treatment |
-| --- | --- | --- |
-| `NULL` | never sniffed (the launch state for the whole corpus) | download-only fallback — **not** an error |
-| `'indeterminate'` | sniffed, codec/container undecidable | download-only fallback — **not** an error |
-| `'download-only'` | sniffed, known non-inline-playable | download-only |
-| `'playable'` | sniffed, confirmed inline-playable (MP4/H.264/AAC, WebM) | the **only** value that may unlock the inline-media path |
+| Value             | Meaning                                                  | Reader treatment                                         |
+| ----------------- | -------------------------------------------------------- | -------------------------------------------------------- |
+| `NULL`            | never sniffed (the launch state for the whole corpus)    | download-only fallback — **not** an error                |
+| `'indeterminate'` | sniffed, codec/container undecidable                     | download-only fallback — **not** an error                |
+| `'download-only'` | sniffed, known non-inline-playable                       | download-only                                            |
+| `'playable'`      | sniffed, confirmed inline-playable (MP4/H.264/AAC, WebM) | the **only** value that may unlock the inline-media path |
 
 The fail-safe direction is load-bearing: **only a positive `'playable'` can ever unlock inline-media** — a never-sniffed or undecidable row can never accidentally be served inline, keeping the posture correct even though the sniffer is deferred.
 
@@ -130,7 +130,7 @@ inlinePlayable: text("inline_playable", {
 
 ### 4.3 Migration approach (number deferred)
 
-The migration is a one-line additive column (`ALTER TABLE \`file_version\` ADD \`inline_playable\` text;`), generated with `pnpm --filter @magna-carta/database run generate-per-firm-migrations` and verified by the existing schema-conformance/drift tests, not hand-authored. **Do not pre-reserve a number.** `0013` is taken (slice 1·4); the next free is `0014`, but a parallel stream may claim it (the 2·1 worktree carries pending `file_version` migrations). Number at **land time**, gated on `vp run worktrees`. Land the column on `main` ahead of the worktrees — the way `storage_class`/`artifact_role`/`pinned` are already present as pure seams — so the deferred readers find it present.
+The migration is a one-line additive column (`ALTER TABLE \`file_version\` ADD \`inline_playable\` text;`), generated with `pnpm --filter @magna-carta/database run generate-per-firm-migrations`and verified by the existing schema-conformance/drift tests, not hand-authored. **Do not pre-reserve a number.**`0013`is taken (slice 1·4); the next free is`0014`, but a parallel stream may claim it (the 2·1 worktree carries pending `file_version`migrations). Number at **land time**, gated on`vp run worktrees`. Land the column on `main`ahead of the worktrees — the way`storage_class`/`artifact_role`/`pinned` are already present as pure seams — so the deferred readers find it present.
 
 ### 4.4 Read-side exposure ([`packages/file-manager/src/queries.ts`](../../packages/file-manager/src/queries.ts))
 
@@ -313,12 +313,14 @@ Every failure on the API-origin grant goes through `problemJson`, which mints `e
 Three layers, matching the existing file-surface topology.
 
 **1. Unit — pure header/verdict-gating + token sign/verify (no Miniflare).** Tables, the way `presign.test.ts` is tested:
+
 - Verdict → mode: `playable` + standard + full + not-derived + sniffed-known → `inline-media`; `download-only`/`indeterminate`/NULL → `download-only`; `playable` but IA OR `storageEncoding !== 'full'` OR `artifactRole === 'derived'` OR `sniffedContentType == null` → `download-only`. **`verdict='playable'` + `sniffedContentType=null` → download-only, never inline-media** (the §5 single-decision guard).
 - Fixed header set: `attachment` (always), `nosniff`, the sandbox CSP literal, `Content-Type` from `sniffedContentType` — assert a row where declared ≠ sniffed and prove the **sniffed value wins**. **Assert `Content-Disposition: inline` is never produced by any builder path** (the §6.8 invariant).
 - Token round-trip + negatives: a fresh token verifies to the exact payload; a tampered token (flipped byte, swapped `r2Key`/`bucket`, expired `exp`) **fails verification**. Signed with `AUTH_SECRET`, so this exercises the real production sign/verify path.
 - Fail-closed: NULL verdict and an unknown verdict string both collapse to `download-only`. **This is the stored-XSS regression guard and must never be weakened.**
 
 **2. Miniflare e2e over the real HTTP surface** (`SELF.fetch`, the `files-routes.test.ts` rig). Extend `seedCleanFile` to set the four columns; set `FILES_ORIGIN` in the test env:
+
 - **auth → grant:** owner cookie → grant for a `playable` standard-raw version → `200` `mode: "inline-media"` + a `files.*` `streamUrl` + `Cache-Control: private, no-store`; assert **no** audit row was written.
 - **cookieless host fetch (the core defense):** `SELF.fetch` against the `FILES_ORIGIN` host with the token; assert (a) the host branch matched and **no session cookie was consulted**, (b) the full header set including `Content-Disposition: attachment`, `nosniff`, sandbox CSP, `Content-Type` = sniffed type, (c) **sniffed type wins over declared**, (d) a forged/expired token → **bare 404** with no `error_` id / correlation surface.
 - **Range/206 (primary acceptance):** a `Range` request against a known-good MP4 fixture → `206` + correct `Content-Range`/`Accept-Ranges`/`ETag` **and** the safe header set intact; an unsatisfiable range → `416` with the safe headers. **Buildable and asserted today with verdict-gating stubbed to deny** (the Range contract does not depend on the sniffer).
@@ -351,19 +353,19 @@ A live 2·1 worktree (`slice-2-1-design-and-plans`, `C:/dev/magna-carta-2-1-dev`
 
 ## 12. Deferred seams (summary)
 
-| Seam | Lands when |
-| --- | --- |
-| `inline_playable` codec-sniff **parser** (file-type is codec-blind; a net-new head-bytes container+codec probe) | the first reader slice (2·1 ingest rebuild, the 0·7a/0·7b player, or Reports) |
-| `runIngest` **compute hook** writing the verdict on commit | the 2·1 ingest rebuild; **`ingest-core.ts` is off-limits in 2·3** |
-| **Corpus backfill** of `inline_playable` for committed versions | the reader slice (likely Reports) — which also extends the load-profile harness |
+| Seam                                                                                                                | Lands when                                                                          |
+| ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `inline_playable` codec-sniff **parser** (file-type is codec-blind; a net-new head-bytes container+codec probe)     | the first reader slice (2·1 ingest rebuild, the 0·7a/0·7b player, or Reports)       |
+| `runIngest` **compute hook** writing the verdict on commit                                                          | the 2·1 ingest rebuild; **`ingest-core.ts` is off-limits in 2·3**                   |
+| **Corpus backfill** of `inline_playable` for committed versions                                                     | the reader slice (likely Reports) — which also extends the load-profile harness     |
 | `safeRendition.request()` / the **rasterize+transcode engine** (FFmpeg/libvips Container, derived write-back to R2) | the player UI / slice 2·4 in-app conversion; 2·3 ships only the port + null adapter |
-| `safeRendition.lookup()` **call site** in the preview handler | the 0·7a/0·7b player, to upgrade a download-only outcome into a rendition-stream |
-| The **document-rendition `<iframe sandbox>`** render path (HTML/SVG/PDF safe view) | the rendition slice; bare `sandbox`, never `allow-scripts` |
-| **Vidstack player + in-file-manager preview surface** consuming the grant (`<video>` subresource on the app origin) | the 0·7a/0·7b UI track |
-| `inline_playable` on the `FileVersionItem` **route schema** | the player/versions slice (2·3 widens only the package query/interface) |
-| Reports **"X% inline-playable"** firm-wide roll-up (`GROUP BY inline_playable`, NULL = "not-yet-assessed") | a future reader of the column |
-| `crossorigin` / `Access-Control-*` on the cookieless host | the player slice, only when subtitles/canvas/telemetry need it (§6.10) |
-| `FILES_ORIGIN` binding + the `files.*` custom-domain route (grant degrades to download-only until set) | when `magnacarta.esq` attaches |
-| **Container-produced derived rendition** as the real mitigation for media-decoder RCE | the rendition slice (the accepted §2 residual's eventual fix) |
-| Per-view / preview **audit trail** for Discovery / portal | a distinct scoped audit decision for those surfaces |
-| `PREVIEW_TTL_SECONDS` distinct from `DOWNLOAD_TTL_SECONDS` | when the player measures a need (reuse 300s until then) |
+| `safeRendition.lookup()` **call site** in the preview handler                                                       | the 0·7a/0·7b player, to upgrade a download-only outcome into a rendition-stream    |
+| The **document-rendition `<iframe sandbox>`** render path (HTML/SVG/PDF safe view)                                  | the rendition slice; bare `sandbox`, never `allow-scripts`                          |
+| **Vidstack player + in-file-manager preview surface** consuming the grant (`<video>` subresource on the app origin) | the 0·7a/0·7b UI track                                                              |
+| `inline_playable` on the `FileVersionItem` **route schema**                                                         | the player/versions slice (2·3 widens only the package query/interface)             |
+| Reports **"X% inline-playable"** firm-wide roll-up (`GROUP BY inline_playable`, NULL = "not-yet-assessed")          | a future reader of the column                                                       |
+| `crossorigin` / `Access-Control-*` on the cookieless host                                                           | the player slice, only when subtitles/canvas/telemetry need it (§6.10)              |
+| `FILES_ORIGIN` binding + the `files.*` custom-domain route (grant degrades to download-only until set)              | when `magnacarta.esq` attaches                                                      |
+| **Container-produced derived rendition** as the real mitigation for media-decoder RCE                               | the rendition slice (the accepted §2 residual's eventual fix)                       |
+| Per-view / preview **audit trail** for Discovery / portal                                                           | a distinct scoped audit decision for those surfaces                                 |
+| `PREVIEW_TTL_SECONDS` distinct from `DOWNLOAD_TTL_SECONDS`                                                          | when the player measures a need (reuse 300s until then)                             |

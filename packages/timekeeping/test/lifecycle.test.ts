@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { assertTransition, canTransition, isFrozen, type TimeEntryStatus } from "../src/lifecycle.ts";
+import {
+  assertTransition,
+  canTransition,
+  isFrozen,
+  type TimeEntryStatus,
+} from "../src/lifecycle.ts";
 import { TimeEntryValidationError } from "../src/time-entry-validation.ts";
 
 const STATUSES: TimeEntryStatus[] = ["draft", "submitted", "approved", "billed", "void"];
@@ -51,7 +56,9 @@ describe("assertTransition with the review gate OFF", () => {
 
   it("refuses the gated states when the gate is off", () => {
     expect(() => assertTransition("draft", "submitted", false)).toThrow(TimeEntryValidationError);
-    expect(() => assertTransition("submitted", "approved", false)).toThrow(TimeEntryValidationError);
+    expect(() => assertTransition("submitted", "approved", false)).toThrow(
+      TimeEntryValidationError,
+    );
   });
 
   it("still allows voiding a draft", () => {

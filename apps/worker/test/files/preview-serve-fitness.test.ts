@@ -12,7 +12,10 @@ describe("cookieless preview surface — standing fitness guard", () => {
   });
 
   it("never emits Content-Disposition: inline from the header builder", () => {
-    const h = buildSafeDeliveryHeaders({ sniffedContentType: "video/mp4", appOrigin: "https://app.example.com" });
+    const h = buildSafeDeliveryHeaders({
+      sniffedContentType: "video/mp4",
+      appOrigin: "https://app.example.com",
+    });
     expect(h.get("Content-Disposition")).toBe("attachment");
   });
 
@@ -52,7 +55,9 @@ describe("cookieless preview surface — standing fitness guard", () => {
     expect(await health.text()).not.toMatch(/error_/);
     expect(health.headers.get("Content-Disposition")).toBe("attachment");
 
-    const auth = await SELF.fetch(`https://${env.FILES_ORIGIN}/api/auth/get-session`, { method: "POST" });
+    const auth = await SELF.fetch(`https://${env.FILES_ORIGIN}/api/auth/get-session`, {
+      method: "POST",
+    });
     expect(auth.status).toBe(404);
     const authBody = await auth.text();
     expect(authBody).not.toMatch(/error_/);

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { nullSafeRenditionAdapter, SafeRenditionNotAvailableError } from "../src/safe-rendition-port.ts";
+import {
+  nullSafeRenditionAdapter,
+  SafeRenditionNotAvailableError,
+} from "../src/safe-rendition-port.ts";
 
 const req = {
   versionId: "fileVersion_x" as never,

@@ -101,10 +101,33 @@ describe("appendRate", () => {
   it("closes the prior open row when a later version is appended", async () => {
     const database = freshDatabase();
     const rateCardId = await withCard(database);
-    const scope = { rateCardId, tier: "timekeeper", scopedId: "user_associate", currency: "USD" } as const;
+    const scope = {
+      rateCardId,
+      tier: "timekeeper",
+      scopedId: "user_associate",
+      currency: "USD",
+    } as const;
 
-    await commit(database, (await appendRate(database, { ...scope, rateE4: 3_500_000, validFrom: "2026-01-01" }, options)).effect);
-    await commit(database, (await appendRate(database, { ...scope, rateE4: 4_000_000, validFrom: "2026-07-01" }, options)).effect);
+    await commit(
+      database,
+      (
+        await appendRate(
+          database,
+          { ...scope, rateE4: 3_500_000, validFrom: "2026-01-01" },
+          options,
+        )
+      ).effect,
+    );
+    await commit(
+      database,
+      (
+        await appendRate(
+          database,
+          { ...scope, rateE4: 4_000_000, validFrom: "2026-07-01" },
+          options,
+        )
+      ).effect,
+    );
 
     const rows = await listRates(database, rateCardId);
     expect(rows).toEqual([
@@ -130,9 +153,23 @@ describe("appendRate", () => {
   it("refuses a valid_from that lands inside an existing interval", async () => {
     const database = freshDatabase();
     const rateCardId = await withCard(database);
-    const scope = { rateCardId, tier: "timekeeper", scopedId: "user_associate", currency: "USD" } as const;
+    const scope = {
+      rateCardId,
+      tier: "timekeeper",
+      scopedId: "user_associate",
+      currency: "USD",
+    } as const;
 
-    await commit(database, (await appendRate(database, { ...scope, rateE4: 3_500_000, validFrom: "2026-01-01" }, options)).effect);
+    await commit(
+      database,
+      (
+        await appendRate(
+          database,
+          { ...scope, rateE4: 3_500_000, validFrom: "2026-01-01" },
+          options,
+        )
+      ).effect,
+    );
     // The open row starts 2026-01-01; a new version dated earlier would overlap it.
     await expect(
       appendRate(database, { ...scope, rateE4: 4_000_000, validFrom: "2025-12-01" }, options),
@@ -145,11 +182,34 @@ describe("appendRate", () => {
   it("refuses a valid_from that lands strictly inside a closed interval between two existing versions", async () => {
     const database = freshDatabase();
     const rateCardId = await withCard(database);
-    const scope = { rateCardId, tier: "timekeeper", scopedId: "user_associate", currency: "USD" } as const;
+    const scope = {
+      rateCardId,
+      tier: "timekeeper",
+      scopedId: "user_associate",
+      currency: "USD",
+    } as const;
 
     // Establish two versions: [2026-01-01, 2026-07-01) closed + [2026-07-01, ∞) open.
-    await commit(database, (await appendRate(database, { ...scope, rateE4: 3_500_000, validFrom: "2026-01-01" }, options)).effect);
-    await commit(database, (await appendRate(database, { ...scope, rateE4: 4_000_000, validFrom: "2026-07-01" }, options)).effect);
+    await commit(
+      database,
+      (
+        await appendRate(
+          database,
+          { ...scope, rateE4: 3_500_000, validFrom: "2026-01-01" },
+          options,
+        )
+      ).effect,
+    );
+    await commit(
+      database,
+      (
+        await appendRate(
+          database,
+          { ...scope, rateE4: 4_000_000, validFrom: "2026-07-01" },
+          options,
+        )
+      ).effect,
+    );
 
     // 2026-04-15 lands inside the closed interval — must be refused.
     await expect(
@@ -163,9 +223,23 @@ describe("appendRate", () => {
   it("refuses a valid_from equal to an existing version's valid_from", async () => {
     const database = freshDatabase();
     const rateCardId = await withCard(database);
-    const scope = { rateCardId, tier: "timekeeper", scopedId: "user_associate", currency: "USD" } as const;
+    const scope = {
+      rateCardId,
+      tier: "timekeeper",
+      scopedId: "user_associate",
+      currency: "USD",
+    } as const;
 
-    await commit(database, (await appendRate(database, { ...scope, rateE4: 3_500_000, validFrom: "2026-01-01" }, options)).effect);
+    await commit(
+      database,
+      (
+        await appendRate(
+          database,
+          { ...scope, rateE4: 3_500_000, validFrom: "2026-01-01" },
+          options,
+        )
+      ).effect,
+    );
 
     // Exact duplicate date must be refused (equal is not strictly after).
     await expect(
@@ -181,8 +255,26 @@ describe("appendRate", () => {
     const rateCardId = await withCard(database);
     const scope = { rateCardId, tier: "matter", scopedId: "matter_a", currency: "USD" } as const;
 
-    await commit(database, (await appendRate(database, { ...scope, rateE4: 5_000_000, validFrom: "2026-01-01" }, options)).effect);
-    await commit(database, (await appendRate(database, { ...scope, rateE4: 5_500_000, validFrom: "2026-06-01" }, options)).effect);
+    await commit(
+      database,
+      (
+        await appendRate(
+          database,
+          { ...scope, rateE4: 5_000_000, validFrom: "2026-01-01" },
+          options,
+        )
+      ).effect,
+    );
+    await commit(
+      database,
+      (
+        await appendRate(
+          database,
+          { ...scope, rateE4: 5_500_000, validFrom: "2026-06-01" },
+          options,
+        )
+      ).effect,
+    );
 
     const rows = await listRates(database, rateCardId);
     expect(rows.map((r) => r.valid_to)).toEqual(["2026-06-01", null]);
@@ -192,8 +284,40 @@ describe("appendRate", () => {
     const database = freshDatabase();
     const rateCardId = await withCard(database);
 
-    await commit(database, (await appendRate(database, { rateCardId, tier: "role", scopedId: null, rateE4: 3_000_000, currency: "USD", validFrom: "2026-01-01" }, options)).effect);
-    await commit(database, (await appendRate(database, { rateCardId, tier: "timekeeper", scopedId: "user_associate", rateE4: 3_500_000, currency: "USD", validFrom: "2026-01-01" }, options)).effect);
+    await commit(
+      database,
+      (
+        await appendRate(
+          database,
+          {
+            rateCardId,
+            tier: "role",
+            scopedId: null,
+            rateE4: 3_000_000,
+            currency: "USD",
+            validFrom: "2026-01-01",
+          },
+          options,
+        )
+      ).effect,
+    );
+    await commit(
+      database,
+      (
+        await appendRate(
+          database,
+          {
+            rateCardId,
+            tier: "timekeeper",
+            scopedId: "user_associate",
+            rateE4: 3_500_000,
+            currency: "USD",
+            validFrom: "2026-01-01",
+          },
+          options,
+        )
+      ).effect,
+    );
 
     const rows = await listRates(database, rateCardId);
     // Two distinct scopes -> two open rows, neither closes the other.
@@ -202,12 +326,16 @@ describe("appendRate", () => {
 });
 
 it("RateValidationError carries a stable code", () => {
-  expect(new RateValidationError("overlapping-valid-from", "x").code).toBe("overlapping-valid-from");
+  expect(new RateValidationError("overlapping-valid-from", "x").code).toBe(
+    "overlapping-valid-from",
+  );
 });
 
 async function seedMatter(database: BatchDatabase, matterId: string): Promise<void> {
   await database
-    .prepare("INSERT OR IGNORE INTO member (user_id, display_name, status, created_at) VALUES (?1, 'Partner', 'active', ?2)")
+    .prepare(
+      "INSERT OR IGNORE INTO member (user_id, display_name, status, created_at) VALUES (?1, 'Partner', 'active', ?2)",
+    )
     .bind(TIMEKEEPER, clock.now())
     .run();
   await database
@@ -255,9 +383,15 @@ async function captureCardEntry(
   );
   await commitEffectBatch(database, effect, { now: clock.now });
   if (finalStatus === "approved") {
-    await database.prepare("UPDATE time_entry SET status = 'approved' WHERE id = ?1").bind(timeEntryId).run();
+    await database
+      .prepare("UPDATE time_entry SET status = 'approved' WHERE id = ?1")
+      .bind(timeEntryId)
+      .run();
   } else if (finalStatus === "billed") {
-    await database.prepare("UPDATE time_entry SET status = 'billed', invoice_id = 'invoice_x' WHERE id = ?1").bind(timeEntryId).run();
+    await database
+      .prepare("UPDATE time_entry SET status = 'billed', invoice_id = 'invoice_x' WHERE id = ?1")
+      .bind(timeEntryId)
+      .run();
   }
   return timeEntryId;
 }
@@ -276,22 +410,28 @@ describe("reRateUnbilledDrafts", () => {
     await seedMatter(database, "matter_1");
 
     // A card with a matter-tier rate of 450.0000/hr in force from the work date.
-    const { rateCardId, effect: cardEffect } = await createRateCard(database, { name: "Standard" }, options);
+    const { rateCardId, effect: cardEffect } = await createRateCard(
+      database,
+      { name: "Standard" },
+      options,
+    );
     await commitEffectBatch(database, cardEffect, { now: clock.now });
     await commitEffectBatch(
       database,
-      (await appendRate(
-        database,
-        {
-          rateCardId,
-          tier: "matter",
-          scopedId: "matter_1",
-          rateE4: 4500000,
-          currency: "USD",
-          validFrom: "2026-06-01",
-        },
-        options,
-      )).effect,
+      (
+        await appendRate(
+          database,
+          {
+            rateCardId,
+            tier: "matter",
+            scopedId: "matter_1",
+            rateE4: 4500000,
+            currency: "USD",
+            validFrom: "2026-06-01",
+          },
+          options,
+        )
+      ).effect,
       { now: clock.now },
     );
 
@@ -303,18 +443,20 @@ describe("reRateUnbilledDrafts", () => {
     // A retroactive correction: a new matter-tier version of 500.0000/hr effective 2026-06-15.
     await commitEffectBatch(
       database,
-      (await appendRate(
-        database,
-        {
-          rateCardId,
-          tier: "matter",
-          scopedId: "matter_1",
-          rateE4: 5000000,
-          currency: "USD",
-          validFrom: "2026-06-15",
-        },
-        options,
-      )).effect,
+      (
+        await appendRate(
+          database,
+          {
+            rateCardId,
+            tier: "matter",
+            scopedId: "matter_1",
+            rateE4: 5000000,
+            currency: "USD",
+            validFrom: "2026-06-15",
+          },
+          options,
+        )
+      ).effect,
       { now: clock.now },
     );
 
@@ -327,10 +469,19 @@ describe("reRateUnbilledDrafts", () => {
 
     expect(count).toBe(2); // draft + approved; billed excluded
     // The draft + approved move to the 500.0000 rate; 60 min => 50000 minor.
-    expect(await rateOf(database, draftId)).toMatchObject({ rate_e4: 5000000, amount_minor: 50000 });
-    expect(await rateOf(database, approvedId)).toMatchObject({ rate_e4: 5000000, amount_minor: 50000 });
+    expect(await rateOf(database, draftId)).toMatchObject({
+      rate_e4: 5000000,
+      amount_minor: 50000,
+    });
+    expect(await rateOf(database, approvedId)).toMatchObject({
+      rate_e4: 5000000,
+      amount_minor: 50000,
+    });
     // The billed entry's captured rate never moves.
-    expect(await rateOf(database, billedId)).toMatchObject({ rate_e4: 4500000, amount_minor: 45000 });
+    expect(await rateOf(database, billedId)).toMatchObject({
+      rate_e4: 4500000,
+      amount_minor: 45000,
+    });
     expect(await countAudits(database, "time_entry.re_rated")).toBe(2);
   });
 });

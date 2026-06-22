@@ -83,8 +83,16 @@ describe("enable/disable", () => {
     const database = freshDatabase();
     await seedCatalog(database);
     const id = (await listSet(database, "task")).find((row) => row.code === "L120")!.id;
-    await commitEffectBatch(database, (await disableUtbmsCode(database, id as never, options)).effect, { now: clock.now });
-    await commitEffectBatch(database, (await enableUtbmsCode(database, id as never, options)).effect, { now: clock.now });
+    await commitEffectBatch(
+      database,
+      (await disableUtbmsCode(database, id as never, options)).effect,
+      { now: clock.now },
+    );
+    await commitEffectBatch(
+      database,
+      (await enableUtbmsCode(database, id as never, options)).effect,
+      { now: clock.now },
+    );
     expect((await listSet(database, "task")).find((r) => r.code === "L120")!.active).toBe(1);
   });
 

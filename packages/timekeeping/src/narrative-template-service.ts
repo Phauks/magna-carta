@@ -33,7 +33,9 @@ async function assertNarrativeTemplateExists(
   database: SqlDatabase,
   id: NarrativeTemplateId,
 ): Promise<void> {
-  const { results } = await selectNarrativeTemplateExistsStatement(database, id).all<{ found: number }>();
+  const { results } = await selectNarrativeTemplateExistsStatement(database, id).all<{
+    found: number;
+  }>();
   if (results.length === 0) {
     throw new TimeEntryValidationError("not-found", `no such narrative template: ${id}`);
   }
@@ -76,7 +78,11 @@ export async function createNarrativeTemplate(
 export async function updateNarrativeTemplate(
   database: SqlDatabase,
   id: NarrativeTemplateId,
-  patch: { narrativeTemplate?: string; utbmsTaskCodeId?: string | null; defaultRateE4?: number | null },
+  patch: {
+    narrativeTemplate?: string;
+    utbmsTaskCodeId?: string | null;
+    defaultRateE4?: number | null;
+  },
   options: TimekeepingServiceOptions,
 ): Promise<{ narrativeTemplateId: NarrativeTemplateId; effect: EffectWrite }> {
   if (patch.narrativeTemplate !== undefined && patch.narrativeTemplate.trim().length === 0) {
@@ -89,7 +95,10 @@ export async function updateNarrativeTemplate(
     patch.utbmsTaskCodeId !== undefined ||
     patch.defaultRateE4 !== undefined;
   if (!hasFields) {
-    throw new TimeEntryValidationError("empty-patch", "update patch must contain at least one field");
+    throw new TimeEntryValidationError(
+      "empty-patch",
+      "update patch must contain at least one field",
+    );
   }
   await assertNarrativeTemplateExists(database, id);
   return {

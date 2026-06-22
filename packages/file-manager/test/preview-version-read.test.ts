@@ -47,7 +47,10 @@ async function seedFileWithVersion(
       overrides.artifactRole ?? "original",
     )
     .run();
-  await db.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1").bind(fileId, versionId).run();
+  await db
+    .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+    .bind(fileId, versionId)
+    .run();
   return fileId as FileId;
 }
 
@@ -81,7 +84,10 @@ describe("getCurrentCleanVersionForPreview", () => {
   it("returns undefined for a non-clean version (status gate preserved)", async () => {
     const db = freshDatabase();
     const matterId = await seedMatter(db);
-    const fileId = await seedFileWithVersion(db, matterId, { status: "quarantined", r2Key: "files/q/v" });
+    const fileId = await seedFileWithVersion(db, matterId, {
+      status: "quarantined",
+      r2Key: "files/q/v",
+    });
     expect(await getCurrentCleanVersionForPreview(db, fileId)).toBeUndefined();
   });
 });

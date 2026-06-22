@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { mintPreviewDeliveryToken, verifyPreviewDeliveryToken, type PreviewTokenPayload } from "../../src/files/preview-token.ts";
+import {
+  mintPreviewDeliveryToken,
+  verifyPreviewDeliveryToken,
+  type PreviewTokenPayload,
+} from "../../src/files/preview-token.ts";
 
 const SECRET = "test-secret-value";
 const payload: PreviewTokenPayload = {
@@ -17,7 +21,7 @@ describe("preview delivery token", () => {
   });
 
   it("round-trips a payload with a non-ASCII sniffedContentType", async () => {
-    const unicode = { ...payload, sniffedContentType: "video/mp4; name=\"clé.mp4\"" };
+    const unicode = { ...payload, sniffedContentType: 'video/mp4; name="clé.mp4"' };
     const token = await mintPreviewDeliveryToken(SECRET, unicode);
     expect(await verifyPreviewDeliveryToken(SECRET, token, 1_000_000_000)).toEqual(unicode);
   });
@@ -34,7 +38,9 @@ describe("preview delivery token", () => {
       .replace(/\+/g, "-")
       .replace(/\//g, "_")
       .replace(/=+$/, "");
-    expect(await verifyPreviewDeliveryToken(SECRET, `${forgedBody}.${sig}`, 1_000_000_000)).toBeNull();
+    expect(
+      await verifyPreviewDeliveryToken(SECRET, `${forgedBody}.${sig}`, 1_000_000_000),
+    ).toBeNull();
   });
 
   it("rejects a flipped signature byte", async () => {

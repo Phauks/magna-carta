@@ -56,12 +56,9 @@ describe("computeAmountMinor — integer-minor WIP amount = round(rate_e4 x minu
     { rateE4: 3333300, minutes: 7, expected: 3889 }, //   $333.33/hr x 7 min = $38.8885 -> $38.89
     { rateE4: 3333300, minutes: 1, expected: 556 }, //    $5.5555 -> $5.56 (half away from zero)
     { rateE4: 0, minutes: 150, expected: 0 }, //          a zero rate is a zero amount
-  ])(
-    "rate_e4=$rateE4 over $minutes min -> $expected minor",
-    ({ rateE4, minutes, expected }) => {
-      expect(computeAmountMinor(rateE4, minutes, "USD")).toBe(expected);
-    },
-  );
+  ])("rate_e4=$rateE4 over $minutes min -> $expected minor", ({ rateE4, minutes, expected }) => {
+    expect(computeAmountMinor(rateE4, minutes, "USD")).toBe(expected);
+  });
 
   it("rounds half AWAY from zero, matching the invoice-line convention", () => {
     // $5.5555 -> 556 (not 555): the .5 cent rounds away from zero.

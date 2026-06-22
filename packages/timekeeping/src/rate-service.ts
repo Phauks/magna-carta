@@ -14,10 +14,7 @@ import {
   selectRatesForScopeStatement,
 } from "./rate-statements.ts";
 import { computeAmountMinor } from "./rounding.ts";
-import {
-  reRateEntryStatement,
-  selectReRateCandidatesStatement,
-} from "./time-entry-statements.ts";
+import { reRateEntryStatement, selectReRateCandidatesStatement } from "./time-entry-statements.ts";
 
 // Wall-clock and actor arrive from the caller — the service reads no clock and trusts no ambient
 // identity. randomSource lets fixtures mint byte-deterministic ids. The shared options shape every
@@ -161,7 +158,11 @@ export async function reRateUnbilledDrafts(
     // rewrites when the new version is in force. Non-billable entries are excluded at the query level
     // (null rate_card_id) so they never appear here.
     if ("noRate" in resolution) continue;
-    const amountMinor = computeAmountMinor(resolution.rateE4, row.duration_minutes, resolution.currency);
+    const amountMinor = computeAmountMinor(
+      resolution.rateE4,
+      row.duration_minutes,
+      resolution.currency,
+    );
     statements.push(
       reRateEntryStatement(
         database,

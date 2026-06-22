@@ -32,13 +32,22 @@ async function seedEntry(database: BatchDatabase, entry: SeedEntry): Promise<voi
     .prepare(
       "INSERT INTO time_entry (id, matter_id, timekeeper_user_id, work_date, duration_minutes, raw_duration_minutes, narrative, billable, non_billable_category_id, currency, rate_e4, rate_card_id, rate_source, amount_minor, utbms_task_code_id, utbms_activity_code_id, status, source, live_run_id, invoice_id, created_at, updated_at, created_by) VALUES (?1, 'matter_a', ?2, ?3, ?4, ?4, 'work', ?5, NULL, 'USD', NULL, NULL, NULL, NULL, NULL, NULL, ?6, 'manual', NULL, NULL, '2026-06-22T00:00:00.000Z', '2026-06-22T00:00:00.000Z', ?2)",
     )
-    .bind(entry.id, TIMEKEEPER, entry.workDate, entry.durationMinutes, entry.billable, entry.status ?? "draft")
+    .bind(
+      entry.id,
+      TIMEKEEPER,
+      entry.workDate,
+      entry.durationMinutes,
+      entry.billable,
+      entry.status ?? "draft",
+    )
     .run();
 }
 
 async function seedMember(database: BatchDatabase): Promise<void> {
   await database
-    .prepare("INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'Attorney', 'active', '2026-01-01T00:00:00.000Z')")
+    .prepare(
+      "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'Attorney', 'active', '2026-01-01T00:00:00.000Z')",
+    )
     .bind(TIMEKEEPER)
     .run();
 }
@@ -53,9 +62,24 @@ async function setup(): Promise<BatchDatabase> {
 describe("readMyDay", () => {
   it("totals billable and non-billable minutes for the work date, excluding void", async () => {
     const database = await setup();
-    await seedEntry(database, { id: "timeEntry_1", workDate: "2026-06-22", durationMinutes: 120, billable: 1 });
-    await seedEntry(database, { id: "timeEntry_2", workDate: "2026-06-22", durationMinutes: 90, billable: 1 });
-    await seedEntry(database, { id: "timeEntry_3", workDate: "2026-06-22", durationMinutes: 30, billable: 0 });
+    await seedEntry(database, {
+      id: "timeEntry_1",
+      workDate: "2026-06-22",
+      durationMinutes: 120,
+      billable: 1,
+    });
+    await seedEntry(database, {
+      id: "timeEntry_2",
+      workDate: "2026-06-22",
+      durationMinutes: 90,
+      billable: 1,
+    });
+    await seedEntry(database, {
+      id: "timeEntry_3",
+      workDate: "2026-06-22",
+      durationMinutes: 30,
+      billable: 0,
+    });
     // A void entry never counts toward the day's totals.
     await seedEntry(database, {
       id: "timeEntry_void",
@@ -65,7 +89,12 @@ describe("readMyDay", () => {
       status: "void",
     });
     // A different day must not bleed in.
-    await seedEntry(database, { id: "timeEntry_other", workDate: "2026-06-21", durationMinutes: 240, billable: 1 });
+    await seedEntry(database, {
+      id: "timeEntry_other",
+      workDate: "2026-06-21",
+      durationMinutes: 240,
+      billable: 1,
+    });
 
     const view = await readMyDay(database, {
       timekeeperUserId: TIMEKEEPER,
@@ -99,7 +128,12 @@ describe("readMyDay", () => {
 
   it("clamps the shortfall to zero once the billable target is met", async () => {
     const database = await setup();
-    await seedEntry(database, { id: "timeEntry_1", workDate: "2026-06-22", durationMinutes: 540, billable: 1 });
+    await seedEntry(database, {
+      id: "timeEntry_1",
+      workDate: "2026-06-22",
+      durationMinutes: 540,
+      billable: 1,
+    });
     const view = await readMyDay(database, {
       timekeeperUserId: TIMEKEEPER,
       workDate: "2026-06-22",
