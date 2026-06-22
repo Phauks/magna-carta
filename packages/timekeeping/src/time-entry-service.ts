@@ -10,6 +10,7 @@ import {
   insertTimeEntryStatement,
   selectMatterEBillingStatement,
   selectTimeEntryStatusStatement,
+  setKickBackReasonStatement,
   transitionStatusStatement,
   updateDraftStatement,
   type DraftPatch,
@@ -157,12 +158,29 @@ export async function updateDraftTimeEntry(
   };
 }
 
-export function submitTimeEntry(
+// On resubmit the timekeeper has addressed the reviewer's note, so the kick-back reason is cleared.
+export async function submitTimeEntry(
   database: SqlDatabase,
   timeEntryId: TimeEntryId,
   options: LifecycleOptions,
 ): Promise<{ timeEntryId: TimeEntryId; effect: EffectWrite }> {
-  return transition(database, timeEntryId, "submitted", "time_entry.submitted", options);
+  const from = await loadStatus(database, timeEntryId);
+  if (isFrozen(from)) {
+    throw new TimeEntryValidationError("frozen-entry", `time entry ${timeEntryId} is ${from} and frozen`);
+  }
+  assertTransition(from, "submitted", options.approvalRequired ?? false);
+  const updatedAt = options.clock.now();
+  return {
+    timeEntryId,
+    effect: {
+      statements: [
+        transitionStatusStatement(database, timeEntryId, from, "submitted", updatedAt),
+        setKickBackReasonStatement(database, timeEntryId, null, updatedAt),
+        audit(database, options, "time_entry.submitted", timeEntryId),
+      ],
+      outboxMessages: [],
+    },
+  };
 }
 
 export function approveTimeEntry(
@@ -173,8 +191,9 @@ export function approveTimeEntry(
   return transition(database, timeEntryId, "approved", "time_entry.approved", options);
 }
 
-// Kick-back records the reviewer's reason on the audit row (the only place a free-text reason lives —
-// the entry itself carries no reason column). subjectId stays the entry; the reason rides metadata.
+// Kick-back transitions the entry back to draft and stores the reviewer's reason directly on the
+// entry row — the audit row records who/when but carries no free-text (audit_log.metadata is kept
+// null to honour the platform convention that metadata never carries privileged content).
 export async function kickBackTimeEntry(
   database: SqlDatabase,
   timeEntryId: TimeEntryId,
@@ -192,6 +211,7 @@ export async function kickBackTimeEntry(
     effect: {
       statements: [
         transitionStatusStatement(database, timeEntryId, from, "draft", updatedAt),
+        setKickBackReasonStatement(database, timeEntryId, input.reason, updatedAt),
         domainAuditStatement(database, {
           event: "time_entry.kicked_back",
           subjectId: timeEntryId,

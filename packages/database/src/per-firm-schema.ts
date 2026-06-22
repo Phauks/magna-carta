@@ -1433,6 +1433,10 @@ export const timeEntry = sqliteTable(
     }).notNull(),
     liveRunId: text("live_run_id"), // set for source = timer; the stop-commit dedup anchor
     invoiceId: text("invoice_id"), // set at billing; null until billed
+    // The reviewer's note set on kick-back, cleared when the timekeeper resubmits. Stored here
+    // (not audit_log.metadata) so it inherits the entry's tenancy, RBAC, and retention, and
+    // can be read back by the timekeeper without a privileged audit-log read.
+    kickBackReason: text("kick_back_reason"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"), // actor user handle (not an FK)

@@ -116,6 +116,17 @@ it("0016 seeds the six time: permissions onto the Owner/Admin role", async () =>
   ]);
 });
 
+it("0016 adds the nullable kick_back_reason column to time_entry", async () => {
+  const db = env.DB_FIRM_POOL_1;
+  const columns = await db.prepare("PRAGMA table_info('time_entry')").all<{
+    name: string;
+    notnull: number;
+  }>();
+  const col = columns.results.find((c) => c.name === "kick_back_reason");
+  expect(col).toBeDefined();
+  expect(col?.notnull).toBe(0); // nullable
+});
+
 it("0016 creates the scoped_setting table with the (key, scope_tier, scoped_id) primary key", async () => {
   const db = env.DB_FIRM_POOL_1;
   const ddl = await db

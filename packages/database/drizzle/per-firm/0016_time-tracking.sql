@@ -66,6 +66,7 @@ CREATE TABLE `time_entry` (
 	`source` text NOT NULL,
 	`live_run_id` text,
 	`invoice_id` text,
+	`kick_back_reason` text,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL,
 	`created_by` text,

@@ -152,6 +152,22 @@ export function selectTimeEntryStatusStatement(
     .bind(id);
 }
 
+// Sets the reviewer's kick-back reason text on the entry. Runs in the same batch as the status
+// transition so the reason and status change are atomic. A null clears the reason (used on resubmit
+// to indicate the reviewer's note has been consumed by the timekeeper's corrective resubmission).
+export function setKickBackReasonStatement(
+  database: SqlDatabase,
+  id: TimeEntryId,
+  reason: string | null,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${TIME_ENTRY_TABLE} SET kick_back_reason = ?2, updated_at = ?3 WHERE id = ?1`,
+    )
+    .bind(id, reason, updatedAt);
+}
+
 // The re-rate rewrite: moves rate_e4 + amount_minor on ONE unbilled entry. Guarded to the unbilled set
 // (draft/submitted/approved) so a billed/void row can never be re-rated — the captured rate is frozen.
 export function reRateEntryStatement(

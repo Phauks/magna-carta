@@ -325,7 +325,7 @@ describe("time-entry lifecycle (review gate on)", () => {
     expect(await countAudits(database, "time_entry.approved")).toBe(1);
   });
 
-  it("kicks a submitted entry back to draft with an audited reason", async () => {
+  it("kicks a submitted entry back to draft, stores the reason on the entry, and audits with null metadata", async () => {
     const database = freshDatabase();
     await seedMatter(database, "matter_1");
     await seedRateCard(database, "rateCard_std");
@@ -336,7 +336,51 @@ describe("time-entry lifecycle (review gate on)", () => {
     const kick = await kickBackTimeEntry(database, id as never, { reason: "wrong matter" }, gateOn);
     await commitEffectBatch(database, kick.effect, { now: clock.now });
     expect(await statusOf(database, id)).toBe("draft");
-    expect(await countAudits(database, "time_entry.kicked_back")).toBe(1);
+
+    // The reason rides the entry column, not the audit log.
+    const { results: entryRows } = await database
+      .prepare("SELECT kick_back_reason FROM time_entry WHERE id = ?1")
+      .bind(id)
+      .all<{ kick_back_reason: string | null }>();
+    expect(entryRows[0]?.kick_back_reason).toBe("wrong matter");
+
+    // The audit row records who/when only; metadata stays null (no privileged free-text in the log).
+    const { results: auditRows } = await database
+      .prepare("SELECT metadata FROM audit_log WHERE event = 'time_entry.kicked_back'")
+      .all<{ metadata: string | null }>();
+    expect(auditRows.length).toBe(1);
+    expect(auditRows[0]?.metadata).toBeNull();
+  });
+
+  it("clears kick_back_reason to null when the entry is resubmitted", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    await seedRateCard(database, "rateCard_std");
+    const id = await captureDraft(database);
+
+    const submit1 = await submitTimeEntry(database, id as never, gateOn);
+    await commitEffectBatch(database, submit1.effect, { now: clock.now });
+
+    const kick = await kickBackTimeEntry(database, id as never, { reason: "wrong matter" }, gateOn);
+    await commitEffectBatch(database, kick.effect, { now: clock.now });
+
+    // Confirm the reason was set before resubmit.
+    const { results: before } = await database
+      .prepare("SELECT kick_back_reason FROM time_entry WHERE id = ?1")
+      .bind(id)
+      .all<{ kick_back_reason: string | null }>();
+    expect(before[0]?.kick_back_reason).toBe("wrong matter");
+
+    // Resubmit — the reviewer's note is consumed; it must not linger on the entry.
+    const submit2 = await submitTimeEntry(database, id as never, gateOn);
+    await commitEffectBatch(database, submit2.effect, { now: clock.now });
+    expect(await statusOf(database, id)).toBe("submitted");
+
+    const { results: after } = await database
+      .prepare("SELECT kick_back_reason FROM time_entry WHERE id = ?1")
+      .bind(id)
+      .all<{ kick_back_reason: string | null }>();
+    expect(after[0]?.kick_back_reason).toBeNull();
   });
 
   it("refuses an illegal transition (approve a draft directly when the gate is on)", async () => {
