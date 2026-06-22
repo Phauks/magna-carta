@@ -4,6 +4,7 @@ import { createApp, type Bindings } from "./app.ts";
 import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
 import { inferenceQueue, type InferenceJob } from "./inference/inference-consumer.ts";
 import { runScheduledSweep, runStorageReconciliation } from "./scheduled.ts";
+import { LiveTimerDurableObject } from "./timer/live-timer-durable-object.ts";
 
 // createApp defaults the plugin runtime to the production seam — the firm_secret credential store
 // throws until the marketplace wires the live credential read; carrier calls use a fetch-backed
@@ -42,3 +43,7 @@ export default {
     return ingestQueue(batch as MessageBatch<R2EventMessage>, env);
   },
 } satisfies ExportedHandler<Bindings>;
+
+// The Durable Object class the DURABLE_TIMER binding instantiates — exported from the Worker entrypoint
+// so the runtime can construct it. The timer routes proxy to it; it writes no business data itself.
+export { LiveTimerDurableObject };

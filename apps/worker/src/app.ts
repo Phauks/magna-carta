@@ -105,6 +105,12 @@ export type Bindings = {
   // unset and keep the logging adapter, so no real email is sent and no domain onboarding is required.
   SEND_EMAIL?: CloudflareEmailBinding;
   EMAIL_FROM?: string;
+  // The per-timekeeper live-timer Durable Object namespace (the first DO). The timer routes proxy to
+  // one instance per `${firmId}:${userId}`; the stop-commit reads the DO's final state and writes the
+  // time entry through the data-access chokepoint. The DO holds no business rows.
+  DURABLE_TIMER: DurableObjectNamespace<
+    import("./timer/live-timer-durable-object.ts").LiveTimerDurableObject
+  >;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an

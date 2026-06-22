@@ -116,6 +116,15 @@
   "analytics_engine_datasets": [
     { "binding": "TELEMETRY", "dataset": "magna-carta-production-telemetry" },
   ],
+  // The per-timekeeper live-timer coordinator (the first Durable Object). One instance per
+  // `${firmId}:${userId}` (firm-namespaced, so a timer never holds another firm's state), holding only
+  // transient live-timer state in DO storage — a committed time entry flows through the data-access
+  // chokepoint into per-firm D1, never the DO. new_sqlite_classes puts the instance on the
+  // SQLite-backed storage backend (the current default for new classes).
+  "durable_objects": {
+    "bindings": [{ "name": "DURABLE_TIMER", "class_name": "LiveTimerDurableObject" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LiveTimerDurableObject"] }],
   // Cloudflare Email Service send binding (slice 0·6, ADR-0074). The adapter is SELECTED only when
   // EMAIL_FROM is also set — deliberately NOT committed as a var here: it is the activation switch
   // the deploy-time runbook flips once magnacarta.esq is onboarded for Email Sending (DKIM/SPF —
