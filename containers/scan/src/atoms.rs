@@ -18,10 +18,10 @@
 
 use serde::{Deserialize, Serialize};
 
-/// The shortest fixed run that may serve as a prefilter atom. Established by the throughput spike: at
-/// 8 bytes the odds a clean file contains the run by chance are ~2^-64, so the spurious fall-through
-/// rate stays near zero while coverage stays high. Anything shorter is not specific enough to clear a
-/// file on, so its signature falls through to clamd instead.
+/// The shortest fixed run that may serve as a prefilter atom. At 8 bytes the odds a clean file contains
+/// the run by chance are ~2^-64, so the spurious fall-through rate stays near zero while coverage stays
+/// high. Anything shorter is not specific enough to clear a file on, so its signature falls through to
+/// clamd instead.
 pub const MIN_ATOM_LEN: usize = 8;
 
 /// The maximum atom length kept. ClamAV fixed runs reach ~2 KB; the full run `\xNN`-escaped overflows
