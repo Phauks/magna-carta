@@ -43,6 +43,10 @@ export type CaptureRate =
   | { readonly noRate: true };
 
 export interface CaptureTimeEntryInput {
+  // An explicit id may be supplied by the caller to derive the entry handle deterministically from
+  // an external token (the timer stop-commit path derives it from live_run_id so two racing commits
+  // collapse to one row). When absent the service mints a fresh identifier.
+  readonly id?: TimeEntryId;
   readonly matterId: string;
   readonly timekeeperUserId: string;
   readonly workDate: string;
@@ -281,7 +285,7 @@ export async function captureTimeEntry(
     );
   }
 
-  const timeEntryId = newIdentifier("timeEntry", options.randomSource);
+  const timeEntryId = input.id ?? newIdentifier("timeEntry", options.randomSource);
   const createdAt = options.clock.now();
   const billed = "noRate" in input.rate ? null : input.rate;
 
