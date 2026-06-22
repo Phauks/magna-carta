@@ -6,7 +6,11 @@
   "sideEffects": false,
   "exports": {
     "./rounding": "./src/rounding.ts",
-    "./settings": "./src/settings.ts"
+    "./settings": "./src/settings.ts",
+    "./audit": "./src/audit.ts",
+    "./rate-statements": "./src/rate-statements.ts",
+    "./rate-service": "./src/rate-service.ts",
+    "./rate-validation": "./src/rate-validation.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -18,6 +22,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@magna-carta/database": "workspace:*",
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "vitest": "catalog:"

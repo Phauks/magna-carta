@@ -754,13 +754,22 @@ importers:
 
   packages/timekeeping:
     dependencies:
+      '@magna-carta/data-access':
+        specifier: workspace:*
+        version: link:../data-access
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../money
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
+      '@magna-carta/database':
+        specifier: workspace:*
+        version: link:../database
       '@magna-carta/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
