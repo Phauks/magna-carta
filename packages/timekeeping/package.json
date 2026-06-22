@@ -22,7 +22,10 @@
     "./non-billable-category-statements": "./src/non-billable-category-statements.ts",
     "./non-billable-category-service": "./src/non-billable-category-service.ts",
     "./narrative-template-statements": "./src/narrative-template-statements.ts",
-    "./narrative-template-service": "./src/narrative-template-service.ts"
+    "./narrative-template-service": "./src/narrative-template-service.ts",
+    "./quick-add-parser": "./src/quick-add-parser.ts",
+    "./my-day": "./src/my-day.ts",
+    "./queries": "./src/queries.ts"
   },
   "scripts": {
     "test": "vp test run"
