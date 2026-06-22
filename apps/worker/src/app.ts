@@ -20,6 +20,7 @@ import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerDownloadsRoutes } from "./routes/downloads.ts";
 import { registerDocumentCheckoutRoutes } from "./editing/checkout-routes.ts";
 import { registerDocumentEditingRoutes } from "./editing/edit-session-route.ts";
+import { registerWopiHostRoutes } from "./editing/wopi-host.ts";
 import { registerFilesRoutes } from "./routes/files.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
 import { registerFoldersRoutes } from "./routes/folders.ts";
@@ -267,6 +268,9 @@ export function createApp(options: CreateAppOptions = {}) {
   // Slice 2·2: in-app document editing — the editor-launch route that mints the WOPI access token and
   // returns the editor URL to iframe (the WOPI host callback surface is its own token-guarded route).
   registerDocumentEditingRoutes(app, chokepoint);
+  // Slice 2·2: the WOPI host callback surface (/wopi/files/*) — cookieless, access-token-guarded,
+  // OUTSIDE the chokepoint (the editor sends no session cookie). The editor's data plane.
+  registerWopiHostRoutes(app);
   // Slice 2·2: offline checkout / check-in — take a working copy out and return it through the
   // quarantine ingest, reconciling divergence as a human-reviewed conflicting copy.
   registerDocumentCheckoutRoutes(app, chokepoint);
