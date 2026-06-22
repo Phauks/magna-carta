@@ -2,6 +2,7 @@ import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
+  DocumentCheckoutId,
   DocumentTypeId,
   FileId,
   FileVersionId,
@@ -11,6 +12,7 @@ import type {
   UserId,
 } from "@magna-carta/identifiers/types";
 import { fileAuditStatement, type AuditContext } from "./audit.ts";
+import { getCheckoutById, setCheckoutStatusStatement } from "./checkout-statements.ts";
 import {
   abandonVersionStatement,
   assignDocumentTypeStatement,
@@ -22,6 +24,7 @@ import {
   insertFileStatement,
   insertFileVersionStatement,
   insertUploadSessionStatement,
+  markVersionConflictStatement,
   moveFileStatement,
   quarantineVersionStatement,
   renameFileStatement,
@@ -209,6 +212,77 @@ export async function initiateUpload(
   };
 }
 
+export interface InitiateCheckinInput {
+  readonly fileId: FileId;
+  readonly checkoutId: DocumentCheckoutId;
+  readonly declaredSize: number | null;
+  readonly declaredContentType: string | null;
+  readonly uploadedBy: UserId;
+  readonly expiresAt?: string | null;
+}
+
+export interface InitiatedCheckin {
+  readonly versionId: FileVersionId;
+  readonly versionNumber: number;
+  readonly r2Key: string;
+  readonly uploadSessionId: string;
+  readonly effect: EffectWrite;
+}
+
+// Mints the return leg of an offline checkout: a new pending file_version on the existing file carrying
+// the checkout id, plus an open upload_session so the ingest gate (which keys off the session for the
+// declared size and the file's name) processes the returning bytes exactly like any other upload — full
+// scan, hash, and policy re-check on untrusted bytes. The bytes never transit here; the route mints a
+// presigned PUT to the version's key. The cleared version routes through commitCheckinVersion
+// (divergence-aware) rather than a plain commit. The caller validates the checkout before this runs.
+// Version numbering mirrors initiateUpload (max over all statuses + 1, protected by the
+// UNIQUE(file_id, version_number) slot) so a concurrent upload and check-in cannot reuse a number.
+export async function initiateCheckin(
+  database: SqlDatabase,
+  input: InitiateCheckinInput,
+  options: FileServiceOptions,
+): Promise<InitiatedCheckin> {
+  await requireFile(database, input.fileId);
+  const { results } = await selectMaxVersionNumberStatement(database, input.fileId).all<{
+    n: number;
+  }>();
+  const versionNumber = (results[0]?.n ?? 0) + 1;
+  const versionId = newIdentifier("fileVersion", options.randomSource);
+  const uploadSessionId = newIdentifier("uploadSession", options.randomSource);
+  const r2Key = fileVersionKey(input.fileId, versionId);
+  return {
+    versionId,
+    versionNumber,
+    r2Key,
+    uploadSessionId,
+    effect: {
+      statements: [
+        insertFileVersionStatement(database, {
+          id: versionId,
+          fileId: input.fileId,
+          versionNumber,
+          r2Key,
+          declaredContentType: input.declaredContentType,
+          uploadedBy: input.uploadedBy,
+          createdAt: options.clock.now(),
+          checkoutId: input.checkoutId,
+        }),
+        insertUploadSessionStatement(database, {
+          id: uploadSessionId,
+          fileVersionId: versionId,
+          mode: "put",
+          declaredSize: input.declaredSize,
+          declaredContentType: input.declaredContentType,
+          createdAt: options.clock.now(),
+          expiresAt: input.expiresAt ?? null,
+        }),
+        fileAuditStatement(database, options, "document.checkin_initiated", input.fileId),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
 interface PendingVersion {
   readonly id: FileVersionId;
   readonly fileId: FileId;
@@ -238,6 +312,9 @@ export interface PendingIngestVersion {
   readonly declaredContentType: string | null;
   readonly r2Key: string;
   readonly name: string;
+  // Non-null = this is the return leg of an offline checkout; the consumer routes a cleared version
+  // through commitCheckinVersion (divergence-aware) rather than commitVersion.
+  readonly checkoutId: DocumentCheckoutId | null;
 }
 
 export async function loadPendingVersionForIngest(
@@ -250,6 +327,7 @@ export async function loadPendingVersionForIngest(
     r2_key: string;
     declared_size: number | null;
     file_name: string;
+    checkout_id: DocumentCheckoutId | null;
   }>();
   const row = results[0];
   if (row === undefined) return undefined;
@@ -259,6 +337,7 @@ export async function loadPendingVersionForIngest(
     declaredContentType: row.declared_content_type,
     r2Key: row.r2_key,
     name: row.file_name,
+    checkoutId: row.checkout_id,
   };
 }
 
@@ -358,6 +437,155 @@ export async function commitVersion(
         {
           topic: "file.version_committed",
           payload: { fileId: version.fileId, versionId: input.versionId },
+        },
+      ],
+    },
+  };
+}
+
+export interface CommitCheckinVersionInput extends CommitVersionInput {
+  // The checkout this version returned through — validated and transitioned as part of the commit.
+  readonly checkoutId: DocumentCheckoutId;
+}
+
+export interface CommittedCheckinVersion {
+  readonly skipped: boolean; // an unchanged round trip cut no version
+  readonly diverged: boolean; // the base had advanced → a conflicting copy, current untouched
+  readonly fileId: FileId;
+  readonly effect: EffectWrite;
+}
+
+// Commits the cleared return leg of an offline checkout, reconciling it against the file's current
+// version. If the checkout's base is still current, it is a clean fast-forward: the version commits,
+// becomes current, and the checkout is released (an unchanged round trip cuts no version and just
+// releases — the SHA-256 skip). If the base has advanced while the copy was out, the bytes still commit
+// `clean` (they passed the gate) but the version is flagged a `conflict_pending` conflicting copy
+// against its stale base, current is NOT advanced, and the checkout enters `reconciling` for a human to
+// resolve. The conflicting copy is retained forever. Mirrors commitVersion's metering, scan-cache, and
+// idempotency posture (it runs inside the ingest consumer's per-version idempotency batch).
+export async function commitCheckinVersion(
+  database: SqlDatabase,
+  input: CommitCheckinVersionInput,
+  options: FileServiceOptions,
+): Promise<CommittedCheckinVersion> {
+  const version = await loadPendingVersion(database, input.versionId);
+  if (version === undefined) {
+    throw new FileManagerValidationError(
+      "version-not-pending",
+      `version is not pending (already committed, quarantined, or unknown): ${input.versionId}`,
+    );
+  }
+  const checkout = await getCheckoutById(database, input.checkoutId);
+  if (checkout === undefined) {
+    throw new FileManagerValidationError(
+      "unknown-checkout",
+      `no such checkout for this check-in: ${input.checkoutId}`,
+    );
+  }
+  const file = await loadFile(database, version.fileId);
+  const baseIsCurrent = file?.currentVersionId === checkout.baseVersionId;
+
+  // Same scan-cache rule as commitVersion: cache only a definitive clean verdict from a real engine.
+  const scanCacheStatements =
+    input.scanVerdict === "clean" &&
+    input.scanEngineVersion !== null &&
+    input.contentSha256 !== null
+      ? [
+          recordScanCacheStatement(database, {
+            contentSha256: input.contentSha256,
+            engineVersion: input.scanEngineVersion,
+            verdict: "clean",
+            signature: null,
+            scannedAt: input.now,
+          }),
+        ]
+      : [];
+
+  const commitStatement = commitVersionStatement(database, {
+    versionId: input.versionId,
+    sizeBytes: input.sizeBytes,
+    sniffedContentType: input.sniffedContentType,
+    contentSha256: input.contentSha256,
+    scanVerdict: input.scanVerdict,
+    scanEngineVersion: input.scanEngineVersion,
+    scanDetail: input.scanDetail,
+    committedAt: input.now,
+  });
+  const meterStatements = meterCommitStatements(
+    database,
+    { storageClass: "standard", artifactRole: "original", prefix: FILES_PREFIX },
+    input.sizeBytes,
+  );
+
+  if (baseIsCurrent) {
+    const { results } = await selectCurrentVersionHashStatement(database, version.fileId).all<{
+      hash: string | null;
+    }>();
+    const currentHash = results[0]?.hash ?? null;
+    if (currentHash !== null && currentHash === input.contentSha256) {
+      // The offline copy came back byte-identical to the still-current version — nothing to commit.
+      return {
+        skipped: true,
+        diverged: false,
+        fileId: version.fileId,
+        effect: {
+          statements: [
+            abandonVersionStatement(database, input.versionId),
+            setUploadSessionStatusStatement(database, input.versionId, "completed"),
+            setCheckoutStatusStatement(database, input.checkoutId, "released"),
+            fileAuditStatement(database, options, "document.checkin_skipped", version.fileId),
+          ],
+          outboxMessages: [],
+        },
+      };
+    }
+    return {
+      skipped: false,
+      diverged: false,
+      fileId: version.fileId,
+      effect: {
+        statements: [
+          commitStatement,
+          bumpFileCurrentVersionStatement(database, version.fileId, input.versionId, input.now),
+          setUploadSessionStatusStatement(database, input.versionId, "completed"),
+          ...meterStatements,
+          setCheckoutStatusStatement(database, input.checkoutId, "released"),
+          fileAuditStatement(database, options, "document.checkin_committed", version.fileId),
+          ...scanCacheStatements,
+        ],
+        outboxMessages: [
+          {
+            topic: "file.version_committed",
+            payload: { fileId: version.fileId, versionId: input.versionId },
+          },
+        ],
+      },
+    };
+  }
+
+  // The base advanced while the copy was out: land a flagged conflicting copy, never touching current.
+  return {
+    skipped: false,
+    diverged: true,
+    fileId: version.fileId,
+    effect: {
+      statements: [
+        commitStatement,
+        markVersionConflictStatement(database, input.versionId, checkout.baseVersionId),
+        setUploadSessionStatusStatement(database, input.versionId, "completed"),
+        ...meterStatements,
+        setCheckoutStatusStatement(database, input.checkoutId, "reconciling"),
+        fileAuditStatement(database, options, "document.checkin_conflict", version.fileId),
+        ...scanCacheStatements,
+      ],
+      outboxMessages: [
+        {
+          topic: "document.checkin_conflict",
+          payload: {
+            fileId: version.fileId,
+            versionId: input.versionId,
+            divergedFromVersionId: checkout.baseVersionId,
+          },
         },
       ],
     },

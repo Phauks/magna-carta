@@ -516,6 +516,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "documentTypes.deactivate",
       "documentTypes.list",
       "documentTypes.update",
+      "documents.checkin",
       "documents.checkout",
       "documents.editSession",
       "documents.viewSession",

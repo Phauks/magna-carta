@@ -1,10 +1,14 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import { insertDocumentCheckoutStatement } from "@magna-carta/file-manager/checkout-statements";
+import {
+  getCheckoutById,
+  insertDocumentCheckoutStatement,
+} from "@magna-carta/file-manager/checkout-statements";
+import { initiateCheckin } from "@magna-carta/file-manager/file-service";
 import { getCurrentCleanVersion } from "@magna-carta/file-manager/queries";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { FileId } from "@magna-carta/identifiers/types";
+import type { DocumentCheckoutId, FileId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
@@ -13,7 +17,7 @@ import {
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
-import { identifierPathParam } from "../contracts/common.ts";
+import { identifierField, identifierPathParam } from "../contracts/common.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
@@ -22,6 +26,14 @@ import { requireBucket } from "../files/require-bucket.ts";
 // How long a checkout's download URL is valid. Short — the client fetches the working copy promptly;
 // the offline edit then lives on the client until check-in.
 const CHECKOUT_DOWNLOAD_TTL_SECONDS = 300;
+// How long the check-in's presigned PUT is valid (the client uploads the returning bytes promptly).
+const CHECKIN_UPLOAD_TTL_SECONDS = 3600;
+// The check-in session's lifetime: an abandoned (never-uploaded) check-in session is aborted by the
+// stale-pending sweep after this window, abandoning its pending version.
+const CHECKIN_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+// The returning bytes are fully untrusted and re-sniffed at the ingest gate, so the PUT is signed with a
+// neutral content type the client uploads under — never a client-asserted type the host would trust.
+const CHECKIN_UPLOAD_CONTENT_TYPE = "application/octet-stream";
 
 const CheckoutResponse = z
   .object({
@@ -69,6 +81,78 @@ export const checkoutRoute = defineOpenAPIRoute(checkoutMeta, {
     },
     404: {
       description: "The file does not exist in this firm, or has no committed version to check out",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
+const CheckinRequest = z
+  .object({
+    // The checkout this working copy was taken under — its base is what the returning bytes reconcile
+    // against.
+    checkoutId: identifierField("documentCheckout"),
+  })
+  .openapi("CheckinRequest");
+
+const CheckinResponse = z
+  .object({
+    // The pending version the returning bytes land as (it stays invisible until the ingest gate clears
+    // it and reconciliation routes it to current or a conflicting copy).
+    versionId: z.string(),
+    // The server-derived R2 key the presigned PUT targets (the client cannot choose it).
+    key: z.string(),
+    method: z.literal("PUT"),
+    url: z.string(),
+    headers: z.record(z.string(), z.string()),
+  })
+  .openapi("CheckinResponse");
+
+// Returns an offline working copy: validates the presented checkout, mints a pending version (carrying
+// the checkout id) plus an upload session, and returns a presigned PUT into the quarantine-ingest
+// pipeline. The returning bytes are never opened by the host before the gate clears them; once clean,
+// they reconcile against the file's current version (fast-forward or a flagged conflicting copy).
+// Audited; governed by the same documents:checkout capability as taking the copy out.
+export const checkinMeta: RouteMeta = {
+  operationId: "documents.checkin",
+  surface: "app",
+  authenticated: true,
+  permission: "documents:checkout",
+  resource: "matter",
+  audited: true,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+export const checkinRoute = defineOpenAPIRoute(checkinMeta, {
+  method: "post",
+  path: "/api/v1/documents/{fileId}/checkin",
+  request: {
+    params: z.object({ fileId: identifierPathParam("file", "fileId") }),
+    body: { content: { "application/json": { schema: CheckinRequest } }, required: true },
+  },
+  description:
+    "Return an offline working copy: validates the checkout, mints a pending version, and returns a " +
+    "presigned PUT for the edited bytes. The bytes route the quarantine ingest, then reconcile against " +
+    "the document's current version (fast-forward or a flagged conflicting copy).",
+  responses: {
+    200: {
+      description: "The pending check-in version and the presigned upload URL",
+      content: { "application/json": { schema: CheckinResponse } },
+    },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "Authenticated, but the member lacks documents:checkout",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    404: {
+      description: "No such file in this firm, or no active offline checkout of it with that id",
       content: { "application/problem+json": { schema: Problem } },
     },
     429: {
@@ -134,6 +218,67 @@ export function registerDocumentCheckoutRoutes(
         CHECKOUT_DOWNLOAD_TTL_SECONDS,
       );
       return c.json({ checkoutId, presignedGetUrl }, 200);
+    },
+  );
+
+  app.openapi(
+    { ...checkinRoute, middleware: chokepointMiddleware(chokepoint, checkinRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const memberId = requireChokepointUserId(c);
+      const bucket = requireBucket(firm.bucketName);
+      const fileId = c.req.param("fileId") as FileId;
+      const { checkoutId } = c.req.valid("json");
+
+      // The checkout must be an active offline working copy of THIS file. A released/reconciling/stale
+      // checkout, a foreign-file checkout, or an unknown id is not a valid return target → not-found
+      // (never leaking whether the id exists in another firm/file).
+      const checkout = await getCheckoutById(firm.firmDatabase, checkoutId as DocumentCheckoutId);
+      if (
+        checkout === undefined ||
+        checkout.fileId !== fileId ||
+        checkout.lockType !== "offline_working_copy" ||
+        checkout.status !== "active"
+      ) {
+        return problemJson(c, {
+          type: "not-found",
+          status: 404,
+          title: "Not found",
+          detail: "No active offline checkout of this document with that id.",
+        });
+      }
+
+      const now = () => new Date().toISOString();
+      const initiated = await initiateCheckin(
+        firm.firmDatabase,
+        {
+          fileId,
+          checkoutId: checkoutId as DocumentCheckoutId,
+          declaredSize: null,
+          declaredContentType: null,
+          uploadedBy: memberId,
+          expiresAt: new Date(Date.now() + CHECKIN_SESSION_TTL_MS).toISOString(),
+        },
+        { clock: { now }, actorUserId: memberId },
+      );
+      await commitEffectBatch(firm.firmDatabase, initiated.effect, { now });
+
+      const url = await presignerForEnv(c.env).presignPut(
+        bucket,
+        initiated.r2Key,
+        CHECKIN_UPLOAD_CONTENT_TYPE,
+        CHECKIN_UPLOAD_TTL_SECONDS,
+      );
+      return c.json(
+        {
+          versionId: initiated.versionId,
+          key: initiated.r2Key,
+          method: "PUT" as const,
+          url,
+          headers: { "Content-Type": CHECKIN_UPLOAD_CONTENT_TYPE },
+        },
+        200,
+      );
     },
   );
 }

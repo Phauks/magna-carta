@@ -1,5 +1,6 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
+  DocumentCheckoutId,
   DocumentTypeId,
   FileId,
   FileVersionId,
@@ -61,6 +62,9 @@ export interface InsertFileVersionRow {
   readonly declaredContentType: string | null;
   readonly uploadedBy: UserId | null;
   readonly createdAt: string;
+  // Set only for the return leg of an offline checkout: the checkout this version came back through.
+  // The ingest gate reads it to route a cleared check-in into divergence resolution. Null otherwise.
+  readonly checkoutId?: DocumentCheckoutId | null;
 }
 
 // A pending version: bytes are not yet ingested, so size/sniffed-type/hash/scan are null and status
@@ -71,7 +75,7 @@ export function insertFileVersionStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${FILE_VERSION_TABLE} (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, scan_verdict, scan_engine_version, status, uploaded_by, created_at, committed_at) VALUES (?1, ?2, ?3, ?4, NULL, ?5, NULL, NULL, NULL, NULL, 'pending', ?6, ?7, NULL)`,
+      `INSERT INTO ${FILE_VERSION_TABLE} (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, scan_verdict, scan_engine_version, status, uploaded_by, checkout_id, created_at, committed_at) VALUES (?1, ?2, ?3, ?4, NULL, ?5, NULL, NULL, NULL, NULL, 'pending', ?6, ?7, ?8, NULL)`,
     )
     .bind(
       row.id,
@@ -80,6 +84,7 @@ export function insertFileVersionStatement(
       row.r2Key,
       row.declaredContentType,
       row.uploadedBy,
+      row.checkoutId ?? null,
       row.createdAt,
     );
 }
@@ -151,12 +156,28 @@ export function selectPendingVersionByR2KeyStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT v.id, v.declared_content_type, v.r2_key, s.declared_size, f.name AS file_name ` +
+      `SELECT v.id, v.declared_content_type, v.r2_key, v.checkout_id, s.declared_size, f.name AS file_name ` +
         `FROM ${FILE_VERSION_TABLE} v JOIN ${UPLOAD_SESSION_TABLE} s ON s.file_version_id = v.id ` +
         `JOIN ${FILE_TABLE} f ON f.id = v.file_id ` +
         `WHERE v.r2_key = ?1 AND v.status = 'pending'`,
     )
     .bind(r2Key);
+}
+
+// Flags a just-committed check-in version as a conflicting copy: an offline edit whose base no longer
+// matches the file's current version. Runs in the same batch right after commitVersionStatement (which
+// has set the row to 'clean'); the version is retained forever and never promoted to current — a human
+// resolves it through reconciliation. diverged_from_version_id records the stale base it forked from.
+export function markVersionConflictStatement(
+  database: SqlDatabase,
+  versionId: FileVersionId,
+  divergedFromVersionId: FileVersionId,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${FILE_VERSION_TABLE} SET reconciliation_status = 'conflict_pending', diverged_from_version_id = ?2 WHERE id = ?1`,
+    )
+    .bind(versionId, divergedFromVersionId);
 }
 
 // The current (clean) version's hash, for the no-op skip: re-uploading identical bytes must not cut a

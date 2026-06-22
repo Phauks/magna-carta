@@ -2118,6 +2118,51 @@
           "presignedGetUrl"
         ]
       },
+      "CheckinResponse": {
+        "type": "object",
+        "properties": {
+          "versionId": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "PUT"
+            ]
+          },
+          "url": {
+            "type": "string"
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "versionId",
+          "key",
+          "method",
+          "url",
+          "headers"
+        ]
+      },
+      "CheckinRequest": {
+        "type": "object",
+        "properties": {
+          "checkoutId": {
+            "type": "string",
+            "pattern": "^documentCheckout_[A-Za-z0-9_-]{21}$"
+          }
+        },
+        "required": [
+          "checkoutId"
+        ]
+      },
       "BundleStatus": {
         "type": "object",
         "properties": {
@@ -8872,6 +8917,100 @@
           },
           "404": {
             "description": "The file does not exist in this firm, or has no committed version to check out",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{fileId}/checkin": {
+      "post": {
+        "description": "Return an offline working copy: validates the checkout, mints a pending version, and returns a presigned PUT for the edited bytes. The bytes route the quarantine ingest, then reconcile against the document's current version (fast-forward or a flagged conflicting copy).",
+        "operationId": "documents.checkin",
+        "tags": [
+          "documents"
+        ],
+        "x-mc-operationId": "documents.checkin",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "documents:checkout",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "documents"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "fileId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckinRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The pending check-in version and the presigned upload URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckinResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks documents:checkout",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such file in this firm, or no active offline checkout of it with that id",
             "content": {
               "application/problem+json": {
                 "schema": {
