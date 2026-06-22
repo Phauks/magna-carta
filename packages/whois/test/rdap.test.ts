@@ -52,19 +52,15 @@ test("queryRdap maps registrar, dates, nameservers, statuses", async () => {
 });
 
 test("queryRdap joins base and path without double slashes", async () => {
-  // Base without trailing slash must still produce exactly one slash before the path segment.
-  const baseWithoutTrailingSlash = "https://rdap.verisign.com/com/v1";
-  const http = fakeHttp({
-    "https://rdap.verisign.com/com/v1/domain/example.com": {
-      status: [],
-      nameservers: [],
-      events: [],
-      entities: [],
+  let requestedUrl: string | undefined;
+  const http: HttpClient = {
+    async request({ url }) {
+      requestedUrl = url;
+      return { status: 200, json: async () => ({ status: [], nameservers: [], events: [], entities: [] }) };
     },
-  });
-  const result = await queryRdap("example.com", baseWithoutTrailingSlash, http);
-  expect(result.source).toBe("rdap");
-  expect(result.target).toBe("example.com");
+  };
+  await queryRdap("example.com", "https://rdap.verisign.com/com/v1", http);
+  expect(requestedUrl).toBe("https://rdap.verisign.com/com/v1/domain/example.com");
 });
 
 test("queryRdap is defensive when optional fields are absent", async () => {
