@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "2cba3e8f-6a87-4422-bd36-3d475ff3cfb3",
+  "id": "2e1cc29c-dc8a-4744-866e-409d411eb1ee",
   "prevId": "659f1002-13b1-46f3-a6fb-7913cc9a08e2",
   "tables": {
     "account_balance": {
@@ -2088,6 +2088,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "checkout_id": {
+          "name": "checkout_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -2135,6 +2142,15 @@
           "tableFrom": "file_version",
           "tableTo": "file_version",
           "columnsFrom": ["diverged_from_version_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "file_version_checkout_id_document_checkout_id_fk": {
+          "name": "file_version_checkout_id_document_checkout_id_fk",
+          "tableFrom": "file_version",
+          "tableTo": "document_checkout",
+          "columnsFrom": ["checkout_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"

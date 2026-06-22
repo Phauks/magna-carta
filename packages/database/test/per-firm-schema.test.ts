@@ -196,6 +196,7 @@ describe("per-firm schema: editing working copy, checkout & reconciliation (slic
     expect(recon.notNull).toBe(true);
     expect(recon.default).toBe("clean");
     expect(columnOf(fileVersion, "diverged_from_version_id").notNull).toBe(false);
+    expect(columnOf(fileVersion, "checkout_id").notNull).toBe(false);
     expect(checkNamesOf(fileVersion)).toContain("file_version_reconciliation_status_check");
   });
 

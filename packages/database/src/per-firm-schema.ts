@@ -601,6 +601,12 @@ export const fileVersion = sqliteTable(
     divergedFromVersionId: text("diverged_from_version_id")
       .$type<FileVersionId>()
       .references((): AnySQLiteColumn => fileVersion.id),
+    // Provenance for a version that arrived via an offline check-in: the checkout it came back through.
+    // Null for an ordinary upload or live-edit version. The ingest consumer reads it to route a cleared
+    // check-in into divergence resolution rather than a plain commit.
+    checkoutId: text("checkout_id")
+      .$type<DocumentCheckoutId>()
+      .references((): AnySQLiteColumn => documentCheckout.id),
     createdAt: text("created_at").notNull(),
     committedAt: text("committed_at"),
   },

@@ -4,14 +4,34 @@
 --  1. the generator's foreign-key-toggle pragma pair (PRAGMA foreign_keys=OFF/ON) is not in D1's
 --     compatible-PRAGMA set; the D1-supported `PRAGMA defer_foreign_keys = on` defers enforcement to
 --     the end of the migration batch (one transaction — see d1-migration-target.ts), by which time the
---     rebuilt tables exist again. document_checkout is created LAST, after the tables it references.
+--     rebuilt tables exist again. document_checkout is created first so file_version's checkout_id FK
+--     references an existing table; file/file_version are then rebuilt (their FKs defer).
 --  2. the copy SELECT must list only the PRE-EXISTING columns — the new columns are absent from the
 --     source table, so selecting them errors. They take their declared defaults / NULL on copy.
 -- contract: every new column is additive — current_r2_key/current_sha256/current_size_bytes/
--- current_wopi_timestamp/diverged_from_version_id are nullable (no backfill); edit_state defaults to
--- 'idle' and reconciliation_status to 'clean' (the correct value for every existing row). The DROP
--- TABLE statements are part of the recreate strategy — each table is immediately replaced.
+-- current_wopi_timestamp/diverged_from_version_id/checkout_id are nullable (no backfill); edit_state
+-- defaults to 'idle' and reconciliation_status to 'clean' (the correct value for every existing row).
+-- The DROP TABLE statements are part of the recreate strategy — each table is immediately replaced.
 PRAGMA defer_foreign_keys = on;--> statement-breakpoint
+CREATE TABLE `document_checkout` (
+	`id` text PRIMARY KEY NOT NULL,
+	`file_id` text NOT NULL,
+	`holder_member_id` text NOT NULL,
+	`lock_type` text NOT NULL,
+	`base_version_id` text NOT NULL,
+	`acquired_at` text NOT NULL,
+	`last_activity_at` text NOT NULL,
+	`status` text DEFAULT 'active' NOT NULL,
+	`idle_release_at` text,
+	FOREIGN KEY (`file_id`) REFERENCES `file`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`holder_member_id`) REFERENCES `member`(`user_id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`base_version_id`) REFERENCES `file_version`(`id`) ON UPDATE no action ON DELETE no action,
+	CONSTRAINT "document_checkout_lock_type_check" CHECK("document_checkout"."lock_type" IN ('exclusive', 'offline_working_copy')),
+	CONSTRAINT "document_checkout_status_check" CHECK("document_checkout"."status" IN ('active', 'stale', 'released', 'reconciling'))
+);
+--> statement-breakpoint
+CREATE INDEX `document_checkout_file_id_index` ON `document_checkout` (`file_id`);--> statement-breakpoint
+CREATE INDEX `document_checkout_holder_member_id_index` ON `document_checkout` (`holder_member_id`);--> statement-breakpoint
 CREATE TABLE `__new_file` (
 	`id` text PRIMARY KEY NOT NULL,
 	`matter_id` text NOT NULL,
@@ -61,10 +81,12 @@ CREATE TABLE `__new_file_version` (
 	`uploaded_by` text,
 	`reconciliation_status` text DEFAULT 'clean' NOT NULL,
 	`diverged_from_version_id` text,
+	`checkout_id` text,
 	`created_at` text NOT NULL,
 	`committed_at` text,
 	FOREIGN KEY (`file_id`) REFERENCES `file`(`id`) ON UPDATE no action ON DELETE no action,
 	FOREIGN KEY (`diverged_from_version_id`) REFERENCES `file_version`(`id`) ON UPDATE no action ON DELETE no action,
+	FOREIGN KEY (`checkout_id`) REFERENCES `document_checkout`(`id`) ON UPDATE no action ON DELETE no action,
 	CONSTRAINT "file_version_artifact_role_check" CHECK("__new_file_version"."artifact_role" IN ('original', 'derived')),
 	CONSTRAINT "file_version_storage_class_check" CHECK("__new_file_version"."storage_class" IN ('standard', 'infrequent_access')),
 	CONSTRAINT "file_version_scan_verdict_check" CHECK("__new_file_version"."scan_verdict" IS NULL OR "__new_file_version"."scan_verdict" IN ('unscanned', 'clean', 'infected')),
@@ -79,23 +101,4 @@ DROP TABLE `file_version`;--> statement-breakpoint
 ALTER TABLE `__new_file_version` RENAME TO `file_version`;--> statement-breakpoint
 CREATE UNIQUE INDEX `file_version_r2_key_unique_index` ON `file_version` (`r2_key`);--> statement-breakpoint
 CREATE UNIQUE INDEX `file_version_file_id_version_number_unique_index` ON `file_version` (`file_id`,`version_number`);--> statement-breakpoint
-CREATE INDEX `file_version_status_index` ON `file_version` (`status`);--> statement-breakpoint
-CREATE TABLE `document_checkout` (
-	`id` text PRIMARY KEY NOT NULL,
-	`file_id` text NOT NULL,
-	`holder_member_id` text NOT NULL,
-	`lock_type` text NOT NULL,
-	`base_version_id` text NOT NULL,
-	`acquired_at` text NOT NULL,
-	`last_activity_at` text NOT NULL,
-	`status` text DEFAULT 'active' NOT NULL,
-	`idle_release_at` text,
-	FOREIGN KEY (`file_id`) REFERENCES `file`(`id`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`holder_member_id`) REFERENCES `member`(`user_id`) ON UPDATE no action ON DELETE no action,
-	FOREIGN KEY (`base_version_id`) REFERENCES `file_version`(`id`) ON UPDATE no action ON DELETE no action,
-	CONSTRAINT "document_checkout_lock_type_check" CHECK("document_checkout"."lock_type" IN ('exclusive', 'offline_working_copy')),
-	CONSTRAINT "document_checkout_status_check" CHECK("document_checkout"."status" IN ('active', 'stale', 'released', 'reconciling'))
-);
---> statement-breakpoint
-CREATE INDEX `document_checkout_file_id_index` ON `document_checkout` (`file_id`);--> statement-breakpoint
-CREATE INDEX `document_checkout_holder_member_id_index` ON `document_checkout` (`holder_member_id`);
+CREATE INDEX `file_version_status_index` ON `file_version` (`status`);
