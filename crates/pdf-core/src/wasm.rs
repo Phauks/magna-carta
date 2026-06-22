@@ -147,6 +147,7 @@ pub fn redact_document(
     let options = RedactionOptions {
         dpi: js_opts.dpi.unwrap_or(300.0),
         redacted_text: js_opts.redacted_text,
+        scrub: crate::ScrubOptions::default(),
     };
 
     let outcome = redact(bytes, &regions, &options)?;

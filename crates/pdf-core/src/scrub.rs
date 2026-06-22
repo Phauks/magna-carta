@@ -208,7 +208,6 @@ fn scrub_attachments(doc: &mut Document) {
 
 /// Assert that every surface the caller chose to scrub is structurally absent
 /// from the document. Surfaces the caller opted out of are not checked.
-#[allow(dead_code)]
 pub(crate) fn verify_scrub_absence(doc: &Document, opts: &ScrubOptions) -> Result<(), ScrubError> {
     let fail = |detail: &str| {
         Err(ScrubError::GateFailed {
@@ -258,6 +257,19 @@ pub(crate) fn verify_scrub_absence(doc: &Document, opts: &ScrubOptions) -> Resul
         }
     }
     Ok(())
+}
+
+/// Load a PDF, scrub the selected document-level surfaces, drop the orphaned
+/// objects, verify their structural absence, and re-serialize. Standalone — no
+/// page redaction. Returns `GateFailed` (emitting nothing) if a surface survives.
+pub fn sanitize(bytes: Vec<u8>, opts: &ScrubOptions) -> Result<Vec<u8>, ScrubError> {
+    let mut doc = Document::load_mem(&bytes).map_err(|_| ScrubError::Parse)?;
+    sanitize_document(&mut doc, opts)?;
+    doc.prune_objects();
+    verify_scrub_absence(&doc, opts)?;
+    let mut out = Vec::new();
+    doc.save_to(&mut out).map_err(|_| ScrubError::Reassemble)?;
+    Ok(out)
 }
 
 /// Remove the document-level surfaces selected in `opts`, in place. Performs only
@@ -429,6 +441,25 @@ mod tests {
         set_on_catalog(&mut doc2, "OCProperties", Object::Null);
         let opts = ScrubOptions { optional_content: false, ..ScrubOptions::default() };
         assert!(verify_scrub_absence(&doc2, &opts).is_ok());
+    }
+
+    #[test]
+    fn sanitize_round_trips_and_strips_metadata() {
+        let mut doc = base_doc();
+        let info_id = doc.add_object(Object::Dictionary({
+            let mut d = Dictionary::new();
+            d.set("Author", Object::string_literal("Jane Doe"));
+            d
+        }));
+        doc.trailer.set("Info", Object::Reference(info_id));
+        let mut bytes = Vec::new();
+        doc.save_to(&mut bytes).unwrap();
+
+        let out = sanitize(bytes, &ScrubOptions::default()).expect("sanitize succeeds");
+
+        let reloaded = Document::load_mem(&out).unwrap();
+        assert!(!reloaded.trailer.has(b"Info"));
+        assert!(!out.windows(8).any(|w| w == b"Jane Doe"));
     }
 
     #[test]

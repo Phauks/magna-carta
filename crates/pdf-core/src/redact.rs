@@ -26,6 +26,8 @@ pub struct RedactionOptions {
     pub dpi: f32,
     /// If supplied, the gate also asserts these strings are absent document-wide.
     pub redacted_text: Vec<String>,
+    /// Which document-level surfaces to scrub. Defaults to all (sanitized-by-default).
+    pub scrub: crate::ScrubOptions,
 }
 
 impl Default for RedactionOptions {
@@ -33,6 +35,7 @@ impl Default for RedactionOptions {
         Self {
             dpi: 300.0,
             redacted_text: Vec::new(),
+            scrub: crate::ScrubOptions::default(),
         }
     }
 }
@@ -258,6 +261,14 @@ pub(crate) fn verify_gate(
     Ok(())
 }
 
+fn map_scrub_err(e: crate::ScrubError) -> RedactError {
+    match e {
+        crate::ScrubError::Parse => RedactError::Parse,
+        crate::ScrubError::Reassemble => RedactError::Reassemble,
+        crate::ScrubError::GateFailed { detail } => RedactError::GateFailed { detail },
+    }
+}
+
 pub fn redact(
     bytes: Vec<u8>,
     regions: &[RedactionRegion],
@@ -286,11 +297,13 @@ pub fn redact(
         redacted.push(page);
     }
 
-    // Replacing /Contents only unlinks the original streams. Physically drop
-    // every now-unreferenced object (the original content streams, fonts, and
-    // image resources) so their bytes — including the original text operators —
-    // are not written to the output, where a raw-byte scan could recover them.
+    // Remove document-level surfaces where redacted content can hide (metadata,
+    // attachments, form values, structure tree, outlines, optional-content),
+    // then physically drop every now-unreferenced object — the original content
+    // streams plus the scrubbed surfaces — so nothing survives in the output.
+    crate::sanitize_document(&mut lo, &opts.scrub).map_err(map_scrub_err)?;
     lo.prune_objects();
+    crate::verify_scrub_absence(&lo, &opts.scrub).map_err(map_scrub_err)?;
 
     let affected_1based: Vec<u32> = redacted.iter().map(|p| (*p + 1) as u32).collect();
     verify_gate(&lo, &affected_1based, &opts.redacted_text)?;
@@ -413,6 +426,7 @@ mod tests {
         let opts = RedactionOptions {
             dpi: 150.0,
             redacted_text: vec!["Hello".into()],
+            scrub: crate::ScrubOptions::default(),
         };
         let outcome = redact(hello_bytes(), &regions, &opts).expect("redaction succeeds");
         assert_eq!(outcome.report.pages_redacted, vec![0]);
@@ -482,6 +496,31 @@ mod tests {
         assert_eq!(scan_logical_content(&doc, &["absent".to_string()]), None);
         // Empty needles are ignored.
         assert_eq!(scan_logical_content(&doc, &[]), None);
+    }
+
+    #[test]
+    fn redact_scrubs_metadata_by_default() {
+        // The hello fixture, given an Info dictionary, must come back scrubbed after redaction.
+        let mut lo = lopdf::Document::load_mem(&hello_bytes()).unwrap();
+        let info_id = lo.add_object(lopdf::Object::Dictionary({
+            let mut d = lopdf::Dictionary::new();
+            d.set("Author", lopdf::Object::string_literal("Jane Doe"));
+            d
+        }));
+        lo.trailer.set("Info", lopdf::Object::Reference(info_id));
+        let mut seeded = Vec::new();
+        lo.save_to(&mut seeded).unwrap();
+
+        let regions = [RedactionRegion {
+            page: 0,
+            rect: Rect { x0: 0.0, y0: 0.0, x1: 1000.0, y1: 1000.0 },
+            reason: None,
+        }];
+        let outcome = redact(seeded, &regions, &RedactionOptions::default()).unwrap();
+
+        let reloaded = lopdf::Document::load_mem(&outcome.pdf).unwrap();
+        assert!(!reloaded.trailer.has(b"Info"));
+        assert!(!outcome.pdf.windows(8).any(|w| w == b"Jane Doe"));
     }
 
     #[test]
