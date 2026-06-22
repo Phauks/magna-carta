@@ -48,6 +48,48 @@ function parseIpv4(host: string): readonly [number, number, number, number] | nu
   return parts as unknown as [number, number, number, number];
 }
 
+// Two IPv6 hextets (each a 1-4 char hex group) carry a 32-bit IPv4. Expand them to four octets.
+function hextetPairToIpv4(
+  hi: string,
+  lo: string,
+): readonly [number, number, number, number] | null {
+  if (!/^[0-9a-f]{1,4}$/.test(hi) || !/^[0-9a-f]{1,4}$/.test(lo)) return null;
+  const high = Number.parseInt(hi, 16);
+  const low = Number.parseInt(lo, 16);
+  return [(high >> 8) & 0xff, high & 0xff, (low >> 8) & 0xff, low & 0xff];
+}
+
+// Extracts the IPv4 embedded in the IPv6 forms that carry one — IPv4-mapped (`::ffff:`), 6to4
+// (`2002:`), and NAT64 (`64:ff9b::`) — in either dotted (`::ffff:127.0.0.1`) or hex-hextet
+// (`::ffff:7f00:1`) representation. The WHATWG URL parser emits the mapped form in hex hextets, so a
+// dotted-only check is bypassable: classify by the embedded address instead. Returns null when the
+// literal embeds no IPv4. `lower` is already lowercased and bracket-stripped.
+function embeddedIpv4(lower: string): readonly [number, number, number, number] | null {
+  // The embedded IPv4 is the final 32 bits for the mapped and NAT64 prefixes…
+  const tailOf = (prefix: string): readonly [number, number, number, number] | null => {
+    const tail = lower.slice(prefix.length);
+    if (tail.includes(".")) return parseIpv4(tail);
+    const groups = tail.split(":").filter((group) => group.length > 0);
+    if (groups.length < 2) return null;
+    return hextetPairToIpv4(
+      groups[groups.length - 2] as string,
+      groups[groups.length - 1] as string,
+    );
+  };
+  if (lower.startsWith("::ffff:")) return tailOf("::ffff:");
+  if (lower.startsWith("64:ff9b::")) return tailOf("64:ff9b::");
+  // …and the two hextets immediately after the prefix for 6to4.
+  if (lower.startsWith("2002:")) {
+    const groups = lower
+      .slice("2002:".length)
+      .split(":")
+      .filter((group) => group.length > 0);
+    if (groups.length < 2) return null;
+    return hextetPairToIpv4(groups[0] as string, groups[1] as string);
+  }
+  return null;
+}
+
 export function classifyHost(host: string): TargetClass {
   const lower = host.toLowerCase().replace(/^\[|\]$/g, ""); // strip IPv6 brackets
   if (lower === "localhost" || lower.endsWith(".localhost")) return "loopback";
@@ -62,9 +104,12 @@ export function classifyHost(host: string): TargetClass {
     if (lower.startsWith("fe80")) return "link-local";
     if (lower.startsWith("fc") || lower.startsWith("fd")) return "private"; // unique-local fc00::/7
     if (lower.startsWith("ff")) return "reserved"; // IPv6 multicast ff00::/8
-    if (lower.startsWith("::ffff:")) {
-      const mapped = parseIpv4(lower.slice("::ffff:".length));
-      if (mapped) return classifyIpv4(mapped); // IPv4-mapped IPv6
+    // Forms that embed an IPv4 (mapped/6to4/NAT64): classify by the embedded address so a non-public
+    // IPv4 cannot tunnel through as "public". Covers both the dotted and hex-hextet representations.
+    const embedded = embeddedIpv4(lower);
+    if (embedded) {
+      const embeddedClass = classifyIpv4(embedded);
+      if (embeddedClass !== "public") return embeddedClass;
     }
     return "public";
   }
