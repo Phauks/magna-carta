@@ -1,4 +1,10 @@
+import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
+import {
+  resolveScopedSetting,
+  type ScopedSettingDefinition,
+  writeScopedSettingStatement,
+} from "@magna-carta/data-access/scoped-setting-statements";
 import {
   abandonedThresholdMinutesDefinition,
   approvalRequiredDefinition,
@@ -8,6 +14,48 @@ import {
   targetDailyHoursDefinition,
   targetMonthlyHoursDefinition,
 } from "../src/settings.ts";
+import type { RoundingDirection } from "../src/rounding.ts";
+
+// Compile-time guarantee: both scoped definitions carry the right ScopedSettingDefinition type.
+incrementMinutesDefinition satisfies ScopedSettingDefinition<number>;
+roundingDirectionDefinition satisfies ScopedSettingDefinition<RoundingDirection>;
+
+// Adapt node:sqlite to the SqlDatabase surface — same shim used in data-access's own
+// scoped-setting round-trip tests.
+function memoryDatabase() {
+  const database = new DatabaseSync(":memory:");
+  database.exec(
+    `CREATE TABLE scoped_setting (
+       key TEXT NOT NULL,
+       scope_tier TEXT NOT NULL,
+       scoped_id TEXT,
+       value TEXT NOT NULL,
+       updated_at TEXT NOT NULL,
+       PRIMARY KEY (key, scope_tier, scoped_id)
+     );`,
+  );
+  return {
+    prepare(sql: string) {
+      const bindings: unknown[] = [];
+      const stmt = {
+        sql,
+        bind(...values: unknown[]) {
+          bindings.push(...values);
+          return stmt;
+        },
+        run() {
+          database.prepare(sql.replace(/\?\d+/g, "?")).run(...(bindings as never[]));
+          return Promise.resolve({ meta: { changes: 1 } });
+        },
+        all<T>() {
+          const rows = database.prepare(sql.replace(/\?\d+/g, "?")).all(...(bindings as never[]));
+          return Promise.resolve({ results: rows as T[] });
+        },
+      };
+      return stmt;
+    },
+  };
+}
 
 describe("firm-level timekeeping settings", () => {
   it("default the frictionless posture: no approval gate, a 10-hour abandoned threshold, no targets", () => {
@@ -65,5 +113,89 @@ describe("scope-overridable timekeeping settings", () => {
     expect(roundingDirectionDefinition.schema.safeParse("down").success).toBe(true);
     expect(roundingDirectionDefinition.schema.safeParse("ceil").success).toBe(false);
     expect(roundingDirectionDefinition.schema.safeParse("").success).toBe(false);
+  });
+});
+
+describe("resolveScopedSetting for scope-overridable timekeeping definitions", () => {
+  it("increment_minutes: empty context returns the in-code default (6)", async () => {
+    const database = memoryDatabase();
+    expect(await resolveScopedSetting(database, incrementMinutesDefinition, {})).toBe(6);
+  });
+
+  it("rounding_direction: empty context returns the in-code default (nearest)", async () => {
+    const database = memoryDatabase();
+    expect(await resolveScopedSetting(database, roundingDirectionDefinition, {})).toBe("nearest");
+  });
+
+  it("increment_minutes: a firm-tier row is returned when context is empty", async () => {
+    const database = memoryDatabase();
+    await writeScopedSettingStatement(
+      database,
+      incrementMinutesDefinition,
+      "firm",
+      null,
+      15,
+      "2026-06-22T00:00:00.000Z",
+    ).run();
+    expect(await resolveScopedSetting(database, incrementMinutesDefinition, {})).toBe(15);
+  });
+
+  it("rounding_direction: a firm-tier row is returned when context is empty", async () => {
+    const database = memoryDatabase();
+    await writeScopedSettingStatement(
+      database,
+      roundingDirectionDefinition,
+      "firm",
+      null,
+      "up",
+      "2026-06-22T00:00:00.000Z",
+    ).run();
+    expect(await resolveScopedSetting(database, roundingDirectionDefinition, {})).toBe("up");
+  });
+
+  it("increment_minutes: a matter-tier override beats the firm value when the matterId matches", async () => {
+    const database = memoryDatabase();
+    await writeScopedSettingStatement(
+      database,
+      incrementMinutesDefinition,
+      "firm",
+      null,
+      15,
+      "2026-06-22T00:00:00.000Z",
+    ).run();
+    await writeScopedSettingStatement(
+      database,
+      incrementMinutesDefinition,
+      "matter",
+      "matter_a",
+      30,
+      "2026-06-22T00:00:00.000Z",
+    ).run();
+    expect(
+      await resolveScopedSetting(database, incrementMinutesDefinition, { matterId: "matter_a" }),
+    ).toBe(30);
+  });
+
+  it("rounding_direction: a matter-tier override beats the firm value when the matterId matches", async () => {
+    const database = memoryDatabase();
+    await writeScopedSettingStatement(
+      database,
+      roundingDirectionDefinition,
+      "firm",
+      null,
+      "nearest",
+      "2026-06-22T00:00:00.000Z",
+    ).run();
+    await writeScopedSettingStatement(
+      database,
+      roundingDirectionDefinition,
+      "matter",
+      "matter_a",
+      "down",
+      "2026-06-22T00:00:00.000Z",
+    ).run();
+    expect(
+      await resolveScopedSetting(database, roundingDirectionDefinition, { matterId: "matter_a" }),
+    ).toBe("down");
   });
 });
