@@ -18,10 +18,19 @@ export interface DocumentSessionState {
   // The single WOPI lock for this document — one per session, shared by co-editors, null when no
   // editing session holds it.
   readonly wopiLock: string | null;
+  // The shared session identity: minted when the first editor opens the document, carried in every
+  // co-editor's access token so they join one session, and cleared when the last editor leaves. Null
+  // when no editing session is live.
+  readonly sessionId: string | null;
 }
 
 const STATE_KEY = "session-state";
-const EMPTY_STATE: DocumentSessionState = { participants: {}, current: null, wopiLock: null };
+const EMPTY_STATE: DocumentSessionState = {
+  participants: {},
+  current: null,
+  wopiLock: null,
+  sessionId: null,
+};
 
 // Per-document session coordinator — one instance per open file (addressed by fileId). It holds the
 // live session state in its own durable storage (the participant set and the `current` working-object
@@ -48,21 +57,34 @@ export class DocumentSession extends DurableObject<Bindings> {
     await this.save({ ...state, participants: { ...state.participants, [memberId]: capability } });
   }
 
+  // Joins this member to the editing session as an editor, minting the shared session id on the first
+  // join and reusing it for every co-editor after, and returns it for the access token. A join never
+  // cuts a version — it just adds an editor to the live session.
+  async joinEditor(memberId: string): Promise<{ sessionId: string }> {
+    const state = await this.load();
+    const sessionId = state.sessionId ?? crypto.randomUUID();
+    await this.save({
+      ...state,
+      sessionId,
+      participants: { ...state.participants, [memberId]: "edit" },
+    });
+    return { sessionId };
+  }
+
   // Removes a participant and reports whether the session is now empty — the session-close cut signal
   // (the caller cuts the version from `current`). Only the last editor leaving cuts; others remaining
-  // does not.
+  // does not. Closing the session also clears its identity so the next open mints a fresh one.
   async dropParticipant(memberId: string): Promise<{ sessionClosed: boolean }> {
     const state = await this.load();
     const participants = { ...state.participants };
     delete participants[memberId];
-    await this.save({ ...state, participants });
     const remaining = Object.keys(participants).length;
-    return {
-      sessionClosed: shouldCutVersion({
-        type: "participant-left",
-        remainingParticipants: remaining,
-      }),
-    };
+    const sessionClosed = shouldCutVersion({
+      type: "participant-left",
+      remainingParticipants: remaining,
+    });
+    await this.save({ ...state, participants, sessionId: sessionClosed ? null : state.sessionId });
+    return { sessionClosed };
   }
 
   // Records the `current` working object's metadata after a PutFile (hash / size / host-assigned

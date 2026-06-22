@@ -53,8 +53,6 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Pulls current carrier tracking and caches events (INSERT OR IGNORE dedup) — a read-shaped sync, not an auditable business mutation.",
   "customFields.previewConvert":
     "Read-shaped POST: counts how each current value would land under a kind change (the target kind rides the body) — no write, no audit.",
-  "documents.editSession":
-    "Mints a short-lived WOPI access token and returns the editor URL — no write; the editing session's auditable events (version cuts) are audited where they occur.",
 };
 
 // Subsystems whose every route must be idempotency: required (money/trust/payment/outbound-comms).
@@ -519,6 +517,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "documentTypes.list",
       "documentTypes.update",
       "documents.editSession",
+      "documents.viewSession",
       "downloads.bundleStatus",
       "downloads.zip",
       "files.delete",

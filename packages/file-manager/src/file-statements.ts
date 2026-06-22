@@ -335,6 +335,21 @@ export function renameFileStatement(
     .bind(id, name, updatedAt);
 }
 
+export type FileEditState = "idle" | "coediting" | "checked_out";
+
+// Sets a file's editing posture — flipped to 'coediting' when an editing session opens and back to
+// 'idle' when the last editor leaves / a stale session is reaped (the CHECK constraint guards the enum).
+export function setFileEditStateStatement(
+  database: SqlDatabase,
+  id: FileId,
+  editState: FileEditState,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(`UPDATE ${FILE_TABLE} SET edit_state = ?2, updated_at = ?3 WHERE id = ?1`)
+    .bind(id, editState, updatedAt);
+}
+
 export function moveFileStatement(
   database: SqlDatabase,
   id: FileId,

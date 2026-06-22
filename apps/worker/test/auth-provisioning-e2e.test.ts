@@ -388,7 +388,6 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       "shipping.rateShipment",
       "shipping.tracking",
       "customFields.previewConvert",
-      "documents.editSession",
     ]);
 
     for (const { operation, label } of mutatingV1) {

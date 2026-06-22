@@ -57,4 +57,27 @@ describe("DocumentSession", () => {
       expect((await instance.getState()).wopiLock).toBeNull();
     });
   });
+
+  it("assigns one shared session id that co-editors join and that clears when the last leaves", async () => {
+    const stub = sessionStub("file_join");
+
+    await runInDurableObject(stub, async (instance: DocumentSession) => {
+      expect((await instance.getState()).sessionId).toBeNull();
+      // First editor opens the session — a fresh id is minted.
+      const first = await instance.joinEditor("usr_a");
+      expect(first.sessionId).toMatch(/.+/);
+      // A second editor joins the SAME session — the id is reused, not re-minted.
+      const second = await instance.joinEditor("usr_b");
+      expect(second.sessionId).toBe(first.sessionId);
+      expect(Object.keys((await instance.getState()).participants)).toEqual(["usr_a", "usr_b"]);
+      expect((await instance.getState()).participants.usr_a).toBe("edit");
+
+      // One editor leaving keeps the session (and its id) alive.
+      expect((await instance.dropParticipant("usr_a")).sessionClosed).toBe(false);
+      expect((await instance.getState()).sessionId).toBe(first.sessionId);
+      // The last editor leaving closes the session and clears the id.
+      expect((await instance.dropParticipant("usr_b")).sessionClosed).toBe(true);
+      expect((await instance.getState()).sessionId).toBeNull();
+    });
+  });
 });
