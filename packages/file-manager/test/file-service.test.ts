@@ -2,6 +2,7 @@ import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { FileId, FileVersionId, FolderId, MatterId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import {
+  commitEditedVersion,
   commitVersion,
   initiateUpload,
   moveFile,
@@ -65,6 +66,89 @@ async function commit(
   await commitEffectBatch(database, result.effect, { now });
   return result;
 }
+
+describe("commitEditedVersion", () => {
+  it("cuts a new immutable version from the current working object and advances the pointer", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId: v1 } = await initiate(database, matterId);
+    await commit(database, v1, "hash-v1");
+
+    const copies: Array<[string, string]> = [];
+    const result = await commitEditedVersion(
+      database,
+      {
+        fileId,
+        currentR2Key: `files/${fileId}/current`,
+        contentSha256: "hash-edited",
+        sizeBytes: 2048,
+        uploadedBy: ACTOR,
+      },
+      options,
+      async (from, to) => {
+        copies.push([from, to]);
+      },
+    );
+
+    expect(result.skipped).toBe(false);
+    expect(result.versionId).not.toBeNull();
+    // server-side copy: current -> the new version's opaque key (no bytes through the Worker)
+    expect(copies).toEqual([[`files/${fileId}/current`, `files/${fileId}/${result.versionId}`]]);
+
+    await commitEffectBatch(database, result.effect, { now });
+
+    const { results: rows } = await database
+      .prepare(
+        "SELECT id, version_number, content_sha256, status FROM file_version WHERE file_id = ?1 ORDER BY version_number",
+      )
+      .bind(fileId)
+      .all<{ id: string; version_number: number; content_sha256: string; status: string }>();
+    expect(rows.map((row) => row.version_number)).toEqual([1, 2]);
+    expect(rows[1].id).toBe(result.versionId);
+    expect(rows[1].content_sha256).toBe("hash-edited");
+    expect(rows[1].status).toBe("clean");
+
+    const { results: fileRow } = await database
+      .prepare("SELECT current_version_id FROM file WHERE id = ?1")
+      .bind(fileId)
+      .all<{ current_version_id: string }>();
+    expect(fileRow[0].current_version_id).toBe(result.versionId);
+  });
+
+  it("skips when the saved content matches the current version (no copy, no new version)", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId: v1 } = await initiate(database, matterId);
+    await commit(database, v1, "hash-unchanged");
+
+    const copies: string[] = [];
+    const result = await commitEditedVersion(
+      database,
+      {
+        fileId,
+        currentR2Key: `files/${fileId}/current`,
+        contentSha256: "hash-unchanged",
+        sizeBytes: 2048,
+        uploadedBy: ACTOR,
+      },
+      options,
+      async (from) => {
+        copies.push(from);
+      },
+    );
+
+    expect(result.skipped).toBe(true);
+    expect(result.versionId).toBeNull();
+    expect(copies).toEqual([]);
+    expect(result.effect.statements).toEqual([]);
+
+    const { results: rows } = await database
+      .prepare("SELECT version_number FROM file_version WHERE file_id = ?1")
+      .bind(fileId)
+      .all<{ version_number: number }>();
+    expect(rows).toHaveLength(1);
+  });
+});
 
 describe("initiateUpload", () => {
   it("creates a pending file that is invisible until a version commits", async () => {

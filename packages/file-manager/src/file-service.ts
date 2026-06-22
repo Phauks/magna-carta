@@ -339,6 +339,93 @@ export async function commitVersion(
   };
 }
 
+export interface CommitEditedVersionInput {
+  readonly fileId: FileId;
+  readonly currentR2Key: string; // the mutable `current` working object, copied into the new version
+  readonly contentSha256: string; // current's content hash (computed when it was written)
+  readonly sizeBytes: number;
+  readonly uploadedBy: UserId; // the session-owning member — the version's author and the audit actor
+}
+
+export interface CommittedEditedVersion {
+  readonly skipped: boolean;
+  readonly versionId: FileVersionId | null; // null when skipped
+  readonly effect: EffectWrite;
+}
+
+// Cuts an immutable version from the live `current` working object (the in-app editing path; there is
+// no upload session). A server-side R2 copy moves `current`'s bytes into the new version's opaque key,
+// then one batch inserts the committed version, advances the file's current pointer, meters the bytes,
+// audits, and emits the outbox event. An explicit save whose content matches the latest version is a
+// no-op — nothing is copied and no version is cut (the SHA-256 skip). copyObject is the injected
+// server-side R2 copy (current key -> version key), never a buffer through the Worker.
+export async function commitEditedVersion(
+  database: SqlDatabase,
+  input: CommitEditedVersionInput,
+  options: FileServiceOptions,
+  copyObject: (fromKey: string, toKey: string) => Promise<void>,
+): Promise<CommittedEditedVersion> {
+  const { results } = await selectCurrentVersionHashStatement(database, input.fileId).all<{
+    hash: string | null;
+  }>();
+  const currentHash = results[0]?.hash ?? null;
+  if (currentHash !== null && currentHash === input.contentSha256) {
+    return { skipped: true, versionId: null, effect: { statements: [], outboxMessages: [] } };
+  }
+
+  const { results: maxResults } = await selectMaxVersionNumberStatement(
+    database,
+    input.fileId,
+  ).all<{ n: number }>();
+  const versionNumber = (maxResults[0]?.n ?? 0) + 1;
+  const versionId = newIdentifier("fileVersion", options.randomSource);
+  const r2Key = fileVersionKey(input.fileId, versionId);
+  const now = options.clock.now();
+
+  // Move the bytes server-side BEFORE the metadata batch: if the copy fails, no row points at a
+  // missing object. The version row is inserted then immediately committed in the same atomic batch,
+  // so it is never observably pending. An in-app edit is trusted (no untrusted ingest), so the verdict
+  // is `unscanned`; the offline check-in path is what routes through the scan gate.
+  await copyObject(input.currentR2Key, r2Key);
+
+  return {
+    skipped: false,
+    versionId,
+    effect: {
+      statements: [
+        insertFileVersionStatement(database, {
+          id: versionId,
+          fileId: input.fileId,
+          versionNumber,
+          r2Key,
+          declaredContentType: null,
+          uploadedBy: input.uploadedBy,
+          createdAt: now,
+        }),
+        commitVersionStatement(database, {
+          versionId,
+          sizeBytes: input.sizeBytes,
+          sniffedContentType: null,
+          contentSha256: input.contentSha256,
+          scanVerdict: "unscanned",
+          scanEngineVersion: null,
+          committedAt: now,
+        }),
+        bumpFileCurrentVersionStatement(database, input.fileId, versionId, now),
+        ...meterCommitStatements(
+          database,
+          { storageClass: "standard", artifactRole: "original", prefix: FILES_PREFIX },
+          input.sizeBytes,
+        ),
+        fileAuditStatement(database, options, "file.version_committed", versionId),
+      ],
+      outboxMessages: [
+        { topic: "file.version_committed", payload: { fileId: input.fileId, versionId } },
+      ],
+    },
+  };
+}
+
 export async function quarantineVersion(
   database: SqlDatabase,
   input: { versionId: FileVersionId; reason: string },
