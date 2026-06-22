@@ -1,9 +1,10 @@
 // Regression-harness CLI for the PDF engine.  Modes:
-//   smoke    <corpus_dir>                          — parse + render page 0 via pdf-core; exits non-zero on any failure
-//   render   <input.pdf> <out_dir> [scale]         — hayro render to PNG
-//   parse    <corpus_dir>                          — lopdf + pdf-rs + hayro load-coverage
-//   fidelity <corpus_dir> <pdfium.dll> [dpi]       — hayro-vs-PDFium MSSIM per page (needs pdfium dll at runtime)
-//   pdfium   <input.pdf> <pdfium.dll> <out_dir> [dpi] — dump PDFium renders to PNG (needs pdfium dll at runtime)
+//   smoke         <corpus_dir>                          — parse + render page 0 via pdf-core; exits non-zero on any failure
+//   redact-smoke  <pdf>                                 — redact the entire first page and assert the verification gate passes
+//   render        <input.pdf> <out_dir> [scale]         — hayro render to PNG
+//   parse         <corpus_dir>                          — lopdf + pdf-rs + hayro load-coverage
+//   fidelity      <corpus_dir> <pdfium.dll> [dpi]       — hayro-vs-PDFium MSSIM per page (needs pdfium dll at runtime)
+//   pdfium        <input.pdf> <pdfium.dll> <out_dir> [dpi] — dump PDFium renders to PNG (needs pdfium dll at runtime)
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_syntax::Pdf;
 use hayro::{render, RenderCache, RenderSettings};
@@ -23,6 +24,7 @@ fn main() {
     let mut args = std::env::args().skip(1);
     match args.next().as_deref() {
         Some("smoke") => smoke_mode(args.next().expect("usage: smoke <corpus_dir>")),
+        Some("redact-smoke") => redact_smoke_mode(args.next().expect("usage: redact-smoke <pdf>")),
         Some("render") => render_mode(args.collect()),
         Some("parse") => parse_mode(args.next().expect("usage: parse <corpus_dir>")),
         #[cfg(feature = "pdfium")]
@@ -35,7 +37,9 @@ fn main() {
             std::process::exit(2);
         }
         other => {
-            eprintln!("unknown mode {other:?}; use smoke | render | parse | fidelity | pdfium");
+            eprintln!(
+                "unknown mode {other:?}; use smoke | redact-smoke | render | parse | fidelity | pdfium"
+            );
             std::process::exit(2);
         }
     }
@@ -68,6 +72,34 @@ fn smoke_mode(dir: String) {
     }
     if failures > 0 {
         std::process::exit(1);
+    }
+}
+
+fn redact_smoke_mode(path: String) {
+    let bytes = std::fs::read(&path).unwrap();
+    // Redact the entire first page; the gate must pass (the page becomes an image).
+    let regions = [pdf_core::RedactionRegion {
+        page: 0,
+        rect: pdf_core::Rect {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 100_000.0,
+            y1: 100_000.0,
+        },
+        reason: None,
+    }];
+    match pdf_core::redact(bytes, &regions, &pdf_core::RedactionOptions::default()) {
+        Ok(outcome) => {
+            println!(
+                "ok   redacted page(s) {:?}, {} bytes",
+                outcome.report.pages_redacted,
+                outcome.pdf.len()
+            );
+        }
+        Err(e) => {
+            eprintln!("FAIL redaction gate: {e:?}");
+            std::process::exit(1);
+        }
     }
 }
 

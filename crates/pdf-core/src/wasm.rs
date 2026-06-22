@@ -98,13 +98,31 @@ impl From<crate::RedactError> for JsError {
 }
 
 #[wasm_bindgen(js_name = redactDocument)]
-pub fn redact_document(bytes: Vec<u8>, regions: JsValue, opts: JsValue) -> Result<JsValue, JsError> {
+pub fn redact_document(
+    bytes: Vec<u8>,
+    regions: JsValue,
+    opts: JsValue,
+) -> Result<JsValue, JsError> {
     #[derive(serde::Deserialize)]
-    struct JsRect { x0: f32, y0: f32, x1: f32, y1: f32 }
+    struct JsRect {
+        x0: f32,
+        y0: f32,
+        x1: f32,
+        y1: f32,
+    }
     #[derive(serde::Deserialize)]
-    struct JsRegion { page: usize, rect: JsRect, #[serde(default)] reason: Option<String> }
+    struct JsRegion {
+        page: usize,
+        rect: JsRect,
+        #[serde(default)]
+        reason: Option<String>,
+    }
     #[derive(serde::Deserialize, Default)]
-    struct JsOpts { dpi: Option<f32>, #[serde(rename = "redactedText", default)] redacted_text: Vec<String> }
+    struct JsOpts {
+        dpi: Option<f32>,
+        #[serde(rename = "redactedText", default)]
+        redacted_text: Vec<String>,
+    }
 
     let js_regions: Vec<JsRegion> = serde_wasm_bindgen::from_value(regions)?;
     let js_opts: JsOpts = if opts.is_undefined() || opts.is_null() {
@@ -117,7 +135,12 @@ pub fn redact_document(bytes: Vec<u8>, regions: JsValue, opts: JsValue) -> Resul
         .into_iter()
         .map(|r| RedactionRegion {
             page: r.page,
-            rect: Rect { x0: r.rect.x0, y0: r.rect.y0, x1: r.rect.x1, y1: r.rect.y1 },
+            rect: Rect {
+                x0: r.rect.x0,
+                y0: r.rect.y0,
+                x1: r.rect.x1,
+                y1: r.rect.y1,
+            },
             reason: r.reason,
         })
         .collect();
@@ -129,8 +152,12 @@ pub fn redact_document(bytes: Vec<u8>, regions: JsValue, opts: JsValue) -> Resul
     let outcome = redact(bytes, &regions, &options)?;
 
     let result = js_sys::Object::new();
-    js_sys::Reflect::set(&result, &"pdf".into(), &js_sys::Uint8Array::from(&outcome.pdf[..]))
-        .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    js_sys::Reflect::set(
+        &result,
+        &"pdf".into(),
+        &js_sys::Uint8Array::from(&outcome.pdf[..]),
+    )
+    .map_err(|e| JsError::new(&format!("{e:?}")))?;
     let pages = js_sys::Array::new();
     for p in outcome.report.pages_redacted {
         pages.push(&JsValue::from(p as u32));

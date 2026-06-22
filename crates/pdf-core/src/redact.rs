@@ -30,7 +30,10 @@ pub struct RedactionOptions {
 
 impl Default for RedactionOptions {
     fn default() -> Self {
-        Self { dpi: 300.0, redacted_text: Vec::new() }
+        Self {
+            dpi: 300.0,
+            redacted_text: Vec::new(),
+        }
     }
 }
 
@@ -91,7 +94,9 @@ pub(crate) fn reassemble_page(
     let mut resources = Dictionary::new();
     resources.set("XObject", Object::Dictionary(xobjects));
 
-    let page = doc.get_dictionary_mut(page_id).map_err(|_| RedactError::Reassemble)?;
+    let page = doc
+        .get_dictionary_mut(page_id)
+        .map_err(|_| RedactError::Reassemble)?;
     page.set("Contents", Object::Reference(content_id));
     page.set("Resources", Object::Dictionary(resources));
     page.set(
@@ -114,8 +119,12 @@ pub(crate) fn render_redacted_page(
     rects: &[Rect],
     dpi: f32,
 ) -> Result<(Vec<u8>, u32, u32), RedactError> {
-    let size = doc.page_size(page).map_err(|_| RedactError::PageOutOfRange)?;
-    let rendered = doc.render_page(page, dpi, false).map_err(|_| RedactError::Render)?;
+    let size = doc
+        .page_size(page)
+        .map_err(|_| RedactError::PageOutOfRange)?;
+    let rendered = doc
+        .render_page(page, dpi, false)
+        .map_err(|_| RedactError::Render)?;
     let (w, h) = (rendered.width, rendered.height);
     let mut rgba = rendered.data; // RGBA8, row-major
 
@@ -217,7 +226,9 @@ pub fn redact(
 
     let mut redacted: Vec<usize> = Vec::new();
     for (&page, rects) in &by_page {
-        let size = render_doc.page_size(page).map_err(|_| RedactError::PageOutOfRange)?;
+        let size = render_doc
+            .page_size(page)
+            .map_err(|_| RedactError::PageOutOfRange)?;
         let (rgb, w, h) = render_redacted_page(&render_doc, page, rects, opts.dpi)?;
         let page_id = *pages
             .get(&((page + 1) as u32))
@@ -243,14 +254,23 @@ pub fn redact(
         });
     }
     Ok(RedactionOutcome {
-        report: RedactionReport { pages_redacted: redacted, region_count: regions.len() },
+        report: RedactionReport {
+            pages_redacted: redacted,
+            region_count: regions.len(),
+        },
         pdf,
     })
 }
 
 /// Map a display-point rect to a pixel rect on the rendered raster, applying the
 /// y-flip (PDF y-up, bottom-left → image y-down, top-left), corner ordering, and clamping.
-pub fn rect_to_pixels(r: &Rect, page_w_pt: f32, page_h_pt: f32, px_w: u32, px_h: u32) -> (u32, u32, u32, u32) {
+pub fn rect_to_pixels(
+    r: &Rect,
+    page_w_pt: f32,
+    page_h_pt: f32,
+    px_w: u32,
+    px_h: u32,
+) -> (u32, u32, u32, u32) {
     let sx = px_w as f32 / page_w_pt;
     let sy = px_h as f32 / page_h_pt;
     let clamp_x = |v: f32| v.clamp(0.0, px_w as f32);
@@ -275,7 +295,12 @@ mod tests {
     fn burns_an_opaque_black_box() {
         let doc = blank_doc();
         // 100x100 pt box near the bottom-left of a 612x792 page, at 72 dpi (1 px/pt).
-        let rects = [Rect { x0: 100.0, y0: 100.0, x1: 200.0, y1: 200.0 }];
+        let rects = [Rect {
+            x0: 100.0,
+            y0: 100.0,
+            x1: 200.0,
+            y1: 200.0,
+        }];
         let (rgb, w, h) = render_redacted_page(&doc, 0, &rects, 72.0).unwrap();
         assert_eq!((w, h), (612, 792));
         assert_eq!(rgb.len(), (w * h * 3) as usize);
@@ -294,7 +319,12 @@ mod tests {
         // A 612x792 pt page rendered at 1 px/pt (px == pt for the math).
         // Rect at the page's bottom-left corner (PDF y-up) maps to the
         // raster's BOTTOM (image y-down).
-        let r = Rect { x0: 0.0, y0: 0.0, x1: 100.0, y1: 50.0 };
+        let r = Rect {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 100.0,
+            y1: 50.0,
+        };
         let (x0, y0, x1, y1) = rect_to_pixels(&r, 612.0, 792.0, 612, 792);
         assert_eq!((x0, x1), (0, 100));
         // y-up [0,50] -> image rows [792-50, 792-0] = [742, 792]
@@ -304,7 +334,12 @@ mod tests {
     #[test]
     fn scales_by_resolution_and_orders_corners() {
         // 2 px/pt; corners given unordered.
-        let r = Rect { x0: 100.0, y0: 100.0, x1: 50.0, y1: 50.0 };
+        let r = Rect {
+            x0: 100.0,
+            y0: 100.0,
+            x1: 50.0,
+            y1: 50.0,
+        };
         let (x0, y0, x1, y1) = rect_to_pixels(&r, 100.0, 100.0, 200, 200);
         assert_eq!((x0, x1), (100, 200)); // 50..100 pt * 2
         assert_eq!((y0, y1), (0, 100)); // y-up 50..100 -> top of a 200px raster
@@ -318,15 +353,26 @@ mod tests {
     fn redact_removes_target_text_and_passes_gate() {
         let regions = [RedactionRegion {
             page: 0,
-            rect: Rect { x0: 0.0, y0: 0.0, x1: 1000.0, y1: 1000.0 }, // cover the whole page
+            rect: Rect {
+                x0: 0.0,
+                y0: 0.0,
+                x1: 1000.0,
+                y1: 1000.0,
+            }, // cover the whole page
             reason: Some("PII".into()),
         }];
-        let opts = RedactionOptions { dpi: 150.0, redacted_text: vec!["Hello".into()] };
+        let opts = RedactionOptions {
+            dpi: 150.0,
+            redacted_text: vec!["Hello".into()],
+        };
         let outcome = redact(hello_bytes(), &regions, &opts).expect("redaction succeeds");
         assert_eq!(outcome.report.pages_redacted, vec![0]);
         // the redacted text is gone from the emitted PDF
         let reloaded = lopdf::Document::load_mem(&outcome.pdf).unwrap();
-        assert!(!reloaded.extract_text(&[1]).unwrap_or_default().contains("Hello"));
+        assert!(!reloaded
+            .extract_text(&[1])
+            .unwrap_or_default()
+            .contains("Hello"));
     }
 
     #[test]
@@ -347,7 +393,12 @@ mod tests {
         // from the emitted file — not merely unreachable via text extraction.
         let regions = [RedactionRegion {
             page: 0,
-            rect: Rect { x0: 0.0, y0: 0.0, x1: 1000.0, y1: 1000.0 },
+            rect: Rect {
+                x0: 0.0,
+                y0: 0.0,
+                x1: 1000.0,
+                y1: 1000.0,
+            },
             reason: None,
         }];
         let outcome = redact(hello_bytes(), &regions, &RedactionOptions::default()).unwrap();
@@ -360,7 +411,10 @@ mod tests {
     #[test]
     fn output_byte_scan_detects_surviving_plaintext() {
         let pdf = b"prefix (Secret) Tj suffix".to_vec();
-        assert_eq!(first_surviving_text(&pdf, &["Secret".into()]), Some("Secret".into()));
+        assert_eq!(
+            first_surviving_text(&pdf, &["Secret".into()]),
+            Some("Secret".into())
+        );
         assert_eq!(first_surviving_text(&pdf, &["Absent".into()]), None);
         // empty strings are ignored, never reported as surviving
         assert_eq!(first_surviving_text(&pdf, &[String::new()]), None);
@@ -385,6 +439,10 @@ mod tests {
         lo.save_to(&mut out).unwrap();
         let reloaded = lopdf::Document::load_mem(&out).unwrap();
         // the page is now an image — no extractable text survives
-        assert!(reloaded.extract_text(&[1]).unwrap_or_default().trim().is_empty());
+        assert!(reloaded
+            .extract_text(&[1])
+            .unwrap_or_default()
+            .trim()
+            .is_empty());
     }
 }
