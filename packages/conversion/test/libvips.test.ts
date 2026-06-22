@@ -4,7 +4,12 @@ import { libvipsAdapter } from "../src/adapters/libvips/index.ts";
 describe("libvips adapter", () => {
   it("converts PNG to WebP", async () => {
     const png = await makePng();
-    const result = await libvipsAdapter.convert({ bytes: png, from: "png", to: "webp", recipeRef: "webp" });
+    const result = await libvipsAdapter.convert({
+      bytes: png,
+      from: "png",
+      to: "webp",
+      recipeRef: "webp",
+    });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.mediaType).toBe("image/webp");
@@ -16,7 +21,12 @@ describe("libvips adapter", () => {
 
   it("converts JPEG to PNG and preserves dimensions", async () => {
     const jpeg = await makeJpeg();
-    const result = await libvipsAdapter.convert({ bytes: jpeg, from: "jpeg", to: "png", recipeRef: "png" });
+    const result = await libvipsAdapter.convert({
+      bytes: jpeg,
+      from: "jpeg",
+      to: "png",
+      recipeRef: "png",
+    });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.bytes[0]).toBe(0x89); // PNG magic
@@ -37,7 +47,12 @@ describe("libvips adapter", () => {
 
   it("returns unsupported-edge for a non-raster target", async () => {
     const png = await makePng();
-    const result = await libvipsAdapter.convert({ bytes: png, from: "png", to: "pdf", recipeRef: "pdf" });
+    const result = await libvipsAdapter.convert({
+      bytes: png,
+      from: "png",
+      to: "pdf",
+      recipeRef: "pdf",
+    });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe("unsupported-edge");
   });

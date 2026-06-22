@@ -84,9 +84,9 @@ package until a second adapter forces the split — the integration-framework pr
 
 - A `ConversionPort` implementation over **wasm-vips** (`kleisauke/wasm-vips`), **tested in Node.js**
   with golden-file conversions (wasm-vips runs in Node 17+). Written **runtime-agnostic** so its
-  production placement is a later swap: wasm-vips-in-Worker is viable only for *small* images
+  production placement is a later swap: wasm-vips-in-Worker is viable only for _small_ images
   (Workers cap each isolate at 128 MB, cannot thread, WASI is experimental, the `.wasm` is ~4.6 MB —
-  there is only an *experimental* `cf-worker-wasm-vips`), so the real/large path will be native
+  there is only an _experimental_ `cf-worker-wasm-vips`), so the real/large path will be native
   libvips in a Container when the substrate lands. **This slice does not deploy libvips to a Worker**
   — it builds and proves the adapter.
 - **v1 formats:** the common raster set — **PNG / JPEG / WebP / TIFF / GIF** interconversions; **AVIF
@@ -94,7 +94,7 @@ package until a second adapter forces the split — the integration-framework pr
 - **Safe-load posture:** the libvips untrusted-input guard (the `VIPS_BLOCK_UNTRUSTED` equivalent) is
   set — the in-tenant, network-free engine, consistent with the cross-cutting untrusted-input posture
   in the research doc.
-- **Image → PDF is *not* in v1** — that direction wraps the raster into a PDF via the seamed PDF
+- **Image → PDF is _not_ in v1** — that direction wraps the raster into a PDF via the seamed PDF
   engine (the in-flight Rust engine), so it waits on that seam.
 
 ## 7. FFmpeg + Office edges registered; bodies deferred

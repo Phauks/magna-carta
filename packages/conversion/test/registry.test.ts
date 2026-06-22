@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EDGES, FORMATS, edgesFrom, getFormat } from "../src/registry.ts";
+import { EDGES, edgesFrom, getFormat } from "../src/registry.ts";
 
 describe("registry", () => {
   it("registers the v1 formats", () => {
@@ -14,8 +14,12 @@ describe("registry", () => {
   });
 
   it("has the two LibreOffice edges that chain wpd->odt->pdf", () => {
-    expect(EDGES.some((e) => e.from === "wpd" && e.to === "odt" && e.engineId === "libreoffice")).toBe(true);
-    expect(EDGES.some((e) => e.from === "odt" && e.to === "pdf" && e.engineId === "libreoffice")).toBe(true);
+    expect(
+      EDGES.some((e) => e.from === "wpd" && e.to === "odt" && e.engineId === "libreoffice"),
+    ).toBe(true);
+    expect(
+      EDGES.some((e) => e.from === "odt" && e.to === "pdf" && e.engineId === "libreoffice"),
+    ).toBe(true);
   });
 
   it("edgesFrom returns only edges leaving a node", () => {

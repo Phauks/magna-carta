@@ -4,9 +4,9 @@
 **Scope:** How the platform should generate file-format conversions (the slice 2·4 deliverable) — the
 any-format → any-format converter surfaced in the file manager. Covers the engine model, the format
 registry, the engine roster and which paths are buildable now, execution placement, and the
-confidentiality posture. Excludes the heavy PDF *manipulation* operations (merge/split/stamp/redact/
+confidentiality posture. Excludes the heavy PDF _manipulation_ operations (merge/split/stamp/redact/
 Bates) — those are slice 2·5's _PDF services_ and are most affected by the in-flight pure-Rust PDF
-engine; 2·4 touches PDF only at conversion *edges* (Office→PDF, image↔PDF, scanned→searchable,
+engine; 2·4 touches PDF only at conversion _edges_ (Office→PDF, image↔PDF, scanned→searchable,
 email→PDF).
 **Purpose:** Park what this pass established and name the open gates so the eventual 2·4 **design**
 cycle starts from evidence rather than a cold start. Input to a future design, **not** a design. The
@@ -15,7 +15,7 @@ concrete engine/registry decisions and the one **reframe** of the published stan
 **Status (owner, 2026-06-21): RESEARCH IN PROGRESS — direction shaped; home = slice 2·4.** The full
 2·4 design cycle is **gated** on the shared execution substrate landing (2·1's Queue/Container/
 Durable-Object orchestration; 2·2's per-document LibreOffice container pattern), so this doc
-deliberately *references* that substrate rather than re-deciding it. The headline reframe (in-house-
+deliberately _references_ that substrate rather than re-deciding it. The headline reframe (in-house-
 only → pluggable engines with confidentiality as the default) needs its own ADR and a white-paper
 amendment when 2·4 is designed; this doc is the evidence base for that decision, not a substitute.
 
@@ -30,7 +30,8 @@ amendment when 2·4 is designed; this doc is the evidence base for that decision
 > pluggable/egress framing in §1–§3 does **not**. **Still valid:** the engine surveys (§4 —
 > LibreOffice/email/libvips/FFmpeg), the §5 LibreOfficeKit-fork-pool decision, and the cross-cutting
 > untrusted-input posture. Authoritative now: [`docs/specs/2026-06-21-slice-2-4a-conversion-core-design.md`](../specs/2026-06-21-slice-2-4a-conversion-core-design.md)
-> + ADR-conversion-in-house-only-single-engine.
+>
+> - ADR-conversion-in-house-only-single-engine.
 
 ---
 
@@ -56,7 +57,7 @@ These come from the published _In-app file conversion_ design and are treated as
 The open work below is narrower than a fresh slice: it firms up the engine model, the registry's
 shape, the roster, and the one stance change.
 
-## 1. The reframe (headline): in-house *by default*, not in-house *only*
+## 1. The reframe (headline): in-house _by default_, not in-house _only_
 
 The published design frames the converter as **in-house only, by design** — privileged bytes go
 R2 → our Container → R2 and **never egress**; CloudConvert/Zamzar-style services were explicitly
@@ -72,7 +73,7 @@ The reframe that reconciles the two:
 > exception — never the default.**
 
 This keeps the confidentiality principle as the structural default (nothing egresses unless a firm
-*chose* to enable a vendor *and* the content class permits it) while honoring the intent to support
+_chose_ to enable a vendor _and_ the content class permits it) while honoring the intent to support
 external engines. It is a real change to the published stance, so the 2·4 design cycle owes:
 
 - an **ADR** recording the in-house-default / external-opt-in model and the egress-consent rule; and
@@ -97,7 +98,7 @@ descriptors, registry + typed dispatch, the per-firm connection + credential-sto
   connecting any integration; the firm owns that decision, and the converter enforces the
   in-tenant-default policy on top of it.
 
-This makes "support other engines" an *additive adapter* problem rather than a rewrite, and it puts
+This makes "support other engines" an _additive adapter_ problem rather than a rewrite, and it puts
 both credentialed and credential-less engine types in one registry from the start.
 
 ## 3. Format registry + pathfinding — a graph, not a table
@@ -110,20 +111,20 @@ more than one engine:
 - **Multi-hop chaining** is shortest-path over that graph when no direct edge exists
   (e.g. `WPD → ODT → PDF` via LibreOffice), weightable by fidelity/cost so the orchestrator prefers
   fewer, higher-fidelity hops.
-- **Engine selection is policy-driven**, evaluated *after* a path is found: prefer the `in-tenant`
+- **Engine selection is policy-driven**, evaluated _after_ a path is found: prefer the `in-tenant`
   candidate; choose an `egress-to-vendor` candidate only when the firm has enabled it **and** the
   content class permits egress. Privileged content never selects an egress engine.
 - **Per-firm available conversions = the union of the enabled engines' descriptors.** Connect Adobe →
   new edges light up in that firm's **Convert to…** menu; disconnect → they disappear. The menu stays
   data-driven, now per-firm.
 
-**Data-model sketch (illustrative — the *shape*, not the storage decision).** Two layers:
+**Data-model sketch (illustrative — the _shape_, not the storage decision).** Two layers:
 
 - **Platform-defined (security-sensitive — it drives what runs):**
   - `Format` — node; id (mime/extension), label.
   - `ConversionEdge` — `from Format → to Format`, carrying **1..N** `EngineCandidate`.
   - `EngineCandidate` — `engineId` · `recipe` · `fidelity` · `cost` · **`confidentiality: in-tenant |
-    egress`**.
+egress`**.
   - `Engine` / adapter (behind one `ConversionPort`) — id · kind (`in-tenant container` |
     `external credentialed`) · **capability descriptor** = the edge set it serves.
 - **Per-firm overlay (enablement + policy only):**
@@ -131,25 +132,25 @@ more than one engine:
     the credential store).
   - `EgressPolicy` — which content-classes may use an `egress` engine (default: none — privileged
     never egresses).
-  - **Derived:** a firm's *available conversions* = the union of its enabled engines' descriptors →
+  - **Derived:** a firm's _available conversions_ = the union of its enabled engines' descriptors →
     drives the data-driven **Convert to…** menu.
 
 **Open design question:** whether the platform layer is static configuration (code) or data-backed in
 D1; the per-firm overlay is data either way. Recommendation to evaluate in design: **static
 platform-defined edges/recipes with a per-firm enablement + policy overlay** — the format knowledge
-is platform-wide and security-sensitive (it drives what runs), while only *enablement* and *policy*
+is platform-wide and security-sensitive (it drives what runs), while only _enablement_ and _policy_
 are per-firm.
 
 ## 4. Engine roster — concrete where buildable, seamed where not
 
-| Engine family | Edges | Status for the first build | Notes |
-| --- | --- | --- | --- |
-| **LibreOffice headless** | Office (DOCX/XLSX/PPTX/ODF/legacy) ↔ PDF, and inter-office | **Launch spine — buildable now** | Same LibreOffice core as Collabora (2·2). Runtime survey + the concurrency/font findings in §5. No other-slice dependency. |
-| **email → PDF** | MSG/EML → PDF (exhibits) | **Launch spine — buildable now** | High litigation value. Pipeline + library survey firmed up below (2026-06-21). Render step has a real fidelity-vs-roster-weight choice + a network-isolation requirement. |
-| **libvips** | images; image → PDF (raster wrap) | **Fast-follow** | **Security-favored over ImageMagick** (survey below); set `VIPS_BLOCK_UNTRUSTED`. The image→PDF *wrap* leans on the seamed PDF engine; libvips owns the pixel transforms. |
-| **FFmpeg (self-hosted)** | audio/video transcodes | **Fast-follow** | **Same engine + recipe as 2·3's deferred inline-preview transcoding** (MP4/H.264/AAC + `faststart`). **High untrusted-media risk** — survey below mandates a hardened sandbox. |
-| **PDF engine** | scanned-PDF structure, PDF as a conversion endpoint | **⟦SEAM⟧ — named port, recipe deferred** | Rides the in-flight **pure-Rust PDF engine** (succeeds the PDFium fork). The registry carries the edge; the engine binding fills in when that engine lands. No PDFium/`embedpdf`-era naming bleeds into the conversion design. |
-| **OCR (scanned → searchable PDF)** | image/scanned-PDF → searchable PDF | **⟦SEAM⟧ — named port, recipe deferred** | Rides Phase-5 Discovery's OCR engine (PaddleOCR PP-OCRv5 via ONNX/`ort`), which is **not built yet** — this path cannot run until it lands. Modelled now, bound later. |
+| Engine family                      | Edges                                                      | Status for the first build               | Notes                                                                                                                                                                                                                          |
+| ---------------------------------- | ---------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **LibreOffice headless**           | Office (DOCX/XLSX/PPTX/ODF/legacy) ↔ PDF, and inter-office | **Launch spine — buildable now**         | Same LibreOffice core as Collabora (2·2). Runtime survey + the concurrency/font findings in §5. No other-slice dependency.                                                                                                     |
+| **email → PDF**                    | MSG/EML → PDF (exhibits)                                   | **Launch spine — buildable now**         | High litigation value. Pipeline + library survey firmed up below (2026-06-21). Render step has a real fidelity-vs-roster-weight choice + a network-isolation requirement.                                                      |
+| **libvips**                        | images; image → PDF (raster wrap)                          | **Fast-follow**                          | **Security-favored over ImageMagick** (survey below); set `VIPS_BLOCK_UNTRUSTED`. The image→PDF _wrap_ leans on the seamed PDF engine; libvips owns the pixel transforms.                                                      |
+| **FFmpeg (self-hosted)**           | audio/video transcodes                                     | **Fast-follow**                          | **Same engine + recipe as 2·3's deferred inline-preview transcoding** (MP4/H.264/AAC + `faststart`). **High untrusted-media risk** — survey below mandates a hardened sandbox.                                                 |
+| **PDF engine**                     | scanned-PDF structure, PDF as a conversion endpoint        | **⟦SEAM⟧ — named port, recipe deferred** | Rides the in-flight **pure-Rust PDF engine** (succeeds the PDFium fork). The registry carries the edge; the engine binding fills in when that engine lands. No PDFium/`embedpdf`-era naming bleeds into the conversion design. |
+| **OCR (scanned → searchable PDF)** | image/scanned-PDF → searchable PDF                         | **⟦SEAM⟧ — named port, recipe deferred** | Rides Phase-5 Discovery's OCR engine (PaddleOCR PP-OCRv5 via ONNX/`ort`), which is **not built yet** — this path cannot run until it lands. Modelled now, bound later.                                                         |
 
 ### email → PDF — library survey (2026-06-21)
 
@@ -160,7 +161,7 @@ owner's compiled-language preference applied (freshness re-confirmed at build ti
 
 - **EML / MIME → `mail-parser`** (Stalwart Labs). **Adopt.** 100% safe Rust, **no external
   dependencies**, conforms to RFC 5322 + MIME (RFC 2045–2049) and many messaging RFCs, and returns a
-  *human-friendly* shape (text parts / HTML parts / attachments) instead of a raw nested MIME tree —
+  _human-friendly_ shape (text parts / HTML parts / attachments) instead of a raw nested MIME tree —
   it even synthesizes the missing HTML-or-text alternative automatically. Runs in production in the
   Stalwart Mail Server; **last published 2026-02-14** (actively maintained). This is the same library
   family already favored elsewhere for MIME work.
@@ -188,7 +189,7 @@ existing save-vs-download choice).
    threat. Adopting it would import a critical hole.
 2. **The render must run network-isolated** — no outbound fetch of any kind (remote images, external
    CSS, iframes); inline only the message's own CID parts. This is the same untrusted-bytes posture as
-   slice 2·3's safe-delivery sandbox, applied at *generation* time, and it neutralizes the SSRF class
+   slice 2·3's safe-delivery sandbox, applied at _generation_ time, and it neutralizes the SSRF class
    above regardless of engine.
 
    Under those constraints the in-tenant render choice is a **fidelity-vs-roster-weight trade**, to
@@ -197,7 +198,7 @@ existing save-vs-download choice).
      HTML/CSS-email fidelity is mediocre.
    - **Headless Chromium** (Gotenberg-style) — best HTML/CSS-email fidelity, but adds a browser engine
      to the Container roster and costs ~6–11× the CPU/RAM of a lightweight renderer.
-   - **The in-flight Rust PDF engine** is a PDF *writer/parser*, not an HTML layout engine, so it is
+   - **The in-flight Rust PDF engine** is a PDF _writer/parser_, not an HTML layout engine, so it is
      **not** a drop-in HTML→PDF renderer unless paired with an HTML layout stage — note it, don't bank
      on it.
 
@@ -217,14 +218,14 @@ from the design.
   refuse any operation tagged untrusted at runtime — set it. This **refines the published wording**
   ("libvips, ImageMagick fallback"): prefer libvips, and treat ImageMagick as a sandboxed
   last-resort for a format libvips genuinely can't handle, never a casual fallback. Note libvips's
-  PDF support is mainly *loading* (via PDFium/poppler); **image→PDF rendering wraps the raster into a
+  PDF support is mainly _loading_ (via PDFium/poppler); **image→PDF rendering wraps the raster into a
   PDF via the seamed PDF engine**, so that direction inherits the PDF-engine seam.
 - **FFmpeg (A/V transcode). One engine, two consumers — and the roster's highest-risk component.**
   - **Capability is settled:** the web-playable rendition is the standard recipe —
     `ffmpeg -i in -c:v libx264 -crf 23 -preset medium -c:a aac -b:a 128k -movflags +faststart out.mp4`
     — H.264/AAC in MP4 with **`+faststart`** (moves the `moov` atom to the front for progressive
     playback). This is **the exact MP4/H.264/AAC rendition 2·3's deferred inline-preview transcoding
-    wants** — 2·4 conversion and the 2·3 preview path are the *same engine and recipe*, build once.
+    wants** — 2·4 conversion and the 2·3 preview path are the _same engine and recipe_, build once.
   - **Security is the catch:** FFmpeg is a **high-risk parser of untrusted media** — a large, ongoing
     CVE stream (heap/stack overflows, use-after-free, OOB across demuxers/decoders; recent
     RCE-from-a-tiny-packet disclosures). Automatically processing user-supplied media is precisely
@@ -241,17 +242,17 @@ engine parses bytes that arrived from outside the firm.** The same posture binds
 should be stated once in the design, not per-engine: run **network-isolated** (no outbound fetch —
 kills SSRF-via-URL and remote-resource exfil), **least-privilege + sandboxed** (unprivileged user,
 seccomp/AppArmor, minimal FS), and **attack-surface-minimized** (build engines with only the
-codecs/demuxers/filters we convert). This is the *generation-time* twin of slice 2·1's scanning and
+codecs/demuxers/filters we convert). This is the _generation-time_ twin of slice 2·1's scanning and
 slice 2·3's safe-delivery sandbox — the converter is another untrusted-bytes boundary and inherits
 the same rules.
 
 ## 5. Office ↔ PDF — LibreOffice runtime survey (2026-06-21)
 
 LibreOffice and Collabora are **not** the same thing: LibreOffice is the conversion-capable office
-suite; **Collabora Online** (the `coolwsd` daemon 2·2 uses) is a *browser-based collaborative
-editing* server built **on top of** the same LibreOffice core — the WOPI tier the owner isolated to
+suite; **Collabora Online** (the `coolwsd` daemon 2·2 uses) is a _browser-based collaborative
+editing_ server built **on top of** the same LibreOffice core — the WOPI tier the owner isolated to
 one container per open document. They share the core (identical conversion fidelity), so the choice
-is purely *which runtime* 2·4 calls. Three real options:
+is purely _which runtime_ 2·4 calls. Three real options:
 
 - **(A) Standalone headless `soffice --headless --convert-to`** in a conversion Container — keeps
   conversion off the interactive editing tier; conversion load never competes with live editing.
@@ -284,11 +285,11 @@ is purely *which runtime* 2·4 calls. Three real options:
 
 **Decision (owner, 2026-06-21): Option A — a standalone, decoupled conversion Container — implemented
 via the LibreOfficeKit fork-pool pattern (modeled on Collabora's `convert-to` internals), not naive
-`soffice --convert-to` CLI.** B is retained as the fallback; C is not a separate path — it *is* A's
+`soffice --convert-to` CLI.** B is retained as the fallback; C is not a separate path — it _is_ A's
 implementation. The owner's instinct ("look at how B does it and base A on that") is the design.
 
 **Why A and C converge — how Collabora's `convert-to` works inside (researched 2026-06-21).** Collabora
-is robust not because of the CLI but because of *how it isolates each job*:
+is robust not because of the CLI but because of _how it isolates each job_:
 
 - `coolwsd` routes the request through `ConvertToBroker::startConversion()`; a **`ForKit`** process
   holds **LibreOfficeKit pre-initialized once** (a warm template) and **forks one `kit` child per
@@ -296,15 +297,15 @@ is robust not because of the CLI but because of *how it isolates each job*:
 - Each `kit` runs in a **chroot jail** (modern builds use Linux namespaces — spawn ~40ms → ~6ms); LOK
   loads the document, saves the target format, returns, and the jail is torn down.
 - Robustness = **process-per-job + jail**, and because **LOK is single-instance-per-process**, it is
-  structurally one conversion per process — concurrency is just *more processes*. (This is the same
+  structurally one conversion per process — concurrency is just _more processes_. (This is the same
   root cause as the `soffice` profile-lock failure in the concurrency finding above: one LOK/LO state
   per process, full stop.)
 
 **So the implementation pattern for A** is the LibreOffice Foundation's own recommended conversion
 architecture (TDF, 2024): a **warm LOK master** that **spawns an isolated worker process per
 conversion** (named-pipe dispatch), each worker its own LOK instance doing one job at a time, the pool
-**health-monitored and recycled** on crash/hang. A is the *placement* (our own Container, decoupled
-from the 2·2 editing tier — the benefit chosen); the LOK fork-pool is the *mechanism* (B's robustness,
+**health-monitored and recycled** on crash/hang. A is the _placement_ (our own Container, decoupled
+from the 2·2 editing tier — the benefit chosen); the LOK fork-pool is the _mechanism_ (B's robustness,
 in our box).
 
 **We can base it on their code.** Collabora Online is **MPL-2.0** open source (mirror

@@ -80,6 +80,7 @@ _Deliverable: ethics-critical intake screening and physical-original custody._ (
 
 - **Slice 4·1 — Conflicts matching engine.** Firm-wide matching over the Directory graph (1·3) + role-links: the Fellegi-Sunter scorer, severity bands, configurable strictness/depth, graph traversal, and the immutable conflicts log. Fuzzy-name matching runs on the plaintext name columns; the exact-identifier channel runs on the `protected()` HMAC blind index (1·2) — the exact-vs-fuzzy split in [`docs/research/protected-crypto-module.md`](docs/research/protected-crypto-module.md). The Phase-4 Rust/WASM core lands here (Beider-Morse, additive to the 1·3 Double-Metaphone substrate). **Deterministic — no AI in the authoritative conflicts decision** (defensibility). The firm-personnel-as-Directory-entities question (flagged in 1·3) is reconsidered here. _Gate: needs its own research + spec (Backlog — conflicts-matching engine)._
 - **Slice 4·2 — Custodian.** The physical-original custody subsystem: the custody hierarchy rooted at a Location (Location → safe → box → position), items, labels, scans, reminders, and the immutable check-in/out custody log; destruction blocked by holds. _Gate: roots at Location (1·1)._
+
 ### Email filing & capture — sequenced before Discovery
 
 A cross-phase entry, not a Phase 4 slice — pinned here so Discovery's email-as-evidence builds on its record model. Its own design → plan cycle and STATUS rows land when it opens.
@@ -113,6 +114,7 @@ Each integration is a Worker behind its port, on the `@magna-carta/integrations`
 - **Slice 7·2 — Accounting & banking.** QuickBooks, bank feeds.
 - **Slice 7·3 — Legal research & courts.** Westlaw / LexisNexis, e-filing / courts.
 - **Slice 7·4 — Messaging & voice.** Telnyx (carrier decided, ADR-0047); two-way client texting and receptionist call intake. _AI: in-house Workers AI transcription._
+
 ### Ongoing & cross-cutting
 
 - Maintenance agents, ADRs, user + developer docs, the load-profile performance harness (golden rule 10's measurer — **built 2026-06-12, ADR-0083**; see _Cross-cutting_ above). **When available:** the one-time **LEAP migration** — the sole legacy input; trust balances are the hard reconciliation gate before any cutover.

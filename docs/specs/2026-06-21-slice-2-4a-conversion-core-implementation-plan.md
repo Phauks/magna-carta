@@ -22,6 +22,7 @@
 ### Task 1: Scaffold the `@magna-carta/conversion` package
 
 **Files:**
+
 - Create: `packages/conversion/package.json`
 - Create: `packages/conversion/vitest.config.ts`
 - Create: `packages/conversion/tsconfig.json`
@@ -30,6 +31,7 @@
 - Test: `packages/conversion/test/smoke.test.ts`
 
 **Interfaces:**
+
 - Produces: the installable package `@magna-carta/conversion` with a working Vitest setup. No exported symbols yet beyond a version marker.
 
 - [ ] **Step 1: Write the failing smoke test**
@@ -106,7 +108,7 @@ pathfinding + a `ConversionPort`, plus the libvips image adapter. No D1, no Hono
 network, no UI.
 
 - **In-house only, one engine per edge.** A `ConversionEdge` is `{ from, to, engineId, recipeRef,
-  weight }`. There is no confidentiality axis, no egress policy, no content classification, and no
+weight }`. There is no confidentiality axis, no egress policy, no content classification, and no
   per-edge candidate ranking — every conversion runs in-tenant. (If an external engine is ever
   genuinely needed it is a deliberate future decision; nothing here is built for it.)
 - `findPath(from, to)` returns the weighted shortest edge chain (multi-hop, e.g. `wpd→odt→pdf`) or a
@@ -141,11 +143,13 @@ git commit -m "feat(conversion): scaffold @magna-carta/conversion package"
 ### Task 2: Formats + the platform registry
 
 **Files:**
+
 - Create: `packages/conversion/src/format.ts`
 - Create: `packages/conversion/src/registry.ts`
 - Test: `packages/conversion/test/registry.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `type FormatId = string` (branded-free; a stable lowercase key like `"png"`, `"pdf"`, `"wpd"`).
   - `interface Format { id: FormatId; label: string; mediaType: string; extensions: readonly string[] }`
@@ -175,8 +179,12 @@ describe("registry", () => {
   });
 
   it("has the two LibreOffice edges that chain wpd->odt->pdf", () => {
-    expect(EDGES.some((e) => e.from === "wpd" && e.to === "odt" && e.engineId === "libreoffice")).toBe(true);
-    expect(EDGES.some((e) => e.from === "odt" && e.to === "pdf" && e.engineId === "libreoffice")).toBe(true);
+    expect(
+      EDGES.some((e) => e.from === "wpd" && e.to === "odt" && e.engineId === "libreoffice"),
+    ).toBe(true);
+    expect(
+      EDGES.some((e) => e.from === "odt" && e.to === "pdf" && e.engineId === "libreoffice"),
+    ).toBe(true);
   });
 
   it("edgesFrom returns only edges leaving a node", () => {
@@ -235,12 +243,32 @@ export const FORMATS: readonly Format[] = [
   { id: "webp", label: "WebP", mediaType: "image/webp", extensions: ["webp"] },
   { id: "tiff", label: "TIFF", mediaType: "image/tiff", extensions: ["tif", "tiff"] },
   { id: "gif", label: "GIF", mediaType: "image/gif", extensions: ["gif"] },
-  { id: "docx", label: "Word (DOCX)", mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", extensions: ["docx"] },
-  { id: "odt", label: "OpenDocument Text", mediaType: "application/vnd.oasis.opendocument.text", extensions: ["odt"] },
-  { id: "wpd", label: "WordPerfect", mediaType: "application/vnd.wordperfect", extensions: ["wpd"] },
+  {
+    id: "docx",
+    label: "Word (DOCX)",
+    mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    extensions: ["docx"],
+  },
+  {
+    id: "odt",
+    label: "OpenDocument Text",
+    mediaType: "application/vnd.oasis.opendocument.text",
+    extensions: ["odt"],
+  },
+  {
+    id: "wpd",
+    label: "WordPerfect",
+    mediaType: "application/vnd.wordperfect",
+    extensions: ["wpd"],
+  },
   { id: "pdf", label: "PDF", mediaType: "application/pdf", extensions: ["pdf"] },
   { id: "eml", label: "Email (EML)", mediaType: "message/rfc822", extensions: ["eml"] },
-  { id: "msg", label: "Outlook (MSG)", mediaType: "application/vnd.ms-outlook", extensions: ["msg"] },
+  {
+    id: "msg",
+    label: "Outlook (MSG)",
+    mediaType: "application/vnd.ms-outlook",
+    extensions: ["msg"],
+  },
   { id: "mp4", label: "MP4", mediaType: "video/mp4", extensions: ["mp4"] },
   { id: "mov", label: "QuickTime", mediaType: "video/quicktime", extensions: ["mov"] },
   { id: "webm", label: "WebM", mediaType: "video/webm", extensions: ["webm"] },
@@ -305,10 +333,12 @@ git commit -m "feat(conversion): format types + platform registry"
 ### Task 3: Pathfinding + reachability
 
 **Files:**
+
 - Create: `packages/conversion/src/pathfinding.ts`
 - Test: `packages/conversion/test/pathfinding.test.ts`
 
 **Interfaces:**
+
 - Consumes: `EDGES`, `edgesFrom` from `registry.ts`; `ConversionEdge`, `FormatId` from `format.ts`.
 - Produces:
   - `type PathResult = { ok: true; path: readonly ConversionEdge[] } | { ok: false; reason: "no-path" }`
@@ -454,11 +484,13 @@ git commit -m "feat(conversion): multi-hop pathfinding + reachability"
 ### Task 4: The `ConversionPort` + the deferred engine map
 
 **Files:**
+
 - Create: `packages/conversion/src/port.ts`
 - Create: `packages/conversion/src/engines.ts`
 - Test: `packages/conversion/test/engines.test.ts`
 
 **Interfaces:**
+
 - Consumes: `EngineId`, `FormatId` from `format.ts`.
 - Produces:
   - `interface ConversionInput { readonly bytes: Uint8Array; readonly from: FormatId; readonly to: FormatId; readonly recipeRef: string }`
@@ -583,12 +615,14 @@ git commit -m "feat(conversion): ConversionPort result type + deferred engine ma
 ### Task 5: The libvips adapter (wasm-vips)
 
 **Files:**
+
 - Modify: `pnpm-workspace.yaml` (add `wasm-vips` to the catalog)
 - Modify: `packages/conversion/package.json` (add the `wasm-vips` dependency)
 - Create: `packages/conversion/src/adapters/libvips/index.ts`
 - Test: `packages/conversion/test/libvips.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ConversionInput`, `ConversionResult`, `ConversionPort`, `converted`, `adapterError`, `unsupportedEdge` from `port.ts`; `getFormat` from `registry.ts`; `registerEngine` from `engines.ts`.
 - Produces: `const libvipsAdapter: ConversionPort` and a side-effecting registration (`registerEngine("libvips", libvipsAdapter)`).
 
@@ -597,7 +631,7 @@ git commit -m "feat(conversion): ConversionPort result type + deferred engine ma
 In `pnpm-workspace.yaml`, under the existing `catalog:` map, add a pinned entry (verify the latest stable version at build time, golden rule 11):
 
 ```yaml
-  wasm-vips: 0.0.13
+wasm-vips: 0.0.13
 ```
 
 In `packages/conversion/package.json`, add a `dependencies` block:
@@ -623,7 +657,12 @@ import { libvipsAdapter } from "../src/adapters/libvips/index.ts";
 describe("libvips adapter", () => {
   it("converts PNG to WebP", async () => {
     const png = await makePng();
-    const result = await libvipsAdapter.convert({ bytes: png, from: "png", to: "webp", recipeRef: "webp" });
+    const result = await libvipsAdapter.convert({
+      bytes: png,
+      from: "png",
+      to: "webp",
+      recipeRef: "webp",
+    });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.mediaType).toBe("image/webp");
@@ -635,7 +674,12 @@ describe("libvips adapter", () => {
 
   it("converts JPEG to PNG and preserves dimensions", async () => {
     const jpeg = await makeJpeg();
-    const result = await libvipsAdapter.convert({ bytes: jpeg, from: "jpeg", to: "png", recipeRef: "png" });
+    const result = await libvipsAdapter.convert({
+      bytes: jpeg,
+      from: "jpeg",
+      to: "png",
+      recipeRef: "png",
+    });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.bytes[0]).toBe(0x89); // PNG magic
@@ -656,7 +700,12 @@ describe("libvips adapter", () => {
 
   it("returns unsupported-edge for a non-raster target", async () => {
     const png = await makePng();
-    const result = await libvipsAdapter.convert({ bytes: png, from: "png", to: "pdf", recipeRef: "pdf" });
+    const result = await libvipsAdapter.convert({
+      bytes: png,
+      from: "png",
+      to: "pdf",
+      recipeRef: "pdf",
+    });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe("unsupported-edge");
   });
@@ -681,7 +730,7 @@ async function makeImage(suffix: string): Promise<Uint8Array> {
 - [ ] **Step 3: Run the test to verify it fails**
 
 Run: `pnpm --filter @magna-carta/conversion test`
-Expected: FAIL (cannot resolve `../src/adapters/libvips/index.ts`). If instead `wasm-vips` fails to *load* in the runner, stop and resolve that first (the spec's open item) — options: a Vitest `deps.optimizer`/`server.deps.inline` entry for `wasm-vips`, or confirming Node ≥ 17. Do not proceed until the helper images build.
+Expected: FAIL (cannot resolve `../src/adapters/libvips/index.ts`). If instead `wasm-vips` fails to _load_ in the runner, stop and resolve that first (the spec's open item) — options: a Vitest `deps.optimizer`/`server.deps.inline` entry for `wasm-vips`, or confirming Node ≥ 17. Do not proceed until the helper images build.
 
 - [ ] **Step 4: Implement the libvips adapter**
 
@@ -760,10 +809,12 @@ git commit -m "feat(conversion): libvips image adapter over wasm-vips"
 ### Task 6: Fitness tests (purity + registry well-formedness) and finalize
 
 **Files:**
+
 - Create: `packages/conversion/test/purity.test.ts`
 - Create: `packages/conversion/test/registry-wellformed.test.ts`
 
 **Interfaces:**
+
 - Consumes: `EDGES`, `getFormat` from `registry.ts`; `engineFor`, `deferredEngine` from `engines.ts`; reads `packages/conversion/src` files from disk (`node:fs`).
 
 - [ ] **Step 1: Write the registry well-formedness test**
