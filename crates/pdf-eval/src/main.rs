@@ -1,10 +1,11 @@
 // Regression-harness CLI for the PDF engine.  Modes:
-//   smoke         <corpus_dir>                          — parse + render page 0 via pdf-core; exits non-zero on any failure
-//   redact-smoke  <pdf>                                 — redact the entire first page and assert the verification gate passes
-//   render        <input.pdf> <out_dir> [scale]         — hayro render to PNG
-//   parse         <corpus_dir>                          — lopdf + pdf-rs + hayro load-coverage
-//   fidelity      <corpus_dir> <pdfium.dll> [dpi]       — hayro-vs-PDFium MSSIM per page (needs pdfium dll at runtime)
-//   pdfium        <input.pdf> <pdfium.dll> <out_dir> [dpi] — dump PDFium renders to PNG (needs pdfium dll at runtime)
+//   smoke          <corpus_dir>                          — parse + render page 0 via pdf-core; exits non-zero on any failure
+//   redact-smoke   <pdf>                                 — redact the entire first page and assert the verification gate passes
+//   sanitize-smoke <pdf>                                 — sanitize the document with default options and assert the absence gate passes
+//   render         <input.pdf> <out_dir> [scale]         — hayro render to PNG
+//   parse          <corpus_dir>                          — lopdf + pdf-rs + hayro load-coverage
+//   fidelity       <corpus_dir> <pdfium.dll> [dpi]       — hayro-vs-PDFium MSSIM per page (needs pdfium dll at runtime)
+//   pdfium         <input.pdf> <pdfium.dll> <out_dir> [dpi] — dump PDFium renders to PNG (needs pdfium dll at runtime)
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_syntax::Pdf;
 use hayro::{render, RenderCache, RenderSettings};
@@ -25,6 +26,9 @@ fn main() {
     match args.next().as_deref() {
         Some("smoke") => smoke_mode(args.next().expect("usage: smoke <corpus_dir>")),
         Some("redact-smoke") => redact_smoke_mode(args.next().expect("usage: redact-smoke <pdf>")),
+        Some("sanitize-smoke") => {
+            sanitize_smoke_mode(args.next().expect("usage: sanitize-smoke <pdf>"))
+        }
         Some("render") => render_mode(args.collect()),
         Some("parse") => parse_mode(args.next().expect("usage: parse <corpus_dir>")),
         #[cfg(feature = "pdfium")]
@@ -38,7 +42,7 @@ fn main() {
         }
         other => {
             eprintln!(
-                "unknown mode {other:?}; use smoke | redact-smoke | render | parse | fidelity | pdfium"
+                "unknown mode {other:?}; use smoke | redact-smoke | sanitize-smoke | render | parse | fidelity | pdfium"
             );
             std::process::exit(2);
         }
@@ -98,6 +102,23 @@ fn redact_smoke_mode(path: String) {
         }
         Err(e) => {
             eprintln!("FAIL redaction gate: {e:?}");
+            std::process::exit(1);
+        }
+    }
+}
+
+fn sanitize_smoke_mode(path: String) {
+    let bytes = std::fs::read(&path).unwrap();
+    match pdf_core::sanitize(bytes, &pdf_core::ScrubOptions::default()) {
+        Ok(out) => {
+            println!(
+                "ok   sanitized {} bytes -> {} bytes",
+                std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0),
+                out.len()
+            );
+        }
+        Err(e) => {
+            eprintln!("FAIL sanitize gate: {e:?}");
             std::process::exit(1);
         }
     }

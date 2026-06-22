@@ -49,14 +49,20 @@ pub enum ScrubError {
 
 /// A mutable handle to a sub-dictionary of the catalog, whether it is stored
 /// inline or behind an indirect reference. `None` if absent or not a dictionary.
-pub(crate) fn catalog_subdict_mut<'a>(doc: &'a mut Document, key: &[u8]) -> Option<&'a mut Dictionary> {
+pub(crate) fn catalog_subdict_mut<'a>(
+    doc: &'a mut Document,
+    key: &[u8],
+) -> Option<&'a mut Dictionary> {
     let target = doc
         .catalog()
         .ok()
         .and_then(|c| c.get(key).ok())
         .and_then(|o| o.as_reference().ok());
     match target {
-        Some(id) => doc.get_object_mut(id).ok().and_then(|o| o.as_dict_mut().ok()),
+        Some(id) => doc
+            .get_object_mut(id)
+            .ok()
+            .and_then(|o| o.as_dict_mut().ok()),
         None => doc
             .catalog_mut()
             .ok()
@@ -234,11 +240,18 @@ pub(crate) fn verify_scrub_absence(doc: &Document, opts: &ScrubOptions) -> Resul
     if opts.optional_content && catalog_has(b"OCProperties") {
         return fail("/OCProperties survived scrub");
     }
-    if opts.xfa && catalog_subdict(doc, b"AcroForm").map(|a| a.has(b"XFA")).unwrap_or(false) {
+    if opts.xfa
+        && catalog_subdict(doc, b"AcroForm")
+            .map(|a| a.has(b"XFA"))
+            .unwrap_or(false)
+    {
         return fail("AcroForm /XFA survived scrub");
     }
     if opts.attachments {
-        if catalog_subdict(doc, b"Names").map(|n| n.has(b"EmbeddedFiles")).unwrap_or(false) {
+        if catalog_subdict(doc, b"Names")
+            .map(|n| n.has(b"EmbeddedFiles"))
+            .unwrap_or(false)
+        {
             return fail("/Names/EmbeddedFiles survived scrub");
         }
         if catalog_has(b"Collection") {
@@ -349,7 +362,10 @@ mod tests {
         let mut doc = base_doc();
         let info_id = doc.add_object(Object::Dictionary(Dictionary::new()));
         doc.trailer.set("Info", Object::Reference(info_id));
-        let opts = ScrubOptions { metadata: false, ..ScrubOptions::default() };
+        let opts = ScrubOptions {
+            metadata: false,
+            ..ScrubOptions::default()
+        };
 
         sanitize_document(&mut doc, &opts).unwrap();
 
@@ -420,7 +436,7 @@ mod tests {
         assert!(!child.has(b"AP"));
         // NeedAppearances set so a viewer regenerates blank appearances.
         let acro = catalog_subdict(&doc, b"AcroForm").unwrap();
-        assert_eq!(acro.get(b"NeedAppearances").unwrap().as_bool().unwrap(), true);
+        assert!(acro.get(b"NeedAppearances").unwrap().as_bool().unwrap());
     }
 
     #[test]
@@ -439,7 +455,10 @@ mod tests {
         // If the caller opted out of optional_content, a surviving surface is allowed.
         let mut doc2 = base_doc();
         set_on_catalog(&mut doc2, "OCProperties", Object::Null);
-        let opts = ScrubOptions { optional_content: false, ..ScrubOptions::default() };
+        let opts = ScrubOptions {
+            optional_content: false,
+            ..ScrubOptions::default()
+        };
         assert!(verify_scrub_absence(&doc2, &opts).is_ok());
     }
 
@@ -484,25 +503,44 @@ mod tests {
         page.set("Type", Object::Name(b"Page".to_vec()));
         page.set(
             "Annots",
-            Object::Array(vec![Object::Reference(file_annot_id), Object::Reference(text_annot_id)]),
+            Object::Array(vec![
+                Object::Reference(file_annot_id),
+                Object::Reference(text_annot_id),
+            ]),
         );
         let page_id = doc.add_object(Object::Dictionary(page));
         // Attach the page to the (Task-1 base) Pages tree so get_pages() finds it.
-        let pages_id = doc.catalog().unwrap().get(b"Pages").unwrap().as_reference().unwrap();
+        let pages_id = doc
+            .catalog()
+            .unwrap()
+            .get(b"Pages")
+            .unwrap()
+            .as_reference()
+            .unwrap();
         let pages = doc.get_object_mut(pages_id).unwrap().as_dict_mut().unwrap();
         pages.set("Kids", Object::Array(vec![Object::Reference(page_id)]));
         pages.set("Count", Object::Integer(1));
-        doc.get_object_mut(page_id).unwrap().as_dict_mut().unwrap()
+        doc.get_object_mut(page_id)
+            .unwrap()
+            .as_dict_mut()
+            .unwrap()
             .set("Parent", Object::Reference(pages_id));
 
         sanitize_document(&mut doc, &ScrubOptions::default()).unwrap();
 
         let cat = doc.catalog().unwrap();
         assert!(!cat.has(b"Collection"));
-        assert!(!catalog_subdict(&doc, b"Names").map_or(false, |n| n.has(b"EmbeddedFiles")));
+        assert!(!catalog_subdict(&doc, b"Names").is_some_and(|n| n.has(b"EmbeddedFiles")));
         // The FileAttachment annotation is gone; the Text annotation is kept.
-        let annots = doc.get_object(page_id).unwrap().as_dict().unwrap()
-            .get(b"Annots").unwrap().as_array().unwrap();
+        let annots = doc
+            .get_object(page_id)
+            .unwrap()
+            .as_dict()
+            .unwrap()
+            .get(b"Annots")
+            .unwrap()
+            .as_array()
+            .unwrap();
         assert_eq!(annots.len(), 1);
         assert_eq!(annots[0].as_reference().unwrap(), text_annot_id);
     }

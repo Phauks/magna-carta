@@ -187,6 +187,49 @@ interface RedactionResult {
 }
 ```
 
+## Sanitize
+
+`sanitizeDocument(bytes, opts?)` removes document-level metadata and embedded surfaces that should not accompany a document shared outside the firm. It operates on the document as a whole — it is not page-specific and does not rasterize anything.
+
+### `sanitizeDocument(bytes, opts?)`
+
+```ts
+import { sanitizeDocument } from "@magna-carta/pdf";
+
+const cleanBytes = await sanitizeDocument(new Uint8Array(inputBytes));
+// cleanBytes — Uint8Array of the sanitized PDF
+```
+
+Pass a `ScrubOptions` object as the second argument to opt individual surfaces out of removal. All flags default to `true` (remove the surface):
+
+### `ScrubOptions`
+
+| Field | Type | Default | Surface removed when `true` |
+| --- | --- | --- | --- |
+| `metadata` | `boolean` | `true` | Document metadata stream (`/Metadata`) and the information dictionary (`/Info`) — author, creation date, application name, and similar properties. |
+| `xfa` | `boolean` | `true` | The XFA form definition (`/XFA` in `AcroForm`). Blank AcroForm fields are kept so the document remains a usable form; only the XFA-specific data is stripped. |
+| `structureTree` | `boolean` | `true` | The document structure tree (`/StructTreeRoot`) used for accessibility tagging. |
+| `outlines` | `boolean` | `true` | The bookmark outline tree (`/Outlines`). |
+| `optionalContent` | `boolean` | `true` | Optional-content configuration (`/OCProperties` in the catalog). See the boundaries note below. |
+| `attachments` | `boolean` | `true` | Embedded file attachments — the `/EmbeddedFiles` name tree and any `FileAttachment` annotations on pages. |
+| `formFieldValues` | `boolean` | `true` | Form field values and appearance streams; blank field shells are kept. |
+
+**Redaction is sanitized-by-default.** `redactDocument` accepts an optional `scrub` field in `RedactionOptions`. When `scrub` is omitted (the default) it is treated as `true`, so the output of a redaction is also sanitized. Pass `scrub: false` to skip sanitization on a redaction output.
+
+### Verification gate
+
+`sanitizeDocument` enforces the same hard-gate principle as `redactDocument`. After removing the surfaces it decompresses and scans the raw content streams for any strings you supply via `opts.redactedText`. If any supplied string is found — or if the document cannot be reassembled — the call throws rather than returning an output. When no `redactedText` is supplied, only structural removal is performed (no string scan).
+
+### Boundaries
+
+Three limitations apply and should be understood before use:
+
+1. **Optional-content scrub is configuration-level.** Setting `optionalContent: true` removes the `/OCProperties` entry, which means no layer stays hidden — all content that was toggled off becomes unconditionally visible. It does not excise the marked-content operators (`BMC`/`EMC` boundaries and their enclosed drawing instructions) from page content streams. Text within those operators therefore remains in the document as drawn content. The verification scan (`redactedText`) does catch a supplied string stored as text inside such operators, including inside compressed streams, so that path is covered for known strings.
+
+2. **Removing the structure tree drops accessibility tagging.** `structureTree: true` deletes the `/StructTreeRoot` and associated role maps. Screen readers and other assistive technologies rely on the structure tree; documents that must remain accessible should pass `structureTree: false`.
+
+3. **The supplied-text survival check is byte-level across content streams.** The gate decompresses streams and searches for the supplied string as literal bytes. It catches a string stored as plain text, including inside compressed (`FlateDecode`) streams. It does not decode custom-font glyph encodings or pixel-encoded images: a string that was rendered only as glyph codes (where the raw byte sequence does not spell out the text) or rasterized into a pixel image is not matched as literal text. If those encodings are a concern, use `redactDocument` with `dpi` set to rasterize the relevant pages.
+
 ## Build notes
 
 The WASM binary at `src/pkg/pdf_core_bg.wasm` is produced by `wasm-pack build crates/pdf-core --target web --out-dir packages/pdf/src/pkg --release --no-opt`. It is not committed to version control; run `vp run rust-wasm-build` (or `pnpm --filter @magna-carta/pdf run build:wasm`) to regenerate it. In development the binary is rebuilt automatically as part of `vp run build-all`.
