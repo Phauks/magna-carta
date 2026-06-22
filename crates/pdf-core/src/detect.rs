@@ -321,10 +321,19 @@ fn inactive_ocgs(doc: &lopdf::Document) -> Vec<lopdf::ObjectId> {
         .unwrap_or_default()
 }
 
+/// Resolve a dictionary value that may be stored inline or as an indirect reference.
+fn resolve_dict<'a>(doc: &'a lopdf::Document, obj: &'a lopdf::Object) -> Option<&'a lopdf::Dictionary> {
+    match obj {
+        lopdf::Object::Dictionary(d) => Some(d),
+        lopdf::Object::Reference(id) => doc.get_object(*id).ok().and_then(|o| o.as_dict().ok()),
+        _ => None,
+    }
+}
+
 fn property_ocg(doc: &lopdf::Document, page_id: lopdf::ObjectId, name: &[u8]) -> Option<lopdf::ObjectId> {
     let page = doc.get_object(page_id).ok()?.as_dict().ok()?;
-    let resources = page.get(b"Resources").ok()?.as_dict().ok()?;
-    let properties = resources.get(b"Properties").ok()?.as_dict().ok()?;
+    let resources = resolve_dict(doc, page.get(b"Resources").ok()?)?;
+    let properties = resolve_dict(doc, resources.get(b"Properties").ok()?)?;
     properties.get(name).ok()?.as_reference().ok()
 }
 
@@ -344,6 +353,9 @@ pub(crate) fn hidden_layer_findings(doc: &lopdf::Document) -> Vec<Finding> {
         for op in &content.operations {
             match op.operator.as_str() {
                 "BDC" | "BMC" => {
+                    // The /OC group is identified by a /Properties name here; an
+                    // inline optional-content dictionary as the BDC operand is not
+                    // resolved (a rare encoding) and is not flagged.
                     let is_hidden = op.operands.first().and_then(|o| o.as_name().ok()) == Some(b"OC")
                         && op
                             .operands
@@ -785,5 +797,68 @@ mod tests {
             && matches!(f.severity, Severity::High)
             && f.recovered_text.contains("hidden layer text")
             && f.page == Some(0)));
+    }
+
+    #[test]
+    fn flags_hidden_layer_when_resources_is_an_indirect_reference() {
+        // Same setup as the inline test above, but /Resources on the page is stored
+        // as an indirect object reference — the common PDF producer pattern when a
+        // Resources dictionary is shared across pages.  The fix to resolve_dict is
+        // what makes this reachable; without it property_ocg returns None and the
+        // hidden text is silently missed.
+        use lopdf::{dictionary, Dictionary, Document, Object, Stream};
+        let mut doc = Document::with_version("1.5");
+        let pages_id = doc.new_object_id();
+        let ocg_id = doc.add_object(dictionary! {
+            "Type" => Object::Name(b"OCG".to_vec()),
+            "Name" => Object::string_literal("Secret Layer"),
+        });
+        let content = b"/OC /MC0 BDC BT /F1 12 Tf 72 700 Td (indirect resources hidden text) Tj ET EMC".to_vec();
+        let content_id = doc.add_object(Stream::new(Dictionary::new(), content));
+
+        // Store the Resources dictionary as an indirect object.
+        let mut properties = Dictionary::new();
+        properties.set("MC0", Object::Reference(ocg_id));
+        let mut resources = Dictionary::new();
+        resources.set("Properties", Object::Dictionary(properties));
+        let resources_id = doc.add_object(Object::Dictionary(resources));
+
+        let mut page = Dictionary::new();
+        page.set("Type", Object::Name(b"Page".to_vec()));
+        page.set("Parent", Object::Reference(pages_id));
+        page.set("Contents", Object::Reference(content_id));
+        // /Resources is now an indirect reference, not an inline dictionary.
+        page.set("Resources", Object::Reference(resources_id));
+        page.set("MediaBox", Object::Array(vec![0.into(), 0.into(), 612.into(), 792.into()]));
+        let page_id = doc.add_object(Object::Dictionary(page));
+
+        let mut pages = Dictionary::new();
+        pages.set("Type", Object::Name(b"Pages".to_vec()));
+        pages.set("Kids", Object::Array(vec![Object::Reference(page_id)]));
+        pages.set("Count", Object::Integer(1));
+        doc.objects.insert(pages_id, Object::Dictionary(pages));
+
+        let oc_properties = dictionary! {
+            "OCGs" => Object::Array(vec![Object::Reference(ocg_id)]),
+            "D" => Object::Dictionary(dictionary! {
+                "OFF" => Object::Array(vec![Object::Reference(ocg_id)]),
+                "ON" => Object::Array(vec![]),
+            }),
+        };
+        let catalog_id = doc.add_object(dictionary! {
+            "Type" => Object::Name(b"Catalog".to_vec()),
+            "Pages" => Object::Reference(pages_id),
+            "OCProperties" => Object::Dictionary(oc_properties),
+        });
+        doc.trailer.set("Root", Object::Reference(catalog_id));
+
+        let findings = hidden_layer_findings(&doc);
+        assert!(
+            findings.iter().any(|f| matches!(f.category, Category::HiddenLayer)
+                && matches!(f.severity, Severity::High)
+                && f.recovered_text.contains("indirect resources hidden text")
+                && f.page == Some(0)),
+            "expected HiddenLayer finding when /Resources is an indirect reference, got {findings:?}"
+        );
     }
 }
