@@ -120,7 +120,7 @@ interface RenderOptions {
 
 ## Error handling
 
-`loadDocument` and `PdfDocument.load` throw a `PdfError` (a plain `Error` subclass) when:
+`loadDocument` throws a `PdfError` (a plain `Error` subclass) when:
 - the input is not recognisable as a PDF,
 - a required page index is out of range, or
 - the WASM module itself fails to initialise.
