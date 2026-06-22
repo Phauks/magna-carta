@@ -30,7 +30,9 @@ export function engineNotImplemented(): ConversionResult {
 }
 
 export function unsupportedEdge(detail?: string): ConversionResult {
-  return { ok: false, reason: "unsupported-edge", detail };
+  return detail !== undefined
+    ? { ok: false, reason: "unsupported-edge", detail }
+    : { ok: false, reason: "unsupported-edge" };
 }
 
 export function adapterError(detail: string): ConversionResult {

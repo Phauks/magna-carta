@@ -91,9 +91,9 @@ package until a second adapter forces the split — the integration-framework pr
   — it builds and proves the adapter.
 - **v1 formats:** the common raster set — **PNG / JPEG / WebP / TIFF / GIF** interconversions; **AVIF
   / HEIF** added if the optional `vips-heif`/`vips-jxl` modules are cheap to include.
-- **Safe-load posture:** the libvips untrusted-input guard (the `VIPS_BLOCK_UNTRUSTED` equivalent) is
-  set — the in-tenant, network-free engine, consistent with the cross-cutting untrusted-input posture
-  in the research doc.
+- **Safe-load posture:** the in-tenant wasm-vips adapter relies on libvips' default hardened loaders
+  (wasm-vips exposes no `VIPS_BLOCK_UNTRUSTED` API). The explicit `VIPS_BLOCK_UNTRUSTED` environment
+  guard lands with native libvips in the Container (the deferred production placement).
 - **Image → PDF is _not_ in v1** — that direction wraps the raster into a PDF via the seamed PDF
   engine (the in-flight Rust engine), so it waits on that seam.
 

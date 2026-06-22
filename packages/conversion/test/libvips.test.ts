@@ -31,6 +31,12 @@ describe("libvips adapter", () => {
     if (result.ok) {
       expect(result.bytes[0]).toBe(0x89); // PNG magic
       expect(result.bytes[1]).toBe(0x50); // 'P'
+      // Verify the dimensions are preserved: fixture is 2×3 (vips.Image.black(2, 3))
+      const Vips = (await import("wasm-vips")).default;
+      const vips = await Vips();
+      const decoded = vips.Image.newFromBuffer(result.bytes.buffer);
+      expect(decoded.width).toBe(2);
+      expect(decoded.height).toBe(3);
     }
   });
 
