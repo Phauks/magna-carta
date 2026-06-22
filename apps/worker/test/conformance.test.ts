@@ -518,6 +518,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "files.download",
       "files.get",
       "files.list",
+      "files.preview",
       "files.update",
       "files.versions",
       "firmUsage.get",
