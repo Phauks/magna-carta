@@ -4,34 +4,36 @@
 **Status:** Designed — implementation plan + build to follow.
 **Scope:** The substrate-independent layer of in-app file conversion (slice 2·4), carved out to build
 **now**, in parallel with the wait on the 2·1/2·2 execution substrate (Queue + Container +
-Durable-Object-per-job). Builds the pure conversion **core** (the `ConversionPort`, capability
-descriptors, and the format **registry** with pathfinding + policy-driven selection) and the **libvips
-adapter** as the first concrete engine. Research base: [`in-app-conversion.md`](../research/in-app-conversion.md).
+Durable-Object-per-job). Builds the pure conversion **core** (the `ConversionPort`, the format
+**registry** of single-engine weighted edges, and multi-hop pathfinding) and the **libvips adapter**
+as the first concrete engine. Research base: [`in-app-conversion.md`](../research/in-app-conversion.md)
+(note its superseded-on-the-confidentiality-point banner).
 **Out of scope (gated on the substrate + the full 2·4 design cycle):** the conversion orchestrator
 wiring, Worker routes, Container/Durable-Object execution, the LibreOfficeKit fork-pool, the FFmpeg
 sandbox, presigned ingest, and the save-as-version wiring. Those land when the substrate does.
 
 ## 1. Why this is buildable now
 
-2·4's gate was on the **execution substrate**, not on the converter's logic. The format registry,
-the port contract, and the capability descriptors are **pure** — no Container, no I/O, fully
-unit-testable. The libvips adapter is the one concrete engine whose transform logic is self-contained
-**and** runs in plain Node.js via **wasm-vips**, so it is testable with golden-file conversions today
-with no substrate. This mirrors how the platform built other pure layers ahead of their wiring (the
-integration framework, the `@magna-carta/tools` catalog). The production **placement** of libvips
-(wasm-vips-in-Worker for tiny images vs native libvips in a Container for the real path) is the only
-part that needs the substrate, and the adapter is written runtime-agnostic so placement is a later
-swap (see §6).
+2·4's gate was on the **execution substrate**, not on the converter's logic. The format registry and
+the port contract are **pure** — no Container, no I/O, fully unit-testable. The libvips adapter is the
+one concrete engine whose transform logic is self-contained **and** runs in plain Node.js via
+**wasm-vips**, so it is testable with golden-file conversions today with no substrate. This mirrors how
+the platform built other pure layers ahead of their wiring (the integration framework, the
+`@magna-carta/tools` catalog). The production **placement** of libvips (wasm-vips-in-Worker for tiny
+images vs native libvips in a Container for the real path) is the only part that needs the substrate,
+and the adapter is written runtime-agnostic so placement is a later swap (see §6).
 
-## 2. The reframe this slice ratifies
+## 2. Confidentiality posture — in-house only, absolute
 
-2·4's research recorded a change to the published _In-app file conversion_ stance (ADR-0030):
-in-house-**only** → **pluggable engines with confidentiality as the default**. The capability
-descriptor's `confidentiality` axis encodes that decision, so building the types **is** ratifying it.
-This slice therefore lands the decision as **ADR-`conversion-pluggable-engines-confidentiality-default`**
-and a surgical amendment to the white paper's _In-app file conversion_. The model: **in-tenant is the
-default and the only path for privileged content; external engines (Microsoft 365, Adobe) are a
-per-firm opt-in, gated per content-class; egress is a deliberate, governed exception.**
+Conversion is **in-house only**: bytes go R2 → our in-tenant Container/WASM → R2 and **never** egress
+to a third party. This affirms ADR-0030's guarantee **without exception**. An earlier same-day reframe
+toward pluggable external engines (Microsoft 365/Adobe behind an egress policy + per-content-class
+classification) was **considered and rejected** — in a law practice nearly all content is privileged,
+so any classifier permitting egress is a one-mistake leak of privileged material, and the fidelity
+gain is marginal (ADR-`conversion-in-house-only-single-engine`). Consequences for this slice: **no
+`confidentiality` axis, no egress policy, no content classification, one engine per edge.** The
+`ConversionPort`/adapter seam is retained (good in-house design + a future deliberate seam), but no
+external adapter and no policy machinery is built.
 
 ## 3. Package
 
@@ -41,13 +43,9 @@ A new pure package **`@magna-carta/conversion`** (full-name convention; no Worke
 packages/conversion/
   src/
     port.ts          ConversionPort interface; ConversionInput/Result; typed errors
-    confidentiality.ts   Confidentiality = 'in-tenant' | 'egress'
-    descriptor.ts    CapabilityDescriptor (engineId, edges, fidelity, cost, confidentiality)
-    format.ts        Format, ConversionEdge, EngineCandidate types
-    registry.ts      the platform-defined registry (formats/edges/candidates) + queries
+    format.ts        Format, ConversionEdge ({from, to, engineId, recipeRef, weight}) types
+    registry.ts      the platform-defined registry (formats + single-engine weighted edges) + queries
     pathfinding.ts   findPath(source, target): weighted multi-hop shortest path
-    policy.ts        FirmEngineEnablement, EgressPolicy, ContentClass
-    selection.ts     selectCandidate(edge, firmPolicy); availableConversions(enablement)
     adapters/
       libvips/       wasm-vips ConversionPort implementation
   test/
@@ -58,40 +56,29 @@ package until a second adapter forces the split — the integration-framework pr
 
 ## 4. The core types (pure)
 
-- **`Confidentiality = 'in-tenant' | 'egress'`** — the posture axis.
 - **`Format`** — `{ id, label, mediaType, extensions }`; `id` is a stable format key (e.g. `docx`,
   `pdf`, `png`, `eml`, `mp4`).
-- **`ConversionEdge`** — `{ from: FormatId, to: FormatId, candidates: EngineCandidate[] }` (**1..N**
-  candidates).
-- **`EngineCandidate`** — `{ engineId, recipeRef, fidelity, cost, confidentiality }`.
-- **`CapabilityDescriptor`** — `{ engineId, kind: 'in-tenant-container' | 'in-tenant-wasm' |
-  'external-credentialed', edges: {from,to}[], confidentiality }` — what an engine/adapter can do; the
-  registry is assembled from descriptors.
+- **`ConversionEdge`** — `{ from: FormatId, to: FormatId, engineId, recipeRef, weight }`. **One engine
+  per edge** (no candidate list). `weight` is the pathfinding cost (lower = preferred).
 - **`ConversionPort`** — the execution contract: `convert(input: ConversionInput): Promise<ConversionResult>`,
-  where `ConversionInput` carries the source bytes/stream handle, the chosen edge + recipe, and an
-  abort signal. The **core never calls this** during pathfinding/selection (those are pure); only an
-  adapter implements it. Typed failure result (never throw): `engine-not-implemented` (the deferred
-  FFmpeg/Office bodies), `unsupported-edge`, `adapter-error` — mirroring the integration framework's
-  typed `Dispatch`.
+  where `ConversionInput` carries the source bytes/stream handle, the resolved edge + recipe, and an
+  abort signal. The **core never calls this** during registry queries/pathfinding (those are pure);
+  only an adapter implements it. Typed failure result (never throw): `engine-not-implemented` (the
+  deferred FFmpeg/Office bodies), `unsupported-edge`, `adapter-error` — mirroring the integration
+  framework's typed `Dispatch`.
 
-## 5. Registry + pathfinding + selection (pure, TDD)
+## 5. Registry + pathfinding (pure, TDD)
 
-- **Registry** — static platform-defined `Format` nodes and `ConversionEdge`s assembled from the
-  engines' capability descriptors. Single source of format knowledge; security-sensitive (it drives
-  what runs).
+- **Registry** — static platform-defined `Format` nodes and single-engine `ConversionEdge`s, one
+  source of format knowledge (security-sensitive: it drives what runs).
 - **`findPath(source, target)`** — weighted shortest path over the edge graph, supporting multi-hop
-  chains (e.g. `wpd → odt → pdf`); weight by fidelity/cost so the orchestrator prefers fewer,
-  higher-fidelity hops. Returns the ordered edge list or `no-path`.
-- **`selectCandidate(edge, firmPolicy)`** — policy-driven: prefer the `in-tenant` candidate; choose an
-  `egress` candidate **only** when the firm has enabled that engine **and** the content class permits
-  egress; **privileged content never selects an `egress` candidate**. Returns the chosen candidate or
-  a typed `no-eligible-candidate`.
-- **`availableConversions(enablement)`** — the per-firm union of enabled engines' descriptor edges;
-  drives the data-driven **Convert to…** menu.
-- **Per-firm overlay** — `FirmEngineEnablement` (which engines connected — reuses
-  `integration_connection` + the credential store when wired) and `EgressPolicy` (which
-  `ContentClass`es may egress; default none). Format knowledge stays platform-wide; only enablement +
-  policy are per-firm.
+  chains (e.g. `wpd → odt → pdf`); the edge `weight`s let it prefer fewer / higher-fidelity hops.
+  Returns the ordered edge list or `no-path`.
+- **`resolveEngine(edge)`** — trivial: the edge names its engine. (No candidate selection, no policy —
+  the deliberate simplification.)
+- **`availableConversions(fromFormat)`** — the set of reachable target formats from a given source
+  (a graph reachability query); drives the data-driven **Convert to…** menu. Platform-wide — there is
+  no per-firm variation, because there is no per-firm engine enablement.
 
 ## 6. libvips adapter (the first concrete engine)
 
@@ -105,27 +92,27 @@ package until a second adapter forces the split — the integration-framework pr
 - **v1 formats:** the common raster set — **PNG / JPEG / WebP / TIFF / GIF** interconversions; **AVIF
   / HEIF** added if the optional `vips-heif`/`vips-jxl` modules are cheap to include.
 - **Safe-load posture:** the libvips untrusted-input guard (the `VIPS_BLOCK_UNTRUSTED` equivalent) is
-  set; this is the in-tenant, network-free engine, consistent with the cross-cutting untrusted-input
-  posture in the research doc.
+  set — the in-tenant, network-free engine, consistent with the cross-cutting untrusted-input posture
+  in the research doc.
 - **Image → PDF is *not* in v1** — that direction wraps the raster into a PDF via the seamed PDF
   engine (the in-flight Rust engine), so it waits on that seam.
 
-## 7. FFmpeg + Office descriptors registered; bodies deferred
+## 7. FFmpeg + Office edges registered; bodies deferred
 
-Their capability descriptors + recipe references are registered so the registry, pathfinding, and
-selection work **end-to-end** across the whole roster. Their adapter bodies return the typed
+Their formats + single-engine edges + recipe references are registered so the registry and
+pathfinding work **end-to-end** across the whole roster. Their adapter bodies return the typed
 `engine-not-implemented` result until the substrate lands (FFmpeg needs the hardened Container
-sandbox; Office needs the LOK fork-pool). This proves the core against the real roster shape without
-building gated machinery.
+sandbox; Office needs the LibreOfficeKit fork-pool). This proves the core against the real roster
+shape without building gated machinery.
 
 ## 8. Testing (TDD)
 
-- Pure unit tests: registry assembly, `findPath` (direct, multi-hop, no-path), `selectCandidate`
-  (in-tenant preference, egress gating, privileged-never-egress), `availableConversions`.
+- Pure unit tests: registry assembly, `findPath` (direct, multi-hop, no-path), `resolveEngine`,
+  `availableConversions` reachability.
 - libvips adapter: golden-file conversion tests in Node (e.g. PNG→JPEG, JPEG→WebP, round-trip
   dimension/format assertions), plus an untrusted-input refusal test.
-- Fitness: a descriptor/registry well-formedness check (every edge's candidates reference a registered
-  engine; no `egress` candidate is reachable for a privileged content class by construction).
+- Fitness: a registry well-formedness check (every edge names a registered engine; every format an
+  edge references is registered; no dangling edges).
 
 ## 9. Deferred (gated on the substrate + full 2·4 design cycle)
 
@@ -137,7 +124,5 @@ decision (static-config vs D1) — all unchanged from the research doc's deferra
 
 - Confirm wasm-vips builds/runs cleanly in the package's Node test runner (Vitest) and pin the version.
 - AVIF/HEIF inclusion decision (extra `.wasm` modules) — in or deferred.
-- The white-paper amendment wording (coordinated via `vp run worktrees`; surgical, _In-app file
-  conversion_ only).
-- The `ContentClass` enumeration — minimal at first (e.g. `privileged` vs `general`), expanded with
-  the matter/security model in the full design cycle.
+- Edge `weight` calibration — start with hop-count (every edge weight 1); refine only if a multi-hop
+  path should be preferred over a lossy direct one.

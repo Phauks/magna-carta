@@ -19,6 +19,19 @@ deliberately *references* that substrate rather than re-deciding it. The headlin
 only → pluggable engines with confidentiality as the default) needs its own ADR and a white-paper
 amendment when 2·4 is designed; this doc is the evidence base for that decision, not a substitute.
 
+> **SUPERSEDED ON THE CONFIDENTIALITY / ENGINE-MODEL POINT (owner, 2026-06-21).** The headline
+> "reframe" below (in-house-only → pluggable engines with confidentiality-by-default + egress policy +
+> content-classification) was **reversed** shortly after this pass. Conversion is **in-house only,
+> confidentiality absolute, one engine per edge** — no external engines, no egress policy, no
+> content-class classification. Reason: in a law practice nearly all content is privileged, so any
+> classifier that ever permits egress is one wrong call from leaking privileged material (an ethics
+> event), and the fidelity gain from external engines is marginal — not worth the risk or the policy
+> surface. The `ConversionPort` / registry / multi-hop-pathfinding **architecture stands**; the
+> pluggable/egress framing in §1–§3 does **not**. **Still valid:** the engine surveys (§4 —
+> LibreOffice/email/libvips/FFmpeg), the §5 LibreOfficeKit-fork-pool decision, and the cross-cutting
+> untrusted-input posture. Authoritative now: [`docs/specs/2026-06-21-slice-2-4a-conversion-core-design.md`](../specs/2026-06-21-slice-2-4a-conversion-core-design.md)
+> + ADR-conversion-in-house-only-single-engine.
+
 ---
 
 ## 0. What the white paper already settled (do not re-litigate)
