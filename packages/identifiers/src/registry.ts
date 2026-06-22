@@ -78,6 +78,9 @@ export const ENTITY_PREFIXES = {
   customField: "customField",
   picklistOption: "picklistOption",
   customFieldValue: "customFieldValue",
+  // In-app editing — a document checkout: an offline-working-copy claim or an opt-in exclusive lock on
+  // a file, tracked through acquisition, staleness, release, and reconciliation.
+  documentCheckout: "documentCheckout",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

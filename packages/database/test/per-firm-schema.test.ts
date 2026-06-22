@@ -2,6 +2,9 @@ import { getTableConfig, SQLiteTable } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
 import {
   directGrant,
+  documentCheckout,
+  file,
+  fileVersion,
   idempotencyKey,
   incident,
   member,
@@ -10,6 +13,9 @@ import {
   role,
   rolePermission,
 } from "../src/per-firm-schema.ts";
+
+const checkNamesOf = (table: SQLiteTable) =>
+  getTableConfig(table).checks.map((constraint) => constraint.name);
 
 const columnOf = (table: SQLiteTable, name: string) => {
   const config = getTableConfig(table);
@@ -169,5 +175,51 @@ describe("per-firm schema: incident (user-initiated incident intake)", () => {
     // Like granted_by on direct_grant: the reporter handle is the global control-plane user id; the
     // per-firm plane carries no auth state to FK against.
     expect(getTableConfig(incident).foreignKeys).toHaveLength(0);
+  });
+});
+
+describe("per-firm schema: editing working copy, checkout & reconciliation (slice 2·2)", () => {
+  it("file carries the nullable working-copy metadata and a defaulted edit_state", () => {
+    expect(columnOf(file, "current_r2_key").notNull).toBe(false);
+    expect(columnOf(file, "current_sha256").notNull).toBe(false);
+    expect(columnOf(file, "current_size_bytes").getSQLType()).toBe("integer");
+    expect(columnOf(file, "current_size_bytes").notNull).toBe(false);
+    expect(columnOf(file, "current_wopi_timestamp").notNull).toBe(false);
+    const editState = columnOf(file, "edit_state");
+    expect(editState.notNull).toBe(true);
+    expect(editState.default).toBe("idle");
+    expect(checkNamesOf(file)).toContain("file_edit_state_check");
+  });
+
+  it("file_version carries reconciliation_status and the divergence pointer", () => {
+    const recon = columnOf(fileVersion, "reconciliation_status");
+    expect(recon.notNull).toBe(true);
+    expect(recon.default).toBe("clean");
+    expect(columnOf(fileVersion, "diverged_from_version_id").notNull).toBe(false);
+    expect(checkNamesOf(fileVersion)).toContain("file_version_reconciliation_status_check");
+  });
+
+  it("document_checkout matches the expected columns, defaults, checks and foreign keys", () => {
+    const config = getTableConfig(documentCheckout);
+    expect(config.name).toBe("document_checkout");
+    expect(columnOf(documentCheckout, "id").primary).toBe(true);
+    expect(columnOf(documentCheckout, "file_id").notNull).toBe(true);
+    expect(columnOf(documentCheckout, "holder_member_id").notNull).toBe(true);
+    expect(columnOf(documentCheckout, "lock_type").notNull).toBe(true);
+    expect(columnOf(documentCheckout, "base_version_id").notNull).toBe(true);
+    expect(columnOf(documentCheckout, "acquired_at").notNull).toBe(true);
+    expect(columnOf(documentCheckout, "last_activity_at").notNull).toBe(true);
+    const status = columnOf(documentCheckout, "status");
+    expect(status.notNull).toBe(true);
+    expect(status.default).toBe("active");
+    expect(columnOf(documentCheckout, "idle_release_at").notNull).toBe(false);
+    expect(checkNamesOf(documentCheckout)).toEqual(
+      expect.arrayContaining([
+        "document_checkout_lock_type_check",
+        "document_checkout_status_check",
+      ]),
+    );
+    // file_id, holder_member_id, and base_version_id are real references in this plane.
+    expect(getTableConfig(documentCheckout).foreignKeys.length).toBeGreaterThanOrEqual(3);
   });
 });
