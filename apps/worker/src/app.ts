@@ -15,6 +15,7 @@ import { registerHealthRoute } from "./routes/health.ts";
 import { createCloudflareEmailAdapter, type CloudflareEmailBinding } from "./email-cloudflare.ts";
 import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
 import { registerBundleStatusRoute } from "./routes/bundle-status.ts";
+import { registerConversionRoutes } from "./routes/conversions.ts";
 import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
@@ -282,6 +283,9 @@ export function createApp(options: CreateAppOptions = {}) {
   // Slice 1·4: firm-defined custom fields (definitions, picklist options, temporal values, the
   // non-destructive Convert, and the compliance purge seam) — composed through the same chokepoint.
   registerCustomFieldsRoutes(app, chokepoint);
+  // The server-conversion surface: presign an upload slot, submit a job, and poll its state.
+  // Each route traverses the same chokepoint under the tools:fileConverter permission.
+  registerConversionRoutes(app, chokepoint);
 
   // The plugin runtime: production defaults (a fetch-backed http client; the firm_secret store seam
   // that throws until the marketplace wires the live credential read), overridable in tests.
