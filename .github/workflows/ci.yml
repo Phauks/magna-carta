@@ -104,3 +104,36 @@ jobs:
       - name: Validate Worker + assets config (no publish)
         run: pnpm --filter @magna-carta/worker exec wrangler deploy --dry-run
         # To deploy for real: add a CLOUDFLARE_API_TOKEN secret and drop --dry-run
+
+  rust-pdf-core:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      # cargo fmt needs --all to find targets in a workspace when using --manifest-path.
+      - name: Format check
+        run: cargo fmt --manifest-path crates/Cargo.toml --all --check
+
+      - name: Clippy (warnings as errors)
+        run: cargo clippy --manifest-path crates/Cargo.toml --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo test --manifest-path crates/Cargo.toml
+
+      - name: pdf-eval smoke (default features — no pdfium, no dll required in CI)
+        run: cargo run --manifest-path crates/Cargo.toml -p pdf-eval --release -- smoke crates/pdf-eval/corpus-ci
+
+      # wasm-opt is not available on the ubuntu runner; --no-opt skips the optimisation pass.
+      # The produced .wasm is a correct, unoptimised release build — identical semantics, larger bytes.
+      # Add a wasm-opt install step here when a size budget matters.
+      - name: Install wasm-pack
+        run: cargo install wasm-pack
+
+      - name: wasm-pack build (pdf-core, web target)
+        run: wasm-pack build crates/pdf-core --target web --out-dir /tmp/pkg --release --no-opt
