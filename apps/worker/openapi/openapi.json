@@ -13445,7 +13445,7 @@
         "x-mc-operationId": "timeEntries.submit",
         "x-mc-surface": "app",
         "x-mc-authenticated": true,
-        "x-mc-permission": "time:approve",
+        "x-mc-permission": "time:track",
         "x-mc-resource": "matter",
         "x-mc-audited": true,
         "x-mc-idempotency": "required",

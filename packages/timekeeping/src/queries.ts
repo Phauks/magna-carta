@@ -14,7 +14,7 @@ import { TIME_ENTRY_TABLE } from "./time-entry-statements.ts";
 export type { Page };
 
 const TIME_ENTRY_LIST_COLUMNS =
-  "id, matter_id, timekeeper_user_id, work_date, duration_minutes, narrative, billable, currency, rate_e4, rate_source, amount_minor, status, source, created_at";
+  "id, matter_id, timekeeper_user_id, work_date, duration_minutes, raw_duration_minutes, narrative, billable, currency, rate_e4, rate_source, amount_minor, status, source, created_at";
 
 interface TimeEntryRowRaw {
   id: string;
@@ -22,6 +22,7 @@ interface TimeEntryRowRaw {
   timekeeper_user_id: UserId;
   work_date: string;
   duration_minutes: number;
+  raw_duration_minutes: number;
   narrative: string;
   billable: number;
   currency: string;
@@ -39,6 +40,7 @@ export interface TimeEntryListItem {
   readonly timekeeperUserId: UserId;
   readonly workDate: string;
   readonly durationMinutes: number;
+  readonly rawDurationMinutes: number;
   readonly narrative: string;
   readonly billable: boolean;
   readonly currency: string;
@@ -57,6 +59,7 @@ function toTimeEntryListItem(row: TimeEntryRowRaw): TimeEntryListItem {
     timekeeperUserId: row.timekeeper_user_id,
     workDate: row.work_date,
     durationMinutes: row.duration_minutes,
+    rawDurationMinutes: row.raw_duration_minutes,
     narrative: row.narrative,
     billable: row.billable === 1,
     currency: row.currency,
@@ -186,4 +189,25 @@ export async function listUnbilledByMatter(
     unbilledAmountMinor: row.unbilled_amount_minor,
     entryCount: row.entry_count,
   }));
+}
+
+export interface ListTimeEntriesByMatterParams {
+  readonly matterId: MatterId;
+  readonly status: TimeEntryStatus;
+}
+
+// Per-matter individual entry list: one matter, filtered by status, newest-first. Distinct from
+// listUnbilledByMatter (which aggregates into a single WIP summary row); this returns the full
+// individual-entry shape for the matter WIP detail view, driven by the (matter_id, status) index.
+export async function listTimeEntriesByMatter(
+  database: SqlDatabase,
+  params: ListTimeEntriesByMatterParams,
+): Promise<TimeEntryListItem[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT ${TIME_ENTRY_LIST_COLUMNS} FROM ${TIME_ENTRY_TABLE} WHERE matter_id = ?1 AND status = ?2 ORDER BY work_date DESC, id DESC`,
+    )
+    .bind(params.matterId, params.status)
+    .all<TimeEntryRowRaw>();
+  return results.map(toTimeEntryListItem);
 }

@@ -20,8 +20,10 @@ import {
 
 // The time-entry HTTP surface over real Miniflare bindings: capture resolves the rate + rounds the
 // duration in the handler then commits the WIP row through the chokepoint; the My-Day / per-matter
-// list shapes; the draft-only freeze refusal; the submit -> approve review path under the gate; the
-// read-shaped quick-add preview that writes nothing; and an idempotent replay of a create.
+// list shapes expose the real raw_duration_minutes; the draft-only and frozen-entry conflicts both
+// map to 409; submit requires only time:track; the submit->approve review path requires the
+// approval_required gate to be on; the read-shaped quick-add preview writes nothing; and an
+// idempotent replay of a create.
 
 let poolFirmId: FirmId;
 let ownerCookie: string;
@@ -231,13 +233,24 @@ describe("time-entry capture", () => {
 });
 
 describe("time-entry reads", () => {
-  it("lists a timekeeper's entries for a work date (the My-Day shape)", async () => {
+  it("lists a timekeeper's entries for a work date (the My-Day shape) with real raw duration", async () => {
     const response = await get(
       `/api/v1/time-entries?timekeeperUserId=${ownerUserId}&workDate=2026-06-22`,
     );
     expect(response.status).toBe(200);
-    const body = (await response.json()) as { data: { id: string; durationMinutes: number }[] };
+    const body = (await response.json()) as {
+      data: { id: string; durationMinutes: number; rawDurationMinutes: number }[];
+    };
     expect(body.data.length).toBeGreaterThanOrEqual(2);
+    // The first capture used rawDurationMinutes=38 which rounded to 36 at the 6-minute increment.
+    // Verify at least one entry carries the stored raw value (38 ≠ 36) to confirm raw_duration_minutes
+    // is selected at the query layer rather than falling back to the rounded value.
+    const rounded = body.data.find(
+      (entry) => entry.rawDurationMinutes !== entry.durationMinutes,
+    );
+    expect(rounded).toBeDefined();
+    expect(rounded?.rawDurationMinutes).toBe(38);
+    expect(rounded?.durationMinutes).toBe(36);
   });
 
   it("lists unbilled WIP per matter (the per-matter shape)", async () => {
@@ -249,7 +262,7 @@ describe("time-entry reads", () => {
 });
 
 describe("draft-only freeze and the review path", () => {
-  it("refuses an update to a billed row (409)", async () => {
+  it("refuses an update to a billed row (frozen-entry -> 409)", async () => {
     const created = await post("/api/v1/time-entries", {
       matterId,
       timekeeperUserId: ownerUserId,
@@ -260,7 +273,7 @@ describe("draft-only freeze and the review path", () => {
       source: "manual",
     });
     const id = ((await created.json()) as { timeEntryId: string }).timeEntryId;
-    // Move it to billed directly (the 3·4 billing-lock seam this slice leaves to billing).
+    // Move it to billed directly (the billing lock is wired in the billing slice).
     await env.DB_FIRM_POOL_1.prepare("UPDATE time_entry SET status = 'billed' WHERE id = ?1")
       .bind(id)
       .run();
@@ -268,7 +281,49 @@ describe("draft-only freeze and the review path", () => {
     expect(response.status).toBe(409);
   });
 
-  it("walks the submit -> approve review path", async () => {
+  it("refuses an update to a submitted row (draft-only -> 409)", async () => {
+    const created = await post("/api/v1/time-entries", {
+      matterId,
+      timekeeperUserId: ownerUserId,
+      workDate: "2026-06-22",
+      rawDurationMinutes: 12,
+      narrative: "Will be submitted",
+      billable: true,
+      source: "manual",
+    });
+    const id = ((await created.json()) as { timeEntryId: string }).timeEntryId;
+    // Move it to submitted directly without the gate on (simulates a DB state bypassing the gate).
+    await env.DB_FIRM_POOL_1.prepare("UPDATE time_entry SET status = 'submitted' WHERE id = ?1")
+      .bind(id)
+      .run();
+    const response = await patch(`/api/v1/time-entries/${id}`, { narrative: "edited" });
+    expect(response.status).toBe(409);
+  });
+
+  it("refuses submit when the firm's approval gate is off (illegal-transition -> 409)", async () => {
+    // The firm has not set time.approval_required, so the default (false) applies.
+    const created = await post("/api/v1/time-entries", {
+      matterId,
+      timekeeperUserId: ownerUserId,
+      workDate: "2026-06-22",
+      rawDurationMinutes: 18,
+      narrative: "Gate-off submit attempt",
+      billable: true,
+      source: "manual",
+    });
+    const id = ((await created.json()) as { timeEntryId: string }).timeEntryId;
+    const response = await post(`/api/v1/time-entries/${id}/submit`, {});
+    expect(response.status).toBe(409);
+  });
+
+  it("walks the submit -> approve review path when the approval gate is on", async () => {
+    // Enable the review gate for this firm so the submit->approve path is legal.
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+    )
+      .bind("time.approval_required", "true", new Date().toISOString())
+      .run();
+
     const created = await post("/api/v1/time-entries", {
       matterId,
       timekeeperUserId: ownerUserId,
@@ -279,12 +334,35 @@ describe("draft-only freeze and the review path", () => {
       source: "manual",
     });
     const id = ((await created.json()) as { timeEntryId: string }).timeEntryId;
+    // A timekeeper with time:track can submit their own draft.
     expect((await post(`/api/v1/time-entries/${id}/submit`, {})).status).toBe(200);
+    // An approver with time:approve completes the review.
     expect((await post(`/api/v1/time-entries/${id}/approve`, {})).status).toBe(200);
     const row = await env.DB_FIRM_POOL_1.prepare("SELECT status FROM time_entry WHERE id = ?1")
       .bind(id)
       .first<{ status: string }>();
     expect(row?.status).toBe("approved");
+
+    // Restore the gate to off so other tests that rely on the gate-off default are not surprised.
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+    )
+      .bind("time.approval_required", "false", new Date().toISOString())
+      .run();
+  });
+
+  it("returns 404 (not 200) for a non-existent entry and writes no audit row", async () => {
+    const phantomId = "timeEntry_000000000000000000000"; // valid shape; no such row
+    const auditBefore = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT COUNT(*) AS c FROM audit_log",
+    ).first<{ c: number }>();
+    const response = await post(`/api/v1/time-entries/${phantomId}/submit`, {});
+    expect(response.status).toBe(404);
+    const auditAfter = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT COUNT(*) AS c FROM audit_log",
+    ).first<{ c: number }>();
+    // No phantom audit row must have been written for a non-existent entry.
+    expect(auditAfter?.c).toBe(auditBefore?.c);
   });
 });
 

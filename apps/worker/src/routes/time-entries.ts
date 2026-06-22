@@ -3,6 +3,7 @@ import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { resolveScopedSetting } from "@magna-carta/data-access/scoped-setting-statements";
+import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
 import {
   captureTimeEntry,
   updateDraftTimeEntry,
@@ -16,9 +17,13 @@ import { roundDuration, computeAmountMinor } from "@magna-carta/timekeeping/roun
 import {
   incrementMinutesDefinition,
   roundingDirectionDefinition,
+  approvalRequiredDefinition,
 } from "@magna-carta/timekeeping/settings";
 import { parseQuickAdd } from "@magna-carta/timekeeping/quick-add-parser";
-import { listTimeEntriesForTimekeeperDay } from "@magna-carta/timekeeping/queries";
+import {
+  listTimeEntriesForTimekeeperDay,
+  listTimeEntriesByMatter,
+} from "@magna-carta/timekeeping/queries";
 import { TimeEntryValidationError } from "@magna-carta/timekeeping/time-entry-validation";
 import type { TimeEntryId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
@@ -197,7 +202,7 @@ const createMeta = writeMeta("timeEntries.create", TRACK);
 const updateMeta = writeMeta("timeEntries.update", TRACK);
 const voidMeta = writeMeta("timeEntries.void", TRACK);
 const gridBatchMeta = writeMeta("timeEntries.gridBatch", TRACK);
-const submitMeta = writeMeta("timeEntries.submit", APPROVE);
+const submitMeta = writeMeta("timeEntries.submit", TRACK);
 const approveMeta = writeMeta("timeEntries.approve", APPROVE);
 const kickBackMeta = writeMeta("timeEntries.kickBack", APPROVE);
 const listMeta: RouteMeta = {
@@ -442,7 +447,11 @@ function timeEntryErrorResponse(
       detail: "No such time entry.",
     });
   }
-  if (error.code === "frozen-entry" || error.code === "illegal-transition") {
+  if (
+    error.code === "frozen-entry" ||
+    error.code === "illegal-transition" ||
+    error.code === "draft-only"
+  ) {
     return problemJson(c, {
       type: "conflict",
       title: "The time entry cannot change",
@@ -636,8 +645,7 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
           timekeeperUserId: item.timekeeperUserId,
           workDate: item.workDate,
           durationMinutes: item.durationMinutes,
-          // listTimeEntriesForTimekeeperDay does not select raw_duration_minutes; default to duration.
-          rawDurationMinutes: item.durationMinutes,
+          rawDurationMinutes: item.rawDurationMinutes,
           narrative: item.narrative,
           billable: item.billable,
           amountMinor: item.amountMinor,
@@ -650,13 +658,23 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
       if (query.matterId !== undefined) {
         // Per-matter WIP view: individual entries for a matter, filtered by status.
         const statusFilter = query.status ?? "draft";
-        const { results } = await firm.firmDatabase
-          .prepare(
-            "SELECT id, matter_id, timekeeper_user_id, work_date, duration_minutes, raw_duration_minutes, narrative, billable, amount_minor, currency, status FROM time_entry WHERE matter_id = ?1 AND status = ?2 ORDER BY work_date DESC, id DESC",
-          )
-          .bind(query.matterId, statusFilter)
-          .all<TimeEntryRow>();
-        return c.json({ data: results.map(rowToSummary) }, 200);
+        const items = await listTimeEntriesByMatter(firm.firmDatabase, {
+          matterId: query.matterId,
+          status: statusFilter,
+        });
+        return c.json({ data: items.map((item) => ({
+          id: item.id,
+          matterId: item.matterId,
+          timekeeperUserId: item.timekeeperUserId,
+          workDate: item.workDate,
+          durationMinutes: item.durationMinutes,
+          rawDurationMinutes: item.rawDurationMinutes,
+          narrative: item.narrative,
+          billable: item.billable,
+          amountMinor: item.amountMinor,
+          currency: item.currency,
+          status: item.status,
+        })) }, 200);
       }
 
       // No recognized filter — return an empty list rather than a full-table scan.
@@ -723,9 +741,9 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
           ? { results: [] as { id: string; title: string }[] }
           : await firm.firmDatabase
               .prepare(
-                "SELECT id, title FROM matter WHERE title LIKE ?1 AND status != 'prospective' ORDER BY title LIMIT 10",
+                "SELECT id, title FROM matter WHERE title LIKE ?1 ESCAPE '\\' AND status != 'prospective' ORDER BY title LIMIT 10",
               )
-              .bind(`%${parsed.matterHint}%`)
+              .bind(`%${parsed.matterHint.replace(/[%_\\]/g, "\\$&")}%`)
               .all<{ id: string; title: string }>();
       return c.json(
         {
@@ -820,11 +838,12 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
       const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const entryId = id as TimeEntryId;
+      const approvalRequired = await readFirmSetting(firm.firmDatabase, approvalRequiredDefinition);
       const outcome = await commitTimeEntryEffect(c, firm.firmDatabase, idempotency, entryId, () =>
         submitTimeEntry(firm.firmDatabase, entryId, {
           clock: { now: () => new Date().toISOString() },
           actorUserId: userId,
-          approvalRequired: true,
+          approvalRequired,
         }),
       );
       if (!outcome.ok) return outcome.problem;
@@ -840,11 +859,12 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
       const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const entryId = id as TimeEntryId;
+      const approvalRequired = await readFirmSetting(firm.firmDatabase, approvalRequiredDefinition);
       const outcome = await commitTimeEntryEffect(c, firm.firmDatabase, idempotency, entryId, () =>
         approveTimeEntry(firm.firmDatabase, entryId, {
           clock: { now: () => new Date().toISOString() },
           actorUserId: userId,
-          approvalRequired: true,
+          approvalRequired,
         }),
       );
       if (!outcome.ok) return outcome.problem;
@@ -861,6 +881,7 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
       const { id } = c.req.valid("param");
       const entryId = id as TimeEntryId;
       const { reason } = c.req.valid("json") as z.infer<typeof KickBackRequest>;
+      const approvalRequired = await readFirmSetting(firm.firmDatabase, approvalRequiredDefinition);
       const outcome = await commitTimeEntryEffect(c, firm.firmDatabase, idempotency, entryId, () =>
         kickBackTimeEntry(
           firm.firmDatabase,
@@ -869,7 +890,7 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
           {
             clock: { now: () => new Date().toISOString() },
             actorUserId: userId,
-            approvalRequired: true,
+            approvalRequired,
           },
         ),
       );
