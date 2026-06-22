@@ -58,6 +58,9 @@ const InitiateUploadRequest = z
     documentTypeId: documentTypeIdField.nullable().optional(),
     // Present = a new version on an existing file; absent = a new file.
     fileId: fileIdField.optional(),
+    // Absent or "interactive" = the file lands in the interactive ingest lane (files/ key prefix);
+    // "bulk" = the file lands in the bulk ingest lane (bulk/ key prefix, lower queue concurrency).
+    uploadKind: z.enum(["interactive", "bulk"]).optional(),
   })
   .openapi("InitiateUploadRequest");
 
@@ -371,6 +374,7 @@ export function registerUploadsRoutes(app: UploadsApp, chokepoint: Chokepoint): 
                 documentTypeId: request.documentTypeId ?? null,
                 fileId: request.fileId,
                 expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
+                uploadKind: request.uploadKind,
               },
               { clock: { now }, actorUserId: userId },
             );

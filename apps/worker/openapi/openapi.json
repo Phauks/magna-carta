@@ -586,6 +586,13 @@
           "fileId": {
             "type": "string",
             "pattern": "^file_[A-Za-z0-9_-]{21}$"
+          },
+          "uploadKind": {
+            "type": "string",
+            "enum": [
+              "interactive",
+              "bulk"
+            ]
           }
         },
         "required": [
@@ -1965,6 +1972,88 @@
           }
         }
       },
+      "PreviewGrant": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "inline-media",
+              "download-only"
+            ]
+          },
+          "verdict": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "playable",
+              "download-only",
+              "indeterminate",
+              null
+            ]
+          },
+          "streamUrl": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "verdict",
+              "unknown-verdict",
+              "tiered",
+              "encoded",
+              "derived",
+              "unknown-type",
+              "host-unavailable"
+            ]
+          },
+          "downloadUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode",
+          "verdict",
+          "downloadUrl"
+        ]
+      },
+      "BundleReady": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "BundleBuildAccepted": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId",
+          "status"
+        ]
+      },
       "ZipDownloadRequest": {
         "type": "object",
         "properties": {
@@ -2012,6 +2101,20 @@
           "editorOrigin",
           "accessToken",
           "accessTokenTtl"
+        ]
+      },
+      "BundleStatus": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
         ]
       },
       "CreatedDirectoryEntityResponse": {
@@ -8357,6 +8460,80 @@
         }
       }
     },
+    "/api/v1/files/{id}/preview": {
+      "get": {
+        "description": "Authorizes inline preview of the file's current clean version and returns a delivery descriptor. When the verdict + storage facts permit inline media, the descriptor carries a short-lived signed streamUrl on the cookieless files host the player loads as a <video>/<audio> subresource; otherwise it carries download-only with a reason. downloadUrl (the audited download path) is always present. Untrusted bytes are served cookieless so a malicious file reaches only the media decoder, never a privileged origin. 404 when the file has no clean current version.",
+        "operationId": "files.preview",
+        "tags": [
+          "files"
+        ],
+        "x-mc-operationId": "files.preview",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "files"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The preview delivery descriptor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewGrant"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable, the member is deactivated, or the file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/downloads/zip": {
       "post": {
         "description": "Resolves a selection of folders and/or files within a matter to their current clean versions at request time, then streams a ZIP of those bytes (entry paths follow the folder tree). A selection that resolves to a single file redirects (302) to a presigned download instead. An empty selection (matter only) bundles the whole matter.",
@@ -8388,12 +8565,27 @@
         },
         "responses": {
           "200": {
-            "description": "A streamed ZIP archive of the selected files",
+            "description": "A streamed ZIP archive of the selected files; or, when the selection exceeds the live threshold and an identical bundle was already built, a JSON body with a fresh signed URL.",
             "content": {
               "application/zip": {
                 "schema": {
                   "type": "string",
                   "format": "binary"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleReady"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "The selection exceeds the live-download threshold; a background build was started or is already in progress. Poll the bundle-status endpoint with the returned jobId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleBuildAccepted"
                 }
               }
             }
@@ -8507,6 +8699,90 @@
           },
           "404": {
             "description": "The file does not exist in this firm, or has no committed version to open",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/downloads/bundles/{manifestHash}": {
+      "get": {
+        "description": "Reports the state of an async bulk-download build (building, ready, or failed). A ready job carries a freshly minted, short-lived signed URL to the built ZIP artifact.",
+        "operationId": "downloads.bundleStatus",
+        "tags": [
+          "downloads"
+        ],
+        "x-mc-operationId": "downloads.bundleStatus",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "files:organize",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "downloads"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "manifestHash",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The job's current state, with a signed URL when ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks files:organize",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
             "content": {
               "application/problem+json": {
                 "schema": {

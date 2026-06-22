@@ -1,0 +1,72 @@
+[package]
+name = "magna-carta-scan"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# A lib (the router + engine modules, unit-testable) plus a thin binary that serves it on :8080.
+[lib]
+name = "magna_carta_scan"
+path = "src/lib.rs"
+
+[[bin]]
+name = "magna-carta-scan"
+path = "src/main.rs"
+
+# The build-time signature-database extractor. Runs in the image build (never at runtime): reads the
+# unpacked CVD/CLD signature files and writes the prefilter's atoms.db. Fail-closed + fail-loud — see
+# src/bin/build-atoms.rs. Depends only on the lib's atoms.rs parsers + serde_json (already direct deps).
+[[bin]]
+name = "build-atoms"
+path = "src/bin/build-atoms.rs"
+
+# A throwaway RSS benchmark comparing the SCAN (mmap, file-backed) vs INSTREAM (heap buffer, anonymous)
+# transports' service-side memory. Measurement only — not shipped in the runtime image.
+[[bin]]
+name = "rss-bench"
+path = "src/bin/rss-bench.rs"
+
+# Heavy engine dependencies (yara-x, lopdf, cfb, zip) are added in the tasks that introduce them, so the
+# early skeleton builds fast.
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# The container transport: stream the request body straight to clamd's scratch file (futures-util drives
+# the body's data-frame stream) and map it read-only (memmap2) so the in-process engines (yara, the
+# structural heuristics) read the same bytes with no heap copy while clamd scans the file by path.
+memmap2 = "0.9"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+# Pure-Rust YARA engine (the heuristic-rule scanner); no libyara C dependency.
+yara-x = "1.18"
+# Structural-heuristic parsers (all pure Rust). zip uses the lean deflate-flate2 feature set so it
+# pulls no bzip2/zstd/lzma C deps (Windows-clean); encrypted-entry detection still works without AES.
+lopdf = "0.41"
+cfb = "0.14"
+zip = { version = "8.6", default-features = false, features = ["deflate-flate2"] }
+# Inflate `/Type /ObjStm` object-stream bodies in the PDF abort guard so the structural depth pre-check
+# also covers the recursion lopdf drives over decompressed object streams (same engine `zip` uses).
+flate2 = "1"
+# The prefilter's file-hash leg: MD5 + SHA1 + SHA256 over each buffer, looked up in the baked hash sets.
+md-5 = "0.10"
+sha1 = "0.10"
+sha2 = "0.10"
+# The PORTABLE prefilter matcher backend (default): aho-corasick multi-literal scanning for the escaped
+# atoms and the `regex` engine for the residual PCREs. It builds with no C toolchain, so the crate (and
+# its full test suite) compiles on every dev host. The production container swaps in the `vectorscan`
+# feature for the SIMD engine; the prefilter's verdict logic and soundness are identical across both.
+aho-corasick = "1"
+regex = "1"
+# The PRODUCTION matcher backend: Vectorscan/Hyperscan SIMD literal+regex scanning. Optional because its
+# `-sys` crate vendors C++ (cmake/g++/libboost/ragel) that only builds in the Linux scan image — the
+# `vectorscan` feature turns it on there. The default (portable) build needs none of that toolchain.
+vectorscan-rs = { version = "0.0.6", optional = true }
+
+[features]
+# Off by default so the crate compiles on any dev host; the scan image's build stage enables it to bake
+# the SIMD matcher (the Dockerfile already installs cmake/g++/libboost-dev/ragel for it).
+vectorscan = ["dep:vectorscan-rs"]
+
+[dev-dependencies]
+reqwest = { version = "0.12", default-features = false }

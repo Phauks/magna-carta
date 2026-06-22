@@ -349,4 +349,42 @@ describe("Cloudflare REST FirmResourceProvider", () => {
       /configureBucketNotifications failed.*403.*forbidden/s,
     );
   });
+
+  it("configureBucketNotifications PUTs TWO notification rules — files/ to interactive queue, bulk/ to bulk queue", async () => {
+    const stub = stubFetch([
+      { status: 200, body: { success: true, result: {} } }, // files/ rule
+      { status: 200, body: { success: true, result: {} } }, // bulk/ rule
+    ]);
+    const provider = createCloudflareRestFirmResourceProvider({
+      accountId: "test-account-id",
+      apiToken: "test-api-token",
+      eventNotificationQueueId: "queue-uuid-files-ingest",
+      bulkEventNotificationQueueId: "queue-uuid-bulk-ingest",
+      fetchImplementation: stub.fetchImplementation,
+    });
+    await provider.configureBucketNotifications(firmId);
+
+    expect(stub.calls).toHaveLength(2);
+    const bucketName = await firmResourceName(firmId);
+
+    // Interactive rule — prefix files/
+    const filesCall = stub.calls[0];
+    expect(filesCall?.method).toBe("PUT");
+    expect(filesCall?.url).toBe(
+      `https://api.cloudflare.com/client/v4/accounts/test-account-id/event_notifications/r2/${bucketName}/configuration/queues/queue-uuid-files-ingest`,
+    );
+    expect(filesCall?.body).toEqual({
+      rules: [{ actions: ["PutObject", "CompleteMultipartUpload"], prefix: "files/" }],
+    });
+
+    // Bulk rule — prefix bulk/
+    const bulkCall = stub.calls[1];
+    expect(bulkCall?.method).toBe("PUT");
+    expect(bulkCall?.url).toBe(
+      `https://api.cloudflare.com/client/v4/accounts/test-account-id/event_notifications/r2/${bucketName}/configuration/queues/queue-uuid-bulk-ingest`,
+    );
+    expect(bulkCall?.body).toEqual({
+      rules: [{ actions: ["PutObject", "CompleteMultipartUpload"], prefix: "bulk/" }],
+    });
+  });
 });

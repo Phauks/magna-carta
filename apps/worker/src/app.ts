@@ -13,6 +13,7 @@ import { defaultHook } from "./contracts/problem.ts";
 import { registerHealthRoute } from "./routes/health.ts";
 import { createCloudflareEmailAdapter, type CloudflareEmailBinding } from "./email-cloudflare.ts";
 import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
+import { registerBundleStatusRoute } from "./routes/bundle-status.ts";
 import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
@@ -34,6 +35,7 @@ import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 import { registerNumberingRoutes } from "./routes/numbering.ts";
 import { registerUploadsRoutes } from "./routes/uploads.ts";
+import { registerPreviewServeRoute } from "./files/preview-serve.ts";
 import { telemetryErrorHandler, telemetryMiddleware } from "./telemetry-middleware.ts";
 import { createUsageConsentResolver } from "./usage/consent.ts";
 import { usageReachedMiddleware } from "./usage/reached-middleware.ts";
@@ -53,6 +55,21 @@ export type Bindings = {
   // its session state survives the editing container sleeping. Unparameterized to avoid a circular
   // import with the DocumentSession class (which imports this Bindings type).
   DOCUMENT_SESSION: DurableObjectNamespace;
+  // The files-ingest queue binding for the interactive lane (files/ prefix).
+  FILES_INGEST?: Queue;
+  // The files-ingest-bulk queue binding for the bulk lane (bulk/ prefix, lower concurrency).
+  FILES_INGEST_BULK?: Queue;
+  // The async bulk-download coordinator (the codebase's first Durable Object): keyed
+  // firmId:manifestHash, it single-flights one ZIP build per content-addressed selection.
+  BUNDLE_COORDINATOR: DurableObjectNamespace<
+    import("./downloads/bundle-coordinator.ts").BundleBuildCoordinator
+  >;
+  // The bundle-build queue the coordinator enqueues onto; its consumer streams R2 -> client-zip -> R2.
+  BUNDLE_BUILD: Queue<import("./downloads/bundle-types.ts").BundleBuildMessage>;
+  // The malware-scan Container (slice 2·1 Plan 2). Optional: absent in every test environment (the
+  // container cannot run under the local pool) and until the deploy-time wrangler activation, where
+  // resolveScanPort falls back to the engine-less adapter. Present in production once wired.
+  SCAN_CONTAINER?: DurableObjectNamespace<import("./files/scan-container.ts").ScanContainer>;
   // The off-hot-path AI inference dispatch queue: an inference request is enqueued here and the consumer
   // (src/inference/inference-consumer.ts) runs env.AI.run, so a single firm cannot starve the shared
   // gateway cap synchronously on the request path. Distinct from QUEUE (jobs) and FILES_INGEST.
@@ -63,6 +80,11 @@ export type Bindings = {
   // Better Auth's signing/encryption secret. Local dev + tests load it from .dev.vars;
   // production sets it with `wrangler secret put AUTH_SECRET`.
   AUTH_SECRET: string;
+  // The cookieless files host (e.g. files.magnacarta.esq). Optional: does not exist until the apex
+  // domain attaches; while unset the preview grant degrades to download-only. The cookieless serve
+  // route only ever answers when the request hostname equals this value. A public hostname, not a
+  // secret — bound via wrangler.jsonc vars, never .dev.vars.
+  FILES_ORIGIN?: string;
   // The POST /api/v1/firms guard secret (constant-time-compared against X-Platform-Admin-Key — a
   // stand-in seam until a real platform-admin principal model exists). Local dev + tests load the
   // placeholder from .dev.vars; production sets it with `wrangler secret put PLATFORM_ADMIN_KEY`.
@@ -201,6 +223,15 @@ export function createApp(options: CreateAppOptions = {}) {
     idempotency: createChokepointIdempotency(),
   });
 
+  // The cookieless preview serve route: a bare, host-guarded route on the files host, OUTSIDE the
+  // chokepoint (no session on files.*), under /api/ so it reaches the Worker (run_worker_first).
+  // Registered FIRST so its files-host catch-all seals the cookieless origin BEFORE any other route
+  // (health, Better Auth, /api/v1, ASSETS) can answer on files.* — the seal only holds if nothing is
+  // registered ahead of it. On the app origin the catch-all falls through (next()), so the routes
+  // below are unaffected. A standing fitness test asserts /api/health and /api/auth/* return the bare
+  // 404 on the files host, so this ordering seal cannot silently regress as routes are added.
+  registerPreviewServeRoute(app);
+
   // Health is platform plumbing: public, unauthenticated, no /api/v1 surface — it still rides the
   // chokepoint (rate-limit only, no session/firm/RBAC) so EVERY declared route is enforced through
   // the one seam, none reachable that skips it.
@@ -235,6 +266,8 @@ export function createApp(options: CreateAppOptions = {}) {
   // Slice 2·2: in-app document editing — the editor-launch route that mints the WOPI access token and
   // returns the editor URL to iframe (the WOPI host callback surface is its own token-guarded route).
   registerDocumentEditingRoutes(app, chokepoint);
+  // The async bulk-download poll endpoint — the status side of the download route's 202 hand-off.
+  registerBundleStatusRoute(app, chokepoint);
   // Slice 1·3: the directory (persons/organizations, names, sensitive identifiers, edges,
   // categories, search, merge, matter-party link) — composed through the same chokepoint.
   registerDirectoryRoutes(app, chokepoint);

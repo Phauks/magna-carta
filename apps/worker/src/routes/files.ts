@@ -13,9 +13,12 @@ import {
 import { selectFileStatement } from "@magna-carta/file-manager/file-statements";
 import {
   getCurrentCleanVersion,
+  getCurrentCleanVersionForPreview,
   listCleanVersions,
   listFiles,
 } from "@magna-carta/file-manager/queries";
+import { decidePreview } from "@magna-carta/file-manager/preview-policy";
+import { mintPreviewDeliveryToken } from "../files/preview-token.ts";
 import { FileManagerValidationError } from "@magna-carta/file-manager/validation";
 import type { FileId, FileVersionId, FolderId, MatterId } from "@magna-carta/identifiers/types";
 import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
@@ -82,6 +85,36 @@ const FileVersionItem = z
 const FileVersionsResponse = z
   .object({ data: z.array(FileVersionItem) })
   .openapi("FileVersionsResponse");
+
+const PreviewGrant = z
+  .object({
+    mode: z.enum(["inline-media", "download-only"]),
+    // The stored verdict, READ not computed (the sniffer is deferred). NULL = never sniffed; at
+    // launch the whole corpus is NULL so every grant is download-only / unknown-verdict.
+    verdict: z.enum(["playable", "download-only", "indeterminate"]).nullable(),
+    // Present iff mode === "inline-media": the cookieless files-host URL the player loads as a
+    // <video>/<audio> subresource. The transcode rendition wires in here when the player UI lands.
+    streamUrl: z.string().optional(),
+    contentType: z.string().optional(), // the SNIFFED type, echoed for the player
+    sizeBytes: z.number().int().nullable().optional(),
+    // Present iff mode === "download-only". "host-unavailable" = the files host is not yet bound
+    // (the verdict may have been playable); distinct from "unknown-verdict" (never-sniffed).
+    reason: z
+      .enum([
+        "verdict",
+        "unknown-verdict",
+        "tiered",
+        "encoded",
+        "derived",
+        "unknown-type",
+        "host-unavailable",
+      ])
+      .optional(),
+    // ALWAYS present, download-intent only — the AUDITED /download path (302), never a raw inline URL,
+    // so an active format can only ever reach an explicit download, never an auto-embedding context.
+    downloadUrl: z.string(),
+  })
+  .openapi("PreviewGrant");
 
 const PatchFileRequest = z
   .object({
@@ -203,6 +236,24 @@ const downloadFileMeta: RouteMeta = {
   rateLimit: "default",
 };
 
+// The preview grant is a GET that exports a delivery DECISION (and, for inline media, a signed
+// delivery credential) — no body to fingerprint, harmless to re-issue, so idempotency is "optional".
+// permission: null is the files.list/get/download read posture — the registry deliberately has no
+// read-only files capability; access is gated by which matter the member can reach, enforced by the
+// firm-scoped query against the session firm's physically-isolated D1. audited: false because inline
+// preview is a cheap, high-frequency in-place view (no per-view logging); the moment the user pulls
+// the full file, the audited /download path records it. Reasoning home: docs/conventions/security.md.
+const previewFileMeta: RouteMeta = {
+  operationId: "files.preview",
+  surface: "app",
+  authenticated: true,
+  permission: null,
+  resource: "matter",
+  audited: false,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
 const listFilesRoute = defineOpenAPIRoute(listFilesMeta, {
   method: "get",
   path: "/api/v1/files",
@@ -316,6 +367,29 @@ const downloadFileRoute = defineOpenAPIRoute(downloadFileMeta, {
   request: { params: fileParam },
   responses: {
     302: { description: "Redirect to the presigned download URL" },
+    401: authErrors[401],
+    404: authErrors[404],
+    429: authErrors[429],
+  },
+});
+
+const previewFileRoute = defineOpenAPIRoute(previewFileMeta, {
+  method: "get",
+  path: "/api/v1/files/{id}/preview",
+  description:
+    "Authorizes inline preview of the file's current clean version and returns a delivery " +
+    "descriptor. When the verdict + storage facts permit inline media, the descriptor carries a " +
+    "short-lived signed streamUrl on the cookieless files host the player loads as a <video>/<audio> " +
+    "subresource; otherwise it carries download-only with a reason. downloadUrl (the audited " +
+    "download path) is always present. Untrusted bytes are served cookieless so a malicious file " +
+    "reaches only the media decoder, never a privileged origin. 404 when the file has no clean " +
+    "current version.",
+  request: { params: fileParam },
+  responses: {
+    200: {
+      description: "The preview delivery descriptor",
+      content: { "application/json": { schema: PreviewGrant } },
+    },
     401: authErrors[401],
     404: authErrors[404],
     429: authErrors[429],
@@ -639,6 +713,62 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
         { now: () => now },
       );
       return c.redirect(url, 302);
+    },
+  );
+
+  // GET /api/v1/files/{id}/preview — authorize inline preview; mint a signed cookieless streamUrl
+  app.openapi(
+    {
+      ...previewFileRoute,
+      middleware: chokepointMiddleware(chokepoint, previewFileRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const bucket = requireBucket(firm.bucketName);
+      const { id } = c.req.valid("param");
+      const version = await getCurrentCleanVersionForPreview(firm.firmDatabase, id);
+      if (version === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such file with a previewable version in this firm.",
+        });
+      }
+      const downloadUrl = `/api/v1/files/${id}/download`;
+      const decision = decidePreview(version);
+      const filesOrigin = c.env.FILES_ORIGIN;
+
+      // Degrade to download-only when inline is not warranted OR the files host is not yet bound. The
+      // reason distinguishes the two: a real decidePreview reason when the gate refused, else
+      // "host-unavailable" when the gate WOULD have served inline but the cookieless host is unbound.
+      if (decision.kind === "download-only" || filesOrigin === undefined) {
+        const grant: z.infer<typeof PreviewGrant> = {
+          mode: "download-only",
+          verdict: version.inlinePlayable,
+          reason: decision.kind === "download-only" ? decision.reason : "host-unavailable",
+          downloadUrl,
+        };
+        return c.json(grant, 200, { "Cache-Control": "private, no-store" });
+      }
+
+      const exp = Math.floor(Date.now() / 1000) + DOWNLOAD_TTL_SECONDS;
+      const token = await mintPreviewDeliveryToken(c.env.AUTH_SECRET, {
+        r2Key: decision.r2Key,
+        bucket,
+        sniffedContentType: decision.sniffedContentType,
+        verdict: version.inlinePlayable,
+        exp,
+      });
+      const grant: z.infer<typeof PreviewGrant> = {
+        mode: "inline-media",
+        verdict: version.inlinePlayable,
+        streamUrl: `https://${filesOrigin}/api/files-preview/${token}`,
+        contentType: decision.sniffedContentType,
+        sizeBytes: decision.sizeBytes,
+        downloadUrl,
+      };
+      return c.json(grant, 200, { "Cache-Control": "private, no-store" });
     },
   );
 }

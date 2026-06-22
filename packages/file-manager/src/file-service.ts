@@ -14,6 +14,7 @@ import { fileAuditStatement, type AuditContext } from "./audit.ts";
 import {
   abandonVersionStatement,
   assignDocumentTypeStatement,
+  BULK_PREFIX,
   bumpFileCurrentVersionStatement,
   commitVersionStatement,
   fileVersionKey,
@@ -36,6 +37,7 @@ import {
 } from "./file-statements.ts";
 import { selectFolderStatement } from "./folder-statements.ts";
 import { meterCommitStatements } from "./metering-statements.ts";
+import { recordScanCacheStatement } from "./scan-cache.ts";
 import { checkUploadPolicy, readUploadPolicy } from "./upload-policy.ts";
 import { FileManagerValidationError } from "./validation.ts";
 
@@ -99,6 +101,9 @@ export interface InitiateUploadInput {
   readonly documentTypeId?: DocumentTypeId | null;
   readonly fileId?: FileId; // present = a new version on an existing file
   readonly expiresAt?: string | null;
+  // Absent or "interactive" = the file lands in the interactive ingest lane (files/ key prefix);
+  // "bulk" = the file lands in the bulk ingest lane (bulk/ key prefix, lower queue concurrency).
+  readonly uploadKind?: "interactive" | "bulk";
 }
 
 export interface InitiatedUpload {
@@ -171,7 +176,8 @@ export async function initiateUpload(
   }
   const versionId = newIdentifier("fileVersion", options.randomSource);
   const uploadSessionId = newIdentifier("uploadSession", options.randomSource);
-  const r2Key = fileVersionKey(fileId, versionId);
+  const prefix = input.uploadKind === "bulk" ? BULK_PREFIX : FILES_PREFIX;
+  const r2Key = fileVersionKey(fileId, versionId, prefix);
   statements.push(
     insertFileVersionStatement(database, {
       id: versionId,
@@ -263,6 +269,7 @@ export interface CommitVersionInput {
   readonly contentSha256: string;
   readonly scanVerdict: "unscanned" | "clean";
   readonly scanEngineVersion: string | null;
+  readonly scanDetail: string | null;
   readonly now: string;
 }
 
@@ -318,6 +325,7 @@ export async function commitVersion(
           contentSha256: input.contentSha256,
           scanVerdict: input.scanVerdict,
           scanEngineVersion: input.scanEngineVersion,
+          scanDetail: input.scanDetail,
           committedAt: input.now,
         }),
         bumpFileCurrentVersionStatement(database, version.fileId, input.versionId, input.now),
@@ -328,6 +336,23 @@ export async function commitVersion(
           input.sizeBytes,
         ),
         fileAuditStatement(database, options, "file.version_committed", input.versionId),
+        // Populate the content-dedup cache (scan-once) atomically with the commit — but ONLY for a
+        // definitive CLEAN verdict from a real engine. `unscanned`/no-engine commits (the launch
+        // adapter, or a missing engine version) are never cached, so a later re-scan still runs the
+        // engine; an `infected` outcome never reaches commit (it quarantines).
+        ...(input.scanVerdict === "clean" &&
+        input.scanEngineVersion !== null &&
+        input.contentSha256 !== null
+          ? [
+              recordScanCacheStatement(database, {
+                contentSha256: input.contentSha256,
+                engineVersion: input.scanEngineVersion,
+                verdict: "clean",
+                signature: null,
+                scannedAt: input.now,
+              }),
+            ]
+          : []),
       ],
       outboxMessages: [
         {
@@ -409,6 +434,7 @@ export async function commitEditedVersion(
           contentSha256: input.contentSha256,
           scanVerdict: "unscanned",
           scanEngineVersion: null,
+          scanDetail: null,
           committedAt: now,
         }),
         bumpFileCurrentVersionStatement(database, input.fileId, versionId, now),
@@ -428,7 +454,7 @@ export async function commitEditedVersion(
 
 export async function quarantineVersion(
   database: SqlDatabase,
-  input: { versionId: FileVersionId; reason: string },
+  input: { versionId: FileVersionId; reason: string; scanDetail: string | null },
   options: FileServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
   const version = await loadPendingVersion(database, input.versionId);
@@ -441,7 +467,7 @@ export async function quarantineVersion(
   return {
     effect: {
       statements: [
-        quarantineVersionStatement(database, input.versionId),
+        quarantineVersionStatement(database, input.versionId, input.scanDetail),
         fileAuditStatement(database, options, "file.quarantined", input.versionId),
       ],
       outboxMessages: [

@@ -1,0 +1,33 @@
+# Validation-only image: builds the prefilter example WITH the Vectorscan SIMD backend and runs it
+# against the real baked ClamAV signature database, to confirm the full AtomDb compiles into a
+# Prefilter and that a clean non-PE file is cleared (no universal fall-through). Not a shipping image.
+#
+#   docker build -f Dockerfile.validate-prefilter -t magna-carta-scan:validate-prefilter .
+#   docker run --rm magna-carta-scan:validate-prefilter
+#
+# The build context is containers/scan. It reuses magna-carta-scan:b-validate as the source of the
+# baked *.cvd and of sigtool.
+
+# --- build stage: compile the validation example with the vectorscan feature ----------------------
+FROM rust:1-bookworm AS build
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      cmake g++ libboost-dev ragel pkg-config python3 \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+COPY examples ./examples
+RUN cargo build --release --features vectorscan --example validate_prefilter
+
+# --- run stage: unpack the baked CVD and run the validator ----------------------------------------
+FROM magna-carta-scan:b-validate AS run
+COPY --from=build /src/target/release/examples/validate_prefilter /usr/local/bin/validate_prefilter
+# sigtool --unpack writes the component sig files into the current directory.
+RUN mkdir -p /var/lib/clamav/unpacked \
+ && cd /var/lib/clamav/unpacked \
+ && for cvd in /var/lib/clamav/*.cvd /var/lib/clamav/*.cld; do \
+        [ -f "$cvd" ] && sigtool --unpack "$cvd" || true; \
+    done \
+ && ls -la /var/lib/clamav/unpacked | head
+ENTRYPOINT ["/usr/local/bin/validate_prefilter", "/var/lib/clamav/unpacked"]

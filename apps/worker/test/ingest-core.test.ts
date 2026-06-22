@@ -1,7 +1,8 @@
 import { runIngest, type IngestInput } from "@magna-carta/file-manager/ingest-core";
-import type { MalwareScanPort } from "@magna-carta/file-manager/scan-port";
+import type { MalwareScanPort, ScanResult } from "@magna-carta/file-manager/scan-port";
 import { unscannedAdapter } from "@magna-carta/file-manager/scan-port";
 import type { UploadPolicy } from "@magna-carta/file-manager/upload-policy";
+import { DEFAULT_UPLOAD_POLICY } from "@magna-carta/file-manager/upload-policy";
 import { describe, expect, it } from "vitest";
 
 // The ingest core uses crypto.DigestStream (a Workers-runtime API), so it is exercised here in the
@@ -40,6 +41,7 @@ function input(bytes: Uint8Array, overrides: Partial<IngestInput> = {}): IngestI
     },
     policy: POLICY,
     scanPort: unscannedAdapter,
+    inspectableSizeCap: 2 * 1024 * 1024 * 1024,
     ...overrides,
   };
 }
@@ -63,6 +65,7 @@ describe("runIngest", () => {
       contentSha256: HELLO_SHA256,
       scanVerdict: "unscanned",
       scanEngineVersion: null,
+      scanDetail: "no-engine",
     });
   });
 
@@ -83,7 +86,7 @@ describe("runIngest", () => {
         },
       }),
     );
-    expect(outcome).toEqual({ kind: "quarantine", reason: "type-mismatch" });
+    expect(outcome).toEqual({ kind: "quarantine", reason: "type-mismatch", scanDetail: null });
   });
 
   it("quarantines an object larger than the policy maximum", async () => {
@@ -99,12 +102,12 @@ describe("runIngest", () => {
         },
       }),
     );
-    expect(outcome).toEqual({ kind: "quarantine", reason: "policy-size" });
+    expect(outcome).toEqual({ kind: "quarantine", reason: "policy-size", scanDetail: null });
   });
 
   it("quarantines a size mismatch between the stream and the object metadata", async () => {
     const outcome = await runIngest(input(PDF_BYTES, { objectSize: PDF_BYTES.byteLength + 1 }));
-    expect(outcome).toEqual({ kind: "quarantine", reason: "size-mismatch" });
+    expect(outcome).toEqual({ kind: "quarantine", reason: "size-mismatch", scanDetail: null });
   });
 
   it("quarantines a blocked file extension via the live name re-check (the r2_key has none)", async () => {
@@ -121,17 +124,99 @@ describe("runIngest", () => {
         },
       }),
     );
-    expect(outcome).toEqual({ kind: "quarantine", reason: "policy-type" });
+    expect(outcome).toEqual({ kind: "quarantine", reason: "policy-type", scanDetail: null });
   });
 
   it("quarantines an infected verdict from the scan port", async () => {
     const infectedPort: MalwareScanPort = {
       async scan(body) {
         await body.cancel();
-        return { verdict: "infected", engineVersion: "test-engine-1" };
+        return { verdict: "infected", engineVersion: "test-engine-1", signature: null };
       },
     };
     const outcome = await runIngest(input(PDF_BYTES, { scanPort: infectedPort }));
-    expect(outcome).toEqual({ kind: "quarantine", reason: "scan-infected" });
+    expect(outcome).toEqual({
+      kind: "quarantine",
+      reason: "scan-infected",
+      scanDetail: null,
+    });
+  });
+});
+
+const fixedScan = (result: ScanResult): MalwareScanPort => ({
+  async scan() {
+    return result;
+  },
+});
+
+const baseInput = (bytes: Uint8Array) => ({
+  objectBody: streamOf(bytes),
+  objectSize: bytes.byteLength,
+  version: {
+    declaredSize: bytes.byteLength,
+    declaredContentType: null,
+    r2Key: "files/f/v",
+    fileName: "x.pdf",
+  },
+  policy: DEFAULT_UPLOAD_POLICY,
+  inspectableSizeCap: 2 * 1024 * 1024 * 1024,
+});
+
+describe("runIngest uninspectable + suspicious policy", () => {
+  it("commits an oversize file as unscanned/oversize without calling the engine", async () => {
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    let scanCalled = false;
+    const port: MalwareScanPort = {
+      async scan() {
+        scanCalled = true;
+        return { verdict: "clean", engineVersion: "e1" };
+      },
+    };
+    const outcome = await runIngest({ ...baseInput(bytes), inspectableSizeCap: 3, scanPort: port });
+    expect(scanCalled).toBe(false);
+    expect(outcome).toMatchObject({
+      kind: "commit",
+      scanVerdict: "unscanned",
+      scanDetail: "oversize",
+    });
+  });
+
+  it("commits an encrypted file as unscanned/encrypted (benign-uninspectable)", async () => {
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    const outcome = await runIngest({
+      ...baseInput(bytes),
+      scanPort: fixedScan({ verdict: "unscanned", reason: "encrypted", engineVersion: "e1" }),
+    });
+    expect(outcome).toMatchObject({
+      kind: "commit",
+      scanVerdict: "unscanned",
+      scanDetail: "encrypted",
+    });
+  });
+
+  it("quarantines a suspicious archive as scan-suspicious with the sub-reason", async () => {
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    const outcome = await runIngest({
+      ...baseInput(bytes),
+      scanPort: fixedScan({
+        verdict: "suspicious",
+        reason: "decompression-bomb",
+        engineVersion: "e1",
+      }),
+    });
+    expect(outcome).toEqual({
+      kind: "quarantine",
+      reason: "scan-suspicious",
+      scanDetail: "decompression-bomb",
+    });
+  });
+
+  it("commits a clean file with null detail", async () => {
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    const outcome = await runIngest({
+      ...baseInput(bytes),
+      scanPort: fixedScan({ verdict: "clean", engineVersion: "e1" }),
+    });
+    expect(outcome).toMatchObject({ kind: "commit", scanVerdict: "clean", scanDetail: null });
   });
 });

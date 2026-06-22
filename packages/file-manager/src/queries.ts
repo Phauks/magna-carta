@@ -149,11 +149,68 @@ export async function getCurrentCleanVersion(
   };
 }
 
+// The preview gate's single read: the same clean, non-deleted current version as the download path,
+// widened with the verdict + storage facts decidePreview keys off. A new sibling (not an edit to
+// getCurrentCleanVersion) so the status-gated read it mirrors stays untouched. status = 'clean' and
+// deleted_at IS NULL are preserved — a pending/quarantined/deleted version is never previewable.
+export function selectCurrentCleanVersionForPreviewStatement(
+  database: SqlDatabase,
+  fileId: FileId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT v.id, v.r2_key, v.size_bytes, v.version_number, v.inline_playable, v.storage_class, v.storage_encoding, v.sniffed_content_type, v.artifact_role FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id WHERE f.id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean'`,
+    )
+    .bind(fileId);
+}
+
+export interface CleanVersionForPreview {
+  readonly id: FileVersionId;
+  readonly r2Key: string;
+  readonly sizeBytes: number | null;
+  readonly versionNumber: number;
+  readonly inlinePlayable: "playable" | "download-only" | "indeterminate" | null;
+  readonly storageClass: string;
+  readonly storageEncoding: string;
+  readonly sniffedContentType: string | null;
+  readonly artifactRole: string;
+}
+
+export async function getCurrentCleanVersionForPreview(
+  database: SqlDatabase,
+  fileId: FileId,
+): Promise<CleanVersionForPreview | undefined> {
+  const { results } = await selectCurrentCleanVersionForPreviewStatement(database, fileId).all<{
+    id: FileVersionId;
+    r2_key: string;
+    size_bytes: number | null;
+    version_number: number;
+    inline_playable: "playable" | "download-only" | "indeterminate" | null;
+    storage_class: string;
+    storage_encoding: string;
+    sniffed_content_type: string | null;
+    artifact_role: string;
+  }>();
+  const row = results[0];
+  if (row === undefined) return undefined;
+  return {
+    id: row.id,
+    r2Key: row.r2_key,
+    sizeBytes: row.size_bytes,
+    versionNumber: row.version_number,
+    inlinePlayable: row.inline_playable,
+    storageClass: row.storage_class,
+    storageEncoding: row.storage_encoding,
+    sniffedContentType: row.sniffed_content_type,
+    artifactRole: row.artifact_role,
+  };
+}
+
 // A file's committed version history (clean only) — newest first.
 export function listCleanVersionsStatement(database: SqlDatabase, fileId: FileId): SqlStatement {
   return database
     .prepare(
-      `SELECT id, version_number, r2_key, size_bytes, sniffed_content_type, content_sha256, committed_at FROM ${FILE_VERSION_TABLE} WHERE file_id = ?1 AND status = 'clean' ORDER BY version_number DESC`,
+      `SELECT id, version_number, r2_key, size_bytes, sniffed_content_type, content_sha256, committed_at, inline_playable FROM ${FILE_VERSION_TABLE} WHERE file_id = ?1 AND status = 'clean' ORDER BY version_number DESC`,
     )
     .bind(fileId);
 }
@@ -165,6 +222,7 @@ export interface CleanVersionListItem {
   readonly sniffedContentType: string | null;
   readonly contentSha256: string | null;
   readonly committedAt: string | null;
+  readonly inlinePlayable: "playable" | "download-only" | "indeterminate" | null;
 }
 
 export async function listCleanVersions(
@@ -178,6 +236,7 @@ export async function listCleanVersions(
     sniffed_content_type: string | null;
     content_sha256: string | null;
     committed_at: string | null;
+    inline_playable: "playable" | "download-only" | "indeterminate" | null;
   }>();
   return results.map((row) => ({
     id: row.id,
@@ -186,6 +245,7 @@ export async function listCleanVersions(
     sniffedContentType: row.sniffed_content_type,
     contentSha256: row.content_sha256,
     committedAt: row.committed_at,
+    inlinePlayable: row.inline_playable,
   }));
 }
 
@@ -219,6 +279,37 @@ export async function listCleanVersionR2Keys(
     sizeBytes: row.size_bytes,
     storageClass: row.storage_class,
   }));
+}
+
+// Committed versions (status = 'clean') whose scan has not yet been evaluated (scan_verdict =
+// 'unscanned'). Used by the weekly re-scan sweep to re-enqueue these versions once a real scan
+// engine is available. The status = 'clean' predicate is the legitimate status gate: only committed
+// versions are eligible — pending/quarantined/abandoned versions are not re-scanned.
+export function listUnscannedCommittedVersionsStatement(
+  database: SqlDatabase,
+  limit: number,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, r2_key FROM ${FILE_VERSION_TABLE} WHERE status = 'clean' AND scan_verdict = 'unscanned' LIMIT ?`,
+    )
+    .bind(limit);
+}
+
+export interface UnscannedCommittedVersion {
+  readonly id: FileVersionId;
+  readonly r2Key: string;
+}
+
+export async function listUnscannedCommittedVersions(
+  database: SqlDatabase,
+  limit: number,
+): Promise<readonly UnscannedCommittedVersion[]> {
+  const { results } = await listUnscannedCommittedVersionsStatement(database, limit).all<{
+    id: FileVersionId;
+    r2_key: string;
+  }>();
+  return results.map((row) => ({ id: row.id, r2Key: row.r2_key }));
 }
 
 // Every folder in a matter (id, parent, name) — the input to folder-tree path composition for the

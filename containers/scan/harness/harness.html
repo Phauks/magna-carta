@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scan engine harness</title>
+    <style>
+      /* A standalone developer diagnostic served by scan-proxy.mjs — not product UI, so it does not go
+         through the design system. Plain inline styling keeps it dependency-free. */
+      :root {
+        color-scheme: dark;
+        --bg: #0e1116;
+        --panel: #161b22;
+        --border: #2a313c;
+        --text: #d7dde5;
+        --muted: #8b949e;
+        --green: #2ea043;
+        --blue: #3b82f6;
+        --amber: #d29922;
+        --red: #da3633;
+        --grey: #6e7681;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font:
+          14px/1.5 ui-sans-serif,
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      header {
+        padding: 18px 24px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      h1 {
+        font-size: 16px;
+        margin: 0;
+        font-weight: 600;
+      }
+      h2 {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        margin: 0 0 12px;
+      }
+      main {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 24px;
+        display: grid;
+        gap: 20px;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 18px;
+      }
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+      }
+      .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--grey);
+      }
+      .dot.up {
+        background: var(--green);
+      }
+      .dot.down {
+        background: var(--red);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+        gap: 10px;
+      }
+      button {
+        font: inherit;
+        color: var(--text);
+        background: #21262d;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 12px;
+        cursor: pointer;
+        text-align: left;
+        transition:
+          border-color 0.12s,
+          background 0.12s;
+      }
+      button:hover {
+        border-color: #3d6fd4;
+        background: #262c36;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      button .name {
+        font-weight: 600;
+        display: block;
+      }
+      button .expect {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      input[type="number"] {
+        font: inherit;
+        color: var(--text);
+        background: #0e1116;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 8px 10px;
+        width: 120px;
+      }
+      .primary {
+        background: #1f6feb;
+        border-color: #1f6feb;
+      }
+      .primary:hover {
+        background: #388bfd;
+        border-color: #388bfd;
+      }
+      .drop {
+        border: 1.5px dashed var(--border);
+        border-radius: 10px;
+        padding: 26px;
+        text-align: center;
+        color: var(--muted);
+      }
+      .drop.over {
+        border-color: var(--blue);
+        color: var(--text);
+        background: #0d1d33;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 9px 10px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+      }
+      th {
+        color: var(--muted);
+        font-weight: 500;
+        font-size: 12px;
+      }
+      .badge {
+        display: inline-block;
+        padding: 2px 9px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .badge.clean {
+        background: rgba(46, 160, 67, 0.16);
+        color: #57d977;
+      }
+      .badge.active {
+        background: rgba(59, 130, 246, 0.16);
+        color: #79b0ff;
+      }
+      .badge.infected {
+        background: rgba(218, 54, 51, 0.18);
+        color: #ff7b72;
+      }
+      .badge.suspicious {
+        background: rgba(210, 153, 34, 0.18);
+        color: #e3b341;
+      }
+      .badge.unscanned {
+        background: rgba(110, 118, 129, 0.2);
+        color: #b1bac4;
+      }
+      .badge.error {
+        background: rgba(218, 54, 51, 0.18);
+        color: #ff7b72;
+      }
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .note {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 10px;
+      }
+      a {
+        color: #58a6ff;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Magna Carta &mdash; scan engine harness</h1>
+      <div class="status">
+        <span id="dot" class="dot"></span><span id="engine">checking engine&hellip;</span>
+      </div>
+    </header>
+    <main>
+      <section class="panel">
+        <h2>Trigger samples</h2>
+        <div class="muted" style="margin-bottom: 12px">
+          Each sample is crafted to drive one verdict path in the Rust engine. Generate them first
+          with
+          <span class="mono">node generate-samples.mjs</span>, then click to scan.
+        </div>
+        <div id="samples" class="grid"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Scan any file</h2>
+        <div id="drop" class="drop">
+          Drag a file here, or click to choose &mdash; it is sent to the live engine and timed.
+        </div>
+        <input id="file" type="file" hidden />
+      </section>
+
+      <section class="panel">
+        <h2>Large-file timing benchmark</h2>
+        <div class="row">
+          <label class="muted" for="mib">Size (MiB)</label>
+          <input id="mib" type="number" value="1024" min="1" max="8192" />
+          <button id="bench" class="primary" style="text-align: center">Stream &amp; time</button>
+          <span id="bench-note" class="muted"></span>
+        </div>
+        <div class="note">
+          Streams random bytes straight to the engine (the browser never holds the payload). A 1 GiB
+          file is well under the pipeline&rsquo;s 2 GiB inspect cap, so it is meant to be scanned
+          &mdash; watch whether the verdict comes back <span class="mono">clean</span> or
+          <span class="mono">unscanned</span>: clamd&rsquo;s stream limits decide how much it
+          actually inspects.
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Results</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Verdict</th>
+              <th>Detail</th>
+              <th>Size</th>
+              <th>Latency</th>
+              <th>Throughput</th>
+            </tr>
+          </thead>
+          <tbody id="results">
+            <tr>
+              <td colspan="6" class="muted">No scans yet.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+
+    <script>
+      const formatBytes = (n) => {
+        if (n >= 1024 * 1024 * 1024) return (n / 1024 / 1024 / 1024).toFixed(2) + " GiB";
+        if (n >= 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + " MiB";
+        if (n >= 1024) return (n / 1024).toFixed(1) + " KiB";
+        return n + " B";
+      };
+      const badgeClass = (result) => {
+        if (!result || result.error) return "error";
+        if (result.verdict === "clean") return result.activeContent ? "active" : "clean";
+        return result.verdict;
+      };
+      const verdictLabel = (result) => {
+        if (!result) return "no result";
+        if (result.error) return "error";
+        if (result.verdict === "clean" && result.activeContent) return "clean + active";
+        return result.verdict;
+      };
+      const detailOf = (result) => {
+        if (!result) return "";
+        if (result.error) return result.error;
+        if (result.verdict === "infected") return result.signature ?? "(unnamed signature)";
+        if (result.verdict === "suspicious" || result.verdict === "unscanned")
+          return result.reason ?? "";
+        return result.engineVersion ? "engine " + result.engineVersion : "";
+      };
+
+      let firstRow = true;
+      function addResult(label, outcome) {
+        const tbody = document.getElementById("results");
+        if (firstRow) {
+          tbody.innerHTML = "";
+          firstRow = false;
+        }
+        const result = outcome && outcome.result;
+        const row = document.createElement("tr");
+        const ms =
+          outcome && typeof outcome.milliseconds === "number" ? outcome.milliseconds : null;
+        const bytes = outcome && outcome.bytes;
+        const mbps = ms && bytes ? bytes / 1024 / 1024 / (ms / 1000) : null;
+        row.innerHTML =
+          '<td class="mono">' +
+          label +
+          "</td>" +
+          '<td><span class="badge ' +
+          badgeClass(outcome && outcome.error ? { error: outcome.error } : result) +
+          '">' +
+          verdictLabel(outcome && outcome.error ? { error: outcome.error } : result) +
+          "</span></td>" +
+          '<td class="mono muted">' +
+          (outcome && outcome.error ? outcome.error : detailOf(result)) +
+          "</td>" +
+          "<td>" +
+          (bytes ? formatBytes(bytes) : "&mdash;") +
+          "</td>" +
+          "<td>" +
+          (ms !== null ? ms.toFixed(0) + " ms" : "&mdash;") +
+          "</td>" +
+          "<td>" +
+          (mbps ? mbps.toFixed(1) + " MiB/s" : "&mdash;") +
+          "</td>";
+        tbody.prepend(row);
+      }
+
+      async function pollEngine() {
+        const dot = document.getElementById("dot");
+        const label = document.getElementById("engine");
+        try {
+          const res = await fetch("/api/ready");
+          const data = await res.json();
+          if (data.reachable) {
+            dot.className = "dot up";
+            label.textContent = "engine connected (" + data.scanUrl + ")";
+          } else {
+            dot.className = "dot down";
+            label.textContent = "engine unreachable — start the container at " + data.scanUrl;
+          }
+        } catch {
+          dot.className = "dot down";
+          label.textContent = "proxy error";
+        }
+      }
+
+      async function loadSamples() {
+        const container = document.getElementById("samples");
+        let manifest = [];
+        try {
+          manifest = await (await fetch("/api/samples")).json();
+        } catch {}
+        if (!Array.isArray(manifest) || manifest.length === 0) {
+          container.innerHTML =
+            '<div class="muted">No samples found. Run <span class="mono">node generate-samples.mjs</span> in containers/scan/harness.</div>';
+          return;
+        }
+        container.innerHTML = "";
+        for (const sample of manifest) {
+          const button = document.createElement("button");
+          button.innerHTML =
+            '<span class="name">' +
+            sample.name +
+            "</span>" +
+            '<span class="expect">expect: ' +
+            (sample.expect || "") +
+            "</span>";
+          button.onclick = async () => {
+            button.disabled = true;
+            try {
+              const res = await fetch("/api/scan-sample", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ name: sample.name, contentType: sample.contentType }),
+              });
+              addResult(sample.name, await res.json());
+            } catch (error) {
+              addResult(sample.name, { error: String(error) });
+            } finally {
+              button.disabled = false;
+            }
+          };
+          container.appendChild(button);
+        }
+      }
+
+      async function scanFile(file) {
+        try {
+          const res = await fetch("/api/scan?contentType=" + encodeURIComponent(file.type || ""), {
+            method: "POST",
+            headers: { "content-type": "application/octet-stream" },
+            body: file,
+          });
+          addResult(file.name, await res.json());
+        } catch (error) {
+          addResult(file.name, { error: String(error) });
+        }
+      }
+
+      const drop = document.getElementById("drop");
+      const fileInput = document.getElementById("file");
+      drop.onclick = () => fileInput.click();
+      fileInput.onchange = () => {
+        if (fileInput.files[0]) scanFile(fileInput.files[0]);
+      };
+      drop.ondragover = (e) => {
+        e.preventDefault();
+        drop.classList.add("over");
+      };
+      drop.ondragleave = () => drop.classList.remove("over");
+      drop.ondrop = (e) => {
+        e.preventDefault();
+        drop.classList.remove("over");
+        if (e.dataTransfer.files[0]) scanFile(e.dataTransfer.files[0]);
+      };
+
+      const benchButton = document.getElementById("bench");
+      benchButton.onclick = async () => {
+        const mib = document.getElementById("mib").value;
+        const note = document.getElementById("bench-note");
+        benchButton.disabled = true;
+        note.textContent = "streaming " + mib + " MiB…";
+        try {
+          const res = await fetch("/api/bench?mib=" + encodeURIComponent(mib));
+          addResult("benchmark " + mib + " MiB", await res.json());
+          note.textContent = "";
+        } catch (error) {
+          addResult("benchmark " + mib + " MiB", { error: String(error) });
+          note.textContent = "";
+        } finally {
+          benchButton.disabled = false;
+        }
+      };
+
+      pollEngine();
+      setInterval(pollEngine, 4000);
+      loadSamples();
+    </script>
+  </body>
+</html>
