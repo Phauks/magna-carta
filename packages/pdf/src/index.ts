@@ -93,6 +93,8 @@ export interface RedactionOptions {
   dpi?: number;
   /** If supplied, redaction also verifies these strings are absent from the output. */
   redactedText?: string[];
+  /** When present, document-level surfaces are scrubbed after redaction. */
+  scrub?: ScrubOptions;
 }
 
 export interface RedactionResult {
@@ -114,4 +116,41 @@ export async function redactDocument(
 ): Promise<RedactionResult> {
   await ensureReady();
   return wasmRedact(bytes, regions, opts) as RedactionResult;
+}
+
+export interface ScrubOptions {
+  /** Info dictionary + XMP metadata. Default true. */
+  metadata?: boolean;
+  /** Embedded files, file-attachment annotations, portfolio. Default true. */
+  attachments?: boolean;
+  /** AcroForm XFA dataset. Default true. */
+  xfa?: boolean;
+  /** Clear form field values (keeps a blank form). Default true. */
+  formFieldValues?: boolean;
+  /** Tagged-PDF structure tree (ActualText/Alt). Default true. */
+  structureTree?: boolean;
+  /** Bookmarks and named destinations. Default true. */
+  outlines?: boolean;
+  /** Optional-content (layer) configuration. Default true. */
+  optionalContent?: boolean;
+}
+
+export interface SanitizeResult {
+  pdf: Uint8Array;
+}
+
+import { sanitizeDocument as wasmSanitize } from "./pkg/pdf_core.js";
+
+/**
+ * Remove document-level surfaces where sensitive content can hide (metadata,
+ * attachments, form values, structure tree, bookmarks, optional-content). Every
+ * surface is removed by default; pass `false` for a surface to retain it. Throws
+ * if verification finds a scrubbed surface surviving (no document is returned).
+ */
+export async function sanitizeDocument(
+  bytes: Uint8Array,
+  opts: ScrubOptions = {},
+): Promise<SanitizeResult> {
+  await ensureReady();
+  return wasmSanitize(bytes, opts) as SanitizeResult;
 }

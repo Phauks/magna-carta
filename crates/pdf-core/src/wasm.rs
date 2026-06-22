@@ -1,5 +1,5 @@
 //! Thin JS marshalling edge — compiled only for wasm32. No engine logic here.
-use crate::{redact, Document, PdfError, Rect, RedactionOptions, RedactionRegion};
+use crate::{redact, sanitize, Document, PdfError, Rect, RedactionOptions, RedactionRegion, ScrubOptions};
 use wasm_bindgen::prelude::*;
 
 impl From<PdfError> for JsError {
@@ -125,6 +125,12 @@ pub fn redact_document(
     }
 
     let js_regions: Vec<JsRegion> = serde_wasm_bindgen::from_value(regions)?;
+    // Read the optional `scrub` sub-object before `opts` is consumed below.
+    let scrub_value = if opts.is_undefined() || opts.is_null() {
+        JsValue::UNDEFINED
+    } else {
+        js_sys::Reflect::get(&opts, &"scrub".into()).unwrap_or(JsValue::UNDEFINED)
+    };
     let js_opts: JsOpts = if opts.is_undefined() || opts.is_null() {
         JsOpts::default()
     } else {
@@ -147,7 +153,7 @@ pub fn redact_document(
     let options = RedactionOptions {
         dpi: js_opts.dpi.unwrap_or(300.0),
         redacted_text: js_opts.redacted_text,
-        scrub: crate::ScrubOptions::default(),
+        scrub: scrub_options_from_js(&scrub_value)?,
     };
 
     let outcome = redact(bytes, &regions, &options)?;
@@ -164,6 +170,59 @@ pub fn redact_document(
         pages.push(&JsValue::from(p as u32));
     }
     js_sys::Reflect::set(&result, &"pagesRedacted".into(), &pages)
+        .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    Ok(result.into())
+}
+
+impl From<crate::ScrubError> for JsError {
+    fn from(e: crate::ScrubError) -> Self {
+        match e {
+            crate::ScrubError::Parse => JsError::new("failed to parse PDF"),
+            crate::ScrubError::Reassemble => JsError::new("failed to reassemble PDF"),
+            crate::ScrubError::GateFailed { detail } => {
+                JsError::new(&format!("sanitize verification failed: {detail}"))
+            }
+        }
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct JsScrubOptions {
+    metadata: Option<bool>,
+    attachments: Option<bool>,
+    xfa: Option<bool>,
+    #[serde(rename = "formFieldValues")]
+    form_field_values: Option<bool>,
+    #[serde(rename = "structureTree")]
+    structure_tree: Option<bool>,
+    outlines: Option<bool>,
+    #[serde(rename = "optionalContent")]
+    optional_content: Option<bool>,
+}
+
+fn scrub_options_from_js(value: &JsValue) -> Result<ScrubOptions, JsError> {
+    if value.is_undefined() || value.is_null() {
+        return Ok(ScrubOptions::default());
+    }
+    let js: JsScrubOptions = serde_wasm_bindgen::from_value(value.clone())?;
+    let d = ScrubOptions::default();
+    Ok(ScrubOptions {
+        metadata: js.metadata.unwrap_or(d.metadata),
+        attachments: js.attachments.unwrap_or(d.attachments),
+        xfa: js.xfa.unwrap_or(d.xfa),
+        form_field_values: js.form_field_values.unwrap_or(d.form_field_values),
+        structure_tree: js.structure_tree.unwrap_or(d.structure_tree),
+        outlines: js.outlines.unwrap_or(d.outlines),
+        optional_content: js.optional_content.unwrap_or(d.optional_content),
+    })
+}
+
+#[wasm_bindgen(js_name = sanitizeDocument)]
+pub fn sanitize_document_edge(bytes: Vec<u8>, opts: JsValue) -> Result<JsValue, JsError> {
+    let options = scrub_options_from_js(&opts)?;
+    let out = sanitize(bytes, &options)?;
+    let result = js_sys::Object::new();
+    js_sys::Reflect::set(&result, &"pdf".into(), &js_sys::Uint8Array::from(&out[..]))
         .map_err(|e| JsError::new(&format!("{e:?}")))?;
     Ok(result.into())
 }
