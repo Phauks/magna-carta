@@ -1,5 +1,7 @@
 //! Thin JS marshalling edge — compiled only for wasm32. No engine logic here.
-use crate::{redact, sanitize, Document, PdfError, Rect, RedactionOptions, RedactionRegion, ScrubOptions};
+use crate::{
+    redact, sanitize, Document, PdfError, Rect, RedactionOptions, RedactionRegion, ScrubOptions,
+};
 use wasm_bindgen::prelude::*;
 
 impl From<PdfError> for JsError {
