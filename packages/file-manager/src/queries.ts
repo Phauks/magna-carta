@@ -312,6 +312,52 @@ export async function listUnscannedCommittedVersions(
   return results.map((row) => ({ id: row.id, r2Key: row.r2_key }));
 }
 
+// Loads an already-committed (status = 'clean') version by its R2 key — the non-pending counterpart to
+// selectPendingVersionByR2KeyStatement. The access-triggered re-scan dispatch uses it to branch: a key
+// with no pending row but a committed row is a re-scan candidate. Returns the columns the staleness
+// check + dedup-cache lookup need (the content hash and the engine version it was last scanned under).
+// undefined for a pending, quarantined, abandoned, or unknown key.
+export function selectCommittedVersionByR2KeyStatement(
+  database: SqlDatabase,
+  r2Key: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, file_id, content_sha256, scan_engine_version, scan_verdict FROM ${FILE_VERSION_TABLE} WHERE r2_key = ?1 AND status = 'clean'`,
+    )
+    .bind(r2Key);
+}
+
+export interface CommittedVersionForRescan {
+  readonly id: FileVersionId;
+  readonly fileId: FileId;
+  readonly contentSha256: string | null;
+  readonly scanEngineVersion: string | null;
+  readonly scanVerdict: string | null;
+}
+
+export async function loadCommittedVersionByR2Key(
+  database: SqlDatabase,
+  r2Key: string,
+): Promise<CommittedVersionForRescan | undefined> {
+  const { results } = await selectCommittedVersionByR2KeyStatement(database, r2Key).all<{
+    id: FileVersionId;
+    file_id: FileId;
+    content_sha256: string | null;
+    scan_engine_version: string | null;
+    scan_verdict: string | null;
+  }>();
+  const row = results[0];
+  if (row === undefined) return undefined;
+  return {
+    id: row.id,
+    fileId: row.file_id,
+    contentSha256: row.content_sha256,
+    scanEngineVersion: row.scan_engine_version,
+    scanVerdict: row.scan_verdict,
+  };
+}
+
 // Every folder in a matter (id, parent, name) — the input to folder-tree path composition for the
 // ZIP download. Folders carry no status gate (only file_version does), so this is an unguarded read.
 export function listFoldersByMatterStatement(

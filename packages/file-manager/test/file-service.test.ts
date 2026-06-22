@@ -10,7 +10,7 @@ import {
   softDeleteFile,
 } from "../src/file-service.ts";
 import { createFolder } from "../src/folder-service.ts";
-import { listFiles } from "../src/queries.ts";
+import { listFiles, loadCommittedVersionByR2Key } from "../src/queries.ts";
 import { lookupScanCache } from "../src/scan-cache.ts";
 import { readScanEngineVersion } from "../src/upload-policy.ts";
 import { ACTOR, freshDatabase, now, options, seedMatter } from "./support.ts";
@@ -498,5 +498,31 @@ describe("recordRescanVerdict — in-place re-scan", () => {
       verdict: "infected",
       signature: "Eicar-Test-Signature",
     });
+  });
+});
+
+describe("loadCommittedVersionByR2Key", () => {
+  it("loads a committed version by r2 key (hash + engine); undefined while pending or unknown", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { versionId } = (await initiate(database, matterId)) as { versionId: FileVersionId };
+    const key = (
+      await database
+        .prepare("SELECT r2_key FROM file_version WHERE id = ?1")
+        .bind(versionId)
+        .all<{ r2_key: string }>()
+    ).results[0]?.r2_key as string;
+
+    // While pending, the committed-only loader must not find it (status gate).
+    expect(await loadCommittedVersionByR2Key(database, key)).toBeUndefined();
+
+    await commit(database, versionId, "hash-q");
+    expect(await loadCommittedVersionByR2Key(database, key)).toMatchObject({
+      id: versionId,
+      contentSha256: "hash-q",
+      scanVerdict: "unscanned",
+      scanEngineVersion: null,
+    });
+    expect(await loadCommittedVersionByR2Key(database, "files/does-not-exist")).toBeUndefined();
   });
 });
