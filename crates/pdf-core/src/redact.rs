@@ -150,6 +150,17 @@ pub(crate) fn render_redacted_page(
     Ok((rgb, w, h))
 }
 
+/// Return the first supplied string that still appears as raw bytes in the emitted
+/// PDF. Pruning removes orphaned text objects; this catches any uncompressed
+/// plaintext that nonetheless survived. Text rasterized into the (compressed) page
+/// image is not plaintext and is intentionally not matched.
+fn first_surviving_text(pdf: &[u8], redacted_text: &[String]) -> Option<String> {
+    redacted_text
+        .iter()
+        .find(|s| !s.is_empty() && pdf.windows(s.len()).any(|w| w == s.as_bytes()))
+        .cloned()
+}
+
 pub(crate) fn verify_gate(
     doc: &lopdf::Document,
     affected_pages_1based: &[u32],
@@ -157,11 +168,21 @@ pub(crate) fn verify_gate(
 ) -> Result<(), RedactError> {
     // Structural: each affected page must now be text-free (it is an image).
     for &p in affected_pages_1based {
-        let text = doc.extract_text(&[p]).unwrap_or_default();
-        if !text.trim().is_empty() {
-            return Err(RedactError::GateFailed {
-                detail: format!("page {p} still has extractable text"),
-            });
+        match doc.extract_text(&[p]) {
+            Ok(text) => {
+                if !text.trim().is_empty() {
+                    return Err(RedactError::GateFailed {
+                        detail: format!("page {p} still has extractable text"),
+                    });
+                }
+            }
+            // A reassembled page is image-only and extracts as Ok(""); an extraction
+            // error here is anomalous, so refuse rather than assume the page is clean.
+            Err(_) => {
+                return Err(RedactError::GateFailed {
+                    detail: format!("page {p} text extraction failed; cannot verify removal"),
+                });
+            }
         }
     }
     // Content: supplied strings must be absent document-wide.
@@ -216,6 +237,11 @@ pub fn redact(
 
     let mut pdf = Vec::new();
     lo.save_to(&mut pdf).map_err(|_| RedactError::Reassemble)?;
+    if let Some(surviving) = first_surviving_text(&pdf, &opts.redacted_text) {
+        return Err(RedactError::GateFailed {
+            detail: format!("redacted text present in output bytes: {surviving}"),
+        });
+    }
     Ok(RedactionOutcome {
         report: RedactionReport { pages_redacted: redacted, region_count: regions.len() },
         pdf,
@@ -328,6 +354,20 @@ mod tests {
         assert!(
             !outcome.pdf.windows(5).any(|w| w == b"Hello"),
             "orphaned original text bytes survived in the output"
+        );
+    }
+
+    #[test]
+    fn output_byte_scan_detects_surviving_plaintext() {
+        let pdf = b"prefix (Secret) Tj suffix".to_vec();
+        assert_eq!(first_surviving_text(&pdf, &["Secret".into()]), Some("Secret".into()));
+        assert_eq!(first_surviving_text(&pdf, &["Absent".into()]), None);
+        // empty strings are ignored, never reported as surviving
+        assert_eq!(first_surviving_text(&pdf, &[String::new()]), None);
+        // first match wins when several survive
+        assert_eq!(
+            first_surviving_text(&pdf, &["Secret".into(), "suffix".into()]),
+            Some("Secret".into())
         );
     }
 
