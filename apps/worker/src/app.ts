@@ -240,10 +240,17 @@ export function createApp(options: CreateAppOptions = {}) {
       await writer.close();
       const reader = socket.readable.getReader();
       const chunks: Uint8Array[] = [];
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        chunks.push(value);
+      try {
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+        }
+      } finally {
+        // cloudflare:sockets does not auto-close when the readable is exhausted; release the
+        // reader lock first so close() can drain and tear down the underlying TCP connection.
+        reader.releaseLock();
+        await socket.close();
       }
       const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
       const merged = new Uint8Array(totalLength);

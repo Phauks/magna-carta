@@ -73,7 +73,7 @@ describe("GET /api/v1/whois", () => {
   });
 
   it("answers 403 for an authenticated member without tools:whois", async () => {
-    // Seeded into the firm but never mirrored into a role, so the member holds no permissions.
+    // seedCredentialedUser assigns no role; membership alone carries no permission, so 0016's grants do not apply.
     await seedCredentialedUser("whois-noperm@example.com", {
       userName: "No Perm",
       firmId: poolFirmId,

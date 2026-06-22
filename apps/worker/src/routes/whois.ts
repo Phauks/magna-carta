@@ -1,7 +1,6 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { lookupRegistration } from "@magna-carta/whois";
-import type { WhoisSocket } from "@magna-carta/whois/types";
-import type { HttpClient } from "@magna-carta/integrations/http";
+import type { WhoisDeps } from "@magna-carta/whois/types";
 import { SsrfRejection } from "@magna-carta/integrations/safe-target";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -10,15 +9,9 @@ import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 
-// The injected dependencies for the WHOIS route: the HTTP client (for RDAP bootstrap + queries)
-// and the socket (for the port-43 WHOIS fallback for ccTLDs without RDAP). The resolver is
-// optional: when present it enables DNS-rebinding protection by pre-resolving the target host
-// before any outbound connection.
-export interface WhoisRouteDeps {
-  http: HttpClient;
-  socket: WhoisSocket;
-  resolve?: (host: string) => Promise<readonly string[]>;
-}
+// Re-export WhoisDeps from the whois package as the route's dependency type so this file and
+// app.ts share one definition and cannot drift.
+export type { WhoisDeps as WhoisRouteDeps };
 
 const WhoisQuery = z.object({
   query: z.string().min(1).max(255),
@@ -88,7 +81,7 @@ export const whoisRoute = defineOpenAPIRoute(whoisMeta, {
 export function registerWhoisRoute(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
   chokepoint: Chokepoint,
-  deps: WhoisRouteDeps,
+  deps: WhoisDeps,
 ): void {
   app.openapi(
     { ...whoisRoute, middleware: chokepointMiddleware(chokepoint, whoisRoute) },
