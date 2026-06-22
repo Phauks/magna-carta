@@ -1,10 +1,12 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import type { FirmSettingDefinition } from "@magna-carta/data-access/setting-statements";
 import type {
   DocumentCheckoutId,
   FileId,
   FileVersionId,
   UserId,
 } from "@magna-carta/identifiers/types";
+import { z } from "zod";
 
 // The document_checkout table — an offline-working-copy claim or an opt-in exclusive lock on a file,
 // held by one member against a base version. Tracked against @magna-carta/database's schema by the
@@ -141,4 +143,91 @@ export function setCheckoutStatusStatement(
   return database
     .prepare(`UPDATE ${DOCUMENT_CHECKOUT_TABLE} SET status = ?2 WHERE id = ?1`)
     .bind(checkoutId, status);
+}
+
+// How long a checkout may sit with no activity before the idle sweep moves it toward release —
+// firm-configurable, generous by default (7 days) so a real, slow offline edit is never reaped early.
+export const checkoutIdleHoursDefinition: FirmSettingDefinition<number> = {
+  key: "editing.checkoutIdleHours",
+  schema: z.number().int().positive(),
+  defaultValue: 7 * 24,
+};
+
+// The grace between 'stale' (the idle window passed) and 'released' (the auto-release), so a holder who
+// returns during the grace can still resume before the checkout is reclaimed. A fixed window — the
+// firm tunes the idle threshold above, not this safety margin.
+export const CHECKOUT_STALE_GRACE_HOURS = 24;
+// One sweep pass's per-firm cap so a large backlog never makes a single fire unbounded.
+export const IDLE_CHECKOUT_SWEEP_BATCH = 200;
+
+export interface IdleCheckoutRow {
+  readonly id: DocumentCheckoutId;
+  readonly fileId: FileId;
+  readonly lockType: CheckoutLockType;
+}
+
+// Active checkouts whose last activity predates the cutoff — stage one of the idle sweep moves these to
+// 'stale'. Both lock kinds qualify (an abandoned exclusive lock or offline copy); a reconciling
+// checkout is mid-resolution and excluded by the status filter.
+export async function selectIdleActiveCheckouts(
+  database: SqlDatabase,
+  lastActivityBeforeIso: string,
+  limit: number,
+): Promise<IdleCheckoutRow[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT id, file_id, lock_type FROM ${DOCUMENT_CHECKOUT_TABLE} WHERE status = 'active' AND last_activity_at < ?1 LIMIT ?2`,
+    )
+    .bind(lastActivityBeforeIso, limit)
+    .all<{ id: string; file_id: string; lock_type: string }>();
+  return results.map((row) => ({
+    id: row.id as DocumentCheckoutId,
+    fileId: row.file_id as FileId,
+    lockType: row.lock_type as CheckoutLockType,
+  }));
+}
+
+// Stale checkouts whose grace has elapsed — stage two releases these.
+export async function selectReleasableStaleCheckouts(
+  database: SqlDatabase,
+  nowIso: string,
+  limit: number,
+): Promise<IdleCheckoutRow[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT id, file_id, lock_type FROM ${DOCUMENT_CHECKOUT_TABLE} WHERE status = 'stale' AND idle_release_at IS NOT NULL AND idle_release_at < ?1 LIMIT ?2`,
+    )
+    .bind(nowIso, limit)
+    .all<{ id: string; file_id: string; lock_type: string }>();
+  return results.map((row) => ({
+    id: row.id as DocumentCheckoutId,
+    fileId: row.file_id as FileId,
+    lockType: row.lock_type as CheckoutLockType,
+  }));
+}
+
+// Moves an active checkout to 'stale' and schedules its release. Guarded on the active state so an
+// overlapping pass is a no-op.
+export function markCheckoutStaleStatement(
+  database: SqlDatabase,
+  checkoutId: DocumentCheckoutId,
+  idleReleaseAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${DOCUMENT_CHECKOUT_TABLE} SET status = 'stale', idle_release_at = ?2 WHERE id = ?1 AND status = 'active'`,
+    )
+    .bind(checkoutId, idleReleaseAt);
+}
+
+// Releases a stale checkout. Guarded on the stale state so a replay is a no-op.
+export function releaseStaleCheckoutStatement(
+  database: SqlDatabase,
+  checkoutId: DocumentCheckoutId,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${DOCUMENT_CHECKOUT_TABLE} SET status = 'released' WHERE id = ?1 AND status = 'stale'`,
+    )
+    .bind(checkoutId);
 }

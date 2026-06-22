@@ -6,6 +6,7 @@ import type { BundleBuildMessage } from "./downloads/bundle-types.ts";
 import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
 import { pokeScanContainer } from "./files/scan-warm.ts";
 import { inferenceQueue, type InferenceJob } from "./inference/inference-consumer.ts";
+import { runIdleCheckoutSweep } from "./editing/idle-checkout-sweep.ts";
 import { runTieringSweep } from "./editing/tiering-sweep.ts";
 import { runRescanSweep, runScheduledSweep, runStorageReconciliation } from "./scheduled.ts";
 
@@ -64,6 +65,7 @@ export default {
             run: async () => {
               await runStorageReconciliation(env);
               await runTieringSweep(env);
+              await runIdleCheckoutSweep(env);
             },
           }
         : controller.cron === RESCAN_SWEEP_CRON
