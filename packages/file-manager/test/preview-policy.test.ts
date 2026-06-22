@@ -48,6 +48,14 @@ describe("decidePreview", () => {
     expect(decidePreview({ ...base, sniffedContentType: "" })).toEqual({ kind: "download-only", reason: "unknown-type" });
   });
 
+  it("playable but a HEADER-UNSAFE sniffed type (CR/LF or non-printable) -> download-only/unknown-type, never an inline grant", () => {
+    // A header-unsafe Content-Type would make Headers.set throw on the cookieless edge; it must degrade
+    // here so no inline token is ever minted for it (the forward transcode-rendition seam).
+    expect(decidePreview({ ...base, sniffedContentType: "video/mp4\r\nSet-Cookie: x=1" })).toEqual({ kind: "download-only", reason: "unknown-type" });
+    expect(decidePreview({ ...base, sniffedContentType: "video/mp4\n" })).toEqual({ kind: "download-only", reason: "unknown-type" });
+    expect(decidePreview({ ...base, sniffedContentType: "video/\x00mp4" })).toEqual({ kind: "download-only", reason: "unknown-type" });
+  });
+
   it("playable but tiered/encoded/derived -> download-only with the matching reason", () => {
     expect(decidePreview({ ...base, storageClass: "infrequent_access" })).toEqual({ kind: "download-only", reason: "tiered" });
     expect(decidePreview({ ...base, storageEncoding: "delta" })).toEqual({ kind: "download-only", reason: "encoded" });

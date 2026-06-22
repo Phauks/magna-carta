@@ -24,9 +24,13 @@ export function decidePreview(version: CleanVersionForPreview): PreviewDecision 
       reason: version.inlinePlayable === null ? "unknown-verdict" : "verdict",
     };
   }
-  // Content-type guard: a playable verdict without a known sniffed type cannot set the response
-  // Content-Type header safely, so it must never be served inline.
-  if (version.sniffedContentType === null || version.sniffedContentType === "") {
+  // Content-type guard: a playable verdict without a known, HEADER-SAFE sniffed type cannot set the
+  // response Content-Type header safely, so it must never be served inline. The pattern rejects empty,
+  // CR/LF, and any non-printable byte — a header-unsafe value (reachable not via today's magic-byte
+  // lookup but via a future transcode-rendition sniffed type, the documented forward seam) would make
+  // Headers.set throw on the cookieless edge, so it degrades to download-only here rather than minting
+  // an inline grant.
+  if (version.sniffedContentType === null || !/^[\x20-\x7e]+$/.test(version.sniffedContentType)) {
     return { kind: "download-only", reason: "unknown-type" };
   }
   // Storage class: infrequent_access objects are not pulled to the edge for inline streaming.

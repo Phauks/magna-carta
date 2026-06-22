@@ -79,6 +79,11 @@ export function registerPreviewServeRoute(
     const payload = await verifyPreviewDeliveryToken(c.env.AUTH_SECRET, token, nowSeconds);
     if (payload === null) return previewNoLongerValid();
 
+    // Defense in depth: the signed verdict must be 'playable' to stream inline bytes. The grant only
+    // ever mints inline tokens for a 'playable' verdict, so this is belt-and-suspenders that the
+    // cookieless edge independently refuses to serve a token carrying any other verdict.
+    if (payload.verdict !== "playable") return previewNoLongerValid();
+
     // Derive EVERY response header + bucket + key ONLY from the verified payload, never the URL/query.
     const appOrigin = appOriginFor(filesOrigin);
     const rangeHeader = c.req.header("range") ?? null;
@@ -109,11 +114,22 @@ export function registerPreviewServeRoute(
     const ifRangeMatches = ifRange === null || ifRange === head.httpEtag;
     const range = ifRangeMatches ? parseSingleByteRange(rangeHeader, totalSize) : null;
 
-    const headers = buildSafeDeliveryHeaders({
-      sniffedContentType: payload.sniffedContentType,
-      appOrigin,
-    });
-    headers.set("ETag", head.httpEtag);
+    // Header construction is guarded exactly like the R2 calls above: a header-unsafe stored
+    // Content-Type (e.g. a CR/LF in a future transcode-rendition sniffed type) makes Headers.set
+    // throw, and the cookieless edge must NEVER throw into the telemetry boundary (that would emit an
+    // error_ id on the untrusted, unauthenticated host). decidePreview already degrades a
+    // header-unsafe sniffed type to download-only so no inline token is minted; this is the
+    // edge-local backstop that keeps the guarantee true even if a token is minted by other means.
+    let headers: Headers;
+    try {
+      headers = buildSafeDeliveryHeaders({
+        sniffedContentType: payload.sniffedContentType,
+        appOrigin,
+      });
+      headers.set("ETag", head.httpEtag);
+    } catch {
+      return previewNoLongerValid();
+    }
 
     if (range === "unsatisfiable") {
       headers.set("Content-Range", `bytes */${totalSize}`);

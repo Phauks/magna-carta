@@ -198,6 +198,15 @@ export function createApp(options: CreateAppOptions = {}) {
     idempotency: createChokepointIdempotency(),
   });
 
+  // The cookieless preview serve route: a bare, host-guarded route on the files host, OUTSIDE the
+  // chokepoint (no session on files.*), under /api/ so it reaches the Worker (run_worker_first).
+  // Registered FIRST so its files-host catch-all seals the cookieless origin BEFORE any other route
+  // (health, Better Auth, /api/v1, ASSETS) can answer on files.* — the seal only holds if nothing is
+  // registered ahead of it. On the app origin the catch-all falls through (next()), so the routes
+  // below are unaffected. A standing fitness test asserts /api/health and /api/auth/* return the bare
+  // 404 on the files host, so this ordering seal cannot silently regress as routes are added.
+  registerPreviewServeRoute(app);
+
   // Health is platform plumbing: public, unauthenticated, no /api/v1 surface — it still rides the
   // chokepoint (rate-limit only, no session/firm/RBAC) so EVERY declared route is enforced through
   // the one seam, none reachable that skips it.
@@ -207,11 +216,6 @@ export function createApp(options: CreateAppOptions = {}) {
   // only GET and POST. Registered before the catch-all asset fallthrough, OUTSIDE the chokepoint
   // (it is its own authentication surface, not a /api/v1 route).
   app.on(["GET", "POST"], "/api/auth/*", (c) => authForEnv(c.env).handler(c.req.raw));
-
-  // The cookieless preview serve route: a bare, host-guarded route on the files host, OUTSIDE the
-  // chokepoint (no session on files.*), under /api/ so it reaches the Worker (run_worker_first). It
-  // must precede the /api/v1 routes and the ASSETS fallthrough and return terminally on the files host.
-  registerPreviewServeRoute(app);
 
   // The /api/v1 routes, each composed through the chokepoint (the one enforcement point). The
   // public firms route additionally mounts the platform-admin secret guard as route-specific
