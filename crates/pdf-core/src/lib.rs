@@ -4,6 +4,9 @@ mod wasm;
 mod redact;
 pub use redact::*;
 
+mod scrub;
+pub use scrub::*;
+
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_syntax::Pdf;
 use hayro::{render, RenderCache, RenderSettings};
