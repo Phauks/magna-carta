@@ -7,7 +7,7 @@ import {
   reRateUnbilledDrafts,
 } from "@magna-carta/timekeeping/rate-service";
 import { RateValidationError } from "@magna-carta/timekeeping/rate-validation";
-import { RATE_CARD_TABLE } from "@magna-carta/timekeeping/rate-statements";
+import { listRateCardsStatement } from "@magna-carta/timekeeping/rate-statements";
 import type { RateCardId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
@@ -168,7 +168,7 @@ const createRoute = defineOpenAPIRoute(createMeta, {
 const listRoute = defineOpenAPIRoute(listMeta, {
   method: "get",
   path: "/api/v1/rate-cards",
-  description: "Lists the firm's active (non-archived) rate cards.",
+  description: "Lists the firm's active (non-archived) rate cards, ordered by name.",
   responses: {
     200: {
       description: "The rate cards",
@@ -298,14 +298,15 @@ export function registerRateCardsRoutes(app: RateCardsApp, chokepoint: Chokepoin
     },
   );
 
-  // GET /api/v1/rate-cards — list active rate cards
+  // GET /api/v1/rate-cards — list active rate cards, ordered by name
   app.openapi(
     { ...listRoute, middleware: chokepointMiddleware(chokepoint, listRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const { results } = await firm.firmDatabase
-        .prepare(`SELECT id, name FROM ${RATE_CARD_TABLE} WHERE archived_at IS NULL ORDER BY created_at`)
-        .all<{ id: string; name: string }>();
+      const { results } = await listRateCardsStatement(firm.firmDatabase).all<{
+        id: string;
+        name: string;
+      }>();
       return c.json({ data: results }, 200);
     },
   );

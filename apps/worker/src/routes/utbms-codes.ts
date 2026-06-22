@@ -46,13 +46,14 @@ const UtbmsCodeListResponse = z
 const UtbmsCodeAck = z.object({ utbmsCodeId: z.string() }).openapi("UtbmsCodeAck");
 
 // UTBMS code ids are seeded from the ABA catalog using a deterministic handle format
-// (utbmsCode_<codeSet>_<code>) rather than the standard nanoid-21 pattern. Accept any non-empty
-// string starting with the utbmsCode_ prefix; the service pre-reads existence and returns a clear
-// not-found refusal for any id that does not match a seeded row.
+// (utbmsCode_<codeSet>_<code>) rather than the standard nanoid-21 pattern. Enforces the
+// utbmsCode_ prefix so the path param matches the seeded id format; the service pre-reads
+// existence and returns a clear not-found refusal for any id that does not match a seeded row.
 const utbmsCodeParam = z.object({
   id: z
     .string()
     .min(1)
+    .regex(/^utbmsCode_/, "id must start with the utbmsCode_ prefix")
     .openapi({ param: { name: "id", in: "path" } }),
 });
 

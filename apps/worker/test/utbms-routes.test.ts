@@ -148,6 +148,19 @@ describe("enable / disable", () => {
     );
     expect(response.status).toBe(404);
   });
+
+  it("returns 404 for an unknown code id on disable", async () => {
+    const phantomId = "utbmsCode_task_YYYYY"; // no such row
+    const response = await SELF.fetch(
+      `https://example.com/api/v1/utbms-codes/${phantomId}/disable`,
+      {
+        method: "POST",
+        headers: writeHeaders(ownerCookie),
+        body: JSON.stringify({}),
+      },
+    );
+    expect(response.status).toBe(404);
+  });
 });
 
 describe("permission gate", () => {

@@ -56,6 +56,19 @@ export function insertRateStatement(database: SqlDatabase, row: InsertRateRow): 
     );
 }
 
+// Existence check used by appendRate before composing any write: prevents a rate row with a dangling
+// rate_card_id from being written (and audited) when the card does not exist. Non-archived check is
+// intentionally omitted — a rate can still be appended to an archived card for correction purposes;
+// the route guards against presenting archived cards in selection UI.
+export function selectRateCardExistsStatement(
+  database: SqlDatabase,
+  rateCardId: RateCardId,
+): SqlStatement {
+  return database
+    .prepare(`SELECT 1 AS found FROM ${RATE_CARD_TABLE} WHERE id = ?1`)
+    .bind(rateCardId);
+}
+
 // Reads the existing rows for one scope (any state), so the service can refuse an overlapping
 // valid_from and find the open row to close. scoped_id NULL is the card-wide default for the tier and
 // matches with `IS` so it is treated as a distinct scope from any concrete scoped_id.
@@ -70,6 +83,13 @@ export function selectRatesForScopeStatement(
       `SELECT id, valid_from, valid_to FROM ${RATE_TABLE} WHERE rate_card_id = ?1 AND tier = ?2 AND scoped_id IS ?3 ORDER BY valid_from`,
     )
     .bind(rateCardId, tier, scopedId);
+}
+
+// Active (non-archived) rate cards, ordered by name — the natural selection-UI order.
+export function listRateCardsStatement(database: SqlDatabase): SqlStatement {
+  return database.prepare(
+    `SELECT id, name FROM ${RATE_CARD_TABLE} WHERE archived_at IS NULL ORDER BY name`,
+  );
 }
 
 // Closes the prior open row's interval at the new version's valid_from (the partial UNIQUE index keeps

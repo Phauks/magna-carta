@@ -6,7 +6,7 @@ import {
   updateNonBillableCategory,
   archiveNonBillableCategory,
 } from "@magna-carta/timekeeping/non-billable-category-service";
-import { NON_BILLABLE_CATEGORY_TABLE } from "@magna-carta/timekeeping/non-billable-category-statements";
+import { listNonBillableCategoriesStatement } from "@magna-carta/timekeeping/non-billable-category-statements";
 import { TimeEntryValidationError } from "@magna-carta/timekeeping/time-entry-validation";
 import type { NonBillableCategoryId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
@@ -297,16 +297,16 @@ export function registerNonBillableCategoriesRoutes(
     },
   );
 
-  // GET /api/v1/non-billable-categories — list active categories
+  // GET /api/v1/non-billable-categories — list active categories, ordered by name
   app.openapi(
     { ...listRoute, middleware: chokepointMiddleware(chokepoint, listRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
-      const { results } = await firm.firmDatabase
-        .prepare(
-          `SELECT id, name, archived_at FROM ${NON_BILLABLE_CATEGORY_TABLE} WHERE archived_at IS NULL ORDER BY name`,
-        )
-        .all<{ id: string; name: string; archived_at: string | null }>();
+      const { results } = await listNonBillableCategoriesStatement(firm.firmDatabase).all<{
+        id: string;
+        name: string;
+        archived_at: string | null;
+      }>();
       return c.json(
         {
           data: results.map((row) => ({

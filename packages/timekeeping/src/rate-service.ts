@@ -11,6 +11,7 @@ import {
   insertRateCardStatement,
   insertRateStatement,
   type RateTier,
+  selectRateCardExistsStatement,
   selectRatesForScopeStatement,
 } from "./rate-statements.ts";
 import { computeAmountMinor } from "./rounding.ts";
@@ -65,12 +66,23 @@ export interface AppendRateInput {
 // it closes the prior OPEN row's valid_to at the new valid_from in the SAME batch, so the [valid_from,
 // valid_to) intervals stay contiguous and non-overlapping (resolution always matches exactly one).
 // Closed-interval non-overlap is enforced here because SQLite has no range-exclusion constraint: a
-// valid_from that lands on or before any existing version's valid_from is refused.
+// valid_from that lands on or before any existing version's valid_from is refused. The rate card is
+// pre-read for existence so a dangling row is never written (or audited) for a card that does not exist.
 export async function appendRate(
   database: SqlDatabase,
   input: AppendRateInput,
   options: TimekeepingServiceOptions,
 ): Promise<{ rateId: RateId; effect: EffectWrite }> {
+  const cardExists = await selectRateCardExistsStatement(database, input.rateCardId).first<{
+    found: number;
+  }>();
+  if (cardExists === null) {
+    throw new RateValidationError(
+      "rate-card-not-found",
+      `Rate card ${input.rateCardId} does not exist`,
+    );
+  }
+
   const { results } = await selectRatesForScopeStatement(
     database,
     input.rateCardId,

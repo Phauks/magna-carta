@@ -12,7 +12,6 @@ import {
 } from "@magna-carta/timekeeping/narrative-template-statements";
 import { TimeEntryValidationError } from "@magna-carta/timekeeping/time-entry-validation";
 import type { NarrativeTemplateId } from "@magna-carta/identifiers/types";
-import { identifierField } from "../contracts/common.ts";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -23,7 +22,7 @@ import {
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
-import { idempotencyKeyHeader } from "../contracts/common.ts";
+import { idempotencyKeyHeader, identifierField } from "../contracts/common.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
@@ -207,7 +206,7 @@ const recentNarrativesRoute = defineOpenAPIRoute(recentNarrativesMeta, {
   method: "get",
   path: "/api/v1/narrative-templates/recent-narratives",
   description:
-    "Returns a timekeeper's distinct recent narratives, most recently used first. Populated from time entries — no explicit action needed.",
+    "Returns the authenticated timekeeper's own distinct recent narratives, most recently used first. The timekeeperUserId param must match the session user — narrative history is personal typing-autocomplete and may not be read cross-user.",
   request: { query: recentNarrativesQuery },
   responses: {
     200: {
@@ -322,16 +321,27 @@ export function registerNarrativeTemplatesRoutes(
     },
   );
 
-  // GET /api/v1/narrative-templates/recent-narratives — timekeeper's recent narratives
+  // GET /api/v1/narrative-templates/recent-narratives — own recent narratives only
   // Registered BEFORE any /{id}/* routes so the literal path segment "recent-narratives" matches first.
+  // Narrative history is personal typing-autocomplete: the timekeeperUserId param must match the
+  // session user. Any other value is refused with 403 — this is not a cross-user read.
   app.openapi(
     { ...recentNarrativesRoute, middleware: chokepointMiddleware(chokepoint, recentNarrativesRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
+      const sessionUserId = requireChokepointUserId(c);
       const { timekeeperUserId, limit } = c.req.valid("query");
+      if (timekeeperUserId !== sessionUserId) {
+        return problemJson(c, {
+          type: "forbidden",
+          title: "Forbidden",
+          status: 403,
+          detail: "Recent narratives may only be read for the authenticated user.",
+        });
+      }
       const { results } = await recentNarrativesStatement(
         firm.firmDatabase,
-        timekeeperUserId,
+        sessionUserId,
         limit,
       ).all<{ narrative: string }>();
       return c.json({ data: results.map((row) => row.narrative) }, 200);

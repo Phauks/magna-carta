@@ -144,6 +144,26 @@ describe("rate card lifecycle", () => {
     });
     expect(overlap.status).toBe(422);
   });
+
+  it("returns 404 when appending a rate to a nonexistent rate card, and writes no rate row", async () => {
+    const unknownCardId = "rateCard_000000000000000000000"; // valid shape; no such row
+    const before = await env.DB_FIRM_POOL_1.prepare("SELECT COUNT(*) AS count FROM rate").first<{
+      count: number;
+    }>();
+    const response = await post(`/api/v1/rate-cards/${unknownCardId}/rates`, {
+      tier: "timekeeper",
+      scopedId: ownerUserId,
+      rateE4: 1_000_000,
+      currency: "USD",
+      validFrom: "2026-01-01",
+    });
+    expect(response.status).toBe(404);
+    // Confirm no rate row was written for the dangling card id.
+    const after = await env.DB_FIRM_POOL_1.prepare("SELECT COUNT(*) AS count FROM rate").first<{
+      count: number;
+    }>();
+    expect(after?.count).toBe(before?.count);
+  });
 });
 
 describe("permission gate", () => {

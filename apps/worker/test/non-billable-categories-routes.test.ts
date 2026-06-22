@@ -149,6 +149,14 @@ describe("non-billable category lifecycle", () => {
     const response = await post(`/api/v1/non-billable-categories/${phantomId}/archive`, {});
     expect(response.status).toBe(404);
   });
+
+  it("returns 404 for an unknown category id on update (PATCH)", async () => {
+    const phantomId = "nonBillableCategory_111111111111111111111"; // valid shape; no such row
+    const response = await patch(`/api/v1/non-billable-categories/${phantomId}`, {
+      name: "Ghost Category",
+    });
+    expect(response.status).toBe(404);
+  });
 });
 
 describe("permission gate", () => {

@@ -25,6 +25,7 @@ import {
 let poolFirmId: FirmId;
 let ownerCookie: string;
 let readOnlyCookie: string;
+let secondTimekeeperCookie: string;
 let ownerUserId: UserId;
 
 beforeAll(async () => {
@@ -47,6 +48,15 @@ beforeAll(async () => {
   ownerUserId = owner.userId;
   await mirrorMemberWithOwnerRole(owner.userId, "NT Owner");
   ownerCookie = await signInForSessionCookie("nt-owner@example.com");
+
+  // A second timekeeper with time:track (Owner/Admin role) — used to assert that a time:track user
+  // cannot read another timekeeper's recent narratives.
+  const secondTimekeeper = await seedCredentialedUser("nt-second@example.com", {
+    userName: "NT Second",
+    firmId: poolFirmId,
+  });
+  await mirrorMemberWithOwnerRole(secondTimekeeper.userId, "NT Second");
+  secondTimekeeperCookie = await signInForSessionCookie("nt-second@example.com");
 
   const readOnly = await seedCredentialedUser("nt-readonly@example.com", {
     userName: "NT Read Only",
@@ -122,6 +132,17 @@ describe("narrative template lifecycle", () => {
     const body = (await response.json()) as { data: string[] };
     // No time entries have been captured yet for this firm, so the list is empty.
     expect(Array.isArray(body.data)).toBe(true);
+  });
+
+  it("refuses a time:track member reading another timekeeper's narratives (403)", async () => {
+    // secondTimekeeperCookie belongs to a time:track user (Owner/Admin). Requesting ownerUserId's
+    // narratives from that session must be refused — recent narratives are personal autocomplete,
+    // not cross-user readable, so the timekeeperUserId param must match the session user.
+    const response = await get(
+      `/api/v1/narrative-templates/recent-narratives?timekeeperUserId=${ownerUserId}&limit=10`,
+      secondTimekeeperCookie,
+    );
+    expect(response.status).toBe(403);
   });
 });
 

@@ -45,6 +45,13 @@ export function seedNonBillableCategoryStatements(
   );
 }
 
+// Active (non-archived) non-billable categories, ordered by name — the natural selection-UI order.
+export function listNonBillableCategoriesStatement(database: SqlDatabase): SqlStatement {
+  return database.prepare(
+    `SELECT id, name, archived_at FROM ${NON_BILLABLE_CATEGORY_TABLE} WHERE archived_at IS NULL ORDER BY name`,
+  );
+}
+
 // Existence check used by the service before composing an update or archive effect: prevents a
 // phantom audit row from being written for a subject that does not exist.
 export function selectNonBillableCategoryExistsStatement(

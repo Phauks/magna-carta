@@ -15413,7 +15413,7 @@
         }
       },
       "get": {
-        "description": "Lists the firm's active (non-archived) rate cards.",
+        "description": "Lists the firm's active (non-archived) rate cards, ordered by name.",
         "operationId": "rateCards.list",
         "tags": [
           "rateCards"
@@ -15861,7 +15861,8 @@
           {
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "^utbmsCode_"
             },
             "required": true,
             "name": "id",
@@ -15984,7 +15985,8 @@
           {
             "schema": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "^utbmsCode_"
             },
             "required": true,
             "name": "id",
@@ -16732,7 +16734,7 @@
     },
     "/api/v1/narrative-templates/recent-narratives": {
       "get": {
-        "description": "Returns a timekeeper's distinct recent narratives, most recently used first. Populated from time entries — no explicit action needed.",
+        "description": "Returns the authenticated timekeeper's own distinct recent narratives, most recently used first. The timekeeperUserId param must match the session user — narrative history is personal typing-autocomplete and may not be read cross-user.",
         "operationId": "narrativeTemplates.recentNarratives",
         "tags": [
           "narrativeTemplates"
