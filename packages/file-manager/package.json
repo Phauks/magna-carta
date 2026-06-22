@@ -12,10 +12,13 @@
     "./document-type-statements": "./src/document-type-statements.ts",
     "./document-type-service": "./src/document-type-service.ts",
     "./metering-statements": "./src/metering-statements.ts",
+    "./usage": "./src/usage.ts",
     "./ingest-core": "./src/ingest-core.ts",
     "./scan-port": "./src/scan-port.ts",
+    "./safe-rendition-port": "./src/safe-rendition-port.ts",
     "./upload-policy": "./src/upload-policy.ts",
     "./queries": "./src/queries.ts",
+    "./preview-policy": "./src/preview-policy.ts",
     "./zip-composition": "./src/zip-composition.ts",
     "./audit": "./src/audit.ts",
     "./validation": "./src/validation.ts"

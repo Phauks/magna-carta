@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Attorney License Lookup — government-links mockup</title>
+    <style>
+      :root {
+        --ink: #1a1b1e;
+        --muted: #6b7280;
+        --line: #e5e7eb;
+        --bg: #f7f7f5;
+        --card: #ffffff;
+        --accent: #1f4f6b;
+        --accent-soft: #eaf2f6;
+        --ok: #1d7a4d;
+        --ok-soft: #e6f4ec;
+        --warn: #92591b;
+        --warn-soft: #f6efe2;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.5 -apple-system,
+          "Segoe UI",
+          Roboto,
+          Helvetica,
+          Arial,
+          sans-serif;
+      }
+      .wrap {
+        max-width: 940px;
+        margin: 0 auto;
+        padding: 40px 24px 80px;
+      }
+      header h1 {
+        font-family: Georgia, "Times New Roman", serif;
+        font-weight: 600;
+        font-size: 28px;
+        margin: 0 0 4px;
+        letter-spacing: -0.01em;
+      }
+      header p {
+        margin: 0 0 4px;
+        color: var(--muted);
+      }
+      .note {
+        margin-top: 12px;
+        font-size: 13px;
+        color: var(--muted);
+        border-left: 3px solid var(--line);
+        padding-left: 12px;
+      }
+      h2 {
+        font-family: Georgia, "Times New Roman", serif;
+        font-weight: 600;
+        font-size: 18px;
+        margin: 44px 0 14px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      /* Attorney profile card */
+      .profile {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 22px 24px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      }
+      .profile-head {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .profile-head .name {
+        font-family: Georgia, serif;
+        font-size: 20px;
+        font-weight: 600;
+      }
+      .profile-head .role {
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .admissions {
+        margin-top: 18px;
+        border-top: 1px solid var(--line);
+      }
+      .admission {
+        display: grid;
+        grid-template-columns: 1fr auto auto auto;
+        align-items: center;
+        gap: 14px;
+        padding: 12px 2px;
+        border-bottom: 1px solid var(--line);
+      }
+      .admission .jx {
+        font-weight: 600;
+      }
+      .admission .barno {
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+      .badge {
+        font-size: 12px;
+        font-weight: 600;
+        padding: 2px 9px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      .badge.active {
+        color: var(--ok);
+        background: var(--ok-soft);
+      }
+      .badge.inactive {
+        color: var(--warn);
+        background: var(--warn-soft);
+      }
+      .verify {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--accent);
+        text-decoration: none;
+        padding: 5px 11px;
+        border: 1px solid #cdd8de;
+        border-radius: 7px;
+        background: var(--accent-soft);
+        white-space: nowrap;
+      }
+      .verify:hover {
+        background: #dfeaf0;
+      }
+      .verify::after {
+        content: " \2197";
+      }
+
+      /* All-jurisdictions grid */
+      .controls {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 14px;
+      }
+      #filter {
+        flex: 1;
+        padding: 9px 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        font-size: 14px;
+        background: var(--card);
+      }
+      #count {
+        color: var(--muted);
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(430px, 1fr));
+        gap: 10px;
+      }
+      .cell {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        padding: 12px 14px;
+      }
+      .cell:hover {
+        border-color: #c4d0d7;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      }
+      .cell .state {
+        font-weight: 600;
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      }
+      .cell .state .fips {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 400;
+      }
+      .cell .url {
+        margin-top: 5px;
+        font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+        font-size: 12px;
+        line-height: 1.4;
+        color: var(--accent);
+        text-decoration: none;
+        word-break: break-all;
+      }
+      .cell .url:hover {
+        text-decoration: underline;
+      }
+      footer {
+        margin-top: 40px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      code {
+        background: #eee;
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>Attorney License Lookup</h1>
+        <p>
+          Mockup over <code>@magna-carta/government-links</code> &middot;
+          <code>licensing</code> domain
+        </p>
+        <div class="note">
+          Throwaway dev mockup to test the data &mdash; not product UI. Every link below is the
+          <code>attorneyLicenseSiteForState(fips)</code> result for that state. The real feature is
+          the profile card: a verify link next to each bar admission. Links open the official bar /
+          judiciary search in a new tab.
+        </div>
+      </header>
+
+      <h2>Attorney profile &mdash; the consumer seam</h2>
+      <div class="profile">
+        <div class="profile-head">
+          <span class="name">Jordan A. Vance</span>
+          <span class="role">Partner &middot; Vance &amp; Reyes LLP</span>
+        </div>
+        <div class="admissions" id="admissions"></div>
+      </div>
+
+      <h2>All 51 jurisdictions &mdash; click to test the link</h2>
+      <div class="controls">
+        <input id="filter" type="search" placeholder="Filter by state&hellip;" autocomplete="off" />
+        <span id="count"></span>
+      </div>
+      <div class="grid" id="grid"></div>
+
+      <footer>
+        Data mirrors <code>src/licensing/attorney-license.ts</code> (51 rows). Source authority
+        varies by state: a mandatory bar's member directory, or the judiciary / disciplinary board
+        in non-unified-bar states.
+      </footer>
+    </div>
+
+    <script>
+      // Mirrors src/licensing/attorney-license.ts — { fips, code, name, lookup }.
+      const STATES = [
+        {
+          fips: "01",
+          code: "AL",
+          name: "Alabama",
+          lookup: "https://members.alabar.org/Member_Portal/Member_Portal/Member-Search.aspx",
+        },
+        {
+          fips: "02",
+          code: "AK",
+          name: "Alaska",
+          lookup: "https://alaskabar.org/for-lawyers/member-directories/",
+        },
+        {
+          fips: "04",
+          code: "AZ",
+          name: "Arizona",
+          lookup:
+            "https://www.azbar.org/for-legal-professionals/practice-tools-management/member-directory/",
+        },
+        {
+          fips: "05",
+          code: "AR",
+          name: "Arkansas",
+          lookup: "https://attorneyinfo.aoc.arkansas.gov/info/attorney/attorneysearch.aspx",
+        },
+        {
+          fips: "06",
+          code: "CA",
+          name: "California",
+          lookup: "https://apps.calbar.ca.gov/attorney/LicenseeSearch/QuickSearch",
+        },
+        {
+          fips: "08",
+          code: "CO",
+          name: "Colorado",
+          lookup: "https://www.coloradolegalregulation.com/attorney-search/",
+        },
+        {
+          fips: "09",
+          code: "CT",
+          name: "Connecticut",
+          lookup: "https://www.jud.ct.gov/attorneyfirminquiry/AttorneyFirmInquiry.aspx",
+        },
+        {
+          fips: "10",
+          code: "DE",
+          name: "Delaware",
+          lookup: "https://www.dsba.org/resources/public-resources/",
+        },
+        {
+          fips: "11",
+          code: "DC",
+          name: "District of Columbia",
+          lookup: "https://my.dcbar.org/memberdirectory",
+        },
+        {
+          fips: "12",
+          code: "FL",
+          name: "Florida",
+          lookup: "https://www.floridabar.org/directories/find-mbr/",
+        },
+        { fips: "13", code: "GA", name: "Georgia", lookup: "https://www.gabar.org/search" },
+        { fips: "15", code: "HI", name: "Hawaii", lookup: "https://hsba.org/find-a-lawyer/" },
+        {
+          fips: "16",
+          code: "ID",
+          name: "Idaho",
+          lookup: "https://apps.isb.idaho.gov/licensing/attorney_roster.cfm",
+        },
+        { fips: "17", code: "IL", name: "Illinois", lookup: "https://www.iardc.org/Lawyer/Search" },
+        {
+          fips: "18",
+          code: "IN",
+          name: "Indiana",
+          lookup: "https://courtapps.in.gov/rollofattorneys/search",
+        },
+        {
+          fips: "19",
+          code: "IA",
+          name: "Iowa",
+          lookup: "https://www.iowabar.org/?pg=MemberDirectories",
+        },
+        { fips: "20", code: "KS", name: "Kansas", lookup: "https://directory-kard.kscourts.gov/" },
+        {
+          fips: "21",
+          code: "KY",
+          name: "Kentucky",
+          lookup: "https://kybar.org/For-Public/Find-a-Lawyer",
+        },
+        {
+          fips: "22",
+          code: "LA",
+          name: "Louisiana",
+          lookup: "https://www.lsba.org/Public/LawyerReferral.aspx",
+        },
+        {
+          fips: "23",
+          code: "ME",
+          name: "Maine",
+          lookup: "https://www.mainebar.org/public-services/find-a-lawyer",
+        },
+        { fips: "24", code: "MD", name: "Maryland", lookup: "https://www.mdcourts.gov/ais/" },
+        {
+          fips: "25",
+          code: "MA",
+          name: "Massachusetts",
+          lookup: "https://www.massbbo.org/public-services/find-a-licensed-attorney",
+        },
+        { fips: "26", code: "MI", name: "Michigan", lookup: "https://directory.michbar.org/" },
+        { fips: "27", code: "MN", name: "Minnesota", lookup: "https://mncourts.org/mnlawyers" },
+        {
+          fips: "28",
+          code: "MS",
+          name: "Mississippi",
+          lookup: "https://www.msbar.org/public-services/find-a-lawyer",
+        },
+        {
+          fips: "29",
+          code: "MO",
+          name: "Missouri",
+          lookup: "https://www.mobar.org/public-services/find-a-lawyer",
+        },
+        {
+          fips: "30",
+          code: "MT",
+          name: "Montana",
+          lookup: "https://www.montanabar.org/For-Attorneys/Attorney-Directory",
+        },
+        {
+          fips: "31",
+          code: "NE",
+          name: "Nebraska",
+          lookup: "https://attorneys.nejudicial.gov/member-search",
+        },
+        {
+          fips: "32",
+          code: "NV",
+          name: "Nevada",
+          lookup: "https://www.nvbar.org/public-services/find-an-attorney/",
+        },
+        {
+          fips: "33",
+          code: "NH",
+          name: "New Hampshire",
+          lookup: "https://member.nhbar.org/directory",
+        },
+        {
+          fips: "34",
+          code: "NJ",
+          name: "New Jersey",
+          lookup: "https://www.nj.gov/courts/attorney_services/attorney_lookup.html",
+        },
+        {
+          fips: "35",
+          code: "NM",
+          name: "New Mexico",
+          lookup: "https://www.nmbar.org/public-services/find-a-lawyer",
+        },
+        {
+          fips: "36",
+          code: "NY",
+          name: "New York",
+          lookup: "https://www.nycourts.gov/attorney-search",
+        },
+        {
+          fips: "37",
+          code: "NC",
+          name: "North Carolina",
+          lookup: "https://portal.ncbar.gov/verification/search.aspx",
+        },
+        {
+          fips: "38",
+          code: "ND",
+          name: "North Dakota",
+          lookup: "https://www.sband.org/page/FindaLawyer",
+        },
+        {
+          fips: "39",
+          code: "OH",
+          name: "Ohio",
+          lookup: "https://www.supremecourt.ohio.gov/AttorneySearch",
+        },
+        {
+          fips: "40",
+          code: "OK",
+          name: "Oklahoma",
+          lookup: "https://ams.okbar.org/eweb/startpage.aspx?site=FALWEB",
+        },
+        {
+          fips: "41",
+          code: "OR",
+          name: "Oregon",
+          lookup: "https://www.osbar.org/members/membersearch_start.asp",
+        },
+        {
+          fips: "42",
+          code: "PA",
+          name: "Pennsylvania",
+          lookup: "https://www.padisciplinaryboard.org/for-the-public/find-attorney",
+        },
+        {
+          fips: "44",
+          code: "RI",
+          name: "Rhode Island",
+          lookup: "http://rijrs.courts.ri.gov/rijrs/attorney.do",
+        },
+        {
+          fips: "45",
+          code: "SC",
+          name: "South Carolina",
+          lookup: "https://www.scbar.org/for-lawyers/quicklinks/member-directory/",
+        },
+        { fips: "46", code: "SD", name: "South Dakota", lookup: "https://findalawyerinsd.com/" },
+        {
+          fips: "47",
+          code: "TN",
+          name: "Tennessee",
+          lookup: "https://www.tbpr.org/for-the-public/online-attorney-directory",
+        },
+        {
+          fips: "48",
+          code: "TX",
+          name: "Texas",
+          lookup: "https://www.texasbar.com/public-services/find-a-lawyer",
+        },
+        {
+          fips: "49",
+          code: "UT",
+          name: "Utah",
+          lookup: "https://services.utahbar.org/Member-Directory",
+        },
+        {
+          fips: "50",
+          code: "VT",
+          name: "Vermont",
+          lookup: "https://www.vtbar.org/online-directory/",
+        },
+        { fips: "51", code: "VA", name: "Virginia", lookup: "https://www.vsb.org/" },
+        {
+          fips: "53",
+          code: "WA",
+          name: "Washington",
+          lookup: "http://www.mywsba.org/PersonifyEbusiness/LegalDirectory.aspx",
+        },
+        { fips: "54", code: "WV", name: "West Virginia", lookup: "https://www.wvbar.org/" },
+        {
+          fips: "55",
+          code: "WI",
+          name: "Wisconsin",
+          lookup: "https://www.wisbar.org/Pages/BasicLawyerSearch.aspx",
+        },
+        {
+          fips: "56",
+          code: "WY",
+          name: "Wyoming",
+          lookup: "https://www.wyomingbar.org/for-the-public/hire-a-lawyer/lawyer-search/",
+        },
+      ];
+
+      const byFips = (f) => STATES.find((s) => s.fips === f);
+
+      // attorneyLicenseSiteForState(fips) — the accessor the real profile UI would call.
+      function verifyUrlForState(fips) {
+        return byFips(fips)?.lookup ?? null;
+      }
+
+      // A mock attorney's multi-state bar admissions (the data a Directory/member profile would hold).
+      const ADMISSIONS = [
+        { fips: "06", barNo: "284512", status: "Active" },
+        { fips: "36", barNo: "5521440", status: "Active" },
+        { fips: "32", barNo: "14203", status: "Active" },
+        { fips: "48", barNo: "24009912", status: "Inactive" },
+      ];
+
+      const admissionsEl = document.getElementById("admissions");
+      for (const a of ADMISSIONS) {
+        const st = byFips(a.fips);
+        const url = verifyUrlForState(a.fips);
+        const row = document.createElement("div");
+        row.className = "admission";
+        row.innerHTML =
+          '<span class="jx">' +
+          st.name +
+          ' <span style="color:var(--muted);font-weight:400">(' +
+          st.code +
+          ")</span></span>" +
+          '<span class="barno">Bar #' +
+          a.barNo +
+          "</span>" +
+          '<span class="badge ' +
+          a.status.toLowerCase() +
+          '">' +
+          a.status +
+          "</span>";
+        const link = document.createElement("a");
+        link.className = "verify";
+        link.href = url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = "Verify";
+        row.appendChild(link);
+        admissionsEl.appendChild(row);
+      }
+
+      const grid = document.getElementById("grid");
+      const countEl = document.getElementById("count");
+      const filterEl = document.getElementById("filter");
+
+      function render(q) {
+        const needle = (q || "").trim().toLowerCase();
+        const rows = STATES.filter(
+          (s) =>
+            !needle || s.name.toLowerCase().includes(needle) || s.code.toLowerCase() === needle,
+        );
+        grid.innerHTML = "";
+        for (const s of rows) {
+          const cell = document.createElement("div");
+          cell.className = "cell";
+          cell.innerHTML =
+            '<div class="state"><span>' +
+            s.name +
+            ' <span style="color:var(--muted)">' +
+            s.code +
+            "</span></span>" +
+            '<span class="fips">FIPS ' +
+            s.fips +
+            "</span></div>";
+          const link = document.createElement("a");
+          link.className = "url";
+          link.href = s.lookup;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = s.lookup;
+          cell.appendChild(link);
+          grid.appendChild(cell);
+        }
+        countEl.textContent = rows.length + " of " + STATES.length;
+      }
+
+      filterEl.addEventListener("input", (e) => render(e.target.value));
+      render("");
+    </script>
+  </body>
+</html>

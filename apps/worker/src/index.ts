@@ -5,6 +5,7 @@ import { bundleBuildQueue } from "./downloads/bundle-consumer.ts";
 import type { BundleBuildMessage } from "./downloads/bundle-types.ts";
 import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
 import { pokeScanContainer } from "./files/scan-warm.ts";
+import { inferenceQueue, type InferenceJob } from "./inference/inference-consumer.ts";
 import { runRescanSweep, runScheduledSweep, runStorageReconciliation } from "./scheduled.ts";
 
 // The async bulk-download coordinator Durable Object must be exported from the Worker's main entrypoint
@@ -19,6 +20,9 @@ export { ScanContainer } from "./files/scan-container.ts";
 // batches to the bundle consumer, every other queue to the files-ingest consumer.
 const BUNDLE_BUILD_QUEUE = "magna-carta-production-bundle-build";
 
+// createApp defaults the plugin runtime to the production seam — the firm_secret credential store
+// throws until the marketplace wires the live credential read; carrier calls use a fetch-backed
+// EasyPost client. Plugins mount from the registry; the core names none directly.
 const app = createApp();
 
 // The daily reconciliation Cron expression (wrangler.jsonc triggers.crons), distinct from the */5
@@ -63,6 +67,10 @@ export default {
     // The bundle-build queue routes to the async bulk-download consumer (R2 -> client-zip -> R2).
     if (batch.queue === BUNDLE_BUILD_QUEUE) {
       return bundleBuildQueue(batch as MessageBatch<BundleBuildMessage>, env);
+    }
+    // The inference queue carries inference jobs (env.AI.run off the request path).
+    if (batch.queue === "magna-carta-production-inference") {
+      return inferenceQueue(batch as MessageBatch<InferenceJob>, env);
     }
     // Both the interactive files-ingest queue and the bulk files-ingest-bulk queue route to the
     // same ingest handler — the lane separation is entirely in queue topology and concurrency.

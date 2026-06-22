@@ -61,16 +61,16 @@ with its expected verdict, a drag-and-drop box for any file, and the large-file 
 `generate-samples.mjs` builds each file to drive one verdict path. The expected verdict is shown beside
 each button and recorded in `samples/manifest.json`.
 
-| Sample              | Drives                          | Expected verdict                      |
-| ------------------- | ------------------------------- | ------------------------------------- |
-| `eicar.com`         | ClamAV signature database       | `infected` (Eicar-Test-Signature)     |
-| `clean.txt`         | nothing                         | `clean`                               |
-| `active.pdf`        | PDF `/OpenAction` + JavaScript  | `clean` + active content              |
-| `macro.docx`        | OOXML `vbaProject.bin` part     | `clean` + active content              |
-| `bomb-ratio.zip`    | declared/compressed ratio > 100 | `suspicious / decompression-bomb`     |
-| `nested-deep.zip`   | ~20 archives deep (cap 16)      | `suspicious / archive-nesting`        |
-| `many-entries.zip`  | > 10,000 entries                | `suspicious / archive-entry-count`    |
-| `encrypted.zip`     | encrypted entry (cannot read)   | `unscanned / encrypted`               |
+| Sample             | Drives                          | Expected verdict                   |
+| ------------------ | ------------------------------- | ---------------------------------- |
+| `eicar.com`        | ClamAV signature database       | `infected` (Eicar-Test-Signature)  |
+| `clean.txt`        | nothing                         | `clean`                            |
+| `active.pdf`       | PDF `/OpenAction` + JavaScript  | `clean` + active content           |
+| `macro.docx`       | OOXML `vbaProject.bin` part     | `clean` + active content           |
+| `bomb-ratio.zip`   | declared/compressed ratio > 100 | `suspicious / decompression-bomb`  |
+| `nested-deep.zip`  | ~20 archives deep (cap 16)      | `suspicious / archive-nesting`     |
+| `many-entries.zip` | > 10,000 entries                | `suspicious / archive-entry-count` |
+| `encrypted.zip`    | encrypted entry (cannot read)   | `unscanned / encrypted`            |
 
 ## The 1 GB question — and a measurement caveat
 

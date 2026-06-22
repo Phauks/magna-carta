@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, type MutationOptions, queryOptions } from '@tanstack/svelte-query';
 
 import { client } from '../client.gen';
-import { documentTypesCreate, documentTypesDeactivate, documentTypesList, documentTypesUpdate, downloadsBundleStatus, downloadsZip, filesDelete, filesDownload, filesGet, filesList, filesUpdate, filesVersions, firmsProvision, foldersCreate, foldersDelete, foldersUpdate, healthRead, incidentsReport, locationsAssignMember, locationsClose, locationsCreate, locationsGet, locationsList, locationsSetAddresses, locationsUpdate, mattersClose, mattersCreate, mattersGet, mattersList, mattersListConsultations, mattersOpen, mattersRenumber, mattersReopen, mattersUpdate, matterTypesCreate, matterTypesDeactivate, matterTypesList, matterTypesUpdate, meGet, membersInvite, numberingGet, numberingPreview, numberingSet, type Options, uploadsAbort, uploadsComplete, uploadsInitiate, uploadsSignPart } from '../sdk.gen';
-import type { DocumentTypesCreateData, DocumentTypesCreateError, DocumentTypesCreateResponse, DocumentTypesDeactivateData, DocumentTypesDeactivateError, DocumentTypesDeactivateResponse, DocumentTypesListData, DocumentTypesListError, DocumentTypesListResponse, DocumentTypesUpdateData, DocumentTypesUpdateError, DocumentTypesUpdateResponse, DownloadsBundleStatusData, DownloadsBundleStatusError, DownloadsBundleStatusResponse, DownloadsZipData, DownloadsZipError, DownloadsZipResponse, FilesDeleteData, FilesDeleteError, FilesDeleteResponse, FilesDownloadData, FilesDownloadError, FilesGetData, FilesGetError, FilesGetResponse, FilesListData, FilesListError, FilesListResponse, FilesUpdateData, FilesUpdateError, FilesUpdateResponse, FilesVersionsData, FilesVersionsError, FilesVersionsResponse, FirmsProvisionData, FirmsProvisionError, FirmsProvisionResponse, FoldersCreateData, FoldersCreateError, FoldersCreateResponse, FoldersDeleteData, FoldersDeleteError, FoldersDeleteResponse, FoldersUpdateData, FoldersUpdateError, FoldersUpdateResponse, HealthReadData, HealthReadError, HealthReadResponse, IncidentsReportData, IncidentsReportError, IncidentsReportResponse, LocationsAssignMemberData, LocationsAssignMemberError, LocationsAssignMemberResponse, LocationsCloseData, LocationsCloseError, LocationsCloseResponse, LocationsCreateData, LocationsCreateError, LocationsCreateResponse, LocationsGetData, LocationsGetError, LocationsGetResponse, LocationsListData, LocationsListError, LocationsListResponse, LocationsSetAddressesData, LocationsSetAddressesError, LocationsSetAddressesResponse, LocationsUpdateData, LocationsUpdateError, LocationsUpdateResponse, MattersCloseData, MattersCloseError, MattersCloseResponse, MattersCreateData, MattersCreateError, MattersCreateResponse, MattersGetData, MattersGetError, MattersGetResponse, MattersListConsultationsData, MattersListConsultationsError, MattersListConsultationsResponse, MattersListData, MattersListError, MattersListResponse, MattersOpenData, MattersOpenError, MattersOpenResponse, MattersRenumberData, MattersRenumberError, MattersRenumberResponse, MattersReopenData, MattersReopenError, MattersReopenResponse, MattersUpdateData, MattersUpdateError, MattersUpdateResponse, MatterTypesCreateData, MatterTypesCreateError, MatterTypesCreateResponse, MatterTypesDeactivateData, MatterTypesDeactivateError, MatterTypesDeactivateResponse, MatterTypesListData, MatterTypesListError, MatterTypesListResponse, MatterTypesUpdateData, MatterTypesUpdateError, MatterTypesUpdateResponse, MeGetData, MeGetError, MeGetResponse, MembersInviteData, MembersInviteError, MembersInviteResponse, NumberingGetData, NumberingGetError, NumberingGetResponse, NumberingPreviewData, NumberingPreviewError, NumberingPreviewResponse2, NumberingSetData, NumberingSetError, NumberingSetResponse, UploadsAbortData, UploadsAbortError, UploadsAbortResponse, UploadsCompleteData, UploadsCompleteError, UploadsCompleteResponse, UploadsInitiateData, UploadsInitiateError, UploadsInitiateResponse, UploadsSignPartData, UploadsSignPartError, UploadsSignPartResponse } from '../types.gen';
+import { customFieldsApplyConvert, customFieldsArchiveField, customFieldsArchiveOption, customFieldsClearValue, customFieldsCreateOption, customFieldsDefineField, customFieldsHardDeleteField, customFieldsHardDeleteOption, customFieldsListRecordValues, customFieldsPreviewConvert, customFieldsPurgeField, customFieldsRenameField, customFieldsRenameOption, customFieldsReorderField, customFieldsReorderOption, customFieldsResolveField, customFieldsSetRequired, customFieldsSetValue, customFieldsUnarchiveField, customFieldsValueHistory, directoryAddIdentifier, directoryAddName, directoryAssignCategory, directoryCreateCategory, directoryCreateEdge, directoryCreateOrganization, directoryCreatePerson, directoryDuplicateCandidates, directoryGetOrganization, directoryGetPerson, directoryLinkMatterParty, directoryMerge, directoryReadIdentifier, directorySearch, documentTypesCreate, documentTypesDeactivate, documentTypesList, documentTypesUpdate, downloadsBundleStatus, downloadsZip, filesDelete, filesDownload, filesGet, filesList, filesPreview, filesUpdate, filesVersions, firmsProvision, firmUsageGet, foldersCreate, foldersDelete, foldersUpdate, healthRead, incidentsReport, locationsAssignMember, locationsClose, locationsCreate, locationsGet, locationsList, locationsSetAddresses, locationsUpdate, mattersClose, mattersCreate, mattersGet, mattersList, mattersListConsultations, mattersOpen, mattersRenumber, mattersReopen, mattersUpdate, matterTypesCreate, matterTypesDeactivate, matterTypesList, matterTypesUpdate, meGet, membersInvite, numberingGet, numberingPreview, numberingSet, type Options, shippingConnect, shippingCreateShipment, shippingLabel, shippingPurchase, shippingRateShipment, shippingRefund, shippingTracking, uploadsAbort, uploadsComplete, uploadsInitiate, uploadsSignPart } from '../sdk.gen';
+import type { CustomFieldsApplyConvertData, CustomFieldsApplyConvertError, CustomFieldsApplyConvertResponse, CustomFieldsArchiveFieldData, CustomFieldsArchiveFieldError, CustomFieldsArchiveFieldResponse, CustomFieldsArchiveOptionData, CustomFieldsArchiveOptionError, CustomFieldsArchiveOptionResponse, CustomFieldsClearValueData, CustomFieldsClearValueError, CustomFieldsClearValueResponse, CustomFieldsCreateOptionData, CustomFieldsCreateOptionError, CustomFieldsCreateOptionResponse, CustomFieldsDefineFieldData, CustomFieldsDefineFieldError, CustomFieldsDefineFieldResponse, CustomFieldsHardDeleteFieldData, CustomFieldsHardDeleteFieldError, CustomFieldsHardDeleteFieldResponse, CustomFieldsHardDeleteOptionData, CustomFieldsHardDeleteOptionError, CustomFieldsHardDeleteOptionResponse, CustomFieldsListRecordValuesData, CustomFieldsListRecordValuesError, CustomFieldsListRecordValuesResponse, CustomFieldsPreviewConvertData, CustomFieldsPreviewConvertError, CustomFieldsPreviewConvertResponse, CustomFieldsPurgeFieldData, CustomFieldsPurgeFieldError, CustomFieldsPurgeFieldResponse, CustomFieldsRenameFieldData, CustomFieldsRenameFieldError, CustomFieldsRenameFieldResponse, CustomFieldsRenameOptionData, CustomFieldsRenameOptionError, CustomFieldsRenameOptionResponse, CustomFieldsReorderFieldData, CustomFieldsReorderFieldError, CustomFieldsReorderFieldResponse, CustomFieldsReorderOptionData, CustomFieldsReorderOptionError, CustomFieldsReorderOptionResponse, CustomFieldsResolveFieldData, CustomFieldsResolveFieldError, CustomFieldsResolveFieldResponse, CustomFieldsSetRequiredData, CustomFieldsSetRequiredError, CustomFieldsSetRequiredResponse, CustomFieldsSetValueData, CustomFieldsSetValueError, CustomFieldsSetValueResponse, CustomFieldsUnarchiveFieldData, CustomFieldsUnarchiveFieldError, CustomFieldsUnarchiveFieldResponse, CustomFieldsValueHistoryData, CustomFieldsValueHistoryError, CustomFieldsValueHistoryResponse, DirectoryAddIdentifierData, DirectoryAddIdentifierError, DirectoryAddIdentifierResponse, DirectoryAddNameData, DirectoryAddNameError, DirectoryAddNameResponse, DirectoryAssignCategoryData, DirectoryAssignCategoryError, DirectoryAssignCategoryResponse, DirectoryCreateCategoryData, DirectoryCreateCategoryError, DirectoryCreateCategoryResponse, DirectoryCreateEdgeData, DirectoryCreateEdgeError, DirectoryCreateEdgeResponse, DirectoryCreateOrganizationData, DirectoryCreateOrganizationError, DirectoryCreateOrganizationResponse, DirectoryCreatePersonData, DirectoryCreatePersonError, DirectoryCreatePersonResponse, DirectoryDuplicateCandidatesData, DirectoryDuplicateCandidatesError, DirectoryDuplicateCandidatesResponse2, DirectoryGetOrganizationData, DirectoryGetOrganizationError, DirectoryGetOrganizationResponse, DirectoryGetPersonData, DirectoryGetPersonError, DirectoryGetPersonResponse, DirectoryLinkMatterPartyData, DirectoryLinkMatterPartyError, DirectoryLinkMatterPartyResponse, DirectoryMergeData, DirectoryMergeError, DirectoryMergeResponse2, DirectoryReadIdentifierData, DirectoryReadIdentifierError, DirectoryReadIdentifierResponse, DirectorySearchData, DirectorySearchError, DirectorySearchResponse2, DocumentTypesCreateData, DocumentTypesCreateError, DocumentTypesCreateResponse, DocumentTypesDeactivateData, DocumentTypesDeactivateError, DocumentTypesDeactivateResponse, DocumentTypesListData, DocumentTypesListError, DocumentTypesListResponse, DocumentTypesUpdateData, DocumentTypesUpdateError, DocumentTypesUpdateResponse, DownloadsBundleStatusData, DownloadsBundleStatusError, DownloadsBundleStatusResponse, DownloadsZipData, DownloadsZipError, DownloadsZipResponse, FilesDeleteData, FilesDeleteError, FilesDeleteResponse, FilesDownloadData, FilesDownloadError, FilesGetData, FilesGetError, FilesGetResponse, FilesListData, FilesListError, FilesListResponse, FilesPreviewData, FilesPreviewError, FilesPreviewResponse, FilesUpdateData, FilesUpdateError, FilesUpdateResponse, FilesVersionsData, FilesVersionsError, FilesVersionsResponse, FirmsProvisionData, FirmsProvisionError, FirmsProvisionResponse, FirmUsageGetData, FirmUsageGetError, FirmUsageGetResponse, FoldersCreateData, FoldersCreateError, FoldersCreateResponse, FoldersDeleteData, FoldersDeleteError, FoldersDeleteResponse, FoldersUpdateData, FoldersUpdateError, FoldersUpdateResponse, HealthReadData, HealthReadError, HealthReadResponse, IncidentsReportData, IncidentsReportError, IncidentsReportResponse, LocationsAssignMemberData, LocationsAssignMemberError, LocationsAssignMemberResponse, LocationsCloseData, LocationsCloseError, LocationsCloseResponse, LocationsCreateData, LocationsCreateError, LocationsCreateResponse, LocationsGetData, LocationsGetError, LocationsGetResponse, LocationsListData, LocationsListError, LocationsListResponse, LocationsSetAddressesData, LocationsSetAddressesError, LocationsSetAddressesResponse, LocationsUpdateData, LocationsUpdateError, LocationsUpdateResponse, MattersCloseData, MattersCloseError, MattersCloseResponse, MattersCreateData, MattersCreateError, MattersCreateResponse, MattersGetData, MattersGetError, MattersGetResponse, MattersListConsultationsData, MattersListConsultationsError, MattersListConsultationsResponse, MattersListData, MattersListError, MattersListResponse, MattersOpenData, MattersOpenError, MattersOpenResponse, MattersRenumberData, MattersRenumberError, MattersRenumberResponse, MattersReopenData, MattersReopenError, MattersReopenResponse, MattersUpdateData, MattersUpdateError, MattersUpdateResponse, MatterTypesCreateData, MatterTypesCreateError, MatterTypesCreateResponse, MatterTypesDeactivateData, MatterTypesDeactivateError, MatterTypesDeactivateResponse, MatterTypesListData, MatterTypesListError, MatterTypesListResponse, MatterTypesUpdateData, MatterTypesUpdateError, MatterTypesUpdateResponse, MeGetData, MeGetError, MeGetResponse, MembersInviteData, MembersInviteError, MembersInviteResponse, NumberingGetData, NumberingGetError, NumberingGetResponse, NumberingPreviewData, NumberingPreviewError, NumberingPreviewResponse2, NumberingSetData, NumberingSetError, NumberingSetResponse, ShippingConnectData, ShippingConnectError, ShippingConnectResponse, ShippingCreateShipmentData, ShippingCreateShipmentError, ShippingCreateShipmentResponse, ShippingLabelData, ShippingLabelError, ShippingLabelResponse, ShippingPurchaseData, ShippingPurchaseError, ShippingPurchaseResponse, ShippingRateShipmentData, ShippingRateShipmentError, ShippingRateShipmentResponse, ShippingRefundData, ShippingRefundError, ShippingRefundResponse, ShippingTrackingData, ShippingTrackingError, ShippingTrackingResponse, UploadsAbortData, UploadsAbortError, UploadsAbortResponse, UploadsCompleteData, UploadsCompleteError, UploadsCompleteResponse, UploadsInitiateData, UploadsInitiateError, UploadsInitiateResponse, UploadsSignPartData, UploadsSignPartError, UploadsSignPartResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -73,6 +73,24 @@ export const meGetOptions = (options?: Options<MeGetData>) => queryOptions<MeGet
         return data;
     },
     queryKey: meGetQueryKey(options)
+});
+
+export const firmUsageGetQueryKey = (options?: Options<FirmUsageGetData>) => createQueryKey('firmUsageGet', options);
+
+/**
+ * The firm's own usage: storage consumed (by class) and entity counts (matters by status, files, versions, folders, locations).
+ */
+export const firmUsageGetOptions = (options?: Options<FirmUsageGetData>) => queryOptions<FirmUsageGetResponse, FirmUsageGetError, FirmUsageGetResponse, ReturnType<typeof firmUsageGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await firmUsageGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: firmUsageGetQueryKey(options)
 });
 
 /**
@@ -929,6 +947,24 @@ export const filesDownloadOptions = (options: Options<FilesDownloadData>) => que
     queryKey: filesDownloadQueryKey(options)
 });
 
+export const filesPreviewQueryKey = (options: Options<FilesPreviewData>) => createQueryKey('filesPreview', options);
+
+/**
+ * Authorizes inline preview of the file's current clean version and returns a delivery descriptor. When the verdict + storage facts permit inline media, the descriptor carries a short-lived signed streamUrl on the cookieless files host the player loads as a <video>/<audio> subresource; otherwise it carries download-only with a reason. downloadUrl (the audited download path) is always present. Untrusted bytes are served cookieless so a malicious file reaches only the media decoder, never a privileged origin. 404 when the file has no clean current version.
+ */
+export const filesPreviewOptions = (options: Options<FilesPreviewData>) => queryOptions<FilesPreviewResponse, FilesPreviewError, FilesPreviewResponse, ReturnType<typeof filesPreviewQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await filesPreview({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: filesPreviewQueryKey(options)
+});
+
 /**
  * Resolves a selection of folders and/or files within a matter to their current clean versions at request time, then streams a ZIP of those bytes (entry paths follow the folder tree). A selection that resolves to a single file redirects (302) to a presigned download instead. An empty selection (matter only) bundles the whole matter.
  */
@@ -963,3 +999,708 @@ export const downloadsBundleStatusOptions = (options: Options<DownloadsBundleSta
     },
     queryKey: downloadsBundleStatusQueryKey(options)
 });
+
+/**
+ * Creates a directory person from its structured name parts, seeding the current-name history row and its phonetic blocking codes.
+ */
+export const directoryCreatePersonMutation = (options?: Partial<Options<DirectoryCreatePersonData>>): MutationOptions<DirectoryCreatePersonResponse, DirectoryCreatePersonError, Options<DirectoryCreatePersonData>> => {
+    const mutationOptions: MutationOptions<DirectoryCreatePersonResponse, DirectoryCreatePersonError, Options<DirectoryCreatePersonData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await directoryCreatePerson({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const directoryGetPersonQueryKey = (options: Options<DirectoryGetPersonData>) => createQueryKey('directoryGetPerson', options);
+
+/**
+ * Returns one directory person's detail.
+ */
+export const directoryGetPersonOptions = (options: Options<DirectoryGetPersonData>) => queryOptions<DirectoryGetPersonResponse, DirectoryGetPersonError, DirectoryGetPersonResponse, ReturnType<typeof directoryGetPersonQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await directoryGetPerson({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: directoryGetPersonQueryKey(options)
+});
+
+/**
+ * Creates a directory organization from its legal name, seeding the current-name history row and its phonetic blocking codes.
+ */
+export const directoryCreateOrganizationMutation = (options?: Partial<Options<DirectoryCreateOrganizationData>>): MutationOptions<DirectoryCreateOrganizationResponse, DirectoryCreateOrganizationError, Options<DirectoryCreateOrganizationData>> => {
+    const mutationOptions: MutationOptions<DirectoryCreateOrganizationResponse, DirectoryCreateOrganizationError, Options<DirectoryCreateOrganizationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await directoryCreateOrganization({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const directoryGetOrganizationQueryKey = (options: Options<DirectoryGetOrganizationData>) => createQueryKey('directoryGetOrganization', options);
+
+/**
+ * Returns one directory organization's detail.
+ */
+export const directoryGetOrganizationOptions = (options: Options<DirectoryGetOrganizationData>) => queryOptions<DirectoryGetOrganizationResponse, DirectoryGetOrganizationError, DirectoryGetOrganizationResponse, ReturnType<typeof directoryGetOrganizationQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await directoryGetOrganization({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: directoryGetOrganizationQueryKey(options)
+});
+
+/**
+ * Appends a non-current alias (alias/aka/maiden/dba/former) to an entity without touching its current name. The entity kind is resolved from the id; supply the person OR organization name fields accordingly.
+ */
+export const directoryAddNameMutation = (options?: Partial<Options<DirectoryAddNameData>>): MutationOptions<DirectoryAddNameResponse, DirectoryAddNameError, Options<DirectoryAddNameData>> => {
+    const mutationOptions: MutationOptions<DirectoryAddNameResponse, DirectoryAddNameError, Options<DirectoryAddNameData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await directoryAddName({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Seals a typed sensitive identifier (SSN/EIN/DL/account/DOB/SSN-last-four) for an entity under the firm key — only the ciphertext (and, where the type is standalone-indexable, the exact-match blind index) is stored, never the plaintext. Adding a value needs no decrypt permission; reading it back does.
+ */
+export const directoryAddIdentifierMutation = (options?: Partial<Options<DirectoryAddIdentifierData>>): MutationOptions<DirectoryAddIdentifierResponse, DirectoryAddIdentifierError, Options<DirectoryAddIdentifierData>> => {
+    const mutationOptions: MutationOptions<DirectoryAddIdentifierResponse, DirectoryAddIdentifierError, Options<DirectoryAddIdentifierData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await directoryAddIdentifier({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const directoryReadIdentifierQueryKey = (options: Options<DirectoryReadIdentifierData>) => createQueryKey('directoryReadIdentifier', options);
+
+/**
+ * Decrypts and returns an entity's sensitive identifier of the given type. The decrypt is gated by directory:viewSensitiveIdentifiers and audited (an audit_log row is written before any plaintext is produced); a caller without the permission is refused at the chokepoint, before any decrypt.
+ */
+export const directoryReadIdentifierOptions = (options: Options<DirectoryReadIdentifierData>) => queryOptions<DirectoryReadIdentifierResponse, DirectoryReadIdentifierError, DirectoryReadIdentifierResponse, ReturnType<typeof directoryReadIdentifierQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await directoryReadIdentifier({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: directoryReadIdentifierQueryKey(options)
+});
+
+/**
+ * Creates a directed relationship edge between two directory entities (affiliation, corporate parent/subsidiary/successor, representation, role assignment). Both endpoints must exist.
+ */
+export const directoryCreateEdgeMutation = (options?: Partial<Options<DirectoryCreateEdgeData>>): MutationOptions<DirectoryCreateEdgeResponse, DirectoryCreateEdgeError, Options<DirectoryCreateEdgeData>> => {
+    const mutationOptions: MutationOptions<DirectoryCreateEdgeResponse, DirectoryCreateEdgeError, Options<DirectoryCreateEdgeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await directoryCreateEdge({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Creates a directory category (label) constrained to person, organization, or both entity kinds.
+ */
+export const directoryCreateCategoryMutation = (options?: Partial<Options<DirectoryCreateCategoryData>>): MutationOptions<DirectoryCreateCategoryResponse, DirectoryCreateCategoryError, Options<DirectoryCreateCategoryData>> => {
+    const mutationOptions: MutationOptions<DirectoryCreateCategoryResponse, DirectoryCreateCategoryError, Options<DirectoryCreateCategoryData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await directoryCreateCategory({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Links a directory entity to a category, enforcing the category's applies-to constraint against the entity kind.
+ */
+export const directoryAssignCategoryMutation = (options?: Partial<Options<DirectoryAssignCategoryData>>): MutationOptions<DirectoryAssignCategoryResponse, DirectoryAssignCategoryError, Options<DirectoryAssignCategoryData>> => {
+    const mutationOptions: MutationOptions<DirectoryAssignCategoryResponse, DirectoryAssignCategoryError, Options<DirectoryAssignCategoryData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await directoryAssignCategory({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const directorySearchQueryKey = (options: Options<DirectorySearchData>) => createQueryKey('directorySearch', options);
+
+/**
+ * Fuzzy name search over the directory: a trigram FTS match, tolerant of typos, ordered by relevance. Merged-away entities are excluded.
+ */
+export const directorySearchOptions = (options: Options<DirectorySearchData>) => queryOptions<DirectorySearchResponse2, DirectorySearchError, DirectorySearchResponse2, ReturnType<typeof directorySearchQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await directorySearch({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: directorySearchQueryKey(options)
+});
+
+/**
+ * Returns duplicate candidates for a prospective or existing entity by unioning three blocking channels (phonetic, trigram, and blind-index identifier equality), ranked by how many channels matched. A read-shaped POST (the match facts ride the body) — no write, no decrypt — but it gates on directory:edit because it is the entry-time duplicate-prevention step of the create/edit workflow, not a general directory read.
+ */
+export const directoryDuplicateCandidatesMutation = (options?: Partial<Options<DirectoryDuplicateCandidatesData>>): MutationOptions<DirectoryDuplicateCandidatesResponse2, DirectoryDuplicateCandidatesError, Options<DirectoryDuplicateCandidatesData>> => {
+    const mutationOptions: MutationOptions<DirectoryDuplicateCandidatesResponse2, DirectoryDuplicateCandidatesError, Options<DirectoryDuplicateCandidatesData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await directoryDuplicateCandidates({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Folds a duplicate (the subordinate) into the surviving record (the master) non-destructively: archives the subordinate, repoints its inbound references, applies field-level survivorship, and records the reversible merge event. merged_by is the authenticated actor.
+ */
+export const directoryMergeMutation = (options?: Partial<Options<DirectoryMergeData>>): MutationOptions<DirectoryMergeResponse2, DirectoryMergeError, Options<DirectoryMergeData>> => {
+    const mutationOptions: MutationOptions<DirectoryMergeResponse2, DirectoryMergeError, Options<DirectoryMergeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await directoryMerge({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Links a directory entity to a matter in a role (client, opposing party, guardian, …). One entity may wear several roles on the same matter — there is no uniqueness on (matter, entity).
+ */
+export const directoryLinkMatterPartyMutation = (options?: Partial<Options<DirectoryLinkMatterPartyData>>): MutationOptions<DirectoryLinkMatterPartyResponse, DirectoryLinkMatterPartyError, Options<DirectoryLinkMatterPartyData>> => {
+    const mutationOptions: MutationOptions<DirectoryLinkMatterPartyResponse, DirectoryLinkMatterPartyError, Options<DirectoryLinkMatterPartyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await directoryLinkMatterParty({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Defines a custom field on a matter type or entity category.
+ */
+export const customFieldsDefineFieldMutation = (options?: Partial<Options<CustomFieldsDefineFieldData>>): MutationOptions<CustomFieldsDefineFieldResponse, CustomFieldsDefineFieldError, Options<CustomFieldsDefineFieldData>> => {
+    const mutationOptions: MutationOptions<CustomFieldsDefineFieldResponse, CustomFieldsDefineFieldError, Options<CustomFieldsDefineFieldData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await customFieldsDefineField({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Renames a custom field.
+ */
+export const customFieldsRenameFieldMutation = (options?: Partial<Options<CustomFieldsRenameFieldData>>): MutationOptions<CustomFieldsRenameFieldResponse, CustomFieldsRenameFieldError, Options<CustomFieldsRenameFieldData>> => {
+    const mutationOptions: MutationOptions<CustomFieldsRenameFieldResponse, CustomFieldsRenameFieldError, Options<CustomFieldsRenameFieldData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await customFieldsRenameField({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Sets whether a custom field is required.
+ */
+export const customFieldsSetRequiredMutation = (options?: Partial<Options<CustomFieldsSetRequiredData>>): MutationOptions<CustomFieldsSetRequiredResponse, CustomFieldsSetRequiredError, Options<CustomFieldsSetRequiredData>> => {
+    const mutationOptions: MutationOptions<CustomFieldsSetRequiredResponse, CustomFieldsSetRequiredError, Options<CustomFieldsSetRequiredData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await customFieldsSetRequired({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Sets a custom field's display position.
+ */
+export const customFieldsReorderFieldMutation = (options?: Partial<Options<CustomFieldsReorderFieldData>>): MutationOptions<CustomFieldsReorderFieldResponse, CustomFieldsReorderFieldError, Options<CustomFieldsReorderFieldData>> => {
+    const mutationOptions: MutationOptions<CustomFieldsReorderFieldResponse, CustomFieldsReorderFieldError, Options<CustomFieldsReorderFieldData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await customFieldsReorderField({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Archives a custom field (it stops appearing on forms; its values endure).
+ */
+export const customFieldsArchiveFieldMutation = (options?: Partial<Options<CustomFieldsArchiveFieldData>>): MutationOptions<CustomFieldsArchiveFieldResponse, CustomFieldsArchiveFieldError, Options<CustomFieldsArchiveFieldData>> => {
+    const mutationOptions: MutationOptions<CustomFieldsArchiveFieldResponse, CustomFieldsArchiveFieldError, Options<CustomFieldsArchiveFieldData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await customFieldsArchiveField({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Restores an archived custom field.
+ */
+export const customFieldsUnarchiveFieldMutation = (options?: Partial<Options<CustomFieldsUnarchiveFieldData>>): MutationOptions<CustomFieldsUnarchiveFieldResponse, CustomFieldsUnarchiveFieldError, Options<CustomFieldsUnarchiveFieldData>> => {
+    const mutationOptions: MutationOptions<CustomFieldsUnarchiveFieldResponse, CustomFieldsUnarchiveFieldError, Options<CustomFieldsUnarchiveFieldData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await customFieldsUnarchiveField({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Hard-deletes a custom field that holds no values (with its picklist options). Refuses a field that has stored values — archive it instead.
+ */
+export const customFieldsHardDeleteFieldMutation = (options?: Partial<Options<CustomFieldsHardDeleteFieldData>>): MutationOptions<CustomFieldsHardDeleteFieldResponse, CustomFieldsHardDeleteFieldError, Options<CustomFieldsHardDeleteFieldData>> => {
+    const mutationOptions: MutationOptions<CustomFieldsHardDeleteFieldResponse, CustomFieldsHardDeleteFieldError, Options<CustomFieldsHardDeleteFieldData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await customFieldsHardDeleteField({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const customFieldsResolveFieldQueryKey = (options: Options<CustomFieldsResolveFieldData>) => createQueryKey('customFieldsResolveField', options);
+
+/**
+ * Resolves a custom-field handle to its definition (active, archived, or absent).
+ */
+export const customFieldsResolveFieldOptions = (options: Options<CustomFieldsResolveFieldData>) => queryOptions<CustomFieldsResolveFieldResponse, CustomFieldsResolveFieldError, CustomFieldsResolveFieldResponse, ReturnType<typeof customFieldsResolveFieldQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await customFieldsResolveField({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: customFieldsResolveFieldQueryKey(options)
+});
+
+/**
+ * Compliance erasure: irreversibly removes a custom field and all of its values, current and historical. The executing pass is not yet enabled, so this refuses.
+ */
+export const customFieldsPurgeFieldMutation = (options?: Partial<Options<CustomFieldsPurgeFieldData>>): MutationOptions<CustomFieldsPurgeFieldResponse, CustomFieldsPurgeFieldError, Options<CustomFieldsPurgeFieldData>> => {
+    const mutationOptions: MutationOptions<CustomFieldsPurgeFieldResponse, CustomFieldsPurgeFieldError, Options<CustomFieldsPurgeFieldData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await customFieldsPurgeField({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Previews a kind change without writing: counts how each current value would land (clean, needs-rule, or parked). A read-shaped POST — the target kind rides the body.
+ */
+export const customFieldsPreviewConvertMutation = (options?: Partial<Options<CustomFieldsPreviewConvertData>>): MutationOptions<CustomFieldsPreviewConvertResponse, CustomFieldsPreviewConvertError, Options<CustomFieldsPreviewConvertData>> => {
+    const mutationOptions: MutationOptions<CustomFieldsPreviewConvertResponse, CustomFieldsPreviewConvertError, Options<CustomFieldsPreviewConvertData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await customFieldsPreviewConvert({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Retypes a custom field non-destructively: each original value moves to history, clean values gain a coerced current row, and parked values are left cleared (reversibly). With parkedDisposition 'block' the whole change is refused when any value cannot be coerced.
+ */
+export const customFieldsApplyConvertMutation = (options?: Partial<Options<CustomFieldsApplyConvertData>>): MutationOptions<CustomFieldsApplyConvertResponse, CustomFieldsApplyConvertError, Options<CustomFieldsApplyConvertData>> => {
+    const mutationOptions: MutationOptions<CustomFieldsApplyConvertResponse, CustomFieldsApplyConvertError, Options<CustomFieldsApplyConvertData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await customFieldsApplyConvert({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Creates a picklist option on a custom field.
+ */
+export const customFieldsCreateOptionMutation = (options?: Partial<Options<CustomFieldsCreateOptionData>>): MutationOptions<CustomFieldsCreateOptionResponse, CustomFieldsCreateOptionError, Options<CustomFieldsCreateOptionData>> => {
+    const mutationOptions: MutationOptions<CustomFieldsCreateOptionResponse, CustomFieldsCreateOptionError, Options<CustomFieldsCreateOptionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await customFieldsCreateOption({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Renames a picklist option.
+ */
+export const customFieldsRenameOptionMutation = (options?: Partial<Options<CustomFieldsRenameOptionData>>): MutationOptions<CustomFieldsRenameOptionResponse, CustomFieldsRenameOptionError, Options<CustomFieldsRenameOptionData>> => {
+    const mutationOptions: MutationOptions<CustomFieldsRenameOptionResponse, CustomFieldsRenameOptionError, Options<CustomFieldsRenameOptionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await customFieldsRenameOption({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Sets a picklist option's display position.
+ */
+export const customFieldsReorderOptionMutation = (options?: Partial<Options<CustomFieldsReorderOptionData>>): MutationOptions<CustomFieldsReorderOptionResponse, CustomFieldsReorderOptionError, Options<CustomFieldsReorderOptionData>> => {
+    const mutationOptions: MutationOptions<CustomFieldsReorderOptionResponse, CustomFieldsReorderOptionError, Options<CustomFieldsReorderOptionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await customFieldsReorderOption({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Archives a picklist option (it stops appearing as a choice; stored values endure).
+ */
+export const customFieldsArchiveOptionMutation = (options?: Partial<Options<CustomFieldsArchiveOptionData>>): MutationOptions<CustomFieldsArchiveOptionResponse, CustomFieldsArchiveOptionError, Options<CustomFieldsArchiveOptionData>> => {
+    const mutationOptions: MutationOptions<CustomFieldsArchiveOptionResponse, CustomFieldsArchiveOptionError, Options<CustomFieldsArchiveOptionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await customFieldsArchiveOption({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Hard-deletes a picklist option that holds no stored values. Refuses one still referenced — archive it instead.
+ */
+export const customFieldsHardDeleteOptionMutation = (options?: Partial<Options<CustomFieldsHardDeleteOptionData>>): MutationOptions<CustomFieldsHardDeleteOptionResponse, CustomFieldsHardDeleteOptionError, Options<CustomFieldsHardDeleteOptionData>> => {
+    const mutationOptions: MutationOptions<CustomFieldsHardDeleteOptionResponse, CustomFieldsHardDeleteOptionError, Options<CustomFieldsHardDeleteOptionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await customFieldsHardDeleteOption({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Clears a custom field's current value on a record (its history endures).
+ */
+export const customFieldsClearValueMutation = (options?: Partial<Options<CustomFieldsClearValueData>>): MutationOptions<CustomFieldsClearValueResponse, CustomFieldsClearValueError, Options<CustomFieldsClearValueData>> => {
+    const mutationOptions: MutationOptions<CustomFieldsClearValueResponse, CustomFieldsClearValueError, Options<CustomFieldsClearValueData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await customFieldsClearValue({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Sets or replaces a custom field's value on a record (the prior value, if any, moves to history). A number/currency input is a plain decimal; it is scaled by the field's number_scale into the integer the value column stores.
+ */
+export const customFieldsSetValueMutation = (options?: Partial<Options<CustomFieldsSetValueData>>): MutationOptions<CustomFieldsSetValueResponse, CustomFieldsSetValueError, Options<CustomFieldsSetValueData>> => {
+    const mutationOptions: MutationOptions<CustomFieldsSetValueResponse, CustomFieldsSetValueError, Options<CustomFieldsSetValueData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await customFieldsSetValue({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const customFieldsListRecordValuesQueryKey = (options: Options<CustomFieldsListRecordValuesData>) => createQueryKey('customFieldsListRecordValues', options);
+
+/**
+ * Returns a record's current custom-field values.
+ */
+export const customFieldsListRecordValuesOptions = (options: Options<CustomFieldsListRecordValuesData>) => queryOptions<CustomFieldsListRecordValuesResponse, CustomFieldsListRecordValuesError, CustomFieldsListRecordValuesResponse, ReturnType<typeof customFieldsListRecordValuesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await customFieldsListRecordValues({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: customFieldsListRecordValuesQueryKey(options)
+});
+
+export const customFieldsValueHistoryQueryKey = (options: Options<CustomFieldsValueHistoryData>) => createQueryKey('customFieldsValueHistory', options);
+
+/**
+ * Returns the full value history of one custom field on one record, oldest first.
+ */
+export const customFieldsValueHistoryOptions = (options: Options<CustomFieldsValueHistoryData>) => queryOptions<CustomFieldsValueHistoryResponse, CustomFieldsValueHistoryError, CustomFieldsValueHistoryResponse, ReturnType<typeof customFieldsValueHistoryQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await customFieldsValueHistory({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: customFieldsValueHistoryQueryKey(options)
+});
+
+/**
+ * Connects the firm's EasyPost postage account by storing its API key as a firm secret.
+ */
+export const shippingConnectMutation = (options?: Partial<Options<ShippingConnectData>>): MutationOptions<ShippingConnectResponse, ShippingConnectError, Options<ShippingConnectData>> => {
+    const mutationOptions: MutationOptions<ShippingConnectResponse, ShippingConnectError, Options<ShippingConnectData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await shippingConnect({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Creates a draft shipment (recipient, package, options) optionally linked to a matter.
+ */
+export const shippingCreateShipmentMutation = (options?: Partial<Options<ShippingCreateShipmentData>>): MutationOptions<ShippingCreateShipmentResponse, ShippingCreateShipmentError, Options<ShippingCreateShipmentData>> => {
+    const mutationOptions: MutationOptions<ShippingCreateShipmentResponse, ShippingCreateShipmentError, Options<ShippingCreateShipmentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await shippingCreateShipment({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Returns live carrier rates for the draft shipment.
+ */
+export const shippingRateShipmentMutation = (options?: Partial<Options<ShippingRateShipmentData>>): MutationOptions<ShippingRateShipmentResponse, ShippingRateShipmentError, Options<ShippingRateShipmentData>> => {
+    const mutationOptions: MutationOptions<ShippingRateShipmentResponse, ShippingRateShipmentError, Options<ShippingRateShipmentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await shippingRateShipment({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Buys the chosen rate, stores the label PDF, and records postage + service fee.
+ */
+export const shippingPurchaseMutation = (options?: Partial<Options<ShippingPurchaseData>>): MutationOptions<ShippingPurchaseResponse, ShippingPurchaseError, Options<ShippingPurchaseData>> => {
+    const mutationOptions: MutationOptions<ShippingPurchaseResponse, ShippingPurchaseError, Options<ShippingPurchaseData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await shippingPurchase({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const shippingLabelQueryKey = (options: Options<ShippingLabelData>) => createQueryKey('shippingLabel', options);
+
+/**
+ * Streams the shipment's label PDF.
+ */
+export const shippingLabelOptions = (options: Options<ShippingLabelData>) => queryOptions<ShippingLabelResponse, ShippingLabelError, ShippingLabelResponse, ReturnType<typeof shippingLabelQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await shippingLabel({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: shippingLabelQueryKey(options)
+});
+
+/**
+ * Pulls and returns current tracking events.
+ */
+export const shippingTrackingMutation = (options?: Partial<Options<ShippingTrackingData>>): MutationOptions<ShippingTrackingResponse, ShippingTrackingError, Options<ShippingTrackingData>> => {
+    const mutationOptions: MutationOptions<ShippingTrackingResponse, ShippingTrackingError, Options<ShippingTrackingData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await shippingTracking({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Voids/refunds the shipment's label.
+ */
+export const shippingRefundMutation = (options?: Partial<Options<ShippingRefundData>>): MutationOptions<ShippingRefundResponse, ShippingRefundError, Options<ShippingRefundData>> => {
+    const mutationOptions: MutationOptions<ShippingRefundResponse, ShippingRefundError, Options<ShippingRefundData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await shippingRefund({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};

@@ -1,0 +1,98 @@
+# Magna Carta — operating-cost register
+
+**Status:** Living record · **Last updated:** 2026-06-16 · **Owner:** Trevor Goldsmith
+
+The single home for the **money cost of running Magna Carta** — what _we_ pay (subscriptions, usage-metered platform spend, one-time charges) and, separately, what _customers_ pay and at what rates (pass-through + our take). As the program acquires services, every new cost gets a row here in the **same commit** that incurs or commits it (the docs-in-commit discipline). This register is _money_; the operational _setup steps_ for a service live in [`conventions/operations.md`](conventions/operations.md), and the _decision_ that adopted it lives in the [Decision Log](Decision-Log.md) — link, don't duplicate.
+
+**All figures are estimates** (marked `~`) at 2026-06 list prices and **must be re-verified before relying on them** — vendor pricing drifts (e.g. Google's Jan-2025 +17–22% Gemini-bundle increase; Cloudflare's Dec-2025 Durable-Objects storage-billing change). Usage-metered lines have no fixed monthly figure; the cost is rate × volume, measured against the load-profile harness, not guessed.
+
+**Cadence:** `monthly` · `annual` · `usage` (metered) · `per-txn` · `one-time`.
+**Status:** `active` (billing now) · `committed` (decided, not yet billing) · `potential` (optional/upgrade or scale-triggered) · `deferred` (future/conditional) · `avoided` (a cost the architecture deliberately does _not_ incur).
+
+---
+
+## A. Our costs — active / committed (the running platform)
+
+| Item                                               | Provider                        | Cadence | Est. cost                                    | Status    | Notes                                                                                                                                                           |
+| -------------------------------------------------- | ------------------------------- | ------- | -------------------------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cloudflare Workers — Paid plan (the backend floor) | Cloudflare                      | monthly | ~$5 base + usage                             | committed | Required floor: Durable Objects, Queues, and Containers in the design all need the paid plan. Base includes 10M requests + 30M CPU-ms/mo. Per-unit rates below. |
+| Google Workspace — company email                   | Google                          | monthly | ~$7 / seat (Starter, annual)                 | committed | Account-of-record + correspondence; one paid seat, role addresses free. ADR-0100; runbook [`operations.md` §7](conventions/operations.md). Tier options in §B.  |
+| `magnacarta.esq` domain                            | Google Registry (via registrar) | annual  | ~verify (premium legal TLD)                  | active    | Canonical app + email domain; legal-profession eligibility. Owned.                                                                                              |
+| GitHub — repository + Actions                      | GitHub                          | monthly | Free tier (Actions minutes are the variable) | active    | Renovate App free. Team plan (~$4/user/mo) only if private-collaborator features are needed.                                                                    |
+
+**Cloudflare usage rates (the metered lines under the $5 floor)** — overage after the included allotment:
+
+| Service                                                   | Included (Workers Paid)               | Overage rate                                                                                        |
+| --------------------------------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Workers requests                                          | 10M / mo                              | ~$0.30 / million                                                                                    |
+| Workers CPU                                               | 30M CPU-ms / mo                       | ~$0.02 / million CPU-ms                                                                             |
+| D1 (per-firm + control-plane)                             | 25B rows read, 50M rows written, 5 GB | reads ~$0.001/M · writes ~$1.00/M · storage ~$0.75/GB-mo                                            |
+| R2 (per-firm files, label/telemetry archives)             | 10 GB, 1M Class A, 10M Class B        | storage ~$0.015/GB-mo · Class A ~$4.50/M · Class B ~$0.36/M · **egress free**                       |
+| Durable Objects (refresh locks, conversion jobs)          | 1M requests, 400K GB-s                | requests ~$0.15/M · duration ~$12.50 / M GB-s · + SQLite storage                                    |
+| Queues (async offload)                                    | —                                     | ~$0.40 / million operations                                                                         |
+| KV                                                        | (free allotment)                      | reads ~$0.50/M · writes/lists/deletes ~$5/M · storage ~$0.50/GB-mo                                  |
+| Vectorize (discovery semantic search)                     | (free allotment)                      | queried ~$0.01/M dimensions · stored ~$0.05 / 100M dimensions-mo                                    |
+| Containers (Collabora, Tantivy, OCR, LibreOffice, FFmpeg) | —                                     | per-second memory (GiB-s) + vCPU-s + disk — **verify**                                              |
+| Workers Logs + Logpush → R2                               | Logs included                         | Logpush needs paid plan; archive cost is the R2 storage above                                       |
+| Email Routing / Email Sending                             | free / beta                           | product transactional mail (`no-reply@`, ADR-0074); [`operations.md` §2](conventions/operations.md) |
+
+**AI Gateway + Workers AI (the inference metered lines)** — under AI Gateway Unified Billing, provider rates pass through with no markup; the only AI-specific overhead is a flat **5% credit-purchase fee** (charged when credits are purchased; not a per-request markup):
+
+| Service                                                                          | Cadence | Est. cost                                                                                 | Status    | Notes                                                                                                                                                                                                                                                                                                                                                                                        |
+| -------------------------------------------------------------------------------- | ------- | ----------------------------------------------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AI Gateway Unified Billing — credit-purchase fee                                 | usage   | flat **5%** on each credit purchase                                                       | committed | Provider rates (Anthropic Claude, OpenAI) pass through at cost; the 5% applies only to the credit purchase, not per-request. Committed-use/volume discounts are forfeited vs. a direct provider contract — recovered later via BYOK at volume (a per-firm config switch, not a code change; ADR-0104/0107). The Unified-Billing↔BYOK crossover is the named scaling switch point (ADR-0107). |
+| AI Gateway + Workers AI — provider usage (Anthropic/OpenAI token rates)          | usage   | provider list rates (verify before relying — prices drift)                                | committed | Per-token rates at Anthropic/OpenAI list pricing, pass-through under Unified Billing. Zero additional gateway markup. Authoritative per-firm token usage is captured from the inference response and written to the `token_usage_meter` table — never derived from gateway logs (ADR-0106).                                                                                                  |
+| Workers AI (on-Cloudflare models — the Workers-AI-only path for strictest firms) | usage   | per-neuron rate (verify) — [workers.cloudflare.com/ai](https://workers.cloudflare.com/ai) | potential | The on-Cloudflare Workers-AI path is the default for firms that require the strictest confidentiality posture (ADR-0108 strictest-firm default). Usage billed by Cloudflare per neuron. No procurement artifact required (data stays on Cloudflare).                                                                                                                                         |
+
+## B. Our costs — potential / optional (scale-triggered or upgrade; monthly vs yearly)
+
+Costs we don't pay yet but likely will as the team or feature set grows. Where billing offers a choice, both options are shown.
+
+| Item                                                                          | Provider   | Monthly option           | Yearly (committed) option       | Trigger                                                                                |
+| ----------------------------------------------------------------------------- | ---------- | ------------------------ | ------------------------------- | -------------------------------------------------------------------------------------- |
+| Google Workspace — Business **Starter**                                       | Google     | ~$8.40 / seat (flexible) | ~$7 / seat / mo (annual)        | Each added human mailbox seat.                                                         |
+| Google Workspace — Business **Standard** (2 TB, Vault retention, larger Meet) | Google     | ~$16.80 / seat           | ~$14 / seat / mo                | If legal-records **retention / Vault** is wanted for the attestation story (ADR-0090). |
+| Google Workspace — Business **Plus** (5 TB, advanced security/compliance)     | Google     | ~$26.40 / seat           | ~$22 / seat / mo                | Only if advanced eDiscovery/compliance controls are needed.                            |
+| GitHub **Team**                                                               | GitHub     | ~$4 / user / mo          | ~$4 / user / mo (annual billed) | When more collaborators / org features are needed.                                     |
+| Cloudflare Workers paid **add-ons** (e.g. higher tiers, Logpush, R2 growth)   | Cloudflare | usage                    | —                               | Scale; tracked via §A rates.                                                           |
+| Workers AI (if embeddings move in-platform)                                   | Cloudflare | usage (per neuron)       | —                               | If discovery embeddings are generated on-platform rather than BYO.                     |
+
+## C. Our costs — one-time (legal / brand perimeter, owned outside engineering)
+
+| Item                                            | Provider            | Cadence  | Est. cost | Status   | Notes                                               |
+| ----------------------------------------------- | ------------------- | -------- | --------- | -------- | --------------------------------------------------- |
+| Trademark registration — brand `magnacarta.esq` | USPTO / counsel     | one-time | verify    | deferred | ADR-0090 legal perimeter.                           |
+| Copyright registration                          | US Copyright Office | one-time | verify    | deferred | ADR-0090.                                           |
+| EULA / Terms of Service drafting                | counsel             | one-time | verify    | deferred | ADR-0090; prohibits reverse-engineering / scraping. |
+
+## D. Our costs — deferred credentialed integrations (commercial gates)
+
+| Item                                | Provider                     | Cadence              | Est. cost                                 | Status   | Notes                                                                                                                                                                                     |
+| ----------------------------------- | ---------------------------- | -------------------- | ----------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| EasyPost Forge — platform account   | EasyPost                     | usage + platform fee | postage pass-through + Forge fee (verify) | deferred | First credentialed adapter (shipping design, reserved ADR-0094). Postage is recovered (§E), not net firm cost; the Forge platform fee is the real line. Commercial gate, not engineering. |
+| Google **CASA** security assessment | Google / authorized assessor | annual               | recurring (long lead; verify)             | deferred | **Recurring** requirement for restricted Gmail/Calendar OAuth scopes — gates the per-user email/calendar adapter (ADR-0092, port-system spec §11). Name early.                            |
+| Microsoft publisher verification    | Microsoft                    | annual               | ~low                                      | deferred | Companion to the Microsoft Graph side of that adapter.                                                                                                                                    |
+
+## E. Customer-incurred costs & rates (what firms / their clients pay)
+
+Separate from our costs above: what a **customer (firm)** pays to use Magna Carta, and — where the firm recovers a cost from **its own client** — at what rate. Two of these are also **our revenue** (the platform subscription and our service-fee take); the rest are pass-through.
+
+| What the customer pays                                                               | Who pays whom              | Basis / rate                                                                      | Our take                                  | Notes                                                                                                                                                                                                                   |
+| ------------------------------------------------------------------------------------ | -------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Magna Carta platform subscription**                                                | firm → us                  | pricing model **TBD** (per-seat / per-firm / tiered)                              | **100% — primary revenue**                | The main customer cost; entitlement enforcement is a deferred server-side seam (ADR-0090). Set the model when pricing is decided; add the rate here then.                                                               |
+| **Shipping — postage**                                                               | firm → us → carrier        | **flat per-label**, at EasyPost's actual charged cost (USPS Commercial rates)     | $0 (at cost)                              | Recorded as `postage_cost_minor` from the real purchase; never marked up silently — see the separate fee line.                                                                                                          |
+| **Shipping — service fee**                                                           | firm → us                  | **configurable** per firm/plan (flat per-label or %)                              | **our markup — the "some we take"**       | The revenue line on shipping. Shown to the firm as a **separate itemized line** from postage (shipping design §5); margin computed from EasyPost's true charged cost, so it stays correct whatever the real postage is. |
+| **Shipping — extra services** (certified mail, return receipt, signature, insurance) | firm → us → carrier        | USPS extra-service fees, pass-through                                             | $0 (at cost), ± service fee per firm pref | Hard requirement for legal mail; modeled as canonical options, not separate products.                                                                                                                                   |
+| **Shipping — cost recovery**                                                         | firm → **its client**      | postage (± the firm's service fee, per firm preference)                           | n/a (firm's recovery, not ours)           | Posts as a matter disbursement / hard cost into the ledger (firm → client). Built with the Phase 3 financial core.                                                                                                      |
+| **Payments processing**                                                              | payer → processor (via us) | Helcim interchange-plus; ACH ~0.5% + $0.25 (cap ~$6); card = interchange + margin | default at-cost; **potential margin**     | Optionally surcharged to the payer where lawful — **operating only, never trust** (ADR-0032). Whether we take a margin on processing is an open pricing decision — _consider_. Fees never touch trust.                  |
+
+## F. Deliberate cost-avoidance (architecture choices that are _not_ a bill)
+
+Recorded so the register reads honestly — the absence of a common SaaS line is a decision, not an oversight:
+
+- **No third-party error/observability SaaS** (no Sentry / Datadog). Error logging and telemetry are in-house and Cloudflare-native (golden rule 4; ADR-0017) — a privilege/confidentiality requirement, not only cost.
+- **No third-party file-conversion / OCR / search SaaS** (no CloudConvert / Zamzar / VirusTotal for privileged bytes). Conversion, OCR, and full-text search run on our own Containers (ADR-0030) — _borrow expertise, never custody_.
+- **No managed auth SaaS** (no Auth0 / Clerk). Better Auth, self-hosted on control-plane D1 (ADR-0004).
+- **No turnkey legal-payments processor as primary** (LawPay kept only as a compliance fallback) — build on a raw interchange-plus processor to minimize fees (ADR-0032).
+
+> When a potential/deferred line begins billing, move its row to **§A active/committed** and replace the estimate with the real figure in the same commit. When platform-subscription or processing-margin pricing is decided, fill the rate in **§E** and record the decision as an ADR.

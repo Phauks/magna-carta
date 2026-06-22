@@ -22,13 +22,31 @@ export const PERMISSIONS = [
   "matters:renumber", // assign a manual/court/legacy number
   "matters:manageTypes", // create/deactivate matter types
   "matters:manageNumbering", // edit the firm numbering scheme
+  // Directory — persons, organizations, and their sensitive typed identifiers.
+  "directory:edit", // create/edit directory entities, names, identifiers, edges, categories, merges, and matter-party links
+  "directory:viewSensitiveIdentifiers", // decrypt and read an entity's protected identifier (SSN/EIN/DL/account/DOB) — audited
   // Locations — the firm's offices/letterhead roots.
   "locations:manage", // create/update/close locations, addresses, staff assignment
+  // Shipping & postage — connect the firm's postage account and create/rate/buy/track/refund shipments.
+  "shipping:manage",
   // Files — the File Manager's upload, organization, and document-type configuration.
   "files:upload", // initiate uploads and commit versions
   "files:organize", // create/rename/move folders and files
   "files:delete", // soft-delete files
   "files:manageDocumentTypes", // create/deactivate document types
+  // Tools — the cross-cutting Tools area: general-purpose utilities surfaced in the sidebar and
+  // contextually. One key per tool; gates visibility on both surfaces. Role-seeding lands with the
+  // Tools UI shell.
+  "tools:propertyListings", // external property-listing links (Zillow/Redfin/…)
+  "tools:propertyRecords", // county assessor/recorder record links
+  "tools:businessLookup", // Secretary-of-State business-entity lookup links
+  "tools:attorneyLicense", // attorney-license lookup links
+  "tools:shipping", // shipping & postage (the shipping integration)
+  "tools:speedTest", // in-app network speed test (runs client-side against the Cloudflare edge)
+  "tools:firmUsage", // firm usage snapshot — storage + entity counts (read-only, per-firm)
+  // Custom fields — define and maintain field schemas; purge hard-deletes all values for a field.
+  "customFields:manage",
+  "customFields:purge",
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

@@ -5,7 +5,7 @@ import { zillowProvider } from "./providers/zillow.ts";
 import type { LinkProvider, PropertyLink, PropertyReference } from "./types.ts";
 
 // Every external-link provider composes into one ordered registry. Adding a provider (Trulia, a
-// county-assessor link wrapping @magna-carta/parcels, a FEMA flood-map link) is one import + one row
+// county-assessor link wrapping @magna-carta/government-links, a FEMA flood-map link) is one import + one row
 // here — nothing else changes.
 const PROVIDERS: readonly LinkProvider[] = [
   zillowProvider,

@@ -32,7 +32,10 @@ function throughputMegabytesPerSecond(bytes, milliseconds) {
 
 function sendJson(response, status, payload) {
   const body = JSON.stringify(payload);
-  response.writeHead(status, { "content-type": "application/json", "content-length": Buffer.byteLength(body) });
+  response.writeHead(status, {
+    "content-type": "application/json",
+    "content-length": Buffer.byteLength(body),
+  });
   response.end(body);
 }
 
@@ -55,7 +58,11 @@ function readBody(request, limitBytes) {
     request.on("data", (chunk) => {
       total += chunk.length;
       if (total > limitBytes) {
-        reject(new Error(`request body exceeded ${limitBytes} bytes — use the benchmark for large payloads`));
+        reject(
+          new Error(
+            `request body exceeded ${limitBytes} bytes — use the benchmark for large payloads`,
+          ),
+        );
         request.destroy();
         return;
       }
@@ -112,9 +119,17 @@ async function handle(request, response) {
     if (request.method === "GET" && url.pathname === "/api/ready") {
       try {
         const upstream = await fetch(`${scanBase}/ready`, { signal: AbortSignal.timeout(1500) });
-        sendJson(response, 200, { reachable: upstream.ok, scanUrl: scanBase, status: upstream.status });
+        sendJson(response, 200, {
+          reachable: upstream.ok,
+          scanUrl: scanBase,
+          status: upstream.status,
+        });
       } catch (error) {
-        sendJson(response, 200, { reachable: false, scanUrl: scanBase, error: String(error?.message ?? error) });
+        sendJson(response, 200, {
+          reachable: false,
+          scanUrl: scanBase,
+          error: String(error?.message ?? error),
+        });
       }
       return;
     }
@@ -152,7 +167,9 @@ async function handle(request, response) {
     if (request.method === "GET" && url.pathname === "/api/bench") {
       const megabytes = Number.parseInt(url.searchParams.get("mib") ?? "1024", 10);
       if (!Number.isFinite(megabytes) || megabytes <= 0 || megabytes > 2048) {
-        sendJson(response, 400, { error: "mib must be between 1 and 2048 (the inspectable-size cap)" });
+        sendJson(response, 400, {
+          error: "mib must be between 1 and 2048 (the inspectable-size cap)",
+        });
         return;
       }
       const outcome = await scanStream(megabytes * MEGABYTE, "application/octet-stream");

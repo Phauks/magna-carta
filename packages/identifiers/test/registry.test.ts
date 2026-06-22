@@ -41,4 +41,10 @@ describe("prefix registry", () => {
       expect(prefix).toMatch(/^[a-z][a-zA-Z]*$/);
     }
   });
+
+  it("registers the custom-fields prefixes spelled in full", () => {
+    expect(ENTITY_PREFIXES.customField).toBe("customField");
+    expect(ENTITY_PREFIXES.picklistOption).toBe("picklistOption");
+    expect(ENTITY_PREFIXES.customFieldValue).toBe("customFieldValue");
+  });
 });

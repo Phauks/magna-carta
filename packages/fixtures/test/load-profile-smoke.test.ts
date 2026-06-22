@@ -19,6 +19,23 @@ import {
   protectedMeasurements,
   PROTECTED_PLAN_SCAN_ALLOWLIST,
 } from "../src/load-profile/protected-measurements.ts";
+import {
+  directoryHotPathPlans,
+  directoryMeasurementHandle,
+  directoryMeasurements,
+  DIRECTORY_PLAN_SCAN_ALLOWLIST,
+} from "../src/load-profile/directory-measurements.ts";
+import {
+  shippingHotPathPlans,
+  shippingMeasurements,
+  SHIPPING_PLAN_SCAN_ALLOWLIST,
+} from "../src/load-profile/shipping-measurements.ts";
+import {
+  customFieldHotPathPlans,
+  customFieldMeasurementHandle,
+  customFieldMeasurements,
+  CUSTOM_FIELD_PLAN_SCAN_ALLOWLIST,
+} from "../src/load-profile/custom-field-measurements.ts";
 import { ledgerVolume, scaleProfile } from "../src/load-profile/profile.ts";
 import { findFullScans, findTempBtreeSorts, runMeasurements } from "../src/load-profile/runner.ts";
 import { loadProfileSnapshot, type LoadedSnapshot } from "../src/load-profile/snapshot.ts";
@@ -58,10 +75,14 @@ describe("load-profile smoke", () => {
     );
     const handle = measurementHandle(snapshot, "smoke-seed");
 
-    const results = await runMeasurements(handle, [...ledgerMeasurements, ...mattersMeasurements], {
-      warmupIterations: 1,
-      iterations: 2,
-    });
+    const results = await runMeasurements(
+      handle,
+      [...ledgerMeasurements, ...mattersMeasurements, ...shippingMeasurements],
+      {
+        warmupIterations: 1,
+        iterations: 2,
+      },
+    );
     expect(results.map((result) => result.name).sort()).toEqual(
       [
         "balance-read.busy-subledger",
@@ -81,6 +102,8 @@ describe("load-profile smoke", () => {
         "rescan-sweep.find-unscanned",
         "storage-meter.summary",
         "matter-number.counter-draw",
+        "list-shipments.by-matter",
+        "list-tracking-events.by-shipment",
       ].sort(),
     );
     for (const result of results) {
@@ -105,6 +128,50 @@ describe("load-profile smoke", () => {
       ].sort(),
     );
     for (const result of protectedResults) {
+      expect(result.iterations).toBe(2);
+      expect(result.minMs).toBeGreaterThanOrEqual(0);
+    }
+
+    // The directory measured set runs under its own (async) handle — the seed-derived firm key and
+    // viewSensitiveIdentifiers permission. Decrypts the cached sealed SSN ciphertexts on the
+    // read-protected-list op, so a key-derivation regression would surface here.
+    const directoryHandle = await directoryMeasurementHandle(snapshot, "smoke-seed");
+    expect(directoryHandle.sampleEntityCiphertexts.length).toBeGreaterThan(0);
+    const directoryResults = await runMeasurements(directoryHandle, directoryMeasurements, {
+      warmupIterations: 1,
+      iterations: 2,
+    });
+    expect(directoryResults.map((result) => result.name).sort()).toEqual(
+      [
+        "directory.find-by-identifier",
+        "directory.read-protected-list",
+        "directory.candidate-generation",
+        "directory.graph-expansion",
+      ].sort(),
+    );
+    for (const result of directoryResults) {
+      expect(result.iterations).toBe(2);
+      expect(result.minMs).toBeGreaterThanOrEqual(0);
+    }
+
+    // The custom-field measured set runs under its own handle. The merge-repoint op mints a fresh
+    // person pair + value references per iteration (a merge archives the subordinate, so the pair
+    // cannot be reused), then folds the subordinate into the master.
+    const customFieldHandle = await customFieldMeasurementHandle(snapshot, "smoke-seed");
+    expect(customFieldHandle.busiestRecordId).toMatch(/^matter_/);
+    const customFieldResults = await runMeasurements(customFieldHandle, customFieldMeasurements, {
+      warmupIterations: 1,
+      iterations: 2,
+    });
+    expect(customFieldResults.map((result) => result.name).sort()).toEqual(
+      [
+        "custom-field.read-current-values",
+        "custom-field.reference-lookup",
+        "custom-field.preview-convert-scan",
+        "custom-field.merge-repoint",
+      ].sort(),
+    );
+    for (const result of customFieldResults) {
       expect(result.iterations).toBe(2);
       expect(result.minMs).toBeGreaterThanOrEqual(0);
     }
@@ -138,6 +205,13 @@ describe("load-profile smoke", () => {
     const practiceScans = findFullScans(practicePlans, PRACTICE_PLAN_SCAN_ALLOWLIST);
     expect(practiceScans).toEqual([]);
 
+    // The shipping hot-path plans: same label-set-first guard, then the scan check.
+    const shippingPlans = shippingHotPathPlans(snapshot);
+    expect(shippingPlans.map((plan) => plan.label).sort()).toEqual(
+      ["list-shipments.by-matter", "list-tracking-events.by-shipment"].sort(),
+    );
+    expect(findFullScans(shippingPlans, SHIPPING_PLAN_SCAN_ALLOWLIST)).toEqual([]);
+
     // The keyset-paginated list hot paths must satisfy their (created_at, id) ORDER BY from a
     // covering index — never a materialize-and-sort temporary B-tree, which defeats keyset
     // pagination at volume. A dropped or reordered covering index regresses the sort and fails here.
@@ -160,6 +234,35 @@ describe("load-profile smoke", () => {
       ["firm-secret.read-by-name", "incident.read-by-id"].sort(),
     );
     expect(findFullScans(protectedPlans, PROTECTED_PLAN_SCAN_ALLOWLIST)).toEqual([]);
+
+    // The directory hot-path plans: same label-set-first guard, then the scan check. The
+    // blind-index equality probe walks the (identifier_type, value_blind_index) index; the
+    // duplicate-candidate phonetic channel walks the code-leading index; the related-party graph
+    // expansion walks the from/to entity-id indexes.
+    const directoryPlans = directoryHotPathPlans(snapshot);
+    expect(directoryPlans.map((plan) => plan.label).sort()).toEqual(
+      [
+        "directory.candidate-generation.phonetic-channel",
+        "directory.find-by-identifier",
+        "directory.graph-expansion",
+      ].sort(),
+    );
+    expect(findFullScans(directoryPlans, DIRECTORY_PLAN_SCAN_ALLOWLIST)).toEqual([]);
+
+    // The custom-field hot-path plans: same label-set-first guard, then the scan check. The per-record
+    // read walks (target_row_id, is_current); the reference lookup walks (value_reference_id); the
+    // convert scan walks (field_id); the merge repoint's two reads walk those same indexes.
+    const customFieldPlans = customFieldHotPathPlans(snapshot);
+    expect(customFieldPlans.map((plan) => plan.label).sort()).toEqual(
+      [
+        "custom-field.read-current-values",
+        "custom-field.reference-lookup",
+        "custom-field.preview-convert-scan",
+        "custom-field.merge-repoint.reference-read",
+        "custom-field.merge-repoint.owned-read",
+      ].sort(),
+    );
+    expect(findFullScans(customFieldPlans, CUSTOM_FIELD_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
     snapshot.close();
   });

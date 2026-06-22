@@ -12,7 +12,20 @@ import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import type {
   AuditLogId,
+  CustomFieldId,
+  CustomFieldValueId,
+  DirectoryAddressId,
+  DirectoryCategoryId,
+  DirectoryEdgeId,
+  DirectoryEmailId,
+  DirectoryIdentifierId,
+  DirectoryNameId,
+  DirectoryOrganizationId,
+  DirectoryPartyRoleId,
+  DirectoryPersonId,
+  DirectoryPhoneId,
   DocumentTypeId,
+  EntityMergeId,
   FileId,
   FileVersionId,
   FirmSecretId,
@@ -20,19 +33,25 @@ import type {
   GrantId,
   IdempotencyRecordId,
   IncidentId,
+  IntegrationConnectionId,
   LedgerAccountId,
   LedgerEntryId,
   LedgerLineId,
   LocationAddressId,
   LocationId,
   MatterId,
+  MatterPartyId,
   MatterTypeId,
   MemberLocationId,
   MemberRoleId,
   NumberingSchemeId,
   OutboxId,
+  PicklistOptionId,
   RoleId,
   RolePermissionId,
+  ShipmentId,
+  ShipmentLabelId,
+  TrackingEventId,
   UploadSessionId,
   UserId,
 } from "@magna-carta/identifiers/types";
@@ -90,6 +109,11 @@ export const member = sqliteTable("member", {
   status: text("status", { enum: ["active", "deactivated"] })
     .notNull()
     .default("active"),
+  // Per-user opt-out of product-usage analytics (the per-user override; the firm-level enable lives
+  // in the setting table). Default off (events flow) — a member sets this to opt themselves out.
+  optedOutOfUsageAnalytics: integer("opted_out_of_usage_analytics", { mode: "boolean" })
+    .notNull()
+    .default(false),
   createdAt: text("created_at").notNull(), // ISO-8601 instant
 });
 
@@ -267,7 +291,7 @@ export const accountBalance = sqliteTable(
 // metering BEHAVIOR lives in @magna-carta/{locations,matters,file-manager}, composed through the
 // data-access effect batch. No domain logic here.
 
-// A firm office/branch: the root of trust-account jurisdiction and safe custody in later phases, and
+// A firm office/branch: the root of trust-account jurisdiction and the Custodian hierarchy in later phases, and
 // the source of per-location letterhead/remit-to. Soft close only (never deleted).
 export const location = sqliteTable(
   "location",
@@ -537,6 +561,12 @@ export const fileVersion = sqliteTable(
     // quarantine ("decompression-bomb"/"archive-nesting"/"archive-entry-count"). Null for a plain
     // clean scan. Surfaces the "not scanned" badge in read models without overloading scan_verdict.
     scanDetail: text("scan_detail"),
+    // NULL = never sniffed; set by the codec sniff when a reader first computes it. NULL must stay
+    // distinct from 'indeterminate' (sniffed-but-undecidable) so a corpus roll-up can tell "never
+    // looked" from "looked, can't decide". Only a positive 'playable' unlocks inline media.
+    inlinePlayable: text("inline_playable", {
+      enum: ["playable", "download-only", "indeterminate"],
+    }),
     status: text("status", { enum: ["pending", "clean", "quarantined", "abandoned"] })
       .notNull()
       .default("pending"),
@@ -562,6 +592,10 @@ export const fileVersion = sqliteTable(
     check(
       "file_version_scan_verdict_check",
       sql`${table.scanVerdict} IS NULL OR ${table.scanVerdict} IN ('unscanned', 'clean', 'infected')`,
+    ),
+    check(
+      "file_version_inline_playable_check",
+      sql`${table.inlinePlayable} IS NULL OR ${table.inlinePlayable} IN ('playable', 'download-only', 'indeterminate')`,
     ),
     check(
       "file_version_status_check",
@@ -640,6 +674,25 @@ export const scanCache = sqliteTable(
   ],
 );
 
+// Authoritative per-firm AI token usage, captured from the inference RESPONSE (the provider usage
+// object) — the durable, reconcilable billing source, never the gateway logs. Rolled up by
+// (day, slot, model_id) so the firm-usage diagnostics feed reads a compact per-day breakdown. Composite
+// NATURAL key (no handle) — the same documented exception as storage_meter; every key column is TEXT.
+// The rollup moves by delta (INSERT ... ON CONFLICT DO UPDATE SET col = col + excluded.col) in the same
+// batch as the run it counts.
+export const tokenUsageMeter = sqliteTable(
+  "token_usage_meter",
+  {
+    day: text("day").notNull(), // YYYY-MM-DD civil date bucket (UTC)
+    slot: text("slot").notNull(), // reasoning | utility | embedding
+    modelId: text("model_id").notNull(), // the gateway-routable, provider-prefixed id
+    inputTokens: integer("input_tokens").notNull(),
+    outputTokens: integer("output_tokens").notNull(),
+    requestCount: integer("request_count").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.day, table.slot, table.modelId] })],
+);
+
 // Per-firm key/value config (JSON values), read through a typed accessor with defaults in code: a
 // missing row IS the default. Natural-key PK (the setting key), not a handle.
 export const setting = sqliteTable("setting", {
@@ -705,3 +758,526 @@ export const firmSecret = sqliteTable("firm_secret", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+// Directory — person/organization entity graph. Structure only — domain logic lives in
+// @magna-carta/directory. Every PK is a TEXT identifier handle; no REAL columns;
+// soft-delete via deleted_at.
+
+// A natural person in the directory. All protected fields (dob, ssn, dl, etc.) are stored uniformly
+// as directory_identifier rows — no ciphertext columns here.
+// status/merged_into_id support the merge graph (see entity_merge); these columns must exist before
+// any merge logic is added so there is no expand-contract migration at merge time.
+export const directoryPerson = sqliteTable(
+  "directory_person",
+  {
+    id: text("id").primaryKey().$type<DirectoryPersonId>(), // directoryPerson_ handle
+    namePrefix: text("name_prefix"),
+    nameGiven: text("name_given"),
+    nameMiddle: text("name_middle"),
+    nameFamily: text("name_family"),
+    nameSuffix: text("name_suffix"),
+    displayName: text("display_name"),
+    memberId: text("member_id").$type<UserId>(), // nullable; set if this person maps to a firm member
+    status: text("status").notNull().default("active"), // 'active' | 'merged_into'
+    mergedIntoId: text("merged_into_id").$type<DirectoryPersonId>(), // set when status = 'merged_into'
+    needsReview: integer("needs_review").notNull().default(0), // 0/1; set by provisional imports awaiting review
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
+  },
+  (table) => [
+    check("directory_person_status_check", sql`${table.status} IN ('active', 'merged_into')`),
+    check("directory_person_needs_review_check", sql`${table.needsReview} IN (0, 1)`),
+  ],
+);
+
+// A legal entity (company, trust, government body, etc.) in the directory. All protected fields
+// (ein, etc.) are stored uniformly as directory_identifier rows — no ciphertext columns here.
+// status/merged_into_id mirror directory_person for the same merge-graph reason.
+export const directoryOrganization = sqliteTable(
+  "directory_organization",
+  {
+    id: text("id").primaryKey().$type<DirectoryOrganizationId>(), // directoryOrganization_ handle
+    legalName: text("legal_name"),
+    displayName: text("display_name"),
+    status: text("status").notNull().default("active"), // 'active' | 'merged_into'
+    mergedIntoId: text("merged_into_id").$type<DirectoryOrganizationId>(), // set when status = 'merged_into'
+    needsReview: integer("needs_review").notNull().default(0), // 0/1; set by provisional imports awaiting review
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
+  },
+  (table) => [
+    check("directory_organization_status_check", sql`${table.status} IN ('active', 'merged_into')`),
+    check("directory_organization_needs_review_check", sql`${table.needsReview} IN (0, 1)`),
+  ],
+);
+
+// A name record for a person or organization. Temporal (valid_from/valid_to) and role-typed so that
+// a person's maiden name, legal name, and preferred name can all coexist.
+// The implicit SQLite rowid backs the FTS5 external-content link — do NOT use WITHOUT ROWID here.
+export const directoryName = sqliteTable(
+  "directory_name",
+  {
+    id: text("id").primaryKey().$type<DirectoryNameId>(), // directoryName_ handle
+    entityId: text("entity_id").notNull(), // FK to directory_person.id or directory_organization.id
+    entityKind: text("entity_kind").notNull(), // 'person' | 'organization'
+    nameRole: text("name_role").notNull(), // e.g. 'legal', 'preferred', 'maiden', 'trading'
+    namePrefix: text("name_prefix"),
+    nameGiven: text("name_given"),
+    nameMiddle: text("name_middle"),
+    nameFamily: text("name_family"),
+    nameSuffix: text("name_suffix"),
+    normalizedDisplay: text("normalized_display").notNull(), // lowercased + stripped; the FTS5 content column
+    isCurrent: integer("is_current").notNull().default(1), // 0/1; the write path manages transitions
+    validFrom: text("valid_from"),
+    validTo: text("valid_to"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
+  },
+  (table) => [
+    index("directory_name_entity_id_index").on(table.entityId),
+    index("directory_name_normalized_display_index").on(table.normalizedDisplay),
+    check(
+      "directory_name_entity_kind_check",
+      sql`${table.entityKind} IN ('person', 'organization')`,
+    ),
+    check("directory_name_name_role_check", sql`length(${table.nameRole}) > 0`),
+    check("directory_name_is_current_check", sql`${table.isCurrent} IN (0, 1)`),
+  ],
+);
+
+// Phonetic codes for a name — enables double-metaphone fuzzy search alongside the
+// FTS5 trigram index. Multiple codes per name (one row per scheme).
+// scheme is an open, application-managed catalog: current values are 'double_metaphone_primary'
+// and 'double_metaphone_secondary' (Double Metaphone yields two codes per input, stored as
+// separate rows so every row carries a single scalar code). Future schemes such as Beider-Morse
+// are added by the application layer without a schema migration — hence the open length() check
+// rather than a closed IN(...) enumeration.
+export const directoryNamePhoneticCode = sqliteTable(
+  "directory_name_phonetic_code",
+  {
+    nameId: text("name_id")
+      .notNull()
+      .$type<DirectoryNameId>()
+      .references(() => directoryName.id),
+    scheme: text("scheme").notNull(),
+    code: text("code").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.nameId, table.scheme] }),
+    index("directory_name_phonetic_code_scheme_code_index").on(table.scheme, table.code),
+    // The duplicate-candidate phonetic channel filters `code` across all schemes (no scheme bound), so
+    // it cannot seek the (scheme, code) index above (leading column unbound). This code-leading index
+    // makes that hot-path probe an index seek rather than a scan.
+    index("directory_name_phonetic_code_code_index").on(table.code),
+    check("directory_name_phonetic_code_scheme_check", sql`length(${table.scheme}) > 0`),
+  ],
+);
+
+// A typed identifier for a person or organization (driver's licence, ACN, ABN, bar number, etc.).
+// The value is always encrypted; a blind index is generated for schemes that support equality search.
+export const directoryIdentifier = sqliteTable(
+  "directory_identifier",
+  {
+    id: text("id").primaryKey().$type<DirectoryIdentifierId>(), // directoryIdentifier_ handle
+    entityId: text("entity_id").notNull(), // FK to directory_person.id or directory_organization.id
+    identifierType: text("identifier_type").notNull(), // e.g. 'drivers_licence', 'acn', 'bar_number'
+    valueCiphertext: text("value_ciphertext").notNull(), // encrypted; never logged
+    valueBlindIndex: text("value_blind_index"), // nullable; set for searchable schemes
+    validFrom: text("valid_from"),
+    validTo: text("valid_to"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
+  },
+  (table) => [
+    index("directory_identifier_entity_id_index").on(table.entityId),
+    index("directory_identifier_type_blind_index_index").on(
+      table.identifierType,
+      table.valueBlindIndex,
+    ),
+    check(
+      "directory_identifier_identifier_type_nonempty_check",
+      sql`length(${table.identifierType}) > 0`,
+    ),
+  ],
+);
+
+// One authorized external account per category (the grant). Firm-scoped today (shipping); the unique
+// index keys it on (category, principal) so a firm has exactly one connection per category.
+// `credential_ref` points at the firm_secret entry; `capability_snapshot` is the adapter descriptor
+// captured at connect time.
+export const integrationConnection = sqliteTable(
+  "integration_connection",
+  {
+    id: text("id").primaryKey().$type<IntegrationConnectionId>(),
+    category: text("category").notNull(),
+    adapterId: text("adapter_id").notNull(),
+    scope: text("scope", { enum: ["firm", "user"] }).notNull(),
+    principalRef: text("principal_ref").notNull(),
+    credentialRef: text("credential_ref").notNull(),
+    status: text("status", {
+      enum: ["connected", "degraded", "needs_reauth", "disabled"],
+    })
+      .notNull()
+      .default("connected"),
+    capabilitySnapshot: text("capability_snapshot").notNull(), // JSON-serialized CapabilityDescriptor
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("integration_connection_principal_category_unique_index").on(
+      table.category,
+      table.principalRef,
+    ),
+  ],
+);
+
+// A typed relationship edge between two directory entities. Temporal (valid_from/valid_to); edge_type
+// is open text constrained to a non-empty value so the catalog can grow without schema migrations.
+export const directoryEdge = sqliteTable(
+  "directory_edge",
+  {
+    id: text("id").primaryKey().$type<DirectoryEdgeId>(), // directoryEdge_ handle
+    fromEntityId: text("from_entity_id").notNull(),
+    toEntityId: text("to_entity_id").notNull(),
+    edgeType: text("edge_type").notNull(), // e.g. 'director_of', 'shareholder_of', 'spouse_of'
+    role: text("role"), // optional label enriching edge_type
+    note: text("note"),
+    validFrom: text("valid_from"),
+    validTo: text("valid_to"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
+  },
+  (table) => [
+    index("directory_edge_from_entity_id_index").on(table.fromEntityId),
+    index("directory_edge_to_entity_id_index").on(table.toEntityId),
+    check("directory_edge_edge_type_nonempty_check", sql`length(${table.edgeType}) > 0`),
+  ],
+);
+
+// Classification categories for directory entities. applies_to constrains which entity kinds may
+// be tagged. Soft-archived (never deleted); position controls display order.
+export const directoryCategory = sqliteTable(
+  "directory_category",
+  {
+    id: text("id").primaryKey().$type<DirectoryCategoryId>(), // directoryCategory_ handle
+    name: text("name").notNull(),
+    appliesTo: text("applies_to").notNull().default("both"), // 'person' | 'organization' | 'both'
+    position: integer("position").notNull().default(0),
+    archived: integer("archived").notNull().default(0), // 0/1
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    check("directory_category_name_nonempty_check", sql`length(${table.name}) > 0`),
+    check(
+      "directory_category_applies_to_check",
+      sql`${table.appliesTo} IN ('person', 'organization', 'both')`,
+    ),
+    check("directory_category_archived_check", sql`${table.archived} IN (0, 1)`),
+  ],
+);
+
+// Many-to-many join between a directory entity and a category.
+export const directoryEntityCategory = sqliteTable(
+  "directory_entity_category",
+  {
+    entityId: text("entity_id").notNull(),
+    categoryId: text("category_id")
+      .notNull()
+      .$type<DirectoryCategoryId>()
+      .references(() => directoryCategory.id),
+  },
+  (table) => [primaryKey({ columns: [table.entityId, table.categoryId] })],
+);
+
+// Email addresses for a directory entity. Temporal and type-labelled; is_primary is enforced in the
+// write path (exactly one primary per entity kind combination).
+export const directoryEmail = sqliteTable(
+  "directory_email",
+  {
+    id: text("id").primaryKey().$type<DirectoryEmailId>(), // directoryEmail_ handle
+    entityId: text("entity_id").notNull(),
+    label: text("label"), // e.g. 'work', 'personal'
+    address: text("address").notNull(),
+    isPrimary: integer("is_primary").notNull().default(0), // 0/1
+    validFrom: text("valid_from"),
+    validTo: text("valid_to"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
+  },
+  (table) => [
+    index("directory_email_entity_id_index").on(table.entityId),
+    check("directory_email_address_nonempty_check", sql`length(${table.address}) > 0`),
+    check("directory_email_is_primary_check", sql`${table.isPrimary} IN (0, 1)`),
+  ],
+);
+
+// Phone numbers for a directory entity. Temporal and type-labelled.
+export const directoryPhone = sqliteTable(
+  "directory_phone",
+  {
+    id: text("id").primaryKey().$type<DirectoryPhoneId>(), // directoryPhone_ handle
+    entityId: text("entity_id").notNull(),
+    label: text("label"), // e.g. 'mobile', 'office', 'fax'
+    number: text("number").notNull(),
+    isPrimary: integer("is_primary").notNull().default(0), // 0/1
+    validFrom: text("valid_from"),
+    validTo: text("valid_to"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
+  },
+  (table) => [
+    index("directory_phone_entity_id_index").on(table.entityId),
+    check("directory_phone_number_nonempty_check", sql`length(${table.number}) > 0`),
+    check("directory_phone_is_primary_check", sql`${table.isPrimary} IN (0, 1)`),
+  ],
+);
+
+// Structured postal addresses for a directory entity (street, city, region, postal, country).
+// Temporal and type-labelled; is_primary is enforced in the write path.
+export const directoryAddress = sqliteTable(
+  "directory_address",
+  {
+    id: text("id").primaryKey().$type<DirectoryAddressId>(), // directoryAddress_ handle
+    entityId: text("entity_id").notNull(),
+    label: text("label"), // e.g. 'registered', 'postal', 'residential'
+    street: text("street"),
+    city: text("city"),
+    region: text("region"),
+    postal: text("postal"),
+    country: text("country"),
+    isPrimary: integer("is_primary").notNull().default(0), // 0/1
+    validFrom: text("valid_from"),
+    validTo: text("valid_to"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
+  },
+  (table) => [
+    index("directory_address_entity_id_index").on(table.entityId),
+    check("directory_address_is_primary_check", sql`${table.isPrimary} IN (0, 1)`),
+  ],
+);
+
+// Named party roles — the catalog of roles a directory entity can play on a matter (client,
+// opposing party, witness, expert, etc.). Soft-archived; position controls display order.
+export const directoryPartyRole = sqliteTable(
+  "directory_party_role",
+  {
+    id: text("id").primaryKey().$type<DirectoryPartyRoleId>(), // directoryPartyRole_ handle
+    name: text("name").notNull(),
+    archived: integer("archived").notNull().default(0), // 0/1
+    position: integer("position").notNull().default(0),
+  },
+  (table) => [
+    uniqueIndex("directory_party_role_name_unique_index").on(table.name),
+    check("directory_party_role_name_nonempty_check", sql`length(${table.name}) > 0`),
+    check("directory_party_role_archived_check", sql`${table.archived} IN (0, 1)`),
+  ],
+);
+
+// A directory entity playing a role on a matter. Temporal (valid_from/valid_to); soft-deleted.
+// Connects the Directory domain to the Matters domain via entity_id (no cross-domain FK).
+export const matterParty = sqliteTable(
+  "matter_party",
+  {
+    id: text("id").primaryKey().$type<MatterPartyId>(), // matterParty_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    entityId: text("entity_id").notNull(), // FK to directory_person.id or directory_organization.id
+    role: text("role").notNull(), // e.g. 'client', 'opposing_party', 'witness'
+    validFrom: text("valid_from"),
+    validTo: text("valid_to"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    deletedAt: text("deleted_at"),
+  },
+  (table) => [
+    index("matter_party_matter_id_index").on(table.matterId),
+    index("matter_party_entity_id_index").on(table.entityId),
+    check("matter_party_role_nonempty_check", sql`length(${table.role}) > 0`),
+  ],
+);
+
+// Append-only merge audit. When two entities are merged, the subordinate's id is repointed to the
+// master; this row records that fact permanently. survivorship and repointed are JSON blobs —
+// the merge service writes them; no schema migration is needed when the shape evolves.
+export const entityMerge = sqliteTable("entity_merge", {
+  id: text("id").primaryKey().$type<EntityMergeId>(), // entityMerge_ handle
+  masterId: text("master_id").notNull(), // the surviving entity id
+  subordinateId: text("subordinate_id").notNull(), // the absorbed entity id
+  survivorship: text("survivorship"), // JSON: field-by-field survivorship decisions
+  repointed: text("repointed"), // JSON: list of rows repointed from subordinate to master
+  mergedAt: text("merged_at").notNull(),
+  mergedBy: text("merged_by").notNull().$type<UserId>(), // global user handle; no cross-plane FK
+});
+
+// A mailing/postage shipment. Addresses, parcel, and options are JSON text (never sub-queried).
+// postage_cost_minor / service_fee_minor are recorded at purchase — the cost-recovery seam the
+// financial core reads to post a matter disbursement. matter_ref is optional (a shipment may be
+// firm-administrative, not matter-linked).
+export const shipment = sqliteTable(
+  "shipment",
+  {
+    id: text("id").primaryKey().$type<ShipmentId>(),
+    matterRef: text("matter_ref")
+      .$type<MatterId>()
+      .references(() => matter.id),
+    status: text("status", {
+      enum: ["draft", "rated", "purchased", "in_transit", "delivered", "refunded"],
+    })
+      .notNull()
+      .default("draft"),
+    fromAddress: text("from_address").notNull(), // JSON
+    toAddress: text("to_address").notNull(), // JSON
+    parcel: text("parcel").notNull(), // JSON
+    options: text("options").notNull().default("{}"), // JSON ShipmentOptions
+    remoteShipmentId: text("remote_shipment_id"), // EasyPost shipment id, set once rated/bought
+    carrier: text("carrier"),
+    service: text("service"),
+    trackingCode: text("tracking_code"),
+    labelRef: text("label_ref").$type<ShipmentLabelId>(),
+    postageCostMinor: integer("postage_cost_minor"),
+    serviceFeeMinor: integer("service_fee_minor"),
+    currency: text("currency"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("shipment_matter_ref_index").on(table.matterRef),
+    index("shipment_tracking_code_index").on(table.trackingCode),
+  ],
+);
+
+// A bought label's metadata; the PDF bytes live in per-firm R2 at r2_key (bulk content never in D1).
+export const shipmentLabel = sqliteTable("shipment_label", {
+  id: text("id").primaryKey().$type<ShipmentLabelId>(),
+  shipmentRef: text("shipment_ref")
+    .notNull()
+    .$type<ShipmentId>()
+    .references(() => shipment.id),
+  format: text("format").notNull(), // content type, e.g. application/pdf
+  r2Key: text("r2_key").notNull(),
+  trackingCode: text("tracking_code").notNull(),
+  costMinor: integer("cost_minor").notNull(),
+  currency: text("currency").notNull(),
+  voided: integer("voided").notNull().default(0), // 0/1
+  createdAt: text("created_at").notNull(),
+});
+
+// A carrier tracking event, appended as tracking is pulled. Dedup by (shipment_ref, remote_id).
+export const trackingEvent = sqliteTable(
+  "tracking_event",
+  {
+    id: text("id").primaryKey().$type<TrackingEventId>(),
+    shipmentRef: text("shipment_ref")
+      .notNull()
+      .$type<ShipmentId>()
+      .references(() => shipment.id),
+    remoteId: text("remote_id").notNull(),
+    status: text("status").notNull(),
+    occurredAt: text("occurred_at"),
+    location: text("location"),
+    message: text("message"),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("tracking_event_shipment_remote_unique_index").on(
+      table.shipmentRef,
+      table.remoteId,
+    ),
+  ],
+);
+
+// Firm-defined fields that extend matter or entity records with arbitrary typed data.
+// kind controls which value_* column is populated in custom_field_value; attachment_id scopes
+// the field to a specific matter type or entity category (null = applies to all).
+// number_scale is the number of decimal places implied by value_number (integer storage).
+export const customField = sqliteTable(
+  "custom_field",
+  {
+    id: text("id").primaryKey().$type<CustomFieldId>(),
+    name: text("name").notNull(),
+    kind: text("kind", {
+      enum: [
+        "checkbox",
+        "date",
+        "time",
+        "number",
+        "currency",
+        "picklist",
+        "single-line",
+        "multi-line",
+        "url",
+        "email",
+        "matter-reference",
+        "contact-reference",
+      ],
+    }).notNull(),
+    target: text("target", { enum: ["matter", "entity"] }).notNull(),
+    attachmentId: text("attachment_id"),
+    numberScale: integer("number_scale"),
+    required: integer("required").notNull().default(0),
+    archived: integer("archived").notNull().default(0),
+    converting: integer("converting").notNull().default(0),
+    position: integer("position").notNull().default(0),
+    templateFieldKey: text("template_field_key"),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (table) => [index("custom_field_scope_index").on(table.target, table.attachmentId)],
+);
+
+// Available choices for a picklist custom field. Soft-archived (never deleted); position controls
+// display order. field_id must reference a custom_field of kind 'picklist'.
+export const picklistOption = sqliteTable(
+  "picklist_option",
+  {
+    id: text("id").primaryKey().$type<PicklistOptionId>(),
+    fieldId: text("field_id").notNull().$type<CustomFieldId>(),
+    name: text("name").notNull(),
+    position: integer("position").notNull().default(0),
+    archived: integer("archived").notNull().default(0),
+  },
+  (table) => [index("picklist_option_field_id_index").on(table.fieldId)],
+);
+
+// Temporal value rows for a custom field on a target record (matter or entity). Exactly one of the
+// five value_* columns must be non-null (enforced by CHECK). The partial unique index on
+// (target_row_id, field_id) WHERE is_current = 1 guarantees at most one live value per field per
+// record; superseded rows are retained (is_current = 0) for history and audit.
+export const customFieldValue = sqliteTable(
+  "custom_field_value",
+  {
+    id: text("id").primaryKey().$type<CustomFieldValueId>(),
+    fieldId: text("field_id").notNull().$type<CustomFieldId>(),
+    targetRowId: text("target_row_id").notNull(),
+    valueText: text("value_text"),
+    valueNumber: integer("value_number"),
+    valueDate: text("value_date"),
+    valueOptionId: text("value_option_id").$type<PicklistOptionId>(),
+    valueReferenceId: text("value_reference_id"),
+    isCurrent: integer("is_current").notNull().default(1),
+    validFrom: text("valid_from").notNull(),
+    validTo: text("valid_to"),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (table) => [
+    uniqueIndex("custom_field_value_current_unique_index")
+      .on(table.targetRowId, table.fieldId)
+      .where(sql`${table.isCurrent} = 1`),
+    index("custom_field_value_record_index").on(table.targetRowId, table.isCurrent),
+    index("custom_field_value_field_index").on(table.fieldId),
+    index("custom_field_value_reference_index").on(table.valueReferenceId),
+  ],
+);

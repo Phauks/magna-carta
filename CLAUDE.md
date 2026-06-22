@@ -1,6 +1,6 @@
 # Magna Carta — CLAUDE.md
 
-Magna Carta is a legal practice-management platform the firm controls — matters, time, trust, billing, costs, conflicts, discovery, safe custody, documents & automation, a client portal, payments, and reporting — built on Cloudflare, multi-tenant from day one.
+Magna Carta is a legal practice-management platform the firm controls — matters, time, trust, billing, costs, conflicts, discovery, custodian, documents & automation, a client portal, payments, and reporting — built on Cloudflare, multi-tenant from day one.
 
 This is the **entry point** for anyone working in this repo: the golden rules and where everything lives. Read it, then follow the links — detail lives in the linked homes, not here.
 
@@ -8,19 +8,21 @@ This is the **entry point** for anyone working in this repo: the golden rules an
 
 Documentation is **segmented and non-duplicative.** Every fact has one authoritative home; everything else links to it. Put new information in its home.
 
-| You need…                                                | Home                                                                                  |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Why / what — design, rationale, feature map              | [`docs/Magna-Carta-White-Paper.md`](docs/Magna-Carta-White-Paper.md)                  |
-| Decisions + status (ADR register & standard)             | [`docs/Decision-Log.md`](docs/Decision-Log.md)                                        |
-| How to work here + golden rules + this map               | **this file**                                                                         |
-| Code standards (style, UI, testing, security, API, docs) | [`docs/conventions/`](docs/conventions/)                                              |
-| Subsystem design (spec → plan → build)                   | [`docs/specs/`](docs/specs/)                                                          |
-| Local rules & gotchas for a code area                    | a `CLAUDE.md` beside that code ([template](docs/conventions/area-claude-template.md)) |
-| End-user & admin guides (per feature)                    | [`docs/user/`](docs/user/)                                                            |
-| Live execution status (now / next / shipped / backlog)   | [`ROADMAP.md`](ROADMAP.md)                                                            |
-| Per-slice stage status (spec → plan → built → tested)    | [`STATUS.md`](STATUS.md)                                                              |
-| Notable changes                                          | [`CHANGELOG.md`](CHANGELOG.md)                                                        |
-| Research (trust rules, competitive analysis)             | [`docs/research/`](docs/research/)                                                    |
+| You need…                                                     | Home                                                                                  |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Why / what — design, rationale, feature map                   | [`docs/Magna-Carta-White-Paper.md`](docs/Magna-Carta-White-Paper.md)                  |
+| Decisions + status (ADR register & standard)                  | [`docs/Decision-Log.md`](docs/Decision-Log.md)                                        |
+| How to work here + golden rules + this map                    | **this file**                                                                         |
+| Code standards (style, UI, testing, security, API, docs)      | [`docs/conventions/`](docs/conventions/)                                              |
+| Subsystem design (spec → plan → build)                        | [`docs/specs/`](docs/specs/)                                                          |
+| Local rules & gotchas for a code area                         | a `CLAUDE.md` beside that code ([template](docs/conventions/area-claude-template.md)) |
+| End-user & admin guides (per feature)                         | [`docs/user/`](docs/user/)                                                            |
+| Live execution status (now / next / shipped / backlog)        | [`ROADMAP.md`](ROADMAP.md)                                                            |
+| Per-slice stage status (spec → plan → built → tested)         | [`STATUS.md`](STATUS.md)                                                              |
+| Concurrent work in flight (other worktrees/branches)          | [`docs/active-work/`](docs/active-work/) (+ `vp run worktrees`)                       |
+| Notable changes                                               | [`CHANGELOG.md`](CHANGELOG.md)                                                        |
+| Recurring & associated costs (subscriptions, usage, one-time) | [`docs/operating-costs.md`](docs/operating-costs.md)                                  |
+| Research (trust rules, competitive analysis)                  | [`docs/research/`](docs/research/)                                                    |
 
 **Cross-reference rule:** `§N` is navigation _inside_ the white paper only. From any other file, reference the white paper by **document + topic name** (or a stable **`ADR-NNNN`**), never a section number — they shift on reorganization.
 
@@ -44,7 +46,7 @@ Broad principles for how we build — they apply across the work, not just one s
 2. **All UI through the design system.** Style only with Tailwind + the `@magna-carta/design-system` components and design tokens — no raw CSS, no off-token values, no direct `bits-ui` imports outside the design-system package (CI rejects all three). Lucide icons; **no emojis** anywhere (UI, docs, commits). (_Design system_; ADR-0076)
 3. **Data access through the firm-scoped DAL.** All business data goes through the firm-scoped data-access layer — no query crosses firms; bulk content to R2, never D1. (_Tenancy & data isolation_; ADR-0003)
 4. **Standardized error & bug logging.** Report every error/bug through the one standard in-house pipeline; **redact by default** (never log privileged content), correlate by ID, surface a user-facing Error ID, and never use a third-party error SaaS. Standard: [`docs/conventions/error-logging.md`](docs/conventions/error-logging.md). (_Observability & diagnostics_; ADR-0017, ADR-0038)
-5. **Keep documentation current.** No feature is done until its docs (developer _and_ user) and [`ROADMAP.md`](ROADMAP.md) + [`CHANGELOG.md`](CHANGELOG.md) are updated — same commit. Standard: [`documentation.md`](docs/conventions/documentation.md); language: [`documentation-style.md`](docs/conventions/documentation-style.md).
+5. **Keep documentation current.** No feature is done until its docs (developer _and_ user) and [`ROADMAP.md`](ROADMAP.md) + [`CHANGELOG.md`](CHANGELOG.md) are updated — same commit. For the changelog and ADRs this is met by committing a **fragment** (`changelog.d/<slug>.md`, `docs/decisions/pending/<slug>.md`); the rendered `CHANGELOG.md` and the Decision-Log register are build outputs assembled on `main` by `vp run changelog-build` / `vp run decisions-build`, never hand-edited on a branch. Standard: [`documentation.md`](docs/conventions/documentation.md); language: [`documentation-style.md`](docs/conventions/documentation-style.md).
 6. **Feature parity.** Web and desktop stay at parity; no platform-exclusive features (desktop only adds optional local accelerations with a server fallback). (_Delivery model_; ADR-0023)
 7. **No shell for file operations.** Dedicated file tools only; the shell is for git, pnpm, cargo, rustup, and process management.
 8. **Design before code.** White paper → brainstorm → spec ([`docs/specs/`](docs/specs/)) → plan → build; record decisions as ADRs in [`docs/Decision-Log.md`](docs/Decision-Log.md), same commit.
@@ -63,6 +65,15 @@ Broad principles for how we build — they apply across the work, not just one s
 - **Implementation:** autonomous and terse; comprehensive fixes over incremental patches. Design and brainstorming stay collaborative.
 - **Per-area `CLAUDE.md`:** each code area carries its own (template in [`docs/conventions/`](docs/conventions/)) for local rules and the domain invariants that apply there — keep cross-cutting rules in `docs/conventions/`, not duplicated locally.
 
+### Parallel worktrees & branches
+
+Several worktrees run at once, so streams must stay aware of each other and keep merges cheap.
+
+- **Make your stream visible.** When you start work, add a note at [`docs/active-work/<branch>.md`](docs/active-work/) (scope + the files you expect to touch). Before starting a stream — and **before editing any cross-cutting file** (`CLAUDE.md`, `STATUS.md`, `ROADMAP.md`, the white paper, `docs/conventions/`) — run **`vp run worktrees`** to see what else is in flight and where it overlaps. One note per stream (never a shared list), so the registry never collides.
+- **Append-don't-collide on shared files.** CHANGELOG and ADRs go through fragments (`changelog.d/`, `docs/decisions/pending/`), assembled on `main` — branches never edit `CHANGELOG.md` or the Decision-Log register directly. For `STATUS.md`, edit only your own slice's row.
+- **Sync `main` on a cadence.** Long-lived branches merge/rebase `main` regularly, and **always before touching a shared or generated file** — merge cost scales with drift. If `main` is more than a handful of merges ahead (`vp run worktrees` shows the gap), sync before continuing.
+- **Worktree lifecycle.** Feature worktrees live at `C:/dev/magna-carta-worktrees/<branch>`; transient agent worktrees under `.claude/worktrees/`. When a branch merges, in one step **remove its worktree, delete the branch, and delete its `docs/active-work/<branch>.md`**. Periodically `git worktree prune` and clear `[gone]` branches.
+
 ## Commands
 
 ```
@@ -70,6 +81,7 @@ vp install                                                              # deps (
 vp dev                                                                  # web SPA dev server only (Vite HMR, no Worker)
 vp run worker-dev                                                       # full local app: builds the SPA, then runs wrangler dev (Miniflare: local D1/R2/Queues)
 vp run build-all                                                        # build all apps in dependency order
+vp run worktrees                                                        # print the active-work registry (concurrent streams + touch-overlaps + drift from main)
 vp test                                                                 # unit + integration (Vitest, single-run; includes the Miniflare worker integration test)
 pnpm check                                                              # full quality gate: vp check (fmt+lint+TS-typecheck) AND svelte-check (.svelte); CI runs this, not bare vp check
 pnpm --filter @magna-carta/worker exec wrangler deploy --dry-run        # validate deploy without pushing

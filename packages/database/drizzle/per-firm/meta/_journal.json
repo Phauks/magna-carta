@@ -61,15 +61,64 @@
     {
       "idx": 8,
       "version": "6",
-      "when": 1781719659097,
-      "tag": "0008_file-version-scan-detail",
+      "when": 1781719384670,
+      "tag": "0008_elite_genesis",
       "breakpoints": true
     },
     {
       "idx": 9,
       "version": "6",
-      "when": 1782114192132,
-      "tag": "0009_blue_night_nurse",
+      "when": 1781719484670,
+      "tag": "0009_directory",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1781720000000,
+      "tag": "0010_seed-tools-firm-usage",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1781810424941,
+      "tag": "0011_directory-phonetic-code-index",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1781899585835,
+      "tag": "0012_usage-analytics-opt-out",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1781900000000,
+      "tag": "0013_custom-fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1781935813801,
+      "tag": "0014_inference-token-usage",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1782113019196,
+      "tag": "0015_odd_mesmero",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1782153310818,
+      "tag": "0016_warm_talkback",
       "breakpoints": true
     }
   ]

@@ -13,6 +13,22 @@ describe("effectivePermissions", () => {
     expect(result).toEqual(new Set(["firm:manageMembers", "firm:provision"]));
   });
 
+  it("resolves directory:viewSensitiveIdentifiers as a known key from either source", () => {
+    const fromRole = effectivePermissions(
+      [{ permission: "directory:viewSensitiveIdentifiers" }],
+      [],
+      now,
+    );
+    expect(fromRole).toEqual(new Set(["directory:viewSensitiveIdentifiers"]));
+
+    const fromGrant = effectivePermissions(
+      [],
+      [{ permission: "directory:viewSensitiveIdentifiers", expires_at: null }],
+      now,
+    );
+    expect(fromGrant).toEqual(new Set(["directory:viewSensitiveIdentifiers"]));
+  });
+
   it("collapses duplicate keys across and within sources", () => {
     const result = effectivePermissions(
       [{ permission: "firm:manageMembers" }, { permission: "firm:manageMembers" }],

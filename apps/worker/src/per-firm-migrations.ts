@@ -8,7 +8,15 @@ import mattersLocationsFileManagerSql from "@magna-carta/database/drizzle/per-fi
 import listKeysetIndexesSql from "@magna-carta/database/drizzle/per-firm/0005_list-keyset-indexes.sql";
 import protectedSecretsSql from "@magna-carta/database/drizzle/per-firm/0006_protected-secrets-and-incident-ciphertext.sql";
 import incidentDescriptionNullableSql from "@magna-carta/database/drizzle/per-firm/0007_incident-description-nullable.sql";
-import fileVersionScanDetailSql from "@magna-carta/database/drizzle/per-firm/0008_file-version-scan-detail.sql";
+import shippingTablesSql from "@magna-carta/database/drizzle/per-firm/0008_elite_genesis.sql";
+import directorySql from "@magna-carta/database/drizzle/per-firm/0009_directory.sql";
+import seedToolsFirmUsageSql from "@magna-carta/database/drizzle/per-firm/0010_seed-tools-firm-usage.sql";
+import directoryPhoneticCodeIndexSql from "@magna-carta/database/drizzle/per-firm/0011_directory-phonetic-code-index.sql";
+import usageAnalyticsOptOutSql from "@magna-carta/database/drizzle/per-firm/0012_usage-analytics-opt-out.sql";
+import customFieldsSql from "@magna-carta/database/drizzle/per-firm/0013_custom-fields.sql";
+import inferenceTokenUsageSql from "@magna-carta/database/drizzle/per-firm/0014_inference-token-usage.sql";
+import inlinePlayableSql from "@magna-carta/database/drizzle/per-firm/0015_odd_mesmero.sql";
+import scanCacheAndDetailSql from "@magna-carta/database/drizzle/per-firm/0016_warm_talkback.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the firm
 // provisioner migrates a freshly created firm database to head at provisioning time, so the SQL
@@ -26,7 +34,15 @@ export function perFirmMigrations(): Migration[] {
     "0005_list-keyset-indexes": listKeysetIndexesSql,
     "0006_protected-secrets-and-incident-ciphertext": protectedSecretsSql,
     "0007_incident-description-nullable": incidentDescriptionNullableSql,
-    "0008_file-version-scan-detail": fileVersionScanDetailSql,
+    "0008_elite_genesis": shippingTablesSql,
+    "0009_directory": directorySql,
+    "0010_seed-tools-firm-usage": seedToolsFirmUsageSql,
+    "0011_directory-phonetic-code-index": directoryPhoneticCodeIndexSql,
+    "0012_usage-analytics-opt-out": usageAnalyticsOptOutSql,
+    "0013_custom-fields": customFieldsSql,
+    "0014_inference-token-usage": inferenceTokenUsageSql,
+    "0015_odd_mesmero": inlinePlayableSql,
+    "0016_warm_talkback": scanCacheAndDetailSql,
   });
 }
 

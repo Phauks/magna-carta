@@ -47,6 +47,9 @@ catalog:
   decimal.js: 10.6.0
   # Identifiers (packages/identifiers). nanoid v5 (ESM, Web Crypto); customRandom + urlAlphabet.
   nanoid: 5.1.11
+  # Directory (packages/directory). double-metaphone: ES module phonetic encoder, used for fuzzy
+  # name search alongside soundex and metaphone. Import: `import { doubleMetaphone } from "double-metaphone"`.
+  double-metaphone: 2.0.1
   # Database (packages/database). Stable line, NOT the 1.0 RC: 0.31.x drizzle-kit emits
   # NNNN_tag.sql + meta/_journal.json, which src/migration.ts consumes. Bump both together.
   drizzle-orm: 0.45.2
@@ -68,6 +71,9 @@ catalog:
   "@sveltejs/kit": 2.63.0
   "@sveltejs/adapter-static": 3.0.10
   "@sveltejs/vite-plugin-svelte": 7.1.2
+  # Image processing (packages/conversion). wasm-vips: libvips compiled to WebAssembly via
+  # Emscripten; runs in Node for the conversion test suite and in Workers for small raster jobs.
+  wasm-vips: 0.0.18
 
 overrides:
   vite: "npm:@voidzero-dev/vite-plus-core@0.1.24"

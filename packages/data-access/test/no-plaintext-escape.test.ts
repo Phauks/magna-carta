@@ -18,8 +18,18 @@ import { PROTECTED_COLUMNS } from "@magna-carta/database/protected-columns";
 
 const REPO_ROOT = join(import.meta.dirname, "..", "..", "..");
 
-// Directories never worth scanning (build output, dependencies, VCS).
-const SKIP_DIRECTORIES = new Set(["node_modules", ".git", "dist", "build", ".turbo", ".wrangler"]);
+// Directories never worth scanning (build output, dependencies, VCS, and nested git worktrees —
+// `.claude/worktrees/` holds checkouts of other branches whose duplicate source would be scanned as
+// if it lived in this tree).
+const SKIP_DIRECTORIES = new Set([
+  "node_modules",
+  ".git",
+  ".claude",
+  "dist",
+  "build",
+  ".turbo",
+  ".wrangler",
+]);
 
 // Sanctioned homes for a protected column name, by repo-relative path. The chokepoint modules and
 // field registry read/write protected columns through the audited seam; the schema and migrations
@@ -46,6 +56,12 @@ const ALLOW_LISTED_WRITE_SITES = new Set(
     // The backfill sweep: seals pre-slice plaintext through the chokepoint, UPDATEs the ciphertext
     // column, and selects rows by `description_ciphertext IS NULL` — it never decrypts.
     "apps/worker/src/scheduled.ts",
+    // The directory identifier write/match path: addIdentifier seals each typed identifier value
+    // through composeProtectedWrite and binds the returned ciphertext + blind-index values into its
+    // own INSERT; findByIdentifier filters on value_blind_index equality (no decrypt); the only
+    // decrypt is readIdentifier delegating to readProtected. It never SELECTs the ciphertext to
+    // decrypt outside the chokepoint.
+    "packages/directory/src/identifiers.ts",
     // The load-profile harness (fixtures, never bundled into the Worker — not a production read
     // surface): the generator seals through composeProtectedWrite/putSecret and binds the returned
     // ciphertext into its INSERT, and the measurement layer fetches a ciphertext only to hand it to
@@ -53,6 +69,12 @@ const ALLOW_LISTED_WRITE_SITES = new Set(
     // no raw decrypt bypasses the gate.
     "packages/fixtures/src/load-profile/protected-generate.ts",
     "packages/fixtures/src/load-profile/protected-measurements.ts",
+    // The directory load-profile measurement harness (fixtures, never bundled into the Worker): same
+    // shape as protected-measurements.ts for the directory_identifier column — it prefetches a page of
+    // (id, value_ciphertext) pairs only to hand each to readProtected (the chokepoint does every
+    // decrypt under the row-bound AAD), and EXPLAIN-probes the value_blind_index equality lookup. No
+    // raw decrypt bypasses the gate.
+    "packages/fixtures/src/load-profile/directory-measurements.ts",
   ].map(normalizeRelative),
 );
 

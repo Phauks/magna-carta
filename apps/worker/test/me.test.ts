@@ -56,8 +56,15 @@ describe("GET /api/v1/me", () => {
       // Owner/Admin's seeded role_permission rows: firm:manageMembers (0002_member-rbac.sql) +
       // firm:reportIncident (0003_incident-intake.sql, seeded onto every default role) + the slice
       // 1·1 matters/locations/files grants (0004_matters-locations-file-manager.sql) + the slice 1·2
-      // firm:manageSecrets / incidents:viewDescription grants (0006). Sorted.
+      // firm:manageSecrets / incidents:viewDescription grants (0006) + shipping:manage
+      // (0008_elite_genesis) + the slice 1·3 directory:edit / directory:viewSensitiveIdentifiers
+      // grants (0009_directory) + tools:firmUsage (0010_seed-tools-firm-usage.sql) + the slice 1·4
+      // customFields:manage / customFields:purge grants (0013_custom-fields.sql). Sorted.
       permissions: [
+        "customFields:manage",
+        "customFields:purge",
+        "directory:edit",
+        "directory:viewSensitiveIdentifiers",
         "files:delete",
         "files:manageDocumentTypes",
         "files:organize",
@@ -75,6 +82,8 @@ describe("GET /api/v1/me", () => {
         "matters:open",
         "matters:renumber",
         "matters:reopen",
+        "shipping:manage",
+        "tools:firmUsage",
       ],
     });
   });

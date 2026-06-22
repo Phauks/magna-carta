@@ -10,10 +10,10 @@
 The slice 2·1 goal was to beat ClamAV's ~15 MiB/s matcher floor with a custom engine. A prefilter (clear clean files so they skip clamd) was built through `build-atoms` and **measured against the real CVD**. The result is conclusive and negative:
 
 - `build-atoms` over the real DB: 463,686 atoms, 541,956 hashes, **275,361 unprefilterable signatures**, `fall_through_targets = [0,1,2,3,4,5,6,7,9,10,11,12]` → **100% fall-through today**.
-- A ceiling measurement of the best-possible expression-aware coverage (C11): it lifts ~89% of `.ldb` sigs, **but ~1,234 ANY-targeted (TargetType 0) signatures are irreducible** (OR / count / negation / byte-compare / macro logic with no necessary literal). TargetType 0 applies to **every file**; a *sound* prefilter clears a file only by ruling out *all* applicable signatures; one irreducible ANY signature ⇒ universal fall-through. Plus the classes we cannot cheaply reduce (`.mdb`/`.imp` PE-substructure hashes, `.cdb`, `.cbc`, `.idb` image-fuzzy, `.pdb` phishing) inherently force `{1,2,3,4,5,6,7,9}`.
+- A ceiling measurement of the best-possible expression-aware coverage (C11): it lifts ~89% of `.ldb` sigs, **but ~1,234 ANY-targeted (TargetType 0) signatures are irreducible** (OR / count / negation / byte-compare / macro logic with no necessary literal). TargetType 0 applies to **every file**; a _sound_ prefilter clears a file only by ruling out _all_ applicable signatures; one irreducible ANY signature ⇒ universal fall-through. Plus the classes we cannot cheaply reduce (`.mdb`/`.imp` PE-substructure hashes, `.cdb`, `.cbc`, `.idb` image-fuzzy, `.pdb` phishing) inherently force `{1,2,3,4,5,6,7,9}`.
 - Therefore **even a perfect C11 + C9 leaves `fall_through_targets` = all 12 types → 100% fall-through, zero speedup.** The 218 MiB/s raw atom-scan is real but unreachable (the completeness gate fires first, every file). The only way to "use" it is an **unsound** prefilter (false-clean risk) — unacceptable for a malware firewall.
 
-**Root cause (general, not a bug):** ClamAV's signature set contains ~1,234 ANY-typed signatures whose match condition has no cheap necessary precondition. A sound single-file prefilter over that set cannot exist. Single-file scanning of *unique* content is irreducibly capped at clamd's matcher rate.
+**Root cause (general, not a bug):** ClamAV's signature set contains ~1,234 ANY-typed signatures whose match condition has no cheap necessary precondition. A sound single-file prefilter over that set cannot exist. Single-file scanning of _unique_ content is irreducibly capped at clamd's matcher rate.
 
 This was established in ~5 minutes of measurement (spike-first) rather than weeks of building C11/C9 — the value of de-risking before building.
 
@@ -35,14 +35,14 @@ Scanning is async/background (quarantine-until-clean) — it never blocks a user
 
 ### The throughput model (5 TB, 1000 matters, KB–2 GB files)
 
-The scan unit is a **file** (one queue message → one `/scan` to a fleet instance). Aggregate = `concurrent_scans × per-scan-rate`. A 2 GB file is one unshardable ~2.3-min scan but runs *in parallel* with everything else, so wall-clock ≈ `total_bytes / aggregate`, not the slowest file:
+The scan unit is a **file** (one queue message → one `/scan` to a fleet instance). Aggregate = `concurrent_scans × per-scan-rate`. A 2 GB file is one unshardable ~2.3-min scan but runs _in parallel_ with everything else, so wall-clock ≈ `total_bytes / aggregate`, not the slowest file:
 
-| Concurrent scans | Aggregate | 5 TB wall-clock |
-| --- | --- | --- |
-| 2 (today) | ~30 MiB/s | ~48 h |
-| 100 | ~1.5 GiB/s | ~56 min |
-| 500 | ~7.5 GiB/s | ~11 min |
-| 1000 | ~15 GiB/s | ~5.5 min |
+| Concurrent scans | Aggregate  | 5 TB wall-clock |
+| ---------------- | ---------- | --------------- |
+| 2 (today)        | ~30 MiB/s  | ~48 h           |
+| 100              | ~1.5 GiB/s | ~56 min         |
+| 500              | ~7.5 GiB/s | ~11 min         |
+| 1000             | ~15 GiB/s  | ~5.5 min        |
 
 ### Work items
 

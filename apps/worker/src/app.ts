@@ -14,6 +14,8 @@ import { registerHealthRoute } from "./routes/health.ts";
 import { createCloudflareEmailAdapter, type CloudflareEmailBinding } from "./email-cloudflare.ts";
 import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
 import { registerBundleStatusRoute } from "./routes/bundle-status.ts";
+import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
+import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerDownloadsRoutes } from "./routes/downloads.ts";
 import { registerFilesRoutes } from "./routes/files.ts";
@@ -21,13 +23,21 @@ import { registerFirmsRoute } from "./routes/firms.ts";
 import { registerFoldersRoutes } from "./routes/folders.ts";
 import { registerIncidentsRoute } from "./routes/incidents.ts";
 import { registerLocationsRoutes } from "./routes/locations.ts";
+import { fetchHttpClient } from "@magna-carta/integrations/http";
+import { workerPlugins } from "./plugins/registry.ts";
+import type { PluginRuntime } from "./plugins/runtime.ts";
+import { firmSecretStoreNotYetAvailable } from "./plugins/secret-store.ts";
 import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
 import { registerMattersRoutes } from "./routes/matters.ts";
+import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 import { registerNumberingRoutes } from "./routes/numbering.ts";
 import { registerUploadsRoutes } from "./routes/uploads.ts";
+import { registerPreviewServeRoute } from "./files/preview-serve.ts";
 import { telemetryErrorHandler, telemetryMiddleware } from "./telemetry-middleware.ts";
+import { createUsageConsentResolver } from "./usage/consent.ts";
+import { usageReachedMiddleware } from "./usage/reached-middleware.ts";
 
 // The Worker's runtime bindings, declared once here (the no-barrel single home for the app's env shape).
 // worker-env.d.ts mirrors this into the ambient `Cloudflare.Env` the vitest-pool-workers harness types `env` as.
@@ -55,9 +65,21 @@ export type Bindings = {
   // container cannot run under the local pool) and until the deploy-time wrangler activation, where
   // resolveScanPort falls back to the engine-less adapter. Present in production once wired.
   SCAN_CONTAINER?: DurableObjectNamespace<import("./files/scan-container.ts").ScanContainer>;
+  // The off-hot-path AI inference dispatch queue: an inference request is enqueued here and the consumer
+  // (src/inference/inference-consumer.ts) runs env.AI.run, so a single firm cannot starve the shared
+  // gateway cap synchronously on the request path. Distinct from QUEUE (jobs) and FILES_INGEST.
+  INFERENCE: Queue;
+  // The authenticated Workers AI binding — the only path inference reaches the gateway through (no raw
+  // gateway token in any firm-reachable config). Pre-authenticated within the account.
+  AI: Ai;
   // Better Auth's signing/encryption secret. Local dev + tests load it from .dev.vars;
   // production sets it with `wrangler secret put AUTH_SECRET`.
   AUTH_SECRET: string;
+  // The cookieless files host (e.g. files.magnacarta.esq). Optional: does not exist until the apex
+  // domain attaches; while unset the preview grant degrades to download-only. The cookieless serve
+  // route only ever answers when the request hostname equals this value. A public hostname, not a
+  // secret — bound via wrangler.jsonc vars, never .dev.vars.
+  FILES_ORIGIN?: string;
   // The POST /api/v1/firms guard secret (constant-time-compared against X-Platform-Admin-Key — a
   // stand-in seam until a real platform-admin principal model exists). Local dev + tests load the
   // placeholder from .dev.vars; production sets it with `wrangler secret put PLATFORM_ADMIN_KEY`.
@@ -90,6 +112,10 @@ export type Bindings = {
   // missing binding (dev/test, or a deployment without it) degrades to console-only logging, never
   // throws (createWorkersLogger handles undefined).
   TELEMETRY?: AnalyticsEngineDataset;
+  // The HMAC pepper for pseudonymizing firm and user ids in usage-analytics events. Optional: absent
+  // in dev/test (no binding set), which causes emitUsage to fail closed and emit nothing — so the
+  // global reached middleware is behaviorally inert in those environments.
+  USAGE_ANALYTICS_PEPPER?: string;
   // Cloudflare Email Service. Both optional: the Cloudflare adapter is selected
   // only when the send_email binding AND EMAIL_FROM are present (production); dev/test leave EMAIL_FROM
   // unset and keep the logging adapter, so no real email is sent and no domain onboarding is required.
@@ -144,6 +170,8 @@ export interface CreateAppOptions {
   loggerForEnv?: (env: Bindings) => Logger;
   clock?: () => number;
   includeTelemetryProbes?: boolean;
+  // Overrides the plugin runtime for tests (a fake EasyPost http client + an in-memory secret store).
+  pluginRuntime?: Partial<PluginRuntime>;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
@@ -160,6 +188,20 @@ export function createApp(options: CreateAppOptions = {}) {
   app.onError(telemetryErrorHandler(options.clock));
   app.use("*", telemetryMiddleware(loggerForEnv, options.clock));
 
+  // Usage reached events: runs on the OUTBOUND pass (after next()), after the chokepoint has
+  // populated tenancy. The consent resolver is created once per app instance so its isolate-local
+  // TTL cache persists across requests (a per-request resolver would re-query D1 on every request).
+  // Without USAGE_ANALYTICS_PEPPER the emitter fails closed and emits nothing — behaviorally inert
+  // in dev/test environments where the binding is absent.
+  const usageConsentResolver = createUsageConsentResolver();
+  app.use(
+    "*",
+    usageReachedMiddleware({
+      pepperFor: (env) => env.USAGE_ANALYTICS_PEPPER,
+      consent: usageConsentResolver,
+    }),
+  );
+
   // The chokepoint: built once over the REAL ports — session resolution, firm-context
   // resolution (control-plane lookup + firm-binding-resolver + member-active check), permission
   // loading, the platform-scoped/firm-scoped idempotency gate, and a per-isolate in-memory rate
@@ -171,6 +213,15 @@ export function createApp(options: CreateAppOptions = {}) {
     ...ports,
     idempotency: createChokepointIdempotency(),
   });
+
+  // The cookieless preview serve route: a bare, host-guarded route on the files host, OUTSIDE the
+  // chokepoint (no session on files.*), under /api/ so it reaches the Worker (run_worker_first).
+  // Registered FIRST so its files-host catch-all seals the cookieless origin BEFORE any other route
+  // (health, Better Auth, /api/v1, ASSETS) can answer on files.* — the seal only holds if nothing is
+  // registered ahead of it. On the app origin the catch-all falls through (next()), so the routes
+  // below are unaffected. A standing fitness test asserts /api/health and /api/auth/* return the bare
+  // 404 on the files host, so this ordering seal cannot silently regress as routes are added.
+  registerPreviewServeRoute(app);
 
   // Health is platform plumbing: public, unauthenticated, no /api/v1 surface — it still rides the
   // chokepoint (rate-limit only, no session/firm/RBAC) so EVERY declared route is enforced through
@@ -186,6 +237,7 @@ export function createApp(options: CreateAppOptions = {}) {
   // public firms route additionally mounts the platform-admin secret guard as route-specific
   // middleware, run before the chokepoint's idempotency/rate-limit gates (see routes/firms.ts).
   registerMeRoute(app, chokepoint);
+  registerFirmUsageRoute(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
   registerIncidentsRoute(app, chokepoint);
@@ -204,6 +256,21 @@ export function createApp(options: CreateAppOptions = {}) {
   registerDownloadsRoutes(app, chokepoint);
   // The async bulk-download poll endpoint — the status side of the download route's 202 hand-off.
   registerBundleStatusRoute(app, chokepoint);
+  // Slice 1·3: the directory (persons/organizations, names, sensitive identifiers, edges,
+  // categories, search, merge, matter-party link) — composed through the same chokepoint.
+  registerDirectoryRoutes(app, chokepoint);
+  // Slice 1·4: firm-defined custom fields (definitions, picklist options, temporal values, the
+  // non-destructive Convert, and the compliance purge seam) — composed through the same chokepoint.
+  registerCustomFieldsRoutes(app, chokepoint);
+
+  // The plugin runtime: production defaults (a fetch-backed http client; the firm_secret store seam
+  // that throws until the marketplace wires the live credential read), overridable in tests.
+  const pluginRuntime: PluginRuntime = {
+    httpClient: options.pluginRuntime?.httpClient ?? fetchHttpClient(),
+    secretStoreForFirm: options.pluginRuntime?.secretStoreForFirm ?? firmSecretStoreNotYetAvailable,
+  };
+  // Plugins mount from the registry — the core names no plugin. Each registers through the chokepoint.
+  for (const plugin of workerPlugins) plugin.registerRoutes?.(app, chokepoint, pluginRuntime);
 
   // Serve the same document the committed snapshot carries (root tags included), so the live endpoint
   // and the snapshot never diverge. A plain route, so it does not appear in the document itself.

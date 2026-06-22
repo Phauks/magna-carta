@@ -11,7 +11,9 @@
     "./port": "./src/port.ts",
     "./dispatch": "./src/dispatch.ts",
     "./connection": "./src/connection.ts",
-    "./registry": "./src/registry.ts"
+    "./registry": "./src/registry.ts",
+    "./manifest": "./src/manifest.ts",
+    "./http": "./src/http.ts"
   },
   "scripts": {
     "test": "vp test run"

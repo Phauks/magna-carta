@@ -223,8 +223,15 @@ describe("end-to-end", () => {
       // Owner/Admin's seeded role_permission rows: firm:manageMembers (0002) + firm:reportIncident
       // (0003, seeded onto every default role) + the slice 1·1 matters/locations/files grants
       // (0004_matters-locations-file-manager.sql) + the slice 1·2 firm:manageSecrets /
-      // incidents:viewDescription grants (0006). Sorted.
+      // incidents:viewDescription grants (0006) + shipping:manage (0008_elite_genesis) + the slice
+      // 1·3 directory:edit / directory:viewSensitiveIdentifiers grants (0009_directory) +
+      // tools:firmUsage (0010_seed-tools-firm-usage.sql) + the slice 1·4 customFields:manage /
+      // customFields:purge grants (0013_custom-fields.sql). Sorted.
       permissions: [
+        "customFields:manage",
+        "customFields:purge",
+        "directory:edit",
+        "directory:viewSensitiveIdentifiers",
         "files:delete",
         "files:manageDocumentTypes",
         "files:organize",
@@ -242,6 +249,8 @@ describe("end-to-end", () => {
         "matters:open",
         "matters:renumber",
         "matters:reopen",
+        "shipping:manage",
+        "tools:firmUsage",
       ],
     });
   });
@@ -373,7 +382,13 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
     // auditing a hot read-shaped POST (the numbering live preview, fired on every keystroke) would
     // flood audit_log. Mirrors the NON_MUTATING_POST_ALLOW_LIST in conformance.test.ts, applied here
     // to the live-served document.
-    const NON_MUTATING_POST_ALLOW_LIST = new Set(["numbering.preview"]);
+    const NON_MUTATING_POST_ALLOW_LIST = new Set([
+      "numbering.preview",
+      "directory.duplicateCandidates",
+      "shipping.rateShipment",
+      "shipping.tracking",
+      "customFields.previewConvert",
+    ]);
 
     for (const { operation, label } of mutatingV1) {
       if (!NON_MUTATING_POST_ALLOW_LIST.has(operation["operationId"] as string)) {
@@ -464,7 +479,9 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       expect(response.status, label).toBe(401);
       expect(response.headers.get("content-type"), label).toContain("application/problem+json");
     }
-  });
+    // The sweep fires one real request per authenticated operation, sequentially — it grows with the
+    // contract, so it carries a generous timeout rather than the 5s default.
+  }, 20_000);
 
   it("gives every /v1 operation a unique, well-formed operationId mirrored in x-mc-operationId", async () => {
     const document = await fetchOpenApiDocument();

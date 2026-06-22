@@ -34,6 +34,7 @@ export const ENTITY_PREFIXES = {
   // user-reported row) — prefixes spelled out in full, the same no-shorthand rule as every entry.
   correlation: "correlation",
   incident: "incident",
+  integrationConnection: "integrationConnection",
   // Matters, Locations & File Manager. `matterType`/`documentType` are the per-firm classification
   // catalogs (distinct from `document`, a stored object); `numberingScheme` is the matter-number
   // template; `file`/`fileVersion` are the versioned object metadata; `uploadSession` tracks an
@@ -52,6 +53,31 @@ export const ENTITY_PREFIXES = {
   // A per-firm wrapped encryption key — the firm-secret row holding a data key sealed under the
   // root key-encryption key. The full-name prefix keeps the handle self-describing in logs.
   firmSecret: "firmSecret",
+  // Directory entity graph — persons, organizations, their names, identifiers, edges, and contact
+  // details. Each entity type has its own prefixed handle so id-type confusion is caught at the
+  // type level. Full-word prefixes (no abbreviations) per golden rule 12.
+  directoryPerson: "directoryPerson",
+  directoryOrganization: "directoryOrganization",
+  directoryName: "directoryName",
+  directoryIdentifier: "directoryIdentifier",
+  directoryEdge: "directoryEdge",
+  directoryCategory: "directoryCategory",
+  directoryEmail: "directoryEmail",
+  directoryPhone: "directoryPhone",
+  directoryAddress: "directoryAddress",
+  directoryPartyRole: "directoryPartyRole",
+  matterParty: "matterParty",
+  entityMerge: "entityMerge",
+  // Shipping & postage. `shipment` is a mailing; `shipmentLabel` is a bought label's metadata (PDF in
+  // R2); `trackingEvent` is one carrier scan appended as tracking is pulled.
+  shipment: "shipment",
+  shipmentLabel: "shipmentLabel",
+  trackingEvent: "trackingEvent",
+  // Custom fields — per-firm field definitions, picklist option values, and the per-entity field
+  // values that record what was entered. Three distinct entity types keep id-type confusion impossible.
+  customField: "customField",
+  picklistOption: "picklistOption",
+  customFieldValue: "customFieldValue",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

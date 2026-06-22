@@ -63,8 +63,19 @@ describe("permission registry", () => {
     ]);
   });
 
+  it("permissionsForNamespace('directory') returns exactly the directory keys", () => {
+    expect(permissionsForNamespace("directory")).toEqual([
+      "directory:edit",
+      "directory:viewSensitiveIdentifiers",
+    ]);
+  });
+
   it("permissionsForNamespace('locations') returns exactly the locations keys", () => {
     expect(permissionsForNamespace("locations")).toEqual(["locations:manage"]);
+  });
+
+  it("permissionsForNamespace('shipping') returns exactly the shipping keys", () => {
+    expect(permissionsForNamespace("shipping")).toEqual(["shipping:manage"]);
   });
 
   it("permissionsForNamespace('files') returns exactly the files keys, in registry order", () => {
@@ -76,6 +87,18 @@ describe("permission registry", () => {
     ]);
   });
 
+  it("permissionsForNamespace('tools') returns exactly the tools keys, in registry order", () => {
+    expect(permissionsForNamespace("tools")).toEqual([
+      "tools:propertyListings",
+      "tools:propertyRecords",
+      "tools:businessLookup",
+      "tools:attorneyLicense",
+      "tools:shipping",
+      "tools:speedTest",
+      "tools:firmUsage",
+    ]);
+  });
+
   it("permissionsForNamespace returns an empty list for an unknown namespace", () => {
     // 'matter' (singular) is NOT the matters namespace — the keys live under 'matters'.
     expect(permissionsForNamespace("matter")).toEqual([]);
@@ -84,6 +107,11 @@ describe("permission registry", () => {
   it("permissionsForNamespace matches the whole namespace, not a prefix of it", () => {
     expect(permissionsForNamespace("fir")).toEqual([]);
     expect(permissionsForNamespace("")).toEqual([]);
+  });
+
+  it("registers the custom-fields permissions", () => {
+    expect(isPermission("customFields:manage")).toBe(true);
+    expect(isPermission("customFields:purge")).toBe(true);
   });
 
   it("every registered key is `<subsystem>:<action>` — lowercase-led camelCase segments", () => {

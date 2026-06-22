@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Attorney Lookup — manual verification</title>
+    <style>
+      :root {
+        --ink: #1a1b1e;
+        --muted: #6b7280;
+        --line: #e5e7eb;
+        --bg: #f7f7f5;
+        --card: #fff;
+        --accent: #1f4f6b;
+        --accent-soft: #eaf2f6;
+        --ok: #1d7a4d;
+        --ok-soft: #e6f4ec;
+        --fix: #b4471f;
+        --fix-soft: #f8ece5;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.5 -apple-system,
+          "Segoe UI",
+          Roboto,
+          Helvetica,
+          Arial,
+          sans-serif;
+      }
+      .wrap {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 32px 24px 80px;
+      }
+      h1 {
+        font-family: Georgia, "Times New Roman", serif;
+        font-weight: 600;
+        font-size: 24px;
+        margin: 0 0 4px;
+      }
+      .sub {
+        color: var(--muted);
+        font-size: 14px;
+        margin: 0 0 18px;
+      }
+
+      .progress-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 8px;
+      }
+      .bar {
+        flex: 1;
+        height: 8px;
+        background: #e7e7e3;
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .bar > i {
+        display: block;
+        height: 100%;
+        background: var(--accent);
+        width: 0%;
+        transition: width 0.15s;
+      }
+      .counts {
+        font-size: 13px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .counts b {
+        color: var(--ink);
+      }
+
+      /* chip overview */
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin: 14px 0 22px;
+      }
+      .chip {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 3px 6px;
+        border-radius: 5px;
+        border: 1px solid var(--line);
+        background: #fff;
+        color: var(--muted);
+        cursor: pointer;
+      }
+      .chip.good {
+        background: var(--ok-soft);
+        color: var(--ok);
+        border-color: #c7e6d4;
+      }
+      .chip.fix {
+        background: var(--fix-soft);
+        color: var(--fix);
+        border-color: #eccdbf;
+      }
+      .chip.current {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      }
+      .pos {
+        color: var(--muted);
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+      }
+      .state {
+        font-family: Georgia, serif;
+        font-size: 26px;
+        font-weight: 600;
+        margin: 2px 0 2px;
+      }
+      .state .meta {
+        font-family: inherit;
+        font-size: 14px;
+        color: var(--muted);
+        font-weight: 400;
+      }
+
+      .urlbox {
+        margin: 16px 0 6px;
+        display: flex;
+        gap: 10px;
+        align-items: stretch;
+      }
+      .urlbox input {
+        flex: 1;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 13px;
+        color: var(--accent);
+        background: #fbfbfa;
+      }
+      .open {
+        display: inline-flex;
+        align-items: center;
+        white-space: nowrap;
+        font-size: 14px;
+        font-weight: 600;
+        color: #fff;
+        background: var(--accent);
+        text-decoration: none;
+        padding: 0 16px;
+        border-radius: 8px;
+      }
+      .open:hover {
+        background: #1a4258;
+      }
+      .hint {
+        font-size: 12px;
+        color: var(--muted);
+        margin: 2px 0 18px;
+      }
+
+      .marks {
+        display: flex;
+        gap: 10px;
+      }
+      .mark {
+        flex: 1;
+        padding: 11px;
+        border-radius: 9px;
+        border: 1px solid var(--line);
+        background: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        color: var(--ink);
+      }
+      .mark.good.on {
+        background: var(--ok-soft);
+        border-color: var(--ok);
+        color: var(--ok);
+      }
+      .mark.fix.on {
+        background: var(--fix-soft);
+        border-color: var(--fix);
+        color: var(--fix);
+      }
+
+      .fixrow {
+        margin-top: 14px;
+        display: none;
+      }
+      .fixrow.show {
+        display: block;
+      }
+      .fixrow label {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--fix);
+      }
+      .fixrow input {
+        width: 100%;
+        margin-top: 5px;
+        padding: 9px 11px;
+        border: 1px solid #eccdbf;
+        border-radius: 8px;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 13px;
+      }
+
+      .nav {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 22px;
+      }
+      .nav button {
+        padding: 9px 18px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        color: var(--ink);
+      }
+      .nav button:hover {
+        border-color: #c4d0d7;
+      }
+      .nav button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+
+      details {
+        margin-top: 26px;
+      }
+      summary {
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .exportbar {
+        display: flex;
+        gap: 10px;
+        margin: 12px 0;
+      }
+      .exportbar button {
+        padding: 8px 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      textarea {
+        width: 100%;
+        height: 220px;
+        margin-top: 4px;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: 12px;
+      }
+      .kbd {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 18px;
+      }
+      .kbd b {
+        font-family: ui-monospace, monospace;
+        background: #eee;
+        padding: 1px 5px;
+        border-radius: 4px;
+        color: var(--ink);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Attorney Lookup &mdash; manual verification</h1>
+      <p class="sub">
+        Cycle through all 51 links. Open each, confirm it's the official licensee search that lets
+        you search <b>by bar number</b>, then mark it &mdash; or paste a correction. Progress saves
+        in your browser; export the JSON when done and hand it back.
+      </p>
+
+      <div class="progress-row">
+        <div class="bar"><i id="barfill"></i></div>
+        <div class="counts" id="counts"></div>
+      </div>
+      <div class="chips" id="chips"></div>
+
+      <div class="card">
+        <div class="pos" id="pos"></div>
+        <div class="state" id="state"></div>
+
+        <div class="urlbox">
+          <input id="urlview" readonly />
+          <a class="open" id="openbtn" target="_blank" rel="noopener noreferrer">Open &#8599;</a>
+        </div>
+        <div class="hint">
+          Opens in a new tab. Search the attorney by bar number to confirm it works.
+        </div>
+
+        <div class="marks">
+          <button class="mark good" id="markGood">&#10003; Works (by bar #)</button>
+          <button class="mark fix" id="markFix">&#10007; Needs fix</button>
+        </div>
+
+        <div class="fixrow" id="fixrow">
+          <label for="fixurl">Correct URL</label>
+          <input
+            id="fixurl"
+            type="url"
+            placeholder="https://&hellip; paste the real licensee-search URL"
+          />
+        </div>
+
+        <div class="nav">
+          <button id="prev">&larr; Prev</button>
+          <button id="next">Next &rarr;</button>
+        </div>
+      </div>
+
+      <div class="kbd">
+        Keys: <b>&larr;</b>/<b>&rarr;</b> navigate &middot; <b>1</b> works &middot; <b>2</b> needs
+        fix &middot; <b>o</b> open link
+      </div>
+
+      <details open>
+        <summary>Results (JSON) &mdash; hand this back when done</summary>
+        <div class="exportbar">
+          <button id="copy">Copy to clipboard</button>
+          <button id="reset">Reset all</button>
+          <span class="counts" id="exportnote"></span>
+        </div>
+        <textarea id="export" readonly></textarea>
+      </details>
+    </div>
+
+    <script>
+      // Current src/licensing/attorney-license.ts — { fips, code, name, url }.
+      const STATES = [
+        {
+          fips: "01",
+          code: "AL",
+          name: "Alabama",
+          url: "https://members.alabar.org/Member_Portal/Member_Portal/Member-Search.aspx",
+        },
+        {
+          fips: "02",
+          code: "AK",
+          name: "Alaska",
+          url: "https://alaskabar.org/for-lawyers/member-directories/",
+        },
+        {
+          fips: "04",
+          code: "AZ",
+          name: "Arizona",
+          url: "https://www.azbar.org/for-legal-professionals/practice-tools-management/member-directory/",
+        },
+        {
+          fips: "05",
+          code: "AR",
+          name: "Arkansas",
+          url: "https://attorneyinfo.aoc.arkansas.gov/info/attorney/attorneysearch.aspx",
+        },
+        {
+          fips: "06",
+          code: "CA",
+          name: "California",
+          url: "https://apps.calbar.ca.gov/attorney/LicenseeSearch/QuickSearch",
+        },
+        {
+          fips: "08",
+          code: "CO",
+          name: "Colorado",
+          url: "https://www.coloradolegalregulation.com/attorney-search/",
+        },
+        {
+          fips: "09",
+          code: "CT",
+          name: "Connecticut",
+          url: "https://www.jud.ct.gov/attorneyfirminquiry/AttorneyFirmInquiry.aspx",
+        },
+        {
+          fips: "10",
+          code: "DE",
+          name: "Delaware",
+          url: "https://www.dsba.org/resources/public-resources/",
+        },
+        {
+          fips: "11",
+          code: "DC",
+          name: "District of Columbia",
+          url: "https://my.dcbar.org/memberdirectory",
+        },
+        {
+          fips: "12",
+          code: "FL",
+          name: "Florida",
+          url: "https://www.floridabar.org/directories/find-mbr/",
+        },
+        { fips: "13", code: "GA", name: "Georgia", url: "https://www.gabar.org/search" },
+        { fips: "15", code: "HI", name: "Hawaii", url: "https://hsba.org/find-a-lawyer/" },
+        {
+          fips: "16",
+          code: "ID",
+          name: "Idaho",
+          url: "https://apps.isb.idaho.gov/licensing/attorney_roster.cfm",
+        },
+        { fips: "17", code: "IL", name: "Illinois", url: "https://www.iardc.org/Lawyer/Search" },
+        {
+          fips: "18",
+          code: "IN",
+          name: "Indiana",
+          url: "https://courtapps.in.gov/rollofattorneys/search",
+        },
+        {
+          fips: "19",
+          code: "IA",
+          name: "Iowa",
+          url: "https://www.iowabar.org/?pg=MemberDirectories",
+        },
+        { fips: "20", code: "KS", name: "Kansas", url: "https://directory-kard.kscourts.gov/" },
+        {
+          fips: "21",
+          code: "KY",
+          name: "Kentucky",
+          url: "https://kybar.org/For-Public/Find-a-Lawyer",
+        },
+        {
+          fips: "22",
+          code: "LA",
+          name: "Louisiana",
+          url: "https://www.lsba.org/Public/LawyerReferral.aspx",
+        },
+        {
+          fips: "23",
+          code: "ME",
+          name: "Maine",
+          url: "https://www.mainebar.org/public-services/find-a-lawyer",
+        },
+        { fips: "24", code: "MD", name: "Maryland", url: "https://www.mdcourts.gov/ais/" },
+        {
+          fips: "25",
+          code: "MA",
+          name: "Massachusetts",
+          url: "https://www.massbbo.org/public-services/find-a-licensed-attorney",
+        },
+        { fips: "26", code: "MI", name: "Michigan", url: "https://directory.michbar.org/" },
+        { fips: "27", code: "MN", name: "Minnesota", url: "https://mncourts.org/mnlawyers" },
+        {
+          fips: "28",
+          code: "MS",
+          name: "Mississippi",
+          url: "https://www.msbar.org/public-services/find-a-lawyer",
+        },
+        {
+          fips: "29",
+          code: "MO",
+          name: "Missouri",
+          url: "https://www.mobar.org/public-services/find-a-lawyer",
+        },
+        {
+          fips: "30",
+          code: "MT",
+          name: "Montana",
+          url: "https://www.montanabar.org/For-Attorneys/Attorney-Directory",
+        },
+        {
+          fips: "31",
+          code: "NE",
+          name: "Nebraska",
+          url: "https://attorneys.nejudicial.gov/member-search",
+        },
+        {
+          fips: "32",
+          code: "NV",
+          name: "Nevada",
+          url: "https://www.nvbar.org/public-services/find-an-attorney/",
+        },
+        {
+          fips: "33",
+          code: "NH",
+          name: "New Hampshire",
+          url: "https://member.nhbar.org/directory",
+        },
+        {
+          fips: "34",
+          code: "NJ",
+          name: "New Jersey",
+          url: "https://www.nj.gov/courts/attorney_services/attorney_lookup.html",
+        },
+        {
+          fips: "35",
+          code: "NM",
+          name: "New Mexico",
+          url: "https://www.nmbar.org/public-services/find-a-lawyer",
+        },
+        {
+          fips: "36",
+          code: "NY",
+          name: "New York",
+          url: "https://www.nycourts.gov/attorney-search",
+        },
+        {
+          fips: "37",
+          code: "NC",
+          name: "North Carolina",
+          url: "https://portal.ncbar.gov/verification/search.aspx",
+        },
+        {
+          fips: "38",
+          code: "ND",
+          name: "North Dakota",
+          url: "https://www.sband.org/page/FindaLawyer",
+        },
+        {
+          fips: "39",
+          code: "OH",
+          name: "Ohio",
+          url: "https://www.supremecourt.ohio.gov/AttorneySearch",
+        },
+        {
+          fips: "40",
+          code: "OK",
+          name: "Oklahoma",
+          url: "https://ams.okbar.org/eweb/startpage.aspx?site=FALWEB",
+        },
+        {
+          fips: "41",
+          code: "OR",
+          name: "Oregon",
+          url: "https://www.osbar.org/members/membersearch_start.asp",
+        },
+        {
+          fips: "42",
+          code: "PA",
+          name: "Pennsylvania",
+          url: "https://www.padisciplinaryboard.org/for-the-public/find-attorney",
+        },
+        {
+          fips: "44",
+          code: "RI",
+          name: "Rhode Island",
+          url: "http://rijrs.courts.ri.gov/rijrs/attorney.do",
+        },
+        {
+          fips: "45",
+          code: "SC",
+          name: "South Carolina",
+          url: "https://www.scbar.org/for-lawyers/quicklinks/member-directory/",
+        },
+        { fips: "46", code: "SD", name: "South Dakota", url: "https://findalawyerinsd.com/" },
+        {
+          fips: "47",
+          code: "TN",
+          name: "Tennessee",
+          url: "https://www.tbpr.org/for-the-public/online-attorney-directory",
+        },
+        {
+          fips: "48",
+          code: "TX",
+          name: "Texas",
+          url: "https://www.texasbar.com/public-services/find-a-lawyer",
+        },
+        {
+          fips: "49",
+          code: "UT",
+          name: "Utah",
+          url: "https://services.utahbar.org/Member-Directory",
+        },
+        { fips: "50", code: "VT", name: "Vermont", url: "https://www.vtbar.org/online-directory/" },
+        { fips: "51", code: "VA", name: "Virginia", url: "https://www.vsb.org/" },
+        {
+          fips: "53",
+          code: "WA",
+          name: "Washington",
+          url: "http://www.mywsba.org/PersonifyEbusiness/LegalDirectory.aspx",
+        },
+        { fips: "54", code: "WV", name: "West Virginia", url: "https://www.wvbar.org/" },
+        {
+          fips: "55",
+          code: "WI",
+          name: "Wisconsin",
+          url: "https://www.wisbar.org/Pages/BasicLawyerSearch.aspx",
+        },
+        {
+          fips: "56",
+          code: "WY",
+          name: "Wyoming",
+          url: "https://www.wyomingbar.org/for-the-public/hire-a-lawyer/lawyer-search/",
+        },
+      ];
+
+      const KEY = "mc-attorney-review-v1";
+      let reviews = {};
+      try {
+        reviews = JSON.parse(localStorage.getItem(KEY)) || {};
+      } catch (e) {
+        reviews = {};
+      }
+      let i = 0;
+
+      const $ = (id) => document.getElementById(id);
+      const cur = () => STATES[i];
+      const rec = (code) => reviews[code] || { status: null, url: null };
+      const effUrl = (s) => rec(s.code).url || s.url;
+
+      function save() {
+        localStorage.setItem(KEY, JSON.stringify(reviews));
+      }
+
+      function setStatus(status) {
+        const s = cur();
+        const r = rec(s.code);
+        reviews[s.code] = { status, url: r.url || (status === "fix" ? "" : null) };
+        save();
+        render();
+      }
+
+      function setFixUrl(v) {
+        const s = cur();
+        reviews[s.code] = { status: "fix", url: v };
+        save();
+        renderChipsAndCounts();
+        renderExport();
+        $("urlview").value = v || s.url;
+        $("openbtn").href = v || s.url;
+      }
+
+      function go(n) {
+        i = Math.max(0, Math.min(STATES.length - 1, n));
+        render();
+      }
+
+      function renderChipsAndCounts() {
+        const chips = $("chips");
+        chips.innerHTML = "";
+        let good = 0,
+          fix = 0;
+        STATES.forEach((s, idx) => {
+          const st = rec(s.code).status;
+          if (st === "good") good++;
+          if (st === "fix") fix++;
+          const c = document.createElement("span");
+          c.className = "chip" + (st ? " " + st : "") + (idx === i ? " current" : "");
+          c.textContent = s.code;
+          c.title = s.name;
+          c.onclick = () => go(idx);
+          chips.appendChild(c);
+        });
+        const done = good + fix;
+        $("counts").innerHTML =
+          "<b>" +
+          done +
+          "</b>/" +
+          STATES.length +
+          " reviewed &middot; " +
+          "<b>" +
+          good +
+          "</b> ok &middot; <b>" +
+          fix +
+          "</b> fix";
+        $("barfill").style.width = (done / STATES.length) * 100 + "%";
+        $("exportnote").innerHTML = done + " / " + STATES.length + " reviewed";
+      }
+
+      function renderExport() {
+        const out = STATES.map((s) => ({
+          code: s.code,
+          fips: s.fips,
+          status: rec(s.code).status || "unreviewed",
+          url: effUrl(s),
+        }));
+        $("export").value = JSON.stringify(out, null, 2);
+      }
+
+      function render() {
+        const s = cur();
+        const r = rec(s.code);
+        $("pos").textContent = "State " + (i + 1) + " of " + STATES.length;
+        $("state").innerHTML =
+          s.name + ' <span class="meta">' + s.code + " &middot; FIPS " + s.fips + "</span>";
+        $("urlview").value = effUrl(s);
+        $("openbtn").href = effUrl(s);
+        $("markGood").classList.toggle("on", r.status === "good");
+        $("markFix").classList.toggle("on", r.status === "fix");
+        const fixrow = $("fixrow");
+        fixrow.classList.toggle("show", r.status === "fix");
+        $("fixurl").value = r.status === "fix" ? r.url || "" : "";
+        $("prev").disabled = i === 0;
+        $("next").disabled = i === STATES.length - 1;
+        renderChipsAndCounts();
+        renderExport();
+      }
+
+      $("markGood").onclick = () => {
+        setStatus("good");
+        if (i < STATES.length - 1) go(i + 1);
+      };
+      $("markFix").onclick = () => setStatus("fix");
+      $("fixurl").oninput = (e) => setFixUrl(e.target.value);
+      $("prev").onclick = () => go(i - 1);
+      $("next").onclick = () => go(i + 1);
+      $("copy").onclick = async () => {
+        try {
+          await navigator.clipboard.writeText($("export").value);
+          $("copy").textContent = "Copied!";
+          setTimeout(() => ($("copy").textContent = "Copy to clipboard"), 1200);
+        } catch (e) {
+          $("export").select();
+        }
+      };
+      $("reset").onclick = () => {
+        if (confirm("Clear all review progress?")) {
+          reviews = {};
+          save();
+          render();
+        }
+      };
+
+      document.addEventListener("keydown", (e) => {
+        if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+        if (e.key === "ArrowLeft") go(i - 1);
+        else if (e.key === "ArrowRight") go(i + 1);
+        else if (e.key === "1") {
+          setStatus("good");
+          if (i < STATES.length - 1) go(i + 1);
+        } else if (e.key === "2") setStatus("fix");
+        else if (e.key.toLowerCase() === "o") window.open(effUrl(cur()), "_blank", "noopener");
+      });
+
+      render();
+    </script>
+  </body>
+</html>

@@ -43,11 +43,10 @@ export async function lookupScanCache(
   contentSha256: string,
   engineVersion: string,
 ): Promise<CachedVerdict | null> {
-  const { results } = await lookupScanCacheStatement(
-    database,
-    contentSha256,
-    engineVersion,
-  ).all<{ verdict: "clean" | "infected"; signature: string | null }>();
+  const { results } = await lookupScanCacheStatement(database, contentSha256, engineVersion).all<{
+    verdict: "clean" | "infected";
+    signature: string | null;
+  }>();
   const row = results[0];
   if (row === undefined) return null;
   return { verdict: row.verdict, signature: row.signature };

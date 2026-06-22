@@ -1,1 +1,0 @@
-ALTER TABLE `file_version` ADD `scan_detail` text;

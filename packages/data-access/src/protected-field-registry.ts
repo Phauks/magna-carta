@@ -29,8 +29,25 @@ export const firmSecretValue = protectedField({
   permission: assertPermission("firm:manageSecrets"),
 });
 
+// A directory entity's typed identifier value (SSN, EIN, driver's license, account number, DOB, …),
+// sealed under the firm pii key and readable only with directory:viewSensitiveIdentifiers (an audited
+// decrypt). One physical column holds every identifier type; the row's identifier_type discriminator
+// chooses the per-type blind-index policy at write time. This canonical declaration carries the
+// decrypt contract (purpose, permission, AAD column) — the read path never consults a blind index, so
+// it needs none. The per-type blind-index variants (which exact-match channel a value gets, and the
+// frozen normalize transform) are composed in @magna-carta/directory off this declaration; the blind
+// index is a property of the write, not of the decrypt. Keeping exactly one declaration per physical
+// column is the registry conformance invariant.
+export const directoryIdentifierValue = protectedField({
+  table: "directory_identifier",
+  column: "value_ciphertext",
+  purpose: "pii",
+  permission: assertPermission("directory:viewSensitiveIdentifiers"),
+});
+
 // Every protected-field declaration the chokepoint enforces. Order is not significant.
 export const PROTECTED_FIELD_DECLARATIONS: readonly ProtectedFieldDeclaration[] = [
   incidentDescription,
   firmSecretValue,
+  directoryIdentifierValue,
 ];

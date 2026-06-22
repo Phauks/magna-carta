@@ -17,6 +17,23 @@ import {
   protectedMeasurements,
   PROTECTED_PLAN_SCAN_ALLOWLIST,
 } from "./protected-measurements.ts";
+import {
+  directoryHotPathPlans,
+  directoryMeasurementHandle,
+  directoryMeasurements,
+  DIRECTORY_PLAN_SCAN_ALLOWLIST,
+} from "./directory-measurements.ts";
+import {
+  shippingHotPathPlans,
+  shippingMeasurements,
+  SHIPPING_PLAN_SCAN_ALLOWLIST,
+} from "./shipping-measurements.ts";
+import {
+  customFieldHotPathPlans,
+  customFieldMeasurementHandle,
+  customFieldMeasurements,
+  CUSTOM_FIELD_PLAN_SCAN_ALLOWLIST,
+} from "./custom-field-measurements.ts";
 import { ledgerVolume } from "./profile.ts";
 import { findFullScans, runMeasurements, writeBaselineFile } from "./runner.ts";
 import { loadProfileSnapshot } from "./snapshot.ts";
@@ -35,13 +52,16 @@ const snapshot = await loadProfileSnapshot(ledgerVolume, BASELINE_SEED, { allowS
 // dev-only CLI either moves onto the telemetry logger or gets an explicit exemption (never Worker
 // code).
 console.log(
-  `snapshot ${snapshot.cacheKey}: ${snapshot.manifest.entryCount} entries, ${snapshot.manifest.matterCount} matters, ${snapshot.manifest.fileCount} files (${snapshot.manifest.fileVersionCount} versions), ${snapshot.manifest.folderCount} folders, ${snapshot.manifest.incidentCount} sealed incidents, ${snapshot.manifest.firmSecretCount} firm secrets (profile v${snapshot.manifest.profile.version})`,
+  `snapshot ${snapshot.cacheKey}: ${snapshot.manifest.entryCount} entries, ${snapshot.manifest.matterCount} matters, ${snapshot.manifest.fileCount} files (${snapshot.manifest.fileVersionCount} versions), ${snapshot.manifest.folderCount} folders, ${snapshot.manifest.incidentCount} sealed incidents, ${snapshot.manifest.firmSecretCount} firm secrets, ${snapshot.manifest.directoryPersonCount} persons, ${snapshot.manifest.directoryOrganizationCount} organizations, ${snapshot.manifest.shipmentCount} shipments (${snapshot.manifest.trackingEventCount} tracking events), ${snapshot.manifest.customFieldDefinitionCount} custom fields (${snapshot.manifest.customFieldValueCount} values) (profile v${snapshot.manifest.profile.version})`,
 );
 
 const scans = [
   ...findFullScans(hotPathPlans(snapshot), PLAN_SCAN_ALLOWLIST),
   ...findFullScans(practiceHotPathPlans(snapshot), PRACTICE_PLAN_SCAN_ALLOWLIST),
   ...findFullScans(protectedHotPathPlans(snapshot), PROTECTED_PLAN_SCAN_ALLOWLIST),
+  ...findFullScans(directoryHotPathPlans(snapshot), DIRECTORY_PLAN_SCAN_ALLOWLIST),
+  ...findFullScans(shippingHotPathPlans(snapshot), SHIPPING_PLAN_SCAN_ALLOWLIST),
+  ...findFullScans(customFieldHotPathPlans(snapshot), CUSTOM_FIELD_PLAN_SCAN_ALLOWLIST),
 ];
 if (scans.length > 0) {
   // A scan regression must never be baked into a committed baseline — fail before measuring.
@@ -53,12 +73,22 @@ if (scans.length > 0) {
 const results = [
   ...(await runMeasurements(
     measurementHandle(snapshot, BASELINE_SEED),
-    [...ledgerMeasurements, ...mattersMeasurements],
+    [...ledgerMeasurements, ...mattersMeasurements, ...shippingMeasurements],
     { warmupIterations: 3, iterations: 30 },
   )),
   ...(await runMeasurements(
     await protectedMeasurementHandle(snapshot, BASELINE_SEED),
     protectedMeasurements,
+    { warmupIterations: 3, iterations: 30 },
+  )),
+  ...(await runMeasurements(
+    await directoryMeasurementHandle(snapshot, BASELINE_SEED),
+    directoryMeasurements,
+    { warmupIterations: 3, iterations: 30 },
+  )),
+  ...(await runMeasurements(
+    await customFieldMeasurementHandle(snapshot, BASELINE_SEED),
+    customFieldMeasurements,
     { warmupIterations: 3, iterations: 30 },
   )),
 ];

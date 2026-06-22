@@ -46,9 +46,7 @@ function makeZip(entries) {
     const name = Buffer.from(entry.name, "utf8");
     const deflate = entry.method === 8;
     const uncompressed = entry.data;
-    const compressed = deflate
-      ? zlib.deflateRawSync(uncompressed, { level: 9 })
-      : uncompressed;
+    const compressed = deflate ? zlib.deflateRawSync(uncompressed, { level: 9 }) : uncompressed;
     const crc = crc32(uncompressed);
     const flags = entry.encrypted ? 0x0001 : 0x0000;
     const method = deflate ? 8 : 0;
@@ -112,8 +110,7 @@ const samples = [];
 
 // EICAR: the standard antivirus test string. clamd's baked signature database flags it ->
 // infected (../src/clamav.rs + verdict::combine). This is the canonical "it caught malware" demo.
-const EICAR =
-  "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*";
+const EICAR = "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*";
 samples.push({
   name: "eicar.com",
   contentType: "application/octet-stream",
@@ -168,9 +165,7 @@ samples.push({
   name: "bomb-ratio.zip",
   contentType: "application/zip",
   expect: "suspicious / decompression-bomb",
-  data: makeZip([
-    { name: "zeros.bin", data: Buffer.alloc(50 * 1024 * 1024, 0), method: 8 },
-  ]),
+  data: makeZip([{ name: "zeros.bin", data: Buffer.alloc(50 * 1024 * 1024, 0), method: 8 }]),
 });
 
 // A nesting attack: ~20 archives deep, past the depth cap of 16. Detection is by content (each entry's
@@ -206,7 +201,12 @@ samples.push({
   contentType: "application/zip",
   expect: "unscanned / encrypted",
   data: makeZip([
-    { name: "secret.bin", data: Buffer.from("ciphertext placeholder", "utf8"), method: 0, encrypted: true },
+    {
+      name: "secret.bin",
+      data: Buffer.from("ciphertext placeholder", "utf8"),
+      method: 0,
+      encrypted: true,
+    },
   ]),
 });
 
@@ -223,7 +223,9 @@ for (const sample of samples) {
     contentType: sample.contentType,
     expect: sample.expect,
   });
-  process.stdout.write(`  ${sample.name.padEnd(20)} ${String(sample.data.length).padStart(10)} bytes  -> ${sample.expect}\n`);
+  process.stdout.write(
+    `  ${sample.name.padEnd(20)} ${String(sample.data.length).padStart(10)} bytes  -> ${sample.expect}\n`,
+  );
 }
 
 // An optional multi-GB random file for the timing benchmark. Off by default — the proxy's /api/bench
@@ -249,7 +251,12 @@ if (bigFlag !== -1) {
     written += slice;
   }
   closeSync(handle);
-  manifest.push({ name: `big-${megabytes}.bin`, bytes: target, contentType: "application/octet-stream", expect: "clean (timing)" });
+  manifest.push({
+    name: `big-${megabytes}.bin`,
+    bytes: target,
+    contentType: "application/octet-stream",
+    expect: "clean (timing)",
+  });
   process.stdout.write(`  big-${megabytes}.bin written (${megabytes} MiB)\n`);
 }
 

@@ -23,6 +23,10 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"],
   },
+  // Public, non-secret config. FILES_ORIGIN is the cookieless preview host; bound here (not .dev.vars)
+  // because it is a hostname, not a credential. In production this becomes files.magnacarta.esq once
+  // the apex attaches; the placeholder value lets the Miniflare test pool exercise the host branch.
+  "vars": { "FILES_ORIGIN": "files.example.com" },
   // Real production resources (created 2026-06-09; naming convention in ADR-0075:
   // magna-carta-<environment>-<scope>[-<purpose-or-slug>]). Binding names are the code-facing
   // contract and never change; resource names are environment-scoped and permanent (D1/R2
@@ -73,6 +77,9 @@
     ],
   },
   "r2_buckets": [{ "binding": "R2", "bucket_name": "magna-carta-production-platform-files" }],
+  // Workers AI — the authenticated binding the inference foundation reaches the AI Gateway through.
+  // No per-firm provider key at launch (Unified Billing, Cloudflare-managed credentials).
+  "ai": { "binding": "AI" },
   // FILES_INGEST carries one R2 event per uploaded object to the ingest consumer (single read:
   // magic-byte gates + streaming SHA-256 + scan port, then commit or quarantine). It is a distinct
   // queue from the platform job queue so upload bursts cannot starve the outbox relay, and so its
@@ -86,6 +93,7 @@
       // The async bulk-download build queue: the download route enqueues one build per
       // content-addressed selection; the BundleBuildCoordinator DO is the single-flight producer.
       { "binding": "BUNDLE_BUILD", "queue": "magna-carta-production-bundle-build" },
+      { "binding": "INFERENCE", "queue": "magna-carta-production-inference" },
     ],
     // The files-ingest consumer (the queue() handler in src/index.ts over the ingest consumer): one
     // R2 object-create event per uploaded object → single-read gates + SHA-256 + scan port → commit
@@ -105,7 +113,8 @@
         // per-instance concurrency the instance memory allows — and the SCAN+mmap transport (Option B,
         // ~1× resident vs INSTREAM's ~2×) is what lets each instance run several large scans at once,
         // so this lane can stay saturated. Raise both together for a large migration burst (the
-        // tuning lives in docs/conventions/operations.md §9); 10 is a sane steady-state default that a
+        // tuning lives in the Malware-scan Container deploy section of docs/conventions/operations.md);
+        // 10 is a sane steady-state default that a
         // small fleet absorbs without overload.
         "queue": "magna-carta-production-files-ingest-bulk",
         "max_concurrency": 10,
@@ -119,6 +128,10 @@
         "queue": "magna-carta-production-bundle-build",
         "max_concurrency": 2,
         "dead_letter_queue": "magna-carta-production-bundle-build-deadletter",
+      },
+      {
+        "queue": "magna-carta-production-inference",
+        "dead_letter_queue": "magna-carta-production-inference-deadletter",
       },
     ],
   },

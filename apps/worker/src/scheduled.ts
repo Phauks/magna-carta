@@ -7,6 +7,7 @@ import {
   type OutboxRow,
   type OutboxSweepReport,
 } from "@magna-carta/data-access/outbox-relay";
+import { readUsageAnalyticsEnabled } from "@magna-carta/data-access/usage-consent-statements";
 import {
   abandonVersionStatement,
   FILES_PREFIX,
@@ -36,6 +37,7 @@ import { presignerForEnv } from "./files/presigner-wiring.ts";
 import { resolveFirmDatabase } from "./firm-binding-resolver.ts";
 import { firmKeyProviderForEnv } from "./firm-key-provider-wiring.ts";
 import { consumeMemberProvision } from "./member-provision-consumer.ts";
+import { maybeEmitCompleted } from "./usage/completed.ts";
 
 // All background logging in this file goes through the slice 0·6 telemetry pipeline (golden rule 4 —
 // the one logging path, the console ban makes it structural): a cron pass builds one Workers logger
@@ -213,6 +215,7 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
   let firmSweeps = 0;
   for (const firm of firms) {
     try {
+      const usageAnalyticsEnabled = await readUsageAnalyticsEnabled(firm.database);
       const firmReport = await sweepOutbox({
         database: firm.database,
         publish: async (row) => {
@@ -230,6 +233,15 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
             payload: row.payload,
             aggregateKey: row.aggregate_key,
             seq: row.seq,
+          });
+          await maybeEmitCompleted({
+            logger,
+            consented: usageAnalyticsEnabled,
+            pepper: env.USAGE_ANALYTICS_PEPPER,
+            correlationId,
+            now: new Date().toISOString(),
+            firmId: firm.firmId,
+            topic: row.topic,
           });
         },
         deadLetter: logDeadLetter(logger, correlationId, `firm ${firm.firmId}`),

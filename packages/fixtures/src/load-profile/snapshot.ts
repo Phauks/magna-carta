@@ -23,6 +23,9 @@ import { createLocalPerFirmDatabase } from "../local-database.ts";
 import { generateLedgerVolume, type VolumeProbes } from "./generate.ts";
 import { generatePracticeVolume, type PracticeProbes } from "./matters-generate.ts";
 import { generateProtectedVolume, type ProtectedProbes } from "./protected-generate.ts";
+import { generateDirectoryVolume, type DirectoryProbes } from "./directory-generate.ts";
+import { generateShippingVolume, type ShippingProbes } from "./shipping-generate.ts";
+import { generateCustomFieldVolume, type CustomFieldProbes } from "./custom-field-generate.ts";
 import { GENERATOR_VERSION, type LedgerVolumeProfile } from "./profile.ts";
 
 // Snapshot identity: the resolved profile parameters, the generation seed, the per-firm schema
@@ -47,6 +50,25 @@ export interface SnapshotManifest {
   readonly incidentCount: number;
   readonly firmSecretCount: number;
   readonly protectedProbes: ProtectedProbes;
+  // The directory volume laid over the practice (persons/organizations, names, edges, blind-indexed
+  // identifiers, matter parties) and the probe identifiers the directory measurement layer binds its
+  // blind-index lookup / protected-list decrypt / candidate-generation / graph-expansion ops to.
+  readonly directoryPersonCount: number;
+  readonly directoryOrganizationCount: number;
+  readonly directoryProbes: DirectoryProbes;
+  // The shipping volume laid over the practice book: total counts + the probe identifiers the
+  // shipping measurement layer binds its volume-shaped reads to.
+  readonly shipmentCount: number;
+  readonly purchasedShipmentCount: number;
+  readonly trackingEventCount: number;
+  readonly shippingProbes: ShippingProbes;
+  // The custom-field volume laid over the practice + directory (fields on matter types + entity
+  // categories, picklist options, temporal values) and the probe identifiers the custom-field
+  // measurement layer binds its per-record read / reference lookup / convert scan / merge repoint to.
+  readonly customFieldDefinitionCount: number;
+  readonly picklistOptionCount: number;
+  readonly customFieldValueCount: number;
+  readonly customFieldProbes: CustomFieldProbes;
 }
 
 export interface LoadedSnapshot extends MigratedNodeDatabase {
@@ -125,12 +147,37 @@ export async function loadProfileSnapshot(
         profile.practice,
         options,
       );
-      // The protected volume rides last — its sealed incidents reuse a mirrored member as reporter.
+      // The protected volume rides next — its sealed incidents reuse a mirrored member as reporter.
       const protectedVolume = await generateProtectedVolume(
         generated.database,
         context,
         profile.protected,
         practice.probes.responsibleMemberId,
+        options,
+      );
+      // The directory volume rides next — its matter-party links join entities to the matters the
+      // practice volume already laid down, so it must run after practice generation.
+      const directoryVolume = await generateDirectoryVolume(
+        generated.database,
+        context,
+        profile.directory,
+        options,
+      );
+      // The shipping volume rides next on the same FixtureContext, linking its shipments to the
+      // matters the practice generation laid down.
+      const shipping = await generateShippingVolume(
+        generated.database,
+        context,
+        profile.shipping,
+        options,
+      );
+      // The custom-field volume rides last — it attaches fields to the matter types the practice
+      // generator made and sets reference values pointing at the directory generator's entities, so it
+      // must run after both.
+      const customFields = await generateCustomFieldVolume(
+        generated.database,
+        context,
+        profile.customFields,
         options,
       );
       const manifest: SnapshotManifest = {
@@ -148,6 +195,17 @@ export async function loadProfileSnapshot(
         incidentCount: protectedVolume.incidentCount,
         firmSecretCount: protectedVolume.firmSecretCount,
         protectedProbes: protectedVolume.probes,
+        directoryPersonCount: directoryVolume.personCount,
+        directoryOrganizationCount: directoryVolume.organizationCount,
+        directoryProbes: directoryVolume.probes,
+        shipmentCount: shipping.shipmentCount,
+        purchasedShipmentCount: shipping.purchasedCount,
+        trackingEventCount: shipping.trackingEventCount,
+        shippingProbes: shipping.probes,
+        customFieldDefinitionCount: customFields.customFieldDefinitionCount,
+        picklistOptionCount: customFields.picklistOptionCount,
+        customFieldValueCount: customFields.customFieldValueCount,
+        customFieldProbes: customFields.probes,
       };
       // Artifact before manifest: the replay gate above requires BOTH files, so a crash between
       // the two writes leaves a regenerable miss, never a manifest pointing at a missing artifact.

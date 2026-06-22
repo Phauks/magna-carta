@@ -45,6 +45,14 @@ const PUBLIC_ALLOW_LIST: Record<string, string> = {
 const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
   "numbering.preview":
     "Pure render of a candidate numbering scheme against a sample context — no write, no counter touch.",
+  "directory.duplicateCandidates":
+    "Read-shaped POST: unions the phonetic/trigram/blind-index blocking channels for a prospective entity (match facts ride the body) — no write, no decrypt.",
+  "shipping.rateShipment":
+    "Live rate-shop read-through to the carrier — POSTs the package to fetch ephemeral rates, persists nothing.",
+  "shipping.tracking":
+    "Pulls current carrier tracking and caches events (INSERT OR IGNORE dedup) — a read-shaped sync, not an auditable business mutation.",
+  "customFields.previewConvert":
+    "Read-shaped POST: counts how each current value would land under a kind change (the target kind rides the body) — no write, no audit.",
 };
 
 // Subsystems whose every route must be idempotency: required (money/trust/payment/outbound-comms).
@@ -108,6 +116,12 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string> = {
   matters: "matter",
   locations: "location",
   files: "matter",
+  directory: "directoryEntity",
+  shipping: "firm",
+  tools: "firm",
+  // customFields:* governs firm-defined fields on matter/entity records; its routes carry the
+  // matter resource (the nearest tenancy root — custom fields extend matter/entity records).
+  customFields: "matter",
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
@@ -461,6 +475,40 @@ describe("conformance — the committed contract holds, and each rule catches a 
   it("exposes the known committed operations (so the positive assertions are not vacuous)", () => {
     const ids = [...operations(document)].map((entry) => entry.operationId).sort();
     expect(ids).toEqual([
+      "customFields.applyConvert",
+      "customFields.archiveField",
+      "customFields.archiveOption",
+      "customFields.clearValue",
+      "customFields.createOption",
+      "customFields.defineField",
+      "customFields.hardDeleteField",
+      "customFields.hardDeleteOption",
+      "customFields.listRecordValues",
+      "customFields.previewConvert",
+      "customFields.purgeField",
+      "customFields.renameField",
+      "customFields.renameOption",
+      "customFields.reorderField",
+      "customFields.reorderOption",
+      "customFields.resolveField",
+      "customFields.setRequired",
+      "customFields.setValue",
+      "customFields.unarchiveField",
+      "customFields.valueHistory",
+      "directory.addIdentifier",
+      "directory.addName",
+      "directory.assignCategory",
+      "directory.createCategory",
+      "directory.createEdge",
+      "directory.createOrganization",
+      "directory.createPerson",
+      "directory.duplicateCandidates",
+      "directory.getOrganization",
+      "directory.getPerson",
+      "directory.linkMatterParty",
+      "directory.merge",
+      "directory.readIdentifier",
+      "directory.search",
       "documentTypes.create",
       "documentTypes.deactivate",
       "documentTypes.list",
@@ -471,8 +519,10 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "files.download",
       "files.get",
       "files.list",
+      "files.preview",
       "files.update",
       "files.versions",
+      "firmUsage.get",
       "firms.provision",
       "folders.create",
       "folders.delete",
@@ -504,6 +554,13 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "numbering.get",
       "numbering.preview",
       "numbering.set",
+      "shipping.connect",
+      "shipping.createShipment",
+      "shipping.label",
+      "shipping.purchase",
+      "shipping.rateShipment",
+      "shipping.refund",
+      "shipping.tracking",
       "uploads.abort",
       "uploads.complete",
       "uploads.initiate",

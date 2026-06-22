@@ -1,7 +1,7 @@
 import type { Credential } from "./credentials.ts";
 
 // A port is a TypeScript interface named in OUR domain vocabulary (defined by the consuming domain
-// package, e.g. ParcelLookupPort in @magna-carta/parcels), not a vendor's API. An adapter implements
+// package, e.g. ParcelLookupPort in @magna-carta/government-links), not a vendor's API. An adapter implements
 // one port for one external platform. The descriptor is the adapter's published manifest of what it
 // can do, so callers degrade gracefully instead of calling a method that throws.
 
@@ -12,7 +12,8 @@ export type AdapterScope = "firm" | "user";
 // account) or `firm` (one connection for the firm). The PORT picks; the framework supports both.
 export type CredentialRequirement =
   | { readonly kind: "none" }
-  | { readonly kind: "oauth"; readonly scope: AdapterScope };
+  | { readonly kind: "oauth"; readonly scope: AdapterScope }
+  | { readonly kind: "apiKey"; readonly scope: AdapterScope };
 
 // An object rather than a bare boolean so it can carry future per-operation metadata — supported
 // fields, required parameters — the way unified-API capability manifests do.

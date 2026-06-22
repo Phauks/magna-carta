@@ -1,0 +1,35 @@
+{
+  "name": "@magna-carta/custom-fields",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./run-custom-field-effect": "./src/run-custom-field-effect.ts",
+    "./types": "./src/types.ts",
+    "./custom-field-service": "./src/custom-field-service.ts",
+    "./picklist-option-service": "./src/picklist-option-service.ts",
+    "./custom-field-value-service": "./src/custom-field-value-service.ts",
+    "./reads": "./src/reads.ts",
+    "./coercion": "./src/coercion.ts",
+    "./convert": "./src/convert.ts",
+    "./purge": "./src/purge.ts",
+    "./fitness": "./src/fitness.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/money": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-orm": "catalog:",
+    "vitest": "catalog:"
+  }
+}
