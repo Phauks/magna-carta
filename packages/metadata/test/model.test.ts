@@ -11,7 +11,13 @@ describe("model", () => {
 
   it("reportOf marks a non-empty findings list not clean", () => {
     const report = reportOf("docx", [
-      { category: "identifying-metadata", label: "Author", risk: "high", count: 1, defaultScrub: true },
+      {
+        category: "identifying-metadata",
+        label: "Author",
+        risk: "high",
+        count: 1,
+        defaultScrub: true,
+      },
     ]);
     expect(report.clean).toBe(false);
   });

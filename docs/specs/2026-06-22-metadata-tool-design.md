@@ -4,6 +4,7 @@
 **White-paper home:** _Plugin / Add-on system_ ("pure utilities are libraries, not plugins").
 **Builds on:** the Tools area (`docs/specs/2026-06-16-tools-area-design.md`, ADR-0101) · the file-converter tool · the conversion package's port/registry shape (`packages/conversion`).
 **ADRs (new, to record):**
+
 - **ADR-BBBB** — Metadata-tool architecture: ephemeral/stateless inspect+scrub, the `MetadataPort` seam with a size cap, the document/image engine split behind interfaces, and scrub semantics.
 
 > **Language decision (settled 2026-06-22).** An earlier draft put the image engine in Rust → WASM (the
@@ -18,7 +19,7 @@
 A law firm's most common metadata hazard is **inadvertent disclosure**: sending a `.docx` that still carries
 tracked changes, comments, hidden text, author/firm names, or edit history can leak privileged work product.
 This design adds an ethereal Tools-area utility — **Metadata Inspector & Scrubber** — that shows exactly what a
-file carries (the *inspector*) and produces a cleaned copy to a chosen degree (the *scrubber*). It is built
+file carries (the _inspector_) and produces a cleaned copy to a chosen degree (the _scrubber_). It is built
 core-first so the same engine can later back a matter-action ("scrub this file in place", "auto-scrub before
 producing/sending"), per the Tools-area principle: _do matter-grade work without committing it to a matter._
 
@@ -33,15 +34,15 @@ image-metadata reader but is **out of scope here** — see §8.
 The first instinct is to fold "inspect/scrub a file" and "is this image tampered / AI-generated" into one
 image tool. They are deliberately kept apart:
 
-- **Different purpose and risk.** The scrubber is *deterministic outbound hygiene* — remove field X, accept
-  change Y; every run is identical and safe to rely on. Forensics is *probabilistic inbound analysis* —
+- **Different purpose and risk.** The scrubber is _deterministic outbound hygiene_ — remove field X, accept
+  change Y; every run is identical and safe to rely on. Forensics is _probabilistic inbound analysis_ —
   heuristics and ML that can be wrong, in an evidence context where a confident-looking wrong answer is a
   liability. Fusing a "reliable" tool with a "caveated guess" tool blurs the one line that must stay crisp.
 - **Different substrate breadth.** The scrubber is multi-format (OOXML now; PDF/legacy later) and most of its
   code is zip/XML surgery unrelated to images. Forensics is image-only and most of its code is
   pixel/compression analysis unrelated to documents.
-- **The only real overlap is reading image metadata** (EXIF/IPTC/XMP) — the scrubber reads it to *strip* it,
-  forensics reads the same to *interpret* it (the "Adobe Photoshop" software tag, XMP edit history,
+- **The only real overlap is reading image metadata** (EXIF/IPTC/XMP) — the scrubber reads it to _strip_ it,
+  forensics reads the same to _interpret_ it (the "Adobe Photoshop" software tag, XMP edit history,
   thumbnail-vs-image mismatch are classic tamper signals). That is a single shared low-level capability — image
   metadata reading — not a reason to merge the tools. Forensics, if built, can reuse this tool's
   `ImageMetadataEngine` (§2) or reimplement that thin reader; either way the bulk of forensics (pixel analysis)
@@ -95,12 +96,12 @@ The two engines sit behind small interfaces (`DocumentMetadataEngine`, `ImageMet
 a Rust → WASM image engine — §8) can be swapped in later without touching `MetadataPort`, the route, or the UI.
 
 - **OOXML engine — TypeScript, in-worker.** `fflate` unzips the package in memory; the engine reads/edits the
-  relevant parts (§3) and re-zips. The hard part — accepting tracked changes — is *logic, not throughput*, so
+  relevant parts (§3) and re-zips. The hard part — accepting tracked changes — is _logic, not throughput_, so
   TS is appropriate; it matches the in-worker precedent of `whois`/`safe-browse` and runs in the Vitest worker
   pool with real bindings (fast iteration, easy fixtures). The Cloudflare Container binding is deploy-time-only
   and cannot run in the local test pool, so a container engine would inherit a test-integration gap for no
   benefit on the small files this tool targets.
-- **Image engine — TypeScript, in-worker.** Stripping image metadata is *segment/chunk surgery*, not pixel
+- **Image engine — TypeScript, in-worker.** Stripping image metadata is _segment/chunk surgery_, not pixel
   decoding: walk JPEG APPn markers, PNG ancillary chunks, or TIFF IFDs and drop the metadata-bearing ones. This
   is well within TS's reach and keeps the tool single-language, single-toolchain, and fast to ship. It touches
   only headers/segments, never decodes pixels, so it stays well within the isolate memory budget. See the
@@ -142,7 +143,7 @@ capture format, usually converted to JPEG before use).
 - **Granular toggles** — derived from the findings, letting the user keep specific items.
 
 The core exposes both `scrubAll(bytes, filename)` and `scrubSelected(bytes, filename, options)`. Scrub is a
-*transformation* of content-bearing artifacts (accepting changes / deleting comments changes what the document
+_transformation_ of content-bearing artifacts (accepting changes / deleting comments changes what the document
 contains), which the UI states plainly. The input is **never mutated**; a fresh cleaned copy is returned, and
 the returned `report` is a **re-inspection of the output** so the UI can confirm "clean". Nothing is persisted
 — the tool is stateless and record-less (the ethereal principle).

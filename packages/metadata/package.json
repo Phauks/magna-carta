@@ -13,8 +13,8 @@
     "test": "vp test run"
   },
   "dependencies": {
-    "fflate": "^0.8.3",
-    "fast-xml-parser": "^5.9.3"
+    "fast-xml-parser": "^5.9.3",
+    "fflate": "^0.8.3"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

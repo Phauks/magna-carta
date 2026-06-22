@@ -28,6 +28,7 @@
 ### Task 1: Scaffold the `@magna-carta/metadata` package
 
 **Files:**
+
 - Create: `packages/metadata/package.json`
 - Create: `packages/metadata/tsconfig.json`
 - Create: `packages/metadata/vitest.config.ts`
@@ -35,6 +36,7 @@
 - Test: `packages/metadata/test/smoke.test.ts`
 
 **Interfaces:**
+
 - Produces: the package `@magna-carta/metadata` with subpath exports `.`, `./port`, `./model`.
 
 - [ ] **Step 1: Write the failing test**
@@ -64,20 +66,20 @@ describe("@magna-carta/metadata", () => {
   "exports": {
     "./model": "./src/model.ts",
     "./port": "./src/port.ts",
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
   },
   "scripts": {
-    "test": "vp test run"
+    "test": "vp test run",
   },
   "dependencies": {
     "fflate": "^0.8.2",
-    "fast-xml-parser": "^4.5.0"
+    "fast-xml-parser": "^4.5.0",
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",
-    "vitest": "catalog:"
-  }
+    "vitest": "catalog:",
+  },
 }
 ```
 
@@ -85,7 +87,7 @@ describe("@magna-carta/metadata", () => {
 // packages/metadata/tsconfig.json
 {
   "extends": "@magna-carta/tsconfig/base.json",
-  "include": ["src", "test"]
+  "include": ["src", "test"],
 }
 ```
 
@@ -128,6 +130,7 @@ git commit -m "feat(metadata): scaffold @magna-carta/metadata package"
 ### Task 2: Core model, scrub options, engine + port interfaces
 
 **Files:**
+
 - Create: `packages/metadata/src/model.ts`
 - Create: `packages/metadata/src/options.ts`
 - Create: `packages/metadata/src/engine.ts`
@@ -135,6 +138,7 @@ git commit -m "feat(metadata): scaffold @magna-carta/metadata package"
 - Test: `packages/metadata/test/model.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `RiskLevel = "high" | "medium" | "low"`
   - `FindingCategory` union (8 members below)
@@ -166,7 +170,13 @@ describe("model", () => {
 
   it("reportOf marks a non-empty findings list not clean", () => {
     const report = reportOf("docx", [
-      { category: "identifying-metadata", label: "Author", risk: "high", count: 1, defaultScrub: true },
+      {
+        category: "identifying-metadata",
+        label: "Author",
+        risk: "high",
+        count: 1,
+        defaultScrub: true,
+      },
     ]);
     expect(report.clean).toBe(false);
   });
@@ -265,11 +275,7 @@ export interface MetadataInput {
   readonly filename: string;
 }
 
-export type MetadataFailure =
-  | "unsupported-format"
-  | "too-large"
-  | "corrupt"
-  | "decompression-bomb";
+export type MetadataFailure = "unsupported-format" | "too-large" | "corrupt" | "decompression-bomb";
 
 export type InspectOutcome =
   | { readonly ok: true; readonly report: MetadataReport }
@@ -307,10 +313,12 @@ git commit -m "feat(metadata): core report model, scrub options, engine + port i
 ### Task 3: Format detection
 
 **Files:**
+
 - Modify: `packages/metadata/src/detect.ts` (replace the temporary stub)
 - Test: `packages/metadata/test/detect.test.ts`
 
 **Interfaces:**
+
 - Consumes: nothing.
 - Produces: `SupportedFormat = "docx" | "jpeg" | "png"`; `detect(bytes: Uint8Array): SupportedFormat | "unsupported"`.
 
@@ -404,10 +412,12 @@ git commit -m "feat(metadata): content-based format detection (docx/jpeg/png)"
 ### Task 4: Security guards
 
 **Files:**
+
 - Create: `packages/metadata/src/guards.ts`
 - Test: `packages/metadata/test/guards.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `MAX_INPUT_BYTES = 15 * 1024 * 1024`
   - `MAX_INFLATED_BYTES = 200 * 1024 * 1024`
@@ -508,12 +518,14 @@ git commit -m "feat(metadata): size cap + decompression-bomb guards"
 ### Task 5: OOXML — shared XML + walk helpers + a docx test-fixture builder
 
 **Files:**
+
 - Create: `packages/metadata/src/ooxml/xml.ts`
 - Create: `packages/metadata/src/ooxml/walk.ts`
 - Create: `packages/metadata/test/support/docx-fixture.ts`
 - Test: `packages/metadata/test/ooxml-xml.test.ts`
 
 **Interfaces:**
+
 - Produces (`xml.ts`):
   - `parseXml(text: string): unknown[]` — preserve-order node array
   - `buildXml(nodes: unknown[]): string` — re-serialize with the standard declaration
@@ -558,7 +570,9 @@ describe("ooxml/walk", () => {
 
   it("runIsHidden detects an enabled vanish and ignores a disabled one", () => {
     const hidden = parseXml("<w:r><w:rPr><w:vanish/></w:rPr><w:t>x</w:t></w:r>") as XmlNode[];
-    const shown = parseXml('<w:r><w:rPr><w:vanish w:val="false"/></w:rPr><w:t>x</w:t></w:r>') as XmlNode[];
+    const shown = parseXml(
+      '<w:r><w:rPr><w:vanish w:val="false"/></w:rPr><w:t>x</w:t></w:r>',
+    ) as XmlNode[];
     expect(runIsHidden(hidden[0])).toBe(true);
     expect(runIsHidden(shown[0])).toBe(false);
   });
@@ -723,10 +737,12 @@ git commit -m "feat(metadata): OOXML XML + walk helpers + docx test-fixture buil
 ### Task 6: OOXML inspect
 
 **Files:**
+
 - Create: `packages/metadata/src/ooxml/inspect.ts`
 - Test: `packages/metadata/test/ooxml-inspect.test.ts`
 
 **Interfaces:**
+
 - Consumes: `safeUnzip` (Task 4), `parseXml`/`nodeTag` (Task 5), `reportOf`/`Finding` (Task 2), `buildDocx` fixture (Task 5).
 - Produces: `inspectDocx(bytes: Uint8Array): MetadataReport`. Detects, across the unzipped parts: identifying metadata (any non-empty element in `docProps/core.xml` + `Company`/`Template`/`TotalTime`/`Manager` in `app.xml`), custom properties (`docProps/custom.xml` present with ≥1 property), tracked changes (`w:ins`/`w:del`/`w:moveFrom`/`w:moveTo`/`*Change` anywhere in `word/document.xml`), comments (`word/comments.xml` present, or `w:commentReference` in the document), hidden content (`w:vanish` not disabled).
 
@@ -923,10 +939,12 @@ git commit -m "feat(metadata): OOXML inspect (docProps, tracked changes, comment
 ### Task 7: OOXML scrub — identifying metadata, custom properties, comments, hidden text
 
 **Files:**
+
 - Create: `packages/metadata/src/ooxml/scrub.ts`
 - Test: `packages/metadata/test/ooxml-scrub.test.ts`
 
 **Interfaces:**
+
 - Consumes: `safeUnzip` (Task 4), `parseXml`/`buildXml`/`nodeTag` (Task 5), `inspectDocx` (Task 6), `ScrubOptions` (Task 2).
 - Produces: `scrubDocx(bytes: Uint8Array, options: ScrubOptions): Uint8Array`. This task implements every option EXCEPT `trackedChanges` (Task 8). Behaviour: `identifyingMetadata` → replace `docProps/core.xml` and `docProps/app.xml` with empty roots; `customProperties` → drop `docProps/custom.xml`; `comments` → drop `word/comments*.xml`/`word/people.xml`, drop their `Relationship` entries in `word/_rels/document.xml.rels`, and remove comment-reference nodes from `word/document.xml`; `hiddenContent` → remove hidden runs from `word/document.xml`. Re-zips the surviving entries.
 
@@ -1100,10 +1118,12 @@ git commit -m "feat(metadata): OOXML scrub for metadata, custom props, comments,
 ### Task 8: OOXML scrub — accept tracked changes
 
 **Files:**
+
 - Modify: `packages/metadata/src/ooxml/scrub.ts:transformDocumentNodes` (extend `DocumentTransform` + the walker)
 - Test: `packages/metadata/test/ooxml-tracked-changes.test.ts`
 
 **Interfaces:**
+
 - Consumes: the Task 7 module.
 - Produces: `transformDocumentNodes` now honours a `trackedChanges: boolean` field on `DocumentTransform`, and `scrubDocx` passes `options.trackedChanges`. Acceptance semantics: `w:ins`/`w:moveTo` → **unwrap** (keep transformed children — the inserted/moved-in text stays); `w:del`/`w:moveFrom` → **remove** (deleted/moved-out text goes); `*Change` records → **remove** (keep current formatting, drop the prior-state record). This is the riskiest transform; it is isolated here so a reviewer can gate it independently.
 
@@ -1207,19 +1227,19 @@ export function transformDocumentNodes(nodes: XmlNode[], t: DocumentTransform): 
 Update the `scrubDocx` document branch to pass `trackedChanges` and to also rewrite `word/document.xml` when only tracked changes are requested:
 
 ```ts
-    if (
-      name === "word/document.xml" &&
-      (options.comments || options.hiddenContent || options.trackedChanges)
-    ) {
-      const nodes = parseXml(new TextDecoder().decode(content));
-      const transformed = transformDocumentNodes(nodes, {
-        comments: options.comments,
-        hiddenContent: options.hiddenContent,
-        trackedChanges: options.trackedChanges,
-      });
-      out[name] = strToU8(buildXml(transformed));
-      continue;
-    }
+if (
+  name === "word/document.xml" &&
+  (options.comments || options.hiddenContent || options.trackedChanges)
+) {
+  const nodes = parseXml(new TextDecoder().decode(content));
+  const transformed = transformDocumentNodes(nodes, {
+    comments: options.comments,
+    hiddenContent: options.hiddenContent,
+    trackedChanges: options.trackedChanges,
+  });
+  out[name] = strToU8(buildXml(transformed));
+  continue;
+}
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -1239,10 +1259,12 @@ git commit -m "feat(metadata): accept tracked changes (unwrap insertions, drop d
 ### Task 9: Image engine — JPEG inspect + scrub
 
 **Files:**
+
 - Create: `packages/metadata/src/image/jpeg.ts`
 - Test: `packages/metadata/test/image-jpeg.test.ts`
 
 **Interfaces:**
+
 - Consumes: `Finding` (Task 2).
 - Produces:
   - `inspectJpegFindings(bytes: Uint8Array): Finding[]`
@@ -1265,12 +1287,20 @@ function buildJpeg(): Uint8Array {
   const exif = [0x45, 0x78, 0x69, 0x66, 0x00, 0x00, 1, 2, 3]; // "Exif\0\0" + bytes
   const jfif = [0x4a, 0x46, 0x49, 0x46, 0x00, 1, 1, 0, 0, 1, 0, 1, 0, 0];
   return new Uint8Array([
-    0xff, 0xd8, // SOI
+    0xff,
+    0xd8, // SOI
     ...seg(0xe0, jfif), // APP0
     ...seg(0xe1, exif), // APP1 EXIF
-    0xff, 0xda, 0x00, 0x03, 0x00, // SOS (len 3) + 1 payload byte
-    0x11, 0x22, 0x33, // entropy data
-    0xff, 0xd9, // EOI
+    0xff,
+    0xda,
+    0x00,
+    0x03,
+    0x00, // SOS (len 3) + 1 payload byte
+    0x11,
+    0x22,
+    0x33, // entropy data
+    0xff,
+    0xd9, // EOI
   ]);
 }
 
@@ -1421,11 +1451,13 @@ git commit -m "feat(metadata): JPEG metadata inspect + strip (segment surgery)"
 ### Task 10: Image engine — PNG inspect + scrub, and the image engine assembly
 
 **Files:**
+
 - Create: `packages/metadata/src/image/png.ts`
 - Create: `packages/metadata/src/image/index.ts`
 - Test: `packages/metadata/test/image-png.test.ts`
 
 **Interfaces:**
+
 - Consumes: `Finding` (Task 2), `MetadataEngine` (Task 2), `reportOf` (Task 2), JPEG engine (Task 9).
 - Produces:
   - `inspectPngFindings(bytes)`, `scrubPng(bytes)` (drop `tEXt`/`zTXt`/`iTXt`/`eXIf`/`tIME` chunks, keep the rest with CRCs intact)
@@ -1455,16 +1487,27 @@ function chunk(type: string, data: number[]): number[] {
   const len = data.length;
   const crc = crc32([...typeBytes, ...data]);
   return [
-    (len >>> 24) & 0xff, (len >>> 16) & 0xff, (len >>> 8) & 0xff, len & 0xff,
-    ...typeBytes, ...data,
-    (crc >>> 24) & 0xff, (crc >>> 16) & 0xff, (crc >>> 8) & 0xff, crc & 0xff,
+    (len >>> 24) & 0xff,
+    (len >>> 16) & 0xff,
+    (len >>> 8) & 0xff,
+    len & 0xff,
+    ...typeBytes,
+    ...data,
+    (crc >>> 24) & 0xff,
+    (crc >>> 16) & 0xff,
+    (crc >>> 8) & 0xff,
+    crc & 0xff,
   ];
 }
 function buildPng(): Uint8Array {
   return new Uint8Array([
     ...SIG,
     ...chunk("IHDR", [0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0]),
-    ...chunk("tEXt", [...[..."Author"].map((c) => c.charCodeAt(0)), 0, ...[..."Jane"].map((c) => c.charCodeAt(0))]),
+    ...chunk("tEXt", [
+      ...[..."Author"].map((c) => c.charCodeAt(0)),
+      0,
+      ...[..."Jane"].map((c) => c.charCodeAt(0)),
+    ]),
     ...chunk("IDAT", [0x78, 0x01, 0x00]),
     ...chunk("IEND", []),
   ]);
@@ -1597,12 +1640,14 @@ git commit -m "feat(metadata): PNG metadata strip + image engine assembly"
 ### Task 11: The OOXML engine wrapper + the MetadataPort
 
 **Files:**
+
 - Create: `packages/metadata/src/ooxml/index.ts`
 - Create: `packages/metadata/src/metadata.ts`
 - Modify: `packages/metadata/src/index.ts`
 - Test: `packages/metadata/test/port.test.ts`
 
 **Interfaces:**
+
 - Consumes: everything above.
 - Produces:
   - `documentEngine(): MetadataEngine` (wraps `inspectDocx`/`scrubDocx`)
@@ -1762,10 +1807,12 @@ git commit -m "feat(metadata): document engine wrapper + MetadataPort with typed
 ### Task 12: Register the `tools:metadataScrubber` permission
 
 **Files:**
+
 - Modify: `packages/access-control/src/registry.ts` (add one entry to `PERMISSIONS`)
 - Test: `packages/access-control/test/registry.test.ts` (add an assertion if the file enumerates expected keys; otherwise the existing suite covers membership)
 
 **Interfaces:**
+
 - Produces: `tools:metadataScrubber` as a `KnownPermission`.
 
 - [ ] **Step 1: Add the permission**
@@ -1793,10 +1840,12 @@ git commit -m "feat(access-control): add tools:metadataScrubber permission"
 ### Task 13: Add the catalog row
 
 **Files:**
+
 - Modify: `packages/tools/src/catalog.ts` (append one manifest)
 - Test: `packages/tools/test/catalog.test.ts` (extend if it counts entries)
 
 **Interfaces:**
+
 - Consumes: `assertPermission` (already imported in catalog.ts).
 - Produces: a `metadata-scrubber` manifest in `CATALOG`.
 
@@ -1834,11 +1883,13 @@ git commit -m "feat(tools): catalog the Metadata Inspector & Scrubber"
 ### Task 14: The Worker route
 
 **Files:**
+
 - Create: `apps/worker/src/routes/metadata.ts`
 - Modify: `apps/worker/src/app.ts` (import + register, beside the other tool routes)
 - Test: `apps/worker/test/metadata-route.test.ts`
 
 **Interfaces:**
+
 - Consumes: `createMetadataPort`, `SCRUB_ALL`, `ScrubOptions` from `@magna-carta/metadata`; the chokepoint + route-meta helpers (see `routes/safe-browse.ts` for the exact imports).
 - Produces: `registerMetadataRoutes(app, chokepoint)`. Two operations:
   - `POST /api/v1/metadata/inspect` — body `{ filename: string, contentBase64: string }` → `200 { format, findings, clean }` or `400` problem (`too-large`/`unsupported-format`/`corrupt`/`decompression-bomb`).
@@ -1865,14 +1916,19 @@ function docxFixture(): Uint8Array {
   const DECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
   return zipSync({
     "[Content_Types].xml": strToU8(`${DECL}<Types/>`),
-    "word/document.xml": strToU8(`${DECL}<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body/></w:document>`),
-    "docProps/core.xml": strToU8(`${DECL}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:creator>Jane</dc:creator></cp:coreProperties>`),
+    "word/document.xml": strToU8(
+      `${DECL}<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body/></w:document>`,
+    ),
+    "docProps/core.xml": strToU8(
+      `${DECL}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:creator>Jane</dc:creator></cp:coreProperties>`,
+    ),
   });
 }
 
 describe("POST /api/v1/metadata/inspect", () => {
   it("returns findings for a docx with an author", async () => {
-    const app = createApp(/* test bindings — copy the arrangement from safe-browse-route.test.ts */);
+    const app =
+      createApp(/* test bindings — copy the arrangement from safe-browse-route.test.ts */);
     const res = await authedRequest(app, "POST", "/api/v1/metadata/inspect", {
       filename: "a.docx",
       contentBase64: base64(docxFixture()),
@@ -1880,7 +1936,9 @@ describe("POST /api/v1/metadata/inspect", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.clean).toBe(false);
-    expect(body.findings.some((f: { category: string }) => f.category === "identifying-metadata")).toBe(true);
+    expect(
+      body.findings.some((f: { category: string }) => f.category === "identifying-metadata"),
+    ).toBe(true);
   });
 
   it("rejects an unsupported file with 400", async () => {
@@ -2012,13 +2070,30 @@ const inspectRoute = defineOpenAPIRoute(metadataInspectMeta, {
   description:
     "Inspect an uploaded file (base64) and report the metadata and content-bearing artifacts it " +
     "carries, with a risk level per category. Nothing is stored.",
-  request: { body: { content: { "application/json": { schema: InspectRequest } }, required: true } },
+  request: {
+    body: { content: { "application/json": { schema: InspectRequest } }, required: true },
+  },
   responses: {
-    200: { description: "Metadata report", content: { "application/json": { schema: ReportSchema } } },
-    400: { description: "Unprocessable file", content: { "application/problem+json": { schema: Problem } } },
-    401: { description: "No valid session", content: { "application/problem+json": { schema: Problem } } },
-    403: { description: "Missing tools:metadataScrubber", content: { "application/problem+json": { schema: Problem } } },
-    429: { description: "Rate limit exceeded", content: { "application/problem+json": { schema: Problem } } },
+    200: {
+      description: "Metadata report",
+      content: { "application/json": { schema: ReportSchema } },
+    },
+    400: {
+      description: "Unprocessable file",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "Missing tools:metadataScrubber",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
   },
 });
 
@@ -2030,11 +2105,26 @@ const scrubRoute = defineOpenAPIRoute(metadataScrubMeta, {
     "artifacts removed, plus a re-inspection of the result. Defaults to removing everything. Nothing is stored.",
   request: { body: { content: { "application/json": { schema: ScrubRequest } }, required: true } },
   responses: {
-    200: { description: "Cleaned file + report", content: { "application/json": { schema: ScrubResponse } } },
-    400: { description: "Unprocessable file", content: { "application/problem+json": { schema: Problem } } },
-    401: { description: "No valid session", content: { "application/problem+json": { schema: Problem } } },
-    403: { description: "Missing tools:metadataScrubber", content: { "application/problem+json": { schema: Problem } } },
-    429: { description: "Rate limit exceeded", content: { "application/problem+json": { schema: Problem } } },
+    200: {
+      description: "Cleaned file + report",
+      content: { "application/json": { schema: ScrubResponse } },
+    },
+    400: {
+      description: "Unprocessable file",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "Missing tools:metadataScrubber",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
   },
 });
 
@@ -2094,11 +2184,13 @@ git commit -m "feat(worker): /api/v1/metadata inspect + scrub routes"
 ### Task 15: Update the contract — conformance list, OpenAPI snapshot, client
 
 **Files:**
+
 - Modify: `apps/worker/test/conformance.test.ts` (add the two operationIds to the committed-operations list)
 - Modify: `apps/worker/openapi/openapi.json` (regenerated, never hand-edited)
 - Modify: `packages/api-client/src/*` (regenerated)
 
 **Interfaces:**
+
 - Consumes: the routes from Task 14.
 
 - [ ] **Step 1: Add the operationIds to the not-vacuous list**
@@ -2134,11 +2226,13 @@ git commit -m "chore(worker): emit metadata operations into the OpenAPI contract
 ### Task 16: Role-seed migration
 
 **Files:**
+
 - Create: `packages/database/drizzle/per-firm/0018_seed-tools-metadata-scrubber.sql`
 - Modify: `packages/database/drizzle/per-firm/meta/_journal.json` (append entry idx 18)
 - Test: `apps/worker/test/seed-tools-metadata-scrubber.test.ts`
 
 **Interfaces:**
+
 - Consumes: the permission from Task 12.
 - Produces: `tools:metadataScrubber` granted to all five default roles.
 
@@ -2191,18 +2285,18 @@ INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermi
 INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermission_Ee5Ff6Gg7Hh8Ii9Jj0Kk1', 'role_WojF9F7kksBEftsmZGNhb', 'tools:metadataScrubber');
 ```
 
-> The example identifiers above are placeholders for *format*. Before committing, regenerate five real unique identifiers (e.g. with `@magna-carta/identifiers`'s generator, prefix `rolePermission`) and replace them, then confirm `isIdentifier` accepts them (the `generated-migrations.test.ts` lineage check validates identifier shape).
+> The example identifiers above are placeholders for _format_. Before committing, regenerate five real unique identifiers (e.g. with `@magna-carta/identifiers`'s generator, prefix `rolePermission`) and replace them, then confirm `isIdentifier` accepts them (the `generated-migrations.test.ts` lineage check validates identifier shape).
 
 Append to `packages/database/drizzle/per-firm/meta/_journal.json` `entries`:
 
 ```jsonc
-    {
-      "idx": 18,
-      "version": "6",
-      "when": 1782300000000,
-      "tag": "0018_seed-tools-metadata-scrubber",
-      "breakpoints": true
-    }
+{
+  "idx": 18,
+  "version": "6",
+  "when": 1782300000000,
+  "tag": "0018_seed-tools-metadata-scrubber",
+  "breakpoints": true,
+}
 ```
 
 (No schema snapshot is required — seed-only migrations such as `0013` carry none, and `generated-migrations.test.ts` reads only the journal + `.sql` files.)
@@ -2225,9 +2319,11 @@ git commit -m "feat(database): seed tools:metadataScrubber to default roles"
 ### Task 17: Wire into the throwaway dev demo page
 
 **Files:**
+
 - Modify: `apps/worker/src/routes/dev-web-tools-demo.ts` (add a Metadata section)
 
 **Interfaces:**
+
 - Consumes: the routes from Task 14.
 
 - [ ] **Step 1: Add a section + script**
@@ -2237,9 +2333,11 @@ In `dev-web-tools-demo.ts`, add a `<section>` with a file input and two buttons 
 ```html
 <section>
   <h2>Metadata Inspector &amp; Scrubber <span class="note">(.docx, .jpg, .png)</span></h2>
-  <p><input id="md-file" type="file" />
-     <button id="md-inspect">Inspect</button>
-     <button id="md-scrub">Scrub &amp; download</button></p>
+  <p>
+    <input id="md-file" type="file" />
+    <button id="md-inspect">Inspect</button>
+    <button id="md-scrub">Scrub &amp; download</button>
+  </p>
   <pre id="md-out">(results appear here)</pre>
   <div id="md-dl"></div>
 </section>
@@ -2250,15 +2348,20 @@ async function fileToBase64(file) {
   const buf = new Uint8Array(await file.arrayBuffer());
   let binary = "";
   const chunk = 0x8000;
-  for (let i = 0; i < buf.length; i += chunk) binary += String.fromCharCode(...buf.subarray(i, i + chunk));
+  for (let i = 0; i < buf.length; i += chunk)
+    binary += String.fromCharCode(...buf.subarray(i, i + chunk));
   return btoa(binary);
 }
 async function mdInspect() {
   const file = $("md-file").files[0];
-  if (!file) { $("md-out").textContent = "Pick a file first."; return; }
+  if (!file) {
+    $("md-out").textContent = "Pick a file first.";
+    return;
+  }
   $("md-out").textContent = "Inspecting...";
   const r = await fetch("/api/v1/metadata/inspect", {
-    method: "POST", credentials: "same-origin",
+    method: "POST",
+    credentials: "same-origin",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ filename: file.name, contentBase64: await fileToBase64(file) }),
   });
@@ -2266,10 +2369,14 @@ async function mdInspect() {
 }
 async function mdScrub() {
   const file = $("md-file").files[0];
-  if (!file) { $("md-out").textContent = "Pick a file first."; return; }
+  if (!file) {
+    $("md-out").textContent = "Pick a file first.";
+    return;
+  }
   $("md-out").textContent = "Scrubbing...";
   const r = await fetch("/api/v1/metadata/scrub", {
-    method: "POST", credentials: "same-origin",
+    method: "POST",
+    credentials: "same-origin",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ filename: file.name, contentBase64: await fileToBase64(file) }),
   });
@@ -2304,6 +2411,7 @@ git commit -m "chore(worker): add metadata tool to the throwaway dev demo page"
 ### Task 18: Documentation
 
 **Files:**
+
 - Modify: `STATUS.md` (the tool's slice row)
 - Modify: `ROADMAP.md` (mark shipped/now as the repo convention dictates)
 - Create: `changelog.d/tools-metadata-scrubber.md` (changelog fragment)
@@ -2370,6 +2478,7 @@ Before merging to `main`, run the package's standard end-of-build adversarial re
 ## Self-Review
 
 **Spec coverage:**
+
 - Two tools / grouping (spec §0–1): catalog row in `documents` group (Task 13); forensics explicitly out of scope (Global Constraints).
 - Architecture / port seam (spec §2): `MetadataPort` + `MetadataEngine` interfaces (Tasks 2, 11); size cap + guards (Task 4); container/Rust→WASM staged (Global Constraints).
 - Formats / what's inspected & scrubbed (spec §3): OOXML docProps/tracked-changes/comments/hidden (Tasks 6–8); images JPEG/PNG (Tasks 9–10). `.xlsx`/`.pptx`/TIFF/HEIC staged (Global Constraints) — a deliberate, named narrowing of spec §3, recorded in the ADR fragment (Task 18).

@@ -6,11 +6,7 @@ export interface MetadataInput {
   readonly filename: string;
 }
 
-export type MetadataFailure =
-  | "unsupported-format"
-  | "too-large"
-  | "corrupt"
-  | "decompression-bomb";
+export type MetadataFailure = "unsupported-format" | "too-large" | "corrupt" | "decompression-bomb";
 
 export type InspectOutcome =
   | { readonly ok: true; readonly report: MetadataReport }
