@@ -33,6 +33,7 @@ import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 import { registerNumberingRoutes } from "./routes/numbering.ts";
 import { registerUploadsRoutes } from "./routes/uploads.ts";
+import { registerPreviewServeRoute } from "./files/preview-serve.ts";
 import { telemetryErrorHandler, telemetryMiddleware } from "./telemetry-middleware.ts";
 import { createUsageConsentResolver } from "./usage/consent.ts";
 import { usageReachedMiddleware } from "./usage/reached-middleware.ts";
@@ -58,6 +59,11 @@ export type Bindings = {
   // Better Auth's signing/encryption secret. Local dev + tests load it from .dev.vars;
   // production sets it with `wrangler secret put AUTH_SECRET`.
   AUTH_SECRET: string;
+  // The cookieless files host (e.g. files.magnacarta.esq). Optional: does not exist until the apex
+  // domain attaches; while unset the preview grant degrades to download-only. The cookieless serve
+  // route only ever answers when the request hostname equals this value. A public hostname, not a
+  // secret — bound via wrangler.jsonc vars, never .dev.vars.
+  FILES_ORIGIN?: string;
   // The POST /api/v1/firms guard secret (constant-time-compared against X-Platform-Admin-Key — a
   // stand-in seam until a real platform-admin principal model exists). Local dev + tests load the
   // placeholder from .dev.vars; production sets it with `wrangler secret put PLATFORM_ADMIN_KEY`.
@@ -191,6 +197,15 @@ export function createApp(options: CreateAppOptions = {}) {
     ...ports,
     idempotency: createChokepointIdempotency(),
   });
+
+  // The cookieless preview serve route: a bare, host-guarded route on the files host, OUTSIDE the
+  // chokepoint (no session on files.*), under /api/ so it reaches the Worker (run_worker_first).
+  // Registered FIRST so its files-host catch-all seals the cookieless origin BEFORE any other route
+  // (health, Better Auth, /api/v1, ASSETS) can answer on files.* — the seal only holds if nothing is
+  // registered ahead of it. On the app origin the catch-all falls through (next()), so the routes
+  // below are unaffected. A standing fitness test asserts /api/health and /api/auth/* return the bare
+  // 404 on the files host, so this ordering seal cannot silently regress as routes are added.
+  registerPreviewServeRoute(app);
 
   // Health is platform plumbing: public, unauthenticated, no /api/v1 surface — it still rides the
   // chokepoint (rate-limit only, no session/firm/RBAC) so EVERY declared route is enforced through

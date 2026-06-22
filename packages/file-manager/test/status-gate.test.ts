@@ -28,7 +28,9 @@ describe("file_version reads are status-gated (golden rule 3)", () => {
       for (const { sql, index } of sqlLiterals(source)) {
         const touchesVersions = /file_version/i.test(sql) || /FILE_VERSION_TABLE/.test(sql);
         if (!touchesVersions || !/\bSELECT\b/.test(sql)) continue;
-        if (/status/i.test(sql)) continue;
+        // Require a real status PREDICATE, not merely the substring 'status' (which a SELECT that only
+        // projects the status column would satisfy without actually gating on it).
+        if (/\bstatus\s*(=|!=|<>|\bIN\b|\bIS\b)/i.test(sql)) continue;
         const preceding = source.slice(Math.max(0, index - 240), index);
         if (preceding.includes("fitness:allow-no-status")) continue;
         offenders.push(`${fileName}: ${sql.slice(0, 80)}…`);

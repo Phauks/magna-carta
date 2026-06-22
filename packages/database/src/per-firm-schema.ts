@@ -556,6 +556,12 @@ export const fileVersion = sqliteTable(
       .default("standard"),
     scanVerdict: text("scan_verdict", { enum: ["unscanned", "clean", "infected"] }),
     scanEngineVersion: text("scan_engine_version"),
+    // NULL = never sniffed; set by the codec sniff when a reader first computes it. NULL must stay
+    // distinct from 'indeterminate' (sniffed-but-undecidable) so a corpus roll-up can tell "never
+    // looked" from "looked, can't decide". Only a positive 'playable' unlocks inline media.
+    inlinePlayable: text("inline_playable", {
+      enum: ["playable", "download-only", "indeterminate"],
+    }),
     status: text("status", { enum: ["pending", "clean", "quarantined", "abandoned"] })
       .notNull()
       .default("pending"),
@@ -581,6 +587,10 @@ export const fileVersion = sqliteTable(
     check(
       "file_version_scan_verdict_check",
       sql`${table.scanVerdict} IS NULL OR ${table.scanVerdict} IN ('unscanned', 'clean', 'infected')`,
+    ),
+    check(
+      "file_version_inline_playable_check",
+      sql`${table.inlinePlayable} IS NULL OR ${table.inlinePlayable} IN ('playable', 'download-only', 'indeterminate')`,
     ),
     check(
       "file_version_status_check",

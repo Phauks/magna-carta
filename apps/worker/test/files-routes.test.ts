@@ -14,6 +14,7 @@ import type {
   UserId,
 } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
+import { createApp } from "../src/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 import {
@@ -60,13 +61,25 @@ async function seedFolder(name: string, parentFolderId: FolderId | null = null):
   return id;
 }
 
+interface SeedVersionOptions {
+  inlinePlayable?: "playable" | "download-only" | "indeterminate" | null;
+  storageClass?: "standard" | "infrequent_access";
+  storageEncoding?: string;
+  artifactRole?: "original" | "derived";
+  sniffedContentType?: string;
+}
+
 // Seeds a clean file with a single committed version, writing the bytes into the Miniflare R2 binding
 // at the version's key. status='clean' + current_version_id set is the visibility gate.
+// Optional fields in SeedVersionOptions override verdict/storage columns on the file_version row;
+// defaults preserve existing caller behaviour (sniffedContentType='text/plain', storageClass='standard',
+// storageEncoding='full', artifactRole='original', inlinePlayable=null).
 async function seedCleanFile(
   name: string,
   folderId: FolderId | null,
   bytes: string,
   createdAt = ISO,
+  options: SeedVersionOptions = {},
 ): Promise<{ fileId: FileId; versionId: FileVersionId; r2Key: string }> {
   const fileId = newIdentifier("file");
   const versionId = newIdentifier("fileVersion");
@@ -77,10 +90,22 @@ async function seedCleanFile(
     .bind(fileId, matterId, folderId, name, createdAt)
     .run();
   await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at) " +
-      "VALUES (?1, ?2, 1, ?3, ?4, 'text/plain', 'text/plain', 'hash', 'clean', ?5, ?6, ?6)",
+    "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at, inline_playable, storage_class, storage_encoding, artifact_role) " +
+      "VALUES (?1, ?2, 1, ?3, ?4, 'application/octet-stream', ?7, 'hash', 'clean', ?5, ?6, ?6, ?8, ?9, ?10, ?11)",
   )
-    .bind(versionId, fileId, r2Key, bytes.length, ownerUserId, createdAt)
+    .bind(
+      versionId,
+      fileId,
+      r2Key,
+      bytes.length,
+      ownerUserId,
+      createdAt,
+      options.sniffedContentType ?? "text/plain",
+      options.inlinePlayable ?? null,
+      options.storageClass ?? "standard",
+      options.storageEncoding ?? "full",
+      options.artifactRole ?? "original",
+    )
     .run();
   await env.DB_FIRM_POOL_1.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
     .bind(fileId, versionId)
@@ -92,6 +117,10 @@ async function seedCleanFile(
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
   await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
+  // DB_FIRM_POOL_2 is migrated so the cross-firm isolation test can seed a file in firm B and assert
+  // that a firm-A session receives a 404 when requesting firm B's file id at the preview grant — the
+  // firm-scoped data-access layer must not leak existence across tenant boundaries.
+  await applyPerFirmMigrations(env.DB_FIRM_POOL_2);
   poolFirmId = (await seedFirm({ name: "Files Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
     .firmId;
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
@@ -308,6 +337,65 @@ describe("GET /api/v1/files/{id}/download", () => {
   });
 });
 
+describe("GET /api/v1/files/{id}/preview", () => {
+  it("files.preview: a playable/standard/full/original version yields inline-media + a files-host streamUrl", async () => {
+    const { fileId } = await seedCleanFile("clip.mp4", null, "0123456789".repeat(50), ISO, {
+      inlinePlayable: "playable",
+      sniffedContentType: "video/mp4",
+    });
+    const res = await get(`/api/v1/files/${fileId}/preview`);
+    expect(res.status).toBe(200);
+    const body = await res.json<{ mode: string; streamUrl: string }>();
+    expect(body.mode).toBe("inline-media");
+    expect(body.streamUrl).toContain(`https://${env.FILES_ORIGIN}/api/files-preview/`);
+  });
+
+  it("files.preview: a download-only verdict yields mode download-only + downloadUrl, no streamUrl", async () => {
+    const { fileId } = await seedCleanFile("contract.pdf", null, "pdfbytes", ISO, {
+      inlinePlayable: "download-only",
+      sniffedContentType: "application/pdf",
+    });
+    const res = await get(`/api/v1/files/${fileId}/preview`);
+    expect(res.status).toBe(200);
+    const body = await res.json<{ mode: string; downloadUrl: string; streamUrl?: string }>();
+    expect(body.mode).toBe("download-only");
+    expect(body.downloadUrl).toContain(`/api/v1/files/${fileId}/download`);
+    expect(body.streamUrl).toBeUndefined();
+  });
+
+  it("files.preview: a null verdict (never sniffed) yields mode download-only + reason unknown-verdict", async () => {
+    const { fileId } = await seedCleanFile("unknown.bin", null, "bytes", ISO, {
+      inlinePlayable: null,
+    });
+    const res = await get(`/api/v1/files/${fileId}/preview`);
+    expect(res.status).toBe(200);
+    const body = await res.json<{ mode: string; reason: string }>();
+    expect(body.mode).toBe("download-only");
+    expect(body.reason).toBe("unknown-verdict");
+  });
+
+  it("files.preview: 404 for an unknown file id", async () => {
+    const fakeId = newIdentifier("file");
+    const res = await get(`/api/v1/files/${fakeId}/preview`);
+    expect(res.status).toBe(404);
+  });
+
+  it("files.preview: no audit row is written for an inline-media grant", async () => {
+    const { fileId, versionId } = await seedCleanFile("audio.mp3", null, "audiobytes", ISO, {
+      inlinePlayable: "playable",
+      sniffedContentType: "audio/mpeg",
+    });
+    const res = await get(`/api/v1/files/${fileId}/preview`);
+    expect(res.status).toBe(200);
+    const audit = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT event FROM audit_log WHERE subject_id = ?1",
+    )
+      .bind(versionId)
+      .first<{ event: string }>();
+    expect(audit).toBeNull();
+  });
+});
+
 describe("POST /api/v1/downloads/zip", () => {
   async function zip(body: unknown, cookie = ownerCookie): Promise<Response> {
     return SELF.fetch("https://example.com/api/v1/downloads/zip", {
@@ -487,5 +575,209 @@ describe("POST /api/v1/downloads/zip", () => {
   it("403s a Read-only member", async () => {
     const response = await zip({ matterId }, readOnlyCookie);
     expect(response.status).toBe(403);
+  });
+});
+
+describe("inline preview grant + cookieless delivery", () => {
+  const MP4_BYTES = "0123456789".repeat(50); // 500 bytes of deterministic content
+
+  it("auth -> grant: a playable/standard/full/original version yields inline-media + a files-host streamUrl, no audit row", async () => {
+    const { fileId } = await seedCleanFile("clip.mp4", null, MP4_BYTES, ISO, {
+      inlinePlayable: "playable",
+      sniffedContentType: "video/mp4",
+    });
+    const res = await get(`/api/v1/files/${fileId}/preview`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toBe("private, no-store");
+    const body = await res.json<{ mode: string; verdict: string; streamUrl: string; contentType: string; downloadUrl: string }>();
+    expect(body.mode).toBe("inline-media");
+    expect(body.verdict).toBe("playable");
+    expect(body.contentType).toBe("video/mp4");
+    expect(body.streamUrl).toContain(`https://${env.FILES_ORIGIN}/api/files-preview/`);
+    expect(body.downloadUrl).toBe(`/api/v1/files/${fileId}/download`);
+    const audit = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT event FROM audit_log WHERE event = 'file.downloaded' AND subject_id IN (SELECT id FROM file_version WHERE file_id = ?1)",
+    ).bind(fileId).all();
+    expect(audit.results).toHaveLength(0);
+  });
+
+  it("cookieless fetch: full safe-header set, sniffed type wins over declared, no session consulted", async () => {
+    const { fileId } = await seedCleanFile("clip2.mp4", null, MP4_BYTES, ISO, {
+      inlinePlayable: "playable",
+      sniffedContentType: "video/mp4", // declared_content_type is application/octet-stream
+    });
+    const grant = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ streamUrl: string }>();
+    const res = await SELF.fetch(grant.streamUrl); // NO cookie
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Disposition")).toBe("attachment");
+    expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
+    expect(res.headers.get("Content-Type")).toBe("video/mp4"); // sniffed wins over octet-stream
+    expect(res.headers.get("Content-Security-Policy")).toContain("sandbox");
+    expect(res.headers.get("Accept-Ranges")).toBe("bytes");
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
+    const buf = await res.arrayBuffer();
+    expect(new TextDecoder().decode(buf)).toBe(MP4_BYTES);
+  });
+
+  it("Range/206: a byte-range request yields 206 + correct Content-Range/ETag and the safe headers", async () => {
+    const { fileId } = await seedCleanFile("clip3.mp4", null, MP4_BYTES, ISO, {
+      inlinePlayable: "playable",
+      sniffedContentType: "video/mp4",
+    });
+    const grant = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ streamUrl: string }>();
+    const res = await SELF.fetch(grant.streamUrl, { headers: { Range: "bytes=0-99" } });
+    expect(res.status).toBe(206);
+    expect(res.headers.get("Content-Range")).toBe("bytes 0-99/500");
+    expect(res.headers.get("Content-Length")).toBe("100");
+    expect(res.headers.get("Content-Disposition")).toBe("attachment");
+    expect(res.headers.get("ETag")).toBeTruthy();
+    // Safe headers must be identical across 200 and 206 responses.
+    expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
+    expect(res.headers.get("Content-Security-Policy")).toContain("sandbox");
+    expect((await res.arrayBuffer()).byteLength).toBe(100);
+  });
+
+  it("Range/416: an unsatisfiable range yields 416 with the safe headers and no body", async () => {
+    const { fileId } = await seedCleanFile("clip4.mp4", null, MP4_BYTES, ISO, {
+      inlinePlayable: "playable",
+      sniffedContentType: "video/mp4",
+    });
+    const grant = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ streamUrl: string }>();
+    const res = await SELF.fetch(grant.streamUrl, { headers: { Range: "bytes=9000-9999" } });
+    expect(res.status).toBe(416);
+    expect(res.headers.get("Content-Range")).toBe("bytes */500");
+    expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
+  });
+
+  it("If-Range: a stale If-Range ETag ignores the Range and serves the full 200; a matching If-Range serves 206", async () => {
+    const { fileId } = await seedCleanFile("clip5.mp4", null, MP4_BYTES, ISO, {
+      inlinePlayable: "playable",
+      sniffedContentType: "video/mp4",
+    });
+    const grant = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ streamUrl: string }>();
+    // Discover the real ETag.
+    const probe = await SELF.fetch(grant.streamUrl, { headers: { Range: "bytes=0-99" } });
+    const etag = probe.headers.get("ETag");
+    expect(etag).toBeTruthy();
+    // Matching If-Range -> 206.
+    const matched = await SELF.fetch(grant.streamUrl, { headers: { Range: "bytes=0-99", "If-Range": etag as string } });
+    expect(matched.status).toBe(206);
+    // Stale If-Range -> ignore the Range, full 200.
+    const stale = await SELF.fetch(grant.streamUrl, { headers: { Range: "bytes=0-99", "If-Range": '"a-stale-etag"' } });
+    expect(stale.status).toBe(200);
+    expect((await stale.arrayBuffer()).byteLength).toBe(500);
+  });
+
+  it("forged / expired token on the files host -> bare 404, no error_ id, no problem+json", async () => {
+    const res = await SELF.fetch(`https://${env.FILES_ORIGIN}/api/files-preview/forged.token`);
+    expect(res.status).toBe(404);
+    expect(await res.text()).not.toMatch(/error_/);
+    expect(res.headers.get("Content-Type") ?? "").not.toContain("problem+json");
+  });
+
+  it("download-only: a NULL-verdict (never sniffed) version -> mode download-only, no streamUrl", async () => {
+    const { fileId } = await seedCleanFile("doc.bin", null, "data", ISO, { inlinePlayable: null });
+    const body = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ mode: string; reason: string; streamUrl?: string; downloadUrl: string }>();
+    expect(body.mode).toBe("download-only");
+    expect(body.reason).toBe("unknown-verdict");
+    expect(body.streamUrl).toBeUndefined();
+    expect(body.downloadUrl).toBe(`/api/v1/files/${fileId}/download`);
+  });
+
+  it("download-only: a playable-but-IA version -> mode download-only/tiered", async () => {
+    const { fileId } = await seedCleanFile("ia.mp4", null, MP4_BYTES, ISO, {
+      inlinePlayable: "playable",
+      sniffedContentType: "video/mp4",
+      storageClass: "infrequent_access",
+    });
+    const body = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ mode: string; reason: string }>();
+    expect(body.mode).toBe("download-only");
+    expect(body.reason).toBe("tiered");
+  });
+
+  it("read-only member: a Read-only cookie still gets a read grant (permission: null)", async () => {
+    const { fileId } = await seedCleanFile("ro.mp4", null, MP4_BYTES, ISO, {
+      inlinePlayable: "playable",
+      sniffedContentType: "video/mp4",
+    });
+    const res = await get(`/api/v1/files/${fileId}/preview`, readOnlyCookie);
+    expect(res.status).toBe(200);
+  });
+
+  it("cookieless tenant isolation: a token presented cold serves only what the signed bucket/key names", async () => {
+    // A grant minted for a firm-1 file is honored cold (no cookie) — proving the SIGNED key/bucket,
+    // not session/firm-D1 visibility, scopes the byte fetch.
+    const { fileId } = await seedCleanFile("iso.mp4", null, MP4_BYTES, ISO, {
+      inlinePlayable: "playable",
+      sniffedContentType: "video/mp4",
+    });
+    const grant = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ streamUrl: string }>();
+    const cold = await SELF.fetch(grant.streamUrl); // no session at all
+    expect(cold.status).toBe(200);
+  });
+
+  it("cross-firm isolation: a firm-A session requesting a firm-B file id at the preview grant receives 404 (no existence oracle)", async () => {
+    // Seed a clean file directly in firm B's database (DB_FIRM_POOL_2). The firm-A session (ownerCookie)
+    // then requests firm B's file id at the preview grant endpoint. The firm-scoped data-access layer
+    // must not expose existence across tenant boundaries — the response must be a uniform 404.
+    //
+    // Mirror ownerUserId into firm B's member table so the matter FK (responsible_member_id) resolves.
+    // The per-firm member table is a local mirror — no FK back to the control-plane user table.
+    await insertMemberStatement(env.DB_FIRM_POOL_2, {
+      userId: ownerUserId,
+      displayName: "Firm B Placeholder Member",
+      now: ISO,
+    }).run();
+    const firmBMatterId = newIdentifier("matter");
+    await env.DB_FIRM_POOL_2.prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Firm B Matter', 'open', ?2, ?3, ?3)",
+    )
+      .bind(firmBMatterId, ownerUserId, ISO)
+      .run();
+    const firmBFileId = newIdentifier("file");
+    const firmBVersionId = newIdentifier("fileVersion");
+    const firmBR2Key = `files/${firmBFileId}/${firmBVersionId}`;
+    await env.DB_FIRM_POOL_2.prepare(
+      "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, 'firm-b.mp4', NULL, NULL, NULL, ?3, ?3)",
+    )
+      .bind(firmBFileId, firmBMatterId, ISO)
+      .run();
+    await env.DB_FIRM_POOL_2.prepare(
+      "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at, inline_playable, storage_class, storage_encoding, artifact_role) " +
+        "VALUES (?1, ?2, 1, ?3, ?4, 'application/octet-stream', 'video/mp4', 'hash', 'clean', ?5, ?6, ?6, 'playable', 'standard', 'full', 'original')",
+    )
+      .bind(firmBVersionId, firmBFileId, firmBR2Key, MP4_BYTES.length, ownerUserId, ISO)
+      .run();
+    await env.DB_FIRM_POOL_2.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+      .bind(firmBFileId, firmBVersionId)
+      .run();
+    await env.R2.put(firmBR2Key, MP4_BYTES);
+    // Firm A's authenticated session must receive 404 — firm B's file must not be visible across the
+    // tenant boundary regardless of whether the file id exists in another firm's database.
+    const res = await get(`/api/v1/files/${firmBFileId}/preview`); // ownerCookie = firm A
+    expect(res.status).toBe(404);
+  });
+
+  it("pre-apex degrade: with FILES_ORIGIN unset the grant is download-only/host-unavailable, downloadUrl only", async () => {
+    // Construct an app whose env omits FILES_ORIGIN and call it directly with the owner session, so the
+    // binding is genuinely absent (the shared SELF pool binds it via wrangler.jsonc vars).
+    const { fileId } = await seedCleanFile("degrade.mp4", null, MP4_BYTES, ISO, {
+      inlinePlayable: "playable",
+      sniffedContentType: "video/mp4",
+    });
+    const app = createApp();
+    const envWithoutFilesOrigin = { ...(env as Record<string, unknown>), FILES_ORIGIN: undefined };
+    const res = await app.fetch(
+      new Request(`https://example.com/api/v1/files/${fileId}/preview`, {
+        headers: { cookie: ownerCookie, origin: "https://example.com" },
+      }),
+      envWithoutFilesOrigin as never,
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json<{ mode: string; reason: string; streamUrl?: string; downloadUrl: string }>();
+    expect(body.mode).toBe("download-only");
+    expect(body.reason).toBe("host-unavailable");
+    expect(body.streamUrl).toBeUndefined();
+    expect(body.downloadUrl).toBe(`/api/v1/files/${fileId}/download`);
   });
 });

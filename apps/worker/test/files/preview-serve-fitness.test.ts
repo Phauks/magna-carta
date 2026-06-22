@@ -1,0 +1,87 @@
+import { env, SELF } from "cloudflare:test";
+import { describe, expect, it } from "vitest";
+import { createApp } from "../../src/app.ts";
+import { buildSafeDeliveryHeaders } from "../../src/files/preview-headers.ts";
+import { mintPreviewDeliveryToken } from "../../src/files/preview-token.ts";
+
+describe("cookieless preview surface — standing fitness guard", () => {
+  it("registers the cookieless route exactly once", () => {
+    const app = createApp();
+    const matches = app.routes.filter((r) => r.path === "/api/files-preview/:token");
+    expect(matches.length).toBe(1);
+  });
+
+  it("never emits Content-Disposition: inline from the header builder", () => {
+    const h = buildSafeDeliveryHeaders({ sniffedContentType: "video/mp4", appOrigin: "https://app.example.com" });
+    expect(h.get("Content-Disposition")).toBe("attachment");
+  });
+
+  it("a non-preview path on the files host does not leak the SPA shell", async () => {
+    const res = await SELF.fetch(`https://${env.FILES_ORIGIN}/some/other/path`);
+    const body = await res.text();
+    expect(body).not.toContain("<!doctype html");
+    expect(body).not.toContain("<html");
+  });
+
+  it("a forged token on the files host returns a bare 404 with no error_ id / correlation surface, no ACAO", async () => {
+    const res = await SELF.fetch(`https://${env.FILES_ORIGIN}/api/files-preview/forged.token`);
+    expect(res.status).toBe(404);
+    const body = await res.text();
+    expect(body).not.toMatch(/error_/);
+    expect(res.headers.get("correlation-id")).toBeNull();
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
+    expect(res.headers.get("Content-Disposition")).toBe("attachment");
+    expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
+    expect(res.headers.get("Content-Type")).not.toContain("application/problem+json");
+  });
+
+  it("the preview path on a non-files host returns the bare 404, not a privileged handler", async () => {
+    const res = await SELF.fetch("https://example.com/api/files-preview/anything");
+    expect(res.status).toBe(404);
+    const body = await res.text();
+    expect(body).not.toMatch(/error_/);
+  });
+
+  it("seals the files host: /api/health and /api/auth/* return the bare 404, not their real handlers", async () => {
+    // The cookieless files origin must serve ONLY the preview route or a bare 404 — never the health
+    // endpoint, and never Better Auth (a credential/authentication surface must not exist on files.*).
+    // The files-host catch-all is registered before every other route so this holds order-independently;
+    // this guard fails if a future route is registered ahead of it and starts answering on files.*.
+    const health = await SELF.fetch(`https://${env.FILES_ORIGIN}/api/health`);
+    expect(health.status).toBe(404);
+    expect(await health.text()).not.toMatch(/error_/);
+    expect(health.headers.get("Content-Disposition")).toBe("attachment");
+
+    const auth = await SELF.fetch(`https://${env.FILES_ORIGIN}/api/auth/get-session`, { method: "POST" });
+    expect(auth.status).toBe(404);
+    const authBody = await auth.text();
+    expect(authBody).not.toMatch(/error_/);
+    // Better Auth must NOT have run on files.* — no auth JSON, no session cookie minted there.
+    expect(authBody).not.toMatch(/session|INVALID_/i);
+    expect(auth.headers.get("set-cookie")).toBeNull();
+    expect(auth.headers.get("Content-Disposition")).toBe("attachment");
+  });
+
+  it("a header-unsafe (CRLF) Content-Type in a directly-minted token returns a bare 404, never a 500/error_", async () => {
+    // decidePreview already refuses to mint an inline grant for a header-unsafe sniffed type; this proves
+    // the edge-local backstop. Even a token minted by other means (the forward transcode-rendition seam)
+    // whose Content-Type would make Headers.set throw must degrade to the bare 404 — the cookieless edge
+    // must never throw into the telemetry boundary and emit an error_ id on the untrusted host.
+    const r2Key = "files/headersafe/v1";
+    await env.R2.put(r2Key, "preview-bytes");
+    const token = await mintPreviewDeliveryToken(env.AUTH_SECRET, {
+      r2Key,
+      bucket: "test-bucket",
+      sniffedContentType: "video/mp4\r\nSet-Cookie: pwned=1",
+      verdict: "playable",
+      exp: Math.floor(Date.now() / 1000) + 300,
+    });
+    const res = await SELF.fetch(`https://${env.FILES_ORIGIN}/api/files-preview/${token}`);
+    expect(res.status).toBe(404);
+    const body = await res.text();
+    expect(body).not.toMatch(/error_/);
+    expect(res.headers.get("Content-Type")).not.toContain("application/problem+json");
+    expect(res.headers.get("Content-Disposition")).toBe("attachment");
+    expect(res.headers.get("Set-Cookie")).toBeNull();
+  });
+});
