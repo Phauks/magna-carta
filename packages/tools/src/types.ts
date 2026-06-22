@@ -7,13 +7,14 @@ export const SUBJECT_GROUP_ORDER = [
   "people-licenses",
   "mailing-shipping",
   "printing",
+  "web-domains", // website/domain subjects — WHOIS lookup, safe website viewer
   "diagnostics", // connectivity / system tests — no legal subject (e.g. a network speed test)
 ] as const;
 
 export type SubjectGroup = (typeof SUBJECT_GROUP_ORDER)[number];
 
 // What real-world input a tool acts on — drives contextual surfacing. `none` = general-only.
-export type ContextTag = "address" | "person" | "company" | "matter" | "none";
+export type ContextTag = "address" | "person" | "company" | "matter" | "website" | "none";
 
 // `library` = self-contained, no connection and no credential — a pure link generator OR an
 // interactive client-side widget; the difference is purely UI, handled by the shell. `integration`
