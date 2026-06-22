@@ -117,6 +117,10 @@ async function seedCleanFile(
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
   await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
+  // DB_FIRM_POOL_2 is migrated so the cross-firm isolation test can seed a file in firm B and assert
+  // that a firm-A session receives a 404 when requesting firm B's file id at the preview grant — the
+  // firm-scoped data-access layer must not leak existence across tenant boundaries.
+  await applyPerFirmMigrations(env.DB_FIRM_POOL_2);
   poolFirmId = (await seedFirm({ name: "Files Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
     .firmId;
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
@@ -611,7 +615,8 @@ describe("inline preview grant + cookieless delivery", () => {
     expect(res.headers.get("Content-Security-Policy")).toContain("sandbox");
     expect(res.headers.get("Accept-Ranges")).toBe("bytes");
     expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
-    expect(await res.text()).toBe(MP4_BYTES);
+    const buf = await res.arrayBuffer();
+    expect(new TextDecoder().decode(buf)).toBe(MP4_BYTES);
   });
 
   it("Range/206: a byte-range request yields 206 + correct Content-Range/ETag and the safe headers", async () => {
@@ -626,7 +631,10 @@ describe("inline preview grant + cookieless delivery", () => {
     expect(res.headers.get("Content-Length")).toBe("100");
     expect(res.headers.get("Content-Disposition")).toBe("attachment");
     expect(res.headers.get("ETag")).toBeTruthy();
-    expect((await res.text()).length).toBe(100);
+    // Safe headers must be identical across 200 and 206 responses.
+    expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
+    expect(res.headers.get("Content-Security-Policy")).toContain("sandbox");
+    expect((await res.arrayBuffer()).byteLength).toBe(100);
   });
 
   it("Range/416: an unsatisfiable range yields 416 with the safe headers and no body", async () => {
@@ -657,13 +665,14 @@ describe("inline preview grant + cookieless delivery", () => {
     // Stale If-Range -> ignore the Range, full 200.
     const stale = await SELF.fetch(grant.streamUrl, { headers: { Range: "bytes=0-99", "If-Range": '"a-stale-etag"' } });
     expect(stale.status).toBe(200);
-    expect((await stale.text()).length).toBe(500);
+    expect((await stale.arrayBuffer()).byteLength).toBe(500);
   });
 
-  it("forged / expired token on the files host -> bare 404, no error_ id", async () => {
+  it("forged / expired token on the files host -> bare 404, no error_ id, no problem+json", async () => {
     const res = await SELF.fetch(`https://${env.FILES_ORIGIN}/api/files-preview/forged.token`);
     expect(res.status).toBe(404);
     expect(await res.text()).not.toMatch(/error_/);
+    expect(res.headers.get("Content-Type") ?? "").not.toContain("problem+json");
   });
 
   it("download-only: a NULL-verdict (never sniffed) version -> mode download-only, no streamUrl", async () => {
@@ -705,6 +714,48 @@ describe("inline preview grant + cookieless delivery", () => {
     const grant = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ streamUrl: string }>();
     const cold = await SELF.fetch(grant.streamUrl); // no session at all
     expect(cold.status).toBe(200);
+  });
+
+  it("cross-firm isolation: a firm-A session requesting a firm-B file id at the preview grant receives 404 (no existence oracle)", async () => {
+    // Seed a clean file directly in firm B's database (DB_FIRM_POOL_2). The firm-A session (ownerCookie)
+    // then requests firm B's file id at the preview grant endpoint. The firm-scoped data-access layer
+    // must not expose existence across tenant boundaries — the response must be a uniform 404.
+    //
+    // Mirror ownerUserId into firm B's member table so the matter FK (responsible_member_id) resolves.
+    // The per-firm member table is a local mirror — no FK back to the control-plane user table.
+    await insertMemberStatement(env.DB_FIRM_POOL_2, {
+      userId: ownerUserId,
+      displayName: "Firm B Placeholder Member",
+      now: ISO,
+    }).run();
+    const firmBMatterId = newIdentifier("matter");
+    await env.DB_FIRM_POOL_2.prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Firm B Matter', 'open', ?2, ?3, ?3)",
+    )
+      .bind(firmBMatterId, ownerUserId, ISO)
+      .run();
+    const firmBFileId = newIdentifier("file");
+    const firmBVersionId = newIdentifier("fileVersion");
+    const firmBR2Key = `files/${firmBFileId}/${firmBVersionId}`;
+    await env.DB_FIRM_POOL_2.prepare(
+      "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, 'firm-b.mp4', NULL, NULL, NULL, ?3, ?3)",
+    )
+      .bind(firmBFileId, firmBMatterId, ISO)
+      .run();
+    await env.DB_FIRM_POOL_2.prepare(
+      "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at, inline_playable, storage_class, storage_encoding, artifact_role) " +
+        "VALUES (?1, ?2, 1, ?3, ?4, 'application/octet-stream', 'video/mp4', 'hash', 'clean', ?5, ?6, ?6, 'playable', 'standard', 'full', 'original')",
+    )
+      .bind(firmBVersionId, firmBFileId, firmBR2Key, MP4_BYTES.length, ownerUserId, ISO)
+      .run();
+    await env.DB_FIRM_POOL_2.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+      .bind(firmBFileId, firmBVersionId)
+      .run();
+    await env.R2.put(firmBR2Key, MP4_BYTES);
+    // Firm A's authenticated session must receive 404 — firm B's file must not be visible across the
+    // tenant boundary regardless of whether the file id exists in another firm's database.
+    const res = await get(`/api/v1/files/${firmBFileId}/preview`); // ownerCookie = firm A
+    expect(res.status).toBe(404);
   });
 
   it("pre-apex degrade: with FILES_ORIGIN unset the grant is download-only/host-unavailable, downloadUrl only", async () => {
