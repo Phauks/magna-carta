@@ -5,3 +5,5 @@ export type {
   BrowserRenderer,
   SafeBrowseDeps,
 } from "./types.ts";
+
+export { captureSafeView } from "./capture.ts";
