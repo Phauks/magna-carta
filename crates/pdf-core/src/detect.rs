@@ -122,6 +122,86 @@ pub(crate) fn page_geometric_findings(obs: &PageObservation, page: usize) -> Vec
     findings
 }
 
+use lopdf::{Object, ObjectId};
+
+#[allow(dead_code)]
+fn object_strings(obj: &Object, out: &mut String) {
+    match obj {
+        Object::String(bytes, _) => {
+            out.push_str(&String::from_utf8_lossy(bytes));
+            out.push('\n');
+        }
+        Object::Array(items) => items.iter().for_each(|o| object_strings(o, out)),
+        Object::Dictionary(d) => d.iter().for_each(|(_, o)| object_strings(o, out)),
+        Object::Stream(s) => {
+            if let Ok(decoded) = s.decompressed_content() {
+                out.push_str(&String::from_utf8_lossy(&decoded));
+                out.push('\n');
+            } else {
+                out.push_str(&String::from_utf8_lossy(&s.content));
+                out.push('\n');
+            }
+        }
+        _ => {}
+    }
+}
+
+#[allow(dead_code)]
+pub(crate) fn structural_findings(doc: &mut lopdf::Document, needle_min_len: usize) -> Vec<Finding> {
+    let mut findings = Vec::new();
+
+    // MetadataLeak — the Info dictionary's human-readable string values.
+    let info_id = doc.trailer.get(b"Info").ok().and_then(|o| o.as_reference().ok());
+    if let Some(info_id) = info_id {
+        if let Ok(info) = doc.get_object(info_id).and_then(|o| o.as_dict()) {
+            let mut text = String::new();
+            for (_, v) in info.iter() {
+                object_strings(v, &mut text);
+            }
+            let text = text.trim().to_string();
+            if text.len() >= needle_min_len {
+                findings.push(Finding {
+                    category: Category::MetadataLeak,
+                    severity: Severity::Medium,
+                    page: None,
+                    region: None,
+                    recovered_text: text,
+                    detail: "Document information dictionary carries identifying metadata.".into(),
+                });
+            }
+        }
+    }
+
+    // OrphanedText — objects not reachable from the trailer that carry text.
+    let reachable: std::collections::BTreeSet<ObjectId> =
+        doc.traverse_objects(|_| {}).into_iter().collect();
+    let orphan_ids: Vec<ObjectId> = doc
+        .objects
+        .keys()
+        .copied()
+        .filter(|id| !reachable.contains(id))
+        .collect();
+    for id in orphan_ids {
+        if let Some(obj) = doc.objects.get(&id) {
+            let mut text = String::new();
+            object_strings(obj, &mut text);
+            let text = text.trim().to_string();
+            if text.len() >= needle_min_len {
+                findings.push(Finding {
+                    category: Category::OrphanedText,
+                    severity: Severity::High,
+                    page: None,
+                    region: None,
+                    recovered_text: text,
+                    detail: "Text present in an object that no page references — recoverable from the file bytes.".into(),
+                });
+            }
+        }
+    }
+
+    findings
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -172,5 +252,37 @@ mod tests {
         };
         let findings = page_geometric_findings(&obs, 0);
         assert!(findings.iter().any(|f| matches!(f.category, Category::WhiteoutText) && f.recovered_text == "white"));
+    }
+
+    #[test]
+    fn flags_metadata_and_orphaned_text() {
+        use lopdf::{Dictionary, Document, Object, Stream};
+        let mut doc = Document::with_version("1.5");
+        let pages_id = doc.new_object_id();
+        let mut catalog = Dictionary::new();
+        catalog.set("Type", Object::Name(b"Catalog".to_vec()));
+        catalog.set("Pages", Object::Reference(pages_id));
+        let catalog_id = doc.add_object(catalog);
+        let mut pages = Dictionary::new();
+        pages.set("Type", Object::Name(b"Pages".to_vec()));
+        pages.set("Kids", Object::Array(vec![]));
+        pages.set("Count", Object::Integer(0));
+        doc.objects.insert(pages_id, Object::Dictionary(pages));
+        doc.trailer.set("Root", Object::Reference(catalog_id));
+        // Metadata leak: an Info dictionary with an author.
+        let info_id = doc.add_object(Object::Dictionary({
+            let mut d = Dictionary::new();
+            d.set("Author", Object::string_literal("Privileged Author"));
+            d
+        }));
+        doc.trailer.set("Info", Object::Reference(info_id));
+        // Orphaned text: a stream object referenced by nothing.
+        doc.add_object(Stream::new(Dictionary::new(), b"(orphan secret) Tj".to_vec()));
+
+        let findings = structural_findings(&mut doc, 3);
+        assert!(findings.iter().any(|f| matches!(f.category, Category::MetadataLeak)
+            && f.recovered_text.contains("Privileged Author")));
+        assert!(findings.iter().any(|f| matches!(f.category, Category::OrphanedText)
+            && f.recovered_text.contains("orphan secret")));
     }
 }
