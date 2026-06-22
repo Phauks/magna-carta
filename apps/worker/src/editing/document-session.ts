@@ -15,10 +15,13 @@ export interface CurrentObjectMeta {
 export interface DocumentSessionState {
   readonly participants: Readonly<Record<string, ParticipantCapability>>;
   readonly current: CurrentObjectMeta | null;
+  // The single WOPI lock for this document — one per session, shared by co-editors, null when no
+  // editing session holds it.
+  readonly wopiLock: string | null;
 }
 
 const STATE_KEY = "session-state";
-const EMPTY_STATE: DocumentSessionState = { participants: {}, current: null };
+const EMPTY_STATE: DocumentSessionState = { participants: {}, current: null, wopiLock: null };
 
 // Per-document session coordinator — one instance per open file (addressed by fileId). It holds the
 // live session state in its own durable storage (the participant set and the `current` working-object
@@ -67,5 +70,18 @@ export class DocumentSession extends DurableObject<Bindings> {
   async setCurrentMeta(meta: CurrentObjectMeta): Promise<void> {
     const state = await this.load();
     await this.save({ ...state, current: meta });
+  }
+
+  // Takes (or replaces) the document's single WOPI lock — the WOPI lock-family handlers persist the
+  // current value here so it survives the editing container sleeping.
+  async setWopiLock(value: string): Promise<void> {
+    const state = await this.load();
+    await this.save({ ...state, wopiLock: value });
+  }
+
+  // Releases the WOPI lock when the last editor leaves.
+  async clearWopiLock(): Promise<void> {
+    const state = await this.load();
+    await this.save({ ...state, wopiLock: null });
   }
 }

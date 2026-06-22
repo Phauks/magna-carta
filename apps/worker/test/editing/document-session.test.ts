@@ -42,4 +42,19 @@ describe("DocumentSession", () => {
       expect((await instance.getState()).current).toEqual(meta);
     });
   });
+
+  it("holds the single WOPI session lock durably and clears it", async () => {
+    const stub = sessionStub("file_lock");
+
+    await runInDurableObject(stub, async (instance: DocumentSession) => {
+      expect((await instance.getState()).wopiLock).toBeNull();
+      await instance.setWopiLock("lock-value-1");
+    });
+    // The lock survives eviction — a re-acquired session still holds it.
+    await runInDurableObject(stub, async (instance: DocumentSession) => {
+      expect((await instance.getState()).wopiLock).toBe("lock-value-1");
+      await instance.clearWopiLock();
+      expect((await instance.getState()).wopiLock).toBeNull();
+    });
+  });
 });

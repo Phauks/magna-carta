@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FileId, FileVersionId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { checkFileInfo, getFile, putFile } from "../../src/editing/wopi-routes.ts";
+import { checkFileInfo, getFile, lockOperation, putFile } from "../../src/editing/wopi-routes.ts";
 import type { EditTokenClaims } from "../../src/editing/wopi-token.ts";
 import type { CurrentObjectMeta } from "../../src/editing/document-session.ts";
 import { applyPerFirmMigrations } from "../support/apply-per-firm-migrations.ts";
@@ -284,5 +284,133 @@ describe("WOPI PutFile", () => {
 
     expect(await env.R2.get(`files/${fileId}/current`)).toBeNull();
     expect(recordCurrentMeta).not.toHaveBeenCalled();
+  });
+});
+
+const editClaims = () => claimsFor(newIdentifier("file"), newIdentifier("fileVersion"), "edit");
+
+function lockRequest(override: string, lock: string, oldLock?: string): Request {
+  const headers: Record<string, string> = { "X-WOPI-Override": override, "X-WOPI-Lock": lock };
+  if (oldLock !== undefined) headers["X-WOPI-OldLock"] = oldLock;
+  return new Request("https://host/wopi/files/x", { method: "POST", headers });
+}
+
+describe("WOPI lock family", () => {
+  it("locks an unlocked document and stores the lock value", async () => {
+    const setLock = vi.fn(async () => {});
+    const clearLock = vi.fn(async () => {});
+
+    const response = await lockOperation(editClaims(), lockRequest("LOCK", "L1"), {
+      currentLock: null,
+      setLock,
+      clearLock,
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("X-WOPI-Lock")).toBeNull();
+    expect(setLock).toHaveBeenCalledWith("L1");
+  });
+
+  it("treats a Lock with the same value as a co-editor join (no relock)", async () => {
+    const setLock = vi.fn(async () => {});
+
+    const response = await lockOperation(editClaims(), lockRequest("LOCK", "L1"), {
+      currentLock: "L1",
+      setLock,
+      clearLock: vi.fn(async () => {}),
+    });
+
+    expect(response.status).toBe(200);
+    expect(setLock).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 with the held lock when a Lock value conflicts", async () => {
+    const setLock = vi.fn(async () => {});
+
+    const response = await lockOperation(editClaims(), lockRequest("LOCK", "L2"), {
+      currentLock: "L1",
+      setLock,
+      clearLock: vi.fn(async () => {}),
+    });
+
+    expect(response.status).toBe(409);
+    expect(response.headers.get("X-WOPI-Lock")).toBe("L1");
+    expect(setLock).not.toHaveBeenCalled();
+  });
+
+  it("unlocks when the presented lock matches", async () => {
+    const clearLock = vi.fn(async () => {});
+
+    const response = await lockOperation(editClaims(), lockRequest("UNLOCK", "L1"), {
+      currentLock: "L1",
+      setLock: vi.fn(async () => {}),
+      clearLock,
+    });
+
+    expect(response.status).toBe(200);
+    expect(clearLock).toHaveBeenCalledOnce();
+  });
+
+  it("returns 409 with the held lock when Unlock presents the wrong lock", async () => {
+    const clearLock = vi.fn(async () => {});
+
+    const response = await lockOperation(editClaims(), lockRequest("UNLOCK", "Lwrong"), {
+      currentLock: "L1",
+      setLock: vi.fn(async () => {}),
+      clearLock,
+    });
+
+    expect(response.status).toBe(409);
+    expect(response.headers.get("X-WOPI-Lock")).toBe("L1");
+    expect(clearLock).not.toHaveBeenCalled();
+  });
+
+  it("refreshes a matching lock and 409s a mismatched one with an empty header when unlocked", async () => {
+    const refreshed = await lockOperation(editClaims(), lockRequest("REFRESH_LOCK", "L1"), {
+      currentLock: "L1",
+      setLock: vi.fn(async () => {}),
+      clearLock: vi.fn(async () => {}),
+    });
+    expect(refreshed.status).toBe(200);
+
+    const stale = await lockOperation(editClaims(), lockRequest("REFRESH_LOCK", "L1"), {
+      currentLock: null,
+      setLock: vi.fn(async () => {}),
+      clearLock: vi.fn(async () => {}),
+    });
+    expect(stale.status).toBe(409);
+    expect(stale.headers.get("X-WOPI-Lock")).toBe("");
+  });
+
+  it("relocks (UnlockAndRelock) when the old lock matches and 409s when it does not", async () => {
+    const setLockOk = vi.fn(async () => {});
+    const ok = await lockOperation(editClaims(), lockRequest("LOCK", "L2", "L1"), {
+      currentLock: "L1",
+      setLock: setLockOk,
+      clearLock: vi.fn(async () => {}),
+    });
+    expect(ok.status).toBe(200);
+    expect(setLockOk).toHaveBeenCalledWith("L2");
+
+    const setLockBad = vi.fn(async () => {});
+    const bad = await lockOperation(editClaims(), lockRequest("LOCK", "L2", "Lwrong"), {
+      currentLock: "L1",
+      setLock: setLockBad,
+      clearLock: vi.fn(async () => {}),
+    });
+    expect(bad.status).toBe(409);
+    expect(bad.headers.get("X-WOPI-Lock")).toBe("L1");
+    expect(setLockBad).not.toHaveBeenCalled();
+  });
+
+  it("refuses a view token", async () => {
+    const viewClaims = claimsFor(newIdentifier("file"), newIdentifier("fileVersion"), "view");
+    await expect(
+      lockOperation(viewClaims, lockRequest("LOCK", "L1"), {
+        currentLock: null,
+        setLock: vi.fn(async () => {}),
+        clearLock: vi.fn(async () => {}),
+      }),
+    ).rejects.toMatchObject({ code: "forbidden-readonly" });
   });
 });

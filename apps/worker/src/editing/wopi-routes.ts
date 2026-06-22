@@ -160,3 +160,64 @@ export async function putFile(
   // Echo the new timestamp so the editor's next save presents a fresh, matching value.
   return new Response(null, { status: 200, headers: { "X-COOL-WOPI-Timestamp": wopiTimestamp } });
 }
+
+// The single session lock held in the document's Durable Object. One lock per document: the first
+// editor takes it, co-editors present the same value (a join, not a relock), and the last leaver
+// releases it. `setLock`/`clearLock` persist the change on the DO.
+export interface WopiLockDeps {
+  readonly currentLock: string | null;
+  readonly setLock: (value: string) => Promise<void>;
+  readonly clearLock: () => Promise<void>;
+}
+
+// A 409 carrying the lock currently held — the WOPI contract requires the held value (empty when
+// unlocked) so the editor can reconcile. A successful lock response carries no X-WOPI-Lock header.
+function lockConflict(currentLock: string | null): Response {
+  return new Response(null, { status: 409, headers: { "X-WOPI-Lock": currentLock ?? "" } });
+}
+const lockOk = (): Response => new Response(null, { status: 200 });
+
+export async function lockOperation(
+  claims: EditTokenClaims,
+  request: Request,
+  deps: WopiLockDeps,
+): Promise<Response> {
+  // Every lock operation mutates session state, so it is an edit-capability gate.
+  assertEditCapability(claims);
+
+  const override = request.headers.get("X-WOPI-Override");
+  const requestedLock = request.headers.get("X-WOPI-Lock") ?? "";
+  // UnlockAndRelock shares the LOCK override and is distinguished only by carrying X-WOPI-OldLock.
+  const oldLock = request.headers.get("X-WOPI-OldLock");
+  const { currentLock } = deps;
+
+  switch (override) {
+    case "LOCK": {
+      if (oldLock !== null) {
+        // UnlockAndRelock: the old lock must match before swapping in the new one.
+        if (currentLock !== oldLock) return lockConflict(currentLock);
+        await deps.setLock(requestedLock);
+        return lockOk();
+      }
+      if (currentLock === null) {
+        await deps.setLock(requestedLock);
+        return lockOk();
+      }
+      // A matching value is a co-editor joining the live session — already held, nothing to do.
+      if (currentLock === requestedLock) return lockOk();
+      return lockConflict(currentLock);
+    }
+    case "UNLOCK": {
+      if (currentLock !== requestedLock) return lockConflict(currentLock);
+      await deps.clearLock();
+      return lockOk();
+    }
+    case "REFRESH_LOCK": {
+      // The lock expiry is renewed by the alarm keep-alive; refresh only validates ownership here.
+      if (currentLock !== requestedLock) return lockConflict(currentLock);
+      return lockOk();
+    }
+    default:
+      return new Response(null, { status: 400 });
+  }
+}
