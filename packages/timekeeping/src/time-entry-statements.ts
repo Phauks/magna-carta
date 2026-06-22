@@ -7,6 +7,10 @@ import type { TimeEntryId } from "@magna-carta/identifiers/types";
 // columns are frozen (transitions live in this module, the guard lives in the service).
 export const TIME_ENTRY_TABLE = "time_entry";
 
+// Mirrors the CHECK constraint on time_entry.source — kept in sync so an invalid value is caught
+// at the TypeScript boundary before it reaches the database layer.
+export type TimeEntrySource = "timer" | "manual" | "quick_add" | "grid" | "offline_sync" | "calendar";
+
 // The resolved rate snapshot the route hands in, already frozen for this entry. amount_minor and
 // rate_e4 are paired by the table CHECK: both set (billable) or both null (non-billable internal time).
 export interface InsertTimeEntryRow {
@@ -26,7 +30,7 @@ export interface InsertTimeEntryRow {
   readonly amountMinor: number | null;
   readonly utbmsTaskCodeId: string | null;
   readonly utbmsActivityCodeId: string | null;
-  readonly source: string;
+  readonly source: TimeEntrySource;
   readonly liveRunId: string | null;
   readonly createdAt: string;
   readonly createdBy: string | null;

@@ -4,10 +4,11 @@ import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statement
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { TimeEntryId, UserId } from "@magna-carta/identifiers/types";
-import type { RateResolution } from "./rate-resolution.ts";
+import type { RateResolution, RateSource } from "./rate-resolution.ts";
 import {
   insertTimeEntryStatement,
   selectMatterEBillingStatement,
+  type TimeEntrySource,
 } from "./time-entry-statements.ts";
 import { TimeEntryValidationError } from "./time-entry-validation.ts";
 
@@ -29,7 +30,7 @@ export type CaptureRate =
   | {
       readonly rateE4: number;
       readonly rateCardId: string;
-      readonly rateSource: RateResolution extends { noRate: true } ? never : string;
+      readonly rateSource: RateSource;
       readonly currency: string;
       readonly amountMinor: number;
     }
@@ -44,7 +45,7 @@ export interface CaptureTimeEntryInput {
   readonly narrative: string;
   readonly billable: boolean;
   readonly nonBillableCategoryId?: string;
-  readonly source: string;
+  readonly source: TimeEntrySource;
   readonly utbmsTaskCodeId?: string;
   readonly utbmsActivityCodeId?: string;
   readonly liveRunId?: string;
