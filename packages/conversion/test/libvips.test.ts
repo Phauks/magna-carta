@@ -34,7 +34,7 @@ describe("libvips adapter", () => {
       // Verify the dimensions are preserved: fixture is 2×3 (vips.Image.black(2, 3))
       const Vips = (await import("wasm-vips")).default;
       const vips = await Vips();
-      const decoded = vips.Image.newFromBuffer(result.bytes.buffer);
+      const decoded = vips.Image.newFromBuffer(result.bytes);
       expect(decoded.width).toBe(2);
       expect(decoded.height).toBe(3);
     }
