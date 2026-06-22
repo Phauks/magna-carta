@@ -96,8 +96,12 @@ A service binding, **HTTP-shaped** end to end: `POST /scan?size=&contentType=`, 
 - Automating the **app** worker's production deploy (a separate decision, unchanged by this work).
 - Step-up re-auth firm setting (unrelated; separately tracked).
 
-## Risks / open questions (validate early in the plan)
+## Risks / open questions
 
-- **R1 — streaming through a service binding.** A body up to the 2 GiB inspectable cap must stream app→scan-worker without buffering, or the SCAN memory property is lost at the hop. **Spike:** confirm Workers service bindings stream a `duplex: "half"` body; measure that the app worker's resident memory stays flat on a large scan.
-- **R2 — test-pool exclusion of `SCAN_SERVICE`.** Confirm `cloudflareTest` can leave the binding unbound; otherwise use the in-pool `unscanned` stub. **Spike** before re-pointing `resolveScanPort`.
-- **R3 — service binding from the queue-consumer context.** The ingest consumer runs in the queue handler; `env.SCAN_SERVICE` must be available there (same `env`, so expected — low risk, confirmed by an integration test).
+**Resolved by spikes (2026-06-22) — see the implementation plan for the full findings:**
+
+- **R1 — streaming through a service binding: LOW risk, doc-confirmed.** Workers stream multi-GB request bodies within the 128 MB limit *as long as the worker forwards the body without reading it* — which the adapter and the `/scan` proxy both do. An empirical streamed-scan check is folded into the plan's wiring task; the 2 GiB resident-memory observation is an activation acceptance check.
+- **R2 — corrects this spec's over-claim.** A `SCAN_SERVICE` binding to an *undefined* service makes the workerd test pool refuse to boot (`"no such service is defined"`), so the config tension does **not** fully "dissolve" — the app worker trades an *un-stubbable* container block for a **stubbable** service binding. Mitigation: register a `magna-carta-scan` stub worker in the `cloudflareTest` config returning a no-engine `ScanResult`; the pool then boots and tests observe `unscanned` through the remote path. This is a real improvement (the container block could not be stubbed at all), just not zero-tension.
+- **R3 — service binding from the queue-consumer context: LOW.** `env.SCAN_SERVICE` is the same `env` the queue handler receives; confirmed by an integration test.
+
+**Deploy / keys (resolved):** the pipeline is **Cloudflare-native, no GitHub secrets.** Workers Builds builds + deploys the scan worker on push (no API token). The daily signature rebuild is the scan worker's own Cron Trigger POSTing a Workers Builds **Deploy Hook** (a unique URL stored as a Cloudflare Worker secret).
