@@ -2,7 +2,7 @@
 //! can hide (metadata, attachments, form data, structure tree, outlines,
 //! optional-content), so a sanitized document carries nothing off-page.
 
-use lopdf::{Dictionary, Document, Object};
+use lopdf::{Dictionary, Document, Object, ObjectId};
 
 /// Which document-level surfaces to remove. Every field defaults to `true`
 /// (scrub everything); set a field false to retain that surface.
@@ -112,6 +112,58 @@ fn scrub_xfa(doc: &mut Document) {
     }
 }
 
+fn scrub_attachments(doc: &mut Document) {
+    // Embedded-files name tree, portfolio, and catalog-level associated files.
+    if let Some(names) = catalog_subdict_mut(doc, b"Names") {
+        names.remove(b"EmbeddedFiles");
+    }
+    if let Ok(catalog) = doc.catalog_mut() {
+        catalog.remove(b"Collection");
+        catalog.remove(b"AF");
+    }
+    // File-attachment annotations (and /AF) on every page.
+    let page_ids: Vec<ObjectId> = doc.get_pages().values().copied().collect();
+    for page_id in page_ids {
+        let annots: Vec<Object> = match doc
+            .get_object(page_id)
+            .ok()
+            .and_then(|o| o.as_dict().ok())
+            .and_then(|d| d.get(b"Annots").ok())
+        {
+            Some(Object::Array(arr)) => arr.clone(),
+            Some(Object::Reference(id)) => doc
+                .get_object(*id)
+                .ok()
+                .and_then(|o| o.as_array().ok())
+                .cloned()
+                .unwrap_or_default(),
+            _ => Vec::new(),
+        };
+        if !annots.is_empty() {
+            let kept: Vec<Object> = annots
+                .into_iter()
+                .filter(|annot| {
+                    let subtype = annot
+                        .as_reference()
+                        .ok()
+                        .and_then(|id| doc.get_object(id).ok())
+                        .and_then(|o| o.as_dict().ok())
+                        .and_then(|d| d.get(b"Subtype").ok())
+                        .and_then(|o| o.as_name().ok())
+                        .map(|name| name.to_vec());
+                    subtype.as_deref() != Some(b"FileAttachment")
+                })
+                .collect();
+            if let Ok(page) = doc.get_object_mut(page_id).and_then(|o| o.as_dict_mut()) {
+                page.set("Annots", Object::Array(kept));
+            }
+        }
+        if let Ok(page) = doc.get_object_mut(page_id).and_then(|o| o.as_dict_mut()) {
+            page.remove(b"AF");
+        }
+    }
+}
+
 /// Remove the document-level surfaces selected in `opts`, in place. Performs only
 /// the removals — the caller prunes orphaned objects and runs the gate.
 pub fn sanitize_document(doc: &mut Document, opts: &ScrubOptions) -> Result<(), ScrubError> {
@@ -120,6 +172,9 @@ pub fn sanitize_document(doc: &mut Document, opts: &ScrubOptions) -> Result<(), 
     }
     if opts.xfa {
         scrub_xfa(doc);
+    }
+    if opts.attachments {
+        scrub_attachments(doc);
     }
     if opts.structure_tree {
         scrub_structure_tree(doc);
@@ -221,5 +276,50 @@ mod tests {
         let acro = catalog_subdict(&doc, b"AcroForm").expect("AcroForm kept");
         assert!(!acro.has(b"XFA"));
         assert!(acro.has(b"Fields"));
+    }
+
+    #[test]
+    fn scrubs_attachments_and_file_attachment_annotations() {
+        let mut doc = base_doc();
+
+        // /Names/EmbeddedFiles + /Collection on the catalog.
+        let mut names = Dictionary::new();
+        names.set("EmbeddedFiles", Object::Array(vec![]));
+        let names_id = doc.add_object(Object::Dictionary(names));
+        set_on_catalog(&mut doc, "Names", Object::Reference(names_id));
+        set_on_catalog(&mut doc, "Collection", Object::Null);
+
+        // A page carrying a FileAttachment annotation and a (kept) Text annotation.
+        let mut file_annot = Dictionary::new();
+        file_annot.set("Subtype", Object::Name(b"FileAttachment".to_vec()));
+        let file_annot_id = doc.add_object(Object::Dictionary(file_annot));
+        let mut text_annot = Dictionary::new();
+        text_annot.set("Subtype", Object::Name(b"Text".to_vec()));
+        let text_annot_id = doc.add_object(Object::Dictionary(text_annot));
+        let mut page = Dictionary::new();
+        page.set("Type", Object::Name(b"Page".to_vec()));
+        page.set(
+            "Annots",
+            Object::Array(vec![Object::Reference(file_annot_id), Object::Reference(text_annot_id)]),
+        );
+        let page_id = doc.add_object(Object::Dictionary(page));
+        // Attach the page to the (Task-1 base) Pages tree so get_pages() finds it.
+        let pages_id = doc.catalog().unwrap().get(b"Pages").unwrap().as_reference().unwrap();
+        let pages = doc.get_object_mut(pages_id).unwrap().as_dict_mut().unwrap();
+        pages.set("Kids", Object::Array(vec![Object::Reference(page_id)]));
+        pages.set("Count", Object::Integer(1));
+        doc.get_object_mut(page_id).unwrap().as_dict_mut().unwrap()
+            .set("Parent", Object::Reference(pages_id));
+
+        sanitize_document(&mut doc, &ScrubOptions::default()).unwrap();
+
+        let cat = doc.catalog().unwrap();
+        assert!(!cat.has(b"Collection"));
+        assert!(!catalog_subdict(&doc, b"Names").map_or(false, |n| n.has(b"EmbeddedFiles")));
+        // The FileAttachment annotation is gone; the Text annotation is kept.
+        let annots = doc.get_object(page_id).unwrap().as_dict().unwrap()
+            .get(b"Annots").unwrap().as_array().unwrap();
+        assert_eq!(annots.len(), 1);
+        assert_eq!(annots[0].as_reference().unwrap(), text_annot_id);
     }
 }
