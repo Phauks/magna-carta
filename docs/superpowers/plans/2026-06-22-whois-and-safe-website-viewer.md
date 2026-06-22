@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **All business/data access through the firm-scoped data-access layer; no cross-firm queries.** (These tools query *public* registries and render *external* sites — they touch no firm data — but the routes still resolve through the chokepoint firm context for auth/permission.)
+- **All business/data access through the firm-scoped data-access layer; no cross-firm queries.** (These tools query _public_ registries and render _external_ sites — they touch no firm data — but the routes still resolve through the chokepoint firm context for auth/permission.)
 - **Standardized error & redaction:** report every error through the in-house pipeline; **never log the investigated URL/host or fetched content**; correlate by ID; surface a user-facing Error ID. No third-party error SaaS.
 - **No raw SQL across firms; bulk content to R2, never D1** (only the permission-seed migration touches the DB here).
 - **Full names, no shorthand** (golden rule 12). Exceptions in play: `URL`, `JSON`, `IP`, `WHOIS`, `RDAP`, `TLD`, `DNS`, `HTTP`, `SSRF` are recognized external/universal terms and are allowed.
@@ -25,17 +25,21 @@
 ## File Structure
 
 **`@magna-carta/access-control`** (modify)
+
 - `packages/access-control/src/registry.ts` — add `tools:whois`, `tools:safeBrowse` to `PERMISSIONS`.
 
 **`@magna-carta/tools`** (modify)
+
 - `packages/tools/src/types.ts` — add `"web-domains"` to `SUBJECT_GROUP_ORDER`; add `"website"` to `ContextTag`.
 - `packages/tools/src/catalog.ts` — add the two manifest rows.
 
 **`@magna-carta/integrations`** (modify — shared SSRF guard, lives with the http transport seam)
+
 - `packages/integrations/src/safe-target.ts` — new: `classifyHost`, `assertPublicTarget`, types.
 - `packages/integrations/package.json` — add `"./safe-target"` export.
 
 **`@magna-carta/whois`** (new package)
+
 - `packages/whois/package.json`, `tsconfig.json`, `vitest.config.ts`, `CLAUDE.md`
 - `packages/whois/src/types.ts` — `RegistrationResult`, `RdapBootstrap`, `WhoisSocket`, `WhoisDeps`.
 - `packages/whois/src/rdap.ts` — bootstrap resolution + query + parse (injected `HttpClient`).
@@ -45,6 +49,7 @@
 - `packages/whois/test/{rdap,legacy,lookup}.test.ts`
 
 **`@magna-carta/safe-browse`** (new package)
+
 - `packages/safe-browse/package.json`, `tsconfig.json`, `vitest.config.ts`, `CLAUDE.md`
 - `packages/safe-browse/src/types.ts` — `SafeView`, `RedirectHop`, `BrowserRenderer`, `RedirectProbe`, `SafeBrowseDeps`.
 - `packages/safe-browse/src/probe.ts` — `probeRedirects()` shape over an injected fetch (guarded each hop).
@@ -53,6 +58,7 @@
 - `packages/safe-browse/test/{probe,capture}.test.ts`
 
 **`apps/worker`** (modify)
+
 - `apps/worker/src/routes/whois.ts` — new route + meta + zod schemas + worker adapters.
 - `apps/worker/src/routes/safe-browse.ts` — new route + meta + zod schemas + worker adapters.
 - `apps/worker/src/app.ts` — register both routes; add `BROWSER` to `Bindings`.
@@ -61,9 +67,11 @@
 - A new permission-seed migration under the worker's migrations dir.
 
 **Docs**
+
 - White paper feature-map entry; `docs/user/whois-lookup.md`, `docs/user/safe-website-viewer.md`; `ROADMAP.md`; `changelog.d/<slug>.md`; `docs/decisions/pending/*.md` (4 ADR fragments); area `CLAUDE.md` files (in the two new packages).
 
 **Gated on the 0·7a design-system shell (NOT buildable now — Phase G):**
+
 - `apps/web` shell: `id → Svelte component` map entries + `WhoisLookup.svelte`, `SafeWebsiteViewer.svelte` widgets.
 
 ---
@@ -73,10 +81,12 @@
 ### Task 1: Register the two tool permissions
 
 **Files:**
+
 - Modify: `packages/access-control/src/registry.ts` (the `PERMISSIONS` array, the `tools:` block ~lines 40-46)
 - Test: `packages/access-control/test/registry.test.ts` (add cases; create if the file's pattern differs — check existing tests first)
 
 **Interfaces:**
+
 - Produces: permission strings `"tools:whois"` and `"tools:safeBrowse"`, now accepted by `isPermission`/`assertPermission`.
 
 - [ ] **Step 1: Write the failing test** — add to the registry test file:
@@ -117,11 +127,13 @@ git commit -m "feat(access-control): register tools:whois and tools:safeBrowse p
 ### Task 2: Add the subject group, context tag, and two catalog rows
 
 **Files:**
+
 - Modify: `packages/tools/src/types.ts` (`SUBJECT_GROUP_ORDER`, `ContextTag`)
 - Modify: `packages/tools/src/catalog.ts` (`CATALOG`)
 - Test: `packages/tools/test/catalog.test.ts`, `packages/tools/test/select.test.ts` (extend existing)
 
 **Interfaces:**
+
 - Consumes: `tools:whois`, `tools:safeBrowse` from Task 1.
 - Produces: catalog rows `whois-lookup`, `safe-website-viewer` under group `web-domains`, context tag `website`.
 
@@ -131,10 +143,7 @@ git commit -m "feat(access-control): register tools:whois and tools:safeBrowse p
 import { toolsByGroup, toolsFor } from "../src/select.ts";
 import { assertPermission } from "@magna-carta/access-control/registry";
 
-const allPermissions = [
-  assertPermission("tools:whois"),
-  assertPermission("tools:safeBrowse"),
-];
+const allPermissions = [assertPermission("tools:whois"), assertPermission("tools:safeBrowse")];
 
 test("web-domains group surfaces both website tools in order", () => {
   const groups = toolsByGroup(allPermissions);
@@ -217,11 +226,13 @@ git commit -m "feat(tools): add web-domains group, website context tag, WHOIS + 
 ### Task 3: SSRF guard in `@magna-carta/integrations`
 
 **Files:**
+
 - Create: `packages/integrations/src/safe-target.ts`
 - Modify: `packages/integrations/package.json` (add `"./safe-target": "./src/safe-target.ts"` to `exports`)
 - Test: `packages/integrations/test/safe-target.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `type TargetClass = "public" | "loopback" | "private" | "link-local" | "reserved" | "invalid-scheme" | "invalid-host";`
   - `classifyHost(host: string): TargetClass` — classifies a hostname **or** literal IP. Hostnames that are not literal IPs return `"public"` (structural check only; the resolved-IP check is the caller's, see below).
@@ -252,9 +263,11 @@ test("assertPublicTarget rejects non-http schemes", async () => {
 });
 
 test("assertPublicTarget rejects a literal private IP URL", async () => {
-  await expect(assertPublicTarget("http://169.254.169.254/latest/meta-data")).rejects.toMatchObject({
-    targetClass: "link-local",
-  });
+  await expect(assertPublicTarget("http://169.254.169.254/latest/meta-data")).rejects.toMatchObject(
+    {
+      targetClass: "link-local",
+    },
+  );
 });
 
 test("assertPublicTarget upgrades a bare host and accepts a public name", async () => {
@@ -406,9 +419,11 @@ git commit -m "feat(integrations): add SSRF guard (assertPublicTarget/classifyHo
 ### Task 4: Scaffold `@magna-carta/whois` + types
 
 **Files:**
+
 - Create: `packages/whois/package.json`, `packages/whois/tsconfig.json`, `packages/whois/vitest.config.ts`, `packages/whois/src/types.ts`, `packages/whois/CLAUDE.md`
 
 **Interfaces:**
+
 - Produces (in `src/types.ts`):
 
 ```ts
@@ -460,10 +475,12 @@ git commit -m "chore(whois): scaffold @magna-carta/whois package and types"
 ### Task 5: RDAP resolution + query + parse
 
 **Files:**
+
 - Create: `packages/whois/src/rdap.ts`
 - Test: `packages/whois/test/rdap.test.ts`
 
 **Interfaces:**
+
 - Consumes: `HttpClient` (`@magna-carta/integrations/http`), `RegistrationResult` (Task 4).
 - Produces:
   - `resolveRdapBase(target: string, http: HttpClient): Promise<string | null>` — fetches the IANA bootstrap (`https://data.iana.org/rdap/dns.json` for a domain by TLD, `.../ipv4.json` etc. for an IP) and returns the authoritative base URL, or `null` if the TLD/block has no RDAP server.
@@ -496,7 +513,9 @@ test("resolveRdapBase finds the base URL for a TLD", async () => {
 
 test("resolveRdapBase returns null for a TLD with no RDAP server", async () => {
   const http = fakeHttp({
-    "https://data.iana.org/rdap/dns.json": { services: [[["com"], ["https://rdap.verisign.com/com/v1/"]]] },
+    "https://data.iana.org/rdap/dns.json": {
+      services: [[["com"], ["https://rdap.verisign.com/com/v1/"]]],
+    },
   });
   expect(await resolveRdapBase("example.xn--unknown", http)).toBeNull();
 });
@@ -511,7 +530,9 @@ test("queryRdap maps registrar, dates, nameservers, statuses", async () => {
         { eventAction: "expiration", eventDate: "2026-08-13T04:00:00Z" },
         { eventAction: "last changed", eventDate: "2025-08-14T07:01:44Z" },
       ],
-      entities: [{ roles: ["registrar"], vcardArray: ["vcard", [["fn", {}, "text", "RESERVED-Internet"]]] }],
+      entities: [
+        { roles: ["registrar"], vcardArray: ["vcard", [["fn", {}, "text", "RESERVED-Internet"]]] },
+      ],
     },
   });
   const result = await queryRdap("example.com", "https://rdap.verisign.com/com/v1/", http);
@@ -546,10 +567,12 @@ git commit -m "feat(whois): RDAP bootstrap resolution, query, and result parsing
 ### Task 6: Legacy port-43 fallback
 
 **Files:**
+
 - Create: `packages/whois/src/legacy.ts`
 - Test: `packages/whois/test/legacy.test.ts`
 
 **Interfaces:**
+
 - Consumes: `WhoisSocket` (Task 4).
 - Produces:
   - `whoisHostForTld(tld: string): string | null` — maps a TLD to its WHOIS port-43 host (a small static table for common ccTLDs lacking RDAP, e.g. `de` → `whois.denic.de`; return `null` if unknown).
@@ -602,10 +625,12 @@ git commit -m "feat(whois): legacy port-43 WHOIS fallback for ccTLDs without RDA
 ### Task 7: `lookupRegistration` orchestrator + index
 
 **Files:**
+
 - Create: `packages/whois/src/lookup.ts`, `packages/whois/src/index.ts`
 - Test: `packages/whois/test/lookup.test.ts`
 
 **Interfaces:**
+
 - Consumes: `assertPublicTarget` (`@magna-carta/integrations/safe-target`), `resolveRdapBase`/`queryRdap` (Task 5), `whoisHostForTld`/`queryLegacy` (Task 6), `WhoisDeps` (Task 4).
 - Produces: `lookupRegistration(query: string, deps: WhoisDeps): Promise<RegistrationResult>`.
 
@@ -615,22 +640,32 @@ git commit -m "feat(whois): legacy port-43 WHOIS fallback for ccTLDs without RDA
 import { lookupRegistration } from "../src/lookup.ts";
 import type { WhoisDeps } from "../src/types.ts";
 
-const bootstrap = { "https://data.iana.org/rdap/dns.json": { services: [[["com"], ["https://rdap.example/com/"]]] } };
+const bootstrap = {
+  "https://data.iana.org/rdap/dns.json": { services: [[["com"], ["https://rdap.example/com/"]]] },
+};
 
 function deps(routes: Record<string, unknown>, socketText = ""): WhoisDeps {
   return {
     http: {
       async request({ url }) {
         const body = { ...bootstrap, ...routes }[url];
-        return body === undefined ? { status: 404, json: async () => ({}) } : { status: 200, json: async () => body };
+        return body === undefined
+          ? { status: 404, json: async () => ({}) }
+          : { status: 200, json: async () => body };
       },
     },
-    socket: { async query() { return socketText; } },
+    socket: {
+      async query() {
+        return socketText;
+      },
+    },
   };
 }
 
 test("rejects a private/invalid target via the SSRF guard", async () => {
-  await expect(lookupRegistration("http://127.0.0.1", deps({}))).rejects.toMatchObject({ name: "SsrfRejection" });
+  await expect(lookupRegistration("http://127.0.0.1", deps({}))).rejects.toMatchObject({
+    name: "SsrfRejection",
+  });
 });
 
 test("returns RDAP result for a com domain", async () => {
@@ -673,9 +708,11 @@ git commit -m "feat(whois): lookupRegistration orchestrator (guard, RDAP-first, 
 ### Task 8: Scaffold `@magna-carta/safe-browse` + types
 
 **Files:**
+
 - Create: `packages/safe-browse/package.json`, `tsconfig.json`, `vitest.config.ts`, `src/types.ts`, `CLAUDE.md`
 
 **Interfaces:**
+
 - Produces (`src/types.ts`):
 
 ```ts
@@ -733,10 +770,12 @@ export interface SafeBrowseDeps {
 ### Task 9: `captureSafeView` orchestrator + index
 
 **Files:**
+
 - Create: `packages/safe-browse/src/capture.ts`, `packages/safe-browse/src/index.ts`
 - Test: `packages/safe-browse/test/capture.test.ts`
 
 **Interfaces:**
+
 - Consumes: `assertPublicTarget` (`@magna-carta/integrations/safe-target`), `SafeBrowseDeps`, `SafeView` (Task 8).
 - Produces: `captureSafeView(url: string, deps: SafeBrowseDeps): Promise<SafeView>`.
 
@@ -759,7 +798,12 @@ function deps(): SafeBrowseDeps {
     },
     renderer: {
       async snapshot() {
-        return { screenshotBase64: "aGVsbG8=", markdown: "# Hi", title: "Hi", links: ["https://x.example/"] };
+        return {
+          screenshotBase64: "aGVsbG8=",
+          markdown: "# Hi",
+          title: "Hi",
+          links: ["https://x.example/"],
+        };
       },
     },
   };
@@ -768,8 +812,13 @@ function deps(): SafeBrowseDeps {
 test("rejects a private target before any render", async () => {
   const calls: string[] = [];
   const d = deps();
-  d.renderer.snapshot = async () => { calls.push("rendered"); return { screenshotBase64: "" }; };
-  await expect(captureSafeView("http://10.0.0.1/", d)).rejects.toMatchObject({ name: "SsrfRejection" });
+  d.renderer.snapshot = async () => {
+    calls.push("rendered");
+    return { screenshotBase64: "" };
+  };
+  await expect(captureSafeView("http://10.0.0.1/", d)).rejects.toMatchObject({
+    name: "SsrfRejection",
+  });
   expect(calls).toEqual([]); // never rendered
 });
 
@@ -798,11 +847,13 @@ test("assembles a SafeView from probe + render", async () => {
 ### Task 10: `GET /api/v1/whois` route
 
 **Files:**
+
 - Create: `apps/worker/src/routes/whois.ts`
 - Modify: `apps/worker/src/app.ts` (import + `registerWhoisRoute(app, chokepoint)` near `registerFirmUsageRoute`)
 - Test: `apps/worker/test/whois-route.test.ts` (match the existing Miniflare integration test pattern — check a sibling route test first)
 
 **Interfaces:**
+
 - Consumes: `lookupRegistration` + `WhoisDeps` (`@magna-carta/whois`), the chokepoint helpers used by `firm-usage.ts` (`requireChokepointFirmContext`, `chokepointMiddleware`, `defineOpenAPIRoute`, `RouteMeta`, `Problem`).
 - Produces: a registered route gated by `tools:whois`.
 
@@ -815,7 +866,7 @@ test("assembles a SafeView from probe + render", async () => {
   - `whoisMeta: RouteMeta` = `{ operationId: "whois.get", surface: "app", authenticated: true, permission: "tools:whois", resource: "firm", audited: false, idempotency: "optional", rateLimit: "default" }`.
   - `defineOpenAPIRoute(whoisMeta, { method: "get", path: "/api/v1/whois", request: { query: WhoisQuery }, description: "Registration data (RDAP, with a legacy WHOIS fallback) for a website's domain or an IP address.", responses: { 200, 400, 401, 403, 429 with Problem } })`.
   - Handler: build `WhoisDeps` from worker bindings — `http: fetchHttpClient()` (`@magna-carta/integrations/http`), `socket`: a `cloudflare:sockets`-backed `WhoisSocket` (see note), `resolve`: a DoH resolver (`https://cloudflare-dns.com/dns-query`) or omit for MVP. Call `lookupRegistration(query, deps)`. On `SsrfRejection` return `400` Problem (redacted — do not echo the host); on other errors, the standard error pipeline (correlated, redacted, Error ID).
-  - **Port-43 `WhoisSocket` worker adapter:** `import { connect } from "cloudflare:sockets"` — open `connect({ hostname, port: 43 })`, write `request`, read the stream to a string, close. **Verify the `connect()` read/write API against current Cloudflare docs before writing** (golden rule 11). For MVP it is acceptable to provide a `WhoisSocket` whose `query` throws "legacy WHOIS unavailable" and rely on RDAP, *if* the socket API proves out of scope — but prefer the real implementation.
+  - **Port-43 `WhoisSocket` worker adapter:** `import { connect } from "cloudflare:sockets"` — open `connect({ hostname, port: 43 })`, write `request`, read the stream to a string, close. **Verify the `connect()` read/write API against current Cloudflare docs before writing** (golden rule 11). For MVP it is acceptable to provide a `WhoisSocket` whose `query` throws "legacy WHOIS unavailable" and rely on RDAP, _if_ the socket API proves out of scope — but prefer the real implementation.
 
 - [ ] **Step 4: Run it, verify it passes** — `vp test whois-route` → PASS (200 + 403 cases).
 
@@ -824,12 +875,14 @@ test("assembles a SafeView from probe + render", async () => {
 ### Task 11: `POST /api/v1/safe-browse` route + BROWSER binding
 
 **Files:**
+
 - Modify: `apps/worker/wrangler.jsonc` (or `.toml`) — add `"browser": { "binding": "BROWSER" }`; ensure `compatibility_date >= "2026-03-24"`.
 - Modify: `apps/worker/src/app.ts` — add `BROWSER` to the `Bindings` type; register the route.
 - Create: `apps/worker/src/routes/safe-browse.ts`
 - Test: `apps/worker/test/safe-browse-route.test.ts`
 
 **Interfaces:**
+
 - Consumes: `captureSafeView` + `SafeBrowseDeps`/`BrowserRenderer`/`RedirectProbe` (`@magna-carta/safe-browse`), chokepoint helpers.
 - Produces: a registered route gated by `tools:safeBrowse`.
 
@@ -852,6 +905,7 @@ test("assembles a SafeView from probe + render", async () => {
 ### Task 12: Seed the two permissions to staff roles
 
 **Files:**
+
 - Create: a new migration in the worker's control-plane/role migrations dir (find the dir + the latest number via `ls` of the migrations folder; mirror `0006_seed-tools-firm-usage`).
 - Test: extend the migration/seed test if one exists; otherwise a Miniflare assertion that a seeded default role resolves `tools:whois` and `tools:safeBrowse`.
 
@@ -868,6 +922,7 @@ test("assembles a SafeView from probe + render", async () => {
 ### Task 13: Developer + user docs, ROADMAP, CHANGELOG + ADR fragments
 
 **Files:**
+
 - Modify: `docs/Magna-Carta-White-Paper.md` — feature-map entry for the **Websites & Domains** tool group (WHOIS Lookup + Safe Website Viewer).
 - Create: `docs/user/whois-lookup.md`, `docs/user/safe-website-viewer.md` (end-user guides — what each does, what "rendered safely" means, what the WHOIS fields mean; no internal architecture).
 - Modify: `ROADMAP.md` — move/record these two tools as shipped (per the file's current structure; edit only the relevant rows).
@@ -877,7 +932,7 @@ test("assembles a SafeView from probe + render", async () => {
   - `whois-rdap-first-with-port-43-fallback.md`
   - `outbound-fetch-ssrf-guard-invariant.md`
   - `safe-website-viewer-static-snapshot-with-streaming-seam.md`
-  Use the existing pending fragments as the frontmatter template (`ls docs/decisions/pending/` then open one).
+    Use the existing pending fragments as the frontmatter template (`ls docs/decisions/pending/` then open one).
 - Modify: `docs/conventions/invariants.md` — add the SSRF-guard invariant (every user-supplied outbound target passes `assertPublicTarget` before any fetch/render).
 
 - [ ] **Step 1:** Check the white-paper feature-map + ROADMAP structure (`grep -n "Tools" docs/Magna-Carta-White-Paper.md ROADMAP.md`) and a sample pending ADR fragment for frontmatter shape.
@@ -895,6 +950,7 @@ The Tools UI shell (left-nav, the `id → component` map, contextual entry point
 ### Task 14 (gated): WHOIS + Safe Website Viewer widgets
 
 **Files (when unblocked):**
+
 - The shell's `id → Svelte component` map — add `whois-lookup → WhoisLookup.svelte`, `safe-website-viewer → SafeWebsiteViewer.svelte`.
 - `WhoisLookup.svelte` — a query input + a structured result card (parsed RDAP fields) or a monospace block (raw port-43 text), labelled by `source`. Calls `GET /api/v1/whois` via the api-client.
 - `SafeWebsiteViewer.svelte` — a URL input, a prominent "rendered safely in an isolated browser" affordance, the screenshot as an `<img>` (from base64), and inert panels for redirect chain / headers / links / markdown. **HTML content is shown only as escaped text — never re-rendered as live markup.** Calls `POST /api/v1/safe-browse`.

@@ -29,17 +29,12 @@ const RDAP_EVENT_LAST_CHANGED = "last changed";
  * the IANA bootstrap registry. Returns `null` when the TLD or IP block has no registered
  * RDAP server (the registry omits entries for those, so absence is a valid signal).
  */
-export async function resolveRdapBase(
-  target: string,
-  http: HttpClient,
-): Promise<string | null> {
+export async function resolveRdapBase(target: string, http: HttpClient): Promise<string | null> {
   // Determine whether the target looks like an IP address or a domain name.
   // A simple heuristic: if it contains only digits and dots/colons it is an IP.
   const isIpAddress = /^[\d.:]+$/.test(target);
 
-  const bootstrapUrl = isIpAddress
-    ? resolveIpBootstrapUrl(target)
-    : IANA_BOOTSTRAP_DOMAIN_URL;
+  const bootstrapUrl = isIpAddress ? resolveIpBootstrapUrl(target) : IANA_BOOTSTRAP_DOMAIN_URL;
 
   const response = await http.request({
     method: "GET",
@@ -138,14 +133,15 @@ function resolveIpBootstrapUrl(ipAddress: string): string {
  * This is a best-effort MVP that returns the first service whose match keys include a
  * prefix the address starts with (sufficient for the most common delegations).
  */
-function resolveIpBase(
-  ipAddress: string,
-  services: BootstrapService[],
-): string | null {
+function resolveIpBase(ipAddress: string, services: BootstrapService[]): string | null {
   for (const [matchKeys, baseUrls] of services) {
     for (const prefix of matchKeys) {
       const networkAddress = prefix.split("/")[0] ?? "";
-      const parentNetwork = networkAddress.split(".").slice(0, networkAddress.split(".").length - 1).join(".") + ".";
+      const parentNetwork =
+        networkAddress
+          .split(".")
+          .slice(0, networkAddress.split(".").length - 1)
+          .join(".") + ".";
       if (ipAddress.startsWith(parentNetwork) || ipAddress.startsWith(networkAddress)) {
         if (baseUrls.length > 0) return baseUrls[0] ?? null;
       }
@@ -155,10 +151,7 @@ function resolveIpBase(
 }
 
 /** Extract the eventDate for a given eventAction from the RDAP events array. */
-function extractEventDate(
-  body: Record<string, unknown>,
-  action: string,
-): string | undefined {
+function extractEventDate(body: Record<string, unknown>, action: string): string | undefined {
   const events = body["events"];
   if (!Array.isArray(events)) return undefined;
 
@@ -180,9 +173,7 @@ function extractEventDate(
  * Extract the LDH (Letters, Digits, Hyphens) nameserver names from the RDAP nameservers
  * array. The `ldhName` field is the canonical ASCII hostname for a nameserver.
  */
-function extractNameservers(
-  body: Record<string, unknown>,
-): readonly string[] | undefined {
+function extractNameservers(body: Record<string, unknown>): readonly string[] | undefined {
   const nameservers = body["nameservers"];
   if (!Array.isArray(nameservers) || nameservers.length === 0) return undefined;
 
@@ -198,9 +189,7 @@ function extractNameservers(
 }
 
 /** Copy the top-level `status` array from the RDAP response into `statuses`. */
-function extractStatuses(
-  body: Record<string, unknown>,
-): readonly string[] | undefined {
+function extractStatuses(body: Record<string, unknown>): readonly string[] | undefined {
   const status = body["status"];
   if (!Array.isArray(status) || status.length === 0) return undefined;
 

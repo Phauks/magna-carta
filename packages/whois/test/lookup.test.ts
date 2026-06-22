@@ -2,22 +2,32 @@ import { expect, test } from "vitest";
 import { lookupRegistration } from "../src/lookup.ts";
 import type { WhoisDeps } from "../src/types.ts";
 
-const bootstrap = { "https://data.iana.org/rdap/dns.json": { services: [[["com"], ["https://rdap.example/com/"]]] } };
+const bootstrap = {
+  "https://data.iana.org/rdap/dns.json": { services: [[["com"], ["https://rdap.example/com/"]]] },
+};
 
 function deps(routes: Record<string, unknown>, socketText = ""): WhoisDeps {
   return {
     http: {
       async request({ url }) {
         const body = { ...bootstrap, ...routes }[url];
-        return body === undefined ? { status: 404, json: async () => ({}) } : { status: 200, json: async () => body };
+        return body === undefined
+          ? { status: 404, json: async () => ({}) }
+          : { status: 200, json: async () => body };
       },
     },
-    socket: { async query() { return socketText; } },
+    socket: {
+      async query() {
+        return socketText;
+      },
+    },
   };
 }
 
 test("rejects a private/invalid target via the SSRF guard", async () => {
-  await expect(lookupRegistration("http://127.0.0.1", deps({}))).rejects.toMatchObject({ name: "SsrfRejection" });
+  await expect(lookupRegistration("http://127.0.0.1", deps({}))).rejects.toMatchObject({
+    name: "SsrfRejection",
+  });
 });
 
 test("returns RDAP result for a com domain", async () => {

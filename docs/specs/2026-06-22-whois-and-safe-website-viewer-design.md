@@ -42,12 +42,12 @@ Additive changes to the pure catalog package (no UI dependency; buildable now, s
 - **`ContextTag`** gains `"website"` — a domain/URL subject. Both tools declare `contextTags: ["website"]`. This is the contextual-surfacing seam: a future Directory/Location surface with a website field can call `toolsFor("website")` for free.
 - **Two catalog rows:**
 
-  | id                    | name                  | icon     | subjectGroup  | permission          | backing   | contextTags   | matterContext |
-  | --------------------- | --------------------- | -------- | ------------- | ------------------- | --------- | ------------- | ------------- |
-  | `whois-lookup`        | WHOIS Lookup          | `globe`  | `web-domains` | `tools:whois`       | `library` | `["website"]` | `none`        |
-  | `safe-website-viewer` | Safe Website Viewer   | `shield` | `web-domains` | `tools:safeBrowse`  | `library` | `["website"]` | `none`        |
+  | id                    | name                | icon     | subjectGroup  | permission         | backing   | contextTags   | matterContext |
+  | --------------------- | ------------------- | -------- | ------------- | ------------------ | --------- | ------------- | ------------- |
+  | `whois-lookup`        | WHOIS Lookup        | `globe`  | `web-domains` | `tools:whois`      | `library` | `["website"]` | `none`        |
+  | `safe-website-viewer` | Safe Website Viewer | `shield` | `web-domains` | `tools:safeBrowse` | `library` | `["website"]` | `none`        |
 
-  `backing: library` is correct: the catalog layer treats both as self-contained tools with no integration-connection state to reflect. That the logic runs in a Worker route (not purely client-side) is invisible to the catalog — `backing` distinguishes *integration-connection-backed* from *not*, not *client* from *server*. The id→component map and the route wiring live in the shell/worker, as for `firm-usage`.
+  `backing: library` is correct: the catalog layer treats both as self-contained tools with no integration-connection state to reflect. That the logic runs in a Worker route (not purely client-side) is invisible to the catalog — `backing` distinguishes _integration-connection-backed_ from _not_, not _client_ from _server_. The id→component map and the route wiring live in the shell/worker, as for `firm-usage`.
 
 - **Permissions** `tools:whois` and `tools:safeBrowse` are registered in `@magna-carta/access-control` and **seeded to all staff roles** via a new seed migration (same pattern as `tools:firmUsage`), because both are everyday safety utilities every user should be able to reach.
 
@@ -59,9 +59,9 @@ A worker-consumed logic package. "WHOIS" and "RDAP" are recognized external-prot
 
 **Resolution strategy:**
 
-1. **Normalize & validate** the input — accept a bare domain, a URL (host extracted), or an IP address. Reject anything that fails the SSRF guard's *public-target* check (§5): the registry being queried is public, but the input is still user-controlled and must be sanitized (no `file:`, no internal hosts as the query subject).
+1. **Normalize & validate** the input — accept a bare domain, a URL (host extracted), or an IP address. Reject anything that fails the SSRF guard's _public-target_ check (§5): the registry being queried is public, but the input is still user-controlled and must be sanitized (no `file:`, no internal hosts as the query subject).
 2. **RDAP first.** Fetch the IANA bootstrap registries (`https://data.iana.org/rdap/dns.json` for domains, `…/ipv4.json`, `…/ipv6.json`, `…/asn.json`) to resolve the authoritative RDAP base URL for the target's TLD / IP block, then `GET {base}/domain/{name}` (or `/ip/{addr}`). Parse the structured JSON into a typed result: registrar, registration/expiry/last-changed dates, nameservers, status codes, and registrant entity (where the registry publishes it). RDAP is HTTP/JSON and fetched directly from the Worker — no third-party vendor.
-3. **Legacy port-43 fallback.** For ccTLDs with no RDAP server in the bootstrap, open an outbound TCP socket via Workers' `connect()` from `cloudflare:sockets` to the TLD's WHOIS host on port 43, send the query, and return the **raw text** clearly labelled as *unparsed legacy WHOIS* (we do not attempt to parse the long tail of free-form WHOIS formats).
+3. **Legacy port-43 fallback.** For ccTLDs with no RDAP server in the bootstrap, open an outbound TCP socket via Workers' `connect()` from `cloudflare:sockets` to the TLD's WHOIS host on port 43, send the query, and return the **raw text** clearly labelled as _unparsed legacy WHOIS_ (we do not attempt to parse the long tail of free-form WHOIS formats).
 
 **Caching (optional optimization seam, not MVP-required):** RDAP responses and bootstrap files are cacheable; a short-TTL KV cache keyed by normalized target would cut load and be polite to registries. Noted, not built in the first slice.
 

@@ -15,7 +15,12 @@ function deps(): SafeBrowseDeps {
     },
     renderer: {
       async snapshot() {
-        return { screenshotBase64: "aGVsbG8=", markdown: "# Hi", title: "Hi", links: ["https://x.example/"] };
+        return {
+          screenshotBase64: "aGVsbG8=",
+          markdown: "# Hi",
+          title: "Hi",
+          links: ["https://x.example/"],
+        };
       },
     },
   };
@@ -24,8 +29,13 @@ function deps(): SafeBrowseDeps {
 test("rejects a private target before any render", async () => {
   const calls: string[] = [];
   const d = deps();
-  d.renderer.snapshot = async () => { calls.push("rendered"); return { screenshotBase64: "" }; };
-  await expect(captureSafeView("http://10.0.0.1/", d)).rejects.toMatchObject({ name: "SsrfRejection" });
+  d.renderer.snapshot = async () => {
+    calls.push("rendered");
+    return { screenshotBase64: "" };
+  };
+  await expect(captureSafeView("http://10.0.0.1/", d)).rejects.toMatchObject({
+    name: "SsrfRejection",
+  });
   expect(calls).toEqual([]); // never rendered
 });
 

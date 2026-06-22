@@ -23,7 +23,9 @@ test("resolveRdapBase finds the base URL for a TLD", async () => {
 
 test("resolveRdapBase returns null for a TLD with no RDAP server", async () => {
   const http = fakeHttp({
-    "https://data.iana.org/rdap/dns.json": { services: [[["com"], ["https://rdap.verisign.com/com/v1/"]]] },
+    "https://data.iana.org/rdap/dns.json": {
+      services: [[["com"], ["https://rdap.verisign.com/com/v1/"]]],
+    },
   });
   expect(await resolveRdapBase("example.xn--unknown", http)).toBeNull();
 });
@@ -38,7 +40,9 @@ test("queryRdap maps registrar, dates, nameservers, statuses", async () => {
         { eventAction: "expiration", eventDate: "2026-08-13T04:00:00Z" },
         { eventAction: "last changed", eventDate: "2025-08-14T07:01:44Z" },
       ],
-      entities: [{ roles: ["registrar"], vcardArray: ["vcard", [["fn", {}, "text", "RESERVED-Internet"]]] }],
+      entities: [
+        { roles: ["registrar"], vcardArray: ["vcard", [["fn", {}, "text", "RESERVED-Internet"]]] },
+      ],
     },
   });
   const result = await queryRdap("example.com", "https://rdap.verisign.com/com/v1/", http);
@@ -56,7 +60,10 @@ test("queryRdap joins base and path without double slashes", async () => {
   const http: HttpClient = {
     async request({ url }) {
       requestedUrl = url;
-      return { status: 200, json: async () => ({ status: [], nameservers: [], events: [], entities: [] }) };
+      return {
+        status: 200,
+        json: async () => ({ status: [], nameservers: [], events: [], entities: [] }),
+      };
     },
   };
   await queryRdap("example.com", "https://rdap.verisign.com/com/v1", http);

@@ -20,9 +20,11 @@ test("assertPublicTarget rejects non-http schemes", async () => {
 });
 
 test("assertPublicTarget rejects a literal private IP URL", async () => {
-  await expect(assertPublicTarget("http://169.254.169.254/latest/meta-data")).rejects.toMatchObject({
-    targetClass: "link-local",
-  });
+  await expect(assertPublicTarget("http://169.254.169.254/latest/meta-data")).rejects.toMatchObject(
+    {
+      targetClass: "link-local",
+    },
+  );
 });
 
 test("assertPublicTarget upgrades a bare host and accepts a public name", async () => {

@@ -60,14 +60,17 @@ let poolFirmId: FirmId;
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
   await applyPerFirmMigrations(env.DB_FIRM_POOL_1); // includes 0016 (all roles get tools:whois)
-  poolFirmId = (
-    await seedFirm({ name: "WHOIS Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
-  ).firmId;
+  poolFirmId = (await seedFirm({ name: "WHOIS Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
+    .firmId;
 });
 
 describe("GET /api/v1/whois", () => {
   it("answers an unauthenticated request with a 401 problem", async () => {
-    const response = await app.request("https://example.com/api/v1/whois?query=example.com", {}, env);
+    const response = await app.request(
+      "https://example.com/api/v1/whois?query=example.com",
+      {},
+      env,
+    );
     expect(response.status).toBe(401);
     expect(response.headers.get("content-type")).toContain("application/problem+json");
   });
