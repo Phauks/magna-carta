@@ -12,6 +12,10 @@ import { runRescanSweep, runScheduledSweep, runStorageReconciliation } from "./s
 // so the runtime can instantiate the class named in wrangler.jsonc's durable_objects binding.
 export { BundleBuildCoordinator } from "./downloads/bundle-coordinator.ts";
 
+// The conversion-job coordinator Durable Object: keyed firmId:jobId, single-flights one conversion
+// per job. Exported so the runtime can instantiate the class named in wrangler.jsonc's binding.
+export { ConversionJob } from "./conversions/conversion-coordinator.ts";
+
 // The malware-scan Container class (a DO-backed Container). Exported so the runtime can instantiate it
 // once the deploy-time wrangler `containers`/DO binding names it; an unused export is otherwise inert.
 export { ScanContainer } from "./files/scan-container.ts";

@@ -70,6 +70,12 @@ export type Bindings = {
   // (src/inference/inference-consumer.ts) runs env.AI.run, so a single firm cannot starve the shared
   // gateway cap synchronously on the request path. Distinct from QUEUE (jobs) and FILES_INGEST.
   INFERENCE: Queue;
+  // The conversion-job coordinator: keyed firmId:jobId, single-flights one conversion per job.
+  CONVERSION_JOB: DurableObjectNamespace<
+    import("./conversions/conversion-coordinator.ts").ConversionJob
+  >;
+  // The server-conversion queue the coordinator enqueues onto; the consumer runs the ConversionPort adapter.
+  CONVERSION: Queue<import("./conversions/conversion-types.ts").ConversionMessage>;
   // The authenticated Workers AI binding — the only path inference reaches the gateway through (no raw
   // gateway token in any firm-reachable config). Pre-authenticated within the account.
   AI: Ai;

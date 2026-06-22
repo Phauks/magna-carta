@@ -94,6 +94,9 @@
       // content-addressed selection; the BundleBuildCoordinator DO is the single-flight producer.
       { "binding": "BUNDLE_BUILD", "queue": "magna-carta-production-bundle-build" },
       { "binding": "INFERENCE", "queue": "magna-carta-production-inference" },
+      // The server-conversion queue: the ConversionJob DO enqueues one message per job; the
+      // consumer runs the ConversionPort adapter to convert the source to the target format.
+      { "binding": "CONVERSION", "queue": "magna-carta-production-conversion" },
     ],
     // The files-ingest consumer (the queue() handler in src/index.ts over the ingest consumer): one
     // R2 object-create event per uploaded object → single-read gates + SHA-256 + scan port → commit
@@ -139,10 +142,16 @@
   // firmId:manifestHash, it single-flights one ZIP build per content-addressed file selection. The
   // class is exported from src/index.ts (a binding to a class with no export fails the deploy).
   "durable_objects": {
-    "bindings": [{ "name": "BUNDLE_COORDINATOR", "class_name": "BundleBuildCoordinator" }],
+    "bindings": [
+      { "name": "BUNDLE_COORDINATOR", "class_name": "BundleBuildCoordinator" },
+      // The conversion-job coordinator: keyed firmId:jobId, single-flights one conversion per job.
+      { "name": "CONVERSION_JOB", "class_name": "ConversionJob" },
+    ],
   },
   // SQLite-backed DO classes are introduced through a migration tag; this is the first one.
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["BundleBuildCoordinator"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["BundleBuildCoordinator", "ConversionJob"] },
+  ],
   // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines
   // the telemetry Workers logger emits land here). Logpush → R2 is a deploy-time runbook step
   // (docs/conventions/operations.md), not code — it is account configuration (slice 0·6, ADR-0074).
