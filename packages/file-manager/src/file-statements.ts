@@ -210,6 +210,20 @@ export function setFileCurrentVersionStatement(
     .bind(fileId, versionId, updatedAt);
 }
 
+// A specific clean version's bytes facts (key/hash/size) — what version-restore reads to copy an
+// archived version forward. status = 'clean' so a pending/quarantined/abandoned version is never
+// restorable.
+export function selectCleanVersionByIdStatement(
+  database: SqlDatabase,
+  versionId: FileVersionId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, file_id, r2_key, content_sha256, size_bytes FROM ${FILE_VERSION_TABLE} WHERE id = ?1 AND status = 'clean'`,
+    )
+    .bind(versionId);
+}
+
 // The current (clean) version's hash, for the no-op skip: re-uploading identical bytes must not cut a
 // new version. Reads only the committed version (status = 'clean').
 export function selectCurrentVersionHashStatement(
@@ -370,9 +384,37 @@ export function setUploadSessionStatusByIdStatement(
 export function selectFileStatement(database: SqlDatabase, id: FileId): SqlStatement {
   return database
     .prepare(
-      `SELECT id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at FROM ${FILE_TABLE} WHERE id = ?1`,
+      `SELECT id, matter_id, folder_id, name, document_type_id, current_version_id, current_r2_key, deleted_at, created_at FROM ${FILE_TABLE} WHERE id = ?1`,
     )
     .bind(id);
+}
+
+// Destroys the live working-copy pointer on a file: nulls the `current` object's hash/size/timestamp
+// and returns the file to idle. The caller deletes the R2 object itself (this only clears the rows).
+// Used on soft-delete (the working copy dies with the file) and when a session-close consumes `current`.
+export function clearCurrentObjectStatement(
+  database: SqlDatabase,
+  id: FileId,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${FILE_TABLE} SET current_r2_key = NULL, current_sha256 = NULL, current_size_bytes = NULL, current_wopi_timestamp = NULL, edit_state = 'idle', updated_at = ?2 WHERE id = ?1`,
+    )
+    .bind(id, updatedAt);
+}
+
+// Undeletes a soft-deleted file (clears deleted_at). The `current` working copy is NOT restored here —
+// it re-materializes lazily from current_version_id on the next edit launch (GetFile falls back to the
+// committed version when `current` is absent).
+export function restoreFileStatement(
+  database: SqlDatabase,
+  id: FileId,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(`UPDATE ${FILE_TABLE} SET deleted_at = NULL, updated_at = ?2 WHERE id = ?1`)
+    .bind(id, updatedAt);
 }
 
 export function renameFileStatement(

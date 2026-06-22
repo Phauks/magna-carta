@@ -18,6 +18,7 @@ import {
   assignDocumentTypeStatement,
   BULK_PREFIX,
   bumpFileCurrentVersionStatement,
+  clearCurrentObjectStatement,
   commitVersionStatement,
   fileVersionKey,
   FILES_PREFIX,
@@ -28,6 +29,8 @@ import {
   moveFileStatement,
   quarantineVersionStatement,
   renameFileStatement,
+  restoreFileStatement,
+  selectCleanVersionByIdStatement,
   selectCurrentVersionHashStatement,
   selectFileStatement,
   selectMaxVersionNumberStatement,
@@ -51,6 +54,7 @@ interface StoredFile {
   readonly matterId: MatterId;
   readonly folderId: FolderId | null;
   readonly currentVersionId: FileVersionId | null;
+  readonly currentR2Key: string | null;
   readonly deletedAt: string | null;
 }
 
@@ -60,6 +64,7 @@ async function loadFile(database: SqlDatabase, id: FileId): Promise<StoredFile |
     matter_id: MatterId;
     folder_id: FolderId | null;
     current_version_id: FileVersionId | null;
+    current_r2_key: string | null;
     deleted_at: string | null;
   }>();
   const row = results[0];
@@ -69,6 +74,7 @@ async function loadFile(database: SqlDatabase, id: FileId): Promise<StoredFile |
     matterId: row.matter_id,
     folderId: row.folder_id,
     currentVersionId: row.current_version_id,
+    currentR2Key: row.current_r2_key,
     deletedAt: row.deleted_at,
   };
 }
@@ -775,7 +781,33 @@ export async function assignDocumentType(
   };
 }
 
+// Soft-deletes a file: sets deleted_at and destroys the live working copy with it — the current_*
+// pointer is cleared and the file returns to idle. Returns the `current` R2 object key (or null) so the
+// caller deletes that object; the route also reaps any live editing session first. The committed
+// versions and their bytes are retained for the recovery window — only the transient working copy dies.
 export async function softDeleteFile(
+  database: SqlDatabase,
+  fileId: FileId,
+  options: FileServiceOptions,
+): Promise<{ effect: EffectWrite; currentR2Key: string | null }> {
+  const file = await requireFile(database, fileId);
+  return {
+    currentR2Key: file.currentR2Key,
+    effect: {
+      statements: [
+        softDeleteFileStatement(database, fileId, options.clock.now()),
+        clearCurrentObjectStatement(database, fileId, options.clock.now()),
+        fileAuditStatement(database, options, "file.deleted", fileId),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+// Undeletes a soft-deleted file: clears deleted_at so it returns to the default listing. The `current`
+// working copy re-materializes lazily from current_version_id on the next edit launch (GetFile falls
+// back to the committed version when `current` is absent), so nothing is copied here.
+export async function restoreFile(
   database: SqlDatabase,
   fileId: FileId,
   options: FileServiceOptions,
@@ -784,10 +816,106 @@ export async function softDeleteFile(
   return {
     effect: {
       statements: [
-        softDeleteFileStatement(database, fileId, options.clock.now()),
-        fileAuditStatement(database, options, "file.deleted", fileId),
+        restoreFileStatement(database, fileId, options.clock.now()),
+        fileAuditStatement(database, options, "file.restored", fileId),
       ],
       outboxMessages: [],
+    },
+  };
+}
+
+export interface RestoreVersionInput {
+  readonly fileId: FileId;
+  readonly sourceVersionId: FileVersionId; // the archived clean version to bring forward
+  readonly uploadedBy: UserId; // the actor restoring — the new version's author
+}
+
+// Restores an archived version FORWARD: copies a chosen clean version's bytes into a brand-new version
+// (version_number = max + 1) that becomes current, leaving all history untouched (no rewrite, no
+// pointer regression). The bytes move server-side (the injected copyObject: source version key -> new
+// version key), never through the Worker. A no-op when the source already matches the current content
+// (the SHA-256 skip), so restoring the live version cuts nothing. Mirrors commitEditedVersion's
+// commit/meter/audit posture, sourced from an archived version instead of the live working copy.
+export async function restoreVersion(
+  database: SqlDatabase,
+  input: RestoreVersionInput,
+  options: FileServiceOptions,
+  copyObject: (fromKey: string, toKey: string) => Promise<void>,
+): Promise<CommittedEditedVersion> {
+  const { results } = await selectCleanVersionByIdStatement(database, input.sourceVersionId).all<{
+    file_id: FileId;
+    r2_key: string;
+    content_sha256: string | null;
+    size_bytes: number | null;
+  }>();
+  const source = results[0];
+  if (source === undefined || source.file_id !== input.fileId) {
+    throw new FileManagerValidationError(
+      "unknown-version",
+      `no such clean version on this file: ${input.sourceVersionId}`,
+    );
+  }
+
+  const { results: currentResults } = await selectCurrentVersionHashStatement(
+    database,
+    input.fileId,
+  ).all<{ hash: string | null }>();
+  const currentHash = currentResults[0]?.hash ?? null;
+  if (currentHash !== null && currentHash === source.content_sha256) {
+    // The chosen version is already the current content — restoring it would cut a duplicate.
+    return { skipped: true, versionId: null, effect: { statements: [], outboxMessages: [] } };
+  }
+
+  const { results: maxResults } = await selectMaxVersionNumberStatement(
+    database,
+    input.fileId,
+  ).all<{ n: number }>();
+  const versionNumber = (maxResults[0]?.n ?? 0) + 1;
+  const versionId = newIdentifier("fileVersion", options.randomSource);
+  const r2Key = fileVersionKey(input.fileId, versionId);
+  const now = options.clock.now();
+  const sizeBytes = source.size_bytes ?? 0;
+
+  // Move the bytes server-side BEFORE the metadata batch: if the copy fails, no row points at a
+  // missing object. The restored version is a trusted in-app copy of an already-scanned version, so
+  // the verdict is `unscanned` (the offline check-in path is what routes the scan gate).
+  await copyObject(source.r2_key, r2Key);
+
+  return {
+    skipped: false,
+    versionId,
+    effect: {
+      statements: [
+        insertFileVersionStatement(database, {
+          id: versionId,
+          fileId: input.fileId,
+          versionNumber,
+          r2Key,
+          declaredContentType: null,
+          uploadedBy: input.uploadedBy,
+          createdAt: now,
+        }),
+        commitVersionStatement(database, {
+          versionId,
+          sizeBytes,
+          sniffedContentType: null,
+          contentSha256: source.content_sha256 ?? "",
+          scanVerdict: "unscanned",
+          scanEngineVersion: null,
+          scanDetail: null,
+          committedAt: now,
+        }),
+        bumpFileCurrentVersionStatement(database, input.fileId, versionId, now),
+        ...meterCommitStatements(
+          database,
+          { storageClass: "standard", artifactRole: "original", prefix: FILES_PREFIX },
+          sizeBytes,
+        ),
+        fileAuditStatement(database, options, "file.version_restored", versionId),
+      ],
+      outboxMessages: [
+        { topic: "file.version_committed", payload: { fileId: input.fileId, versionId } },
+      ],
     },
   };
 }

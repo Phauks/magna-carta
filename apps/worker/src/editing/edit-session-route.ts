@@ -22,7 +22,7 @@ import { chokepointMiddleware } from "../chokepoint/register.ts";
 import { identifierPathParam } from "../contracts/common.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
-import type { DocumentSession } from "./document-session.ts";
+import { documentSessionStub } from "./document-session.ts";
 import { mintEditToken, type EditCapability } from "./wopi-token.ts";
 
 // How long a minted access token is valid. The editor refreshes within this window; the value is short
@@ -34,14 +34,6 @@ const TOKEN_WINDOW_MS = 60 * 60 * 1000;
 // seam here so the live discovery fetch slots in without changing the route.
 function editorDiscoveryUrlsrc(env: Bindings): string {
   return env.COLLABORA_DISCOVERY_URLSRC ?? "https://collabora.localhost/browser/dist/cool.html";
-}
-
-// The per-document session coordinator. The binding is unparameterized in Bindings (avoiding a circular
-// import with the DO class), so the stub is narrowed to the concrete class here for its typed RPC.
-function documentSessionStub(env: Bindings, fileId: FileId): DurableObjectStub<DocumentSession> {
-  return env.DOCUMENT_SESSION.get(
-    env.DOCUMENT_SESSION.idFromName(fileId),
-  ) as DurableObjectStub<DocumentSession>;
 }
 
 const SessionLaunchResponse = z

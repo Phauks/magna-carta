@@ -152,6 +152,15 @@ export class DocumentSession extends DurableObject<Bindings> {
     await this.save({ ...state, wopiLock: null });
   }
 
+  // Force-closes the live session — used when the file is soft-deleted out from under any editors.
+  // Clears the participant set, lock, and session id and cancels the idle-reap alarm. Cutting a
+  // session-close version from `current` is wired with the live editing container; the soft-delete
+  // path destroys `current` regardless.
+  async forceClose(): Promise<void> {
+    await this.save(EMPTY_STATE);
+    await this.ctx.storage.deleteAlarm();
+  }
+
   // The idle-reap alarm: the window elapsed with no activity re-arming it, so the co-editing session is
   // dead. Free the document (file.edit_state -> idle in the firm database) and clear the live session
   // state. A no-op when the session already closed cleanly (no participants). Cutting a session-close
@@ -178,4 +187,16 @@ export class DocumentSession extends DurableObject<Bindings> {
     }
     await this.save(EMPTY_STATE);
   }
+}
+
+// The per-document session coordinator stub, narrowed to the concrete class for its typed RPC (the
+// binding is intentionally unparameterized in Bindings to avoid a circular import with the DO class).
+// One helper so every caller addresses the session the same way (by fileId).
+export function documentSessionStub(
+  env: Bindings,
+  fileId: string,
+): DurableObjectStub<DocumentSession> {
+  return env.DOCUMENT_SESSION.get(
+    env.DOCUMENT_SESSION.idFromName(fileId),
+  ) as DurableObjectStub<DocumentSession>;
 }
