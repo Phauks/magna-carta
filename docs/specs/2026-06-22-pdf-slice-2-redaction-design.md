@@ -59,7 +59,8 @@ pub fn redact(bytes: Vec<u8>, regions: &[RedactionRegion], opts: &RedactionOptio
 1. **Render** the page to a raster at `opts.dpi` (default **300**) via hayro (slice-1 `render_page` path).
 2. **Burn** opaque black rectangles over each region — map the region's PDF-point `Rect` to pixels (§5).
 3. **Reassemble** with lopdf: replace the page's content stream with one that draws a single full-page image XObject (the flattened raster), keep the same `MediaBox`, and **remove** the original content stream and the page's `/Annots`.
-4. The page's original text/vectors/annotations are now **gone** — only pixels remain.
+4. **Prune orphans:** replacing `/Contents` only *unlinks* the original streams — their bytes (the original text operators, fonts, images) still serialize unless removed. After all pages are reassembled, prune every object no longer reachable from the trailer (lopdf `prune_objects`), so the original content is physically absent from the output, not merely unreferenced. This is the difference between *removed* and *hidden* at the byte level, and is enforced by a test asserting the original (uncompressed) text bytes are gone from the emitted file.
+5. The page's original text/vectors/annotations are now **gone** — only pixels remain.
 
 **Image encoding:** default **lossless DEFLATE** (no JPEG artifacts on text — defensibility over size). `opts` exposes DPI; colorspace down-conversion (grayscale/bitonal for text pages, a major size win for large productions) is a named optimization seam, not v1.
 

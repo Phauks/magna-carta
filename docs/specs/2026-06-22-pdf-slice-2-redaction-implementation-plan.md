@@ -416,14 +416,33 @@ fn gate_fails_when_text_survives() {
     let result = verify_gate(&lo, &[1], &["Hello".into()]);
     assert!(matches!(result, Err(RedactError::GateFailed { .. })));
 }
+
+#[test]
+fn redact_purges_orphaned_text_bytes() {
+    // The original page draws "(Hello World) Tj" in an UNCOMPRESSED content
+    // stream, so the literal bytes are present in the input file. After
+    // redaction the page is an image and the original stream is orphaned;
+    // pruning must physically remove it, so the literal bytes must be GONE
+    // from the emitted file — not merely unreachable via text extraction.
+    let regions = [RedactionRegion {
+        page: 0,
+        rect: Rect { x0: 0.0, y0: 0.0, x1: 1000.0, y1: 1000.0 },
+        reason: None,
+    }];
+    let outcome = redact(hello_bytes(), &regions, &RedactionOptions::default()).unwrap();
+    assert!(
+        !outcome.pdf.windows(5).any(|w| w == b"Hello"),
+        "orphaned original text bytes survived in the output"
+    );
+}
 ```
 
 - [ ] **Step 2: Run, verify they fail**
 
-Run: `cargo test -p pdf-core redact_removes_target_text_and_passes_gate gate_fails_when_text_survives`
+Run: `cargo test -p pdf-core redact_removes_target_text_and_passes_gate gate_fails_when_text_survives redact_purges_orphaned_text_bytes`
 Expected: FAIL — `redact` / `verify_gate` not defined.
 
-- [ ] **Step 3: Implement** — add to `redact.rs`:
+- [ ] **Step 3: Implement** — add to `redact.rs`. Also **remove the two `#[allow(dead_code)]` attributes** that Tasks 2–3 placed on `render_redacted_page` and `reassemble_page`: `redact` now calls both, so the attributes are no longer needed (leaving them would mask a genuinely-dead function later).
 
 ```rust
 use std::collections::BTreeMap;
@@ -482,6 +501,12 @@ pub fn redact(
         reassemble_page(&mut lo, page_id, &rgb, w, h, size.width_pt, size.height_pt)?;
         redacted.push(page);
     }
+
+    // Replacing /Contents only unlinks the original streams. Physically drop
+    // every now-unreferenced object (the original content streams, fonts, and
+    // image resources) so their bytes — including the original text operators —
+    // are not written to the output, where a raw-byte scan could recover them.
+    lo.prune_objects();
 
     let affected_1based: Vec<u32> = redacted.iter().map(|p| (*p + 1) as u32).collect();
     verify_gate(&lo, &affected_1based, &opts.redacted_text)?;
