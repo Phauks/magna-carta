@@ -11,8 +11,11 @@ import {
 } from "@magna-carta/file-manager/file-statements";
 import { getCurrentCleanVersion } from "@magna-carta/file-manager/queries";
 import type { FileId, FileVersionId } from "@magna-carta/identifiers/types";
+import { operationFailed } from "@magna-carta/telemetry/events";
+import { newCorrelationId, newErrorId } from "@magna-carta/telemetry/ids";
+import type { Logger } from "@magna-carta/telemetry/logger";
 import type { CurrentObjectMeta } from "./document-session.ts";
-import { assertEditCapability } from "./wopi-guard.ts";
+import { assertEditCapability, WopiGuardError } from "./wopi-guard.ts";
 import type { EditTokenClaims } from "./wopi-token.ts";
 
 // crypto.DigestStream is a Workers runtime extension (absent from @types/node), so it is reached
@@ -219,5 +222,53 @@ export async function lockOperation(
     }
     default:
       return new Response(null, { status: 400 });
+  }
+}
+
+// The WOPI guard/route fault codes mapped to the HTTP status coolwsd expects; an unmapped throw is an
+// unexpected server fault (500).
+const WOPI_FAULT_STATUS: Record<string, number> = {
+  unauthorized: 401,
+  "not-found": 404,
+  "forbidden-readonly": 403,
+};
+
+export interface WopiDiagnosticsDeps {
+  readonly logger: Logger;
+  readonly now: () => string;
+  // A correlation id to thread through; minted per callback when absent (this token surface does not
+  // ride the request-path telemetry middleware that would otherwise supply one).
+  readonly correlationId?: string;
+}
+
+// Runs one WOPI callback with the surface's diagnostics. A thrown fault is mapped to the WOPI-contract
+// status and recorded as ONE redacted operation.failed event carrying an error id; the same error id
+// is returned in X-MC-Error-Id so a support trace joins the client-visible failure. The event's
+// allowlist has no field for the document bytes or the access token, so neither can ever be logged.
+export async function runWopiCallback(
+  operation: string,
+  deps: WopiDiagnosticsDeps,
+  fn: () => Promise<Response>,
+): Promise<Response> {
+  const correlationId = deps.correlationId ?? newCorrelationId();
+  try {
+    return await fn();
+  } catch (error) {
+    const errorId = newErrorId();
+    const code =
+      error instanceof WopiGuardError || error instanceof WopiRouteError ? error.code : undefined;
+    const status = (code !== undefined ? WOPI_FAULT_STATUS[code] : undefined) ?? 500;
+    deps.logger.log(
+      operationFailed(
+        { correlationId, now: deps.now() },
+        {
+          operation,
+          errorName: error instanceof Error ? error.name : "Error",
+          messageHead: error instanceof Error ? error.message.slice(0, 200) : "",
+          errorId,
+        },
+      ),
+    );
+    return new Response(null, { status, headers: { "X-MC-Error-Id": errorId } });
   }
 }
