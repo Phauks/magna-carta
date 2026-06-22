@@ -2163,6 +2163,48 @@
           "checkoutId"
         ]
       },
+      "ReconcileResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "reconciled"
+            ]
+          },
+          "reconciledVersionId": {
+            "type": "string"
+          },
+          "currentVersionId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "reconciledVersionId",
+          "currentVersionId"
+        ]
+      },
+      "ReconcileRequest": {
+        "type": "object",
+        "properties": {
+          "keep": {
+            "type": "string",
+            "enum": [
+              "current",
+              "incoming",
+              "both"
+            ]
+          },
+          "resolvedNote": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "keep"
+        ]
+      },
       "BundleStatus": {
         "type": "object",
         "properties": {
@@ -9011,6 +9053,100 @@
           },
           "404": {
             "description": "No such file in this firm, or no active offline checkout of it with that id",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{fileId}/reconcile": {
+      "post": {
+        "description": "Resolve a divergent check-in by choosing which copy is authoritative (keep the current version, promote the incoming offline edit, or keep both). Flags the conflicting copy reconciled, releases the checkout, and audits the resolution. The conflicting copy is retained.",
+        "operationId": "documents.reconcile",
+        "tags": [
+          "documents"
+        ],
+        "x-mc-operationId": "documents.reconcile",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "documents:reconcile",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "documents"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "fileId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReconcileRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The conflict was resolved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReconcileResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks documents:reconcile",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such file in this firm, or it has nothing awaiting reconciliation",
             "content": {
               "application/problem+json": {
                 "schema": {

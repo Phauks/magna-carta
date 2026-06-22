@@ -180,6 +180,36 @@ export function markVersionConflictStatement(
     .bind(versionId, divergedFromVersionId);
 }
 
+// Resolves a conflicting copy: flips it conflict_pending -> reconciled when a human picks the winner.
+// Guarded on the conflict_pending state so a replay is a no-op. The copy itself is retained forever
+// (never deleted) regardless of which side won — this only clears the document's "needs reconciliation"
+// flag (the conflict_pending row is that flag).
+export function markVersionReconciledStatement(
+  database: SqlDatabase,
+  versionId: FileVersionId,
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${FILE_VERSION_TABLE} SET reconciliation_status = 'reconciled' WHERE id = ?1 AND reconciliation_status = 'conflict_pending'`,
+    )
+    .bind(versionId);
+}
+
+// Sets a file's current version UNCONDITIONALLY — the deliberate-human override the monotonic
+// bumpFileCurrentVersionStatement is not: reconciliation may promote a conflicting copy even when a
+// later version exists (the holder is choosing the offline edit over what advanced meanwhile). Ingest
+// ordering still uses the monotonic bump; only human reconciliation uses this.
+export function setFileCurrentVersionStatement(
+  database: SqlDatabase,
+  fileId: FileId,
+  versionId: FileVersionId,
+  updatedAt: string,
+): SqlStatement {
+  return database
+    .prepare(`UPDATE ${FILE_TABLE} SET current_version_id = ?2, updated_at = ?3 WHERE id = ?1`)
+    .bind(fileId, versionId, updatedAt);
+}
+
 // The current (clean) version's hash, for the no-op skip: re-uploading identical bytes must not cut a
 // new version. Reads only the committed version (status = 'clean').
 export function selectCurrentVersionHashStatement(

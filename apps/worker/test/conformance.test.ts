@@ -519,6 +519,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "documents.checkin",
       "documents.checkout",
       "documents.editSession",
+      "documents.reconcile",
       "documents.viewSession",
       "downloads.bundleStatus",
       "downloads.zip",

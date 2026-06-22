@@ -8,6 +8,7 @@ import {
 } from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
+  DocumentCheckoutId,
   DocumentTypeId,
   FileId,
   FileVersionId,
@@ -146,6 +147,43 @@ export async function getCurrentCleanVersion(
     r2Key: row.r2_key,
     sizeBytes: row.size_bytes,
     versionNumber: row.version_number,
+  };
+}
+
+export interface ConflictPendingVersion {
+  readonly id: FileVersionId;
+  readonly versionNumber: number;
+  readonly divergedFromVersionId: FileVersionId | null;
+  readonly checkoutId: DocumentCheckoutId | null;
+}
+
+// The conflicting copy awaiting human reconciliation for a file — the document's "needs reconciliation"
+// flag IS a conflict_pending version (no separate column). Returns the most recent one if several
+// offline copies diverged; undefined means nothing to reconcile (the route 404s). Spans the version
+// status by design — a conflicting copy is committed `clean`; reconciliation_status is the gate here.
+// fitness:allow-no-status
+export async function getConflictPendingVersion(
+  database: SqlDatabase,
+  fileId: FileId,
+): Promise<ConflictPendingVersion | undefined> {
+  const { results } = await database
+    .prepare(
+      `SELECT id, version_number, diverged_from_version_id, checkout_id FROM ${FILE_VERSION_TABLE} WHERE file_id = ?1 AND reconciliation_status = 'conflict_pending' ORDER BY version_number DESC LIMIT 1`,
+    )
+    .bind(fileId)
+    .all<{
+      id: FileVersionId;
+      version_number: number;
+      diverged_from_version_id: FileVersionId | null;
+      checkout_id: DocumentCheckoutId | null;
+    }>();
+  const row = results[0];
+  if (row === undefined) return undefined;
+  return {
+    id: row.id,
+    versionNumber: row.version_number,
+    divergedFromVersionId: row.diverged_from_version_id,
+    checkoutId: row.checkout_id,
   };
 }
 

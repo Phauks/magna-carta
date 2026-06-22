@@ -4,9 +4,17 @@ import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import {
   getCheckoutById,
   insertDocumentCheckoutStatement,
+  setCheckoutStatusStatement,
 } from "@magna-carta/file-manager/checkout-statements";
 import { initiateCheckin } from "@magna-carta/file-manager/file-service";
-import { getCurrentCleanVersion } from "@magna-carta/file-manager/queries";
+import {
+  markVersionReconciledStatement,
+  setFileCurrentVersionStatement,
+} from "@magna-carta/file-manager/file-statements";
+import {
+  getConflictPendingVersion,
+  getCurrentCleanVersion,
+} from "@magna-carta/file-manager/queries";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { DocumentCheckoutId, FileId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../app.ts";
@@ -162,6 +170,77 @@ export const checkinRoute = defineOpenAPIRoute(checkinMeta, {
   },
 });
 
+const ReconcileRequest = z
+  .object({
+    // Which copy becomes authoritative: keep the current version (discard the offline edit), promote
+    // the incoming offline edit to current, or keep both (current unchanged, the edit retained in
+    // history). The conflicting copy is retained forever regardless.
+    keep: z.enum(["current", "incoming", "both"]),
+    // An optional human note recorded with the resolution (e.g. why a side was chosen).
+    resolvedNote: z.string().min(1).optional(),
+  })
+  .openapi("ReconcileRequest");
+
+const ReconcileResponse = z
+  .object({
+    status: z.literal("reconciled"),
+    // The conflicting copy that was resolved (still retained in history).
+    reconciledVersionId: z.string(),
+    // The file's current version after the resolution (advanced only when keep='incoming').
+    currentVersionId: z.string(),
+  })
+  .openapi("ReconcileResponse");
+
+// Resolves a divergent check-in: a human picks which copy is authoritative. Flips the conflicting copy
+// conflict_pending -> reconciled (clearing the document's reconciliation flag), promotes it to current
+// when keep='incoming', releases the reconciling checkout, and audits document.reconciled with the
+// actor and the chosen resolution. The conflicting copy is retained forever regardless of the choice.
+export const reconcileMeta: RouteMeta = {
+  operationId: "documents.reconcile",
+  surface: "app",
+  authenticated: true,
+  permission: "documents:reconcile",
+  resource: "matter",
+  audited: true,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+export const reconcileRoute = defineOpenAPIRoute(reconcileMeta, {
+  method: "post",
+  path: "/api/v1/documents/{fileId}/reconcile",
+  request: {
+    params: z.object({ fileId: identifierPathParam("file", "fileId") }),
+    body: { content: { "application/json": { schema: ReconcileRequest } }, required: true },
+  },
+  description:
+    "Resolve a divergent check-in by choosing which copy is authoritative (keep the current version, " +
+    "promote the incoming offline edit, or keep both). Flags the conflicting copy reconciled, releases " +
+    "the checkout, and audits the resolution. The conflicting copy is retained.",
+  responses: {
+    200: {
+      description: "The conflict was resolved",
+      content: { "application/json": { schema: ReconcileResponse } },
+    },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "Authenticated, but the member lacks documents:reconcile",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    404: {
+      description: "No such file in this firm, or it has nothing awaiting reconciliation",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
 export function registerDocumentCheckoutRoutes(
   app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>,
   chokepoint: Chokepoint,
@@ -276,6 +355,69 @@ export function registerDocumentCheckoutRoutes(
           method: "PUT" as const,
           url,
           headers: { "Content-Type": CHECKIN_UPLOAD_CONTENT_TYPE },
+        },
+        200,
+      );
+    },
+  );
+
+  app.openapi(
+    { ...reconcileRoute, middleware: chokepointMiddleware(chokepoint, reconcileRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const memberId = requireChokepointUserId(c);
+      const fileId = c.req.param("fileId") as FileId;
+      const { keep, resolvedNote } = c.req.valid("json");
+
+      // The document's reconciliation flag IS a conflict_pending version; absent → nothing to resolve.
+      const conflict = await getConflictPendingVersion(firm.firmDatabase, fileId);
+      if (conflict === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          status: 404,
+          title: "Not found",
+          detail: "No document awaiting reconciliation with that id.",
+        });
+      }
+
+      const now = () => new Date().toISOString();
+      const statements = [
+        markVersionReconciledStatement(firm.firmDatabase, conflict.id),
+        // Only keep='incoming' moves current — to the offline edit, overriding the monotonic bump
+        // (the holder may be choosing it over a version that advanced meanwhile). 'current'/'both'
+        // leave current where it is; the conflicting copy is retained either way.
+        ...(keep === "incoming"
+          ? [setFileCurrentVersionStatement(firm.firmDatabase, fileId, conflict.id, now())]
+          : []),
+        ...(conflict.checkoutId !== null
+          ? [setCheckoutStatusStatement(firm.firmDatabase, conflict.checkoutId, "released")]
+          : []),
+        insertAuditLogStatement(firm.firmDatabase, {
+          id: newIdentifier("auditLog"),
+          event: "document.reconciled",
+          actorUserId: memberId,
+          subjectId: fileId,
+          metadata: { keep, ...(resolvedNote !== undefined ? { resolvedNote } : {}) },
+          now: now(),
+        }),
+      ];
+      await commitEffectBatch(
+        firm.firmDatabase,
+        {
+          statements,
+          outboxMessages: [
+            { topic: "document.reconciled", payload: { fileId, versionId: conflict.id, keep } },
+          ],
+        },
+        { now },
+      );
+
+      const currentVersion = await getCurrentCleanVersion(firm.firmDatabase, fileId);
+      return c.json(
+        {
+          status: "reconciled" as const,
+          reconciledVersionId: conflict.id,
+          currentVersionId: currentVersion?.id ?? conflict.id,
         },
         200,
       );
