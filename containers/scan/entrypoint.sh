@@ -1,19 +1,38 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Fail fast if the baked prefilter database is missing: the service builds its Prefilter from /atoms.db at
+# boot, and a missing file means the image build's extraction did not bake (a broken build, never a safe
+# state). Exit non-zero so the orchestrator restarts rather than serving without the prefilter. The path
+# is the build-atoms output baked by the Dockerfile.
+ATOMS_DB="${ATOMS_DB:-/atoms.db}"
+if [ ! -s "$ATOMS_DB" ]; then
+  echo "FATAL: prefilter database $ATOMS_DB is missing or empty; the image build did not bake it" >&2
+  exit 1
+fi
+
 # clamav-client talks to clamd over loopback TCP (the cross-platform transport); the Debian package
 # defaults to a Unix socket, so add a TCP listener on 127.0.0.1:3310. Loopback only — no network egress.
 CONF=/etc/clamav/clamd.conf
 grep -q '^TCPSocket' "$CONF" || printf 'TCPSocket 3310\nTCPAddr 127.0.0.1\n' >>"$CONF"
 
-# Align clamd's scan-size limits with the ingest pipeline's inspectable-size cap — the
+# Align clamd's scan limits with the ingest pipeline's inspectable-size cap — the
 # fileManager.inspectableSizeCapBytes default (2 GiB) in packages/file-manager/src/upload-policy.ts.
 # clamd's stock limits are far below that (MaxScanSize/MaxFileSize 100M, StreamMaxLength 25M). clamd
 # enforces MaxScanSize/MaxFileSize on a path SCAN too, not only on INSTREAM, so a file between ~100 MiB
-# and the cap would be skipped and degrade to a retryable engine fault without these raised. Strip any
-# active directive first so a duplicate cannot error (commented samples are left).
-sed -i -E '/^[[:space:]]*(StreamMaxLength|MaxScanSize|MaxFileSize)[[:space:]]/d' "$CONF"
-printf 'StreamMaxLength 2048M\nMaxScanSize 2048M\nMaxFileSize 2048M\n' >>"$CONF"
+# and the cap would be skipped without these raised.
+#
+# CRITICAL — fail-closed on a limit breach. By default clamd that hits a size/time/recursion/file-count
+# limit stops and returns OK (a SILENT CLEAN below the Rust layer's never-silent-clean enforcement — the
+# one place that invariant cannot reach). `AlertExceedsMax yes` makes a breach surface as a
+# `Heuristics.Limits.Exceeded.* FOUND`, which interpret_reply (clamav.rs) already maps to Infected — so
+# an uninspectable file fails CLOSED (quarantine), never clean. The time/recursion/file-count limits are
+# also pinned, raised above clamd's stock defaults so they sit at/above the in-process ArchiveCaps and
+# the 2 GiB cap — a legitimate large or deeply-but-boundedly nested file scans clean, and only genuinely
+# pathological input (beyond what we intend to inspect) trips the fail-closed alert. Strip any active
+# directive first so a duplicate cannot error (commented samples are left).
+sed -i -E '/^[[:space:]]*(StreamMaxLength|MaxScanSize|MaxFileSize|MaxScanTime|MaxRecursion|MaxFiles|AlertExceedsMax)[[:space:]]/d' "$CONF"
+printf 'StreamMaxLength 2048M\nMaxScanSize 2048M\nMaxFileSize 2048M\nMaxScanTime 300000\nMaxRecursion 17\nMaxFiles 50000\nAlertExceedsMax yes\n' >>"$CONF"
 
 # Scratch directory for the direct file-scan fast path: the scan service writes the request body here and
 # sends clamd `SCAN <path>` so clamd reads the file itself — no INSTREAM socket copy or temp spool. Files
