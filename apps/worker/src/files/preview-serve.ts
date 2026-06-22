@@ -34,9 +34,14 @@ export function parseSingleByteRange(
   return { offset, length: endInclusive - offset + 1 };
 }
 
-function appOriginFor(filesOrigin: string): string {
-  // The app origin frame-ancestors entry: the trusted sibling host. files.<rest> -> app.<rest>.
-  return `https://${filesOrigin.replace(/^files\./, "app.")}`;
+function frameAncestorsFor(filesOrigin: string): string {
+  // Who may embed a preview rendition: ANY app subdomain under the shared parent of the files host —
+  // firms get branded per-firm subdomains (<firm>.<parent>), and the cookieless delivery host is one
+  // neutral sibling under the same parent. So frame-ancestors is a wildcard over the parent, not a
+  // single fixed app host. This does not weaken authorization: the signed, firm-scoped token names a
+  // single object, so a firm only ever holds tokens for its own files — the embedding origin was
+  // never the gate. files.<parent> -> *.<parent> (strip the first label).
+  return `https://*.${filesOrigin.replace(/^[^.]+\./, "")}`;
 }
 
 // A minimal, non-JSON edge response for tamper/expiry/missing-object. 404 is used UNIFORMLY for every
@@ -85,7 +90,7 @@ export function registerPreviewServeRoute(
     if (payload.verdict !== "playable") return previewNoLongerValid();
 
     // Derive EVERY response header + bucket + key ONLY from the verified payload, never the URL/query.
-    const appOrigin = appOriginFor(filesOrigin);
+    const frameAncestors = frameAncestorsFor(filesOrigin);
     const rangeHeader = c.req.header("range") ?? null;
     const ifRange = c.req.header("if-range") ?? null;
 
@@ -124,7 +129,7 @@ export function registerPreviewServeRoute(
     try {
       headers = buildSafeDeliveryHeaders({
         sniffedContentType: payload.sniffedContentType,
-        appOrigin,
+        frameAncestors,
       });
       headers.set("ETag", head.httpEtag);
     } catch {

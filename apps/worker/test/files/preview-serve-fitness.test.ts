@@ -12,8 +12,37 @@ describe("cookieless preview surface — standing fitness guard", () => {
   });
 
   it("never emits Content-Disposition: inline from the header builder", () => {
-    const h = buildSafeDeliveryHeaders({ sniffedContentType: "video/mp4", appOrigin: "https://app.example.com" });
+    const h = buildSafeDeliveryHeaders({
+      sniffedContentType: "video/mp4",
+      frameAncestors: "https://*.example.com",
+    });
     expect(h.get("Content-Disposition")).toBe("attachment");
+  });
+
+  it("a valid playable token serves 200 with a wildcard frame-ancestors (any branded firm subdomain may embed)", async () => {
+    // The frame-ancestors source is a wildcard over the parent of FILES_ORIGIN, not a single fixed
+    // app host — branded per-firm subdomains (<firm>.<parent>) must be able to embed the rendition.
+    // The signed firm-scoped token is the authorization gate, so the wildcard cannot cross tenants.
+    const filesOrigin = env.FILES_ORIGIN;
+    if (filesOrigin === undefined) throw new Error("test env must set FILES_ORIGIN");
+    const r2Key = "files/happy/v1";
+    await env.R2.put(r2Key, "preview-bytes-abc");
+    const token = await mintPreviewDeliveryToken(env.AUTH_SECRET, {
+      r2Key,
+      bucket: "test-bucket",
+      sniffedContentType: "video/mp4",
+      verdict: "playable",
+      exp: Math.floor(Date.now() / 1000) + 300,
+    });
+    const res = await SELF.fetch(`https://${filesOrigin}/api/files-preview/${token}`);
+    expect(res.status).toBe(200);
+    const csp = res.headers.get("Content-Security-Policy") ?? "";
+    const expectedAncestors = `https://*.${filesOrigin.replace(/^[^.]+\./, "")}`;
+    expect(csp).toContain(`frame-ancestors ${expectedAncestors}`);
+    // No single fixed app host is baked into the policy.
+    expect(csp).not.toContain("//app.");
+    expect(res.headers.get("Content-Disposition")).toBe("attachment");
+    expect(res.headers.get("Content-Type")).toBe("video/mp4");
   });
 
   it("a non-preview path on the files host does not leak the SPA shell", async () => {
@@ -52,7 +81,9 @@ describe("cookieless preview surface — standing fitness guard", () => {
     expect(await health.text()).not.toMatch(/error_/);
     expect(health.headers.get("Content-Disposition")).toBe("attachment");
 
-    const auth = await SELF.fetch(`https://${env.FILES_ORIGIN}/api/auth/get-session`, { method: "POST" });
+    const auth = await SELF.fetch(`https://${env.FILES_ORIGIN}/api/auth/get-session`, {
+      method: "POST",
+    });
     expect(auth.status).toBe(404);
     const authBody = await auth.text();
     expect(authBody).not.toMatch(/error_/);
