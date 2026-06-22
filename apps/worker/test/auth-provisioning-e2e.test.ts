@@ -226,7 +226,8 @@ describe("end-to-end", () => {
       // incidents:viewDescription grants (0006) + shipping:manage (0008_elite_genesis) + the slice
       // 1·3 directory:edit / directory:viewSensitiveIdentifiers grants (0009_directory) +
       // tools:firmUsage (0010_seed-tools-firm-usage.sql) + the slice 1·4 customFields:manage /
-      // customFields:purge grants (0013_custom-fields.sql). Sorted.
+      // customFields:purge grants (0013_custom-fields.sql) + the time: grants (0016_time-tracking).
+      // Sorted.
       permissions: [
         "customFields:manage",
         "customFields:purge",
@@ -250,6 +251,12 @@ describe("end-to-end", () => {
         "matters:renumber",
         "matters:reopen",
         "shipping:manage",
+        "time:approve",
+        "time:manageRates",
+        "time:manageSettings",
+        "time:manageUtbms",
+        "time:track",
+        "time:viewFirm",
         "tools:firmUsage",
       ],
     });
