@@ -76,6 +76,12 @@ export type Bindings = {
   >;
   // The server-conversion queue the coordinator enqueues onto; the consumer runs the ConversionPort adapter.
   CONVERSION: Queue<import("./conversions/conversion-types.ts").ConversionMessage>;
+  // The native-libvips conversion Container. Optional: absent in every test environment (the container
+  // cannot run under the local pool) and until the deploy-time wrangler activation, where
+  // resolveEnginePort falls back to the deferred port instead. Present in production once wired.
+  LIBVIPS_CONTAINER?: DurableObjectNamespace<
+    import("./conversions/libvips-container.ts").LibvipsContainer
+  >;
   // The authenticated Workers AI binding — the only path inference reaches the gateway through (no raw
   // gateway token in any firm-reachable config). Pre-authenticated within the account.
   AI: Ai;
