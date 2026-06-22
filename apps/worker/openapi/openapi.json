@@ -2103,6 +2103,21 @@
           "accessTokenTtl"
         ]
       },
+      "CheckoutResponse": {
+        "type": "object",
+        "properties": {
+          "checkoutId": {
+            "type": "string"
+          },
+          "presignedGetUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "checkoutId",
+          "presignedGetUrl"
+        ]
+      },
       "BundleStatus": {
         "type": "object",
         "properties": {
@@ -8773,6 +8788,90 @@
           },
           "404": {
             "description": "The file does not exist in this firm, or has no committed version to open",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{fileId}/checkout": {
+      "post": {
+        "description": "Take an offline working copy of a document: records a checkout against the current version and returns a short-lived presigned download URL for that version's bytes.",
+        "operationId": "documents.checkout",
+        "tags": [
+          "documents"
+        ],
+        "x-mc-operationId": "documents.checkout",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "documents:checkout",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "documents"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^file_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "fileId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The checkout handle and the presigned download URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks documents:checkout",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The file does not exist in this firm, or has no committed version to check out",
             "content": {
               "application/problem+json": {
                 "schema": {

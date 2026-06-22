@@ -18,6 +18,7 @@ import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerDownloadsRoutes } from "./routes/downloads.ts";
+import { registerDocumentCheckoutRoutes } from "./editing/checkout-routes.ts";
 import { registerDocumentEditingRoutes } from "./editing/edit-session-route.ts";
 import { registerFilesRoutes } from "./routes/files.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
@@ -266,6 +267,9 @@ export function createApp(options: CreateAppOptions = {}) {
   // Slice 2·2: in-app document editing — the editor-launch route that mints the WOPI access token and
   // returns the editor URL to iframe (the WOPI host callback surface is its own token-guarded route).
   registerDocumentEditingRoutes(app, chokepoint);
+  // Slice 2·2: offline checkout / check-in — take a working copy out and return it through the
+  // quarantine ingest, reconciling divergence as a human-reviewed conflicting copy.
+  registerDocumentCheckoutRoutes(app, chokepoint);
   // The async bulk-download poll endpoint — the status side of the download route's 202 hand-off.
   registerBundleStatusRoute(app, chokepoint);
   // Slice 1·3: the directory (persons/organizations, names, sensitive identifiers, edges,
