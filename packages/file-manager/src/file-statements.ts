@@ -22,6 +22,13 @@ export function fileVersionKey(fileId: FileId, versionId: FileVersionId): string
   return `${FILES_PREFIX}/${fileId}/${versionId}`;
 }
 
+// The single mutable working-copy key for an in-app editing session — files/{fileId}/current. A live
+// edit overwrites this object on every save; cutting a version copies it to an immutable
+// files/{fileId}/{versionId}. One per file, so a re-open reuses the same key (crash-safe in R2).
+export function currentObjectKey(fileId: FileId): string {
+  return `${FILES_PREFIX}/${fileId}/current`;
+}
+
 export interface InsertFileRow {
   readonly id: FileId;
   readonly matterId: MatterId;
