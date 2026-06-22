@@ -50,6 +50,15 @@ function ssrfProbe(): RedirectProbe {
   };
 }
 
+// A BrowserRenderer whose snapshot throws with "unavailable", simulating a capacity/limit failure.
+function unavailableRenderer(): BrowserRenderer {
+  return {
+    async snapshot(_url: string) {
+      throw new Error("Browser rendering service unavailable — at capacity.");
+    },
+  };
+}
+
 const app = createApp({
   safeBrowseDeps: { renderer: fakeRenderer(), probe: fakeProbe() },
 });
@@ -57,6 +66,11 @@ const app = createApp({
 // A second app instance wired with the SSRF probe for the 400 case.
 const ssrfApp = createApp({
   safeBrowseDeps: { renderer: fakeRenderer(), probe: ssrfProbe() },
+});
+
+// A third app instance whose renderer throws a capacity/limit error for the 502 case.
+const rendererFailureApp = createApp({
+  safeBrowseDeps: { renderer: unavailableRenderer(), probe: fakeProbe() },
 });
 
 let poolFirmId: FirmId;
@@ -175,5 +189,34 @@ describe("POST /api/v1/safe-browse", () => {
       "x-mc-resource": "firm",
       "x-mc-audited": false,
     });
+  });
+
+  it("returns 502 when the browser renderer is unavailable, without leaking the URL", async () => {
+    const { userId } = await seedCredentialedUser("safebrowse-502@example.com", {
+      userName: "Renderer Failure",
+      firmId: poolFirmId,
+    });
+    await mirrorMemberWithOwnerRole(userId, "Renderer Failure");
+    const cookie = await signInForSessionCookie("safebrowse-502@example.com");
+    const targetUrl = "https://suspect.example.com/page";
+    const response = await rendererFailureApp.request(
+      "https://example.com/api/v1/safe-browse",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "https://example.com",
+          cookie,
+        },
+        body: JSON.stringify({ url: targetUrl }),
+      },
+      env,
+    );
+    expect(response.status).toBe(502);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+    // The response body must not contain the url or host — redaction must hold.
+    const body = await response.text();
+    expect(body).not.toContain("suspect.example.com");
+    expect(body).not.toContain(targetUrl);
   });
 });

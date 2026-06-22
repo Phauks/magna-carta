@@ -38,12 +38,22 @@ interface BrowserRunBinding {
 export function createBrowserRenderer(browser: BrowserRunBinding): BrowserRenderer {
   return {
     async snapshot(url: string) {
-      const snapshotResponse = await browser.quickAction("snapshot", { url });
+      const snapshotResponse = await browser.quickAction("snapshot", {
+        url,
+        formats: ["screenshot", "markdown"],
+      });
       const snapshotBody = (await snapshotResponse.json()) as {
         success: boolean;
-        result?: { content?: string; screenshot?: string };
+        result?: { content?: string; screenshot?: string; markdown?: string };
         meta?: { title?: string };
       };
+
+      // A non-throwing failure response (capacity / limit) must be treated as an error so the
+      // caller's catch block can map it to a 502. The thrown message contains "capacity" so the
+      // 502 predicate below matches it.
+      if (!snapshotBody.success) {
+        throw new Error("Browser renderer returned a failure response (capacity or limit).");
+      }
 
       // Links are a best-effort companion call — a failure here must not fail the capture.
       let links: readonly string[] = [];
@@ -61,7 +71,7 @@ export function createBrowserRenderer(browser: BrowserRunBinding): BrowserRender
       return {
         screenshotBase64: snapshotBody.result?.screenshot ?? "",
         content: snapshotBody.result?.content,
-        markdown: undefined,
+        markdown: snapshotBody.result?.markdown,
         title: snapshotBody.meta?.title,
         links,
       };
@@ -89,15 +99,10 @@ export function createFetchRedirectProbe(
         // Re-guard each hop — a server could redirect to a private host.
         await assertPublicTarget(current, resolve);
 
-        const controller = new AbortController();
-        const timeout = AbortSignal.timeout(hopTimeout);
-        // Combine the manual abort with the timeout signal.
-        timeout.addEventListener("abort", () => controller.abort(timeout.reason));
-
         const response = await fetch(current, {
           method: "GET",
           redirect: "manual",
-          signal: controller.signal,
+          signal: AbortSignal.any([AbortSignal.timeout(hopTimeout)]),
         });
 
         // Capture final headers at every hop; the last hop's headers are what we return.
@@ -254,13 +259,16 @@ export function registerSafeBrowseRoute(
         // Browser renderer capacity/limit/unavailable errors → 502 (redacted, correlated).
         // Only errors that clearly indicate a renderer failure are caught here; everything
         // else propagates to the standard telemetry error pipeline (→ 500 with Error ID).
-        const message = error instanceof Error ? error.message : String(error);
+        //
+        // errorText feeds the 502 predicate only — MUST NOT be logged or echoed; it may
+        // contain the suspect URL/host from upstream error messages.
+        const errorText = error instanceof Error ? error.message : String(error);
         if (
-          message.includes("429") ||
-          message.includes("503") ||
-          message.includes("capacity") ||
-          message.includes("unavailable") ||
-          message.includes("limit")
+          errorText.includes("429") ||
+          errorText.includes("503") ||
+          errorText.includes("capacity") ||
+          errorText.includes("unavailable") ||
+          errorText.includes("limit")
         ) {
           return problemJson(c, {
             type: "internal",
