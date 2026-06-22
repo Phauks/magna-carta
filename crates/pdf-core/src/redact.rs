@@ -56,7 +56,57 @@ pub enum RedactError {
     GateFailed { detail: String },
 }
 
+use lopdf::{Dictionary, Object, Stream};
+
 use crate::Document;
+
+// Called by the redact orchestration layer; allow until that module is wired.
+#[allow(dead_code)]
+pub(crate) fn reassemble_page(
+    doc: &mut lopdf::Document,
+    page_id: lopdf::ObjectId,
+    rgb: &[u8],
+    px_w: u32,
+    px_h: u32,
+    page_w_pt: f32,
+    page_h_pt: f32,
+) -> Result<(), RedactError> {
+    let mut img_dict = Dictionary::new();
+    img_dict.set("Type", Object::Name(b"XObject".to_vec()));
+    img_dict.set("Subtype", Object::Name(b"Image".to_vec()));
+    img_dict.set("Width", Object::Integer(px_w as i64));
+    img_dict.set("Height", Object::Integer(px_h as i64));
+    img_dict.set("ColorSpace", Object::Name(b"DeviceRGB".to_vec()));
+    img_dict.set("BitsPerComponent", Object::Integer(8));
+    let mut img_stream = Stream::new(img_dict, rgb.to_vec());
+    img_stream.compress().map_err(|_| RedactError::Reassemble)?; // FlateDecode (lossless)
+    let img_id = doc.add_object(img_stream);
+
+    // Draw the image across the full MediaBox.
+    let content = format!("q {page_w_pt} 0 0 {page_h_pt} 0 0 cm /Im0 Do Q");
+    let content_id = doc.add_object(Stream::new(Dictionary::new(), content.into_bytes()));
+
+    let mut xobjects = Dictionary::new();
+    xobjects.set("Im0", Object::Reference(img_id));
+    let mut resources = Dictionary::new();
+    resources.set("XObject", Object::Dictionary(xobjects));
+
+    let page = doc.get_dictionary_mut(page_id).map_err(|_| RedactError::Reassemble)?;
+    page.set("Contents", Object::Reference(content_id));
+    page.set("Resources", Object::Dictionary(resources));
+    page.set(
+        "MediaBox",
+        Object::Array(vec![
+            Object::Real(0.0),
+            Object::Real(0.0),
+            Object::Real(page_w_pt),
+            Object::Real(page_h_pt),
+        ]),
+    );
+    page.set("Rotate", Object::Integer(0));
+    page.remove(b"Annots");
+    Ok(())
+}
 
 // Called by the page-reassembly layer; allow until that module is wired.
 #[allow(dead_code)]
@@ -162,5 +212,26 @@ mod tests {
         let (x0, y0, x1, y1) = rect_to_pixels(&r, 100.0, 100.0, 200, 200);
         assert_eq!((x0, x1), (100, 200)); // 50..100 pt * 2
         assert_eq!((y0, y1), (0, 100)); // y-up 50..100 -> top of a 200px raster
+    }
+
+    fn hello_bytes() -> Vec<u8> {
+        include_bytes!("../tests/fixtures/hello.pdf").to_vec()
+    }
+
+    #[test]
+    fn reassemble_removes_text_and_places_image() {
+        let mut lo = lopdf::Document::load_mem(&hello_bytes()).unwrap();
+        // sanity: the original page 1 has extractable text
+        assert!(lo.extract_text(&[1]).unwrap_or_default().contains("Hello"));
+
+        let page_id = *lo.get_pages().get(&1).unwrap();
+        let rgb = vec![0u8; (10 * 10 * 3) as usize]; // a tiny dummy raster
+        reassemble_page(&mut lo, page_id, &rgb, 10, 10, 200.0, 200.0).unwrap();
+
+        let mut out = Vec::new();
+        lo.save_to(&mut out).unwrap();
+        let reloaded = lopdf::Document::load_mem(&out).unwrap();
+        // the page is now an image — no extractable text survives
+        assert!(reloaded.extract_text(&[1]).unwrap_or_default().trim().is_empty());
     }
 }
