@@ -56,12 +56,12 @@ pub enum RedactError {
     GateFailed { detail: String },
 }
 
+use std::collections::BTreeMap;
+
 use lopdf::{Dictionary, Object, Stream};
 
 use crate::Document;
 
-// Called by the redact orchestration layer; allow until that module is wired.
-#[allow(dead_code)]
 pub(crate) fn reassemble_page(
     doc: &mut lopdf::Document,
     page_id: lopdf::ObjectId,
@@ -108,8 +108,6 @@ pub(crate) fn reassemble_page(
     Ok(())
 }
 
-// Called by the page-reassembly layer; allow until that module is wired.
-#[allow(dead_code)]
 pub(crate) fn render_redacted_page(
     doc: &Document,
     page: usize,
@@ -150,6 +148,78 @@ pub(crate) fn render_redacted_page(
         rgb.push(composite(px[2]));
     }
     Ok((rgb, w, h))
+}
+
+pub(crate) fn verify_gate(
+    doc: &lopdf::Document,
+    affected_pages_1based: &[u32],
+    redacted_text: &[String],
+) -> Result<(), RedactError> {
+    // Structural: each affected page must now be text-free (it is an image).
+    for &p in affected_pages_1based {
+        let text = doc.extract_text(&[p]).unwrap_or_default();
+        if !text.trim().is_empty() {
+            return Err(RedactError::GateFailed {
+                detail: format!("page {p} still has extractable text"),
+            });
+        }
+    }
+    // Content: supplied strings must be absent document-wide.
+    if !redacted_text.is_empty() {
+        let all: Vec<u32> = doc.get_pages().keys().copied().collect();
+        let whole = doc.extract_text(&all).unwrap_or_default();
+        for s in redacted_text {
+            if !s.is_empty() && whole.contains(s.as_str()) {
+                return Err(RedactError::GateFailed {
+                    detail: format!("redacted text still present: {s}"),
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn redact(
+    bytes: Vec<u8>,
+    regions: &[RedactionRegion],
+    opts: &RedactionOptions,
+) -> Result<RedactionOutcome, RedactError> {
+    // Group regions by 0-based page index.
+    let mut by_page: BTreeMap<usize, Vec<Rect>> = BTreeMap::new();
+    for region in regions {
+        by_page.entry(region.page).or_default().push(region.rect);
+    }
+
+    let render_doc = Document::load(bytes.clone()).map_err(|_| RedactError::Parse)?; // hayro, for rendering
+    let mut lo = lopdf::Document::load_mem(&bytes).map_err(|_| RedactError::Parse)?;
+    let pages = lo.get_pages(); // 1-based number -> ObjectId
+
+    let mut redacted: Vec<usize> = Vec::new();
+    for (&page, rects) in &by_page {
+        let size = render_doc.page_size(page).map_err(|_| RedactError::PageOutOfRange)?;
+        let (rgb, w, h) = render_redacted_page(&render_doc, page, rects, opts.dpi)?;
+        let page_id = *pages
+            .get(&((page + 1) as u32))
+            .ok_or(RedactError::PageOutOfRange)?;
+        reassemble_page(&mut lo, page_id, &rgb, w, h, size.width_pt, size.height_pt)?;
+        redacted.push(page);
+    }
+
+    // Replacing /Contents only unlinks the original streams. Physically drop
+    // every now-unreferenced object (the original content streams, fonts, and
+    // image resources) so their bytes — including the original text operators —
+    // are not written to the output, where a raw-byte scan could recover them.
+    lo.prune_objects();
+
+    let affected_1based: Vec<u32> = redacted.iter().map(|p| (*p + 1) as u32).collect();
+    verify_gate(&lo, &affected_1based, &opts.redacted_text)?;
+
+    let mut pdf = Vec::new();
+    lo.save_to(&mut pdf).map_err(|_| RedactError::Reassemble)?;
+    Ok(RedactionOutcome {
+        report: RedactionReport { pages_redacted: redacted, region_count: regions.len() },
+        pdf,
+    })
 }
 
 /// Map a display-point rect to a pixel rect on the rendered raster, applying the
@@ -216,6 +286,49 @@ mod tests {
 
     fn hello_bytes() -> Vec<u8> {
         include_bytes!("../tests/fixtures/hello.pdf").to_vec()
+    }
+
+    #[test]
+    fn redact_removes_target_text_and_passes_gate() {
+        let regions = [RedactionRegion {
+            page: 0,
+            rect: Rect { x0: 0.0, y0: 0.0, x1: 1000.0, y1: 1000.0 }, // cover the whole page
+            reason: Some("PII".into()),
+        }];
+        let opts = RedactionOptions { dpi: 150.0, redacted_text: vec!["Hello".into()] };
+        let outcome = redact(hello_bytes(), &regions, &opts).expect("redaction succeeds");
+        assert_eq!(outcome.report.pages_redacted, vec![0]);
+        // the redacted text is gone from the emitted PDF
+        let reloaded = lopdf::Document::load_mem(&outcome.pdf).unwrap();
+        assert!(!reloaded.extract_text(&[1]).unwrap_or_default().contains("Hello"));
+    }
+
+    #[test]
+    fn gate_fails_when_text_survives() {
+        // The gate run against a doc that STILL has the text must fail — proving
+        // the gate is not a no-op.
+        let lo = lopdf::Document::load_mem(&hello_bytes()).unwrap();
+        let result = verify_gate(&lo, &[1], &["Hello".into()]);
+        assert!(matches!(result, Err(RedactError::GateFailed { .. })));
+    }
+
+    #[test]
+    fn redact_purges_orphaned_text_bytes() {
+        // The original page draws "(Hello World) Tj" in an UNCOMPRESSED content
+        // stream, so the literal bytes are present in the input file. After
+        // redaction the page is an image and the original stream is orphaned;
+        // pruning must physically remove it, so the literal bytes must be GONE
+        // from the emitted file — not merely unreachable via text extraction.
+        let regions = [RedactionRegion {
+            page: 0,
+            rect: Rect { x0: 0.0, y0: 0.0, x1: 1000.0, y1: 1000.0 },
+            reason: None,
+        }];
+        let outcome = redact(hello_bytes(), &regions, &RedactionOptions::default()).unwrap();
+        assert!(
+            !outcome.pdf.windows(5).any(|w| w == b"Hello"),
+            "orphaned original text bytes survived in the output"
+        );
     }
 
     #[test]
