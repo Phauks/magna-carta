@@ -290,6 +290,8 @@ Before acting on a detection report, understand these limits:
 
 4. **Hidden optional-content-layer detection and removable-annotation attribution are not yet covered.** A PDF page may use optional content groups (layers) to hide content, or carry annotation-level content that a viewer hides but the file retains. These two patterns are not detected in the current version.
 
+5. **Covered-text detection is glyph-center based.** A glyph is flagged as covered when the center of its bounding box falls within the covering fill. A glyph that is more than half outside the fill — or a fill that is rotated or non-rectangular (it is approximated by its axis-aligned bounding box) — may not be flagged even though most of the character is concealed. Covers that fully contain the text they hide (the usual case) are detected reliably.
+
 ### `DetectionReport`
 
 ```ts
