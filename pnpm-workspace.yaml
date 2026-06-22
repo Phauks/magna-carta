@@ -69,6 +69,9 @@ catalog:
   "@sveltejs/kit": 2.63.0
   "@sveltejs/adapter-static": 3.0.10
   "@sveltejs/vite-plugin-svelte": 7.1.2
+  # Image processing (packages/conversion). wasm-vips: libvips compiled to WebAssembly via
+  # Emscripten; runs in Node for the conversion test suite and in Workers for small raster jobs.
+  wasm-vips: 0.0.18
 
 overrides:
   vite: "npm:@voidzero-dev/vite-plus-core@0.1.24"
