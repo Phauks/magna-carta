@@ -1,0 +1,23 @@
+{
+  "name": "@magna-carta/conversion",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./format": "./src/format.ts",
+    "./registry": "./src/registry.ts",
+    "./pathfinding": "./src/pathfinding.ts",
+    "./port": "./src/port.ts",
+    "./engines": "./src/engines.ts",
+    "./adapters/libvips": "./src/adapters/libvips/index.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}
