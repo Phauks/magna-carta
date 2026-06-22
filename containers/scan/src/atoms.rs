@@ -64,6 +64,19 @@ pub struct Atom {
     pub caseless: bool,
 }
 
+/// The regex body of a PCRE subsig that belongs to a signature the literal-atom logic could not
+/// reduce. Captured ADDITIONALLY — it never replaces the sound fall-through the literal logic already
+/// emitted. The prefilter compiles it into its matcher (Hyperscan/Vectorscan factors out its own
+/// literals), so a file matching none of the compiled regexes is provably clear of them and need not
+/// fall through for that target. `pattern` is the raw regex text between the first and last `/` of the
+/// subsig's `trigger/regex/flags` form; `target_type` is the signature's ClamAV TargetType so the
+/// compiled regex is scanned only against the right target class.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResidualRegex {
+    pub pattern: String,
+    pub target_type: u32,
+}
+
 /// The result of parsing one body-signature file: the usable atoms, and the TargetTypes that must fall
 /// through because at least one signature targeting them could not be reduced to a sound atom. A
 /// `target_type` present in `fall_through_targets` means "the prefilter cannot prove a file of this
@@ -74,6 +87,11 @@ pub struct AtomSet {
     /// TargetTypes with at least one unprefilterable signature — the caller must force these to fall
     /// through. A `BTreeSet`-like sorted, de-duplicated vector (kept as `Vec` for plain serde).
     pub fall_through_targets: Vec<u32>,
+    /// PCRE regex bodies recovered from signatures the literal logic marked unprefilterable. The
+    /// prefilter compiles these so the signature can be matched without forcing its whole target class
+    /// to fall through (see [`ResidualRegex`]); each one a signature in `fall_through_targets` falls
+    /// out of that set only if the prefilter actually compiles it.
+    pub residual_regexes: Vec<ResidualRegex>,
     /// How many signatures could not be prefiltered (a metric the differential gate watches).
     pub unprefilterable: usize,
     /// Non-empty source lines too short to parse even a TargetType (the `< MIN_FIELDS` drop). These
@@ -86,6 +104,14 @@ pub struct AtomSet {
 impl AtomSet {
     fn mark_fall_through(&mut self, target_type: u32) {
         self.unprefilterable += 1;
+        self.note_fall_through_target(target_type);
+    }
+
+    /// Records that `target_type` must fall through, WITHOUT counting another unprefilterable signature.
+    /// Used by the residual path: a signature that yields a residual regex is counted unprefilterable
+    /// once, but its target is forced through only if no residual was recovered (the prefilter may still
+    /// lift it by compiling the regex), so the fall-through decision is separate from the count.
+    fn note_fall_through_target(&mut self, target_type: u32) {
         if let Err(insert_at) = self.fall_through_targets.binary_search(&target_type) {
             self.fall_through_targets.insert(insert_at, target_type);
         }
@@ -101,6 +127,10 @@ pub struct AtomDb {
     pub hashes: Vec<HashEntry>,
     pub atoms: Vec<Atom>,
     pub fall_through_targets: Vec<u32>,
+    /// Every [`ResidualRegex`] folded in from each parsed file. The prefilter compiles these into its
+    /// matcher so an unprefilterable PCRE signature need not force its whole target class to fall
+    /// through (see [`ResidualRegex`]).
+    pub residual_regexes: Vec<ResidualRegex>,
     pub unprefilterable_total: usize,
     /// Aggregate of every `AtomSet::dropped_lines` folded in — non-empty lines the parsers could not
     /// reduce to even a target. The build-time binary fails/warns when this exceeds a near-zero
@@ -121,6 +151,7 @@ impl AtomDb {
                 self.fall_through_targets.insert(insert_at, target);
             }
         }
+        self.residual_regexes.extend(set.residual_regexes);
         self.unprefilterable_total += set.unprefilterable;
         self.dropped_lines_total += set.dropped_lines;
     }
@@ -442,15 +473,21 @@ pub fn parse_ldb(text: &str) -> AtomSet {
             continue;
         }
         let target_type = parse_ldb_target(fields[1]);
+        let subsigs = &fields[3..];
 
         // Field [2] is the LogicalExpression. The signature is prefilterable only if it is a pure
         // positive conjunction; otherwise fall through immediately (fail-closed).
         let Some(indices) = conjunction_indices(fields[2]) else {
+            // Not a pure positive conjunction (OR / count / negation): NO single subsig is a necessary
+            // condition of a match, so the signature cannot be soundly lifted by any subset of its
+            // subsigs — force the whole target class through (fail-closed). Lifting an OR via one branch's
+            // residual would clear files that match a DIFFERENT branch (a false-clean), so the residual
+            // is recorded for metrics/visibility but never defers the fall-through here.
             set.mark_fall_through(target_type);
+            collect_residual_regexes(subsigs, target_type, &mut set.residual_regexes);
             continue;
         };
 
-        let subsigs = &fields[3..];
         let mut sig_atoms = Vec::with_capacity(indices.len());
         let mut all_prefilterable = true;
         for index in &indices {
@@ -471,10 +508,53 @@ pub fn parse_ldb(text: &str) -> AtomSet {
         if all_prefilterable && !sig_atoms.is_empty() {
             set.atoms.extend(sig_atoms);
         } else {
+            // Fail-closed: force the whole target class through. The residual regexes are recorded for
+            // visibility, but C11 lifting (deferring this fall-through when a residual soundly covers the
+            // signature) requires necessity analysis over the logical expression (conjunction-only, and
+            // only from referenced subsigs) — a dedicated, separately-verified step, not done here.
             set.mark_fall_through(target_type);
+            collect_residual_regexes(subsigs, target_type, &mut set.residual_regexes);
         }
     }
     set
+}
+
+/// Appends the regex body of every PCRE subsig in `subsigs` to `out`, tagged with `target_type`. A
+/// PCRE subsig is `trigger/regex/[flags]`: the trigger is a numeric subsig-index expression, the regex
+/// body is the text between the FIRST and LAST `/`, and the trailing token after the last `/` is the
+/// flags. Capturing the body (not the trigger or flags) hands the prefilter exactly the pattern ClamAV
+/// would run; an offset prefix (`>>n:` etc.) before the trigger is stripped first so it is not mistaken
+/// for regex text. A subsig with no `/` (a literal, byte_compare, macro, or fuzzy hash) yields nothing.
+fn collect_residual_regexes(subsigs: &[&str], target_type: u32, out: &mut Vec<ResidualRegex>) {
+    for subsig in subsigs {
+        if let Some(pattern) = pcre_regex_body(subsig) {
+            if !pattern.is_empty() {
+                out.push(ResidualRegex {
+                    pattern: pattern.to_string(),
+                    target_type,
+                });
+            }
+        }
+    }
+}
+
+/// Returns the regex body of a PCRE subsig (`trigger/regex/flags`), or `None` if the subsig is not a
+/// PCRE. The body is delimited by the FIRST `/` (closing the trigger) and the LAST `/` (opening the
+/// flags), so a `/` inside the regex (an escaped `\/` or a character class) stays in the body. byte_compare
+/// `(...)`, macro `${...}$`, and fuzzy `fuzzy_img#...` subsigs are not PCREs even if they contain a `/`.
+fn pcre_regex_body(subsig: &str) -> Option<&str> {
+    // A leading offset prefix would otherwise put `>>4:` (with its `:`) ahead of the trigger; strip it
+    // so the trigger/regex/flags split is clean. The offset stripper is a no-op when no prefix is present.
+    let body = strip_offset_prefix(subsig);
+    if body.starts_with('(') || body.starts_with("${") || body.starts_with("fuzzy_img#") {
+        return None;
+    }
+    let first = body.find('/')?;
+    let last = body.rfind('/')?;
+    if last <= first {
+        return None;
+    }
+    Some(&body[first + 1..last])
 }
 
 /// Parses a LogicalExpression and returns the de-duplicated subsig indices it references IF it is a
@@ -1161,6 +1241,10 @@ mod tests {
                 caseless: true,
             }],
             fall_through_targets: vec![0, 6],
+            residual_regexes: vec![ResidualRegex {
+                pattern: "deadbeef[0-9]{4}".to_string(),
+                target_type: 0,
+            }],
             unprefilterable_total: 3,
             dropped_lines_total: 2,
             source_versions: "main-62 daily-27000".to_string(),
@@ -1182,6 +1266,10 @@ mod tests {
                 caseless: false,
             }],
             fall_through_targets: vec![0, 6],
+            residual_regexes: vec![ResidualRegex {
+                pattern: "aaaa".to_string(),
+                target_type: 0,
+            }],
             unprefilterable: 2,
             dropped_lines: 1,
         });
@@ -1192,12 +1280,77 @@ mod tests {
                 caseless: false,
             }],
             fall_through_targets: vec![1, 6],
+            residual_regexes: vec![ResidualRegex {
+                pattern: "bbbb".to_string(),
+                target_type: 1,
+            }],
             unprefilterable: 3,
             dropped_lines: 4,
         });
         assert_eq!(db.atoms.len(), 2);
         assert_eq!(db.fall_through_targets, vec![0, 1, 6]);
+        assert_eq!(db.residual_regexes.len(), 2);
         assert_eq!(db.unprefilterable_total, 5);
         assert_eq!(db.dropped_lines_total, 5);
+    }
+
+    // --- .ldb residual regexes --------------------------------------------------------------------
+
+    #[test]
+    fn ldb_pcre_subsig_emits_a_residual_regex_tagged_with_target() {
+        // The PCRE sig falls through on the literal path (no atom), AND its regex body is captured so
+        // the prefilter can compile it. The body is exactly the text between the first and last `/`.
+        let set = parse_ldb("Name;Target:6;0;0/deadbeef[0-9]{4}cafe/g\n");
+        assert!(set.atoms.is_empty());
+        assert_eq!(set.fall_through_targets, vec![6]);
+        assert_eq!(set.residual_regexes.len(), 1);
+        assert_eq!(set.residual_regexes[0].pattern, "deadbeef[0-9]{4}cafe");
+        assert_eq!(set.residual_regexes[0].target_type, 6);
+    }
+
+    #[test]
+    fn ldb_residual_regex_body_keeps_an_inner_slash() {
+        // A `/` inside the regex (here a literal escaped `\/`) must stay in the body — the body is
+        // delimited by the FIRST and LAST `/`, not any interior one. Capturing too little would compile
+        // a different (over-permissive or invalid) pattern.
+        let set = parse_ldb("Name;Target:0;0;0/ab\\/cd[0-9]+/i\n");
+        assert_eq!(set.residual_regexes.len(), 1);
+        assert_eq!(set.residual_regexes[0].pattern, "ab\\/cd[0-9]+");
+    }
+
+    #[test]
+    fn ldb_offset_prefixed_pcre_emits_a_residual_regex() {
+        // An offset prefix before the trigger must be stripped, not treated as regex text.
+        let set = parse_ldb("Name;Target:0;0;>>4:0/abcd[0-9]+/g\n");
+        assert_eq!(set.residual_regexes.len(), 1);
+        assert_eq!(set.residual_regexes[0].pattern, "abcd[0-9]+");
+    }
+
+    #[test]
+    fn ldb_or_expression_with_a_pcre_still_emits_the_residual_regex() {
+        // An OR forces the whole sig to fall through on the literal path; the PCRE branch's regex is
+        // still recovered so the prefilter can carry it.
+        let set = parse_ldb("Name;Target:0;0|1;1122334455667788;0/evil[a-f]{2}/g\n");
+        assert!(set.atoms.is_empty());
+        assert_eq!(set.fall_through_targets, vec![0]);
+        assert_eq!(set.residual_regexes.len(), 1);
+        assert_eq!(set.residual_regexes[0].pattern, "evil[a-f]{2}");
+    }
+
+    #[test]
+    fn ldb_prefilterable_conjunction_emits_no_residual_regex() {
+        // A fully prefilterable sig (no fall-through) has no residual regex — the literal atoms cover it.
+        let set = parse_ldb("Name;Target:0;0&1;1122334455667788;99aabbccddeeff00\n");
+        assert_eq!(set.atoms.len(), 2);
+        assert!(set.residual_regexes.is_empty());
+    }
+
+    #[test]
+    fn ldb_byte_compare_fall_through_emits_no_residual_regex() {
+        // A byte_compare subsig contains no `/` regex — it falls through with no residual to compile.
+        let set = parse_ldb("Name;Target:0;0;0(>>4#hl4#>100)\n");
+        assert!(set.atoms.is_empty());
+        assert_eq!(set.fall_through_targets, vec![0]);
+        assert!(set.residual_regexes.is_empty());
     }
 }

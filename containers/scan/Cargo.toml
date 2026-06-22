@@ -32,6 +32,25 @@ yara-x = "1.18"
 lopdf = "0.41"
 cfb = "0.14"
 zip = { version = "8.6", default-features = false, features = ["deflate-flate2"] }
+# The prefilter's file-hash leg: MD5 + SHA1 + SHA256 over each buffer, looked up in the baked hash sets.
+md-5 = "0.10"
+sha1 = "0.10"
+sha2 = "0.10"
+# The PORTABLE prefilter matcher backend (default): aho-corasick multi-literal scanning for the escaped
+# atoms and the `regex` engine for the residual PCREs. It builds with no C toolchain, so the crate (and
+# its full test suite) compiles on every dev host. The production container swaps in the `vectorscan`
+# feature for the SIMD engine; the prefilter's verdict logic and soundness are identical across both.
+aho-corasick = "1"
+regex = "1"
+# The PRODUCTION matcher backend: Vectorscan/Hyperscan SIMD literal+regex scanning. Optional because its
+# `-sys` crate vendors C++ (cmake/g++/libboost/ragel) that only builds in the Linux scan image — the
+# `vectorscan` feature turns it on there. The default (portable) build needs none of that toolchain.
+vectorscan-rs = { version = "0.0.6", optional = true }
+
+[features]
+# Off by default so the crate compiles on any dev host; the scan image's build stage enables it to bake
+# the SIMD matcher (the Dockerfile already installs cmake/g++/libboost-dev/ragel for it).
+vectorscan = ["dep:vectorscan-rs"]
 
 [dev-dependencies]
 reqwest = { version = "0.12", default-features = false }

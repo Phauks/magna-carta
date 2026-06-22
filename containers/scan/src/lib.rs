@@ -11,6 +11,7 @@ use std::sync::Arc;
 pub mod atoms;
 pub mod clamav;
 pub mod heuristics;
+pub mod prefilter;
 #[cfg(unix)]
 pub mod spool;
 pub mod verdict;
