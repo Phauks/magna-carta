@@ -32,8 +32,14 @@ describe("decidePreview", () => {
   });
 
   it("downgrades a known non-playable verdict -> download-only/verdict", () => {
-    expect(decidePreview({ ...base, inlinePlayable: "download-only" })).toEqual({ kind: "download-only", reason: "verdict" });
-    expect(decidePreview({ ...base, inlinePlayable: "indeterminate" })).toEqual({ kind: "download-only", reason: "verdict" });
+    expect(decidePreview({ ...base, inlinePlayable: "download-only" })).toEqual({
+      kind: "download-only",
+      reason: "verdict",
+    });
+    expect(decidePreview({ ...base, inlinePlayable: "indeterminate" })).toEqual({
+      kind: "download-only",
+      reason: "verdict",
+    });
   });
 
   it("fails closed on an UNKNOWN out-of-enum verdict string (the stored-XSS regression guard — must never be weakened)", () => {
@@ -44,26 +50,57 @@ describe("decidePreview", () => {
   });
 
   it("playable but sniffedContentType null/empty -> download-only/unknown-type (the single-decision guard)", () => {
-    expect(decidePreview({ ...base, sniffedContentType: null })).toEqual({ kind: "download-only", reason: "unknown-type" });
-    expect(decidePreview({ ...base, sniffedContentType: "" })).toEqual({ kind: "download-only", reason: "unknown-type" });
+    expect(decidePreview({ ...base, sniffedContentType: null })).toEqual({
+      kind: "download-only",
+      reason: "unknown-type",
+    });
+    expect(decidePreview({ ...base, sniffedContentType: "" })).toEqual({
+      kind: "download-only",
+      reason: "unknown-type",
+    });
   });
 
   it("playable but a HEADER-UNSAFE sniffed type (CR/LF or non-printable) -> download-only/unknown-type, never an inline grant", () => {
     // A header-unsafe Content-Type would make Headers.set throw on the cookieless edge; it must degrade
     // here so no inline token is ever minted for it (the forward transcode-rendition seam).
-    expect(decidePreview({ ...base, sniffedContentType: "video/mp4\r\nSet-Cookie: x=1" })).toEqual({ kind: "download-only", reason: "unknown-type" });
-    expect(decidePreview({ ...base, sniffedContentType: "video/mp4\n" })).toEqual({ kind: "download-only", reason: "unknown-type" });
-    expect(decidePreview({ ...base, sniffedContentType: "video/\x00mp4" })).toEqual({ kind: "download-only", reason: "unknown-type" });
+    expect(decidePreview({ ...base, sniffedContentType: "video/mp4\r\nSet-Cookie: x=1" })).toEqual({
+      kind: "download-only",
+      reason: "unknown-type",
+    });
+    expect(decidePreview({ ...base, sniffedContentType: "video/mp4\n" })).toEqual({
+      kind: "download-only",
+      reason: "unknown-type",
+    });
+    expect(decidePreview({ ...base, sniffedContentType: "video/\x00mp4" })).toEqual({
+      kind: "download-only",
+      reason: "unknown-type",
+    });
   });
 
   it("playable but tiered/encoded/derived -> download-only with the matching reason", () => {
-    expect(decidePreview({ ...base, storageClass: "infrequent_access" })).toEqual({ kind: "download-only", reason: "tiered" });
-    expect(decidePreview({ ...base, storageEncoding: "delta" })).toEqual({ kind: "download-only", reason: "encoded" });
-    expect(decidePreview({ ...base, artifactRole: "derived" })).toEqual({ kind: "download-only", reason: "derived" });
+    expect(decidePreview({ ...base, storageClass: "infrequent_access" })).toEqual({
+      kind: "download-only",
+      reason: "tiered",
+    });
+    expect(decidePreview({ ...base, storageEncoding: "delta" })).toEqual({
+      kind: "download-only",
+      reason: "encoded",
+    });
+    expect(decidePreview({ ...base, artifactRole: "derived" })).toEqual({
+      kind: "download-only",
+      reason: "derived",
+    });
   });
 
   it("evaluation order: verdict is checked before content-type before tier", () => {
-    expect(decidePreview({ ...base, inlinePlayable: null, sniffedContentType: null, storageClass: "infrequent_access" })).toEqual({
+    expect(
+      decidePreview({
+        ...base,
+        inlinePlayable: null,
+        sniffedContentType: null,
+        storageClass: "infrequent_access",
+      }),
+    ).toEqual({
       kind: "download-only",
       reason: "unknown-verdict",
     });

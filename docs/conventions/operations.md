@@ -186,3 +186,53 @@ Both need things that don't exist yet during early build: **real endpoint traffi
   - [ ] _(Later, §8.4)_ portal-specific page matched on `Host` once custom hostnames exist.
 
 > Re-evaluation seam: the OFF list above is correct **while the architecture stays Workers-native with no external origin**. If a future slice adds a self-hosted/third-party origin, re-open Argo and Load Balancing for that origin specifically.
+
+## 9. Bulk-ingest queue + weekly re-scan cron (slice 2·1 Plan 1)
+
+Two Cloudflare Queues and one new cron trigger added in slice 2·1 Plan 1 must be present before deploying.
+
+**Queues (wrangler does not auto-create them — create once per environment):**
+
+1. **Primary queue:** `magna-carta-production-files-ingest-bulk` — a separate, lower-concurrency bulk lane so a large import cannot starve interactive uploads (background ingests). Create via the Cloudflare dashboard (**Workers & Pages → Queues → Create queue**) or `wrangler queues create magna-carta-production-files-ingest-bulk`.
+2. **Dead-letter queue:** `magna-carta-production-files-ingest-bulk-deadletter` — receives messages the bulk consumer fails to process after all retries. Create it the same way, then configure it as the dead-letter destination on the primary queue.
+
+The interactive-lane queue (`files-ingest`) and its dead-letter already exist from slice 1·1. The two new queues above are additional; the Worker `wrangler.jsonc` binds them, but Wrangler will error on deploy if they do not yet exist in the account.
+
+**Cron trigger:** `0 4 * * 0` (Sundays at 04:00 UTC) — the weekly re-scan sweep re-queues `unscanned` versions for re-inspection when a new scan engine becomes available. The cron is declared in `wrangler.jsonc`; it activates automatically on the next deploy. No manual dashboard step is required beyond verifying the trigger appears under the Worker's **Triggers** tab after deploy.
+
+## 10. Async bulk-download build queue + `bundles/` lifecycle rule (slice 2·1 Plan 3)
+
+Past the live-download threshold, a bulk ZIP is built in the background as an R2 artifact instead of streamed inline. The build needs a queue, and the artifacts need a TTL so they do not accumulate.
+
+**Queue (wrangler does not auto-create it — create once per environment):**
+
+1. **Primary queue:** `magna-carta-production-bundle-build` — carries one content-addressed selection per message to the build consumer (R2 object bodies streamed through `client-zip` into one R2 object). Create via the dashboard (**Workers & Pages → Queues → Create queue**) or `wrangler queues create magna-carta-production-bundle-build`.
+2. **Dead-letter queue:** `magna-carta-production-bundle-build-deadletter` — receives a build the consumer fails after all retries. Create it the same way, then set it as the dead-letter destination on the primary queue.
+
+The Worker `wrangler.jsonc` binds both; Wrangler errors on deploy if they do not yet exist.
+
+**R2 lifecycle rule (account configuration, not code — like the Logpush retention in section 1):** add an **object-expiration lifecycle rule on the `bundles/` prefix** of each firm's bucket (suggested **~7-day** expiration). The artifacts are a regenerable cache — content-addressed by manifest hash, rebuilt on demand — so expiring them only forces a rebuild on a later identical request. Configure under **R2 → the bucket → Settings → Object lifecycle rules**, prefix `bundles/`, delete after 7 days. The signed-download URL TTL is **independent and short** (300 s, minted fresh on each poll); the lifecycle rule governs only the stored object.
+
+**Durable Object:** the build is coordinated by `BundleBuildCoordinator` — the codebase's **first Durable Object** — declared in `wrangler.jsonc` (`durable_objects` binding + the `v1` `new_sqlite_classes` migration) and exported from `src/index.ts`. It activates automatically on deploy; no dashboard step. A second DO class (e.g. Plan 2's scan container) appends to the same `durable_objects` list and either the same or a new `migrations` tag.
+
+**Cost:** near-zero marginal — Queues + DO invocations + R2 PUT/GET on a regenerable, TTL-expired artifact; no always-on compute. The Container escalation for outlier-large bundles is a named seam, not built here.
+
+## 11. Malware-scan Container — deploy-time activation + signature refresh (slice 2·1 Plan 2)
+
+The scan engine is a `linux/amd64` Container (`containers/scan/`): a long-lived clamd daemon plus a Rust HTTP service that fans each file to clamd (signatures), yara-x (heuristic rules), and structural heuristics (PDF/Office/archive). It is **built and unit-tested, but not wired into the running Worker** — the code seam `resolveScanPort` selects it only when its binding is present, and that binding is **deliberately absent everywhere until this deploy step**, because a Container cannot run under the local worker test pool (`@cloudflare/vitest-pool-workers` does not support container bindings — workers-sdk#10408). Until activation, every firm runs the engine-less adapter (an honest `unscanned`/no-engine, never a false `clean`).
+
+**Activation (one deploy-time edit + a build):**
+
+1. Add the three wrangler blocks to `apps/worker/wrangler.jsonc` (kept out until now so the test pool needs no Docker):
+   - `"containers": [{ "class_name": "ScanContainer", "image": "../../containers/scan/Dockerfile", "max_instances": 5, "instance_type": "standard-1" }]` — `standard-1` (4 GiB) is the floor: clamd loads a ~1–2 GiB signature DB into RAM. **`entrypoint.sh` raises clamd's `StreamMaxLength`/`MaxScanSize`/`MaxFileSize` to 2048M so clamd scans the whole 2 GiB inspectable cap** — its stock limits (`StreamMaxLength` 25M, `MaxScanSize`/`MaxFileSize` 100M) would refuse anything larger over INSTREAM and degrade it to a retryable engine fault. A scan near the cap holds the full body in the Rust service **and** clamd's own copy atop the resident DB, so for reliable full-size (≈2 GiB) scanning, raise `instance_type` above `standard-1` or lower `fileManager.inspectableSizeCapBytes` — the clamd limits and the inspectable cap must stay aligned.
+   - append `{ "name": "SCAN_CONTAINER", "class_name": "ScanContainer" }` to `durable_objects.bindings` (alongside `BUNDLE_COORDINATOR`).
+   - append a **new** migration tag `{ "tag": "v2", "new_sqlite_classes": ["ScanContainer"] }` (never edit the shipped `v1`; a Container class is SQLite-backed).
+2. `wrangler deploy` builds the image (freshclam bakes the initial signature DB at **build** time — the container runs with `enableInternet = false`, so it has **no runtime egress** to fetch signatures) and pushes it. The `*/20` warm-poke cron then keeps one instance — and clamd's resident DB — alive.
+
+**Engine-fault handling:** a clamd fault with no other signal returns **503**, so the ingest consumer retries the message — a running container always booted with clamd ready (the entrypoint fails fast otherwise), so this is exceptional, not a steady state. A persistent fault dead-letters to `magna-carta-production-files-ingest-deadletter`, leaving the file pending (never a usable-but-unscanned object) as a loud ops signal. The Container never commits a file as `unscanned`/no-engine; that honest verdict belongs only to the engine-less launch adapter that runs before this activation.
+
+**Signature refresh:** because there is no runtime egress, a signature update is an **image rebuild** (re-run `wrangler deploy`, which re-runs `freshclam` in the build). A scheduled signed-update job is a documented seam, not built. clamd listens on **loopback TCP `127.0.0.1:3310`** (not a Unix socket — the cross-platform client transport; loopback only, still no egress).
+
+**Acceptance gate:** `containers/scan/tests/eicar_e2e.sh` (and the `scan-container` CI job) build the image and assert EICAR → `infected` end to end. This is the engine's proof — it runs in CI (Docker), not under the local worker pool.
+
+**Cost:** ~$35–50/mo at MVP scale for one warm `standard-1` instance (the warm-poke keeps it from cold-starting the ~1–2 GiB DB); scales with concurrent scan volume up to `max_instances`. Self-hosted — privileged client bytes never leave our compute.

@@ -556,6 +556,11 @@ export const fileVersion = sqliteTable(
       .default("standard"),
     scanVerdict: text("scan_verdict", { enum: ["unscanned", "clean", "infected"] }),
     scanEngineVersion: text("scan_engine_version"),
+    // The reason behind an `unscanned` badge ("no-engine"/"encrypted"/"oversize"), an "active-content"
+    // badge on an otherwise-clean file (PDF JavaScript / Office macros), or a suspicious
+    // quarantine ("decompression-bomb"/"archive-nesting"/"archive-entry-count"). Null for a plain
+    // clean scan. Surfaces the "not scanned" badge in read models without overloading scan_verdict.
+    scanDetail: text("scan_detail"),
     // NULL = never sniffed; set by the codec sniff when a reader first computes it. NULL must stay
     // distinct from 'indeterminate' (sniffed-but-undecidable) so a corpus roll-up can tell "never
     // looked" from "looked, can't decide". Only a positive 'playable' unlocks inline media.
@@ -644,6 +649,29 @@ export const storageMeter = sqliteTable(
     objectCount: integer("object_count").notNull(),
   },
   (table) => [primaryKey({ columns: [table.storageClass, table.artifactRole, table.prefix] })],
+);
+
+// Per-firm content-addressed scan cache — the "scan-once" dedup. Records a DEFINITIVE verdict for a
+// content hash under a specific engine version, so a re-scan or bulk migration can SKIP the scan engine
+// when identical content was already scanned by the SAME engine. Sound: identical bytes + the same
+// signature database yield the same verdict, and `engine_version` is part of the key, so a database
+// update is a cache MISS (the content is re-scanned under the new engine) — never a stale clean. Only
+// definitive verdicts are cached ('clean'/'infected'); 'unscanned' (no engine ran) is never written.
+// Natural composite key (content hash + engine version), not a handle. The win is on duplicate-heavy
+// imports: the first copy of a given content is scanned, every later copy reuses the verdict.
+export const scanCache = sqliteTable(
+  "scan_cache",
+  {
+    contentSha256: text("content_sha256").notNull(),
+    engineVersion: text("engine_version").notNull(),
+    verdict: text("verdict", { enum: ["clean", "infected"] }).notNull(),
+    signature: text("signature"), // malware signature name for 'infected'; NULL for 'clean'
+    scannedAt: text("scanned_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.contentSha256, table.engineVersion] }),
+    check("scan_cache_verdict_check", sql`${table.verdict} IN ('clean', 'infected')`),
+  ],
 );
 
 // Authoritative per-firm AI token usage, captured from the inference RESPONSE (the provider usage

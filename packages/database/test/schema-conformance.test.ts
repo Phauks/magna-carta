@@ -57,11 +57,13 @@ describe("schema conformance (fitness functions)", () => {
     // phonetic-search join.
     // directory_entity_category is the many-to-many join between a directory entity and a category —
     // the pair (entity_id, category_id) is the natural key; no handle is warranted.
+    // scan_cache is keyed by the content hash + engine version whose verdict it caches.
     const compositeKeyTables = new Set([
       "storage_meter",
       "token_usage_meter",
       "directory_name_phonetic_code",
       "directory_entity_category",
+      "scan_cache",
     ]);
 
     for (const table of ALL_TABLES) {

@@ -9,10 +9,12 @@ import { createChokepoint } from "./chokepoint/chokepoint.ts";
 import { createChokepointIdempotency } from "./chokepoint/idempotency-port.ts";
 import { createChokepointPorts, type AppVariables, type FirmContext } from "./chokepoint/ports.ts";
 import { createInMemoryRateLimiter } from "./chokepoint/rate-limiter.ts";
+import { noindexResponseMiddleware } from "./crawler-directives.ts";
 import { defaultHook } from "./contracts/problem.ts";
 import { registerHealthRoute } from "./routes/health.ts";
 import { createCloudflareEmailAdapter, type CloudflareEmailBinding } from "./email-cloudflare.ts";
 import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
+import { registerBundleStatusRoute } from "./routes/bundle-status.ts";
 import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
@@ -52,6 +54,21 @@ export type Bindings = {
   DB_FIRM_POOL_2: D1Database;
   R2: R2Bucket;
   QUEUE: Queue;
+  // The files-ingest queue binding for the interactive lane (files/ prefix).
+  FILES_INGEST?: Queue;
+  // The files-ingest-bulk queue binding for the bulk lane (bulk/ prefix, lower concurrency).
+  FILES_INGEST_BULK?: Queue;
+  // The async bulk-download coordinator (the codebase's first Durable Object): keyed
+  // firmId:manifestHash, it single-flights one ZIP build per content-addressed selection.
+  BUNDLE_COORDINATOR: DurableObjectNamespace<
+    import("./downloads/bundle-coordinator.ts").BundleBuildCoordinator
+  >;
+  // The bundle-build queue the coordinator enqueues onto; its consumer streams R2 -> client-zip -> R2.
+  BUNDLE_BUILD: Queue<import("./downloads/bundle-types.ts").BundleBuildMessage>;
+  // The malware-scan Container (slice 2·1 Plan 2). Optional: absent in every test environment (the
+  // container cannot run under the local pool) and until the deploy-time wrangler activation, where
+  // resolveScanPort falls back to the engine-less adapter. Present in production once wired.
+  SCAN_CONTAINER?: DurableObjectNamespace<import("./files/scan-container.ts").ScanContainer>;
   // The off-hot-path AI inference dispatch queue: an inference request is enqueued here and the consumer
   // (src/inference/inference-consumer.ts) runs env.AI.run, so a single firm cannot starve the shared
   // gateway cap synchronously on the request path. Distinct from QUEUE (jobs) and FILES_INGEST.
@@ -227,6 +244,13 @@ export function createApp(options: CreateAppOptions = {}) {
   // 404 on the files host, so this ordering seal cannot silently regress as routes are added.
   registerPreviewServeRoute(app);
 
+  // Stamp X-Robots-Tag: noindex on every response BELOW this point. Registered AFTER the cookieless
+  // preview route on purpose: Hono middleware only wraps routes registered after it, so the sealed
+  // files.* edge (attachment bytes + bare 404s, never an indexable page) keeps its exhaustive,
+  // payload-derived header set untouched, while the app origin, API, Better Auth, health, and the SPA
+  // shell — every private, firm-scoped surface this Worker serves — are kept out of search indexes.
+  app.use("*", noindexResponseMiddleware());
+
   // Health is platform plumbing: public, unauthenticated, no /api/v1 surface — it still rides the
   // chokepoint (rate-limit only, no session/firm/RBAC) so EVERY declared route is enforced through
   // the one seam, none reachable that skips it.
@@ -306,6 +330,8 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFoldersRoutes(app, chokepoint);
   registerFilesRoutes(app, chokepoint);
   registerDownloadsRoutes(app, chokepoint);
+  // The async bulk-download poll endpoint — the status side of the download route's 202 hand-off.
+  registerBundleStatusRoute(app, chokepoint);
   // Slice 1·3: the directory (persons/organizations, names, sensitive identifiers, edges,
   // categories, search, merge, matter-party link) — composed through the same chokepoint.
   registerDirectoryRoutes(app, chokepoint);

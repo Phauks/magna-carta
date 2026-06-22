@@ -58,6 +58,7 @@ async function commit(
       contentSha256: hash,
       scanVerdict: "unscanned",
       scanEngineVersion: null,
+      scanDetail: null,
       now: now(),
     },
     options,
@@ -159,7 +160,7 @@ describe("quarantineVersion", () => {
     const { versionId } = await initiate(database, matterId);
     const result = await quarantineVersion(
       database,
-      { versionId, reason: "scan-infected" },
+      { versionId, reason: "scan-infected", scanDetail: null },
       options,
     );
     await commitEffectBatch(database, result.effect, { now });
@@ -169,6 +170,51 @@ describe("quarantineVersion", () => {
       .bind(versionId)
       .all<{ status: string }>();
     expect(row.results[0]?.status).toBe("quarantined");
+  });
+});
+
+describe("commitVersion — scan_detail persistence", () => {
+  it("persists scan_detail on commit", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { versionId } = await initiate(database, matterId);
+    const result = await commitVersion(
+      database,
+      {
+        versionId,
+        sizeBytes: 4,
+        sniffedContentType: "application/pdf",
+        contentSha256: "ab",
+        scanVerdict: "unscanned",
+        scanEngineVersion: null,
+        scanDetail: "encrypted",
+        now: now(),
+      },
+      options,
+    );
+    await commitEffectBatch(database, result.effect, { now });
+    const rows = await database
+      .prepare("SELECT scan_detail FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .all<{ scan_detail: string | null }>();
+    expect(rows.results[0]?.scan_detail).toBe("encrypted");
+  });
+
+  it("persists scan_detail on quarantine", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { versionId } = await initiate(database, matterId);
+    const result = await quarantineVersion(
+      database,
+      { versionId, reason: "scan-infected", scanDetail: "trojan detected" },
+      options,
+    );
+    await commitEffectBatch(database, result.effect, { now });
+    const rows = await database
+      .prepare("SELECT scan_detail FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .all<{ scan_detail: string | null }>();
+    expect(rows.results[0]?.scan_detail).toBe("trojan detected");
   });
 });
 
@@ -253,6 +299,33 @@ describe("moveFile — same-matter integrity", () => {
     await expect(
       moveFile(database, fileId, "folder_missing" as FolderId, options),
     ).rejects.toMatchObject({ code: "unknown-folder" });
+  });
+});
+
+describe("initiateUpload — lane selection by uploadKind", () => {
+  it("mints an R2 key under files/ by default (interactive lane)", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const result = await initiate(database, matterId);
+    expect(result.r2Key).toMatch(/^files\//);
+  });
+
+  it("mints an R2 key under bulk/ when uploadKind is bulk", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const result = await initiate(database, matterId, { uploadKind: "bulk" });
+    expect(result.r2Key).toMatch(/^bulk\//);
+  });
+
+  it("bulk upload still meters under files/ on commit (meter dimension is logical, not the key prefix)", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { versionId } = await initiate(database, matterId, { uploadKind: "bulk" });
+    await commit(database, versionId, "hash-bulk");
+    const meter = await database
+      .prepare("SELECT bytes, object_count FROM storage_meter WHERE prefix = 'files'")
+      .all<{ bytes: number; object_count: number }>();
+    expect(meter.results[0]).toEqual({ bytes: 1024, object_count: 1 });
   });
 });
 

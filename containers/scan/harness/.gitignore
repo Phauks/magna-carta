@@ -1,0 +1,4 @@
+# Generated trigger corpus — never committed. It holds the EICAR antivirus test string and archive-bomb
+# shapes; a committed EICAR file trips the developer's own antivirus, and committing bombs is a footgun.
+# Regenerate locally with: node generate-samples.mjs
+samples/

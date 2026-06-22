@@ -96,4 +96,14 @@ export const CATALOG: readonly ToolManifest[] = [
     backing: { kind: "library" },
     matterContext: "none",
   },
+  {
+    id: "file-converter",
+    name: "File Converter",
+    icon: "file-cog",
+    subjectGroup: "documents",
+    permission: assertPermission("tools:fileConverter"),
+    contextTags: ["none"],
+    backing: { kind: "library" },
+    matterContext: "none",
+  },
 ];

@@ -46,6 +46,7 @@ export const PERMISSIONS = [
   "tools:firmUsage", // firm usage snapshot — storage + entity counts (read-only, per-firm)
   "tools:whois", // WHOIS/RDAP registration lookup for a website's domain or an IP
   "tools:safeBrowse", // render a suspect URL in an isolated remote browser (static snapshot only)
+  "tools:fileConverter", // general matter-free file converter — convert a file to another format
   // Custom fields — define and maintain field schemas; purge hard-deletes all values for a field.
   "customFields:manage",
   "customFields:purge",

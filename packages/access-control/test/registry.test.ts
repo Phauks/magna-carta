@@ -98,6 +98,7 @@ describe("permission registry", () => {
       "tools:firmUsage",
       "tools:whois",
       "tools:safeBrowse",
+      "tools:fileConverter",
     ]);
   });
 

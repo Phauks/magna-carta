@@ -37,6 +37,16 @@ describe("tool catalog", () => {
       "firm-usage",
       "whois-lookup",
       "safe-website-viewer",
+      "file-converter",
     ]);
+  });
+
+  it("registers a matter-free, library-backed file converter", () => {
+    const tool = CATALOG.find((entry) => entry.id === "file-converter");
+    expect(tool).toBeDefined();
+    expect(tool?.subjectGroup).toBe("documents");
+    expect(tool?.backing).toEqual({ kind: "library" });
+    expect(tool?.matterContext).toBe("none");
+    expect(tool?.contextTags).toEqual(["none"]);
   });
 });

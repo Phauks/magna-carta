@@ -177,6 +177,7 @@ export type InitiateUploadRequest = {
     declaredContentType: string | null;
     documentTypeId?: string | null;
     fileId?: string;
+    uploadKind?: 'interactive' | 'bulk';
 };
 
 export type SignUploadPartResponse = {
@@ -518,10 +519,24 @@ export type PreviewGrant = {
     downloadUrl: string;
 };
 
+export type BundleReady = {
+    url: string;
+};
+
+export type BundleBuildAccepted = {
+    jobId: string;
+    status: string;
+};
+
 export type ZipDownloadRequest = {
     matterId: string;
     folderIds?: Array<string>;
     fileIds?: Array<string>;
+};
+
+export type BundleStatus = {
+    status: string;
+    url?: string;
 };
 
 export type CreatedDirectoryEntityResponse = {
@@ -3129,12 +3144,55 @@ export type DownloadsZipError = DownloadsZipErrors[keyof DownloadsZipErrors];
 
 export type DownloadsZipResponses = {
     /**
-     * A streamed ZIP archive of the selected files
+     * A streamed ZIP archive of the selected files; or, when the selection exceeds the live threshold and an identical bundle was already built, a JSON body with a fresh signed URL.
      */
-    200: Blob | File;
+    200: BundleReady;
+    /**
+     * The selection exceeds the live-download threshold; a background build was started or is already in progress. Poll the bundle-status endpoint with the returned jobId.
+     */
+    202: BundleBuildAccepted;
 };
 
 export type DownloadsZipResponse = DownloadsZipResponses[keyof DownloadsZipResponses];
+
+export type DownloadsBundleStatusData = {
+    body?: never;
+    path: {
+        manifestHash: string;
+    };
+    query?: never;
+    url: '/api/v1/downloads/bundles/{manifestHash}';
+};
+
+export type DownloadsBundleStatusErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:organize
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DownloadsBundleStatusError = DownloadsBundleStatusErrors[keyof DownloadsBundleStatusErrors];
+
+export type DownloadsBundleStatusResponses = {
+    /**
+     * The job's current state, with a signed URL when ready
+     */
+    200: BundleStatus;
+};
+
+export type DownloadsBundleStatusResponse = DownloadsBundleStatusResponses[keyof DownloadsBundleStatusResponses];
 
 export type DirectoryCreatePersonData = {
     body: CreateDirectoryPersonRequest;

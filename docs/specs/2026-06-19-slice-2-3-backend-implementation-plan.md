@@ -33,11 +33,13 @@
 ## Task 1 — `inline_playable` column + CHECK + generated migration (on `main`)
 
 **Files**
+
 - Modify: `packages/database/src/per-firm-schema.ts`
 - Create (generated): `packages/database/drizzle/per-firm/00NN_<slug>.sql` + `meta/00NN_snapshot.json` + `meta/_journal.json` entry (all emitted by `generate-per-firm-migrations`)
 - Modify (test): `packages/database/test/matters-files-schema.test.ts` (add the column assertion)
 
 **Interfaces**
+
 - Produces: a nullable enum column `inlinePlayable: text("inline_playable", { enum: ["playable","download-only","indeterminate"] })` (no `.notNull()`, no `.default()`) and a CHECK `file_version_inline_playable_check`.
 - Consumed by: Task 2 (`getCurrentCleanVersionForPreview`), Task 3 (`decidePreview` reads `inlinePlayable`).
 
@@ -76,6 +78,7 @@ Steps:
 - [ ] **Generate the migration:** `pnpm --filter @magna-carta/database run generate-per-firm-migrations`. Confirm it emits a one-line ``ALTER TABLE `file_version` ADD `inline_playable` text;`` migration, a `meta/00NN_snapshot.json`, and a `_journal.json` entry. **Do not hand-edit any of the three.** The emitted number is the land-time number (replace `00NN`).
 - [ ] **Run green:** `pnpm --filter @magna-carta/database exec vitest run` (runs `matters-files-schema.test.ts`, `schema-conformance.test.ts`, `generated-migrations.test.ts`) → all pass.
 - [ ] **Commit on `main`:**
+
   ```
   git add packages/database/src/per-firm-schema.ts packages/database/drizzle/per-firm packages/database/test/matters-files-schema.test.ts
   git commit -m "feat(file-version): add nullable inline_playable verdict column + CHECK + migration
@@ -88,10 +91,12 @@ Steps:
 ## Task 2 — `getCurrentCleanVersionForPreview` + widen `listCleanVersions` (additive)
 
 **Files**
+
 - Modify: `packages/file-manager/src/queries.ts`
 - Create (test): `packages/file-manager/test/preview-version-read.test.ts`
 
 **Interfaces**
+
 - Consumes: `inline_playable` column (Task 1); `SqlDatabase`, `SqlStatement`, `FILE_TABLE`, `FILE_VERSION_TABLE`, `FileVersionId`, `FileId` (existing imports in `queries.ts`). The real file-manager test harness is `packages/file-manager/test/support.ts` (`freshDatabase()` → migrated `BatchDatabase`, assignable to `SqlDatabase`; `seedMatter(database)` → `MatterId`).
 - Produces:
   ```ts
@@ -106,8 +111,14 @@ Steps:
     readonly sniffedContentType: string | null;
     readonly artifactRole: string;
   }
-  export function selectCurrentCleanVersionForPreviewStatement(database: SqlDatabase, fileId: FileId): SqlStatement;
-  export async function getCurrentCleanVersionForPreview(database: SqlDatabase, fileId: FileId): Promise<CleanVersionForPreview | undefined>;
+  export function selectCurrentCleanVersionForPreviewStatement(
+    database: SqlDatabase,
+    fileId: FileId,
+  ): SqlStatement;
+  export async function getCurrentCleanVersionForPreview(
+    database: SqlDatabase,
+    fileId: FileId,
+  ): Promise<CleanVersionForPreview | undefined>;
   ```
   plus a widened `CleanVersionListItem` (add `readonly inlinePlayable: "playable" | "download-only" | "indeterminate" | null;`).
 - Consumed by: Task 3 (`decidePreview(version: CleanVersionForPreview)`), Task 9 (the grant route).
@@ -115,6 +126,7 @@ Steps:
 Steps:
 
 - [ ] **Write the failing test** `packages/file-manager/test/preview-version-read.test.ts` against the REAL harness (`./support.ts` — there is no `support/file-manager-db.ts`). Seed the `file` + `file_version` rows inline with a real INSERT mirroring `seedCleanFile`'s column list, setting `current_version_id`:
+
   ```ts
   import { describe, expect, it } from "vitest";
   import { newIdentifier } from "@magna-carta/identifiers";
@@ -165,7 +177,10 @@ Steps:
         overrides.artifactRole ?? "original",
       )
       .run();
-    await db.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1").bind(fileId, versionId).run();
+    await db
+      .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+      .bind(fileId, versionId)
+      .run();
     return fileId as FileId;
   }
 
@@ -199,13 +214,18 @@ Steps:
     it("returns undefined for a non-clean version (status gate preserved)", async () => {
       const db = freshDatabase();
       const matterId = await seedMatter(db);
-      const fileId = await seedFileWithVersion(db, matterId, { status: "quarantined", r2Key: "files/q/v" });
+      const fileId = await seedFileWithVersion(db, matterId, {
+        status: "quarantined",
+        r2Key: "files/q/v",
+      });
       expect(await getCurrentCleanVersionForPreview(db, fileId)).toBeUndefined();
     });
   });
   ```
+
 - [ ] **Run it red:** `pnpm --filter @magna-carta/file-manager exec vitest run test/preview-version-read.test.ts` → fails: `getCurrentCleanVersionForPreview` is not exported.
 - [ ] **Add the sibling read** to `packages/file-manager/src/queries.ts`, immediately after `getCurrentCleanVersion` (after the existing `CleanVersion` block, before `listCleanVersionsStatement`):
+
   ```ts
   // The preview gate's single read: the same clean, non-deleted current version as the download path,
   // widened with the verdict + storage facts decidePreview keys off. A NEW sibling (not an edit to
@@ -264,13 +284,15 @@ Steps:
     };
   }
   ```
+
 - [ ] **Widen `listCleanVersions`** (query + interface + mapper ONLY — do NOT touch `listCleanVersionR2KeysStatement`):
-  - In `listCleanVersionsStatement` SELECT, add `inline_playable`: ``SELECT id, version_number, r2_key, size_bytes, sniffed_content_type, content_sha256, committed_at, inline_playable FROM ${FILE_VERSION_TABLE} WHERE file_id = ?1 AND status = 'clean' ORDER BY version_number DESC``.
+  - In `listCleanVersionsStatement` SELECT, add `inline_playable`: `SELECT id, version_number, r2_key, size_bytes, sniffed_content_type, content_sha256, committed_at, inline_playable FROM ${FILE_VERSION_TABLE} WHERE file_id = ?1 AND status = 'clean' ORDER BY version_number DESC`.
   - Add to `CleanVersionListItem`: `readonly inlinePlayable: "playable" | "download-only" | "indeterminate" | null;`.
   - In the `.all<{...}>()` generic add `inline_playable: "playable" | "download-only" | "indeterminate" | null;` and in the `.map` add `inlinePlayable: row.inline_playable,`.
 - [ ] **Verify no FileVersionItem leak.** Confirm `apps/worker/src/routes/files.ts` line ~471-481 maps each `CleanVersionListItem` with EXPLICIT fields (`id`, `versionNumber`, `sizeBytes`, `sniffedContentType`, `contentSha256`, `committedAt`) and never object-spreads `...version`. (Confirmed at plan time — the handler picks fields explicitly, so `inlinePlayable` cannot leak into the `FileVersionItem` response or the OpenAPI snapshot.) If a future spread is found, leave it explicit.
 - [ ] **Run green:** `pnpm --filter @magna-carta/file-manager exec vitest run` → all file-manager tests pass (the status-gate fitness function still passes — the new read keeps `status = 'clean'`).
 - [ ] **Commit:**
+
   ```
   git commit -am "feat(file-manager): add getCurrentCleanVersionForPreview + surface inline_playable in listCleanVersions
 
@@ -282,17 +304,22 @@ Steps:
 ## Task 3 — `decidePreview` pure decision function + unit tests
 
 **Files**
+
 - Create: `packages/file-manager/src/preview-policy.ts`
 - Create (test): `packages/file-manager/test/preview-policy.test.ts`
 - Modify: `packages/file-manager/package.json` (exports map: add `"./preview-policy"`)
 
 **Interfaces**
+
 - Consumes: `CleanVersionForPreview` (Task 2).
 - Produces:
   ```ts
   export type PreviewDecision =
     | { kind: "inline-media"; r2Key: string; sniffedContentType: string; sizeBytes: number | null }
-    | { kind: "download-only"; reason: "verdict" | "unknown-verdict" | "tiered" | "encoded" | "derived" | "unknown-type" };
+    | {
+        kind: "download-only";
+        reason: "verdict" | "unknown-verdict" | "tiered" | "encoded" | "derived" | "unknown-type";
+      };
   export function decidePreview(version: CleanVersionForPreview): PreviewDecision;
   ```
 - Consumed by: Task 9 (grant route), Task 13 (e2e).
@@ -300,6 +327,7 @@ Steps:
 Steps:
 
 - [ ] **Write the failing table test** `packages/file-manager/test/preview-policy.test.ts`:
+
   ```ts
   import { describe, expect, it } from "vitest";
   import { decidePreview } from "../src/preview-policy.ts";
@@ -335,8 +363,14 @@ Steps:
     });
 
     it("downgrades a known non-playable verdict -> download-only/verdict", () => {
-      expect(decidePreview({ ...base, inlinePlayable: "download-only" })).toEqual({ kind: "download-only", reason: "verdict" });
-      expect(decidePreview({ ...base, inlinePlayable: "indeterminate" })).toEqual({ kind: "download-only", reason: "verdict" });
+      expect(decidePreview({ ...base, inlinePlayable: "download-only" })).toEqual({
+        kind: "download-only",
+        reason: "verdict",
+      });
+      expect(decidePreview({ ...base, inlinePlayable: "indeterminate" })).toEqual({
+        kind: "download-only",
+        reason: "verdict",
+      });
     });
 
     it("fails closed on an UNKNOWN out-of-enum verdict string (the stored-XSS regression guard — must never be weakened)", () => {
@@ -347,26 +381,50 @@ Steps:
     });
 
     it("playable but sniffedContentType null/empty -> download-only/unknown-type (the single-decision guard)", () => {
-      expect(decidePreview({ ...base, sniffedContentType: null })).toEqual({ kind: "download-only", reason: "unknown-type" });
-      expect(decidePreview({ ...base, sniffedContentType: "" })).toEqual({ kind: "download-only", reason: "unknown-type" });
+      expect(decidePreview({ ...base, sniffedContentType: null })).toEqual({
+        kind: "download-only",
+        reason: "unknown-type",
+      });
+      expect(decidePreview({ ...base, sniffedContentType: "" })).toEqual({
+        kind: "download-only",
+        reason: "unknown-type",
+      });
     });
 
     it("playable but tiered/encoded/derived -> download-only with the matching reason", () => {
-      expect(decidePreview({ ...base, storageClass: "infrequent_access" })).toEqual({ kind: "download-only", reason: "tiered" });
-      expect(decidePreview({ ...base, storageEncoding: "delta" })).toEqual({ kind: "download-only", reason: "encoded" });
-      expect(decidePreview({ ...base, artifactRole: "derived" })).toEqual({ kind: "download-only", reason: "derived" });
+      expect(decidePreview({ ...base, storageClass: "infrequent_access" })).toEqual({
+        kind: "download-only",
+        reason: "tiered",
+      });
+      expect(decidePreview({ ...base, storageEncoding: "delta" })).toEqual({
+        kind: "download-only",
+        reason: "encoded",
+      });
+      expect(decidePreview({ ...base, artifactRole: "derived" })).toEqual({
+        kind: "download-only",
+        reason: "derived",
+      });
     });
 
     it("evaluation order: verdict is checked before content-type before tier", () => {
-      expect(decidePreview({ ...base, inlinePlayable: null, sniffedContentType: null, storageClass: "infrequent_access" })).toEqual({
+      expect(
+        decidePreview({
+          ...base,
+          inlinePlayable: null,
+          sniffedContentType: null,
+          storageClass: "infrequent_access",
+        }),
+      ).toEqual({
         kind: "download-only",
         reason: "unknown-verdict",
       });
     });
   });
   ```
+
 - [ ] **Run it red:** `pnpm --filter @magna-carta/file-manager exec vitest run test/preview-policy.test.ts` → fails: module not found.
 - [ ] **Implement** `packages/file-manager/src/preview-policy.ts`:
+
   ```ts
   import type { CleanVersionForPreview } from "./queries.ts";
 
@@ -387,7 +445,10 @@ Steps:
 
   export function decidePreview(version: CleanVersionForPreview): PreviewDecision {
     if (version.inlinePlayable !== "playable") {
-      return { kind: "download-only", reason: version.inlinePlayable === null ? "unknown-verdict" : "verdict" };
+      return {
+        kind: "download-only",
+        reason: version.inlinePlayable === null ? "unknown-verdict" : "verdict",
+      };
     }
     if (version.sniffedContentType === null || version.sniffedContentType === "") {
       return { kind: "download-only", reason: "unknown-type" };
@@ -409,9 +470,11 @@ Steps:
     };
   }
   ```
+
 - [ ] **Add the export** to `packages/file-manager/package.json` `exports` map: `"./preview-policy": "./src/preview-policy.ts",`.
 - [ ] **Run green:** `pnpm --filter @magna-carta/file-manager exec vitest run test/preview-policy.test.ts` → all pass.
 - [ ] **Commit:**
+
   ```
   git commit -am "feat(file-manager): add pure decidePreview verdict gate + preview-policy export
 
@@ -423,16 +486,30 @@ Steps:
 ## Task 4 — `safeRendition` port + `nullSafeRenditionAdapter` (seam, no engine)
 
 **Files**
+
 - Create: `packages/file-manager/src/safe-rendition-port.ts`
 - Create (test): `packages/file-manager/test/safe-rendition-port.test.ts`
 - Modify: `packages/file-manager/package.json` (exports: add `"./safe-rendition-port"`)
 
 **Interfaces**
+
 - Produces:
   ```ts
-  export interface SafeRenditionRequest { versionId: FileVersionId; r2Key: string; sniffedContentType: string; target: "rasterized-image" | "transcoded-mp4"; }
-  export interface SafeRendition { renditionVersionId: FileVersionId; r2Key: string; contentType: string; }
-  export interface SafeRenditionPort { lookup(req: SafeRenditionRequest): Promise<SafeRendition | null>; request(req: SafeRenditionRequest): Promise<SafeRendition>; }
+  export interface SafeRenditionRequest {
+    versionId: FileVersionId;
+    r2Key: string;
+    sniffedContentType: string;
+    target: "rasterized-image" | "transcoded-mp4";
+  }
+  export interface SafeRendition {
+    renditionVersionId: FileVersionId;
+    r2Key: string;
+    contentType: string;
+  }
+  export interface SafeRenditionPort {
+    lookup(req: SafeRenditionRequest): Promise<SafeRendition | null>;
+    request(req: SafeRenditionRequest): Promise<SafeRendition>;
+  }
   export class SafeRenditionNotAvailableError extends Error {}
   export const nullSafeRenditionAdapter: SafeRenditionPort;
   ```
@@ -441,9 +518,13 @@ Steps:
 Steps:
 
 - [ ] **Write the failing test** `packages/file-manager/test/safe-rendition-port.test.ts`:
+
   ```ts
   import { describe, expect, it } from "vitest";
-  import { nullSafeRenditionAdapter, SafeRenditionNotAvailableError } from "../src/safe-rendition-port.ts";
+  import {
+    nullSafeRenditionAdapter,
+    SafeRenditionNotAvailableError,
+  } from "../src/safe-rendition-port.ts";
 
   const req = {
     versionId: "fileVersion_x" as never,
@@ -457,12 +538,16 @@ Steps:
       expect(await nullSafeRenditionAdapter.lookup(req)).toBeNull();
     });
     it("throws SafeRenditionNotAvailableError from request (engine deferred)", async () => {
-      await expect(nullSafeRenditionAdapter.request(req)).rejects.toBeInstanceOf(SafeRenditionNotAvailableError);
+      await expect(nullSafeRenditionAdapter.request(req)).rejects.toBeInstanceOf(
+        SafeRenditionNotAvailableError,
+      );
     });
   });
   ```
+
 - [ ] **Run it red:** `pnpm --filter @magna-carta/file-manager exec vitest run test/safe-rendition-port.test.ts` → fails: module not found.
 - [ ] **Implement** `packages/file-manager/src/safe-rendition-port.ts` (mirrors the `MalwareScanPort`/`unscannedAdapter` precedent):
+
   ```ts
   import type { FileVersionId } from "@magna-carta/identifiers/types";
 
@@ -507,9 +592,11 @@ Steps:
     },
   };
   ```
+
 - [ ] **Add the export** to `packages/file-manager/package.json`: `"./safe-rendition-port": "./src/safe-rendition-port.ts",`.
 - [ ] **Run green:** `pnpm --filter @magna-carta/file-manager exec vitest run test/safe-rendition-port.test.ts` → all pass.
 - [ ] **Commit:**
+
   ```
   git commit -am "feat(file-manager): add safeRendition port + null launch adapter
 
@@ -521,16 +608,31 @@ Steps:
 ## Task 5 — `preview-token.ts` mint/verify (HMAC over AUTH_SECRET, constant-time)
 
 **Files**
+
 - Create: `apps/worker/src/files/preview-token.ts`
 - Create (test): `apps/worker/test/files/preview-token.test.ts`
 
 **Interfaces**
+
 - Consumes: `constantTimeStringEquals` from `apps/worker/src/constant-time.ts` (async, returns `Promise<boolean>`); `crypto.subtle` (workerd).
 - Produces:
   ```ts
-  export interface PreviewTokenPayload { r2Key: string; bucket: string; sniffedContentType: string; verdict: "playable" | "download-only" | "indeterminate" | null; exp: number; }
-  export function mintPreviewDeliveryToken(secret: string, payload: PreviewTokenPayload): Promise<string>;
-  export function verifyPreviewDeliveryToken(secret: string, token: string, nowSeconds: number): Promise<PreviewTokenPayload | null>;
+  export interface PreviewTokenPayload {
+    r2Key: string;
+    bucket: string;
+    sniffedContentType: string;
+    verdict: "playable" | "download-only" | "indeterminate" | null;
+    exp: number;
+  }
+  export function mintPreviewDeliveryToken(
+    secret: string,
+    payload: PreviewTokenPayload,
+  ): Promise<string>;
+  export function verifyPreviewDeliveryToken(
+    secret: string,
+    token: string,
+    nowSeconds: number,
+  ): Promise<PreviewTokenPayload | null>;
   ```
   `verify` returns `null` on any tamper/format/expiry failure (never throws). Token shape: base64url(UTF-8 JSON payload) + "." + base64url(HMAC-SHA-256 of the payload segment). Constant-time HMAC compare via `constantTimeStringEquals(presentedSignatureBase64url, recomputedSignatureBase64url)`. Decode is the exact UTF-8 inverse of the encode (TextDecoder), so a non-ASCII byte in any payload field round-trips. Expiry checked only after a valid signature.
 - Consumed by: Task 9 (grant mints), Task 8 (cookieless verifies).
@@ -538,9 +640,14 @@ Steps:
 Steps:
 
 - [ ] **Write the failing test** `apps/worker/test/files/preview-token.test.ts` (pure unit test — runs under the worker vitest pool, uses the `crypto` global):
+
   ```ts
   import { describe, expect, it } from "vitest";
-  import { mintPreviewDeliveryToken, verifyPreviewDeliveryToken, type PreviewTokenPayload } from "../../src/files/preview-token.ts";
+  import {
+    mintPreviewDeliveryToken,
+    verifyPreviewDeliveryToken,
+    type PreviewTokenPayload,
+  } from "../../src/files/preview-token.ts";
 
   const SECRET = "test-secret-value";
   const payload: PreviewTokenPayload = {
@@ -558,7 +665,7 @@ Steps:
     });
 
     it("round-trips a payload with a non-ASCII sniffedContentType", async () => {
-      const unicode = { ...payload, sniffedContentType: "video/mp4; name=\"clé.mp4\"" };
+      const unicode = { ...payload, sniffedContentType: 'video/mp4; name="clé.mp4"' };
       const token = await mintPreviewDeliveryToken(SECRET, unicode);
       expect(await verifyPreviewDeliveryToken(SECRET, token, 1_000_000_000)).toEqual(unicode);
     });
@@ -575,7 +682,9 @@ Steps:
         .replace(/\+/g, "-")
         .replace(/\//g, "_")
         .replace(/=+$/, "");
-      expect(await verifyPreviewDeliveryToken(SECRET, `${forgedBody}.${sig}`, 1_000_000_000)).toBeNull();
+      expect(
+        await verifyPreviewDeliveryToken(SECRET, `${forgedBody}.${sig}`, 1_000_000_000),
+      ).toBeNull();
     });
 
     it("rejects a flipped signature byte", async () => {
@@ -595,8 +704,10 @@ Steps:
     });
   });
   ```
+
 - [ ] **Run it red:** `pnpm --filter @magna-carta/worker exec vitest run test/files/preview-token.test.ts` → fails: module not found.
 - [ ] **Implement** `apps/worker/src/files/preview-token.ts`:
+
   ```ts
   import { constantTimeStringEquals } from "../constant-time.ts";
 
@@ -687,8 +798,10 @@ Steps:
     return payload;
   }
   ```
+
 - [ ] **Run green:** `pnpm --filter @magna-carta/worker exec vitest run test/files/preview-token.test.ts` → all pass.
 - [ ] **Commit:**
+
   ```
   git commit -am "feat(worker): add preview delivery token mint/verify (HMAC over AUTH_SECRET, constant-time)
 
@@ -700,10 +813,12 @@ Steps:
 ## Task 6 — `FILES_ORIGIN` binding + wrangler var
 
 **Files**
+
 - Modify: `apps/worker/src/app.ts` (the `Bindings` type)
 - Modify: `apps/worker/wrangler.jsonc` (add a `vars` block)
 
 **Interfaces**
+
 - Produces: `FILES_ORIGIN?: string` on `Bindings` (optional — unset degrades the grant to download-only); a `wrangler.jsonc` `"vars": { "FILES_ORIGIN": "files.example.com" }` so the Miniflare test pool binds it.
 - Consumed by: Task 8 (host guard), Task 9 (grant degrade + token mint), Task 13 (e2e).
 
@@ -726,6 +841,7 @@ Steps:
   ```
 - [ ] **Verify the binding loads** (no behavior change yet). Run the existing worker suite smoke: `pnpm --filter @magna-carta/worker exec vitest run test/dev-vars.test.ts` → still passes (`.dev.vars` untouched). Confirm typecheck: `pnpm --filter @magna-carta/worker exec tsc --noEmit` → clean.
 - [ ] **Commit:**
+
   ```
   git commit -am "feat(worker): add optional FILES_ORIGIN binding + wrangler var for the cookieless preview host
 
@@ -737,14 +853,19 @@ Steps:
 ## Task 7 — Safe-delivery header builder (pure) + unit tests
 
 **Files**
+
 - Create: `apps/worker/src/files/preview-headers.ts`
 - Create (test): `apps/worker/test/files/preview-headers.test.ts`
 
 **Interfaces**
+
 - Consumes: nothing (pure).
 - Produces:
   ```ts
-  export interface SafeDeliveryHeaderInput { sniffedContentType: string; appOrigin: string; }
+  export interface SafeDeliveryHeaderInput {
+    sniffedContentType: string;
+    appOrigin: string;
+  }
   export function buildSafeDeliveryHeaders(input: SafeDeliveryHeaderInput): Headers;
   ```
   Every returned `Headers` carries: `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`, `Content-Type: <sniffed>`, `Content-Security-Policy: sandbox; default-src 'none'; frame-ancestors <appOrigin>`, `Cache-Control: private, no-store`, `Accept-Ranges: bytes`. NEVER `Content-Disposition: inline`. NEVER `Access-Control-Allow-Origin` (the decided launch CORS posture).
@@ -753,39 +874,56 @@ Steps:
 Steps:
 
 - [ ] **Write the failing test** `apps/worker/test/files/preview-headers.test.ts`:
+
   ```ts
   import { describe, expect, it } from "vitest";
   import { buildSafeDeliveryHeaders } from "../../src/files/preview-headers.ts";
 
   describe("buildSafeDeliveryHeaders", () => {
     it("stamps the exact safe-delivery header set", () => {
-      const h = buildSafeDeliveryHeaders({ sniffedContentType: "video/mp4", appOrigin: "https://app.example.com" });
+      const h = buildSafeDeliveryHeaders({
+        sniffedContentType: "video/mp4",
+        appOrigin: "https://app.example.com",
+      });
       expect(h.get("Content-Disposition")).toBe("attachment");
       expect(h.get("X-Content-Type-Options")).toBe("nosniff");
       expect(h.get("Content-Type")).toBe("video/mp4");
-      expect(h.get("Content-Security-Policy")).toBe("sandbox; default-src 'none'; frame-ancestors https://app.example.com");
+      expect(h.get("Content-Security-Policy")).toBe(
+        "sandbox; default-src 'none'; frame-ancestors https://app.example.com",
+      );
       expect(h.get("Cache-Control")).toBe("private, no-store");
       expect(h.get("Accept-Ranges")).toBe("bytes");
     });
 
     it("uses the sniffed type verbatim (never declared, never octet-stream fallback)", () => {
-      const h = buildSafeDeliveryHeaders({ sniffedContentType: "audio/mpeg", appOrigin: "https://app.example.com" });
+      const h = buildSafeDeliveryHeaders({
+        sniffedContentType: "audio/mpeg",
+        appOrigin: "https://app.example.com",
+      });
       expect(h.get("Content-Type")).toBe("audio/mpeg");
     });
 
     it("never emits Content-Disposition: inline", () => {
-      const h = buildSafeDeliveryHeaders({ sniffedContentType: "video/mp4", appOrigin: "https://app.example.com" });
+      const h = buildSafeDeliveryHeaders({
+        sniffedContentType: "video/mp4",
+        appOrigin: "https://app.example.com",
+      });
       expect(h.get("Content-Disposition")).not.toContain("inline");
     });
 
     it("sends NO Access-Control-Allow-Origin (the decided launch CORS posture)", () => {
-      const h = buildSafeDeliveryHeaders({ sniffedContentType: "video/mp4", appOrigin: "https://app.example.com" });
+      const h = buildSafeDeliveryHeaders({
+        sniffedContentType: "video/mp4",
+        appOrigin: "https://app.example.com",
+      });
       expect(h.get("Access-Control-Allow-Origin")).toBeNull();
     });
   });
   ```
+
 - [ ] **Run it red:** `pnpm --filter @magna-carta/worker exec vitest run test/files/preview-headers.test.ts` → fails: module not found.
 - [ ] **Implement** `apps/worker/src/files/preview-headers.ts`:
+
   ```ts
   // The safe-delivery header set stamped on every cookieless preview 200/206/416. Untrusted bytes are
   // served from a cookieless origin so a malicious file reaches only the media decoder, never a
@@ -814,8 +952,10 @@ Steps:
     return headers;
   }
   ```
+
 - [ ] **Run green:** `pnpm --filter @magna-carta/worker exec vitest run test/files/preview-headers.test.ts` → all pass.
 - [ ] **Commit:**
+
   ```
   git commit -am "feat(worker): add pure safe-delivery header builder for cookieless preview
 
@@ -827,11 +967,13 @@ Steps:
 ## Task 8 — Cookieless serve route `GET /api/files-preview/{token}` (Range/206, If-Range, 416, null-object, host guard)
 
 **Files**
+
 - Create: `apps/worker/src/files/preview-serve.ts` (the bare-route registrar + handler)
 - Modify: `apps/worker/src/app.ts` (call `registerPreviewServeRoute(app)` before the `/api/v1` routes)
 - Create (test): `apps/worker/test/files/preview-range.test.ts` (Range-parser table test; the handler's wiring is covered end-to-end by Task 13).
 
 **Interfaces**
+
 - Consumes: `verifyPreviewDeliveryToken` (Task 5), `buildSafeDeliveryHeaders` (Task 7), `Bindings` (`R2`, `AUTH_SECRET`, `FILES_ORIGIN`).
 - Produces: `export function registerPreviewServeRoute(app: OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>): void;` — a bare `app.get("/api/files-preview/:token", ...)` host-guarded on `hostname === env.FILES_ORIGIN`, terminal.
 - Range parsing helper (exported for the table test): `export function parseSingleByteRange(rangeHeader: string | null, totalSize: number): { offset: number; length: number } | "unsatisfiable" | null;` (`null` = no Range → full body; `"unsatisfiable"` = malformed/multi/out-of-range → 416).
@@ -839,6 +981,7 @@ Steps:
 Steps:
 
 - [ ] **Write the failing Range-parser unit test** `apps/worker/test/files/preview-range.test.ts`:
+
   ```ts
   import { describe, expect, it } from "vitest";
   import { parseSingleByteRange } from "../../src/files/preview-serve.ts";
@@ -863,8 +1006,10 @@ Steps:
     });
   });
   ```
+
 - [ ] **Run it red:** `pnpm --filter @magna-carta/worker exec vitest run test/files/preview-range.test.ts` → fails: module not found.
 - [ ] **Implement** `apps/worker/src/files/preview-serve.ts`:
+
   ```ts
   import type { OpenAPIHono } from "@hono/zod-openapi";
   import type { Bindings } from "../app.ts";
@@ -995,6 +1140,7 @@ Steps:
     });
   }
   ```
+
 - [ ] **Run the Range parser test green:** `pnpm --filter @magna-carta/worker exec vitest run test/files/preview-range.test.ts` → all pass.
 - [ ] **Wire into `app.ts`.** In `apps/worker/src/app.ts`, import `registerPreviewServeRoute` and call it by STRUCTURAL ANCHOR (not an absolute line number — Task 6 already mutated this file): immediately after the Better-Auth `app.on(["GET","POST"], "/api/auth/*", ...)` registration and BEFORE the first `/api/v1` registration (`registerMeRoute(app, chokepoint)`), so it precedes the chokepoint routes and the `app.get("*")` ASSETS fallthrough:
   ```ts
@@ -1006,6 +1152,7 @@ Steps:
   (Add `import { registerPreviewServeRoute } from "./files/preview-serve.ts";` to the imports.)
 - [ ] **Typecheck:** `pnpm --filter @magna-carta/worker exec tsc --noEmit` → clean.
 - [ ] **Commit:**
+
   ```
   git commit -am "feat(worker): add host-guarded cookieless preview serve route (Range/206, If-Range, 416, null-object, safe headers)
 
@@ -1017,10 +1164,12 @@ Steps:
 ## Task 9 — Grant route `GET /api/v1/files/{id}/preview` + `PreviewGrant` schema + RouteMeta + wiring
 
 **Files**
+
 - Modify: `apps/worker/src/routes/files.ts`
 - Modify (test): `apps/worker/test/files-routes.test.ts` (append a minimal grant happy-path RED test; the full e2e block lands in Task 13). Requires the `seedCleanFile` overrides from Task 10 — **do Task 10 before this task's red step** (resequenced from the original order so the red test can seed a `playable` version).
 
 **Interfaces**
+
 - Consumes: `getCurrentCleanVersionForPreview` (Task 2), `decidePreview` (Task 3), `mintPreviewDeliveryToken` (Task 5), `requireChokepointFirmContext`, `requireBucket`, `DOWNLOAD_TTL_SECONDS`, `authErrors`, `fileParam`, `problemJson`, `defineOpenAPIRoute`, `chokepointMiddleware`.
 - Produces: the `PreviewGrant` zod component, `previewFileMeta`, `previewFileRoute`, and the registered handler in `registerFilesRoutes`. A `200` JSON descriptor with `Cache-Control: private, no-store`; `mode: "inline-media"` carries `streamUrl` + `contentType` + `sizeBytes`; `mode: "download-only"` carries `reason`; `downloadUrl` always present pointing at `/api/v1/files/{id}/download`.
 - Consumed by: Task 13 (e2e), Task 11 (conformance + snapshot).
@@ -1062,7 +1211,15 @@ Steps:
       // Present iff mode === "download-only". "host-unavailable" = the files host is not yet bound
       // (the verdict may have been playable); distinct from "unknown-verdict" (never-sniffed).
       reason: z
-        .enum(["verdict", "unknown-verdict", "tiered", "encoded", "derived", "unknown-type", "host-unavailable"])
+        .enum([
+          "verdict",
+          "unknown-verdict",
+          "tiered",
+          "encoded",
+          "derived",
+          "unknown-type",
+          "host-unavailable",
+        ])
         .optional(),
       // ALWAYS present, download-intent only — the AUDITED /download path (302), never a raw inline URL,
       // so an active format can only ever reach an explicit download, never an auto-embedding context.
@@ -1116,65 +1273,68 @@ Steps:
   });
   ```
 - [ ] **Register the handler** inside `registerFilesRoutes`, after the download handler, before the closing `}`. Build each response body as an EXPLICIT typed local (`const grant: z.infer<typeof PreviewGrant> = {...}`) — no `as` cast — so reason-union drift between `decidePreview` and `PreviewGrant` surfaces at compile time:
+
   ```ts
-    // GET /api/v1/files/{id}/preview — authorize inline preview; mint a signed cookieless streamUrl
-    app.openapi(
-      {
-        ...previewFileRoute,
-        middleware: chokepointMiddleware(chokepoint, previewFileRoute),
-      },
-      async (c) => {
-        const firm = requireChokepointFirmContext(c);
-        const bucket = requireBucket(firm.bucketName);
-        const { id } = c.req.valid("param");
-        const version = await getCurrentCleanVersionForPreview(firm.firmDatabase, id);
-        if (version === undefined) {
-          return problemJson(c, {
-            type: "not-found",
-            title: "Not found",
-            status: 404,
-            detail: "No such file with a previewable version in this firm.",
-          });
-        }
-        const downloadUrl = `/api/v1/files/${id}/download`;
-        const decision = decidePreview(version);
-        const filesOrigin = c.env.FILES_ORIGIN;
-
-        // Degrade to download-only when inline is not warranted OR the files host is not yet bound. The
-        // reason distinguishes the two: a real decidePreview reason when the gate refused, else
-        // "host-unavailable" when the gate WOULD have served inline but the cookieless host is unbound.
-        if (decision.kind === "download-only" || filesOrigin === undefined) {
-          const grant: z.infer<typeof PreviewGrant> = {
-            mode: "download-only",
-            verdict: version.inlinePlayable,
-            reason: decision.kind === "download-only" ? decision.reason : "host-unavailable",
-            downloadUrl,
-          };
-          return c.json(grant, 200, { "Cache-Control": "private, no-store" });
-        }
-
-        const exp = Math.floor(Date.now() / 1000) + DOWNLOAD_TTL_SECONDS;
-        const token = await mintPreviewDeliveryToken(c.env.AUTH_SECRET, {
-          r2Key: decision.r2Key,
-          bucket,
-          sniffedContentType: decision.sniffedContentType,
-          verdict: version.inlinePlayable,
-          exp,
+  // GET /api/v1/files/{id}/preview — authorize inline preview; mint a signed cookieless streamUrl
+  app.openapi(
+    {
+      ...previewFileRoute,
+      middleware: chokepointMiddleware(chokepoint, previewFileRoute),
+    },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const bucket = requireBucket(firm.bucketName);
+      const { id } = c.req.valid("param");
+      const version = await getCurrentCleanVersionForPreview(firm.firmDatabase, id);
+      if (version === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such file with a previewable version in this firm.",
         });
+      }
+      const downloadUrl = `/api/v1/files/${id}/download`;
+      const decision = decidePreview(version);
+      const filesOrigin = c.env.FILES_ORIGIN;
+
+      // Degrade to download-only when inline is not warranted OR the files host is not yet bound. The
+      // reason distinguishes the two: a real decidePreview reason when the gate refused, else
+      // "host-unavailable" when the gate WOULD have served inline but the cookieless host is unbound.
+      if (decision.kind === "download-only" || filesOrigin === undefined) {
         const grant: z.infer<typeof PreviewGrant> = {
-          mode: "inline-media",
+          mode: "download-only",
           verdict: version.inlinePlayable,
-          streamUrl: `https://${filesOrigin}/api/files-preview/${token}`,
-          contentType: decision.sniffedContentType,
-          sizeBytes: decision.sizeBytes,
+          reason: decision.kind === "download-only" ? decision.reason : "host-unavailable",
           downloadUrl,
         };
         return c.json(grant, 200, { "Cache-Control": "private, no-store" });
-      },
-    );
+      }
+
+      const exp = Math.floor(Date.now() / 1000) + DOWNLOAD_TTL_SECONDS;
+      const token = await mintPreviewDeliveryToken(c.env.AUTH_SECRET, {
+        r2Key: decision.r2Key,
+        bucket,
+        sniffedContentType: decision.sniffedContentType,
+        verdict: version.inlinePlayable,
+        exp,
+      });
+      const grant: z.infer<typeof PreviewGrant> = {
+        mode: "inline-media",
+        verdict: version.inlinePlayable,
+        streamUrl: `https://${filesOrigin}/api/files-preview/${token}`,
+        contentType: decision.sniffedContentType,
+        sizeBytes: decision.sizeBytes,
+        downloadUrl,
+      };
+      return c.json(grant, 200, { "Cache-Control": "private, no-store" });
+    },
+  );
   ```
+
 - [ ] **Run green:** `pnpm --filter @magna-carta/worker exec vitest run test/files-routes.test.ts` → the grant happy-path case passes. Then `pnpm --filter @magna-carta/worker exec tsc --noEmit` → clean.
 - [ ] **Commit** (conformance + snapshot follow in Task 11):
+
   ```
   git commit -am "feat(worker): add files.preview grant route + PreviewGrant descriptor + token mint + pre-apex degrade
 
@@ -1186,15 +1346,18 @@ Steps:
 ## Task 10 — Extend `seedCleanFile` to set the four verdict/storage columns (do BEFORE Task 9's red step)
 
 **Files**
+
 - Modify: `apps/worker/test/files-routes.test.ts` (the `seedCleanFile` helper)
 
 **Interfaces**
+
 - Produces: `seedCleanFile(name, folderId, bytes, createdAt?, options?)` where `options` overrides `inlinePlayable` / `storageClass` / `storageEncoding` / `artifactRole` / `sniffedContentType` (defaults preserve the current behavior).
 - Consumed by: Task 9 (grant red test), Task 13 (all e2e cases).
 
 Steps:
 
 - [ ] **Modify `seedCleanFile`** to accept overridable columns and write them into the `file_version` INSERT:
+
   ```ts
   interface SeedVersionOptions {
     inlinePlayable?: "playable" | "download-only" | "indeterminate" | null;
@@ -1244,9 +1407,12 @@ Steps:
     return { fileId, versionId, r2Key };
   }
   ```
+
   (Note `declared_content_type` is now `'application/octet-stream'` so the e2e can prove the SNIFFED type wins over the declared one. The existing download/versions tests that asserted `sniffed_content_type='text/plain'` keep passing — the default sniffed stays `'text/plain'`.)
+
 - [ ] **Run the existing file-routes suite** to confirm no regression: `pnpm --filter @magna-carta/worker exec vitest run test/files-routes.test.ts` → all existing cases pass.
 - [ ] **Commit:**
+
   ```
   git commit -am "test(worker): extend seedCleanFile with overridable verdict/storage columns
 
@@ -1258,10 +1424,12 @@ Steps:
 ## Task 11 — Conformance committed-operations + OpenAPI snapshot regen
 
 **Files**
+
 - Modify: `apps/worker/test/conformance.test.ts` (insert `"files.preview"`)
 - Modify (regenerated): `apps/worker/openapi/openapi.json`
 
 **Interfaces**
+
 - Consumes: the `previewFileRoute` registered in Task 9.
 - Produces: a passing conformance committed-operations array + a byte-exact snapshot carrying the `PreviewGrant` component + the `/api/v1/files/{id}/preview` operation.
 
@@ -1278,6 +1446,7 @@ Steps:
 - [ ] **Regenerate the snapshot:** `pnpm --filter @magna-carta/worker run emit-openapi`. Confirm `apps/worker/openapi/openapi.json` now contains a `PreviewGrant` component schema and the `/api/v1/files/{id}/preview` GET operation, and that `FileVersionItem` did NOT gain `inlinePlayable` (the Task 2 verify step). Do NOT hand-edit.
 - [ ] **Run the drift test green:** `pnpm --filter @magna-carta/worker exec vitest run test/contracts/openapi-snapshot.test.ts` → both the byte-for-byte and the live `SELF.fetch` assertions pass.
 - [ ] **Commit:**
+
   ```
   git add apps/worker/test/conformance.test.ts apps/worker/openapi/openapi.json
   git commit -m "feat(worker): register files.preview in conformance + regenerate OpenAPI snapshot
@@ -1290,15 +1459,18 @@ Steps:
 ## Task 12 — Standing fitness guard for the cookieless surface
 
 **Files**
+
 - Create (test): `apps/worker/test/files/preview-serve-fitness.test.ts`
 
 **Interfaces**
+
 - Consumes: the registered cookieless route (Task 8); `createApp` from `apps/worker/src/app.ts`; `SELF`/`env` from `cloudflare:test`.
 - Produces: a non-skippable guard pinning: (1) the `/api/files-preview/:token` route is registered exactly once; (2) the files-host branch is host-guarded (only answers when `hostname === FILES_ORIGIN`) and terminal (a non-preview files-host path never returns the SPA shell); (3) `Content-Disposition: inline` is never emitted; (4) NO `Access-Control-Allow-Origin` is sent; (5) the host branch emits no `error_` id / correlation handle on any error.
 
 Steps:
 
 - [ ] **Write the guard** `apps/worker/test/files/preview-serve-fitness.test.ts`:
+
   ```ts
   import { env, SELF } from "cloudflare:test";
   import { describe, expect, it } from "vitest";
@@ -1313,7 +1485,10 @@ Steps:
     });
 
     it("never emits Content-Disposition: inline from the header builder", () => {
-      const h = buildSafeDeliveryHeaders({ sniffedContentType: "video/mp4", appOrigin: "https://app.example.com" });
+      const h = buildSafeDeliveryHeaders({
+        sniffedContentType: "video/mp4",
+        appOrigin: "https://app.example.com",
+      });
       expect(h.get("Content-Disposition")).toBe("attachment");
     });
 
@@ -1344,9 +1519,12 @@ Steps:
     });
   });
   ```
+
   (If `app.routes` entries normalize the path differently, adjust the filter predicate to the normalized form; the requirement is exactly one matching registration.)
+
 - [ ] **Run it:** `pnpm --filter @magna-carta/worker exec vitest run test/files/preview-serve-fitness.test.ts` → all pass (the implementation from Task 8 already satisfies these).
 - [ ] **Commit:**
+
   ```
   git commit -am "test(worker): standing fitness guard for the cookieless preview surface
 
@@ -1358,15 +1536,18 @@ Steps:
 ## Task 13 — Miniflare e2e: grant → cookieless fetch, Range/206, If-Range, isolation, degrade
 
 **Files**
+
 - Modify: `apps/worker/test/files-routes.test.ts` (append a `preview` describe block)
 
 **Interfaces**
+
 - Consumes: `seedCleanFile` (Task 10), the grant route (Task 9), the cookieless route (Task 8), `FILES_ORIGIN` (Task 6), `env`/`SELF`, `ownerCookie`/`readOnlyCookie`, `createApp`.
 - Produces: full coverage of spec §9.2 — auth→grant, cookieless fetch with full headers + sniffed-wins, forged/expired→404, Range/206, 416, If-Range stale→200, download-only, cross-firm isolation, read-only member, pre-apex degrade, and the no-audit-row assertion.
 
 Steps:
 
 - [ ] **Append the e2e describe block** to `apps/worker/test/files-routes.test.ts`:
+
   ```ts
   describe("inline preview grant + cookieless delivery", () => {
     const MP4_BYTES = "0123456789".repeat(50); // 500 bytes of deterministic content
@@ -1379,7 +1560,13 @@ Steps:
       const res = await get(`/api/v1/files/${fileId}/preview`);
       expect(res.status).toBe(200);
       expect(res.headers.get("Cache-Control")).toBe("private, no-store");
-      const body = await res.json<{ mode: string; verdict: string; streamUrl: string; contentType: string; downloadUrl: string }>();
+      const body = await res.json<{
+        mode: string;
+        verdict: string;
+        streamUrl: string;
+        contentType: string;
+        downloadUrl: string;
+      }>();
       expect(body.mode).toBe("inline-media");
       expect(body.verdict).toBe("playable");
       expect(body.contentType).toBe("video/mp4");
@@ -1387,7 +1574,9 @@ Steps:
       expect(body.downloadUrl).toBe(`/api/v1/files/${fileId}/download`);
       const audit = await env.DB_FIRM_POOL_1.prepare(
         "SELECT event FROM audit_log WHERE event = 'file.downloaded' AND subject_id IN (SELECT id FROM file_version WHERE file_id = ?1)",
-      ).bind(fileId).all();
+      )
+        .bind(fileId)
+        .all();
       expect(audit.results).toHaveLength(0);
     });
 
@@ -1396,7 +1585,9 @@ Steps:
         inlinePlayable: "playable",
         sniffedContentType: "video/mp4", // declared_content_type is application/octet-stream
       });
-      const grant = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ streamUrl: string }>();
+      const grant = await (
+        await get(`/api/v1/files/${fileId}/preview`)
+      ).json<{ streamUrl: string }>();
       const res = await SELF.fetch(grant.streamUrl); // NO cookie
       expect(res.status).toBe(200);
       expect(res.headers.get("Content-Disposition")).toBe("attachment");
@@ -1413,7 +1604,9 @@ Steps:
         inlinePlayable: "playable",
         sniffedContentType: "video/mp4",
       });
-      const grant = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ streamUrl: string }>();
+      const grant = await (
+        await get(`/api/v1/files/${fileId}/preview`)
+      ).json<{ streamUrl: string }>();
       const res = await SELF.fetch(grant.streamUrl, { headers: { Range: "bytes=0-99" } });
       expect(res.status).toBe(206);
       expect(res.headers.get("Content-Range")).toBe("bytes 0-99/500");
@@ -1428,7 +1621,9 @@ Steps:
         inlinePlayable: "playable",
         sniffedContentType: "video/mp4",
       });
-      const grant = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ streamUrl: string }>();
+      const grant = await (
+        await get(`/api/v1/files/${fileId}/preview`)
+      ).json<{ streamUrl: string }>();
       const res = await SELF.fetch(grant.streamUrl, { headers: { Range: "bytes=9000-9999" } });
       expect(res.status).toBe(416);
       expect(res.headers.get("Content-Range")).toBe("bytes */500");
@@ -1440,16 +1635,22 @@ Steps:
         inlinePlayable: "playable",
         sniffedContentType: "video/mp4",
       });
-      const grant = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ streamUrl: string }>();
+      const grant = await (
+        await get(`/api/v1/files/${fileId}/preview`)
+      ).json<{ streamUrl: string }>();
       // Discover the real ETag.
       const probe = await SELF.fetch(grant.streamUrl, { headers: { Range: "bytes=0-99" } });
       const etag = probe.headers.get("ETag");
       expect(etag).toBeTruthy();
       // Matching If-Range -> 206.
-      const matched = await SELF.fetch(grant.streamUrl, { headers: { Range: "bytes=0-99", "If-Range": etag as string } });
+      const matched = await SELF.fetch(grant.streamUrl, {
+        headers: { Range: "bytes=0-99", "If-Range": etag as string },
+      });
       expect(matched.status).toBe(206);
       // Stale If-Range -> ignore the Range, full 200.
-      const stale = await SELF.fetch(grant.streamUrl, { headers: { Range: "bytes=0-99", "If-Range": '"a-stale-etag"' } });
+      const stale = await SELF.fetch(grant.streamUrl, {
+        headers: { Range: "bytes=0-99", "If-Range": '"a-stale-etag"' },
+      });
       expect(stale.status).toBe(200);
       expect((await stale.text()).length).toBe(500);
     });
@@ -1461,8 +1662,12 @@ Steps:
     });
 
     it("download-only: a NULL-verdict (never sniffed) version -> mode download-only, no streamUrl", async () => {
-      const { fileId } = await seedCleanFile("doc.bin", null, "data", ISO, { inlinePlayable: null });
-      const body = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ mode: string; reason: string; streamUrl?: string; downloadUrl: string }>();
+      const { fileId } = await seedCleanFile("doc.bin", null, "data", ISO, {
+        inlinePlayable: null,
+      });
+      const body = await (
+        await get(`/api/v1/files/${fileId}/preview`)
+      ).json<{ mode: string; reason: string; streamUrl?: string; downloadUrl: string }>();
       expect(body.mode).toBe("download-only");
       expect(body.reason).toBe("unknown-verdict");
       expect(body.streamUrl).toBeUndefined();
@@ -1475,7 +1680,9 @@ Steps:
         sniffedContentType: "video/mp4",
         storageClass: "infrequent_access",
       });
-      const body = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ mode: string; reason: string }>();
+      const body = await (
+        await get(`/api/v1/files/${fileId}/preview`)
+      ).json<{ mode: string; reason: string }>();
       expect(body.mode).toBe("download-only");
       expect(body.reason).toBe("tiered");
     });
@@ -1496,7 +1703,9 @@ Steps:
         inlinePlayable: "playable",
         sniffedContentType: "video/mp4",
       });
-      const grant = await (await get(`/api/v1/files/${fileId}/preview`)).json<{ streamUrl: string }>();
+      const grant = await (
+        await get(`/api/v1/files/${fileId}/preview`)
+      ).json<{ streamUrl: string }>();
       const cold = await SELF.fetch(grant.streamUrl); // no session at all
       expect(cold.status).toBe(200);
     });
@@ -1509,7 +1718,10 @@ Steps:
         sniffedContentType: "video/mp4",
       });
       const app = createApp();
-      const envWithoutFilesOrigin = { ...(env as Record<string, unknown>), FILES_ORIGIN: undefined };
+      const envWithoutFilesOrigin = {
+        ...(env as Record<string, unknown>),
+        FILES_ORIGIN: undefined,
+      };
       const res = await app.fetch(
         new Request(`https://example.com/api/v1/files/${fileId}/preview`, {
           headers: { cookie: ownerCookie, origin: "https://example.com" },
@@ -1517,7 +1729,12 @@ Steps:
         envWithoutFilesOrigin as never,
       );
       expect(res.status).toBe(200);
-      const body = await res.json<{ mode: string; reason: string; streamUrl?: string; downloadUrl: string }>();
+      const body = await res.json<{
+        mode: string;
+        reason: string;
+        streamUrl?: string;
+        downloadUrl: string;
+      }>();
       expect(body.mode).toBe("download-only");
       expect(body.reason).toBe("host-unavailable");
       expect(body.streamUrl).toBeUndefined();
@@ -1525,9 +1742,12 @@ Steps:
     });
   });
   ```
+
   (`ownerCookie` and `readOnlyCookie` are the existing shared-rig session cookies used by the surrounding file-route cases; reuse them as-is. The degrade case overrides `FILES_ORIGIN` to `undefined` on a shallow-cloned `env` and drives a freshly built `createApp()` directly, since the shared `SELF` pool binds `FILES_ORIGIN` via `wrangler.jsonc`. The handler's degrade branch keys off `c.env.FILES_ORIGIN === undefined`, which the explicit `FILES_ORIGIN: undefined` override sets.)
+
 - [ ] **Run the suite:** `pnpm --filter @magna-carta/worker exec vitest run test/files-routes.test.ts` → all pass. If the grant case fails, fix Task 9; if the cookieless case fails, fix Task 8.
 - [ ] **Commit:**
+
   ```
   git commit -am "test(worker): e2e for inline preview grant + cookieless delivery (Range/206, If-Range, isolation, degrade, no-audit)
 
@@ -1539,9 +1759,11 @@ Steps:
 ## Task 14 — Additive `security.md` amendment (cross-cutting — gate on `vp run worktrees`)
 
 **Files**
+
 - Modify: `docs/conventions/security.md` (Untrusted file handling, threat #3)
 
 **Interfaces**
+
 - Produces: a second sanctioned inline-render mechanism (the `<video>`/`<audio>` subresource), strictly narrower in privilege, leaving the active-format clause untouched.
 
 Steps:
@@ -1553,6 +1775,7 @@ Steps:
 - [ ] **Confirm** the clause "never hand active formats raw to the browser — preview a derived safe rendition" stays untouched.
 - [ ] **Run the docs/process-ref lint:** `node tooling/lint-process-references.mjs` → clean.
 - [ ] **Commit:**
+
   ```
   git commit -am "docs(security): add the media-subresource inline-render mechanism (additive)
 
@@ -1564,12 +1787,14 @@ Steps:
 ## Task 15 — STATUS.md row + changelog fragment + ADR fragments (incl. desktop-transport invariant) verified; full gate
 
 **Files**
+
 - Modify: `STATUS.md` (the 2·3 row ONLY)
 - Create: `changelog.d/slice-2-3-safe-delivery.md`
 - Modify/Verify: `docs/decisions/pending/slice-2-3-safe-delivery-sandbox.md`, `docs/decisions/pending/slice-2-3-inline-playable-verdict-seam.md`
 - Modify: `docs/active-work/slice-2-3-safe-delivery.md` (record the desktop-transport invariant as a forward dependency + mark the touch list complete at merge)
 
 **Interfaces**
+
 - Produces: docs current in the same stream (golden rule 5). CHANGELOG + ADRs go through fragments, never a direct rendered-file edit. The desktop real-HTTP / no-`tauri://`-scheme transport invariant (spec §6.9) is written down here, since no player code exists this slice to pin it in.
 
 Steps:
@@ -1577,6 +1802,7 @@ Steps:
 - [ ] **Confirm the two pending ADR fragments exist** (`docs/decisions/pending/slice-2-3-safe-delivery-sandbox.md` and `docs/decisions/pending/slice-2-3-inline-playable-verdict-seam.md`). If frontmatter is incomplete, fill it to the fragment convention. Do NOT touch the rendered Decision-Log register (it is a build output assembled on `main`).
 - [ ] **Pin the desktop transport invariant.** In `docs/decisions/pending/slice-2-3-safe-delivery-sandbox.md`, add a line to the consequences/contract section recording that the preview route is served over real HTTP(S) on both web and desktop and MUST NOT be routed through a `tauri://` custom-scheme proxy (those transports do not honor HTTP Range, so seeking dies) — a contract the deferred player slice inherits. Mirror this as a forward-dependency item in `docs/active-work/slice-2-3-safe-delivery.md` so a future desktop config edit cannot silently strand it.
 - [ ] **Add the changelog fragment** `changelog.d/slice-2-3-safe-delivery.md`:
+
   ```md
   ### Added
 
@@ -1586,9 +1812,11 @@ Steps:
     browser's media decoder. The `inline_playable` verdict column lands as a nullable seam (compute
     deferred); previews currently resolve to download-only until a codec sniffer populates verdicts.
   ```
+
 - [ ] **Update the 2·3 row in `STATUS.md`** (edit ONLY that row — do not "correct" the stale 2·1 row) to reflect spec → plan → built → tested.
 - [ ] **Run the full quality gate:** `pnpm check` → fmt + lint + TS typecheck + svelte-check all clean. Then `node tooling/lint-process-references.mjs` → clean. Then `pnpm --filter @magna-carta/worker exec vitest run` and `pnpm --filter @magna-carta/file-manager exec vitest run` and `pnpm --filter @magna-carta/database exec vitest run` → all green.
 - [ ] **Commit:**
+
   ```
   git add STATUS.md changelog.d/slice-2-3-safe-delivery.md docs/active-work/slice-2-3-safe-delivery.md docs/decisions/pending
   git commit -m "docs(slice-2-3): STATUS row + changelog fragment + ADR fragments (incl. desktop-transport invariant) for inline preview safe delivery

@@ -13,6 +13,8 @@ import {
   listFilesStatement,
   listFoldersByMatter,
   listFoldersByMatterStatement,
+  listUnscannedCommittedVersions,
+  listUnscannedCommittedVersionsStatement,
   selectCurrentCleanVersionStatement,
 } from "@magna-carta/file-manager/queries";
 import { STORAGE_METER_TABLE } from "@magna-carta/file-manager/metering-statements";
@@ -39,6 +41,10 @@ function storageMeterSummaryStatement(snapshot: LoadedSnapshot): NodeSqlStatemen
 }
 
 const STALE_CONSULTATION_DAYS = 30;
+
+// The weekly re-scan sweep's per-firm batch cap (apps/worker scheduled.ts) — the LIMIT the find-
+// unscanned read draws, so the measured cost matches one real sweep batch.
+const RESCAN_SWEEP_BATCH = 100;
 
 // A consultation the measured counter-draw promotes to open. Each draw burns a fresh prospective
 // (openMatter is one-shot: a second draw on the same matter is "matter-not-prospective"), so the
@@ -145,6 +151,14 @@ export const mattersMeasurements: readonly Measurement<MattersMeasurementHandle,
         handle.snapshot.database,
         handle.snapshot.manifest.practiceProbes.busiestMatterId,
       );
+    },
+  },
+  {
+    name: "rescan-sweep.find-unscanned",
+    operation: async (handle) => {
+      // The weekly re-scan sweep's batch read: committed clean versions still awaiting the engine
+      // (scan_verdict = 'unscanned'), selective against the clean majority the generator lays down.
+      await listUnscannedCommittedVersions(handle.snapshot.database, RESCAN_SWEEP_BATCH);
     },
   },
   {
@@ -259,6 +273,12 @@ export function practiceHotPathPlans(snapshot: LoadedSnapshot): LabeledPlan[] {
       label: "zip-resolution.folders-by-matter",
       statement: capturedStatement(
         listFoldersByMatterStatement(snapshot.database, practiceProbes.busiestMatterId),
+      ),
+    },
+    {
+      label: "rescan-sweep.find-unscanned",
+      statement: capturedStatement(
+        listUnscannedCommittedVersionsStatement(snapshot.database, RESCAN_SWEEP_BATCH),
       ),
     },
     {

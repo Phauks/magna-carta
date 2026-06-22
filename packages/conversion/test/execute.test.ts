@@ -2,13 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { ConversionEdge } from "../src/format.ts";
 import { type ConversionPort, adapterError, converted } from "../src/port.ts";
 import { executePath, runConversion } from "../src/execute.ts";
+import { makeImage } from "./support/vips.ts";
 // Side-effect import: registers the libvips engine so runConversion's default resolver finds it.
 import "../src/adapters/libvips/index.ts";
 
-async function makePng(): Promise<Uint8Array> {
-  const Vips = (await import("wasm-vips")).default;
-  const vips = await Vips();
-  return new Uint8Array(vips.Image.black(2, 3).writeToBuffer(".png"));
+function makePng(): Promise<Uint8Array> {
+  return makeImage(".png");
 }
 
 describe("executePath", () => {

@@ -74,12 +74,18 @@ export interface CloudflareRestFirmResourceProviderOptions {
   // notification. A deploy-time fact (the queue is created once for the fleet); absent → the dev
   // adapter runs instead, so reaching configureBucketNotifications without it is a misconfiguration.
   readonly eventNotificationQueueId?: string;
+  // The bulk-ingest queue's Cloudflare UUID — when present, a second notification rule is registered
+  // for the bulk/ prefix. The lane benefit is queue topology and max_concurrency settings; bulk
+  // objects still meter under the files/ dimension. Absent → only the interactive lane is configured.
+  readonly bulkEventNotificationQueueId?: string;
   readonly fetchImplementation?: typeof fetch;
 }
 
 // The R2 key prefix uploaded objects live under (mirrors @magna-carta/file-manager's FILES_PREFIX);
 // the notification rule scopes to it so only ingestable objects trigger the queue.
 const FILES_NOTIFICATION_PREFIX = "files/";
+// The R2 key prefix for bulk-uploaded objects — the notification rule targets the bulk-ingest queue.
+const BULK_NOTIFICATION_PREFIX = "bulk/";
 
 const CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4";
 
@@ -267,6 +273,31 @@ export function createCloudflareRestFirmResourceProvider(
           configured.status,
           configured.envelope,
         );
+      }
+      if (
+        options.bulkEventNotificationQueueId !== undefined &&
+        options.bulkEventNotificationQueueId !== ""
+      ) {
+        const configuredBulk = await callApi<unknown>(
+          "configureBucketNotifications",
+          "PUT",
+          `${accountBase}/event_notifications/r2/${bucketName}/configuration/queues/${options.bulkEventNotificationQueueId}`,
+          {
+            rules: [
+              {
+                actions: ["PutObject", "CompleteMultipartUpload"],
+                prefix: BULK_NOTIFICATION_PREFIX,
+              },
+            ],
+          },
+        );
+        if (!configuredBulk.envelope.success) {
+          throw describeFailure(
+            "configureBucketNotifications",
+            configuredBulk.status,
+            configuredBulk.envelope,
+          );
+        }
       }
     },
   };

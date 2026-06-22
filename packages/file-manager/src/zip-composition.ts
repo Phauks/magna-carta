@@ -131,3 +131,18 @@ export function resolveZipSelection(
   const totalBytes = entries.reduce((sum, entry) => sum + entry.sizeBytes, 0);
   return { entries, fileCount: entries.length, totalBytes };
 }
+
+// The content-addressed key for a built bundle: a hex SHA-256 over the sorted `r2Key\tpath` lines of
+// the selection. Sorting makes it order-independent, so the same set of version-pinned entries always
+// hashes the same regardless of resolve order; any change to the set, an r2Key, or a path changes it.
+// The route uses it both to dedup identical concurrent builds and as the R2 object key for the artifact.
+export async function bundleManifestHash(
+  entries: readonly { r2Key: string; path: string }[],
+): Promise<string> {
+  const canonical = [...entries]
+    .map((entry) => `${entry.r2Key}\t${entry.path}`)
+    .sort()
+    .join("\n");
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}

@@ -104,3 +104,31 @@ jobs:
       - name: Validate Worker + assets config (no publish)
         run: pnpm --filter @magna-carta/worker exec wrangler deploy --dry-run
         # To deploy for real: add a CLOUDFLARE_API_TOKEN secret and drop --dry-run
+
+  # The malware-scan Container (slice 2·1 Plan 2): a Rust + clamd image. Separate job so its heavy
+  # image build runs in parallel with the main gate and only when its sources change. The EICAR
+  # end-to-end gate is the scan engine's acceptance test — it cannot run under the local worker test
+  # pool (containers are not supported there), so this is where the wired container is proven.
+  scan-container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            scan:
+              - 'containers/scan/**'
+
+      - name: Rust format + lint + unit tests
+        if: steps.changes.outputs.scan == 'true'
+        working-directory: containers/scan
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets -- -D warnings
+          cargo test
+
+      - name: EICAR end-to-end acceptance gate (build image + detect EICAR)
+        if: steps.changes.outputs.scan == 'true'
+        run: bash containers/scan/tests/eicar_e2e.sh

@@ -10,6 +10,7 @@ import {
 import { readUsageAnalyticsEnabled } from "@magna-carta/data-access/usage-consent-statements";
 import {
   abandonVersionStatement,
+  FILES_PREFIX,
   selectExpiredOpenSessionsStatement,
   setUploadSessionStatusByIdStatement,
 } from "@magna-carta/file-manager/file-statements";
@@ -20,7 +21,10 @@ import {
   type ListedObject,
   type MeterRow,
 } from "@magna-carta/file-manager/metering-statements";
-import { listCleanVersionR2Keys } from "@magna-carta/file-manager/queries";
+import {
+  listCleanVersionR2Keys,
+  listUnscannedCommittedVersions,
+} from "@magna-carta/file-manager/queries";
 import { generateFirmKeyBytes, importRootKek, wrapFirmKey } from "@magna-carta/encryption/keys";
 import type { FileVersionId, FirmId, UploadSessionId } from "@magna-carta/identifiers/types";
 import { outboxDeadLettered, outboxSwept } from "@magna-carta/telemetry/events";
@@ -408,6 +412,28 @@ export async function runStorageReconciliation(env: Bindings): Promise<Reconcili
         cursor = page.cursor;
       }
 
+      // Also list bulk/ prefix objects; they meter under the files/ dimension, so remap their keys
+      // to appear as files/ for the reconciliation diff.
+      let bulkCursor: string | undefined;
+      for (;;) {
+        const page = await env.R2.list(
+          bulkCursor === undefined ? { prefix: "bulk/" } : { prefix: "bulk/", cursor: bulkCursor },
+        );
+        for (const object of page.objects) {
+          if (!cleanKeys.has(object.key)) continue;
+          const reported = (object as { storageClass?: string }).storageClass ?? "";
+          // Remap bulk/ key to files/ so the diff compares against the files/ meter dimension.
+          const remappedKey = FILES_PREFIX + "/" + object.key.slice("bulk/".length);
+          listed.push({
+            key: remappedKey,
+            size: object.size,
+            storageClass: normalizeR2StorageClass(reported),
+          });
+        }
+        if (!page.truncated) break;
+        bulkCursor = page.cursor;
+      }
+
       const meterRows = await readMeterRows(firm.database);
       const result = reconciliationDiff(listed, meterRows);
       if (result.corrections.length > 0) {
@@ -571,4 +597,69 @@ export async function runIncidentDescriptionEncryptBackfill(
       return results.length;
     },
   );
+}
+
+// The per-firm per-run cap for the re-scan sweep: a reasonable bound that prevents a single weekly
+// pass from flooding the queue when a large backlog exists (e.g. after a scan engine is first
+// wired). Each capped pass leaves the remainder for the next weekly run.
+const RESCAN_SWEEP_PER_FIRM_CAP = 100;
+
+export interface RescanSweepReport {
+  // Total re-scan messages enqueued across all firms this pass.
+  readonly enqueued: number;
+  // Number of firms processed without error.
+  readonly firmsProcessed: number;
+}
+
+// The weekly re-scan sweep: for each reachable active firm, finds committed versions whose
+// scan_verdict is still 'unscanned' (the current scan port marks every commit 'unscanned' because
+// no real engine is wired yet), and re-enqueues each one onto FILES_INGEST as an R2-event-shaped
+// message so a now-available scan engine can evaluate them in place.
+//
+// The in-place re-scan processing (updating scan_verdict on the committed version) arrives with
+// the real scan engine — the current ingest consumer correctly no-ops on a non-pending version,
+// so messages enqueued here are dormant until the engine lands.
+//
+// Each firm is capped at RESCAN_SWEEP_PER_FIRM_CAP per run to bound queue pressure; a per-firm
+// failure is isolated (logged through the one telemetry pipeline) so one broken firm cannot starve
+// the rest. FILES_INGEST absent (the binding is optional in Bindings) is a no-op per firm.
+export async function runRescanSweep(
+  env: Bindings,
+  perFirmCap: number = RESCAN_SWEEP_PER_FIRM_CAP,
+): Promise<RescanSweepReport> {
+  const logger = createWorkersLogger(env.TELEMETRY);
+  const correlationId = newCorrelationId();
+  const firms = await listReachableActiveFirms(env);
+  let enqueued = 0;
+  let firmsProcessed = 0;
+  for (const firm of firms) {
+    try {
+      if (env.FILES_INGEST === undefined) {
+        firmsProcessed++;
+        continue;
+      }
+      // A firm whose bucket has not been recorded yet has no R2 objects to re-scan: skip it so
+      // the enqueued counter only reflects messages the ingest consumer can meaningfully resolve.
+      if (firm.bucketName === null) {
+        firmsProcessed++;
+        continue;
+      }
+      const versions = await listUnscannedCommittedVersions(firm.database, perFirmCap);
+      for (const version of versions) {
+        await env.FILES_INGEST.send({
+          // R2-event-shaped message: the ingest consumer reads bucket + object.key + action.
+          // bucket resolves the firm on ingest; for the dev pool the single shared bucket_name
+          // is used — the per-firm bucket seam (firm-binding-resolver.ts) handles production.
+          bucket: firm.bucketName,
+          object: { key: version.r2Key, size: 0 },
+          action: "ObjectCreated:Put",
+        });
+        enqueued++;
+      }
+      firmsProcessed++;
+    } catch (caught) {
+      logOperationFailed(logger, `cron:rescan-sweep:${firm.firmId}`, caught, correlationId);
+    }
+  }
+  return { enqueued, firmsProcessed };
 }

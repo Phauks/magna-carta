@@ -17,9 +17,16 @@ export const UPLOAD_SESSION_TABLE = "upload_session";
 // The top-level R2 key segment for matter files (also the storage_meter prefix). Keys are opaque:
 // files/{fileId}/{versionId} — never derived from a folder path, so a rename moves no bytes.
 export const FILES_PREFIX = "files";
+// The R2 key prefix for bulk-uploaded objects. Bulk objects live under bulk/ but still meter under
+// the files/ logical dimension — the lane benefit is queue topology, not a different meter bucket.
+export const BULK_PREFIX = "bulk";
 
-export function fileVersionKey(fileId: FileId, versionId: FileVersionId): string {
-  return `${FILES_PREFIX}/${fileId}/${versionId}`;
+export function fileVersionKey(
+  fileId: FileId,
+  versionId: FileVersionId,
+  prefix: string = FILES_PREFIX,
+): string {
+  return `${prefix}/${fileId}/${versionId}`;
 }
 
 export interface InsertFileRow {
@@ -165,6 +172,7 @@ export interface CommitVersionRow {
   readonly contentSha256: string;
   readonly scanVerdict: "unscanned" | "clean";
   readonly scanEngineVersion: string | null;
+  readonly scanDetail: string | null;
   readonly committedAt: string;
 }
 
@@ -172,7 +180,7 @@ export interface CommitVersionRow {
 export function commitVersionStatement(database: SqlDatabase, row: CommitVersionRow): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${FILE_VERSION_TABLE} SET status = 'clean', size_bytes = ?2, sniffed_content_type = ?3, content_sha256 = ?4, scan_verdict = ?5, scan_engine_version = ?6, committed_at = ?7 WHERE id = ?1 AND status = 'pending'`,
+      `UPDATE ${FILE_VERSION_TABLE} SET status = 'clean', size_bytes = ?2, sniffed_content_type = ?3, content_sha256 = ?4, scan_verdict = ?5, scan_engine_version = ?6, scan_detail = ?7, committed_at = ?8 WHERE id = ?1 AND status = 'pending'`,
     )
     .bind(
       row.versionId,
@@ -181,6 +189,7 @@ export function commitVersionStatement(database: SqlDatabase, row: CommitVersion
       row.contentSha256,
       row.scanVerdict,
       row.scanEngineVersion,
+      row.scanDetail,
       row.committedAt,
     );
 }
@@ -207,12 +216,13 @@ export function bumpFileCurrentVersionStatement(
 export function quarantineVersionStatement(
   database: SqlDatabase,
   versionId: FileVersionId,
+  scanDetail: string | null,
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${FILE_VERSION_TABLE} SET status = 'quarantined' WHERE id = ?1 AND status = 'pending'`,
+      `UPDATE ${FILE_VERSION_TABLE} SET status = 'quarantined', scan_detail = ?2 WHERE id = ?1 AND status = 'pending'`,
     )
-    .bind(versionId);
+    .bind(versionId, scanDetail);
 }
 
 // The no-op skip: identical re-upload abandons the freshly-minted pending version.
