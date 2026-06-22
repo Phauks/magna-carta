@@ -189,6 +189,9 @@ importers:
       '@magna-carta/telemetry':
         specifier: workspace:*
         version: link:../../packages/telemetry
+      '@magna-carta/timekeeping':
+        specifier: workspace:*
+        version: link:../../packages/timekeeping
       aws4fetch:
         specifier: 'catalog:'
         version: 1.0.20

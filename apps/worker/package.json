@@ -29,6 +29,7 @@
     "@magna-carta/property-links": "workspace:*",
     "@magna-carta/shipping": "workspace:*",
     "@magna-carta/telemetry": "workspace:*",
+    "@magna-carta/timekeeping": "workspace:*",
     "aws4fetch": "catalog:",
     "better-auth": "catalog:",
     "client-zip": "catalog:",
