@@ -12,7 +12,20 @@ import {
 import { getCurrentCleanVersion } from "@magna-carta/file-manager/queries";
 import type { FileId, FileVersionId } from "@magna-carta/identifiers/types";
 import type { CurrentObjectMeta } from "./document-session.ts";
+import { assertEditCapability } from "./wopi-guard.ts";
 import type { EditTokenClaims } from "./wopi-token.ts";
+
+// crypto.DigestStream is a Workers runtime extension (absent from @types/node), so it is reached
+// through a narrow cast — the same primitive the ingest pipeline hashes uploads with. It lets a
+// PutFile hash an arbitrarily large body while it streams to R2, never buffering a second copy.
+interface DigestStreamConstructor {
+  new (algorithm: string): WritableStream<Uint8Array> & { readonly digest: Promise<ArrayBuffer> };
+}
+const DigestStream = (crypto as unknown as { DigestStream: DigestStreamConstructor }).DigestStream;
+
+function toHex(buffer: ArrayBuffer): string {
+  return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
 
 export class WopiRouteError extends Error {
   readonly code: "not-found";
@@ -89,4 +102,61 @@ export async function getFile(claims: EditTokenClaims, deps: WopiFileDeps): Prom
   if (object === null) throw new WopiRouteError("not-found");
 
   return new Response(object.body, { status: 200 });
+}
+
+// The bindings + live-session state a PutFile needs. `recordCurrentMeta` persists the new working-copy
+// metadata on the session Durable Object; `now` supplies the host-assigned modification timestamp
+// (injected so it is deterministic in tests).
+export interface PutFileDeps {
+  readonly bucket: R2Bucket;
+  readonly currentMeta: CurrentObjectMeta | null;
+  readonly recordCurrentMeta: (meta: CurrentObjectMeta) => Promise<void>;
+  readonly now: () => string;
+}
+
+export async function putFile(
+  claims: EditTokenClaims,
+  request: Request,
+  deps: PutFileDeps,
+): Promise<Response> {
+  // Capability is enforced server-side; a view token never reaches the write.
+  assertEditCapability(claims);
+
+  // The host is authoritative for the working-copy timestamp. When the editor presents one that no
+  // longer matches the session's recorded value, the document in the editor is stale relative to
+  // storage, so the save is refused (the bytes are not written) with the Collabora conflict code.
+  const presentedTimestamp = request.headers.get("X-COOL-WOPI-Timestamp");
+  if (
+    deps.currentMeta !== null &&
+    presentedTimestamp !== null &&
+    presentedTimestamp !== deps.currentMeta.wopiTimestamp
+  ) {
+    return Response.json({ COOLStatusCode: 1010 }, { status: 409 });
+  }
+
+  const fileId = claims.fileId as FileId;
+  const body = request.body ?? new ReadableStream<Uint8Array>({ start: (c) => c.close() });
+
+  // Hash, size and store in one pass: one tee branch streams into R2, the other through a byte counter
+  // into the digest. Neither buffers the document, so a multi-hundred-megabyte working copy never
+  // lands in isolate memory.
+  let sizeBytes = 0;
+  const counter = new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      sizeBytes += chunk.byteLength;
+      controller.enqueue(chunk);
+    },
+  });
+  const [toStore, toHash] = body.tee();
+  const putPromise = deps.bucket.put(currentObjectKey(fileId), toStore);
+  const digestStream = new DigestStream("SHA-256");
+  await toHash.pipeThrough(counter).pipeTo(digestStream);
+  await putPromise;
+  const sha256 = toHex(await digestStream.digest);
+
+  const wopiTimestamp = deps.now();
+  await deps.recordCurrentMeta({ sha256, sizeBytes, wopiTimestamp });
+
+  // Echo the new timestamp so the editor's next save presents a fresh, matching value.
+  return new Response(null, { status: 200, headers: { "X-COOL-WOPI-Timestamp": wopiTimestamp } });
 }

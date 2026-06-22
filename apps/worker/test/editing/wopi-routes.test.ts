@@ -1,8 +1,8 @@
 import { env } from "cloudflare:test";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FileId, FileVersionId } from "@magna-carta/identifiers/types";
-import { beforeAll, describe, expect, it } from "vitest";
-import { checkFileInfo, getFile } from "../../src/editing/wopi-routes.ts";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import { checkFileInfo, getFile, putFile } from "../../src/editing/wopi-routes.ts";
 import type { EditTokenClaims } from "../../src/editing/wopi-token.ts";
 import type { CurrentObjectMeta } from "../../src/editing/document-session.ts";
 import { applyPerFirmMigrations } from "../support/apply-per-firm-migrations.ts";
@@ -175,5 +175,114 @@ describe("WOPI GetFile", () => {
 
     expect(response.status).toBe(200);
     expect(await response.text()).toBe("version-bytes");
+  });
+});
+
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function putRequest(body: string, coolTimestamp?: string): Request {
+  return new Request("https://host/wopi/files/x/contents", {
+    method: "POST",
+    headers: coolTimestamp === undefined ? {} : { "X-COOL-WOPI-Timestamp": coolTimestamp },
+    body,
+  });
+}
+
+const HOST_TIMESTAMP = "2026-06-22T12:00:00.000Z";
+
+describe("WOPI PutFile", () => {
+  it("streams the body into `current`, recording the streamed hash and a host-assigned timestamp", async () => {
+    const fileId = newIdentifier("file");
+    const versionId = newIdentifier("fileVersion");
+    const recordCurrentMeta = vi.fn(async () => {});
+
+    const response = await putFile(
+      claimsFor(fileId, versionId, "edit"),
+      putRequest("edited body"),
+      {
+        bucket: env.R2,
+        currentMeta: null,
+        recordCurrentMeta,
+        now: () => HOST_TIMESTAMP,
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const stored = await env.R2.get(`files/${fileId}/current`);
+    expect(await stored?.text()).toBe("edited body");
+    expect(recordCurrentMeta).toHaveBeenCalledOnce();
+    expect(recordCurrentMeta).toHaveBeenCalledWith({
+      sha256: await sha256Hex("edited body"),
+      sizeBytes: "edited body".length,
+      wopiTimestamp: HOST_TIMESTAMP,
+    });
+  });
+
+  it("rejects a stale X-COOL-WOPI-Timestamp with 409/1010 and leaves `current` untouched", async () => {
+    const fileId = newIdentifier("file");
+    const versionId = newIdentifier("fileVersion");
+    await env.R2.put(`files/${fileId}/current`, "original");
+    const recordCurrentMeta = vi.fn(async () => {});
+
+    const response = await putFile(
+      claimsFor(fileId, versionId, "edit"),
+      putRequest("attempted overwrite", "2020-01-01T00:00:00.000Z"),
+      {
+        bucket: env.R2,
+        // The session's authoritative timestamp differs from the presented one.
+        currentMeta: { sha256: "x", sizeBytes: 8, wopiTimestamp: HOST_TIMESTAMP },
+        recordCurrentMeta,
+        now: () => "2026-06-22T13:00:00.000Z",
+      },
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ COOLStatusCode: 1010 });
+    const stored = await env.R2.get(`files/${fileId}/current`);
+    expect(await stored?.text()).toBe("original");
+    expect(recordCurrentMeta).not.toHaveBeenCalled();
+  });
+
+  it("accepts a PutFile whose timestamp matches the session's recorded value", async () => {
+    const fileId = newIdentifier("file");
+    const versionId = newIdentifier("fileVersion");
+    const recordCurrentMeta = vi.fn(async () => {});
+
+    const response = await putFile(
+      claimsFor(fileId, versionId, "edit"),
+      putRequest("next revision", HOST_TIMESTAMP),
+      {
+        bucket: env.R2,
+        currentMeta: { sha256: "x", sizeBytes: 8, wopiTimestamp: HOST_TIMESTAMP },
+        recordCurrentMeta,
+        now: () => "2026-06-22T14:00:00.000Z",
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const stored = await env.R2.get(`files/${fileId}/current`);
+    expect(await stored?.text()).toBe("next revision");
+    expect(recordCurrentMeta).toHaveBeenCalledOnce();
+  });
+
+  it("refuses a view token, writing nothing", async () => {
+    const fileId = newIdentifier("file");
+    const versionId = newIdentifier("fileVersion");
+    const recordCurrentMeta = vi.fn(async () => {});
+
+    await expect(
+      putFile(claimsFor(fileId, versionId, "view"), putRequest("sneaky write"), {
+        bucket: env.R2,
+        currentMeta: null,
+        recordCurrentMeta,
+        now: () => HOST_TIMESTAMP,
+      }),
+    ).rejects.toMatchObject({ code: "forbidden-readonly" });
+
+    expect(await env.R2.get(`files/${fileId}/current`)).toBeNull();
+    expect(recordCurrentMeta).not.toHaveBeenCalled();
   });
 });
