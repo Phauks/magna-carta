@@ -9,6 +9,7 @@ import {
   seedUtbmsCatalogStatements,
 } from "../src/utbms-statements.ts";
 import { disableUtbmsCode, enableUtbmsCode } from "../src/utbms-service.ts";
+import { TimeEntryValidationError } from "../src/time-entry-validation.ts";
 
 const clock = { now: () => "2026-06-22T12:00:00.000Z" };
 const ADMIN = "user_admin" as UserId;
@@ -87,13 +88,31 @@ describe("enable/disable", () => {
     expect((await listSet(database, "task")).find((r) => r.code === "L120")!.active).toBe(1);
   });
 
-  it("a toggle on an unknown id touches no row (the service only toggles seeded rows)", async () => {
+  it("a toggle on an unknown id throws not-found, touches no data row, and writes no audit row", async () => {
     const database = freshDatabase();
     await seedCatalog(database);
     const before = await listSet(database, "task");
-    const { effect } = await disableUtbmsCode(database, "utbmsCode_not_real" as never, options);
-    await commitEffectBatch(database, effect, { now: clock.now });
-    // No invented code, no row mutated: the active set is unchanged.
+
+    // The service refuses an unknown id before composing any statements: no effect is returned and
+    // no audit row is written, so a phantom audit event for a non-existent subject never lands.
+    let thrown: unknown;
+    try {
+      await disableUtbmsCode(database, "utbmsCode_not_real" as never, options);
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(TimeEntryValidationError);
+    expect((thrown as TimeEntryValidationError).code).toBe("not-found");
+
+    // No data row mutated: the active set is unchanged.
     expect(await listSet(database, "task")).toEqual(before);
+
+    // No audit row written for the bogus id — the subject did not exist so no event should land.
+    const { results: audits } = await database
+      .prepare(
+        "SELECT COUNT(*) AS n FROM audit_log WHERE (event = 'utbms_code.disabled' OR event = 'utbms_code.enabled') AND subject_id = 'utbmsCode_not_real'",
+      )
+      .all<{ n: number }>();
+    expect(audits[0]?.n).toBe(0);
   });
 });

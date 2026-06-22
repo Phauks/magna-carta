@@ -1,5 +1,6 @@
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type { UtbmsCodeId } from "@magna-carta/identifiers/types";
+import type { UtbmsSeedCode } from "./utbms-catalog.ts";
 import { utbmsSeedData } from "./utbms-catalog.ts";
 
 export const UTBMS_CODE_TABLE = "utbms_code";
@@ -34,8 +35,23 @@ export function setUtbmsCodeActiveStatement(
     .bind(id, active);
 }
 
+// Existence check used by the service before composing an enable/disable effect: prevents a phantom
+// audit row from being written for a subject that does not exist.
+export function selectUtbmsCodeExistsStatement(
+  database: SqlDatabase,
+  id: UtbmsCodeId,
+): SqlStatement {
+  return database
+    .prepare(`SELECT 1 AS found FROM ${UTBMS_CODE_TABLE} WHERE id = ?1`)
+    .bind(id);
+}
+
 // The read the routes and the costs/billing slices consume: every code in a set, active flag included.
-export function listUtbmsCodesBySetStatement(database: SqlDatabase, codeSet: string): SqlStatement {
+// codeSet is narrowed to the three published families so callers get a type error for an invalid set.
+export function listUtbmsCodesBySetStatement(
+  database: SqlDatabase,
+  codeSet: UtbmsSeedCode["codeSet"],
+): SqlStatement {
   return database
     .prepare(
       `SELECT id, code_set, code, label, practice_area, active FROM ${UTBMS_CODE_TABLE} WHERE code_set = ?1 ORDER BY code`,
