@@ -433,6 +433,7 @@ describe("recordRescanVerdict — in-place re-scan", () => {
       recordRescanVerdict(
         database,
         {
+          fileId,
           versionId,
           scanVerdict: "clean",
           scanEngineVersion: "clamav/2.0",
@@ -468,25 +469,27 @@ describe("recordRescanVerdict — in-place re-scan", () => {
 
   it("an infected re-scan keeps the version VISIBLE (status stays clean) — informed access, no data loss", async () => {
     const database = freshDatabase();
-    const { versionId } = await committedVersion(database, "hash-bad");
+    const { versionId, fileId } = await committedVersion(database, "hash-bad");
 
-    await commitEffectBatch(
+    const { effect } = recordRescanVerdict(
       database,
-      recordRescanVerdict(
-        database,
-        {
-          versionId,
-          scanVerdict: "infected",
-          scanEngineVersion: "clamav/2.0",
-          scanDetail: "Eicar-Test-Signature",
-          signature: "Eicar-Test-Signature",
-          contentSha256: "hash-bad",
-          now: now(),
-        },
-        options,
-      ).effect,
-      { now },
+      {
+        fileId,
+        versionId,
+        scanVerdict: "infected",
+        scanEngineVersion: "clamav/2.0",
+        scanDetail: "Eicar-Test-Signature",
+        signature: "Eicar-Test-Signature",
+        contentSha256: "hash-bad",
+        now: now(),
+      },
+      options,
     );
+    // A fresh infected finding emits a notification (the outbox seam); a clean re-scan emits none.
+    expect(effect.outboxMessages).toEqual([
+      { topic: "file.rescan_infected", payload: { fileId, versionId } },
+    ]);
+    await commitEffectBatch(database, effect, { now });
 
     const row = await database
       .prepare("SELECT scan_verdict, status FROM file_version WHERE id = ?1")

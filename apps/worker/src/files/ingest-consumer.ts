@@ -248,6 +248,7 @@ async function handleRescanMessage(
       const rescan = recordRescanVerdict(
         firmDatabase,
         {
+          fileId: committed.fileId,
           versionId: committed.id,
           scanVerdict: verdict,
           scanEngineVersion: currentEngineVersion,

@@ -384,6 +384,7 @@ export async function commitVersion(
 }
 
 export interface RescanVerdictInput {
+  readonly fileId: FileId;
   readonly versionId: FileVersionId;
   readonly scanVerdict: "clean" | "infected";
   readonly scanEngineVersion: string; // the engine that produced this verdict — never null on a re-scan
@@ -422,7 +423,20 @@ export function recordRescanVerdict(
         }),
         fileAuditStatement(database, options, "file.version_rescanned", input.versionId),
       ],
-      outboxMessages: [],
+      // Notify on a fresh infected finding so the file's users learn their already-visible file is now
+      // flagged (informed access — the file is not hidden). The re-scan idempotency key
+      // (rescan:<versionId>:<engineVersion>) guarantees this runs at most once per version per engine,
+      // so the event fires once per fresh finding, never per access. Delivery is the outbox relay's
+      // concern (the same seam file.quarantined uses); a clean re-scan emits nothing.
+      outboxMessages:
+        input.scanVerdict === "infected"
+          ? [
+              {
+                topic: "file.rescan_infected",
+                payload: { fileId: input.fileId, versionId: input.versionId },
+              },
+            ]
+          : [],
     },
   };
 }
