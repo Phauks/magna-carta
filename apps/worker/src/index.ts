@@ -4,6 +4,10 @@ import { createApp, type Bindings } from "./app.ts";
 import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
 import { runScheduledSweep, runStorageReconciliation } from "./scheduled.ts";
 
+// The per-document editing session coordinator. Re-exported so wrangler can register the Durable
+// Object class named in wrangler.jsonc (durable_objects + the SQLite migration).
+export { DocumentSession } from "./editing/document-session.ts";
+
 // createApp defaults the plugin runtime to the production seam — the firm_secret credential store
 // throws until the marketplace wires the live credential read; carrier calls use a fetch-backed
 // EasyPost client. Plugins mount from the registry; the core names none directly.

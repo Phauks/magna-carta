@@ -73,6 +73,14 @@
     ],
   },
   "r2_buckets": [{ "binding": "R2", "bucket_name": "magna-carta-production-platform-files" }],
+  // The per-document editing session coordinator (one Durable Object per open file). SQLite-backed so
+  // its session state — participants and the current working-object metadata — survives the editing
+  // container sleeping. The Collabora container ownership attaches in later editing work; this binding
+  // and its migration are the durable seam. Additive across worktrees: the migration tag is namespaced.
+  "durable_objects": {
+    "bindings": [{ "name": "DOCUMENT_SESSION", "class_name": "DocumentSession" }],
+  },
+  "migrations": [{ "tag": "v1-editing-document-session", "new_sqlite_classes": ["DocumentSession"] }],
   // FILES_INGEST carries one R2 event per uploaded object to the ingest consumer (single read:
   // magic-byte gates + streaming SHA-256 + scan port, then commit or quarantine). It is a distinct
   // queue from the platform job queue so upload bursts cannot starve the outbox relay, and so its

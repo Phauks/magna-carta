@@ -45,6 +45,10 @@ export type Bindings = {
   DB_FIRM_POOL_2: D1Database;
   R2: R2Bucket;
   QUEUE: Queue;
+  // The per-document editing session coordinator (one Durable Object per open file), SQLite-backed so
+  // its session state survives the editing container sleeping. Unparameterized to avoid a circular
+  // import with the DocumentSession class (which imports this Bindings type).
+  DOCUMENT_SESSION: DurableObjectNamespace;
   // Better Auth's signing/encryption secret. Local dev + tests load it from .dev.vars;
   // production sets it with `wrangler secret put AUTH_SECRET`.
   AUTH_SECRET: string;
