@@ -11,7 +11,8 @@ export type TimeEntryValidationCode =
   | "missing-utbms-code"
   | "utbms-required"
   | "draft-only"
-  | "not-found";
+  | "not-found"
+  | "empty-name";
 
 export class TimeEntryValidationError extends Error {
   constructor(

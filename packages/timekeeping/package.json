@@ -18,7 +18,11 @@
     "./time-entry-service": "./src/time-entry-service.ts",
     "./utbms-catalog": "./src/utbms-catalog.ts",
     "./utbms-statements": "./src/utbms-statements.ts",
-    "./utbms-service": "./src/utbms-service.ts"
+    "./utbms-service": "./src/utbms-service.ts",
+    "./non-billable-category-statements": "./src/non-billable-category-statements.ts",
+    "./non-billable-category-service": "./src/non-billable-category-service.ts",
+    "./narrative-template-statements": "./src/narrative-template-statements.ts",
+    "./narrative-template-service": "./src/narrative-template-service.ts"
   },
   "scripts": {
     "test": "vp test run"
