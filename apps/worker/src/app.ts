@@ -16,6 +16,11 @@ import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
 import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
 import { registerTimeEntriesRoutes } from "./routes/time-entries.ts";
 import { registerTimerRoutes } from "./routes/timer.ts";
+import { registerRateCardsRoutes } from "./routes/rate-cards.ts";
+import { registerUtbmsCodesRoutes } from "./routes/utbms-codes.ts";
+import { registerNonBillableCategoriesRoutes } from "./routes/non-billable-categories.ts";
+import { registerNarrativeTemplatesRoutes } from "./routes/narrative-templates.ts";
+import { registerMyDayRoutes } from "./routes/my-day.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerDownloadsRoutes } from "./routes/downloads.ts";
@@ -256,6 +261,16 @@ export function createApp(options: CreateAppOptions = {}) {
   registerTimeEntriesRoutes(app, chokepoint);
   // Timer routes: the per-timekeeper live timer (DO proxy) and the idempotent stop-commit.
   registerTimerRoutes(app, chokepoint);
+  // Rate card management: create cards, append effective-dated rates, re-rate unbilled drafts.
+  registerRateCardsRoutes(app, chokepoint);
+  // UTBMS code catalog: list and toggle enable/disable on the seeded ABA set.
+  registerUtbmsCodesRoutes(app, chokepoint);
+  // Non-billable category management: create, rename, soft-archive.
+  registerNonBillableCategoriesRoutes(app, chokepoint);
+  // Narrative template management: create, list, archive, and read recent narratives.
+  registerNarrativeTemplatesRoutes(app, chokepoint);
+  // My Day: daily headline totals (billable, non-billable, target, shortfall).
+  registerMyDayRoutes(app, chokepoint);
 
   // The plugin runtime: production defaults (a fetch-backed http client; the firm_secret store seam
   // that throws until the marketplace wires the live credential read), overridable in tests.

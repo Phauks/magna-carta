@@ -1,0 +1,133 @@
+import { env, SELF } from "cloudflare:test";
+import {
+  insertMemberStatement,
+  insertRoleAssignmentStatement,
+} from "@magna-carta/data-access/member-statements";
+import { newIdentifier } from "@magna-carta/identifiers/generate";
+import { assertIdentifier } from "@magna-carta/identifiers/validate";
+import type { FirmId, UserId } from "@magna-carta/identifiers/types";
+import { beforeAll, describe, expect, it } from "vitest";
+import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
+import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import {
+  mirrorMemberWithOwnerRole,
+  seedCredentialedUser,
+  seedFirm,
+  signInForSessionCookie,
+} from "./support/test-auth.ts";
+
+// My Day route: the daily headline for a timekeeper. The handler resolves the firm's daily-hours
+// target from the flat setting store, converts hours to minutes (multiply by 60), and delegates to
+// readMyDay. A day with no entries produces unloggedDay: true. A missing firm target yields a null
+// shortfall. A Read-only member cannot access the endpoint (requires time:track).
+
+let poolFirmId: FirmId;
+let ownerCookie: string;
+let readOnlyCookie: string;
+let ownerUserId: UserId;
+
+beforeAll(async () => {
+  await applyControlPlaneMigrations(env.DB_CONTROL);
+  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
+  poolFirmId = (
+    await seedFirm({ name: "My Day Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
+  ).firmId;
+  await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
+    .bind(poolFirmId)
+    .run();
+
+  const owner = await seedCredentialedUser("myday-owner@example.com", {
+    userName: "My Day Owner",
+    firmId: poolFirmId,
+  });
+  ownerUserId = owner.userId;
+  await mirrorMemberWithOwnerRole(owner.userId, "My Day Owner");
+  ownerCookie = await signInForSessionCookie("myday-owner@example.com");
+
+  const readOnly = await seedCredentialedUser("myday-readonly@example.com", {
+    userName: "My Day Read Only",
+    firmId: poolFirmId,
+  });
+  const role = await env.DB_FIRM_POOL_1.prepare("SELECT id FROM role WHERE name = ?1")
+    .bind("Read-only")
+    .first<{ id: string }>();
+  await insertMemberStatement(env.DB_FIRM_POOL_1, {
+    userId: readOnly.userId,
+    displayName: "My Day Read Only",
+    now: new Date().toISOString(),
+  }).run();
+  await insertRoleAssignmentStatement(env.DB_FIRM_POOL_1, {
+    id: newIdentifier("memberRole"),
+    memberUserId: readOnly.userId,
+    roleId: assertIdentifier(role!.id, "role"),
+  }).run();
+  readOnlyCookie = await signInForSessionCookie("myday-readonly@example.com");
+});
+
+function readHeaders(cookie: string): HeadersInit {
+  return { origin: "https://example.com", cookie };
+}
+
+async function get(path: string, cookie = ownerCookie): Promise<Response> {
+  return SELF.fetch(`https://example.com${path}`, { headers: readHeaders(cookie) });
+}
+
+describe("My Day view", () => {
+  it("returns zero totals and unloggedDay: true for a day with no entries", async () => {
+    const response = await get(
+      `/api/v1/my-day?timekeeperUserId=${ownerUserId}&workDate=2026-06-22`,
+    );
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      billableMinutes: number;
+      nonBillableMinutes: number;
+      targetDailyMinutes: number | null;
+      shortfallMinutes: number | null;
+      unloggedDay: boolean;
+    };
+    expect(body.billableMinutes).toBe(0);
+    expect(body.nonBillableMinutes).toBe(0);
+    // No target set for this firm, so targetDailyMinutes and shortfallMinutes are null.
+    expect(body.targetDailyMinutes).toBeNull();
+    expect(body.shortfallMinutes).toBeNull();
+    expect(body.unloggedDay).toBe(true);
+  });
+
+  it("reflects the firm target when time.target_daily_hours is set", async () => {
+    // Set the daily target to 8 hours (480 minutes).
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+    )
+      .bind("time.target_daily_hours", "8", new Date().toISOString())
+      .run();
+
+    const response = await get(
+      `/api/v1/my-day?timekeeperUserId=${ownerUserId}&workDate=2026-06-22`,
+    );
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      targetDailyMinutes: number | null;
+      shortfallMinutes: number | null;
+    };
+    expect(body.targetDailyMinutes).toBe(480);
+    // No entries, so shortfall = target.
+    expect(body.shortfallMinutes).toBe(480);
+
+    // Restore to no target for subsequent tests.
+    await env.DB_FIRM_POOL_1.prepare(
+      "DELETE FROM setting WHERE key = ?1",
+    )
+      .bind("time.target_daily_hours")
+      .run();
+  });
+});
+
+describe("permission gate", () => {
+  it("refuses a Read-only member the time:track capability (403)", async () => {
+    const response = await get(
+      `/api/v1/my-day?timekeeperUserId=${ownerUserId}&workDate=2026-06-22`,
+      readOnlyCookie,
+    );
+    expect(response.status).toBe(403);
+  });
+});
