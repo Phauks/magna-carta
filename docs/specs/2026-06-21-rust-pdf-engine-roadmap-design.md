@@ -85,11 +85,12 @@ Scoped to what Magna Carta needs (white paper _PDF services_, _Discovery_, _Docu
 Each is a vertical slice (schema → firm-scoped data-access → API → UI → tests → docs) with its own spec and load-profile measurement, per _How we work_.
 
 1. **Core + render** *(the wedge — specced next).* The `@magna-carta` Rust PDF core: `lopdf`/`pdf-rs` model + `hayro` render, compiled to WASM (web, client-side-by-default) and native (Tauri/Container). Stood up as a **measured parallel-evaluation track** against the in-flight EmbedPDF preview (slice 2·3) — apples-to-apples fidelity, speed, and WASM-bundle-size on a regression corpus of real firm PDFs. Carries the `hayro` dependency doctrine (§7) and the go/no-go gate for everything after it. **Begins with a feasibility spike** (§10) before committing the slice.
-2. **True redaction.** The AGPL-blocked, malpractice-critical differentiator (white paper _Discovery_); the first feature that genuinely beats PDFium. Content-stream removal on the model layer, with a verification gate (does the removed text still extract?).
-3. **Generate + stamp / Bates / watermark / merge / split.** Feeds _Document Automation_ and _Discovery_ production.
-4. **Forms (AcroForm) + secure/encrypt.** Court/government form fill; password/permissions/AES-256.
-5. **Sign / seal (PAdES).** Folds in the existing `@magna-carta/signing` design (host-side crypto unchanged; the Rust core owns the PDF structure end-to-end — the "one engine owns the bytes" thesis, now in Rust).
-6. **OCR integration**, then the far-future gaps (text/object editing, compare, preflight, tagging).
+2. **True redaction — safe route.** The malpractice-critical differentiator (white paper _Discovery_). Rasterize-and-reassemble (flatten each affected page to an image, strip text/annotations) + the lopdf **verification gate** (does the redacted text still extract?). **Retires the white paper's AGPL-driven deferral** — the feasibility spike proved both redaction strategies are pure-Rust-feasible. Own spec: `2026-06-22-pdf-slice-2-redaction-design.md`.
+3. **Text-position primitive + bad-redaction detector + surgery.** A thin `hayro-interpret` `Device::draw_glyph` shim yields per-glyph page-space positions (feasibility-proven), which powers two features on one foundation: (a) the **bad-redaction detector** _(owner-requested)_ — scan a PDF and flag *failed* redactions (extractable text under an opaque fill/image/removable annotation, hidden OCG layers, metadata leaks) for vetting outbound productions, validated against a synthetic + real bad-redaction corpus and cross-checked against an LLM reading; (b) **content-stream surgery** — region-precise, text-preserving redaction (keeps the rest of the page selectable).
+4. **Generate + stamp / Bates / watermark / merge / split.** Feeds _Document Automation_ and _Discovery_ production.
+5. **Forms (AcroForm) + secure/encrypt.** Court/government form fill; password/permissions/AES-256.
+6. **Sign / seal (PAdES).** Folds in the existing `@magna-carta/signing` design (host-side crypto unchanged; the Rust core owns the PDF structure end-to-end — the "one engine owns the bytes" thesis, now in Rust).
+7. **OCR integration**, then the far-future gaps (text/object editing, compare, preflight, tagging).
 
 ---
 
