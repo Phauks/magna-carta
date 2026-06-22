@@ -140,6 +140,40 @@ describe("appendRate", () => {
     ).rejects.toMatchObject({ code: "overlapping-valid-from" });
   });
 
+  it("refuses a valid_from that lands strictly inside a closed interval between two existing versions", async () => {
+    const database = freshDatabase();
+    const rateCardId = await withCard(database);
+    const scope = { rateCardId, tier: "timekeeper", scopedId: "user_associate", currency: "USD" } as const;
+
+    // Establish two versions: [2026-01-01, 2026-07-01) closed + [2026-07-01, ∞) open.
+    await commit(database, (await appendRate(database, { ...scope, rateE4: 3_500_000, validFrom: "2026-01-01" }, options)).effect);
+    await commit(database, (await appendRate(database, { ...scope, rateE4: 4_000_000, validFrom: "2026-07-01" }, options)).effect);
+
+    // 2026-04-15 lands inside the closed interval — must be refused.
+    await expect(
+      appendRate(database, { ...scope, rateE4: 4_500_000, validFrom: "2026-04-15" }, options),
+    ).rejects.toBeInstanceOf(RateValidationError);
+    await expect(
+      appendRate(database, { ...scope, rateE4: 4_500_000, validFrom: "2026-04-15" }, options),
+    ).rejects.toMatchObject({ code: "overlapping-valid-from" });
+  });
+
+  it("refuses a valid_from equal to an existing version's valid_from", async () => {
+    const database = freshDatabase();
+    const rateCardId = await withCard(database);
+    const scope = { rateCardId, tier: "timekeeper", scopedId: "user_associate", currency: "USD" } as const;
+
+    await commit(database, (await appendRate(database, { ...scope, rateE4: 3_500_000, validFrom: "2026-01-01" }, options)).effect);
+
+    // Exact duplicate date must be refused (equal is not strictly after).
+    await expect(
+      appendRate(database, { ...scope, rateE4: 4_000_000, validFrom: "2026-01-01" }, options),
+    ).rejects.toBeInstanceOf(RateValidationError);
+    await expect(
+      appendRate(database, { ...scope, rateE4: 4_000_000, validFrom: "2026-01-01" }, options),
+    ).rejects.toMatchObject({ code: "overlapping-valid-from" });
+  });
+
   it("lets two non-overlapping versions for one scope coexist (the later closes the earlier)", async () => {
     const database = freshDatabase();
     const rateCardId = await withCard(database);

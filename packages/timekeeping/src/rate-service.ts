@@ -1,5 +1,5 @@
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
-import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { RateCardId, RateId, UserId } from "@magna-carta/identifiers/types";
@@ -90,7 +90,7 @@ export async function appendRate(
 
   const rateId = newIdentifier("rate", options.randomSource);
   const createdAt = options.clock.now();
-  const statements = [];
+  const statements: SqlStatement[] = [];
   if (openRow !== undefined) {
     statements.push(closePriorOpenRateStatement(database, openRow.id, input.validFrom));
   }
