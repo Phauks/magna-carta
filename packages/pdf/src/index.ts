@@ -44,19 +44,22 @@ export class PdfDocument {
   }
 
   pageSize(index: number): PageSize {
-    const size = this.handle.pageSize(index);
-    return { widthPt: size.widthPt, heightPt: size.heightPt };
+    const s = this.handle.pageSize(index);
+    try {
+      return { widthPt: s.widthPt, heightPt: s.heightPt };
+    } finally {
+      s.free();
+    }
   }
 
   renderPage(index: number, opts: RenderOptions = {}): RenderedPage {
-    const encodePng = opts.encodePng ?? false;
-    const rendered = this.handle.renderPage(index, opts.dpi ?? 150, encodePng);
-    return {
-      data: rendered.data,
-      width: rendered.width,
-      height: rendered.height,
-      encoding: encodePng ? "png" : "rgba8",
-    };
+    const png = opts.encodePng ?? false;
+    const r = this.handle.renderPage(index, opts.dpi ?? 150, png);
+    try {
+      return { data: r.data, width: r.width, height: r.height, encoding: png ? "png" : "rgba8" };
+    } finally {
+      r.free();
+    }
   }
 
   free(): void {

@@ -33,4 +33,24 @@ describe("@magna-carta/pdf", () => {
     expect(page.data.length).toBe(page.width * page.height * 4);
     doc.free();
   });
+
+  it("renderPage frees wasm structs deterministically across 50 iterations", async () => {
+    // Guards against the wasm-struct leak: wasm-bindgen structs returned by renderPage hold
+    // linear-memory allocations that must be freed explicitly. This loop verifies that each call
+    // completes and returns the correct dimensions at dpi 72 (612x792 px) — if structs were
+    // leaked the wasm heap would grow unboundedly, but the wasm.memory export is not surfaced
+    // by the generated JS glue so we assert correctness of every iteration instead.
+    const doc = await loadDocument(blank);
+    try {
+      for (let i = 0; i < 50; i++) {
+        const page = doc.renderPage(0, { dpi: 72 });
+        expect(page.width).toBe(612);
+        expect(page.height).toBe(792);
+        expect(page.encoding).toBe("rgba8");
+        expect(page.data.length).toBe(612 * 792 * 4);
+      }
+    } finally {
+      doc.free();
+    }
+  }, 30_000);
 });

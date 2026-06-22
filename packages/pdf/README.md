@@ -120,12 +120,13 @@ interface RenderOptions {
 
 ## Error handling
 
-`loadDocument` throws a `PdfError` (a plain `Error` subclass) when:
-- the input is not recognisable as a PDF,
-- a required page index is out of range, or
-- the WASM module itself fails to initialise.
+All errors are thrown as standard `Error` instances (not a custom subclass). The `.message` is one of three fixed strings:
 
-Wrap calls in `try/catch` and inspect `error.message` for a human-readable description.
+- `"failed to parse PDF"` — thrown by `loadDocument` when the input bytes are not a valid PDF.
+- `"page index out of range"` — thrown by `pageSize` or `renderPage` when `index` is outside the document's page range.
+- `"failed to render page"` — thrown by `renderPage` when the renderer fails on an otherwise-valid page.
+
+Wrap calls in `try/catch` and inspect `error.message` to distinguish these cases.
 
 ## Build notes
 
