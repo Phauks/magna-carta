@@ -288,6 +288,9 @@ pub struct DetectionReport {
     pub summary: SeveritySummary,
     pub pages_scanned: usize,
     pub glyphs_examined: usize,
+    /// Page indices (0-based) that could not be examined (the renderer failed to
+    /// interpret them). An empty `findings` list does NOT clear these pages.
+    pub pages_unreadable: Vec<usize>,
 }
 
 #[derive(Debug)]
@@ -311,10 +314,14 @@ pub fn detect(bytes: Vec<u8>) -> Result<DetectionReport, DetectError> {
 
     let mut findings = Vec::new();
     let mut glyphs_examined = 0;
+    let mut pages_unreadable = Vec::new();
     for page in 0..page_count {
-        if let Some(obs) = crate::textpos::observe_page(&pdf, page) {
-            glyphs_examined += obs.glyphs.len();
-            findings.extend(page_geometric_findings(&obs, page));
+        match crate::textpos::observe_page(&pdf, page) {
+            Some(obs) => {
+                glyphs_examined += obs.glyphs.len();
+                findings.extend(page_geometric_findings(&obs, page));
+            }
+            None => pages_unreadable.push(page),
         }
     }
 
@@ -336,7 +343,7 @@ pub fn detect(bytes: Vec<u8>) -> Result<DetectionReport, DetectError> {
         }
     }
 
-    Ok(DetectionReport { findings, summary, pages_scanned: page_count, glyphs_examined })
+    Ok(DetectionReport { findings, summary, pages_scanned: page_count, glyphs_examined, pages_unreadable })
 }
 
 #[cfg(test)]
@@ -387,6 +394,13 @@ mod tests {
             .filter(|f| matches!(f.category, Category::CoveredText | Category::InvisibleText | Category::WhiteoutText))
             .collect();
         assert!(page_text.is_empty(), "a redacted document must yield no recoverable page text, got {page_text:?}");
+    }
+
+    #[test]
+    fn report_lists_no_unreadable_pages_for_a_normal_document() {
+        let report = detect(corpus_bytes()).expect("detect");
+        assert!(report.pages_unreadable.is_empty());
+        assert_eq!(report.pages_scanned, 1);
     }
 
     fn corpus_bytes() -> Vec<u8> {
