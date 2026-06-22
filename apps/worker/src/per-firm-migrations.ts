@@ -16,6 +16,7 @@ import usageAnalyticsOptOutSql from "@magna-carta/database/drizzle/per-firm/0012
 import customFieldsSql from "@magna-carta/database/drizzle/per-firm/0013_custom-fields.sql";
 import inferenceTokenUsageSql from "@magna-carta/database/drizzle/per-firm/0014_inference-token-usage.sql";
 import inlinePlayableSql from "@magna-carta/database/drizzle/per-firm/0015_odd_mesmero.sql";
+import seedToolsWebDomainsSql from "@magna-carta/database/drizzle/per-firm/0016_seed-tools-web-domains.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the firm
 // provisioner migrates a freshly created firm database to head at provisioning time, so the SQL
@@ -41,6 +42,7 @@ export function perFirmMigrations(): Migration[] {
     "0013_custom-fields": customFieldsSql,
     "0014_inference-token-usage": inferenceTokenUsageSql,
     "0015_odd_mesmero": inlinePlayableSql,
+    "0016_seed-tools-web-domains": seedToolsWebDomainsSql,
   });
 }
 
