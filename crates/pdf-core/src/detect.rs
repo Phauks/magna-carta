@@ -308,6 +308,110 @@ pub(crate) fn structural_findings(
     findings
 }
 
+use std::collections::BTreeSet;
+
+/// Annotation subtypes that paint over page content (and can be deleted to
+/// reveal it). `Redact` is the highest-signal: an unapplied redaction mark.
+const OBSCURING_ANNOTATIONS: &[&[u8]] = &[
+    b"Redact", b"Square", b"Circle", b"Polygon", b"FreeText", b"Stamp", b"Highlight", b"Ink",
+];
+
+fn page_annot_rects(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> Vec<Rect> {
+    let page = match doc.get_object(page_id).and_then(|o| o.as_dict()) {
+        Ok(p) => p,
+        Err(_) => return Vec::new(),
+    };
+    let annots = match page.get(b"Annots") {
+        Ok(lopdf::Object::Array(a)) => a.clone(),
+        Ok(lopdf::Object::Reference(r)) => doc
+            .get_object(*r)
+            .ok()
+            .and_then(|o| o.as_array().ok())
+            .cloned()
+            .unwrap_or_default(),
+        _ => Vec::new(),
+    };
+    let mut rects = Vec::new();
+    for a in &annots {
+        let Some(dict) = a
+            .as_reference()
+            .ok()
+            .and_then(|id| doc.get_object(id).ok())
+            .and_then(|o| o.as_dict().ok())
+        else {
+            continue;
+        };
+        let obscuring = dict
+            .get(b"Subtype")
+            .ok()
+            .and_then(|o| o.as_name().ok())
+            .map(|s| OBSCURING_ANNOTATIONS.contains(&s))
+            .unwrap_or(false);
+        if !obscuring {
+            continue;
+        }
+        if let Ok(arr) = dict.get(b"Rect").and_then(|o| o.as_array()) {
+            let n: Vec<f32> = arr
+                .iter()
+                .filter_map(|o| o.as_float().ok().or_else(|| o.as_i64().ok().map(|i| i as f32)))
+                .collect();
+            if n.len() == 4 {
+                // PDF /Rect corners may be unordered; normalize to a display-point Rect.
+                rects.push(Rect {
+                    x0: n[0].min(n[2]),
+                    y0: n[1].min(n[3]),
+                    x1: n[0].max(n[2]),
+                    y1: n[1].max(n[3]),
+                });
+            }
+        }
+    }
+    rects
+}
+
+fn rect_contains(r: &Rect, x: f32, y: f32) -> bool {
+    x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1
+}
+
+// Wired into detect() in Task 3; allow dead_code until then.
+#[allow(dead_code)]
+pub(crate) fn annotation_findings(
+    obs: &PageObservation,
+    doc: &lopdf::Document,
+    page_id: lopdf::ObjectId,
+    page: usize,
+) -> (Vec<Finding>, BTreeSet<usize>) {
+    let rects = page_annot_rects(doc, page_id);
+    let mut findings = Vec::new();
+    let mut claimed = BTreeSet::new();
+    for rect in &rects {
+        let mut recovered = String::new();
+        for (i, g) in obs.glyphs.iter().enumerate() {
+            if g.invisible || g.text.trim().is_empty() {
+                continue;
+            }
+            let display = to_display_rect(g.bbox, obs.height_pt);
+            let cx = (display.x0 + display.x1) / 2.0;
+            let cy = (display.y0 + display.y1) / 2.0;
+            if rect_contains(rect, cx, cy) {
+                recovered.push_str(&g.text);
+                claimed.insert(i);
+            }
+        }
+        if !recovered.is_empty() {
+            findings.push(Finding {
+                category: Category::RemovableAnnotation,
+                severity: Severity::Critical,
+                page: Some(page),
+                region: Some(*rect),
+                recovered_text: recovered,
+                detail: "Extractable text sits under an annotation that can be deleted to reveal it.".into(),
+            });
+        }
+    }
+    (findings, claimed)
+}
+
 fn inactive_ocgs(doc: &lopdf::Document) -> Vec<lopdf::ObjectId> {
     doc.catalog()
         .ok()
@@ -797,6 +901,75 @@ mod tests {
             && matches!(f.severity, Severity::High)
             && f.recovered_text.contains("hidden layer text")
             && f.page == Some(0)));
+    }
+
+    fn page_with_annot(subtype: &[u8]) -> (lopdf::Document, lopdf::ObjectId) {
+        use lopdf::{dictionary, Dictionary, Document, Object, Stream};
+        let mut doc = Document::with_version("1.5");
+        let pages_id = doc.new_object_id();
+        let content_id = doc.add_object(Stream::new(Dictionary::new(), b"BT ET".to_vec()));
+        let annot_id = doc.add_object(dictionary! {
+            "Type" => Object::Name(b"Annot".to_vec()),
+            "Subtype" => Object::Name(subtype.to_vec()),
+            "Rect" => Object::Array(vec![60.into(), 690.into(), 300.into(), 720.into()]),
+        });
+        let mut page = Dictionary::new();
+        page.set("Type", Object::Name(b"Page".to_vec()));
+        page.set("Parent", Object::Reference(pages_id));
+        page.set("Contents", Object::Reference(content_id));
+        page.set("MediaBox", Object::Array(vec![0.into(), 0.into(), 612.into(), 792.into()]));
+        page.set("Annots", Object::Array(vec![Object::Reference(annot_id)]));
+        let page_id = doc.add_object(Object::Dictionary(page));
+        let mut pages = Dictionary::new();
+        pages.set("Type", Object::Name(b"Pages".to_vec()));
+        pages.set("Kids", Object::Array(vec![Object::Reference(page_id)]));
+        pages.set("Count", Object::Integer(1));
+        doc.objects.insert(pages_id, Object::Dictionary(pages));
+        let catalog_id = doc.add_object(dictionary! {
+            "Type" => Object::Name(b"Catalog".to_vec()),
+            "Pages" => Object::Reference(pages_id),
+        });
+        doc.trailer.set("Root", Object::Reference(catalog_id));
+        (doc, page_id)
+    }
+
+    fn obs_with_glyph_at(text: &str, display_x: f64, display_y: f64, page_height: f32) -> PageObservation {
+        // Place a glyph whose DISPLAY-point center is (display_x, display_y); textpos
+        // stores device-space (top-left) bboxes, so invert the y-flip used by to_display_rect.
+        let dev_y = page_height as f64 - display_y;
+        PageObservation {
+            glyphs: vec![GlyphMark {
+                text: text.into(),
+                bbox: kurbo::Rect::new(display_x - 2.0, dev_y - 2.0, display_x + 2.0, dev_y + 2.0),
+                order: 1,
+                invisible: false,
+                rgba: [0, 0, 0, 255],
+            }],
+            covers: vec![],
+            width_pt: 612.0,
+            height_pt: page_height,
+        }
+    }
+
+    #[test]
+    fn flags_text_under_an_obscuring_annotation_and_claims_the_glyph() {
+        let (doc, page_id) = page_with_annot(b"Square");
+        let obs = obs_with_glyph_at("confidential", 72.0, 700.0, 792.0); // inside [60,690,300,720]
+        let (findings, claimed) = annotation_findings(&obs, &doc, page_id, 0);
+        assert_eq!(findings.len(), 1);
+        assert!(matches!(findings[0].category, Category::RemovableAnnotation));
+        assert!(matches!(findings[0].severity, Severity::Critical));
+        assert!(findings[0].recovered_text.contains("confidential"));
+        assert!(claimed.contains(&0));
+    }
+
+    #[test]
+    fn ignores_a_benign_link_annotation() {
+        let (doc, page_id) = page_with_annot(b"Link");
+        let obs = obs_with_glyph_at("visible", 72.0, 700.0, 792.0);
+        let (findings, claimed) = annotation_findings(&obs, &doc, page_id, 0);
+        assert!(findings.is_empty());
+        assert!(claimed.is_empty());
     }
 
     #[test]
