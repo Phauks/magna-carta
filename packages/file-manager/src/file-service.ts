@@ -37,6 +37,7 @@ import {
 } from "./file-statements.ts";
 import { selectFolderStatement } from "./folder-statements.ts";
 import { meterCommitStatements } from "./metering-statements.ts";
+import { recordScanCacheStatement } from "./scan-cache.ts";
 import { checkUploadPolicy, readUploadPolicy } from "./upload-policy.ts";
 import { FileManagerValidationError } from "./validation.ts";
 
@@ -335,6 +336,23 @@ export async function commitVersion(
           input.sizeBytes,
         ),
         fileAuditStatement(database, options, "file.version_committed", input.versionId),
+        // Populate the content-dedup cache (scan-once) atomically with the commit — but ONLY for a
+        // definitive CLEAN verdict from a real engine. `unscanned`/no-engine commits (the launch
+        // adapter, or a missing engine version) are never cached, so a later re-scan still runs the
+        // engine; an `infected` outcome never reaches commit (it quarantines).
+        ...(input.scanVerdict === "clean" &&
+        input.scanEngineVersion !== null &&
+        input.contentSha256 !== null
+          ? [
+              recordScanCacheStatement(database, {
+                contentSha256: input.contentSha256,
+                engineVersion: input.scanEngineVersion,
+                verdict: "clean",
+                signature: null,
+                scannedAt: input.now,
+              }),
+            ]
+          : []),
       ],
       outboxMessages: [
         {
