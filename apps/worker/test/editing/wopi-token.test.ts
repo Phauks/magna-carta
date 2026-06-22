@@ -20,10 +20,7 @@ const oneHourFromNow = () => Date.now() + 60 * 60 * 1000;
 const b64urlDecode = (s: string): string =>
   atob(s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (s.length % 4)) % 4));
 const b64urlEncode = (s: string): string =>
-  btoa(s)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
+  btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
 describe("WOPI edit token", () => {
   it("mints a token that verifies back to the original claims", async () => {
@@ -45,7 +42,7 @@ describe("WOPI edit token", () => {
 
   it("rejects a tampered payload — the signature is checked before any claim is trusted", async () => {
     const token = await mintEditToken({ ...baseInput, exp: oneHourFromNow() }, env);
-    const [header, payload, mac] = token.split(".");
+    const [header, payload, mac] = token.split(".") as [string, string, string];
     const claims = JSON.parse(b64urlDecode(payload));
     claims.capability = "view"; // privilege change attempt
     const tampered = `${header}.${b64urlEncode(JSON.stringify(claims))}.${mac}`;
@@ -54,8 +51,11 @@ describe("WOPI edit token", () => {
   });
 
   it("rejects a firm-A token re-pointed at firm-B (the signing key is per-firm)", async () => {
-    const token = await mintEditToken({ ...baseInput, firmId: "firm_aaa", exp: oneHourFromNow() }, env);
-    const [header, payload, mac] = token.split(".");
+    const token = await mintEditToken(
+      { ...baseInput, firmId: "firm_aaa", exp: oneHourFromNow() },
+      env,
+    );
+    const [header, payload, mac] = token.split(".") as [string, string, string];
     const claims = JSON.parse(b64urlDecode(payload));
     claims.firmId = "firm_zzz"; // cross-firm replay attempt
     const swapped = `${header}.${b64urlEncode(JSON.stringify(claims))}.${mac}`;

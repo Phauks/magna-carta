@@ -48,6 +48,10 @@ const SKIP_DIRECTORIES = new Set([
   // Tool-output scratch dirs (Playwright MCP page snapshots scrape legal text where "§" is a real
   // statutory citation, not a process-doc reference).
   ".playwright-mcp",
+  // Throwaway de-risking harnesses — exploration code deleted after it yields its measurements, where
+  // "spike" is the literal name of the artifact, not a citation of one. Golden rule 13 governs shipped
+  // source/tests/config.
+  "spikes",
 ]);
 
 // Each pattern flags a process-artifact citation that has no legitimate form in code.

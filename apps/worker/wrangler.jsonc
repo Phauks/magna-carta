@@ -80,7 +80,9 @@
   "durable_objects": {
     "bindings": [{ "name": "DOCUMENT_SESSION", "class_name": "DocumentSession" }],
   },
-  "migrations": [{ "tag": "v1-editing-document-session", "new_sqlite_classes": ["DocumentSession"] }],
+  "migrations": [
+    { "tag": "v1-editing-document-session", "new_sqlite_classes": ["DocumentSession"] },
+  ],
   // Workers AI — the authenticated binding the inference foundation reaches the AI Gateway through.
   // No per-firm provider key at launch (Unified Billing, Cloudflare-managed credentials).
   "ai": { "binding": "AI" },

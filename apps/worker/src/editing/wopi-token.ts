@@ -72,8 +72,10 @@ function bytesFromBase64url(value: string): Uint8Array {
   return bytes;
 }
 
-const base64urlFromString = (value: string): string => base64urlFromBytes(textEncoder.encode(value));
-const stringFromBase64url = (value: string): string => textDecoder.decode(bytesFromBase64url(value));
+const base64urlFromString = (value: string): string =>
+  base64urlFromBytes(textEncoder.encode(value));
+const stringFromBase64url = (value: string): string =>
+  textDecoder.decode(bytesFromBase64url(value));
 
 // Derives the per-firm HMAC-SHA-256 signing key from AUTH_SECRET. The HKDF info binds the key to the
 // firm and the key version, so a key recovered for one firm cannot verify another firm's tokens.
@@ -131,7 +133,7 @@ export async function verifyEditToken(
 ): Promise<EditTokenClaims> {
   const parts = token.split(".");
   if (parts.length !== 3) throw new WopiTokenError("malformed");
-  const [encodedHeader, encodedClaims, presentedMac] = parts;
+  const [encodedHeader, encodedClaims, presentedMac] = parts as [string, string, string];
 
   // Decode the header + claims only to SELECT the verification key (kid + firmId). Nothing here is
   // trusted until the MAC verifies below — a tampered firmId simply selects a key the MAC won't match.

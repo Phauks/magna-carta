@@ -2,8 +2,12 @@ import { env, runInDurableObject } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import type { DocumentSession } from "../../src/editing/document-session.ts";
 
-function sessionStub(name: string) {
-  return env.DOCUMENT_SESSION.get(env.DOCUMENT_SESSION.idFromName(name));
+// The binding is deliberately unparameterized in Bindings (avoiding a circular import with the DO
+// class), so the stub is narrowed to the concrete class here for the typed RPC surface the tests drive.
+function sessionStub(name: string): DurableObjectStub<DocumentSession> {
+  return env.DOCUMENT_SESSION.get(
+    env.DOCUMENT_SESSION.idFromName(name),
+  ) as DurableObjectStub<DocumentSession>;
 }
 
 describe("DocumentSession", () => {
@@ -24,7 +28,11 @@ describe("DocumentSession", () => {
 
   it("persists the current working-object metadata durably across access", async () => {
     const stub = sessionStub("file_meta");
-    const meta = { sha256: "edited-hash", sizeBytes: 4096, wopiTimestamp: "2026-06-22T00:00:00.000Z" };
+    const meta = {
+      sha256: "edited-hash",
+      sizeBytes: 4096,
+      wopiTimestamp: "2026-06-22T00:00:00.000Z",
+    };
 
     await runInDurableObject(stub, async (instance: DocumentSession) => {
       await instance.setCurrentMeta(meta);

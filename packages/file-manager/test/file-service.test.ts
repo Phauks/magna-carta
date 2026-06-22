@@ -104,15 +104,15 @@ describe("commitEditedVersion", () => {
       .bind(fileId)
       .all<{ id: string; version_number: number; content_sha256: string; status: string }>();
     expect(rows.map((row) => row.version_number)).toEqual([1, 2]);
-    expect(rows[1].id).toBe(result.versionId);
-    expect(rows[1].content_sha256).toBe("hash-edited");
-    expect(rows[1].status).toBe("clean");
+    expect(rows[1]?.id).toBe(result.versionId);
+    expect(rows[1]?.content_sha256).toBe("hash-edited");
+    expect(rows[1]?.status).toBe("clean");
 
     const { results: fileRow } = await database
       .prepare("SELECT current_version_id FROM file WHERE id = ?1")
       .bind(fileId)
       .all<{ current_version_id: string }>();
-    expect(fileRow[0].current_version_id).toBe(result.versionId);
+    expect(fileRow[0]?.current_version_id).toBe(result.versionId);
   });
 
   it("skips when the saved content matches the current version (no copy, no new version)", async () => {
