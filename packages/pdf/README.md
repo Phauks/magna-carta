@@ -257,8 +257,8 @@ Each entry in `report.findings` has this shape:
 
 ```ts
 interface DetectionFinding {
-  category: "CoveredText" | "InvisibleText" | "WhiteoutText" | "MetadataLeak" | "OrphanedText";
-  severity: "Critical" | "High" | "Medium" | "Low" | "Info";
+  category: "coveredText" | "invisibleText" | "whiteoutText" | "metadataLeak" | "orphanedText";
+  severity: "critical" | "high" | "medium" | "low" | "info";
   page: number | null;      // 0-based page index; null for document-level findings
   region: Rect | null;      // display-point bounding box; null for document-level findings
   recoveredText: string;    // the text string recovered from the hidden location
@@ -268,13 +268,13 @@ interface DetectionFinding {
 
 ### v1 categories and severities
 
-| Category | Severity | What it means |
+| `category` | `severity` | What it means |
 | --- | --- | --- |
-| `CoveredText` | **Critical** | Extractable text sits under an opaque fill that hides it from view. The classic bad redaction: the words are present in the file and selectable; only the visual rendering conceals them. |
-| `InvisibleText` | **High** | Text drawn in an invisible render mode (PDF text rendering mode 3, "invisible"). Recoverable by extraction even though it does not appear on screen. |
-| `WhiteoutText` | **High** | Text painted the same color as the covering fill — for example, white text under a white box. Both the text and the fill are light-colored, creating a same-color concealment. |
-| `MetadataLeak` | **Medium** | The document's information dictionary, XMP metadata stream, bookmark titles, or AcroForm field values carry text content. These surfaces survive even when page content is removed. |
-| `OrphanedText` | **High** | Text present in a PDF object that no page references, but which remains in the file bytes. A copy-and-paste or search tool that reads the raw cross-reference table can recover it. |
+| `coveredText` | `critical` | Extractable text sits under an opaque fill that hides it from view. The classic bad redaction: the words are present in the file and selectable; only the visual rendering conceals them. |
+| `invisibleText` | `high` | Text drawn in an invisible render mode (PDF text rendering mode 3, "invisible"). Recoverable by extraction even though it does not appear on screen. |
+| `whiteoutText` | `high` | Text painted the same color as the covering fill — for example, white text under a white box. Both the text and the fill are light-colored, creating a same-color concealment. |
+| `metadataLeak` | `medium` | The document's information dictionary, XMP metadata stream, bookmark titles, or AcroForm field values carry text content. These surfaces survive even when page content is removed. |
+| `orphanedText` | `high` | Text present in a PDF object that no page references, but which remains in the file bytes. A copy-and-paste or search tool that reads the raw cross-reference table can recover it. |
 
 **Why `InvisibleText` is High rather than Critical:** PDF invisible text (rendering mode 3) is overwhelmingly benign in practice — OCR workflows commonly place a transparent text layer over a scanned image to enable selection and search. The finding is flagged because invisible text on a document that should not have a text layer is suspicious, but it is not treated as the most severe category.
 
@@ -294,7 +294,8 @@ Before acting on a detection report, understand these limits:
 
 ```ts
 interface DetectionReport {
-  findings: DetectionFinding[];   // ranked Critical → Info; empty means nothing detected
+  findings: DetectionFinding[];   // ranked critical → info; empty means nothing detected
+  summary: { critical: number; high: number; medium: number; low: number; info: number }; // finding counts per tier
   pagesScanned: number;           // pages the geometric detectors successfully examined
   glyphsExamined: number;         // total glyphs considered
   pagesUnreadable: number[];      // page indices the renderer could not interpret
