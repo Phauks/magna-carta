@@ -13,8 +13,6 @@ use kurbo::{Affine, BezPath, Rect, Shape};
 
 // GlyphMark, CoverMark, PageObservation, and observe_page are pub(crate) API
 // surfaces consumed by detect.rs and the scan orchestrator (a later task).
-// Per-item allows silence dead-code lints until those callers exist in production code.
-#[allow(dead_code)]
 pub(crate) struct GlyphMark {
     pub text: String,
     pub bbox: Rect,
@@ -23,22 +21,21 @@ pub(crate) struct GlyphMark {
     pub rgba: [u8; 4],
 }
 
-#[allow(dead_code)]
 pub(crate) struct CoverMark {
     pub bbox: Rect,
     pub order: usize,
     pub rgba: [u8; 4],
 }
 
-#[allow(dead_code)]
 pub(crate) struct PageObservation {
     pub glyphs: Vec<GlyphMark>,
     pub covers: Vec<CoverMark>,
+    // width_pt is consumed by the scan orchestrator (a later task); height_pt is read now.
+    #[allow(dead_code)]
     pub width_pt: f32,
     pub height_pt: f32,
 }
 
-#[allow(dead_code)]
 fn paint_rgba(paint: &Paint) -> [u8; 4] {
     match paint {
         Paint::Color(c) => c.to_rgba().to_rgba8(),
@@ -46,7 +43,6 @@ fn paint_rgba(paint: &Paint) -> [u8; 4] {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Default)]
 struct Observer {
     order: usize,
@@ -117,7 +113,6 @@ impl<'a> Device<'a> for Observer {
 }
 
 // Called by the scan orchestrator in a later task.
-#[allow(dead_code)]
 pub(crate) fn observe_page(pdf: &Pdf, index: usize) -> Option<PageObservation> {
     let pages = pdf.pages();
     let page = pages.get(index)?;

@@ -35,7 +35,6 @@ pub struct Finding {
 
 /// Convert a kurbo device-space bbox (top-left origin) to a display-point rect
 /// (bottom-left origin), matching `page_size`/the redaction `Rect`.
-#[allow(dead_code)]
 fn to_display_rect(kbox: kurbo::Rect, page_height_pt: f32) -> Rect {
     let h = page_height_pt as f64;
     Rect {
@@ -48,7 +47,6 @@ fn to_display_rect(kbox: kurbo::Rect, page_height_pt: f32) -> Rect {
 
 const OPAQUE: u8 = 250;
 
-#[allow(dead_code)]
 fn color_matches(a: [u8; 4], b: [u8; 4]) -> bool {
     let close = |x: u8, y: u8| (x as i16 - y as i16).abs() <= 8;
     close(a[0], b[0]) && close(a[1], b[1]) && close(a[2], b[2])
@@ -57,7 +55,6 @@ fn color_matches(a: [u8; 4], b: [u8; 4]) -> bool {
 /// True when a color is a near-light/background color (e.g. white-page concealment).
 /// Whiteout concealment means text hidden by a light-colored fill matching the page
 /// background — the glyph color and the cover color are both near-white.
-#[allow(dead_code)]
 fn is_light_color(rgba: [u8; 4]) -> bool {
     rgba[0] >= 200 && rgba[1] >= 200 && rgba[2] >= 200
 }
@@ -66,7 +63,6 @@ fn is_light_color(rgba: [u8; 4]) -> bool {
 /// Selects the topmost (highest paint-order) qualifying cover, because that is
 /// what the viewer actually sees — an earlier cover may be completely occluded
 /// by a later one, and classifying by it would misidentify the concealment kind.
-#[allow(dead_code)]
 fn covering<'a>(glyph: &GlyphMark, covers: &'a [CoverMark]) -> Option<&'a CoverMark> {
     let center = glyph.bbox.center();
     covers
@@ -75,16 +71,25 @@ fn covering<'a>(glyph: &GlyphMark, covers: &'a [CoverMark]) -> Option<&'a CoverM
         .max_by_key(|c| c.order)
 }
 
-#[allow(dead_code)]
 pub(crate) fn page_geometric_findings(obs: &PageObservation, page: usize) -> Vec<Finding> {
+    // Group covered glyphs by the cover that hides them (identified by paint order).
+    // This keeps the per-glyph detail for invisible text while producing one coherent
+    // finding per cover region — so the recovered text reads as a contiguous run rather
+    // than a series of single-character findings.
+    use std::collections::BTreeMap;
+
     let mut findings = Vec::new();
+    // (cover_order, is_whiteout) -> (accumulated_text, cover_bbox, first_glyph_bbox)
+    let mut covered_groups: BTreeMap<(usize, bool), (String, kurbo::Rect, kurbo::Rect)> =
+        BTreeMap::new();
+
     for g in &obs.glyphs {
         if g.text.trim().is_empty() {
             continue;
         }
-        let region = Some(to_display_rect(g.bbox, obs.height_pt));
 
         if g.invisible {
+            let region = Some(to_display_rect(g.bbox, obs.height_pt));
             findings.push(Finding {
                 category: Category::InvisibleText,
                 severity: Severity::High,
@@ -95,30 +100,42 @@ pub(crate) fn page_geometric_findings(obs: &PageObservation, page: usize) -> Vec
             });
             continue;
         }
+
         if let Some(cover) = covering(g, &obs.covers) {
             // Same-color light cover (e.g. white text under a white fill) ⇒ whiteout
             // concealment; a differently-colored or dark opaque fill ⇒ covered text.
-            if color_matches(g.rgba, cover.rgba) && is_light_color(cover.rgba) {
-                findings.push(Finding {
-                    category: Category::WhiteoutText,
-                    severity: Severity::High,
-                    page: Some(page),
-                    region,
-                    recovered_text: g.text.clone(),
-                    detail: "Text painted the same color as the fill covering it.".into(),
-                });
-            } else {
-                findings.push(Finding {
-                    category: Category::CoveredText,
-                    severity: Severity::Critical,
-                    page: Some(page),
-                    region,
-                    recovered_text: g.text.clone(),
-                    detail: "Extractable text sits under an opaque fill that hides it from view.".into(),
-                });
-            }
+            let is_whiteout = color_matches(g.rgba, cover.rgba) && is_light_color(cover.rgba);
+            let key = (cover.order, is_whiteout);
+            let entry = covered_groups
+                .entry(key)
+                .or_insert_with(|| (String::new(), cover.bbox, g.bbox));
+            entry.0.push_str(&g.text);
         }
     }
+
+    for ((_, is_whiteout), (text, cover_bbox, _)) in covered_groups {
+        let region = Some(to_display_rect(cover_bbox, obs.height_pt));
+        if is_whiteout {
+            findings.push(Finding {
+                category: Category::WhiteoutText,
+                severity: Severity::High,
+                page: Some(page),
+                region,
+                recovered_text: text,
+                detail: "Text painted the same color as the fill covering it.".into(),
+            });
+        } else {
+            findings.push(Finding {
+                category: Category::CoveredText,
+                severity: Severity::Critical,
+                page: Some(page),
+                region,
+                recovered_text: text,
+                detail: "Extractable text sits under an opaque fill that hides it from view.".into(),
+            });
+        }
+    }
+
     findings
 }
 
@@ -145,7 +162,6 @@ fn push_metadata_finding(findings: &mut Vec<Finding>, text: String, detail: &str
     }
 }
 
-#[allow(dead_code)]
 fn object_strings(obj: &Object, out: &mut String) {
     match obj {
         Object::String(bytes, _) => {
@@ -167,7 +183,6 @@ fn object_strings(obj: &Object, out: &mut String) {
     }
 }
 
-#[allow(dead_code)]
 pub(crate) fn structural_findings(doc: &mut lopdf::Document, needle_min_len: usize) -> Vec<Finding> {
     let mut findings = Vec::new();
 
@@ -258,10 +273,125 @@ pub(crate) fn structural_findings(doc: &mut lopdf::Document, needle_min_len: usi
     findings
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct SeveritySummary {
+    pub critical: usize,
+    pub high: usize,
+    pub medium: usize,
+    pub low: usize,
+    pub info: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct DetectionReport {
+    pub findings: Vec<Finding>,
+    pub summary: SeveritySummary,
+    pub pages_scanned: usize,
+    pub glyphs_examined: usize,
+}
+
+#[derive(Debug)]
+pub enum DetectError {
+    Parse,
+}
+
+fn severity_rank(s: Severity) -> u8 {
+    match s {
+        Severity::Critical => 0,
+        Severity::High => 1,
+        Severity::Medium => 2,
+        Severity::Low => 3,
+        Severity::Info => 4,
+    }
+}
+
+pub fn detect(bytes: Vec<u8>) -> Result<DetectionReport, DetectError> {
+    let pdf = hayro::hayro_syntax::Pdf::new(bytes.clone()).map_err(|_| DetectError::Parse)?;
+    let page_count = pdf.pages().len();
+
+    let mut findings = Vec::new();
+    let mut glyphs_examined = 0;
+    for page in 0..page_count {
+        if let Some(obs) = crate::textpos::observe_page(&pdf, page) {
+            glyphs_examined += obs.glyphs.len();
+            findings.extend(page_geometric_findings(&obs, page));
+        }
+    }
+
+    // Structural pass over the detector's own object-model copy.
+    if let Ok(mut doc) = lopdf::Document::load_mem(&bytes) {
+        findings.extend(structural_findings(&mut doc, 3));
+    }
+
+    findings.sort_by_key(|f| severity_rank(f.severity));
+
+    let mut summary = SeveritySummary::default();
+    for f in &findings {
+        match f.severity {
+            Severity::Critical => summary.critical += 1,
+            Severity::High => summary.high += 1,
+            Severity::Medium => summary.medium += 1,
+            Severity::Low => summary.low += 1,
+            Severity::Info => summary.info += 1,
+        }
+    }
+
+    Ok(DetectionReport { findings, summary, pages_scanned: page_count, glyphs_examined })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::textpos::{CoverMark, GlyphMark, PageObservation};
+
+    #[test]
+    fn detect_flags_a_bad_redaction_and_recovers_text() {
+        // hello.pdf with an opaque black box appended over the text — the classic failure.
+        let mut doc = lopdf::Document::load_mem(&corpus_bytes()).unwrap();
+        let page_id = *doc.get_pages().get(&1).unwrap();
+        let cover_id = doc.add_object(lopdf::Stream::new(
+            lopdf::Dictionary::new(),
+            b"q 0 0 0 rg 0 0 1000 1000 re f Q".to_vec(),
+        ));
+        let mut contents: Vec<lopdf::Object> = match doc.get_dictionary(page_id).unwrap().get(b"Contents") {
+            Ok(lopdf::Object::Array(a)) => a.clone(),
+            Ok(lopdf::Object::Reference(r)) => vec![lopdf::Object::Reference(*r)],
+            _ => vec![],
+        };
+        contents.push(lopdf::Object::Reference(cover_id));
+        doc.get_dictionary_mut(page_id).unwrap().set("Contents", lopdf::Object::Array(contents));
+        let mut bad = Vec::new();
+        doc.save_to(&mut bad).unwrap();
+
+        let report = detect(bad).expect("detect");
+        let covered: Vec<_> = report.findings.iter().filter(|f| matches!(f.category, Category::CoveredText)).collect();
+        assert!(!covered.is_empty(), "expected covered-text findings");
+        assert!(covered.iter().any(|f| f.recovered_text.contains("Hello")));
+        assert!(report.findings.first().map(|f| f.severity).unwrap() == Severity::Critical); // ranked
+    }
+
+    #[test]
+    fn detect_finds_nothing_in_a_properly_redacted_document() {
+        // The reciprocal of the redaction gate: a flattened-image redaction has no
+        // extractable text, so the detector must find zero covered/invisible/whiteout text.
+        let regions = [crate::RedactionRegion {
+            page: 0,
+            rect: crate::Rect { x0: 0.0, y0: 0.0, x1: 1000.0, y1: 1000.0 },
+            reason: None,
+        }];
+        let outcome = crate::redact(corpus_bytes(), &regions, &crate::RedactionOptions::default()).unwrap();
+        let report = detect(outcome.pdf).expect("detect");
+        let page_text: Vec<_> = report
+            .findings
+            .iter()
+            .filter(|f| matches!(f.category, Category::CoveredText | Category::InvisibleText | Category::WhiteoutText))
+            .collect();
+        assert!(page_text.is_empty(), "a redacted document must yield no recoverable page text, got {page_text:?}");
+    }
+
+    fn corpus_bytes() -> Vec<u8> {
+        include_bytes!("../tests/fixtures/hello.pdf").to_vec()
+    }
 
     fn glyph(text: &str, x: f64, y: f64, order: usize, invisible: bool, rgba: [u8; 4]) -> GlyphMark {
         GlyphMark { text: text.into(), bbox: kurbo::Rect::new(x, y, x + 5.0, y + 8.0), order, invisible, rgba }
