@@ -504,6 +504,14 @@ export type ZipDownloadRequest = {
     fileIds?: Array<string>;
 };
 
+export type ScanDiagnosis = {
+    verdict: 'clean' | 'infected' | 'unscanned' | 'suspicious';
+    engineVersion: string | null;
+    signature: string | null;
+    reason: string | null;
+    activeContent: boolean;
+};
+
 export type BundleStatus = {
     status: string;
     url?: string;
@@ -3048,6 +3056,39 @@ export type DownloadsZipResponses = {
 };
 
 export type DownloadsZipResponse = DownloadsZipResponses[keyof DownloadsZipResponses];
+
+export type ScanDiagnoseData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/scan/diagnose';
+};
+
+export type ScanDiagnoseErrors = {
+    /**
+     * Empty request body
+     */
+    400: Problem;
+    /**
+     * Not authenticated
+     */
+    401: Problem;
+    /**
+     * The body exceeds the firm's inspectable-size cap
+     */
+    413: Problem;
+};
+
+export type ScanDiagnoseError = ScanDiagnoseErrors[keyof ScanDiagnoseErrors];
+
+export type ScanDiagnoseResponses = {
+    /**
+     * The scan diagnosis
+     */
+    200: ScanDiagnosis;
+};
+
+export type ScanDiagnoseResponse = ScanDiagnoseResponses[keyof ScanDiagnoseResponses];
 
 export type DownloadsBundleStatusData = {
     body?: never;

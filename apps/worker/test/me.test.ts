@@ -72,6 +72,7 @@ describe("GET /api/v1/me", () => {
         "firm:manageMembers",
         "firm:manageSecrets",
         "firm:reportIncident",
+        "firm:scanFile",
         "incidents:viewDescription",
         "locations:manage",
         "matters:close",

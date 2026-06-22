@@ -554,6 +554,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "numbering.get",
       "numbering.preview",
       "numbering.set",
+      "scan.diagnose",
       "shipping.connect",
       "shipping.createShipment",
       "shipping.label",

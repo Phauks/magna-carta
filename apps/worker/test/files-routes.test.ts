@@ -923,3 +923,34 @@ describe("inline preview grant + cookieless delivery", () => {
     expect(body.downloadUrl).toBe(`/api/v1/files/${fileId}/download`);
   });
 });
+
+describe("POST /api/v1/scan/diagnose", () => {
+  it("scans a posted body, returns a diagnosis, and writes an audit row", async () => {
+    const res = await SELF.fetch("https://example.com/api/v1/scan/diagnose", {
+      method: "POST",
+      headers: {
+        cookie: ownerCookie,
+        origin: "https://example.com",
+        "content-type": "application/octet-stream",
+      },
+      body: new Uint8Array([0x25, 0x50, 0x44, 0x46, 1, 2, 3, 4]),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json<{ verdict: string; engineVersion: string | null }>();
+    // The engine-less adapter runs in tests (no SCAN_CONTAINER) — an honest `unscanned`, never a false clean.
+    expect(body.verdict).toBe("unscanned");
+    const audit = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'file.scan_diagnosed'",
+    ).first<{ n: number }>();
+    expect(audit?.n).toBeGreaterThanOrEqual(1);
+  });
+
+  it("requires authentication (401 without a session)", async () => {
+    const res = await SELF.fetch("https://example.com/api/v1/scan/diagnose", {
+      method: "POST",
+      headers: { origin: "https://example.com", "content-type": "application/octet-stream" },
+      body: new Uint8Array([1, 2, 3]),
+    });
+    expect(res.status).toBe(401);
+  });
+});

@@ -2080,6 +2080,48 @@
           "matterId"
         ]
       },
+      "ScanDiagnosis": {
+        "type": "object",
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "clean",
+              "infected",
+              "unscanned",
+              "suspicious"
+            ]
+          },
+          "engineVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "signature": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "activeContent": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "verdict",
+          "engineVersion",
+          "signature",
+          "reason",
+          "activeContent"
+        ]
+      },
       "BundleStatus": {
         "type": "object",
         "properties": {
@@ -8634,6 +8676,69 @@
         }
       }
     },
+    "/api/v1/scan/diagnose": {
+      "post": {
+        "description": "Scans an uploaded file — the raw bytes as the application/octet-stream request body — through the malware-scan engine and returns its verdict + details. A one-off diagnostic: the file is NOT stored and is NOT associated with any matter. Returns an honest `unscanned` verdict until the scan Container is activated (the engine-less adapter never reports a false `clean`).",
+        "operationId": "scan.diagnose",
+        "tags": [
+          "scan"
+        ],
+        "x-mc-operationId": "scan.diagnose",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:scanFile",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "scan"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The scan diagnosis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanDiagnosis"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty request body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body exceeds the firm's inspectable-size cap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/downloads/bundles/{manifestHash}": {
       "get": {
         "description": "Reports the state of an async bulk-download build (building, ready, or failed). A ready job carries a freshly minted, short-lived signed URL to the built ZIP artifact.",
@@ -13529,6 +13634,9 @@
     },
     {
       "name": "numbering"
+    },
+    {
+      "name": "scan"
     },
     {
       "name": "shipping"
