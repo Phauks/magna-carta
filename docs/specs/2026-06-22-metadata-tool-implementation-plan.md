@@ -505,10 +505,11 @@ git commit -m "feat(metadata): size cap + decompression-bomb guards"
 
 ---
 
-### Task 5: OOXML — shared XML helpers + a docx test-fixture builder
+### Task 5: OOXML — shared XML + walk helpers + a docx test-fixture builder
 
 **Files:**
 - Create: `packages/metadata/src/ooxml/xml.ts`
+- Create: `packages/metadata/src/ooxml/walk.ts`
 - Create: `packages/metadata/test/support/docx-fixture.ts`
 - Test: `packages/metadata/test/ooxml-xml.test.ts`
 
@@ -518,6 +519,9 @@ git commit -m "feat(metadata): size cap + decompression-bomb guards"
   - `buildXml(nodes: unknown[]): string` — re-serialize with the standard declaration
   - `nodeTag(node: Record<string, unknown>): string | undefined` — the element key (not `:@`/`#text`)
   - `XmlNode` type alias (`Record<string, unknown>`)
+- Produces (`walk.ts`) — the single home for the WordprocessingML revision/comment/hidden vocabulary, imported by BOTH the inspect and scrub modules so nothing is defined twice:
+  - `REMOVE_TAGS` (`w:del`, `w:moveFrom`), `UNWRAP_TAGS` (`w:ins`, `w:moveTo`), `PROP_CHANGE_TAGS` (the `*Change` records), `TRACKED_CHANGE_TAGS` (= the union of those three), `COMMENT_REF_TAGS` (the comment-range/reference tags)
+  - `runIsHidden(run: XmlNode): boolean` — true when a `w:r`'s `w:rPr` has an enabled `w:vanish`
 - Produces (`docx-fixture.ts`):
   - `buildDocx(overrides?: Partial<DocxParts>): Uint8Array`
   - `DocxParts` — the part name → string map used to assemble a fixture
@@ -527,7 +531,8 @@ git commit -m "feat(metadata): size cap + decompression-bomb guards"
 ```ts
 // packages/metadata/test/ooxml-xml.test.ts
 import { describe, expect, it } from "vitest";
-import { buildXml, nodeTag, parseXml } from "../src/ooxml/xml.ts";
+import { parseXml, buildXml, nodeTag, type XmlNode } from "../src/ooxml/xml.ts";
+import { runIsHidden, TRACKED_CHANGE_TAGS } from "../src/ooxml/walk.ts";
 
 describe("ooxml/xml", () => {
   it("round-trips an element preserving order and attributes", () => {
@@ -541,6 +546,21 @@ describe("ooxml/xml", () => {
   it("nodeTag returns the element key", () => {
     const nodes = parseXml("<w:p/>") as Record<string, unknown>[];
     expect(nodeTag(nodes[0])).toBe("w:p");
+  });
+});
+
+describe("ooxml/walk", () => {
+  it("TRACKED_CHANGE_TAGS unions removes, unwraps, and change records", () => {
+    for (const tag of ["w:del", "w:ins", "w:rPrChange"]) {
+      expect(TRACKED_CHANGE_TAGS.has(tag)).toBe(true);
+    }
+  });
+
+  it("runIsHidden detects an enabled vanish and ignores a disabled one", () => {
+    const hidden = parseXml("<w:r><w:rPr><w:vanish/></w:rPr><w:t>x</w:t></w:r>") as XmlNode[];
+    const shown = parseXml('<w:r><w:rPr><w:vanish w:val="false"/></w:rPr><w:t>x</w:t></w:r>') as XmlNode[];
+    expect(runIsHidden(hidden[0])).toBe(true);
+    expect(runIsHidden(shown[0])).toBe(false);
   });
 });
 ```
@@ -595,6 +615,55 @@ export function nodeTag(node: XmlNode): string | undefined {
 ```
 
 ```ts
+// packages/metadata/src/ooxml/walk.ts
+import { nodeTag, type XmlNode } from "./xml.ts";
+
+// The WordprocessingML revision/comment/hidden vocabulary, defined once and shared by the inspect and
+// scrub modules. Accepting a tracked change means: drop REMOVE_TAGS (deleted/moved-out text), unwrap
+// UNWRAP_TAGS (keep inserted/moved-in text), and drop PROP_CHANGE_TAGS (keep current formatting).
+export const REMOVE_TAGS: ReadonlySet<string> = new Set(["w:del", "w:moveFrom"]);
+export const UNWRAP_TAGS: ReadonlySet<string> = new Set(["w:ins", "w:moveTo"]);
+export const PROP_CHANGE_TAGS: ReadonlySet<string> = new Set([
+  "w:rPrChange",
+  "w:pPrChange",
+  "w:tblPrChange",
+  "w:trPrChange",
+  "w:tcPrChange",
+  "w:sectPrChange",
+  "w:numberingChange",
+]);
+export const TRACKED_CHANGE_TAGS: ReadonlySet<string> = new Set([
+  ...REMOVE_TAGS,
+  ...UNWRAP_TAGS,
+  ...PROP_CHANGE_TAGS,
+]);
+export const COMMENT_REF_TAGS: ReadonlySet<string> = new Set([
+  "w:commentReference",
+  "w:commentRangeStart",
+  "w:commentRangeEnd",
+]);
+
+// True when a run (w:r) is marked hidden via an enabled w:vanish in its run properties. A w:vanish
+// with w:val "false"/"0" is disabled and does NOT hide the run.
+export function runIsHidden(run: XmlNode): boolean {
+  const children = run["w:r"];
+  if (!Array.isArray(children)) return false;
+  for (const child of children as XmlNode[]) {
+    if (nodeTag(child) !== "w:rPr") continue;
+    const rPr = child["w:rPr"];
+    if (!Array.isArray(rPr)) continue;
+    for (const prop of rPr as XmlNode[]) {
+      if (nodeTag(prop) !== "w:vanish") continue;
+      const attrs = (prop[":@"] ?? {}) as Record<string, unknown>;
+      const val = attrs["@_w:val"];
+      if (val === undefined || (val !== "false" && val !== "0")) return true;
+    }
+  }
+  return false;
+}
+```
+
+```ts
 // packages/metadata/test/support/docx-fixture.ts
 import { strToU8, zipSync } from "fflate";
 
@@ -645,8 +714,8 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add packages/metadata/src/ooxml/xml.ts packages/metadata/test/support/docx-fixture.ts packages/metadata/test/ooxml-xml.test.ts
-git commit -m "feat(metadata): OOXML XML helpers + docx test-fixture builder"
+git add packages/metadata/src/ooxml/xml.ts packages/metadata/src/ooxml/walk.ts packages/metadata/test/support/docx-fixture.ts packages/metadata/test/ooxml-xml.test.ts
+git commit -m "feat(metadata): OOXML XML + walk helpers + docx test-fixture builder"
 ```
 
 ---
@@ -716,22 +785,8 @@ Expected: FAIL.
 // packages/metadata/src/ooxml/inspect.ts
 import { safeUnzip } from "../guards.ts";
 import { type Finding, type MetadataReport, reportOf } from "../model.ts";
+import { COMMENT_REF_TAGS, runIsHidden, TRACKED_CHANGE_TAGS } from "./walk.ts";
 import { nodeTag, parseXml, type XmlNode } from "./xml.ts";
-
-const TRACKED_CHANGE_TAGS = new Set([
-  "w:ins",
-  "w:del",
-  "w:moveFrom",
-  "w:moveTo",
-  "w:rPrChange",
-  "w:pPrChange",
-  "w:tblPrChange",
-  "w:trPrChange",
-  "w:tcPrChange",
-  "w:sectPrChange",
-  "w:numberingChange",
-]);
-const COMMENT_REF_TAGS = new Set(["w:commentReference", "w:commentRangeStart", "w:commentRangeEnd"]);
 
 function decode(bytes: Uint8Array | undefined): string | undefined {
   return bytes === undefined ? undefined : new TextDecoder().decode(bytes);
@@ -753,23 +808,6 @@ function walk(
     const children = node[tag];
     if (Array.isArray(children)) walk(children as XmlNode[], tags, countVanish, acc);
   }
-}
-
-function runIsHidden(run: XmlNode): boolean {
-  const children = run["w:r"];
-  if (!Array.isArray(children)) return false;
-  for (const child of children as XmlNode[]) {
-    if (nodeTag(child) !== "w:rPr") continue;
-    const rPr = child["w:rPr"];
-    if (!Array.isArray(rPr)) continue;
-    for (const prop of rPr as XmlNode[]) {
-      if (nodeTag(prop) !== "w:vanish") continue;
-      const attrs = (prop[":@"] ?? {}) as Record<string, unknown>;
-      const val = attrs["@_w:val"];
-      if (val === undefined || (val !== "false" && val !== "0")) return true;
-    }
-  }
-  return false;
 }
 
 function hasMeaningfulChild(xml: string | undefined, ignoreRoot: boolean): boolean {
@@ -952,36 +990,19 @@ Expected: FAIL.
 import { strToU8, zipSync } from "fflate";
 import { safeUnzip } from "../guards.ts";
 import type { ScrubOptions } from "../options.ts";
+import { COMMENT_REF_TAGS, runIsHidden } from "./walk.ts";
 import { buildXml, nodeTag, parseXml, type XmlNode } from "./xml.ts";
 
 const EMPTY_CORE = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties"/>`;
 const EMPTY_APP = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"/>`;
 
 const COMMENT_PART_PATTERN = /^word\/(comments|commentsExtended|commentsIds|people)\.xml$/;
-const COMMENT_REF_TAGS = new Set(["w:commentReference", "w:commentRangeStart", "w:commentRangeEnd"]);
 
 // The transforms applied to word/document.xml. trackedChanges is handled in a later module that
 // composes with this one; here we only remove comment references and hidden runs.
 export interface DocumentTransform {
   readonly comments: boolean;
   readonly hiddenContent: boolean;
-}
-
-function runIsHidden(run: XmlNode): boolean {
-  const children = run["w:r"];
-  if (!Array.isArray(children)) return false;
-  for (const child of children as XmlNode[]) {
-    if (nodeTag(child) !== "w:rPr") continue;
-    const rPr = child["w:rPr"];
-    if (!Array.isArray(rPr)) continue;
-    for (const prop of rPr as XmlNode[]) {
-      if (nodeTag(prop) !== "w:vanish") continue;
-      const attrs = (prop[":@"] ?? {}) as Record<string, unknown>;
-      const val = attrs["@_w:val"];
-      if (val === undefined || (val !== "false" && val !== "0")) return true;
-    }
-  }
-  return false;
 }
 
 export function transformDocumentNodes(nodes: XmlNode[], t: DocumentTransform): XmlNode[] {
@@ -1135,21 +1156,17 @@ Expected: FAIL.
 
 - [ ] **Step 3: Extend the transform**
 
-In `packages/metadata/src/ooxml/scrub.ts`, replace the `DocumentTransform` interface and `transformDocumentNodes`, and update the `scrubDocx` call site:
+In `packages/metadata/src/ooxml/scrub.ts`, extend the `walk.ts` import to bring in the tracked-change tag sets, then replace the `DocumentTransform` interface and `transformDocumentNodes`, and update the `scrubDocx` call site:
 
 ```ts
-// Add near the other constants:
-const REMOVE_TAGS = new Set(["w:del", "w:moveFrom"]);
-const UNWRAP_TAGS = new Set(["w:ins", "w:moveTo"]);
-const PROP_CHANGE_TAGS = new Set([
-  "w:rPrChange",
-  "w:pPrChange",
-  "w:tblPrChange",
-  "w:trPrChange",
-  "w:tcPrChange",
-  "w:sectPrChange",
-  "w:numberingChange",
-]);
+// Update the existing walk.ts import line to:
+import {
+  COMMENT_REF_TAGS,
+  PROP_CHANGE_TAGS,
+  REMOVE_TAGS,
+  runIsHidden,
+  UNWRAP_TAGS,
+} from "./walk.ts";
 
 export interface DocumentTransform {
   readonly comments: boolean;
