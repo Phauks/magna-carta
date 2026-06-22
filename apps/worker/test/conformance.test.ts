@@ -53,6 +53,8 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Pulls current carrier tracking and caches events (INSERT OR IGNORE dedup) — a read-shaped sync, not an auditable business mutation.",
   "customFields.previewConvert":
     "Read-shaped POST: counts how each current value would land under a kind change (the target kind rides the body) — no write, no audit.",
+  "safeBrowse.post":
+    "Renders a suspect URL in an isolated remote browser and returns a static snapshot — a pure read over the request body, no firm-data write; the target URL is deliberately never logged (redaction).",
 };
 
 // Subsystems whose every route must be idempotency: required (money/trust/payment/outbound-comms).
@@ -554,6 +556,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "numbering.get",
       "numbering.preview",
       "numbering.set",
+      "safeBrowse.post",
       "scan.diagnose",
       "scan.matter",
       "shipping.connect",
@@ -567,6 +570,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "uploads.complete",
       "uploads.initiate",
       "uploads.signPart",
+      "whois.get",
     ]);
   });
 

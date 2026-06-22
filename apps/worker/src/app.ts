@@ -9,6 +9,7 @@ import { createChokepoint } from "./chokepoint/chokepoint.ts";
 import { createChokepointIdempotency } from "./chokepoint/idempotency-port.ts";
 import { createChokepointPorts, type AppVariables, type FirmContext } from "./chokepoint/ports.ts";
 import { createInMemoryRateLimiter } from "./chokepoint/rate-limiter.ts";
+import { noindexResponseMiddleware } from "./crawler-directives.ts";
 import { defaultHook } from "./contracts/problem.ts";
 import { registerHealthRoute } from "./routes/health.ts";
 import { createCloudflareEmailAdapter, type CloudflareEmailBinding } from "./email-cloudflare.ts";
@@ -32,6 +33,9 @@ import { firmSecretStoreNotYetAvailable } from "./plugins/secret-store.ts";
 import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
 import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
+import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
+import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
+import { registerDevWebToolsDemoRoute } from "./routes/dev-web-tools-demo.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 import { registerNumberingRoutes } from "./routes/numbering.ts";
@@ -123,6 +127,15 @@ export type Bindings = {
   // unset and keep the logging adapter, so no real email is sent and no domain onboarding is required.
   SEND_EMAIL?: CloudflareEmailBinding;
   EMAIL_FROM?: string;
+  // Browser Rendering Workers binding — used by POST /api/v1/safe-browse to render a URL in an
+  // isolated remote browser. Optional here so Miniflare (which has no local browser emulation) can
+  // boot and run the full test suite without touching this binding; the route ALWAYS receives an
+  // injected renderer dep in tests, so c.env.BROWSER is never accessed during testing.
+  BROWSER?: unknown;
+  // Throwaway dev-only switch for the barebones /__dev/web-tools demo page (WHOIS + Safe Website
+  // Viewer). Unset in production, so the demo route answers 404 there; set DEV_DEMO_TOOLS=1 in
+  // .dev.vars to view it locally. Not part of any contract; remove the demo route when no longer needed.
+  DEV_DEMO_TOOLS?: string;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
@@ -174,6 +187,14 @@ export interface CreateAppOptions {
   includeTelemetryProbes?: boolean;
   // Overrides the plugin runtime for tests (a fake EasyPost http client + an in-memory secret store).
   pluginRuntime?: Partial<PluginRuntime>;
+  // Overrides the WHOIS route dependencies for tests (a fake RDAP http client + a fake socket).
+  // Production defaults: fetchHttpClient() for RDAP, the cloudflare:sockets connect() adapter for
+  // port-43 WHOIS, and no resolver (DNS-rebinding protection is deferred until a DoH adapter is wired).
+  whoisDeps?: Partial<WhoisRouteDeps>;
+  // Overrides the safe-browse route dependencies for tests (a fake renderer + a fake probe).
+  // Production defaults: createBrowserRenderer(c.env.BROWSER) + createFetchRedirectProbe().
+  // Tests ALWAYS supply safeBrowseDeps so c.env.BROWSER is never accessed in the test pool.
+  safeBrowseDeps?: SafeBrowseRouteDeps;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
@@ -225,6 +246,13 @@ export function createApp(options: CreateAppOptions = {}) {
   // 404 on the files host, so this ordering seal cannot silently regress as routes are added.
   registerPreviewServeRoute(app);
 
+  // Stamp X-Robots-Tag: noindex on every response BELOW this point. Registered AFTER the cookieless
+  // preview route on purpose: Hono middleware only wraps routes registered after it, so the sealed
+  // files.* edge (attachment bytes + bare 404s, never an indexable page) keeps its exhaustive,
+  // payload-derived header set untouched, while the app origin, API, Better Auth, health, and the SPA
+  // shell — every private, firm-scoped surface this Worker serves — are kept out of search indexes.
+  app.use("*", noindexResponseMiddleware());
+
   // Health is platform plumbing: public, unauthenticated, no /api/v1 surface — it still rides the
   // chokepoint (rate-limit only, no session/firm/RBAC) so EVERY declared route is enforced through
   // the one seam, none reachable that skips it.
@@ -240,6 +268,54 @@ export function createApp(options: CreateAppOptions = {}) {
   // middleware, run before the chokepoint's idempotency/rate-limit gates (see routes/firms.ts).
   registerMeRoute(app, chokepoint);
   registerFirmUsageRoute(app, chokepoint);
+
+  // The WHOIS route: RDAP-first domain/IP registration lookup with a port-43 fallback. All outbound
+  // effects go through injected deps so tests substitute fakes without touching global fetch or sockets.
+  // The production socket opens a raw TCP connection on port 43 via cloudflare:sockets connect().
+  const productionWhoisSocket: WhoisRouteDeps["socket"] = {
+    async query(host, request) {
+      // Imported lazily: cloudflare:sockets is a Workers-only module, so a top-level import would
+      // break Node-based tooling (the emit-openapi script loads this file outside the Worker runtime).
+      const { connect } = await import("cloudflare:sockets");
+      const socket = connect({ hostname: host, port: 43 });
+      const writer = socket.writable.getWriter();
+      await writer.write(new TextEncoder().encode(request));
+      await writer.close();
+      const reader = socket.readable.getReader();
+      const chunks: Uint8Array[] = [];
+      try {
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+        }
+      } finally {
+        // cloudflare:sockets does not auto-close when the readable is exhausted; release the
+        // reader lock first so close() can drain and tear down the underlying TCP connection.
+        reader.releaseLock();
+        await socket.close();
+      }
+      const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+      const merged = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        merged.set(chunk, offset);
+        offset += chunk.length;
+      }
+      return new TextDecoder().decode(merged);
+    },
+  };
+  const whoisDeps: WhoisRouteDeps = {
+    http: options.whoisDeps?.http ?? fetchHttpClient(),
+    socket: options.whoisDeps?.socket ?? productionWhoisSocket,
+    resolve: options.whoisDeps?.resolve,
+  };
+  registerWhoisRoute(app, chokepoint, whoisDeps);
+  // The safe-browse route: renders a suspect URL in an isolated remote browser and returns a
+  // static snapshot. All outbound effects go through injected deps so tests substitute fakes
+  // without touching the BROWSER binding. Production: createBrowserRenderer(c.env.BROWSER) +
+  // createFetchRedirectProbe() — built lazily in the handler, never at startup.
+  registerSafeBrowseRoute(app, chokepoint, options.safeBrowseDeps ?? {});
   registerMembersRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
   registerIncidentsRoute(app, chokepoint);
@@ -293,6 +369,10 @@ export function createApp(options: CreateAppOptions = {}) {
       throw new Error("telemetry probe boom for leak@example.com");
     });
   }
+
+  // Throwaway dev-only demo page for the Websites & Domains tools (gated on DEV_DEMO_TOOLS; 404 in
+  // production). A bare route, so it never enters the OpenAPI contract. Remove with the demo file.
+  registerDevWebToolsDemoRoute(app);
 
   // Everything not handled above falls through to the static-asset SPA (Workers Static Assets binding).
   app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));

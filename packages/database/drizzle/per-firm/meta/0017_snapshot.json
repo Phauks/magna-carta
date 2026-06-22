@@ -1,8 +1,8 @@
 {
-  "id": "53814b8b-4cd5-4a02-8955-0591bb998720",
-  "prevId": "659f1002-13b1-46f3-a6fb-7913cc9a08e2",
   "version": "6",
   "dialect": "sqlite",
+  "id": "c3d4e5f6-a7b8-4c9d-ae1f-2a3b4c5d6e7f",
+  "prevId": "659f1002-13b1-46f3-a6fb-7913cc9a08e2",
   "tables": {
     "account_balance": {
       "name": "account_balance",
@@ -49,11 +49,11 @@
         "account_balance_account_id_ledger_account_id_fk": {
           "name": "account_balance_account_id_ledger_account_id_fk",
           "tableFrom": "account_balance",
-          "columnsFrom": ["account_id"],
           "tableTo": "ledger_account",
+          "columnsFrom": ["account_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -339,8 +339,8 @@
         "custom_field_value_current_unique_index": {
           "name": "custom_field_value_current_unique_index",
           "columns": ["target_row_id", "field_id"],
-          "where": "\"custom_field_value\".\"is_current\" = 1",
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"custom_field_value\".\"is_current\" = 1"
         },
         "custom_field_value_record_index": {
           "name": "custom_field_value_record_index",
@@ -420,11 +420,11 @@
         "direct_grant_member_user_id_member_user_id_fk": {
           "name": "direct_grant_member_user_id_member_user_id_fk",
           "tableFrom": "direct_grant",
-          "columnsFrom": ["member_user_id"],
           "tableTo": "member",
+          "columnsFrom": ["member_user_id"],
           "columnsTo": ["user_id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -848,11 +848,11 @@
         "directory_entity_category_category_id_directory_category_id_fk": {
           "name": "directory_entity_category_category_id_directory_category_id_fk",
           "tableFrom": "directory_entity_category",
-          "columnsFrom": ["category_id"],
           "tableTo": "directory_category",
+          "columnsFrom": ["category_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -1148,11 +1148,11 @@
         "directory_name_phonetic_code_name_id_directory_name_id_fk": {
           "name": "directory_name_phonetic_code_name_id_directory_name_id_fk",
           "tableFrom": "directory_name_phonetic_code",
-          "columnsFrom": ["name_id"],
           "tableTo": "directory_name",
+          "columnsFrom": ["name_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -1734,38 +1734,38 @@
         "file_matter_id_matter_id_fk": {
           "name": "file_matter_id_matter_id_fk",
           "tableFrom": "file",
-          "columnsFrom": ["matter_id"],
           "tableTo": "matter",
+          "columnsFrom": ["matter_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "file_folder_id_folder_id_fk": {
           "name": "file_folder_id_folder_id_fk",
           "tableFrom": "file",
-          "columnsFrom": ["folder_id"],
           "tableTo": "folder",
+          "columnsFrom": ["folder_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "file_document_type_id_document_type_id_fk": {
           "name": "file_document_type_id_document_type_id_fk",
           "tableFrom": "file",
-          "columnsFrom": ["document_type_id"],
           "tableTo": "document_type",
+          "columnsFrom": ["document_type_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "file_current_version_id_file_version_id_fk": {
           "name": "file_current_version_id_file_version_id_fk",
           "tableFrom": "file",
-          "columnsFrom": ["current_version_id"],
           "tableTo": "file_version",
+          "columnsFrom": ["current_version_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1947,11 +1947,11 @@
         "file_version_file_id_file_id_fk": {
           "name": "file_version_file_id_file_id_fk",
           "tableFrom": "file_version",
-          "columnsFrom": ["file_id"],
           "tableTo": "file",
+          "columnsFrom": ["file_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -2096,20 +2096,20 @@
         "folder_matter_id_matter_id_fk": {
           "name": "folder_matter_id_matter_id_fk",
           "tableFrom": "folder",
-          "columnsFrom": ["matter_id"],
           "tableTo": "matter",
+          "columnsFrom": ["matter_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "folder_parent_folder_id_folder_id_fk": {
           "name": "folder_parent_folder_id_folder_id_fk",
           "tableFrom": "folder",
-          "columnsFrom": ["parent_folder_id"],
           "tableTo": "folder",
+          "columnsFrom": ["parent_folder_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -2424,11 +2424,11 @@
         "ledger_account_parent_account_id_ledger_account_id_fk": {
           "name": "ledger_account_parent_account_id_ledger_account_id_fk",
           "tableFrom": "ledger_account",
-          "columnsFrom": ["parent_account_id"],
           "tableTo": "ledger_account",
+          "columnsFrom": ["parent_account_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -2499,11 +2499,11 @@
         "ledger_entry_reverses_entry_id_ledger_entry_id_fk": {
           "name": "ledger_entry_reverses_entry_id_ledger_entry_id_fk",
           "tableFrom": "ledger_entry",
-          "columnsFrom": ["reverses_entry_id"],
           "tableTo": "ledger_entry",
+          "columnsFrom": ["reverses_entry_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -2577,20 +2577,20 @@
         "ledger_line_entry_id_ledger_entry_id_fk": {
           "name": "ledger_line_entry_id_ledger_entry_id_fk",
           "tableFrom": "ledger_line",
-          "columnsFrom": ["entry_id"],
           "tableTo": "ledger_entry",
+          "columnsFrom": ["entry_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "ledger_line_account_id_ledger_account_id_fk": {
           "name": "ledger_line_account_id_ledger_account_id_fk",
           "tableFrom": "ledger_line",
-          "columnsFrom": ["account_id"],
           "tableTo": "ledger_account",
+          "columnsFrom": ["account_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -2787,11 +2787,11 @@
         "location_address_location_id_location_id_fk": {
           "name": "location_address_location_id_location_id_fk",
           "tableFrom": "location_address",
-          "columnsFrom": ["location_id"],
           "tableTo": "location",
+          "columnsFrom": ["location_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -2916,8 +2916,8 @@
         "matter_matter_number_unique_index": {
           "name": "matter_matter_number_unique_index",
           "columns": ["matter_number"],
-          "where": "\"matter\".\"matter_number\" IS NOT NULL",
-          "isUnique": true
+          "isUnique": true,
+          "where": "\"matter\".\"matter_number\" IS NOT NULL"
         },
         "matter_status_index": {
           "name": "matter_status_index",
@@ -2939,29 +2939,29 @@
         "matter_matter_type_id_matter_type_id_fk": {
           "name": "matter_matter_type_id_matter_type_id_fk",
           "tableFrom": "matter",
-          "columnsFrom": ["matter_type_id"],
           "tableTo": "matter_type",
+          "columnsFrom": ["matter_type_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "matter_location_id_location_id_fk": {
           "name": "matter_location_id_location_id_fk",
           "tableFrom": "matter",
-          "columnsFrom": ["location_id"],
           "tableTo": "location",
+          "columnsFrom": ["location_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "matter_responsible_member_id_member_user_id_fk": {
           "name": "matter_responsible_member_id_member_user_id_fk",
           "tableFrom": "matter",
-          "columnsFrom": ["responsible_member_id"],
           "tableTo": "member",
+          "columnsFrom": ["responsible_member_id"],
           "columnsTo": ["user_id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -3084,11 +3084,11 @@
         "matter_party_matter_id_matter_id_fk": {
           "name": "matter_party_matter_id_matter_id_fk",
           "tableFrom": "matter_party",
-          "columnsFrom": ["matter_id"],
           "tableTo": "matter",
+          "columnsFrom": ["matter_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -3272,20 +3272,20 @@
         "member_location_member_user_id_member_user_id_fk": {
           "name": "member_location_member_user_id_member_user_id_fk",
           "tableFrom": "member_location",
-          "columnsFrom": ["member_user_id"],
           "tableTo": "member",
+          "columnsFrom": ["member_user_id"],
           "columnsTo": ["user_id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "member_location_location_id_location_id_fk": {
           "name": "member_location_location_id_location_id_fk",
           "tableFrom": "member_location",
-          "columnsFrom": ["location_id"],
           "tableTo": "location",
+          "columnsFrom": ["location_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -3328,20 +3328,20 @@
         "member_role_member_user_id_member_user_id_fk": {
           "name": "member_role_member_user_id_member_user_id_fk",
           "tableFrom": "member_role",
-          "columnsFrom": ["member_user_id"],
           "tableTo": "member",
+          "columnsFrom": ["member_user_id"],
           "columnsTo": ["user_id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "member_role_role_id_role_id_fk": {
           "name": "member_role_role_id_role_id_fk",
           "tableFrom": "member_role",
-          "columnsFrom": ["role_id"],
           "tableTo": "role",
+          "columnsFrom": ["role_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -3600,11 +3600,11 @@
         "role_permission_role_id_role_id_fk": {
           "name": "role_permission_role_id_role_id_fk",
           "tableFrom": "role_permission",
-          "columnsFrom": ["role_id"],
           "tableTo": "role",
+          "columnsFrom": ["role_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -3838,11 +3838,11 @@
         "shipment_matter_ref_matter_id_fk": {
           "name": "shipment_matter_ref_matter_id_fk",
           "tableFrom": "shipment",
-          "columnsFrom": ["matter_ref"],
           "tableTo": "matter",
+          "columnsFrom": ["matter_ref"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -3922,11 +3922,11 @@
         "shipment_label_shipment_ref_shipment_id_fk": {
           "name": "shipment_label_shipment_ref_shipment_id_fk",
           "tableFrom": "shipment_label",
-          "columnsFrom": ["shipment_ref"],
           "tableTo": "shipment",
+          "columnsFrom": ["shipment_ref"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -4111,11 +4111,11 @@
         "tracking_event_shipment_ref_shipment_id_fk": {
           "name": "tracking_event_shipment_ref_shipment_id_fk",
           "tableFrom": "tracking_event",
-          "columnsFrom": ["shipment_ref"],
           "tableTo": "shipment",
+          "columnsFrom": ["shipment_ref"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -4200,11 +4200,11 @@
         "upload_session_file_version_id_file_version_id_fk": {
           "name": "upload_session_file_version_id_file_version_id_fk",
           "tableFrom": "upload_session",
-          "columnsFrom": ["file_version_id"],
           "tableTo": "file_version",
+          "columnsFrom": ["file_version_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -4224,9 +4224,9 @@
   "views": {},
   "enums": {},
   "_meta": {
-    "columns": {},
     "schemas": {},
-    "tables": {}
+    "tables": {},
+    "columns": {}
   },
   "internal": {
     "indexes": {}

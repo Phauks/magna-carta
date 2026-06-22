@@ -3,6 +3,11 @@
 // fork-pool, the FFmpeg sandbox).
 export type EngineId = "libvips" | "libreoffice" | "email" | "ffmpeg";
 
+// Where an engine can run: "local" = in the browser (wasm) on the user's device, no upload; "server"
+// = in a Container. libvips runs both; the native engines (LibreOffice, email render, FFmpeg) are
+// server-only. Lets a surface offer "convert on your device" vs "send to servers".
+export type Placement = "local" | "server";
+
 // A stable, lowercase format key — both the registry node id and how callers name source/target.
 export type FormatId = string;
 

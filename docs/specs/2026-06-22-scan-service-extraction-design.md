@@ -46,16 +46,16 @@ app worker (magna-carta)                       scan worker (magna-carta-scan)
 
 ## What moves, what stays
 
-| | |
-|---|---|
+|                                 |                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Moves to `apps/scan-worker`** | `scan-container.ts` (the `ScanContainer` DO), `scan-warm.ts` (`pokeScanContainer` + the `*/20` cron), the container-call half of `container-scan-adapter.ts`, the wrangler `containers` + `SCAN_CONTAINER` DO binding + the container's `new_sqlite_classes` migration (its own `v1` lineage), the `*/20` warm cron trigger |
-| **Stays in `apps/worker`** | `resolveScanPort` (re-pointed), the `ScanResult` validation + throw-on-fault (now `remoteScanAdapter`), every consumer (ingest consumer, access-rescan, `scan.diagnose`, `scan.matter`), the dedup cache, verdict recording, staleness |
-| **App worker LOSES** | the `containers` block, the `SCAN_CONTAINER` DO binding, the `v2` migration tag, the `getContainer` import, the `*/20` cron |
-| **App worker GAINS** | a `services: [{ binding: "SCAN_SERVICE", service: "magna-carta-scan" }]` binding |
+| **Stays in `apps/worker`**      | `resolveScanPort` (re-pointed), the `ScanResult` validation + throw-on-fault (now `remoteScanAdapter`), every consumer (ingest consumer, access-rescan, `scan.diagnose`, `scan.matter`), the dedup cache, verdict recording, staleness                                                                                      |
+| **App worker LOSES**            | the `containers` block, the `SCAN_CONTAINER` DO binding, the `v2` migration tag, the `getContainer` import, the `*/20` cron                                                                                                                                                                                                 |
+| **App worker GAINS**            | a `services: [{ binding: "SCAN_SERVICE", service: "magna-carta-scan" }]` binding                                                                                                                                                                                                                                            |
 
 ## Transport
 
-A service binding, **HTTP-shaped** end to end: `POST /scan?size=&contentType=`, streaming request body with the `duplex: "half"` hint, reusing the container's existing HTTP contract. The body streams **app worker → scan worker → container** with no intermediate buffering, preserving the SCAN-transport memory property (verified 0 anonymous RSS) — *provided service bindings stream large bodies* (see Risk R1).
+A service binding, **HTTP-shaped** end to end: `POST /scan?size=&contentType=`, streaming request body with the `duplex: "half"` hint, reusing the container's existing HTTP contract. The body streams **app worker → scan worker → container** with no intermediate buffering, preserving the SCAN-transport memory property (verified 0 anonymous RSS) — _provided service bindings stream large bodies_ (see Risk R1).
 
 ## Security posture (preserved, and improved)
 
@@ -71,7 +71,7 @@ A service binding, **HTTP-shaped** end to end: `POST /scan?size=&contentType=`, 
 
 ## Deploys
 
-- **Scan worker** gets its **own** GitHub Actions workflow: triggered on changes to `apps/scan-worker`/`containers/scan` **and a daily cron**. Each run rebuilds the image (`freshclam` pulls the latest signatures *during the CI build*) and runs a real `wrangler deploy`. Needs `CLOUDFLARE_API_TOKEN` + account id as repo secrets (owner-provided — out of reach for the agent).
+- **Scan worker** gets its **own** GitHub Actions workflow: triggered on changes to `apps/scan-worker`/`containers/scan` **and a daily cron**. Each run rebuilds the image (`freshclam` pulls the latest signatures _during the CI build_) and runs a real `wrangler deploy`. Needs `CLOUDFLARE_API_TOKEN` + account id as repo secrets (owner-provided — out of reach for the agent).
 - **App worker** keeps its existing CI (dry-run today; a real app-deploy is a separate, unchanged decision). With the container gone, its config and test pool are simpler.
 - The **first activation** runs through the scan-worker workflow (`workflow_dispatch`), never the owner's machine.
 
@@ -92,7 +92,7 @@ A service binding, **HTTP-shaped** end to end: `POST /scan?size=&contentType=`, 
 
 ## Out of scope / fast-follows
 
-- A scheduled signed-update job *inside* the container (still unnecessary — the CI rebuild is the update path).
+- A scheduled signed-update job _inside_ the container (still unnecessary — the CI rebuild is the update path).
 - Automating the **app** worker's production deploy (a separate decision, unchanged by this work).
 - Step-up re-auth firm setting (unrelated; separately tracked).
 
