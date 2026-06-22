@@ -96,6 +96,7 @@ describe("permission registry", () => {
       "tools:shipping",
       "tools:speedTest",
       "tools:firmUsage",
+      "tools:fileConverter",
     ]);
   });
 

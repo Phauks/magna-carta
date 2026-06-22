@@ -7,6 +7,7 @@ export const SUBJECT_GROUP_ORDER = [
   "people-licenses",
   "mailing-shipping",
   "printing",
+  "documents", // file utilities — e.g. the general file converter
   "diagnostics", // connectivity / system tests — no legal subject (e.g. a network speed test)
 ] as const;
 
