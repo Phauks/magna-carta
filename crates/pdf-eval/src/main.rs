@@ -7,12 +7,16 @@
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_syntax::Pdf;
 use hayro::{render, RenderCache, RenderSettings};
+#[cfg(feature = "pdfium")]
 use image::GrayImage;
+#[cfg(feature = "pdfium")]
 use image_compare::Algorithm;
+#[cfg(feature = "pdfium")]
 use pdfium_render::prelude::*;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 
+#[cfg(feature = "pdfium")]
 const MAX_PAGES_PER_DOC: usize = 3;
 
 fn main() {
@@ -21,8 +25,15 @@ fn main() {
         Some("smoke") => smoke_mode(args.next().expect("usage: smoke <corpus_dir>")),
         Some("render") => render_mode(args.collect()),
         Some("parse") => parse_mode(args.next().expect("usage: parse <corpus_dir>")),
+        #[cfg(feature = "pdfium")]
         Some("fidelity") => fidelity_mode(args.collect()),
+        #[cfg(feature = "pdfium")]
         Some("pdfium") => pdfium_mode(args.collect()),
+        #[cfg(not(feature = "pdfium"))]
+        Some("fidelity" | "pdfium") => {
+            eprintln!("fidelity/pdfium modes require: cargo run -p pdf-eval --features pdfium");
+            std::process::exit(2);
+        }
         other => {
             eprintln!("unknown mode {other:?}; use smoke | render | parse | fidelity | pdfium");
             std::process::exit(2);
@@ -129,6 +140,7 @@ fn parse_with_pdf_rs(path: &Path) -> bool {
 
 // --- fidelity: hayro vs PDFium, MSSIM per page (PDFium is the reference) ---
 
+#[cfg(feature = "pdfium")]
 fn fidelity_mode(args: Vec<String>) {
     let dir = args
         .first()
@@ -194,6 +206,7 @@ fn fidelity_mode(args: Vec<String>) {
     }
 }
 
+#[cfg(feature = "pdfium")]
 fn page_mssim(pdf: &Pdf, doc: &PdfDocument, idx: usize, scale: f32) -> Option<(u32, u32, f64)> {
     // hayro page -> grayscale on white (the reference dimensions)
     let cache = RenderCache::new();
@@ -235,6 +248,7 @@ fn page_mssim(pdf: &Pdf, doc: &PdfDocument, idx: usize, scale: f32) -> Option<(u
 }
 
 // Dump PDFium's own render to PNG, for eyeballing against hayro's output.
+#[cfg(feature = "pdfium")]
 fn pdfium_mode(args: Vec<String>) {
     let input = args
         .first()
@@ -272,6 +286,7 @@ fn pdfium_mode(args: Vec<String>) {
 }
 
 // Flatten RGBA over a white background, then convert to grayscale (Rec. 601).
+#[cfg(feature = "pdfium")]
 fn luma_on_white(img: &image::RgbaImage) -> GrayImage {
     GrayImage::from_fn(img.width(), img.height(), |x, y| {
         let p = img.get_pixel(x, y).0;
