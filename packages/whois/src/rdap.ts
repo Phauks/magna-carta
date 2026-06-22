@@ -19,7 +19,7 @@ const IANA_BOOTSTRAP_DOMAIN_URL = "https://data.iana.org/rdap/dns.json";
 type BootstrapService = [matchKeys: string[], baseUrls: string[]];
 type BootstrapDocument = { services?: BootstrapService[] };
 
-// Event action strings defined in RFC 9083 §10.2.3.
+// Standard RDAP event action strings (from the RDAP JSON responses protocol spec).
 const RDAP_EVENT_REGISTRATION = "registration";
 const RDAP_EVENT_EXPIRATION = "expiration";
 const RDAP_EVENT_LAST_CHANGED = "last changed";
