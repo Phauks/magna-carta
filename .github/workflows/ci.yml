@@ -134,6 +134,9 @@ jobs:
       - name: pdf-eval sanitize-smoke (default features — no pdfium)
         run: cargo run --manifest-path crates/Cargo.toml -p pdf-eval --release -- sanitize-smoke crates/pdf-eval/corpus-ci/basicapi.pdf
 
+      - name: pdf-eval detect-smoke (default features — no pdfium)
+        run: cargo run --manifest-path crates/Cargo.toml -p pdf-eval --release -- detect-smoke crates/pdf-eval/corpus-ci/basicapi.pdf
+
       # wasm-opt is not available on the ubuntu runner; --no-opt skips the optimisation pass.
       # The produced .wasm is a correct, unoptimised release build — identical semantics, larger bytes.
       # Add a wasm-opt install step here when a size budget matters.

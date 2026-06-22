@@ -1434,6 +1434,7 @@ dependencies = [
  "hayro",
  "image",
  "js-sys",
+ "kurbo",
  "lopdf",
  "serde",
  "serde-wasm-bindgen",

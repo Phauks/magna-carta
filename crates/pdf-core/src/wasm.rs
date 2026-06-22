@@ -270,7 +270,13 @@ pub fn detect_document(bytes: Vec<u8>) -> Result<JsValue, JsError> {
         let o = js_sys::Object::new();
         set(&o, "category", &category_str(f.category).into());
         set(&o, "severity", &severity_str(f.severity).into());
-        set(&o, "page", &f.page.map(|p| JsValue::from(p as u32)).unwrap_or(JsValue::NULL));
+        set(
+            &o,
+            "page",
+            &f.page
+                .map(|p| JsValue::from(p as u32))
+                .unwrap_or(JsValue::NULL),
+        );
         match &f.region {
             Some(r) => {
                 let ro = js_sys::Object::new();
@@ -288,17 +294,33 @@ pub fn detect_document(bytes: Vec<u8>) -> Result<JsValue, JsError> {
     }
 
     let summary = js_sys::Object::new();
-    set(&summary, "critical", &JsValue::from(report.summary.critical as u32));
+    set(
+        &summary,
+        "critical",
+        &JsValue::from(report.summary.critical as u32),
+    );
     set(&summary, "high", &JsValue::from(report.summary.high as u32));
-    set(&summary, "medium", &JsValue::from(report.summary.medium as u32));
+    set(
+        &summary,
+        "medium",
+        &JsValue::from(report.summary.medium as u32),
+    );
     set(&summary, "low", &JsValue::from(report.summary.low as u32));
     set(&summary, "info", &JsValue::from(report.summary.info as u32));
 
     let result = js_sys::Object::new();
     set(&result, "findings", &findings);
     set(&result, "summary", &summary);
-    set(&result, "pagesScanned", &JsValue::from(report.pages_scanned as u32));
-    set(&result, "glyphsExamined", &JsValue::from(report.glyphs_examined as u32));
+    set(
+        &result,
+        "pagesScanned",
+        &JsValue::from(report.pages_scanned as u32),
+    );
+    set(
+        &result,
+        "glyphsExamined",
+        &JsValue::from(report.glyphs_examined as u32),
+    );
     let pages_unreadable = js_sys::Array::new();
     for p in &report.pages_unreadable {
         pages_unreadable.push(&JsValue::from(*p as u32));

@@ -232,6 +232,75 @@ Three limitations apply and should be understood before use:
 
 3. **The supplied-text survival check is byte-level.** When you pass `redactedText` to `redactDocument`, the gate decompresses streams and searches for each string as literal bytes. It catches a string stored as plain text, including inside compressed (`FlateDecode`) streams. It does not decode custom-font glyph encodings or pixel-encoded images: a string that was rendered only as glyph codes (where the raw byte sequence does not spell out the text) or rasterized into a pixel image is not matched as literal text. Redacting the region with `redactDocument` removes that page's content entirely (it becomes an image), which is the way to handle those encodings.
 
+## Detection
+
+`detectDocument(bytes)` scans a PDF for bad-redaction patterns — content that appears hidden to a viewer but remains recoverable from the file. It returns a `DetectionReport` describing what was found and how severe it is.
+
+**This function is read-only: it never modifies the input bytes.** It also **never asserts a document is clean** — an empty `findings` list means none of these mechanisms detected anything, not a guarantee of safety. The report includes `pagesUnreadable`: page indices the renderer could not interpret. An empty `findings` list does not clear those pages — they were not examined.
+
+### `detectDocument(bytes)`
+
+```ts
+import { detectDocument } from "@magna-carta/pdf";
+
+const bytes = new Uint8Array(await file.arrayBuffer());
+const report = await detectDocument(bytes);
+// report.findings  — ranked list of DetectionFinding (Critical first)
+// report.pagesScanned — number of pages examined by the geometric detectors
+// report.glyphsExamined — total glyphs considered across all scanned pages
+// report.pagesUnreadable — page indices (0-based) the renderer could not parse
+```
+
+### `DetectionFinding`
+
+Each entry in `report.findings` has this shape:
+
+```ts
+interface DetectionFinding {
+  category: "CoveredText" | "InvisibleText" | "WhiteoutText" | "MetadataLeak" | "OrphanedText";
+  severity: "Critical" | "High" | "Medium" | "Low" | "Info";
+  page: number | null;      // 0-based page index; null for document-level findings
+  region: Rect | null;      // display-point bounding box; null for document-level findings
+  recoveredText: string;    // the text string recovered from the hidden location
+  detail: string;           // human-readable explanation of the finding
+}
+```
+
+### v1 categories and severities
+
+| Category | Severity | What it means |
+| --- | --- | --- |
+| `CoveredText` | **Critical** | Extractable text sits under an opaque fill that hides it from view. The classic bad redaction: the words are present in the file and selectable; only the visual rendering conceals them. |
+| `InvisibleText` | **High** | Text drawn in an invisible render mode (PDF text rendering mode 3, "invisible"). Recoverable by extraction even though it does not appear on screen. |
+| `WhiteoutText` | **High** | Text painted the same color as the covering fill — for example, white text under a white box. Both the text and the fill are light-colored, creating a same-color concealment. |
+| `MetadataLeak` | **Medium** | The document's information dictionary, XMP metadata stream, bookmark titles, or AcroForm field values carry text content. These surfaces survive even when page content is removed. |
+| `OrphanedText` | **High** | Text present in a PDF object that no page references, but which remains in the file bytes. A copy-and-paste or search tool that reads the raw cross-reference table can recover it. |
+
+**Why `InvisibleText` is High rather than Critical:** PDF invisible text (rendering mode 3) is overwhelmingly benign in practice — OCR workflows commonly place a transparent text layer over a scanned image to enable selection and search. The finding is flagged because invisible text on a document that should not have a text layer is suspicious, but it is not treated as the most severe category.
+
+### Honest boundaries
+
+Before acting on a detection report, understand these limits:
+
+1. **Metadata and orphaned findings are document-level.** `page` and `region` are `null` for `MetadataLeak` and `OrphanedText` findings — they describe content anywhere in the file, not a specific visible location.
+
+2. **Custom-font glyph codes without a ToUnicode map may yield empty `recoveredText`.** When a font uses custom glyph codes and the PDF carries no `ToUnicode` mapping, the text extractor cannot decode the characters. The finding is still raised (a covered glyph is still a covered glyph), but `recoveredText` may be an empty string.
+
+3. **Text rasterized into an image is not recovered.** If the page content was previously converted to a pixel image — the correct output of `redactDocument` — the detector finds no text on that page. That is the intended result of proper redaction.
+
+4. **Hidden optional-content-layer detection and removable-annotation attribution are not yet covered.** A PDF page may use optional content groups (layers) to hide content, or carry annotation-level content that a viewer hides but the file retains. These two patterns are not detected in the current version.
+
+### `DetectionReport`
+
+```ts
+interface DetectionReport {
+  findings: DetectionFinding[];   // ranked Critical → Info; empty means nothing detected
+  pagesScanned: number;           // pages the geometric detectors successfully examined
+  glyphsExamined: number;         // total glyphs considered
+  pagesUnreadable: number[];      // page indices the renderer could not interpret
+}
+```
+
 ## Build notes
 
 The WASM binary at `src/pkg/pdf_core_bg.wasm` is produced by `wasm-pack build crates/pdf-core --target web --out-dir packages/pdf/src/pkg --release --no-opt`. It is not committed to version control; run `vp run rust-wasm-build` (or `pnpm --filter @magna-carta/pdf run build:wasm`) to regenerate it. In development the binary is rebuilt automatically as part of `vp run build-all`.

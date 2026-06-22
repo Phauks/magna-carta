@@ -131,7 +131,8 @@ pub(crate) fn page_geometric_findings(obs: &PageObservation, page: usize) -> Vec
                 page: Some(page),
                 region,
                 recovered_text: text,
-                detail: "Extractable text sits under an opaque fill that hides it from view.".into(),
+                detail: "Extractable text sits under an opaque fill that hides it from view."
+                    .into(),
             });
         }
     }
@@ -148,7 +149,12 @@ fn catalog_ref(doc: &lopdf::Document, key: &[u8]) -> Option<lopdf::ObjectId> {
         .and_then(|o| o.as_reference().ok())
 }
 
-fn push_metadata_finding(findings: &mut Vec<Finding>, text: String, detail: &str, needle_min_len: usize) {
+fn push_metadata_finding(
+    findings: &mut Vec<Finding>,
+    text: String,
+    detail: &str,
+    needle_min_len: usize,
+) {
     let text = text.trim().to_string();
     if text.len() >= needle_min_len {
         findings.push(Finding {
@@ -183,18 +189,30 @@ fn object_strings(obj: &Object, out: &mut String) {
     }
 }
 
-pub(crate) fn structural_findings(doc: &mut lopdf::Document, needle_min_len: usize) -> Vec<Finding> {
+pub(crate) fn structural_findings(
+    doc: &mut lopdf::Document,
+    needle_min_len: usize,
+) -> Vec<Finding> {
     let mut findings = Vec::new();
 
     // MetadataLeak — the Info dictionary's human-readable string values.
-    let info_id = doc.trailer.get(b"Info").ok().and_then(|o| o.as_reference().ok());
+    let info_id = doc
+        .trailer
+        .get(b"Info")
+        .ok()
+        .and_then(|o| o.as_reference().ok());
     if let Some(info_id) = info_id {
         if let Ok(info) = doc.get_object(info_id).and_then(|o| o.as_dict()) {
             let mut text = String::new();
             for (_, v) in info.iter() {
                 object_strings(v, &mut text);
             }
-            push_metadata_finding(&mut findings, text, "Document information dictionary carries identifying metadata.", needle_min_len);
+            push_metadata_finding(
+                &mut findings,
+                text,
+                "Document information dictionary carries identifying metadata.",
+                needle_min_len,
+            );
         }
     }
 
@@ -205,7 +223,12 @@ pub(crate) fn structural_findings(doc: &mut lopdf::Document, needle_min_len: usi
                 .decompressed_content()
                 .map(|b| String::from_utf8_lossy(&b).into_owned())
                 .unwrap_or_else(|_| String::from_utf8_lossy(&stream.content).into_owned());
-            push_metadata_finding(&mut findings, text, "XMP metadata stream carries identifying text.", needle_min_len);
+            push_metadata_finding(
+                &mut findings,
+                text,
+                "XMP metadata stream carries identifying text.",
+                needle_min_len,
+            );
         }
     }
 
@@ -229,7 +252,12 @@ pub(crate) fn structural_findings(doc: &mut lopdf::Document, needle_min_len: usi
                 }
             }
         }
-        push_metadata_finding(&mut findings, titles, "Bookmark titles carry identifying text.", needle_min_len);
+        push_metadata_finding(
+            &mut findings,
+            titles,
+            "Bookmark titles carry identifying text.",
+            needle_min_len,
+        );
     }
 
     // AcroForm field values (/V).
@@ -241,7 +269,12 @@ pub(crate) fn structural_findings(doc: &mut lopdf::Document, needle_min_len: usi
             }
         }
     }
-    push_metadata_finding(&mut findings, values, "AcroForm field values carry entered data.", needle_min_len);
+    push_metadata_finding(
+        &mut findings,
+        values,
+        "AcroForm field values carry entered data.",
+        needle_min_len,
+    );
 
     // OrphanedText — objects not reachable from the trailer that carry text.
     let reachable: std::collections::BTreeSet<ObjectId> =
@@ -343,7 +376,13 @@ pub fn detect(bytes: Vec<u8>) -> Result<DetectionReport, DetectError> {
         }
     }
 
-    Ok(DetectionReport { findings, summary, pages_scanned: page_count, glyphs_examined, pages_unreadable })
+    Ok(DetectionReport {
+        findings,
+        summary,
+        pages_scanned: page_count,
+        glyphs_examined,
+        pages_unreadable,
+    })
 }
 
 #[cfg(test)]
@@ -360,21 +399,29 @@ mod tests {
             lopdf::Dictionary::new(),
             b"q 0 0 0 rg 0 0 1000 1000 re f Q".to_vec(),
         ));
-        let mut contents: Vec<lopdf::Object> = match doc.get_dictionary(page_id).unwrap().get(b"Contents") {
-            Ok(lopdf::Object::Array(a)) => a.clone(),
-            Ok(lopdf::Object::Reference(r)) => vec![lopdf::Object::Reference(*r)],
-            _ => vec![],
-        };
+        let mut contents: Vec<lopdf::Object> =
+            match doc.get_dictionary(page_id).unwrap().get(b"Contents") {
+                Ok(lopdf::Object::Array(a)) => a.clone(),
+                Ok(lopdf::Object::Reference(r)) => vec![lopdf::Object::Reference(*r)],
+                _ => vec![],
+            };
         contents.push(lopdf::Object::Reference(cover_id));
-        doc.get_dictionary_mut(page_id).unwrap().set("Contents", lopdf::Object::Array(contents));
+        doc.get_dictionary_mut(page_id)
+            .unwrap()
+            .set("Contents", lopdf::Object::Array(contents));
         let mut bad = Vec::new();
         doc.save_to(&mut bad).unwrap();
 
         let report = detect(bad).expect("detect");
-        let covered: Vec<_> = report.findings.iter().filter(|f| matches!(f.category, Category::CoveredText)).collect();
+        let covered: Vec<_> = report
+            .findings
+            .iter()
+            .filter(|f| matches!(f.category, Category::CoveredText))
+            .collect();
         assert!(!covered.is_empty(), "expected covered-text findings");
         assert!(covered.iter().any(|f| f.recovered_text.contains("Hello")));
-        assert!(report.findings.first().map(|f| f.severity).unwrap() == Severity::Critical); // ranked
+        assert!(report.findings.first().map(|f| f.severity).unwrap() == Severity::Critical);
+        // ranked
     }
 
     #[test]
@@ -383,17 +430,35 @@ mod tests {
         // extractable text, so the detector must find zero covered/invisible/whiteout text.
         let regions = [crate::RedactionRegion {
             page: 0,
-            rect: crate::Rect { x0: 0.0, y0: 0.0, x1: 1000.0, y1: 1000.0 },
+            rect: crate::Rect {
+                x0: 0.0,
+                y0: 0.0,
+                x1: 1000.0,
+                y1: 1000.0,
+            },
             reason: None,
         }];
-        let outcome = crate::redact(corpus_bytes(), &regions, &crate::RedactionOptions::default()).unwrap();
+        let outcome = crate::redact(
+            corpus_bytes(),
+            &regions,
+            &crate::RedactionOptions::default(),
+        )
+        .unwrap();
         let report = detect(outcome.pdf).expect("detect");
         let page_text: Vec<_> = report
             .findings
             .iter()
-            .filter(|f| matches!(f.category, Category::CoveredText | Category::InvisibleText | Category::WhiteoutText))
+            .filter(|f| {
+                matches!(
+                    f.category,
+                    Category::CoveredText | Category::InvisibleText | Category::WhiteoutText
+                )
+            })
             .collect();
-        assert!(page_text.is_empty(), "a redacted document must yield no recoverable page text, got {page_text:?}");
+        assert!(
+            page_text.is_empty(),
+            "a redacted document must yield no recoverable page text, got {page_text:?}"
+        );
     }
 
     #[test]
@@ -407,21 +472,44 @@ mod tests {
         include_bytes!("../tests/fixtures/hello.pdf").to_vec()
     }
 
-    fn glyph(text: &str, x: f64, y: f64, order: usize, invisible: bool, rgba: [u8; 4]) -> GlyphMark {
-        GlyphMark { text: text.into(), bbox: kurbo::Rect::new(x, y, x + 5.0, y + 8.0), order, invisible, rgba }
+    fn glyph(
+        text: &str,
+        x: f64,
+        y: f64,
+        order: usize,
+        invisible: bool,
+        rgba: [u8; 4],
+    ) -> GlyphMark {
+        GlyphMark {
+            text: text.into(),
+            bbox: kurbo::Rect::new(x, y, x + 5.0, y + 8.0),
+            order,
+            invisible,
+            rgba,
+        }
     }
 
     #[test]
     fn flags_covered_text_and_recovers_it() {
         let obs = PageObservation {
-            glyphs: vec![glyph("S", 10.0, 10.0, 1, false, [0, 0, 0, 255]), glyph("X", 500.0, 500.0, 2, false, [0, 0, 0, 255])],
+            glyphs: vec![
+                glyph("S", 10.0, 10.0, 1, false, [0, 0, 0, 255]),
+                glyph("X", 500.0, 500.0, 2, false, [0, 0, 0, 255]),
+            ],
             // an opaque cover painted AFTER glyph "S", over its location
-            covers: vec![CoverMark { bbox: kurbo::Rect::new(0.0, 0.0, 100.0, 100.0), order: 3, rgba: [0, 0, 0, 255] }],
+            covers: vec![CoverMark {
+                bbox: kurbo::Rect::new(0.0, 0.0, 100.0, 100.0),
+                order: 3,
+                rgba: [0, 0, 0, 255],
+            }],
             width_pt: 600.0,
             height_pt: 800.0,
         };
         let findings = page_geometric_findings(&obs, 0);
-        let covered: Vec<_> = findings.iter().filter(|f| matches!(f.category, Category::CoveredText)).collect();
+        let covered: Vec<_> = findings
+            .iter()
+            .filter(|f| matches!(f.category, Category::CoveredText))
+            .collect();
         assert_eq!(covered.len(), 1);
         assert_eq!(covered[0].recovered_text, "S");
         assert!(matches!(covered[0].severity, Severity::Critical));
@@ -438,7 +526,12 @@ mod tests {
             height_pt: 800.0,
         };
         let findings = page_geometric_findings(&obs, 0);
-        assert!(findings.iter().any(|f| matches!(f.category, Category::InvisibleText) && f.recovered_text == "hidden"));
+        assert!(
+            findings
+                .iter()
+                .any(|f| matches!(f.category, Category::InvisibleText)
+                    && f.recovered_text == "hidden")
+        );
     }
 
     #[test]
@@ -446,12 +539,18 @@ mod tests {
         // White text (255,255,255) over a white opaque cover → same-color concealment.
         let obs = PageObservation {
             glyphs: vec![glyph("white", 10.0, 10.0, 1, false, [255, 255, 255, 255])],
-            covers: vec![CoverMark { bbox: kurbo::Rect::new(0.0, 0.0, 100.0, 100.0), order: 2, rgba: [255, 255, 255, 255] }],
+            covers: vec![CoverMark {
+                bbox: kurbo::Rect::new(0.0, 0.0, 100.0, 100.0),
+                order: 2,
+                rgba: [255, 255, 255, 255],
+            }],
             width_pt: 600.0,
             height_pt: 800.0,
         };
         let findings = page_geometric_findings(&obs, 0);
-        assert!(findings.iter().any(|f| matches!(f.category, Category::WhiteoutText) && f.recovered_text == "white"));
+        assert!(findings
+            .iter()
+            .any(|f| matches!(f.category, Category::WhiteoutText) && f.recovered_text == "white"));
     }
 
     #[test]
@@ -479,9 +578,13 @@ mod tests {
         doc.trailer.set("Info", Object::Reference(info_id));
 
         // XMP metadata stream with identifying content.
-        let xmp_content = b"<xmpmeta><rdf:Description rdf:about=''>XMP Author Name</rdf:Description></xmpmeta>".to_vec();
+        let xmp_content =
+            b"<xmpmeta><rdf:Description rdf:about=''>XMP Author Name</rdf:Description></xmpmeta>"
+                .to_vec();
         let meta_stream_id = doc.add_object(Stream::new(Dictionary::new(), xmp_content));
-        doc.catalog_mut().unwrap().set("Metadata", Object::Reference(meta_stream_id));
+        doc.catalog_mut()
+            .unwrap()
+            .set("Metadata", Object::Reference(meta_stream_id));
 
         // /Outlines tree: a root dict pointing via /First to a bookmark item with a /Title.
         let mut bookmark_item = Dictionary::new();
@@ -491,7 +594,9 @@ mod tests {
         outlines_root.set("Type", Object::Name(b"Outlines".to_vec()));
         outlines_root.set("First", Object::Reference(bookmark_item_id));
         let outlines_root_id = doc.add_object(Object::Dictionary(outlines_root));
-        doc.catalog_mut().unwrap().set("Outlines", Object::Reference(outlines_root_id));
+        doc.catalog_mut()
+            .unwrap()
+            .set("Outlines", Object::Reference(outlines_root_id));
 
         // AcroForm with a field whose /V carries entered data.
         let mut field = Dictionary::new();
@@ -501,27 +606,52 @@ mod tests {
         let mut acroform = Dictionary::new();
         acroform.set("Fields", Object::Array(vec![Object::Reference(field_id)]));
         let acroform_id = doc.add_object(Object::Dictionary(acroform));
-        doc.catalog_mut().unwrap().set("AcroForm", Object::Reference(acroform_id));
+        doc.catalog_mut()
+            .unwrap()
+            .set("AcroForm", Object::Reference(acroform_id));
 
         // Orphaned text: a stream object referenced by nothing.
-        doc.add_object(Stream::new(Dictionary::new(), b"(orphan secret) Tj".to_vec()));
+        doc.add_object(Stream::new(
+            Dictionary::new(),
+            b"(orphan secret) Tj".to_vec(),
+        ));
 
         let findings = structural_findings(&mut doc, 3);
 
-        assert!(findings.iter().any(|f| matches!(f.category, Category::MetadataLeak)
-            && f.recovered_text.contains("Privileged Author")),
-            "expected Info-dict MetadataLeak finding");
-        assert!(findings.iter().any(|f| matches!(f.category, Category::MetadataLeak)
-            && f.recovered_text.contains("XMP Author Name")),
-            "expected XMP MetadataLeak finding");
-        assert!(findings.iter().any(|f| matches!(f.category, Category::MetadataLeak)
-            && f.recovered_text.contains("Secret Bookmark")),
-            "expected bookmark-title MetadataLeak finding");
-        assert!(findings.iter().any(|f| matches!(f.category, Category::MetadataLeak)
-            && f.recovered_text.contains("Form Secret Value")),
-            "expected AcroForm-value MetadataLeak finding");
-        assert!(findings.iter().any(|f| matches!(f.category, Category::OrphanedText)
-            && f.recovered_text.contains("orphan secret")),
-            "expected OrphanedText finding");
+        assert!(
+            findings
+                .iter()
+                .any(|f| matches!(f.category, Category::MetadataLeak)
+                    && f.recovered_text.contains("Privileged Author")),
+            "expected Info-dict MetadataLeak finding"
+        );
+        assert!(
+            findings
+                .iter()
+                .any(|f| matches!(f.category, Category::MetadataLeak)
+                    && f.recovered_text.contains("XMP Author Name")),
+            "expected XMP MetadataLeak finding"
+        );
+        assert!(
+            findings
+                .iter()
+                .any(|f| matches!(f.category, Category::MetadataLeak)
+                    && f.recovered_text.contains("Secret Bookmark")),
+            "expected bookmark-title MetadataLeak finding"
+        );
+        assert!(
+            findings
+                .iter()
+                .any(|f| matches!(f.category, Category::MetadataLeak)
+                    && f.recovered_text.contains("Form Secret Value")),
+            "expected AcroForm-value MetadataLeak finding"
+        );
+        assert!(
+            findings
+                .iter()
+                .any(|f| matches!(f.category, Category::OrphanedText)
+                    && f.recovered_text.contains("orphan secret")),
+            "expected OrphanedText finding"
+        );
     }
 }

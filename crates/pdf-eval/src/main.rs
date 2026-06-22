@@ -2,6 +2,8 @@
 //   smoke          <corpus_dir>                          — parse + render page 0 via pdf-core; exits non-zero on any failure
 //   redact-smoke   <pdf>                                 — redact the entire first page and assert the verification gate passes
 //   sanitize-smoke <pdf>                                 — sanitize the document with default options and assert the absence gate passes
+//   detect         <pdf>                                 — run the bad-redaction detector and print the ranked report
+//   detect-smoke   <pdf>                                 — append an opaque cover over page 1 and assert the detector flags it
 //   render         <input.pdf> <out_dir> [scale]         — hayro render to PNG
 //   parse          <corpus_dir>                          — lopdf + pdf-rs + hayro load-coverage
 //   fidelity       <corpus_dir> <pdfium.dll> [dpi]       — hayro-vs-PDFium MSSIM per page (needs pdfium dll at runtime)
@@ -29,6 +31,8 @@ fn main() {
         Some("sanitize-smoke") => {
             sanitize_smoke_mode(args.next().expect("usage: sanitize-smoke <pdf>"))
         }
+        Some("detect") => detect_mode(args.next().expect("usage: detect <pdf>")),
+        Some("detect-smoke") => detect_smoke_mode(args.next().expect("usage: detect-smoke <pdf>")),
         Some("render") => render_mode(args.collect()),
         Some("parse") => parse_mode(args.next().expect("usage: parse <corpus_dir>")),
         #[cfg(feature = "pdfium")]
@@ -42,7 +46,7 @@ fn main() {
         }
         other => {
             eprintln!(
-                "unknown mode {other:?}; use smoke | redact-smoke | sanitize-smoke | render | parse | fidelity | pdfium"
+                "unknown mode {other:?}; use smoke | redact-smoke | sanitize-smoke | detect | detect-smoke | render | parse | fidelity | pdfium"
             );
             std::process::exit(2);
         }
@@ -119,6 +123,74 @@ fn sanitize_smoke_mode(path: String) {
         }
         Err(e) => {
             eprintln!("FAIL sanitize gate: {e:?}");
+            std::process::exit(1);
+        }
+    }
+}
+
+fn detect_mode(path: String) {
+    let bytes = std::fs::read(&path).unwrap();
+    match pdf_core::detect(bytes) {
+        Ok(report) => {
+            println!(
+                "scanned {} page(s), {} glyphs; {} finding(s)",
+                report.pages_scanned,
+                report.glyphs_examined,
+                report.findings.len()
+            );
+            for f in &report.findings {
+                let text: String = f.recovered_text.chars().take(60).collect();
+                println!(
+                    "  {:?} [{:?}] page={:?} :: {:?}",
+                    f.severity, f.category, f.page, text
+                );
+            }
+        }
+        Err(e) => {
+            eprintln!("FAIL detect: {e:?}");
+            std::process::exit(1);
+        }
+    }
+}
+
+fn detect_smoke_mode(path: String) {
+    // Append an opaque cover over the page, then assert the detector flags it.
+    let orig = std::fs::read(&path).unwrap();
+    let mut doc = lopdf::Document::load_mem(&orig).unwrap();
+    let page_id = *doc.get_pages().get(&1).unwrap();
+    let cover_id = doc.add_object(lopdf::Stream::new(
+        lopdf::Dictionary::new(),
+        b"q 0 0 0 rg 0 0 2000 2000 re f Q".to_vec(),
+    ));
+    let mut contents: Vec<lopdf::Object> =
+        match doc.get_dictionary(page_id).unwrap().get(b"Contents") {
+            Ok(lopdf::Object::Array(a)) => a.clone(),
+            Ok(lopdf::Object::Reference(r)) => vec![lopdf::Object::Reference(*r)],
+            _ => vec![],
+        };
+    contents.push(lopdf::Object::Reference(cover_id));
+    doc.get_dictionary_mut(page_id)
+        .unwrap()
+        .set("Contents", lopdf::Object::Array(contents));
+    let mut bad = Vec::new();
+    doc.save_to(&mut bad).unwrap();
+
+    match pdf_core::detect(bad) {
+        Ok(report) => {
+            let covered = report
+                .findings
+                .iter()
+                .filter(|f| matches!(f.category, pdf_core::Category::CoveredText))
+                .count();
+            if covered > 0 {
+                println!("ok   flagged {covered} covered-text finding(s)");
+            } else {
+                eprintln!("FAIL detect-smoke: no covered-text finding on a known-bad input");
+                std::process::exit(1);
+            }
+        }
+        Err(e) => {
+            eprintln!("FAIL detect-smoke: {e:?}");
             std::process::exit(1);
         }
     }

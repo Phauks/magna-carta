@@ -54,12 +54,22 @@ impl<'a> Device<'a> for Observer {
     fn set_soft_mask(&mut self, _: Option<SoftMask<'a>>) {}
     fn set_blend_mode(&mut self, _: BlendMode) {}
 
-    fn draw_path(&mut self, path: &BezPath, transform: Affine, paint: &Paint<'a>, mode: &PathDrawMode) {
+    fn draw_path(
+        &mut self,
+        path: &BezPath,
+        transform: Affine,
+        paint: &Paint<'a>,
+        mode: &PathDrawMode,
+    ) {
         self.order += 1;
         if let PathDrawMode::Fill(_) = mode {
             let mut p = path.clone();
             p.apply_affine(transform);
-            self.covers.push(CoverMark { bbox: p.bounding_box(), order: self.order, rgba: paint_rgba(paint) });
+            self.covers.push(CoverMark {
+                bbox: p.bounding_box(),
+                order: self.order,
+                rgba: paint_rgba(paint),
+            });
         }
     }
 
@@ -105,7 +115,11 @@ impl<'a> Device<'a> for Observer {
         self.order += 1;
         let mut p = Rect::new(0.0, 0.0, 1.0, 1.0).to_path(0.1);
         p.apply_affine(transform);
-        self.covers.push(CoverMark { bbox: p.bounding_box(), order: self.order, rgba: [0, 0, 0, 255] });
+        self.covers.push(CoverMark {
+            bbox: p.bounding_box(),
+            order: self.order,
+            rgba: [0, 0, 0, 255],
+        });
     }
 
     fn pop_clip_path(&mut self) {}
@@ -128,7 +142,12 @@ pub(crate) fn observe_page(pdf: &Pdf, index: usize) -> Option<PageObservation> {
     );
     let mut obs = Observer::default();
     interpret_page(page, &mut ctx, &mut obs);
-    Some(PageObservation { glyphs: obs.glyphs, covers: obs.covers, width_pt, height_pt })
+    Some(PageObservation {
+        glyphs: obs.glyphs,
+        covers: obs.covers,
+        width_pt,
+        height_pt,
+    })
 }
 
 #[cfg(test)]
@@ -146,9 +165,15 @@ mod tests {
         let pdf = Pdf::new(corpus()).unwrap();
         let obs = observe_page(&pdf, 0).expect("observe");
         let recovered: String = obs.glyphs.iter().map(|g| g.text.as_str()).collect();
-        assert!(recovered.contains("Hello"), "recovered text was {recovered:?}");
+        assert!(
+            recovered.contains("Hello"),
+            "recovered text was {recovered:?}"
+        );
         // Every glyph has a finite, non-degenerate bbox.
-        assert!(obs.glyphs.iter().any(|g| g.bbox.width() > 0.0 && g.bbox.height() > 0.0));
+        assert!(obs
+            .glyphs
+            .iter()
+            .any(|g| g.bbox.width() > 0.0 && g.bbox.height() > 0.0));
         assert!(obs.width_pt > 0.0 && obs.height_pt > 0.0);
     }
 }
