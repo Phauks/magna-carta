@@ -58,6 +58,7 @@ export function classifyHost(host: string): TargetClass {
     if (lower === "::") return "reserved";
     if (lower.startsWith("fe80")) return "link-local";
     if (lower.startsWith("fc") || lower.startsWith("fd")) return "private"; // unique-local fc00::/7
+    if (lower.startsWith("ff")) return "reserved"; // IPv6 multicast ff00::/8
     if (lower.startsWith("::ffff:")) {
       const mapped = parseIpv4(lower.slice("::ffff:".length));
       if (mapped) return classifyIpv4(mapped); // IPv4-mapped IPv6

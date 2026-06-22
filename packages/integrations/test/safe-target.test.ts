@@ -9,6 +9,7 @@ test("classifies private and loopback IP literals", () => {
   expect(classifyHost("169.254.169.254")).toBe("link-local");
   expect(classifyHost("::1")).toBe("loopback");
   expect(classifyHost("fc00::1")).toBe("private"); // IPv6 unique-local
+  expect(classifyHost("ff02::1")).toBe("reserved"); // IPv6 multicast
   expect(classifyHost("8.8.8.8")).toBe("public");
   expect(classifyHost("example.com")).toBe("public");
 });
