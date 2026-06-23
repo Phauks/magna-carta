@@ -27,8 +27,8 @@ export function safeUnzip(bytes: Uint8Array): Record<string, Uint8Array> {
     throw new BombError(`archive has ${names.length} entries (cap ${MAX_ENTRY_COUNT})`);
   }
   let inflated = 0;
-  for (const name of names) {
-    inflated += entries[name].byteLength;
+  for (const value of Object.values(entries)) {
+    inflated += value.byteLength;
     if (inflated > MAX_INFLATED_BYTES) {
       throw new BombError(`archive inflates past ${MAX_INFLATED_BYTES} bytes`);
     }

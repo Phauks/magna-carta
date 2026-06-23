@@ -23,9 +23,9 @@ function walkSegments(bytes: Uint8Array): { segments: Segment[]; scanStart: numb
   let i = 2; // skip SOI (FF D8)
   while (i + 3 < bytes.length) {
     if (bytes[i] !== 0xff) break;
-    const marker = bytes[i + 1];
+    const marker = bytes[i + 1] ?? 0;
     if (marker === SOS) return { segments, scanStart: i };
-    const len = (bytes[i + 2] << 8) | bytes[i + 3];
+    const len = ((bytes[i + 2] ?? 0) << 8) | (bytes[i + 3] ?? 0);
     const end = i + 2 + len;
     segments.push({ marker, start: i, end, payloadStart: i + 4 });
     i = end;

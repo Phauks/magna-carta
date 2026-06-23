@@ -4,7 +4,7 @@ import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
-import { Problem, problemJson } from "../contracts/problem.ts";
+import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 
 // Base64 <-> bytes, chunked so a large file does not blow the argument stack of String.fromCharCode.
@@ -69,7 +69,7 @@ const ScrubResponse = z
 function failureProblem(
   c: Parameters<typeof problemJson>[0],
   reason: string,
-): ReturnType<typeof problemJson> {
+): ProblemResponse<400> {
   const title =
     reason === "too-large"
       ? "The file is too large for this tool"
@@ -175,7 +175,15 @@ export function registerMetadataRoutes(
       const { filename, contentBase64 } = c.req.valid("json");
       const outcome = await port.inspect({ bytes: decodeBase64(contentBase64), filename });
       if (!outcome.ok) return failureProblem(c, outcome.reason);
-      return c.json(outcome.report, 200);
+      // MetadataReport uses readonly arrays; the response schema expects mutable arrays.
+      return c.json(
+        {
+          format: outcome.report.format,
+          findings: [...outcome.report.findings],
+          clean: outcome.report.clean,
+        },
+        200,
+      );
     },
   );
 
@@ -186,12 +194,17 @@ export function registerMetadataRoutes(
       const effective: ScrubOptions = options ?? SCRUB_ALL;
       const outcome = await port.scrub({ bytes: decodeBase64(contentBase64), filename }, effective);
       if (!outcome.ok) return failureProblem(c, outcome.reason);
+      // MetadataReport uses readonly arrays; the response schema expects mutable arrays.
       return c.json(
         {
           mediaType: outcome.mediaType,
           filename,
           cleanedBase64: encodeBase64(outcome.bytes),
-          report: outcome.report,
+          report: {
+            format: outcome.report.format,
+            findings: [...outcome.report.findings],
+            clean: outcome.report.clean,
+          },
         },
         200,
       );

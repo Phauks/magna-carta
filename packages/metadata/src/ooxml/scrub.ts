@@ -62,7 +62,8 @@ function stripCommentRels(relsXml: string): string {
       .filter((node) => {
         if (nodeTag(node) !== "Relationship") return true;
         const attrs = (node[":@"] ?? {}) as Record<string, unknown>;
-        const target = String(attrs["@_Target"] ?? "");
+        const rawTarget = attrs["@_Target"];
+        const target = typeof rawTarget === "string" ? rawTarget : "";
         return !/(^|\/)(comments|commentsExtended|commentsIds|people)\.xml$/.test(target);
       })
       .map((node) => {

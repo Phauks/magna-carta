@@ -13,8 +13,10 @@ function crc32(buf: number[]): number {
   }
   return ~c >>> 0;
 }
+const ascii = (s: string): number[] => Array.from(s, (c) => c.charCodeAt(0));
+
 function chunk(type: string, data: number[]): number[] {
-  const typeBytes = [...type].map((ch) => ch.charCodeAt(0));
+  const typeBytes = ascii(type);
   const len = data.length;
   const crc = crc32([...typeBytes, ...data]);
   return [
@@ -34,11 +36,7 @@ function buildPng(): Uint8Array {
   return new Uint8Array([
     ...SIG,
     ...chunk("IHDR", [0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0]),
-    ...chunk("tEXt", [
-      ...[..."Author"].map((c) => c.charCodeAt(0)),
-      0,
-      ...[..."Jane"].map((c) => c.charCodeAt(0)),
-    ]),
+    ...chunk("tEXt", [...ascii("Author"), 0, ...ascii("Jane")]),
     ...chunk("IDAT", [0x78, 0x01, 0x00]),
     ...chunk("IEND", []),
   ]);
@@ -65,15 +63,11 @@ describe("png", () => {
   it("strips without overflowing the stack on a large IDAT chunk", () => {
     // ~500 KB IDAT data — guards the Uint8Array.set assembly path against the spread-into-push
     // stack-overflow class that would occur if scrubPng used [...bigArray] in a push call.
-    const bigData = new Array(500_000).fill(0x00);
+    const bigData = Array.from({ length: 500_000 }, () => 0x00);
     const big = new Uint8Array([
       ...SIG,
       ...chunk("IHDR", [0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0]),
-      ...chunk("tEXt", [
-        ...[..."Author"].map((c) => c.charCodeAt(0)),
-        0,
-        ...[..."Jane"].map((c) => c.charCodeAt(0)),
-      ]),
+      ...chunk("tEXt", [...ascii("Author"), 0, ...ascii("Jane")]),
       ...chunk("IDAT", bigData),
       ...chunk("IEND", []),
     ]);
@@ -84,8 +78,14 @@ describe("png", () => {
     // A chunk whose 4-byte length field is 0x80000000 (negative if parsed signed).
     const corrupt = new Uint8Array([
       ...SIG,
-      0x80, 0x00, 0x00, 0x00, // length with high bit set
-      0x74, 0x45, 0x58, 0x74, // "tEXt"
+      0x80,
+      0x00,
+      0x00,
+      0x00, // length with high bit set
+      0x74,
+      0x45,
+      0x58,
+      0x74, // "tEXt"
       0x00, // (insufficient data — deliberately malformed)
     ]);
     expect(() => scrubPng(corrupt)).not.toThrow();
