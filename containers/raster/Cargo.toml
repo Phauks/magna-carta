@@ -20,7 +20,15 @@ axum = "0.8"
 # pulls in `ravif`/`rav1e`/`libfuzzer-sys`/`cc` (a C-compiler wrapper) — violating the no-C rule.
 # Only the six pure-Rust codecs we actually convert are enabled; no C/-sys crate is in the tree.
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "tiff", "bmp"] }
+# Pure-Rust PDF writer. Only the raster-images feature is enabled; simple-text and rayon are
+# excluded (no font shaping, no thread-pool required for image-to-PDF). No C/-sys dependency is
+# introduced — the pure-Rust codec chain (png/zune-jpeg/image-webp/gif) handles all image decoding
+# inside krilla, and the image crate above supplies the decoded pixel data via from_rgba8.
+krilla = { version = "0.8.2", default-features = false, features = ["raster-images"] }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
+# Used only in tests to verify the PDF page count when krilla's object-stream
+# serialization makes a literal "/Type /Page" grep unreliable.
+lopdf = "0.34"
