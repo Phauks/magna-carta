@@ -1,0 +1,26 @@
+[package]
+name = "magna-carta-raster"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# A lib (the router + codec modules, unit-testable) plus a thin binary that serves it on :8080.
+[lib]
+name = "magna_carta_raster"
+path = "src/lib.rs"
+
+[[bin]]
+name = "magna-carta-raster"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+# Pure-Rust image codec library — all default features (bmp, gif, jpeg, png, tiff, webp, etc.) are
+# pure Rust; no C/-sys dependency is introduced. The `avif-native` optional feature (dav1d) is NOT
+# enabled — only the default ravif/zune-jpeg based codecs are used.
+image = "0.25"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
