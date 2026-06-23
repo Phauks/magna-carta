@@ -151,7 +151,7 @@ describe("permission gate", () => {
   });
 });
 
-// Fix 1: My Day self-scope — a timekeeper may always read their own headline; reading another
+// My Day self-scope — a timekeeper may always read their own headline; reading another
 // timekeeper's headline requires time:viewFirm.
 describe("My Day self-scope authorization", () => {
   it("allows a timekeeper to read their own My Day (self read -> 200)", async () => {

@@ -99,7 +99,7 @@ beforeAll(async () => {
   await mirrorMemberWithRole(readOnly.userId, "Read Only", "Read-only");
   readOnlyCookie = await signInForSessionCookie("time-readonly@example.com");
 
-  // A user with time:track only (direct grant, no role) — used for Fix 1, Fix 2, and Fix 6 tests.
+  // A user with time:track only (direct grant, no role) — used for self-scope and lifecycle tests.
   const trackOnly = await seedCredentialedUser("time-trackonly@example.com", {
     userName: "Track Only",
     firmId: poolFirmId,
@@ -478,7 +478,7 @@ describe("idempotency and permission", () => {
   });
 });
 
-// Fix 1: My-Day list view self-scope — a timekeeper may only list their own daily entries
+// My-Day list view self-scope — a timekeeper may only list their own daily entries
 // without time:viewFirm.
 describe("list self-scope authorization (My-Day shape)", () => {
   it("allows a timekeeper to list their own daily entries (self read -> 200)", async () => {
@@ -507,7 +507,7 @@ describe("list self-scope authorization (My-Day shape)", () => {
   });
 });
 
-// Fix 2: Mutations self-scoped — create and gridBatch refuse a foreign timekeeperUserId;
+// Mutations self-scoped — create and gridBatch refuse a foreign timekeeperUserId;
 // update/submit/void refuse a non-owned entry.
 describe("create self-scope authorization", () => {
   it("refuses capturing an entry for another timekeeper (403)", async () => {
@@ -596,7 +596,7 @@ describe("update/submit/void ownership guard", () => {
   });
 });
 
-// Fix 3: Zero-duration guard — a raw duration shorter than the rounding increment with direction
+// Zero-duration guard — a raw duration shorter than the rounding increment with direction
 // 'down' produces 0 minutes after rounding, which must be refused before writing.
 describe("zero-duration guard", () => {
   it("returns 422 and writes no row when the rounded duration is 0 (sub-increment with direction down)", async () => {
@@ -644,7 +644,7 @@ describe("zero-duration guard", () => {
   });
 });
 
-// Fix 4: Patching workDate re-resolves the rate for the new date.
+// Patching workDate re-resolves the rate for the new date.
 describe("workDate patch with rate re-resolution", () => {
   it("patching workDate re-resolves the rate snapshot for the new date", async () => {
     // Append a second rate version effective from 2026-07-01 at a different rateE4.
@@ -700,7 +700,7 @@ describe("workDate patch with rate re-resolution", () => {
   });
 });
 
-// Fix 6: void, kickBack, and gridBatch route coverage.
+// void, kickBack, and gridBatch route coverage.
 describe("void", () => {
   it("voids a draft entry (draft -> void)", async () => {
     const created = await post("/api/v1/time-entries", {

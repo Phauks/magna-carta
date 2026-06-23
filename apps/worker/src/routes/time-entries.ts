@@ -757,7 +757,7 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
       const patch = c.req.valid("json");
       const entryId = id as TimeEntryId;
 
-      // Pre-flight ownership check: also reads the fields required for workDate re-resolution (Fix 4)
+      // Pre-flight ownership check: also reads the fields required for workDate re-resolution
       // so only one DB round-trip is needed before the effect. Treat a non-owned entry as not-found
       // to avoid leaking existence to a caller who does not own the entry.
       const ownerRow = await firm.firmDatabase
