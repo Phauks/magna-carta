@@ -92,9 +92,10 @@ fast-path** is the one engine that stays in this worker.
 
 To activate real conversions:
 
-1. **Build the dedicated conversion worker** (engine Container(s), own deploy/scaling/crons), then bind
-   it here as a service binding and have `resolveEnginePort` return its `ConversionPort` adapter when
-   the binding is present.
+1. **Build and deploy the engine Container image** (`containers/convert/`) for the `magna-carta-convert`
+   worker and deploy that worker. The worker scaffold and the `CONVERT` service binding already exist;
+   `resolveEnginePort` returns the `serviceBindingPort` adapter automatically once the binding is
+   present — no code change needed here.
 2. **Add the R2 lifecycle rule** expiring the `conversions/` prefix (~24 h). Conversion results are
    transient presigned-GET artifacts; expiry forces the client to re-convert rather than accumulate
    stale files.
