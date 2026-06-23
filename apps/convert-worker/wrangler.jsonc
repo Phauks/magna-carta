@@ -1,0 +1,13 @@
+{
+  // The standalone document-conversion worker. It will own the conversion engine Container(s)
+  // and is reached only via a service binding from the main app worker — it has no public routes.
+  // Container bindings, Durable Objects, and cron triggers are added in a later task.
+  "name": "magna-carta-convert",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-06-05",
+  "compatibility_flags": ["nodejs_compat"],
+  // No public surface: this worker is an internal service reached only via service binding.
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+}
