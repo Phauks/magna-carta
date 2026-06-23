@@ -3,6 +3,7 @@ import { safeUnzip } from "../guards.ts";
 import type { ScrubOptions } from "../options.ts";
 import {
   COMMENT_REF_TAGS,
+  CONTENT_PART_PATTERN,
   PROP_CHANGE_TAGS,
   REMOVE_TAGS,
   runIsHidden,
@@ -97,7 +98,7 @@ export function scrubDocx(bytes: Uint8Array, options: ScrubOptions): Uint8Array 
       continue;
     }
     if (
-      name === "word/document.xml" &&
+      CONTENT_PART_PATTERN.test(name) &&
       (options.comments || options.hiddenContent || options.trackedChanges)
     ) {
       const nodes = parseXml(new TextDecoder().decode(content));

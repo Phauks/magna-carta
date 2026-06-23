@@ -9,6 +9,7 @@ export interface DocxParts {
   app: string;
   custom?: string;
   comments?: string;
+  header?: string;
 }
 
 const DECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
@@ -35,5 +36,6 @@ export function buildDocx(overrides: Partial<DocxParts> = {}): Uint8Array {
   };
   if (parts.custom !== undefined) files["docProps/custom.xml"] = strToU8(parts.custom);
   if (parts.comments !== undefined) files["word/comments.xml"] = strToU8(parts.comments);
+  if (parts.header !== undefined) files["word/header1.xml"] = strToU8(parts.header);
   return zipSync(files);
 }
