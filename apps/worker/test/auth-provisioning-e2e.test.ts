@@ -228,7 +228,8 @@ describe("end-to-end", () => {
       // tools:firmUsage (0010_seed-tools-firm-usage.sql) + the slice 1·4 customFields:manage /
       // customFields:purge grants (0013_custom-fields.sql) + tools:whois / tools:safeBrowse
       // (0017_seed-tools-web-domains.sql, seeded onto every default role) + tools:fileConverter
-      // (0018_seed-tools-file-converter.sql). Sorted.
+      // (0018_seed-tools-file-converter.sql) + firm:scanFile (0019_seed-scan-file-permission.sql) +
+      // tools:metadataScrubber (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role). Sorted.
       permissions: [
         "customFields:manage",
         "customFields:purge",
@@ -255,6 +256,7 @@ describe("end-to-end", () => {
         "shipping:manage",
         "tools:fileConverter",
         "tools:firmUsage",
+        "tools:metadataScrubber",
         "tools:safeBrowse",
         "tools:whois",
       ],
@@ -397,6 +399,9 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       "conversions.upload",
       "conversions.submit",
       "safeBrowse.post",
+      // Pure-compute POSTs — inspect/scrub operate over the request body only; nothing is stored.
+      "metadata.inspect",
+      "metadata.scrub",
     ]);
 
     for (const { operation, label } of mutatingV1) {
@@ -490,7 +495,7 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
     }
     // The sweep fires one real request per authenticated operation, sequentially — it grows with the
     // contract, so it carries a generous timeout rather than the 5s default.
-  }, 20_000);
+  }, 40_000);
 
   it("gives every /v1 operation a unique, well-formed operationId mirrored in x-mc-operationId", async () => {
     const document = await fetchOpenApiDocument();

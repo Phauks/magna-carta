@@ -42,9 +42,11 @@ apps/worker/test/
 ### Task 1: Conversion job types
 
 **Files:**
+
 - Create: `apps/worker/src/conversions/conversion-types.ts`
 
 **Interfaces:**
+
 - Produces: `ConversionJobStatus`, `ConversionJobState`, `ConversionMessage`, `ConversionCoordinator` (the DO RPC surface).
 
 - [ ] **Step 1: Write the types** (no test — pure type module, exercised by Tasks 2/4)
@@ -95,10 +97,12 @@ git commit -m "feat(conversions): job state + queue message + coordinator types"
 ### Task 2: The `ConversionJob` Durable Object
 
 **Files:**
+
 - Create: `apps/worker/src/conversions/conversion-coordinator.ts`
 - Test: `apps/worker/test/conversion-coordinator.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ConversionMessage`, `ConversionJobState`, `ConversionCoordinator` from `conversion-types.ts`; `Bindings` from `../app.ts` (has `CONVERSION: Queue<ConversionMessage>` after Task 7).
 - Produces: `export class ConversionJob extends DurableObject<Bindings> implements ConversionCoordinator`.
 
@@ -186,7 +190,11 @@ export class ConversionJob extends DurableObject<Bindings> implements Conversion
   override async alarm(): Promise<void> {
     const state = await this.ctx.storage.get<ConversionJobState>("state");
     if (state !== undefined && (state.status === "queued" || state.status === "running")) {
-      await this.ctx.storage.put("state", { ...state, status: "failed", reason: "conversion timed out" });
+      await this.ctx.storage.put("state", {
+        ...state,
+        status: "failed",
+        reason: "conversion timed out",
+      });
     }
   }
 }
@@ -205,10 +213,12 @@ git commit -m "feat(conversions): ConversionJob durable object"
 ### Task 3: The libvips Container + the `ConversionPort` seam
 
 **Files:**
+
 - Create: `apps/worker/src/conversions/libvips-container.ts`
 - Create: `apps/worker/src/conversions/conversion-engine.ts`
 
 **Interfaces:**
+
 - Consumes: `Bindings` (`LIBVIPS_CONTAINER?: DurableObjectNamespace` — optional, deploy-time); `ConversionPort` from `@magna-carta/conversion/port`.
 - Produces: `class LibvipsContainer extends Container`; `function resolveEnginePort(env: Bindings): ConversionPort` (returns the Container-backed adapter when the binding is present, else a port whose `convert` returns `{ ok: false, reason: "engine-not-implemented" }`).
 
@@ -294,10 +304,12 @@ git commit -m "feat(conversions): libvips Container + ConversionPort resolver se
 ### Task 4: The CONVERSION queue consumer
 
 **Files:**
+
 - Create: `apps/worker/src/conversions/conversion-consumer.ts`
 - Test: `apps/worker/test/conversion-consumer.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ConversionMessage` from `conversion-types.ts`; `runConversion` from `@magna-carta/conversion/execute`; `resolveEnginePort` from `conversion-engine.ts`; `Bindings` (`R2`, `CONVERSION_JOB`).
 - Produces: `export async function conversionQueue(batch: MessageBatch<ConversionMessage>, env: Bindings, resolvePort?: (env: Bindings) => ConversionPort): Promise<void>` (the `resolvePort` parameter defaults to `resolveEnginePort`; tests pass a fake).
 
@@ -318,7 +330,9 @@ import { resolveEnginePort } from "./conversion-engine.ts";
 import type { ConversionMessage } from "./conversion-types.ts";
 
 function coordinatorFor(env: Bindings, message: ConversionMessage) {
-  return env.CONVERSION_JOB.get(env.CONVERSION_JOB.idFromName(`${message.firmId}:${message.jobId}`));
+  return env.CONVERSION_JOB.get(
+    env.CONVERSION_JOB.idFromName(`${message.firmId}:${message.jobId}`),
+  );
 }
 
 async function convertOne(
@@ -380,9 +394,11 @@ git commit -m "feat(conversions): CONVERSION queue consumer"
 ### Task 5: The routes (upload presign · submit · status)
 
 **Files:**
+
 - Create: `apps/worker/src/routes/conversions.ts`
 
 **Interfaces:**
+
 - Consumes: the chokepoint helpers + `defineOpenAPIRoute`/`RouteMeta`/`Problem` (read `apps/worker/src/routes/bundle-status.ts` + `routes/uploads.ts` and mirror the imports + `register…Route(app, chokepoint)` shape exactly); `presignerForEnv` (`presignPut`/`presignGet`); `newIdentifier` from `@magna-carta/identifiers`; `findPath` + `getFormat` from `@magna-carta/conversion`.
 - Produces: `export function registerConversionRoutes(app, chokepoint): void` registering three routes.
 
@@ -395,7 +411,7 @@ All three share this `RouteMeta` base (copy field-for-field from `bundle-status.
 
 Route A — `POST /api/v1/conversions/upload`: mint `jobId = newIdentifier("cnv")`; the source key is `conversions/<firmId>/<jobId>/source`; return `{ jobId, uploadUrl: await presignerForEnv(c.env).presignPut(bucket, sourceKey, 300), sourceKey }`. (Mirror `routes/uploads.ts` for the presignPut call + `requireBucket(firm.bucketName)`.)
 
-Route B — `POST /api/v1/conversions` with body `{ jobId, sourceKey, from, to }` (validated by a zod schema): reject with 422 if `getFormat(from)`/`getFormat(to)` is undefined or `findPath(from, to)` is not ok; the result key is `conversions/<firmId>/<jobId>/result`; create the DO `c.env.CONVERSION_JOB.get(idFromName(\`${firmId}:${jobId}\`))` and call `start({ firmId, jobId, sourceKey, resultKey, from, to })`; return `202 { jobId, status: "queued" }`.
+Route B — `POST /api/v1/conversions` with body `{ jobId, sourceKey, from, to }` (validated by a zod schema): reject with 422 if `getFormat(from)`/`getFormat(to)` is undefined or `findPath(from, to)` is not ok; the result key is `conversions/<firmId>/<jobId>/result`; create the DO `c.env.CONVERSION_JOB.get(idFromName(\`${firmId}:${jobId}\`))`and call`start({ firmId, jobId, sourceKey, resultKey, from, to })`; return `202 { jobId, status: "queued" }`.
 
 Route C — `GET /api/v1/conversions/{jobId}`: address the DO by `firmId:jobId`; `const state = await coordinator.status()`; on `done` + a live `R2.head(state.resultKey)` → `c.json({ status: "done", url: await presignerForEnv(c.env).presignGet(bucket, state.resultKey, 300), mediaType: state.mediaType }, 200)`; on `done` but reaped → `{ status: "expired" }`; else `c.json({ status: state.status, reason: state.reason ?? undefined }, 200)`. (Mirror `bundle-status.ts` field-for-field.)
 
@@ -414,10 +430,12 @@ git commit -m "feat(conversions): upload-presign, submit, and status routes"
 ### Task 6: Worker wiring (app.ts + wrangler)
 
 **Files:**
+
 - Modify: `apps/worker/src/app.ts`
 - Modify: `apps/worker/wrangler.jsonc`
 
 **Interfaces:**
+
 - Produces: `Bindings` gains `CONVERSION: Queue<ConversionMessage>`, `CONVERSION_JOB: DurableObjectNamespace`, and optional `LIBVIPS_CONTAINER?: DurableObjectNamespace`; the `ConversionJob` DO is exported from the worker entry; the `CONVERSION` queue routes to `conversionQueue` in the `queue()` handler; `registerConversionRoutes` is called in the composition root.
 
 - [ ] **Step 1: app.ts** — add the three `Bindings` fields; `export { ConversionJob } from "./conversions/conversion-coordinator.ts";` (DOs must be exported from the entry); in the `queue()` handler add a branch routing the `CONVERSION` queue's batch to `conversionQueue(batch, env)` (mirror how `FILES_INGEST`/`BUNDLE_BUILD` are dispatched by `batch.queue` name); call `registerConversionRoutes(app, chokepoint)` beside the other `register…Routes` calls. Read the existing `queue()` dispatch + the `register…` block and follow them exactly.
@@ -437,9 +455,11 @@ git commit -m "feat(conversions): wire the DO, CONVERSION queue, and routes into
 ### Task 7: End-to-end test (fake Container)
 
 **Files:**
+
 - Create/extend: `apps/worker/test/conversions-routes.test.ts`
 
 **Interfaces:**
+
 - Consumes: the Workers test harness (read an existing e2e, e.g. `apps/worker/test/files-routes.test.ts`, for the provisioned-firm + authed-session + `SELF.fetch`/app-fetch setup) and the fake-port injection seam.
 
 - [ ] **Step 1: Write the e2e** — the full journey for an authed member with `tools:fileConverter`: `POST /conversions/upload` → PUT the bytes to the returned `uploadUrl` (or write directly to the source key via the test R2) → `POST /conversions {jobId, sourceKey, from:"png", to:"webp"}` returns 202 → drain the `CONVERSION` queue through `conversionQueue(batch, env, fakePort)` (the fake returns `converted(webpBytes, "image/webp")`) → `GET /conversions/{jobId}` returns `{status:"done", url, mediaType:"image/webp"}` → GET the url → bytes match. Plus: **isolation** — a second firm's session `GET`ing the first firm's jobId gets `{status:"failed", reason:"unknown job"}` (the DO is firm-keyed) and never the result; **failure** — a fake port returning `engineNotImplemented()` ends the job `failed` with `reason:"engine-not-implemented"`.
@@ -456,6 +476,7 @@ git commit -m "test(conversions): end-to-end transient convert via a fake engine
 ### Task 8: Conformance + docs
 
 **Files:**
+
 - Modify: the committed OpenAPI snapshot (regenerate) + the API client (regenerate) — run the repo's snapshot/client build (read `docs/conventions/api.md` for the exact `vp run` targets) and commit the regenerated artifacts.
 - Create: `changelog.d/slice-2-4b-server-conversion.md` (category `Added`).
 - Modify: `apps/worker/CLAUDE.md` (or the conversions area note) — a short note on the deploy-time activation (the real libvips Container image + the `containers` binding + the R2 `conversions/` lifecycle rule).
@@ -482,4 +503,7 @@ git commit -m "docs(conversions): conformance, OpenAPI snapshot, changelog, depl
 - **Spec coverage:** orchestrator flow (T1–T5), Container + seam (T3), uniform-async job (T2/T4), routes incl. transient presign + presigned-GET download (T5, refined from the design's HMAC-token to the bundle-status presigned-GET precedent — same security, less code), wiring (T6), e2e + isolation + failure (T7), conformance/docs (T8). The deferrals match the design's Deferred section.
 - **Type consistency:** `ConversionJobState`/`ConversionMessage`/`ConversionCoordinator` defined in T1 and reused verbatim in T2/T4/T5; `resolveEnginePort`/the injectable `resolvePort` consistent across T3/T4/T7.
 - **Refinement to flag at review:** the design doc specified an HMAC download token; this plan uses the **`bundle-status` presigned-GET** instead (the real precedent) — update the design doc's download paragraph to match, or note the deviation.
+
+```
+
 ```

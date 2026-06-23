@@ -141,6 +141,13 @@
       "when": 1782241880229,
       "tag": "0019_seed-scan-file-permission",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1782300000001,
+      "tag": "0020_seed-tools-metadata-scrubber",
+      "breakpoints": true
     }
   ]
 }
