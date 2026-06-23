@@ -111,17 +111,25 @@ function gibibytes(bytes) {
 }
 
 function dockerPrune() {
-  let output = "";
-  try {
-    output += execFileSync("docker", ["builder", "prune", "-f"]).toString();
-    output += execFileSync("docker", ["image", "prune", "-f"]).toString();
-  } catch (error) {
-    return error.code === "ENOENT"
-      ? "  docker not installed — skipped"
-      : "  docker unavailable — skipped";
+  const lines = [];
+  for (const args of [
+    ["builder", "prune", "-f"],
+    ["image", "prune", "-f"],
+  ]) {
+    try {
+      const output = execFileSync("docker", args).toString();
+      const match = output.match(/Total reclaimed space: .*/);
+      lines.push(match ? `  ${match[0]}` : "  nothing to reclaim");
+    } catch (error) {
+      lines.push(
+        error.code === "ENOENT"
+          ? "  docker not installed — skipped"
+          : "  docker unavailable — skipped",
+      );
+      break;
+    }
   }
-  const totals = output.match(/Total reclaimed space: .*/g) || [];
-  return totals.length > 0 ? totals.map((line) => `  ${line}`).join("\n") : "  nothing to reclaim";
+  return lines.join("\n");
 }
 
 const currentPath = normalizePath(git(["rev-parse", "--show-toplevel"]).trim());
