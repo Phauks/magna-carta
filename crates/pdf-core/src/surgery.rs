@@ -152,7 +152,7 @@ fn number_value(obj: &Object) -> Option<f32> {
 ///
 /// The walk is bounded to 64 iterations so a cyclic `/Parent` chain in malformed
 /// input cannot loop forever.
-fn resolve_inherited_resources(
+pub(crate) fn resolve_inherited_resources(
     doc: &lopdf::Document,
     page_id: lopdf::ObjectId,
 ) -> Option<&lopdf::Dictionary> {
@@ -1147,7 +1147,10 @@ fn glyph_width_from_metrics(slot: &GlyphSlot, fonts: &BTreeMap<Vec<u8>, FontMetr
 ///
 /// The walk is bounded to 64 iterations: a cyclic `/Parent` chain in malformed
 /// or adversarial input would otherwise loop forever and lock the thread.
-fn resolve_mediabox(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> Option<[f32; 4]> {
+pub(crate) fn resolve_mediabox(
+    doc: &lopdf::Document,
+    page_id: lopdf::ObjectId,
+) -> Option<[f32; 4]> {
     let mut current_id = page_id;
     for _ in 0..64 {
         let dict = doc.get_dictionary(current_id).ok()?;
@@ -1178,7 +1181,7 @@ fn resolve_mediabox(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> Option<[
 ///
 /// The walk is bounded to 64 iterations: a cyclic `/Parent` chain in malformed
 /// or adversarial input would otherwise loop forever and lock the thread.
-fn resolve_rotate(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> i64 {
+pub(crate) fn resolve_rotate(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> i64 {
     let mut current_id = page_id;
     for _ in 0..64 {
         let dict = match doc.get_dictionary(current_id).ok() {
