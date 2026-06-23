@@ -207,6 +207,7 @@ const result = await redactDocument(bytes, regions, { mode: "surgery" });
 **Surgery falls back to flatten for a page when:**
 
 - The page uses any standard-14 font (Helvetica, Times, Courier, and their variants) without embedded `/Widths` arrays — the advance widths required to locate individual glyphs are not available.
+- The page uses a Type3 font, or a Type0 (CID) font with a non-Identity encoding — these cannot be reliably walked to locate individual glyph positions.
 - The page dictionary carries a non-zero `/Rotate` entry.
 - The page's `/Resources` are inherited from a parent node rather than declared at the page level.
 - The content stream contains inline image operators (`BI`/`ID`/`EI`).
