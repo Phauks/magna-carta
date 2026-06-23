@@ -4,17 +4,12 @@ import { createApp, type Bindings } from "./app.ts";
 import { bundleBuildQueue } from "./downloads/bundle-consumer.ts";
 import type { BundleBuildMessage } from "./downloads/bundle-types.ts";
 import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
-import { pokeScanContainer } from "./files/scan-warm.ts";
 import { inferenceQueue, type InferenceJob } from "./inference/inference-consumer.ts";
 import { runScheduledSweep, runStorageReconciliation } from "./scheduled.ts";
 
 // The async bulk-download coordinator Durable Object must be exported from the Worker's main entrypoint
 // so the runtime can instantiate the class named in wrangler.jsonc's durable_objects binding.
 export { BundleBuildCoordinator } from "./downloads/bundle-coordinator.ts";
-
-// The malware-scan Container class (a DO-backed Container). Exported so the runtime can instantiate it
-// once the deploy-time wrangler `containers`/DO binding names it; an unused export is otherwise inert.
-export { ScanContainer } from "./files/scan-container.ts";
 
 // The bundle-build queue's name (wrangler.jsonc queues.consumers) — the queue() handler routes its
 // batches to the bundle consumer, every other queue to the files-ingest consumer.
@@ -29,11 +24,6 @@ const app = createApp();
 // sweep — a full R2 LIST per firm is too heavy to run every five minutes.
 const RECONCILIATION_CRON = "0 3 * * *";
 
-// The scan-container warm-poke: every 20 minutes (inside the container's 30-minute sleepAfter) a /ready
-// fetch keeps one instance — and clamd's resident signature DB — alive. Dormant until the scan engine
-// is wired (pokeScanContainer no-ops when the container is unbound).
-const SCAN_WARM_CRON = "*/20 * * * *";
-
 // fetch + scheduled + queue: the Hono app serves requests; the Cron triggers run the outbox relay
 // sweeps + idempotency TTL purge + stale-pending upload sweep every 5 minutes, the storage
 // reconciliation once daily, and the weekly re-scan sweep on Sundays at 04:00 UTC; the queue
@@ -46,9 +36,7 @@ export default {
     const pass =
       controller.cron === RECONCILIATION_CRON
         ? { operation: "cron:storage-reconciliation", run: () => runStorageReconciliation(env) }
-        : controller.cron === SCAN_WARM_CRON
-          ? { operation: "cron:scan-warm", run: () => pokeScanContainer(env) }
-          : { operation: "cron:scheduled-sweep", run: () => runScheduledSweep(env) };
+        : { operation: "cron:scheduled-sweep", run: () => runScheduledSweep(env) };
     executionContext.waitUntil(
       pass.run().catch((caught: unknown) => {
         logOperationFailed(createWorkersLogger(env.TELEMETRY), pass.operation, caught);

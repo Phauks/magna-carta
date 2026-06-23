@@ -71,10 +71,6 @@ export type Bindings = {
   // verdict. Optional here so the pool can start without a running scan service; resolveScanPort
   // falls back to the no-engine adapter when absent or when the bound service returns unscanned.
   SCAN_SERVICE?: Fetcher;
-  // The malware-scan Container (slice 2·1 Plan 2). Optional: absent in every test environment (the
-  // container cannot run under the local pool) and until the deploy-time wrangler activation, where
-  // resolveScanPort falls back to the engine-less adapter. Present in production once wired.
-  SCAN_CONTAINER?: DurableObjectNamespace<import("./files/scan-container.ts").ScanContainer>;
   // The off-hot-path AI inference dispatch queue: an inference request is enqueued here and the consumer
   // (src/inference/inference-consumer.ts) runs env.AI.run, so a single firm cannot starve the shared
   // gateway cap synchronously on the request path. Distinct from QUEUE (jobs) and FILES_INGEST.

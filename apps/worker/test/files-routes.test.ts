@@ -941,7 +941,7 @@ describe("POST /api/v1/scan/diagnose", () => {
     });
     expect(res.status).toBe(200);
     const body = await res.json<{ verdict: string; engineVersion: string | null }>();
-    // The engine-less adapter runs in tests (no SCAN_CONTAINER) — an honest `unscanned`, never a false clean.
+    // The stub scan service bound via SCAN_SERVICE returns the no-engine verdict — an honest `unscanned`, never a false clean.
     expect(body.verdict).toBe("unscanned");
     const audit = await env.DB_FIRM_POOL_1.prepare(
       "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'file.scan_diagnosed'",
