@@ -5,13 +5,15 @@ import { forwardConvert } from "./forward-convert.ts";
 // engine Container Durable Object. Reached only via a service binding from the app worker — no public
 // routes, so the service binding is the trust boundary.
 export type Bindings = {
-  // The native-libvips conversion engine Container (Container-backed Durable Object). Named in
+  // The pure-Rust raster engine Container (Container-backed Durable Object). Named in
   // wrangler.jsonc's durable_objects.bindings + migrations; the class is re-exported below so the
   // runtime can instantiate it.
-  LIBVIPS_CONTAINER: DurableObjectNamespace<import("./libvips-container.ts").LibvipsContainer>;
+  RASTER_ENGINE: DurableObjectNamespace<
+    import("./raster-engine-container.ts").RasterEngineContainer
+  >;
 };
 
-export { LibvipsContainer } from "./libvips-container.ts";
+export { RasterEngineContainer } from "./raster-engine-container.ts";
 
 // No warm cron: the engine Container scales to zero after its sleepAfter, so it bills only while a
 // conversion is actually running. Conversions are bursty/on-demand, so the cold-start on the first
@@ -24,9 +26,9 @@ export default {
   async fetch(request: Request, env: Bindings): Promise<Response> {
     const url = new URL(request.url);
     if (request.method === "POST" && url.pathname === "/convert") {
-      // Only libvips is wired today; engineId-based routing to additional engine Containers
+      // Only the raster engine is wired today; engineId-based routing to additional engine Containers
       // (LibreOffice, FFmpeg) is added when those edges land.
-      return forwardConvert(request, getContainer(env.LIBVIPS_CONTAINER, "libvips"));
+      return forwardConvert(request, getContainer(env.RASTER_ENGINE, "raster"));
     }
     return new Response("Not Found", { status: 404 });
   },
