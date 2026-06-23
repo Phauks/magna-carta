@@ -1,7 +1,13 @@
 import { DurableObject } from "cloudflare:workers";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import { setFileEditStateStatement } from "@magna-carta/file-manager/file-statements";
-import type { FileId } from "@magna-carta/identifiers/types";
+import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
+import { commitEditedVersion } from "@magna-carta/file-manager/file-service";
+import {
+  currentObjectKey,
+  setFileEditStateStatement,
+} from "@magna-carta/file-manager/file-statements";
+import type { FileId, UserId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../app.ts";
 import { resolveFirmDatabase } from "../firm-binding-resolver.ts";
 import { shouldCutVersion } from "./version-cut-trigger.ts";
@@ -162,27 +168,50 @@ export class DocumentSession extends DurableObject<Bindings> {
   }
 
   // The idle-reap alarm: the window elapsed with no activity re-arming it, so the co-editing session is
-  // dead. Free the document (file.edit_state -> idle in the firm database) and clear the live session
-  // state. A no-op when the session already closed cleanly (no participants). Cutting a session-close
-  // version from `current` on reap is wired with the live editing container (it needs the
-  // container-written working copy); until then the reap frees the document so it is never stuck.
+  // dead. Before freeing the document, cut an immutable version from the live `current` working object
+  // so a dead session never loses unsaved edits — the same version-cut a clean session-close would do.
+  // The cut is a no-op until a working copy exists (`current` null, the pre-container reality) and a
+  // no-op when nothing changed since the last version (commitEditedVersion's SHA-256 skip). Then free
+  // the document (file.edit_state -> idle) and clear the live session state. A no-op overall when the
+  // session already closed cleanly (no participants).
   override async alarm(): Promise<void> {
     const state = await this.load();
     if (Object.keys(state.participants).length === 0) return;
     if (state.fileId !== null && state.bucketName !== null) {
       const database = await this.resolveFirmDatabase(state.bucketName);
       if (database !== null) {
+        const fileId = state.fileId as FileId;
         const now = () => new Date().toISOString();
-        await commitEffectBatch(
-          database,
-          {
-            statements: [
-              setFileEditStateStatement(database, state.fileId as FileId, "idle", now()),
-            ],
-            outboxMessages: [],
-          },
-          { now },
-        );
+        const statements: SqlStatement[] = [];
+        const outboxMessages: OutboxMessage[] = [];
+
+        // Preserve the working copy as a version if a session participant produced one. The author is a
+        // session participant (the precise last writer is not tracked; any participant is a faithful
+        // attribution for an auto-cut). commitEditedVersion copies `current` server-side into the new
+        // version's key and skips when the bytes match the latest committed version.
+        const author = Object.keys(state.participants)[0] as UserId | undefined;
+        if (state.current !== null && author !== undefined) {
+          const committed = await commitEditedVersion(
+            database,
+            {
+              fileId,
+              currentR2Key: currentObjectKey(fileId),
+              contentSha256: state.current.sha256,
+              sizeBytes: state.current.sizeBytes,
+              uploadedBy: author,
+            },
+            { clock: { now }, actorUserId: author },
+            async (fromKey, toKey) => {
+              const object = await this.env.R2.get(fromKey);
+              if (object !== null) await this.env.R2.put(toKey, object.body);
+            },
+          );
+          statements.push(...committed.effect.statements);
+          outboxMessages.push(...committed.effect.outboxMessages);
+        }
+
+        statements.push(setFileEditStateStatement(database, fileId, "idle", now()));
+        await commitEffectBatch(database, { statements, outboxMessages }, { now });
       }
     }
     await this.save(EMPTY_STATE);

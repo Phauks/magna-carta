@@ -37,16 +37,18 @@ export interface TieringOptions {
   readonly perFirmCap?: number;
   // The object-class move, injected so tests can drive the orchestration without R2 storage-class
   // fidelity. The default rewrites the object in place with the IA class.
-  readonly tierObject?: (bucketName: string, key: string) => Promise<void>;
+  readonly tierObject?: (key: string) => Promise<void>;
 }
 
 // The default class move: rewrite the object in place under the IA storage class, preserving its
 // metadata. The R2 Workers binding has no server-side copy, so this restreams the bytes; the zero-copy
 // production path is the S3-compatible CopyObject with x-amz-storage-class, slotted in through this seam
-// when a server-side copy client is wired. PER-FIRM BUCKET SEAM: reads the single bound env.R2 (the dev
-// pool shares one bucket); a firm's own bucket binds here in production, the same seam ingest documents.
-function defaultTierObject(env: Bindings): (bucketName: string, key: string) => Promise<void> {
-  return async (_bucketName, key) => {
+// when a server-side copy client is wired. Bucket: all firms share the single bound env.R2 today (the
+// same model as ingest). When per-firm buckets land, the firm's bucket binding is resolved at the call
+// site (mirroring the firm-DB resolver) and closed over here — the firm row's bucketName already gates
+// which firms have objects to tier.
+function defaultTierObject(env: Bindings): (key: string) => Promise<void> {
+  return async (key) => {
     const object = await env.R2.get(key);
     if (object === null) return; // already gone — nothing to move; the guarded DB flip no-ops too
     await env.R2.put(key, object.body, {
@@ -86,7 +88,7 @@ export async function runTieringSweep(
         // no-ops (the row is already IA) skips the meter, so the meter can never double-count a single
         // move. If the worker dies between the flip and the meter, the daily storage-metering
         // reconciliation corrects the (rare) drift.
-        await tierObject(firm.bucketName, version.r2Key);
+        await tierObject(version.r2Key);
         const flip = (await setVersionStorageClassStatement(
           firm.database,
           version.id,

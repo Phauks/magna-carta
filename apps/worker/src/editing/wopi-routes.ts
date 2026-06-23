@@ -4,12 +4,8 @@
 // is the write gate: UserCanWrite is only a UI hint, so it mirrors the token's capability and the
 // mutating handlers (PutFile, Lock) enforce `edit` server-side separately.
 
-import {
-  currentObjectKey,
-  fileVersionKey,
-  selectFileStatement,
-} from "@magna-carta/file-manager/file-statements";
-import { getCurrentCleanVersion } from "@magna-carta/file-manager/queries";
+import { currentObjectKey, fileVersionKey } from "@magna-carta/file-manager/file-statements";
+import { getFileWithCurrentCleanVersion } from "@magna-carta/file-manager/queries";
 import type { FileId, FileVersionId } from "@magna-carta/identifiers/types";
 import { operationFailed } from "@magna-carta/telemetry/events";
 import { newCorrelationId, newErrorId } from "@magna-carta/telemetry/ids";
@@ -66,14 +62,11 @@ export async function checkFileInfo(
   deps: WopiFileDeps,
 ): Promise<CheckFileInfoBody> {
   const fileId = claims.fileId as FileId;
-  const { results } = await selectFileStatement(deps.database, fileId).all<{
-    name: string;
-    deleted_at: string | null;
-  }>();
-  const fileRow = results[0];
-  if (fileRow === undefined || fileRow.deleted_at !== null) throw new WopiRouteError("not-found");
+  // One round-trip: the file row + its current clean version (this runs on every WOPI callback).
+  const file = await getFileWithCurrentCleanVersion(deps.database, fileId);
+  if (file === undefined || file.deletedAt !== null) throw new WopiRouteError("not-found");
 
-  const cleanVersion = await getCurrentCleanVersion(deps.database, fileId);
+  const cleanVersion = file.currentVersion;
   // The live working copy's size supersedes the committed version's once a session has saved.
   const size = deps.currentMeta?.sizeBytes ?? cleanVersion?.sizeBytes ?? 0;
   // Version must change whenever the bytes change: the host-assigned timestamp during a live session,
@@ -81,7 +74,7 @@ export async function checkFileInfo(
   const version = deps.currentMeta?.wopiTimestamp ?? cleanVersion?.id ?? "0";
 
   return {
-    BaseFileName: fileRow.name,
+    BaseFileName: file.name,
     Size: size,
     Version: version,
     // Distinct from UserId so the editor never treats the current user as the file's owner.

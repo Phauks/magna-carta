@@ -52,6 +52,21 @@ async function seedCoeditingFile(): Promise<string> {
   return fileId;
 }
 
+// A co-editing file that already has one committed clean version (the base the reap cut advances past).
+async function seedCoeditingFileWithVersion(): Promise<{ fileId: string; versionId: string }> {
+  const fileId = await seedCoeditingFile();
+  const versionId = newIdentifier("fileVersion");
+  await env.DB_FIRM_POOL_1.prepare(
+    "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, content_sha256, status, uploaded_by, created_at, committed_at) VALUES (?1, ?2, 1, ?3, 10, 'v1-hash', 'clean', ?4, ?5, ?5)",
+  )
+    .bind(versionId, fileId, `files/${fileId}/${versionId}`, MEMBER, ISO)
+    .run();
+  await env.DB_FIRM_POOL_1.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+    .bind(fileId, versionId)
+    .run();
+  return { fileId, versionId };
+}
+
 async function editStateOf(fileId: string): Promise<string | undefined> {
   const row = await env.DB_FIRM_POOL_1.prepare("SELECT edit_state FROM file WHERE id = ?1")
     .bind(fileId)
@@ -78,6 +93,65 @@ describe("DocumentSession idle reap", () => {
     });
 
     // The document is freed in the firm database, so a fresh edit launch is unobstructed.
+    expect(await editStateOf(fileId)).toBe("idle");
+  });
+
+  it("cuts a version from the live `current` working copy before freeing on reap", async () => {
+    const { fileId, versionId: v1 } = await seedCoeditingFileWithVersion();
+    // The container would have written `current` via PutFile; seed it + its recorded session meta.
+    await env.R2.put(`files/${fileId}/current`, "reaped working copy bytes");
+    const stub = sessionStub(fileId);
+
+    await runInDurableObject(stub, async (instance: DocumentSession) => {
+      await instance.joinEditor(MEMBER, { fileId, bucketName: BUCKET });
+      await instance.setCurrentMeta({ sha256: "reaped-hash", sizeBytes: 24, wopiTimestamp: ISO });
+      // The idle window elapsed with unsaved working-copy changes still live — the reap preserves them.
+      await instance.alarm();
+      expect((await instance.getState()).participants).toEqual({});
+    });
+
+    // A new immutable version was cut from `current`, and the file's current pointer advanced to it.
+    const versions = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT id, version_number, content_sha256, status FROM file_version WHERE file_id = ?1 ORDER BY version_number",
+    )
+      .bind(fileId)
+      .all<{ id: string; version_number: number; content_sha256: string; status: string }>();
+    expect(versions.results.length).toBe(2);
+    const cut = versions.results[1];
+    if (cut === undefined) throw new Error("expected a second (reap-cut) version");
+    expect(cut.content_sha256).toBe("reaped-hash");
+    expect(cut.status).toBe("clean");
+    expect(cut.id).not.toBe(v1);
+    const current = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT current_version_id FROM file WHERE id = ?1",
+    )
+      .bind(fileId)
+      .first<{ current_version_id: string }>();
+    expect(current?.current_version_id).toBe(cut.id);
+    expect(await editStateOf(fileId)).toBe("idle");
+    // The new version's bytes are the working copy, copied server-side from `current`.
+    const stored = await env.R2.get(`files/${fileId}/${cut.id}`);
+    expect(await stored?.text()).toBe("reaped working copy bytes");
+  });
+
+  it("reap with no working-copy changes since the last version cuts nothing (SHA-skip)", async () => {
+    const { fileId } = await seedCoeditingFileWithVersion();
+    await env.R2.put(`files/${fileId}/current`, "unchanged");
+    const stub = sessionStub(fileId);
+
+    await runInDurableObject(stub, async (instance: DocumentSession) => {
+      await instance.joinEditor(MEMBER, { fileId, bucketName: BUCKET });
+      // `current` matches the committed version's hash — nothing to cut.
+      await instance.setCurrentMeta({ sha256: "v1-hash", sizeBytes: 10, wopiTimestamp: ISO });
+      await instance.alarm();
+    });
+
+    const count = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT COUNT(*) AS n FROM file_version WHERE file_id = ?1",
+    )
+      .bind(fileId)
+      .first<{ n: number }>();
+    expect(count?.n).toBe(1); // still just the base version
     expect(await editStateOf(fileId)).toBe("idle");
   });
 

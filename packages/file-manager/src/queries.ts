@@ -130,6 +130,55 @@ export interface CleanVersion {
   readonly versionNumber: number;
 }
 
+export interface FileWithCurrentCleanVersion {
+  readonly name: string;
+  readonly matterId: MatterId;
+  readonly deletedAt: string | null;
+  // The current clean version, or null when the file has none (no committed version yet, or current
+  // points at a non-clean version). Distinct from `undefined` (the whole file row absent).
+  readonly currentVersion: CleanVersion | null;
+}
+
+// File metadata + its current clean version in ONE round-trip, for the latency-sensitive hot paths
+// (WOPI CheckFileInfo on every callback, the edit/view launch). A LEFT JOIN gated on status='clean'
+// keeps the file row available so callers still distinguish absent (undefined) vs deleted (deletedAt
+// set) vs no-clean-version (currentVersion null) — without a second read of the file row.
+export async function getFileWithCurrentCleanVersion(
+  database: SqlDatabase,
+  fileId: FileId,
+): Promise<FileWithCurrentCleanVersion | undefined> {
+  const { results } = await database
+    .prepare(
+      `SELECT f.name, f.matter_id, f.deleted_at, v.id AS version_id, v.r2_key, v.size_bytes, v.version_number FROM ${FILE_TABLE} f LEFT JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id AND v.status = 'clean' WHERE f.id = ?1`,
+    )
+    .bind(fileId)
+    .all<{
+      name: string;
+      matter_id: MatterId;
+      deleted_at: string | null;
+      version_id: FileVersionId | null;
+      r2_key: string | null;
+      size_bytes: number | null;
+      version_number: number | null;
+    }>();
+  const row = results[0];
+  if (row === undefined) return undefined;
+  return {
+    name: row.name,
+    matterId: row.matter_id,
+    deletedAt: row.deleted_at,
+    currentVersion:
+      row.version_id === null
+        ? null
+        : {
+            id: row.version_id,
+            r2Key: row.r2_key as string,
+            sizeBytes: row.size_bytes,
+            versionNumber: row.version_number as number,
+          },
+  };
+}
+
 export async function getCurrentCleanVersion(
   database: SqlDatabase,
   fileId: FileId,

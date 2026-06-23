@@ -2,11 +2,8 @@ import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { getActiveExclusiveLock } from "@magna-carta/file-manager/checkout-statements";
-import {
-  selectFileStatement,
-  setFileEditStateStatement,
-} from "@magna-carta/file-manager/file-statements";
-import { getCurrentCleanVersion } from "@magna-carta/file-manager/queries";
+import { setFileEditStateStatement } from "@magna-carta/file-manager/file-statements";
+import { getFileWithCurrentCleanVersion } from "@magna-carta/file-manager/queries";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FileId, FileVersionId, MatterId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
@@ -61,15 +58,11 @@ async function resolveLaunchTarget(
   database: D1Database,
   fileId: FileId,
 ): Promise<LaunchTarget | "not-found" | "no-version"> {
-  const { results } = await selectFileStatement(database, fileId).all<{
-    matter_id: MatterId;
-    deleted_at: string | null;
-  }>();
-  const fileRow = results[0];
-  if (fileRow === undefined || fileRow.deleted_at !== null) return "not-found";
-  const cleanVersion = await getCurrentCleanVersion(database, fileId);
-  if (cleanVersion === undefined) return "no-version";
-  return { matterId: fileRow.matter_id, versionId: cleanVersion.id };
+  // One round-trip: the file row + its current clean version (this is a user-facing launch path).
+  const file = await getFileWithCurrentCleanVersion(database, fileId);
+  if (file === undefined || file.deletedAt !== null) return "not-found";
+  if (file.currentVersion === null) return "no-version";
+  return { matterId: file.matterId, versionId: file.currentVersion.id };
 }
 
 function launchProblem(c: Context, reason: "not-found" | "no-version"): ProblemResponse<404> {

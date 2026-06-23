@@ -508,7 +508,9 @@ export function registerDocumentCheckoutRoutes(
       }
 
       // Mark every conflicting copy reconciled (clears the flag) and release each one's reconciling
-      // checkout — leaving none orphaned.
+      // checkout — leaving none orphaned. The copies are RETAINED (never deleted) and keep their metered
+      // bytes by design: a conflicting copy is legal-hold-safe, so its storage counts as real storage.
+      // Resolution does not decrement the meter; the daily storage reconciliation is the source of truth.
       for (const conflict of conflicts) {
         statements.push(markVersionReconciledStatement(firm.firmDatabase, conflict.id));
         if (conflict.checkoutId !== null) {
