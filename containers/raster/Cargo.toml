@@ -29,6 +29,3 @@ krilla = { version = "0.8.2", default-features = false, features = ["raster-imag
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
-# Used only in tests to verify the PDF page count when krilla's object-stream
-# serialization makes a literal "/Type /Page" grep unreliable.
-lopdf = "0.34"
