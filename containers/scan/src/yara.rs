@@ -11,12 +11,54 @@ pub const ENGINE_CODE_VERSION: u32 = 1;
 /// directly; the compiled-in library version is represented by `ENGINE_CODE_VERSION`.
 pub const ENGINE_VERSION: &str = yara_x::VERSION;
 
-/// Returns the rulesets version for the loaded rule set — the number of compiled rules currently active.
-/// Zero means no rules are loaded (the image ships with an empty corpus today; this component becomes
-/// non-zero when rule-directory loading lands). Any rule content change changes this count, driving
-/// re-scans via the staleness gate.
+/// The number of compiled rules currently active — a diagnostic, logged at startup. The composite
+/// engine-version's `yara-rules` component is the baked YARA Forge release tag, not this count (a count
+/// can collide across releases; the tag changes exactly when Forge publishes). Zero means no rules are
+/// loaded (the dev/test build, and any image built before rules land, run on clamd + the structural
+/// heuristics alone).
 pub fn rulesets_version(rules: &Rules) -> u32 {
     rules.iter().count() as u32
+}
+
+/// The outcome of a tolerant compile over a (large, externally-sourced) rule corpus: the rules that
+/// compiled, plus how many errors and warnings the compiler reported. Used by `build-yara-rules` to skip
+/// and log any rule a future YARA Forge release introduces that yara-x cannot compile, instead of failing
+/// the whole image build over it. The caller gate-checks the compiled count against the kept count so a
+/// systemic compile collapse (not a stray incompatible rule) still fails the build loud.
+pub struct CompileReport {
+    pub rules: Rules,
+    pub errors: usize,
+    pub warnings: usize,
+}
+
+/// Compiles a multi-rule source TOLERANTLY: a per-rule compile error is recorded (and counted) but does
+/// not abort the corpus — `build` returns every rule that did compile. This is the opposite policy from
+/// [`build_rules`] (which fails fast on a hand-curated bundled rule); the YARA Forge corpus is external
+/// and self-updating, so one incompatible rule must never break the build. The returned counts let the
+/// build bin log the skipped rules and enforce a floor on how many may fail.
+pub fn compile_tolerant(source: &str) -> CompileReport {
+    let mut compiler = Compiler::new();
+    let errors = match compiler.add_source(source) {
+        Ok(_) => 0,
+        // add_source records each rule error and continues over the rest of the corpus; the count is the
+        // number of rules the build will skip. build() below returns the rules that did compile.
+        Err(_) => compiler.errors().len(),
+    };
+    let warnings = compiler.warnings().len();
+    CompileReport {
+        rules: compiler.build(),
+        errors,
+        warnings,
+    }
+}
+
+/// Deserializes compiled rules baked into the image by `build-yara-rules`. The build stage filters,
+/// compiles, and serializes the YARA Forge corpus to a blob; the runtime restores it here — no startup
+/// recompile of the (~10k-rule) corpus. A deserialize failure is fatal to the caller (a corrupt or
+/// version-mismatched blob must fail loud, never silently fall back to an empty corpus that would let
+/// every file through the heuristic layer unscanned).
+pub fn deserialize_rules(bytes: &[u8]) -> Result<Rules, yara_x::errors::SerializationError> {
+    Rules::deserialize(bytes)
 }
 
 /// Compiles YARA rule sources into one immutable, shareable rule set. Called once at startup over the
@@ -34,31 +76,75 @@ pub fn build_rules(sources: &[&str]) -> Rules {
     compiler.build()
 }
 
-/// Scans a buffer against the compiled rules, returning the identifiers of every matching rule. A scan
-/// error (rare for an in-memory buffer) yields no matches — clamd and the structural heuristics still
-/// run, so a yara fault never alone decides a verdict.
-pub fn yara_scan(rules: &Rules, bytes: &[u8]) -> Vec<String> {
+/// A per-scan wall-clock bound on the YARA matcher. Bounds a slow-pattern rule on a large hostile input
+/// from pinning a blocking thread unboundedly (a denial-of-service vector once the corpus carries real,
+/// performance-imperfect rules). Generous for a legitimate full-size (2 GiB) scan — yara-x's atom
+/// prefilter keeps the common no-match case near-linear in input size — but caps the worst case. clamd
+/// enforces its own scan-time limit in parallel (entrypoint.sh `MaxScanTime`).
+const YARA_SCAN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
+
+/// A YARA scan that did not complete — a timeout or an internal scan error. It is NOT "no matches": the
+/// caller must treat it as a retryable engine fault (never a clean verdict), the same as an engine panic.
+#[derive(Debug)]
+pub struct YaraScanFault(pub String);
+
+/// Scans a buffer against the compiled rules, returning the identifiers of every matching rule — or
+/// `Err(YaraScanFault)` if the scan timed out or errored. The scan is wall-clock-bounded by
+/// `YARA_SCAN_TIMEOUT`. Crucially a fault is surfaced, NOT swallowed as an empty match set: with a
+/// loaded corpus a swallowed fault would silently drop the YARA detection layer for that file (a
+/// best-effort scan recorded as if it ran clean), so the caller re-scans instead — clamd and the
+/// structural heuristics still run independently, but the file is never committed clean on a yara fault.
+pub fn yara_scan(rules: &Rules, bytes: &[u8]) -> Result<Vec<String>, YaraScanFault> {
     let mut scanner = Scanner::new(rules);
+    scanner.set_timeout(YARA_SCAN_TIMEOUT);
     match scanner.scan(bytes) {
-        Ok(results) => results
+        Ok(results) => Ok(results
             .matching_rules()
             .map(|rule| rule.identifier().to_string())
-            .collect(),
-        Err(_) => Vec::new(),
+            .collect()),
+        Err(error) => Err(YaraScanFault(error.to_string())),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{build_rules, yara_scan};
+    use super::{build_rules, compile_tolerant, deserialize_rules, yara_scan};
 
     const TRIVIAL_RULE: &str = r#"rule t { strings: $a = "malicious" condition: $a }"#;
+
+    #[test]
+    fn tolerant_compile_skips_a_broken_rule_then_round_trips_through_serialization() {
+        // One good rule plus one referencing an undefined identifier (a compile error). The tolerant
+        // compile keeps the good rule and skips the broken one (counting it), and the serialized blob
+        // round-trips so the surviving rule still matches — the exact build→bake→boot→scan path the image
+        // relies on (build-yara-rules serializes; main.rs deserializes).
+        let source = "rule good { strings: $a = \"malicious\" condition: $a }\n\
+                      rule broken { condition: undefined_identifier }\n";
+        let report = compile_tolerant(source);
+        assert_eq!(
+            report.rules.iter().count(),
+            1,
+            "the broken rule must be skipped, the good one kept"
+        );
+        assert!(
+            report.errors >= 1,
+            "the skipped rule is counted as an error"
+        );
+
+        let blob = report.rules.serialize().expect("rules serialize");
+        let restored = deserialize_rules(&blob).expect("rules deserialize");
+        assert_eq!(
+            yara_scan(&restored, b"a malicious payload").expect("scan ok"),
+            vec!["good".to_string()],
+            "the surviving rule must still match after a serialize/deserialize round-trip"
+        );
+    }
 
     #[test]
     fn matches_a_rule_whose_string_is_present() {
         let rules = build_rules(&[TRIVIAL_RULE]);
         assert_eq!(
-            yara_scan(&rules, b"this is malicious content"),
+            yara_scan(&rules, b"this is malicious content").expect("scan ok"),
             vec!["t".to_string()]
         );
     }
@@ -66,6 +152,8 @@ mod tests {
     #[test]
     fn returns_no_matches_for_clean_content() {
         let rules = build_rules(&[TRIVIAL_RULE]);
-        assert!(yara_scan(&rules, b"this is perfectly fine").is_empty());
+        assert!(yara_scan(&rules, b"this is perfectly fine")
+            .expect("scan ok")
+            .is_empty());
     }
 }
