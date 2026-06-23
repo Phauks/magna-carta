@@ -79,7 +79,7 @@ Several worktrees run at once, so streams must stay aware of each other and keep
 
 ```
 vp install                                                              # deps (vp manages pnpm + Node version)
-vp run setup-hooks                                                     # one-time per clone: activate the tracked git hooks (auto-clean on merge to main)
+vp run setup-hooks                                                      # one-time per clone: activate the tracked git hooks (auto-clean on merge to main)
 vp dev                                                                  # web SPA dev server only (Vite HMR, no Worker)
 vp run worker-dev                                                       # full local app: builds the SPA, then runs wrangler dev (Miniflare: local D1/R2/Queues)
 vp run build-all                                                        # build all apps in dependency order
