@@ -227,7 +227,8 @@ describe("end-to-end", () => {
       // 1·3 directory:edit / directory:viewSensitiveIdentifiers grants (0009_directory) +
       // tools:firmUsage (0010_seed-tools-firm-usage.sql) + the slice 1·4 customFields:manage /
       // customFields:purge grants (0013_custom-fields.sql) + tools:whois / tools:safeBrowse
-      // (0016_seed-tools-web-domains.sql, seeded onto every default role). Sorted.
+      // (0016_seed-tools-web-domains.sql, seeded onto every default role) +
+      // tools:metadataScrubber (0018_seed-tools-metadata-scrubber.sql, seeded onto every default role). Sorted.
       permissions: [
         "customFields:manage",
         "customFields:purge",
@@ -252,6 +253,7 @@ describe("end-to-end", () => {
         "matters:reopen",
         "shipping:manage",
         "tools:firmUsage",
+        "tools:metadataScrubber",
         "tools:safeBrowse",
         "tools:whois",
       ],
@@ -392,6 +394,9 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       "shipping.tracking",
       "customFields.previewConvert",
       "safeBrowse.post",
+      // Pure-compute POSTs — inspect/scrub operate over the request body only; nothing is stored.
+      "metadata.inspect",
+      "metadata.scrub",
     ]);
 
     for (const { operation, label } of mutatingV1) {
