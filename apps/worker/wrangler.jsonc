@@ -94,6 +94,9 @@
       // content-addressed selection; the BundleBuildCoordinator DO is the single-flight producer.
       { "binding": "BUNDLE_BUILD", "queue": "magna-carta-production-bundle-build" },
       { "binding": "INFERENCE", "queue": "magna-carta-production-inference" },
+      // The server-conversion queue: the ConversionJob DO enqueues one message per job; the
+      // consumer runs the ConversionPort adapter to convert the source to the target format.
+      { "binding": "CONVERSION", "queue": "magna-carta-production-conversion" },
     ],
     // The files-ingest consumer (the queue() handler in src/index.ts over the ingest consumer): one
     // R2 object-create event per uploaded object → single-read gates + SHA-256 + scan port → commit
@@ -133,8 +136,21 @@
         "queue": "magna-carta-production-inference",
         "dead_letter_queue": "magna-carta-production-inference-deadletter",
       },
+      // The conversion consumer (the queue() handler routes this queue to the conversion consumer):
+      // one ConversionJob DO message per job → ConversionPort adapter → R2 result. Low concurrency
+      // (conversion is CPU/memory-bound in the engine Container); dead-letters to its own queue
+      // after max retries so a wedged conversion never blocks the lane.
+      {
+        "queue": "magna-carta-production-conversion",
+        "max_concurrency": 2,
+        "dead_letter_queue": "magna-carta-production-conversion-deadletter",
+      },
     ],
   },
+  // The malware-scan Worker service binding. The app worker dispatches uploaded files to the
+  // scan worker for verdict. Absent in tests unless a stub resolves it (see vitest.config.ts);
+  // resolveScanPort falls back to the no-engine adapter when the service returns the unscanned verdict.
+  "services": [{ "binding": "SCAN_SERVICE", "service": "magna-carta-scan" }],
   // Browser Rendering Workers binding — used by POST /api/v1/safe-browse to render suspect URLs
   // in Cloudflare's isolated remote browser. Requires compatibility_date >= 2026-03-24 for
   // quickAction(); the current compatibility_date (2026-06-05) already satisfies that requirement.
@@ -143,10 +159,20 @@
   // firmId:manifestHash, it single-flights one ZIP build per content-addressed file selection. The
   // class is exported from src/index.ts (a binding to a class with no export fails the deploy).
   "durable_objects": {
-    "bindings": [{ "name": "BUNDLE_COORDINATOR", "class_name": "BundleBuildCoordinator" }],
+    "bindings": [
+      { "name": "BUNDLE_COORDINATOR", "class_name": "BundleBuildCoordinator" },
+      // The conversion-job coordinator: keyed firmId:jobId, single-flights one conversion per job.
+      { "name": "CONVERSION_JOB", "class_name": "ConversionJob" },
+    ],
   },
   // SQLite-backed DO classes are introduced through a migration tag; this is the first one.
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["BundleBuildCoordinator"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["BundleBuildCoordinator", "ConversionJob"] },
+  ],
+  // The dedicated conversion engine worker: the app worker reaches it over this service binding to
+  // call its POST /convert endpoint. Optional at deploy time — absent until the worker is deployed
+  // and wired; resolveEnginePort returns the deferred port while unbound.
+  "services": [{ "binding": "CONVERT", "service": "magna-carta-convert" }],
   // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines
   // the telemetry Workers logger emits land here). Logpush → R2 is a deploy-time runbook step
   // (docs/conventions/operations.md), not code — it is account configuration (slice 0·6, ADR-0074).
@@ -168,9 +194,8 @@
   // 03:00 UTC pass runs the storage-metering reconciliation (a full R2 LIST per firm — too heavy for
   // every five minutes); the weekly 04:00 UTC Sunday pass re-enqueues committed versions still
   // marked scan_verdict = 'unscanned' onto FILES_INGEST so a now-available scan engine can evaluate
-  // them in place; the */20 pass pokes the scan Container's /ready to keep one instance warm (dormant
-  // until the engine is wired). src/index.ts routes each Cron expression to its handler.
+  // them in place. src/index.ts routes each Cron expression to its handler.
   "triggers": {
-    "crons": ["*/5 * * * *", "0 3 * * *", "0 4 * * 0", "*/20 * * * *"],
+    "crons": ["*/5 * * * *", "0 3 * * *"],
   },
 }

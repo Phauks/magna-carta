@@ -117,6 +117,17 @@ export const inspectableSizeCapDefinition: FirmSettingDefinition<number> = {
   defaultValue: 2 * GIBIBYTE,
 };
 
+// The signature-engine identity (engine + signature-database version) that scans run under, set by
+// the engine-rollout/deploy process. A re-scan is triggered on access only when a version's stored
+// scan_engine_version differs from this; the dedup cache is keyed on it so a database update is a
+// deliberate cache miss. Default null: when unset, the re-scan path must fall through to a real scan
+// and never fabricate a cache key from a missing version — correctness over the dedup skip.
+export const scanEngineVersionDefinition: FirmSettingDefinition<string | null> = {
+  key: "fileManager.scanEngineVersion",
+  schema: z.string().min(1).nullable(),
+  defaultValue: null,
+};
+
 // Constraints on archive expansion limits for the scan engine: max directory depth, max entries
 // per archive, max uncompressed total, and max expansion ratio (uncompressed / compressed).
 // These prevent zip bombs and pathological archives from consuming unbounded resources.
@@ -149,6 +160,10 @@ export function readUploadPolicy(database: SqlDatabase): Promise<UploadPolicy> {
 
 export function readInspectableSizeCap(database: SqlDatabase): Promise<number> {
   return readFirmSetting(database, inspectableSizeCapDefinition);
+}
+
+export function readScanEngineVersion(database: SqlDatabase): Promise<string | null> {
+  return readFirmSetting(database, scanEngineVersionDefinition);
 }
 
 export function readLiveMaxFileCount(database: SqlDatabase): Promise<number> {

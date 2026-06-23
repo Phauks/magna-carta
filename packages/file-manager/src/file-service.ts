@@ -1,5 +1,6 @@
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
   DocumentTypeId,
@@ -25,6 +26,7 @@ import {
   moveFileStatement,
   quarantineVersionStatement,
   renameFileStatement,
+  rescanVerdictStatement,
   selectCurrentVersionHashStatement,
   selectFileStatement,
   selectMaxVersionNumberStatement,
@@ -38,7 +40,11 @@ import {
 import { selectFolderStatement } from "./folder-statements.ts";
 import { meterCommitStatements } from "./metering-statements.ts";
 import { recordScanCacheStatement } from "./scan-cache.ts";
-import { checkUploadPolicy, readUploadPolicy } from "./upload-policy.ts";
+import {
+  checkUploadPolicy,
+  readUploadPolicy,
+  scanEngineVersionDefinition,
+} from "./upload-policy.ts";
 import { FileManagerValidationError } from "./validation.ts";
 
 export type FileServiceOptions = AuditContext;
@@ -351,6 +357,19 @@ export async function commitVersion(
                 signature: null,
                 scannedAt: input.now,
               }),
+              // Stamp the firm's "current scan engine version" from the engine that just produced a
+              // real clean verdict — guarded identically to the cache record above, so it advances
+              // only on a definitive scan. This makes the current engine version an observable,
+              // auditable fact: the access-triggered re-scan path compares a version's stored
+              // scan_engine_version against this to decide staleness, and the dedup cache is keyed
+              // on it. An `unscanned`/no-engine commit never sets it, so it is never fabricated
+              // without a real scan.
+              writeFirmSettingStatement(
+                database,
+                scanEngineVersionDefinition,
+                input.scanEngineVersion,
+                input.now,
+              ),
             ]
           : []),
       ],
@@ -360,6 +379,64 @@ export async function commitVersion(
           payload: { fileId: version.fileId, versionId: input.versionId },
         },
       ],
+    },
+  };
+}
+
+export interface RescanVerdictInput {
+  readonly fileId: FileId;
+  readonly versionId: FileVersionId;
+  readonly scanVerdict: "clean" | "infected";
+  readonly scanEngineVersion: string; // the engine that produced this verdict — never null on a re-scan
+  readonly scanDetail: string | null;
+  readonly signature: string | null; // malware signature name for 'infected'; null for 'clean'
+  readonly contentSha256: string;
+  readonly now: string;
+}
+
+// Applies an in-place re-scan verdict to an already-committed version: stamps scan_verdict /
+// scan_engine_version / scan_detail WITHOUT moving the current-version pointer or changing visibility
+// (an infected finding stays accessible behind the download gate — informed access, no data loss),
+// records the DEFINITIVE verdict in the per-firm dedup cache so identical content re-scanned under the
+// same engine reuses it, and writes one audit row. The caller passes only a real engine verdict; a scan
+// fault never reaches here, so a version's prior verdict is never downgraded without a real scan.
+export function recordRescanVerdict(
+  database: SqlDatabase,
+  input: RescanVerdictInput,
+  options: FileServiceOptions,
+): { effect: EffectWrite } {
+  return {
+    effect: {
+      statements: [
+        rescanVerdictStatement(database, {
+          versionId: input.versionId,
+          scanVerdict: input.scanVerdict,
+          scanEngineVersion: input.scanEngineVersion,
+          scanDetail: input.scanDetail,
+        }),
+        recordScanCacheStatement(database, {
+          contentSha256: input.contentSha256,
+          engineVersion: input.scanEngineVersion,
+          verdict: input.scanVerdict,
+          signature: input.signature,
+          scannedAt: input.now,
+        }),
+        fileAuditStatement(database, options, "file.version_rescanned", input.versionId),
+      ],
+      // Notify on a fresh infected finding so the file's users learn their already-visible file is now
+      // flagged (informed access — the file is not hidden). The re-scan idempotency key
+      // (rescan:<versionId>:<engineVersion>) guarantees this runs at most once per version per engine,
+      // so the event fires once per fresh finding, never per access. Delivery is the outbox relay's
+      // concern (the same seam file.quarantined uses); a clean re-scan emits nothing.
+      outboxMessages:
+        input.scanVerdict === "infected"
+          ? [
+              {
+                topic: "file.rescan_infected",
+                payload: { fileId: input.fileId, versionId: input.versionId },
+              },
+            ]
+          : [],
     },
   };
 }

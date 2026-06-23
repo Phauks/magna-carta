@@ -18,6 +18,8 @@ import inferenceTokenUsageSql from "@magna-carta/database/drizzle/per-firm/0014_
 import inlinePlayableSql from "@magna-carta/database/drizzle/per-firm/0015_odd_mesmero.sql";
 import scanCacheAndDetailSql from "@magna-carta/database/drizzle/per-firm/0016_warm_talkback.sql";
 import seedToolsWebDomainsSql from "@magna-carta/database/drizzle/per-firm/0017_seed-tools-web-domains.sql";
+import seedToolsFileConverterSql from "@magna-carta/database/drizzle/per-firm/0018_seed-tools-file-converter.sql";
+import seedScanFilePermissionSql from "@magna-carta/database/drizzle/per-firm/0019_seed-scan-file-permission.sql";
 import seedToolsMetadataScrubberSql from "@magna-carta/database/drizzle/per-firm/0020_seed-tools-metadata-scrubber.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the firm
@@ -46,6 +48,8 @@ export function perFirmMigrations(): Migration[] {
     "0015_odd_mesmero": inlinePlayableSql,
     "0016_warm_talkback": scanCacheAndDetailSql,
     "0017_seed-tools-web-domains": seedToolsWebDomainsSql,
+    "0018_seed-tools-file-converter": seedToolsFileConverterSql,
+    "0019_seed-scan-file-permission": seedScanFilePermissionSql,
     "0020_seed-tools-metadata-scrubber": seedToolsMetadataScrubberSql,
   });
 }

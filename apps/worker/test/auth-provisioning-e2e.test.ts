@@ -227,8 +227,9 @@ describe("end-to-end", () => {
       // 1·3 directory:edit / directory:viewSensitiveIdentifiers grants (0009_directory) +
       // tools:firmUsage (0010_seed-tools-firm-usage.sql) + the slice 1·4 customFields:manage /
       // customFields:purge grants (0013_custom-fields.sql) + tools:whois / tools:safeBrowse
-      // (0016_seed-tools-web-domains.sql, seeded onto every default role) +
-      // tools:metadataScrubber (0018_seed-tools-metadata-scrubber.sql, seeded onto every default role). Sorted.
+      // (0017_seed-tools-web-domains.sql, seeded onto every default role) + tools:fileConverter
+      // (0018_seed-tools-file-converter.sql) + firm:scanFile (0019_seed-scan-file-permission.sql) +
+      // tools:metadataScrubber (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role). Sorted.
       permissions: [
         "customFields:manage",
         "customFields:purge",
@@ -241,6 +242,7 @@ describe("end-to-end", () => {
         "firm:manageMembers",
         "firm:manageSecrets",
         "firm:reportIncident",
+        "firm:scanFile",
         "incidents:viewDescription",
         "locations:manage",
         "matters:close",
@@ -252,6 +254,7 @@ describe("end-to-end", () => {
         "matters:renumber",
         "matters:reopen",
         "shipping:manage",
+        "tools:fileConverter",
         "tools:firmUsage",
         "tools:metadataScrubber",
         "tools:safeBrowse",
@@ -393,6 +396,8 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       "shipping.rateShipment",
       "shipping.tracking",
       "customFields.previewConvert",
+      "conversions.upload",
+      "conversions.submit",
       "safeBrowse.post",
       // Pure-compute POSTs — inspect/scrub operate over the request body only; nothing is stored.
       "metadata.inspect",

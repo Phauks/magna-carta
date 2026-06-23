@@ -60,8 +60,10 @@ describe("GET /api/v1/me", () => {
       // (0008_elite_genesis) + the slice 1·3 directory:edit / directory:viewSensitiveIdentifiers
       // grants (0009_directory) + tools:firmUsage (0010_seed-tools-firm-usage.sql) + the slice 1·4
       // customFields:manage / customFields:purge grants (0013_custom-fields.sql) + tools:whois /
-      // tools:safeBrowse (0016_seed-tools-web-domains.sql, seeded onto every default role) +
-      // tools:metadataScrubber (0018_seed-tools-metadata-scrubber.sql, seeded onto every default role). Sorted.
+      // tools:safeBrowse (0017_seed-tools-web-domains.sql, seeded onto every default role) +
+      // tools:fileConverter (0018_seed-tools-file-converter.sql) + firm:scanFile
+      // (0019_seed-scan-file-permission.sql) + tools:metadataScrubber
+      // (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role). Sorted.
       permissions: [
         "customFields:manage",
         "customFields:purge",
@@ -74,6 +76,7 @@ describe("GET /api/v1/me", () => {
         "firm:manageMembers",
         "firm:manageSecrets",
         "firm:reportIncident",
+        "firm:scanFile",
         "incidents:viewDescription",
         "locations:manage",
         "matters:close",
@@ -85,6 +88,7 @@ describe("GET /api/v1/me", () => {
         "matters:renumber",
         "matters:reopen",
         "shipping:manage",
+        "tools:fileConverter",
         "tools:firmUsage",
         "tools:metadataScrubber",
         "tools:safeBrowse",

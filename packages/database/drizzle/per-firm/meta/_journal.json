@@ -129,6 +129,20 @@
       "breakpoints": true
     },
     {
+      "idx": 18,
+      "version": "6",
+      "when": 1782200100000,
+      "tag": "0018_seed-tools-file-converter",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1782241880229,
+      "tag": "0019_seed-scan-file-permission",
+      "breakpoints": true
+    },
+    {
       "idx": 20,
       "version": "6",
       "when": 1782300000001,
