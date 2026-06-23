@@ -1106,9 +1106,12 @@ fn glyph_width_from_metrics(slot: &GlyphSlot, fonts: &BTreeMap<Vec<u8>, FontMetr
 /// The PDF specification requires MediaBox to be inherited from ancestor nodes
 /// when absent from the page dictionary itself. This helper follows the
 /// `/Parent` reference chain until it finds the key or exhausts the tree.
+///
+/// The walk is bounded to 64 iterations: a cyclic `/Parent` chain in malformed
+/// or adversarial input would otherwise loop forever and lock the thread.
 fn resolve_mediabox(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> Option<[f32; 4]> {
     let mut current_id = page_id;
-    loop {
+    for _ in 0..64 {
         let dict = doc.get_dictionary(current_id).ok()?;
         if let Ok(Object::Array(arr)) = dict.get(b"MediaBox") {
             if arr.len() >= 4 {
@@ -1125,6 +1128,8 @@ fn resolve_mediabox(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> Option<[
             _ => return None,
         }
     }
+    // Depth limit reached without finding MediaBox — treat as unresolvable.
+    None
 }
 
 /// Resolve the `/Rotate` value for a page, walking up the parent chain for
@@ -1132,9 +1137,12 @@ fn resolve_mediabox(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> Option<[
 ///
 /// The PDF specification allows page rotation to be inherited from ancestor
 /// Pages nodes; this mirrors the inheritance walk used for MediaBox.
+///
+/// The walk is bounded to 64 iterations: a cyclic `/Parent` chain in malformed
+/// or adversarial input would otherwise loop forever and lock the thread.
 fn resolve_rotate(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> i64 {
     let mut current_id = page_id;
-    loop {
+    for _ in 0..64 {
         let dict = match doc.get_dictionary(current_id).ok() {
             Some(d) => d,
             None => return 0,
@@ -1153,6 +1161,8 @@ fn resolve_rotate(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> i64 {
             _ => return 0,
         }
     }
+    // Depth limit reached without finding Rotate — default to 0 (no rotation).
+    0
 }
 
 /// Attempt to surgically redact `rects` from the content stream of `page_id`.
@@ -1419,7 +1429,7 @@ mod tests {
         }
     }
 
-    // ── Task 2: glyph enumeration tests ──────────────────────────────────────
+    // ── Glyph enumeration tests ───────────────────────────────────────────────
 
     fn simple_fonts() -> BTreeMap<Vec<u8>, FontMetrics> {
         let mut map = BTreeMap::new();
@@ -1533,7 +1543,7 @@ mod tests {
         assert!((slots[0].cx - (100.0 + 2.5 * 2.0)).abs() < 1.0);
     }
 
-    // ── Task 3: marking, excision, and redaction boxes ────────────────────────
+    // ── Marking, excision, and redaction boxes ────────────────────────────────
 
     /// Accept `Object::Integer` or `Object::Real` and compare the numeric value to
     /// `expected` within a small epsilon. Used to verify TJ compensation values without
@@ -1547,7 +1557,7 @@ mod tests {
     }
 
     /// Build the standard content stream: BT /F0 10 Tf 0 0 Td (AB) Tj ET.
-    /// Used across several Task 3 tests.
+    /// Used across several marking and excision tests.
     fn ab_content() -> Content {
         Content {
             operations: vec![
@@ -1844,11 +1854,13 @@ mod tests {
     ///   half-advance in text space: (500/1000 * 10) / 2 = 2.5
     ///   Text matrix after BT+Td: translate(10, 20)
     ///   Tm * (2.5, 0) = (12.5, 20)
-    ///   CTM * (12.5, 20) = (2*12.5 + 5, 3*20 + 7) = (30.0, 67.0) → cx = 30.0
+    ///   CTM * (12.5, 20) = (2*12.5 + 5, 3*20 + 7) = (30.0, 67.0)
+    ///   cx = x-component only = 30.0  (the y-component 67.0 is discarded for cx)
     ///
     ///   vertical centre in text space: (0, font_size * 0.35) = (0, 3.5)
     ///   Tm * (0, 3.5) = (10, 23.5)
-    ///   CTM * (10, 23.5) = (2*10 + 5, 3*23.5 + 7) = (25.0, 77.5) → cy = 77.5
+    ///   CTM * (10, 23.5) = (2*10 + 5, 3*23.5 + 7) = (25.0, 77.5)
+    ///   cy = y-component only = 77.5  (the x-component 25.0 is discarded for cy)
     #[test]
     fn asymmetric_cm_matrix_computes_correct_cx_and_cy() {
         let ops = vec![
@@ -1881,38 +1893,41 @@ mod tests {
         );
     }
 
-    // ── Integration test: hello.pdf fixture ───────────────────────────────────
+    // ── Integration test: surgery_simple.pdf fixture ─────────────────────────
 
     /// Build surgery on a real PDF fixture and verify:
     ///   1. A rect covering the whole page returns Some and the edited stream
     ///      parses as valid lopdf content that differs from the original
     ///      (excision did something).
-    ///   2. A rect covering nothing (far corner) returns Some and the stream
-    ///      decodes without error (structure intact).
+    ///   2. A rect covering nothing (far corner) returns Some, the stream
+    ///      decodes without error (structure intact), and the original text
+    ///      bytes are still present (non-destruction is explicit).
+    ///
+    /// surgery_simple.pdf has MediaBox [0 0 200 50] and contains "Hello".
     #[test]
-    fn try_build_surgery_hello_pdf() {
-        let fixture =
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/hello.pdf");
-        let doc = lopdf::Document::load(&fixture).expect("hello.pdf must load");
+    fn try_build_surgery_simple_pdf() {
+        let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/surgery_simple.pdf");
+        let doc = lopdf::Document::load(&fixture).expect("surgery_simple.pdf must load");
 
         let page_id = *doc
             .get_pages()
             .values()
             .next()
-            .expect("hello.pdf must have at least one page");
+            .expect("surgery_simple.pdf must have at least one page");
 
-        // A rect that covers the entire page.
+        // A rect that covers the entire page (MediaBox is [0 0 200 50]).
         let full_page_rect = crate::Rect {
             x0: 0.0,
             y0: 0.0,
-            x1: 612.0,
-            y1: 792.0,
+            x1: 200.0,
+            y1: 50.0,
         };
 
         let surgery_result = try_build_surgery(&doc, page_id, &[full_page_rect]);
         assert!(
             surgery_result.is_some(),
-            "try_build_surgery must return Some for hello.pdf with a full-page rect"
+            "try_build_surgery must return Some for surgery_simple.pdf with a full-page rect"
         );
         let stream_bytes = surgery_result.unwrap();
 
@@ -1937,18 +1952,24 @@ mod tests {
         // A rect that is far from any text (near the top-right corner, one point square)
         // should return Some and not corrupt the stream structure.
         let empty_rect = crate::Rect {
-            x0: 611.0,
-            y0: 791.0,
-            x1: 612.0,
-            y1: 792.0,
+            x0: 199.0,
+            y0: 49.0,
+            x1: 200.0,
+            y1: 50.0,
         };
         let no_hit_result = try_build_surgery(&doc, page_id, &[empty_rect]);
         assert!(
             no_hit_result.is_some(),
-            "try_build_surgery must return Some for hello.pdf with a non-hitting rect"
+            "try_build_surgery must return Some for surgery_simple.pdf with a non-hitting rect"
         );
         let no_hit_bytes = no_hit_result.unwrap();
         let _no_hit_parsed = lopdf::content::Content::decode(&no_hit_bytes)
             .expect("no-hit surgery stream must decode as valid lopdf content");
+        // The original text bytes must still be present in the non-hitting stream —
+        // a no-hit rect must not destroy content.
+        assert!(
+            no_hit_bytes.windows(5).any(|w| w == b"Hello"),
+            "no-hit surgery must preserve the original text bytes"
+        );
     }
 }
