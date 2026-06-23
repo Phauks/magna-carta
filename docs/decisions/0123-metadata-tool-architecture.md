@@ -1,4 +1,5 @@
 ---
+number: 123
 slug: metadata-tool-architecture
 status: Accepted
 date: 2026-06-22

@@ -1,4 +1,5 @@
 ---
+number: 121
 slug: whois-rdap-first-with-port-43-fallback
 status: Accepted
 date: 2026-06-22

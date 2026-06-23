@@ -1,4 +1,5 @@
 ---
+number: 124
 slug: scan-yara-forge-rules
 status: Accepted
 date: 2026-06-23
