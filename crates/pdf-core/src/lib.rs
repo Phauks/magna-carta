@@ -1,6 +1,9 @@
 #[cfg(target_arch = "wasm32")]
 mod wasm;
 
+mod standard_fonts;
+mod standard_fonts_data;
+
 mod redact;
 pub use redact::*;
 
