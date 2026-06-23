@@ -617,6 +617,9 @@ export const fileVersion = sqliteTable(
       table.versionNumber,
     ),
     index("file_version_status_index").on(table.status),
+    // The tiering sweep's firm-wide candidate scan (storage_class='standard' + status='clean' +
+    // committed_at < cutoff) seeks this composite instead of walking every clean version.
+    index("file_version_tiering_index").on(table.storageClass, table.status, table.committedAt),
     check(
       "file_version_artifact_role_check",
       sql`${table.artifactRole} IN ('original', 'derived')`,
@@ -681,6 +684,10 @@ export const documentCheckout = sqliteTable(
     // The active-checkout lookup for a file (the launch + check-in paths) and the holder's open list.
     index("document_checkout_file_id_index").on(table.fileId),
     index("document_checkout_holder_member_id_index").on(table.holderMemberId),
+    // The idle-checkout sweep's firm-wide stage-1 scan (status='active' + last_activity_at < cutoff)
+    // seeks this composite instead of walking every checkout; the status prefix also serves the
+    // stage-2 stale scan.
+    index("document_checkout_status_last_activity_index").on(table.status, table.lastActivityAt),
     check(
       "document_checkout_lock_type_check",
       sql`${table.lockType} IN ('exclusive', 'offline_working_copy')`,

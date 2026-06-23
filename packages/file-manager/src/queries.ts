@@ -163,12 +163,12 @@ export interface TierableVersion {
 // reads only committed (`clean`) versions and excludes the current pointer. The cutoff is an ISO
 // instant; ISO-8601 sorts lexicographically so the string compare is a chronological compare. Bounded
 // by `limit` so one daily pass never tiers an unbounded backlog. fitness:allow-no-status
-export async function listTierableVersions(
+export function listTierableVersionsStatement(
   database: SqlDatabase,
   committedBeforeIso: string,
   limit: number,
-): Promise<TierableVersion[]> {
-  const { results } = await database
+): SqlStatement {
+  return database
     .prepare(
       `SELECT v.id, v.r2_key, v.size_bytes, v.artifact_role ` +
         `FROM ${FILE_VERSION_TABLE} v JOIN ${FILE_TABLE} f ON f.id = v.file_id ` +
@@ -177,13 +177,20 @@ export async function listTierableVersions(
         `AND (f.current_version_id IS NULL OR f.current_version_id <> v.id) ` +
         `LIMIT ?2`,
     )
-    .bind(committedBeforeIso, limit)
-    .all<{
-      id: FileVersionId;
-      r2_key: string;
-      size_bytes: number | null;
-      artifact_role: string;
-    }>();
+    .bind(committedBeforeIso, limit);
+}
+
+export async function listTierableVersions(
+  database: SqlDatabase,
+  committedBeforeIso: string,
+  limit: number,
+): Promise<TierableVersion[]> {
+  const { results } = await listTierableVersionsStatement(database, committedBeforeIso, limit).all<{
+    id: FileVersionId;
+    r2_key: string;
+    size_bytes: number | null;
+    artifact_role: string;
+  }>();
   return results.map((row) => ({
     id: row.id,
     r2Key: row.r2_key,
@@ -204,21 +211,27 @@ export interface ConflictPendingVersion {
 // offline copies diverged; undefined means nothing to reconcile (the route 404s). Spans the version
 // status by design — a conflicting copy is committed `clean`; reconciliation_status is the gate here.
 // fitness:allow-no-status
+export function getConflictPendingVersionStatement(
+  database: SqlDatabase,
+  fileId: FileId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, version_number, diverged_from_version_id, checkout_id FROM ${FILE_VERSION_TABLE} WHERE file_id = ?1 AND reconciliation_status = 'conflict_pending' ORDER BY version_number DESC LIMIT 1`,
+    )
+    .bind(fileId);
+}
+
 export async function getConflictPendingVersion(
   database: SqlDatabase,
   fileId: FileId,
 ): Promise<ConflictPendingVersion | undefined> {
-  const { results } = await database
-    .prepare(
-      `SELECT id, version_number, diverged_from_version_id, checkout_id FROM ${FILE_VERSION_TABLE} WHERE file_id = ?1 AND reconciliation_status = 'conflict_pending' ORDER BY version_number DESC LIMIT 1`,
-    )
-    .bind(fileId)
-    .all<{
-      id: FileVersionId;
-      version_number: number;
-      diverged_from_version_id: FileVersionId | null;
-      checkout_id: DocumentCheckoutId | null;
-    }>();
+  const { results } = await getConflictPendingVersionStatement(database, fileId).all<{
+    id: FileVersionId;
+    version_number: number;
+    diverged_from_version_id: FileVersionId | null;
+    checkout_id: DocumentCheckoutId | null;
+  }>();
   const row = results[0];
   if (row === undefined) return undefined;
   return {

@@ -91,23 +91,29 @@ export async function getOpenCheckout(
 // The active exclusive lock on a file, if any — the launch read-only gate and the double-acquire
 // refusal both key off this. An offline_working_copy checkout (optimistic, never-block) is not a lock
 // and is never returned here; a released/stale/reconciling exclusive lock is not active.
+export function getActiveExclusiveLockStatement(
+  database: SqlDatabase,
+  fileId: FileId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, file_id, holder_member_id, lock_type, base_version_id, status FROM ${DOCUMENT_CHECKOUT_TABLE} WHERE file_id = ?1 AND lock_type = 'exclusive' AND status = 'active' LIMIT 1`,
+    )
+    .bind(fileId);
+}
+
 export async function getActiveExclusiveLock(
   database: SqlDatabase,
   fileId: FileId,
 ): Promise<DocumentCheckoutRow | undefined> {
-  const { results } = await database
-    .prepare(
-      `SELECT id, file_id, holder_member_id, lock_type, base_version_id, status FROM ${DOCUMENT_CHECKOUT_TABLE} WHERE file_id = ?1 AND lock_type = 'exclusive' AND status = 'active' LIMIT 1`,
-    )
-    .bind(fileId)
-    .all<{
-      id: string;
-      file_id: string;
-      holder_member_id: string;
-      lock_type: string;
-      base_version_id: string;
-      status: string;
-    }>();
+  const { results } = await getActiveExclusiveLockStatement(database, fileId).all<{
+    id: string;
+    file_id: string;
+    holder_member_id: string;
+    lock_type: string;
+    base_version_id: string;
+    status: string;
+  }>();
   const raw = results[0];
   return raw === undefined ? undefined : rowFrom(raw);
 }
@@ -169,17 +175,28 @@ export interface IdleCheckoutRow {
 // Active checkouts whose last activity predates the cutoff — stage one of the idle sweep moves these to
 // 'stale'. Both lock kinds qualify (an abandoned exclusive lock or offline copy); a reconciling
 // checkout is mid-resolution and excluded by the status filter.
+export function selectIdleActiveCheckoutsStatement(
+  database: SqlDatabase,
+  lastActivityBeforeIso: string,
+  limit: number,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, file_id, lock_type FROM ${DOCUMENT_CHECKOUT_TABLE} WHERE status = 'active' AND last_activity_at < ?1 LIMIT ?2`,
+    )
+    .bind(lastActivityBeforeIso, limit);
+}
+
 export async function selectIdleActiveCheckouts(
   database: SqlDatabase,
   lastActivityBeforeIso: string,
   limit: number,
 ): Promise<IdleCheckoutRow[]> {
-  const { results } = await database
-    .prepare(
-      `SELECT id, file_id, lock_type FROM ${DOCUMENT_CHECKOUT_TABLE} WHERE status = 'active' AND last_activity_at < ?1 LIMIT ?2`,
-    )
-    .bind(lastActivityBeforeIso, limit)
-    .all<{ id: string; file_id: string; lock_type: string }>();
+  const { results } = await selectIdleActiveCheckoutsStatement(
+    database,
+    lastActivityBeforeIso,
+    limit,
+  ).all<{ id: string; file_id: string; lock_type: string }>();
   return results.map((row) => ({
     id: row.id as DocumentCheckoutId,
     fileId: row.file_id as FileId,

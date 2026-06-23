@@ -34,6 +34,11 @@ import {
   customFieldMeasurements,
   CUSTOM_FIELD_PLAN_SCAN_ALLOWLIST,
 } from "./custom-field-measurements.ts";
+import {
+  editingHotPathPlans,
+  editingMeasurements,
+  EDITING_PLAN_SCAN_ALLOWLIST,
+} from "./editing-measurements.ts";
 import { ledgerVolume } from "./profile.ts";
 import { findFullScans, runMeasurements, writeBaselineFile } from "./runner.ts";
 import { loadProfileSnapshot } from "./snapshot.ts";
@@ -62,6 +67,7 @@ const scans = [
   ...findFullScans(directoryHotPathPlans(snapshot), DIRECTORY_PLAN_SCAN_ALLOWLIST),
   ...findFullScans(shippingHotPathPlans(snapshot), SHIPPING_PLAN_SCAN_ALLOWLIST),
   ...findFullScans(customFieldHotPathPlans(snapshot), CUSTOM_FIELD_PLAN_SCAN_ALLOWLIST),
+  ...findFullScans(editingHotPathPlans(snapshot), EDITING_PLAN_SCAN_ALLOWLIST),
 ];
 if (scans.length > 0) {
   // A scan regression must never be baked into a committed baseline — fail before measuring.
@@ -73,7 +79,12 @@ if (scans.length > 0) {
 const results = [
   ...(await runMeasurements(
     measurementHandle(snapshot, BASELINE_SEED),
-    [...ledgerMeasurements, ...mattersMeasurements, ...shippingMeasurements],
+    [
+      ...ledgerMeasurements,
+      ...mattersMeasurements,
+      ...shippingMeasurements,
+      ...editingMeasurements,
+    ],
     { warmupIterations: 3, iterations: 30 },
   )),
   ...(await runMeasurements(
