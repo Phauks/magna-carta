@@ -25,6 +25,11 @@ pub(crate) struct CoverMark {
     pub bbox: Rect,
     pub order: usize,
     pub rgba: [u8; 4],
+    /// True when this cover was produced by a raster image XObject (`draw_image`);
+    /// false when produced by a vector path fill (`draw_path`). The surgery outcome
+    /// gate uses this to reject image-covers intersecting a redaction rect — a vector
+    /// black box drawn over a raster image does not remove the underlying pixels.
+    pub is_image: bool,
 }
 
 pub(crate) struct PageObservation {
@@ -69,6 +74,7 @@ impl<'a> Device<'a> for Observer {
                 bbox: p.bounding_box(),
                 order: self.order,
                 rgba: paint_rgba(paint),
+                is_image: false,
             });
         }
     }
@@ -119,6 +125,7 @@ impl<'a> Device<'a> for Observer {
             bbox: p.bounding_box(),
             order: self.order,
             rgba: [0, 0, 0, 255],
+            is_image: true,
         });
     }
 

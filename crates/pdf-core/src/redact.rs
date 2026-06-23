@@ -409,6 +409,47 @@ pub fn redact(
                             }
                         }
                     }
+
+                    // A surgery stream replaces targeted glyphs with a vector path fill
+                    // (`draw_path`, is_image=false).  An image XObject already present on
+                    // the page is emitted as `draw_image` (is_image=true).  If a raster
+                    // image cover intersects a redaction rectangle the vector box drawn by
+                    // surgery sits *on top of* the image but does not destroy its pixels;
+                    // the image is recoverable by removing the box.  Reject any such page
+                    // so it falls back to the full-raster flatten, which overwrites the
+                    // pixels entirely.
+                    //
+                    // Intersection test: two axis-aligned rects A and B overlap iff neither
+                    // is fully to the left, right, above, or below the other.
+                    if !any_inside {
+                        'image_loop: for cover in &obs.covers {
+                            if !cover.is_image {
+                                continue;
+                            }
+                            let image_rect =
+                                crate::detect::to_display_rect(cover.bbox, obs.height_pt);
+                            // Normalise corners (min/max) so the intersection test is
+                            // orientation-independent.
+                            let (ix0, ix1) = (
+                                image_rect.x0.min(image_rect.x1),
+                                image_rect.x0.max(image_rect.x1),
+                            );
+                            let (iy0, iy1) = (
+                                image_rect.y0.min(image_rect.y1),
+                                image_rect.y0.max(image_rect.y1),
+                            );
+                            for rect in &candidate.rects {
+                                let (rx0, rx1) = (rect.x0.min(rect.x1), rect.x0.max(rect.x1));
+                                let (ry0, ry1) = (rect.y0.min(rect.y1), rect.y0.max(rect.y1));
+                                let disjoint = rx1 <= ix0 || rx0 >= ix1 || ry1 <= iy0 || ry0 >= iy1;
+                                if !disjoint {
+                                    any_inside = true;
+                                    break 'image_loop;
+                                }
+                            }
+                        }
+                    }
+
                     !any_inside
                 }
             };
@@ -869,6 +910,120 @@ mod tests {
                 .unwrap_or_default()
                 .contains("Hello"),
             "target text must be absent after fallback flatten"
+        );
+    }
+
+    /// Build a minimal one-page PDF whose sole content is a raster image XObject that
+    /// covers the full page.  Returns (bytes, page_width_pt, page_height_pt).
+    fn image_only_pdf() -> Vec<u8> {
+        use lopdf::{Dictionary, Document, Object, Stream};
+
+        let mut doc = Document::with_version("1.5");
+
+        // A 3×3 px DeviceRGB image — 27 bytes, trivially compressible.
+        let pixel_data: Vec<u8> = vec![
+            0xAB, 0x12, 0x34, // row 0
+            0x56, 0x78, 0x9A, //
+            0xBC, 0xDE, 0xF0, //
+            0x11, 0x22, 0x33, // row 1
+            0x44, 0x55, 0x66, //
+            0x77, 0x88, 0x99, //
+            0xAA, 0xBB, 0xCC, // row 2
+            0xDD, 0xEE, 0xFF, //
+            0x00, 0x0F, 0x1F, //
+        ];
+        let mut img_dict = Dictionary::new();
+        img_dict.set("Type", Object::Name(b"XObject".to_vec()));
+        img_dict.set("Subtype", Object::Name(b"Image".to_vec()));
+        img_dict.set("Width", Object::Integer(3));
+        img_dict.set("Height", Object::Integer(3));
+        img_dict.set("ColorSpace", Object::Name(b"DeviceRGB".to_vec()));
+        img_dict.set("BitsPerComponent", Object::Integer(8));
+        let img_stream = Stream::new(img_dict, pixel_data);
+        let img_id = doc.add_object(img_stream);
+
+        // Content: scale-to-page cm, then /Im0 Do.
+        // Page is 200×200 pt.
+        let content_bytes = b"q 200 0 0 200 0 0 cm /Im0 Do Q".to_vec();
+        let content_id = doc.add_object(Stream::new(Dictionary::new(), content_bytes));
+
+        let mut xobjects = Dictionary::new();
+        xobjects.set("Im0", Object::Reference(img_id));
+        let mut resources = Dictionary::new();
+        resources.set("XObject", Object::Dictionary(xobjects));
+
+        // Pages node.
+        let pages_id = doc.new_object_id();
+
+        // Page dictionary.
+        let mut page_dict = Dictionary::new();
+        page_dict.set("Type", Object::Name(b"Page".to_vec()));
+        page_dict.set("Parent", Object::Reference(pages_id));
+        page_dict.set(
+            "MediaBox",
+            Object::Array(vec![
+                Object::Integer(0),
+                Object::Integer(0),
+                Object::Integer(200),
+                Object::Integer(200),
+            ]),
+        );
+        page_dict.set("Contents", Object::Reference(content_id));
+        page_dict.set("Resources", Object::Dictionary(resources));
+        let page_id = doc.add_object(Object::Dictionary(page_dict));
+
+        // Pages node.
+        let mut pages_dict = Dictionary::new();
+        pages_dict.set("Type", Object::Name(b"Pages".to_vec()));
+        pages_dict.set("Kids", Object::Array(vec![Object::Reference(page_id)]));
+        pages_dict.set("Count", Object::Integer(1));
+        doc.objects.insert(pages_id, Object::Dictionary(pages_dict));
+
+        // Catalog.
+        let mut catalog = Dictionary::new();
+        catalog.set("Type", Object::Name(b"Catalog".to_vec()));
+        catalog.set("Pages", Object::Reference(pages_id));
+        let catalog_id = doc.add_object(Object::Dictionary(catalog));
+        doc.trailer.set("Root", Object::Reference(catalog_id));
+
+        let mut out = Vec::new();
+        doc.save_to(&mut out).expect("image_only_pdf serialize");
+        out
+    }
+
+    #[test]
+    fn surgery_falls_back_when_rect_overlaps_image() {
+        // A page whose content is entirely a raster image XObject must never be
+        // "surgered" — the surgery stream draws only a vector black box over the image,
+        // but the underlying pixels remain recoverable by deleting that box.  The
+        // outcome gate must detect the image-cover overlap and force a flatten instead.
+        let bytes = image_only_pdf();
+        let regions = [RedactionRegion {
+            page: 0,
+            // A rect that overlaps the centre of the 200×200 pt image.
+            rect: Rect {
+                x0: 50.0,
+                y0: 50.0,
+                x1: 150.0,
+                y1: 150.0,
+            },
+            reason: None,
+        }];
+        let opts = RedactionOptions {
+            mode: RedactionMode::Surgery,
+            ..RedactionOptions::default()
+        };
+        let outcome = redact(bytes, &regions, &opts).expect("image-page surgery must not error");
+        assert!(
+            outcome.report.pages_flattened.contains(&0),
+            "image-page must be in pages_flattened, not surgered; \
+             report: surgered={:?} flattened={:?}",
+            outcome.report.pages_surgered,
+            outcome.report.pages_flattened,
+        );
+        assert!(
+            !outcome.report.pages_surgered.contains(&0),
+            "image-page must NOT be in pages_surgered"
         );
     }
 

@@ -32,3 +32,46 @@ New tests added (all pass):
 ## Deviations from spec
 
 None. The implementation follows the spec exactly with one minor tightening: `RedactionMode::Default` uses `#[derive(Default)]` + `#[default]` on `Flatten` rather than a manual `impl Default`, which clippy requires and is semantically identical. The existing `redact_removes_target_text_and_passes_gate` test had its `RedactionOptions` literal updated to include `mode: RedactionMode::Flatten` (required by the new field; no behavioral change).
+
+---
+
+## Image-overlap fallback fix (2026-06-23)
+
+### The leak
+
+In Surgery mode the per-page outcome gate checked only observed glyphs inside a
+redaction rect.  It did not check images.  A redaction rect placed over an image
+XObject (e.g. a scanned page) produced a page where surgery drew only a vector black
+box; the underlying raster image remained intact and was recoverable by deleting that
+box.
+
+### Fix approach
+
+The fix tags each `CoverMark` by origin:
+
+- `CoverMark.is_image: bool` — `true` when emitted by `draw_image`, `false` when
+  emitted by `draw_path` (the surgery box fill).
+
+The outcome gate in `redact.rs`, after the existing glyph-centre loop, now also scans
+`obs.covers`.  For every cover where `is_image == true` it converts the cover bbox to
+display coordinates via `to_display_rect` and tests axis-aligned rect intersection
+against each redaction rect for that page.  Any intersection sets the `any_inside` flag,
+causing the candidate to fail the gate and fall through to the full-raster flatten path.
+
+### Files changed
+
+- `crates/pdf-core/src/textpos.rs` — `CoverMark` gains `pub is_image: bool`;
+  `draw_path` sets it `false`; `draw_image` sets it `true`.
+- `crates/pdf-core/src/redact.rs` — outcome gate extended with image-cover intersection
+  loop; new test `surgery_falls_back_when_rect_overlaps_image` (builds a lopdf image-only
+  page programmatically and asserts it lands in `pages_flattened`).
+- `crates/pdf-core/src/detect.rs` — two `CoverMark` struct literals in tests updated to
+  include `is_image: false` (no behavioral change).
+- `docs/specs/2026-06-23-pdf-content-stream-surgery-design.md` — Boundaries section
+  gains a bullet disclosing the raster-image fallback.
+
+### Test results
+
+65 tests passed, 0 failed, 0 ignored.  New test `surgery_falls_back_when_rect_overlaps_image`
+confirms the image-overlap page is in `pages_flattened` and not in `pages_surgered`.
+Clippy clean, rustfmt clean.

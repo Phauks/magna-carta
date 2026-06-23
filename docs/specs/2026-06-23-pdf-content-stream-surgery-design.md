@@ -160,6 +160,13 @@ honest boundaries below.
   guess is made that could mis-locate a glyph.
 - **Rotated / sheared text** → advance preservation uses the text-space metrics; pages
   whose state the mapper cannot reconstruct fall back rather than risk a visible shift.
+- **Raster image XObjects overlapping a redaction rectangle** → a redaction rectangle
+  that intersects a raster image XObject (e.g. a scanned page) cannot be handled by
+  glyph surgery alone: the surgery stream draws only a vector black box, leaving the
+  underlying image pixels intact and recoverable. The outcome gate detects image-covers
+  whose bounding rect intersects a redaction rect (`is_image` tag added to `CoverMark`)
+  and forces those pages to flatten, which rasterizes and permanently overwrites the
+  pixels.
 - Surgery removes the targeted glyphs' bytes only; the whole-document scrub
   (`sanitize_document`) remains responsible for non-page surfaces, exactly as today.
 
