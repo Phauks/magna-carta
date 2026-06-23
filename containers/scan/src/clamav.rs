@@ -221,14 +221,30 @@ pub fn parse_clamav_db_version(reply: &[u8]) -> Option<String> {
 /// Queries clamd's `VERSION` command over the existing loopback TCP transport and returns the
 /// signature-database version token (e.g. `"27268"`).
 ///
-/// The exchange is quick — clamd replies immediately with one short line — so `CLAMD_CONNECT_TIMEOUT`
-/// (5 s) is the right bound; no separate exchange timeout is needed. Returns an error if the connect
-/// or read fails, or if the reply cannot be parsed.
+/// The ENTIRE exchange (connect + write + read) runs under `exchange_timeout()` so a wedged daemon
+/// that accepts the TCP connection but never sends a reply yields a timeout error rather than
+/// blocking the caller indefinitely. The timeout error propagates to the startup retry loop, which
+/// counts it toward the bounded retry budget and ultimately calls `process::exit(1)` — fail-loud,
+/// never an infinite hang.
+///
+/// Returns an error if the connect, write, or read fails, if the timeout elapses, or if the reply
+/// cannot be parsed.
 pub async fn query_clamav_db_version(clamd_address: &str) -> std::io::Result<String> {
-    let mut stream = connect(clamd_address).await?;
-    // `z`-protocol: null-terminated command.
-    stream.write_all(b"zVERSION\0").await?;
-    let raw = read_reply(&mut stream).await?;
+    // Wrap the whole exchange so a wedged clamd that accepts but never replies cannot hang startup.
+    // `exchange_timeout()` is the same deadline used by every other clamd exchange in this module.
+    let raw = timeout(exchange_timeout(), async {
+        let mut stream = connect(clamd_address).await?;
+        // `z`-protocol: null-terminated command.
+        stream.write_all(b"zVERSION\0").await?;
+        read_reply(&mut stream).await
+    })
+    .await
+    .map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::TimedOut,
+            "clamd VERSION exchange timed out",
+        )
+    })??;
     parse_clamav_db_version(&raw).ok_or_else(|| {
         std::io::Error::new(
             std::io::ErrorKind::InvalidData,
@@ -239,7 +255,7 @@ pub async fn query_clamav_db_version(clamd_address: &str) -> std::io::Result<Str
 
 #[cfg(test)]
 mod tests {
-    use super::{interpret_reply, parse_clamav_db_version, scan_buffer, ClamVerdict};
+    use super::{interpret_reply, parse_clamav_db_version, query_clamav_db_version, scan_buffer, ClamVerdict};
 
     #[test]
     fn instream_found_reply_is_infected_with_signature() {
@@ -411,5 +427,44 @@ mod tests {
     #[test]
     fn non_utf8_version_reply_returns_none() {
         assert_eq!(parse_clamav_db_version(&[0xff, 0xfe, 0x00, 0x80]), None);
+    }
+
+    // A stub clamd that accepts the VERSION connection then never replies must not hang startup:
+    // the whole exchange runs under the exchange deadline, so it returns an error within budget
+    // rather than blocking on the read forever. The budget is shrunk via env so the test is fast;
+    // an outer deadline (generously larger than the shrunk budget) fails the test if the call
+    // ever hangs past it.
+    #[tokio::test]
+    async fn a_silent_daemon_yields_error_from_version_query_within_budget_not_a_hang() {
+        use tokio::net::TcpListener;
+
+        // Shrink the exchange budget for this test. `exchange_timeout()` reads it per call.
+        std::env::set_var("CLAMD_EXCHANGE_TIMEOUT_SECS", "2");
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap().to_string();
+        // Accept connections and hold the socket open, never sending any reply — the worst case
+        // for an unbounded read.
+        tokio::spawn(async move {
+            let mut held = Vec::new();
+            while let Ok((socket, _)) = listener.accept().await {
+                held.push(socket);
+            }
+        });
+
+        // The shrunk budget is 2s; a 8s outer deadline fails the test if the exchange hangs.
+        let outer = std::time::Duration::from_secs(8);
+        let result =
+            tokio::time::timeout(outer, query_clamav_db_version(&address))
+                .await
+                .expect("VERSION query must not hang past the test deadline");
+        std::env::remove_var("CLAMD_EXCHANGE_TIMEOUT_SECS");
+        // The result must be an error (timeout) — never a successful parse of a reply that never
+        // arrived.
+        assert!(
+            result.is_err(),
+            "expected an error from a silent daemon, got: {:?}",
+            result
+        );
     }
 }
