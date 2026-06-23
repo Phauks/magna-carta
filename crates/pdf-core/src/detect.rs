@@ -41,7 +41,7 @@ pub struct Finding {
 
 /// Convert a kurbo device-space bbox (top-left origin) to a display-point rect
 /// (bottom-left origin), matching `page_size`/the redaction `Rect`.
-fn to_display_rect(kbox: kurbo::Rect, page_height_pt: f32) -> Rect {
+pub(crate) fn to_display_rect(kbox: kurbo::Rect, page_height_pt: f32) -> Rect {
     let h = page_height_pt as f64;
     Rect {
         x0: kbox.x0 as f32,
@@ -391,7 +391,7 @@ fn page_annot_rects(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> Vec<Rect
     rects
 }
 
-fn rect_contains(r: &Rect, x: f32, y: f32) -> bool {
+pub(crate) fn rect_contains(r: &Rect, x: f32, y: f32) -> bool {
     x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1
 }
 
