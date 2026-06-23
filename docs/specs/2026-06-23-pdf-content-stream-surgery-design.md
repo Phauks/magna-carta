@@ -60,14 +60,24 @@ Surgery of one page is four stages:
    which array element), and the byte offset/length of its code within that operand's
    string.
 
-2. **Ordinal correspondence.** hayro draws glyphs in content-stream order, so the k-th
-   `observe_page` glyph corresponds to the k-th enumerated glyph-unit. The mapper
-   aligns the two sequences position-by-position and **requires exact alignment** — same
-   length, and (as a guard) agreement on a verifiable signal at sampled positions
-   (e.g. recovered-text codepoint where available). If alignment is not exact, the page
-   does not qualify for surgery (gate fail → flatten). This is the correctness keystone:
-   an off-by-one would excise the wrong glyph, so the mapper proves alignment rather
-   than assuming it.
+2. **Position computation (self-contained, not correlated to hayro).** The same walk
+   computes each glyph's display-point position directly, tracking the graphics state
+   (CTM via the `q`/`Q`/`cm` stack) and the text state (`Tm`/`Tlm` text matrices, `Tf`
+   font+size, `Tc` char-spacing, `Tw` word-spacing, `Tz` horizontal scaling, `TL`,
+   `Ts`, `Tr`), advancing the text matrix by each glyph's width (from the font metrics)
+   plus spacing. A glyph's display-point center is `CTM ∘ Tm ∘ glyph-origin`, y-flipped
+   to the redaction `Rect` frame (reusing the detector's `to_display_rect`). This avoids
+   any dependence on matching hayro's draw order — which on legal forms also draws
+   widget/AcroForm appearance glyphs that are *not* in the page content stream (the
+   spike's consistent `+1` delta). Correlating to hayro would force those pages to fall
+   back; computing positions from the page content handles them.
+
+   The walk supports the common text-positioning operators (`BT`/`ET`, `Tm`, `Td`,
+   `TD`, `T*`, `Tj`, `TJ`, `'`, `"`, `Tf`, `Tc`, `Tw`, `Tz`, `TL`, `Ts`, `Tr`, `q`,
+   `Q`, `cm`). Any page whose state the walk cannot reconstruct — a Type3 font, vertical
+   writing mode, a non-`Identity-H/V` Type0 encoding, a font with no usable width
+   metrics, or unbalanced `q`/`Q` — does not qualify for surgery and falls back. No
+   guess is made that could mis-locate a glyph.
 
 3. **Excision with advance preservation.** For each glyph the detector marks in-rect,
    remove its code bytes from the operand. To keep the surrounding text from shifting,
@@ -80,23 +90,29 @@ Surgery of one page is four stages:
    edited stream (the original content streams become orphaned and are dropped by the
    existing `prune_objects()`).
 
-4. **Per-page verification (the surgery gate).** A page qualifies as surgered only if,
-   after the edit: (a) the content round-trips (decode→encode→decode stable); (b) no
-   text is drawn from a Form XObject the page-level walk cannot account for
-   (correspondence covers this — a `Do` that injects unaccounted glyphs breaks
-   alignment); (c) re-rendering the edited page via `observe_page` shows the target
-   text **not drawn**; and (d) re-extracting the page shows the target **not
-   extractable**. Any failure → discard the edit, flatten the page. The whole-document
-   `verify_gate` still runs afterward over the assembled document, so a surgered page
-   is held to the same final absence guarantee as a flattened one.
+4. **Per-page verification (the surgery gate) — outcome-based, robust to positioning
+   bugs.** A page qualifies as surgered only if, after the edit: (a) the content
+   round-trips (decode→encode→decode stable); and (b) **re-observing the edited page via
+   `observe_page` finds no glyph whose center lies inside any redaction rectangle** —
+   the detector's own geometry applied to the surgery output. This is the keystone
+   guarantee: it does not depend on the positioning math being perfect or on `ToUnicode`
+   being present — it checks the *outcome* directly. If the math mis-located a target
+   glyph and failed to remove it, the re-observation still finds it in the rect → gate
+   fails → flatten. Under-removal therefore always falls back to the safe image path;
+   the only residual failure mode is over-removal (excising a neighbour that should have
+   stayed), which is a usability defect, never a confidentiality leak. The whole-document
+   `verify_gate` still runs afterward over the assembled document, so a surgered page is
+   held to the same final absence guarantee as a flattened one.
 
 ### Fallback triggers (each forces this page to flatten, never an error)
 
 - content stream fails to round-trip (e.g. inline images `BI…ID…EI`);
-- ordinal correspondence is not exact (Form-XObject-drawn text, CID codespace the walk
-  can't size, ligature/notdef divergence);
+- the walk cannot reconstruct the page's text state (Type3 font, vertical writing,
+  non-`Identity-H/V` Type0 encoding, missing width metrics, unbalanced `q`/`Q`, or an
+  unsupported positioning operator);
 - a marked glyph's location cannot be resolved to editable operand bytes;
-- post-edit verification (c) or (d) does not confirm removal.
+- the post-edit re-observation still finds a glyph centre inside a redaction rectangle
+  (under-removal not confirmed-clear).
 
 The page count that fell back vs. surgered is reported (see API) so coverage is
 observable rather than assumed.
@@ -150,9 +166,11 @@ honest boundaries below.
 ## Testing
 
 - **Unit (Rust):** glyph enumeration over `Tj`/`TJ`/`'`/`"`; bytes-per-code by font
-  subtype; ordinal alignment exactness (and a deliberate misalignment that must be
-  rejected → flatten); single-glyph excision from a `TJ` element with advance
-  substitution; whole-`Tj` excision; the round-trip and Form-XObject fallback triggers.
+  subtype; position computation through `Tm`/`Td`/`TJ`/`cm` against hand-computed
+  display points; the in-rect marking; single-glyph excision from a `TJ` element with
+  advance substitution; whole-`Tj` excision; each fallback trigger (round-trip failure,
+  unsupported font, missing widths) forcing `None`; the outcome gate rejecting a page
+  where a marked glyph would survive.
 - **Integration:** a known fixture redacted in `Surgery` mode → the target word is gone
   by extraction *and* by `observe_page` render, a chosen non-target word survives, and
   the detector re-run reports the target gone (self-cross-check). A page with inline
