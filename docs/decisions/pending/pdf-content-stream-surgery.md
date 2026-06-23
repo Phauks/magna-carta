@@ -1,0 +1,23 @@
+---
+slug: pdf-content-stream-surgery
+status: Accepted
+area: Documents
+date: 2026-06-23
+summary: PDF redaction gains an opt-in text-preserving surgery mode that excises targeted glyphs from the content stream with a per-page outcome gate, falling back to the existing rasterize-and-reassemble path for any page it cannot confirm clear.
+---
+
+**PDF redaction gains an opt-in text-preserving surgery mode that excises targeted glyphs from the content stream with a per-page outcome gate, falling back to the existing rasterize-and-reassemble path for any page it cannot confirm clear.**
+
+**Context:** The rasterize-and-reassemble path (the existing redaction default) eliminates text data from a page by design, but degrades the entire page to a non-searchable pixel image — including text and graphics outside the redacted region. Many legal documents benefit from preserving searchable text on unredacted portions of the page: court filings, contracts, and discovery productions where only specific terms or names must be removed while the document otherwise remains machine-readable. A second redaction route that operates at glyph granularity addresses this without weakening the safety guarantee.
+
+**Decision — two-route model with caller-selected mode.** `RedactionOptions` gains a `mode` field of type `RedactionMode { Flatten, Surgery }`, defaulting to `Flatten`. The default behaviour is fully unchanged; all existing callers continue to rasterise. When `Surgery` is selected, `redact()` attempts the surgery path per affected page and falls back to the flatten path whenever the outcome gate does not confirm the page is clear.
+
+**Position from content walk, not from the hayro observer.** Each page's glyphs are located by a single content-stream walk: a graphics/text state machine that tracks the current transformation matrix stack (`q`/`Q`/`cm`), text matrix and line matrix (`BT`/`ET`/`Tm`/`Td`/`TD`/`T*`), and text state operators (`Tc`/`Tw`/`Tz`/`TL`/`Ts`/`Tr`/`Tf`), then walks each show operator (`Tj`/`TJ`/`'`/`"`) splitting operand bytes into per-glyph codes using the font's bytes-per-code value (1 for simple fonts, 2 for Identity-encoded Type0). Advance widths are read from the embedded `/Widths` array (simple fonts) or `/W`+`/DW` (CIDFont descendants). The glyph centre is approximated as the text-space origin advanced by half its own advance width and a fixed fraction of the font size. This approximation is adequate for the marking step because the outcome gate, not the walk, is the safety control.
+
+**Outcome gate.** After the per-page surgery edit is staged, the implementation serialises a probe document and re-observes each surgered page using the hayro-backed `textpos` observing device (the same device used by the detector). A page passes the gate when no glyph centre observed by the device lies inside any of that page's redaction rectangles. A page that fails the gate is immediately rasterised via the existing flatten path. The final document-wide `verify_gate` and `scan_logical_content` checks still run for every mode.
+
+**Fail-closed per-page fallback.** A page falls back to flatten — and is counted in `pages_flattened`, not `pages_surgered` — when: the font used to show text under a redaction rectangle is unsupported (standard-14 without embedded widths, non-Identity Type0 encoding, Type3, or any font with absent `/Widths`); the page has a non-zero `/Rotate` entry; the page's `/Resources` dictionary is inherited rather than page-level; the content stream contains inline image operators; a redaction rectangle overlaps a raster image XObject; or the content stream does not round-trip through the PDF content parser. These conditions are detected structurally before the outcome gate is reached.
+
+**Report fields.** `RedactionReport` gains `pages_surgered: Vec<usize>` and `pages_flattened: Vec<usize>` (both 0-based). In Flatten mode, `pages_surgered` is always empty. The wasm surface exposes both as `pagesSurgered` and `pagesFlattened` arrays alongside the existing `pagesRedacted`.
+
+**Consequences.** Surgery-mode pages retain searchable text for the unredacted portions, improving the usability of redacted productions for downstream processing. Over-removal (excising a neighbouring glyph whose centre falls just outside the rectangle due to the walk approximation) is the only residual non-safety failure mode; it is a precision loss, not a content-survival bug. The existing rasterize-and-reassemble path remains the default and is the correct choice for scanned documents, pages with non-standard font encodings, and callers that require a provably image-only output.

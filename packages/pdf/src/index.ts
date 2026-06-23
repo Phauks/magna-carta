@@ -95,11 +95,29 @@ export interface RedactionOptions {
   redactedText?: string[];
   /** Document-level surfaces to scrub. Omitted means all surfaces are scrubbed (redaction is sanitized-by-default); pass individual `false` flags to retain a surface. */
   scrub?: ScrubOptions;
+  /**
+   * Redaction route. Default `"flatten"`.
+   *
+   * - `"flatten"` — rasterises every affected page to a pixel image. Original text, fonts,
+   *   and vector graphics do not survive. All redacted pages become non-searchable images.
+   * - `"surgery"` — excises only the glyphs whose centres fall within the redaction rectangle
+   *   from the page content stream, leaving the rest of the page as selectable PDF text.
+   *   Surgery is attempted per page and falls back to `"flatten"` for any page it cannot
+   *   confirm clear. The result is never less safe than `"flatten"`: a page is only reported
+   *   as surgered when the outcome gate finds no glyph centre remaining inside any redaction
+   *   rectangle on that page.
+   */
+  mode?: "flatten" | "surgery";
 }
 
 export interface RedactionResult {
   pdf: Uint8Array;
+  /** All page indices (0-based) where content was redacted, regardless of route. */
   pagesRedacted: number[];
+  /** Page indices (0-based) where text-preserving surgery succeeded. Present in both modes; empty when `mode` is `"flatten"`. */
+  pagesSurgered: number[];
+  /** Page indices (0-based) where the page was rasterised to an image. Includes all flatten-mode pages and any surgery-mode page that fell back. */
+  pagesFlattened: number[];
 }
 
 import { redactDocument as wasmRedact } from "./pkg/pdf_core.js";

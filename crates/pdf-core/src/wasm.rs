@@ -1,6 +1,6 @@
 //! Thin JS marshalling edge — compiled only for wasm32. No engine logic here.
 use crate::{
-    detect, redact, sanitize, Category, Document, PdfError, Rect, RedactionOptions,
+    detect, redact, sanitize, Category, Document, PdfError, Rect, RedactionMode, RedactionOptions,
     RedactionRegion, ScrubOptions, Severity,
 };
 use wasm_bindgen::prelude::*;
@@ -125,6 +125,8 @@ pub fn redact_document(
         dpi: Option<f32>,
         #[serde(rename = "redactedText", default)]
         redacted_text: Vec<String>,
+        #[serde(default)]
+        mode: Option<String>,
     }
 
     let js_regions: Vec<JsRegion> = serde_wasm_bindgen::from_value(regions)?;
@@ -153,10 +155,15 @@ pub fn redact_document(
             reason: r.reason,
         })
         .collect();
+    let mode = match js_opts.mode.as_deref() {
+        Some("surgery") => RedactionMode::Surgery,
+        _ => RedactionMode::Flatten,
+    };
     let options = RedactionOptions {
         dpi: js_opts.dpi.unwrap_or(300.0),
         redacted_text: js_opts.redacted_text,
         scrub: scrub_options_from_js(&scrub_value)?,
+        mode,
     };
 
     let outcome = redact(bytes, &regions, &options)?;
@@ -173,6 +180,18 @@ pub fn redact_document(
         pages.push(&JsValue::from(p as u32));
     }
     js_sys::Reflect::set(&result, &"pagesRedacted".into(), &pages)
+        .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    let pages_surgered = js_sys::Array::new();
+    for p in outcome.report.pages_surgered {
+        pages_surgered.push(&JsValue::from(p as u32));
+    }
+    js_sys::Reflect::set(&result, &"pagesSurgered".into(), &pages_surgered)
+        .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    let pages_flattened = js_sys::Array::new();
+    for p in outcome.report.pages_flattened {
+        pages_flattened.push(&JsValue::from(p as u32));
+    }
+    js_sys::Reflect::set(&result, &"pagesFlattened".into(), &pages_flattened)
         .map_err(|e| JsError::new(&format!("{e:?}")))?;
     Ok(result.into())
 }

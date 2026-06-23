@@ -167,7 +167,7 @@ try {
 }
 ```
 
-**What redaction covers.** Each redacted page is replaced in its entirety with a raster image. All text, font data, form XObjects, and vector graphics on that page are removed; only unredacted pages retain their original PDF operators. Fine-grained surgery (removing only the glyphs whose positions fall within the region while preserving the rest of the page's text as selectable operators) is not yet available; every redacted page becomes a non-searchable image.
+**What redaction covers.** By default (mode `"flatten"`), each redacted page is replaced in its entirety with a raster image. All text, font data, form XObjects, and vector graphics on that page are removed; only unredacted pages retain their original PDF operators. The text-preserving route (`mode: "surgery"`) removes only the targeted glyphs; see the subsection below.
 
 ### `RedactionOptions`
 
@@ -175,6 +175,7 @@ try {
 | --- | --- | --- | --- |
 | `dpi` | `number` | `300` | Render resolution for rasterization. |
 | `redactedText` | `string[]` | `[]` | Strings the gate checks for survival in the output. Pass the verbatim text you are redacting so the gate can verify it does not appear. |
+| `mode` | `"flatten" \| "surgery"` | `"flatten"` | Redaction route. See the Text-preserving redaction subsection below. |
 
 Redaction always paints an opaque black box (the standard for legal production); the fill colour is not configurable.
 
@@ -182,10 +183,37 @@ Redaction always paints an opaque black box (the standard for legal production);
 
 ```ts
 interface RedactionResult {
-  pdf: Uint8Array;          // the redacted PDF bytes
-  pagesRedacted: number[];  // page indices (0-based) that were modified
+  pdf: Uint8Array;           // the redacted PDF bytes
+  pagesRedacted: number[];   // all page indices (0-based) where content was redacted
+  pagesSurgered: number[];   // pages where text-preserving surgery succeeded (empty in flatten mode)
+  pagesFlattened: number[];  // pages rasterised to an image (all pages in flatten mode, plus any surgery fallbacks)
 }
 ```
+
+### Text-preserving redaction
+
+Pass `mode: "surgery"` to attempt text-preserving content-stream surgery instead of full-page rasterization. Surgery excises only the glyphs whose centres fall inside a redaction rectangle, leaving the remaining text on the page as selectable PDF operators.
+
+```ts
+const result = await redactDocument(bytes, regions, { mode: "surgery" });
+// result.pagesSurgered — pages where surgery succeeded (text preserved)
+// result.pagesFlattened — pages rasterised (surgery fell back to flatten)
+```
+
+**The safety guarantee is unchanged.** Surgery is attempted per page and falls back to `"flatten"` for any page it cannot confirm clear. A page is only counted as surgered when an outcome gate re-observes the page after the edit and finds no glyph centre remaining inside any redaction rectangle. Any page that does not pass the gate is rasterised instead. The result of a surgery call is never less safe than a flatten call.
+
+**Over-removal is the only residual non-safety failure mode.** Surgery may excise a neighbouring glyph that was not strictly inside the redaction rectangle (because glyph centre position is approximated during the content-stream walk). Over-removal is a precision loss, not a content-survival bug.
+
+**Surgery falls back to flatten for a page when:**
+
+- The page uses any standard-14 font (Helvetica, Times, Courier, and their variants) without embedded `/Widths` arrays — the advance widths required to locate individual glyphs are not available.
+- The page dictionary carries a non-zero `/Rotate` entry.
+- The page's `/Resources` are inherited from a parent node rather than declared at the page level.
+- The content stream contains inline image operators (`BI`/`ID`/`EI`).
+- A redaction rectangle overlaps a raster image XObject (for example, a scanned page with embedded images).
+- The content stream does not round-trip cleanly through the PDF content parser (the byte count after encode/decode does not match).
+
+On those pages, flatten produces the output; the page appears in `pagesFlattened` rather than `pagesSurgered`.
 
 ## Sanitize
 
