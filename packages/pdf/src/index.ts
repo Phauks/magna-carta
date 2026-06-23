@@ -160,6 +160,8 @@ export interface DetectionFinding {
     | "coveredText"
     | "invisibleText"
     | "whiteoutText"
+    | "removableAnnotation"
+    | "hiddenLayer"
     | "metadataLeak"
     | "orphanedText";
   severity: "critical" | "high" | "medium" | "low" | "info";

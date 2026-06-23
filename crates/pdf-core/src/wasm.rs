@@ -243,6 +243,8 @@ fn category_str(c: Category) -> &'static str {
         Category::CoveredText => "coveredText",
         Category::InvisibleText => "invisibleText",
         Category::WhiteoutText => "whiteoutText",
+        Category::RemovableAnnotation => "removableAnnotation",
+        Category::HiddenLayer => "hiddenLayer",
         Category::MetadataLeak => "metadataLeak",
         Category::OrphanedText => "orphanedText",
     }

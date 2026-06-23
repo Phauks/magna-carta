@@ -324,7 +324,14 @@ pub(crate) fn structural_findings(
 /// Annotation subtypes that paint over page content (and can be deleted to
 /// reveal it). `Redact` is the highest-signal: an unapplied redaction mark.
 const OBSCURING_ANNOTATIONS: &[&[u8]] = &[
-    b"Redact", b"Square", b"Circle", b"Polygon", b"FreeText", b"Stamp", b"Highlight", b"Ink",
+    b"Redact",
+    b"Square",
+    b"Circle",
+    b"Polygon",
+    b"FreeText",
+    b"Stamp",
+    b"Highlight",
+    b"Ink",
 ];
 
 fn page_annot_rects(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> Vec<Rect> {
@@ -364,7 +371,11 @@ fn page_annot_rects(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> Vec<Rect
         if let Ok(arr) = dict.get(b"Rect").and_then(|o| o.as_array()) {
             let n: Vec<f32> = arr
                 .iter()
-                .filter_map(|o| o.as_float().ok().or_else(|| o.as_i64().ok().map(|i| i as f32)))
+                .filter_map(|o| {
+                    o.as_float()
+                        .ok()
+                        .or_else(|| o.as_i64().ok().map(|i| i as f32))
+                })
                 .collect();
             if n.len() == 4 {
                 // PDF /Rect corners may be unordered; normalize to a display-point Rect.
@@ -414,7 +425,9 @@ pub(crate) fn annotation_findings(
                 page: Some(page),
                 region: Some(*rect),
                 recovered_text: recovered,
-                detail: "Extractable text sits under an annotation that can be deleted to reveal it.".into(),
+                detail:
+                    "Extractable text sits under an annotation that can be deleted to reveal it."
+                        .into(),
             });
         }
     }
@@ -435,7 +448,10 @@ fn inactive_ocgs(doc: &lopdf::Document) -> Vec<lopdf::ObjectId> {
 }
 
 /// Resolve a dictionary value that may be stored inline or as an indirect reference.
-fn resolve_dict<'a>(doc: &'a lopdf::Document, obj: &'a lopdf::Object) -> Option<&'a lopdf::Dictionary> {
+fn resolve_dict<'a>(
+    doc: &'a lopdf::Document,
+    obj: &'a lopdf::Object,
+) -> Option<&'a lopdf::Dictionary> {
     match obj {
         lopdf::Object::Dictionary(d) => Some(d),
         lopdf::Object::Reference(id) => doc.get_object(*id).ok().and_then(|o| o.as_dict().ok()),
@@ -443,7 +459,11 @@ fn resolve_dict<'a>(doc: &'a lopdf::Document, obj: &'a lopdf::Object) -> Option<
     }
 }
 
-fn property_ocg(doc: &lopdf::Document, page_id: lopdf::ObjectId, name: &[u8]) -> Option<lopdf::ObjectId> {
+fn property_ocg(
+    doc: &lopdf::Document,
+    page_id: lopdf::ObjectId,
+    name: &[u8],
+) -> Option<lopdf::ObjectId> {
     let page = doc.get_object(page_id).ok()?.as_dict().ok()?;
     let resources = resolve_dict(doc, page.get(b"Resources").ok()?)?;
     let properties = resolve_dict(doc, resources.get(b"Properties").ok()?)?;
@@ -469,7 +489,8 @@ pub(crate) fn hidden_layer_findings(doc: &lopdf::Document) -> Vec<Finding> {
                     // The /OC group is identified by a /Properties name here; an
                     // inline optional-content dictionary as the BDC operand is not
                     // resolved (a rare encoding) and is not flagged.
-                    let is_hidden = op.operands.first().and_then(|o| o.as_name().ok()) == Some(b"OC")
+                    let is_hidden = op.operands.first().and_then(|o| o.as_name().ok())
+                        == Some(b"OC")
                         && op
                             .operands
                             .get(1)
@@ -507,7 +528,8 @@ pub(crate) fn hidden_layer_findings(doc: &lopdf::Document) -> Vec<Finding> {
                 page: Some((page_number - 1) as usize),
                 region: None,
                 recovered_text: recovered,
-                detail: "Text drawn on an optional-content layer that the default view hides.".into(),
+                detail: "Text drawn on an optional-content layer that the default view hides."
+                    .into(),
             });
         }
     }
@@ -559,7 +581,12 @@ pub fn detect(bytes: Vec<u8>) -> Result<DetectionReport, DetectError> {
     let lo = lopdf::Document::load_mem(&bytes).ok();
     let page_ids: std::collections::BTreeMap<usize, lopdf::ObjectId> = lo
         .as_ref()
-        .map(|doc| doc.get_pages().into_iter().map(|(n, id)| ((n - 1) as usize, id)).collect())
+        .map(|doc| {
+            doc.get_pages()
+                .into_iter()
+                .map(|(n, id)| ((n - 1) as usize, id))
+                .collect()
+        })
         .unwrap_or_default();
 
     let mut findings = Vec::new();
@@ -900,7 +927,10 @@ mod tests {
         page.set("Parent", Object::Reference(pages_id));
         page.set("Contents", Object::Reference(content_id));
         page.set("Resources", Object::Dictionary(resources));
-        page.set("MediaBox", Object::Array(vec![0.into(), 0.into(), 612.into(), 792.into()]));
+        page.set(
+            "MediaBox",
+            Object::Array(vec![0.into(), 0.into(), 612.into(), 792.into()]),
+        );
         let page_id = doc.add_object(Object::Dictionary(page));
         let mut pages = Dictionary::new();
         pages.set("Type", Object::Name(b"Pages".to_vec()));
@@ -922,10 +952,12 @@ mod tests {
         doc.trailer.set("Root", Object::Reference(catalog_id));
 
         let findings = hidden_layer_findings(&doc);
-        assert!(findings.iter().any(|f| matches!(f.category, Category::HiddenLayer)
-            && matches!(f.severity, Severity::High)
-            && f.recovered_text.contains("hidden layer text")
-            && f.page == Some(0)));
+        assert!(findings
+            .iter()
+            .any(|f| matches!(f.category, Category::HiddenLayer)
+                && matches!(f.severity, Severity::High)
+                && f.recovered_text.contains("hidden layer text")
+                && f.page == Some(0)));
     }
 
     fn page_with_annot(subtype: &[u8]) -> (lopdf::Document, lopdf::ObjectId) {
@@ -942,7 +974,10 @@ mod tests {
         page.set("Type", Object::Name(b"Page".to_vec()));
         page.set("Parent", Object::Reference(pages_id));
         page.set("Contents", Object::Reference(content_id));
-        page.set("MediaBox", Object::Array(vec![0.into(), 0.into(), 612.into(), 792.into()]));
+        page.set(
+            "MediaBox",
+            Object::Array(vec![0.into(), 0.into(), 612.into(), 792.into()]),
+        );
         page.set("Annots", Object::Array(vec![Object::Reference(annot_id)]));
         let page_id = doc.add_object(Object::Dictionary(page));
         let mut pages = Dictionary::new();
@@ -958,7 +993,12 @@ mod tests {
         (doc, page_id)
     }
 
-    fn obs_with_glyph_at(text: &str, display_x: f64, display_y: f64, page_height: f32) -> PageObservation {
+    fn obs_with_glyph_at(
+        text: &str,
+        display_x: f64,
+        display_y: f64,
+        page_height: f32,
+    ) -> PageObservation {
         // Place a glyph whose DISPLAY-point center is (display_x, display_y); textpos
         // stores device-space (top-left) bboxes, so invert the y-flip used by to_display_rect.
         let dev_y = page_height as f64 - display_y;
@@ -982,7 +1022,10 @@ mod tests {
         let obs = obs_with_glyph_at("confidential", 72.0, 700.0, 792.0); // inside [60,690,300,720]
         let (findings, claimed) = annotation_findings(&obs, &doc, page_id, 0);
         assert_eq!(findings.len(), 1);
-        assert!(matches!(findings[0].category, Category::RemovableAnnotation));
+        assert!(matches!(
+            findings[0].category,
+            Category::RemovableAnnotation
+        ));
         assert!(matches!(findings[0].severity, Severity::Critical));
         assert!(findings[0].recovered_text.contains("confidential"));
         assert!(claimed.contains(&0));
@@ -1011,7 +1054,9 @@ mod tests {
             "Type" => Object::Name(b"OCG".to_vec()),
             "Name" => Object::string_literal("Secret Layer"),
         });
-        let content = b"/OC /MC0 BDC BT /F1 12 Tf 72 700 Td (indirect resources hidden text) Tj ET EMC".to_vec();
+        let content =
+            b"/OC /MC0 BDC BT /F1 12 Tf 72 700 Td (indirect resources hidden text) Tj ET EMC"
+                .to_vec();
         let content_id = doc.add_object(Stream::new(Dictionary::new(), content));
 
         // Store the Resources dictionary as an indirect object.
@@ -1027,7 +1072,10 @@ mod tests {
         page.set("Contents", Object::Reference(content_id));
         // /Resources is now an indirect reference, not an inline dictionary.
         page.set("Resources", Object::Reference(resources_id));
-        page.set("MediaBox", Object::Array(vec![0.into(), 0.into(), 612.into(), 792.into()]));
+        page.set(
+            "MediaBox",
+            Object::Array(vec![0.into(), 0.into(), 612.into(), 792.into()]),
+        );
         let page_id = doc.add_object(Object::Dictionary(page));
 
         let mut pages = Dictionary::new();
@@ -1073,14 +1121,28 @@ mod tests {
             "Rect" => lopdf::Object::Array(vec![0.into(), 0.into(), 1000.into(), 1000.into()]),
         });
         let page = doc.get_dictionary_mut(page_id).unwrap();
-        page.set("Annots", lopdf::Object::Array(vec![lopdf::Object::Reference(annot_id)]));
+        page.set(
+            "Annots",
+            lopdf::Object::Array(vec![lopdf::Object::Reference(annot_id)]),
+        );
         let mut bytes = Vec::new();
         doc.save_to(&mut bytes).unwrap();
 
         let report = detect(bytes).expect("detect");
-        let removable = report.findings.iter().filter(|f| matches!(f.category, Category::RemovableAnnotation)).count();
-        let covered = report.findings.iter().filter(|f| matches!(f.category, Category::CoveredText)).count();
+        let removable = report
+            .findings
+            .iter()
+            .filter(|f| matches!(f.category, Category::RemovableAnnotation))
+            .count();
+        let covered = report
+            .findings
+            .iter()
+            .filter(|f| matches!(f.category, Category::CoveredText))
+            .count();
         assert!(removable >= 1, "expected a RemovableAnnotation finding");
-        assert_eq!(covered, 0, "covered text under the annotation must not be double-reported");
+        assert_eq!(
+            covered, 0,
+            "covered text under the annotation must not be double-reported"
+        );
     }
 }

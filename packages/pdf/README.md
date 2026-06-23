@@ -257,7 +257,7 @@ Each entry in `report.findings` has this shape:
 
 ```ts
 interface DetectionFinding {
-  category: "coveredText" | "invisibleText" | "whiteoutText" | "metadataLeak" | "orphanedText";
+  category: "coveredText" | "invisibleText" | "whiteoutText" | "removableAnnotation" | "hiddenLayer" | "metadataLeak" | "orphanedText";
   severity: "critical" | "high" | "medium" | "low" | "info";
   page: number | null;      // 0-based page index; null for document-level findings
   region: { x0: number; y0: number; x1: number; y1: number } | null; // display-point bbox; null for document-level findings
@@ -266,13 +266,15 @@ interface DetectionFinding {
 }
 ```
 
-### v1 categories and severities
+### Detection categories and severities
 
 | `category` | `severity` | What it means |
 | --- | --- | --- |
 | `coveredText` | `critical` | Extractable text sits under an opaque fill that hides it from view. The classic bad redaction: the words are present in the file and selectable; only the visual rendering conceals them. |
 | `invisibleText` | `high` | Text drawn in an invisible render mode (PDF text rendering mode 3, "invisible"). Recoverable by extraction even though it does not appear on screen. |
 | `whiteoutText` | `high` | Text painted the same color as the covering fill — for example, white text under a white box. Both the text and the fill are light-colored, creating a same-color concealment. |
+| `removableAnnotation` | `critical` | Extractable text sits under an annotation that can be deleted to reveal it — for example an unapplied redaction mark. |
+| `hiddenLayer` | `high` | Text drawn on an optional-content layer that the document hides by default. |
 | `metadataLeak` | `medium` | The document's information dictionary, XMP metadata stream, bookmark titles, or AcroForm field values carry text content. These surfaces survive even when page content is removed. |
 | `orphanedText` | `high` | Text present in a PDF object that no page references, but which remains in the file bytes. A copy-and-paste or search tool that reads the raw cross-reference table can recover it. |
 
@@ -288,9 +290,11 @@ Before acting on a detection report, understand these limits:
 
 3. **Text rasterized into an image is not recovered.** If the page content was previously converted to a pixel image — the correct output of `redactDocument` — the detector finds no text on that page. That is the intended result of proper redaction.
 
-4. **Hidden optional-content-layer detection and removable-annotation attribution are not yet covered.** A PDF page may use optional content groups (layers) to hide content, or carry annotation-level content that a viewer hides but the file retains. These two patterns are not detected in the current version.
+4. **HiddenLayer findings are document-level for the layer text (`region: null`) and recover the text but not per-glyph geometry.** The detector resolves the optional-content group by a `/Properties` resource name and does not resolve a rare inline optional-content dictionary where the group is specified without a named resource.
 
-5. **Covered-text detection is glyph-center based.** A glyph is flagged as covered when the center of its bounding box falls within the covering fill. A glyph that is more than half outside the fill — or a fill that is rotated or non-rectangular (it is approximated by its axis-aligned bounding box) — may not be flagged even though most of the character is concealed. Covers that fully contain the text they hide (the usual case) are detected reliably.
+5. **RemovableAnnotation keys off the annotation subtype.** The detector flags text whose glyph center falls within the bounding rectangle of an annotation whose subtype is one of: Redact, Square, Circle, Polygon, FreeText, Stamp, Highlight, or Ink. A transparent annotation of such a subtype over text is still flagged (high-recall). An obscuring annotation whose subtype is outside that list is not flagged.
+
+6. **Covered-text detection is glyph-center based.** A glyph is flagged as covered when the center of its bounding box falls within the covering fill. A glyph that is more than half outside the fill — or a fill that is rotated or non-rectangular (it is approximated by its axis-aligned bounding box) — may not be flagged even though most of the character is concealed. Covers that fully contain the text they hide (the usual case) are detected reliably.
 
 ### `DetectionReport`
 
