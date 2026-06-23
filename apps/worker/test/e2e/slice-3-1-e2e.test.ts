@@ -1,6 +1,8 @@
-import { env, SELF } from "cloudflare:test";
+import { env, listDurableObjectIds, runInDurableObject, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { runScheduledSweep } from "../../src/scheduled.ts";
+import type { LiveTimerDurableObject } from "../../src/timer/live-timer-durable-object.ts";
+import type { TimerState } from "../../src/timer/timer-runtime.ts";
 import { applyControlPlaneMigrations } from "../support/apply-control-plane-migrations.ts";
 import {
   captureResetToken,
@@ -71,6 +73,26 @@ async function get(path: string): Promise<Response> {
   return SELF.fetch(`https://example.com${path}`, {
     headers: { origin: "https://example.com", cookie: ownerCookie },
   });
+}
+
+// Backdate the active timer's startedAt so the elapsed math yields a billable (non-zero) duration:
+// tests start and stop a timer in sub-second wall time, which the zero-duration guard correctly
+// refuses. The DO is addressed by `${firmId}:${userId}`, but the firm here is API-provisioned, so we
+// locate the run by its live_run_id rather than reconstructing the chokepoint-derived name.
+async function backdateActiveTimer(runId: string, minutesAgo: number): Promise<void> {
+  for (const id of await listDurableObjectIds(env.DURABLE_TIMER)) {
+    const stub = env.DURABLE_TIMER.get(id);
+    await runInDurableObject(stub, async (_instance: LiveTimerDurableObject, state) => {
+      const current = await state.storage.get<TimerState>("timer");
+      if (!current || current.liveRunId !== runId) return;
+      const backdated = new Date(Date.parse(current.startedAt) - minutesAgo * 60_000).toISOString();
+      await state.storage.put("timer", {
+        ...current,
+        startedAt: backdated,
+        lastActivityAt: backdated,
+      });
+    });
+  }
 }
 
 describe("time tracking end-to-end", () => {
@@ -149,6 +171,10 @@ describe("time tracking end-to-end", () => {
       narrative: "Drafted demand letter",
     });
     expect(bindResponse.status).toBe(200);
+
+    // Give the run a real elapsed span (30 minutes) so the commit clears the zero-duration guard;
+    // in production a timer accrues real minutes between start and stop.
+    await backdateActiveTimer(liveRunId, 30);
 
     // stop-commit derives workDate from the timer's startedAt and resolves the rate from the
     // first active rate card — no body fields needed beyond the empty object the route requires.
