@@ -21,8 +21,13 @@ calls this engine over the `CONVERT` service binding). **Deploy:**
   status codes (415 unsupported, 422 decode failure, 500 encode failure). `GET /ready` returns 200.
 - `src/convert.rs` — `convert()`: maps format identifiers → `image::ImageFormat`, applies
   `decode_limits()` before decoding, handles the JPEG alpha-flatten path (JPEG has no alpha channel;
-  RGBA input is composited to RGB before encoding), then encodes to the target format. `ConvertError`
-  is the Rust⇄TS boundary error type.
+  RGBA input is composited to RGB before encoding), then encodes to the target format. When
+  `target_format == "pdf"`, delegates to `image_to_pdf()` instead: derives page dimensions (longer
+  side 792 pt, shorter side proportional to preserve aspect ratio), embeds the decoded image as RGBA
+  pixels into a `krilla` PDF document, and returns the serialised PDF bytes — pure Rust, no PDFium,
+  no C. The shared `decode_source()` helper applies `decode_limits()` before decoding and is used by
+  both the raster-to-raster and image-to-PDF code paths so the bomb guard fires exactly once.
+  `ConvertError` is the Rust⇄TS boundary error type.
 - `Dockerfile` — multi-stage build; `ca-certificates` only in the runtime image (no codec apt
   packages — pure Rust needs none); no `entrypoint.sh` (nothing to configure at start-up).
 
@@ -46,8 +51,17 @@ calls this engine over the `CONVERT` service binding). **Deploy:**
   worker's general 2 GiB ingest cap; the two caps are deliberately different.
 - **Pure Rust: no C/-sys crates in the dependency tree.** The `image` crate is configured with
   `default-features = false` to exclude the AVIF encoder (which pulls in `ravif`/`rav1e`/`cc`).
-  Only pure-Rust codecs are enabled: png, jpeg, gif, webp, tiff, bmp. Any new format addition must
-  be pure Rust; a C codec dep is a CI violation.
+  Only pure-Rust codecs are enabled: png, jpeg, gif, webp, tiff, bmp. The `krilla` PDF writer is
+  also pure Rust — no PDFium, no C. Any new format addition must be pure Rust; a C codec dep is a
+  CI violation.
+- **`image_to_pdf` produces one page — do not add multi-page logic here.** The function takes a
+  single decoded `DynamicImage` and writes exactly one page. If multi-image PDFs are needed, that
+  is an orchestration concern (calling the engine once per image and merging at the registry level),
+  not a concern of this single-page primitive.
+- **Page geometry is image-aspect-ratio–preserving — do not introduce fixed page sizes.** The longer
+  side is anchored at 792 pt; the shorter side is computed proportionally. The `recipe` header
+  (`_recipe` in `convert()`) is the designated extension point for future geometry variants (e.g.
+  US Letter padding, A4 fit). Add geometry variants via `recipe` dispatch rather than new endpoints.
 - **JPEG alpha-flatten is required — do not remove it.** JPEG has no alpha channel. When the decoded
   image has alpha and the target format is JPEG, `convert()` calls `into_rgb8()` (compositing alpha
   against an opaque black background) before encoding. Skipping this step causes the encode to fail
