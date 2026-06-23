@@ -1,5 +1,6 @@
 // packages/conversion/test/registry-wellformed.test.ts
 import { describe, expect, it } from "vitest";
+import { enginePlacements } from "../src/placement.ts";
 import { EDGES, getFormat } from "../src/registry.ts";
 
 describe("registry well-formedness", () => {
@@ -22,5 +23,14 @@ describe("registry well-formedness", () => {
 
   it("every edge weight is a positive number", () => {
     for (const edge of EDGES) expect(edge.weight).toBeGreaterThan(0);
+  });
+
+  it("every engineId referenced in edges has a placement entry (fitness)", () => {
+    for (const edge of EDGES) {
+      expect(
+        enginePlacements(edge.engineId),
+        `engineId "${edge.engineId}" has no placement entry`,
+      ).toBeDefined();
+    }
   });
 });
