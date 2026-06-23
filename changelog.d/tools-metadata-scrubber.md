@@ -1,0 +1,5 @@
+---
+category: Added
+---
+
+**Tools — Metadata Inspector & Scrubber.** A new matter-free tool in the Tools area that shows exactly what metadata a file carries and produces a cleaned copy ready to send. Upload a `.docx`, `.xlsx`, `.pptx`, `.jpg`, `.png`, or `.tiff` file, inspect the findings (tracked changes, comments, hidden text, author and firm names, GPS coordinates, camera data, XMP edit history), then choose **Make safe to send** for a one-click clean or toggle individual findings before downloading the scrubbed copy. Nothing is stored — the tool is stateless and record-less. Registers the `tools:metadataScrubber` permission, a `documents` subject group, and the `metadata-scrubber` catalog manifest. Adds `@magna-carta/metadata` — a pure TypeScript package with a `MetadataPort` (`inspect` and `scrub` operations), a real-format detection step, a document engine (OOXML zip/XML surgery), and an image engine (JPEG/PNG/TIFF segment surgery) — both engines behind swappable interfaces for future expansion. Two worker routes: `POST /api/v1/metadata/inspect` and `POST /api/v1/metadata/scrub`.
