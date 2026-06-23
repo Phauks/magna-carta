@@ -22,6 +22,10 @@ import {
 // on stop/discard, rescheduled on a replacing start).
 
 const STATE_KEY = "timer";
+// Lightweight tombstone: written after a commit confirms and cleared when a new run starts. The
+// tombstone lets a late third retry (after the DO has discarded live run state) return
+// already-committed so the route replays the stored 201 rather than 409ing with "no-run".
+const TOMBSTONE_KEY = "timer:committed-run-id";
 
 export interface StartInput extends TimerBinding {
   readonly abandonedThresholdMinutes: number;
@@ -39,13 +43,15 @@ export class LiveTimerDurableObject extends DurableObject<Bindings> {
 
   // Start (or replace) the timer: stops any current run, mints a stable live_run_id, and (re)sets the
   // abandoned alarm. The run id is a timeEntry-shaped handle so the route can derive the entry handle
-  // and the chokepoint idempotency key deterministically from it at stop-commit.
+  // and the chokepoint idempotency key deterministically from it at stop-commit. Clears any committed
+  // tombstone so a late retry from the previous run no longer replays the prior 201.
   async start(input: StartInput): Promise<{ liveRunId: string; startedAt: string }> {
     const now = new Date(Date.now()).toISOString();
     const liveRunId = newIdentifier("timeEntry");
     const { abandonedThresholdMinutes, ...binding } = input;
     const state = startTimer({ liveRunId, now, binding });
     await this.save(state);
+    await this.ctx.storage.delete(TOMBSTONE_KEY);
     await this.ctx.storage.setAlarm(Date.now() + abandonedThresholdMinutes * 60_000);
     return { liveRunId, startedAt: now };
   }
@@ -89,12 +95,20 @@ export class LiveTimerDurableObject extends DurableObject<Bindings> {
   // the live run to `committing` and cancels the alarm; a concurrent second stop sees it already
   // committing and returns the SAME live_run_id, so two racing commits derive one chokepoint
   // idempotency key + one time-entry handle and collapse to a single entry. An idle DO is refused.
+  // If a tombstone exists (the run already committed and the DO was discarded), returns already-committed
+  // with the tombstoned id so the route replays the stored 201 without touching now-absent live state.
   // Route wiring (composing the time_entry, calling the chokepoint, clearing the DO) is handled in
-  // the timer routes, wired in the timer routes task.
+  // the timer routes file.
   async stopAndCommit(): Promise<{
     liveRunId: string | null;
     state: "committing" | "already-committing" | "already-committed" | "unbound" | "no-run";
   }> {
+    // Check the tombstone first: if the run already committed and the DO was discarded, replay.
+    const tombstonedId = await this.ctx.storage.get<string>(TOMBSTONE_KEY);
+    if (tombstonedId !== undefined) {
+      return { liveRunId: tombstonedId, state: "already-committed" };
+    }
+
     const state = await this.load();
     // An idle DO has no run to stop, and a scratch timer has no matter to bill — both are returned as
     // discriminated outcomes, not thrown. A throw across the DO RPC boundary surfaces as an unhandled
@@ -115,12 +129,21 @@ export class LiveTimerDurableObject extends DurableObject<Bindings> {
     return { liveRunId: next.liveRunId, state: outcome };
   }
 
+  // Write the tombstone after a confirmed commit, so late retries can replay the stored 201.
+  // Called by the route after runIdempotentEffect confirms the write.
+  async markCommitted(liveRunId: string): Promise<void> {
+    await this.ctx.storage.put(TOMBSTONE_KEY, liveRunId);
+  }
+
   // The next-interaction resolution of an abandoned run: keep (leave the captured span for a normal
   // stop-commit), trim (clamp elapsed to the last recorded activity), or discard (clear entirely).
   // Returns the resolved state, or null when discarded or no run exists.
+  // Guarded: a non-abandoned run is returned unchanged (no-op) to prevent restoring a committing or
+  // running timer and opening a double-commit window.
   async resolveAbandoned(resolution: "keep" | "trim" | "discard"): Promise<TimerState | null> {
     const state = await this.load();
     if (state === null) return null;
+    if (state.status !== "abandoned") return state;
     if (resolution === "discard") {
       await this.discard();
       return null;

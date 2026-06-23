@@ -176,4 +176,59 @@ describe("LiveTimerDurableObject — abandoned alarm + idempotent stop-commit", 
     expect(await stub.read()).toBeNull();
     expect(await runDurableObjectAlarm(stub)).toBe(false);
   });
+
+  it("markCommitted writes a tombstone so a post-discard stopAndCommit returns already-committed", async () => {
+    // Simulates a 3rd late retry: commit -> markCommitted -> discard -> stopAndCommit must replay.
+    const stub = env.DURABLE_TIMER.getByName(name);
+    const { liveRunId } = await stub.start({
+      matterId: "matter_a",
+      abandonedThresholdMinutes: 600,
+    });
+    const stop = await stub.stopAndCommit();
+    expect(stop.state).toBe("committing");
+    // The route writes the tombstone after a confirmed commit, then discards.
+    await stub.markCommitted(liveRunId);
+    await stub.discard();
+    // State is gone (the DO was discarded) but the tombstone persists.
+    expect(await stub.read()).toBeNull();
+    // A late third retry must return already-committed with the tombstoned id, not no-run.
+    const late = await stub.stopAndCommit();
+    expect(late.state).toBe("already-committed");
+    expect(late.liveRunId).toBe(liveRunId);
+  });
+
+  it("resolveAbandoned is a no-op for a non-abandoned (running) timer", async () => {
+    // Ensures resolveAbandoned cannot restore a running or committing timer and open a double-commit window.
+    const stub = env.DURABLE_TIMER.getByName(name);
+    await stub.start({ matterId: "matter_a", abandonedThresholdMinutes: 600 });
+    const readBefore = await stub.read();
+    expect(readBefore?.status).toBe("running");
+    // resolveAbandoned on a running timer must return the state unchanged.
+    const result = await stub.resolveAbandoned("keep");
+    expect(result?.status).toBe("running");
+    // The state in storage is also unchanged — no accidental flip.
+    const readAfter = await stub.read();
+    expect(readAfter?.status).toBe("running");
+    expect(readAfter?.liveRunId).toBe(readBefore?.liveRunId);
+  });
+
+  it("a new start clears the tombstone so a late retry from the prior run no longer replays", async () => {
+    const stub = env.DURABLE_TIMER.getByName(name);
+    const { liveRunId: firstRunId } = await stub.start({
+      matterId: "matter_a",
+      abandonedThresholdMinutes: 600,
+    });
+    await stub.stopAndCommit();
+    await stub.markCommitted(firstRunId);
+    await stub.discard();
+    // Tombstone present: a late retry from the first run would replay.
+    const lateBeforeRestart = await stub.stopAndCommit();
+    expect(lateBeforeRestart.state).toBe("already-committed");
+    // New start clears the tombstone.
+    await stub.start({ matterId: "matter_b", abandonedThresholdMinutes: 600 });
+    // The new run is live; stopAndCommit now returns committing (not already-committed from the old tombstone).
+    const newStop = await stub.stopAndCommit();
+    expect(newStop.state).toBe("committing");
+    expect(newStop.liveRunId).not.toBe(firstRunId);
+  });
 });

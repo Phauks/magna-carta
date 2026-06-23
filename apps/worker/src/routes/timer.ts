@@ -1,5 +1,10 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
+import {
+  decideIdempotency,
+  type IdempotencyRecordRow,
+} from "@magna-carta/data-access/idempotency-decision";
+import { selectIdempotencyRecordStatement } from "@magna-carta/data-access/idempotency-statements";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { resolveScopedSetting } from "@magna-carta/data-access/scoped-setting-statements";
 import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
@@ -104,12 +109,24 @@ const authErrors = {
   },
 } as const;
 
-const writeErrorResponses = {
+// Responses for the stop-commit route, which enforces idempotency: "required".
+const stopCommitErrorResponses = {
   400: authErrors[400],
   401: authErrors[401],
   403: authErrors[403],
   404: authErrors[404],
   409: authErrors[409],
+  422: authErrors[422],
+  429: authErrors[429],
+} as const;
+
+// Responses for the timer mutation routes that do NOT enforce an idempotency key (idempotency:
+// "optional"): 400 key-missing and 409 in-progress are omitted because the middleware never fires
+// them for these operations.
+const optionalIdempotencyErrorResponses = {
+  401: authErrors[401],
+  403: authErrors[403],
+  404: authErrors[404],
   422: authErrors[422],
   429: authErrors[429],
 } as const;
@@ -129,6 +146,20 @@ function writeMeta(operationId: string): RouteMeta {
     permission: TRACK,
     resource: "matter",
     audited: true,
+    idempotency: "optional",
+    idempotencyStore: "firm",
+    rateLimit: "default",
+  };
+}
+
+function stopCommitMeta_(): RouteMeta {
+  return {
+    operationId: "timer.stopCommit",
+    surface: "app",
+    authenticated: true,
+    permission: TRACK,
+    resource: "matter",
+    audited: true,
     idempotency: "required",
     idempotencyStore: "firm",
     rateLimit: "default",
@@ -139,7 +170,7 @@ const startMeta = writeMeta("timer.start");
 const pauseMeta = writeMeta("timer.pause");
 const resumeMeta = writeMeta("timer.resume");
 const bindMeta = writeMeta("timer.bind");
-const stopCommitMeta = writeMeta("timer.stopCommit");
+const stopCommitMeta = stopCommitMeta_();
 const discardMeta = writeMeta("timer.discard");
 const readMeta: RouteMeta = {
   operationId: "timer.read",
@@ -163,13 +194,11 @@ const startRoute = defineOpenAPIRoute(startMeta, {
   },
   responses: {
     200: { description: "Applied", content: { "application/json": { schema: StartAck } } },
-    400: writeErrorResponses[400],
-    401: writeErrorResponses[401],
-    403: writeErrorResponses[403],
-    404: writeErrorResponses[404],
-    409: writeErrorResponses[409],
-    422: writeErrorResponses[422],
-    429: writeErrorResponses[429],
+    401: optionalIdempotencyErrorResponses[401],
+    403: optionalIdempotencyErrorResponses[403],
+    404: optionalIdempotencyErrorResponses[404],
+    422: optionalIdempotencyErrorResponses[422],
+    429: optionalIdempotencyErrorResponses[429],
   },
 });
 const pauseRoute = defineOpenAPIRoute(pauseMeta, {
@@ -182,13 +211,11 @@ const pauseRoute = defineOpenAPIRoute(pauseMeta, {
   },
   responses: {
     200: { description: "Applied", content: { "application/json": { schema: TimerAck } } },
-    400: writeErrorResponses[400],
-    401: writeErrorResponses[401],
-    403: writeErrorResponses[403],
-    404: writeErrorResponses[404],
-    409: writeErrorResponses[409],
-    422: writeErrorResponses[422],
-    429: writeErrorResponses[429],
+    401: optionalIdempotencyErrorResponses[401],
+    403: optionalIdempotencyErrorResponses[403],
+    404: optionalIdempotencyErrorResponses[404],
+    422: optionalIdempotencyErrorResponses[422],
+    429: optionalIdempotencyErrorResponses[429],
   },
 });
 const resumeRoute = defineOpenAPIRoute(resumeMeta, {
@@ -201,13 +228,11 @@ const resumeRoute = defineOpenAPIRoute(resumeMeta, {
   },
   responses: {
     200: { description: "Applied", content: { "application/json": { schema: TimerAck } } },
-    400: writeErrorResponses[400],
-    401: writeErrorResponses[401],
-    403: writeErrorResponses[403],
-    404: writeErrorResponses[404],
-    409: writeErrorResponses[409],
-    422: writeErrorResponses[422],
-    429: writeErrorResponses[429],
+    401: optionalIdempotencyErrorResponses[401],
+    403: optionalIdempotencyErrorResponses[403],
+    404: optionalIdempotencyErrorResponses[404],
+    422: optionalIdempotencyErrorResponses[422],
+    429: optionalIdempotencyErrorResponses[429],
   },
 });
 const bindRoute = defineOpenAPIRoute(bindMeta, {
@@ -220,13 +245,11 @@ const bindRoute = defineOpenAPIRoute(bindMeta, {
   },
   responses: {
     200: { description: "Applied", content: { "application/json": { schema: TimerAck } } },
-    400: writeErrorResponses[400],
-    401: writeErrorResponses[401],
-    403: writeErrorResponses[403],
-    404: writeErrorResponses[404],
-    409: writeErrorResponses[409],
-    422: writeErrorResponses[422],
-    429: writeErrorResponses[429],
+    401: optionalIdempotencyErrorResponses[401],
+    403: optionalIdempotencyErrorResponses[403],
+    404: optionalIdempotencyErrorResponses[404],
+    422: optionalIdempotencyErrorResponses[422],
+    429: optionalIdempotencyErrorResponses[429],
   },
 });
 const stopCommitRoute = defineOpenAPIRoute(stopCommitMeta, {
@@ -240,13 +263,13 @@ const stopCommitRoute = defineOpenAPIRoute(stopCommitMeta, {
   },
   responses: {
     201: { description: "Applied", content: { "application/json": { schema: StopCommitAck } } },
-    400: writeErrorResponses[400],
-    401: writeErrorResponses[401],
-    403: writeErrorResponses[403],
-    404: writeErrorResponses[404],
-    409: writeErrorResponses[409],
-    422: writeErrorResponses[422],
-    429: writeErrorResponses[429],
+    400: stopCommitErrorResponses[400],
+    401: stopCommitErrorResponses[401],
+    403: stopCommitErrorResponses[403],
+    404: stopCommitErrorResponses[404],
+    409: stopCommitErrorResponses[409],
+    422: stopCommitErrorResponses[422],
+    429: stopCommitErrorResponses[429],
   },
 });
 const discardRoute = defineOpenAPIRoute(discardMeta, {
@@ -259,13 +282,11 @@ const discardRoute = defineOpenAPIRoute(discardMeta, {
   },
   responses: {
     200: { description: "Applied", content: { "application/json": { schema: TimerAck } } },
-    400: writeErrorResponses[400],
-    401: writeErrorResponses[401],
-    403: writeErrorResponses[403],
-    404: writeErrorResponses[404],
-    409: writeErrorResponses[409],
-    422: writeErrorResponses[422],
-    429: writeErrorResponses[429],
+    401: optionalIdempotencyErrorResponses[401],
+    403: optionalIdempotencyErrorResponses[403],
+    404: optionalIdempotencyErrorResponses[404],
+    422: optionalIdempotencyErrorResponses[422],
+    429: optionalIdempotencyErrorResponses[429],
   },
 });
 
@@ -405,9 +426,15 @@ export function registerTimerRoutes(app: TimerApp, chokepoint: Chokepoint): void
 
   // POST /api/v1/timer/stop-commit — the two-phase commit
   // Phase 1: the DO's single-threaded compare-and-set flips the state to `committing` for the first
-  // caller; concurrent callers see `already-committing` and take the replay path.
-  // Phase 2: both paths derive the SAME idempotency key and time-entry handle from live_run_id, so
-  // the chokepoint collapses racing commits to one row via its idempotency_key record.
+  // caller; concurrent callers see `already-committing` or `already-committed` and take the replay path.
+  // Phase 2: all paths (committing, already-committing, already-committed) derive the SAME idempotency
+  // key and time-entry handle from live_run_id and funnel through runIdempotentEffect, so the chokepoint
+  // collapses racing commits to one row via its idempotency_key record.
+  //
+  // CRITICAL — racer path isolation: only the `committing` (winner) path calls stub.read() to compose
+  // the entry. The `already-committing` and `already-committed` paths go straight to runIdempotentEffect
+  // with the live_run_id key; the chokepoint replays the stored response body without touching live DO
+  // state. This prevents a racer reading null state after the winner has already discarded the DO.
   app.openapi(
     { ...stopCommitRoute, middleware: chokepointMiddleware(chokepoint, stopCommitRoute) },
     async (c) => {
@@ -436,38 +463,74 @@ export function registerTimerRoutes(app: TimerApp, chokepoint: Chokepoint): void
         });
       }
 
-      // At this point stop.liveRunId is non-null (committing, already-committing, or already-committed)
+      // At this point stop.liveRunId is non-null (committing, already-committing, or already-committed).
       const liveRunId = stop.liveRunId as string;
-      const timeEntryId = deriveTimeEntryHandle(liveRunId);
-
-      // Read the current state to get the binding (matter, narrative, etc.) and compute elapsed.
-      // The DO preserves the binding on the committing state, so read() is safe here.
-      const state = await stub.read();
       const now = () => new Date().toISOString();
-      const nowString = now();
 
-      const rawElapsed = state !== null ? elapsedMinutes(state, nowString) : 0;
+      // The replay paths (already-committing, already-committed) must NOT call stub.read() — the DO may
+      // have already been discarded by the winner, and reading null state would hit the invariant below.
+      // Instead, read the idempotency record directly: if the winner's commit has been stored, replay it;
+      // if it is not yet present (the winner is still in-flight), return 409 so the caller retries.
+      // This avoids running any effect in the racer path, which would collide with the winner's in-flight
+      // batch and corrupt the idempotency record.
+      if (stop.state === "already-committing" || stop.state === "already-committed") {
+        const idempotencyKey = `timer-stop:${liveRunId}`;
+        const { results } = await selectIdempotencyRecordStatement(
+          firm.firmDatabase,
+          idempotencyKey,
+        ).all<IdempotencyRecordRow>();
+        const decision = decideIdempotency(results[0], liveRunId);
+
+        if (decision.kind === "execute") {
+          // The winner is still in-flight and has not yet committed the idempotency record.
+          // Return 409 so the client retries — the commit will complete and be replayable shortly.
+          return problemJson(c, {
+            type: "conflict",
+            title: "Commit in progress",
+            status: 409,
+            detail: "A concurrent stop-commit is in progress for this timer. Retry in a moment.",
+          });
+        }
+        if (decision.kind === "in-progress" || decision.kind === "fingerprint-mismatch") {
+          return problemResponseForIdempotencyConflict(c, { kind: decision.kind });
+        }
+        // decision.kind === "replay": return the stored 201.
+        c.header("Idempotency-Replayed", "true");
+        return c.json(
+          JSON.parse(decision.responseBody ?? "{}") as z.infer<typeof StopCommitAck>,
+          201,
+        );
+      }
+
+      // stop.state === "committing": this is the winner. Read the live DO state to compose the entry.
+      const state = await stub.read();
 
       // A committing DO is always matter-bound: the DO's stopAndCommit refuses an unbound timer
       // (returns 'unbound', handled above) and is single-threaded, so reaching this point with a
       // null or missing matterId is a programming error, not a user error.
-      const matterId = state?.matterId;
+      if (state === null) {
+        throw new Error(
+          "invariant: DO returned committing but state is null — concurrent discard on the committing path",
+        );
+      }
+      const matterId = state.matterId;
       if (!matterId) {
         throw new Error(
           "invariant: committing timer has no bound matter after stopAndCommit returned committing",
         );
       }
-      const narrative = state?.narrative ?? "";
-      const utbmsTaskCodeId = state?.utbmsTaskCodeId;
-      const startedAt = state?.startedAt ?? nowString;
-      const workDate = startedAt.slice(0, 10);
 
-      // All five outcomes (committing, already-committing, already-committed, and future-proof variants)
-      // go through runIdempotentEffect with the same key derived from liveRunId. The committing path
-      // executes the effect; the replay paths return the stored response without a second write.
-      // The chokepoint key is derived from the live run id (not the request's Idempotency-Key) so that
-      // two racing callers with DIFFERENT request keys still collapse to one entry — the live_run_id is
-      // the entropy and the idempotency anchor, not the client-supplied header.
+      const nowString = now();
+      const rawElapsed = elapsedMinutes(state, nowString);
+      const narrative = state.narrative ?? "";
+      const utbmsTaskCodeId = state.utbmsTaskCodeId;
+      const startedAt = state.startedAt;
+      const workDate = startedAt.slice(0, 10);
+      const timeEntryId = deriveTimeEntryHandle(liveRunId);
+
+      // All commit paths derive the chokepoint key from the live run id (not the client-supplied
+      // Idempotency-Key header) so that two callers with DIFFERENT header keys still collapse to one
+      // entry — the live_run_id is the entropy and the idempotency anchor.
       const increment = await resolveScopedSetting(firm.firmDatabase, incrementMinutesDefinition, {
         matterId,
         userId,
@@ -477,6 +540,19 @@ export function registerTimerRoutes(app: TimerApp, chokepoint: Chokepoint): void
         userId,
       });
       const durationMinutes = roundDuration(rawElapsed, increment, direction);
+
+      // Guard against sub-60-second runs rounding to zero (billing correctness): a timer run too short
+      // to produce one minute of billable time must not commit a 0-minute entry. The caller can keep
+      // timing or discard explicitly. The DO is NOT marked committed on this path so the run stays open.
+      if (durationMinutes === 0) {
+        return problemJson(c, {
+          type: "validation",
+          title: "Timer run too short to bill",
+          status: 422,
+          detail:
+            "The timer run rounds to 0 minutes. Keep timing to accumulate a billable duration, or discard the run.",
+        });
+      }
 
       // Resolve the rate from the precedence chain. Mirrors the time-entries capture path: the first
       // non-archived rate card in the firm is the default when no card is specified (the common
@@ -555,7 +631,10 @@ export function registerTimerRoutes(app: TimerApp, chokepoint: Chokepoint): void
         return problemResponseForIdempotencyConflict(c, result);
       }
 
-      // The commit is confirmed (executed or replayed) — clear the DO so a new timer can start.
+      // The commit is confirmed (executed or replayed). Write the tombstone before discarding so that
+      // any late retry arriving after this point finds already-committed and replays the stored 201.
+      await stub.markCommitted(liveRunId);
+      // Clear the live timer state so a new run can start.
       await stub.discard();
 
       if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");

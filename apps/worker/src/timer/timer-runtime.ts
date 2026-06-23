@@ -83,7 +83,11 @@ export function bindTimer(state: TimerState, binding: TimerBinding, now: string)
   };
 }
 
-export type BeginCommitOutcome = "committing" | "already-committing" | "unbound";
+export type BeginCommitOutcome =
+  | "committing"
+  | "already-committing"
+  | "already-committed"
+  | "unbound";
 
 export interface BeginCommitResult {
   readonly state: TimerState;
@@ -94,6 +98,7 @@ export interface BeginCommitResult {
 // to `committing`; a second concurrent call sees it already committing and changes nothing. The DO
 // serializes the calls; this is the pure transition they apply.
 // A scratch timer with no matter cannot be committed — the caller must bind a matter first.
+// A tombstoned run (committed id retained to replay the 201 to late retries) returns already-committed.
 export function beginCommit(state: TimerState): BeginCommitResult {
   if (state.status === "committing") return { state, outcome: "already-committing" };
   if (state.matterId === undefined) return { state, outcome: "unbound" };
@@ -137,7 +142,6 @@ export function trimToLastActivity(state: TimerState): TimerState {
   );
   return {
     ...state,
-    status: state.status,
     pausedIntervals: [...closed, { from: state.lastActivityAt, to: null }],
   };
 }

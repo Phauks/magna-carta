@@ -14485,7 +14485,7 @@
         "x-mc-permission": "time:track",
         "x-mc-resource": "matter",
         "x-mc-audited": true,
-        "x-mc-idempotency": "required",
+        "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
         "x-mc-tags": [
           "timer"
@@ -14497,7 +14497,7 @@
               "type": "string",
               "minLength": 1
             },
-            "required": true,
+            "required": false,
             "name": "idempotency-key",
             "in": "header"
           }
@@ -14519,16 +14519,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TimerStartAck"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Missing Idempotency-Key (this operation requires one)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -14555,16 +14545,6 @@
           },
           "404": {
             "description": "The firm is unreachable or the member is deactivated",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "A request with this Idempotency-Key is in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -14609,7 +14589,7 @@
         "x-mc-permission": "time:track",
         "x-mc-resource": "matter",
         "x-mc-audited": true,
-        "x-mc-idempotency": "required",
+        "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
         "x-mc-tags": [
           "timer"
@@ -14621,7 +14601,7 @@
               "type": "string",
               "minLength": 1
             },
-            "required": true,
+            "required": false,
             "name": "idempotency-key",
             "in": "header"
           }
@@ -14643,16 +14623,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TimerAck"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Missing Idempotency-Key (this operation requires one)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -14679,16 +14649,6 @@
           },
           "404": {
             "description": "The firm is unreachable or the member is deactivated",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "A request with this Idempotency-Key is in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -14733,7 +14693,7 @@
         "x-mc-permission": "time:track",
         "x-mc-resource": "matter",
         "x-mc-audited": true,
-        "x-mc-idempotency": "required",
+        "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
         "x-mc-tags": [
           "timer"
@@ -14745,7 +14705,7 @@
               "type": "string",
               "minLength": 1
             },
-            "required": true,
+            "required": false,
             "name": "idempotency-key",
             "in": "header"
           }
@@ -14767,16 +14727,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TimerAck"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Missing Idempotency-Key (this operation requires one)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -14803,16 +14753,6 @@
           },
           "404": {
             "description": "The firm is unreachable or the member is deactivated",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "A request with this Idempotency-Key is in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -14857,7 +14797,7 @@
         "x-mc-permission": "time:track",
         "x-mc-resource": "matter",
         "x-mc-audited": true,
-        "x-mc-idempotency": "required",
+        "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
         "x-mc-tags": [
           "timer"
@@ -14869,7 +14809,7 @@
               "type": "string",
               "minLength": 1
             },
-            "required": true,
+            "required": false,
             "name": "idempotency-key",
             "in": "header"
           }
@@ -14891,16 +14831,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TimerAck"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Missing Idempotency-Key (this operation requires one)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -14927,16 +14857,6 @@
           },
           "404": {
             "description": "The firm is unreachable or the member is deactivated",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "A request with this Idempotency-Key is in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -14981,7 +14901,7 @@
         "x-mc-permission": "time:track",
         "x-mc-resource": "matter",
         "x-mc-audited": true,
-        "x-mc-idempotency": "required",
+        "x-mc-idempotency": "optional",
         "x-mc-rateLimit": "default",
         "x-mc-tags": [
           "timer"
@@ -14993,7 +14913,7 @@
               "type": "string",
               "minLength": 1
             },
-            "required": true,
+            "required": false,
             "name": "idempotency-key",
             "in": "header"
           }
@@ -15015,16 +14935,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TimerAck"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Missing Idempotency-Key (this operation requires one)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -15051,16 +14961,6 @@
           },
           "404": {
             "description": "The firm is unreachable or the member is deactivated",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "A request with this Idempotency-Key is in progress",
             "content": {
               "application/problem+json": {
                 "schema": {
