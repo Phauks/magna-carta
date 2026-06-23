@@ -377,6 +377,111 @@
           "links"
         ]
       },
+      "MetadataReport": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "category": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "risk": {
+                  "type": "string",
+                  "enum": [
+                    "high",
+                    "medium",
+                    "low"
+                  ]
+                },
+                "count": {
+                  "type": "number"
+                },
+                "defaultScrub": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "category",
+                "label",
+                "risk",
+                "count",
+                "defaultScrub"
+              ]
+            }
+          },
+          "clean": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "format",
+          "findings",
+          "clean"
+        ]
+      },
+      "MetadataScrubResult": {
+        "type": "object",
+        "properties": {
+          "mediaType": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "cleanedBase64": {
+            "type": "string"
+          },
+          "report": {
+            "$ref": "#/components/schemas/MetadataReport"
+          }
+        },
+        "required": [
+          "mediaType",
+          "filename",
+          "cleanedBase64",
+          "report"
+        ]
+      },
+      "MetadataScrubOptions": {
+        "type": "object",
+        "properties": {
+          "identifyingMetadata": {
+            "type": "boolean"
+          },
+          "trackedChanges": {
+            "type": "boolean"
+          },
+          "comments": {
+            "type": "boolean"
+          },
+          "hiddenContent": {
+            "type": "boolean"
+          },
+          "customProperties": {
+            "type": "boolean"
+          },
+          "imageMetadata": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "identifyingMetadata",
+          "trackedChanges",
+          "comments",
+          "hiddenContent",
+          "customProperties",
+          "imageMetadata"
+        ]
+      },
       "InviteMemberResponse": {
         "type": "object",
         "properties": {
@@ -4040,6 +4145,205 @@
           },
           "502": {
             "description": "The remote browser renderer is unavailable or at capacity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/metadata/inspect": {
+      "post": {
+        "description": "Inspect an uploaded file (base64) and report the metadata and content-bearing artifacts it carries, with a risk level per category. Nothing is stored.",
+        "operationId": "metadata.inspect",
+        "tags": [
+          "metadata"
+        ],
+        "x-mc-operationId": "metadata.inspect",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:metadataScrubber",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "metadata"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "filename": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  },
+                  "contentBase64": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "filename",
+                  "contentBase64"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Metadata report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unprocessable file",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing tools:metadataScrubber",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/metadata/scrub": {
+      "post": {
+        "description": "Return a cleaned copy (base64) of an uploaded file with the selected metadata and content artifacts removed, plus a re-inspection of the result. Defaults to removing everything. Nothing is stored.",
+        "operationId": "metadata.scrub",
+        "tags": [
+          "metadata"
+        ],
+        "x-mc-operationId": "metadata.scrub",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:metadataScrubber",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "metadata"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "filename": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  },
+                  "contentBase64": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "options": {
+                    "$ref": "#/components/schemas/MetadataScrubOptions"
+                  }
+                },
+                "required": [
+                  "filename",
+                  "contentBase64"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cleaned file + report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataScrubResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unprocessable file",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing tools:metadataScrubber",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -13803,6 +14107,9 @@
     },
     {
       "name": "members"
+    },
+    {
+      "name": "metadata"
     },
     {
       "name": "numbering"

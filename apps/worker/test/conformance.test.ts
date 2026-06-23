@@ -55,6 +55,10 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Read-shaped POST: counts how each current value would land under a kind change (the target kind rides the body) — no write, no audit.",
   "safeBrowse.post":
     "Renders a suspect URL in an isolated remote browser and returns a static snapshot — a pure read over the request body, no firm-data write; the target URL is deliberately never logged (redaction).",
+  "metadata.inspect":
+    "Pure computation over the uploaded bytes — reports metadata findings; nothing is stored, no firm data is written.",
+  "metadata.scrub":
+    "Pure computation over the uploaded bytes — returns a cleaned copy in-process; nothing is stored, no firm data is written.",
 };
 
 // Subsystems whose every route must be idempotency: required (money/trust/payment/outbound-comms).
@@ -553,6 +557,8 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "matters.update",
       "me.get",
       "members.invite",
+      "metadata.inspect",
+      "metadata.scrub",
       "numbering.get",
       "numbering.preview",
       "numbering.set",

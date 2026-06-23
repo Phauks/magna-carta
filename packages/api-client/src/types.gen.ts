@@ -100,6 +100,34 @@ export type SafeWebsiteView = {
     links: Array<string>;
 };
 
+export type MetadataReport = {
+    format: string;
+    findings: Array<{
+        category: string;
+        label: string;
+        risk: 'high' | 'medium' | 'low';
+        count: number;
+        defaultScrub: boolean;
+    }>;
+    clean: boolean;
+};
+
+export type MetadataScrubResult = {
+    mediaType: string;
+    filename: string;
+    cleanedBase64: string;
+    report: MetadataReport;
+};
+
+export type MetadataScrubOptions = {
+    identifyingMetadata: boolean;
+    trackedChanges: boolean;
+    comments: boolean;
+    hiddenContent: boolean;
+    customProperties: boolean;
+    imageMetadata: boolean;
+};
+
 export type InviteMemberResponse = {
     id: string;
     email: string;
@@ -1071,6 +1099,87 @@ export type SafeBrowsePostResponses = {
 };
 
 export type SafeBrowsePostResponse = SafeBrowsePostResponses[keyof SafeBrowsePostResponses];
+
+export type MetadataInspectData = {
+    body: {
+        filename: string;
+        contentBase64: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/metadata/inspect';
+};
+
+export type MetadataInspectErrors = {
+    /**
+     * Unprocessable file
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Missing tools:metadataScrubber
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MetadataInspectError = MetadataInspectErrors[keyof MetadataInspectErrors];
+
+export type MetadataInspectResponses = {
+    /**
+     * Metadata report
+     */
+    200: MetadataReport;
+};
+
+export type MetadataInspectResponse = MetadataInspectResponses[keyof MetadataInspectResponses];
+
+export type MetadataScrubData = {
+    body: {
+        filename: string;
+        contentBase64: string;
+        options?: MetadataScrubOptions;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/metadata/scrub';
+};
+
+export type MetadataScrubErrors = {
+    /**
+     * Unprocessable file
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Missing tools:metadataScrubber
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MetadataScrubError = MetadataScrubErrors[keyof MetadataScrubErrors];
+
+export type MetadataScrubResponses = {
+    /**
+     * Cleaned file + report
+     */
+    200: MetadataScrubResult;
+};
+
+export type MetadataScrubResponse = MetadataScrubResponses[keyof MetadataScrubResponses];
 
 export type MembersInviteData = {
     body: InviteMemberRequest;
