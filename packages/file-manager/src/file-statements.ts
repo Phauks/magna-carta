@@ -57,6 +57,10 @@ export function insertFileStatement(database: SqlDatabase, row: InsertFileRow): 
 export interface InsertFileVersionRow {
   readonly id: FileVersionId;
   readonly fileId: FileId;
+  // Advisory only — for a caller's own return value. The AUTHORITATIVE version_number is computed
+  // ATOMICALLY inside the INSERT (the subquery below), so concurrent initiates on one file can never
+  // collide on the same number (each SQLite write serializes and sees the prior committed max). The
+  // caller's pre-read value would race; the statement does not use it.
   readonly versionNumber: number;
   readonly r2Key: string;
   readonly declaredContentType: string | null;
@@ -68,19 +72,22 @@ export interface InsertFileVersionRow {
 }
 
 // A pending version: bytes are not yet ingested, so size/sniffed-type/hash/scan are null and status
-// is 'pending' — invisible to every consumer read until the ingest gate commits it.
+// is 'pending' — invisible to every consumer read until the ingest gate commits it. version_number is
+// computed in the INSERT itself (MAX+1 over the file) so two concurrent initiates serialize on the
+// write and take distinct numbers — never an unhandled UNIQUE(file_id, version_number) collision.
 export function insertFileVersionStatement(
   database: SqlDatabase,
   row: InsertFileVersionRow,
 ): SqlStatement {
   return database
     .prepare(
-      `INSERT INTO ${FILE_VERSION_TABLE} (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, scan_verdict, scan_engine_version, status, uploaded_by, checkout_id, created_at, committed_at) VALUES (?1, ?2, ?3, ?4, NULL, ?5, NULL, NULL, NULL, NULL, 'pending', ?6, ?7, ?8, NULL)`,
+      `INSERT INTO ${FILE_VERSION_TABLE} (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, scan_verdict, scan_engine_version, status, uploaded_by, checkout_id, created_at, committed_at) ` +
+        // the version-number subquery spans ALL statuses by design (numbers never reuse a slot) — fitness:allow-no-status
+        `VALUES (?1, ?2, (SELECT COALESCE(MAX(version_number), 0) + 1 FROM ${FILE_VERSION_TABLE} WHERE file_id = ?2), ?3, NULL, ?4, NULL, NULL, NULL, NULL, 'pending', ?5, ?6, ?7, NULL)`,
     )
     .bind(
       row.id,
       row.fileId,
-      row.versionNumber,
       row.r2Key,
       row.declaredContentType,
       row.uploadedBy,

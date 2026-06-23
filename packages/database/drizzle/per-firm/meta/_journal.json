@@ -141,6 +141,13 @@
       "when": 1782237377966,
       "tag": "0019_needy_rage",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1782241943685,
+      "tag": "0020_smart_stellaris",
+      "breakpoints": true
     }
   ]
 }

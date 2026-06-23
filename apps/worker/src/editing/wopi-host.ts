@@ -6,7 +6,7 @@ import type { Bindings } from "../app.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { resolveFirmDatabase } from "../firm-binding-resolver.ts";
 import { documentSessionStub } from "./document-session.ts";
-import { wopiGuard, type FirmDatabaseResolver } from "./wopi-guard.ts";
+import { wopiGuard, WopiGuardError, type FirmDatabaseResolver } from "./wopi-guard.ts";
 import { checkFileInfo, getFile, lockOperation, putFile, runWopiCallback } from "./wopi-routes.ts";
 
 // The WOPI host callback surface — the editor's data plane. Collabora replays an opaque access_token
@@ -45,6 +45,7 @@ async function withWopi(
     fileId: FileId;
     state: Awaited<ReturnType<ReturnType<typeof documentSessionStub>["getState"]>>;
   }) => Promise<Response>,
+  options: { readonly requireLiveSession?: boolean } = {},
 ): Promise<Response> {
   const logger = createWorkersLogger(c.env.TELEMETRY);
   return runWopiCallback(operation, { logger, now: () => new Date().toISOString() }, async () => {
@@ -52,6 +53,18 @@ async function withWopi(
     const { claims, firmDatabase } = await wopiGuard(token, c.env, firmDatabaseResolverFor(c.env));
     const fileId = claims.fileId as FileId;
     const state = await documentSessionStub(c.env, fileId).getState();
+    // Session binding for MUTATING edit callbacks: an edit token is bound to the DO session it was
+    // minted for, so a leaked-but-unexpired token cannot replay a write/lock once that session is reaped
+    // (state.sessionId null) or rotated (a different id). Scoped to capability === 'edit': reads are
+    // never blocked, and a view token cannot mutate anyway (the handler's capability gate answers it),
+    // so its session id need not be live.
+    if (
+      options.requireLiveSession === true &&
+      claims.capability === "edit" &&
+      claims.sessionId !== state.sessionId
+    ) {
+      throw new WopiGuardError("unauthorized");
+    }
     return fn({ claims, firmDatabase, fileId, state });
   });
 }
@@ -73,17 +86,19 @@ export function registerWopiHostRoutes(
 
   // Lock family — POST /wopi/files/{fileId} (dispatched by X-WOPI-Override)
   app.post("/wopi/files/:fileId", (c) =>
-    withWopi(c, "wopi:lock", async ({ claims, fileId }) => {
-      const stub = documentSessionStub(c.env, fileId);
-      // Re-read the lock at call time (the state read in withWopi is for the file handlers); the lock
-      // handler reconciles against the value currently held on the DO.
-      const currentLock = (await stub.getState()).wopiLock;
-      return lockOperation(claims, c.req.raw, {
-        currentLock,
-        setLock: (value) => stub.setWopiLock(value),
-        clearLock: () => stub.clearWopiLock(),
-      });
-    }),
+    withWopi(
+      c,
+      "wopi:lock",
+      async ({ claims, fileId, state }) => {
+        const stub = documentSessionStub(c.env, fileId);
+        return lockOperation(claims, c.req.raw, {
+          currentLock: state.wopiLock,
+          setLock: (value) => stub.setWopiLock(value),
+          clearLock: () => stub.clearWopiLock(),
+        });
+      },
+      { requireLiveSession: true },
+    ),
   );
 
   // GetFile — GET /wopi/files/{fileId}/contents
@@ -95,14 +110,20 @@ export function registerWopiHostRoutes(
 
   // PutFile — POST /wopi/files/{fileId}/contents
   app.post("/wopi/files/:fileId/contents", (c) =>
-    withWopi(c, "wopi:put-file", async ({ claims, fileId, state }) => {
-      const stub = documentSessionStub(c.env, fileId);
-      return putFile(claims, c.req.raw, {
-        bucket: c.env.R2,
-        currentMeta: state.current,
-        recordCurrentMeta: (meta) => stub.setCurrentMeta(meta),
-        now: () => new Date().toISOString(),
-      });
-    }),
+    withWopi(
+      c,
+      "wopi:put-file",
+      async ({ claims, fileId, state }) => {
+        const stub = documentSessionStub(c.env, fileId);
+        return putFile(claims, c.req.raw, {
+          bucket: c.env.R2,
+          currentMeta: state.current,
+          currentLock: state.wopiLock,
+          recordCurrentMeta: (meta) => stub.setCurrentMeta(meta),
+          now: () => new Date().toISOString(),
+        });
+      },
+      { requireLiveSession: true },
+    ),
   );
 }

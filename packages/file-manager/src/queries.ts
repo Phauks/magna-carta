@@ -222,6 +222,33 @@ export function getConflictPendingVersionStatement(
     .bind(fileId);
 }
 
+// ALL conflict_pending copies for a file, newest first. The reconcile route resolves every one in a
+// single pass — multiple offline copies can diverge concurrently, so resolving only the newest would
+// orphan the rest as permanently-unreconcilable conflict_pending versions. Gated on
+// reconciliation_status (a conflicting copy is committed `clean`), not status. fitness:allow-no-status
+export async function getConflictPendingVersions(
+  database: SqlDatabase,
+  fileId: FileId,
+): Promise<ConflictPendingVersion[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT id, version_number, diverged_from_version_id, checkout_id FROM ${FILE_VERSION_TABLE} WHERE file_id = ?1 AND reconciliation_status = 'conflict_pending' ORDER BY version_number DESC`,
+    )
+    .bind(fileId)
+    .all<{
+      id: FileVersionId;
+      version_number: number;
+      diverged_from_version_id: FileVersionId | null;
+      checkout_id: DocumentCheckoutId | null;
+    }>();
+  return results.map((row) => ({
+    id: row.id,
+    versionNumber: row.version_number,
+    divergedFromVersionId: row.diverged_from_version_id,
+    checkoutId: row.checkout_id,
+  }));
+}
+
 export async function getConflictPendingVersion(
   database: SqlDatabase,
   fileId: FileId,

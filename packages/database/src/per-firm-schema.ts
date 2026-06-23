@@ -688,6 +688,9 @@ export const documentCheckout = sqliteTable(
     // seeks this composite instead of walking every checkout; the status prefix also serves the
     // stage-2 stale scan.
     index("document_checkout_status_last_activity_index").on(table.status, table.lastActivityAt),
+    // The sweep's stage-2 scan (status='stale' + idle_release_at < cutoff) seeks this composite — the
+    // (status, last_activity_at) index does not cover the idle_release_at range predicate.
+    index("document_checkout_status_idle_release_index").on(table.status, table.idleReleaseAt),
     check(
       "document_checkout_lock_type_check",
       sql`${table.lockType} IN ('exclusive', 'offline_working_copy')`,

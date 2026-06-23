@@ -66,6 +66,7 @@ async function token(
   fileId: FileId,
   versionId: FileVersionId,
   capability: EditCapability,
+  sessionId = "session-1",
 ): Promise<string> {
   return mintEditToken(
     {
@@ -75,11 +76,21 @@ async function token(
       versionId,
       memberId: MEMBER,
       capability,
-      sessionId: "session-1",
+      sessionId,
       exp: Date.parse(ISO) + 60 * 60 * 1000 + Date.now(),
     },
     env,
   );
+}
+
+// Opens a live editing session on the DO (as the launch route would) and returns its session id, so a
+// mutating edit token can be minted bound to it (the WOPI host requires an edit token's session to be
+// live for PutFile/Lock). `withLock` also takes the WOPI lock that a PutFile must hold.
+async function openSession(fileId: FileId, withLock = false): Promise<string> {
+  const stub = documentSessionStub(env, fileId);
+  const { sessionId } = await stub.joinEditor(MEMBER, { fileId, bucketName: "R2" });
+  if (withLock) await stub.setWopiLock("editor-lock");
+  return sessionId;
 }
 
 const wopi = (path: string, init?: RequestInit) =>
@@ -111,9 +122,10 @@ describe("WOPI host surface", () => {
 
   it("PutFile writes the working copy, records session meta, and echoes the timestamp", async () => {
     const { fileId, versionId } = await seedFile();
+    const sessionId = await openSession(fileId, true); // live session + held lock
     const edited = new TextEncoder().encode("edited working copy");
     const response = await wopi(
-      `${fileId}/contents?access_token=${encodeURIComponent(await token(fileId, versionId, "edit"))}`,
+      `${fileId}/contents?access_token=${encodeURIComponent(await token(fileId, versionId, "edit", sessionId))}`,
       { method: "POST", body: edited },
     );
     expect(response.status).toBe(200);
@@ -127,7 +139,8 @@ describe("WOPI host surface", () => {
 
   it("Lock takes the lock and a conflicting lock returns 409 with the held value", async () => {
     const { fileId, versionId } = await seedFile();
-    const accessToken = encodeURIComponent(await token(fileId, versionId, "edit"));
+    const sessionId = await openSession(fileId); // live session so the edit token's session matches
+    const accessToken = encodeURIComponent(await token(fileId, versionId, "edit", sessionId));
     const lock = (value: string) =>
       wopi(`${fileId}?access_token=${accessToken}`, {
         method: "POST",

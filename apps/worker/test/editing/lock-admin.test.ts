@@ -148,6 +148,13 @@ describe("exclusive lock", () => {
     // The lock holder still gets an editing capability on their own lock.
     const holderLaunch = await editSession(fileId, holderCookie);
     expect(((await holderLaunch.json()) as { capability: string }).capability).toBe("edit");
+    // ...and the document stays checked_out (an exclusive lock is NOT co-editing) — not flipped.
+    const afterHolderLaunch = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT edit_state FROM file WHERE id = ?1",
+    )
+      .bind(fileId)
+      .first<{ edit_state: string }>();
+    expect(afterHolderLaunch?.edit_state).toBe("checked_out");
   });
 
   it("refuses a second exclusive lock while one is active", async () => {
@@ -193,6 +200,21 @@ describe("force-release", () => {
   it("404s a document with no active lock to release", async () => {
     const { fileId } = await seedCleanFile();
     expect((await forceRelease(fileId, ownerCookie)).status).toBe(404);
+  });
+
+  it("force-releasing an offline checkout leaves edit_state untouched (does not clobber coediting)", async () => {
+    const { fileId } = await seedCleanFile();
+    // An offline checkout is out AND others are co-editing online (edit_state = coediting).
+    expect((await checkout(fileId, holderCookie)).status).toBe(200);
+    await env.DB_FIRM_POOL_1.prepare("UPDATE file SET edit_state = 'coediting' WHERE id = ?1")
+      .bind(fileId)
+      .run();
+    expect((await forceRelease(fileId, ownerCookie)).status).toBe(200);
+    // The offline checkout never held the editing posture, so its release must not drop coediting.
+    const editState = await env.DB_FIRM_POOL_1.prepare("SELECT edit_state FROM file WHERE id = ?1")
+      .bind(fileId)
+      .first<{ edit_state: string }>();
+    expect(editState?.edit_state).toBe("coediting");
   });
 
   it("denies a member without documents:forceReleaseLock", async () => {

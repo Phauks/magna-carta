@@ -1,6 +1,8 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import type { SqlStatement } from "@magna-carta/data-access/idempotency-statements";
+import type { OutboxMessage } from "@magna-carta/data-access/outbox-statements";
 import {
   getActiveExclusiveLock,
   getCheckoutById,
@@ -8,14 +10,13 @@ import {
   insertDocumentCheckoutStatement,
   setCheckoutStatusStatement,
 } from "@magna-carta/file-manager/checkout-statements";
-import { initiateCheckin } from "@magna-carta/file-manager/file-service";
+import { initiateCheckin, restoreVersion } from "@magna-carta/file-manager/file-service";
 import {
   markVersionReconciledStatement,
-  setFileCurrentVersionStatement,
   setFileEditStateStatement,
 } from "@magna-carta/file-manager/file-statements";
 import {
-  getConflictPendingVersion,
+  getConflictPendingVersions,
   getCurrentCleanVersion,
 } from "@magna-carta/file-manager/queries";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -382,7 +383,10 @@ export function registerDocumentCheckoutRoutes(
               now,
             }),
           ],
-          outboxMessages: [],
+          // Domain event — a working copy / exclusive lock was taken (subscribers: audit, notifications).
+          outboxMessages: [
+            { topic: "document.checked_out", payload: { fileId, checkoutId, lockType } },
+          ],
         },
         { now: () => now },
       );
@@ -465,9 +469,12 @@ export function registerDocumentCheckoutRoutes(
       const fileId = c.req.param("fileId") as FileId;
       const { keep, resolvedNote } = c.req.valid("json");
 
-      // The document's reconciliation flag IS a conflict_pending version; absent → nothing to resolve.
-      const conflict = await getConflictPendingVersion(firm.firmDatabase, fileId);
-      if (conflict === undefined) {
+      // The document's reconciliation flag IS its conflict_pending version(s). Resolve EVERY one in a
+      // single pass — concurrent offline copies can diverge, so resolving only the newest would orphan
+      // the rest as permanently-unreconcilable. `primary` (newest) is the copy keep='incoming' promotes.
+      const conflicts = await getConflictPendingVersions(firm.firmDatabase, fileId);
+      const primary = conflicts[0];
+      if (primary === undefined) {
         return problemJson(c, {
           type: "not-found",
           status: 404,
@@ -477,43 +484,61 @@ export function registerDocumentCheckoutRoutes(
       }
 
       const now = () => new Date().toISOString();
-      const statements = [
-        markVersionReconciledStatement(firm.firmDatabase, conflict.id),
-        // Only keep='incoming' moves current — to the offline edit, overriding the monotonic bump
-        // (the holder may be choosing it over a version that advanced meanwhile). 'current'/'both'
-        // leave current where it is; the conflicting copy is retained either way.
-        ...(keep === "incoming"
-          ? [setFileCurrentVersionStatement(firm.firmDatabase, fileId, conflict.id, now())]
-          : []),
-        ...(conflict.checkoutId !== null
-          ? [setCheckoutStatusStatement(firm.firmDatabase, conflict.checkoutId, "released")]
-          : []),
+      const statements: SqlStatement[] = [];
+      const outboxMessages: OutboxMessage[] = [
+        { topic: "document.reconciled", payload: { fileId, versionId: primary.id, keep } },
+      ];
+
+      // keep='incoming' promotes the chosen offline edit by cutting it FORWARD as a new current version
+      // (never regressing the monotonic current pointer): copy the conflicting copy's bytes into a fresh
+      // version that becomes current. 'current'/'both' leave current untouched. The conflicting copies
+      // are retained forever regardless.
+      if (keep === "incoming") {
+        const restored = await restoreVersion(
+          firm.firmDatabase,
+          { fileId, sourceVersionId: primary.id, uploadedBy: memberId },
+          { clock: { now }, actorUserId: memberId },
+          async (fromKey, toKey) => {
+            const object = await c.env.R2.get(fromKey);
+            if (object !== null) await c.env.R2.put(toKey, object.body);
+          },
+        );
+        statements.push(...restored.effect.statements);
+        outboxMessages.push(...restored.effect.outboxMessages);
+      }
+
+      // Mark every conflicting copy reconciled (clears the flag) and release each one's reconciling
+      // checkout — leaving none orphaned.
+      for (const conflict of conflicts) {
+        statements.push(markVersionReconciledStatement(firm.firmDatabase, conflict.id));
+        if (conflict.checkoutId !== null) {
+          statements.push(
+            setCheckoutStatusStatement(firm.firmDatabase, conflict.checkoutId, "released"),
+          );
+        }
+      }
+      statements.push(
         insertAuditLogStatement(firm.firmDatabase, {
           id: newIdentifier("auditLog"),
           event: "document.reconciled",
           actorUserId: memberId,
           subjectId: fileId,
-          metadata: { keep, ...(resolvedNote !== undefined ? { resolvedNote } : {}) },
+          metadata: {
+            keep,
+            resolvedCount: conflicts.length,
+            ...(resolvedNote !== undefined ? { resolvedNote } : {}),
+          },
           now: now(),
         }),
-      ];
-      await commitEffectBatch(
-        firm.firmDatabase,
-        {
-          statements,
-          outboxMessages: [
-            { topic: "document.reconciled", payload: { fileId, versionId: conflict.id, keep } },
-          ],
-        },
-        { now },
       );
+      await commitEffectBatch(firm.firmDatabase, { statements, outboxMessages }, { now });
 
       const currentVersion = await getCurrentCleanVersion(firm.firmDatabase, fileId);
       return c.json(
         {
           status: "reconciled" as const,
-          reconciledVersionId: conflict.id,
-          currentVersionId: currentVersion?.id ?? conflict.id,
+          reconciledVersionId: primary.id,
+          currentVersionId: currentVersion?.id ?? primary.id,
         },
         200,
       );
@@ -547,7 +572,12 @@ export function registerDocumentCheckoutRoutes(
         {
           statements: [
             setCheckoutStatusStatement(firm.firmDatabase, lock.id, "released"),
-            setFileEditStateStatement(firm.firmDatabase, fileId, "idle", now()),
+            // Only an exclusive lock held the editing posture (checked_out); releasing it frees the
+            // document to idle. An offline working copy never set edit_state, so its release leaves it
+            // untouched (it may be 'coediting' for others — do not clobber that).
+            ...(lock.lockType === "exclusive"
+              ? [setFileEditStateStatement(firm.firmDatabase, fileId, "idle", now())]
+              : []),
             insertAuditLogStatement(firm.firmDatabase, {
               id: newIdentifier("auditLog"),
               event: "document.lock_force_released",
@@ -558,7 +588,18 @@ export function registerDocumentCheckoutRoutes(
               now: now(),
             }),
           ],
-          outboxMessages: [],
+          // Domain event — a lock/checkout was released (subscribers: audit, notifications).
+          outboxMessages: [
+            {
+              topic: "document.lock_released",
+              payload: {
+                fileId,
+                checkoutId: lock.id,
+                displacedHolder: lock.holderMemberId,
+                lockType: lock.lockType,
+              },
+            },
+          ],
         },
         { now },
       );

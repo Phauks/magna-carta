@@ -20,6 +20,7 @@ import scanCacheAndDetailSql from "@magna-carta/database/drizzle/per-firm/0016_w
 import seedToolsWebDomainsSql from "@magna-carta/database/drizzle/per-firm/0017_seed-tools-web-domains.sql";
 import editingWorkingCopySql from "@magna-carta/database/drizzle/per-firm/0018_amusing_robbie_robertson.sql";
 import editingSweepIndexesSql from "@magna-carta/database/drizzle/per-firm/0019_needy_rage.sql";
+import idleReleaseIndexSql from "@magna-carta/database/drizzle/per-firm/0020_smart_stellaris.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the firm
 // provisioner migrates a freshly created firm database to head at provisioning time, so the SQL
@@ -49,6 +50,7 @@ export function perFirmMigrations(): Migration[] {
     "0017_seed-tools-web-domains": seedToolsWebDomainsSql,
     "0018_amusing_robbie_robertson": editingWorkingCopySql,
     "0019_needy_rage": editingSweepIndexesSql,
+    "0020_smart_stellaris": idleReleaseIndexSql,
   });
 }
 

@@ -284,7 +284,14 @@ export async function initiateCheckin(
         }),
         fileAuditStatement(database, options, "document.checkin_initiated", input.fileId),
       ],
-      outboxMessages: [],
+      // Domain event — an offline working copy is being returned (the bytes follow via the presigned
+      // PUT → quarantine ingest, which then commits/reconciles the version). Subscribers: audit, notify.
+      outboxMessages: [
+        {
+          topic: "document.checked_in",
+          payload: { fileId: input.fileId, versionId, checkoutId: input.checkoutId },
+        },
+      ],
     },
   };
 }

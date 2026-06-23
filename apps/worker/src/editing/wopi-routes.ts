@@ -113,6 +113,9 @@ export async function getFile(claims: EditTokenClaims, deps: WopiFileDeps): Prom
 export interface PutFileDeps {
   readonly bucket: R2Bucket;
   readonly currentMeta: CurrentObjectMeta | null;
+  // The document's single WOPI lock at call time. A PutFile must hold the lock — an unlocked PutFile is
+  // refused per the WOPI contract (distinct from the timestamp conflict). Null = no lock held.
+  readonly currentLock: string | null;
   readonly recordCurrentMeta: (meta: CurrentObjectMeta) => Promise<void>;
   readonly now: () => string;
 }
@@ -124,6 +127,15 @@ export async function putFile(
 ): Promise<Response> {
   // Capability is enforced server-side; a view token never reaches the write.
   assertEditCapability(claims);
+
+  // WOPI lock gate (checked BEFORE the body is read/tee'd — once tee'd the stream is committed and a
+  // clean 409 is no longer possible without a half-written object). An editing session always holds the
+  // lock during a save, so a PutFile with no lock held is a contract violation (a stray/replayed write
+  // after the lock was released): refuse it with the WOPI 409 + the held value (empty when unlocked),
+  // distinct from the timestamp-conflict 409 above. Nothing is written.
+  if (deps.currentLock === null) {
+    return new Response(null, { status: 409, headers: { "X-WOPI-Lock": "" } });
+  }
 
   // The host is authoritative for the working-copy timestamp. When the editor presents one that no
   // longer matches the session's recorded value, the document in the editor is stale relative to

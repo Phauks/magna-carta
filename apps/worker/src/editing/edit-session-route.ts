@@ -248,19 +248,28 @@ export function registerDocumentEditingRoutes(
       }
 
       // Join the shared session (minting it on the first editor, reusing it for co-editors). The reap
-      // context lets the DO's idle alarm free the document if this session later dies.
+      // context lets the DO's idle alarm free the document if this session later dies. The exclusive-lock
+      // HOLDER reaches here too (they may edit their own lock) — they still join to establish the session
+      // the WOPI callbacks bind to, but the document stays `checked_out`, never `coediting`.
+      const isExclusiveHolder = exclusiveLock !== undefined;
       const { sessionId } = await documentSessionStub(c.env, fileId).joinEditor(memberId, {
         fileId,
         bucketName: firmContext.bucketName,
       });
 
-      // Flip the file to co-editing and record the open in the same atomic batch.
+      // Record the open. The exclusive holder keeps `checked_out` (an exclusive lock is not co-editing);
+      // everyone else moves the document to `coediting`.
       const now = new Date().toISOString();
       await commitEffectBatch(
         firmContext.firmDatabase,
         {
           statements: [
-            setFileEditStateStatement(firmContext.firmDatabase, fileId, "coediting", now),
+            setFileEditStateStatement(
+              firmContext.firmDatabase,
+              fileId,
+              isExclusiveHolder ? "checked_out" : "coediting",
+              now,
+            ),
             insertAuditLogStatement(firmContext.firmDatabase, {
               id: newIdentifier("auditLog"),
               event: "document.edit_session_opened",

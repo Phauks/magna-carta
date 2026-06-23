@@ -205,6 +205,7 @@ describe("WOPI PutFile", () => {
       {
         bucket: env.R2,
         currentMeta: null,
+        currentLock: "lock-1",
         recordCurrentMeta,
         now: () => HOST_TIMESTAMP,
       },
@@ -234,6 +235,7 @@ describe("WOPI PutFile", () => {
         bucket: env.R2,
         // The session's authoritative timestamp differs from the presented one.
         currentMeta: { sha256: "x", sizeBytes: 8, wopiTimestamp: HOST_TIMESTAMP },
+        currentLock: "lock-1",
         recordCurrentMeta,
         now: () => "2026-06-22T13:00:00.000Z",
       },
@@ -257,6 +259,7 @@ describe("WOPI PutFile", () => {
       {
         bucket: env.R2,
         currentMeta: { sha256: "x", sizeBytes: 8, wopiTimestamp: HOST_TIMESTAMP },
+        currentLock: "lock-1",
         recordCurrentMeta,
         now: () => "2026-06-22T14:00:00.000Z",
       },
@@ -277,11 +280,35 @@ describe("WOPI PutFile", () => {
       putFile(claimsFor(fileId, versionId, "view"), putRequest("sneaky write"), {
         bucket: env.R2,
         currentMeta: null,
+        currentLock: "lock-1",
         recordCurrentMeta,
         now: () => HOST_TIMESTAMP,
       }),
     ).rejects.toMatchObject({ code: "forbidden-readonly" });
 
+    expect(await env.R2.get(`files/${fileId}/current`)).toBeNull();
+    expect(recordCurrentMeta).not.toHaveBeenCalled();
+  });
+
+  it("refuses an unlocked PutFile with 409 (empty X-WOPI-Lock), writing nothing", async () => {
+    const fileId = newIdentifier("file");
+    const versionId = newIdentifier("fileVersion");
+    const recordCurrentMeta = vi.fn(async () => {});
+
+    const response = await putFile(
+      claimsFor(fileId, versionId, "edit"),
+      putRequest("no lock held"),
+      {
+        bucket: env.R2,
+        currentMeta: null,
+        currentLock: null, // no lock held
+        recordCurrentMeta,
+        now: () => HOST_TIMESTAMP,
+      },
+    );
+
+    expect(response.status).toBe(409);
+    expect(response.headers.get("X-WOPI-Lock")).toBe("");
     expect(await env.R2.get(`files/${fileId}/current`)).toBeNull();
     expect(recordCurrentMeta).not.toHaveBeenCalled();
   });

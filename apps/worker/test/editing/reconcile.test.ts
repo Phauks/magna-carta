@@ -179,13 +179,41 @@ describe("POST /api/v1/documents/{fileId}/reconcile", () => {
     expect(audit?.metadata).toContain("current");
   });
 
-  it("keep=incoming: promotes the conflicting copy to current and flags it reconciled", async () => {
-    const { fileId, conflictVersionId } = await seedConflict();
+  it("keep=incoming: promotes the offline copy FORWARD as a new current version (never regressing), flags it reconciled", async () => {
+    const { fileId, currentVersionId, conflictVersionId } = await seedConflict();
 
     expect((await reconcile(fileId, { keep: "incoming" }, ownerCookie)).status).toBe(200);
 
+    // The conflicting copy is reconciled (retained), and current advanced to a NEW version (not the
+    // conflict, not the old current) carrying the conflict's content — monotonic pointer preserved.
     expect((await versionRow(conflictVersionId))?.reconciliation_status).toBe("reconciled");
-    expect(await currentVersionOf(fileId)).toBe(conflictVersionId);
+    const current = await currentVersionOf(fileId);
+    expect(current).not.toBe(conflictVersionId);
+    expect(current).not.toBe(currentVersionId);
+    const newCurrent = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT content_sha256, version_number FROM file_version WHERE id = ?1",
+    )
+      .bind(current)
+      .first<{ content_sha256: string; version_number: number }>();
+    expect(newCurrent?.content_sha256).toBe("hash-3"); // the conflict copy's content, brought forward
+    expect(newCurrent?.version_number).toBe(4); // advanced past v3, never regressed
+  });
+
+  it("resolves ALL conflict_pending copies in one pass (no orphans) when several diverged", async () => {
+    const { fileId, conflictVersionId } = await seedConflict();
+    // A second offline copy diverged too: another conflict_pending version on the same file.
+    const secondConflict = newIdentifier("fileVersion");
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, content_sha256, status, reconciliation_status, diverged_from_version_id, uploaded_by, created_at, committed_at) VALUES (?1, ?2, 4, ?3, 10, 'hash-4', 'clean', 'conflict_pending', NULL, ?4, ?5, ?5)",
+    )
+      .bind(secondConflict, fileId, `files/${fileId}/${secondConflict}`, ownerUserId, ISO)
+      .run();
+
+    expect((await reconcile(fileId, { keep: "current" }, ownerCookie)).status).toBe(200);
+
+    // BOTH conflict copies are reconciled — neither is orphaned.
+    expect((await versionRow(conflictVersionId))?.reconciliation_status).toBe("reconciled");
+    expect((await versionRow(secondConflict))?.reconciliation_status).toBe("reconciled");
   });
 
   it("keep=both: retains both — current unchanged, the copy flagged reconciled", async () => {

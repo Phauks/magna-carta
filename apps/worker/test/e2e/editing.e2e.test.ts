@@ -184,6 +184,12 @@ describe("editing lifecycle e2e", () => {
     );
     expect(info.status).toBe(200);
     expect(((await info.json()) as { UserCanWrite: boolean }).UserCanWrite).toBe(true);
+    // Collabora takes the WOPI lock before saving; the host requires a lock for PutFile.
+    const lock = await SELF.fetch(
+      `https://example.com/wopi/files/${fileId}?access_token=${editToken}`,
+      { method: "POST", headers: { "X-WOPI-Override": "LOCK", "X-WOPI-Lock": "editor-lock" } },
+    );
+    expect(lock.status).toBe(200);
     const put = await SELF.fetch(
       `https://example.com/wopi/files/${fileId}/contents?access_token=${editToken}`,
       { method: "POST", body: PDF_BYTES },

@@ -80,37 +80,44 @@ export async function runTieringSweep(
       }
       const candidates = await listTierableVersions(firm.database, cutoffIso, perFirmCap);
       for (const version of candidates) {
-        // Move the object's class FIRST; only on success flip the DB class + shift the meter, so the
-        // meter never claims IA for bytes still stored as Standard. The class flip is guarded on the
-        // current class and rides the meter shift in one batch; any rare double-apply (overlapping
-        // passes) is corrected by the daily storage-metering reconciliation that runs the same cron.
+        // Move the object's class first (idempotent at R2). Then flip the DB class on its OWN guarded
+        // statement and read whether it actually changed a row: the meter shift is committed ONLY when
+        // this pass is the one that flipped standard→IA. A concurrent/overlapping pass whose flip
+        // no-ops (the row is already IA) skips the meter, so the meter can never double-count a single
+        // move. If the worker dies between the flip and the meter, the daily storage-metering
+        // reconciliation corrects the (rare) drift.
         await tierObject(firm.bucketName, version.r2Key);
+        const flip = (await setVersionStorageClassStatement(
+          firm.database,
+          version.id,
+          "standard",
+          "infrequent_access",
+        ).run()) as { meta?: { changes?: number } };
+        if ((flip.meta?.changes ?? 0) === 0) continue; // already tiered by another pass — no meter shift
         await commitEffectBatch(
           firm.database,
           {
-            statements: [
-              setVersionStorageClassStatement(
-                firm.database,
-                version.id,
-                "standard",
-                "infrequent_access",
-              ),
-              ...meterTierChangeStatements(
-                firm.database,
-                {
-                  storageClass: "standard",
-                  artifactRole: version.artifactRole,
-                  prefix: FILES_PREFIX,
-                },
-                {
-                  storageClass: "infrequent_access",
-                  artifactRole: version.artifactRole,
-                  prefix: FILES_PREFIX,
-                },
-                version.sizeBytes,
-              ),
+            statements: meterTierChangeStatements(
+              firm.database,
+              {
+                storageClass: "standard",
+                artifactRole: version.artifactRole,
+                prefix: FILES_PREFIX,
+              },
+              {
+                storageClass: "infrequent_access",
+                artifactRole: version.artifactRole,
+                prefix: FILES_PREFIX,
+              },
+              version.sizeBytes,
+            ),
+            outboxMessages: [
+              // Domain event — a version was cooled to Infrequent Access (subscribers: audit, analytics).
+              {
+                topic: "file.tier_changed",
+                payload: { versionId: version.id, storageClass: "infrequent_access" },
+              },
             ],
-            outboxMessages: [],
           },
           { now: () => new Date().toISOString() },
         );

@@ -26,14 +26,14 @@
 ## Invariants that apply here
 
 - **Cookieless token surface off the chokepoint.** `/wopi/*` is a raw route (like `preview-serve`), authenticated by the access token only — never the cookie chokepoint. Firm scope + capability are re-checked on every callback (a firm-A token → 404 on firm-B; a view token cannot PutFile/Lock — server-side, independent of CheckFileInfo's advisory flags).
-- **Reading is never blocked.** The view surface works in every `edit_state` (idle/coediting/checked_out); an exclusive lock only makes a second *edit* launch read-only.
+- **Reading is never blocked.** The view surface works in every `edit_state` (idle/coediting/checked*out); an exclusive lock only makes a second \_edit* launch read-only.
 - **Optimistic, never-block concurrency.** Multiple offline copies may be out at once; divergence is resolved by a human (a retained-forever `conflict_pending` copy), never auto-merged, and `current` never regresses to a conflicting copy.
 - **One coordinator/container per document** (`idFromName(fileId)`) — never pooled/shared across documents (owner red-flag; ADR `collabora-editing-host-topology`).
 - **Errors on the WOPI surface are redacted** through `runWopiCallback` — one `operation.failed` with an `X-MC-Error-Id`, no document bytes or token ever logged.
 
 ## Dependencies & contracts
 
-- **The coolwsd container is NOT here.** Per ADR `container-subsystems-extract-to-dedicated-workers`, it lives in a dedicated `magna-carta-edit` worker (no egress, no R2/D1 creds, one per document). The editor (browser iframe) loads it and it calls *back* into this worker's `/wopi/*` surface — the container is the caller, never invoked from here.
+- **The coolwsd container is NOT here.** Per ADR `container-subsystems-extract-to-dedicated-workers`, it lives in a dedicated `magna-carta-edit` worker (no egress, no R2/D1 creds, one per document). The editor (browser iframe) loads it and it calls _back_ into this worker's `/wopi/*` surface — the container is the caller, never invoked from here.
 - Calls: `@magna-carta/file-manager` (version model, checkout/reconcile, tiering statements), the `DocumentSession` DO binding, R2 (`env.R2`), the firm DB resolver (`firm-binding-resolver.ts`).
 - The returning check-in routes the `@magna-carta/file-manager` quarantine ingest (`apps/worker/src/files/ingest-consumer.ts`) — **never edit `ingest-core.ts`** (a slice 2·1 boundary).
 
@@ -42,4 +42,5 @@
 - **The live container is gated** on the measurement-spike deploy. Until then: the editor-launch URL falls back to a configured `COLLABORA_DISCOVERY_URLSRC`; the version-cut-on-reap (and on a real Save/session-close) is wired with the live container — the reap currently just frees the document. Build these in `magna-carta-edit` when the container lands (copy `apps/scan-worker`).
 - **`current` is not separately metered** — only committed versions carry the `storage_meter`. Soft-delete destroys the `current` object with no meter delta.
 - **Adding a route regenerates the OpenAPI snapshot** (`pnpm --filter @magna-carta/worker run emit-openapi`) and updates BOTH `conformance.test.ts` (known-ops) and `auth-provisioning-e2e.test.ts`. The `/wopi/*` routes are deliberately non-OpenAPI (raw, like `preview-serve`).
-- **Checkout/checkin/force-release/reconcile carry `Idempotency-Key`** at the chokepoint; the internal version-cut is idempotent by `(fileId, current_sha256)`.
+- **Checkout/checkin/force-release/reconcile are `idempotency: "optional"`** — they honor a client `Idempotency-Key` when sent but do not force one (the optimistic model lets many offline copies be out at once, so a key-less retry must not be silently deduped into one). Retry/concurrency safety instead rests on: `version_number` assigned ATOMICALLY inside the INSERT (`insertFileVersionStatement` — no read-then-write race), status-guarded reconcile/release statements (safe to replay), and the version-cut being idempotent by `(fileId, current_sha256)`.
+- **Reconcile resolves EVERY `conflict_pending` copy** for the file in one pass (not just the newest), and `keep='incoming'` promotes by cutting the copy FORWARD as a new version (reusing `restoreVersion`) — `current` never regresses. PutFile requires a held WOPI lock; the mutating WOPI callbacks (PutFile/Lock) require the edit token's `sessionId` to match the live DO session (kills replay after reap/rotate).
