@@ -99,6 +99,7 @@ describe("permission registry", () => {
       "tools:whois",
       "tools:safeBrowse",
       "tools:fileConverter",
+      "tools:metadataScrubber",
     ]);
   });
 
