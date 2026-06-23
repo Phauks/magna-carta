@@ -119,10 +119,9 @@ describe("non-billable category lifecycle", () => {
     expect(list.data.some((cat) => cat.id === nonBillableCategoryId)).toBe(true);
 
     // Update (rename)
-    const updateResponse = await patch(
-      `/api/v1/non-billable-categories/${nonBillableCategoryId}`,
-      { name: "Business Marketing" },
-    );
+    const updateResponse = await patch(`/api/v1/non-billable-categories/${nonBillableCategoryId}`, {
+      name: "Business Marketing",
+    });
     expect(updateResponse.status).toBe(200);
     const updated = (await updateResponse.json()) as { nonBillableCategoryId: string };
     expect(updated.nonBillableCategoryId).toBe(nonBillableCategoryId);

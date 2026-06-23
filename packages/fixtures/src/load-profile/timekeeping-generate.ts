@@ -140,7 +140,11 @@ export async function generateTimeVolume(
               rateCardId: resolution.rateCardId,
               rateSource: resolution.rateSource,
               currency: resolution.currency,
-              amountMinor: computeAmountMinor(resolution.rateE4, durationMinutes, resolution.currency),
+              amountMinor: computeAmountMinor(
+                resolution.rateE4,
+                durationMinutes,
+                resolution.currency,
+              ),
             };
       const currency = "noRate" in resolution ? "USD" : resolution.currency;
 

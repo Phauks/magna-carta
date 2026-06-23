@@ -662,19 +662,24 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
           matterId: query.matterId,
           status: statusFilter,
         });
-        return c.json({ data: items.map((item) => ({
-          id: item.id,
-          matterId: item.matterId,
-          timekeeperUserId: item.timekeeperUserId,
-          workDate: item.workDate,
-          durationMinutes: item.durationMinutes,
-          rawDurationMinutes: item.rawDurationMinutes,
-          narrative: item.narrative,
-          billable: item.billable,
-          amountMinor: item.amountMinor,
-          currency: item.currency,
-          status: item.status,
-        })) }, 200);
+        return c.json(
+          {
+            data: items.map((item) => ({
+              id: item.id,
+              matterId: item.matterId,
+              timekeeperUserId: item.timekeeperUserId,
+              workDate: item.workDate,
+              durationMinutes: item.durationMinutes,
+              rawDurationMinutes: item.rawDurationMinutes,
+              narrative: item.narrative,
+              billable: item.billable,
+              amountMinor: item.amountMinor,
+              currency: item.currency,
+              status: item.status,
+            })),
+          },
+          200,
+        );
       }
 
       // No recognized filter — return an empty list rather than a full-table scan.

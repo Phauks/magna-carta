@@ -26,9 +26,8 @@ const clock = { now: () => new Date().toISOString() };
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
   await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  poolFirmId = (
-    await seedFirm({ name: "Timer Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
-  ).firmId;
+  poolFirmId = (await seedFirm({ name: "Timer Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
+    .firmId;
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
     .bind(poolFirmId)
     .run();
@@ -125,7 +124,9 @@ describe("timer start -> bind -> stop-commit", () => {
     const { liveRunId } = (await start.json()) as { liveRunId: string };
     expect(liveRunId).toBeTruthy();
 
-    expect((await post("/api/v1/timer/bind", { matterId, narrative: "Negotiated settlement" })).status).toBe(200);
+    expect(
+      (await post("/api/v1/timer/bind", { matterId, narrative: "Negotiated settlement" })).status,
+    ).toBe(200);
 
     const stop = await post("/api/v1/timer/stop-commit", {});
     expect(stop.status).toBe(201);

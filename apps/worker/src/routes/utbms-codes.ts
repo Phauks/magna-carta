@@ -139,7 +139,8 @@ const listMeta: RouteMeta = {
 const listRoute = defineOpenAPIRoute(listMeta, {
   method: "get",
   path: "/api/v1/utbms-codes",
-  description: "Lists the firm's UTBMS codes for the given ABA set (task, activity, or expense), ordered by code.",
+  description:
+    "Lists the firm's UTBMS codes for the given ABA set (task, activity, or expense), ordered by code.",
   request: { query: listQuery },
   responses: {
     200: {
@@ -274,10 +275,7 @@ export function registerUtbmsCodesRoutes(app: UtbmsApp, chokepoint: Chokepoint):
       if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
         return problemResponseForIdempotencyConflict(c, result);
       if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
-      return c.json(
-        JSON.parse(result.responseBody ?? "{}") as z.infer<typeof UtbmsCodeAck>,
-        200,
-      );
+      return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof UtbmsCodeAck>, 200);
     },
   );
 
@@ -323,10 +321,7 @@ export function registerUtbmsCodesRoutes(app: UtbmsApp, chokepoint: Chokepoint):
       if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
         return problemResponseForIdempotencyConflict(c, result);
       if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
-      return c.json(
-        JSON.parse(result.responseBody ?? "{}") as z.infer<typeof UtbmsCodeAck>,
-        200,
-      );
+      return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof UtbmsCodeAck>, 200);
     },
   );
 }

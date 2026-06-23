@@ -1,4 +1,8 @@
-import { idempotencyRecordInsertStatement, type SqlDatabase, type SqlStatement } from "./idempotency-statements.ts";
+import {
+  idempotencyRecordInsertStatement,
+  type SqlDatabase,
+  type SqlStatement,
+} from "./idempotency-statements.ts";
 
 // Authoritative per-firm AI token usage, captured from the inference response — never the gateway
 // logs. Behavior over the table lives here (the structure lives in @magna-carta/database's per-firm

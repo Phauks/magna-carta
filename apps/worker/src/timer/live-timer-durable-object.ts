@@ -118,9 +118,7 @@ export class LiveTimerDurableObject extends DurableObject<Bindings> {
   // The next-interaction resolution of an abandoned run: keep (leave the captured span for a normal
   // stop-commit), trim (clamp elapsed to the last recorded activity), or discard (clear entirely).
   // Returns the resolved state, or null when discarded or no run exists.
-  async resolveAbandoned(
-    resolution: "keep" | "trim" | "discard",
-  ): Promise<TimerState | null> {
+  async resolveAbandoned(resolution: "keep" | "trim" | "discard"): Promise<TimerState | null> {
     const state = await this.load();
     if (state === null) return null;
     if (resolution === "discard") {

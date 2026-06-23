@@ -205,7 +205,7 @@ export function selectReRateCandidatesStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT id, matter_id, timekeeper_user_id, work_date, duration_minutes, currency FROM ${TIME_ENTRY_TABLE} WHERE rate_card_id = ?1 AND status IN ('draft','submitted','approved') AND work_date >= ?2 AND work_date < ?3 ORDER BY work_date`,
+      `SELECT id, matter_id, timekeeper_user_id, work_date, duration_minutes, currency FROM ${TIME_ENTRY_TABLE} WHERE rate_card_id = ?1 AND status IN ('draft','submitted','approved') AND work_date >= ?2 AND work_date <= ?3 ORDER BY work_date`,
     )
     .bind(rateCardId, fromDate, toDate);
 }

@@ -106,7 +106,11 @@ export const timekeepingMeasurements: readonly Measurement<
               rateCardId: resolution.rateCardId,
               rateSource: resolution.rateSource,
               currency: resolution.currency,
-              amountMinor: computeAmountMinor(resolution.rateE4, durationMinutes, resolution.currency),
+              amountMinor: computeAmountMinor(
+                resolution.rateE4,
+                durationMinutes,
+                resolution.currency,
+              ),
             };
       const currency = "noRate" in resolution ? "USD" : resolution.currency;
       const captured = await captureTimeEntry(
@@ -149,7 +153,11 @@ function capturedStatement(statement: SqlStatement): NodeSqlStatement {
 // The My Day query is an inlined prepare in my-day.ts; to EXPLAIN it we reproduce the SQL here, bound to
 // the same parameters. The SQL must match my-day.ts exactly — a single integration test (the plan-scan
 // guard itself) will catch any drift via a failing EXPLAIN on a populated snapshot.
-function myDayStatement(snapshot: LoadedSnapshot, timekeeperUserId: string, workDate: string): NodeSqlStatement {
+function myDayStatement(
+  snapshot: LoadedSnapshot,
+  timekeeperUserId: string,
+  workDate: string,
+): NodeSqlStatement {
   return snapshot.database
     .prepare(
       `SELECT

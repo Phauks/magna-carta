@@ -189,8 +189,22 @@ const startRoute = proxyRoute(
   StartAck,
   200,
 );
-const pauseRoute = proxyRoute(pauseMeta, "pause", "Pauses the running timer.", EmptyRequest, TimerAck, 200);
-const resumeRoute = proxyRoute(resumeMeta, "resume", "Resumes a paused timer.", EmptyRequest, TimerAck, 200);
+const pauseRoute = proxyRoute(
+  pauseMeta,
+  "pause",
+  "Pauses the running timer.",
+  EmptyRequest,
+  TimerAck,
+  200,
+);
+const resumeRoute = proxyRoute(
+  resumeMeta,
+  "resume",
+  "Resumes a paused timer.",
+  EmptyRequest,
+  TimerAck,
+  200,
+);
 const bindRoute = proxyRoute(
   bindMeta,
   "bind",
@@ -327,7 +341,13 @@ export function registerTimerRoutes(app: TimerApp, chokepoint: Chokepoint): void
       ).read();
       if (state === null) {
         return c.json(
-          { status: "idle" as const, liveRunId: null, startedAt: null, matterId: null, narrative: null },
+          {
+            status: "idle" as const,
+            liveRunId: null,
+            startedAt: null,
+            matterId: null,
+            narrative: null,
+          },
           200,
         );
       }
@@ -387,8 +407,7 @@ export function registerTimerRoutes(app: TimerApp, chokepoint: Chokepoint): void
       const now = () => new Date().toISOString();
       const nowString = now();
 
-      const rawElapsed =
-        state !== null ? elapsedMinutes(state, nowString) : 0;
+      const rawElapsed = state !== null ? elapsedMinutes(state, nowString) : 0;
 
       // A committing DO is always matter-bound: the DO's stopAndCommit refuses an unbound timer
       // (returns 'unbound', handled above) and is single-threaded, so reaching this point with a
@@ -420,12 +439,19 @@ export function registerTimerRoutes(app: TimerApp, chokepoint: Chokepoint): void
       });
       const durationMinutes = roundDuration(rawElapsed, increment, direction);
 
-      // Resolve the rate from the precedence chain. A missing rate resolves to noRate; the entry is
+      // Resolve the rate from the precedence chain. Mirrors the time-entries capture path: the first
+      // non-archived rate card in the firm is the default when no card is specified (the common
+      // single-card scenario). A missing card or no rate in force resolves to noRate; the entry is
       // still captured (billable=true, amount_minor=null) — the timekeeper can correct it before billing.
       const { results: memberRows } = await firm.firmDatabase
         .prepare("SELECT role_id FROM member_role WHERE member_user_id = ?1 LIMIT 1")
         .bind(userId)
         .all<{ role_id: string | null }>();
+
+      const { results: cardRows } = await firm.firmDatabase
+        .prepare("SELECT id FROM rate_card WHERE archived_at IS NULL ORDER BY created_at LIMIT 1")
+        .all<{ id: string }>();
+      const resolvedRateCardId = cardRows[0]?.id;
 
       const rateResolution = await resolveRate(firm.firmDatabase, {
         matterId,
@@ -433,6 +459,7 @@ export function registerTimerRoutes(app: TimerApp, chokepoint: Chokepoint): void
         timekeeperUserId: userId,
         roleId: memberRows[0]?.role_id ?? null,
         workDate,
+        rateCardId: resolvedRateCardId,
       });
 
       const captureRate =
@@ -493,10 +520,7 @@ export function registerTimerRoutes(app: TimerApp, chokepoint: Chokepoint): void
       await stub.discard();
 
       if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
-      return c.json(
-        JSON.parse(result.responseBody ?? "{}") as z.infer<typeof StopCommitAck>,
-        201,
-      );
+      return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof StopCommitAck>, 201);
     },
   );
 }

@@ -29,9 +29,8 @@ let ownerUserId: UserId;
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
   await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  poolFirmId = (
-    await seedFirm({ name: "My Day Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
-  ).firmId;
+  poolFirmId = (await seedFirm({ name: "My Day Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
+    .firmId;
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
     .bind(poolFirmId)
     .run();
@@ -114,9 +113,7 @@ describe("My Day view", () => {
     expect(body.shortfallMinutes).toBe(480);
 
     // Restore to no target for subsequent tests.
-    await env.DB_FIRM_POOL_1.prepare(
-      "DELETE FROM setting WHERE key = ?1",
-    )
+    await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
       .bind("time.target_daily_hours")
       .run();
   });

@@ -245,9 +245,7 @@ describe("time-entry reads", () => {
     // The first capture used rawDurationMinutes=38 which rounded to 36 at the 6-minute increment.
     // Verify at least one entry carries the stored raw value (38 ≠ 36) to confirm raw_duration_minutes
     // is selected at the query layer rather than falling back to the rounded value.
-    const rounded = body.data.find(
-      (entry) => entry.rawDurationMinutes !== entry.durationMinutes,
-    );
+    const rounded = body.data.find((entry) => entry.rawDurationMinutes !== entry.durationMinutes);
     expect(rounded).toBeDefined();
     expect(rounded?.rawDurationMinutes).toBe(38);
     expect(rounded?.durationMinutes).toBe(36);

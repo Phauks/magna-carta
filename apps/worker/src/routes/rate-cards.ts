@@ -57,9 +57,7 @@ const RateCardAck = z.object({ rateCardId: z.string() }).openapi("RateCardAck");
 const RateAck = z.object({ rateId: z.string() }).openapi("RateAck");
 const ReRateAck = z.object({ count: z.number().int() }).openapi("ReRateAck");
 
-const RateCardSummary = z
-  .object({ id: z.string(), name: z.string() })
-  .openapi("RateCardSummary");
+const RateCardSummary = z.object({ id: z.string(), name: z.string() }).openapi("RateCardSummary");
 const RateCardListResponse = z
   .object({ data: z.array(RateCardSummary) })
   .openapi("RateCardListResponse");
@@ -145,7 +143,8 @@ const listMeta: RouteMeta = {
 const createRoute = defineOpenAPIRoute(createMeta, {
   method: "post",
   path: "/api/v1/rate-cards",
-  description: "Creates a rate card. All rate lines are appended separately with their effective date.",
+  description:
+    "Creates a rate card. All rate lines are appended separately with their effective date.",
   request: {
     headers: idempotencyKeyHeader,
     body: { content: { "application/json": { schema: CreateRateCardRequest } }, required: true },
@@ -291,10 +290,7 @@ export function registerRateCardsRoutes(app: RateCardsApp, chokepoint: Chokepoin
       if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
         return problemResponseForIdempotencyConflict(c, result);
       if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
-      return c.json(
-        JSON.parse(result.responseBody ?? "{}") as z.infer<typeof RateCardAck>,
-        201,
-      );
+      return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof RateCardAck>, 201);
     },
   );
 
@@ -355,10 +351,7 @@ export function registerRateCardsRoutes(app: RateCardsApp, chokepoint: Chokepoin
       if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
         return problemResponseForIdempotencyConflict(c, result);
       if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
-      return c.json(
-        JSON.parse(result.responseBody ?? "{}") as z.infer<typeof RateAck>,
-        201,
-      );
+      return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof RateAck>, 201);
     },
   );
 
@@ -403,10 +396,7 @@ export function registerRateCardsRoutes(app: RateCardsApp, chokepoint: Chokepoin
       if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
         return problemResponseForIdempotencyConflict(c, result);
       if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
-      return c.json(
-        JSON.parse(result.responseBody ?? "{}") as z.infer<typeof ReRateAck>,
-        200,
-      );
+      return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof ReRateAck>, 200);
     },
   );
 }

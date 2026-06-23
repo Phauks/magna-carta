@@ -93,11 +93,21 @@ describe("buildInferenceJobIdempotencyKey — stable per (firmId, matterId, prom
     expect(buildInferenceJobIdempotencyKey({ ...INPUT, matterId: "matter_other" })).not.toBe(key);
     expect(buildInferenceJobIdempotencyKey({ ...INPUT, firmId: "firm_other" })).not.toBe(key);
     expect(buildInferenceJobIdempotencyKey({ ...INPUT, utbmsContext: "L130" })).not.toBe(key);
-    expect(buildInferenceJobIdempotencyKey({ ...INPUT, userHistorySeed: "different seed" })).not.toBe(key);
+    expect(
+      buildInferenceJobIdempotencyKey({ ...INPUT, userHistorySeed: "different seed" }),
+    ).not.toBe(key);
     // Collision-proof: inputs that share the same concatenated bytes under a space separator but differ
     // in field boundaries must produce distinct keys. The NUL (\x00) delimiter guarantees this.
-    const splitA = buildInferenceJobIdempotencyKey({ ...INPUT, utbmsContext: "L120", userHistorySeed: "draft demand" });
-    const splitB = buildInferenceJobIdempotencyKey({ ...INPUT, utbmsContext: "L120 draft", userHistorySeed: "demand" });
+    const splitA = buildInferenceJobIdempotencyKey({
+      ...INPUT,
+      utbmsContext: "L120",
+      userHistorySeed: "draft demand",
+    });
+    const splitB = buildInferenceJobIdempotencyKey({
+      ...INPUT,
+      utbmsContext: "L120 draft",
+      userHistorySeed: "demand",
+    });
     expect(splitA).not.toBe(splitB);
   });
 

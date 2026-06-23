@@ -326,7 +326,10 @@ export function registerNarrativeTemplatesRoutes(
   // Narrative history is personal typing-autocomplete: the timekeeperUserId param must match the
   // session user. Any other value is refused with 403 — this is not a cross-user read.
   app.openapi(
-    { ...recentNarrativesRoute, middleware: chokepointMiddleware(chokepoint, recentNarrativesRoute) },
+    {
+      ...recentNarrativesRoute,
+      middleware: chokepointMiddleware(chokepoint, recentNarrativesRoute),
+    },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const sessionUserId = requireChokepointUserId(c);

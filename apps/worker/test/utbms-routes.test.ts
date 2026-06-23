@@ -4,7 +4,10 @@ import {
   insertRoleAssignmentStatement,
 } from "@magna-carta/data-access/member-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import { seedUtbmsCatalogStatements, UTBMS_CODE_TABLE } from "@magna-carta/timekeeping/utbms-statements";
+import {
+  seedUtbmsCatalogStatements,
+  UTBMS_CODE_TABLE,
+} from "@magna-carta/timekeeping/utbms-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
@@ -34,9 +37,8 @@ const clock = { now: () => new Date().toISOString() };
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
   await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  poolFirmId = (
-    await seedFirm({ name: "UTBMS Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
-  ).firmId;
+  poolFirmId = (await seedFirm({ name: "UTBMS Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
+    .firmId;
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
     .bind(poolFirmId)
     .run();
@@ -71,7 +73,11 @@ beforeAll(async () => {
   // Seed the ABA UTBMS catalog into the per-firm database. The statements are
   // INSERT OR IGNORE so a re-seed is a no-op.
   const statements = seedUtbmsCatalogStatements(env.DB_FIRM_POOL_1);
-  await commitEffectBatch(env.DB_FIRM_POOL_1, { statements, outboxMessages: [] }, { now: clock.now });
+  await commitEffectBatch(
+    env.DB_FIRM_POOL_1,
+    { statements, outboxMessages: [] },
+    { now: clock.now },
+  );
 
   // Pick the first task-set code id for use in enable/disable tests.
   const first = await env.DB_FIRM_POOL_1.prepare(
@@ -165,10 +171,7 @@ describe("enable / disable", () => {
 
 describe("permission gate", () => {
   it("refuses a Read-only member the time:manageUtbms capability (403)", async () => {
-    const response = await post(
-      `/api/v1/utbms-codes/${firstTaskCodeId}/enable`,
-      readOnlyCookie,
-    );
+    const response = await post(`/api/v1/utbms-codes/${firstTaskCodeId}/enable`, readOnlyCookie);
     expect(response.status).toBe(403);
   });
 });
