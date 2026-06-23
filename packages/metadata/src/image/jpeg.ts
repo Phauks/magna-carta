@@ -84,19 +84,33 @@ export function inspectJpegFindings(bytes: Uint8Array): Finding[] {
 
 export function scrubJpeg(bytes: Uint8Array): Uint8Array {
   const { segments, scanStart } = walkSegments(bytes);
-  const keep = new Set<Segment>();
+  // Collect the parts to keep (no per-byte spread — large scans would overflow the call stack).
+  const parts: Uint8Array[] = [new Uint8Array([0xff, 0xd8])]; // SOI
   for (const seg of segments) {
-    if (!isMetadataSegment(classify(bytes, seg))) keep.add(seg);
+    if (!isMetadataSegment(classify(bytes, seg))) parts.push(bytes.subarray(seg.start, seg.end));
   }
-  const out: number[] = [0xff, 0xd8]; // SOI
-  for (const seg of segments) {
-    if (keep.has(seg)) out.push(...bytes.subarray(seg.start, seg.end));
+  // The entropy-coded scan and everything after (includes EOI) copied verbatim.
+  parts.push(bytes.subarray(scanStart));
+
+  let total = 0;
+  for (const part of parts) total += part.length;
+  const assembled = new Uint8Array(total);
+  let offset = 0;
+  for (const part of parts) {
+    assembled.set(part, offset);
+    offset += part.length;
   }
-  // Copy the entropy-coded scan and everything after (includes EOI) verbatim.
-  out.push(...bytes.subarray(scanStart));
+
   // Guard: ensure EOI terminates the stream even for a truncated input.
-  if (out[out.length - 2] !== 0xff || out[out.length - 1] !== EOI) {
-    out.push(0xff, EOI);
+  if (
+    assembled.length < 2 ||
+    assembled[assembled.length - 2] !== 0xff ||
+    assembled[assembled.length - 1] !== EOI
+  ) {
+    const withEoi = new Uint8Array(assembled.length + 2);
+    withEoi.set(assembled, 0);
+    withEoi.set([0xff, EOI], assembled.length);
+    return withEoi;
   }
-  return new Uint8Array(out);
+  return assembled;
 }

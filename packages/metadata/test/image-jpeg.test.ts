@@ -41,4 +41,18 @@ describe("jpeg", () => {
     expect(out[out.length - 2]).toBe(0xff);
     expect(out[out.length - 1]).toBe(0xd9); // EOI preserved
   });
+
+  it("strips without overflowing the stack on a large scan", () => {
+    const exif = [0x45, 0x78, 0x69, 0x66, 0x00, 0x00, 1, 2, 3];
+    const bigScan = new Array(500_000).fill(0x55);
+    const big = new Uint8Array([
+      0xff, 0xd8,
+      ...seg(0xe1, exif),
+      0xff, 0xda, 0x00, 0x03, 0x00,
+      ...bigScan,
+      0xff, 0xd9,
+    ]);
+    expect(() => scrubJpeg(big)).not.toThrow();
+    expect(inspectJpegFindings(scrubJpeg(big))).toHaveLength(0);
+  });
 });
