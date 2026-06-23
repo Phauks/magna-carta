@@ -52,11 +52,7 @@ beforeAll(async () => {
   await env.DB_FIRM_POOL_1.prepare(
     "INSERT OR IGNORE INTO role_permission (id, role_id, permission) VALUES (?1, ?2, ?3)",
   )
-    .bind(
-      "rolePermission_MetadataOwnerTest0001",
-      OWNER_ADMIN_ROLE_ID,
-      "tools:metadataScrubber",
-    )
+    .bind("rolePermission_MetadataOwnerTest0001", OWNER_ADMIN_ROLE_ID, "tools:metadataScrubber")
     .run();
 
   poolFirmId = (
@@ -126,9 +122,7 @@ describe("POST /api/v1/metadata/inspect", () => {
       clean: boolean;
     };
     expect(body.clean).toBe(false);
-    expect(
-      body.findings.some((f) => f.category === "identifying-metadata"),
-    ).toBe(true);
+    expect(body.findings.some((f) => f.category === "identifying-metadata")).toBe(true);
   });
 
   it("rejects an unsupported file with 400", async () => {

@@ -16,12 +16,12 @@ Use it before sending any file outside the firm — before attaching a document 
 
 ## Supported file types
 
-| Type | Formats |
-| ---- | ------- |
-| Word documents | `.docx` |
-| Excel workbooks | `.xlsx` |
-| PowerPoint presentations | `.pptx` |
-| Photos and images | `.jpg` / `.jpeg`, `.png`, `.tiff` |
+| Type                     | Formats                           |
+| ------------------------ | --------------------------------- |
+| Word documents           | `.docx`                           |
+| Excel workbooks          | `.xlsx`                           |
+| PowerPoint presentations | `.pptx`                           |
+| Photos and images        | `.jpg` / `.jpeg`, `.png`, `.tiff` |
 
 ## Common tasks
 

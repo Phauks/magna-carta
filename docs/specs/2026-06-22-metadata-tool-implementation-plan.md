@@ -1575,7 +1575,8 @@ function walkChunks(bytes: Uint8Array): Chunk[] {
   const chunks: Chunk[] = [];
   let i = SIGNATURE_LENGTH;
   while (i + 8 <= bytes.length) {
-    const len = ((bytes[i] << 24) | (bytes[i + 1] << 16) | (bytes[i + 2] << 8) | bytes[i + 3]) >>> 0;
+    const len =
+      ((bytes[i] << 24) | (bytes[i + 1] << 16) | (bytes[i + 2] << 8) | bytes[i + 3]) >>> 0;
     const type = String.fromCharCode(bytes[i + 4], bytes[i + 5], bytes[i + 6], bytes[i + 7]);
     const end = i + 12 + len; // 4 length + 4 type + len data + 4 crc
     chunks.push({ type, start: i, end });
