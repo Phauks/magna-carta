@@ -42,6 +42,7 @@ describe("problem-type URI registry", () => {
         "email-in-use",
         "upload-not-allowed",
         "malware-flagged",
+        "unsupported-conversion",
         "internal",
       ].sort(),
     );

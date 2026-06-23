@@ -41,12 +41,22 @@ export default defineConfig({
     cloudflareTest({
       wrangler: { configPath: `${import.meta.dirname}/wrangler.jsonc` },
       remoteBindings: false,
+      // Two service bindings in wrangler.jsonc reference dedicated workers that do not run under the
+      // local pool — magna-carta-scan (SCAN_SERVICE) and magna-carta-convert (CONVERT). Miniflare
+      // requires both to exist, so register minimal stubs. The scan stub returns the no-engine
+      // ScanResult (an honest unscanned, never a fake clean); the convert stub only satisfies startup
+      // validation (conversion-engine tests inject fake CONVERT fetchers directly, never call it).
       miniflare: {
         workers: [
           {
             name: "magna-carta-scan",
             modules: true,
             script: SCAN_SERVICE_STUB_SCRIPT,
+          },
+          {
+            name: "magna-carta-convert",
+            modules: true,
+            script: `export default { fetch() { return new Response("stub", { status: 501 }); } };`,
           },
         ],
       },

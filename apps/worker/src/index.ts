@@ -1,6 +1,8 @@
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import { createApp, type Bindings } from "./app.ts";
+import { conversionQueue } from "./conversions/conversion-consumer.ts";
+import type { ConversionMessage } from "./conversions/conversion-types.ts";
 import { bundleBuildQueue } from "./downloads/bundle-consumer.ts";
 import type { BundleBuildMessage } from "./downloads/bundle-types.ts";
 import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
@@ -11,9 +13,17 @@ import { runScheduledSweep, runStorageReconciliation } from "./scheduled.ts";
 // so the runtime can instantiate the class named in wrangler.jsonc's durable_objects binding.
 export { BundleBuildCoordinator } from "./downloads/bundle-coordinator.ts";
 
+// The conversion-job coordinator Durable Object: keyed firmId:jobId, single-flights one conversion
+// per job. Exported so the runtime can instantiate the class named in wrangler.jsonc's binding.
+export { ConversionJob } from "./conversions/conversion-coordinator.ts";
+
 // The bundle-build queue's name (wrangler.jsonc queues.consumers) — the queue() handler routes its
 // batches to the bundle consumer, every other queue to the files-ingest consumer.
 const BUNDLE_BUILD_QUEUE = "magna-carta-production-bundle-build";
+
+// The server-conversion queue's name — the queue() handler routes its batches to the conversion
+// consumer, which runs the ConversionPort adapter to convert the source to the target format.
+const CONVERSION_QUEUE = "magna-carta-production-conversion";
 
 // createApp defaults the plugin runtime to the production seam — the firm_secret credential store
 // throws until the marketplace wires the live credential read; carrier calls use a fetch-backed
@@ -51,6 +61,10 @@ export default {
     // The inference queue carries inference jobs (env.AI.run off the request path).
     if (batch.queue === "magna-carta-production-inference") {
       return inferenceQueue(batch as MessageBatch<InferenceJob>, env);
+    }
+    // The conversion queue routes to the conversion consumer (ConversionPort adapter).
+    if (batch.queue === CONVERSION_QUEUE) {
+      return conversionQueue(batch as MessageBatch<ConversionMessage>, env);
     }
     // Both the interactive files-ingest queue and the bulk files-ingest-bulk queue route to the
     // same ingest handler — the lane separation is entirely in queue topology and concurrency.

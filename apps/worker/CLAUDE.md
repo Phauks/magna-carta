@@ -75,6 +75,38 @@ artifact lives in the firm's own bucket and is expired by a `bundles/` R2 lifecy
 runbook, section 8) — a regenerable cache, so expiry only forces a later rebuild. Notifications-push
 delivery (instead of polling) and a Container escalation for outlier-large bundles are named seams.
 
+## Conversion subsystem — orchestration here, engines in a dedicated worker
+
+The server-side file conversion path (`src/conversions/`) holds the **orchestration** — the
+`ConversionJob` Durable Object (keyed `firmId:jobId`), the `CONVERSION` queue + consumer, and the
+routes — and is wired but **dormant** until the engines are reachable. `resolveEnginePort` in
+`conversion-engine.ts` returns the deferred port (`engine-not-implemented`) for now, so the routes are
+fully functional in tests and in production, they just cannot yet execute real conversions.
+
+The **heavy native engines** (native libvips, LibreOffice headless, FFmpeg, the future Rust PDF engine)
+do **not** belong in this app worker — they are the same CPU/memory-bound, untrusted-bytes,
+outbound-disabled Container runtimes that scan was extracted into its own worker for. They live in a
+**dedicated conversion worker** that owns the engine Container(s) and is reached from here through a
+thin **service-binding adapter** that implements the same `ConversionPort` (the split is the existing
+port boundary, so the DO/queue/consumer do not change). A small-raster **wasm-vips in-process
+fast-path** is the one engine that stays in this worker.
+
+To activate real conversions:
+
+1. **Build and deploy the engine Container image** (`containers/convert/`) for the `magna-carta-convert`
+   worker and deploy that worker. The worker scaffold and the `CONVERT` service binding already exist;
+   `resolveEnginePort` returns the `serviceBindingPort` adapter automatically once the binding is
+   present — no code change needed here.
+2. **Add the R2 lifecycle rule** expiring the `conversions/` prefix (~24 h). Conversion results are
+   transient presigned-GET artifacts; expiry forces the client to re-convert rather than accumulate
+   stale files.
+
+The dedicated-worker split is a cross-cutting decision shared with the scan, editing, and PDF-engine
+subsystems (search is the exception — its index is durable per-firm data); land it as one shared
+decision, coordinated via `vp run worktrees`, with `apps/scan-worker` as the working template.
+
+Until step 2 is done, `resolveEnginePort` returns the deferred port and all three conversion routes operate correctly (upload, submit → 202, poll → `engine-not-implemented` failure). The Container binding cannot run under the local Miniflare test pool, which is why `resolveEnginePort` is injectable and the e2e tests supply a fake engine.
+
 ## Gotchas
 
 - A declared queue **consumer** with no exported handler fails the deploy; a declared **producer** does

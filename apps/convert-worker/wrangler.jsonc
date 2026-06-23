@@ -1,0 +1,32 @@
+{
+  // The standalone document-conversion worker. It owns the LibvipsContainer Durable Object
+  // (a Container-backed DO that runs the native-libvips HTTP service on port 8080) and is reached
+  // only via a service binding from the main app worker — it has no public routes.
+  "name": "magna-carta-convert",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-06-05",
+  "compatibility_flags": ["nodejs_compat"],
+  // No public surface: this worker is an internal service reached only via service binding.
+  "workers_dev": false,
+  "preview_urls": false,
+  // The libvips conversion Container Durable Object (Container-backed, sqlite-class).
+  // The Container runs the native-libvips HTTP service (POST /convert, GET /ready) on port 8080.
+  "containers": [
+    {
+      "class_name": "LibvipsContainer",
+      "image": "../../containers/convert/Dockerfile",
+      "max_instances": 5,
+      "instance_type": "standard-1",
+    },
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "LIBVIPS_CONTAINER", "class_name": "LibvipsContainer" }],
+  },
+  // SQLite-backed DO class introduced via migration tag; first migration for this worker.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LibvipsContainer"] }],
+  // Cron triggers:
+  //   */20 * * * * — warm-poke: keeps one container instance alive by hitting /ready before
+  //                  the 30-minute sleepAfter lapses.
+  "triggers": { "crons": ["*/20 * * * *"] },
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+}

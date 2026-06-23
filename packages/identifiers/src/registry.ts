@@ -78,6 +78,9 @@ export const ENTITY_PREFIXES = {
   customField: "customField",
   picklistOption: "picklistOption",
   customFieldValue: "customFieldValue",
+  // Server-side conversion — a transient job identifier minted at presign time and used to key the
+  // coordinator Durable Object. Not persisted in D1; the DO itself is the state store for the job.
+  conversionJob: "conversionJob",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

@@ -15,6 +15,7 @@ import { registerHealthRoute } from "./routes/health.ts";
 import { createCloudflareEmailAdapter, type CloudflareEmailBinding } from "./email-cloudflare.ts";
 import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
 import { registerBundleStatusRoute } from "./routes/bundle-status.ts";
+import { registerConversionRoutes } from "./routes/conversions.ts";
 import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
@@ -75,6 +76,16 @@ export type Bindings = {
   // (src/inference/inference-consumer.ts) runs env.AI.run, so a single firm cannot starve the shared
   // gateway cap synchronously on the request path. Distinct from QUEUE (jobs) and FILES_INGEST.
   INFERENCE: Queue;
+  // The conversion-job coordinator: keyed firmId:jobId, single-flights one conversion per job.
+  CONVERSION_JOB: DurableObjectNamespace<
+    import("./conversions/conversion-coordinator.ts").ConversionJob
+  >;
+  // The server-conversion queue the coordinator enqueues onto; the consumer runs the ConversionPort adapter.
+  CONVERSION: Queue<import("./conversions/conversion-types.ts").ConversionMessage>;
+  // The dedicated conversion engine worker (magna-carta-convert), reached over a service binding.
+  // Optional: absent in every test environment and until the deploy-time binding is added; while
+  // unset, resolveEnginePort returns the deferred port (engine-not-implemented).
+  CONVERT?: Fetcher;
   // The authenticated Workers AI binding — the only path inference reaches the gateway through (no raw
   // gateway token in any firm-reachable config). Pre-authenticated within the account.
   AI: Ai;
@@ -344,6 +355,9 @@ export function createApp(options: CreateAppOptions = {}) {
   // Slice 1·4: firm-defined custom fields (definitions, picklist options, temporal values, the
   // non-destructive Convert, and the compliance purge seam) — composed through the same chokepoint.
   registerCustomFieldsRoutes(app, chokepoint);
+  // The server-conversion surface: presign an upload slot, submit a job, and poll its state.
+  // Each route traverses the same chokepoint under the tools:fileConverter permission.
+  registerConversionRoutes(app, chokepoint);
 
   // The plugin runtime: production defaults (a fetch-backed http client; the firm_secret store seam
   // that throws until the marketplace wires the live credential read), overridable in tests.

@@ -53,6 +53,10 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Pulls current carrier tracking and caches events (INSERT OR IGNORE dedup) — a read-shaped sync, not an auditable business mutation.",
   "customFields.previewConvert":
     "Read-shaped POST: counts how each current value would land under a kind change (the target kind rides the body) — no write, no audit.",
+  "conversions.upload":
+    "Pure credential mint: mints a jobId and a short-TTL presigned PUT URL — no D1 write, no firm state change, just a signed URL the client uploads to directly.",
+  "conversions.submit":
+    "Enqueues a conversion job through a Durable Object (no D1 write, no firm-database row): the DO + queue track the lifecycle; there is no audit_log row class that models a transient compute job.",
   "safeBrowse.post":
     "Renders a suspect URL in an isolated remote browser and returns a static snapshot — a pure read over the request body, no firm-data write; the target URL is deliberately never logged (redaction).",
 };
@@ -477,6 +481,9 @@ describe("conformance — the committed contract holds, and each rule catches a 
   it("exposes the known committed operations (so the positive assertions are not vacuous)", () => {
     const ids = [...operations(document)].map((entry) => entry.operationId).sort();
     expect(ids).toEqual([
+      "conversions.status",
+      "conversions.submit",
+      "conversions.upload",
       "customFields.applyConvert",
       "customFields.archiveField",
       "customFields.archiveOption",
