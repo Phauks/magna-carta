@@ -2,27 +2,41 @@
 
 **Purpose:** measure the three numbers that parameterize the slice 2·2 build (warm-standby instance sizing, cold-start budget, and whether the keep-alive mitigation is real). Throwaway harness — deploy, measure, record the results below, then tear down. The production image + `DocumentSession` DO are built separately during the slice.
 
-**Status: harness BUILT + locally validated; live deploy DEFERRED (2026-06-21).** Implemented as a standalone Worker in this directory: `worker.ts` (the `DocumentSession` DO that owns the container + the alarm keep-alive toggle + lifecycle logging), `wrangler.jsonc` (container + DO + vars), and `Dockerfile` + `start-spike.sh` (collabora/code with the local-filesystem backend + baked text docs). Locally validated: the image builds and coolwsd serves `/hosting/discovery`; `wrangler deploy --dry-run` passes. **Two simplifications vs. the research notes below:** (1) documents open via Collabora's **local-filesystem backend** (`cool.html?file_path=…`), so no WOPI-host stub is needed to measure coolwsd; (2) memory is read from **Cloudflare's per-container memory metric** (the number that actually sizes the instance) rather than an in-container `/proc` sidecar. The `wrangler` snippet + DO sketch below are **superseded by the committed files**; the protocol, prerequisites, risks, and results template still apply.
+**Status: harness BUILT + locally validated; live deploy pending a Workers Builds connect (see below).** Implemented as a standalone Worker in this directory: `worker.ts` (the `DocumentSession` DO that owns the container + the alarm keep-alive toggle + lifecycle logging), `wrangler.jsonc` (container + DO + vars), and `Dockerfile` + `start-spike.sh` (collabora/code with the local-filesystem backend + baked text docs). Locally validated: the image builds and coolwsd serves `/hosting/discovery`; `wrangler deploy --dry-run` passes. **Two simplifications vs. the research notes below:** (1) documents open via Collabora's **local-filesystem backend** (`cool.html?file_path=…`), so no WOPI-host stub is needed to measure coolwsd; (2) memory is read from **Cloudflare's per-container memory metric** (the number that actually sizes the instance) rather than an in-container `/proc` sidecar. The `wrangler` snippet + DO sketch below are **superseded by the committed files**; the protocol, prerequisites, risks, and results template still apply.
 
-> **Deploy deferred.** The `collabora/code` image is **~2 GB** (a single 1.39 GB LibreOffice layer). Pushing it to `registry.cloudflare.com` from a home connection failed repeatedly (`use of closed network connection`), and the registry does not persist partial uploads, so retries don't accumulate. **Run the deploy + measurement from datacenter bandwidth** — wire this to **Cloudflare Workers Builds** or a GitHub Actions job (build + push from CI), or use a wired/high-upload connection. The editor choice (Collabora) is settled, so this spike only swaps the *reported* sizing/cold-start/keep-alive figures for *measured* ones — defer until convenient.
+> **Deploy via Cloudflare Workers Builds — not GitHub Actions.** This repo ships the way everything here ships: push to GitHub → **Cloudflare Workers Builds** builds and deploys on Cloudflare's own infrastructure (the `magna-carta` Worker's build history confirms it; the GitHub Actions `ci.yml` is only the test/dry-run gate, never the deployer). Building on Cloudflare's network also removes the original blocker — the ~2 GB image no longer has to be pushed up from a home connection.
 
-## Running the spike in CI (datacenter bandwidth)
+## Deploying the spike (Cloudflare Workers Builds)
 
-The deploy is wired to a manual GitHub Actions workflow, [`.github/workflows/collabora-topology-spike.yml`](../../.github/workflows/collabora-topology-spike.yml), so the 2 GB image builds and pushes from a GitHub-hosted runner (which has the upstream bandwidth a home connection lacks). The deployed Worker is named `collabora-topology-harness`.
+Connect this directory as its own Workers Builds target, mirroring how the main app is configured:
 
-**Cost / risk:** this deploys a **billable ~2 GB container** to a **Workers Paid** account, runs cold-start cycling and two keep-alive observation windows (single-digit to low-tens of dollars per run), and **tears the deployment down at the end** (Worker + container application + image), even on failure. Trigger it deliberately, not on a schedule.
+- **Dashboard:** Workers & Pages → the spike Worker → **Settings → Builds → Connect** the `Phauks/magna-carta` repo.
+- **Branch:** the branch carrying the spike (e.g. `slice-2-2-editing`).
+- **Root directory:** `spikes/collabora-topology` (this is a standalone package, not a workspace member).
+- **Build command:** `npm ci` · **Deploy command:** `npx wrangler deploy`
+  (For reference, the main app's Workers Build uses build `pnpm install --frozen-lockfile && pnpm exec vp run build-all`, deploy `pnpm --filter @magna-carta/worker exec wrangler deploy`.)
 
-**Required repository secrets** (Settings → Secrets and variables → Actions):
+A push to that branch then builds + deploys on Cloudflare. **No `CLOUDFLARE_API_TOKEN` secret is needed** — Workers Builds is already authenticated to the account (that token would only be needed by an off-Cloudflare runner like GitHub Actions, which is why this no longer uses one).
 
-- `CLOUDFLARE_API_TOKEN` — a token with Workers Scripts edit + Workers Containers edit on the target account.
-- `CLOUDFLARE_ACCOUNT_ID` — the target account id (kept in a secret because the image registry is per-account; never hardcoded).
+**The container image.** The spike image is a *custom* build (`Dockerfile`: `collabora/code` + the local-filesystem entrypoint + baked test docs), so a bare upstream Docker Hub reference will not carry the customization. Two image paths:
 
-**Trigger it:** GitHub → Actions → "Collabora topology measurement (manual)" → **Run workflow**. It is `workflow_dispatch` only — never runs on push or pull request. Optional inputs: `cold_starts` (default 10), `keepalive_window_seconds` (default 240), `sleep_after_seconds` (default 60). Instance sizing is set in `wrangler.jsonc` (`standard-2` = 1 vCPU / 6 GiB start point), not as a workflow input, because wrangler reads it from config.
+1. **Build in Workers Builds** — if the Workers Builds runner provides a Docker daemon, `wrangler deploy` builds this `Dockerfile` and pushes to the account's integrated registry, all on Cloudflare's network. _(Whether the Builds runner exposes Docker is not stated in the Cloudflare docs — confirm on the first build; if it does not, use path 2.)_
+2. **Pre-built image reference (no build at deploy time)** — build this `Dockerfile` once on any machine/CI that has Docker, push it to Docker Hub (or the Cloudflare registry), then set `containers[].image` in `wrangler.jsonc` to that `docker.io/<ns>/<repo>:<tag>` reference. Cloudflare _pulls_ the image (Docker Hub references supported since 2026-03-24), so `wrangler deploy` never builds and never uploads 2 GB.
+
+**Cost / risk:** deploys a **billable ~2 GB container** to a **Workers Paid** account with **Containers** (GA since 2026-04-13); cold-start cycling + two keep-alive windows run a few dollars per round. **Tear it down after** (`npx wrangler delete` + `npx wrangler containers delete`).
+
+**Run the measurements:** [`measure.mjs`](measure.mjs) hits the deployed Worker URL over HTTP, so it runs from anywhere (no special bandwidth):
+
+- Cold-start: `node measure.mjs --url <deployed-url> --mode coldstart --cold-starts 10 --out results-coldstart.json`
+- Keep-alive control: deploy with `KEEP_ALIVE` off, then `node measure.mjs --url <deployed-url> --mode keepalive --out results-keepalive-control.json`
+- Keep-alive mitigation: redeploy with `KEEP_ALIVE` on, then the same `--mode keepalive --out results-keepalive-mitigation.json`
+
+Instance sizing is `wrangler.jsonc` `instance_type` (`standard-2` = 1 vCPU / 6 GiB start point), not a deploy flag — wrangler reads it from config.
 
 **Where the numbers land:**
 
-- **Cold-start** and **keep-alive (control + mitigation)** are scripted by [`measure.mjs`](measure.mjs): printed to the job log, summarized in the run's job summary, and uploaded as the `measurement-results` artifact (`results-coldstart.json`, `results-keepalive-control.json`, `results-keepalive-mitigation.json`, plus `worker-tail.log` with the `container.onStart` / `keepAlive.renew` / `onActivityExpired` lifecycle lines).
-- **coolwsd RSS curve** is **not** scripted (it is read from Cloudflare's per-container memory metric, the number that sizes the instance, not an in-container probe). After the run, open idle / +1 / +Nth / a heavy document and read the per-container memory metric from Workers observability, then record the curve into the results table below.
+- **Cold-start** and **keep-alive (control + mitigation)** come from `measure.mjs` (`results-coldstart.json`, `results-keepalive-control.json`, `results-keepalive-mitigation.json`) plus the Worker tail (`container.onStart` / `keepAlive.renew` / `onActivityExpired` lifecycle lines).
+- **coolwsd RSS curve** is read from Cloudflare's per-container memory metric in Workers observability (not scripted, because it needs the in-container view). After deploying, open idle / +1 / +Nth / a heavy document and record the curve into the results table below.
 
 The control deploy (keep-alive off) is expected to sleep near `sleepAfter`; the mitigation deploy (alarm `renewActivityTimeout` on) is expected to survive past it. The mitigation surviving while the control sleeps is the empirical proof that the alarm keep-alive defeats the still-open issue where WebSocket frames do not renew the activity timer.
 
@@ -143,9 +157,9 @@ export class DocumentSession extends Container<Env> {
 
 ## Measurement protocol
 
-The CI workflow above scripts the externally observable halves — **cold-start (step 7)** and the **keep-alive control + mitigation (steps 8–9)** — via `measure.mjs` against the deployed Worker URL, and handles teardown (step 11). The steps below are the full manual protocol; the **RSS curve (steps 1–6)** is still read by hand from Workers observability / SSH because it needs an in-container view, and is the part to record after a CI run.
+`measure.mjs` scripts the externally observable halves — **cold-start** and the **keep-alive control + mitigation** — against the deployed Worker URL (run it from anywhere, as in the deploy section above). The steps below are the full manual protocol; the **RSS curve (steps 1–6)** is still read by hand from Workers observability / SSH because it needs an in-container view, and is the part to record after a run.
 
-Prereqs done: image built/pushed (`wrangler deploy`, or the CI workflow), the DO + container deployed, an `ssh-ed25519` key in `authorized_keys`, observability on, and a throwaway WOPI-host stub reachable from the container.
+Prereqs done: image built/pushed (`wrangler deploy` via Workers Builds), the DO + container deployed, an `ssh-ed25519` key in `authorized_keys`, observability on, and a throwaway WOPI-host stub reachable from the container.
 
 1. **Enumerate the instance.** `wrangler containers instances <APPLICATION_ID> --json` → capture `id` (INSTANCE_ID), `state`, `location`, `version`. All SSH/GraphQL queries key off `id`.
 2. **Idle RSS baseline (1A).** Zero documents open. Read coolwsd-tree RSS two ways: (a) `wrangler containers ssh <INSTANCE_ID> -- sh -c 'for p in $(pgrep coolwsd coolforkit coolkit); do awk "/VmRSS/{print \$2}" /proc/$p/status; done'` summed; (b) `containerFetch(<url>/__rss, 9981)` summing `vmrss_kib`. Agree within jitter; trust `/proc` if they diverge.
