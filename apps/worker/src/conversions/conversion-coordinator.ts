@@ -39,11 +39,18 @@ export class ConversionJob extends DurableObject<Bindings> implements Conversion
     const state = await this.ctx.storage.get<ConversionJobState>("state");
     if (state === undefined || state.status !== "queued") return;
     await this.ctx.storage.put("state", { ...state, status: "running" });
+    // Re-arm the alarm so the stuck-deadline covers the actual conversion window (from when
+    // work starts), not only the time the job spent waiting in the queue.
+    await this.ctx.storage.setAlarm(Date.now() + STUCK_DEADLINE_MS);
   }
 
   async markDone(resultKey: string, mediaType: string): Promise<void> {
     const state = await this.ctx.storage.get<ConversionJobState>("state");
-    if (state === undefined || (state.status !== "running" && state.status !== "queued")) return;
+    // A real successful result (markDone is only called after a confirmed conversion) must win
+    // over a prior timeout guess: a slow-but-eventually-successful job may have had the alarm fire
+    // first. Allow overriding queued/running/failed, but never clobber an already-stored done
+    // (idempotent — first done wins if the same result is delivered twice).
+    if (state === undefined || state.status === "done") return;
     await this.ctx.storage.put("state", {
       status: "done",
       resultKey,

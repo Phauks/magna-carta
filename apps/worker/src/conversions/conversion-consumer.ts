@@ -23,6 +23,9 @@ async function convertOne(
     return; // terminal — do not retry a reaped source
   }
   const bytes = new Uint8Array(await source.arrayBuffer());
+  // resolvePort resolves every hop to the single libvips engine — correct while libvips is the
+  // only implemented engine. When LibreOffice/FFmpeg engines activate, a multi-hop path will
+  // need a per-engineId resolver instead of a single-instance resolver.
   const result = await runConversion(message.from, message.to, bytes, () => resolvePort(env));
   if (!result.ok) {
     await coordinator.markFailed(result.reason); // typed, terminal

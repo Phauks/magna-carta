@@ -139,4 +139,55 @@ describe("ConversionJob", () => {
       expect(state.reason).toBe("conversion timed out");
     });
   });
+
+  it("markDone after alarm (failed) overrides the timeout — success wins", async () => {
+    const stub = jobStub("firm_1:job-alarm-override");
+    await runInDurableObject(stub, async (instance: ConversionJob) => {
+      recordSends(instance);
+      await instance.start(message("job-alarm-override"));
+      // Simulate the stuck-job alarm firing and marking the job failed before the result arrives.
+      await instance.alarm();
+      const afterAlarm = await instance.status();
+      expect(afterAlarm.status).toBe("failed");
+      // A real successful conversion that arrives late must still store its result as done;
+      // the alarm's guess (timed out) must not be the final word when the work succeeded.
+      await instance.markDone("files/firm_1/job-alarm-override/result.pdf", "application/pdf");
+      const state = await instance.status();
+      expect(state.status).toBe("done");
+      expect(state.resultKey).toBe("files/firm_1/job-alarm-override/result.pdf");
+      expect(state.mediaType).toBe("application/pdf");
+    });
+  });
+
+  it("markDone after done is a no-op (idempotent)", async () => {
+    const stub = jobStub("firm_1:job-done-idempotent");
+    await runInDurableObject(stub, async (instance: ConversionJob) => {
+      recordSends(instance);
+      await instance.start(message("job-done-idempotent"));
+      await instance.markRunning();
+      await instance.markDone("files/firm_1/job-done-idempotent/result-v1.pdf", "application/pdf");
+      // A second markDone (e.g. from a duplicate delivery) must not overwrite the first result.
+      await instance.markDone("files/firm_1/job-done-idempotent/result-v2.pdf", "text/plain");
+      const state = await instance.status();
+      expect(state.status).toBe("done");
+      expect(state.resultKey).toBe("files/firm_1/job-done-idempotent/result-v1.pdf");
+      expect(state.mediaType).toBe("application/pdf");
+    });
+  });
+
+  it("markRunning re-arms the stuck-job alarm", async () => {
+    const stub = jobStub("firm_1:job-rearm");
+    await runInDurableObject(stub, async (instance: ConversionJob) => {
+      recordSends(instance);
+      await instance.start(message("job-rearm"));
+      await instance.markRunning();
+      // After markRunning the alarm must still be set (re-armed) so a stalled conversion
+      // is caught even if it was dequeued long after the initial queue-wait deadline.
+      // ctx is protected on the DurableObject base class; cast through unknown to reach it in tests.
+      const ctx = (instance as unknown as { ctx: DurableObjectState }).ctx;
+      const alarm = await ctx.storage.getAlarm();
+      expect(alarm).not.toBeNull();
+      expect(alarm).toBeGreaterThan(Date.now());
+    });
+  });
 });
