@@ -10,7 +10,7 @@ import {
 } from "@magna-carta/timekeeping/utbms-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
-import type { FirmId, UserId } from "@magna-carta/identifiers/types";
+import type { FirmId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
@@ -29,7 +29,6 @@ import {
 let poolFirmId: FirmId;
 let ownerCookie: string;
 let readOnlyCookie: string;
-let ownerUserId: UserId;
 let firstTaskCodeId: string;
 
 const clock = { now: () => new Date().toISOString() };
@@ -47,7 +46,6 @@ beforeAll(async () => {
     userName: "UTBMS Owner",
     firmId: poolFirmId,
   });
-  ownerUserId = owner.userId;
   await mirrorMemberWithOwnerRole(owner.userId, "UTBMS Owner");
   ownerCookie = await signInForSessionCookie("utbms-owner@example.com");
 

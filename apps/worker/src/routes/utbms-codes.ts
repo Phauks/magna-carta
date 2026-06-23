@@ -2,10 +2,7 @@ import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { enableUtbmsCode, disableUtbmsCode } from "@magna-carta/timekeeping/utbms-service";
-import {
-  listUtbmsCodesBySetStatement,
-  UTBMS_CODE_TABLE,
-} from "@magna-carta/timekeeping/utbms-statements";
+import { listUtbmsCodesBySetStatement } from "@magna-carta/timekeeping/utbms-statements";
 import { TimeEntryValidationError } from "@magna-carta/timekeeping/time-entry-validation";
 import type { UtbmsCodeId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../app.ts";

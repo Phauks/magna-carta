@@ -6,7 +6,7 @@ import {
 import { NON_BILLABLE_CATEGORY_TABLE } from "@magna-carta/timekeeping/non-billable-category-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
-import type { FirmId, UserId } from "@magna-carta/identifiers/types";
+import type { FirmId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
@@ -25,7 +25,6 @@ import {
 let poolFirmId: FirmId;
 let ownerCookie: string;
 let readOnlyCookie: string;
-let ownerUserId: UserId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
@@ -44,7 +43,6 @@ beforeAll(async () => {
     userName: "NBC Owner",
     firmId: poolFirmId,
   });
-  ownerUserId = owner.userId;
   await mirrorMemberWithOwnerRole(owner.userId, "NBC Owner");
   ownerCookie = await signInForSessionCookie("nbc-owner@example.com");
 
