@@ -14,7 +14,7 @@ beforeAll(async () => {
   await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
 });
 
-describe("migration 0018_seed-tools-metadata-scrubber", () => {
+describe("migration 0020_seed-tools-metadata-scrubber", () => {
   it("grants tools:metadataScrubber to all five default roles", async () => {
     const result = await env.DB_FIRM_POOL_1.prepare(
       "SELECT role_id FROM role_permission WHERE permission = ?",
