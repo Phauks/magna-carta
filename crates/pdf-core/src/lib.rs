@@ -4,6 +4,9 @@ mod wasm;
 mod standard_fonts;
 mod standard_fonts_data;
 
+mod bates;
+pub use bates::{BatesError, BatesOptions, BatesPosition, BatesRange};
+
 mod redact;
 pub use redact::*;
 
