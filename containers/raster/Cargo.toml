@@ -16,10 +16,10 @@ path = "src/main.rs"
 [dependencies]
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
-# Pure-Rust image codec library — all default features (bmp, gif, jpeg, png, tiff, webp, etc.) are
-# pure Rust; no C/-sys dependency is introduced. The `avif-native` optional feature (dav1d) is NOT
-# enabled — only the default ravif/zune-jpeg based codecs are used.
-image = "0.25"
+# Pure-Rust image codec library. Default features are disabled to exclude the AVIF encoder, which
+# pulls in `ravif`/`rav1e`/`libfuzzer-sys`/`cc` (a C-compiler wrapper) — violating the no-C rule.
+# Only the six pure-Rust codecs we actually convert are enabled; no C/-sys crate is in the tree.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "tiff", "bmp"] }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
