@@ -3,7 +3,7 @@ branch: tools-metadata-scrubber
 worktree: C:/dev/magna-carta
 area: Tools — Metadata Inspector & Scrubber (all-TypeScript)
 status: designing
-touches: docs/specs/2026-06-22-metadata-tool-design.md, packages/metadata/** (new), packages/tools/src/catalog.ts (one row), packages/access-control/src/registry.ts (one permission), apps/worker/src/routes/metadata.ts (new) + app.ts registration, apps/worker migrations (role seed), STATUS.md, ROADMAP.md
+touches: docs/specs/2026-06-22-metadata-tool-design.md, packages/metadata/** (new), packages/tools/src/catalog.ts (one row), packages/access-control/src/registry.ts (one permission), apps/worker/src/routes/metadata.ts (new) + app.ts registration, apps/worker migrations (role seed), STATUS.md, ROADMAP.md, apps/scan-worker/** (scan service extraction), docs/conventions/operations.md (§12 container-service rubric — append-only), docs/decisions/pending/container-subsystems-dedicated-workers.md, changelog.d/container-subsystems-dedicated-workers.md
 ---
 
 A new ethereal Tools-area tool in the `documents` subject group: inspect a file's metadata + content-bearing

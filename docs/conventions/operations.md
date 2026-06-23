@@ -236,3 +236,36 @@ The scan engine is a `linux/amd64` Container (`containers/scan/`): a long-lived 
 **Acceptance gate:** `containers/scan/tests/eicar_e2e.sh` (and the `scan-container` CI job) build the image and assert EICAR → `infected` end to end. This is the engine's proof — it runs in CI (Docker), not under the local worker pool.
 
 **Cost:** ~$35–50/mo at MVP scale for one warm `standard-1` instance (the warm-poke keeps it from cold-starting the ~1–2 GiB DB); scales with concurrent scan volume up to `max_instances`. Self-hosted — privileged client bytes never leave our compute.
+
+## 12. Container subsystems → dedicated workers (the extraction rubric)
+
+A subsystem built on a heavy native runtime in a Container gets its **own** Worker, not a wiring into the main `magna-carta` app Worker. Malware scanning is the realized form (`apps/scan-worker` → `magna-carta-scan`); the §11 inline-into-`apps/worker` wiring above is the pre-extraction description and is superseded by this pattern for new container subsystems. This section is the standing rule new designs follow; cite it by path, not by ADR.
+
+**Decide with the rubric. Extract when the subsystem scores high on ①–④ and clears ⑤:**
+
+1. **Heavy native / Container runtime** — work runs in a Dockerfile-built Container Durable Object, not the Worker isolate.
+2. **Independent deploy cadence** — its image rebuilds on a schedule decoupled from app deploys (scan's daily signature refresh; Collabora's security-patch cadence).
+3. **Distinct scaling profile** — wants its own `max_instances`/`instance_type`; must not contend with or starve app request handling.
+4. **Containment / blast-radius** — processes untrusted bytes; wants `enableInternet = false`, no public surface, reachable **only** via service binding from the app Worker.
+5. **Stateless compute (the seam test)** — the work that moves into the dedicated Worker holds **no firm state**. Decisive: it is what lets a subsystem split cleanly.
+
+**The compute-vs-coordination seam — only stateless compute crosses; firm-state coordination stays in the app Worker** (behind the data-access layer and the route chokepoint):
+
+- **Scanning** — whole engine is the Container; no coordinator. Realized.
+- **Editing** — the **coolwsd Container compute** extracts; the **`DocumentSession` DO** (participants, WOPI lock, working-object metadata) stays in the app Worker.
+- **Conversion** — the **heavy engine bodies** (LibreOffice, OCR, native libvips, future PDF) extract behind the existing `ConversionPort` seam (a container adapter is one more `ConversionPort` impl); the **`ConversionJob` DO**, the `CONVERSION` queue, and the pure-TS `registry`/`pathfinding`/`placement` stay in the app Worker. Light WASM engines (wasm-vips, small rasters) may stay in-process as a fast-path — the multi-candidate registry already models in-worker-WASM vs container-native as two engines in the graph.
+
+**A subsystem whose state IS a durable per-firm dataset fails ⑤ — it is a different design, not this pattern.** Full-text search (Tantivy): the index is firm data, not stateless compute. It gets its own spec as a **stateful service** when search is scheduled; do not model it as "scan again."
+
+**The worker template — mirror `apps/scan-worker`:**
+
+- `"workers_dev": false` + `"preview_urls": false` — no public surface; reached only by a service binding from `magna-carta`.
+- Owns the Container DO via a `new_sqlite_classes` migration tag; `enableInternet = false` where the runtime needs no egress (untrusted bytes never reach the network).
+- Its own crons: a `*/20 * * * *` warm-poke to keep one instance (and its resident state) hot ahead of `sleepAfter`; a daily image rebuild where signatures/models refresh at build time, not runtime.
+- Resource floor and clamd-style limits stay aligned with the inspectable size cap (see §11 for the scan-specific numbers).
+
+**Grouping is per-candidate, not blanket.** One Worker per Container class by default (independent cadence/scaling per ②/③); group classes into one Worker **only** when they share one pipeline and deploy cadence (e.g. conversion's LibreOffice + OCR).
+
+**Caveat for pluggable engines.** A *pluggable* engine that needs outbound network (e.g. a cloud OCR/conversion engine) cannot share scan-grade `enableInternet = false` containment and needs its own policy lane — a real fork for conversion's pluggable-engine set.
+
+Decision record: ADR `container-subsystems-dedicated-workers`. Family status: scan realized; editing extracting; conversion evaluating; search deferred (stateful).
