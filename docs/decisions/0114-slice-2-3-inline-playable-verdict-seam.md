@@ -1,8 +1,9 @@
 ---
-slug: inline-playable-verdict-seam
+number: 114
+slug: slice-2-3-inline-playable-verdict-seam
 status: Accepted
-area: File preview / File Manager
 date: 2026-06-19
+area: File preview / File Manager
 summary: The `inline_playable` verdict is homed AT INGEST (per the white paper) but slice 2·3 lands ONLY an additive, nullable, two-axis column on `file_version` (`playable`|`download-only`|`indeterminate`, NULL = never-sniffed), on `main` ahead of the worktrees, matching the `storage_encoding`/`artifact_role`/`pinned`/`storage_class` seam precedent; the codec-sniff PARSER, the `runIngest` compute hook, and the corpus backfill are ALL DEFERRED to whichever slice first READS the value (the 2·1 ingest rebuild, the 0·7a/0·7b player, or Reports); `ingest-core.ts` is off-limits in 2·3 (the live, built-but-unmerged 2·1 worktree is rewriting it — hard-conflict surface); the migration number is not pre-reserved.
 ---
 

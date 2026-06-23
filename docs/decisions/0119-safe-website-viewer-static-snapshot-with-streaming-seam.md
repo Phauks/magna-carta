@@ -1,4 +1,5 @@
 ---
+number: 119
 slug: safe-website-viewer-static-snapshot-with-streaming-seam
 status: Accepted
 date: 2026-06-22

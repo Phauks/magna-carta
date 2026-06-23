@@ -1,8 +1,9 @@
 ---
+number: 117
 slug: noindex-private-surfaces
 status: Accepted
-area: Worker / Delivery
 date: 2026-06-22
+area: Worker / Delivery
 summary: Every surface the application Worker serves — the SvelteKit SPA shell, the API, Better Auth, and every branded per-firm subdomain — is a private, authenticated, multi-tenant surface that must never be indexed by a search engine, so the Worker stamps `X-Robots-Tag: noindex, nofollow` on every app-origin response via a global response-header middleware. The middleware is registered AFTER the cookieless preview route so the sealed `files.*` edge (attachment bytes + bare 404s, never an indexable page) keeps its exhaustive payload-derived header set untouched. The directive lives in code (version-controlled, CI-tested by a standing fitness guard) rather than as a Cloudflare dashboard Transform Rule; the existing dashboard-managed `robots.txt` is kept as complementary (it governs crawling, the header governs indexing). The public marketing site is deliberately a separate future app on its own host (apex/www) that does not run through this Worker and so does not inherit the directive.
 ---
 

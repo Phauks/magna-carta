@@ -1,4 +1,5 @@
 ---
+number: 122
 slug: container-subsystems-dedicated-workers
 status: Accepted
 date: 2026-06-23

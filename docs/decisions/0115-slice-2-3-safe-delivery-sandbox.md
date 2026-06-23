@@ -1,8 +1,9 @@
 ---
-slug: safe-delivery-sandbox
+number: 115
+slug: slice-2-3-safe-delivery-sandbox
 status: Accepted
-area: File preview / Security
 date: 2026-06-19
+area: File preview / Security
 summary: Slice 2·3 inline-preview safe delivery — untrusted bytes are served from a separate cookieless `files.*` host (the existing Worker on a second hostname, outside the chokepoint) and consumed as a native `<video>`/`<audio>` SUBRESOURCE on the trusted app origin, so the bytes reach only the browser's media decoder, never an HTML/script parser; `Content-Disposition: attachment` is KEPT verbatim (a no-op for the subresource, honored for a top-level navigation), so `security.md` is amended ADDITIVELY (a second sanctioned inline-render mechanism) rather than deviated from; inline bytes flow through a Worker route under a first-party HMAC token (over `AUTH_SECRET`, NOT an R2 presign, which cannot carry the headers); the grant is `audited:false` (no per-view logging); seekable Range/206 is the slice's primary acceptance criterion; CORS is ungranted at launch; browser media-decoder RCE is a knowingly-accepted platform residual whose fix is the deferred Container rendition.
 ---
 

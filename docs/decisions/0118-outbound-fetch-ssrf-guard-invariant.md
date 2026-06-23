@@ -1,4 +1,5 @@
 ---
+number: 118
 slug: outbound-fetch-ssrf-guard-invariant
 status: Accepted
 date: 2026-06-22
