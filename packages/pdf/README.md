@@ -216,6 +216,8 @@ const result = await redactDocument(bytes, regions, { mode: "surgery" });
 
 On those pages, flatten produces the output; the page appears in `pagesFlattened` rather than `pagesSurgered`.
 
+One narrow case is not detected as an image overlap: a tiling pattern that embeds a raster image and is used as a fill under a redaction rectangle is treated as vector content, so the page may surger rather than flatten. Patterns are rare in redaction-bearing documents, but if a production may contain image-bearing patterns under redactions, use `mode: "flatten"` for a guaranteed raster result.
+
 ## Sanitize
 
 `sanitizeDocument(bytes, opts?)` removes document-level metadata and embedded surfaces that should not accompany a document shared outside the firm. It operates on the document as a whole — it is not page-specific and does not rasterize anything.
