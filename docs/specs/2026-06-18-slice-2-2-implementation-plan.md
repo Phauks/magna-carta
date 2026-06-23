@@ -95,14 +95,21 @@
 
 ### Task 4: Collabora container binding (least-privilege)
 
+> **Retargeted (2026-06-22, ADR `container-subsystems-extract-to-dedicated-workers`):** the coolwsd
+> Container extracts to a **dedicated `magna-carta-edit` Worker** (mirroring `apps/scan-worker`), NOT
+> the app Worker. The container's Container DO + image + warm-poke/refresh cron + scaling live in the
+> new app; `DocumentSession` and the WOPI host stay in `apps/worker` (compute ↔ coordination seam).
+> The editing container is reached by the browser (iframe) and calls back to the app Worker's existing
+> token-guarded `/wopi/*` surface — so the seam is the editor-URL config (`editorDiscoveryUrlsrc`) +
+> a warm-poke, not a `DocumentSession.containerFetch`. Copy the scan worker as the template.
+
 **Files:**
+- Create: `apps/edit-worker` (its own `wrangler.jsonc` — Container config: image, instance type from Task 0, `min_instances`, `sleepAfter`; no egress; no R2/D1 bindings) mirroring `apps/scan-worker`
 - Modify: `containers/collabora/Dockerfile` (promote the spike image), `containers/collabora/coolwsd.xml`
-- Modify: `apps/worker/wrangler.jsonc` (Container config: image, instance type from Task 0, `min_instances`, `sleepAfter`)
-- Modify: `apps/worker/src/editing/document-session.ts` (own/route to the container via `getContainer`/`containerFetch`)
-- Test: `apps/worker/src/editing/document-session.test.ts`
+- Test: a config-fitness assertion (no egress + no firm bindings on the edit worker) + the warm-poke cron
 
 **Interfaces:**
-- Produces: `DocumentSession.containerFetch(request)` proxying to the document's coolwsd; the container has **no egress**, **no R2/D1 creds or key material**, runs ephemeral per document.
+- Produces: the `magna-carta-edit` Worker fronting the per-document coolwsd Container; the container has **no egress**, **no R2/D1 creds or key material**, runs ephemeral per document, and reaches firm data ONLY by calling back through the app Worker's token-authenticated WOPI host.
 
 - [ ] **Step 1:** Verify current `@cloudflare/containers` config (golden rule 11): per-DO container ownership, `getContainer(binding, fileId)` keying, image/instance config, egress controls.
 - [ ] **Step 2:** Write a failing test asserting the DO routes a WOPI-shaped request to its container and that the container config declares no egress + no bindings (config-fitness assertion).
