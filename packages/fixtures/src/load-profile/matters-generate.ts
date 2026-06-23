@@ -377,8 +377,13 @@ export async function generatePracticeVolume(
             sizeBytes,
             sniffedContentType: "application/pdf",
             contentSha256,
-            scanVerdict: "clean",
+            // A deterministic mix: a fraction await the scan engine (scan_verdict='unscanned'), the rest
+            // are already scanned clean — the data shape the weekly re-scan sweep's find-unscanned batch
+            // reads against. Status stays 'clean' either way (an unscanned commit is still visible).
+            scanVerdict:
+              faker.number.float() < volume.unscannedVersionFraction ? "unscanned" : "clean",
             scanEngineVersion: null,
+            scanDetail: null,
             now: clock.now(),
           },
           serviceOptions,

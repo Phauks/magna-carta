@@ -27,6 +27,14 @@ describe("matters / locations / file-manager schema", () => {
     expect(numberIndex?.config.where).toBeDefined();
   });
 
+  it("file_version.scan_detail: TEXT, nullable (stores AV engine detail when present, absent when not scanned)", () => {
+    const config = getTableConfig(fileVersion);
+    const scanDetail = config.columns.find((column) => column.name === "scan_detail");
+    expect(scanDetail).toBeDefined();
+    expect(scanDetail?.getSQLType()).toBe("text");
+    expect(scanDetail?.notNull).toBe(false);
+  });
+
   it("file_version: the four status-family CHECKs + UNIQUE(r2_key) and UNIQUE(file_id, version_number)", () => {
     const config = getTableConfig(fileVersion);
     const checkNames = config.checks.map((check) => check.name);

@@ -194,6 +194,16 @@ describe("POST /api/v1/uploads — initiate", () => {
     expect(sessions?.n).toBe(1);
   });
 
+  it("mints a key under bulk/ when uploadKind is bulk", async () => {
+    const response = await postUpload(
+      { ...smallPut("bulk-brief.pdf"), uploadKind: "bulk" },
+      { cookie: ownerCookie, idempotencyKey: crypto.randomUUID() },
+    );
+    expect(response.status).toBe(201);
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body["key"]).toMatch(/^bulk\//);
+  });
+
   it("replays a repeated Idempotency-Key and stores the record in the FIRM database, not the control plane", async () => {
     const idempotencyKey = crypto.randomUUID();
     const first = await postUpload(smallPut("idem.pdf"), { cookie: ownerCookie, idempotencyKey });

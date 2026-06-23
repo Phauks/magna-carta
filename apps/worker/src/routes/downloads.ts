@@ -6,15 +6,22 @@ import {
   listCleanCurrentVersionsByMatter,
   listFoldersByMatter,
 } from "@magna-carta/file-manager/queries";
-import { zipAsyncThresholdDefinition } from "@magna-carta/file-manager/upload-policy";
-import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
-import { resolveZipSelection, type ZipEntry } from "@magna-carta/file-manager/zip-composition";
+import {
+  readLiveMaxFileCount,
+  readLiveMaxTotalBytes,
+} from "@magna-carta/file-manager/upload-policy";
+import {
+  bundleManifestHash,
+  resolveZipSelection,
+  type ZipEntry,
+} from "@magna-carta/file-manager/zip-composition";
 import type { FileId, FolderId, MatterId } from "@magna-carta/identifiers/types";
 import { makeZip } from "client-zip";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
+  requireChokepointFirmId,
   requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
@@ -41,6 +48,13 @@ const ZipRequest = z
     fileIds: z.array(identifierField("file")).optional(),
   })
   .openapi("ZipDownloadRequest");
+
+// The async-build handles: a 202 carries the job handle to poll (the manifest hash IS the job id); a
+// 200 JSON carries a fresh signed URL when an identical selection was already built.
+const BundleAccepted = z
+  .object({ jobId: z.string(), status: z.string() })
+  .openapi("BundleBuildAccepted");
+const BundleReady = z.object({ url: z.string() }).openapi("BundleReady");
 
 // A POST mandates a non-null permission (defineOpenAPIRoute guards an authenticated mutating route
 // against permission: null — the chokepoint would read null as "any authenticated user"). A bulk
@@ -71,8 +85,19 @@ const zipDownloadRoute = defineOpenAPIRoute(zipDownloadMeta, {
   },
   responses: {
     200: {
-      description: "A streamed ZIP archive of the selected files",
-      content: { "application/zip": { schema: z.string().openapi({ format: "binary" }) } },
+      description:
+        "A streamed ZIP archive of the selected files; or, when the selection exceeds the live " +
+        "threshold and an identical bundle was already built, a JSON body with a fresh signed URL.",
+      content: {
+        "application/zip": { schema: z.string().openapi({ format: "binary" }) },
+        "application/json": { schema: BundleReady },
+      },
+    },
+    202: {
+      description:
+        "The selection exceeds the live-download threshold; a background build was started or is " +
+        "already in progress. Poll the bundle-status endpoint with the returned jobId.",
+      content: { "application/json": { schema: BundleAccepted } },
     },
     302: { description: "A single-file selection redirects to a presigned download URL" },
     401: {
@@ -111,6 +136,7 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
     },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
+      const firmId = requireChokepointFirmId(c);
       const userId = requireChokepointUserId(c);
       const bucket = requireBucket(firm.bucketName);
       const request = c.req.valid("json");
@@ -139,45 +165,90 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
         });
       }
 
-      // The async-job threshold is read and recorded so the audit trail captures the decision input;
-      // acting on it (handing a large bundle to a background job) is built in a later phase.
-      const zipAsyncThreshold = await readFirmSetting(
-        firm.firmDatabase,
-        zipAsyncThresholdDefinition,
-      );
+      // The two live-vs-async thresholds: a selection over EITHER the file-count or the total-bytes
+      // knob is too retry-unfriendly to stream inline, so it hands off to the background build job. A
+      // single-file selection always redirects (a presigned GET needs no archive), whatever its size.
+      const [liveMaxFileCount, liveMaxTotalBytes] = await Promise.all([
+        readLiveMaxFileCount(firm.firmDatabase),
+        readLiveMaxTotalBytes(firm.firmDatabase),
+      ]);
+      const delivery =
+        resolved.entries.length === 1
+          ? "redirect"
+          : resolved.fileCount > liveMaxFileCount || resolved.totalBytes > liveMaxTotalBytes
+            ? "async"
+            : "inline";
 
+      // The export is recorded AFTER the delivery side-effect succeeds (matching the per-file download
+      // in routes/files.ts), so the audit trail never claims an export that a later presign/build
+      // failure prevented.
       const now = new Date().toISOString();
-      await commitEffectBatch(
-        firm.firmDatabase,
-        {
-          statements: [
-            insertAuditLogStatement(firm.firmDatabase, {
-              id: newIdentifier("auditLog"),
-              event: "files.bulkDownloaded",
-              actorUserId: userId,
-              subjectId: matterId,
-              metadata: {
-                fileCount: resolved.fileCount,
-                totalBytes: resolved.totalBytes,
-                zipAsyncThreshold,
-              },
-              now,
-            }),
-          ],
-          outboxMessages: [],
-        },
-        { now: () => now },
-      );
+      const recordExport = () =>
+        commitEffectBatch(
+          firm.firmDatabase,
+          {
+            statements: [
+              insertAuditLogStatement(firm.firmDatabase, {
+                id: newIdentifier("auditLog"),
+                event: "files.bulkDownloaded",
+                actorUserId: userId,
+                subjectId: matterId,
+                metadata: {
+                  fileCount: resolved.fileCount,
+                  totalBytes: resolved.totalBytes,
+                  liveMaxFileCount,
+                  liveMaxTotalBytes,
+                  delivery,
+                },
+                now,
+              }),
+            ],
+            outboxMessages: [],
+          },
+          { now: () => now },
+        );
 
       // A single resolved file: redirect to a presigned GET, identical to the per-file download.
-      if (resolved.entries.length === 1) {
+      if (delivery === "redirect") {
         const only = resolved.entries[0] as ZipEntry;
         const presigner = presignerForEnv(c.env);
         const url = await presigner.presignGet(bucket, only.r2Key, DOWNLOAD_TTL_SECONDS);
+        await recordExport();
         return c.redirect(url, 302);
       }
 
-      // Multiple files: stream a store-mode ZIP of the resolved R2 object bodies. Each entry's input
+      // Over the live threshold: hand off to a content-addressed background build. The manifest hash
+      // is the dedup key, the R2 artifact key, AND the job id the client polls. An identical selection
+      // already built hands back a fresh signed URL; otherwise the coordinator single-flights the build.
+      if (delivery === "async") {
+        const entries = resolved.entries.map((entry) => ({ r2Key: entry.r2Key, path: entry.path }));
+        const manifestHash = await bundleManifestHash(entries);
+        const artifactKey = `bundles/${manifestHash}.zip`;
+        const existing = await c.env.R2.head(artifactKey);
+        if (existing !== null) {
+          const url = await presignerForEnv(c.env).presignGet(
+            bucket,
+            artifactKey,
+            DOWNLOAD_TTL_SECONDS,
+          );
+          await recordExport();
+          return c.json({ url }, 200);
+        }
+        const coordinator = c.env.BUNDLE_COORDINATOR.get(
+          c.env.BUNDLE_COORDINATOR.idFromName(`${firmId}:${manifestHash}`),
+        );
+        const state = await coordinator.requestBundle({
+          firmId,
+          bucketName: bucket,
+          manifestHash,
+          entries,
+        });
+        await recordExport();
+        return c.json({ jobId: manifestHash, status: state.status }, 202);
+      }
+
+      // Inline (multiple files under the threshold): stream a store-mode ZIP of the R2 object bodies.
+      // Each entry's input
       // is the R2 object stream — never buffered into memory — so a large bundle streams within the
       // Worker's limits. A missing object (reaped between resolve and stream) is skipped rather than
       // aborting the whole archive.
@@ -189,6 +260,7 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
           yield { name: entry.path, input: object.body };
         }
       }
+      await recordExport();
       const zipStream = makeZip(zipInputs());
       return new Response(zipStream, {
         status: 200,

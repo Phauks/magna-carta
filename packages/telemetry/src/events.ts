@@ -79,6 +79,17 @@ export const outboxDeadLettered = defineEvent("outbox.deadLettered", [
 // logged (the structural replacement for slice 0·4's interim console.error seam).
 export const authDenied = defineEvent("auth.denied", ["cause", "route", "errorId"] as const);
 
+// ingest.verdict — one per terminal ingest outcome (commit or quarantine). Redaction is structural:
+// there is NO slot for file id, name, r2 key, or content — only the scan verdict and the outcome
+// classification. This makes infected/quarantine rates observable without logging anything that
+// identifies the file or its uploader.
+export const ingestVerdict = defineEvent("ingest.verdict", [
+  "outcome",
+  "scanVerdict",
+  "scanDetail",
+  "quarantineReason",
+] as const);
+
 // usage.feature — a product-usage signal: a feature was reached (an authorized route mapped to it
 // was served) or completed (an authoritative domain mutation for it occurred). Identifiers are
 // pseudonymous HMAC handles, never raw ids; surface/userIdHash/appVersion are null when the emit
@@ -105,5 +116,6 @@ export const EVENT_NAMES = [
   operationFailed,
   outboxDeadLettered,
   authDenied,
+  ingestVerdict,
   usageFeature,
 ].map((builder) => builder.eventName);

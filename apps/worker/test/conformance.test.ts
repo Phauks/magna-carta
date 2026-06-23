@@ -55,6 +55,16 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Read-shaped POST: counts how each current value would land under a kind change (the target kind rides the body) — no write, no audit.",
   "timeEntries.previewQuickAdd":
     "Read-shaped POST: parses a one-line quick-add string and returns matter candidates — no write, nothing committed.",
+  "conversions.upload":
+    "Pure credential mint: mints a jobId and a short-TTL presigned PUT URL — no D1 write, no firm state change, just a signed URL the client uploads to directly.",
+  "conversions.submit":
+    "Enqueues a conversion job through a Durable Object (no D1 write, no firm-database row): the DO + queue track the lifecycle; there is no audit_log row class that models a transient compute job.",
+  "safeBrowse.post":
+    "Renders a suspect URL in an isolated remote browser and returns a static snapshot — a pure read over the request body, no firm-data write; the target URL is deliberately never logged (redaction).",
+  "metadata.inspect":
+    "Pure computation over the uploaded bytes — reports metadata findings; nothing is stored, no firm data is written.",
+  "metadata.scrub":
+    "Pure computation over the uploaded bytes — returns a cleaned copy in-process; nothing is stored, no firm data is written.",
 };
 
 // Subsystems whose every route must be idempotency: required (money/trust/payment/outbound-comms).
@@ -480,6 +490,9 @@ describe("conformance — the committed contract holds, and each rule catches a 
   it("exposes the known committed operations (so the positive assertions are not vacuous)", () => {
     const ids = [...operations(document)].map((entry) => entry.operationId).sort();
     expect(ids).toEqual([
+      "conversions.status",
+      "conversions.submit",
+      "conversions.upload",
       "customFields.applyConvert",
       "customFields.archiveField",
       "customFields.archiveOption",
@@ -518,6 +531,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "documentTypes.deactivate",
       "documentTypes.list",
       "documentTypes.update",
+      "downloads.bundleStatus",
       "downloads.zip",
       "files.delete",
       "files.download",
@@ -555,6 +569,8 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "matters.update",
       "me.get",
       "members.invite",
+      "metadata.inspect",
+      "metadata.scrub",
       "myDay.get",
       "narrativeTemplates.create",
       "narrativeTemplates.list",
@@ -570,6 +586,9 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "rateCards.list",
       "rates.append",
       "rates.reRateDrafts",
+      "safeBrowse.post",
+      "scan.diagnose",
+      "scan.matter",
       "shipping.connect",
       "shipping.createShipment",
       "shipping.label",
@@ -601,6 +620,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "utbmsCodes.disable",
       "utbmsCodes.enable",
       "utbmsCodes.list",
+      "whois.get",
     ]);
   });
 

@@ -73,13 +73,40 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     ).toEqual(roles.map((row) => row.id).sort());
     // The matters/locations/files grants (0004) extend the seed per the role distribution.
     expect(grantsFor("Owner/Admin")).toContain("matters:create");
-    // Paralegal: firm:reportIncident (0003) + matters:create + files upload/organize (0004).
+    // Paralegal: firm:reportIncident (0003) + matters:create + files upload/organize (0004)
+    // + tools:whois/safeBrowse (0017) + firm:scanFile (0019) + tools:metadataScrubber (0020).
     expect(grantsFor("Paralegal").sort()).toEqual(
-      ["files:organize", "files:upload", "firm:reportIncident", "matters:create"].sort(),
+      [
+        "files:organize",
+        "files:upload",
+        "firm:reportIncident",
+        "firm:scanFile",
+        "matters:create",
+        "tools:metadataScrubber",
+        "tools:safeBrowse",
+        "tools:whois",
+      ].sort(),
     );
-    // Billing and Read-only carry only firm:reportIncident by default (adjustable data).
-    expect(grantsFor("Billing")).toEqual(["firm:reportIncident"]);
-    expect(grantsFor("Read-only")).toEqual(["firm:reportIncident"]);
+    // Billing and Read-only carry firm:reportIncident (0003) + tools:whois/safeBrowse (0017) +
+    // firm:scanFile (0019) + tools:metadataScrubber (0020) by default (all seeded to every role).
+    expect(grantsFor("Billing").sort()).toEqual(
+      [
+        "firm:reportIncident",
+        "firm:scanFile",
+        "tools:metadataScrubber",
+        "tools:safeBrowse",
+        "tools:whois",
+      ].sort(),
+    );
+    expect(grantsFor("Read-only").sort()).toEqual(
+      [
+        "firm:reportIncident",
+        "firm:scanFile",
+        "tools:metadataScrubber",
+        "tools:safeBrowse",
+        "tools:whois",
+      ].sort(),
+    );
   });
 
   it("prepare/bind/run/all round-trips and batch() is atomic (all-or-nothing)", async () => {

@@ -45,6 +45,16 @@ CREATE TABLE `rate_card` (
 	CONSTRAINT "rate_card_name_nonempty_check" CHECK(length("rate_card"."name") > 0)
 );
 --> statement-breakpoint
+CREATE TABLE `scoped_setting` (
+	`key` text NOT NULL,
+	`scope_tier` text NOT NULL,
+	`scoped_id` text,
+	`value` text NOT NULL,
+	`updated_at` text NOT NULL,
+	PRIMARY KEY(`key`, `scope_tier`, `scoped_id`),
+	CONSTRAINT "scoped_setting_scope_tier_check" CHECK("scoped_setting"."scope_tier" IN ('matter', 'client', 'user', 'location', 'firm'))
+);
+--> statement-breakpoint
 CREATE TABLE `time_entry` (
 	`id` text PRIMARY KEY NOT NULL,
 	`matter_id` text NOT NULL,
@@ -81,7 +91,7 @@ CREATE TABLE `time_entry` (
 	CONSTRAINT "time_entry_source_check" CHECK("time_entry"."source" IN ('timer', 'manual', 'quick_add', 'grid', 'offline_sync', 'calendar')),
 	CONSTRAINT "time_entry_rate_source_check" CHECK("time_entry"."rate_source" IS NULL OR "time_entry"."rate_source" IN ('override', 'matter', 'client', 'timekeeper', 'role', 'card_default')),
 	CONSTRAINT "time_entry_currency_check" CHECK("time_entry"."currency" IN ('USD')),
-	CONSTRAINT "time_entry_amount_paired_null_check" CHECK((`amount_minor` IS NULL) = (`rate_e4` IS NULL))
+	CONSTRAINT "time_entry_amount_paired_null_check" CHECK(("time_entry"."amount_minor" IS NULL) = ("time_entry"."rate_e4" IS NULL))
 );
 --> statement-breakpoint
 CREATE INDEX `time_entry_timekeeper_work_date_index` ON `time_entry` (`timekeeper_user_id`,`work_date`);--> statement-breakpoint
@@ -100,10 +110,7 @@ CREATE TABLE `utbms_code` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `utbms_code_code_set_code_unique` ON `utbms_code` (`code_set`,`code`);--> statement-breakpoint
--- HAND-CORRECTED: PRAGMA foreign_keys=OFF/ON is not in D1's compatible-PRAGMA set.
--- PRAGMA defer_foreign_keys = on defers FK enforcement to the end of the migration batch
--- (one transaction), by which time `matter` exists again under its new definition.
-PRAGMA defer_foreign_keys = on;--> statement-breakpoint
+PRAGMA foreign_keys=OFF;--> statement-breakpoint
 CREATE TABLE `__new_matter` (
 	`id` text PRIMARY KEY NOT NULL,
 	`title` text NOT NULL,
@@ -129,29 +136,21 @@ CREATE TABLE `__new_matter` (
 	CONSTRAINT "matter_e_billing_check" CHECK("__new_matter"."e_billing" IN (0, 1))
 );
 --> statement-breakpoint
--- HAND-CORRECTED: old `matter` table does not have e_billing; supply the default (0 = off)
--- rather than selecting a non-existent column. All existing matters start with e_billing off.
+-- contract: e_billing is a new additive column (DEFAULT 0 NOT NULL); the expand-contract rebuild
+-- copies all existing matter rows and supplies 0 for e_billing on pre-existing rows (the column
+-- did not exist before this migration). The DROP TABLE here is safe: __new_matter holds every
+-- prior row plus the new column, and foreign_keys are off for the duration of the swap.
 INSERT INTO `__new_matter`("id", "title", "description", "status", "matter_type_id", "location_id", "responsible_member_id", "client_display_name", "client_code", "e_billing", "matter_number", "numbered_at", "opened_at", "closed_at", "created_at", "updated_at") SELECT "id", "title", "description", "status", "matter_type_id", "location_id", "responsible_member_id", "client_display_name", "client_code", 0, "matter_number", "numbered_at", "opened_at", "closed_at", "created_at", "updated_at" FROM `matter`;--> statement-breakpoint
 DROP TABLE `matter`;--> statement-breakpoint
 ALTER TABLE `__new_matter` RENAME TO `matter`;--> statement-breakpoint
+PRAGMA foreign_keys=ON;--> statement-breakpoint
 CREATE UNIQUE INDEX `matter_matter_number_unique_index` ON `matter` (`matter_number`) WHERE "matter"."matter_number" IS NOT NULL;--> statement-breakpoint
 CREATE INDEX `matter_status_index` ON `matter` (`status`);--> statement-breakpoint
 CREATE INDEX `matter_responsible_member_id_created_at_id_index` ON `matter` (`responsible_member_id`,`created_at`,`id`);--> statement-breakpoint
 CREATE INDEX `matter_created_at_id_index` ON `matter` (`created_at`,`id`);
---> statement-breakpoint
-CREATE TABLE `scoped_setting` (
-	`key` text NOT NULL,
-	`scope_tier` text NOT NULL,
-	`scoped_id` text,
-	`value` text NOT NULL,
-	`updated_at` text NOT NULL,
-	CONSTRAINT "scoped_setting_scope_tier_check" CHECK(`scope_tier` IN ('matter', 'client', 'user', 'location', 'firm')),
-	PRIMARY KEY(`key`, `scope_tier`, `scoped_id`)
-);
---> statement-breakpoint
--- Seed the six time: permissions onto the Owner/Admin role. The role_id is the single combined
--- Owner/Admin role seeded in the member-rbac migration; the rolePermission_ handles were minted
--- once and committed as literals so every firm's defaults match byte-for-byte.
+-- Seed the six time: permissions onto the Owner/Admin role. The role_id below is the single
+-- combined Owner/Admin role seeded in the member-rbac migration; the rolePermission_ handles are
+-- minted once and committed as literals so every firm's defaults match byte-for-byte.
 INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES
 	('rolePermission_time1TrackOwnerAdmin0', 'role_Gw-zKO8hOHQuNv2bWokMp', 'time:track'),
 	('rolePermission_time2ViewFirmOwnerAdm', 'role_Gw-zKO8hOHQuNv2bWokMp', 'time:viewFirm'),

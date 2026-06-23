@@ -3,6 +3,12 @@ import {
   insertMemberStatement,
   insertRoleAssignmentStatement,
 } from "@magna-carta/data-access/member-statements";
+import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-statements";
+import {
+  liveMaxFileCountDefinition,
+  scanEngineVersionDefinition,
+} from "@magna-carta/file-manager/upload-policy";
+import { bundleManifestHash } from "@magna-carta/file-manager/zip-composition";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type {
@@ -319,6 +325,43 @@ describe("GET /api/v1/files/{id}/download", () => {
     expect(audit?.event).toBe("file.downloaded");
   });
 
+  it("gates a malware-flagged version: 409 without acknowledgment, 302 + override audit with it", async () => {
+    const { fileId, r2Key } = await seedCleanFile("flagged.txt", null, "flagged-bytes");
+    // A re-scan flagged the committed (still-visible) current version as malware — informed access.
+    await env.DB_FIRM_POOL_1.prepare(
+      "UPDATE file_version SET scan_verdict = 'infected', scan_detail = 'Eicar-Test' WHERE r2_key = ?1",
+    )
+      .bind(r2Key)
+      .run();
+
+    // Without acknowledgment → 409 carrying the signature (the UI prompts).
+    const blocked = await SELF.fetch(`https://example.com/api/v1/files/${fileId}/download`, {
+      headers: { cookie: ownerCookie, origin: "https://example.com" },
+      redirect: "manual",
+    });
+    expect(blocked.status).toBe(409);
+    const problem = await blocked.json<{ detail: string }>();
+    expect(problem.detail).toContain("Eicar-Test");
+
+    // With acknowledgment → 302, and the access is audited as an acknowledged malware override.
+    const allowed = await SELF.fetch(
+      `https://example.com/api/v1/files/${fileId}/download?acknowledgeMalware=true`,
+      { headers: { cookie: ownerCookie, origin: "https://example.com" }, redirect: "manual" },
+    );
+    expect(allowed.status).toBe(302);
+    const versionId = (
+      await env.DB_FIRM_POOL_1.prepare("SELECT current_version_id AS v FROM file WHERE id = ?1")
+        .bind(fileId)
+        .first<{ v: string }>()
+    )?.v;
+    const audit = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT event FROM audit_log WHERE subject_id = ?1 AND event = 'file.downloaded_malware_acknowledged'",
+    )
+      .bind(versionId)
+      .first<{ event: string }>();
+    expect(audit?.event).toBe("file.downloaded_malware_acknowledged");
+  });
+
   it("404s a file with no clean current version", async () => {
     const pendingFileId = newIdentifier("file");
     await env.DB_FIRM_POOL_1.prepare(
@@ -479,7 +522,9 @@ describe("POST /api/v1/downloads/zip", () => {
       const metadata = JSON.parse(audit?.metadata ?? "{}");
       expect(metadata.fileCount).toBe(3);
       expect(metadata.totalBytes).toBe(12);
-      expect(metadata.zipAsyncThreshold).toBeGreaterThan(0);
+      expect(metadata.liveMaxFileCount).toBeGreaterThan(0);
+      expect(metadata.liveMaxTotalBytes).toBeGreaterThan(0);
+      expect(metadata.delivery).toBe("inline");
     } finally {
       matterId = savedMatter;
     }
@@ -575,6 +620,76 @@ describe("POST /api/v1/downloads/zip", () => {
   it("403s a Read-only member", async () => {
     const response = await zip({ matterId }, readOnlyCookie);
     expect(response.status).toBe(403);
+  });
+
+  it("hands a selection over the live file-count threshold to the async build job (202)", async () => {
+    const asyncMatterId = newIdentifier("matter");
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Zip Async', 'open', ?2, ?3, ?3)",
+    )
+      .bind(asyncMatterId, ownerUserId, ISO)
+      .run();
+    const savedMatter = matterId;
+    matterId = asyncMatterId;
+    // Drop the live file-count threshold to 1 so a two-file selection exceeds it.
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT OR REPLACE INTO setting (key, value, updated_at) VALUES (?1, '1', ?2)",
+    )
+      .bind(liveMaxFileCountDefinition.key, ISO)
+      .run();
+    try {
+      await seedCleanFile("one.txt", null, "AAA");
+      await seedCleanFile("two.txt", null, "BBBB");
+
+      const response = await zip({ matterId: asyncMatterId });
+      expect(response.status).toBe(202);
+      const body = (await response.json()) as { jobId: string; status: string };
+      expect(body.jobId).toMatch(/^[0-9a-f]{64}$/);
+      expect(body.status).toBe("building");
+    } finally {
+      await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+        .bind(liveMaxFileCountDefinition.key)
+        .run();
+      matterId = savedMatter;
+    }
+  });
+
+  it("returns 200 with a signed URL when an identical bundle was already built", async () => {
+    const cachedMatterId = newIdentifier("matter");
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Zip Cached', 'open', ?2, ?3, ?3)",
+    )
+      .bind(cachedMatterId, ownerUserId, ISO)
+      .run();
+    const savedMatter = matterId;
+    matterId = cachedMatterId;
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT OR REPLACE INTO setting (key, value, updated_at) VALUES (?1, '1', ?2)",
+    )
+      .bind(liveMaxFileCountDefinition.key, ISO)
+      .run();
+    try {
+      const a = await seedCleanFile("alpha.txt", null, "AAA");
+      const b = await seedCleanFile("beta.txt", null, "BBBB");
+      // Pre-place the content-addressed artifact so the route short-circuits to a signed URL rather
+      // than starting a new build (the manifest hash matches what the route derives from this set).
+      const manifestHash = await bundleManifestHash([
+        { r2Key: a.r2Key, path: "alpha.txt" },
+        { r2Key: b.r2Key, path: "beta.txt" },
+      ]);
+      await env.R2.put(`bundles/${manifestHash}.zip`, "PK-fake-zip-bytes");
+
+      const response = await zip({ matterId: cachedMatterId });
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type") ?? "").toContain("application/json");
+      const body = (await response.json()) as { url: string };
+      expect(body.url).toContain("dev-presigned=get");
+    } finally {
+      await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+        .bind(liveMaxFileCountDefinition.key)
+        .run();
+      matterId = savedMatter;
+    }
   });
 });
 
@@ -810,5 +925,72 @@ describe("inline preview grant + cookieless delivery", () => {
     expect(body.reason).toBe("host-unavailable");
     expect(body.streamUrl).toBeUndefined();
     expect(body.downloadUrl).toBe(`/api/v1/files/${fileId}/download`);
+  });
+});
+
+describe("POST /api/v1/scan/diagnose", () => {
+  it("scans a posted body, returns a diagnosis, and writes an audit row", async () => {
+    const res = await SELF.fetch("https://example.com/api/v1/scan/diagnose", {
+      method: "POST",
+      headers: {
+        cookie: ownerCookie,
+        origin: "https://example.com",
+        "content-type": "application/octet-stream",
+      },
+      body: new Uint8Array([0x25, 0x50, 0x44, 0x46, 1, 2, 3, 4]),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json<{ verdict: string; engineVersion: string | null }>();
+    // The stub scan service bound via SCAN_SERVICE returns the no-engine verdict — an honest `unscanned`, never a false clean.
+    expect(body.verdict).toBe("unscanned");
+    const audit = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'file.scan_diagnosed'",
+    ).first<{ n: number }>();
+    expect(audit?.n).toBeGreaterThanOrEqual(1);
+  });
+
+  it("requires authentication (401 without a session)", async () => {
+    const res = await SELF.fetch("https://example.com/api/v1/scan/diagnose", {
+      method: "POST",
+      headers: { origin: "https://example.com", "content-type": "application/octet-stream" },
+      body: new Uint8Array([1, 2, 3]),
+    });
+    expect(res.status).toBe(401);
+  });
+});
+
+describe("POST /api/v1/scan/matter/{id}", () => {
+  it("enqueues nothing when no current engine version is recorded", async () => {
+    // No fileManager.scanEngineVersion set yet — never fabricate a staleness comparison or a scan.
+    const res = await SELF.fetch(`https://example.com/api/v1/scan/matter/${matterId}`, {
+      method: "POST",
+      headers: { cookie: ownerCookie, origin: "https://example.com" },
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ enqueued: 0, capped: false });
+  });
+
+  it("queues a matter's stale files for re-scan and audits the request", async () => {
+    await writeFirmSettingStatement(
+      env.DB_FIRM_POOL_1,
+      scanEngineVersionDefinition,
+      "clamav/9.9",
+      ISO,
+    ).run();
+    await seedCleanFile("matter-rescan-a.txt", null, "alpha");
+    await seedCleanFile("matter-rescan-b.txt", null, "beta");
+    const res = await SELF.fetch(`https://example.com/api/v1/scan/matter/${matterId}`, {
+      method: "POST",
+      headers: { cookie: ownerCookie, origin: "https://example.com" },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json<{ enqueued: number; capped: boolean }>();
+    // The matter's stale clean files (NULL scan_engine_version), including the two just seeded.
+    expect(body.enqueued).toBeGreaterThanOrEqual(2);
+    expect(body.capped).toBe(false);
+    const audit = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'matter.files_rescan_requested'",
+    ).first<{ n: number }>();
+    expect(audit?.n).toBeGreaterThanOrEqual(1);
   });
 });

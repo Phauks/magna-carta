@@ -1,5 +1,6 @@
 import type { EffectWrite } from "@magna-carta/data-access/effect-batch";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
+import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
   DocumentTypeId,
@@ -14,6 +15,7 @@ import { fileAuditStatement, type AuditContext } from "./audit.ts";
 import {
   abandonVersionStatement,
   assignDocumentTypeStatement,
+  BULK_PREFIX,
   bumpFileCurrentVersionStatement,
   commitVersionStatement,
   fileVersionKey,
@@ -24,6 +26,7 @@ import {
   moveFileStatement,
   quarantineVersionStatement,
   renameFileStatement,
+  rescanVerdictStatement,
   selectCurrentVersionHashStatement,
   selectFileStatement,
   selectMaxVersionNumberStatement,
@@ -36,7 +39,12 @@ import {
 } from "./file-statements.ts";
 import { selectFolderStatement } from "./folder-statements.ts";
 import { meterCommitStatements } from "./metering-statements.ts";
-import { checkUploadPolicy, readUploadPolicy } from "./upload-policy.ts";
+import { recordScanCacheStatement } from "./scan-cache.ts";
+import {
+  checkUploadPolicy,
+  readUploadPolicy,
+  scanEngineVersionDefinition,
+} from "./upload-policy.ts";
 import { FileManagerValidationError } from "./validation.ts";
 
 export type FileServiceOptions = AuditContext;
@@ -99,6 +107,9 @@ export interface InitiateUploadInput {
   readonly documentTypeId?: DocumentTypeId | null;
   readonly fileId?: FileId; // present = a new version on an existing file
   readonly expiresAt?: string | null;
+  // Absent or "interactive" = the file lands in the interactive ingest lane (files/ key prefix);
+  // "bulk" = the file lands in the bulk ingest lane (bulk/ key prefix, lower queue concurrency).
+  readonly uploadKind?: "interactive" | "bulk";
 }
 
 export interface InitiatedUpload {
@@ -171,7 +182,8 @@ export async function initiateUpload(
   }
   const versionId = newIdentifier("fileVersion", options.randomSource);
   const uploadSessionId = newIdentifier("uploadSession", options.randomSource);
-  const r2Key = fileVersionKey(fileId, versionId);
+  const prefix = input.uploadKind === "bulk" ? BULK_PREFIX : FILES_PREFIX;
+  const r2Key = fileVersionKey(fileId, versionId, prefix);
   statements.push(
     insertFileVersionStatement(database, {
       id: versionId,
@@ -263,6 +275,7 @@ export interface CommitVersionInput {
   readonly contentSha256: string;
   readonly scanVerdict: "unscanned" | "clean";
   readonly scanEngineVersion: string | null;
+  readonly scanDetail: string | null;
   readonly now: string;
 }
 
@@ -318,6 +331,7 @@ export async function commitVersion(
           contentSha256: input.contentSha256,
           scanVerdict: input.scanVerdict,
           scanEngineVersion: input.scanEngineVersion,
+          scanDetail: input.scanDetail,
           committedAt: input.now,
         }),
         bumpFileCurrentVersionStatement(database, version.fileId, input.versionId, input.now),
@@ -328,6 +342,36 @@ export async function commitVersion(
           input.sizeBytes,
         ),
         fileAuditStatement(database, options, "file.version_committed", input.versionId),
+        // Populate the content-dedup cache (scan-once) atomically with the commit — but ONLY for a
+        // definitive CLEAN verdict from a real engine. `unscanned`/no-engine commits (the launch
+        // adapter, or a missing engine version) are never cached, so a later re-scan still runs the
+        // engine; an `infected` outcome never reaches commit (it quarantines).
+        ...(input.scanVerdict === "clean" &&
+        input.scanEngineVersion !== null &&
+        input.contentSha256 !== null
+          ? [
+              recordScanCacheStatement(database, {
+                contentSha256: input.contentSha256,
+                engineVersion: input.scanEngineVersion,
+                verdict: "clean",
+                signature: null,
+                scannedAt: input.now,
+              }),
+              // Stamp the firm's "current scan engine version" from the engine that just produced a
+              // real clean verdict — guarded identically to the cache record above, so it advances
+              // only on a definitive scan. This makes the current engine version an observable,
+              // auditable fact: the access-triggered re-scan path compares a version's stored
+              // scan_engine_version against this to decide staleness, and the dedup cache is keyed
+              // on it. An `unscanned`/no-engine commit never sets it, so it is never fabricated
+              // without a real scan.
+              writeFirmSettingStatement(
+                database,
+                scanEngineVersionDefinition,
+                input.scanEngineVersion,
+                input.now,
+              ),
+            ]
+          : []),
       ],
       outboxMessages: [
         {
@@ -339,9 +383,67 @@ export async function commitVersion(
   };
 }
 
+export interface RescanVerdictInput {
+  readonly fileId: FileId;
+  readonly versionId: FileVersionId;
+  readonly scanVerdict: "clean" | "infected";
+  readonly scanEngineVersion: string; // the engine that produced this verdict — never null on a re-scan
+  readonly scanDetail: string | null;
+  readonly signature: string | null; // malware signature name for 'infected'; null for 'clean'
+  readonly contentSha256: string;
+  readonly now: string;
+}
+
+// Applies an in-place re-scan verdict to an already-committed version: stamps scan_verdict /
+// scan_engine_version / scan_detail WITHOUT moving the current-version pointer or changing visibility
+// (an infected finding stays accessible behind the download gate — informed access, no data loss),
+// records the DEFINITIVE verdict in the per-firm dedup cache so identical content re-scanned under the
+// same engine reuses it, and writes one audit row. The caller passes only a real engine verdict; a scan
+// fault never reaches here, so a version's prior verdict is never downgraded without a real scan.
+export function recordRescanVerdict(
+  database: SqlDatabase,
+  input: RescanVerdictInput,
+  options: FileServiceOptions,
+): { effect: EffectWrite } {
+  return {
+    effect: {
+      statements: [
+        rescanVerdictStatement(database, {
+          versionId: input.versionId,
+          scanVerdict: input.scanVerdict,
+          scanEngineVersion: input.scanEngineVersion,
+          scanDetail: input.scanDetail,
+        }),
+        recordScanCacheStatement(database, {
+          contentSha256: input.contentSha256,
+          engineVersion: input.scanEngineVersion,
+          verdict: input.scanVerdict,
+          signature: input.signature,
+          scannedAt: input.now,
+        }),
+        fileAuditStatement(database, options, "file.version_rescanned", input.versionId),
+      ],
+      // Notify on a fresh infected finding so the file's users learn their already-visible file is now
+      // flagged (informed access — the file is not hidden). The re-scan idempotency key
+      // (rescan:<versionId>:<engineVersion>) guarantees this runs at most once per version per engine,
+      // so the event fires once per fresh finding, never per access. Delivery is the outbox relay's
+      // concern (the same seam file.quarantined uses); a clean re-scan emits nothing.
+      outboxMessages:
+        input.scanVerdict === "infected"
+          ? [
+              {
+                topic: "file.rescan_infected",
+                payload: { fileId: input.fileId, versionId: input.versionId },
+              },
+            ]
+          : [],
+    },
+  };
+}
+
 export async function quarantineVersion(
   database: SqlDatabase,
-  input: { versionId: FileVersionId; reason: string },
+  input: { versionId: FileVersionId; reason: string; scanDetail: string | null },
   options: FileServiceOptions,
 ): Promise<{ effect: EffectWrite }> {
   const version = await loadPendingVersion(database, input.versionId);
@@ -354,7 +456,7 @@ export async function quarantineVersion(
   return {
     effect: {
       statements: [
-        quarantineVersionStatement(database, input.versionId),
+        quarantineVersionStatement(database, input.versionId, input.scanDetail),
         fileAuditStatement(database, options, "file.quarantined", input.versionId),
       ],
       outboxMessages: [

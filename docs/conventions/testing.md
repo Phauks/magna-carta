@@ -36,9 +36,17 @@ Every package or vertical slice gets an **adversarial review with empirical veri
 4. **Boundary & public surface** — the exports map / no-barrel discipline, a minimal public API, and type-consistency of shared names across the modules that define and consume them.
 5. **Invariant & constraint coverage** — domain invariants and DB CHECK/PK/index coverage matched against the spec; fitness functions that assert the real rule, not a mock.
 6. **Static fitness scans** — source-scan guards: append-only tables, forbidden patterns, `lint:process-refs` (golden rule 13), full-name discipline (golden rule 12), purity/no-cross-firm.
-7. **Security & tenancy isolation** — privilege/confidentiality (redaction, no privileged content in logs/errors), firm-scoping (no query or handle crosses firms), and secret handling.
+7. **Security & tenancy isolation** — privilege/confidentiality (redaction, no privileged content in logs/errors), firm-scoping (no query or handle crosses firms), and secret handling. Instantiate this angle from the vendored attack taxonomy in [`.claude/skills/security-audit/`](../../.claude/skills/security-audit/) (`ATTACK-CLASSES.md`, `HUNTING.md`): pick the classes the slice's surface actually exposes — a slice with outbound HTTP runs the SSRF / feature-abuse and chained-attack classes; a write-path slice runs access-control and business-logic — so the security angle is a concrete checklist, not a prose read.
 
 Run it as a fan-out of independent reviewers (one per angle, or grouped), each returning findings with a `file:line` and the verifier that proves it; fix findings and update docs in the same pass. A finding without a runnable verifier is a hypothesis, not a result.
+
+## Whole-repo security audit
+
+The 7-angle review is scoped to a slice's diff, so it structurally cannot see exploit chains that cross slice boundaries — an SSRF in one package reaching a tenancy gap in another. A periodic **whole-repo** adversarial security audit covers that ground, run via the vendored [`security-audit`](../../.claude/skills/security-audit/) skill (Cloudflare, MIT): a multi-agent recon → hunt → validate → independent-verify pipeline where the agent that validates a finding is never the one that found it. It is **not** a merge gate — its coverage is probabilistic (roughly half the findings surface in any single run, so run it more than once and let it read prior runs' `findings.json` to skip known issues). The 7-angle stays the deterministic gate; this is the periodic depth pass behind it.
+
+**Evidence standard — same rule as the 7-angle, and it is the close-out condition.** An audit is not done when the report lands. Every **confirmed** finding becomes a runnable regression verifier — a focused test, fault-injection, or source scan that fails today and passes once fixed — committed alongside the fix. A finding that exposes a systemic gap also becomes a standing **fitness function** (angle 6) and an **ADR**. A confirmed finding without a committed verifier is a hypothesis, not a result.
+
+**Confidentiality.** Audit artifacts quote source and spell out live attack paths — treat them as privileged. Point the skill's output directory outside the repo (and out of any third-party service); never commit raw reports or `findings.json`. (Golden rule 4.)
 
 ## To detail (Phase 0)
 

@@ -267,6 +267,221 @@
           "counts"
         ]
       },
+      "WhoisResponse": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "rdap",
+              "whois-43"
+            ]
+          },
+          "target": {
+            "type": "string"
+          },
+          "registrar": {
+            "type": "string"
+          },
+          "registeredAt": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "lastChangedAt": {
+            "type": "string"
+          },
+          "nameservers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "statuses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "registrant": {
+            "type": "string"
+          },
+          "raw": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "target"
+        ]
+      },
+      "SafeWebsiteView": {
+        "type": "object",
+        "properties": {
+          "requestedUrl": {
+            "type": "string"
+          },
+          "finalUrl": {
+            "type": "string"
+          },
+          "redirectChain": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "url": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "number"
+                },
+                "location": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "url",
+                "status"
+              ]
+            }
+          },
+          "responseHeaders": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "screenshotBase64": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "markdown": {
+            "type": "string"
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "requestedUrl",
+          "finalUrl",
+          "redirectChain",
+          "responseHeaders",
+          "screenshotBase64",
+          "links"
+        ]
+      },
+      "MetadataReport": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "category": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "risk": {
+                  "type": "string",
+                  "enum": [
+                    "high",
+                    "medium",
+                    "low"
+                  ]
+                },
+                "count": {
+                  "type": "number"
+                },
+                "defaultScrub": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "category",
+                "label",
+                "risk",
+                "count",
+                "defaultScrub"
+              ]
+            }
+          },
+          "clean": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "format",
+          "findings",
+          "clean"
+        ]
+      },
+      "MetadataScrubResult": {
+        "type": "object",
+        "properties": {
+          "mediaType": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "cleanedBase64": {
+            "type": "string"
+          },
+          "report": {
+            "$ref": "#/components/schemas/MetadataReport"
+          }
+        },
+        "required": [
+          "mediaType",
+          "filename",
+          "cleanedBase64",
+          "report"
+        ]
+      },
+      "MetadataScrubOptions": {
+        "type": "object",
+        "properties": {
+          "identifyingMetadata": {
+            "type": "boolean"
+          },
+          "trackedChanges": {
+            "type": "boolean"
+          },
+          "comments": {
+            "type": "boolean"
+          },
+          "hiddenContent": {
+            "type": "boolean"
+          },
+          "customProperties": {
+            "type": "boolean"
+          },
+          "imageMetadata": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "identifyingMetadata",
+          "trackedChanges",
+          "comments",
+          "hiddenContent",
+          "customProperties",
+          "imageMetadata"
+        ]
+      },
       "InviteMemberResponse": {
         "type": "object",
         "properties": {
@@ -586,6 +801,13 @@
           "fileId": {
             "type": "string",
             "pattern": "^file_[A-Za-z0-9_-]{21}$"
+          },
+          "uploadKind": {
+            "type": "string",
+            "enum": [
+              "interactive",
+              "bulk"
+            ]
           }
         },
         "required": [
@@ -2021,6 +2243,32 @@
           "downloadUrl"
         ]
       },
+      "BundleReady": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "BundleBuildAccepted": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId",
+          "status"
+        ]
+      },
       "ZipDownloadRequest": {
         "type": "object",
         "properties": {
@@ -2045,6 +2293,77 @@
         },
         "required": [
           "matterId"
+        ]
+      },
+      "ScanDiagnosis": {
+        "type": "object",
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "clean",
+              "infected",
+              "unscanned",
+              "suspicious"
+            ]
+          },
+          "engineVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "signature": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "activeContent": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "verdict",
+          "engineVersion",
+          "signature",
+          "reason",
+          "activeContent"
+        ]
+      },
+      "MatterRescanResult": {
+        "type": "object",
+        "properties": {
+          "enqueued": {
+            "type": "integer"
+          },
+          "capped": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enqueued",
+          "capped"
+        ]
+      },
+      "BundleStatus": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
         ]
       },
       "CreatedDirectoryEntityResponse": {
@@ -3972,6 +4291,90 @@
           "unloggedDay"
         ]
       },
+      "ConversionUploadResponse": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "uploadUrl": {
+            "type": "string"
+          },
+          "sourceKey": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId",
+          "uploadUrl",
+          "sourceKey"
+        ]
+      },
+      "ConversionSubmitResponse": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued"
+            ]
+          }
+        },
+        "required": [
+          "jobId",
+          "status"
+        ]
+      },
+      "ConversionSubmitRequest": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourceKey": {
+            "type": "string",
+            "minLength": 1
+          },
+          "from": {
+            "type": "string",
+            "minLength": 1
+          },
+          "to": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "jobId",
+          "sourceKey",
+          "from",
+          "to"
+        ]
+      },
+      "ConversionStatus": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "mediaType": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
       "ShippingConnectAck": {
         "type": "object",
         "properties": {
@@ -4513,6 +4916,393 @@
           },
           "404": {
             "description": "The session's firm is not reachable, or the member is deactivated (absent)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/whois": {
+      "get": {
+        "description": "Registration data (RDAP, with a legacy WHOIS fallback) for a website's domain or an IP address.",
+        "operationId": "whois.get",
+        "tags": [
+          "whois"
+        ],
+        "x-mc-operationId": "whois.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:whois",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "whois"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            "required": true,
+            "name": "query",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The registration record for the queried domain or IP address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WhoisResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The query target is not a valid public domain or IP address",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks tools:whois",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/safe-browse": {
+      "post": {
+        "description": "Render a potentially malicious URL in an isolated remote browser and return a static snapshot (screenshot, redirect chain, response headers, links) — no code runs in the user's browser.",
+        "operationId": "safeBrowse.post",
+        "tags": [
+          "safeBrowse"
+        ],
+        "x-mc-operationId": "safeBrowse.post",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:safeBrowse",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "safeBrowse"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048
+                  }
+                },
+                "required": [
+                  "url"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Static snapshot of the rendered page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SafeWebsiteView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The target URL resolves to a non-public address (SSRF guard rejected it)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks tools:safeBrowse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The remote browser renderer is unavailable or at capacity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/metadata/inspect": {
+      "post": {
+        "description": "Inspect an uploaded file (base64) and report the metadata and content-bearing artifacts it carries, with a risk level per category. Nothing is stored.",
+        "operationId": "metadata.inspect",
+        "tags": [
+          "metadata"
+        ],
+        "x-mc-operationId": "metadata.inspect",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:metadataScrubber",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "metadata"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "filename": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  },
+                  "contentBase64": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "filename",
+                  "contentBase64"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Metadata report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unprocessable file",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing tools:metadataScrubber",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/metadata/scrub": {
+      "post": {
+        "description": "Return a cleaned copy (base64) of an uploaded file with the selected metadata and content artifacts removed, plus a re-inspection of the result. Defaults to removing everything. Nothing is stored.",
+        "operationId": "metadata.scrub",
+        "tags": [
+          "metadata"
+        ],
+        "x-mc-operationId": "metadata.scrub",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:metadataScrubber",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "metadata"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "filename": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  },
+                  "contentBase64": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "options": {
+                    "$ref": "#/components/schemas/MetadataScrubOptions"
+                  }
+                },
+                "required": [
+                  "filename",
+                  "contentBase64"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cleaned file + report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetadataScrubResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unprocessable file",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing tools:metadataScrubber",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -9153,7 +9943,7 @@
     },
     "/api/v1/files/{id}/download": {
       "get": {
-        "description": "Resolves the file's current clean version and redirects (302) to a short-TTL presigned GET URL the client downloads the bytes directly from. 404 when the file has no clean current version.",
+        "description": "Resolves the file's current clean version and redirects (302) to a short-TTL presigned GET URL the client downloads the bytes directly from. 404 when the file has no clean current version. When a re-scan has flagged the current version as malware, the file stays accessible (no data loss) but the raw download is gated: a 409 carrying the signature unless the caller re-requests with acknowledgeMalware=true, which proceeds and is audited as an acknowledged override.",
         "operationId": "files.download",
         "tags": [
           "files"
@@ -9179,6 +9969,17 @@
             "required": true,
             "name": "id",
             "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
+              ]
+            },
+            "required": false,
+            "name": "acknowledgeMalware",
+            "in": "query"
           }
         ],
         "responses": {
@@ -9197,6 +9998,16 @@
           },
           "404": {
             "description": "The firm is unreachable, the member is deactivated, or the file is unknown",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current version was flagged as malware; re-request with acknowledgeMalware=true to download it",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -9323,12 +10134,27 @@
         },
         "responses": {
           "200": {
-            "description": "A streamed ZIP archive of the selected files",
+            "description": "A streamed ZIP archive of the selected files; or, when the selection exceeds the live threshold and an identical bundle was already built, a JSON body with a fresh signed URL.",
             "content": {
               "application/zip": {
                 "schema": {
                   "type": "string",
                   "format": "binary"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleReady"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "The selection exceeds the live-download threshold; a background build was started or is already in progress. Poll the bundle-status endpoint with the returned jobId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleBuildAccepted"
                 }
               }
             }
@@ -9358,6 +10184,217 @@
           },
           "404": {
             "description": "The firm is unreachable, the member is deactivated, or the selection is empty",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/scan/diagnose": {
+      "post": {
+        "description": "Scans an uploaded file — the raw bytes as the application/octet-stream request body — through the malware-scan engine and returns its verdict + details. A one-off diagnostic: the file is NOT stored and is NOT associated with any matter. Returns an honest `unscanned` verdict until the scan Container is activated (the engine-less adapter never reports a false `clean`).",
+        "operationId": "scan.diagnose",
+        "tags": [
+          "scan"
+        ],
+        "x-mc-operationId": "scan.diagnose",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:scanFile",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "scan"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The scan diagnosis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanDiagnosis"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty request body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body exceeds the firm's inspectable-size cap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/scan/matter/{id}": {
+      "post": {
+        "description": "Queues a background malware re-scan of every current file in a matter whose scan is stale relative to the firm's current engine (a file already scanned under the current engine is skipped, so a matter already current enqueues nothing). User-initiated; the scans run off the request path on the bulk lane. No-op (enqueued 0) when no current engine version is recorded. `capped` is true when more stale files remain than one request fans out — re-run to continue (any uncapped file is still re-scanned on next access).",
+        "operationId": "scan.matter",
+        "tags": [
+          "scan"
+        ],
+        "x-mc-operationId": "scan.matter",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "files:upload",
+        "x-mc-resource": "matter",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "scan"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^matter_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The re-scan enqueue result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatterRescanResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The member lacks files:upload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/downloads/bundles/{manifestHash}": {
+      "get": {
+        "description": "Reports the state of an async bulk-download build (building, ready, or failed). A ready job carries a freshly minted, short-lived signed URL to the built ZIP artifact.",
+        "operationId": "downloads.bundleStatus",
+        "tags": [
+          "downloads"
+        ],
+        "x-mc-operationId": "downloads.bundleStatus",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "files:organize",
+        "x-mc-resource": "matter",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "downloads"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "manifestHash",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The job's current state, with a signed URL when ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks files:organize",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -16818,6 +17855,256 @@
         }
       }
     },
+    "/api/v1/conversions/upload": {
+      "post": {
+        "description": "Mints a new conversion job slot and returns a short-lived presigned PUT URL the client uploads the source file to directly (bytes never transit the Worker). After uploading, submit the job with POST /api/v1/conversions.",
+        "operationId": "conversions.upload",
+        "tags": [
+          "conversions"
+        ],
+        "x-mc-operationId": "conversions.upload",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:fileConverter",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "conversions"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "A jobId, the presigned upload URL, and the source R2 key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionUploadResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks tools:fileConverter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conversions": {
+      "post": {
+        "description": "Submits a file conversion job. The client must have already uploaded the source file using the URL from POST /api/v1/conversions/upload. Returns 422 if no conversion path exists between the specified formats. Returns 202 with status queued when the job is accepted.",
+        "operationId": "conversions.submit",
+        "tags": [
+          "conversions"
+        ],
+        "x-mc-operationId": "conversions.submit",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:fileConverter",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "conversions"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversionSubmitRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The job was accepted and is now queued for conversion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionSubmitResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks tools:fileConverter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The requested format conversion is not supported (no conversion path found)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/conversions/{jobId}": {
+      "get": {
+        "description": "Returns the current state of a conversion job. A done job whose R2 result still exists carries a freshly minted, short-lived signed GET URL and the converted file media type. A done job whose result was reaped reports expired. Running or failed jobs carry no URL.",
+        "operationId": "conversions.status",
+        "tags": [
+          "conversions"
+        ],
+        "x-mc-operationId": "conversions.status",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:fileConverter",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "conversions"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "jobId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The job's current state; a done job includes a presigned URL and media type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversionStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks tools:fileConverter",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/integrations/shipping/connection": {
       "post": {
         "description": "Connects the firm's EasyPost postage account by storing its API key as a firm secret.",
@@ -17653,6 +18940,9 @@
   "webhooks": {},
   "tags": [
     {
+      "name": "conversions"
+    },
+    {
       "name": "customFields"
     },
     {
@@ -17698,6 +18988,9 @@
       "name": "members"
     },
     {
+      "name": "metadata"
+    },
+    {
       "name": "myDay"
     },
     {
@@ -17716,6 +19009,12 @@
       "name": "rates"
     },
     {
+      "name": "safeBrowse"
+    },
+    {
+      "name": "scan"
+    },
+    {
       "name": "shipping"
     },
     {
@@ -17729,6 +19028,9 @@
     },
     {
       "name": "utbmsCodes"
+    },
+    {
+      "name": "whois"
     }
   ]
 }

@@ -5,13 +5,13 @@ describe("buildSafeDeliveryHeaders", () => {
   it("stamps the exact safe-delivery header set", () => {
     const h = buildSafeDeliveryHeaders({
       sniffedContentType: "video/mp4",
-      appOrigin: "https://app.example.com",
+      frameAncestors: "https://*.example.com",
     });
     expect(h.get("Content-Disposition")).toBe("attachment");
     expect(h.get("X-Content-Type-Options")).toBe("nosniff");
     expect(h.get("Content-Type")).toBe("video/mp4");
     expect(h.get("Content-Security-Policy")).toBe(
-      "sandbox; default-src 'none'; frame-ancestors https://app.example.com",
+      "sandbox; default-src 'none'; frame-ancestors https://*.example.com",
     );
     expect(h.get("Cache-Control")).toBe("private, no-store");
     expect(h.get("Accept-Ranges")).toBe("bytes");
@@ -20,7 +20,7 @@ describe("buildSafeDeliveryHeaders", () => {
   it("uses the sniffed type verbatim (never declared, never octet-stream fallback)", () => {
     const h = buildSafeDeliveryHeaders({
       sniffedContentType: "audio/mpeg",
-      appOrigin: "https://app.example.com",
+      frameAncestors: "https://*.example.com",
     });
     expect(h.get("Content-Type")).toBe("audio/mpeg");
   });
@@ -28,7 +28,7 @@ describe("buildSafeDeliveryHeaders", () => {
   it("never emits Content-Disposition: inline", () => {
     const h = buildSafeDeliveryHeaders({
       sniffedContentType: "video/mp4",
-      appOrigin: "https://app.example.com",
+      frameAncestors: "https://*.example.com",
     });
     expect(h.get("Content-Disposition")).not.toContain("inline");
   });
@@ -36,7 +36,7 @@ describe("buildSafeDeliveryHeaders", () => {
   it("sends NO Access-Control-Allow-Origin (the decided launch CORS posture)", () => {
     const h = buildSafeDeliveryHeaders({
       sniffedContentType: "video/mp4",
-      appOrigin: "https://app.example.com",
+      frameAncestors: "https://*.example.com",
     });
     expect(h.get("Access-Control-Allow-Origin")).toBeNull();
   });

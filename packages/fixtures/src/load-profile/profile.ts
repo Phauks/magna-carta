@@ -41,6 +41,11 @@ export interface PracticeVolume {
   // Synthetic committed-version size in bytes, drawn per version (the modeled R2 blob size that also
   // feeds storage_meter). Plausible document sizes, not a stress payload.
   readonly fileSizeBytes: { readonly min: number; readonly max: number };
+  // Fraction of committed clean versions left scan_verdict='unscanned' (awaiting the scan engine) vs
+  // 'clean' (already scanned) — the queryable shadow of the launch→engine transition. The weekly
+  // re-scan sweep targets exactly the unscanned subset, so this fraction is what makes its batch read a
+  // selective, volume-shaped operation rather than a trivial all-or-nothing scan.
+  readonly unscannedVersionFraction: number;
 }
 
 // The shipping volume laid over the practice book: drafts spread across the firm's matters, a
@@ -202,6 +207,9 @@ export const ledgerVolume: LedgerVolumeProfile = {
     filesPerMatter: { min: 3, max: 14 },
     versionsPerFile: { min: 1, max: 4 },
     fileSizeBytes: { min: 20_000, max: 8_000_000 },
+    // ~30% of committed versions still await the scan engine — a plausible mid-rollout mix that keeps
+    // the re-scan sweep's find-unscanned batch selective against the clean majority.
+    unscannedVersionFraction: 0.3,
   },
   protected: {
     // A few years of self-filed diagnostics, and a dozen integration/config secrets.

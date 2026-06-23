@@ -35,10 +35,20 @@ The Worker declares the `send_email` binding (`SEND_EMAIL`) and the code selects
 
 ## 3. Deploy secrets (the `secrets.required` gate)
 
-`wrangler.jsonc` lists `secrets.required: ["AUTH_SECRET", "PLATFORM_ADMIN_KEY"]`, so a deploy **fails loudly** with a missing-secret list rather than letting auth routes 500 at runtime. Set them once per environment:
+`wrangler.jsonc` lists `secrets.required` (currently five names), so a deploy **fails loudly** with a missing-secret list rather than letting routes 500 at runtime. Set each once per environment — Dashboard → the Worker → **Settings → Variables and Secrets**, or `wrangler secret put <NAME>` (paste the value at the prompt; keep it out of shell history and chat transcripts). `wrangler secret list` confirms the registered names.
 
-1. Dashboard → the Worker → **Settings → Variables and Secrets**, or `wrangler secret put AUTH_SECRET` / `wrangler secret put PLATFORM_ADMIN_KEY`.
-2. `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` are **optional** deploy-time secrets for the REST `FirmResourceProvider`; absent them, the dev pool-claiming adapter runs. Secrets posture detail lives in [`security.md`](security.md).
+| Secret                                            | What it is                                                                                                                  | How to produce it                                                                                                                                                                               | Rotatable?                                                                                             |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `AUTH_SECRET`                                     | Better Auth signing key — signs sessions and the cookieless preview-delivery tokens                                         | `openssl rand -base64 32` (Windows, no openssl: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`)                                                                  | Yes, but rotating logs out all sessions and invalidates in-flight preview tokens (harmless pre-launch) |
+| `PLATFORM_ADMIN_KEY`                              | Bearer key guarding the platform-admin routes                                                                               | any high-entropy random string                                                                                                                                                                  | Freely — rotate and update callers                                                                     |
+| `R2_S3_ACCESS_KEY_ID` + `R2_S3_SECRET_ACCESS_KEY` | The R2 S3-API token the File Manager uses to presign upload/download URLs                                                   | Dashboard → **R2 → Manage R2 API Tokens → Create**, an _Object Read & Write_ token scoped to the production files bucket; copy the Access Key ID + Secret Access Key (the secret is shown once) | Freely — delete + re-mint the token; only breaks in-flight (~5 min) presigned URLs                     |
+| `ROOT_KEK`                                        | The **root key-encryption-key**: AES-KW-wraps each firm's data key (envelope encryption — see [`security.md`](security.md)) | `openssl rand -base64 32` — base64 of 32 random bytes = a 256-bit key (the code `atob`-decodes it; standard base64, not base64url)                                                              | **No — generate once and back up.** See the warning                                                    |
+
+> **`ROOT_KEK` is not freely rotatable.** It wraps every per-firm key; replacing it without a re-wrap migration makes all `protected()` data permanently unrecoverable. Generate it **once**, set it, and **back it up in ≥2 secure places** (a secrets manager + a sealed offline copy) before any firm stores protected data. Rotation machinery is not built — the ciphertext frame reserves `algo_version | key_version` as the seam, and the re-wrap sweep is a scheduled hardening build (see [`../../ROADMAP.md`](../../ROADMAP.md) → _Hardening_), gated to before the first real client or a compromise event.
+
+`CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` are **optional** deploy-time secrets for the REST `FirmResourceProvider`; absent them, the dev pool-claiming adapter runs. Secrets posture detail lives in [`security.md`](security.md).
+
+> The gate covers **secrets** only. The Worker's declared **Queues** must also already exist in the target account — `wrangler deploy` aborts on the first missing one. The declared queues live in `apps/worker/wrangler.jsonc` (`…-platform-jobs`, `…-files-ingest` + `…-files-ingest-deadletter`, `…-inference` + `…-inference-deadletter`); create any that are absent with `wrangler queues create <name>` (or the dashboard) before deploying.
 
 ## 4. Adding a per-firm D1 binding (beyond the starter pool)
 
@@ -176,3 +186,79 @@ Both need things that don't exist yet during early build: **real endpoint traffi
   - [ ] _(Later, §8.4)_ portal-specific page matched on `Host` once custom hostnames exist.
 
 > Re-evaluation seam: the OFF list above is correct **while the architecture stays Workers-native with no external origin**. If a future slice adds a self-hosted/third-party origin, re-open Argo and Load Balancing for that origin specifically.
+
+## 9. Bulk-ingest queue + weekly re-scan cron (slice 2·1 Plan 1)
+
+Two Cloudflare Queues and one new cron trigger added in slice 2·1 Plan 1 must be present before deploying.
+
+**Queues (wrangler does not auto-create them — create once per environment):**
+
+1. **Primary queue:** `magna-carta-production-files-ingest-bulk` — a separate, lower-concurrency bulk lane so a large import cannot starve interactive uploads (background ingests). Create via the Cloudflare dashboard (**Workers & Pages → Queues → Create queue**) or `wrangler queues create magna-carta-production-files-ingest-bulk`.
+2. **Dead-letter queue:** `magna-carta-production-files-ingest-bulk-deadletter` — receives messages the bulk consumer fails to process after all retries. Create it the same way, then configure it as the dead-letter destination on the primary queue.
+
+The interactive-lane queue (`files-ingest`) and its dead-letter already exist from slice 1·1. The two new queues above are additional; the Worker `wrangler.jsonc` binds them, but Wrangler will error on deploy if they do not yet exist in the account.
+
+**Cron trigger:** `0 4 * * 0` (Sundays at 04:00 UTC) — the weekly re-scan sweep re-queues `unscanned` versions for re-inspection when a new scan engine becomes available. The cron is declared in `wrangler.jsonc`; it activates automatically on the next deploy. No manual dashboard step is required beyond verifying the trigger appears under the Worker's **Triggers** tab after deploy.
+
+## 10. Async bulk-download build queue + `bundles/` lifecycle rule (slice 2·1 Plan 3)
+
+Past the live-download threshold, a bulk ZIP is built in the background as an R2 artifact instead of streamed inline. The build needs a queue, and the artifacts need a TTL so they do not accumulate.
+
+**Queue (wrangler does not auto-create it — create once per environment):**
+
+1. **Primary queue:** `magna-carta-production-bundle-build` — carries one content-addressed selection per message to the build consumer (R2 object bodies streamed through `client-zip` into one R2 object). Create via the dashboard (**Workers & Pages → Queues → Create queue**) or `wrangler queues create magna-carta-production-bundle-build`.
+2. **Dead-letter queue:** `magna-carta-production-bundle-build-deadletter` — receives a build the consumer fails after all retries. Create it the same way, then set it as the dead-letter destination on the primary queue.
+
+The Worker `wrangler.jsonc` binds both; Wrangler errors on deploy if they do not yet exist.
+
+**R2 lifecycle rule (account configuration, not code — like the Logpush retention in section 1):** add an **object-expiration lifecycle rule on the `bundles/` prefix** of each firm's bucket (suggested **~7-day** expiration). The artifacts are a regenerable cache — content-addressed by manifest hash, rebuilt on demand — so expiring them only forces a rebuild on a later identical request. Configure under **R2 → the bucket → Settings → Object lifecycle rules**, prefix `bundles/`, delete after 7 days. The signed-download URL TTL is **independent and short** (300 s, minted fresh on each poll); the lifecycle rule governs only the stored object.
+
+**Durable Object:** the build is coordinated by `BundleBuildCoordinator` — the codebase's **first Durable Object** — declared in `wrangler.jsonc` (`durable_objects` binding + the `v1` `new_sqlite_classes` migration) and exported from `src/index.ts`. It activates automatically on deploy; no dashboard step. A second DO class (e.g. Plan 2's scan container) appends to the same `durable_objects` list and either the same or a new `migrations` tag.
+
+**Cost:** near-zero marginal — Queues + DO invocations + R2 PUT/GET on a regenerable, TTL-expired artifact; no always-on compute. The Container escalation for outlier-large bundles is a named seam, not built here.
+
+## 11. Malware-scan Worker — deploy-time activation + Cloudflare-native signature refresh
+
+The scan engine lives in its own Worker (`apps/scan-worker`, service `magna-carta-scan`). It owns the `ScanContainer` — a `linux/amd64` Container (`containers/scan/`): a long-lived clamd daemon plus a Rust HTTP service that fans each file to clamd (signatures), yara-x (heuristic rules), and structural heuristics (PDF/Office/archive). The app Worker (`apps/worker`) reaches it exclusively over a `SCAN_SERVICE` service binding; `resolveScanPort` selects the remote engine when that binding is present, otherwise the engine-less `unscanned` adapter (an honest `unscanned`/no-engine verdict, never a false `clean`). The app Worker carries **no** container config of its own.
+
+The scan worker is **built and unit-tested, but not yet connected to Workers Builds and not yet deployed** — the `SCAN_SERVICE` service binding in the app Worker is absent until the scan service is live. Until activation, every firm runs the engine-less adapter.
+
+### First-activation steps
+
+1. **Connect `apps/scan-worker` to Workers Builds.** In the Cloudflare dashboard, go to **Workers & Pages → Create → Import a repository** (or **Connect to Git** on the existing `magna-carta-scan` Worker if already created). Select the repository and configure `apps/scan-worker` as the build root. Workers Builds is Cloudflare-side CI — there is **no `CLOUDFLARE_API_TOKEN` in GitHub**; the connection is managed entirely from the dashboard. Every push to the production branch triggers a build: `freshclam` bakes the current signature DB into the image at build time, and the new image is deployed.
+
+2. **Set the Deploy Hook secret on the scan worker.**
+
+   ```sh
+   wrangler secret put SCAN_BUILD_DEPLOY_HOOK_URL --name magna-carta-scan
+   ```
+
+   Paste the **Workers Builds Deploy Hook URL** for `magna-carta-scan` at the prompt (generated in the dashboard under the Worker's **Settings → Builds → Deploy Hooks → Create**). This URL is what the scan worker's daily `0 7 * * *` cron POSTs to trigger a nightly image rebuild and signature refresh. Keep the URL out of shell history and chat transcripts — treat it like a secret (it triggers a deploy).
+
+3. **Push to the production branch** to trigger the first Workers Builds build. The build runs `freshclam` (baking the current signature DB) and deploys `magna-carta-scan`. The `*/20` warm-poke cron then keeps one instance — and clamd's resident DB — alive.
+
+4. **Deploy the app Worker** (`apps/worker`) so the `SCAN_SERVICE` binding resolves to the now-live scan service. `resolveScanPort` then selects the remote engine path on the next ingest.
+
+### Architecture notes
+
+**No runtime egress — signatures are image-only.** The container runs with `enableInternet = false`; there is no runtime path to fetch signatures. Freshness comes entirely from image rebuilds. The daily `0 7 * * *` cron on the scan worker POSTs `SCAN_BUILD_DEPLOY_HOOK_URL`, triggering a Workers Builds rebuild+redeploy with a fresh `freshclam` run — a Cloudflare-native loop with no GitHub involvement.
+
+**clamd limits and the inspectable cap must stay aligned.** `entrypoint.sh` raises clamd's `StreamMaxLength`/`MaxScanSize`/`MaxFileSize` to 2048M so clamd scans the whole 2 GiB inspectable cap. The stock clamd limits (`StreamMaxLength` 25M, `MaxScanSize`/`MaxFileSize` 100M) would refuse anything larger over INSTREAM and degrade it to a retryable engine fault. A scan near the cap holds the full body in the Rust service **and** clamd's own copy atop the resident DB — `standard-1` (4 GiB) is the floor for this reason. For reliable full-size (≈2 GiB) scanning, keep `instance_type` at or above `standard-1`, or lower `fileManager.inspectableSizeCapBytes` — the clamd limits and the inspectable cap must always be consistent.
+
+**Engine-fault handling.** A clamd fault with no other signal returns **503**, so the ingest consumer retries the message — a running container always boots with clamd ready (the entrypoint fails fast otherwise), so this is exceptional, not a steady state. A persistent fault dead-letters to `magna-carta-production-files-ingest-deadletter`, leaving the file pending (never a usable-but-unscanned object) as a loud ops signal.
+
+**clamd transport.** clamd listens on **loopback TCP `127.0.0.1:3310`** (not a Unix socket — the cross-platform client transport; loopback only, still no egress).
+
+### Acceptance checks (run after activation)
+
+1. **EICAR test (live engine proof).** Send an authenticated `POST /api/v1/scan/diagnose` with an EICAR test-file body against the production app Worker. Expect a `200` response with `verdict: "infected"`. This proves the full path: app Worker → `SCAN_SERVICE` binding → scan worker → container → clamd → result.
+
+2. **2 GiB resident-memory check.** On a scan near the 2 GiB inspectable cap, observe the container's resident memory — expect approximately 2 GiB (the body held in the Rust service plus clamd's own copy atop the ~1–2 GiB resident DB). If resident memory exceeds the `standard-1` (4 GiB) ceiling or scan throughput degrades, raise `instance_type` or lower the inspectable cap.
+
+### CI engine test
+
+`containers/scan/tests/eicar_e2e.sh` (and the `scan-container` CI job) build the image and assert EICAR → `infected` end to end. This is the engine's proof in CI (Docker) — independent of the live deployment acceptance checks above.
+
+### Cost
+
+~$35–50/mo at MVP scale for one warm `standard-1` instance (the warm-poke keeps it from cold-starting the ~1–2 GiB DB); scales with concurrent scan volume up to `max_instances`. Self-hosted — privileged client bytes never leave our compute.

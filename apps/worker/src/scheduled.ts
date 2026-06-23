@@ -10,6 +10,7 @@ import {
 import { readUsageAnalyticsEnabled } from "@magna-carta/data-access/usage-consent-statements";
 import {
   abandonVersionStatement,
+  FILES_PREFIX,
   selectExpiredOpenSessionsStatement,
   setUploadSessionStatusByIdStatement,
 } from "@magna-carta/file-manager/file-statements";
@@ -406,6 +407,28 @@ export async function runStorageReconciliation(env: Bindings): Promise<Reconcili
         }
         if (!page.truncated) break;
         cursor = page.cursor;
+      }
+
+      // Also list bulk/ prefix objects; they meter under the files/ dimension, so remap their keys
+      // to appear as files/ for the reconciliation diff.
+      let bulkCursor: string | undefined;
+      for (;;) {
+        const page = await env.R2.list(
+          bulkCursor === undefined ? { prefix: "bulk/" } : { prefix: "bulk/", cursor: bulkCursor },
+        );
+        for (const object of page.objects) {
+          if (!cleanKeys.has(object.key)) continue;
+          const reported = (object as { storageClass?: string }).storageClass ?? "";
+          // Remap bulk/ key to files/ so the diff compares against the files/ meter dimension.
+          const remappedKey = FILES_PREFIX + "/" + object.key.slice("bulk/".length);
+          listed.push({
+            key: remappedKey,
+            size: object.size,
+            storageClass: normalizeR2StorageClass(reported),
+          });
+        }
+        if (!page.truncated) break;
+        bulkCursor = page.cursor;
       }
 
       const meterRows = await readMeterRows(firm.database);

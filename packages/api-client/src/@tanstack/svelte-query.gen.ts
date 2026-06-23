@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, type MutationOptions, queryOptions } from '@tanstack/svelte-query';
 
 import { client } from '../client.gen';
-import { customFieldsApplyConvert, customFieldsArchiveField, customFieldsArchiveOption, customFieldsClearValue, customFieldsCreateOption, customFieldsDefineField, customFieldsHardDeleteField, customFieldsHardDeleteOption, customFieldsListRecordValues, customFieldsPreviewConvert, customFieldsPurgeField, customFieldsRenameField, customFieldsRenameOption, customFieldsReorderField, customFieldsReorderOption, customFieldsResolveField, customFieldsSetRequired, customFieldsSetValue, customFieldsUnarchiveField, customFieldsValueHistory, directoryAddIdentifier, directoryAddName, directoryAssignCategory, directoryCreateCategory, directoryCreateEdge, directoryCreateOrganization, directoryCreatePerson, directoryDuplicateCandidates, directoryGetOrganization, directoryGetPerson, directoryLinkMatterParty, directoryMerge, directoryReadIdentifier, directorySearch, documentTypesCreate, documentTypesDeactivate, documentTypesList, documentTypesUpdate, downloadsZip, filesDelete, filesDownload, filesGet, filesList, filesUpdate, filesVersions, firmsProvision, firmUsageGet, foldersCreate, foldersDelete, foldersUpdate, healthRead, incidentsReport, locationsAssignMember, locationsClose, locationsCreate, locationsGet, locationsList, locationsSetAddresses, locationsUpdate, mattersClose, mattersCreate, mattersGet, mattersList, mattersListConsultations, mattersOpen, mattersRenumber, mattersReopen, mattersUpdate, matterTypesCreate, matterTypesDeactivate, matterTypesList, matterTypesUpdate, meGet, membersInvite, numberingGet, numberingPreview, numberingSet, type Options, shippingConnect, shippingCreateShipment, shippingLabel, shippingPurchase, shippingRateShipment, shippingRefund, shippingTracking, uploadsAbort, uploadsComplete, uploadsInitiate, uploadsSignPart } from '../sdk.gen';
-import type { CustomFieldsApplyConvertData, CustomFieldsApplyConvertError, CustomFieldsApplyConvertResponse, CustomFieldsArchiveFieldData, CustomFieldsArchiveFieldError, CustomFieldsArchiveFieldResponse, CustomFieldsArchiveOptionData, CustomFieldsArchiveOptionError, CustomFieldsArchiveOptionResponse, CustomFieldsClearValueData, CustomFieldsClearValueError, CustomFieldsClearValueResponse, CustomFieldsCreateOptionData, CustomFieldsCreateOptionError, CustomFieldsCreateOptionResponse, CustomFieldsDefineFieldData, CustomFieldsDefineFieldError, CustomFieldsDefineFieldResponse, CustomFieldsHardDeleteFieldData, CustomFieldsHardDeleteFieldError, CustomFieldsHardDeleteFieldResponse, CustomFieldsHardDeleteOptionData, CustomFieldsHardDeleteOptionError, CustomFieldsHardDeleteOptionResponse, CustomFieldsListRecordValuesData, CustomFieldsListRecordValuesError, CustomFieldsListRecordValuesResponse, CustomFieldsPreviewConvertData, CustomFieldsPreviewConvertError, CustomFieldsPreviewConvertResponse, CustomFieldsPurgeFieldData, CustomFieldsPurgeFieldError, CustomFieldsPurgeFieldResponse, CustomFieldsRenameFieldData, CustomFieldsRenameFieldError, CustomFieldsRenameFieldResponse, CustomFieldsRenameOptionData, CustomFieldsRenameOptionError, CustomFieldsRenameOptionResponse, CustomFieldsReorderFieldData, CustomFieldsReorderFieldError, CustomFieldsReorderFieldResponse, CustomFieldsReorderOptionData, CustomFieldsReorderOptionError, CustomFieldsReorderOptionResponse, CustomFieldsResolveFieldData, CustomFieldsResolveFieldError, CustomFieldsResolveFieldResponse, CustomFieldsSetRequiredData, CustomFieldsSetRequiredError, CustomFieldsSetRequiredResponse, CustomFieldsSetValueData, CustomFieldsSetValueError, CustomFieldsSetValueResponse, CustomFieldsUnarchiveFieldData, CustomFieldsUnarchiveFieldError, CustomFieldsUnarchiveFieldResponse, CustomFieldsValueHistoryData, CustomFieldsValueHistoryError, CustomFieldsValueHistoryResponse, DirectoryAddIdentifierData, DirectoryAddIdentifierError, DirectoryAddIdentifierResponse, DirectoryAddNameData, DirectoryAddNameError, DirectoryAddNameResponse, DirectoryAssignCategoryData, DirectoryAssignCategoryError, DirectoryAssignCategoryResponse, DirectoryCreateCategoryData, DirectoryCreateCategoryError, DirectoryCreateCategoryResponse, DirectoryCreateEdgeData, DirectoryCreateEdgeError, DirectoryCreateEdgeResponse, DirectoryCreateOrganizationData, DirectoryCreateOrganizationError, DirectoryCreateOrganizationResponse, DirectoryCreatePersonData, DirectoryCreatePersonError, DirectoryCreatePersonResponse, DirectoryDuplicateCandidatesData, DirectoryDuplicateCandidatesError, DirectoryDuplicateCandidatesResponse2, DirectoryGetOrganizationData, DirectoryGetOrganizationError, DirectoryGetOrganizationResponse, DirectoryGetPersonData, DirectoryGetPersonError, DirectoryGetPersonResponse, DirectoryLinkMatterPartyData, DirectoryLinkMatterPartyError, DirectoryLinkMatterPartyResponse, DirectoryMergeData, DirectoryMergeError, DirectoryMergeResponse2, DirectoryReadIdentifierData, DirectoryReadIdentifierError, DirectoryReadIdentifierResponse, DirectorySearchData, DirectorySearchError, DirectorySearchResponse2, DocumentTypesCreateData, DocumentTypesCreateError, DocumentTypesCreateResponse, DocumentTypesDeactivateData, DocumentTypesDeactivateError, DocumentTypesDeactivateResponse, DocumentTypesListData, DocumentTypesListError, DocumentTypesListResponse, DocumentTypesUpdateData, DocumentTypesUpdateError, DocumentTypesUpdateResponse, DownloadsZipData, DownloadsZipError, DownloadsZipResponse, FilesDeleteData, FilesDeleteError, FilesDeleteResponse, FilesDownloadData, FilesDownloadError, FilesGetData, FilesGetError, FilesGetResponse, FilesListData, FilesListError, FilesListResponse, FilesUpdateData, FilesUpdateError, FilesUpdateResponse, FilesVersionsData, FilesVersionsError, FilesVersionsResponse, FirmsProvisionData, FirmsProvisionError, FirmsProvisionResponse, FirmUsageGetData, FirmUsageGetError, FirmUsageGetResponse, FoldersCreateData, FoldersCreateError, FoldersCreateResponse, FoldersDeleteData, FoldersDeleteError, FoldersDeleteResponse, FoldersUpdateData, FoldersUpdateError, FoldersUpdateResponse, HealthReadData, HealthReadError, HealthReadResponse, IncidentsReportData, IncidentsReportError, IncidentsReportResponse, LocationsAssignMemberData, LocationsAssignMemberError, LocationsAssignMemberResponse, LocationsCloseData, LocationsCloseError, LocationsCloseResponse, LocationsCreateData, LocationsCreateError, LocationsCreateResponse, LocationsGetData, LocationsGetError, LocationsGetResponse, LocationsListData, LocationsListError, LocationsListResponse, LocationsSetAddressesData, LocationsSetAddressesError, LocationsSetAddressesResponse, LocationsUpdateData, LocationsUpdateError, LocationsUpdateResponse, MattersCloseData, MattersCloseError, MattersCloseResponse, MattersCreateData, MattersCreateError, MattersCreateResponse, MattersGetData, MattersGetError, MattersGetResponse, MattersListConsultationsData, MattersListConsultationsError, MattersListConsultationsResponse, MattersListData, MattersListError, MattersListResponse, MattersOpenData, MattersOpenError, MattersOpenResponse, MattersRenumberData, MattersRenumberError, MattersRenumberResponse, MattersReopenData, MattersReopenError, MattersReopenResponse, MattersUpdateData, MattersUpdateError, MattersUpdateResponse, MatterTypesCreateData, MatterTypesCreateError, MatterTypesCreateResponse, MatterTypesDeactivateData, MatterTypesDeactivateError, MatterTypesDeactivateResponse, MatterTypesListData, MatterTypesListError, MatterTypesListResponse, MatterTypesUpdateData, MatterTypesUpdateError, MatterTypesUpdateResponse, MeGetData, MeGetError, MeGetResponse, MembersInviteData, MembersInviteError, MembersInviteResponse, NumberingGetData, NumberingGetError, NumberingGetResponse, NumberingPreviewData, NumberingPreviewError, NumberingPreviewResponse2, NumberingSetData, NumberingSetError, NumberingSetResponse, ShippingConnectData, ShippingConnectError, ShippingConnectResponse, ShippingCreateShipmentData, ShippingCreateShipmentError, ShippingCreateShipmentResponse, ShippingLabelData, ShippingLabelError, ShippingLabelResponse, ShippingPurchaseData, ShippingPurchaseError, ShippingPurchaseResponse, ShippingRateShipmentData, ShippingRateShipmentError, ShippingRateShipmentResponse, ShippingRefundData, ShippingRefundError, ShippingRefundResponse, ShippingTrackingData, ShippingTrackingError, ShippingTrackingResponse, UploadsAbortData, UploadsAbortError, UploadsAbortResponse, UploadsCompleteData, UploadsCompleteError, UploadsCompleteResponse, UploadsInitiateData, UploadsInitiateError, UploadsInitiateResponse, UploadsSignPartData, UploadsSignPartError, UploadsSignPartResponse } from '../types.gen';
+import { conversionsStatus, conversionsSubmit, conversionsUpload, customFieldsApplyConvert, customFieldsArchiveField, customFieldsArchiveOption, customFieldsClearValue, customFieldsCreateOption, customFieldsDefineField, customFieldsHardDeleteField, customFieldsHardDeleteOption, customFieldsListRecordValues, customFieldsPreviewConvert, customFieldsPurgeField, customFieldsRenameField, customFieldsRenameOption, customFieldsReorderField, customFieldsReorderOption, customFieldsResolveField, customFieldsSetRequired, customFieldsSetValue, customFieldsUnarchiveField, customFieldsValueHistory, directoryAddIdentifier, directoryAddName, directoryAssignCategory, directoryCreateCategory, directoryCreateEdge, directoryCreateOrganization, directoryCreatePerson, directoryDuplicateCandidates, directoryGetOrganization, directoryGetPerson, directoryLinkMatterParty, directoryMerge, directoryReadIdentifier, directorySearch, documentTypesCreate, documentTypesDeactivate, documentTypesList, documentTypesUpdate, downloadsBundleStatus, downloadsZip, filesDelete, filesDownload, filesGet, filesList, filesPreview, filesUpdate, filesVersions, firmsProvision, firmUsageGet, foldersCreate, foldersDelete, foldersUpdate, healthRead, incidentsReport, locationsAssignMember, locationsClose, locationsCreate, locationsGet, locationsList, locationsSetAddresses, locationsUpdate, mattersClose, mattersCreate, mattersGet, mattersList, mattersListConsultations, mattersOpen, mattersRenumber, mattersReopen, mattersUpdate, matterTypesCreate, matterTypesDeactivate, matterTypesList, matterTypesUpdate, meGet, membersInvite, metadataInspect, metadataScrub, numberingGet, numberingPreview, numberingSet, type Options, safeBrowsePost, scanDiagnose, scanMatter, shippingConnect, shippingCreateShipment, shippingLabel, shippingPurchase, shippingRateShipment, shippingRefund, shippingTracking, uploadsAbort, uploadsComplete, uploadsInitiate, uploadsSignPart, whoisGet } from '../sdk.gen';
+import type { ConversionsStatusData, ConversionsStatusError, ConversionsStatusResponse, ConversionsSubmitData, ConversionsSubmitError, ConversionsSubmitResponse, ConversionsUploadData, ConversionsUploadError, ConversionsUploadResponse, CustomFieldsApplyConvertData, CustomFieldsApplyConvertError, CustomFieldsApplyConvertResponse, CustomFieldsArchiveFieldData, CustomFieldsArchiveFieldError, CustomFieldsArchiveFieldResponse, CustomFieldsArchiveOptionData, CustomFieldsArchiveOptionError, CustomFieldsArchiveOptionResponse, CustomFieldsClearValueData, CustomFieldsClearValueError, CustomFieldsClearValueResponse, CustomFieldsCreateOptionData, CustomFieldsCreateOptionError, CustomFieldsCreateOptionResponse, CustomFieldsDefineFieldData, CustomFieldsDefineFieldError, CustomFieldsDefineFieldResponse, CustomFieldsHardDeleteFieldData, CustomFieldsHardDeleteFieldError, CustomFieldsHardDeleteFieldResponse, CustomFieldsHardDeleteOptionData, CustomFieldsHardDeleteOptionError, CustomFieldsHardDeleteOptionResponse, CustomFieldsListRecordValuesData, CustomFieldsListRecordValuesError, CustomFieldsListRecordValuesResponse, CustomFieldsPreviewConvertData, CustomFieldsPreviewConvertError, CustomFieldsPreviewConvertResponse, CustomFieldsPurgeFieldData, CustomFieldsPurgeFieldError, CustomFieldsPurgeFieldResponse, CustomFieldsRenameFieldData, CustomFieldsRenameFieldError, CustomFieldsRenameFieldResponse, CustomFieldsRenameOptionData, CustomFieldsRenameOptionError, CustomFieldsRenameOptionResponse, CustomFieldsReorderFieldData, CustomFieldsReorderFieldError, CustomFieldsReorderFieldResponse, CustomFieldsReorderOptionData, CustomFieldsReorderOptionError, CustomFieldsReorderOptionResponse, CustomFieldsResolveFieldData, CustomFieldsResolveFieldError, CustomFieldsResolveFieldResponse, CustomFieldsSetRequiredData, CustomFieldsSetRequiredError, CustomFieldsSetRequiredResponse, CustomFieldsSetValueData, CustomFieldsSetValueError, CustomFieldsSetValueResponse, CustomFieldsUnarchiveFieldData, CustomFieldsUnarchiveFieldError, CustomFieldsUnarchiveFieldResponse, CustomFieldsValueHistoryData, CustomFieldsValueHistoryError, CustomFieldsValueHistoryResponse, DirectoryAddIdentifierData, DirectoryAddIdentifierError, DirectoryAddIdentifierResponse, DirectoryAddNameData, DirectoryAddNameError, DirectoryAddNameResponse, DirectoryAssignCategoryData, DirectoryAssignCategoryError, DirectoryAssignCategoryResponse, DirectoryCreateCategoryData, DirectoryCreateCategoryError, DirectoryCreateCategoryResponse, DirectoryCreateEdgeData, DirectoryCreateEdgeError, DirectoryCreateEdgeResponse, DirectoryCreateOrganizationData, DirectoryCreateOrganizationError, DirectoryCreateOrganizationResponse, DirectoryCreatePersonData, DirectoryCreatePersonError, DirectoryCreatePersonResponse, DirectoryDuplicateCandidatesData, DirectoryDuplicateCandidatesError, DirectoryDuplicateCandidatesResponse2, DirectoryGetOrganizationData, DirectoryGetOrganizationError, DirectoryGetOrganizationResponse, DirectoryGetPersonData, DirectoryGetPersonError, DirectoryGetPersonResponse, DirectoryLinkMatterPartyData, DirectoryLinkMatterPartyError, DirectoryLinkMatterPartyResponse, DirectoryMergeData, DirectoryMergeError, DirectoryMergeResponse2, DirectoryReadIdentifierData, DirectoryReadIdentifierError, DirectoryReadIdentifierResponse, DirectorySearchData, DirectorySearchError, DirectorySearchResponse2, DocumentTypesCreateData, DocumentTypesCreateError, DocumentTypesCreateResponse, DocumentTypesDeactivateData, DocumentTypesDeactivateError, DocumentTypesDeactivateResponse, DocumentTypesListData, DocumentTypesListError, DocumentTypesListResponse, DocumentTypesUpdateData, DocumentTypesUpdateError, DocumentTypesUpdateResponse, DownloadsBundleStatusData, DownloadsBundleStatusError, DownloadsBundleStatusResponse, DownloadsZipData, DownloadsZipError, DownloadsZipResponse, FilesDeleteData, FilesDeleteError, FilesDeleteResponse, FilesDownloadData, FilesDownloadError, FilesGetData, FilesGetError, FilesGetResponse, FilesListData, FilesListError, FilesListResponse, FilesPreviewData, FilesPreviewError, FilesPreviewResponse, FilesUpdateData, FilesUpdateError, FilesUpdateResponse, FilesVersionsData, FilesVersionsError, FilesVersionsResponse, FirmsProvisionData, FirmsProvisionError, FirmsProvisionResponse, FirmUsageGetData, FirmUsageGetError, FirmUsageGetResponse, FoldersCreateData, FoldersCreateError, FoldersCreateResponse, FoldersDeleteData, FoldersDeleteError, FoldersDeleteResponse, FoldersUpdateData, FoldersUpdateError, FoldersUpdateResponse, HealthReadData, HealthReadError, HealthReadResponse, IncidentsReportData, IncidentsReportError, IncidentsReportResponse, LocationsAssignMemberData, LocationsAssignMemberError, LocationsAssignMemberResponse, LocationsCloseData, LocationsCloseError, LocationsCloseResponse, LocationsCreateData, LocationsCreateError, LocationsCreateResponse, LocationsGetData, LocationsGetError, LocationsGetResponse, LocationsListData, LocationsListError, LocationsListResponse, LocationsSetAddressesData, LocationsSetAddressesError, LocationsSetAddressesResponse, LocationsUpdateData, LocationsUpdateError, LocationsUpdateResponse, MattersCloseData, MattersCloseError, MattersCloseResponse, MattersCreateData, MattersCreateError, MattersCreateResponse, MattersGetData, MattersGetError, MattersGetResponse, MattersListConsultationsData, MattersListConsultationsError, MattersListConsultationsResponse, MattersListData, MattersListError, MattersListResponse, MattersOpenData, MattersOpenError, MattersOpenResponse, MattersRenumberData, MattersRenumberError, MattersRenumberResponse, MattersReopenData, MattersReopenError, MattersReopenResponse, MattersUpdateData, MattersUpdateError, MattersUpdateResponse, MatterTypesCreateData, MatterTypesCreateError, MatterTypesCreateResponse, MatterTypesDeactivateData, MatterTypesDeactivateError, MatterTypesDeactivateResponse, MatterTypesListData, MatterTypesListError, MatterTypesListResponse, MatterTypesUpdateData, MatterTypesUpdateError, MatterTypesUpdateResponse, MeGetData, MeGetError, MeGetResponse, MembersInviteData, MembersInviteError, MembersInviteResponse, MetadataInspectData, MetadataInspectError, MetadataInspectResponse, MetadataScrubData, MetadataScrubError, MetadataScrubResponse, NumberingGetData, NumberingGetError, NumberingGetResponse, NumberingPreviewData, NumberingPreviewError, NumberingPreviewResponse2, NumberingSetData, NumberingSetError, NumberingSetResponse, SafeBrowsePostData, SafeBrowsePostError, SafeBrowsePostResponse, ScanDiagnoseData, ScanDiagnoseError, ScanDiagnoseResponse, ScanMatterData, ScanMatterError, ScanMatterResponse, ShippingConnectData, ShippingConnectError, ShippingConnectResponse, ShippingCreateShipmentData, ShippingCreateShipmentError, ShippingCreateShipmentResponse, ShippingLabelData, ShippingLabelError, ShippingLabelResponse, ShippingPurchaseData, ShippingPurchaseError, ShippingPurchaseResponse, ShippingRateShipmentData, ShippingRateShipmentError, ShippingRateShipmentResponse, ShippingRefundData, ShippingRefundError, ShippingRefundResponse, ShippingTrackingData, ShippingTrackingError, ShippingTrackingResponse, UploadsAbortData, UploadsAbortError, UploadsAbortResponse, UploadsCompleteData, UploadsCompleteError, UploadsCompleteResponse, UploadsInitiateData, UploadsInitiateError, UploadsInitiateResponse, UploadsSignPartData, UploadsSignPartError, UploadsSignPartResponse, WhoisGetData, WhoisGetError, WhoisGetResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -92,6 +92,75 @@ export const firmUsageGetOptions = (options?: Options<FirmUsageGetData>) => quer
     },
     queryKey: firmUsageGetQueryKey(options)
 });
+
+export const whoisGetQueryKey = (options: Options<WhoisGetData>) => createQueryKey('whoisGet', options);
+
+/**
+ * Registration data (RDAP, with a legacy WHOIS fallback) for a website's domain or an IP address.
+ */
+export const whoisGetOptions = (options: Options<WhoisGetData>) => queryOptions<WhoisGetResponse, WhoisGetError, WhoisGetResponse, ReturnType<typeof whoisGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await whoisGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: whoisGetQueryKey(options)
+});
+
+/**
+ * Render a potentially malicious URL in an isolated remote browser and return a static snapshot (screenshot, redirect chain, response headers, links) — no code runs in the user's browser.
+ */
+export const safeBrowsePostMutation = (options?: Partial<Options<SafeBrowsePostData>>): MutationOptions<SafeBrowsePostResponse, SafeBrowsePostError, Options<SafeBrowsePostData>> => {
+    const mutationOptions: MutationOptions<SafeBrowsePostResponse, SafeBrowsePostError, Options<SafeBrowsePostData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await safeBrowsePost({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Inspect an uploaded file (base64) and report the metadata and content-bearing artifacts it carries, with a risk level per category. Nothing is stored.
+ */
+export const metadataInspectMutation = (options?: Partial<Options<MetadataInspectData>>): MutationOptions<MetadataInspectResponse, MetadataInspectError, Options<MetadataInspectData>> => {
+    const mutationOptions: MutationOptions<MetadataInspectResponse, MetadataInspectError, Options<MetadataInspectData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await metadataInspect({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Return a cleaned copy (base64) of an uploaded file with the selected metadata and content artifacts removed, plus a re-inspection of the result. Defaults to removing everything. Nothing is stored.
+ */
+export const metadataScrubMutation = (options?: Partial<Options<MetadataScrubData>>): MutationOptions<MetadataScrubResponse, MetadataScrubError, Options<MetadataScrubData>> => {
+    const mutationOptions: MutationOptions<MetadataScrubResponse, MetadataScrubError, Options<MetadataScrubData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await metadataScrub({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
 
 /**
  * Invites a member into the session firm: creates the (unverified, account-less) user, enqueues the per-firm member.provision outbox row, audits the invite — one atomic batch — then sends the activation email (a password-reset link; the reset creates the credential).
@@ -932,7 +1001,7 @@ export const filesVersionsOptions = (options: Options<FilesVersionsData>) => que
 export const filesDownloadQueryKey = (options: Options<FilesDownloadData>) => createQueryKey('filesDownload', options);
 
 /**
- * Resolves the file's current clean version and redirects (302) to a short-TTL presigned GET URL the client downloads the bytes directly from. 404 when the file has no clean current version.
+ * Resolves the file's current clean version and redirects (302) to a short-TTL presigned GET URL the client downloads the bytes directly from. 404 when the file has no clean current version. When a re-scan has flagged the current version as malware, the file stays accessible (no data loss) but the raw download is gated: a 409 carrying the signature unless the caller re-requests with acknowledgeMalware=true, which proceeds and is audited as an acknowledged override.
  */
 export const filesDownloadOptions = (options: Options<FilesDownloadData>) => queryOptions<unknown, FilesDownloadError, unknown, ReturnType<typeof filesDownloadQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -945,6 +1014,24 @@ export const filesDownloadOptions = (options: Options<FilesDownloadData>) => que
         return data;
     },
     queryKey: filesDownloadQueryKey(options)
+});
+
+export const filesPreviewQueryKey = (options: Options<FilesPreviewData>) => createQueryKey('filesPreview', options);
+
+/**
+ * Authorizes inline preview of the file's current clean version and returns a delivery descriptor. When the verdict + storage facts permit inline media, the descriptor carries a short-lived signed streamUrl on the cookieless files host the player loads as a <video>/<audio> subresource; otherwise it carries download-only with a reason. downloadUrl (the audited download path) is always present. Untrusted bytes are served cookieless so a malicious file reaches only the media decoder, never a privileged origin. 404 when the file has no clean current version.
+ */
+export const filesPreviewOptions = (options: Options<FilesPreviewData>) => queryOptions<FilesPreviewResponse, FilesPreviewError, FilesPreviewResponse, ReturnType<typeof filesPreviewQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await filesPreview({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: filesPreviewQueryKey(options)
 });
 
 /**
@@ -963,6 +1050,58 @@ export const downloadsZipMutation = (options?: Partial<Options<DownloadsZipData>
     };
     return mutationOptions;
 };
+
+/**
+ * Scans an uploaded file — the raw bytes as the application/octet-stream request body — through the malware-scan engine and returns its verdict + details. A one-off diagnostic: the file is NOT stored and is NOT associated with any matter. Returns an honest `unscanned` verdict until the scan Container is activated (the engine-less adapter never reports a false `clean`).
+ */
+export const scanDiagnoseMutation = (options?: Partial<Options<ScanDiagnoseData>>): MutationOptions<ScanDiagnoseResponse, ScanDiagnoseError, Options<ScanDiagnoseData>> => {
+    const mutationOptions: MutationOptions<ScanDiagnoseResponse, ScanDiagnoseError, Options<ScanDiagnoseData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await scanDiagnose({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Queues a background malware re-scan of every current file in a matter whose scan is stale relative to the firm's current engine (a file already scanned under the current engine is skipped, so a matter already current enqueues nothing). User-initiated; the scans run off the request path on the bulk lane. No-op (enqueued 0) when no current engine version is recorded. `capped` is true when more stale files remain than one request fans out — re-run to continue (any uncapped file is still re-scanned on next access).
+ */
+export const scanMatterMutation = (options?: Partial<Options<ScanMatterData>>): MutationOptions<ScanMatterResponse, ScanMatterError, Options<ScanMatterData>> => {
+    const mutationOptions: MutationOptions<ScanMatterResponse, ScanMatterError, Options<ScanMatterData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await scanMatter({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const downloadsBundleStatusQueryKey = (options: Options<DownloadsBundleStatusData>) => createQueryKey('downloadsBundleStatus', options);
+
+/**
+ * Reports the state of an async bulk-download build (building, ready, or failed). A ready job carries a freshly minted, short-lived signed URL to the built ZIP artifact.
+ */
+export const downloadsBundleStatusOptions = (options: Options<DownloadsBundleStatusData>) => queryOptions<DownloadsBundleStatusResponse, DownloadsBundleStatusError, DownloadsBundleStatusResponse, ReturnType<typeof downloadsBundleStatusQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await downloadsBundleStatus({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: downloadsBundleStatusQueryKey(options)
+});
 
 /**
  * Creates a directory person from its structured name parts, seeding the current-name history row and its phonetic blocking codes.
@@ -1547,6 +1686,58 @@ export const customFieldsValueHistoryOptions = (options: Options<CustomFieldsVal
         return data;
     },
     queryKey: customFieldsValueHistoryQueryKey(options)
+});
+
+/**
+ * Mints a new conversion job slot and returns a short-lived presigned PUT URL the client uploads the source file to directly (bytes never transit the Worker). After uploading, submit the job with POST /api/v1/conversions.
+ */
+export const conversionsUploadMutation = (options?: Partial<Options<ConversionsUploadData>>): MutationOptions<ConversionsUploadResponse, ConversionsUploadError, Options<ConversionsUploadData>> => {
+    const mutationOptions: MutationOptions<ConversionsUploadResponse, ConversionsUploadError, Options<ConversionsUploadData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await conversionsUpload({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Submits a file conversion job. The client must have already uploaded the source file using the URL from POST /api/v1/conversions/upload. Returns 422 if no conversion path exists between the specified formats. Returns 202 with status queued when the job is accepted.
+ */
+export const conversionsSubmitMutation = (options?: Partial<Options<ConversionsSubmitData>>): MutationOptions<ConversionsSubmitResponse, ConversionsSubmitError, Options<ConversionsSubmitData>> => {
+    const mutationOptions: MutationOptions<ConversionsSubmitResponse, ConversionsSubmitError, Options<ConversionsSubmitData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await conversionsSubmit({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const conversionsStatusQueryKey = (options: Options<ConversionsStatusData>) => createQueryKey('conversionsStatus', options);
+
+/**
+ * Returns the current state of a conversion job. A done job whose R2 result still exists carries a freshly minted, short-lived signed GET URL and the converted file media type. A done job whose result was reaped reports expired. Running or failed jobs carry no URL.
+ */
+export const conversionsStatusOptions = (options: Options<ConversionsStatusData>) => queryOptions<ConversionsStatusResponse, ConversionsStatusError, ConversionsStatusResponse, ReturnType<typeof conversionsStatusQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await conversionsStatus({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: conversionsStatusQueryKey(options)
 });
 
 /**

@@ -1,0 +1,20 @@
+# Fast validation of build-atoms against the REAL ClamAV CVD (no native Vectorscan — build-atoms only
+# uses atoms.rs). Builds the binary, bakes the signature DB, unpacks it, and runs the extraction so the
+# build log shows the real atom/hash/fall-through counts. Throwaway.
+FROM rust:1-bookworm
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      clamav clamav-freshclam ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+RUN freshclam || true
+WORKDIR /src
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+RUN cargo build --release --bin build-atoms
+RUN mkdir -p /sigsrc && cd /sigsrc \
+ && for db in /var/lib/clamav/*.cvd /var/lib/clamav/*.cld; do [ -f "$db" ] && sigtool --unpack "$db" >/dev/null 2>&1 || true; done \
+ && echo "=== /sigsrc contents ===" && ls /sigsrc
+# The extraction report (atoms / hashes / fall_through_targets) prints here:
+RUN /src/target/release/build-atoms /sigsrc /atoms.db
+# Prove fail-loud: drop an unrecognized class and confirm the build-atoms exits non-zero.
+RUN printf 'a new clamav class body\n' > /sigsrc/mystery.qdb \
+ && if /src/target/release/build-atoms /sigsrc /atoms2.db; then echo "FAIL: did not fail loud on .qdb"; exit 1; else echo "PASS: failed loud on unrecognized .qdb"; fi

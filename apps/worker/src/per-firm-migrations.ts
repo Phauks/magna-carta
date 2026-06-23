@@ -16,7 +16,12 @@ import usageAnalyticsOptOutSql from "@magna-carta/database/drizzle/per-firm/0012
 import customFieldsSql from "@magna-carta/database/drizzle/per-firm/0013_custom-fields.sql";
 import inferenceTokenUsageSql from "@magna-carta/database/drizzle/per-firm/0014_inference-token-usage.sql";
 import inlinePlayableSql from "@magna-carta/database/drizzle/per-firm/0015_odd_mesmero.sql";
-import timeTrackingSql from "@magna-carta/database/drizzle/per-firm/0016_time-tracking.sql";
+import scanCacheAndDetailSql from "@magna-carta/database/drizzle/per-firm/0016_warm_talkback.sql";
+import seedToolsWebDomainsSql from "@magna-carta/database/drizzle/per-firm/0017_seed-tools-web-domains.sql";
+import seedToolsFileConverterSql from "@magna-carta/database/drizzle/per-firm/0018_seed-tools-file-converter.sql";
+import seedScanFilePermissionSql from "@magna-carta/database/drizzle/per-firm/0019_seed-scan-file-permission.sql";
+import seedToolsMetadataScrubberSql from "@magna-carta/database/drizzle/per-firm/0020_seed-tools-metadata-scrubber.sql";
+import timeTrackingSql from "@magna-carta/database/drizzle/per-firm/0021_outgoing_talon.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the firm
 // provisioner migrates a freshly created firm database to head at provisioning time, so the SQL
@@ -42,7 +47,12 @@ export function perFirmMigrations(): Migration[] {
     "0013_custom-fields": customFieldsSql,
     "0014_inference-token-usage": inferenceTokenUsageSql,
     "0015_odd_mesmero": inlinePlayableSql,
-    "0016_time-tracking": timeTrackingSql,
+    "0016_warm_talkback": scanCacheAndDetailSql,
+    "0017_seed-tools-web-domains": seedToolsWebDomainsSql,
+    "0018_seed-tools-file-converter": seedToolsFileConverterSql,
+    "0019_seed-scan-file-permission": seedScanFilePermissionSql,
+    "0020_seed-tools-metadata-scrubber": seedToolsMetadataScrubberSql,
+    "0021_outgoing_talon": timeTrackingSql,
   });
 }
 

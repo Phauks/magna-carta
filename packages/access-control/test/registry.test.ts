@@ -46,6 +46,7 @@ describe("permission registry", () => {
       "firm:manageMembers",
       "firm:provision",
       "firm:reportIncident",
+      "firm:scanFile",
       "firm:manageSecrets",
     ]);
   });
@@ -96,6 +97,10 @@ describe("permission registry", () => {
       "tools:shipping",
       "tools:speedTest",
       "tools:firmUsage",
+      "tools:whois",
+      "tools:safeBrowse",
+      "tools:fileConverter",
+      "tools:metadataScrubber",
     ]);
   });
 
@@ -123,6 +128,11 @@ describe("permission registry", () => {
       "time:manageUtbms",
       "time:manageSettings",
     ]);
+  });
+
+  it("web-domains tool permissions are registered", () => {
+    expect(isPermission("tools:whois")).toBe(true);
+    expect(isPermission("tools:safeBrowse")).toBe(true);
   });
 
   it("every registered key is `<subsystem>:<action>` — lowercase-led camelCase segments", () => {

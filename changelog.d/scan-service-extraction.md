@@ -1,0 +1,5 @@
+---
+category: Changed
+---
+
+**Malware-scan engine extracted to a dedicated Worker with a Cloudflare-native auto-update pipeline.** The scan Container (`containers/scan/` — clamd + yara-x + structural heuristics) has moved from the main app Worker into its own Worker (`apps/scan-worker`, service `magna-carta-scan`). The app Worker reaches it exclusively over a `SCAN_SERVICE` service binding; `resolveScanPort` selects the remote engine when the binding is present, otherwise the engine-less `unscanned` adapter — the app Worker carries no container config of its own. Signature freshness is now entirely Cloudflare-native: `magna-carta-scan` is connected to **Workers Builds** (Cloudflare-side CI, no GitHub token), so every push to the production branch triggers a fresh-`freshclam` image build and deploy; the scan worker's daily `0 7 * * *` cron POSTs a **Workers Builds Deploy Hook** (`SCAN_BUILD_DEPLOY_HOOK_URL`, set via `wrangler secret put`) to trigger an automatic nightly rebuild — a Cloudflare-native loop with no GitHub involvement. The container continues to run `enableInternet = false` (zero runtime egress); signature freshness is only ever via image rebuild.
