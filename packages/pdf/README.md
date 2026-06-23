@@ -192,6 +192,16 @@ interface RedactionResult {
 
 ### Text-preserving redaction
 
+> **Status: incomplete (v1, partial coverage).** Text-preserving surgery is a safe but
+> deliberately limited first version. It succeeds only on pages that meet the conditions
+> below; **every other page automatically falls back to `"flatten"`**, so on many
+> real-world documents (scanned pages, CJK/composite fonts, form-XObject text, inline
+> images) most or all pages are still rasterised. The safety guarantee holds in every
+> case — but do not assume `"surgery"` will preserve text on an arbitrary document. Known
+> not-yet-supported categories that fall back: non-Identity Type0/CID (CJK) fonts, text
+> drawn inside Form XObjects, and inline images, plus the others listed below. These are
+> planned for later versions; until then the result is correct but coverage is partial.
+
 Pass `mode: "surgery"` to attempt text-preserving content-stream surgery instead of full-page rasterization. Surgery excises only the glyphs whose centres fall inside a redaction rectangle, leaving the remaining text on the page as selectable PDF operators.
 
 ```ts
