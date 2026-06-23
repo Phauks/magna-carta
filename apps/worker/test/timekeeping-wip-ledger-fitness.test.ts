@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import TIMEKEEPING_PACKAGE_SOURCES from "virtual:timekeeping-package-sources";
 
 // Fitness function (the append-only-source-scan pattern, time edition): time is WIP, NOT a ledger
 // posting — unbilled time lives in its own store and never touches the double-entry ledger (the ledger
@@ -7,9 +8,14 @@ import { describe, expect, it } from "vitest";
 // route or service that wrongly posts a time entry to the ledger fails here, not in production.
 //
 // The worker's tests run inside the workerd pool, whose node:fs cannot read the host source tree, so the
-// sources are pulled in as raw text at build time (import.meta.glob with ?raw). import.meta.glob is a
-// Vite build-time macro: it inlines the matched files and MUST be referenced by its full literal name,
-// so it cannot be aliased; its type is not in the worker's tsconfig lib, so the shape is declared here.
+// sources are pulled in as raw text at build time. Worker sources use import.meta.glob with ?raw;
+// package sources (where the actual SQL statement strings live) come in via a Vite plugin virtual
+// module (virtual:timekeeping-package-sources) because import.meta.glob cannot resolve paths outside
+// the Vite root (apps/worker). The virtual module is assembled at build time by vitest.config.ts.
+//
+// import.meta.glob is a Vite build-time macro: it inlines the matched files and MUST be referenced by
+// its full literal name, so it cannot be aliased; its type is not in the worker's tsconfig lib, so
+// the shape is declared here.
 declare global {
   interface ImportMeta {
     glob(
@@ -19,11 +25,18 @@ declare global {
   }
 }
 
-const SOURCES = import.meta.glob("../src/**/*.ts", {
+const WORKER_SOURCES = import.meta.glob("../src/**/*.ts", {
   query: "?raw",
   import: "default",
   eager: true,
 });
+
+// The SQL statements the scan must police actually live in packages/timekeeping/src — the worker
+// sources only hold the routes that call into the package. Scanning only the worker sources is
+// partially vacuous; include the package sources so the invariant is fully enforced.
+const PACKAGE_SOURCES: Record<string, string> = TIMEKEEPING_PACKAGE_SOURCES;
+
+const SOURCES: Record<string, string> = { ...WORKER_SOURCES, ...PACKAGE_SOURCES };
 
 function sqlLiterals(source: string): string[] {
   const out: string[] = [];
@@ -38,7 +51,10 @@ function sqlLiterals(source: string): string[] {
 describe("time is WIP, not a ledger posting", () => {
   it("no timekeeping/timer source composes a ledger_* statement", () => {
     // Non-vacuity floor: the glob saw the worker source.
-    expect(Object.keys(SOURCES).length).toBeGreaterThan(0);
+    expect(Object.keys(WORKER_SOURCES).length).toBeGreaterThan(0);
+    // Non-vacuity floor: the package glob resolved — if Vite's resolution changes and drops the
+    // package sources, this fails here rather than silently making the scan vacuous for the package.
+    expect(Object.keys(PACKAGE_SOURCES).length).toBeGreaterThan(0);
 
     const offenders: string[] = [];
     for (const [file, source] of Object.entries(SOURCES)) {

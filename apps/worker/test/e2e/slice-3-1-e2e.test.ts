@@ -225,8 +225,9 @@ describe("time tracking end-to-end", () => {
     );
     expect(response.status).toBe(200);
     const view = (await response.json()) as { billableMinutes: number };
-    // The quick-add entry is 30 minutes billable.
-    expect(view.billableMinutes).toBeGreaterThanOrEqual(30);
+    // The quick-add entry is exactly 30 minutes billable on 2026-06-22; the timer entry is on
+    // today's date (outside this query), so the total is deterministically 30.
+    expect(view.billableMinutes).toBe(30);
   });
 
   it("a new rate version leaves already-captured entries untouched; reRateUnbilledDrafts moves the draft", async () => {

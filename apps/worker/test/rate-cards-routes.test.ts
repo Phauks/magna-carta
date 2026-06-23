@@ -163,6 +163,13 @@ describe("rate card lifecycle", () => {
       count: number;
     }>();
     expect(after?.count).toBe(before?.count);
+    // Confirm no audit_log row was written for the phantom card id.
+    const auditCount = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT COUNT(*) AS count FROM audit_log WHERE subject_id = ?1",
+    )
+      .bind(unknownCardId)
+      .first<{ count: number }>();
+    expect(auditCount?.count).toBe(0);
   });
 });
 

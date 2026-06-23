@@ -16,8 +16,12 @@ const GATE_ON_TRANSITIONS: ReadonlyMap<TimeEntryStatus, ReadonlySet<TimeEntrySta
   ["approved", new Set<TimeEntryStatus>(["billed"])],
 ]);
 
+// submitted and approved are reachable if the firm ran with the gate ON and then turned it OFF.
+// Those in-flight entries must be able to drain to billed rather than being permanently stuck.
 const GATE_OFF_TRANSITIONS: ReadonlyMap<TimeEntryStatus, ReadonlySet<TimeEntryStatus>> = new Map([
   ["draft", new Set<TimeEntryStatus>(["billed"])],
+  ["submitted", new Set<TimeEntryStatus>(["billed"])],
+  ["approved", new Set<TimeEntryStatus>(["billed"])],
 ]);
 
 // billed and void freeze the row's business columns; no transition leaves them.

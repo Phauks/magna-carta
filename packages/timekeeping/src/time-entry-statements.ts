@@ -169,15 +169,16 @@ export function selectTimeEntryStatusStatement(
 // Sets the reviewer's kick-back reason text on the entry. Runs in the same batch as the status
 // transition so the reason and status change are atomic. A null clears the reason (used on resubmit
 // to indicate the reviewer's note has been consumed by the timekeeper's corrective resubmission).
-// The NOT IN ('billed','void') guard is defense-in-depth: the service already pre-checks frozen
-// status before composing this statement, but a stale-read race would otherwise silently succeed
-// on a row the preceding transition guard missed.
+// The NOT IN ('billed','void') clause is a defense-in-depth freeze guard: it EXCLUDES frozen rows;
+// the service pre-checks frozen status before composing this statement, but a stale-read race would
+// otherwise silently succeed on a frozen row.
 export function setKickBackReasonStatement(
   database: SqlDatabase,
   id: TimeEntryId,
   reason: string | null,
   updatedAt: string,
 ): SqlStatement {
+  // fitness:allow-billing-lock — NOT IN ('billed','void') is a freeze guard (excludes, not targets).
   return database
     .prepare(
       `UPDATE ${TIME_ENTRY_TABLE} SET kick_back_reason = ?2, updated_at = ?3 WHERE id = ?1 AND status NOT IN ('billed','void')`,

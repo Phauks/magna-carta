@@ -94,6 +94,29 @@ describe("canTransition mirrors assertTransition without throwing", () => {
   });
 });
 
+describe("gate-off drain for in-flight entries", () => {
+  it("allows submitted -> billed when the gate is off (in-flight drain)", () => {
+    expect(canTransition("submitted", "billed", false)).toBe(true);
+  });
+
+  it("allows approved -> billed when the gate is off (in-flight drain)", () => {
+    expect(canTransition("approved", "billed", false)).toBe(true);
+  });
+
+  it("billed and void remain terminal under gate-off drain", () => {
+    for (const to of STATUSES) {
+      expect(canTransition("billed", to, false)).toBe(false);
+      expect(canTransition("void", to, false)).toBe(false);
+    }
+  });
+
+  it("gate-ON table is unchanged — submitted and approved do not reach billed directly under gate-on", () => {
+    expect(canTransition("submitted", "billed", true)).toBe(false);
+    // approved -> billed remains valid under gate-on (the normal gate-on path)
+    expect(canTransition("approved", "billed", true)).toBe(true);
+  });
+});
+
 it("TimeEntryValidationError carries a stable code", () => {
   expect(new TimeEntryValidationError("frozen-entry", "x").code).toBe("frozen-entry");
 });
