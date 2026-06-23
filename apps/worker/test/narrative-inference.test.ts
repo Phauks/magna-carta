@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
-import type { GenerateInput, InferencePort, StreamResult } from "@magna-carta/inference/port";
+import type {
+  EmbedInput,
+  EmbeddingResult,
+  GenerateInput,
+  InferencePort,
+  StreamResult,
+} from "@magna-carta/inference/port";
 import type { Dispatch } from "@magna-carta/integrations/dispatch";
 import {
   buildInferenceJobIdempotencyKey,
@@ -44,7 +50,10 @@ function recordingPort(calls: GenerateInput[]): InferencePort {
       throw new Error("generateStream must not be reached when the gate is off");
     },
     generateDurable: reached,
-    embed: reached,
+    embed: async (input: EmbedInput): Promise<Dispatch<EmbeddingResult>> => {
+      calls.push(input as unknown as GenerateInput);
+      throw new Error("embed must not be reached when the gate is off");
+    },
   };
 }
 
@@ -84,6 +93,12 @@ describe("buildInferenceJobIdempotencyKey — stable per (firmId, matterId, prom
     expect(buildInferenceJobIdempotencyKey({ ...INPUT, matterId: "matter_other" })).not.toBe(key);
     expect(buildInferenceJobIdempotencyKey({ ...INPUT, firmId: "firm_other" })).not.toBe(key);
     expect(buildInferenceJobIdempotencyKey({ ...INPUT, utbmsContext: "L130" })).not.toBe(key);
+    expect(buildInferenceJobIdempotencyKey({ ...INPUT, userHistorySeed: "different seed" })).not.toBe(key);
+    // Collision-proof: inputs that share the same concatenated bytes under a space separator but differ
+    // in field boundaries must produce distinct keys. The NUL (\x00) delimiter guarantees this.
+    const splitA = buildInferenceJobIdempotencyKey({ ...INPUT, utbmsContext: "L120", userHistorySeed: "draft demand" });
+    const splitB = buildInferenceJobIdempotencyKey({ ...INPUT, utbmsContext: "L120 draft", userHistorySeed: "demand" });
+    expect(splitA).not.toBe(splitB);
   });
 
   it("is a stable, opaque, URL-safe token (a hex digest), not the raw prompt", () => {
