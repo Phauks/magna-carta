@@ -209,7 +209,6 @@ const result = await redactDocument(bytes, regions, { mode: "surgery" });
 - The page uses a simple font (Type1, TrueType, or MMType1) that is not one of the standard-14 fonts and omits the `/Widths` array — the advance widths required to locate individual glyphs are not available.
 - The page uses a Type3 font, or a Type0 (CID) font with a non-Identity encoding — these cannot be reliably walked to locate individual glyph positions.
 - The page dictionary carries a non-zero `/Rotate` entry.
-- The page's `/Resources` are inherited from a parent node rather than declared at the page level.
 - The content stream contains inline image operators (`BI`/`ID`/`EI`).
 - A redaction rectangle overlaps a raster image XObject (for example, a scanned page with embedded images).
 - The content stream does not round-trip cleanly through the PDF content parser (the byte count after encode/decode does not match).

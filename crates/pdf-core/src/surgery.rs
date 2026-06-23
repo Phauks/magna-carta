@@ -143,6 +143,36 @@ fn number_value(obj: &Object) -> Option<f32> {
 
 // ── Main entry point ──────────────────────────────────────────────────────────
 
+/// Walk up the page-tree parent chain to find the nearest `/Resources` dictionary.
+///
+/// The PDF specification makes `/Resources` inheritable: a page that does not
+/// declare its own `/Resources` entry inherits from the nearest ancestor `/Pages`
+/// node that does. This helper follows the `/Parent` reference chain until it
+/// finds an object with a `/Resources` key, or exhausts the tree.
+///
+/// The walk is bounded to 64 iterations so a cyclic `/Parent` chain in malformed
+/// input cannot loop forever.
+fn resolve_inherited_resources(
+    doc: &lopdf::Document,
+    page_id: lopdf::ObjectId,
+) -> Option<&lopdf::Dictionary> {
+    let mut current_id = page_id;
+    for _ in 0..64 {
+        let dict = doc.get_dictionary(current_id).ok()?;
+        if let Ok(resources_obj) = dict.get(b"Resources") {
+            return resolve_dict(doc, resources_obj);
+        }
+        // No /Resources here; walk to parent.
+        let parent_ref = dict.get(b"Parent").ok()?;
+        match parent_ref {
+            Object::Reference(id) => current_id = *id,
+            _ => return None,
+        }
+    }
+    // Depth limit reached — treat as unresolvable.
+    None
+}
+
 /// Resolve every font resource on `page_id` to its `FontMetrics`.
 ///
 /// Missing resources (broken references, empty font dicts) produce
@@ -154,16 +184,7 @@ pub(crate) fn page_fonts(
 ) -> BTreeMap<Vec<u8>, FontMetrics> {
     let mut metrics = BTreeMap::new();
 
-    let page_dict = match doc.get_dictionary(page_id).ok() {
-        Some(dict) => dict,
-        None => return metrics,
-    };
-
-    let resources_dict = match page_dict
-        .get(b"Resources")
-        .ok()
-        .and_then(|obj| resolve_dict(doc, obj))
-    {
+    let resources_dict = match resolve_inherited_resources(doc, page_id) {
         Some(dict) => dict,
         None => return metrics,
     };
@@ -1990,6 +2011,79 @@ mod tests {
         assert!(
             no_hit_bytes.windows(5).any(|w| w == b"Hello"),
             "no-hit surgery must preserve the original text bytes"
+        );
+    }
+
+    /// A page with no `/Resources` in its own dict must still resolve fonts when the
+    /// parent `/Pages` node carries `/Resources` with a `/Font` dict.
+    #[test]
+    fn page_fonts_resolves_inherited_resources_from_parent() {
+        let mut d = Document::with_version("1.5");
+        // Build a font object.
+        let font = dictionary! {
+            "Type" => "Font", "Subtype" => "Type1",
+            "FirstChar" => 65i64,
+            "Widths" => vec![Object::Integer(500)],
+        };
+        let fid = d.add_object(font);
+        // Build a /Resources dict on the parent /Pages node.
+        let resources = dictionary! {
+            "Font" => dictionary! { "F0" => Object::Reference(fid) }
+        };
+        // The /Pages node carries /Resources but the page does NOT.
+        let pages = d.add_object(dictionary! {
+            "Type" => "Pages",
+            "Kids" => vec![],   // placeholder; updated below
+            "Count" => 1i64,
+            "Resources" => resources,
+        });
+        let page = d.add_object(dictionary! {
+            "Type" => "Page",
+            "Parent" => Object::Reference(pages),
+            // NO /Resources here — must inherit from parent
+        });
+        // Wire the parent's Kids to point to this page (not strictly needed for the
+        // test but keeps the document consistent).
+        d.get_dictionary_mut(pages)
+            .unwrap()
+            .set("Kids", Object::Array(vec![Object::Reference(page)]));
+
+        let fonts = page_fonts(&d, page);
+        assert!(
+            !fonts.is_empty(),
+            "page_fonts must resolve inherited /Resources from the parent /Pages node"
+        );
+        match fonts.get(b"F0".as_ref()) {
+            Some(FontMetrics::Supported { widths, .. }) => {
+                assert_eq!(widths.get(&65), Some(&500.0));
+            }
+            other => panic!("expected FontMetrics::Supported for F0, got {other:?}"),
+        }
+    }
+
+    /// A self-referential `/Parent` chain must not loop: `page_fonts` must return
+    /// an empty map rather than hanging.
+    #[test]
+    fn page_fonts_cyclic_parent_returns_empty() {
+        let mut d = Document::with_version("1.5");
+        // Create a page object with /Parent pointing to itself — a cycle.
+        // We need the object ID before building the dict, so we add a placeholder
+        // then replace it.
+        let placeholder = d.add_object(dictionary! { "Type" => "Page" });
+        // Now overwrite with a self-referential /Parent.
+        d.objects.insert(
+            placeholder,
+            Object::Dictionary(dictionary! {
+                "Type" => "Page",
+                "Parent" => Object::Reference(placeholder),
+                // No /Resources — the walk must hit the cycle guard
+            }),
+        );
+        let fonts = page_fonts(&d, placeholder);
+        // The cycle guard fires at 64 iterations; the result is an empty map, not a hang.
+        assert!(
+            fonts.is_empty(),
+            "page_fonts must return an empty map for a cyclic /Parent chain"
         );
     }
 }
