@@ -186,6 +186,9 @@ importers:
       '@magna-carta/matters':
         specifier: workspace:*
         version: link:../../packages/matters
+      '@magna-carta/metadata':
+        specifier: workspace:*
+        version: link:../../packages/metadata
       '@magna-carta/property-links':
         specifier: workspace:*
         version: link:../../packages/property-links
@@ -238,6 +241,9 @@ importers:
       '@stoplight/spectral-cli':
         specifier: 'catalog:'
         version: 6.16.0
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
       otpauth:
         specifier: 'catalog:'
         version: 9.5.1
