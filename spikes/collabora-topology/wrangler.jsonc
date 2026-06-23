@@ -1,7 +1,7 @@
 {
-  // Throwaway spike Worker. CLOUDFLARE_ACCOUNT_ID is supplied via the environment at deploy time
-  // (not committed here). Deploy: CLOUDFLARE_ACCOUNT_ID=<id> npx wrangler deploy
-  "name": "collabora-topology-harness",
+  // Throwaway spike Worker. Deployed by Cloudflare Workers Builds (account-authed; no token needed).
+  // The name MUST match the Workers Builds project worker so `wrangler deploy` targets it.
+  "name": "mc-collabora-topology-harness",
   "main": "worker.ts",
   "compatibility_date": "2026-06-01",
   "compatibility_flags": ["nodejs_compat"],
