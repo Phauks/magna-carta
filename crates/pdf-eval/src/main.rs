@@ -1,13 +1,14 @@
 // Regression-harness CLI for the PDF engine.  Modes:
-//   smoke          <corpus_dir>                          — parse + render page 0 via pdf-core; exits non-zero on any failure
-//   redact-smoke   <pdf>                                 — redact the entire first page and assert the verification gate passes
-//   sanitize-smoke <pdf>                                 — sanitize the document with default options and assert the absence gate passes
-//   detect         <pdf>                                 — run the bad-redaction detector and print the ranked report
-//   detect-smoke   <pdf>                                 — append an opaque cover over page 1 and assert the detector flags it
-//   render         <input.pdf> <out_dir> [scale]         — hayro render to PNG
-//   parse          <corpus_dir>                          — lopdf + pdf-rs + hayro load-coverage
-//   fidelity       <corpus_dir> <pdfium.dll> [dpi]       — hayro-vs-PDFium MSSIM per page (needs pdfium dll at runtime)
-//   pdfium         <input.pdf> <pdfium.dll> <out_dir> [dpi] — dump PDFium renders to PNG (needs pdfium dll at runtime)
+//   smoke             <corpus_dir>                          — parse + render page 0 via pdf-core; exits non-zero on any failure
+//   redact-smoke      <pdf>                                 — redact the entire first page and assert the verification gate passes
+//   sanitize-smoke    <pdf>                                 — sanitize the document with default options and assert the absence gate passes
+//   detect            <pdf>                                 — run the bad-redaction detector and print the ranked report
+//   detect-smoke      <pdf>                                 — append an opaque cover over page 1 and assert the detector flags it
+//   render            <input.pdf> <out_dir> [scale]         — hayro render to PNG
+//   parse             <corpus_dir>                          — lopdf + pdf-rs + hayro load-coverage
+//   surgery-coverage  <corpus_dir>                          — non-gating: per-file surgery-vs-flatten disposition over the corpus
+//   fidelity          <corpus_dir> <pdfium.dll> [dpi]       — hayro-vs-PDFium MSSIM per page (needs pdfium dll at runtime)
+//   pdfium            <input.pdf> <pdfium.dll> <out_dir> [dpi] — dump PDFium renders to PNG (needs pdfium dll at runtime)
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_syntax::Pdf;
 use hayro::{render, RenderCache, RenderSettings};
@@ -35,6 +36,9 @@ fn main() {
         Some("detect-smoke") => detect_smoke_mode(args.next().expect("usage: detect-smoke <pdf>")),
         Some("render") => render_mode(args.collect()),
         Some("parse") => parse_mode(args.next().expect("usage: parse <corpus_dir>")),
+        Some("surgery-coverage") => {
+            surgery_coverage_mode(args.next().expect("usage: surgery-coverage <corpus_dir>"))
+        }
         #[cfg(feature = "pdfium")]
         Some("fidelity") => fidelity_mode(args.collect()),
         #[cfg(feature = "pdfium")]
@@ -46,7 +50,7 @@ fn main() {
         }
         other => {
             eprintln!(
-                "unknown mode {other:?}; use smoke | redact-smoke | sanitize-smoke | detect | detect-smoke | render | parse | fidelity | pdfium"
+                "unknown mode {other:?}; use smoke | redact-smoke | sanitize-smoke | detect | detect-smoke | render | parse | surgery-coverage | fidelity | pdfium"
             );
             std::process::exit(2);
         }
@@ -422,6 +426,74 @@ fn luma_on_white(img: &image::RgbaImage) -> GrayImage {
     })
 }
 
+/// Informational reporter: for each PDF in `dir`, run `redact` in Surgery mode with a
+/// generous full-page-covering redaction rectangle on page 0 and record whether the
+/// page was surgered (content-stream excision succeeded) or flattened (fallback to
+/// rasterisation) or whether the run errored.  Prints a per-file line and a SUMMARY
+/// line.  Exits 0 regardless of the surgery ratio — this is a coverage measurement,
+/// not a gate.
+fn surgery_coverage_mode(dir: String) {
+    let full_page_region = pdf_core::RedactionRegion {
+        page: 0,
+        rect: pdf_core::Rect {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 1_000.0,
+            y1: 1_000.0,
+        },
+        reason: None,
+    };
+    let opts = pdf_core::RedactionOptions {
+        mode: pdf_core::RedactionMode::Surgery,
+        // Use a low DPI so flatten fallbacks are faster; this is informational, not production.
+        dpi: 150.0,
+        ..pdf_core::RedactionOptions::default()
+    };
+
+    let mut surgered_count: u32 = 0;
+    let mut flattened_count: u32 = 0;
+    let mut errored_count: u32 = 0;
+
+    for path in pdfs_in(&dir) {
+        let name = path.file_name().unwrap().to_string_lossy().to_string();
+        let bytes = match std::fs::read(&path) {
+            Ok(b) => b,
+            Err(e) => {
+                println!("error    {name}  (read error: {e})");
+                errored_count += 1;
+                continue;
+            }
+        };
+
+        match pdf_core::redact(bytes, std::slice::from_ref(&full_page_region), &opts) {
+            Ok(outcome) => {
+                let page_0_surgered = outcome.report.pages_surgered.contains(&0);
+                let page_0_flattened = outcome.report.pages_flattened.contains(&0);
+                if page_0_surgered {
+                    println!("surgered {name}");
+                    surgered_count += 1;
+                } else if page_0_flattened {
+                    println!("flatten  {name}");
+                    flattened_count += 1;
+                } else {
+                    // Redact succeeded but page 0 appears in neither list — unexpected.
+                    println!("unknown  {name}  (page 0 absent from both surgered and flattened)");
+                    errored_count += 1;
+                }
+            }
+            Err(e) => {
+                println!("error    {name}  ({e:?})");
+                errored_count += 1;
+            }
+        }
+    }
+
+    let total = surgered_count + flattened_count + errored_count;
+    println!(
+        "\nSUMMARY: surgered {surgered_count} / flattened {flattened_count} / errored {errored_count} of {total}"
+    );
+}
+
 fn yn(b: bool) -> &'static str {
     if b {
         "ok"
@@ -435,5 +507,80 @@ fn pct(a: u32, b: u32) -> f64 {
         0.0
     } else {
         a as f64 * 100.0 / b as f64
+    }
+}
+
+/// Non-gating surgery coverage measurement over the committed corpus subset.
+///
+/// Runs `redact` in Surgery mode over each PDF in `corpus-ci/` (the redistributable
+/// files checked into the repository) and prints per-file dispositions and a summary.
+/// Asserts nothing about the surgery ratio — the test always passes as long as every
+/// `redact` call completes without panicking.  The point is honest measurement.
+#[cfg(test)]
+mod surgery_coverage_tests {
+    use super::*;
+
+    #[test]
+    fn surgery_coverage_over_corpus_ci() {
+        let corpus_ci = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("corpus-ci");
+
+        let full_page_region = pdf_core::RedactionRegion {
+            page: 0,
+            rect: pdf_core::Rect {
+                x0: 0.0,
+                y0: 0.0,
+                x1: 1_000.0,
+                y1: 1_000.0,
+            },
+            reason: None,
+        };
+        let opts = pdf_core::RedactionOptions {
+            mode: pdf_core::RedactionMode::Surgery,
+            dpi: 150.0,
+            ..pdf_core::RedactionOptions::default()
+        };
+
+        let corpus_dir = corpus_ci.to_str().unwrap().to_owned();
+        let files = pdfs_in(&corpus_dir);
+        assert!(!files.is_empty(), "corpus-ci must contain at least one PDF");
+
+        let mut surgered_count: u32 = 0;
+        let mut flattened_count: u32 = 0;
+        let mut errored_count: u32 = 0;
+
+        for path in &files {
+            let name = path.file_name().unwrap().to_string_lossy().to_string();
+            let bytes = std::fs::read(path).expect("corpus-ci file must be readable");
+
+            match pdf_core::redact(bytes, std::slice::from_ref(&full_page_region), &opts) {
+                Ok(outcome) => {
+                    let page_0_surgered = outcome.report.pages_surgered.contains(&0);
+                    let page_0_flattened = outcome.report.pages_flattened.contains(&0);
+                    if page_0_surgered {
+                        println!("surgered {name}");
+                        surgered_count += 1;
+                    } else if page_0_flattened {
+                        println!("flatten  {name}");
+                        flattened_count += 1;
+                    } else {
+                        println!(
+                            "unknown  {name}  (page 0 absent from both surgered and flattened)"
+                        );
+                        errored_count += 1;
+                    }
+                }
+                Err(e) => {
+                    println!("error    {name}  ({e:?})");
+                    errored_count += 1;
+                }
+            }
+        }
+
+        let total = surgered_count + flattened_count + errored_count;
+        println!(
+            "\nSUMMARY: surgered {surgered_count} / flattened {flattened_count} / errored {errored_count} of {total}"
+        );
+        // Non-gating: assert nothing about the ratio.
+        // Every file must complete without panicking (the loop above).
     }
 }
