@@ -8,7 +8,7 @@ contract: **clamd** (signatures), **yara-x** (heuristic rules), and **structural
 
 **White paper:** _Performance & concurrency model_ (sandbox-hardened processing). **Worker side:**
 `apps/worker/src/files/{scan-container,container-scan-adapter,scan-port-binding,scan-warm}.ts`. **Deploy:**
-[`docs/conventions/operations.md`](../../docs/conventions/operations.md) §9.
+[`docs/conventions/operations.md`](../../docs/conventions/operations.md) §11.
 
 ## Key files
 
@@ -16,15 +16,21 @@ contract: **clamd** (signatures), **yara-x** (heuristic rules), and **structural
   engine version); `POST /scan` runs all three engines and returns the combined verdict.
 - `src/clamav.rs` — clamd scan over **loopback TCP** (`clamav_client::tokio::Tcp`); `clean()` is bool-only,
   so the signature name is parsed from the raw INSTREAM reply.
-- `src/yara.rs` — `build_rules` (compile once) + `yara_scan` (matching identifiers).
+- `src/yara.rs` — runtime rule loading + scanning: `deserialize_rules` restores the baked blob at boot
+  (no startup recompile); `yara_scan` returns matching identifiers. `build_rules` (fail-fast compile) is
+  the empty/dev path; `compile_tolerant` (skip + log incompatible rules) is the build-time path.
+- `src/forge.rs` + `src/bin/build-yara-rules.rs` — build-time YARA Forge bundling: parse the package,
+  drop the FP-prone heuristic `_SUSP_` pocket, compile with yara-x, serialize the blob the runtime loads.
 - `src/heuristics/{mod,pdf,office}.rs` — `inspect()` dispatches by magic bytes: PDF (lopdf) active-content
   / encrypted; OLE/CFB (cfb) macros / `EncryptedPackage`; ZIP (zip) archive caps + OOXML macros. Size/ratio
   checks read entry **metadata** only, so a zip bomb is caught before expansion.
 - `src/verdict.rs` — `combine()` → `CombineOutcome` (a verdict, or a retryable signature-engine fault);
   precedence infected > suspicious > unscanned(encrypted) > retryable-fault > clean+activeContent. The
   `ScanResult` serde union byte-matches `packages/file-manager/src/scan-port.ts`.
-- `Dockerfile` / `entrypoint.sh` — multi-stage build; clamd + a **build-time-baked** signature DB; the
-  entrypoint raises clamd's scan-size limits to the inspectable-size cap (see Local rules).
+- `Dockerfile` / `entrypoint.sh` — multi-stage build; clamd + a **build-time-baked** signature DB **and
+  YARA rule blob** (the build fetches the latest YARA Forge `extended` release and runs `build-yara-rules`);
+  the entrypoint raises clamd's scan-size limits to the inspectable-size cap and exports the baked rules
+  tag (see Local rules).
 
 ## Local rules / invariants
 
@@ -37,9 +43,10 @@ contract: **clamd** (signatures), **yara-x** (heuristic rules), and **structural
   (re-scanning cannot help); active content is a clean-with-badge signal, never a quarantine on its own.
   The fail-safe net is total: a clamd **timeout** (the whole exchange — connect + INSTREAM write + read —
   is bounded in `clamav.rs`), an **engine panic** (yara/heuristics run under `spawn_blocking` +
-  `catch_unwind` in `lib.rs::finish`), or a clamd reply with **any non-OK record** all map to the same
-  retryable 503, never clean. `interpret_reply` parses the reply record-by-record so a `FOUND` can never
-  be masked by a sibling `OK`.
+  `catch_unwind` in `lib.rs::finish`), a **yara scan timeout/error** (`yara_scan` is `set_timeout`-bounded
+  and returns `Err` → `finish` maps it to the same retryable 503, never a swallowed no-match), or a clamd
+  reply with **any non-OK record** all map to the same retryable 503, never clean. `interpret_reply`
+  parses the reply record-by-record so a `FOUND` can never be masked by a sibling `OK`.
 - **No reachable panic/abort on the per-file path.** Ordinary engine panics are caught; the one fault
   `catch_unwind` cannot catch is a **stack overflow → SIGABRT**, which lopdf 0.41's unbounded-recursion
   parser can hit on a crafted deeply-nested PDF. `heuristics::pdf` guards it on two fronts before
@@ -56,12 +63,17 @@ contract: **clamd** (signatures), **yara-x** (heuristic rules), and **structural
 - **clamd limits track the inspectable-size cap.** `entrypoint.sh` raises clamd's `StreamMaxLength` /
   `MaxScanSize` / `MaxFileSize` to 2048M (= `fileManager.inspectableSizeCapBytes`, 2 GiB) so clamd scans
   every file the pipeline feeds it; the two must stay aligned, and the deploy instance must be sized for a
-  full-size scan (the service buffers the body, clamd its own copy, atop the resident DB) — operations.md §9.
+  full-size scan (the service buffers the body, clamd its own copy, atop the resident clamd DB **and the
+  resident `Arc<yara_x::Rules>` + yara-x per-scan working set**) — operations.md §11.
 - **The `/scan` body limit tracks the cap too.** axum's `Bytes` extractor defaults to a 2 MiB body limit
   — every real document would 413 before reaching any engine; `router()` raises `/scan` to 2 GiB
   (`MAX_SCAN_BODY_BYTES` = `fileManager.inspectableSizeCapBytes`). Keep it aligned with the clamd limits.
-- **No runtime egress.** The Container runs `enableInternet = false`; the signature DB is baked at image
-  build (freshclam), and a refresh is an image rebuild. clamd is loopback-TCP only.
+- **No runtime egress.** The Container runs `enableInternet = false`; the signature DB (freshclam) **and
+  the YARA rule blob (`build-yara-rules`, the latest YARA Forge release)** are baked at image build, and a
+  refresh is an image rebuild. The resolved Forge tag is the engine-version `yara-rules/<tag>` component
+  (drives re-scan staleness — a new release on a nightly rebuild re-scans the fleet, an unchanged one does
+  not). A corrupt/unreadable baked blob is **fatal at boot**, never a silent fall-back to a rule-less scan.
+  clamd is loopback-TCP only.
 - **Cross-platform compile.** Talk to clamd over `Tcp` (loopback), not the Unix-socket client (which is
   `#[cfg(unix)]` and won't build on a Windows dev host).
 - **Crate pins are verified against docs.rs before use** (golden rule 11): axum 0.8, yara-x 1.18,
@@ -83,8 +95,10 @@ node harness/scan-proxy.mjs                  # browser harness vs a running cont
 - The engine **cannot run under `@cloudflare/vitest-pool-workers`** (containers unsupported there —
   workers-sdk#10408), so the worker binding is a **deploy-time activation** and the EICAR acceptance gate
   runs in the `scan-container` CI job, not the local worker suite.
-- yara starts **rule-less** today; the YARA-Forge corpus + rule-directory loading bake into the image as a
-  follow-up. clamd signatures (incl. EICAR) work without any yara rules.
+- yara rules are the **YARA Forge `extended`** package (`YARA_FORGE_TIER` ARG), fetched + compiled +
+  serialized at image build, with the FP-prone heuristic `_SUSP_` pocket (score < `YARA_MIN_SUSP_SCORE`,
+  default 75) dropped. The dev/test build (no `YARA_RULES_PATH` env) runs **rule-less** on clamd + the
+  structural heuristics, so clamd signatures (incl. EICAR) and the test suite work without any yara rules.
 - Structural inspection covers **PDF, OLE, and ZIP** only. Archive bombs/nesting/encryption in other
   formats (7z, RAR, gzip, bzip2, xz, tar) are not structurally caught — clamd scans their contents, but
   an encrypted non-ZIP archive serializes as `clean` rather than `unscanned`. Documented follow-up.

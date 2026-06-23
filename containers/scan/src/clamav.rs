@@ -255,7 +255,9 @@ pub async fn query_clamav_db_version(clamd_address: &str) -> std::io::Result<Str
 
 #[cfg(test)]
 mod tests {
-    use super::{interpret_reply, parse_clamav_db_version, query_clamav_db_version, scan_buffer, ClamVerdict};
+    use super::{
+        interpret_reply, parse_clamav_db_version, query_clamav_db_version, scan_buffer, ClamVerdict,
+    };
 
     #[test]
     fn instream_found_reply_is_infected_with_signature() {
@@ -454,10 +456,9 @@ mod tests {
 
         // The shrunk budget is 2s; a 8s outer deadline fails the test if the exchange hangs.
         let outer = std::time::Duration::from_secs(8);
-        let result =
-            tokio::time::timeout(outer, query_clamav_db_version(&address))
-                .await
-                .expect("VERSION query must not hang past the test deadline");
+        let result = tokio::time::timeout(outer, query_clamav_db_version(&address))
+            .await
+            .expect("VERSION query must not hang past the test deadline");
         std::env::remove_var("CLAMD_EXCHANGE_TIMEOUT_SECS");
         // The result must be an error (timeout) — never a successful parse of a reply that never
         // arrived.

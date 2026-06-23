@@ -20,6 +20,14 @@ path = "src/main.rs"
 name = "build-atoms"
 path = "src/bin/build-atoms.rs"
 
+# The build-time YARA Forge bundler. Runs in the image build (never at runtime): reads the downloaded
+# YARA Forge package, drops the FP-prone heuristic pocket, compiles the kept rules with yara-x, and
+# serializes them to the blob the runtime deserializes. Fail-closed + fail-loud — see
+# src/bin/build-yara-rules.rs. Depends on the lib's forge.rs + yara.rs.
+[[bin]]
+name = "build-yara-rules"
+path = "src/bin/build-yara-rules.rs"
+
 # A throwaway RSS benchmark comparing the SCAN (mmap, file-backed) vs INSTREAM (heap buffer, anonymous)
 # transports' service-side memory. Measurement only — not shipped in the runtime image.
 [[bin]]
