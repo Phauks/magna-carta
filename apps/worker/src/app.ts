@@ -67,6 +67,10 @@ export type Bindings = {
   >;
   // The bundle-build queue the coordinator enqueues onto; its consumer streams R2 -> client-zip -> R2.
   BUNDLE_BUILD: Queue<import("./downloads/bundle-types.ts").BundleBuildMessage>;
+  // The malware-scan Worker service binding. Dispatches file content to the scan worker for a
+  // verdict. Optional here so the pool can start without a running scan service; resolveScanPort
+  // falls back to the no-engine adapter when absent or when the bound service returns unscanned.
+  SCAN_SERVICE?: Fetcher;
   // The malware-scan Container (slice 2·1 Plan 2). Optional: absent in every test environment (the
   // container cannot run under the local pool) and until the deploy-time wrangler activation, where
   // resolveScanPort falls back to the engine-less adapter. Present in production once wired.
