@@ -324,6 +324,12 @@ pub(crate) struct GlyphSlot {
 /// Walk a decoded content stream, tracking graphics state (CTM stack) and PDF text
 /// state, and emit a `GlyphSlot` for every decoded glyph code.
 ///
+/// `initial_ctm` seeds the CTM stack. Pass `Affine::IDENTITY` for pages where the
+/// lower-left corner is already at the origin; pass
+/// `Affine::translate((-llx as f64, -lly as f64))` when the page's MediaBox
+/// lower-left is not at (0, 0) so that display-point coordinates are relative to
+/// the page's own lower-left corner.
+///
 /// Returns `Err(())` if the page uses a font or encoding the walk cannot reconstruct:
 /// - A show operator (`Tj`, `TJ`, `'`, `"`) is reached while the active font is
 ///   `FontMetrics::Unsupported` or absent from `fonts`.
@@ -335,15 +341,12 @@ pub(crate) struct GlyphSlot {
 pub(crate) fn enumerate_page_glyphs(
     content: &Content,
     fonts: &BTreeMap<Vec<u8>, FontMetrics>,
-    // page_height_pt is accepted for interface consistency with the display-point
-    // coordinate frame contract. Content-stream coordinates are already in
-    // PDF user space (bottom-left origin); no y-flip is performed here.
-    _page_height_pt: f32,
+    initial_ctm: kurbo::Affine,
 ) -> Result<Vec<GlyphSlot>, ()> {
     // ── Graphics state ────────────────────────────────────────────────────────
-    // The CTM stack starts with the identity transform. `q` pushes a copy; `Q`
-    // pops. `cm` pre-multiplies the top element.
-    let mut ctm_stack: Vec<Affine> = vec![Affine::IDENTITY];
+    // The CTM stack starts with initial_ctm. `q` pushes a copy; `Q` pops.
+    // `cm` pre-multiplies the top element.
+    let mut ctm_stack: Vec<Affine> = vec![initial_ctm];
 
     // ── Text state ────────────────────────────────────────────────────────────
     // `in_text` is true between BT and ET. The line matrix and text matrix are
@@ -1095,6 +1098,136 @@ fn glyph_width_from_metrics(slot: &GlyphSlot, fonts: &BTreeMap<Vec<u8>, FontMetr
     }
 }
 
+// ── Single-page surgery builder ───────────────────────────────────────────────
+
+/// Walk up the page-tree parent chain to find a MediaBox array, returning the
+/// four corner coordinates `[llx, lly, urx, ury]` as f32.
+///
+/// The PDF specification requires MediaBox to be inherited from ancestor nodes
+/// when absent from the page dictionary itself. This helper follows the
+/// `/Parent` reference chain until it finds the key or exhausts the tree.
+fn resolve_mediabox(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> Option<[f32; 4]> {
+    let mut current_id = page_id;
+    loop {
+        let dict = doc.get_dictionary(current_id).ok()?;
+        if let Ok(Object::Array(arr)) = dict.get(b"MediaBox") {
+            if arr.len() >= 4 {
+                let coords: Vec<f32> = arr.iter().filter_map(number_value).collect();
+                if coords.len() >= 4 {
+                    return Some([coords[0], coords[1], coords[2], coords[3]]);
+                }
+            }
+        }
+        // Walk up to the parent Pages node.
+        let parent_ref = dict.get(b"Parent").ok()?;
+        match parent_ref {
+            Object::Reference(id) => current_id = *id,
+            _ => return None,
+        }
+    }
+}
+
+/// Resolve the `/Rotate` value for a page, walking up the parent chain for
+/// inheritance. Returns 0 when the key is absent at all levels.
+///
+/// The PDF specification allows page rotation to be inherited from ancestor
+/// Pages nodes; this mirrors the inheritance walk used for MediaBox.
+fn resolve_rotate(doc: &lopdf::Document, page_id: lopdf::ObjectId) -> i64 {
+    let mut current_id = page_id;
+    loop {
+        let dict = match doc.get_dictionary(current_id).ok() {
+            Some(d) => d,
+            None => return 0,
+        };
+        if let Ok(value) = dict.get(b"Rotate") {
+            if let Some(n) = integer_value(value) {
+                return n;
+            }
+        }
+        let parent_ref = match dict.get(b"Parent").ok() {
+            Some(r) => r,
+            None => return 0,
+        };
+        match parent_ref {
+            Object::Reference(id) => current_id = *id,
+            _ => return 0,
+        }
+    }
+}
+
+/// Attempt to surgically redact `rects` from the content stream of `page_id`.
+///
+/// Returns `Some(bytes)` when the page's content stream can be decoded,
+/// round-tripped without loss, and re-encoded after excision. Returns `None`
+/// when the page structure prevents reliable surgery — for example when:
+/// - The content stream cannot be decoded or the decode-encode round-trip loses
+///   operations (a sign that lopdf does not faithfully represent the stream).
+/// - The page's MediaBox cannot be resolved from the page tree.
+/// - The page carries a non-zero `/Rotate` value (rotated pages require
+///   coordinate-frame adjustments that are handled by a flatten fallback).
+/// - A font or encoding encountered in a show operator is not supported by the
+///   glyph-position walker.
+///
+/// Returning `Some` does not guarantee that all glyphs within `rects` were
+/// removed — an outcome gate in the caller verifies that. This function only
+/// refuses pages it structurally cannot handle.
+pub(crate) fn try_build_surgery(
+    doc: &lopdf::Document,
+    page_id: lopdf::ObjectId,
+    rects: &[crate::redact::Rect],
+) -> Option<Vec<u8>> {
+    // Step 1: obtain the raw content stream bytes for the page.
+    let raw = doc.get_page_content(page_id).ok()?;
+
+    // Step 2: decode the content stream into a structured operation list.
+    let content = lopdf::content::Content::decode(&raw).ok()?;
+
+    // Step 3: round-trip guard — re-encode and decode back; if the operation
+    // count differs, lopdf cannot faithfully represent this stream and we
+    // must fall back to flatten rather than risk silent data loss.
+    let encoded_check = content.encode().ok()?;
+    let operation_count_after_roundtrip = lopdf::content::Content::decode(&encoded_check)
+        .ok()?
+        .operations
+        .len();
+    if operation_count_after_roundtrip != content.operations.len() {
+        return None;
+    }
+
+    // Step 4: resolve per-page font metrics.
+    let fonts = page_fonts(doc, page_id);
+
+    // Step 5: resolve the MediaBox to build the initial CTM.
+    // The redaction Rect frame has the page's lower-left at (0, 0). When the
+    // MediaBox lower-left is not at the origin (llx != 0 or lly != 0) we seed
+    // the CTM with a translation that maps the MediaBox lower-left to (0, 0).
+    let [llx, lly, _urx, _ury] = resolve_mediabox(doc, page_id)?;
+    let initial_ctm = kurbo::Affine::translate((-llx as f64, -lly as f64));
+
+    // Step 6: check page rotation. Non-zero rotations require a coordinate-frame
+    // adjustment that is not handled here; those pages fall back to flatten.
+    let rotate_raw = resolve_rotate(doc, page_id);
+    let rotate_normalized = rotate_raw.rem_euclid(360);
+    if rotate_normalized != 0 {
+        return None;
+    }
+
+    // Step 7: enumerate glyph positions.
+    let slots = enumerate_page_glyphs(&content, &fonts, initial_ctm).ok()?;
+
+    // Step 8: find which glyphs fall inside the redaction rectangles.
+    let marked = mark_in_rects(&slots, rects);
+
+    // Step 9: rewrite the content stream, dropping marked glyphs and appending
+    // black fill boxes for each rectangle.
+    let mut edited = content;
+    apply_excision(&mut edited, &slots, &marked, &fonts, rects);
+
+    // Step 10: encode the edited stream back to bytes.
+    let out = edited.encode().ok()?;
+    Some(out)
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -1315,7 +1448,8 @@ mod tests {
             Operation::new("ET", vec![]),
         ];
         let content = Content { operations: ops };
-        let slots = enumerate_page_glyphs(&content, &simple_fonts(), 792.0).unwrap();
+        let slots =
+            enumerate_page_glyphs(&content, &simple_fonts(), kurbo::Affine::IDENTITY).unwrap();
         assert_eq!(slots.len(), 2);
         assert_eq!(slots[0].code, b'A' as u32);
         assert_eq!(slots[0].byte_off, 0);
@@ -1345,8 +1479,12 @@ mod tests {
             ),
             Operation::new("ET", vec![]),
         ];
-        let slots =
-            enumerate_page_glyphs(&Content { operations: ops }, &simple_fonts(), 792.0).unwrap();
+        let slots = enumerate_page_glyphs(
+            &Content { operations: ops },
+            &simple_fonts(),
+            kurbo::Affine::IDENTITY,
+        )
+        .unwrap();
         assert_eq!(slots.len(), 2);
         assert_eq!(slots[1].elem, Some(2));
         // B origin = A origin(0) + advance(5.0) + kern(1.0) = 6.0; centre +2.5
@@ -1363,7 +1501,12 @@ mod tests {
             Operation::new("Tj", vec![Object::string_literal("A")]),
             Operation::new("ET", vec![]),
         ];
-        assert!(enumerate_page_glyphs(&Content { operations: ops }, &fonts, 792.0).is_err());
+        assert!(enumerate_page_glyphs(
+            &Content { operations: ops },
+            &fonts,
+            kurbo::Affine::IDENTITY
+        )
+        .is_err());
     }
 
     #[test]
@@ -1380,8 +1523,12 @@ mod tests {
             Operation::new("Tj", vec![Object::string_literal("A")]),
             Operation::new("ET", vec![]),
         ];
-        let slots =
-            enumerate_page_glyphs(&Content { operations: ops }, &simple_fonts(), 792.0).unwrap();
+        let slots = enumerate_page_glyphs(
+            &Content { operations: ops },
+            &simple_fonts(),
+            kurbo::Affine::IDENTITY,
+        )
+        .unwrap();
         // origin 50*2=100; advance also scaled: half-advance = 2.5*2=5.0
         assert!((slots[0].cx - (100.0 + 2.5 * 2.0)).abs() < 1.0);
     }
@@ -1421,7 +1568,7 @@ mod tests {
         widths.insert(b'B' as u32, 500.0f32);
         let fonts = simple_fonts();
         let content = ab_content();
-        let slots = enumerate_page_glyphs(&content, &fonts, 792.0).unwrap();
+        let slots = enumerate_page_glyphs(&content, &fonts, kurbo::Affine::IDENTITY).unwrap();
         // A large rect that covers all glyphs (they're near x=2.5/7.5 y=3.5 in text space).
         let rects = vec![crate::Rect {
             x0: 0.0,
@@ -1436,7 +1583,8 @@ mod tests {
     #[test]
     fn mark_in_rects_empty_rects_returns_empty() {
         let content = ab_content();
-        let slots = enumerate_page_glyphs(&content, &simple_fonts(), 792.0).unwrap();
+        let slots =
+            enumerate_page_glyphs(&content, &simple_fonts(), kurbo::Affine::IDENTITY).unwrap();
         assert!(mark_in_rects(&slots, &[]).is_empty());
     }
 
@@ -1444,7 +1592,8 @@ mod tests {
     fn excise_first_of_two_inserts_compensating_advance() {
         // "(AB) Tj", drop A (width 500, Tc=Tw=0). Expect TJ [ -500.0 (B) ].
         let mut content = ab_content();
-        let slots = enumerate_page_glyphs(&content, &simple_fonts(), 792.0).unwrap();
+        let slots =
+            enumerate_page_glyphs(&content, &simple_fonts(), kurbo::Affine::IDENTITY).unwrap();
         // Mark slot 0 = 'A'.
         apply_excision(&mut content, &slots, &[0], &simple_fonts(), &[]);
         // Find the rebuilt TJ.
@@ -1475,7 +1624,8 @@ mod tests {
     fn excise_last_of_two_keeps_first_with_trailing_compensation() {
         // "(AB) Tj", drop B. Expect TJ [ (A) -500.0 ].
         let mut content = ab_content();
-        let slots = enumerate_page_glyphs(&content, &simple_fonts(), 792.0).unwrap();
+        let slots =
+            enumerate_page_glyphs(&content, &simple_fonts(), kurbo::Affine::IDENTITY).unwrap();
         apply_excision(&mut content, &slots, &[1], &simple_fonts(), &[]);
         let tj = content
             .operations
@@ -1502,7 +1652,8 @@ mod tests {
     fn excise_both_leaves_only_compensation() {
         // "(AB) Tj", drop both. Expect TJ [ -1000.0 ] (one contiguous run).
         let mut content = ab_content();
-        let slots = enumerate_page_glyphs(&content, &simple_fonts(), 792.0).unwrap();
+        let slots =
+            enumerate_page_glyphs(&content, &simple_fonts(), kurbo::Affine::IDENTITY).unwrap();
         apply_excision(&mut content, &slots, &[0, 1], &simple_fonts(), &[]);
         let tj = content
             .operations
@@ -1592,7 +1743,8 @@ mod tests {
                 Operation::new("ET", vec![]),
             ],
         };
-        let slots = enumerate_page_glyphs(&content, &simple_fonts(), 792.0).unwrap();
+        let slots =
+            enumerate_page_glyphs(&content, &simple_fonts(), kurbo::Affine::IDENTITY).unwrap();
         assert_eq!(slots.len(), 1);
         apply_excision(&mut content, &slots, &[0], &simple_fonts(), &[]);
         // Verify that T* appears immediately before TJ in the output stream.
@@ -1611,5 +1763,192 @@ mod tests {
             positions[0].0 + 1,
             "T* must immediately precede TJ"
         );
+    }
+
+    // ── Task 4: hardening tests ───────────────────────────────────────────────
+
+    /// Dropping the first glyph from `[(A) -100 (B)] TJ` must preserve the
+    /// original -100 kerning element AND insert a -500 compensation for 'A'.
+    ///
+    /// The expected output array is: [-500.0, -100, (B)].
+    /// The compensation for the dropped 'A' (-500) comes first so the reader's
+    /// text position is advanced correctly before the kerning adjustment between
+    /// 'A' and 'B' is applied.
+    #[test]
+    fn tj_kerning_preserved_after_drop() {
+        let ops = vec![
+            Operation::new("BT", vec![]),
+            Operation::new("Tf", vec![Object::Name(b"F0".to_vec()), 10.into()]),
+            Operation::new("Td", vec![0.into(), 0.into()]),
+            Operation::new(
+                "TJ",
+                vec![Object::Array(vec![
+                    Object::string_literal("A"),
+                    Object::Integer(-100),
+                    Object::string_literal("B"),
+                ])],
+            ),
+            Operation::new("ET", vec![]),
+        ];
+        let mut content = Content { operations: ops };
+        let slots =
+            enumerate_page_glyphs(&content, &simple_fonts(), kurbo::Affine::IDENTITY).unwrap();
+        assert_eq!(slots.len(), 2);
+
+        // Drop only slot 0 = 'A'.
+        apply_excision(&mut content, &slots, &[0], &simple_fonts(), &[]);
+
+        let tj = content
+            .operations
+            .iter()
+            .find(|o| o.operator == "TJ")
+            .expect("expected a TJ operation after excision");
+
+        if let Object::Array(arr) = &tj.operands[0] {
+            // The compensation for the dropped 'A' must appear first.
+            assert!(
+                real_eq(&arr[0], -500.0),
+                "expected compensation -500.0 at index 0, got {:?}",
+                arr[0]
+            );
+            // The original -100 kerning between 'A' and 'B' must be preserved.
+            assert!(
+                real_eq(&arr[1], -100.0),
+                "expected original -100 kerning at index 1, got {:?}",
+                arr[1]
+            );
+            // The kept 'B' string follows.
+            assert!(
+                matches!(&arr[2], Object::String(s, _) if s.as_slice() == b"B"),
+                "expected kept 'B' at index 2, got {:?}",
+                arr[2]
+            );
+            assert_eq!(
+                arr.len(),
+                3,
+                "expected exactly 3 elements in rebuilt TJ array"
+            );
+        } else {
+            panic!("expected TJ array operand, got {:?}", tj.operands);
+        }
+    }
+
+    /// Verify glyph-centre computation against an asymmetric CTM matrix.
+    ///
+    /// Using `cm [2 0 0 3 5 7]` (x-scale=2, y-scale=3, translation 5,7) catches
+    /// transposition errors that a symmetric scale matrix would hide.
+    ///
+    /// Hand-computed expected values for font F0 size 10, glyph 'A' (width 500),
+    /// text position Td(10, 20):
+    ///
+    ///   half-advance in text space: (500/1000 * 10) / 2 = 2.5
+    ///   Text matrix after BT+Td: translate(10, 20)
+    ///   Tm * (2.5, 0) = (12.5, 20)
+    ///   CTM * (12.5, 20) = (2*12.5 + 5, 3*20 + 7) = (30.0, 67.0) → cx = 30.0
+    ///
+    ///   vertical centre in text space: (0, font_size * 0.35) = (0, 3.5)
+    ///   Tm * (0, 3.5) = (10, 23.5)
+    ///   CTM * (10, 23.5) = (2*10 + 5, 3*23.5 + 7) = (25.0, 77.5) → cy = 77.5
+    #[test]
+    fn asymmetric_cm_matrix_computes_correct_cx_and_cy() {
+        let ops = vec![
+            Operation::new(
+                "cm",
+                vec![2.into(), 0.into(), 0.into(), 3.into(), 5.into(), 7.into()],
+            ),
+            Operation::new("BT", vec![]),
+            Operation::new("Tf", vec![Object::Name(b"F0".to_vec()), 10.into()]),
+            Operation::new("Td", vec![10.into(), 20.into()]),
+            Operation::new("Tj", vec![Object::string_literal("A")]),
+            Operation::new("ET", vec![]),
+        ];
+        let slots = enumerate_page_glyphs(
+            &Content { operations: ops },
+            &simple_fonts(),
+            kurbo::Affine::IDENTITY,
+        )
+        .unwrap();
+        assert_eq!(slots.len(), 1);
+        assert!(
+            (slots[0].cx - 30.0).abs() < 1.0,
+            "expected cx ≈ 30.0, got {}",
+            slots[0].cx
+        );
+        assert!(
+            (slots[0].cy - 77.5).abs() < 1.0,
+            "expected cy ≈ 77.5, got {}",
+            slots[0].cy
+        );
+    }
+
+    // ── Task 4: integration test using the hello.pdf fixture ──────────────────
+
+    /// Build surgery on a real PDF fixture and verify:
+    ///   1. A rect covering the whole page returns Some and the edited stream
+    ///      parses as valid lopdf content that differs from the original
+    ///      (excision did something).
+    ///   2. A rect covering nothing (far corner) returns Some and the stream
+    ///      decodes without error (structure intact).
+    #[test]
+    fn try_build_surgery_hello_pdf() {
+        let fixture =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/hello.pdf");
+        let doc = lopdf::Document::load(&fixture).expect("hello.pdf must load");
+
+        let page_id = *doc
+            .get_pages()
+            .values()
+            .next()
+            .expect("hello.pdf must have at least one page");
+
+        // A rect that covers the entire standard letter page.
+        let full_page_rect = crate::Rect {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 612.0,
+            y1: 792.0,
+        };
+
+        let surgery_result = try_build_surgery(&doc, page_id, &[full_page_rect]);
+        assert!(
+            surgery_result.is_some(),
+            "try_build_surgery must return Some for hello.pdf with a full-page rect"
+        );
+        let stream_bytes = surgery_result.unwrap();
+
+        // The returned bytes must round-trip through lopdf content parsing.
+        let reparsed = lopdf::content::Content::decode(&stream_bytes)
+            .expect("returned stream bytes must decode as valid lopdf content");
+        assert!(
+            !reparsed.operations.is_empty(),
+            "decoded content must have at least one operation"
+        );
+
+        // Verify that the stream differs from the original (excision appended
+        // redaction boxes and rewrote at least the content structure).
+        let original_raw = doc
+            .get_page_content(page_id)
+            .expect("original content must be accessible");
+        assert_ne!(
+            stream_bytes, original_raw,
+            "a full-page rect must produce a stream that differs from the original"
+        );
+
+        // A rect that is far from any text (near the top-right corner, one point square)
+        // should return Some and not corrupt the stream structure.
+        let empty_rect = crate::Rect {
+            x0: 611.0,
+            y0: 791.0,
+            x1: 612.0,
+            y1: 792.0,
+        };
+        let no_hit_result = try_build_surgery(&doc, page_id, &[empty_rect]);
+        assert!(
+            no_hit_result.is_some(),
+            "try_build_surgery must return Some for hello.pdf with a non-hitting rect"
+        );
+        let no_hit_bytes = no_hit_result.unwrap();
+        let _no_hit_parsed = lopdf::content::Content::decode(&no_hit_bytes)
+            .expect("no-hit surgery stream must decode as valid lopdf content");
     }
 }
