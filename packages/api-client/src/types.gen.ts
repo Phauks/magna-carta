@@ -70,6 +70,36 @@ export type FirmUsageResponse = {
     };
 };
 
+export type WhoisResponse = {
+    source: 'rdap' | 'whois-43';
+    target: string;
+    registrar?: string;
+    registeredAt?: string;
+    expiresAt?: string;
+    lastChangedAt?: string;
+    nameservers?: Array<string>;
+    statuses?: Array<string>;
+    registrant?: string;
+    raw?: string;
+};
+
+export type SafeWebsiteView = {
+    requestedUrl: string;
+    finalUrl: string;
+    redirectChain: Array<{
+        url: string;
+        status: number;
+        location?: string;
+    }>;
+    responseHeaders: {
+        [key: string]: string;
+    };
+    screenshotBase64: string;
+    title?: string;
+    markdown?: string;
+    links: Array<string>;
+};
+
 export type InviteMemberResponse = {
     id: string;
     email: string;
@@ -984,6 +1014,88 @@ export type FirmUsageGetResponses = {
 };
 
 export type FirmUsageGetResponse = FirmUsageGetResponses[keyof FirmUsageGetResponses];
+
+export type WhoisGetData = {
+    body?: never;
+    path?: never;
+    query: {
+        query: string;
+    };
+    url: '/api/v1/whois';
+};
+
+export type WhoisGetErrors = {
+    /**
+     * The query target is not a valid public domain or IP address
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:whois
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type WhoisGetError = WhoisGetErrors[keyof WhoisGetErrors];
+
+export type WhoisGetResponses = {
+    /**
+     * The registration record for the queried domain or IP address
+     */
+    200: WhoisResponse;
+};
+
+export type WhoisGetResponse = WhoisGetResponses[keyof WhoisGetResponses];
+
+export type SafeBrowsePostData = {
+    body: {
+        url: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/safe-browse';
+};
+
+export type SafeBrowsePostErrors = {
+    /**
+     * The target URL resolves to a non-public address (SSRF guard rejected it)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:safeBrowse
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The remote browser renderer is unavailable or at capacity
+     */
+    502: Problem;
+};
+
+export type SafeBrowsePostError = SafeBrowsePostErrors[keyof SafeBrowsePostErrors];
+
+export type SafeBrowsePostResponses = {
+    /**
+     * Static snapshot of the rendered page
+     */
+    200: SafeWebsiteView;
+};
+
+export type SafeBrowsePostResponse = SafeBrowsePostResponses[keyof SafeBrowsePostResponses];
 
 export type MembersInviteData = {
     body: InviteMemberRequest;

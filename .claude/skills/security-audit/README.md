@@ -10,7 +10,7 @@ The skill runs a structured audit in six phases:
 
 1. **Recon** -- parallel research agents map the application's architecture, trust boundaries, and input surfaces. Produces `architecture.md`.
 2. **Hunt** -- parallel general agents attack the codebase from different angles (injection, access control, business logic, cryptography, feature abuse, chained attacks, and a wildcard). Each agent can spawn sub-agents to dig deeper.
-3. **Validate** -- separate agents try to *disprove* each finding. Adversarial review kills false positives.
+3. **Validate** -- separate agents try to _disprove_ each finding. Adversarial review kills false positives.
 4. **Report** -- produces `REPORT.md` (human-readable) and `FINDINGS-DETAIL.md` (detailed traces for MEDIUM+ findings).
 5. **Structured output** -- writes `findings.json` conforming to `report-schema.json`, validated by `validate-findings.cjs`.
 6. **Independent verification** -- fresh agents verify every factual claim in the structured output against the actual source code.
@@ -19,15 +19,15 @@ Multiple runs against the same repo are additive. Each run explores different co
 
 ## Files
 
-| File | Purpose |
-|------|---------|
-| `SKILL.md` | Setup, core principles, platform terminology, workflow overview, and audit anti-patterns |
-| `RECONNAISSANCE.md` | Phase 1 reconnaissance prompts and synthesis instructions |
-| `HUNTING.md` | Phase 2 orchestration, hunting methodology, and validation rules |
-| `ATTACK-CLASSES.md` | Core, wildcard, and obvious-things attack prompts |
-| `VALIDATION-AND-REPORTING.md` | Phases 3–6 validation, reporting, and verification |
-| `report-schema.json` | JSON schema for `findings.json` (confirmed and rejected finding structures) |
-| `validate-findings.cjs` | Zero-dependency Node.js validator that checks `findings.json` against the schema |
+| File                          | Purpose                                                                                  |
+| ----------------------------- | ---------------------------------------------------------------------------------------- |
+| `SKILL.md`                    | Setup, core principles, platform terminology, workflow overview, and audit anti-patterns |
+| `RECONNAISSANCE.md`           | Phase 1 reconnaissance prompts and synthesis instructions                                |
+| `HUNTING.md`                  | Phase 2 orchestration, hunting methodology, and validation rules                         |
+| `ATTACK-CLASSES.md`           | Core, wildcard, and obvious-things attack prompts                                        |
+| `VALIDATION-AND-REPORTING.md` | Phases 3–6 validation, reporting, and verification                                       |
+| `report-schema.json`          | JSON schema for `findings.json` (confirmed and rejected finding structures)              |
+| `validate-findings.cjs`       | Zero-dependency Node.js validator that checks `findings.json` against the schema         |
 
 ## Installation
 

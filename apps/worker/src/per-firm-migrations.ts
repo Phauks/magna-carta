@@ -17,7 +17,8 @@ import customFieldsSql from "@magna-carta/database/drizzle/per-firm/0013_custom-
 import inferenceTokenUsageSql from "@magna-carta/database/drizzle/per-firm/0014_inference-token-usage.sql";
 import inlinePlayableSql from "@magna-carta/database/drizzle/per-firm/0015_odd_mesmero.sql";
 import scanCacheAndDetailSql from "@magna-carta/database/drizzle/per-firm/0016_warm_talkback.sql";
-import seedToolsFileConverterSql from "@magna-carta/database/drizzle/per-firm/0017_seed-tools-file-converter.sql";
+import seedToolsWebDomainsSql from "@magna-carta/database/drizzle/per-firm/0017_seed-tools-web-domains.sql";
+import seedToolsFileConverterSql from "@magna-carta/database/drizzle/per-firm/0018_seed-tools-file-converter.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the firm
 // provisioner migrates a freshly created firm database to head at provisioning time, so the SQL
@@ -44,7 +45,8 @@ export function perFirmMigrations(): Migration[] {
     "0014_inference-token-usage": inferenceTokenUsageSql,
     "0015_odd_mesmero": inlinePlayableSql,
     "0016_warm_talkback": scanCacheAndDetailSql,
-    "0017_seed-tools-file-converter": seedToolsFileConverterSql,
+    "0017_seed-tools-web-domains": seedToolsWebDomainsSql,
+    "0018_seed-tools-file-converter": seedToolsFileConverterSql,
   });
 }
 

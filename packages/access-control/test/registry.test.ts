@@ -96,6 +96,8 @@ describe("permission registry", () => {
       "tools:shipping",
       "tools:speedTest",
       "tools:firmUsage",
+      "tools:whois",
+      "tools:safeBrowse",
       "tools:fileConverter",
     ]);
   });
@@ -113,6 +115,11 @@ describe("permission registry", () => {
   it("registers the custom-fields permissions", () => {
     expect(isPermission("customFields:manage")).toBe(true);
     expect(isPermission("customFields:purge")).toBe(true);
+  });
+
+  it("web-domains tool permissions are registered", () => {
+    expect(isPermission("tools:whois")).toBe(true);
+    expect(isPermission("tools:safeBrowse")).toBe(true);
   });
 
   it("every registered key is `<subsystem>:<action>` — lowercase-led camelCase segments", () => {

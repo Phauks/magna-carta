@@ -45,8 +45,8 @@ exported so callers need not depend on the DOM `File` type.
 - **`@magna-carta/tools`** — add a **`documents`** subject group to `SUBJECT_GROUP_ORDER` +
   `SubjectGroup`, and the catalog row:
   `{ id: "file-converter", name: "File Converter", icon: "file-cog", subjectGroup: "documents",
-  permission: assertPermission("tools:fileConverter"), contextTags: ["none"],
-  backing: { kind: "library" }, matterContext: "none" }`. Update the catalog test.
+permission: assertPermission("tools:fileConverter"), contextTags: ["none"],
+backing: { kind: "library" }, matterContext: "none" }`. Update the catalog test.
 
 ## Deferred (correctly gated)
 
@@ -57,7 +57,7 @@ exported so callers need not depend on the DOM `File` type.
   (orchestrator, transient-convert route, the LibreOffice fork-pool / FFmpeg sandbox engine bodies).
 - **The optional client-side image accelerator** (wasm-vips in the browser) — the parity fast-path.
 - **Role-seeding** — granting `tools:fileConverter` to roles is a per-firm migration; like firm-usage,
-  the permission is *registered* now and *granted* when the surface lands. No role holding it yet is
+  the permission is _registered_ now and _granted_ when the surface lands. No role holding it yet is
   correct (there is no UI to gate). This also keeps the slice off the migration-numbering churn.
 
 ## Testing (TDD)

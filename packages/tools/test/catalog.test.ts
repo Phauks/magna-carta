@@ -35,6 +35,8 @@ describe("tool catalog", () => {
       "shipping",
       "network-speed-test",
       "firm-usage",
+      "whois-lookup",
+      "safe-website-viewer",
       "file-converter",
     ]);
   });

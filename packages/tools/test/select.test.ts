@@ -81,3 +81,36 @@ describe("toolsFor", () => {
     expect(toolsFor(catalog, "person", allPermissions)).toEqual([]);
   });
 });
+
+describe("web-domains group and website context tag", () => {
+  const whois = assertPermission("tools:whois");
+  const safeBrowse = assertPermission("tools:safeBrowse");
+
+  const webDomainsCatalog: ToolManifest[] = [
+    makeTool({
+      id: "whois-lookup",
+      permission: whois,
+      subjectGroup: "web-domains",
+      contextTags: ["website"],
+    }),
+    makeTool({
+      id: "safe-website-viewer",
+      permission: safeBrowse,
+      subjectGroup: "web-domains",
+      contextTags: ["website"],
+    }),
+  ];
+
+  const webPermissions = new Set<Permission>([whois, safeBrowse]);
+
+  it("web-domains group surfaces both website tools in order", () => {
+    const groups = toolsByGroup(webDomainsCatalog, webPermissions);
+    const webDomains = groups.find((g) => g.group === "web-domains");
+    expect(webDomains?.tools.map((t) => t.id)).toEqual(["whois-lookup", "safe-website-viewer"]);
+  });
+
+  it("toolsFor('website') returns both website tools", () => {
+    const ids = toolsFor(webDomainsCatalog, "website", webPermissions).map((t) => t.id);
+    expect(ids).toEqual(["whois-lookup", "safe-website-viewer"]);
+  });
+});

@@ -7,11 +7,13 @@ Collect all findings from Phase 2 agents and **consolidate duplicates first**. P
 For findings from the same attack surface, batch them into one validation agent. Launch validation agents in parallel where they cover independent areas.
 
 Each validation agent prompt should:
+
 1. State the specific finding being validated (title, claimed attack, claimed impact)
 2. Ask the agent to read the exact code paths and verify each step of the trace
 3. Ask it to apply these tests:
 
 **Validation tests:**
+
 1. **Exploitation test**: Read the actual code at each step of the trace. Does the data flow work as claimed? Can you construct the exact input (HTTP request, CLI invocation, API call, crafted file, etc.) that triggers this?
 2. **Impact test**: What does the attacker actually get? If the answer is "they learn field names" or "they cause an error", that's LOW at best.
 3. **Baseline test**: Does the identified comparable have the same pattern? If yes, has it been exploited? If never exploited in years of production use, understand why before reporting.
@@ -55,6 +57,7 @@ Keep it short. If the report is longer than the codebase deserves, you're paddin
 For every finding that survived Phase 3 validation, produce a structured JSON object conforming to the schema defined in `report-schema.json` (in the same directory as this skill file — read it via the Read tool before writing output). Write the result to `<output-dir>/findings.json`.
 
 The schema supports two verdict types via `oneOf`:
+
 - **`confirmed`** — a validated vulnerability with full trace, execution, and remediation
 - **`rejected`** — a finding that was investigated and determined to be factually incorrect
 
@@ -98,6 +101,7 @@ Return one of:
 ```
 
 Apply the agent's corrections:
+
 - **VERIFIED** findings: no changes needed
 - **CORRECTED** findings: update the specific fields in `findings.json`, re-run the schema validation script
 - **REJECTED** findings: change their `verdict` to `"rejected"` with the agent's reason, or remove them entirely
