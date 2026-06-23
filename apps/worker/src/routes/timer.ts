@@ -152,83 +152,122 @@ const readMeta: RouteMeta = {
   rateLimit: "default",
 };
 
-function proxyRoute(
-  meta: RouteMeta,
-  action: string,
-  description: string,
-  body: z.ZodTypeAny,
-  ackSchema: z.ZodTypeAny,
-  code: 200 | 201,
-) {
-  return defineOpenAPIRoute(meta, {
-    method: "post",
-    path: `/api/v1/timer/${action}`,
-    description,
-    request: {
-      headers: idempotencyKeyHeader,
-      body: { content: { "application/json": { schema: body } }, required: true },
-    },
-    responses: {
-      [code]: { description: "Applied", content: { "application/json": { schema: ackSchema } } },
-      400: writeErrorResponses[400],
-      401: writeErrorResponses[401],
-      403: writeErrorResponses[403],
-      404: writeErrorResponses[404],
-      409: writeErrorResponses[409],
-      422: writeErrorResponses[422],
-      429: writeErrorResponses[429],
-    },
-  });
-}
-
-const startRoute = proxyRoute(
-  startMeta,
-  "start",
-  "Starts the timekeeper's live timer, stopping any timer already running (single-active). Mints a live run id and sets the abandoned alarm.",
-  StartRequest,
-  StartAck,
-  200,
-);
-const pauseRoute = proxyRoute(
-  pauseMeta,
-  "pause",
-  "Pauses the running timer.",
-  EmptyRequest,
-  TimerAck,
-  200,
-);
-const resumeRoute = proxyRoute(
-  resumeMeta,
-  "resume",
-  "Resumes a paused timer.",
-  EmptyRequest,
-  TimerAck,
-  200,
-);
-const bindRoute = proxyRoute(
-  bindMeta,
-  "bind",
-  "Binds the running timer to a matter (required before commit).",
-  BindRequest,
-  TimerAck,
-  200,
-);
-const stopCommitRoute = proxyRoute(
-  stopCommitMeta,
-  "stop-commit",
-  "Stops the timer and commits its elapsed time as a draft entry. Refuses an unbound timer. Idempotent on the live run id — two racing commits collapse to one entry.",
-  EmptyRequest,
-  StopCommitAck,
-  201,
-);
-const discardRoute = proxyRoute(
-  discardMeta,
-  "discard",
-  "Discards the running timer without committing.",
-  EmptyRequest,
-  TimerAck,
-  200,
-);
+const startRoute = defineOpenAPIRoute(startMeta, {
+  method: "post",
+  path: "/api/v1/timer/start",
+  description:
+    "Starts the timekeeper's live timer, stopping any timer already running (single-active). Mints a live run id and sets the abandoned alarm.",
+  request: {
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: StartRequest } }, required: true },
+  },
+  responses: {
+    200: { description: "Applied", content: { "application/json": { schema: StartAck } } },
+    400: writeErrorResponses[400],
+    401: writeErrorResponses[401],
+    403: writeErrorResponses[403],
+    404: writeErrorResponses[404],
+    409: writeErrorResponses[409],
+    422: writeErrorResponses[422],
+    429: writeErrorResponses[429],
+  },
+});
+const pauseRoute = defineOpenAPIRoute(pauseMeta, {
+  method: "post",
+  path: "/api/v1/timer/pause",
+  description: "Pauses the running timer.",
+  request: {
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: EmptyRequest } }, required: true },
+  },
+  responses: {
+    200: { description: "Applied", content: { "application/json": { schema: TimerAck } } },
+    400: writeErrorResponses[400],
+    401: writeErrorResponses[401],
+    403: writeErrorResponses[403],
+    404: writeErrorResponses[404],
+    409: writeErrorResponses[409],
+    422: writeErrorResponses[422],
+    429: writeErrorResponses[429],
+  },
+});
+const resumeRoute = defineOpenAPIRoute(resumeMeta, {
+  method: "post",
+  path: "/api/v1/timer/resume",
+  description: "Resumes a paused timer.",
+  request: {
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: EmptyRequest } }, required: true },
+  },
+  responses: {
+    200: { description: "Applied", content: { "application/json": { schema: TimerAck } } },
+    400: writeErrorResponses[400],
+    401: writeErrorResponses[401],
+    403: writeErrorResponses[403],
+    404: writeErrorResponses[404],
+    409: writeErrorResponses[409],
+    422: writeErrorResponses[422],
+    429: writeErrorResponses[429],
+  },
+});
+const bindRoute = defineOpenAPIRoute(bindMeta, {
+  method: "post",
+  path: "/api/v1/timer/bind",
+  description: "Binds the running timer to a matter (required before commit).",
+  request: {
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: BindRequest } }, required: true },
+  },
+  responses: {
+    200: { description: "Applied", content: { "application/json": { schema: TimerAck } } },
+    400: writeErrorResponses[400],
+    401: writeErrorResponses[401],
+    403: writeErrorResponses[403],
+    404: writeErrorResponses[404],
+    409: writeErrorResponses[409],
+    422: writeErrorResponses[422],
+    429: writeErrorResponses[429],
+  },
+});
+const stopCommitRoute = defineOpenAPIRoute(stopCommitMeta, {
+  method: "post",
+  path: "/api/v1/timer/stop-commit",
+  description:
+    "Stops the timer and commits its elapsed time as a draft entry. Refuses an unbound timer. Idempotent on the live run id — two racing commits collapse to one entry.",
+  request: {
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: EmptyRequest } }, required: true },
+  },
+  responses: {
+    201: { description: "Applied", content: { "application/json": { schema: StopCommitAck } } },
+    400: writeErrorResponses[400],
+    401: writeErrorResponses[401],
+    403: writeErrorResponses[403],
+    404: writeErrorResponses[404],
+    409: writeErrorResponses[409],
+    422: writeErrorResponses[422],
+    429: writeErrorResponses[429],
+  },
+});
+const discardRoute = defineOpenAPIRoute(discardMeta, {
+  method: "post",
+  path: "/api/v1/timer/discard",
+  description: "Discards the running timer without committing.",
+  request: {
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: EmptyRequest } }, required: true },
+  },
+  responses: {
+    200: { description: "Applied", content: { "application/json": { schema: TimerAck } } },
+    400: writeErrorResponses[400],
+    401: writeErrorResponses[401],
+    403: writeErrorResponses[403],
+    404: writeErrorResponses[404],
+    409: writeErrorResponses[409],
+    422: writeErrorResponses[422],
+    429: writeErrorResponses[429],
+  },
+});
 
 const readRoute = defineOpenAPIRoute(readMeta, {
   method: "get",

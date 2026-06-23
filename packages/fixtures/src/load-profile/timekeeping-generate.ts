@@ -1,4 +1,8 @@
-import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
+import {
+  commitEffectBatch,
+  type BatchDatabase,
+  type EffectWrite,
+} from "@magna-carta/data-access/effect-batch";
 import type { MatterId, RateCardId, UserId } from "@magna-carta/identifiers/types";
 import { resolveRate } from "@magna-carta/timekeeping/rate-resolution";
 import { appendRate, createRateCard } from "@magna-carta/timekeeping/rate-service";
@@ -65,10 +69,8 @@ export async function generateTimeVolume(
   assertSeedingAllowed(options);
   const { faker, clock, randomSource } = context;
   const serviceOptions = { clock, actorUserId: attach.timekeeperUserId, randomSource };
-  const commit = (effect: { statements: unknown[]; outboxMessages: unknown[] }) =>
-    commitEffectBatch(database, effect as Parameters<typeof commitEffectBatch>[1], {
-      now: () => clock.now(),
-    });
+  const commit = (effect: EffectWrite) =>
+    commitEffectBatch(database, effect, { now: () => clock.now() });
 
   // --- Rate cards, each with effective-dated rate versions for the timekeeper tier. The first card is
   // the resolution probe target. The capture span starts at the clock's current civil date. ---

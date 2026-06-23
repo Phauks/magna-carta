@@ -23,7 +23,7 @@ async function seedCatalog(database: BatchDatabase): Promise<void> {
   await database.batch(seedUtbmsCatalogStatements(database));
 }
 
-async function listSet(database: BatchDatabase, codeSet: string) {
+async function listSet(database: BatchDatabase, codeSet: "activity" | "expense" | "task") {
   const { results } = await listUtbmsCodesBySetStatement(database, codeSet).all<{
     id: string;
     code: string;

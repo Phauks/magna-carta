@@ -5,7 +5,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { TimeEntryId, UserId } from "@magna-carta/identifiers/types";
 import { assertTransition, isFrozen, type TimeEntryStatus } from "./lifecycle.ts";
-import type { RateResolution, RateSource } from "./rate-resolution.ts";
+import type { RateSource } from "./rate-resolution.ts";
 import {
   insertTimeEntryStatement,
   selectMatterEBillingStatement,

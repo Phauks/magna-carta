@@ -5,6 +5,7 @@ import type { UserId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import { appendRate, createRateCard } from "../src/rate-service.ts";
 import { resolveRate, type RateResolutionContext } from "../src/rate-resolution.ts";
+import type { RateCardId } from "@magna-carta/identifiers/types";
 
 const clock = { now: () => "2026-06-22T12:00:00.000Z" };
 const options = { clock, actorUserId: "user_partner" as UserId };
@@ -17,7 +18,7 @@ async function commit(database: BatchDatabase, effect: Parameters<typeof commitE
   await commitEffectBatch(database, effect, { now: clock.now });
 }
 
-async function makeCard(database: BatchDatabase): Promise<string> {
+async function makeCard(database: BatchDatabase): Promise<RateCardId> {
   const { rateCardId, effect } = await createRateCard(database, { name: "Standard" }, options);
   await commit(database, effect);
   return rateCardId;

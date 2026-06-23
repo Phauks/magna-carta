@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
 import type { FirmId } from "@magna-carta/identifiers/types";
@@ -34,18 +33,27 @@ export interface SuggestNarrativeOptions {
 // The producer's stable per-run idempotency anchor: a hex digest over (firmId, matterId, the
 // prompt-fingerprinting context). Identical inputs yield an identical key, so a redelivered run
 // collapses to one spend + one meter through the consumer's two guards. Opaque (a digest, not the raw
-// prompt) so it leaks no narrative content into a key column. NUL bytes separate fields so "a" + "bc"
-// and "ab" + "c" produce distinct digests.
-export function buildInferenceJobIdempotencyKey(input: NarrativeSuggestionInput): string {
-  const fingerprint = createHash("sha256")
-    .update(input.firmId)
-    .update("\x00")
-    .update(input.matterId)
-    .update("\x00")
-    .update(input.utbmsContext ?? "")
-    .update("\x00")
-    .update(input.userHistorySeed ?? "")
-    .digest("hex");
+// prompt) so it leaks no narrative content into a key column. NUL bytes (\x00) separate fields so
+// "a" + "bc" and "ab" + "c" produce distinct digests. Uses the Web Crypto API (available globally in
+// Cloudflare Workers) rather than node:crypto, which is not in the worker's typecheck scope.
+export async function buildInferenceJobIdempotencyKey(
+  input: NarrativeSuggestionInput,
+): Promise<string> {
+  const encoder = new TextEncoder();
+  // Concatenate fields with NUL-byte delimiters — same boundary as the prior sha256 chain.
+  const payload = [
+    input.firmId,
+    "\x00",
+    input.matterId,
+    "\x00",
+    input.utbmsContext ?? "",
+    "\x00",
+    input.userHistorySeed ?? "",
+  ].join("");
+  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(payload));
+  const fingerprint = [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
   return `narrative:${fingerprint}`;
 }
 

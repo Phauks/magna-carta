@@ -1,17 +1,12 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
-import {
-  createNarrativeTemplate,
-  archiveNarrativeTemplate,
-} from "@magna-carta/timekeeping/narrative-template-service";
+import { createNarrativeTemplate } from "@magna-carta/timekeeping/narrative-template-service";
 import {
   listNarrativeTemplatesStatement,
   recentNarrativesStatement,
-  NARRATIVE_TEMPLATE_TABLE,
 } from "@magna-carta/timekeeping/narrative-template-statements";
 import { TimeEntryValidationError } from "@magna-carta/timekeeping/time-entry-validation";
-import type { NarrativeTemplateId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -336,7 +331,7 @@ export function registerNarrativeTemplatesRoutes(
       const { timekeeperUserId, limit } = c.req.valid("query");
       if (timekeeperUserId !== sessionUserId) {
         return problemJson(c, {
-          type: "forbidden",
+          type: "permission-denied",
           title: "Forbidden",
           status: 403,
           detail: "Recent narratives may only be read for the authenticated user.",

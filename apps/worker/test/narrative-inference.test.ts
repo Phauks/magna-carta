@@ -87,23 +87,25 @@ describe("suggestNarrative — dark until the firm's AI-processing gate is on", 
 });
 
 describe("buildInferenceJobIdempotencyKey — stable per (firmId, matterId, prompt fingerprint)", () => {
-  it("is identical for identical inputs and differs when any dimension changes", () => {
-    const key = buildInferenceJobIdempotencyKey(INPUT);
-    expect(buildInferenceJobIdempotencyKey({ ...INPUT })).toBe(key);
-    expect(buildInferenceJobIdempotencyKey({ ...INPUT, matterId: "matter_other" })).not.toBe(key);
-    expect(buildInferenceJobIdempotencyKey({ ...INPUT, firmId: "firm_other" })).not.toBe(key);
-    expect(buildInferenceJobIdempotencyKey({ ...INPUT, utbmsContext: "L130" })).not.toBe(key);
+  it("is identical for identical inputs and differs when any dimension changes", async () => {
+    const key = await buildInferenceJobIdempotencyKey(INPUT);
+    expect(await buildInferenceJobIdempotencyKey({ ...INPUT })).toBe(key);
+    expect(await buildInferenceJobIdempotencyKey({ ...INPUT, matterId: "matter_other" })).not.toBe(
+      key,
+    );
+    expect(await buildInferenceJobIdempotencyKey({ ...INPUT, firmId: "firm_other" })).not.toBe(key);
+    expect(await buildInferenceJobIdempotencyKey({ ...INPUT, utbmsContext: "L130" })).not.toBe(key);
     expect(
-      buildInferenceJobIdempotencyKey({ ...INPUT, userHistorySeed: "different seed" }),
+      await buildInferenceJobIdempotencyKey({ ...INPUT, userHistorySeed: "different seed" }),
     ).not.toBe(key);
     // Collision-proof: inputs that share the same concatenated bytes under a space separator but differ
     // in field boundaries must produce distinct keys. The NUL (\x00) delimiter guarantees this.
-    const splitA = buildInferenceJobIdempotencyKey({
+    const splitA = await buildInferenceJobIdempotencyKey({
       ...INPUT,
       utbmsContext: "L120",
       userHistorySeed: "draft demand",
     });
-    const splitB = buildInferenceJobIdempotencyKey({
+    const splitB = await buildInferenceJobIdempotencyKey({
       ...INPUT,
       utbmsContext: "L120 draft",
       userHistorySeed: "demand",
@@ -111,8 +113,8 @@ describe("buildInferenceJobIdempotencyKey — stable per (firmId, matterId, prom
     expect(splitA).not.toBe(splitB);
   });
 
-  it("is a stable, opaque, URL-safe token (a hex digest), not the raw prompt", () => {
-    const key = buildInferenceJobIdempotencyKey(INPUT);
+  it("is a stable, opaque, URL-safe token (a hex digest), not the raw prompt", async () => {
+    const key = await buildInferenceJobIdempotencyKey(INPUT);
     expect(key).toMatch(/^narrative:[0-9a-f]{64}$/);
     expect(key).not.toContain("demand letter");
   });
