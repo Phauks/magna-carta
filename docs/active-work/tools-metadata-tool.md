@@ -2,7 +2,7 @@
 branch: tools-metadata-tool
 worktree: C:/dev/magna-carta-worktrees/tools-metadata-tool
 area: Tools — Metadata Inspector & Scrubber (all-TypeScript)
-status: building
+status: built (pre-merge review pending)
 touches: docs/specs/2026-06-22-metadata-tool-design.md, docs/specs/2026-06-22-metadata-tool-implementation-plan.md, packages/metadata/** (new), packages/tools/src/catalog.ts (one row), packages/access-control/src/registry.ts (one permission), apps/worker/src/routes/metadata.ts (new) + app.ts registration, apps/worker conformance test, packages/database per-firm migration (role seed), apps/worker seed test, STATUS.md, ROADMAP.md, changelog.d/, docs/decisions/pending/, docs/user/tools/
 ---
 
