@@ -27,6 +27,11 @@ image = { version = "0.25", default-features = false, features = [
   "tiff",
   "bmp",
 ] }
+# Pure-Rust PDF writer. Only the raster-images feature is enabled; simple-text and rayon are
+# excluded (no font shaping, no thread-pool required for image-to-PDF). No C/-sys dependency is
+# introduced — the pure-Rust codec chain (png/zune-jpeg/image-webp/gif) handles all image decoding
+# inside krilla, and the image crate above supplies the decoded pixel data via from_rgba8.
+krilla = { version = "0.8.2", default-features = false, features = ["raster-images"] }
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }

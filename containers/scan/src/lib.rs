@@ -18,6 +18,7 @@ use std::sync::Arc;
 // cache instead.
 pub mod atoms;
 pub mod clamav;
+pub mod forge;
 pub mod heuristics;
 pub mod prefilter;
 #[cfg(unix)]
@@ -42,10 +43,14 @@ pub struct AppState {
 ///
 /// Format: `engine/<code>+yara-rules/<rules>+clamav-db/<db>`
 ///
+/// The `yara-rules` component is the baked YARA Forge release tag (e.g. `20260621`), or `none` when no
+/// rules are loaded. A tag changes only when Forge actually publishes a new release, so the fleet
+/// re-scans on a real rules change — not on every nightly image rebuild (which re-resolves the same tag).
+///
 /// Any component changing changes the whole string, which drives re-scan staleness across the fleet.
 /// Split on `+` then `/` to decompose back to the individual components.
-pub fn compose_engine_version(engine_code: u32, yara_rulesets: u32, clamav_db: &str) -> String {
-    format!("engine/{engine_code}+yara-rules/{yara_rulesets}+clamav-db/{clamav_db}")
+pub fn compose_engine_version(engine_code: u32, yara_rules: &str, clamav_db: &str) -> String {
+    format!("engine/{engine_code}+yara-rules/{yara_rules}+clamav-db/{clamav_db}")
 }
 
 /// The maximum `/scan` request body, aligned with the ingest pipeline's 2 GiB inspectable-size cap
@@ -178,10 +183,21 @@ async fn finish(
         // The body is owned by this closure; `body.bytes()` borrows it for the duration of the scan.
         isolate_engines(|| {
             let bytes = body.bytes();
-            EngineOutput {
-                yara_matches: yara::yara_scan(&engine_state.rules, bytes),
+            // A yara fault (a scan timeout or internal error) is a retryable engine fault, NOT a silent
+            // no-match: surface it as `None` so `finish` returns a 503 and the file is re-scanned, the
+            // same as an engine panic. With a loaded corpus, swallowing a yara fault as empty matches
+            // would drop the detection layer for that file and could commit it clean — forbidden.
+            let yara_matches = match yara::yara_scan(&engine_state.rules, bytes) {
+                Ok(matches) => matches,
+                Err(fault) => {
+                    eprintln!("yara scan fault (retryable): {}", fault.0);
+                    return None;
+                }
+            };
+            Some(EngineOutput {
+                yara_matches,
                 heuristic: heuristics::inspect(bytes, content_type.as_deref(), &engine_state.caps),
-            }
+            })
         })
     })
     .await;
@@ -221,14 +237,17 @@ fn engines_unavailable() -> Response {
         .into_response()
 }
 
-// Runs the in-process engine work under `catch_unwind`: an ordinary parser panic (yara or a structural
-// heuristic on a hostile input) is caught and returned as `None` — never propagated — so `finish` maps
-// it to a retryable 503 rather than a dropped connection or, worse, a clean verdict. Pure and
-// synchronous so it is unit-testable on every host; `finish` calls it inside `spawn_blocking` to also
-// keep the CPU-bound work off the async reactor. (A stack-overflow abort, which `catch_unwind` cannot
-// catch, is prevented upstream — see `heuristics::pdf`'s nesting-depth pre-check.)
-fn isolate_engines(work: impl FnOnce() -> EngineOutput) -> Option<EngineOutput> {
-    std::panic::catch_unwind(std::panic::AssertUnwindSafe(work)).ok()
+// Runs the in-process engine work under `catch_unwind`, yielding `None` on any fault so `finish` maps it
+// to a retryable 503 rather than a dropped connection or, worse, a clean verdict. Two fault sources both
+// collapse to `None`: (1) an ordinary parser panic (yara or a structural heuristic on a hostile input),
+// caught by `catch_unwind`; and (2) a deliberate `None` the work returns for a non-panic engine fault (a
+// yara scan timeout/error). Pure and synchronous so it is unit-testable on every host; `finish` calls it
+// inside `spawn_blocking` to also keep the CPU-bound work off the async reactor. (A stack-overflow abort,
+// which `catch_unwind` cannot catch, is prevented upstream — see `heuristics::pdf`'s nesting-depth pre-check.)
+fn isolate_engines(work: impl FnOnce() -> Option<EngineOutput>) -> Option<EngineOutput> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(work))
+        .ok()
+        .flatten()
 }
 
 #[cfg(test)]
@@ -239,18 +258,23 @@ mod tests {
     fn compose_engine_version_produces_the_canonical_composite_format() {
         // The composite must be decomposable by splitting on `+` then `/`.
         assert_eq!(
-            compose_engine_version(1, 0, "27268"),
-            "engine/1+yara-rules/0+clamav-db/27268"
+            compose_engine_version(1, "20260621", "27268"),
+            "engine/1+yara-rules/20260621+clamav-db/27268"
+        );
+        // No rules loaded reads as `yara-rules/none`.
+        assert_eq!(
+            compose_engine_version(1, "none", "27268"),
+            "engine/1+yara-rules/none+clamav-db/27268"
         );
     }
 
     #[test]
     fn compose_engine_version_any_component_change_changes_the_whole_string() {
         // Changing any one component must produce a different string — this is the staleness gate.
-        let base = compose_engine_version(1, 0, "27268");
-        assert_ne!(compose_engine_version(2, 0, "27268"), base); // engine bump
-        assert_ne!(compose_engine_version(1, 1, "27268"), base); // new yara rule
-        assert_ne!(compose_engine_version(1, 0, "27269"), base); // daily sig refresh
+        let base = compose_engine_version(1, "20260621", "27268");
+        assert_ne!(compose_engine_version(2, "20260621", "27268"), base); // engine bump
+        assert_ne!(compose_engine_version(1, "20260628", "27268"), base); // new Forge release
+        assert_ne!(compose_engine_version(1, "20260621", "27269"), base); // daily sig refresh
     }
 
     #[test]
@@ -265,10 +289,23 @@ mod tests {
     }
 
     #[test]
+    fn isolate_engines_propagates_a_non_panic_engine_fault_as_none() {
+        // A yara scan timeout/error returns `None` from the work closure (not a panic); isolate_engines
+        // must surface it as `None` too, so `finish` maps it to a retryable 503 — never a clean result.
+        let caught = isolate_engines(|| None);
+        assert!(
+            caught.is_none(),
+            "a non-panic engine fault (work returned None) must stay None"
+        );
+    }
+
+    #[test]
     fn isolate_engines_passes_a_normal_result_through() {
-        let output = isolate_engines(|| EngineOutput {
-            yara_matches: Vec::new(),
-            heuristic: heuristics::Heuristic::Clean,
+        let output = isolate_engines(|| {
+            Some(EngineOutput {
+                yara_matches: Vec::new(),
+                heuristic: heuristics::Heuristic::Clean,
+            })
         });
         assert!(output.is_some());
     }

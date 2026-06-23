@@ -33,4 +33,15 @@ describe("scrubDocx — accept tracked changes", () => {
     const out = scrubDocx(buildDocx({ document }), SCRUB_ALL);
     expect(bodyText(out)).not.toContain("w:rPrChange");
   });
+
+  it("drops deleted text nested inside an insertion", () => {
+    // The worst case for a redaction tool: a deletion inside an insertion. The REMOVE guard must fire
+    // before the UNWRAP recurse, so the deleted text never survives the hoist.
+    const document = `${DECL}<w:document ${W}><w:body><w:p><w:ins><w:del><w:r><w:delText>gone</w:delText></w:r></w:del></w:ins></w:p></w:body></w:document>`;
+    const out = scrubDocx(buildDocx({ document }), SCRUB_ALL);
+    expect(bodyText(out)).not.toContain("gone");
+    expect(bodyText(out)).not.toContain("w:ins");
+    expect(bodyText(out)).not.toContain("w:del");
+    expect(inspectDocx(out).findings.map((f) => f.category)).not.toContain("tracked-changes");
+  });
 });

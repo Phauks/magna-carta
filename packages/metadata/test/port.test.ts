@@ -17,7 +17,9 @@ describe("MetadataPort", () => {
     expect(outcome.ok).toBe(true);
     if (outcome.ok) {
       expect(outcome.report.clean).toBe(true);
-      expect(outcome.mediaType).toContain("wordprocessingml");
+      expect(outcome.mediaType).toBe(
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      );
     }
   });
 

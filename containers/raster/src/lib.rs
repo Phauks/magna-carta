@@ -198,4 +198,37 @@ mod tests {
             .unwrap();
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
+
+    #[tokio::test]
+    async fn post_convert_png_to_pdf_returns_200_with_pdf_body() {
+        let png = png_bytes(8, 5);
+        let response = router()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/convert")
+                    .header("x-source-format", "png")
+                    .header("x-target-format", "pdf")
+                    .header("x-recipe", "image-pdf")
+                    .body(axum::body::Body::from(png))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response
+                .headers()
+                .get("content-type")
+                .and_then(|v| v.to_str().ok()),
+            Some("application/pdf")
+        );
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        assert!(
+            body.starts_with(b"%PDF-"),
+            "response body must start with PDF magic bytes"
+        );
+    }
 }

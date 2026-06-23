@@ -39,4 +39,12 @@ describe("scrubDocx (non-tracked-changes)", () => {
     const out = scrubDocx(buildDocx({ comments }), ALL_BUT_TRACKED);
     expect(inspectDocx(out).findings.map((f) => f.category)).not.toContain("comments");
   });
+
+  it("removes custom document properties", () => {
+    const custom = `${DECL}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><property fmtid="{D5CDD505-2E9C-101B-9397-08002B2CF9AE}" pid="2" name="Matter"><vt:lpwstr>Privileged-2024</vt:lpwstr></property></Properties>`;
+    const before = inspectDocx(buildDocx({ custom })).findings.map((f) => f.category);
+    expect(before).toContain("custom-properties");
+    const out = scrubDocx(buildDocx({ custom }), ALL_BUT_TRACKED);
+    expect(inspectDocx(out).findings.map((f) => f.category)).not.toContain("custom-properties");
+  });
 });
