@@ -24,9 +24,8 @@
   },
   // SQLite-backed DO class introduced via migration tag; first migration for this worker.
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LibvipsContainer"] }],
-  // Cron triggers:
-  //   */20 * * * * — warm-poke: keeps one container instance alive by hitting /ready before
-  //                  the 30-minute sleepAfter lapses.
-  "triggers": { "crons": ["*/20 * * * *"] },
+  // No cron triggers: the Container scales to zero after its sleepAfter (it bills only while a
+  // conversion runs). Conversions are bursty/on-demand, so a warm-poke cron would pay for an
+  // always-on instance to save a cold start that rarely matters.
   "observability": { "enabled": true, "head_sampling_rate": 1 },
 }

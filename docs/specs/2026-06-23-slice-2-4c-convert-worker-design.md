@@ -25,22 +25,24 @@ A direct transposition of `apps/scan-worker`. Stateless: no D1, R2, or Queues. *
 which is the trust boundary (no auth in this worker).
 
 - **`src/libvips-container.ts`** — `class LibvipsContainer extends Container` with `enableInternet =
-  false` (untrusted bytes never reach the network), a `defaultPort`, and a `pingEndpoint` for the warm
-  cron. The first engine Container. Additional engines (LibreOffice, FFmpeg) become **additional
-  `Container` DO classes** later — one per engine — selected by `engineId`.
+  false` (untrusted bytes never reach the network), a `defaultPort`, a short `sleepAfter`, and a
+  `pingEndpoint` (the boot-readiness probe). **Scale-to-zero, no warm cron:** the Container sleeps
+  after `sleepAfter` and bills only while a conversion runs — conversions are bursty/on-demand, so an
+  always-on warm instance would pay continuously to save a cold start that rarely matters (unlike scan,
+  whose ~1–2 GiB resident signature DB justifies a warm-poke). The first engine Container; additional
+  engines (LibreOffice, FFmpeg) become **additional `Container` DO classes** later — one per engine —
+  selected by `engineId`.
 - **`src/forward-convert.ts`** — `forwardConvert(request, container)`: streams the source body to the
   engine Container's `POST /convert` (preserving `duplex:"half"`), passing the target format + recipe
   as headers/query, and returns the container's response **verbatim** (converted bytes + the
   `Content-Type` the engine set, or a non-2xx status). A network failure throws (surfaced through
   telemetry), never a silent empty result. Mirrors `forwardScan`. Engine selection: the proxy maps the
   request's `engineId` to the right Container DO; for now only `libvips` is wired.
-- **`src/convert-warm.ts`** — `pokeContainer`: hits the Container's `pingEndpoint` to keep one
-  instance warm within `sleepAfter` (a warm engine process avoids cold-start per conversion).
 - **`src/index.ts`** — `Bindings` (the engine Container DO namespace(s)); the `fetch` handler routing
   `POST /convert` → `forwardConvert(getContainer(env.LIBVIPS_CONTAINER, "libvips"))` and `404`
-  otherwise; a `scheduled` handler for the warm cron; re-exports the Container class(es). No
-  signature-refresh cron (conversion engines have no daily-refreshed signature DB; revisit if
-  LibreOffice font/template refresh ever warrants it).
+  otherwise; re-exports the Container class(es). **No `scheduled` handler / no cron** — scale-to-zero
+  (see `libvips-container.ts`); if cold-start latency ever bites, the lever is warming on demand
+  (booting when a job is enqueued), not a blind cron.
 - **`wrangler.jsonc` / `package.json` / `tsconfig.json` / `vitest.config.ts` / `worker-env.d.ts`** —
   mirror `apps/scan-worker`. The `containers` binding references `../../containers/convert/Dockerfile`
   (the image is **deploy-time**, see Out of scope); if `wrangler deploy --dry-run` requires the

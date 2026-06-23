@@ -1,6 +1,5 @@
 import { getContainer } from "@cloudflare/containers";
 import { forwardConvert } from "./forward-convert.ts";
-import { pokeContainer } from "./convert-warm.ts";
 
 // The convert worker's runtime bindings. Stateless: no D1, R2, or Queues. The only binding is the
 // engine Container Durable Object. Reached only via a service binding from the app worker — no public
@@ -14,9 +13,10 @@ export type Bindings = {
 
 export { LibvipsContainer } from "./libvips-container.ts";
 
-// Keep one engine instance warm within the container's 30-minute sleepAfter.
-const CONVERT_WARM_CRON = "*/20 * * * *";
-
+// No warm cron: the engine Container scales to zero after its sleepAfter, so it bills only while a
+// conversion is actually running. Conversions are bursty/on-demand, so the cold-start on the first
+// request after an idle period is the right trade against paying for an always-on instance. (Warming
+// on demand — booting when a job is enqueued — is the lever to add if cold-start latency ever bites.)
 export default {
   // POST /convert — receives the streamed source body + target-format/recipe headers from the app
   // worker (via service binding) and forwards to the engine Container, returning its bytes verbatim.
@@ -29,11 +29,5 @@ export default {
       return forwardConvert(request, getContainer(env.LIBVIPS_CONTAINER, "libvips"));
     }
     return new Response("Not Found", { status: 404 });
-  },
-
-  scheduled(controller: ScheduledController, env: Bindings, executionContext: ExecutionContext) {
-    if (controller.cron === CONVERT_WARM_CRON) {
-      executionContext.waitUntil(pokeContainer(getContainer(env.LIBVIPS_CONTAINER, "libvips")));
-    }
   },
 } satisfies ExportedHandler<Bindings>;
