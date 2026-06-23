@@ -23,5 +23,5 @@
   // Container-backed Durable Objects must be SQLite-backed.
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DocumentSession"] }],
   // KEEP_ALIVE off = the #147 control run; flip to "on" + redeploy for the mitigation run.
-  "vars": { "KEEP_ALIVE": "off", "SLEEP_AFTER": "60s" }
+  "vars": { "KEEP_ALIVE": "on", "SLEEP_AFTER": "60s" }
 }
