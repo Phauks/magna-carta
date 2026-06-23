@@ -22,10 +22,6 @@ export { ConversionJob } from "./conversions/conversion-coordinator.ts";
 // wrangler.jsonc's durable_objects binding.
 export { FirmDatabase } from "./firm-database/firm-database-object.ts";
 
-// The malware-scan Container class (a DO-backed Container). Exported so the runtime can instantiate it
-// once the deploy-time wrangler `containers`/DO binding names it; an unused export is otherwise inert.
-export { ScanContainer } from "./files/scan-container.ts";
-
 // The bundle-build queue's name (wrangler.jsonc queues.consumers) — the queue() handler routes its
 // batches to the bundle consumer, every other queue to the files-ingest consumer.
 const BUNDLE_BUILD_QUEUE = "magna-carta-production-bundle-build";
