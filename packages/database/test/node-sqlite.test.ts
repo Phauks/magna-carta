@@ -73,13 +73,26 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     ).toEqual(roles.map((row) => row.id).sort());
     // The matters/locations/files grants (0004) extend the seed per the role distribution.
     expect(grantsFor("Owner/Admin")).toContain("matters:create");
-    // Paralegal: firm:reportIncident (0003) + matters:create + files upload/organize (0004).
+    // Paralegal: firm:reportIncident (0003) + matters:create + files upload/organize (0004) +
+    // tools:whois/safeBrowse (0017 — the everyday safety utilities seeded onto every default role).
     expect(grantsFor("Paralegal").sort()).toEqual(
-      ["files:organize", "files:upload", "firm:reportIncident", "matters:create"].sort(),
+      [
+        "files:organize",
+        "files:upload",
+        "firm:reportIncident",
+        "matters:create",
+        "tools:safeBrowse",
+        "tools:whois",
+      ].sort(),
     );
-    // Billing and Read-only carry only firm:reportIncident by default (adjustable data).
-    expect(grantsFor("Billing")).toEqual(["firm:reportIncident"]);
-    expect(grantsFor("Read-only")).toEqual(["firm:reportIncident"]);
+    // Billing and Read-only carry firm:reportIncident + the tools:whois/safeBrowse safety utilities
+    // (0017, seeded onto every default role) by default (adjustable data).
+    expect(grantsFor("Billing").sort()).toEqual(
+      ["firm:reportIncident", "tools:safeBrowse", "tools:whois"].sort(),
+    );
+    expect(grantsFor("Read-only").sort()).toEqual(
+      ["firm:reportIncident", "tools:safeBrowse", "tools:whois"].sort(),
+    );
   });
 
   it("prepare/bind/run/all round-trips and batch() is atomic (all-or-nothing)", async () => {

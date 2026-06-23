@@ -8,7 +8,9 @@
     "./format": "./src/format.ts",
     "./registry": "./src/registry.ts",
     "./pathfinding": "./src/pathfinding.ts",
+    "./placement": "./src/placement.ts",
     "./execute": "./src/execute.ts",
+    "./file": "./src/file.ts",
     "./port": "./src/port.ts",
     "./engines": "./src/engines.ts",
     "./adapters/libvips": "./src/adapters/libvips/index.ts"

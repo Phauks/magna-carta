@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "2e1cc29c-dc8a-4744-866e-409d411eb1ee",
+  "id": "c3d4e5f6-a7b8-4c9d-ae1f-2a3b4c5d6e7f",
   "prevId": "659f1002-13b1-46f3-a6fb-7913cc9a08e2",
   "tables": {
     "account_balance": {
@@ -1523,128 +1523,6 @@
         }
       }
     },
-    "document_checkout": {
-      "name": "document_checkout",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "file_id": {
-          "name": "file_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "holder_member_id": {
-          "name": "holder_member_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "lock_type": {
-          "name": "lock_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "base_version_id": {
-          "name": "base_version_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "acquired_at": {
-          "name": "acquired_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "last_activity_at": {
-          "name": "last_activity_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'active'"
-        },
-        "idle_release_at": {
-          "name": "idle_release_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "document_checkout_file_id_index": {
-          "name": "document_checkout_file_id_index",
-          "columns": ["file_id"],
-          "isUnique": false
-        },
-        "document_checkout_holder_member_id_index": {
-          "name": "document_checkout_holder_member_id_index",
-          "columns": ["holder_member_id"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "document_checkout_file_id_file_id_fk": {
-          "name": "document_checkout_file_id_file_id_fk",
-          "tableFrom": "document_checkout",
-          "tableTo": "file",
-          "columnsFrom": ["file_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "document_checkout_holder_member_id_member_user_id_fk": {
-          "name": "document_checkout_holder_member_id_member_user_id_fk",
-          "tableFrom": "document_checkout",
-          "tableTo": "member",
-          "columnsFrom": ["holder_member_id"],
-          "columnsTo": ["user_id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "document_checkout_base_version_id_file_version_id_fk": {
-          "name": "document_checkout_base_version_id_file_version_id_fk",
-          "tableFrom": "document_checkout",
-          "tableTo": "file_version",
-          "columnsFrom": ["base_version_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "document_checkout_lock_type_check": {
-          "name": "document_checkout_lock_type_check",
-          "value": "\"document_checkout\".\"lock_type\" IN ('exclusive', 'offline_working_copy')"
-        },
-        "document_checkout_status_check": {
-          "name": "document_checkout_status_check",
-          "value": "\"document_checkout\".\"status\" IN ('active', 'stale', 'released', 'reconciling')"
-        }
-      }
-    },
     "document_type": {
       "name": "document_type",
       "columns": {
@@ -1818,42 +1696,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "current_r2_key": {
-          "name": "current_r2_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "current_sha256": {
-          "name": "current_sha256",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "current_size_bytes": {
-          "name": "current_size_bytes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "current_wopi_timestamp": {
-          "name": "current_wopi_timestamp",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "edit_state": {
-          "name": "edit_state",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'idle'"
-        },
         "deleted_at": {
           "name": "deleted_at",
           "type": "text",
@@ -1932,10 +1774,6 @@
         "file_name_nonempty_check": {
           "name": "file_name_nonempty_check",
           "value": "length(\"file\".\"name\") > 0"
-        },
-        "file_edit_state_check": {
-          "name": "file_edit_state_check",
-          "value": "\"file\".\"edit_state\" IN ('idle', 'coediting', 'checked_out')"
         }
       }
     },
@@ -2073,28 +1911,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "reconciliation_status": {
-          "name": "reconciliation_status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'clean'"
-        },
-        "diverged_from_version_id": {
-          "name": "diverged_from_version_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "checkout_id": {
-          "name": "checkout_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -2136,24 +1952,6 @@
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
-        },
-        "file_version_diverged_from_version_id_file_version_id_fk": {
-          "name": "file_version_diverged_from_version_id_file_version_id_fk",
-          "tableFrom": "file_version",
-          "tableTo": "file_version",
-          "columnsFrom": ["diverged_from_version_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "file_version_checkout_id_document_checkout_id_fk": {
-          "name": "file_version_checkout_id_document_checkout_id_fk",
-          "tableFrom": "file_version",
-          "tableTo": "document_checkout",
-          "columnsFrom": ["checkout_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -2178,10 +1976,6 @@
         "file_version_status_check": {
           "name": "file_version_status_check",
           "value": "\"file_version\".\"status\" IN ('pending', 'clean', 'quarantined', 'abandoned')"
-        },
-        "file_version_reconciliation_status_check": {
-          "name": "file_version_reconciliation_status_check",
-          "value": "\"file_version\".\"reconciliation_status\" IN ('clean', 'conflict_pending', 'reconciled')"
         },
         "file_version_size_bytes_nonneg_check": {
           "name": "file_version_size_bytes_nonneg_check",

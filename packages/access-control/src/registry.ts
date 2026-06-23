@@ -44,6 +44,9 @@ export const PERMISSIONS = [
   "tools:shipping", // shipping & postage (the shipping integration)
   "tools:speedTest", // in-app network speed test (runs client-side against the Cloudflare edge)
   "tools:firmUsage", // firm usage snapshot — storage + entity counts (read-only, per-firm)
+  "tools:whois", // WHOIS/RDAP registration lookup for a website's domain or an IP
+  "tools:safeBrowse", // render a suspect URL in an isolated remote browser (static snapshot only)
+  "tools:fileConverter", // general matter-free file converter — convert a file to another format
   // Documents — in-app editing of a file's content (Collabora), versioning, and the offline
   // check-out / reconciliation flow. Each document route is matter-scoped (RouteMeta resource: "matter").
   "documents:edit", // open a document for editing; a deliberate Save or session-close cuts a version

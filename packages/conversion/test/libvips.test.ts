@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { libvipsAdapter } from "../src/adapters/libvips/index.ts";
+import { imageSize, makeImage } from "./support/vips.ts";
 
 describe("libvips adapter", () => {
   it("converts PNG to WebP", async () => {
@@ -31,10 +32,8 @@ describe("libvips adapter", () => {
     if (result.ok) {
       expect(result.bytes[0]).toBe(0x89); // PNG magic
       expect(result.bytes[1]).toBe(0x50); // 'P'
-      // Verify the dimensions are preserved: fixture is 2×3 (vips.Image.black(2, 3))
-      const Vips = (await import("wasm-vips")).default;
-      const vips = await Vips();
-      const decoded = vips.Image.newFromBuffer(result.bytes);
+      // Verify the dimensions are preserved: fixture is 2×3.
+      const decoded = await imageSize(result.bytes);
       expect(decoded.width).toBe(2);
       expect(decoded.height).toBe(3);
     }
@@ -64,17 +63,10 @@ describe("libvips adapter", () => {
   });
 });
 
-// Build tiny valid images with wasm-vips itself (a 2x3 black image) so the test needs no fixtures.
-async function makePng(): Promise<Uint8Array> {
+// Tiny valid images (a 2×3 black image) built via the shared, memoized wasm-vips fixture.
+function makePng(): Promise<Uint8Array> {
   return makeImage(".png");
 }
-async function makeJpeg(): Promise<Uint8Array> {
+function makeJpeg(): Promise<Uint8Array> {
   return makeImage(".jpg");
-}
-async function makeImage(suffix: string): Promise<Uint8Array> {
-  const Vips = (await import("wasm-vips")).default;
-  const vips = await Vips();
-  const image = vips.Image.black(2, 3);
-  const buffer = image.writeToBuffer(suffix);
-  return new Uint8Array(buffer);
 }
