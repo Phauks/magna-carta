@@ -106,8 +106,13 @@ function directorySize(path) {
   return total;
 }
 
-function gibibytes(bytes) {
-  return `${(bytes / 1024 ** 3).toFixed(2)} GiB`;
+// Human-readable size. Falls back to MiB below 1 GiB so small artifacts do not all read as
+// "0.00 GiB" — the report is the cleaner's primary output.
+function formatBytes(bytes) {
+  const gibibyte = 1024 ** 3;
+  return bytes >= gibibyte
+    ? `${(bytes / gibibyte).toFixed(2)} GiB`
+    : `${(bytes / 1024 ** 2).toFixed(1)} MiB`;
 }
 
 function dockerPrune() {
@@ -155,12 +160,12 @@ for (const worktree of targets) {
   for (const dir of dirs) {
     const size = directorySize(dir);
     reclaimed += size;
-    console.log(`  ${dryRun ? "would remove" : "removing"} ${dir}  (${gibibytes(size)})`);
+    console.log(`  ${dryRun ? "would remove" : "removing"} ${dir}  (${formatBytes(size)})`);
     if (!dryRun) rmSync(dir, { recursive: true, force: true });
   }
 }
 console.log(
-  `  ${dryRun ? "would reclaim" : "reclaimed"} ${gibibytes(reclaimed)} of build artifacts\n`,
+  `  ${dryRun ? "would reclaim" : "reclaimed"} ${formatBytes(reclaimed)} of build artifacts\n`,
 );
 
 console.log("Docker cache prune:");

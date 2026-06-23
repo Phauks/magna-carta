@@ -37,6 +37,7 @@ describe("eligibleWorktrees", () => {
       allWorktrees: true,
     }).map((w) => w.branch);
     expect(got).not.toContain("current-branch");
+    expect(got).toEqual(["feature-merged", "feature-open"]);
   });
 });
 
