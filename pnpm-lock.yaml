@@ -123,9 +123,6 @@ importers:
       '@cloudflare/containers':
         specifier: 'catalog:'
         version: 0.3.7
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: 'catalog:'
