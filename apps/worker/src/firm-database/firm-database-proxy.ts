@@ -1,4 +1,4 @@
-import type { DurableObjectStub } from "@cloudflare/workers-types";
+import type { DurableObjectId, DurableObjectStub } from "@cloudflare/workers-types";
 import type { FirmDatabase } from "./firm-database-object.ts";
 import { isUniqueConflict } from "./rpc-types.ts";
 
@@ -51,13 +51,35 @@ export function firmDatabaseProxy(stub: DurableObjectStub<FirmDatabase>): ProxyB
         // message-based checks work unchanged. The "unique" arm is currently unreachable
         // (the DO only produces "idempotency_key" and re-throws everything else as a fault)
         // but is included so the type is fully handled.
-        const column =
-          outcome.conflict === "idempotency_key" ? "idempotency_key.key" : "unique";
+        const column = outcome.conflict === "idempotency_key" ? "idempotency_key.key" : "unique";
         throw new Error(`UNIQUE constraint failed: ${column}`);
       }
       return statements.map(() => ({ success: true }));
     },
   };
+}
+
+// The minimal namespace shape this resolver needs: address-by-name and get-stub. `get` is typed to an
+// opaque stub (not DurableObjectStub<FirmDatabase>) on purpose: matching a caller's
+// DurableObjectNamespace<FirmDatabase> against a FirmDatabase-parameterized type forces TS to expand
+// the cyclic Bindings ↔ FirmDatabase namespace type into the statement-module generics at every call
+// site — the recursion TS reports as "excessively deep". The stub is narrowed to the proxy's required
+// type inside, where the cycle is not re-entered.
+interface FirmDatabaseNamespace {
+  idFromName(name: string): DurableObjectId;
+  get(id: DurableObjectId): unknown;
+}
+
+// Resolve a firm's per-firm database by firmId: address its FirmDatabase Durable Object by name and
+// wrap the stub in the proxy. The explicit ProxyBatchDatabase return is the single annotated boundary.
+// The firmId comes from a trusted source (the session, a control-plane row, or a firm-scoped job),
+// never client input.
+export function firmDatabaseFor(
+  namespace: FirmDatabaseNamespace,
+  firmId: string,
+): ProxyBatchDatabase {
+  const stub = namespace.get(namespace.idFromName(firmId)) as DurableObjectStub<FirmDatabase>;
+  return firmDatabaseProxy(stub);
 }
 
 // Re-export so callers that need both the proxy and the conflict tester can import from one place.

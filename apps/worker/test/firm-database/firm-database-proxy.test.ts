@@ -8,7 +8,7 @@ import {
 } from "@magna-carta/data-access/idempotency-statements";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { IdempotencyRecordId } from "@magna-carta/identifiers/types";
-import { firmDatabaseProxy } from "../../src/firm-database/firm-database-proxy.ts";
+import { firmDatabaseFor } from "../../src/firm-database/firm-database-proxy.ts";
 
 const record = (key: string) => ({
   id: `idk_${key}` as IdempotencyRecordId,
@@ -20,7 +20,7 @@ const record = (key: string) => ({
 });
 
 function proxyFor(name: string) {
-  return firmDatabaseProxy(env.FIRM_DATABASE.get(env.FIRM_DATABASE.idFromName(name)));
+  return firmDatabaseFor(env.FIRM_DATABASE, name);
 }
 
 describe("firmDatabaseProxy", () => {
@@ -32,14 +32,12 @@ describe("firmDatabaseProxy", () => {
     const found = await selectIdempotencyRecordStatement(database, "k").all<{ key: string }>();
     expect(found.results[0]?.key).toBe("k");
     expect(
-      (
-        await purgeExpiredIdempotencyRecordsStatement(database, "2000-01-01T00:00:00.000Z").run()
-      ).meta.changes,
+      (await purgeExpiredIdempotencyRecordsStatement(database, "2000-01-01T00:00:00.000Z").run())
+        .meta.changes,
     ).toBe(0);
     expect(
-      (
-        await purgeExpiredIdempotencyRecordsStatement(database, "2100-01-01T00:00:00.000Z").run()
-      ).meta.changes,
+      (await purgeExpiredIdempotencyRecordsStatement(database, "2100-01-01T00:00:00.000Z").run())
+        .meta.changes,
     ).toBe(1);
   });
 
@@ -62,6 +60,8 @@ describe("firmDatabaseProxy", () => {
       caught = error;
     }
     expect(isIdempotencyKeyConflict(caught)).toBe(true);
-    expect((await selectIdempotencyRecordStatement(database, "dupe").all()).results).toHaveLength(0);
+    expect((await selectIdempotencyRecordStatement(database, "dupe").all()).results).toHaveLength(
+      0,
+    );
   });
 });
