@@ -1765,7 +1765,7 @@ mod tests {
         );
     }
 
-    // ── Task 4: hardening tests ───────────────────────────────────────────────
+    // ── Hardening: TJ kerning and asymmetric CTM ────────────────────────────────
 
     /// Dropping the first glyph from `[(A) -100 (B)] TJ` must preserve the
     /// original -100 kerning element AND insert a -500 compensation for 'A'.
@@ -1881,7 +1881,7 @@ mod tests {
         );
     }
 
-    // ── Task 4: integration test using the hello.pdf fixture ──────────────────
+    // ── Integration test: hello.pdf fixture ───────────────────────────────────
 
     /// Build surgery on a real PDF fixture and verify:
     ///   1. A rect covering the whole page returns Some and the edited stream
@@ -1901,7 +1901,7 @@ mod tests {
             .next()
             .expect("hello.pdf must have at least one page");
 
-        // A rect that covers the entire standard letter page.
+        // A rect that covers the entire page.
         let full_page_rect = crate::Rect {
             x0: 0.0,
             y0: 0.0,
