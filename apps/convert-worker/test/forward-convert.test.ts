@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { forwardConvert } from "../src/forward-convert.ts";
 
-// A minimal fake container: the real libvips image cannot run under the local test pool, and
+// A minimal fake container: the real raster engine image cannot run under the local test pool, and
 // forwardConvert needs only a { fetch } object.
 function fakeContainer(response: Response): { fetch(req: Request): Promise<Response> } {
   return { fetch: async () => response };
