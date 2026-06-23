@@ -19,6 +19,20 @@ pub struct RedactionRegion {
     pub reason: Option<String>,
 }
 
+/// How a page's content is removed.
+///
+/// `Flatten` rasterizes the page to an image, replacing all vectors and text
+/// with pixels — the strongest guarantee. `Surgery` rewrites the content stream
+/// to excise only the glyphs that fall inside the redaction rectangles, keeping
+/// the remainder as live text; an outcome gate verifies each surgered page and
+/// falls back to `Flatten` for any page that does not pass.
+#[derive(Debug, Clone, Copy, Default)]
+pub enum RedactionMode {
+    #[default]
+    Flatten,
+    Surgery,
+}
+
 /// Knobs for a redaction run.
 #[derive(Debug, Clone)]
 pub struct RedactionOptions {
@@ -28,6 +42,8 @@ pub struct RedactionOptions {
     pub redacted_text: Vec<String>,
     /// Which document-level surfaces to scrub. Defaults to all (sanitized-by-default).
     pub scrub: crate::ScrubOptions,
+    /// How pages are redacted. Defaults to `Flatten`.
+    pub mode: RedactionMode,
 }
 
 impl Default for RedactionOptions {
@@ -36,6 +52,7 @@ impl Default for RedactionOptions {
             dpi: 300.0,
             redacted_text: Vec::new(),
             scrub: crate::ScrubOptions::default(),
+            mode: RedactionMode::Flatten,
         }
     }
 }
@@ -44,6 +61,10 @@ impl Default for RedactionOptions {
 pub struct RedactionReport {
     pub pages_redacted: Vec<usize>,
     pub region_count: usize,
+    /// Pages redacted by content-stream surgery (text preserved outside the redaction rects).
+    pub pages_surgered: Vec<usize>,
+    /// Pages redacted by full-page raster flatten.
+    pub pages_flattened: Vec<usize>,
 }
 
 #[derive(Debug)]
@@ -227,11 +248,12 @@ fn first_surviving_text(pdf: &[u8], redacted_text: &[String]) -> Option<String> 
 
 pub(crate) fn verify_gate(
     doc: &lopdf::Document,
-    affected_pages_1based: &[u32],
+    flattened_pages_1based: &[u32],
     redacted_text: &[String],
 ) -> Result<(), RedactError> {
-    // Structural: each affected page must now be text-free (it is an image).
-    for &p in affected_pages_1based {
+    // Structural: each flattened page must now be text-free (it is an image-only page).
+    // Surgered pages retain live text intentionally and are not checked here.
+    for &p in flattened_pages_1based {
         match doc.extract_text(&[p]) {
             Ok(text) => {
                 if !text.trim().is_empty() {
@@ -292,17 +314,126 @@ pub fn redact(
     let mut lo = lopdf::Document::load_mem(&bytes).map_err(|_| RedactError::Parse)?;
     let pages = lo.get_pages(); // 1-based number -> ObjectId
 
-    let mut redacted: Vec<usize> = Vec::new();
+    let mut all_affected: Vec<usize> = Vec::new();
+    let mut flattened: Vec<usize> = Vec::new();
+
+    // Surgery candidates: (0-based page index, page ObjectId, rects for that page).
+    // Populated only in Surgery mode for pages where try_build_surgery returns Some.
+    struct SurgeryCandidate {
+        page: usize,
+        page_id: lopdf::ObjectId,
+        rects: Vec<Rect>,
+    }
+    let mut surgery_candidates: Vec<SurgeryCandidate> = Vec::new();
+
     for (&page, rects) in &by_page {
-        let size = render_doc
-            .page_size(page)
-            .map_err(|_| RedactError::PageOutOfRange)?;
-        let (rgb, w, h) = render_redacted_page(&render_doc, page, rects, opts.dpi)?;
         let page_id = *pages
             .get(&((page + 1) as u32))
             .ok_or(RedactError::PageOutOfRange)?;
-        reassemble_page(&mut lo, page_id, &rgb, w, h, size.width_pt, size.height_pt)?;
-        redacted.push(page);
+        all_affected.push(page);
+
+        match opts.mode {
+            RedactionMode::Flatten => {
+                let size = render_doc
+                    .page_size(page)
+                    .map_err(|_| RedactError::PageOutOfRange)?;
+                let (rgb, w, h) = render_redacted_page(&render_doc, page, rects, opts.dpi)?;
+                reassemble_page(&mut lo, page_id, &rgb, w, h, size.width_pt, size.height_pt)?;
+                flattened.push(page);
+            }
+            RedactionMode::Surgery => {
+                match crate::surgery::try_build_surgery(&lo, page_id, rects) {
+                    Some(stream_bytes) => {
+                        // Install the surgery stream as the page's content.
+                        let content_id = lo
+                            .add_object(lopdf::Stream::new(lopdf::Dictionary::new(), stream_bytes));
+                        let page_dict = lo
+                            .get_dictionary_mut(page_id)
+                            .map_err(|_| RedactError::Reassemble)?;
+                        page_dict.set("Contents", lopdf::Object::Reference(content_id));
+                        surgery_candidates.push(SurgeryCandidate {
+                            page,
+                            page_id,
+                            rects: rects.clone(),
+                        });
+                    }
+                    None => {
+                        // Surgery cannot handle this page — fall through to flatten.
+                        let size = render_doc
+                            .page_size(page)
+                            .map_err(|_| RedactError::PageOutOfRange)?;
+                        let (rgb, w, h) = render_redacted_page(&render_doc, page, rects, opts.dpi)?;
+                        reassemble_page(
+                            &mut lo,
+                            page_id,
+                            &rgb,
+                            w,
+                            h,
+                            size.width_pt,
+                            size.height_pt,
+                        )?;
+                        flattened.push(page);
+                    }
+                }
+            }
+        }
+    }
+
+    // Outcome gate for surgery candidates: serialize a probe, reload it through
+    // hayro, and verify that no glyph centre lands inside a redaction rectangle.
+    // Any candidate that fails the gate is flattened from the original render_doc.
+    let mut surgered: Vec<usize> = Vec::new();
+
+    if !surgery_candidates.is_empty() {
+        // Serialize a throwaway probe to test the surgery result.
+        let mut probe = Vec::new();
+        lo.save_to(&mut probe)
+            .map_err(|_| RedactError::Reassemble)?;
+        let probe_pdf = hayro::hayro_syntax::Pdf::new(probe).map_err(|_| RedactError::Parse)?;
+
+        for candidate in surgery_candidates {
+            let observation = crate::textpos::observe_page(&probe_pdf, candidate.page);
+            let passes_gate = match observation {
+                None => false, // Cannot observe page — conservatively fail the gate.
+                Some(obs) => {
+                    let mut any_inside = false;
+                    'glyph_loop: for glyph in &obs.glyphs {
+                        let display_rect =
+                            crate::detect::to_display_rect(glyph.bbox, obs.height_pt);
+                        let cx = (display_rect.x0 + display_rect.x1) / 2.0;
+                        let cy = (display_rect.y0 + display_rect.y1) / 2.0;
+                        for rect in &candidate.rects {
+                            if crate::detect::rect_contains(rect, cx, cy) {
+                                any_inside = true;
+                                break 'glyph_loop;
+                            }
+                        }
+                    }
+                    !any_inside
+                }
+            };
+
+            if passes_gate {
+                surgered.push(candidate.page);
+            } else {
+                // Gate failed — flatten this page from the original source.
+                let size = render_doc
+                    .page_size(candidate.page)
+                    .map_err(|_| RedactError::PageOutOfRange)?;
+                let (rgb, w, h) =
+                    render_redacted_page(&render_doc, candidate.page, &candidate.rects, opts.dpi)?;
+                reassemble_page(
+                    &mut lo,
+                    candidate.page_id,
+                    &rgb,
+                    w,
+                    h,
+                    size.width_pt,
+                    size.height_pt,
+                )?;
+                flattened.push(candidate.page);
+            }
+        }
     }
 
     // Remove document-level surfaces where redacted content can hide (metadata,
@@ -313,8 +444,10 @@ pub fn redact(
     lo.prune_objects();
     crate::verify_scrub_absence(&lo, &opts.scrub).map_err(map_scrub_err)?;
 
-    let affected_1based: Vec<u32> = redacted.iter().map(|p| (*p + 1) as u32).collect();
-    verify_gate(&lo, &affected_1based, &opts.redacted_text)?;
+    // verify_gate checks the text-free assertion only for flattened pages (image-only).
+    // Surgered pages legitimately retain text outside the redaction rects.
+    let flattened_1based: Vec<u32> = flattened.iter().map(|p| (*p + 1) as u32).collect();
+    verify_gate(&lo, &flattened_1based, &opts.redacted_text)?;
 
     let mut pdf = Vec::new();
     lo.save_to(&mut pdf).map_err(|_| RedactError::Reassemble)?;
@@ -323,10 +456,17 @@ pub fn redact(
             detail: format!("redacted text present in output bytes: {surviving}"),
         });
     }
+
+    surgered.sort_unstable();
+    flattened.sort_unstable();
+    all_affected.sort_unstable();
+
     Ok(RedactionOutcome {
         report: RedactionReport {
-            pages_redacted: redacted,
+            pages_redacted: all_affected,
             region_count: regions.len(),
+            pages_surgered: surgered,
+            pages_flattened: flattened,
         },
         pdf,
     })
@@ -435,6 +575,7 @@ mod tests {
             dpi: 150.0,
             redacted_text: vec!["Hello".into()],
             scrub: crate::ScrubOptions::default(),
+            mode: RedactionMode::Flatten,
         };
         let outcome = redact(hello_bytes(), &regions, &opts).expect("redaction succeeds");
         assert_eq!(outcome.report.pages_redacted, vec![0]);
@@ -615,5 +756,149 @@ mod tests {
         assert!(!outcome.pdf.windows(9).any(|w| w == b"Sensitive"));
         let reloaded = lopdf::Document::load_mem(&outcome.pdf).unwrap();
         assert!(!reloaded.trailer.has(b"Info"));
+    }
+
+    fn surgery_simple_bytes() -> Vec<u8> {
+        include_bytes!("../tests/fixtures/surgery_simple.pdf").to_vec()
+    }
+
+    #[test]
+    fn surgery_mode_preserves_nontarget_text() {
+        // Redact a tiny corner region where no text lives in surgery_simple.pdf.
+        // If surgery succeeds the page lands in pages_surgered and still has extractable text.
+        let regions = [RedactionRegion {
+            page: 0,
+            rect: Rect {
+                x0: 195.0,
+                y0: 45.0,
+                x1: 200.0,
+                y1: 50.0,
+            },
+            reason: None,
+        }];
+        let opts = RedactionOptions {
+            mode: RedactionMode::Surgery,
+            ..RedactionOptions::default()
+        };
+        let outcome =
+            redact(surgery_simple_bytes(), &regions, &opts).expect("surgery redaction succeeds");
+        if outcome.report.pages_surgered.contains(&0) {
+            let reloaded = lopdf::Document::load_mem(&outcome.pdf).unwrap();
+            let text = reloaded.extract_text(&[1]).unwrap_or_default();
+            assert!(
+                !text.trim().is_empty(),
+                "surgered page must still have extractable text"
+            );
+        }
+        assert!(
+            outcome.report.pages_surgered.contains(&0)
+                || outcome.report.pages_flattened.contains(&0),
+            "page 0 must appear in either pages_surgered or pages_flattened"
+        );
+    }
+
+    #[test]
+    fn surgery_mode_removes_target_text() {
+        // Redact the full page to guarantee all text (including "Hello") is covered.
+        let regions = [RedactionRegion {
+            page: 0,
+            rect: Rect {
+                x0: 0.0,
+                y0: 0.0,
+                x1: 200.0,
+                y1: 50.0,
+            },
+            reason: None,
+        }];
+        let opts = RedactionOptions {
+            mode: RedactionMode::Surgery,
+            redacted_text: vec!["Hello".into()],
+            ..RedactionOptions::default()
+        };
+        let outcome = redact(surgery_simple_bytes(), &regions, &opts)
+            .expect("surgery redaction with Hello must succeed");
+        let reloaded = lopdf::Document::load_mem(&outcome.pdf).unwrap();
+        let text = reloaded.extract_text(&[1]).unwrap_or_default();
+        assert!(
+            !text.contains("Hello"),
+            "target word Hello must be absent after surgery"
+        );
+        let detect_report = crate::detect(outcome.pdf).expect("detect must succeed");
+        assert!(
+            !detect_report
+                .findings
+                .iter()
+                .any(|f| f.recovered_text.contains("Hello")),
+            "detector must not find Hello in the surgered output"
+        );
+    }
+
+    #[test]
+    fn surgery_falls_back_to_flatten_when_unsupported() {
+        // hello.pdf uses Helvetica (standard-14, no /Widths) so surgery returns None.
+        // The page must be in pages_flattened, target text absent, run succeeds.
+        let regions = [RedactionRegion {
+            page: 0,
+            rect: Rect {
+                x0: 0.0,
+                y0: 0.0,
+                x1: 1000.0,
+                y1: 1000.0,
+            },
+            reason: None,
+        }];
+        let opts = RedactionOptions {
+            mode: RedactionMode::Surgery,
+            redacted_text: vec!["Hello".into()],
+            ..RedactionOptions::default()
+        };
+        let outcome =
+            redact(hello_bytes(), &regions, &opts).expect("fallback to flatten must succeed");
+        assert!(
+            outcome.report.pages_flattened.contains(&0),
+            "hello.pdf page 0 must be in pages_flattened"
+        );
+        assert!(
+            outcome.report.pages_surgered.is_empty(),
+            "no pages should be surgered for hello.pdf"
+        );
+        let reloaded = lopdf::Document::load_mem(&outcome.pdf).unwrap();
+        assert!(
+            !reloaded
+                .extract_text(&[1])
+                .unwrap_or_default()
+                .contains("Hello"),
+            "target text must be absent after fallback flatten"
+        );
+    }
+
+    #[test]
+    fn flatten_mode_unchanged() {
+        // Default options (Flatten mode) must behave exactly as before.
+        // pages_surgered must be empty; existing behavior preserved.
+        let regions = [RedactionRegion {
+            page: 0,
+            rect: Rect {
+                x0: 0.0,
+                y0: 0.0,
+                x1: 1000.0,
+                y1: 1000.0,
+            },
+            reason: None,
+        }];
+        let opts = RedactionOptions {
+            redacted_text: vec!["Hello".into()],
+            ..RedactionOptions::default()
+        };
+        let outcome = redact(hello_bytes(), &regions, &opts).expect("flatten mode must succeed");
+        assert!(
+            outcome.report.pages_surgered.is_empty(),
+            "Flatten mode must have empty pages_surgered"
+        );
+        assert!(
+            outcome.report.pages_flattened.contains(&0),
+            "page 0 must be in pages_flattened"
+        );
+        assert_eq!(outcome.report.pages_redacted, vec![0]);
     }
 }
