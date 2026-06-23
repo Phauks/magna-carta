@@ -20,7 +20,9 @@ export class DocumentSession extends Container<Env> {
   defaultPort = 9980; // coolwsd (TLS terminated at the edge; the container speaks http on 9980)
   sleepAfter: string | number = "60s";
 
-  private static readonly KEEP_ALIVE_SECONDS = 30; // < sleepAfter, so a renew always lands first
+  // Renew well inside sleepAfter with margin for delayed/throttled alarms (measured: a cold-boot alarm
+  // ran ~30s). At 15s cadence vs a 120s sleepAfter, several renews must ALL slip before a gap opens.
+  private static readonly KEEP_ALIVE_SECONDS = 15;
 
   override async onStart(): Promise<void> {
     if (this.env.SLEEP_AFTER) this.sleepAfter = this.env.SLEEP_AFTER;
