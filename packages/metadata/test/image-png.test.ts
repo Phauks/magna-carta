@@ -80,4 +80,14 @@ describe("png", () => {
     expect(() => scrubPng(big)).not.toThrow();
     expect(inspectPngFindings(scrubPng(big))).toHaveLength(0);
   });
+  it("does not hang or throw on a corrupt chunk length (high bit set)", () => {
+    // A chunk whose 4-byte length field is 0x80000000 (negative if parsed signed).
+    const corrupt = new Uint8Array([
+      ...SIG,
+      0x80, 0x00, 0x00, 0x00, // length with high bit set
+      0x74, 0x45, 0x58, 0x74, // "tEXt"
+      0x00, // (insufficient data — deliberately malformed)
+    ]);
+    expect(() => scrubPng(corrupt)).not.toThrow();
+  });
 });
