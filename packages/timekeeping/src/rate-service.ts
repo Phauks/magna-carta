@@ -73,10 +73,11 @@ export async function appendRate(
   input: AppendRateInput,
   options: TimekeepingServiceOptions,
 ): Promise<{ rateId: RateId; effect: EffectWrite }> {
-  const cardExists = await selectRateCardExistsStatement(database, input.rateCardId).first<{
-    found: number;
-  }>();
-  if (cardExists === null) {
+  const { results: cardExistsRows } = await selectRateCardExistsStatement(
+    database,
+    input.rateCardId,
+  ).all<{ found: number }>();
+  if (cardExistsRows[0] === undefined) {
     throw new RateValidationError(
       "rate-card-not-found",
       `Rate card ${input.rateCardId} does not exist`,

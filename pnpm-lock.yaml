@@ -511,6 +511,9 @@ importers:
       '@magna-carta/money':
         specifier: workspace:*
         version: link:../money
+      '@magna-carta/timekeeping':
+        specifier: workspace:*
+        version: link:../timekeeping
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*
