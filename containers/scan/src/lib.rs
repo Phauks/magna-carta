@@ -38,6 +38,16 @@ pub struct AppState {
     pub engine_version: Arc<str>,
 }
 
+/// Composes the three separable engine-version components into the canonical composite string.
+///
+/// Format: `engine/<code>+yara-rules/<rules>+clamav-db/<db>`
+///
+/// Any component changing changes the whole string, which drives re-scan staleness across the fleet.
+/// Split on `+` then `/` to decompose back to the individual components.
+pub fn compose_engine_version(engine_code: u32, yara_rulesets: u32, clamav_db: &str) -> String {
+    format!("engine/{engine_code}+yara-rules/{yara_rulesets}+clamav-db/{clamav_db}")
+}
+
 /// The maximum `/scan` request body, aligned with the ingest pipeline's 2 GiB inspectable-size cap
 /// (`fileManager.inspectableSizeCapBytes`); oversize is gated upstream, so this is the matching ceiling.
 /// The handler streams the raw body rather than using axum's `Bytes` extractor (which would both impose
@@ -224,6 +234,24 @@ fn isolate_engines(work: impl FnOnce() -> EngineOutput) -> Option<EngineOutput> 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn compose_engine_version_produces_the_canonical_composite_format() {
+        // The composite must be decomposable by splitting on `+` then `/`.
+        assert_eq!(
+            compose_engine_version(1, 0, "27268"),
+            "engine/1+yara-rules/0+clamav-db/27268"
+        );
+    }
+
+    #[test]
+    fn compose_engine_version_any_component_change_changes_the_whole_string() {
+        // Changing any one component must produce a different string — this is the staleness gate.
+        let base = compose_engine_version(1, 0, "27268");
+        assert_ne!(compose_engine_version(2, 0, "27268"), base); // engine bump
+        assert_ne!(compose_engine_version(1, 1, "27268"), base); // new yara rule
+        assert_ne!(compose_engine_version(1, 0, "27269"), base); // daily sig refresh
+    }
 
     #[test]
     fn isolate_engines_catches_a_panic_as_none() {

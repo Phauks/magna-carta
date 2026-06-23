@@ -194,9 +194,52 @@ fn parse_signature(reply: &str) -> String {
         .to_string()
 }
 
+/// Parses the clamd VERSION reply and extracts the signature-database version token.
+///
+/// clamd replies to `zVERSION\0` with a line like:
+///
+///   `ClamAV 1.0.3/27268/Thu Oct 12 09:31:47 2023`
+///
+/// The database version is the second `/`-delimited token (between the first and second `/`).
+/// Returns `None` if the reply is missing, malformed, or non-UTF-8 — the caller treats that as a
+/// startup failure (never a blank token that silently freezes the staleness gate).
+pub fn parse_clamav_db_version(reply: &[u8]) -> Option<String> {
+    let text = std::str::from_utf8(reply).ok()?;
+    // Strip any trailing null bytes or whitespace so a `z`-protocol NUL terminator does not confuse
+    // the parser.
+    let text = text.trim_end_matches(|c: char| c == '\0' || c.is_whitespace());
+    // The reply format is `ClamAV <engine>/<db-version>/<db-date>`.
+    let mut parts = text.splitn(3, '/');
+    let _ = parts.next(); // "ClamAV <engine>" — discard
+    let db_version = parts.next()?.trim();
+    if db_version.is_empty() {
+        return None;
+    }
+    Some(db_version.to_string())
+}
+
+/// Queries clamd's `VERSION` command over the existing loopback TCP transport and returns the
+/// signature-database version token (e.g. `"27268"`).
+///
+/// The exchange is quick — clamd replies immediately with one short line — so `CLAMD_CONNECT_TIMEOUT`
+/// (5 s) is the right bound; no separate exchange timeout is needed. Returns an error if the connect
+/// or read fails, or if the reply cannot be parsed.
+pub async fn query_clamav_db_version(clamd_address: &str) -> std::io::Result<String> {
+    let mut stream = connect(clamd_address).await?;
+    // `z`-protocol: null-terminated command.
+    stream.write_all(b"zVERSION\0").await?;
+    let raw = read_reply(&mut stream).await?;
+    parse_clamav_db_version(&raw).ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "clamd VERSION reply could not be parsed for the database version token",
+        )
+    })
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{interpret_reply, scan_buffer, ClamVerdict};
+    use super::{interpret_reply, parse_clamav_db_version, scan_buffer, ClamVerdict};
 
     #[test]
     fn instream_found_reply_is_infected_with_signature() {
@@ -323,5 +366,50 @@ mod tests {
             .expect("scan must not hang past the test deadline");
         std::env::remove_var("CLAMD_EXCHANGE_TIMEOUT_SECS");
         assert_eq!(verdict, ClamVerdict::Unavailable);
+    }
+
+    // --- clamd VERSION parser ---
+
+    #[test]
+    fn version_reply_parses_the_db_version_token() {
+        // Standard clamd VERSION output: `ClamAV <engine>/<db-version>/<db-date>`.
+        assert_eq!(
+            parse_clamav_db_version(b"ClamAV 1.0.3/27268/Thu Oct 12 09:31:47 2023"),
+            Some("27268".to_string())
+        );
+    }
+
+    #[test]
+    fn version_reply_with_trailing_nul_parses_correctly() {
+        // The `z`-protocol appends a NUL terminator; strip it before parsing.
+        assert_eq!(
+            parse_clamav_db_version(b"ClamAV 1.0.3/27268/Thu Oct 12 09:31:47 2023\0"),
+            Some("27268".to_string())
+        );
+    }
+
+    #[test]
+    fn version_reply_with_whitespace_is_trimmed() {
+        assert_eq!(
+            parse_clamav_db_version(b"ClamAV 1.0.3/27268/Thu Oct 12 09:31:47 2023\n"),
+            Some("27268".to_string())
+        );
+    }
+
+    #[test]
+    fn malformed_version_reply_without_slashes_returns_none() {
+        // A broken or unexpected reply must not produce a blank token — return `None` so the caller
+        // can fail startup rather than serve with a fabricated DB version.
+        assert_eq!(parse_clamav_db_version(b"something unexpected"), None);
+    }
+
+    #[test]
+    fn empty_version_reply_returns_none() {
+        assert_eq!(parse_clamav_db_version(b""), None);
+    }
+
+    #[test]
+    fn non_utf8_version_reply_returns_none() {
+        assert_eq!(parse_clamav_db_version(&[0xff, 0xfe, 0x00, 0x80]), None);
     }
 }
