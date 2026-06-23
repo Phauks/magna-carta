@@ -8,10 +8,12 @@
 //! unit. The caller divides by 1000 and multiplies by the font size (Tfs) to get
 //! a text-space advance.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use kurbo::Affine;
 use lopdf::{content::Content, Object, ObjectId};
+
+use crate::redact::Rect;
 
 // ── Font metrics ─────────────────────────────────────────────────────────────
 
@@ -728,6 +730,371 @@ fn string_bytes_from_operand(operands: &[Object], index: usize) -> Option<&[u8]>
     }
 }
 
+// ── Marking ──────────────────────────────────────────────────────────────────
+
+/// Return the indices of slots whose display-point centre `(cx, cy)` falls inside
+/// at least one of the supplied redaction rectangles.
+///
+/// Uses `crate::detect::rect_contains` for the membership test, which is corner-order
+/// tolerant (the `Rect` fields may be un-normalised). An empty `rects` slice returns
+/// an empty index list.
+pub(crate) fn mark_in_rects(slots: &[GlyphSlot], rects: &[Rect]) -> Vec<usize> {
+    slots
+        .iter()
+        .enumerate()
+        .filter(|(_, slot)| {
+            rects
+                .iter()
+                .any(|rect| crate::detect::rect_contains(rect, slot.cx, slot.cy))
+        })
+        .map(|(index, _)| index)
+        .collect()
+}
+
+// ── Excision ──────────────────────────────────────────────────────────────────
+
+/// Working state for one text-show operation that needs to be rewritten into a `TJ`.
+/// Built inside `apply_excision` and consumed by `rebuild_tj_array`.
+struct OpRewrite {
+    /// All slot indices for this operation (marked and kept), used to reconstruct the operand.
+    all_slots: Vec<usize>,
+    /// The original operator string (`"Tj"`, `"TJ"`, `"'"`, `"\""`), for `'`/`"` detection.
+    original_operator: String,
+    /// For `TJ` operations: the original operand array (to preserve existing numeric elements).
+    original_array: Option<Vec<Object>>,
+    /// For `Tj`/`'`/`"` operations: the single string bytes from the operand.
+    single_string_bytes: Option<Vec<u8>>,
+}
+
+/// Rewrite every text-show operation that contains at least one marked glyph into an
+/// equivalent `TJ` array, dropping the marked codes and inserting a single numeric
+/// advance-compensation element for each contiguous run of dropped codes so that
+/// following glyphs remain correctly positioned.
+///
+/// The compensation value `n` is:
+///   `n = -(Σ over dropped glyphs of (w + (char_spacing + word_spacing_term) * 1000 / font_size))`
+/// where `w` is the glyph-space width (from the `fonts` map), and `word_spacing_term`
+/// applies only for 1-byte code 32.
+///
+/// The `fonts` parameter is required because `GlyphSlot` does not carry per-glyph
+/// advance widths (only position and metadata); widths must be resolved at call time.
+///
+/// After rewriting all affected operations, one opaque black redaction box is appended
+/// per rectangle in `rects`, drawn using `q … re f Q` in the page's coordinate space.
+///
+/// `'` and `"` operators that contain marked glyphs are replaced by a preceding `T*`
+/// operation (which carries their implicit line-advance semantics) followed by the
+/// rebuilt `TJ`. The replacement is done by rebuilding `content.operations` rather
+/// than mutating the slice in place, so indices in `marked` remain valid.
+pub(crate) fn apply_excision(
+    content: &mut Content,
+    slots: &[GlyphSlot],
+    marked: &[usize],
+    fonts: &BTreeMap<Vec<u8>, FontMetrics>,
+    rects: &[Rect],
+) {
+    if marked.is_empty() && rects.is_empty() {
+        return;
+    }
+
+    // Build a set of marked slot indices for O(log n) lookup.
+    let marked_set: BTreeSet<usize> = marked.iter().copied().collect();
+
+    // Group marked slot indices by (op_index, elem_index) so we know which
+    // operations need rewriting and which string elements within them are affected.
+    // key = op_index; value = set of slot indices belonging to that operation.
+    let mut ops_with_marked: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    for &slot_index in marked {
+        let op_index = slots[slot_index].op;
+        ops_with_marked
+            .entry(op_index)
+            .or_default()
+            .push(slot_index);
+    }
+
+    // Collect all slots for each affected operation (including non-marked ones in
+    // the same operand, so we know what to keep).
+    let mut rewrite_map: BTreeMap<usize, OpRewrite> = BTreeMap::new();
+    for &op_index in ops_with_marked.keys() {
+        // Gather all slots that belong to this op_index.
+        let all_slots_for_op: Vec<usize> = slots
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| s.op == op_index)
+            .map(|(i, _)| i)
+            .collect();
+
+        let op = &content.operations[op_index];
+        let original_operator = op.operator.clone();
+
+        let (original_array, single_string_bytes) = match original_operator.as_str() {
+            "TJ" => {
+                let array = match op.operands.first() {
+                    Some(Object::Array(arr)) => Some(arr.clone()),
+                    _ => None,
+                };
+                (array, None)
+            }
+            "Tj" | "'" | "\"" => {
+                // For Tj/'/", the string operand index differs: Tj uses 0, ' uses 0, " uses 2.
+                let str_operand_index = if original_operator == "\"" { 2 } else { 0 };
+                let bytes = match op.operands.get(str_operand_index) {
+                    Some(Object::String(b, _)) => Some(b.clone()),
+                    _ => None,
+                };
+                (None, bytes)
+            }
+            _ => (None, None),
+        };
+
+        rewrite_map.insert(
+            op_index,
+            OpRewrite {
+                all_slots: all_slots_for_op,
+                original_operator,
+                original_array,
+                single_string_bytes,
+            },
+        );
+    }
+
+    // Now rebuild content.operations, inserting T* before rewrites of '/'" ops.
+    let original_operations = std::mem::take(&mut content.operations);
+    let mut new_operations: Vec<lopdf::content::Operation> = Vec::with_capacity(
+        original_operations.len() + rewrite_map.len(), // at most one T* per '/" op
+    );
+
+    for (op_index, op) in original_operations.into_iter().enumerate() {
+        let Some(rewrite) = rewrite_map.get(&op_index) else {
+            // Not an op we need to rewrite; keep as-is.
+            new_operations.push(op);
+            continue;
+        };
+
+        // If the original operator was ' or ", emit T* first to carry the line advance.
+        if rewrite.original_operator == "'" || rewrite.original_operator == "\"" {
+            new_operations.push(lopdf::content::Operation::new("T*", vec![]));
+        }
+
+        // Rebuild the TJ array for this operation.
+        let rebuilt_array = rebuild_tj_array(rewrite, slots, &marked_set, fonts);
+
+        new_operations.push(lopdf::content::Operation::new(
+            "TJ",
+            vec![Object::Array(rebuilt_array)],
+        ));
+    }
+
+    content.operations = new_operations;
+
+    // Append one opaque black redaction box per rect.
+    // Normalise corners before computing width/height so the rectangle is always
+    // drawn with positive dimensions, regardless of caller-supplied corner order.
+    for rect in rects {
+        let x0 = rect.x0.min(rect.x1);
+        let y0 = rect.y0.min(rect.y1);
+        let x1 = rect.x0.max(rect.x1);
+        let y1 = rect.y0.max(rect.y1);
+        let width = x1 - x0;
+        let height = y1 - y0;
+
+        content
+            .operations
+            .push(lopdf::content::Operation::new("q", vec![]));
+        content.operations.push(lopdf::content::Operation::new(
+            "rg",
+            vec![Object::Integer(0), Object::Integer(0), Object::Integer(0)],
+        ));
+        content.operations.push(lopdf::content::Operation::new(
+            "re",
+            vec![
+                Object::Real(x0),
+                Object::Real(y0),
+                Object::Real(width),
+                Object::Real(height),
+            ],
+        ));
+        content
+            .operations
+            .push(lopdf::content::Operation::new("f", vec![]));
+        content
+            .operations
+            .push(lopdf::content::Operation::new("Q", vec![]));
+    }
+}
+
+/// Rebuild the TJ array for one affected operation.
+///
+/// For TJ-style operands the existing numeric elements (kerning) that are not part
+/// of a dropped run are preserved in their original positions. For Tj/'/"-style operands
+/// there is a single string to reconstruct.
+///
+/// Within each string element the codes are walked in order using the slots' `byte_off`
+/// / `byte_len` fields. Kept codes accumulate into a growing `Vec<u8>` fragment; when a
+/// marked code is encountered the current fragment is flushed as an `Object::String`,
+/// then the contiguous run of dropped codes accumulates a compensation sum, which is
+/// emitted as a single `Object::Real(n)` when the run ends. `n` is negative so the
+/// renderer advances by the amount the dropped glyphs would have contributed.
+fn rebuild_tj_array(
+    rewrite: &OpRewrite,
+    slots: &[GlyphSlot],
+    marked_set: &BTreeSet<usize>,
+    fonts: &BTreeMap<Vec<u8>, FontMetrics>,
+) -> Vec<Object> {
+    // Collect all elements that belong to this operation.
+    // For TJ: walk the original array; for each Object::String element, find the
+    // matching slots and rebuild; preserve non-String elements if not part of a dropped run.
+    // For Tj/'/": there is one implicit string element (elem = None).
+
+    match &rewrite.original_operator[..] {
+        "TJ" => {
+            let Some(original_array) = &rewrite.original_array else {
+                return vec![];
+            };
+
+            let mut result: Vec<Object> = Vec::new();
+
+            for (element_index, element) in original_array.iter().enumerate() {
+                match element {
+                    Object::String(bytes, _) => {
+                        // Find all slots for this (op, elem) pair, in byte-offset order.
+                        let mut element_slots: Vec<usize> = rewrite
+                            .all_slots
+                            .iter()
+                            .copied()
+                            .filter(|&si| slots[si].elem == Some(element_index))
+                            .collect();
+                        element_slots.sort_by_key(|&si| slots[si].byte_off);
+
+                        let rebuilt =
+                            rebuild_string_element(bytes, &element_slots, slots, marked_set, fonts);
+                        result.extend(rebuilt);
+                    }
+                    Object::Integer(_) | Object::Real(_) => {
+                        // Preserve existing kerning adjustments verbatim — they belong to
+                        // the inter-element gaps, not to any single dropped code's run.
+                        result.push(element.clone());
+                    }
+                    _ => {}
+                }
+            }
+
+            result
+        }
+        "Tj" | "'" | "\"" => {
+            let Some(bytes) = &rewrite.single_string_bytes else {
+                return vec![];
+            };
+
+            // All slots for this op have elem = None.
+            let mut element_slots: Vec<usize> = rewrite
+                .all_slots
+                .iter()
+                .copied()
+                .filter(|&si| slots[si].elem.is_none())
+                .collect();
+            element_slots.sort_by_key(|&si| slots[si].byte_off);
+
+            rebuild_string_element(bytes, &element_slots, slots, marked_set, fonts)
+        }
+        _ => vec![],
+    }
+}
+
+/// Reconstruct one string element's contribution to the TJ array.
+///
+/// Walks the codes described by `element_slots` (sorted by `byte_off`). Kept codes
+/// are accumulated into a byte buffer; when a marked code is encountered:
+///   1. The current buffer is flushed as an `Object::String` (if non-empty).
+///   2. The contiguous dropped run's advance sum is accumulated.
+///   3. When the run ends (a kept code or the end of the element is reached), the
+///      accumulated sum is emitted as `Object::Real(n)` where `n` is negative.
+///
+/// This ensures that the reader's text position after the TJ array matches what it
+/// would have been had the dropped glyphs been present but invisible.
+fn rebuild_string_element(
+    source_bytes: &[u8],
+    element_slots: &[usize],
+    slots: &[GlyphSlot],
+    marked_set: &BTreeSet<usize>,
+    fonts: &BTreeMap<Vec<u8>, FontMetrics>,
+) -> Vec<Object> {
+    let mut result: Vec<Object> = Vec::new();
+    let mut kept_bytes: Vec<u8> = Vec::new();
+    // Accumulates the compensation sum (positive units) for a contiguous dropped run.
+    let mut dropped_advance_sum: f32 = 0.0;
+    let mut in_dropped_run = false;
+
+    for &slot_index in element_slots {
+        let slot = &slots[slot_index];
+
+        if marked_set.contains(&slot_index) {
+            // This code is dropped.  Flush any accumulated kept bytes first.
+            if !kept_bytes.is_empty() {
+                result.push(Object::String(
+                    std::mem::take(&mut kept_bytes),
+                    lopdf::StringFormat::Literal,
+                ));
+            }
+
+            // Accumulate the advance for this dropped glyph.
+            let glyph_width = glyph_width_from_metrics(slot, fonts);
+            let word_spacing_term = if slot.byte_len == 1 && slot.code == 32 {
+                slot.word_spacing
+            } else {
+                0.0
+            };
+            // Advance contribution in TJ units (glyph-space thousandths):
+            //   n formula: -(w + (Tc + Tw_term) * 1000 / font_size)
+            // where w is the glyph-space width from the widths map (in thousandths).
+            let contribution = glyph_width
+                + (slot.char_spacing + word_spacing_term) * 1000.0
+                    / slot.font_size.max(f32::EPSILON);
+            dropped_advance_sum += contribution;
+            in_dropped_run = true;
+        } else {
+            // This code is kept.  If we were in a dropped run, flush the compensation.
+            if in_dropped_run {
+                result.push(Object::Real(-dropped_advance_sum));
+                dropped_advance_sum = 0.0;
+                in_dropped_run = false;
+            }
+
+            // Append this code's bytes to the kept buffer, using the slot's
+            // byte_off/byte_len as the authoritative source of which bytes this code occupies.
+            let slot_bytes_end = (slot.byte_off + slot.byte_len).min(source_bytes.len());
+            kept_bytes.extend_from_slice(&source_bytes[slot.byte_off..slot_bytes_end]);
+        }
+    }
+
+    // Flush any remaining kept bytes.
+    if !kept_bytes.is_empty() {
+        result.push(Object::String(kept_bytes, lopdf::StringFormat::Literal));
+    }
+
+    // Flush any remaining dropped run (trailing dropped codes).
+    if in_dropped_run && dropped_advance_sum != 0.0 {
+        result.push(Object::Real(-dropped_advance_sum));
+    }
+
+    result
+}
+
+/// Look up the glyph-space width (PDF `/Widths` thousandths) for the code in `slot`.
+///
+/// Falls back to `default_width` if the font is found but has no entry for the code,
+/// and to `0.0` if the font is absent or unsupported (so the advance is not over-compensated).
+fn glyph_width_from_metrics(slot: &GlyphSlot, fonts: &BTreeMap<Vec<u8>, FontMetrics>) -> f32 {
+    match fonts.get(&slot.font) {
+        Some(FontMetrics::Supported {
+            widths,
+            default_width,
+            ..
+        }) => widths.get(&slot.code).copied().unwrap_or(*default_width),
+        _ => 0.0,
+    }
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -1017,5 +1384,232 @@ mod tests {
             enumerate_page_glyphs(&Content { operations: ops }, &simple_fonts(), 792.0).unwrap();
         // origin 50*2=100; advance also scaled: half-advance = 2.5*2=5.0
         assert!((slots[0].cx - (100.0 + 2.5 * 2.0)).abs() < 1.0);
+    }
+
+    // ── Task 3: marking, excision, and redaction boxes ────────────────────────
+
+    /// Accept `Object::Integer` or `Object::Real` and compare the numeric value to
+    /// `expected` within a small epsilon. Used to verify TJ compensation values without
+    /// caring about which variant lopdf chose.
+    fn real_eq(obj: &Object, expected: f32) -> bool {
+        match obj {
+            Object::Integer(n) => (*n as f32 - expected).abs() < 0.1,
+            Object::Real(r) => (*r - expected).abs() < 0.1,
+            _ => false,
+        }
+    }
+
+    /// Build the standard content stream: BT /F0 10 Tf 0 0 Td (AB) Tj ET.
+    /// Used across several Task 3 tests.
+    fn ab_content() -> Content {
+        Content {
+            operations: vec![
+                Operation::new("BT", vec![]),
+                Operation::new("Tf", vec![Object::Name(b"F0".to_vec()), 10.into()]),
+                Operation::new("Td", vec![0.into(), 0.into()]),
+                Operation::new("Tj", vec![Object::string_literal("AB")]),
+                Operation::new("ET", vec![]),
+            ],
+        }
+    }
+
+    #[test]
+    fn mark_in_rects_returns_indices_inside_rect() {
+        // Slots at cx=10,cy=10 and cx=50,cy=50.  Rect covers only the second.
+        let mut widths = BTreeMap::new();
+        widths.insert(b'A' as u32, 500.0f32);
+        widths.insert(b'B' as u32, 500.0f32);
+        let fonts = simple_fonts();
+        let content = ab_content();
+        let slots = enumerate_page_glyphs(&content, &fonts, 792.0).unwrap();
+        // A large rect that covers all glyphs (they're near x=2.5/7.5 y=3.5 in text space).
+        let rects = vec![crate::Rect {
+            x0: 0.0,
+            y0: 0.0,
+            x1: 100.0,
+            y1: 100.0,
+        }];
+        let marked = mark_in_rects(&slots, &rects);
+        assert_eq!(marked, vec![0, 1]);
+    }
+
+    #[test]
+    fn mark_in_rects_empty_rects_returns_empty() {
+        let content = ab_content();
+        let slots = enumerate_page_glyphs(&content, &simple_fonts(), 792.0).unwrap();
+        assert!(mark_in_rects(&slots, &[]).is_empty());
+    }
+
+    #[test]
+    fn excise_first_of_two_inserts_compensating_advance() {
+        // "(AB) Tj", drop A (width 500, Tc=Tw=0). Expect TJ [ -500.0 (B) ].
+        let mut content = ab_content();
+        let slots = enumerate_page_glyphs(&content, &simple_fonts(), 792.0).unwrap();
+        // Mark slot 0 = 'A'.
+        apply_excision(&mut content, &slots, &[0], &simple_fonts(), &[]);
+        // Find the rebuilt TJ.
+        let tj = content
+            .operations
+            .iter()
+            .find(|o| o.operator == "TJ")
+            .expect("expected a TJ operation");
+        if let Object::Array(arr) = &tj.operands[0] {
+            // First element: the compensation advance for 'A' = -500.0.
+            assert!(
+                real_eq(&arr[0], -500.0),
+                "expected compensation -500.0, got {:?}",
+                arr[0]
+            );
+            // Second element: the kept byte 'B'.
+            assert!(
+                matches!(&arr[1], Object::String(s, _) if s.as_slice() == b"B"),
+                "expected kept 'B', got {:?}",
+                arr[1]
+            );
+        } else {
+            panic!("expected TJ array operand, got {:?}", tj.operands);
+        }
+    }
+
+    #[test]
+    fn excise_last_of_two_keeps_first_with_trailing_compensation() {
+        // "(AB) Tj", drop B. Expect TJ [ (A) -500.0 ].
+        let mut content = ab_content();
+        let slots = enumerate_page_glyphs(&content, &simple_fonts(), 792.0).unwrap();
+        apply_excision(&mut content, &slots, &[1], &simple_fonts(), &[]);
+        let tj = content
+            .operations
+            .iter()
+            .find(|o| o.operator == "TJ")
+            .expect("expected a TJ operation");
+        if let Object::Array(arr) = &tj.operands[0] {
+            assert!(
+                matches!(&arr[0], Object::String(s, _) if s.as_slice() == b"A"),
+                "expected kept 'A', got {:?}",
+                arr[0]
+            );
+            assert!(
+                real_eq(&arr[1], -500.0),
+                "expected trailing compensation -500.0, got {:?}",
+                arr[1]
+            );
+        } else {
+            panic!("expected TJ array operand");
+        }
+    }
+
+    #[test]
+    fn excise_both_leaves_only_compensation() {
+        // "(AB) Tj", drop both. Expect TJ [ -1000.0 ] (one contiguous run).
+        let mut content = ab_content();
+        let slots = enumerate_page_glyphs(&content, &simple_fonts(), 792.0).unwrap();
+        apply_excision(&mut content, &slots, &[0, 1], &simple_fonts(), &[]);
+        let tj = content
+            .operations
+            .iter()
+            .find(|o| o.operator == "TJ")
+            .expect("expected a TJ operation");
+        if let Object::Array(arr) = &tj.operands[0] {
+            assert_eq!(arr.len(), 1, "expected a single compensation element");
+            assert!(
+                real_eq(&arr[0], -1000.0),
+                "expected -1000.0, got {:?}",
+                arr[0]
+            );
+        } else {
+            panic!("expected TJ array operand");
+        }
+    }
+
+    #[test]
+    fn excise_draws_redaction_box() {
+        // Empty content + one rect: verify q, rg, re (correct dimensions), f, Q appended.
+        let mut content = Content { operations: vec![] };
+        apply_excision(
+            &mut content,
+            &[],
+            &[],
+            &simple_fonts(),
+            &[crate::Rect {
+                x0: 10.0,
+                y0: 20.0,
+                x1: 110.0,
+                y1: 70.0,
+            }],
+        );
+        // Must have an `re` with x=10, y=20, w=100, h=50.
+        assert!(
+            content.operations.iter().any(|o| {
+                o.operator == "re"
+                    && matches!(
+                        o.operands.as_slice(),
+                        [a, b, c, d]
+                            if real_eq(a, 10.0) && real_eq(b, 20.0)
+                               && real_eq(c, 100.0) && real_eq(d, 50.0)
+                    )
+            }),
+            "expected re 10 20 100 50, operations: {:?}",
+            content.operations
+        );
+        assert!(
+            content.operations.iter().any(|o| o.operator == "f"),
+            "expected fill operator"
+        );
+        assert!(
+            content.operations.iter().any(|o| o.operator == "q"),
+            "expected save-state q"
+        );
+        assert!(
+            content.operations.iter().any(|o| o.operator == "Q"),
+            "expected restore-state Q"
+        );
+    }
+
+    #[test]
+    fn excise_with_no_marked_and_no_rects_is_identity() {
+        // When nothing is marked and no rects are given, apply_excision must not alter
+        // the content stream at all (early-return path).
+        let ops_before = ab_content().operations;
+        let mut content = ab_content();
+        apply_excision(&mut content, &[], &[], &simple_fonts(), &[]);
+        assert_eq!(
+            content.operations.len(),
+            ops_before.len(),
+            "expected identical operation count"
+        );
+    }
+
+    #[test]
+    fn excise_prime_operator_inserts_t_star_then_tj() {
+        // A "'" (single-quote) operator: excise its only glyph and verify a T* is
+        // emitted before the TJ (carrying the line-advance semantics of "'").
+        let mut content = Content {
+            operations: vec![
+                Operation::new("BT", vec![]),
+                Operation::new("Tf", vec![Object::Name(b"F0".to_vec()), 10.into()]),
+                Operation::new("Td", vec![0.into(), 0.into()]),
+                Operation::new("'", vec![Object::string_literal("A")]),
+                Operation::new("ET", vec![]),
+            ],
+        };
+        let slots = enumerate_page_glyphs(&content, &simple_fonts(), 792.0).unwrap();
+        assert_eq!(slots.len(), 1);
+        apply_excision(&mut content, &slots, &[0], &simple_fonts(), &[]);
+        // Verify that T* appears immediately before TJ in the output stream.
+        let positions: Vec<(usize, &str)> = content
+            .operations
+            .iter()
+            .enumerate()
+            .filter(|(_, o)| o.operator == "T*" || o.operator == "TJ")
+            .map(|(i, o)| (i, o.operator.as_str()))
+            .collect();
+        assert_eq!(positions.len(), 2, "expected exactly one T* and one TJ");
+        assert_eq!(positions[0].1, "T*");
+        assert_eq!(positions[1].1, "TJ");
+        assert_eq!(
+            positions[1].0,
+            positions[0].0 + 1,
+            "T* must immediately precede TJ"
+        );
     }
 }
