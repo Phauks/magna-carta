@@ -8,7 +8,10 @@ contrast to libvips (which links C codecs like libjpeg-turbo, libpng, libwebp): 
 Rust-only implementations trade peak throughput for complete memory safety on adversarial input.
 
 **White paper:** _Performance & concurrency model_ (sandbox-hardened processing). **Worker side:**
-`apps/worker/src/files/{raster-container,container-raster-adapter,conversion-port-binding}.ts`. **Deploy:**
+`apps/convert-worker/src/raster-engine-container.ts` (the `RasterEngineContainer` Durable Object),
+`apps/convert-worker/src/forward-convert.ts` (the `/convert` proxy), and
+`apps/worker/src/conversions/conversion-engine.ts` (the app-worker `serviceBindingPort` adapter that
+calls this engine over the `CONVERT` service binding). **Deploy:**
 [`docs/conventions/operations.md`](../../docs/conventions/operations.md).
 
 ## Key files
@@ -35,10 +38,12 @@ Rust-only implementations trade peak throughput for complete memory safety on ad
   (40 000 px) on the `ImageReader` before decoding. These reject pixel bombs and decompression bombs
   before any allocation happens. The values are calibrated above any legitimate legal document image;
   do not raise them without a documented use case.
-- **The `/convert` body limit tracks the file-size cap.** axum's `Bytes` extractor defaults to
-  2 MiB; `router()` raises `/convert` to 2 GiB (`MAX_CONVERT_BODY_BYTES` = the document-ingest body
-  cap) so every file the worker's fileManager can accept reaches the codec. If the ingest cap
-  changes, `MAX_CONVERT_BODY_BYTES` must change with it — the two must stay aligned.
+- **The `/convert` body limit is 256 MiB — do not raise it to match the general ingest cap.**
+  axum buffers the full request body in RAM before `image::Limits` (the bomb-guard in `convert.rs`)
+  can run. A 2 GiB cap would allow the buffered body + decoded surface (≤ 512 MiB) + encode output
+  to approach the Container instance ceiling. 256 MiB keeps the peak comfortably within the instance
+  budget while accepting any realistic raster source. Encoded image files are far smaller than the
+  worker's general 2 GiB ingest cap; the two caps are deliberately different.
 - **Pure Rust: no C/-sys crates in the dependency tree.** The `image` crate is configured with
   `default-features = false` to exclude the AVIF encoder (which pulls in `ravif`/`rav1e`/`cc`).
   Only pure-Rust codecs are enabled: png, jpeg, gif, webp, tiff, bmp. Any new format addition must

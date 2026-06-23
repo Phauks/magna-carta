@@ -10,11 +10,15 @@ use axum::{
 pub mod convert;
 pub use convert::{convert, ConvertError};
 
-// 2 GiB — matches the document-ingest body cap so every file the worker's
-// fileManager will accept can also be converted without a size mismatch at
-// the container boundary. Axum's default is 2 MiB, which is far too small
-// for production legal documents and high-resolution scanned images.
-const MAX_CONVERT_BODY_BYTES: usize = 2 * 1024 * 1024 * 1024;
+// 256 MiB — an encoded raster source is far smaller than the worker's general
+// 2 GiB ingest cap. axum buffers the full body in RAM before the image::Limits
+// bomb-guard (512 MiB max_alloc) can run, so a 2 GiB cap would allow the
+// buffered body + decoded surface + encode output to approach 4 GiB and
+// pressure the Container instance. 256 MiB keeps the peak (body + decoded
+// surface ≤ 512 MiB + encode output) comfortably within the instance budget
+// while accepting any realistic image. The decode Limits in convert.rs still
+// guard against decompression and pixel bombs independently.
+const MAX_CONVERT_BODY_BYTES: usize = 256 * 1024 * 1024;
 
 async fn handle_convert(headers: HeaderMap, body: Bytes) -> Response {
     let source_format = match headers.get("x-source-format").and_then(|v| v.to_str().ok()) {
