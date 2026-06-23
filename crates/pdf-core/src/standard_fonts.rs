@@ -201,6 +201,33 @@ fn resolve_object<'a>(doc: &'a lopdf::Document, obj: &'a Object) -> &'a Object {
     }
 }
 
+/// The resolved encoding for a font: a base code-to-glyph-name table (baked
+/// `&'static str` entries from the standard encoding arrays) plus an ordered
+/// list of per-code overrides with owned `String` glyph names coming from the
+/// PDF's `/Differences` array.
+///
+/// Using owned strings for differences means that any valid UTF-8 glyph name
+/// supplied by the PDF is preserved without requiring it to appear in any static
+/// table, eliminating the previous silent-drop when a name was absent from the
+/// partial static lookup.
+struct ResolvedEncoding {
+    base: [&'static str; 256],
+    differences: Vec<(u8, String)>,
+}
+
+impl ResolvedEncoding {
+    /// Return the effective glyph name for `code` — the differences override if
+    /// one exists, otherwise the base table entry.
+    fn glyph_name_for(&self, code: u8) -> &str {
+        for (diff_code, name) in &self.differences {
+            if *diff_code == code {
+                return name.as_str();
+            }
+        }
+        self.base[code as usize]
+    }
+}
+
 /// Build the code-to-glyph-name table from the font's `/Encoding` entry.
 ///
 /// For symbolic fonts (`canonical.is_symbolic()`) the base table is always the
@@ -212,60 +239,67 @@ fn resolve_encoding(
     doc: &lopdf::Document,
     font_dict: &lopdf::Dictionary,
     canonical: CanonicalFont,
-) -> [&'static str; 256] {
+) -> ResolvedEncoding {
     if canonical.is_symbolic() {
         // Symbolic fonts: start from the font's own encoding table.
-        let mut table = if canonical == CanonicalFont::Symbol {
+        let base = if canonical == CanonicalFont::Symbol {
             data::SYMBOL_ENCODING
         } else {
             data::ZAPF_DINGBATS_ENCODING
         };
 
         // Apply `/Differences` if the encoding entry is a dictionary that carries one.
-        if let Ok(enc_obj) = font_dict.get(b"Encoding") {
+        let differences = if let Ok(enc_obj) = font_dict.get(b"Encoding") {
             let resolved = resolve_object(doc, enc_obj);
             if let Object::Dictionary(enc_dict) = resolved {
-                apply_differences(doc, enc_dict, &mut table);
+                collect_differences(doc, enc_dict)
+            } else {
+                Vec::new()
             }
-        }
+        } else {
+            Vec::new()
+        };
 
-        return table;
+        return ResolvedEncoding { base, differences };
     }
 
     // Text fonts: default base is Standard Encoding.
-    let mut table = match font_dict.get(b"Encoding").ok() {
-        None => data::STANDARD_ENCODING,
+    match font_dict.get(b"Encoding").ok() {
+        None => ResolvedEncoding {
+            base: data::STANDARD_ENCODING,
+            differences: Vec::new(),
+        },
         Some(enc_obj) => {
             let resolved = resolve_object(doc, enc_obj);
             match resolved {
-                Object::Name(name) => encoding_table_for_name(name),
+                Object::Name(name) => ResolvedEncoding {
+                    base: encoding_table_for_name(name),
+                    differences: Vec::new(),
+                },
                 Object::Dictionary(enc_dict) => {
                     // Base encoding from `/BaseEncoding`; default Standard.
                     let base = enc_dict
                         .get(b"BaseEncoding")
                         .ok()
                         .and_then(|obj| {
-                            let r = resolve_object(doc, obj);
-                            if let Object::Name(n) = r {
+                            let resolved_base = resolve_object(doc, obj);
+                            if let Object::Name(n) = resolved_base {
                                 Some(encoding_table_for_name(n))
                             } else {
                                 None
                             }
                         })
                         .unwrap_or(data::STANDARD_ENCODING);
-                    let mut t = base;
-                    apply_differences(doc, enc_dict, &mut t);
-                    return t;
+                    let differences = collect_differences(doc, enc_dict);
+                    ResolvedEncoding { base, differences }
                 }
-                _ => data::STANDARD_ENCODING,
+                _ => ResolvedEncoding {
+                    base: data::STANDARD_ENCODING,
+                    differences: Vec::new(),
+                },
             }
         }
-    };
-
-    // Pure-name path: no differences possible at this level.
-    // (Differences only exist inside a dict-form encoding.)
-    let _ = &mut table; // silence lint — already mutable if needed
-    table
+    }
 }
 
 /// Pick the standard encoding table for a Name object value.
@@ -278,7 +312,8 @@ fn encoding_table_for_name(name: &[u8]) -> [&'static str; 256] {
     }
 }
 
-/// Walk the `/Differences` array of an encoding dictionary and patch `table`.
+/// Walk the `/Differences` array of an encoding dictionary and collect the
+/// per-code overrides as owned `(code, glyph_name)` pairs.
 ///
 /// The array alternates between integers (new current code) and Names (glyph
 /// names assigned to successive codes starting at the current code):
@@ -286,22 +321,22 @@ fn encoding_table_for_name(name: &[u8]) -> [&'static str; 256] {
 /// → code 32 → "space", 33 → "exclam", 65 → "A", 66 → "B".
 ///
 /// Unknown entry types are skipped; invalid codes (> 255) are silently dropped.
-fn apply_differences(
-    doc: &lopdf::Document,
-    enc_dict: &lopdf::Dictionary,
-    table: &mut [&'static str; 256],
-) {
+/// Glyph names are stored as owned `String` values, so any name that is valid
+/// UTF-8 is preserved exactly — regardless of whether it appears in any standard
+/// encoding table or width slice.
+fn collect_differences(doc: &lopdf::Document, enc_dict: &lopdf::Dictionary) -> Vec<(u8, String)> {
     let differences = match enc_dict.get(b"Differences").ok() {
         Some(obj) => {
             let resolved = resolve_object(doc, obj);
             match resolved {
                 Object::Array(arr) => arr,
-                _ => return,
+                _ => return Vec::new(),
             }
         }
-        None => return,
+        None => return Vec::new(),
     };
 
+    let mut result: Vec<(u8, String)> = Vec::new();
     let mut current_code: usize = 0;
 
     for entry in differences.iter() {
@@ -311,63 +346,16 @@ fn apply_differences(
             }
             Object::Name(glyph_name_bytes) => {
                 if current_code < 256 {
-                    // Map the raw bytes to a &'static str by matching against the
-                    // known glyph names in the encoding tables. If the name is not
-                    // found in our tables we store an empty slice (treated as unmapped).
-                    table[current_code] = glyph_name_to_static(glyph_name_bytes);
+                    let name = String::from_utf8_lossy(glyph_name_bytes).into_owned();
+                    result.push((current_code as u8, name));
                 }
                 current_code = current_code.saturating_add(1);
             }
             _ => {}
         }
     }
-}
 
-/// Convert a glyph-name byte slice from a `/Differences` array to a `&'static str`
-/// by searching the known glyph names across all width slices.
-///
-/// This avoids allocating while still producing a lifetime that outlives the call.
-/// If the name is not present in any table it returns `""` (treated as unmapped).
-fn glyph_name_to_static(name_bytes: &[u8]) -> &'static str {
-    let name_str = match std::str::from_utf8(name_bytes) {
-        Ok(s) => s,
-        Err(_) => return "",
-    };
-
-    // Search across all 14 width slices. The slices are sorted by name so we can
-    // binary-search each one; stop at the first hit.
-    static ALL_SLICES: &[&[(&str, i16)]] = &[
-        data::HELVETICA,
-        data::HELVETICA_BOLD,
-        data::TIMES_ROMAN,
-        data::COURIER,
-        data::SYMBOL,
-        data::ZAPFDINGBATS,
-    ];
-
-    for slice in ALL_SLICES {
-        if let Ok(pos) = slice.binary_search_by_key(&name_str, |&(n, _)| n) {
-            return slice[pos].0;
-        }
-    }
-
-    // Fall back: search the encoding tables for the name as a string literal.
-    // This covers glyph names that exist in encoding tables but not in any width slice.
-    for table in [
-        data::STANDARD_ENCODING.as_slice(),
-        data::WIN_ANSI_ENCODING.as_slice(),
-        data::MAC_ROMAN_ENCODING.as_slice(),
-        data::SYMBOL_ENCODING.as_slice(),
-        data::ZAPF_DINGBATS_ENCODING.as_slice(),
-    ] {
-        for &entry in table {
-            if entry == name_str {
-                return entry;
-            }
-        }
-    }
-
-    ""
+    result
 }
 
 // ── Width lookup ──────────────────────────────────────────────────────────────
@@ -413,7 +401,8 @@ pub(crate) fn standard_font_widths(
     let width_slice = canonical.width_slice();
     let mut widths: BTreeMap<u32, f32> = BTreeMap::new();
 
-    for (code, glyph_name) in encoding.iter().enumerate() {
+    for code in 0u8..=255 {
+        let glyph_name = encoding.glyph_name_for(code);
         if glyph_name.is_empty() {
             continue;
         }
@@ -605,6 +594,84 @@ mod tests {
             widths.get(&65),
             Some(&278.0),
             "/Differences [65 /space] should make code 65 = space width"
+        );
+    }
+
+    // ── /Differences with a name absent from the standard encoding tables ────
+
+    #[test]
+    fn differences_resolves_name_absent_from_standard_encodings() {
+        // Base = WinAnsiEncoding.  /Differences remaps code 65 to /Amacron.
+        // "Amacron" is present in the HELVETICA width slice (667) but is NOT
+        // listed in WIN_ANSI_ENCODING or STANDARD_ENCODING.  The correct width
+        // must be returned regardless of whether the name appears in any
+        // standard encoding table.
+        let mut doc = Document::with_version("1.5");
+        let enc = doc.add_object(dictionary! {
+            "Type" => "Encoding",
+            "BaseEncoding" => "WinAnsiEncoding",
+            "Differences" => vec![
+                Object::Integer(65),
+                Object::Name(b"Amacron".to_vec()),
+            ],
+        });
+        let font = dictionary! {
+            "Type" => "Font",
+            "Subtype" => "Type1",
+            "BaseFont" => "Helvetica",
+            "Encoding" => Object::Reference(enc),
+        };
+        let font_id = doc.add_object(font.clone());
+        let font_dict = match doc.get_object(font_id).unwrap() {
+            Object::Dictionary(d) => d.clone(),
+            _ => panic!("expected dict"),
+        };
+
+        let (widths, _) = standard_font_widths(&doc, &font_dict)
+            .expect("Helvetica with Amacron difference should resolve");
+
+        assert_eq!(
+            widths.get(&65),
+            Some(&667.0),
+            "/Differences [65 /Amacron] should yield Helvetica Amacron width 667"
+        );
+    }
+
+    // ── Times-Italic: /Differences with Amacron yields that font's width ─────
+
+    #[test]
+    fn differences_resolves_name_for_non_base_font_variant() {
+        // Times-Italic has "Amacron" at width 611, which differs from Times-Roman
+        // (722).  A /Differences entry naming /Amacron must resolve using the
+        // active font's own width slice, not any other font's metrics.
+        let mut doc = Document::with_version("1.5");
+        let enc = doc.add_object(dictionary! {
+            "Type" => "Encoding",
+            "BaseEncoding" => "WinAnsiEncoding",
+            "Differences" => vec![
+                Object::Integer(65),
+                Object::Name(b"Amacron".to_vec()),
+            ],
+        });
+        let font = dictionary! {
+            "Type" => "Font",
+            "Subtype" => "Type1",
+            "BaseFont" => "Times-Italic",
+            "Encoding" => Object::Reference(enc),
+        };
+        let font_id = doc.add_object(font.clone());
+        let font_dict = match doc.get_object(font_id).unwrap() {
+            Object::Dictionary(d) => d.clone(),
+            _ => panic!("expected dict"),
+        };
+
+        let (widths, _) = standard_font_widths(&doc, &font_dict)
+            .expect("Times-Italic with Amacron difference should resolve");
+
+        assert_eq!(
+            widths.get(&65),
+            Some(&611.0),
+            "/Differences [65 /Amacron] on Times-Italic should yield 611"
         );
     }
 
