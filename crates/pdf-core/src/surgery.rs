@@ -206,38 +206,55 @@ fn resolve_font_metrics(
 }
 
 /// Resolve metrics for a simple font (Type1, TrueType, MMType1).
-/// `bytes_per_code` is always 1. Widths come from `/FirstChar` + `/Widths`.
-/// `default_width` is read from `/FontDescriptor`'s `/MissingWidth`, else 0.
+/// `bytes_per_code` is always 1. Widths come from `/FirstChar` + `/Widths` when
+/// present; for standard-14 fonts that omit `/Widths`, the built-in advance-width
+/// tables are consulted instead. `default_width` is read from `/FontDescriptor`'s
+/// `/MissingWidth`, else 0.
 fn resolve_simple_font_metrics(
     doc: &lopdf::Document,
     font_dict: &lopdf::Dictionary,
 ) -> Option<FontMetrics> {
-    let first_char = font_dict.get(b"FirstChar").ok().and_then(integer_value)? as u32;
+    // When the font carries an explicit `/Widths` array, use it directly.
+    // Standard-14 fonts omit `/Widths`; for those, fall through to the
+    // standard_font_widths resolver below.
+    if let Ok(widths_obj) = font_dict.get(b"Widths") {
+        let first_char = font_dict.get(b"FirstChar").ok().and_then(integer_value)? as u32;
 
-    let width_objects = match font_dict.get(b"Widths").ok()? {
-        Object::Array(arr) => arr,
-        _ => return None,
-    };
+        let width_objects = match widths_obj {
+            Object::Array(arr) => arr,
+            _ => return None,
+        };
 
-    let widths: BTreeMap<u32, f32> = width_objects
-        .iter()
-        .enumerate()
-        .filter_map(|(offset, obj)| number_value(obj).map(|w| (first_char + offset as u32, w)))
-        .collect();
+        let widths: BTreeMap<u32, f32> = width_objects
+            .iter()
+            .enumerate()
+            .filter_map(|(offset, obj)| number_value(obj).map(|w| (first_char + offset as u32, w)))
+            .collect();
 
-    // `/MissingWidth` lives in the `/FontDescriptor` subdictionary.
-    let default_width = font_dict
-        .get(b"FontDescriptor")
-        .ok()
-        .and_then(|obj| resolve_dict(doc, obj))
-        .and_then(|desc| desc.get(b"MissingWidth").ok())
-        .and_then(number_value)
-        .unwrap_or(0.0);
+        // `/MissingWidth` lives in the `/FontDescriptor` subdictionary.
+        let default_width = font_dict
+            .get(b"FontDescriptor")
+            .ok()
+            .and_then(|obj| resolve_dict(doc, obj))
+            .and_then(|desc| desc.get(b"MissingWidth").ok())
+            .and_then(number_value)
+            .unwrap_or(0.0);
 
-    Some(FontMetrics::Supported {
-        bytes_per_code: 1,
-        widths,
-        default_width,
+        return Some(FontMetrics::Supported {
+            bytes_per_code: 1,
+            widths,
+            default_width,
+        });
+    }
+
+    // No `/Widths` array: check whether this is a standard-14 font whose
+    // metrics can be resolved from the built-in advance-width tables.
+    crate::standard_fonts::standard_font_widths(doc, font_dict).map(|(widths, default_width)| {
+        FontMetrics::Supported {
+            bytes_per_code: 1,
+            widths,
+            default_width,
+        }
     })
 }
 
@@ -1384,15 +1401,18 @@ mod tests {
         }
     }
 
-    /// A simple font whose `/Widths` key is absent must resolve to `FontMetrics::Unsupported`.
-    /// The PDF spec requires `/Widths` for Type1/TrueType/MMType1 outside the standard 14;
-    /// without it we cannot map code units to advance widths.
+    /// A non-standard simple font whose `/Widths` key is absent must resolve to
+    /// `FontMetrics::Unsupported`. Standard-14 fonts without `/Widths` are handled by the
+    /// built-in advance-width resolver; fonts with unrecognized `/BaseFont` names have no
+    /// fallback and cannot have their advance widths resolved.
     #[test]
-    fn simple_font_without_widths_is_unsupported() {
-        // No `/Widths` key — only `/FirstChar` present.
+    fn non_standard_simple_font_without_widths_is_unsupported() {
+        // A non-standard Type1 font with no `/Widths` and no recognizable
+        // standard-14 `/BaseFont` name cannot have its advance widths resolved,
+        // so it must remain Unsupported.
         let font = dictionary! {
             "Type" => "Font", "Subtype" => "Type1",
-            "FirstChar" => 65i64,
+            "BaseFont" => "CustomProprietaryFont",
         };
         let (d, page) = doc_with_font(font);
         assert!(matches!(

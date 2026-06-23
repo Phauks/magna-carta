@@ -875,9 +875,19 @@ mod tests {
     }
 
     #[test]
-    fn surgery_falls_back_to_flatten_when_unsupported() {
-        // hello.pdf uses Helvetica (standard-14, no /Widths) so surgery returns None.
-        // The page must be in pages_flattened, target text absent, run succeeds.
+    fn surgery_falls_back_to_flatten_for_rotated_page() {
+        // A page with /Rotate 90 is genuinely unsupported by surgery: coordinate-frame
+        // adjustment for non-zero rotation is not implemented in the content-stream walker,
+        // so try_build_surgery returns None and the page falls back to flatten.
+        // Build the test PDF programmatically: load hello.pdf and set /Rotate 90 on page 1.
+        let mut lo = lopdf::Document::load_mem(&hello_bytes()).unwrap();
+        let page_id = *lo.get_pages().get(&1).unwrap();
+        lo.get_dictionary_mut(page_id)
+            .unwrap()
+            .set("Rotate", lopdf::Object::Integer(90));
+        let mut rotated_bytes = Vec::new();
+        lo.save_to(&mut rotated_bytes).unwrap();
+
         let regions = [RedactionRegion {
             page: 0,
             rect: Rect {
@@ -893,15 +903,15 @@ mod tests {
             redacted_text: vec!["Hello".into()],
             ..RedactionOptions::default()
         };
-        let outcome =
-            redact(hello_bytes(), &regions, &opts).expect("fallback to flatten must succeed");
+        let outcome = redact(rotated_bytes, &regions, &opts)
+            .expect("fallback to flatten must succeed for a rotated page");
         assert!(
             outcome.report.pages_flattened.contains(&0),
-            "hello.pdf page 0 must be in pages_flattened"
+            "rotated page must be in pages_flattened"
         );
         assert!(
             outcome.report.pages_surgered.is_empty(),
-            "no pages should be surgered for hello.pdf"
+            "no pages should be surgered for a rotated page"
         );
         let reloaded = lopdf::Document::load_mem(&outcome.pdf).unwrap();
         assert!(
@@ -910,6 +920,51 @@ mod tests {
                 .unwrap_or_default()
                 .contains("Hello"),
             "target text must be absent after fallback flatten"
+        );
+    }
+
+    #[test]
+    fn surgery_handles_standard_14_font_without_widths() {
+        // hello.pdf uses Helvetica (a standard-14 font) with no embedded /Widths array.
+        // After wiring the standard-font width resolver into surgery, the page can be
+        // surgered rather than falling back to flatten.
+        // Redact a full-page rect: the page must be in pages_surgered (not flattened),
+        // and the target text must be gone from the output.
+        let regions = [RedactionRegion {
+            page: 0,
+            rect: Rect {
+                x0: 0.0,
+                y0: 0.0,
+                x1: 1000.0,
+                y1: 1000.0,
+            },
+            reason: None,
+        }];
+        let opts = RedactionOptions {
+            mode: RedactionMode::Surgery,
+            redacted_text: vec!["Hello".into()],
+            ..RedactionOptions::default()
+        };
+        let outcome = redact(hello_bytes(), &regions, &opts)
+            .expect("surgery on a standard-14 font page must succeed");
+        assert!(
+            outcome.report.pages_surgered.contains(&0),
+            "hello.pdf page 0 must be in pages_surgered after standard-14 width support; \
+             report: surgered={:?} flattened={:?}",
+            outcome.report.pages_surgered,
+            outcome.report.pages_flattened,
+        );
+        assert!(
+            outcome.report.pages_flattened.is_empty(),
+            "no pages should be flattened when standard-14 surgery succeeds"
+        );
+        let reloaded = lopdf::Document::load_mem(&outcome.pdf).unwrap();
+        assert!(
+            !reloaded
+                .extract_text(&[1])
+                .unwrap_or_default()
+                .contains("Hello"),
+            "target text must be absent after surgery"
         );
     }
 
