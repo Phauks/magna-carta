@@ -80,9 +80,10 @@ export type Bindings = {
   >;
   // The server-conversion queue the coordinator enqueues onto; the consumer runs the ConversionPort adapter.
   CONVERSION: Queue<import("./conversions/conversion-types.ts").ConversionMessage>;
-  // The heavy conversion engines run in a dedicated conversion worker (the Container-subsystem split
-  // scan took); the app worker reaches them through a service binding added with that worker. Until
-  // then resolveEnginePort returns the deferred port — no engine binding here yet.
+  // The dedicated conversion engine worker (magna-carta-convert), reached over a service binding.
+  // Optional: absent in every test environment and until the deploy-time binding is added; while
+  // unset, resolveEnginePort returns the deferred port (engine-not-implemented).
+  CONVERT?: Fetcher;
   // The authenticated Workers AI binding — the only path inference reaches the gateway through (no raw
   // gateway token in any firm-reachable config). Pre-authenticated within the account.
   AI: Ai;

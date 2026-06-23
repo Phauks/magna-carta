@@ -24,6 +24,19 @@ export default defineConfig({
     cloudflareTest({
       wrangler: { configPath: `${import.meta.dirname}/wrangler.jsonc` },
       remoteBindings: false,
+      // The CONVERT service binding in wrangler.jsonc references the dedicated conversion worker
+      // (magna-carta-convert). Miniflare requires that worker to exist in the local test environment,
+      // so we register a minimal stub here. Conversion-engine tests inject fake CONVERT fetchers
+      // directly; this stub only satisfies Miniflare's startup validation — it is never called.
+      miniflare: {
+        workers: [
+          {
+            name: "magna-carta-convert",
+            modules: true,
+            script: `export default { fetch() { return new Response("stub", { status: 501 }); } };`,
+          },
+        ],
+      },
     }),
   ],
 });
