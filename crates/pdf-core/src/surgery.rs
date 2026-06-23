@@ -12,8 +12,6 @@ use std::collections::BTreeMap;
 
 use lopdf::{Object, ObjectId};
 
-use crate::redact::Rect;
-
 // ── Font metrics ─────────────────────────────────────────────────────────────
 
 /// Per-glyph advance widths and code-unit size for one font resource on a page.
@@ -242,7 +240,8 @@ fn resolve_simple_font_metrics(
 
 /// Resolve metrics for a Type0 (composite) font.
 /// Only Identity-H and Identity-V encodings are supported (`bytes_per_code = 2`).
-/// Widths come from the first `/DescendantFonts` entry's `/W` array; default from `/DW`.
+/// `/DescendantFonts` must be an array; a non-array value is malformed and returns
+/// `Unsupported`. Widths come from the first entry's `/W` array; default from `/DW`.
 fn resolve_type0_font_metrics(
     doc: &lopdf::Document,
     font_dict: &lopdf::Dictionary,
@@ -253,11 +252,12 @@ fn resolve_type0_font_metrics(
         return None;
     }
 
-    // Resolve the first descendant CIDFont.
+    // Resolve the first descendant CIDFont. `/DescendantFonts` must be an array per
+    // the PDF specification; any other form is malformed, so we return Unsupported.
     let descendant_obj = font_dict.get(b"DescendantFonts").ok()?;
     let descendant_dict = match descendant_obj {
         Object::Array(arr) => arr.first().and_then(|obj| resolve_dict(doc, obj))?,
-        other => resolve_dict(doc, other)?,
+        _ => return None,
     };
 
     let default_width = descendant_dict
@@ -280,90 +280,6 @@ fn resolve_type0_font_metrics(
         widths,
         default_width,
     })
-}
-
-// ── Placeholder stubs for interfaces produced by later tasks ─────────────────
-// These are declared here so the module compiles and the cross-task interface
-// references in the implementation plan can be checked. Each will be replaced
-// by a full implementation in the corresponding later task.
-
-/// A single glyph occurrence located within a content-stream text operator.
-#[allow(dead_code)]
-pub(crate) struct GlyphSlot {
-    /// Index into `Content.operations`.
-    pub op: usize,
-    /// `Some(i)` for the i-th element of a TJ array; `None` for Tj / `'` / `"` operands.
-    pub elem: Option<usize>,
-    /// Byte offset of this code unit within the operand string bytes.
-    pub byte_off: usize,
-    /// Byte length of this code unit: 1 for simple fonts, 2 for Type0 Identity.
-    pub byte_len: usize,
-    /// Glyph code (character code for simple fonts, CID for Type0).
-    pub code: u32,
-    /// Display-point centre, x coordinate (bottom-left origin).
-    pub cx: f32,
-    /// Display-point centre, y coordinate (bottom-left origin).
-    pub cy: f32,
-    /// Active font resource name at the time this glyph was shown.
-    pub font: Vec<u8>,
-    /// Font size (Tfs) in effect.
-    pub font_size: f32,
-    /// Character spacing (Tc) in effect.
-    pub char_spacing: f32,
-    /// Word spacing (Tw) in effect.
-    pub word_spacing: f32,
-}
-
-/// Walk the content stream and enumerate every glyph with its display-point
-/// position and byte location within the operator stream.
-///
-/// Returns `Err(())` when the page uses a font or operator combination that
-/// the walker cannot reconstruct — the caller should fall back to flattening.
-#[allow(dead_code)]
-pub(crate) fn enumerate_page_glyphs(
-    _content: &lopdf::content::Content,
-    _fonts: &BTreeMap<Vec<u8>, FontMetrics>,
-    _page_height_pt: f32,
-) -> Result<Vec<GlyphSlot>, ()> {
-    // Full implementation is Task 2.
-    Err(())
-}
-
-/// Return the indices (into `slots`) of glyphs whose display-point centre falls
-/// inside any of the given redaction rectangles.
-#[allow(dead_code)]
-pub(crate) fn mark_in_rects(slots: &[GlyphSlot], rects: &[Rect]) -> Vec<usize> {
-    let _ = (slots, rects);
-    Vec::new()
-}
-
-/// Rewrite the content stream to remove the marked glyphs, inserting
-/// advance-preserving TJ adjustments so surrounding text does not reflow,
-/// then append opaque redaction boxes for each rect.
-#[allow(dead_code)]
-pub(crate) fn apply_excision(
-    _content: &mut lopdf::content::Content,
-    _slots: &[GlyphSlot],
-    _marked: &[usize],
-    _rects: &[Rect],
-) {
-    // Full implementation is Task 3.
-}
-
-/// Attempt to build a surgically-edited content stream for one page.
-///
-/// Returns `None` when the page cannot be edited structurally (undecodable
-/// content, unsupported font mix, round-trip mismatch). Returning `Some` does
-/// not prove removal — an outcome gate in the caller confirms it.
-#[allow(dead_code)]
-pub(crate) fn try_build_surgery(
-    _doc: &lopdf::Document,
-    _page_id: ObjectId,
-    _rects: &[Rect],
-    _page_height_pt: f32,
-) -> Option<Vec<u8>> {
-    // Full implementation is Task 4.
-    None
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -465,5 +381,92 @@ mod tests {
             page_fonts(&d, page).get(b"F0".as_ref()).unwrap(),
             FontMetrics::Unsupported
         ));
+    }
+
+    /// `/W` range form: `c_first c_last w` assigns one shared width to every CID in the range.
+    /// Verify that CIDs inside the range get the shared width and one outside falls to
+    /// `default_width` (DW).
+    #[test]
+    fn cid_width_range_form_assigns_shared_width() {
+        // W = [10 20 750] — CIDs 10..=20 each get width 750.0.
+        let mut d = Document::with_version("1.5");
+        let desc = d.add_object(dictionary! {
+            "Type" => "Font", "Subtype" => "CIDFontType2", "DW" => 500i64,
+            "W" => vec![
+                Object::Integer(10),
+                Object::Integer(20),
+                Object::Integer(750),
+            ],
+        });
+        let font = dictionary! {
+            "Type" => "Font", "Subtype" => "Type0", "Encoding" => "Identity-H",
+            "DescendantFonts" => vec![Object::Reference(desc)],
+        };
+        let fid = d.add_object(font);
+        let page = d.add_object(dictionary! {
+            "Type" => "Page",
+            "Resources" => dictionary! { "Font" => dictionary! { "F0" => Object::Reference(fid) } },
+        });
+        match page_fonts(&d, page).get(b"F0".as_ref()).unwrap() {
+            FontMetrics::Supported {
+                widths,
+                default_width,
+                ..
+            } => {
+                // CIDs inside the range get the shared width.
+                assert_eq!(widths.get(&10), Some(&750.0));
+                assert_eq!(widths.get(&15), Some(&750.0));
+                assert_eq!(widths.get(&20), Some(&750.0));
+                // A CID outside the range falls back to DW.
+                assert_eq!(widths.get(&21), None);
+                assert!((*default_width - 500.0).abs() < f32::EPSILON);
+            }
+            _ => panic!("expected Supported"),
+        }
+    }
+
+    /// A simple font whose `/Widths` key is absent must resolve to `FontMetrics::Unsupported`.
+    /// The PDF spec requires `/Widths` for Type1/TrueType/MMType1 outside the standard 14;
+    /// without it we cannot map code units to advance widths.
+    #[test]
+    fn simple_font_without_widths_is_unsupported() {
+        // No `/Widths` key — only `/FirstChar` present.
+        let font = dictionary! {
+            "Type" => "Font", "Subtype" => "Type1",
+            "FirstChar" => 65i64,
+        };
+        let (d, page) = doc_with_font(font);
+        assert!(matches!(
+            page_fonts(&d, page).get(b"F0".as_ref()).unwrap(),
+            FontMetrics::Unsupported
+        ));
+    }
+
+    /// A simple font whose `/FontDescriptor` carries `/MissingWidth` must use that value
+    /// as `default_width` rather than falling back to 0.0.
+    #[test]
+    fn simple_font_missing_width_from_descriptor() {
+        let mut d = Document::with_version("1.5");
+        let descriptor = d.add_object(dictionary! {
+            "Type" => "FontDescriptor",
+            "FontName" => "TestFont",
+            "MissingWidth" => 250i64,
+        });
+        let font = dictionary! {
+            "Type" => "Font", "Subtype" => "TrueType",
+            "FirstChar" => 32i64,
+            "Widths" => vec![Object::Integer(600)],
+            "FontDescriptor" => Object::Reference(descriptor),
+        };
+        let fid = d.add_object(font);
+        let fonts = dictionary! { "F0" => Object::Reference(fid) };
+        let res = dictionary! { "Font" => fonts };
+        let page = d.add_object(dictionary! { "Type" => "Page", "Resources" => res });
+        match page_fonts(&d, page).get(b"F0".as_ref()).unwrap() {
+            FontMetrics::Supported { default_width, .. } => {
+                assert!((*default_width - 250.0).abs() < f32::EPSILON);
+            }
+            _ => panic!("expected Supported"),
+        }
     }
 }
