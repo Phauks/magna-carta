@@ -18,7 +18,7 @@ worker binding and Durable Object configuration can be committed before the engi
   - `x-source-format` — MIME type or format name of the input.
   - `x-target-format` — MIME type or format name of the desired output.
   - `x-recipe` (optional) — JSON-encoded recipe overrides for quality/profile/pages.
-  Returns the converted bytes with an appropriate `Content-Type`, or a non-2xx status on failure.
+    Returns the converted bytes with an appropriate `Content-Type`, or a non-2xx status on failure.
 
 ## Key design notes
 

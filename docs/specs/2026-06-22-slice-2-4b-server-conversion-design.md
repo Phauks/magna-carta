@@ -36,7 +36,7 @@ substrate; the real image lights it up at deploy.
 ## Components (each mirrors a named precedent)
 
 - **`ConversionJob` Durable Object** — per-job state (`queued`→`running`→`done`/`failed`, the source
-  + result R2 keys, `firmId`, the typed failure reason). Mirrors `downloads/bundle-coordinator.ts`.
+  - result R2 keys, `firmId`, the typed failure reason). Mirrors `downloads/bundle-coordinator.ts`.
 - **`CONVERSION` queue + consumer** — wired into the worker `queue()` handler; dead-letters after max
   retries. Mirrors `downloads/bundle-consumer.ts`.
 - **Routes** (through the ADR-0067 chokepoint): `POST /conversions` (submit), `GET /conversions/:id`

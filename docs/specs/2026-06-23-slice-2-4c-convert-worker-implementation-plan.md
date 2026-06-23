@@ -23,10 +23,12 @@
 ### Task 1: Scaffold `apps/convert-worker`
 
 **Files:**
+
 - Create: `apps/convert-worker/package.json`, `apps/convert-worker/tsconfig.json`, `apps/convert-worker/vitest.config.ts`, `apps/convert-worker/worker-env.d.ts`, `apps/convert-worker/wrangler.jsonc`, `apps/convert-worker/src/index.ts`
 - Reference: the matching `apps/scan-worker/*` files
 
 **Interfaces:**
+
 - Produces: the `@magna-carta/convert-worker` package; `Bindings` type in `src/index.ts` (extended in Task 3); a `default` `ExportedHandler` whose `fetch` returns 404 for now.
 
 - [ ] **Step 1: Copy the scaffold files from `apps/scan-worker`, renaming.** `package.json` → name `@magna-carta/convert-worker` (same scripts + deps as scan-worker's: `@cloudflare/containers`, `zod` catalog deps; the same devDeps). `tsconfig.json`, `vitest.config.ts`, `worker-env.d.ts` — identical to scan-worker's (worker-env re-references `./src/index.ts`).
@@ -36,7 +38,7 @@
 - [ ] **Step 3: Write a minimal `wrangler.jsonc`** mirroring scan-worker's top matter: `"name": "magna-carta-convert"`, `"main": "./src/index.ts"`, the same `compatibility_date`/`compatibility_flags` as scan-worker, `"workers_dev": false`, `"preview_urls": false`, `"observability": { "enabled": true, "head_sampling_rate": 1 }`. No `containers`/`durable_objects`/`triggers` yet (added in Task 3).
 
 - [ ] **Step 4: Install + validate.** Run `vp install` (worktree root). Then `cd apps/convert-worker && vp check` (clean) and `pnpm --filter @magna-carta/convert-worker exec wrangler deploy --dry-run` (validates the bare config).
-Expected: vp check clean; dry-run succeeds.
+      Expected: vp check clean; dry-run succeeds.
 
 - [ ] **Step 5: Commit** — `git add apps/convert-worker pnpm-lock.yaml` (+ `pnpm-workspace.yaml` if the workspace globs require an explicit entry — check; `apps/*` likely already matches). `git commit -m "feat(convert-worker): scaffold the magna-carta-convert worker"`.
 
@@ -45,10 +47,12 @@ Expected: vp check clean; dry-run succeeds.
 ### Task 2: `LibvipsContainer` + the `forwardConvert` proxy
 
 **Files:**
+
 - Create: `apps/convert-worker/src/libvips-container.ts`, `apps/convert-worker/src/forward-convert.ts`, `apps/convert-worker/test/forward-convert.test.ts`
 - Reference: `apps/scan-worker/src/{scan-container,forward-scan}.ts`, `apps/scan-worker/test/forward-scan.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `class LibvipsContainer extends Container` (exported)
   - `interface ConvertContainerFetcher { fetch(request: Request): Promise<Response> }`
@@ -120,7 +124,10 @@ describe("forwardConvert", () => {
     const container = {
       fetch: async (req: Request) => {
         captured = req.headers;
-        return new Response(new Uint8Array([9]), { status: 200, headers: { "Content-Type": "image/png" } });
+        return new Response(new Uint8Array([9]), {
+          status: 200,
+          headers: { "Content-Type": "image/png" },
+        });
       },
     };
     const request = new Request("http://convert-worker/convert", {
@@ -183,11 +190,13 @@ export async function forwardConvert(
 ### Task 3: Wire `index.ts` (the `/convert` route + warm cron) + the container binding
 
 **Files:**
+
 - Modify: `apps/convert-worker/src/index.ts`, `apps/convert-worker/wrangler.jsonc`
 - Create: `apps/convert-worker/src/convert-warm.ts`
 - Reference: `apps/scan-worker/src/{index,scan-warm}.ts`, `apps/scan-worker/wrangler.jsonc`
 
 **Interfaces:**
+
 - Consumes: `LibvipsContainer`, `forwardConvert`, `ConvertContainerFetcher` (Task 2).
 - Produces: `Bindings` with `LIBVIPS_CONTAINER: DurableObjectNamespace<LibvipsContainer>`; `pokeContainer`.
 
@@ -268,7 +277,7 @@ export default {
 - [ ] **Step 4: Resolve the Dockerfile question empirically.** Run `pnpm --filter @magna-carta/convert-worker exec wrangler deploy --dry-run`.
   - If it FAILS because `../../containers/convert/Dockerfile` does not exist: create `containers/convert/Dockerfile` as a minimal placeholder (a comment header + a base image line) and `containers/convert/CLAUDE.md` noting the real in-container libvips HTTP service (`POST /convert`, `ready`) is a deploy-time build like `containers/scan`. Re-run dry-run.
   - If dry-run does NOT require the Dockerfile to exist: leave the `containers` binding and add no placeholder (note this in the report).
-  Expected: dry-run succeeds either way.
+    Expected: dry-run succeeds either way.
 
 - [ ] **Step 5: Verify + commit.** `cd apps/convert-worker && vp check` clean; `pnpm --filter @magna-carta/convert-worker test` green. `git add apps/convert-worker` (+ `containers/convert/` if created). `git commit -m "feat(convert-worker): wire /convert route, warm cron, and the engine Container binding"`.
 
@@ -277,11 +286,13 @@ export default {
 ### Task 4: App-worker seam — `resolveEnginePort` → service-binding adapter
 
 **Files:**
+
 - Modify: `apps/worker/src/conversions/conversion-engine.ts`, `apps/worker/src/app.ts`, `apps/worker/wrangler.jsonc`
 - Create: `apps/worker/test/conversion-engine.test.ts`
 - Reference: `packages/conversion/src/port.ts` (the exact `ConversionPort` / input / result types)
 
 **Interfaces:**
+
 - Consumes: `ConversionPort`, `converted`, `adapterError`, `engineNotImplemented` from `@magna-carta/conversion/port`; the worker `Bindings`.
 - Produces: `resolveEnginePort(env)` returning a service-binding-backed `ConversionPort` when `env.CONVERT` is set.
 
@@ -324,7 +335,9 @@ describe("resolveEnginePort", () => {
 
   it("maps a 2xx container response to converted bytes + media type", async () => {
     const out = new Uint8Array([0x52, 0x49, 0x46, 0x46]);
-    const convert = fakeConvert(new Response(out, { status: 200, headers: { "Content-Type": "image/webp" } }));
+    const convert = fakeConvert(
+      new Response(out, { status: 200, headers: { "Content-Type": "image/webp" } }),
+    );
     const port = resolveEnginePort({ CONVERT: convert } as unknown as Bindings);
     const result = await port.convert(input);
     expect(result.ok).toBe(true);
@@ -343,7 +356,11 @@ describe("resolveEnginePort", () => {
   });
 
   it("maps a thrown transport error to adapter-error (never throws)", async () => {
-    const convert: Pick<Fetcher, "fetch"> = { fetch: async () => { throw new Error("binding down"); } };
+    const convert: Pick<Fetcher, "fetch"> = {
+      fetch: async () => {
+        throw new Error("binding down");
+      },
+    };
     const port = resolveEnginePort({ CONVERT: convert } as unknown as Bindings);
     const result = await port.convert(input);
     expect(result.ok).toBe(false);
@@ -422,6 +439,7 @@ export function resolveEnginePort(env: Bindings): ConversionPort {
 ### Task 5: Docs, status, and final gates
 
 **Files:**
+
 - Create: `changelog.d/slice-2-4c-convert-worker.md`
 - Modify: `STATUS.md` (the 2·4 row only), `apps/worker/CLAUDE.md` (update the conversion deploy-time note to name the worker + service binding)
 

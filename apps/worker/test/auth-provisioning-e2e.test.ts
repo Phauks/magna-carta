@@ -495,7 +495,7 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
     }
     // The sweep fires one real request per authenticated operation, sequentially — it grows with the
     // contract, so it carries a generous timeout rather than the 5s default.
-  }, 20_000);
+  }, 40_000);
 
   it("gives every /v1 operation a unique, well-formed operationId mirrored in x-mc-operationId", async () => {
     const document = await fetchOpenApiDocument();
