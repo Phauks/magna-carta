@@ -355,7 +355,7 @@ pub(crate) fn enumerate_page_glyphs(
     let mut text_matrix = Affine::IDENTITY;
     let mut line_matrix = Affine::IDENTITY;
 
-    // Text state parameters (PDF §9.3).
+    // PDF text-state parameters carried across show-text operators.
     let mut active_font: Option<Vec<u8>> = None;
     let mut font_size: f32 = 0.0;
     let mut char_spacing: f32 = 0.0;
