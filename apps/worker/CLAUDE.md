@@ -83,20 +83,24 @@ routes — and is wired but **dormant** until the engines are reachable. `resolv
 `conversion-engine.ts` returns the deferred port (`engine-not-implemented`) for now, so the routes are
 fully functional in tests and in production, they just cannot yet execute real conversions.
 
-The **heavy native engines** (native libvips, LibreOffice headless, FFmpeg, the future Rust PDF engine)
-do **not** belong in this app worker — they are the same CPU/memory-bound, untrusted-bytes,
+The **engines** (the pure-Rust raster service, LibreOffice headless, FFmpeg, the future Rust PDF
+engine) do **not** belong in this app worker — they are the same CPU/memory-bound, untrusted-bytes,
 outbound-disabled Container runtimes that scan was extracted into its own worker for. They live in a
 **dedicated conversion worker** that owns the engine Container(s) and is reached from here through a
 thin **service-binding adapter** that implements the same `ConversionPort` (the split is the existing
-port boundary, so the DO/queue/consumer do not change). A small-raster **wasm-vips in-process
-fast-path** is the one engine that stays in this worker.
+port boundary, so the DO/queue/consumer do not change). All raster work runs in the
+`RasterEngineContainer` inside `apps/convert-worker` — there is no in-process codec path in this
+worker.
 
 To activate real conversions:
 
-1. **Build and deploy the engine Container image** (`containers/convert/`) for the `magna-carta-convert`
-   worker and deploy that worker. The worker scaffold and the `CONVERT` service binding already exist;
-   `resolveEnginePort` returns the `serviceBindingPort` adapter automatically once the binding is
-   present — no code change needed here.
+1. **Build and deploy the pure-Rust raster engine Container image** (`containers/raster/`) for the
+   `magna-carta-convert` worker and deploy that worker. The worker scaffold and the `CONVERT` service
+   binding already exist; `resolveEnginePort` returns the `serviceBindingPort` adapter automatically
+   once the binding is present — no code change needed here. The engine is memory-safe by design
+   (pure Rust, no C codecs — see `containers/raster/CLAUDE.md` for the invariants). The `CONVERT`
+   worker owns the `RasterEngineContainer` Durable Object (the Container-backed DO); once deployed,
+   it handles PNG/JPEG/WebP/TIFF/GIF/BMP conversions via the `image` crate.
 2. **Add the R2 lifecycle rule** expiring the `conversions/` prefix (~24 h). Conversion results are
    transient presigned-GET artifacts; expiry forces the client to re-convert rather than accumulate
    stale files.

@@ -1,6 +1,6 @@
 {
-  // The standalone document-conversion worker. It owns the LibvipsContainer Durable Object
-  // (a Container-backed DO that runs the native-libvips HTTP service on port 8080) and is reached
+  // The standalone document-conversion worker. It owns the RasterEngineContainer Durable Object
+  // (a Container-backed DO that runs the pure-Rust raster engine on port 8080) and is reached
   // only via a service binding from the main app worker — it has no public routes.
   "name": "magna-carta-convert",
   "main": "./src/index.ts",
@@ -9,21 +9,21 @@
   // No public surface: this worker is an internal service reached only via service binding.
   "workers_dev": false,
   "preview_urls": false,
-  // The libvips conversion Container Durable Object (Container-backed, sqlite-class).
-  // The Container runs the native-libvips HTTP service (POST /convert, GET /ready) on port 8080.
+  // The pure-Rust raster engine Container Durable Object (Container-backed, sqlite-class).
+  // The Container runs the raster engine HTTP service (POST /convert, GET /ready) on port 8080.
   "containers": [
     {
-      "class_name": "LibvipsContainer",
-      "image": "../../containers/convert/Dockerfile",
+      "class_name": "RasterEngineContainer",
+      "image": "../../containers/raster/Dockerfile",
       "max_instances": 5,
       "instance_type": "standard-1",
     },
   ],
   "durable_objects": {
-    "bindings": [{ "name": "LIBVIPS_CONTAINER", "class_name": "LibvipsContainer" }],
+    "bindings": [{ "name": "RASTER_ENGINE", "class_name": "RasterEngineContainer" }],
   },
   // SQLite-backed DO class introduced via migration tag; first migration for this worker.
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LibvipsContainer"] }],
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RasterEngineContainer"] }],
   // No cron triggers: the Container scales to zero after its sleepAfter (it bills only while a
   // conversion runs). Conversions are bursty/on-demand, so a warm-poke cron would pay for an
   // always-on instance to save a cold start that rarely matters.

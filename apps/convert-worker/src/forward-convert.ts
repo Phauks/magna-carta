@@ -1,5 +1,5 @@
 // The convert Container's HTTP surface, narrowed to the one call the proxy makes. The container from
-// getContainer(env.LIBVIPS_CONTAINER, ...) satisfies it; tests pass a fake so the proxy is exercised
+// getContainer(env.RASTER_ENGINE, ...) satisfies it; tests pass a fake so the proxy is exercised
 // without a real container (or Docker).
 export interface ConvertContainerFetcher {
   fetch(request: Request): Promise<Response>;

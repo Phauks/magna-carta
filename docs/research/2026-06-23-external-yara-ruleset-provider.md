@@ -12,11 +12,11 @@
 
 ## Licensing (the decisive filter — verified)
 
-| Source | License | Commercial SaaS? |
-| --- | --- | --- |
-| Florian Roth **signature-base** | Detection Rule License (DRL) 1.1 | **Yes** — DRL is written for commercial detection use (attribution; no reselling the rules as a standalone product) |
-| **abuse.ch** YARAhub | CC0 1.0 (public domain) | **Yes** — no restrictions |
-| **Elastic** protections-artifacts | Elastic License v2 | **No / risky** — proprietary; YARA Forge already **disables** it |
+| Source                            | License                          | Commercial SaaS?                                                                                                    |
+| --------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Florian Roth **signature-base**   | Detection Rule License (DRL) 1.1 | **Yes** — DRL is written for commercial detection use (attribution; no reselling the rules as a standalone product) |
+| **abuse.ch** YARAhub              | CC0 1.0 (public domain)          | **Yes** — no restrictions                                                                                           |
+| **Elastic** protections-artifacts | Elastic License v2               | **No / risky** — proprietary; YARA Forge already **disables** it                                                    |
 
 YARA Forge records per-rule license metadata and already excludes Elastic. **Still do a license skim of what `core` actually includes** before shipping (confirm DRL 1.1 + CC0 + the other included licenses are acceptable for an embedded, non-resold detection use — they generally are). A standalone clean fallback is **abuse.ch YARAhub (CC0)** if a fully-public-domain-only posture is ever wanted.
 
