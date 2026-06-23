@@ -14,7 +14,6 @@
     "@cloudflare/containers": "catalog:"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "catalog:",
     "@cloudflare/workers-types": "catalog:",
     "@magna-carta/tsconfig": "workspace:*",
     "vite-plus": "catalog:",

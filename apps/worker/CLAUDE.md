@@ -26,11 +26,12 @@ routes requests through the chokepoint into those packages.
   types). See the flow below.
 - `src/files/` — the ingest consumer (single-read pipeline shell over `@magna-carta/file-manager`), the
   presigner wiring, and the malware-scan wiring: `scan-port-binding.ts` (`resolveScanPort` — the
-  engine-less adapter, or the Container adapter when bound), `scan-container.ts` (the `ScanContainer`
-  Container class), `container-scan-adapter.ts` (POST→`ScanResult`, zod-validated, throw-not-clean), and
-  `scan-warm.ts` (the warm-poke). The scan engine itself is the `containers/scan` Rust crate; the worker
-  only talks to it over HTTP. The Container binding is a **deploy-time activation** — it cannot run under
-  the local test pool, so `resolveScanPort` falls back to the engine-less adapter everywhere in tests.
+  engine-less adapter, or the remote adapter over the `SCAN_SERVICE` binding when bound) and
+  `container-scan-adapter.ts` (POST→`ScanResult`, zod-validated, throw-not-clean). The scan engine itself
+  runs in its own Worker (`apps/scan-worker`, service `magna-carta-scan`), which owns the `ScanContainer`
+  (the `containers/scan` Rust crate); this worker reaches it over the `SCAN_SERVICE` service binding. That
+  binding is a **deploy-time activation** — it cannot run under the local test pool (a stub stands in for
+  it), so `resolveScanPort` falls back to the engine-less adapter everywhere in tests.
 - `wrangler.jsonc` — bindings (D1/R2/Queues/DO/Analytics/Email), the `secrets.required` deploy gate, the
   queue producers/consumers, the Cron triggers, and the `durable_objects` + `migrations` ledger.
 - `openapi/openapi.json` — the committed contract snapshot. **Never hand-edit;** run
