@@ -158,16 +158,24 @@
   // The async bulk-download coordinator — the codebase's first Durable Object. Keyed
   // firmId:manifestHash, it single-flights one ZIP build per content-addressed file selection. The
   // class is exported from src/index.ts (a binding to a class with no export fails the deploy).
+  // FIRM_DATABASE is the per-firm SQLite-backed DO: one instance per firm (idFromName(firmId)),
+  // self-migrating on wake, and the data-plane RPC target for all per-firm SQL.
   "durable_objects": {
     "bindings": [
       { "name": "BUNDLE_COORDINATOR", "class_name": "BundleBuildCoordinator" },
       // The conversion-job coordinator: keyed firmId:jobId, single-flights one conversion per job.
       { "name": "CONVERSION_JOB", "class_name": "ConversionJob" },
+      // The per-firm SQLite-backed database: one instance per firm (idFromName(firmId)), self-migrating
+      // on wake, and the data-plane RPC target for all per-firm SQL.
+      { "name": "FIRM_DATABASE", "class_name": "FirmDatabase" },
     ],
   },
-  // SQLite-backed DO classes are introduced through a migration tag; this is the first one.
+  // SQLite-backed DO classes are introduced through a migration tag. v1 introduced the bulk-download
+  // coordinator and the conversion-job coordinator; v2 introduces the per-firm database DO (one
+  // SQLite-backed instance per firm).
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["BundleBuildCoordinator", "ConversionJob"] },
+    { "tag": "v2", "new_sqlite_classes": ["FirmDatabase"] },
   ],
   // The dedicated conversion engine worker: the app worker reaches it over this service binding to
   // call its POST /convert endpoint. Optional at deploy time — absent until the worker is deployed

@@ -67,6 +67,11 @@ export type Bindings = {
   BUNDLE_COORDINATOR: DurableObjectNamespace<
     import("./downloads/bundle-coordinator.ts").BundleBuildCoordinator
   >;
+  // The per-firm SQLite-backed database DO: one instance per firm, addressed idFromName(firmId),
+  // self-migrating on wake. All per-firm data-plane SQL routes through here.
+  FIRM_DATABASE: DurableObjectNamespace<
+    import("./firm-database/firm-database-object.ts").FirmDatabase
+  >;
   // The bundle-build queue the coordinator enqueues onto; its consumer streams R2 -> client-zip -> R2.
   BUNDLE_BUILD: Queue<import("./downloads/bundle-types.ts").BundleBuildMessage>;
   // The malware-scan Worker service binding. Dispatches file content to the scan worker for a
