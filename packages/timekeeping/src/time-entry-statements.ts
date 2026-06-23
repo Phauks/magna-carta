@@ -104,6 +104,8 @@ export function transitionStatusStatement(
 
 // The freeze-guarded draft edit: only a draft row matches, so a billed/void/submitted/approved row is
 // untouched (meta.changes === 0) and the service refuses. Only the editable business columns move.
+// workDate, rateE4, rateCardId, rateSource, and amountMinor are included to support the route-level
+// workDate-correction path, which re-resolves the rate for the new date and folds both into one patch.
 export interface DraftPatch {
   readonly narrative?: string;
   readonly durationMinutes?: number;
@@ -111,6 +113,11 @@ export interface DraftPatch {
   readonly nonBillableCategoryId?: string | null;
   readonly utbmsTaskCodeId?: string | null;
   readonly utbmsActivityCodeId?: string | null;
+  readonly workDate?: string;
+  readonly rateE4?: number | null;
+  readonly rateCardId?: string | null;
+  readonly rateSource?: string | null;
+  readonly amountMinor?: number | null;
 }
 
 export function updateDraftStatement(
@@ -129,6 +136,11 @@ export function updateDraftStatement(
     non_billable_category_id: patch.nonBillableCategoryId,
     utbms_task_code_id: patch.utbmsTaskCodeId,
     utbms_activity_code_id: patch.utbmsActivityCodeId,
+    work_date: patch.workDate,
+    rate_e4: patch.rateE4,
+    rate_card_id: patch.rateCardId,
+    rate_source: patch.rateSource,
+    amount_minor: patch.amountMinor,
   })) {
     if (value === undefined) continue;
     sets.push(`${column} = ?${index}`);
@@ -157,6 +169,9 @@ export function selectTimeEntryStatusStatement(
 // Sets the reviewer's kick-back reason text on the entry. Runs in the same batch as the status
 // transition so the reason and status change are atomic. A null clears the reason (used on resubmit
 // to indicate the reviewer's note has been consumed by the timekeeper's corrective resubmission).
+// The NOT IN ('billed','void') guard is defense-in-depth: the service already pre-checks frozen
+// status before composing this statement, but a stale-read race would otherwise silently succeed
+// on a row the preceding transition guard missed.
 export function setKickBackReasonStatement(
   database: SqlDatabase,
   id: TimeEntryId,
@@ -164,7 +179,9 @@ export function setKickBackReasonStatement(
   updatedAt: string,
 ): SqlStatement {
   return database
-    .prepare(`UPDATE ${TIME_ENTRY_TABLE} SET kick_back_reason = ?2, updated_at = ?3 WHERE id = ?1`)
+    .prepare(
+      `UPDATE ${TIME_ENTRY_TABLE} SET kick_back_reason = ?2, updated_at = ?3 WHERE id = ?1 AND status NOT IN ('billed','void')`,
+    )
     .bind(id, reason, updatedAt);
 }
 

@@ -6,11 +6,16 @@ import { identifierField } from "../contracts/common.ts";
 import type { UserId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
-import { requireChokepointFirmContext } from "../chokepoint/context-accessors.ts";
+import {
+  requireChokepointFirmContext,
+  requireChokepointUserId,
+} from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
-import { Problem } from "../contracts/problem.ts";
+import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { assertPermission } from "@magna-carta/access-control/registry";
+import { loadEffectivePermissions } from "../session-context.ts";
 
 // My Day: the daily headline for a timekeeper — billable and non-billable totals for one work date,
 // shortfall against the firm's target, and an un-logged-day flag. Read-only; requires time:track.
@@ -88,7 +93,23 @@ export function registerMyDayRoutes(app: MyDayApp, chokepoint: Chokepoint): void
     { ...myDayRoute, middleware: chokepointMiddleware(chokepoint, myDayRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
+      const sessionUserId = requireChokepointUserId(c);
       const { timekeeperUserId, workDate } = c.req.valid("query");
+
+      // A timekeeper may always read their own My Day. Reading another timekeeper's
+      // headline requires time:viewFirm — treating non-owned reads as self is a data leak.
+      if (timekeeperUserId !== sessionUserId) {
+        const permissions = await loadEffectivePermissions(firm.firmDatabase, sessionUserId);
+        if (!permissions.has(assertPermission("time:viewFirm"))) {
+          return problemJson(c, {
+            type: "permission-denied",
+            title: "Forbidden",
+            status: 403,
+            detail: "Reading another timekeeper's My Day requires the time:viewFirm capability.",
+          });
+        }
+      }
+
       const targetDailyHours = await readFirmSetting(firm.firmDatabase, targetDailyHoursDefinition);
       const targetDailyMinutes =
         targetDailyHours === null ? null : Math.round(targetDailyHours * 60);

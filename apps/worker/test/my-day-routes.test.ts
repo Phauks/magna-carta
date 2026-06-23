@@ -19,12 +19,16 @@ import {
 // My Day route: the daily headline for a timekeeper. The handler resolves the firm's daily-hours
 // target from the flat setting store, converts hours to minutes (multiply by 60), and delegates to
 // readMyDay. A day with no entries produces unloggedDay: true. A missing firm target yields a null
-// shortfall. A Read-only member cannot access the endpoint (requires time:track).
+// shortfall. A Read-only member cannot access the endpoint (requires time:track). A time:track-only
+// user cannot read another timekeeper's My Day; time:viewFirm is required for cross-user reads.
 
 let poolFirmId: FirmId;
 let ownerCookie: string;
 let readOnlyCookie: string;
 let ownerUserId: UserId;
+// A user with time:track only (direct grant), used to test self-scope enforcement.
+let trackOnlyCookie: string;
+let trackOnlyUserId: UserId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
@@ -61,6 +65,24 @@ beforeAll(async () => {
     roleId: assertIdentifier(role!.id, "role"),
   }).run();
   readOnlyCookie = await signInForSessionCookie("myday-readonly@example.com");
+
+  // Seed a user with only a direct time:track grant — no role, no time:viewFirm.
+  const trackOnly = await seedCredentialedUser("myday-trackonly@example.com", {
+    userName: "My Day Track Only",
+    firmId: poolFirmId,
+  });
+  trackOnlyUserId = trackOnly.userId;
+  await insertMemberStatement(env.DB_FIRM_POOL_1, {
+    userId: trackOnly.userId,
+    displayName: "My Day Track Only",
+    now: new Date().toISOString(),
+  }).run();
+  await env.DB_FIRM_POOL_1.prepare(
+    "INSERT INTO direct_grant (id, member_user_id, permission, granted_by, expires_at, created_at) VALUES (?1, ?2, ?3, ?2, NULL, ?4)",
+  )
+    .bind(newIdentifier("grant"), trackOnly.userId, "time:track", new Date().toISOString())
+    .run();
+  trackOnlyCookie = await signInForSessionCookie("myday-trackonly@example.com");
 });
 
 function readHeaders(cookie: string): HeadersInit {
@@ -126,5 +148,35 @@ describe("permission gate", () => {
       readOnlyCookie,
     );
     expect(response.status).toBe(403);
+  });
+});
+
+// Fix 1: My Day self-scope — a timekeeper may always read their own headline; reading another
+// timekeeper's headline requires time:viewFirm.
+describe("My Day self-scope authorization", () => {
+  it("allows a timekeeper to read their own My Day (self read -> 200)", async () => {
+    const response = await get(
+      `/api/v1/my-day?timekeeperUserId=${trackOnlyUserId}&workDate=2026-06-22`,
+      trackOnlyCookie,
+    );
+    expect(response.status).toBe(200);
+  });
+
+  it("refuses a time:track-only user reading another timekeeper's My Day (403)", async () => {
+    // trackOnlyCookie does not hold time:viewFirm — reading ownerUserId's headline must be refused.
+    const response = await get(
+      `/api/v1/my-day?timekeeperUserId=${ownerUserId}&workDate=2026-06-22`,
+      trackOnlyCookie,
+    );
+    expect(response.status).toBe(403);
+  });
+
+  it("allows an Owner/Admin (time:viewFirm holder) to read another timekeeper's My Day (200)", async () => {
+    // ownerCookie is Owner/Admin who holds time:viewFirm via their role.
+    const response = await get(
+      `/api/v1/my-day?timekeeperUserId=${trackOnlyUserId}&workDate=2026-06-22`,
+      ownerCookie,
+    );
+    expect(response.status).toBe(200);
   });
 });

@@ -12,6 +12,7 @@ import {
   kickBackTimeEntry,
   voidTimeEntry,
 } from "@magna-carta/timekeeping/time-entry-service";
+import type { DraftPatch } from "@magna-carta/timekeeping/time-entry-statements";
 import { resolveRate } from "@magna-carta/timekeeping/rate-resolution";
 import { roundDuration, computeAmountMinor } from "@magna-carta/timekeeping/rounding";
 import {
@@ -40,6 +41,8 @@ import { idempotencyKeyHeader, identifierField, identifierPathParam } from "../c
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
+import { assertPermission } from "@magna-carta/access-control/registry";
+import { loadEffectivePermissions } from "../session-context.ts";
 
 // Time entries: the work-in-progress store. The capture handler is the rate-resolution + duration-
 // rounding site — it resolves the rate in force on the work date and rounds the raw minutes to the
@@ -488,6 +491,12 @@ async function resolveCaptureValues(
     userId: input.timekeeperUserId,
   });
   const durationMinutes = roundDuration(input.rawDurationMinutes, increment, direction);
+  if (durationMinutes === 0) {
+    throw new TimeEntryValidationError(
+      "non-positive-duration",
+      "the rounded duration is 0 minutes — the raw duration is shorter than the rounding increment with direction 'down'",
+    );
+  }
 
   if (!input.billable) {
     return { durationMinutes, rate: { noRate: true } as const, currency: "USD" };
@@ -575,6 +584,18 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
       const userId = requireChokepointUserId(c);
       const idempotency = requireChokepointIdempotency(c);
       const request = c.req.valid("json");
+
+      // A timekeeper may only capture entries for themselves — creating on behalf of another
+      // user is reserved for a supervisor role that does not exist yet.
+      if (request.timekeeperUserId !== userId) {
+        return problemJson(c, {
+          type: "permission-denied",
+          title: "Forbidden",
+          status: 403,
+          detail: "You may only capture time entries for yourself.",
+        });
+      }
+
       const now = () => new Date().toISOString();
       let result;
       try {
@@ -630,10 +651,24 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
     { ...listRoute, middleware: chokepointMiddleware(chokepoint, listRoute) },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
+      const sessionUserId = requireChokepointUserId(c);
       const query = c.req.valid("query");
 
       if (query.timekeeperUserId !== undefined && query.workDate !== undefined) {
         // My-Day view: one timekeeper, one work date, newest first.
+        // A timekeeper may only list their own daily entries unless they hold time:viewFirm.
+        if (query.timekeeperUserId !== sessionUserId) {
+          const permissions = await loadEffectivePermissions(firm.firmDatabase, sessionUserId);
+          if (!permissions.has(assertPermission("time:viewFirm"))) {
+            return problemJson(c, {
+              type: "permission-denied",
+              title: "Forbidden",
+              status: 403,
+              detail:
+                "Listing another timekeeper's daily entries requires the time:viewFirm capability.",
+            });
+          }
+        }
         const page = await listTimeEntriesForTimekeeperDay(firm.firmDatabase, {
           timekeeperUserId: query.timekeeperUserId,
           workDate: query.workDate,
@@ -721,8 +756,85 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
       const { id } = c.req.valid("param");
       const patch = c.req.valid("json");
       const entryId = id as TimeEntryId;
+
+      // Pre-flight ownership check: also reads the fields required for workDate re-resolution (Fix 4)
+      // so only one DB round-trip is needed before the effect. Treat a non-owned entry as not-found
+      // to avoid leaking existence to a caller who does not own the entry.
+      const ownerRow = await firm.firmDatabase
+        .prepare(
+          "SELECT timekeeper_user_id, matter_id, billable, rate_card_id, duration_minutes FROM time_entry WHERE id = ?1",
+        )
+        .bind(entryId)
+        .first<{
+          timekeeper_user_id: string;
+          matter_id: string;
+          billable: number;
+          rate_card_id: string | null;
+          duration_minutes: number;
+        }>();
+      if (ownerRow === null) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such time entry.",
+        });
+      }
+      if (ownerRow.timekeeper_user_id !== userId) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such time entry.",
+        });
+      }
+
+      // When the patch changes workDate, re-resolve the rate for the new date so the stored
+      // rate snapshot stays accurate. This requires the entry's matter, timekeeper, billable
+      // flag, and role (for the precedence chain) — all read from the pre-flight row above.
+      let enrichedPatch: DraftPatch = patch;
+      if (patch.workDate !== undefined) {
+        const { results: memberRows } = await firm.firmDatabase
+          .prepare("SELECT role_id FROM member_role WHERE member_user_id = ?1 LIMIT 1")
+          .bind(ownerRow.timekeeper_user_id)
+          .all<{ role_id: string | null }>();
+
+        const resolved = await resolveRate(firm.firmDatabase, {
+          matterId: ownerRow.matter_id,
+          clientId: null,
+          timekeeperUserId: ownerRow.timekeeper_user_id,
+          roleId: memberRows[0]?.role_id ?? null,
+          workDate: patch.workDate,
+          rateCardId: ownerRow.rate_card_id ?? undefined,
+        });
+
+        const isBillable = ownerRow.billable === 1;
+        if (isBillable && !("noRate" in resolved)) {
+          const amountMinor = computeAmountMinor(
+            resolved.rateE4,
+            ownerRow.duration_minutes,
+            resolved.currency,
+          );
+          enrichedPatch = {
+            ...patch,
+            rateE4: resolved.rateE4,
+            rateCardId: resolved.rateCardId,
+            rateSource: resolved.rateSource,
+            amountMinor,
+          };
+        } else if (isBillable && "noRate" in resolved) {
+          enrichedPatch = {
+            ...patch,
+            rateE4: null,
+            rateCardId: null,
+            rateSource: null,
+            amountMinor: null,
+          };
+        }
+      }
+
       const outcome = await commitTimeEntryEffect(c, firm.firmDatabase, idempotency, entryId, () =>
-        updateDraftTimeEntry(firm.firmDatabase, entryId, patch, {
+        updateDraftTimeEntry(firm.firmDatabase, entryId, enrichedPatch, {
           clock: { now: () => new Date().toISOString() },
           actorUserId: userId,
         }),
@@ -770,6 +882,21 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
       const userId = requireChokepointUserId(c);
       const idempotency = requireChokepointIdempotency(c);
       const { entries } = c.req.valid("json");
+
+      // Fail-fast before any rate resolution: every entry in the batch must belong to the
+      // session user. Accepting a foreign timekeeperUserId would let one timekeeper silently
+      // post time against another's record.
+      for (const entry of entries) {
+        if (entry.timekeeperUserId !== userId) {
+          return problemJson(c, {
+            type: "permission-denied",
+            title: "Forbidden",
+            status: 403,
+            detail: "You may only capture time entries for yourself.",
+          });
+        }
+      }
+
       const now = () => new Date().toISOString();
       let result;
       try {
@@ -843,6 +970,17 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
       const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const entryId = id as TimeEntryId;
+
+      // Ownership pre-check: treat a non-owned entry as not-found to avoid leaking existence.
+      if (!(await ownsEntry(firm.firmDatabase, entryId, userId))) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such time entry.",
+        });
+      }
+
       const approvalRequired = await readFirmSetting(firm.firmDatabase, approvalRequiredDefinition);
       const outcome = await commitTimeEntryEffect(c, firm.firmDatabase, idempotency, entryId, () =>
         submitTimeEntry(firm.firmDatabase, entryId, {
@@ -864,6 +1002,7 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
       const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const entryId = id as TimeEntryId;
+      // approve is a cross-user reviewer action: no self-scope guard applied here.
       const approvalRequired = await readFirmSetting(firm.firmDatabase, approvalRequiredDefinition);
       const outcome = await commitTimeEntryEffect(c, firm.firmDatabase, idempotency, entryId, () =>
         approveTimeEntry(firm.firmDatabase, entryId, {
@@ -886,6 +1025,7 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
       const { id } = c.req.valid("param");
       const entryId = id as TimeEntryId;
       const { reason } = c.req.valid("json") as z.infer<typeof KickBackRequest>;
+      // kickBack is a cross-user reviewer action: no self-scope guard applied here.
       const approvalRequired = await readFirmSetting(firm.firmDatabase, approvalRequiredDefinition);
       const outcome = await commitTimeEntryEffect(c, firm.firmDatabase, idempotency, entryId, () =>
         kickBackTimeEntry(
@@ -912,6 +1052,17 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
       const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const entryId = id as TimeEntryId;
+
+      // Ownership pre-check: treat a non-owned entry as not-found to avoid leaking existence.
+      if (!(await ownsEntry(firm.firmDatabase, entryId, userId))) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such time entry.",
+        });
+      }
+
       const outcome = await commitTimeEntryEffect(c, firm.firmDatabase, idempotency, entryId, () =>
         voidTimeEntry(firm.firmDatabase, entryId, {
           clock: { now: () => new Date().toISOString() },
@@ -923,6 +1074,22 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
       return c.json({ timeEntryId: outcome.id } as z.infer<typeof TimeEntryAck>, 200);
     },
   );
+}
+
+// Ownership pre-check shared by submit and void: reads the entry's timekeeper and compares it to
+// the session user. Returns true when the caller owns the entry. Returns false when the entry is
+// missing or belongs to another timekeeper — the caller emits a not-found (rather than a 403) so
+// existence is not leaked: a caller learns nothing more than "no such entry" for rows they do not own.
+async function ownsEntry(
+  database: D1Database,
+  id: TimeEntryId,
+  sessionUserId: string,
+): Promise<boolean> {
+  const row = await database
+    .prepare("SELECT timekeeper_user_id FROM time_entry WHERE id = ?1")
+    .bind(id)
+    .first<{ timekeeper_user_id: string }>();
+  return row !== null && row.timekeeper_user_id === sessionUserId;
 }
 
 // The shared idempotent commit for an effect-returning time-entry mutation, mapping a frozen/illegal
