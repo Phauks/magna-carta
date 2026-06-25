@@ -53,10 +53,10 @@ There is no production firm data to preserve, so there is **no dual-run feature 
 
 Today `apps/worker/src/scheduled.ts` enumerates every active firm from one Worker and sweeps each firm's outbox + idempotency-purge + stale-uploads in a loop. A DO removes that central handle. Two options:
 
-- **(A) Per-DO alarm self-sweep — recommended.** Each `FirmDatabase` arms a recurring alarm to sweep its own outbox / purge its own idempotency records / sweep its own stale uploads. This is the idiomatic DO pattern and preserves both guarantees that matter: at-least-once delivery, and **per-firm failure isolation** (a wedged firm's alarm cannot starve the fleet — structurally, not by convention).
-- **(B) Central cron via per-firm RPC.** Keep the cron loop, call a sweep RPC per firm. Preserves today's shape but re-introduces O(firms) fan-out per tick and a round-trip per firm.
+- **(A) Per-DO alarm self-sweep.** Each `FirmDatabase` arms a recurring alarm to sweep its own outbox / purge its own idempotency records / sweep its own stale uploads. The idiomatic DO pattern; eliminates the central fan-out and makes per-firm failure isolation structural (a wedged firm's alarm cannot starve the fleet).
+- **(B) Central cron over the DO — SHIPPED.** The existing `scheduled.ts` loop keeps its shape: it enumerates active firms from the control plane and resolves each firm's database via `firmDatabaseFor(env.FIRM_DATABASE, firmId)` instead of the old pool binding. Per-firm failure isolation is preserved by the loop's existing per-firm `try`/`catch` quarantine (the same discipline the old D1 fleet sweep used). The cost is O(firms) enumeration + one round-trip per firm **per cron tick** — entirely off the request hot path.
 
-Recommend **(A)**. The control-plane outbox sweep stays in cron (control-plane is still D1). Storage reconciliation (a full R2 LIST per firm) stays in cron — it is R2 work, not per-firm-DB work. **This re-homing carries the highest correctness risk in the whole port and gets the hardest tests.**
+**Decision: ship (B), keep (A) as a named scale-seam.** (B) is the minimal, lowest-risk change — it reuses the proven sweep loop and only re-points the per-firm handle — and at realistic firm counts the cron fan-out is immaterial. (A) is the swap to make when firm count grows enough that the per-tick fan-out matters (golden rule 10 — optimize the off-hot-path machinery only when measured). The control-plane outbox sweep stays in cron (control-plane is still D1); storage reconciliation (a full R2 LIST per firm) stays in cron — it is R2 work, not per-firm-DB work.
 
 ## Risks & mitigations
 
@@ -78,7 +78,7 @@ Recommend **(A)**. The control-plane outbox sweep stays in cron (control-plane i
 1. **Adapters** into `packages/database` + `packages/data-access` — spike-proven; unit-test `meta.changes`/cursor/atomicity in `@cloudflare/vitest-pool-workers`.
 2. **`FirmDatabase` DO** — `ctx.storage.sql`, self-migrate-on-wake using `perFirmMigrations()`, and the data-plane RPC (`runRead`, `commitBatch` returning a typed outcome).
 3. **Request wiring** — swap `resolveFirmDatabase` → the DO proxy in `chokepoint/ports.ts` and the 3 consumers.
-4. **Relay re-homing** — make the (A) alarm decision real; move `scheduled.ts`'s per-firm half into per-DO alarms; retire `fleet-rollout`.
+4. **Relay** — re-point `scheduled.ts`'s per-firm enumeration to the DO (option B above); retire `fleet-rollout`. (Per-DO alarms = option A = the deferred scale-seam.)
 5. **Provisioner** — delete per-firm `createDatabase`/migrate-step + the pool/binding-resolver; keep the entire R2 path.
 6. **Tests** — rewire the ~30 per-firm files.
 
