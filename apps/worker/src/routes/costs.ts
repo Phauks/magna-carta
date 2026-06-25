@@ -1,5 +1,6 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
+import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
@@ -12,8 +13,14 @@ import {
   voidCost,
 } from "@magna-carta/costs/cost-entry-service";
 import type { CostDraftPatch } from "@magna-carta/costs/cost-entry-statements";
+import {
+  attachReceiptStatement,
+  detachReceiptStatement,
+  selectCostEntryStatement,
+} from "@magna-carta/costs/cost-entry-statements";
 import { CostValidationError } from "@magna-carta/costs/cost-validation";
 import { approvalRequiredDefinition } from "@magna-carta/billing-core/review-gate";
+import { isFrozen, type BillableStatus } from "@magna-carta/billing-core/lifecycle";
 import type { CostEntryId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
@@ -100,6 +107,10 @@ const CostBatchRequest = z
 
 const CostKickBackRequest = z.object({ reason: z.string().min(1) }).openapi("CostKickBackRequest");
 
+const AttachReceiptRequest = z
+  .object({ fileId: identifierField("file") })
+  .openapi("AttachReceiptRequest");
+
 const costParam = z.object({ id: identifierPathParam("costEntry", "id") });
 
 const listQuery = z.object({
@@ -178,6 +189,8 @@ const submitMeta = writeMeta("costs.submit", TRACK);
 const approveMeta = writeMeta("costs.approve", APPROVE);
 const kickBackMeta = writeMeta("costs.kickBack", APPROVE);
 const voidMeta = writeMeta("costs.void", TRACK);
+const attachReceiptMeta = writeMeta("costs.attachReceipt", TRACK);
+const detachReceiptMeta = writeMeta("costs.detachReceipt", TRACK);
 
 const listMeta: RouteMeta = {
   operationId: "costs.list",
@@ -380,6 +393,54 @@ const voidRoute = costTransitionRoute(
   "void",
   "Voids a cost entry. The row freezes — it can no longer be edited or billed.",
 );
+
+const attachReceiptRoute = defineOpenAPIRoute(attachReceiptMeta, {
+  method: "post",
+  path: "/api/v1/costs/{id}/receipt",
+  description:
+    "Attaches a receipt file to a cost entry. The file identifier is trusted as a matter-rooted document in the File Manager; a cross-existence check against the File Manager is a deferred follow-up.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: costParam,
+    body: { content: { "application/json": { schema: AttachReceiptRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The receipt was attached",
+      content: { "application/json": { schema: CostAck } },
+    },
+    400: writeErrorResponses[400],
+    401: writeErrorResponses[401],
+    403: writeErrorResponses[403],
+    404: writeErrorResponses[404],
+    409: writeErrorResponses[409],
+    422: writeErrorResponses[422],
+    429: writeErrorResponses[429],
+  },
+});
+
+const detachReceiptRoute = defineOpenAPIRoute(detachReceiptMeta, {
+  method: "delete",
+  path: "/api/v1/costs/{id}/receipt",
+  description: "Removes the receipt file from a cost entry.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: costParam,
+  },
+  responses: {
+    200: {
+      description: "The receipt was removed",
+      content: { "application/json": { schema: CostAck } },
+    },
+    400: writeErrorResponses[400],
+    401: writeErrorResponses[401],
+    403: writeErrorResponses[403],
+    404: writeErrorResponses[404],
+    409: writeErrorResponses[409],
+    422: writeErrorResponses[422],
+    429: writeErrorResponses[429],
+  },
+});
 
 function costErrorResponse(
   c: Context,
@@ -797,6 +858,129 @@ export function registerCostsRoutes(app: CostApp, chokepoint: Chokepoint): void 
           clock: { now: () => new Date().toISOString() },
           actorUserId: userId,
         }),
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ costEntryId: outcome.id } as z.infer<typeof CostAck>, 200);
+    },
+  );
+
+  // POST /api/v1/costs/{id}/receipt — attach a receipt file to a cost entry
+  app.openapi(
+    { ...attachReceiptRoute, middleware: chokepointMiddleware(chokepoint, attachReceiptRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const { fileId } = c.req.valid("json");
+      const entryId = id as CostEntryId;
+
+      // Pre-read: surface not-found and frozen before entering the chokepoint to avoid phantom audit rows.
+      const { results } = await selectCostEntryStatement(firm.firmDatabase, entryId).all<{
+        status: string;
+      }>();
+      const existing = results[0];
+      if (existing === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such cost entry.",
+        });
+      }
+      if (isFrozen(existing.status as BillableStatus)) {
+        return problemJson(c, {
+          type: "conflict",
+          title: "The cost entry cannot change",
+          status: 409,
+          detail: `Cost entry ${entryId} is ${existing.status} and frozen.`,
+        });
+      }
+
+      const outcome = await commitCostEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        entryId,
+        async () => {
+          const updatedAt = new Date().toISOString();
+          return {
+            effect: {
+              statements: [
+                attachReceiptStatement(firm.firmDatabase, entryId, fileId, updatedAt),
+                domainAuditStatement(firm.firmDatabase, {
+                  event: "cost_entry.receipt_attached",
+                  subjectId: entryId,
+                  actorUserId: userId,
+                  clock: { now: () => updatedAt },
+                }),
+              ],
+              outboxMessages: [],
+            },
+          };
+        },
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ costEntryId: outcome.id } as z.infer<typeof CostAck>, 200);
+    },
+  );
+
+  // DELETE /api/v1/costs/{id}/receipt — remove the receipt file from a cost entry
+  app.openapi(
+    { ...detachReceiptRoute, middleware: chokepointMiddleware(chokepoint, detachReceiptRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const entryId = id as CostEntryId;
+
+      // Pre-read: surface not-found and frozen before entering the chokepoint to avoid phantom audit rows.
+      const { results } = await selectCostEntryStatement(firm.firmDatabase, entryId).all<{
+        status: string;
+      }>();
+      const existing = results[0];
+      if (existing === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Not found",
+          status: 404,
+          detail: "No such cost entry.",
+        });
+      }
+      if (isFrozen(existing.status as BillableStatus)) {
+        return problemJson(c, {
+          type: "conflict",
+          title: "The cost entry cannot change",
+          status: 409,
+          detail: `Cost entry ${entryId} is ${existing.status} and frozen.`,
+        });
+      }
+
+      const outcome = await commitCostEffect(
+        c,
+        firm.firmDatabase,
+        idempotency,
+        entryId,
+        async () => {
+          const updatedAt = new Date().toISOString();
+          return {
+            effect: {
+              statements: [
+                detachReceiptStatement(firm.firmDatabase, entryId, updatedAt),
+                domainAuditStatement(firm.firmDatabase, {
+                  event: "cost_entry.receipt_detached",
+                  subjectId: entryId,
+                  actorUserId: userId,
+                  clock: { now: () => updatedAt },
+                }),
+              ],
+              outboxMessages: [],
+            },
+          };
+        },
       );
       if (!outcome.ok) return outcome.problem;
       if (outcome.replayed) c.header("Idempotency-Replayed", "true");

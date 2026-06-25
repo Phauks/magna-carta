@@ -169,6 +169,13 @@ async function get(path: string, cookie = ownerCookie): Promise<Response> {
   });
 }
 
+async function del(path: string, cookie = ownerCookie): Promise<Response> {
+  return SELF.fetch(`https://example.com${path}`, {
+    method: "DELETE",
+    headers: authHeaders(cookie, true),
+  });
+}
+
 describe("cost entry capture", () => {
   it("captures a manual cost entry and persists status=draft, source=manual, integer amount_minor", async () => {
     const response = await post("/api/v1/costs", {
@@ -592,5 +599,98 @@ describe("idempotency", () => {
     expect(replay.status).toBe(201);
     expect(replay.headers.get("Idempotency-Replayed")).toBe("true");
     expect(((await replay.json()) as { costEntryId: string }).costEntryId).toBe(firstId);
+  });
+});
+
+describe("cost entry receipt attach/detach", () => {
+  it("POST /receipt sets receipt_file_id on a draft cost entry (read back confirms)", async () => {
+    const created = await post("/api/v1/costs", {
+      matterId,
+      incurredDate: "2026-06-25",
+      amountMinor: 1500,
+      currency: "USD",
+      disbursementClass: "hard",
+      billable: false,
+      description: "Receipt attach test",
+    });
+    const { costEntryId } = (await created.json()) as { costEntryId: string };
+
+    const fileId = newIdentifier("file");
+    const response = await post(`/api/v1/costs/${costEntryId}/receipt`, { fileId });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { costEntryId: string };
+    expect(body.costEntryId).toBe(costEntryId);
+
+    const row = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT receipt_file_id FROM cost_entry WHERE id = ?1",
+    )
+      .bind(costEntryId)
+      .first<{ receipt_file_id: string | null }>();
+    expect(row?.receipt_file_id).toBe(fileId);
+  });
+
+  it("POST /receipt on a non-existent cost returns 404 and writes no audit row", async () => {
+    const phantomId = "costEntry_111111111111111111111";
+    const auditBefore = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT COUNT(*) AS c FROM audit_log",
+    ).first<{ c: number }>();
+
+    const fileId = newIdentifier("file");
+    const response = await post(`/api/v1/costs/${phantomId}/receipt`, { fileId });
+    expect(response.status).toBe(404);
+
+    const auditAfter = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT COUNT(*) AS c FROM audit_log",
+    ).first<{ c: number }>();
+    expect(auditAfter?.c).toBe(auditBefore?.c);
+  });
+
+  it("POST /receipt on a billed (frozen) cost entry returns 409", async () => {
+    const created = await post("/api/v1/costs", {
+      matterId,
+      incurredDate: "2026-06-25",
+      amountMinor: 2000,
+      currency: "USD",
+      disbursementClass: "hard",
+      billable: true,
+      description: "Frozen receipt attach test",
+    });
+    const { costEntryId } = (await created.json()) as { costEntryId: string };
+    await env.DB_FIRM_POOL_1.prepare("UPDATE cost_entry SET status = 'billed' WHERE id = ?1")
+      .bind(costEntryId)
+      .run();
+
+    const fileId = newIdentifier("file");
+    const response = await post(`/api/v1/costs/${costEntryId}/receipt`, { fileId });
+    expect(response.status).toBe(409);
+  });
+
+  it("DELETE /receipt clears receipt_file_id on a cost entry", async () => {
+    const created = await post("/api/v1/costs", {
+      matterId,
+      incurredDate: "2026-06-25",
+      amountMinor: 900,
+      currency: "USD",
+      disbursementClass: "soft",
+      billable: false,
+      description: "Receipt detach test",
+    });
+    const { costEntryId } = (await created.json()) as { costEntryId: string };
+
+    // Attach a receipt first, then detach it.
+    const fileId = newIdentifier("file");
+    await post(`/api/v1/costs/${costEntryId}/receipt`, { fileId });
+
+    const response = await del(`/api/v1/costs/${costEntryId}/receipt`);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { costEntryId: string };
+    expect(body.costEntryId).toBe(costEntryId);
+
+    const row = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT receipt_file_id FROM cost_entry WHERE id = ?1",
+    )
+      .bind(costEntryId)
+      .first<{ receipt_file_id: string | null }>();
+    expect(row?.receipt_file_id).toBeNull();
   });
 });
