@@ -28,7 +28,7 @@ catalog:
   # vitest is declared by apps/worker so @cloudflare/vitest-pool-workers can resolve `vitest/worker` into the workerd VM; the `overrides` below alias the actual resolution to the Vite+ test distribution, so this version only has to satisfy the pool's `vitest@^4.1.0` peer range (it is the upstream vitest that Vite+ bundles).
   vitest: 4.1.8
   # API / Worker (apps/worker)
-  hono: 4.12.23
+  hono: 4.12.27
   "@hono/zod-openapi": 1.4.0
   zod: 4.4.3
   # API contract pipeline. Hey API generates the typed client (packages/api-client) from the
