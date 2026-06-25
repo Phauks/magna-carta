@@ -73,8 +73,8 @@ catalogs:
       specifier: 22.0.1
       version: 22.0.1
     hono:
-      specifier: 4.12.23
-      version: 4.12.23
+      specifier: 4.12.27
+      version: 4.12.27
     nanoid:
       specifier: 5.1.11
       version: 5.1.11
@@ -196,7 +196,7 @@ importers:
         version: 0.3.7
       '@hono/zod-openapi':
         specifier: 'catalog:'
-        version: 1.4.0(hono@4.12.23)(zod@4.4.3)
+        version: 1.4.0(hono@4.12.27)(zod@4.4.3)
       '@magna-carta/access-control':
         specifier: workspace:*
         version: link:../../packages/access-control
@@ -274,7 +274,7 @@ importers:
         version: 0.45.2(@cloudflare/workers-types@4.20260604.1)(kysely@0.29.2)
       hono:
         specifier: 'catalog:'
-        version: 4.12.23
+        version: 4.12.27
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -408,7 +408,7 @@ importers:
         version: link:../integrations
       hono:
         specifier: 'catalog:'
-        version: 4.12.23
+        version: 4.12.27
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -3610,8 +3610,8 @@ packages:
     resolution: {integrity: sha512-T2UbfbBEF32wiepXIsMlTW9+dDYC6wMh/t/vYA4tuOMKqWz/n3vr1NFSxQiyP+zk2mXsoMA/i/7qV6LKut1t1A==}
     engines: {node: '>= 0.4'}
 
-  hono@4.12.23:
-    resolution: {integrity: sha512-eIaZ9qDgu7XV0pxOCrg7/WhnQ6Ivm22UcxhXx/A3dcbqbbYgBEkc6e/J/s7j2tS96zoB0S9VBdLwQNCWwUo4LA==}
+  hono@4.12.27:
+    resolution: {integrity: sha512-1yrb/+w6HWQJrUCLkJ2IF5jNIPvvFkblV5RNOYl6bV+OA6p9GLcMpHFFGTosSvHvcAUibuUukRqhlYI4z32C7Q==}
     engines: {node: '>=16.9.0'}
 
   hpagent@1.2.0:
@@ -5368,17 +5368,17 @@ snapshots:
 
   '@hey-api/types@0.1.4': {}
 
-  '@hono/zod-openapi@1.4.0(hono@4.12.23)(zod@4.4.3)':
+  '@hono/zod-openapi@1.4.0(hono@4.12.27)(zod@4.4.3)':
     dependencies:
       '@asteasolutions/zod-to-openapi': 8.5.0(zod@4.4.3)
-      '@hono/zod-validator': 0.8.0(hono@4.12.23)(zod@4.4.3)
-      hono: 4.12.23
+      '@hono/zod-validator': 0.8.0(hono@4.12.27)(zod@4.4.3)
+      hono: 4.12.27
       openapi3-ts: 4.6.0
       zod: 4.4.3
 
-  '@hono/zod-validator@0.8.0(hono@4.12.23)(zod@4.4.3)':
+  '@hono/zod-validator@0.8.0(hono@4.12.27)(zod@4.4.3)':
     dependencies:
-      hono: 4.12.23
+      hono: 4.12.27
       zod: 4.4.3
 
   '@img/colour@1.1.0': {}
@@ -7179,7 +7179,7 @@ snapshots:
     dependencies:
       function-bind: 1.1.2
 
-  hono@4.12.23: {}
+  hono@4.12.27: {}
 
   hpagent@1.2.0: {}
 
