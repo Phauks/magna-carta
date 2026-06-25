@@ -119,10 +119,10 @@ export async function captureCost(
 ): Promise<{ costEntryId: CostEntryId; effect: EffectWrite }> {
   // amount_minor must be a positive integer; zero or negative means the capture is malformed before
   // it reaches the WIP store. Checked first (sync, no DB read) for fast feedback.
-  if (input.amountMinor <= 0) {
+  if (input.amountMinor <= 0 || !Number.isInteger(input.amountMinor)) {
     throw new CostValidationError(
       "non-positive-amount",
-      `amount_minor must be a positive integer: received ${input.amountMinor}`,
+      "amount must be a positive whole number of minor units",
     );
   }
 

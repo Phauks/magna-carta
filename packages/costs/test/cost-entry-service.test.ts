@@ -123,6 +123,14 @@ describe("captureCost", () => {
     ).rejects.toMatchObject({ code: "non-positive-amount" });
   });
 
+  it("refuses a fractional amount_minor (non-integer minor units)", async () => {
+    const database = freshDatabase();
+    // No matter seeded — the integer guard fires before any DB read.
+    await expect(
+      captureCost(database, { ...BASE_INPUT, amountMinor: 100.5 }, options),
+    ).rejects.toMatchObject({ code: "non-positive-amount" });
+  });
+
   it("refuses a billable capture on an e_billing matter without a UTBMS expense code", async () => {
     const database = freshDatabase();
     await seedMatter(database, "matter_1", 1);
@@ -295,5 +303,56 @@ describe("cost-entry lifecycle (review gate on)", () => {
     await expect(
       updateDraftCost(database, id as never, { description: "no" }, options),
     ).rejects.toMatchObject({ code: "frozen-entry" });
+  });
+
+  it("updateDraftCost on an unknown id throws not-found with no audit row composed", async () => {
+    const database = freshDatabase();
+    await expect(
+      updateDraftCost(database, "costEntry_missing" as CostEntryId, { description: "x" }, options),
+    ).rejects.toMatchObject({ code: "not-found" });
+    // The throw precedes effect composition — no audit statement is ever constructed.
+    expect(await countAudits(database, "cost_entry.updated")).toBe(0);
+  });
+
+  it("refuses updateDraftCost on a submitted (non-draft) entry", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    const id = await captureDraft(database);
+
+    // Advance to submitted so the entry is no longer draft.
+    const submit = await submitCost(database, id as never, gateOn, options);
+    await commitEffectBatch(database, submit.effect, { now: clock.now });
+    expect(await statusOf(database, id)).toBe("submitted");
+
+    await expect(
+      updateDraftCost(database, id as never, { description: "late edit" }, options),
+    ).rejects.toMatchObject({ code: "draft-only" });
+  });
+});
+
+describe("cost-entry lifecycle (review gate off)", () => {
+  const gateOn = false;
+
+  it("gate-off: voiding a draft succeeds (void is always reachable from a non-frozen entry)", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    const id = await captureDraft(database);
+
+    const voided = await voidCost(database, id as never, gateOn, options);
+    await commitEffectBatch(database, voided.effect, { now: clock.now });
+    expect(await statusOf(database, id)).toBe("void");
+    expect(await countAudits(database, "cost_entry.voided")).toBe(1);
+  });
+
+  it("gate-off: submitting a draft is refused (draft -> submitted is a gate-on-only move)", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    const id = await captureDraft(database);
+
+    // With the gate off the only forward move from draft is straight to billed (done by the
+    // billing lock) or void; draft -> submitted is a gate-on-only transition.
+    await expect(submitCost(database, id as never, gateOn, options)).rejects.toMatchObject({
+      code: "illegal-transition",
+    });
   });
 });
