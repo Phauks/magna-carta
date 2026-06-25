@@ -5,7 +5,11 @@
 
 use lopdf::{dictionary, Object};
 
-use crate::standard_fonts_data::{HELVETICA, WIN_ANSI_ENCODING};
+use crate::standard_fonts_data::{
+    COURIER, COURIER_BOLD, COURIER_BOLDOBLIQUE, COURIER_OBLIQUE, HELVETICA, HELVETICA_BOLD,
+    HELVETICA_BOLDOBLIQUE, HELVETICA_OBLIQUE, TIMES_BOLD, TIMES_BOLDITALIC, TIMES_ITALIC,
+    TIMES_ROMAN, WIN_ANSI_ENCODING,
+};
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -23,10 +27,87 @@ pub enum BatesPosition {
     TopCenter,
 }
 
+/// One of the twelve standard PDF Type 1 text fonts available for Bates labels.
+///
+/// All twelve are PDF standard fonts that do not require font embedding — every
+/// conforming viewer is required to supply them. They cover three typeface families
+/// (Helvetica, Times, Courier), each in four style variants.
+#[derive(Debug, Clone, Copy, Default)]
+pub enum BatesFont {
+    /// Helvetica regular (sans-serif).
+    #[default]
+    Helvetica,
+    /// Helvetica bold.
+    HelveticaBold,
+    /// Helvetica oblique (slanted).
+    HelveticaOblique,
+    /// Helvetica bold oblique.
+    HelveticaBoldOblique,
+    /// Times Roman (serif regular).
+    TimesRoman,
+    /// Times bold.
+    TimesBold,
+    /// Times italic.
+    TimesItalic,
+    /// Times bold italic.
+    TimesBoldItalic,
+    /// Courier (monospace regular).
+    Courier,
+    /// Courier bold.
+    CourierBold,
+    /// Courier oblique.
+    CourierOblique,
+    /// Courier bold oblique.
+    CourierBoldOblique,
+}
+
+impl BatesFont {
+    /// The PostScript name for this font as required in a PDF `/BaseFont` entry.
+    pub(crate) fn postscript_name(self) -> &'static str {
+        match self {
+            BatesFont::Helvetica => "Helvetica",
+            BatesFont::HelveticaBold => "Helvetica-Bold",
+            BatesFont::HelveticaOblique => "Helvetica-Oblique",
+            BatesFont::HelveticaBoldOblique => "Helvetica-BoldOblique",
+            BatesFont::TimesRoman => "Times-Roman",
+            BatesFont::TimesBold => "Times-Bold",
+            BatesFont::TimesItalic => "Times-Italic",
+            BatesFont::TimesBoldItalic => "Times-BoldItalic",
+            BatesFont::Courier => "Courier",
+            BatesFont::CourierBold => "Courier-Bold",
+            BatesFont::CourierOblique => "Courier-Oblique",
+            BatesFont::CourierBoldOblique => "Courier-BoldOblique",
+        }
+    }
+
+    /// The glyph-advance-width table for this font, sorted by glyph name for binary search.
+    ///
+    /// Values are in glyph-space units (1000 units = 1 em). All twelve fonts use the
+    /// WinAnsi code-to-glyph-name mapping via `WIN_ANSI_ENCODING`.
+    pub(crate) fn width_table(self) -> &'static [(&'static str, i16)] {
+        match self {
+            BatesFont::Helvetica => HELVETICA,
+            BatesFont::HelveticaBold => HELVETICA_BOLD,
+            BatesFont::HelveticaOblique => HELVETICA_OBLIQUE,
+            BatesFont::HelveticaBoldOblique => HELVETICA_BOLDOBLIQUE,
+            BatesFont::TimesRoman => TIMES_ROMAN,
+            BatesFont::TimesBold => TIMES_BOLD,
+            BatesFont::TimesItalic => TIMES_ITALIC,
+            BatesFont::TimesBoldItalic => TIMES_BOLDITALIC,
+            BatesFont::Courier => COURIER,
+            BatesFont::CourierBold => COURIER_BOLD,
+            BatesFont::CourierOblique => COURIER_OBLIQUE,
+            BatesFont::CourierBoldOblique => COURIER_BOLDOBLIQUE,
+        }
+    }
+}
+
 /// Options controlling Bates stamp appearance and placement.
 pub struct BatesOptions {
     /// Text prefix prepended before the zero-padded number (e.g. `"SMITH-"`).
     pub prefix: String,
+    /// Text suffix appended after the zero-padded number (e.g. `"-CONF"`).
+    pub suffix: String,
     /// The number assigned to the first page.
     pub start_number: u64,
     /// Minimum digit width; shorter numbers are zero-padded.
@@ -37,17 +118,28 @@ pub struct BatesOptions {
     pub margin_pt: f32,
     /// Font size in points for the stamp text.
     pub font_size_pt: f32,
+    /// Typeface used for the stamp label.
+    pub font: BatesFont,
+    /// Inclusive upper bound on the last Bates number that may be stamped.
+    ///
+    /// When `Some(stop)`, `stamp_document` returns `Err(BatesError::RangeExceeded)`
+    /// if stamping the document would assign any number greater than `stop`. The
+    /// check occurs before any page is modified.
+    pub stop_number: Option<u64>,
 }
 
 impl Default for BatesOptions {
     fn default() -> Self {
         Self {
             prefix: String::new(),
+            suffix: String::new(),
             start_number: 1,
             padding: 6,
             position: BatesPosition::BottomRight,
             margin_pt: 18.0,
             font_size_pt: 8.0,
+            font: BatesFont::Helvetica,
+            stop_number: None,
         }
     }
 }
@@ -72,6 +164,8 @@ pub enum BatesError {
     NoPages,
     /// The stamped document could not be serialised back to bytes.
     Reassemble,
+    /// Stamping the document would assign a number beyond `BatesOptions::stop_number`.
+    RangeExceeded,
 }
 
 // ---------------------------------------------------------------------------
@@ -79,22 +173,23 @@ pub enum BatesError {
 // ---------------------------------------------------------------------------
 
 /// Formats a Bates label: `prefix` followed by `number` zero-padded to at least
-/// `padding` digits. When `number` is wider than `padding`, no truncation occurs.
+/// `padding` digits, then `suffix`. When `number` is wider than `padding`, no
+/// truncation occurs.
 ///
 /// Called by `stamp_document` to derive a per-page label from `BatesOptions` before
 /// passing it to `stamp_page`.
-pub(crate) fn format_label(prefix: &str, number: u64, padding: u8) -> String {
-    format!("{prefix}{number:0width$}", width = padding as usize)
+pub(crate) fn format_label(prefix: &str, number: u64, padding: u8, suffix: &str) -> String {
+    format!("{prefix}{number:0width$}{suffix}", width = padding as usize)
 }
 
 /// Returns the glyph advance width (in glyph-space units, 1000 = 1 em) for `ch`
-/// rendered in Helvetica via the WinAnsi encoding.
+/// rendered in `font` via the WinAnsi encoding.
 ///
 /// The lookup path is: `ch as u32` → WinAnsi code-point → glyph name →
-/// binary search in the sorted `HELVETICA` metrics slice. Returns `0.0` for
+/// binary search in the sorted metrics table for `font`. Returns `0.0` for
 /// any character whose code-point is ≥ 256, whose WinAnsi slot is empty, or
 /// whose glyph name is absent from the metrics.
-pub(crate) fn helvetica_advance(ch: char) -> f32 {
+pub(crate) fn font_advance(font: BatesFont, ch: char) -> f32 {
     let code = ch as u32;
     if code >= 256 {
         return 0.0;
@@ -103,19 +198,20 @@ pub(crate) fn helvetica_advance(ch: char) -> f32 {
     if name.is_empty() {
         return 0.0;
     }
-    // HELVETICA is sorted by glyph name — binary search is correct and O(log n).
-    match HELVETICA.binary_search_by_key(&name, |&(n, _)| n) {
-        Ok(index) => HELVETICA[index].1 as f32,
+    let table = font.width_table();
+    // Each font table is sorted by glyph name — binary search is correct and O(log n).
+    match table.binary_search_by_key(&name, |&(n, _)| n) {
+        Ok(index) => table[index].1 as f32,
         Err(_) => 0.0,
     }
 }
 
-/// Returns the width in points of `label` rendered in Helvetica at `font_size_pt`.
+/// Returns the width in points of `label` rendered in `font` at `font_size_pt`.
 ///
 /// Each glyph's advance in glyph-space (1000 units/em) is divided by 1000 and
 /// scaled by the font size to yield device points.
-pub(crate) fn label_width_pt(label: &str, font_size_pt: f32) -> f32 {
-    let glyph_units: f32 = label.chars().map(helvetica_advance).sum();
+pub(crate) fn label_width_pt(font: BatesFont, label: &str, font_size_pt: f32) -> f32 {
+    let glyph_units: f32 = label.chars().map(|ch| font_advance(font, ch)).sum();
     (glyph_units / 1000.0) * font_size_pt
 }
 
@@ -162,9 +258,9 @@ fn text_matrix(rotation: i64, llx: f32, lly: f32, w: f32, h: f32, dx: f32, dy: f
 /// inherited entry.
 ///
 /// `font_id` must be the `ObjectId` of a `<< /Type /Font /Subtype /Type1 /BaseFont
-/// /Helvetica >>` object already added to `doc`. `stamp_document` adds the object
-/// once per document and passes its id to every call on that document, so the
-/// document contains exactly one stamp font object shared by all stamped pages.
+/// /… >>` object already added to `doc`. `stamp_document` adds the object once per
+/// document and passes its id to every call on that document, so the document
+/// contains exactly one stamp font object shared by all stamped pages.
 ///
 /// Returns `BatesError::Parse` only when the page has no resolvable MediaBox.
 pub(crate) fn stamp_page(
@@ -190,7 +286,7 @@ pub(crate) fn stamp_page(
     };
     let margin = opts.margin_pt;
     let size = opts.font_size_pt;
-    let width = label_width_pt(label, size);
+    let width = label_width_pt(opts.font, label, size);
 
     let (dx, dy) = match opts.position {
         BatesPosition::BottomLeft => (margin, margin),
@@ -286,9 +382,13 @@ pub(crate) fn stamp_page(
 /// Stamps every page of the PDF `bytes` with a sequential Bates label, starting at
 /// `start`. Returns the serialised output bytes and the inclusive range stamped.
 ///
-/// A single Helvetica font dictionary is added to the document and shared by every
-/// stamped page (`/MagnaCartaBates`), so the document contains exactly one new font
-/// object regardless of page count.
+/// A single font dictionary (the typeface selected in `opts.font`) is added to the
+/// document and shared by every stamped page (`/MagnaCartaBates`), so the document
+/// contains exactly one new font object regardless of page count.
+///
+/// If `opts.stop_number` is `Some(stop)` and the last page would receive a number
+/// greater than `stop`, returns `Err(BatesError::RangeExceeded)` before any page
+/// is modified.
 ///
 /// Page order is determined by the 1-based page numbers in `doc.get_pages()`, which
 /// matches the reading order viewers present to users.
@@ -307,16 +407,30 @@ pub fn stamp_document(
     pages.sort_by_key(|(page_number, _)| *page_number);
 
     let page_count = pages.len();
+    let end = start + page_count as u64 - 1;
+
+    // Enforce the stop-number ceiling before any page is touched.
+    if let Some(stop) = opts.stop_number {
+        if end > stop {
+            return Err(BatesError::RangeExceeded);
+        }
+    }
 
     // Add the shared stamp font object once per document; every page references it.
+    let base_font_name = opts.font.postscript_name();
     let font_id = doc.add_object(dictionary! {
         b"Type" => Object::Name(b"Font".to_vec()),
         b"Subtype" => Object::Name(b"Type1".to_vec()),
-        b"BaseFont" => Object::Name(b"Helvetica".to_vec()),
+        b"BaseFont" => Object::Name(base_font_name.as_bytes().to_vec()),
     });
 
     for (index, (_, page_id)) in pages.into_iter().enumerate() {
-        let label = format_label(&opts.prefix, start + index as u64, opts.padding);
+        let label = format_label(
+            &opts.prefix,
+            start + index as u64,
+            opts.padding,
+            &opts.suffix,
+        );
         stamp_page(&mut doc, page_id, font_id, &label, opts)?;
     }
 
@@ -326,7 +440,7 @@ pub fn stamp_document(
 
     let range = BatesRange {
         start,
-        end: start + page_count as u64 - 1,
+        end,
         page_count,
     };
     Ok((output, range))
@@ -612,9 +726,9 @@ mod tests {
 
     #[test]
     fn formats_padded_label() {
-        assert_eq!(format_label("SMITH-", 42, 6), "SMITH-000042");
-        assert_eq!(format_label("", 7, 4), "0007");
-        assert_eq!(format_label("X", 12345, 3), "X12345"); // wider than padding — no truncation
+        assert_eq!(format_label("SMITH-", 42, 6, ""), "SMITH-000042");
+        assert_eq!(format_label("", 7, 4, ""), "0007");
+        assert_eq!(format_label("X", 12345, 3, ""), "X12345"); // wider than padding — no truncation
     }
 
     #[test]
@@ -624,16 +738,16 @@ mod tests {
         // ' ' (code 32)  → glyph "space"  → 278
         // '0' (code 48)  → glyph "zero"   → 556
         // '-' (code 45)  → glyph "hyphen" → 333
-        assert_eq!(helvetica_advance('A'), 667.0);
-        assert_eq!(helvetica_advance(' '), 278.0);
-        assert_eq!(helvetica_advance('0'), 556.0);
-        assert_eq!(helvetica_advance('-'), 333.0);
+        assert_eq!(font_advance(BatesFont::Helvetica, 'A'), 667.0);
+        assert_eq!(font_advance(BatesFont::Helvetica, ' '), 278.0);
+        assert_eq!(font_advance(BatesFont::Helvetica, '0'), 556.0);
+        assert_eq!(font_advance(BatesFont::Helvetica, '-'), 333.0);
     }
 
     #[test]
     fn label_width_scales_with_size() {
         // "00" = 2 × 556 = 1112 glyph units; at 10 pt → 1112/1000 × 10 = 11.12 pt
-        assert!((label_width_pt("00", 10.0) - 11.12).abs() < 0.01);
+        assert!((label_width_pt(BatesFont::Helvetica, "00", 10.0) - 11.12).abs() < 0.01);
     }
 
     #[test]
@@ -792,7 +906,7 @@ mod tests {
     #[test]
     fn shared_stamp_font_deduped() {
         // A multi-page stamped document must contain exactly one font object with
-        // /BaseFont /Helvetica and /Subtype /Type1 added by stamping, and all stamped
+        // /Subtype /Type1 added by stamping (the shared stamp font), and all stamped
         // pages must reference the same ObjectId under /MagnaCartaBates.
         let bytes = multi_page_pdf_bytes(3, [0, 0, 612, 792]);
         let (stamped, _) =
@@ -856,6 +970,134 @@ mod tests {
         assert!(
             font_object_ids.windows(2).all(|w| w[0] == w[1]),
             "all pages must reference the same stamp font ObjectId; got {font_object_ids:?}"
+        );
+    }
+
+    // ── New configurability tests ─────────────────────────────────────────────
+
+    #[test]
+    fn font_advance_varies_by_font() {
+        // Confirmed against standard_fonts_data: glyph "A" (WinAnsi code 65).
+        // Courier is monospace: all glyphs are 600 units wide.
+        // Times-Roman "A" = 722 units.
+        // Helvetica "A" = 667 units.
+        assert_eq!(font_advance(BatesFont::Courier, 'A'), 600.0);
+        assert_eq!(font_advance(BatesFont::TimesRoman, 'A'), 722.0);
+        assert_eq!(font_advance(BatesFont::Helvetica, 'A'), 667.0);
+    }
+
+    #[test]
+    fn postscript_names_are_standard() {
+        assert_eq!(BatesFont::Helvetica.postscript_name(), "Helvetica");
+        assert_eq!(BatesFont::HelveticaBold.postscript_name(), "Helvetica-Bold");
+        assert_eq!(
+            BatesFont::HelveticaOblique.postscript_name(),
+            "Helvetica-Oblique"
+        );
+        assert_eq!(
+            BatesFont::HelveticaBoldOblique.postscript_name(),
+            "Helvetica-BoldOblique"
+        );
+        assert_eq!(BatesFont::TimesRoman.postscript_name(), "Times-Roman");
+        assert_eq!(BatesFont::TimesBold.postscript_name(), "Times-Bold");
+        assert_eq!(BatesFont::TimesItalic.postscript_name(), "Times-Italic");
+        assert_eq!(
+            BatesFont::TimesBoldItalic.postscript_name(),
+            "Times-BoldItalic"
+        );
+        assert_eq!(BatesFont::Courier.postscript_name(), "Courier");
+        assert_eq!(BatesFont::CourierBold.postscript_name(), "Courier-Bold");
+        assert_eq!(
+            BatesFont::CourierOblique.postscript_name(),
+            "Courier-Oblique"
+        );
+        assert_eq!(
+            BatesFont::CourierBoldOblique.postscript_name(),
+            "Courier-BoldOblique"
+        );
+    }
+
+    #[test]
+    fn format_label_with_suffix() {
+        assert_eq!(format_label("ACME-", 42, 6, "-CONF"), "ACME-000042-CONF");
+        // Empty suffix must produce the same result as before the suffix field existed.
+        assert_eq!(format_label("SMITH-", 1, 6, ""), "SMITH-000001");
+    }
+
+    #[test]
+    fn stamp_document_uses_chosen_font() {
+        // When BatesOptions::font is Courier, the shared font object's /BaseFont must
+        // be /Courier, and the rendered page must contain the label text.
+        let bytes = multi_page_pdf_bytes(1, [0, 0, 612, 792]);
+        let opts = BatesOptions {
+            font: BatesFont::Courier,
+            ..BatesOptions::default()
+        };
+        let (stamped, _) = stamp_document(&bytes, &opts, 1).expect("stamp succeeds");
+
+        let doc = lopdf::Document::load_mem(&stamped).expect("parse stamped document");
+
+        // Verify that the shared font object carries /BaseFont /Courier.
+        let courier_font_count = doc
+            .objects
+            .values()
+            .filter(|obj| {
+                if let lopdf::Object::Dictionary(dict) = obj {
+                    dict.get(b"Subtype")
+                        .ok()
+                        .and_then(|v| v.as_name().ok())
+                        .is_some_and(|n| n == b"Type1")
+                        && dict
+                            .get(b"BaseFont")
+                            .ok()
+                            .and_then(|v| v.as_name().ok())
+                            .is_some_and(|n| n == b"Courier")
+                } else {
+                    false
+                }
+            })
+            .count();
+
+        assert_eq!(
+            courier_font_count, 1,
+            "stamped document must contain exactly one Courier/Type1 font object"
+        );
+
+        // Render and confirm the label text is present.
+        let pdf = Pdf::new(stamped).expect("hayro parses stamped document");
+        let obs = crate::textpos::observe_page(&pdf, 0).expect("observe stamped page");
+        let recovered: String = obs.glyphs.iter().map(|g| g.text.as_str()).collect();
+        assert!(
+            recovered.contains("000001"),
+            "rendered page must contain the label; got {recovered:?}"
+        );
+    }
+
+    #[test]
+    fn stop_number_blocks_overflow() {
+        // A 3-page document starting at 1 would produce end=3.
+        // stop_number Some(2) is too tight → RangeExceeded before any page is modified.
+        // stop_number Some(3) is exact → Ok.
+        let bytes = multi_page_pdf_bytes(3, [0, 0, 612, 792]);
+
+        let opts_tight = BatesOptions {
+            stop_number: Some(2),
+            ..BatesOptions::default()
+        };
+        let result_tight = stamp_document(&bytes, &opts_tight, 1);
+        assert!(
+            matches!(result_tight, Err(BatesError::RangeExceeded)),
+            "stop_number=2 with 3 pages from 1 must return RangeExceeded; got {result_tight:?}"
+        );
+
+        let opts_exact = BatesOptions {
+            stop_number: Some(3),
+            ..BatesOptions::default()
+        };
+        let result_exact = stamp_document(&bytes, &opts_exact, 1);
+        assert!(
+            result_exact.is_ok(),
+            "stop_number=3 with 3 pages from 1 must succeed; got {result_exact:?}"
         );
     }
 }
