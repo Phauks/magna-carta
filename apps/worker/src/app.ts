@@ -161,6 +161,10 @@ export type Bindings = {
   // Viewer). Unset in production, so the demo route answers 404 there; set DEV_DEMO_TOOLS=1 in
   // .dev.vars to view it locally. Not part of any contract; remove the demo route when no longer needed.
   DEV_DEMO_TOOLS?: string;
+  // Cloudflare Flagship feature-flag binding. Optional: absent in local dev, tests, and deployments
+  // before the Flagship provider is wired. The resolver (src/flags/flag-evaluator.ts) falls back to
+  // defaultOffEvaluator when this is undefined, so every flag returns its stable default safely.
+  FLAGS?: import("@magna-carta/feature-flags").FlagshipBinding;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an

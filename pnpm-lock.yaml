@@ -218,6 +218,9 @@ importers:
       '@magna-carta/encryption':
         specifier: workspace:*
         version: link:../../packages/encryption
+      '@magna-carta/feature-flags':
+        specifier: workspace:*
+        version: link:../../packages/feature-flags
       '@magna-carta/file-manager':
         specifier: workspace:*
         version: link:../../packages/file-manager
