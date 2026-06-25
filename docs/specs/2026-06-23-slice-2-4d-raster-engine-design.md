@@ -25,14 +25,14 @@ seam lets us swap the engine if a real large-image/color need appears.
 2·4c shipped a placeholder named for libvips. Since the engine is the `image` crate, rename for the
 **role**, not a library (golden rules 12/13), all within `apps/convert-worker` + `containers/`:
 
-| 2·4c (placeholder) | 2·4d (accurate) |
-| --- | --- |
-| `LibvipsContainer` (class) | `RasterEngineContainer` |
-| `LIBVIPS_CONTAINER` (binding) | `RASTER_ENGINE` |
-| `getContainer(env.…, "libvips")` | `getContainer(env.…, "raster")` |
-| `src/libvips-container.ts` | `src/raster-engine-container.ts` |
+| 2·4c (placeholder)                                         | 2·4d (accurate)                       |
+| ---------------------------------------------------------- | ------------------------------------- |
+| `LibvipsContainer` (class)                                 | `RasterEngineContainer`               |
+| `LIBVIPS_CONTAINER` (binding)                              | `RASTER_ENGINE`                       |
+| `getContainer(env.…, "libvips")`                           | `getContainer(env.…, "raster")`       |
+| `src/libvips-container.ts`                                 | `src/raster-engine-container.ts`      |
 | `containers/convert/` (placeholder Dockerfile + CLAUDE.md) | `containers/raster/` (the real crate) |
-| migration `new_sqlite_classes: ["LibvipsContainer"]` | `["RasterEngineContainer"]` |
+| migration `new_sqlite_classes: ["LibvipsContainer"]`       | `["RasterEngineContainer"]`           |
 
 The app worker is unaffected — it only knows the `CONVERT` service binding and the `/convert` HTTP
 contract; the engine's internal name is invisible to it. The `magna-carta-convert` worker keeps its
@@ -55,7 +55,7 @@ A lib (router + conversion logic, unit-testable) + a thin binary serving `:8080`
     **Raise the body limit** off axum's 2 MiB default to the convertible-size cap (mirror scan's
     `MAX_SCAN_BODY_BYTES` ← `fileManager` cap) via `DefaultBodyLimit`.
 - **`src/convert.rs`** — the pure conversion: `convert(bytes, source_format, target_format, recipe) ->
-  Result<(Vec<u8>, mime: &'static str), ConvertError>`.
+Result<(Vec<u8>, mime: &'static str), ConvertError>`.
   - Parse `source_format`/`target_format` strings (`png`/`jpeg`/`jpg`/`webp`/`tiff`/`gif`/`bmp`) →
     `image::ImageFormat`; unknown → `ConvertError::UnsupportedFormat` (→ 4xx).
   - Decode with **explicit `image::Limits`** (max allocation + max dimensions) so a pixel/decompression
@@ -77,6 +77,7 @@ A lib (router + conversion logic, unit-testable) + a thin binary serving `:8080`
 ## Testing (the payoff — real conversions, locally)
 
 `cargo test` exercises the real engine (no Docker, no fakes):
+
 - raster round-trips: decode a tiny in-test PNG → encode WebP/JPEG/TIFF → assert the output's magic
   bytes / that it re-decodes to the same dimensions.
 - unknown source/target format → `UnsupportedFormat` (4xx).
@@ -84,15 +85,15 @@ A lib (router + conversion logic, unit-testable) + a thin binary serving `:8080`
 - the `image::Limits` guard: an oversized-dimensions header/image → rejected before allocation.
 - the router: `/ready` → 200; `/convert` happy path via an in-process axum test (e.g. `tower::ServiceExt`
   `oneshot`); the raised body limit accepts a >2 MiB body.
-`cargo fmt --check && cargo clippy --all-targets -- -D warnings` clean.
-A Docker build/serve smoke test (build the image, `POST /convert`) is an optional CI gate — but because
-the engine is pure Rust, the local suite already covers the real conversion path; the Docker test only
-proves the image builds + serves.
+  `cargo fmt --check && cargo clippy --all-targets -- -D warnings` clean.
+  A Docker build/serve smoke test (build the image, `POST /convert`) is an optional CI gate — but because
+  the engine is pure Rust, the local suite already covers the real conversion path; the Docker test only
+  proves the image builds + serves.
 
 ## Worker changes (the rename + pointing at the real image)
 
 - `apps/convert-worker/src/raster-engine-container.ts` (renamed) — `class RasterEngineContainer extends
-  Container` (`enableInternet=false`, `defaultPort=8080`, `pingEndpoint="ready"`, the 2·4c
+Container` (`enableInternet=false`, `defaultPort=8080`, `pingEndpoint="ready"`, the 2·4c
   scale-to-zero `sleepAfter`).
 - `apps/convert-worker/src/index.ts` — rename the import/binding/instance; route `POST /convert` →
   `forwardConvert(getContainer(env.RASTER_ENGINE, "raster"))`.

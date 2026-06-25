@@ -52,9 +52,7 @@ beforeAll(async () => {
   // The DO self-migrates the per-firm lineage on first access; grant tools:metadataScrubber to
   // Owner/Admin directly because the migration that seeds it does not exist yet on this branch.
   await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
-    .prepare(
-      "INSERT OR IGNORE INTO role_permission (id, role_id, permission) VALUES (?1, ?2, ?3)",
-    )
+    .prepare("INSERT OR IGNORE INTO role_permission (id, role_id, permission) VALUES (?1, ?2, ?3)")
     .bind("rolePermission_MetadataOwnerTest0001", OWNER_ADMIN_ROLE_ID, "tools:metadataScrubber")
     .run();
 });

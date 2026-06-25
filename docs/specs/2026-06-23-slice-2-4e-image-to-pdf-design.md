@@ -11,7 +11,7 @@ C, no owner-consent needed, unlike LibreOffice/FFmpeg).
 raster engine already decodes the image with the pure-Rust `image` crate; wrapping that image in a PDF
 needs only a **pure-Rust PDF writer** — [`krilla`](https://docs.rs/krilla/) (high-level, ergonomic,
 explicit bitmap-image embedding, built on the pure-Rust `pdf-writer`, integrates with the `image`
-crate). No PDFium, no C. This is distinct from the *full* PDF engine (PDF→PDF, PDF→image, PDF/A — the
+crate). No PDFium, no C. This is distinct from the _full_ PDF engine (PDF→PDF, PDF→image, PDF/A — the
 deferred PDFium/EmbedPDF work): image-wrap is a write-only operation a Rust PDF writer covers cleanly.
 
 ## Architecture — it extends the raster Container; the worker is unchanged

@@ -16,7 +16,10 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { firmKeyProviderForEnv } from "../src/firm-key-provider-wiring.ts";
 import { shredFirmKey } from "../src/firm-key-shred.ts";
-import { firmDatabaseFor, type ProxyBatchDatabase } from "../src/firm-database/firm-database-proxy.ts";
+import {
+  firmDatabaseFor,
+  type ProxyBatchDatabase,
+} from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,

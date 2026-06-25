@@ -21,12 +21,18 @@ export class FirmDatabase extends DurableObject<Bindings> {
 
   async runRead(sql: string, bindings: unknown[]): Promise<{ results: Record<string, unknown>[] }> {
     await this.ready;
-    return doSqliteBatchDatabase(this.ctx.storage).prepare(sql).bind(...bindings).all();
+    return doSqliteBatchDatabase(this.ctx.storage)
+      .prepare(sql)
+      .bind(...bindings)
+      .all();
   }
 
   async runWrite(sql: string, bindings: unknown[]): Promise<{ changes: number }> {
     await this.ready;
-    const result = await doSqliteBatchDatabase(this.ctx.storage).prepare(sql).bind(...bindings).run();
+    const result = await doSqliteBatchDatabase(this.ctx.storage)
+      .prepare(sql)
+      .bind(...bindings)
+      .run();
     return { changes: result.meta.changes };
   }
 
@@ -40,7 +46,8 @@ export class FirmDatabase extends DurableObject<Bindings> {
     } catch (error) {
       // Translate the only conflict the effect path expects into a typed outcome. Anything else is a
       // real fault and must surface as a thrown RPC error (the worker maps it to a 500).
-      if (isUniqueConflict(error, "idempotency_key.key")) return { ok: false, conflict: "idempotency_key" };
+      if (isUniqueConflict(error, "idempotency_key.key"))
+        return { ok: false, conflict: "idempotency_key" };
       throw error;
     }
   }
@@ -48,9 +55,11 @@ export class FirmDatabase extends DurableObject<Bindings> {
   tableCountForTest(): Promise<number> {
     return this.ready.then(
       () =>
-        (this.ctx.storage.sql
-          .exec("SELECT count(*) AS c FROM sqlite_master WHERE type = 'table'")
-          .one() as { c: number }).c,
+        (
+          this.ctx.storage.sql
+            .exec("SELECT count(*) AS c FROM sqlite_master WHERE type = 'table'")
+            .one() as { c: number }
+        ).c,
     );
   }
 }

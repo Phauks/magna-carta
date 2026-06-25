@@ -23,6 +23,7 @@
 ## File Structure
 
 **New:**
+
 - `packages/database/src/do-sqlite-migration-target.ts` — `doSqliteMigrationTarget(storage)`: a `MigrationTarget` over `ctx.storage.sql`.
 - `packages/database/src/do-sqlite-batch-database.ts` — `doSqliteBatchDatabase(storage)`: the in-DO `BatchDatabase` over `ctx.storage.sql`.
 - `apps/worker/src/firm-database/firm-database-object.ts` — the `FirmDatabase` Durable Object (self-migrate-on-wake + data-plane RPC + per-firm sweep alarm).
@@ -31,6 +32,7 @@
 - Test siblings under `packages/database/test/`, `packages/data-access/test/`, `apps/worker/test/firm-database/`.
 
 **Modified:**
+
 - `apps/worker/wrangler.jsonc` — add the `FIRM_DATABASE` DO binding + a `new_sqlite_classes` migration; remove `DB_FIRM_POOL_1/2`.
 - `apps/worker/src/index.ts` — export `FirmDatabase`.
 - `apps/worker/src/app.ts` — the `Bindings` type (`FIRM_DATABASE` namespace; drop the pool).
@@ -40,6 +42,7 @@
 - `apps/worker/src/firm-resource-provider.ts`, `firm-provisioner-wiring.ts`, `per-firm-migrations.ts` consumers — drop per-firm `createDatabase` + the migrate-at-provision step.
 
 **Deleted:**
+
 - `apps/worker/src/firm-binding-resolver.ts` + its test.
 - `packages/database/src/fleet-rollout.ts` + its test (central iteration; replaced by self-migrate-on-wake).
 
@@ -50,10 +53,12 @@
 ### Task 1: `doSqliteMigrationTarget`
 
 **Files:**
+
 - Create: `packages/database/src/do-sqlite-migration-target.ts`
 - Test: `packages/database/test/do-sqlite-migration-target.test.ts`
 
 **Interfaces:**
+
 - Consumes: `MigrationTarget`, `Migration` from `./migration-runner.ts` / `./migration.ts`; `DurableObjectStorage` (workers-types).
 - Produces: `doSqliteMigrationTarget(storage: DurableObjectStorage, now?: () => string): MigrationTarget`.
 
@@ -114,10 +119,12 @@ git commit -m "feat(database): doSqliteMigrationTarget over Durable Object SQLit
 ### Task 2: `doSqliteBatchDatabase`
 
 **Files:**
+
 - Create: `packages/database/src/do-sqlite-batch-database.ts`
 - Test: behavioral test lands in Task 4 (needs a live DO).
 
 **Interfaces:**
+
 - Consumes: `DurableObjectStorage`; the `SqlDatabase`/`SqlStatement`/`BatchDatabase` shapes (structural — mirror `packages/data-access/src/idempotency-statements.ts` and `packages/database/src/node-sqlite.ts`; do not import `D1Database`).
 - Produces: `doSqliteBatchDatabase(storage: DurableObjectStorage): BatchDatabase` where `BatchDatabase` = `{ prepare(sql): SqlStatement; batch(statements): Promise<{ success: boolean }[]> }`.
 
@@ -194,11 +201,13 @@ git commit -m "feat(database): doSqliteBatchDatabase over Durable Object SQLite 
 ### Task 3: RPC types + the `FirmDatabase` object with self-migrate-on-wake
 
 **Files:**
+
 - Create: `apps/worker/src/firm-database/rpc-types.ts`, `apps/worker/src/firm-database/firm-database-object.ts`
 - Modify: `apps/worker/src/index.ts` (export), `apps/worker/wrangler.jsonc` (binding `FIRM_DATABASE` + `new_sqlite_classes` migration tag), `apps/worker/src/app.ts` (`Bindings.FIRM_DATABASE: DurableObjectNamespace<FirmDatabase>`)
 - Test: `apps/worker/test/firm-database/firm-database-migrate.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `interface RpcStatement { sql: string; bindings: unknown[] }`
   - `type CommitOutcome = { ok: true } | { ok: false; conflict: "idempotency_key" | "unique" }`
@@ -264,12 +273,18 @@ export class FirmDatabase extends DurableObject<Bindings> {
 
   async runRead(sql: string, bindings: unknown[]): Promise<{ results: Record<string, unknown>[] }> {
     await this.ready;
-    return doSqliteBatchDatabase(this.ctx.storage).prepare(sql).bind(...bindings).all();
+    return doSqliteBatchDatabase(this.ctx.storage)
+      .prepare(sql)
+      .bind(...bindings)
+      .all();
   }
 
   async runWrite(sql: string, bindings: unknown[]): Promise<{ changes: number }> {
     await this.ready;
-    const result = await doSqliteBatchDatabase(this.ctx.storage).prepare(sql).bind(...bindings).run();
+    const result = await doSqliteBatchDatabase(this.ctx.storage)
+      .prepare(sql)
+      .bind(...bindings)
+      .run();
     return { changes: result.meta.changes };
   }
 
@@ -283,7 +298,8 @@ export class FirmDatabase extends DurableObject<Bindings> {
     } catch (error) {
       // Translate the only conflict the effect path expects into a typed outcome. Anything else is a
       // real fault and must surface as a thrown RPC error (the worker maps it to a 500).
-      if (isUniqueConflict(error, "idempotency_key.key")) return { ok: false, conflict: "idempotency_key" };
+      if (isUniqueConflict(error, "idempotency_key.key"))
+        return { ok: false, conflict: "idempotency_key" };
       throw error;
     }
   }
@@ -291,9 +307,11 @@ export class FirmDatabase extends DurableObject<Bindings> {
   tableCountForTest(): Promise<number> {
     return this.ready.then(
       () =>
-        (this.ctx.storage.sql
-          .exec("SELECT count(*) AS c FROM sqlite_master WHERE type = 'table'")
-          .one() as { c: number }).c,
+        (
+          this.ctx.storage.sql
+            .exec("SELECT count(*) AS c FROM sqlite_master WHERE type = 'table'")
+            .one() as { c: number }
+        ).c,
     );
   }
 }
@@ -311,10 +329,12 @@ git commit -m "feat(worker): FirmDatabase Durable Object with self-migrate-on-wa
 ### Task 4: The proxy `BatchDatabase` + the round-trip behavioral test
 
 **Files:**
+
 - Create: `apps/worker/src/firm-database/firm-database-proxy.ts`
 - Test: `apps/worker/test/firm-database/firm-database-proxy.test.ts`
 
 **Interfaces:**
+
 - Consumes: a `FirmDatabase` stub (`DurableObjectStub<FirmDatabase>`); `RpcStatement`/`CommitOutcome`.
 - Produces:
   - `firmDatabaseProxy(stub: DurableObjectStub<FirmDatabase>): BatchDatabase` (the `SqlDatabase` + `batch()` the statement modules build against).
@@ -337,7 +357,10 @@ import { firmDatabaseProxy } from "../../src/firm-database/firm-database-proxy.t
 
 const record = (key: string) => ({
   id: `idk_${key}` as IdempotencyRecordId,
-  key, fingerprint: "fp", responseCode: 200, responseBody: null,
+  key,
+  fingerprint: "fp",
+  responseCode: 200,
+  responseBody: null,
   createdAt: "2026-06-23T00:00:00.000Z",
 });
 
@@ -348,24 +371,43 @@ function proxyFor(name: string) {
 describe("firmDatabaseProxy", () => {
   it("runs an unmodified statement module with faithful meta.changes", async () => {
     const database = proxyFor("firm_proxy_changes");
-    expect((await insertCompletedIdempotencyRecordStatement(database, record("k")).run()).meta.changes).toBe(1);
+    expect(
+      (await insertCompletedIdempotencyRecordStatement(database, record("k")).run()).meta.changes,
+    ).toBe(1);
     const found = await selectIdempotencyRecordStatement(database, "k").all<{ key: string }>();
     expect(found.results[0]?.key).toBe("k");
-    expect((await purgeExpiredIdempotencyRecordsStatement(database, "2000-01-01T00:00:00.000Z").run()).meta.changes).toBe(0);
-    expect((await purgeExpiredIdempotencyRecordsStatement(database, "2100-01-01T00:00:00.000Z").run()).meta.changes).toBe(1);
+    expect(
+      (await purgeExpiredIdempotencyRecordsStatement(database, "2000-01-01T00:00:00.000Z").run())
+        .meta.changes,
+    ).toBe(0);
+    expect(
+      (await purgeExpiredIdempotencyRecordsStatement(database, "2100-01-01T00:00:00.000Z").run())
+        .meta.changes,
+    ).toBe(1);
   });
 
   it("re-throws a UNIQUE conflict so isIdempotencyKeyConflict matches and rolls back", async () => {
     const database = proxyFor("firm_proxy_conflict");
     let caught: unknown;
     try {
-      await commitEffectBatch(database, { statements: [
-        insertCompletedIdempotencyRecordStatement(database, record("dupe")),
-        insertCompletedIdempotencyRecordStatement(database, record("dupe")),
-      ], outboxMessages: [] }, { now: () => "2026-06-23T00:00:00.000Z" });
-    } catch (error) { caught = error; }
+      await commitEffectBatch(
+        database,
+        {
+          statements: [
+            insertCompletedIdempotencyRecordStatement(database, record("dupe")),
+            insertCompletedIdempotencyRecordStatement(database, record("dupe")),
+          ],
+          outboxMessages: [],
+        },
+        { now: () => "2026-06-23T00:00:00.000Z" },
+      );
+    } catch (error) {
+      caught = error;
+    }
     expect(isIdempotencyKeyConflict(caught)).toBe(true);
-    expect((await selectIdempotencyRecordStatement(database, "dupe").all()).results).toHaveLength(0);
+    expect((await selectIdempotencyRecordStatement(database, "dupe").all()).results).toHaveLength(
+      0,
+    );
   });
 });
 ```
@@ -447,21 +489,25 @@ git commit -m "feat(worker): worker-side proxy BatchDatabase marshalling to Firm
 ### Task 5: Chokepoint resolves the firm via the DO proxy
 
 **Files:**
+
 - Modify: `apps/worker/src/chokepoint/ports.ts`
 - Test: `apps/worker/test/me.test.ts`, `apps/worker/test/chokepoint/chokepoint.test.ts` (existing — adjust the firm-resolution seed; see Task 9 recipe)
 
 **Interfaces:**
+
 - Changes `FirmContext.firmDatabase` from `D1Database` to `ProxyBatchDatabase`. Handlers consume it as `SqlDatabase`/`BatchDatabase`, so no handler signature changes.
 
 - [ ] **Step 1:** In `ports.ts`, change the `FirmContext` field type and the resolver. Replace the `resolveFirmDatabase(env, firmRow.database_identifier)` line with the DO stub:
 
 ```ts
 // firmRow no longer needs database_identifier; the DO is addressed by the firm id itself.
-const firmRow = await env.DB_CONTROL.prepare(
-  "SELECT name, bucket_name FROM firm WHERE id = ?1",
-).bind(session.firmId).first<{ name: string; bucket_name: string | null }>();
+const firmRow = await env.DB_CONTROL.prepare("SELECT name, bucket_name FROM firm WHERE id = ?1")
+  .bind(session.firmId)
+  .first<{ name: string; bucket_name: string | null }>();
 if (firmRow === null) return null;
-const firmDatabase = firmDatabaseProxy(env.FIRM_DATABASE.get(env.FIRM_DATABASE.idFromName(session.firmId)));
+const firmDatabase = firmDatabaseProxy(
+  env.FIRM_DATABASE.get(env.FIRM_DATABASE.idFromName(session.firmId)),
+);
 ```
 
 Update the `FirmContext` interface: `readonly firmDatabase: ProxyBatchDatabase;` and import `firmDatabaseProxy`/`ProxyBatchDatabase`. Remove the `resolveFirmDatabase` import.
@@ -473,6 +519,7 @@ Update the `FirmContext` interface: `readonly firmDatabase: ProxyBatchDatabase;`
 ### Task 6: The three consumers resolve via the proxy
 
 **Files:**
+
 - Modify: `apps/worker/src/files/ingest-consumer.ts`, `apps/worker/src/member-provision-consumer.ts`, `apps/worker/src/inference/inference-consumer.ts`
 - Test: `apps/worker/test/ingest-consumer.test.ts`, `members.test.ts`, `inference-isolation.test.ts`
 
@@ -488,10 +535,12 @@ Update the `FirmContext` interface: `readonly firmDatabase: ProxyBatchDatabase;`
 ### Task 7: Per-firm sweep alarm on `FirmDatabase`
 
 **Files:**
+
 - Modify: `apps/worker/src/firm-database/firm-database-object.ts` (add `alarm()` + arm-on-first-write), `apps/worker/src/scheduled.ts` (remove the per-firm loop), delete `packages/database/src/fleet-rollout.ts` (+ test)
 - Create: `apps/worker/test/firm-database/firm-database-sweep.test.ts`
 
 **Interfaces:**
+
 - The DO gains `alarm(): Promise<void>` running the outbox relay + idempotency purge + stale-pending sweep **against its own storage**, using the existing `outboxRelay`/purge statements with `doSqliteBatchDatabase(this.ctx.storage)`. It self-arms a recurring alarm (`ctx.storage.setAlarm`) the first time it serves a write, and re-arms at the end of each `alarm()`.
 
 - [ ] **Step 1: Write the failing test** — seed an outbox row in a firm DO, run its alarm, assert the row is marked delivered and a fresh alarm is set. (Model the relay assertions on `packages/data-access/test/outbox-relay.test.ts`; the sweep logic is the same code, pointed at DO storage.)
@@ -519,6 +568,7 @@ git commit -m "feat(worker): per-firm outbox/idempotency sweep on the FirmDataba
 ### Task 8: Drop per-firm `createDatabase` + the pool
 
 **Files:**
+
 - Modify: `apps/worker/src/firm-resource-provider.ts` (remove `createDatabase` from both adapters + the `FirmResourceProvider` interface), `apps/worker/src/firm-provisioner-wiring.ts` (remove `migrateFirmDatabaseToHeadForEnv`), the provisioner caller (stop recording `database_identifier`; the DO needs no creation step), `apps/worker/wrangler.jsonc` (remove `DB_FIRM_POOL_1/2`), `apps/worker/src/app.ts` (`Bindings`: drop the pool)
 - Delete: `apps/worker/src/firm-binding-resolver.ts` + `apps/worker/test/firm-binding-resolver.test.ts`
 - Test: `apps/worker/test/firm-resource-provider.test.ts`, `firm-provisioner.test.ts`, `auth-provisioning-e2e.test.ts`

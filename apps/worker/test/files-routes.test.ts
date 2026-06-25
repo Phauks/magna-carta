@@ -329,9 +329,7 @@ describe("GET /api/v1/files/{id}/download", () => {
       .bind(fileId)
       .all<{ v: string }>();
     const auditResult = await firmDatabase
-      .prepare(
-        "SELECT event FROM audit_log WHERE event = 'file.downloaded' AND subject_id = ?1",
-      )
+      .prepare("SELECT event FROM audit_log WHERE event = 'file.downloaded' AND subject_id = ?1")
       .bind(versionResult.results[0]?.v)
       .all<{ event: string }>();
     const audit = auditResult.results[0];
@@ -449,9 +447,7 @@ describe("GET /api/v1/files/{id}/preview", () => {
     const res = await get(`/api/v1/files/${fileId}/preview`);
     expect(res.status).toBe(200);
     const auditResult = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
-      .prepare(
-        "SELECT event FROM audit_log WHERE subject_id = ?1",
-      )
+      .prepare("SELECT event FROM audit_log WHERE subject_id = ?1")
       .bind(versionId)
       .all<{ event: string }>();
     expect(auditResult.results[0]).toBeUndefined();
@@ -664,9 +660,7 @@ describe("POST /api/v1/downloads/zip", () => {
     matterId = asyncMatterId;
     // Drop the live file-count threshold to 1 so a two-file selection exceeds it.
     await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
-      .prepare(
-        "INSERT OR REPLACE INTO setting (key, value, updated_at) VALUES (?1, '1', ?2)",
-      )
+      .prepare("INSERT OR REPLACE INTO setting (key, value, updated_at) VALUES (?1, '1', ?2)")
       .bind(liveMaxFileCountDefinition.key, ISO)
       .run();
     try {
@@ -698,9 +692,7 @@ describe("POST /api/v1/downloads/zip", () => {
     const savedMatter = matterId;
     matterId = cachedMatterId;
     await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
-      .prepare(
-        "INSERT OR REPLACE INTO setting (key, value, updated_at) VALUES (?1, '1', ?2)",
-      )
+      .prepare("INSERT OR REPLACE INTO setting (key, value, updated_at) VALUES (?1, '1', ?2)")
       .bind(liveMaxFileCountDefinition.key, ISO)
       .run();
     try {
@@ -986,9 +978,7 @@ describe("POST /api/v1/scan/diagnose", () => {
     // The stub scan service bound via SCAN_SERVICE returns the no-engine verdict — an honest `unscanned`, never a false clean.
     expect(body.verdict).toBe("unscanned");
     const auditResult = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
-      .prepare(
-        "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'file.scan_diagnosed'",
-      )
+      .prepare("SELECT COUNT(*) AS n FROM audit_log WHERE event = 'file.scan_diagnosed'")
       .all<{ n: number }>();
     const audit = auditResult.results[0];
     expect(audit?.n).toBeGreaterThanOrEqual(1);
@@ -1034,9 +1024,7 @@ describe("POST /api/v1/scan/matter/{id}", () => {
     expect(body.enqueued).toBeGreaterThanOrEqual(2);
     expect(body.capped).toBe(false);
     const auditResult = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
-      .prepare(
-        "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'matter.files_rescan_requested'",
-      )
+      .prepare("SELECT COUNT(*) AS n FROM audit_log WHERE event = 'matter.files_rescan_requested'")
       .all<{ n: number }>();
     const audit = auditResult.results[0];
     expect(audit?.n).toBeGreaterThanOrEqual(1);

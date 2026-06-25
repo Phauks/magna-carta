@@ -27,11 +27,11 @@ The per-firm database becomes **one Durable Object class, `FirmDatabase`, addres
 
 The domain layer (~185 query sites across 6 packages) is already written against an abstract `SqlDatabase`/`SqlStatement`/`BatchDatabase` interface, not `D1Database`. Concrete `D1Database` lives only in the migration seam and the worker edge. A throwaway spike (`spike/per-firm-do-sqlite` branch) proved the data plane is mechanical — three green tests exercising the **real** per-firm migration lineage and a **real, unmodified** statement module against `ctx.storage.sql`:
 
-| Validated | Result |
-|---|---|
-| Self-migrate-on-wake | all 18 per-firm migrations (`0000…0017`) applied in the DO constructor via `doSqliteMigrationTarget` + `blockConcurrencyWhile` |
-| `meta.changes` fidelity (guarded `UPDATE`/`DELETE` depend on it) | faithful 1 / 0 / 1, via a `SELECT changes()` mapping — **not** the cursor's `rowsWritten`, which counts index rows |
-| UNIQUE-conflict detection + atomicity | `isIdempotencyKeyConflict` matched DO SQLite's message text unchanged; `transactionSync` rolled the whole batch back (0 rows persisted) |
+| Validated                                                        | Result                                                                                                                                  |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Self-migrate-on-wake                                             | all 18 per-firm migrations (`0000…0017`) applied in the DO constructor via `doSqliteMigrationTarget` + `blockConcurrencyWhile`          |
+| `meta.changes` fidelity (guarded `UPDATE`/`DELETE` depend on it) | faithful 1 / 0 / 1, via a `SELECT changes()` mapping — **not** the cursor's `rowsWritten`, which counts index rows                      |
+| UNIQUE-conflict detection + atomicity                            | `isIdempotencyKeyConflict` matched DO SQLite's message text unchanged; `transactionSync` rolled the whole batch back (0 rows persisted) |
 
 ## Architecture
 
@@ -60,7 +60,7 @@ Recommend **(A)**. The control-plane outbox sweep stays in cron (control-plane i
 
 ## Risks & mitigations
 
-1. **10 GB per firm is a hard ceiling, no overflow.** Ample for core practice-management metadata (matters, time, ledger, custom fields, document *metadata*). The risk is **discovery/custodian** metadata (millions of doc rows) and append-only **audit logs**. These are a **separate, deferred decision** for when those subsystems are built (candidates: per-matter DO shard, keep that high-volume metadata in D1, or a search index). This design leaves the seam and does not pre-decide it.
+1. **10 GB per firm is a hard ceiling, no overflow.** Ample for core practice-management metadata (matters, time, ledger, custom fields, document _metadata_). The risk is **discovery/custodian** metadata (millions of doc rows) and append-only **audit logs**. These are a **separate, deferred decision** for when those subsystems are built (candidates: per-matter DO shard, keep that high-volume metadata in D1, or a search index). This design leaves the seam and does not pre-decide it.
 2. **Single-writer per firm (~1,000 req/s soft).** Fine for interactive human data entry; it also gives the ledger stronger local transactions. Bulk writes (discovery ingestion, month-end billing/trust runs, per-document scan/OCR callbacks) must be pushed off the interactive path onto Queues so they don't serialize behind — or ahead of — a firm's users.
 3. **No read replicas + sticky homing.** A DO homes near first access and does not relocate. Set `locationHint` from the firm's declared region at creation, and control first-access so a stray request (CI, an admin elsewhere) cannot mis-home a firm.
 4. **Residual unknowns to verify in the implementation spike:** the read-hop count per request through the RPC proxy (batch writes are one hop; multi-query reads are several — measure and, if needed, add a DO-side composite read), and confirming the typed-result conflict path needs no error-identity-across-RPC.

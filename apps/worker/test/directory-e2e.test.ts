@@ -308,9 +308,7 @@ describe("directory e2e — full journey over the HTTP surface", () => {
 
     // The subordinate is archived (status='merged_into', merged_into_id=master), never deleted.
     const subordinateResult = await firmDatabase
-      .prepare(
-        "SELECT status, merged_into_id, deleted_at FROM directory_person WHERE id = ?1",
-      )
+      .prepare("SELECT status, merged_into_id, deleted_at FROM directory_person WHERE id = ?1")
       .bind(createdEntityIdentifiers.duplicatePerson ?? "")
       .all<{ status: string; merged_into_id: string | null; deleted_at: string | null }>();
     const subordinate = subordinateResult.results[0];
@@ -320,9 +318,7 @@ describe("directory e2e — full journey over the HTTP surface", () => {
 
     // Every inbound reference repointed: no matter_party or edge endpoint still names the subordinate.
     const danglingPartyResult = await firmDatabase
-      .prepare(
-        "SELECT COUNT(*) AS c FROM matter_party WHERE entity_id = ?1",
-      )
+      .prepare("SELECT COUNT(*) AS c FROM matter_party WHERE entity_id = ?1")
       .bind(createdEntityIdentifiers.duplicatePerson ?? "")
       .all<{ c: number }>();
     const danglingParty = danglingPartyResult.results[0];
@@ -338,9 +334,7 @@ describe("directory e2e — full journey over the HTTP surface", () => {
 
     // The master now carries the repointed party.
     const masterPartyResult = await firmDatabase
-      .prepare(
-        "SELECT COUNT(*) AS c FROM matter_party WHERE entity_id = ?1",
-      )
+      .prepare("SELECT COUNT(*) AS c FROM matter_party WHERE entity_id = ?1")
       .bind(createdEntityIdentifiers.person ?? "")
       .all<{ c: number }>();
     const masterParty = masterPartyResult.results[0];

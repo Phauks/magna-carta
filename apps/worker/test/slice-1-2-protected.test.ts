@@ -15,7 +15,10 @@ import {
 } from "../src/scheduled.ts";
 import { shredFirmKey } from "../src/firm-key-shred.ts";
 import { firmKeyProviderForEnv } from "../src/firm-key-provider-wiring.ts";
-import { firmDatabaseFor, type ProxyBatchDatabase } from "../src/firm-database/firm-database-proxy.ts";
+import {
+  firmDatabaseFor,
+  type ProxyBatchDatabase,
+} from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
