@@ -33,11 +33,12 @@ export async function hashAll(
   );
   const byKey = Object.fromEntries(digests) as Record<string, string>;
   return {
-    md5: byKey.md5,
-    sha1: byKey.sha1,
-    sha256: byKey.sha256,
-    sha384: byKey.sha384,
-    sha512: byKey.sha512,
+    // ALGORITHM_RESULT_KEY guarantees all five keys are set; the non-null assertions are safe.
+    md5: byKey.md5!,
+    sha1: byKey.sha1!,
+    sha256: byKey.sha256!,
+    sha384: byKey.sha384!,
+    sha512: byKey.sha512!,
     sizeBytes,
   };
 }
