@@ -1,5 +1,6 @@
 import { getContainer } from "@cloudflare/containers";
 import { DocumentEditorContainer } from "./document-editor-container.ts";
+import { documentKeyFromHost } from "./document-routing.ts";
 
 // The standalone in-app document editor worker. It owns the DocumentEditorContainer Durable Object
 // (Container-backed) — ONE isolated coolwsd per open document. Two trust boundaries:
@@ -19,17 +20,6 @@ export type Bindings = {
 };
 
 export { DocumentEditorContainer } from "./document-editor-container.ts";
-
-// The per-document container key, read from the Host's first label. The editor is served on a cookieless
-// wildcard origin (`<key>.edit.<domain>` — a deploy-time route), so every request for one document
-// (cool.html, static assets, the WebSocket) shares the same label and pins to one container. The key is
-// a STABLE, opaque per-document token the app worker's editor-launch derives deterministically from the
-// fileId — stable so co-editors converge on one container, opaque so the origin leaks no fileId. coolwsd
-// serves from root, so requests forward verbatim (no path rewriting).
-function documentKeyFromHost(host: string): string | null {
-  const label = (host.split(":")[0] ?? "").split(".")[0]?.trim() ?? "";
-  return label.length > 0 ? label : null;
-}
 
 export default {
   async fetch(request: Request, env: Bindings): Promise<Response> {

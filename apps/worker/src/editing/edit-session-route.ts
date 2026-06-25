@@ -26,11 +26,29 @@ import { mintEditToken, type EditCapability } from "./wopi-token.ts";
 // so a leaked token expires quickly.
 const TOKEN_WINDOW_MS = 60 * 60 * 1000;
 
-// The Collabora editor entry URL (urlsrc) is published by the editing container's /hosting/discovery.
-// Until that container is deployed, a configured value (or a local default) stands in — wired as a
-// seam here so the live discovery fetch slots in without changing the route.
-function editorDiscoveryUrlsrc(env: Bindings): string {
-  return env.COLLABORA_DISCOVERY_URLSRC ?? "https://collabora.localhost/browser/dist/cool.html";
+// The internal host coolwsd uses as its WOPISrc. It never resolves on the public internet: the editor
+// container intercepts it (DocumentEditorContainer.outboundByHost) and forwards to this worker's WOPI
+// surface over the service binding, so coolwsd reaches the document with no egress. MUST match WOPI_HOST
+// in the magna-carta-edit worker (apps/magna-carta-edit/src/document-editor-container.ts).
+const WOPI_HOST = "wopi.magna-carta.internal";
+
+// The base domain of the cookieless editor origin served by the magna-carta-edit worker. The per-document
+// editor loads at `<documentKey>.<domain>` (a deploy-time wildcard route); a local default stands in
+// until the domain is configured.
+function editorBaseDomain(env: Bindings): string {
+  return env.EDITOR_ORIGIN_DOMAIN ?? "edit.localhost";
+}
+
+// The opaque, stable per-document key — the first label of the editor origin. Deterministic, so a
+// document's co-editors converge on ONE container; opaque, so the public hostname leaks no fileId. The
+// magna-carta-edit worker reads this label and keys its container by it. The WOPI access token, not the
+// hostname, authorizes — so the key need only be collision-resistant and leak-free, not secret.
+async function deriveDocumentKey(fileId: FileId): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(fileId));
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, 52);
 }
 
 const SessionLaunchResponse = z
@@ -105,12 +123,16 @@ async function buildLaunch(
     },
     c.env,
   );
-  const urlsrc = editorDiscoveryUrlsrc(c.env);
-  const editorOrigin = new URL(urlsrc).origin;
-  const wopiSrc = `${new URL(c.req.url).origin}/wopi/files/${input.fileId}`;
-  const separator = urlsrc.includes("?") ? "&" : "?";
+  // The per-document cookieless editor origin (one isolated coolwsd container behind it). coolwsd's
+  // WOPISrc points at the internal host — intercepted by the container and forwarded to this worker's
+  // /wopi surface, so the editor reaches the document with no egress. Object keys are derived from the
+  // signed token, never the URL.
+  const documentKey = await deriveDocumentKey(input.fileId);
+  const editorOrigin = `https://${documentKey}.${editorBaseDomain(c.env)}`;
+  const wopiSrc = `http://${WOPI_HOST}/wopi/files/${input.fileId}`;
+  const editorUrl = `${editorOrigin}/browser/dist/cool.html?WOPISrc=${encodeURIComponent(wopiSrc)}`;
   return {
-    editorUrl: `${urlsrc}${separator}WOPISrc=${encodeURIComponent(wopiSrc)}`,
+    editorUrl,
     editorOrigin,
     accessToken,
     accessTokenTtl: exp,

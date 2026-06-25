@@ -1,4 +1,5 @@
 import { Container } from "@cloudflare/containers";
+import { forwardWopiCallback } from "./document-routing.ts";
 import type { Bindings } from "./index.ts";
 
 // The fixed internal host coolwsd is configured (Dockerfile) to use as its WOPI host. It never resolves
@@ -37,6 +38,6 @@ export class DocumentEditorContainer extends Container<Bindings> {
     string,
     (request: Request, env: Bindings) => Promise<Response>
   > = {
-    [WOPI_HOST]: (request, env) => env.APP_WORKER.fetch(request),
+    [WOPI_HOST]: (request, env) => forwardWopiCallback(request, env.APP_WORKER),
   };
 }
