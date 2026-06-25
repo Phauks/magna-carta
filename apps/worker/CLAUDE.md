@@ -22,6 +22,12 @@ routes requests through the chokepoint into those packages.
 - `src/chokepoint/` — the ordered enforcement middleware + its ports; `defineOpenAPIRoute` carries each
   route's `RouteMeta`, and `chokepointMiddleware` enforces it. No per-handler auth discipline.
 - `src/routes/` — one module per surface; each is a route-bundle registered in `app.ts`.
+- `src/firm-database/` — the `FirmDatabase` Durable Object (one per firm, `idFromName(firmId)`,
+  self-migrating the per-firm lineage on wake) and its worker-side proxy: `firm-database-proxy.ts`
+  exports `firmDatabaseFor(firmId, env)` which returns a DO-backed `SqlDatabase` handle. All ~185
+  data-access statement modules resolve a firm's database through this proxy — **not** a D1 binding.
+  The retired `DB_FIRM_POOL_*` bindings and `firm-binding-resolver.ts` are gone; `rpc-types.ts` holds
+  the DO RPC shape.
 - `src/downloads/` — the async bulk-download build (the DO coordinator, the queue consumer, the shared
   types). See the flow below.
 - `src/files/` — the ingest consumer (single-read pipeline shell over `@magna-carta/file-manager`), the

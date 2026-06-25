@@ -1,0 +1,5 @@
+---
+category: Changed
+---
+
+**Per-firm database re-architected to a `FirmDatabase` Durable Object** (design [`docs/specs/2026-06-23-per-firm-database-durable-object-design.md`](docs/specs/2026-06-23-per-firm-database-durable-object-design.md)): each firm's SQLite database now lives in a `FirmDatabase` Durable Object addressed `idFromName(firmId)` and reached through a `firmDatabaseProxy` worker-side proxy — binding-free, no redeploy per firm, no binding-count cap. All ~185 data-access statement modules are unchanged; the proxy satisfies the same `SqlDatabase` contract used throughout the codebase. The chokepoint, all three queue consumers (ingest, member-provision, inference), and the cron sweep resolve a firm's database by `firmId` through the DO. Control-plane D1 (`DB_CONTROL`) and all R2 are unchanged. The retired `DB_FIRM_POOL_*` bindings, `firm-binding-resolver.ts`, and the per-firm `createDatabase` + migrate-at-provision step are removed. Supersedes the per-firm-D1 half of ADR-0003.
