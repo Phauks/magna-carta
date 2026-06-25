@@ -1,16 +1,18 @@
-//! AcroForm field enumeration.
+//! AcroForm field enumeration and appearance generation.
 //!
 //! Reads interactive form fields from a PDF, resolving the attribute-inheritance
 //! rules defined in the PDF specification (/FT, /Ff, /DA, /V cascade from
 //! parent field nodes to their terminal descendants).
 //!
-//! This module handles read only. Fill and flatten are separate operations built on top of this enumeration.
+//! This module handles read and appearance generation. Fill and flatten are
+//! separate operations built on top of this enumeration.
 
 use std::collections::BTreeSet;
 
-use lopdf::{Document, Object, ObjectId};
+use lopdf::{dictionary, Document, Object, ObjectId, Stream};
 
 use crate::scrub::catalog_subdict;
+use crate::standard_fonts_data::{HELVETICA, WIN_ANSI_ENCODING};
 use crate::surgery::resolve_dict;
 
 // ── Public types ───────────────────────────────────────────────────────────────
@@ -516,6 +518,110 @@ pub(crate) fn terminal_fields(doc: &Document) -> Vec<TerminalField> {
             widgets: w.widgets,
         })
         .collect()
+}
+
+// ── Helvetica glyph-width measurement ─────────────────────────────────────────
+
+/// Advance width in glyph-space units (1000 = 1 em) for `ch` in Helvetica via
+/// the WinAnsi code-to-glyph-name mapping.
+///
+/// Returns 0.0 for code-points ≥ 256, slots with no glyph name assigned, and
+/// glyph names absent from the Helvetica metrics table.
+// Called by helvetica_text_width; consumed by the fill logic built in the next task.
+#[allow(dead_code)]
+fn helvetica_advance(ch: char) -> f32 {
+    let code = ch as u32;
+    if code >= 256 {
+        return 0.0;
+    }
+    let name = WIN_ANSI_ENCODING[code as usize];
+    if name.is_empty() {
+        return 0.0;
+    }
+    // HELVETICA is sorted by glyph name; binary search is correct and O(log n).
+    match HELVETICA.binary_search_by_key(&name, |&(n, _)| n) {
+        Ok(index) => HELVETICA[index].1 as f32,
+        Err(_) => 0.0,
+    }
+}
+
+/// Width in points of `text` rendered in Helvetica at `size_pt`.
+///
+/// Each character is looked up via the WinAnsi encoding. Characters outside the
+/// WinAnsi range or absent from the metrics table contribute 0.0.
+// Consumed by the fill logic built in the next task.
+#[allow(dead_code)]
+pub(crate) fn helvetica_text_width(text: &str, size_pt: f32) -> f32 {
+    let glyph_units: f32 = text.chars().map(helvetica_advance).sum();
+    (glyph_units / 1000.0) * size_pt
+}
+
+// ── Appearance stream generation ───────────────────────────────────────────────
+
+/// Build a Form XObject appearance stream for a text field.
+///
+/// The returned `ObjectId` references a `/Type /XObject /Subtype /Form` stream
+/// whose content paints `value` horizontally aligned per `quadding`:
+/// 0 = left, 1 = centre, 2 = right.
+///
+/// `da_size` is the font size from the field's `/DA` entry; pass `0.0` to let
+/// the function derive the size from the widget height (clamped to [6, 12] pt).
+/// `font_id` must be the `ObjectId` of a Type 1 font object already added to
+/// `doc` — the caller creates this once per document and passes it here so all
+/// appearance streams can share it.
+// Consumed by the fill logic built in the next task.
+#[allow(dead_code)]
+pub(crate) fn text_appearance(
+    doc: &mut Document,
+    rect: [f32; 4],
+    da_size: f32,
+    quadding: i64,
+    font_id: ObjectId,
+    value: &str,
+) -> ObjectId {
+    let w = rect[2] - rect[0];
+    let h = rect[3] - rect[1];
+    let size = if da_size > 0.0 {
+        da_size
+    } else {
+        (h * 0.6).clamp(6.0, 12.0)
+    };
+
+    let text_width = helvetica_text_width(value, size);
+
+    let tx: f32 = match quadding {
+        0 => 2.0,
+        1 => ((w - text_width) / 2.0).max(2.0),
+        2 => (w - text_width - 2.0).max(2.0),
+        _ => 2.0,
+    };
+    let ty = ((h - size) / 2.0 + size * 0.2).max(2.0);
+
+    let escaped = crate::bates::escape_pdf_literal(value);
+    let content = format!(
+        "/Tx BMC q BT /MagnaCartaFormFont {size:.2} Tf 0 g {tx:.2} {ty:.2} Td ({escaped}) Tj ET Q EMC"
+    );
+
+    let font_resources = dictionary! {
+        "MagnaCartaFormFont" => Object::Reference(font_id),
+    };
+    let resources = dictionary! {
+        "Font" => Object::Dictionary(font_resources),
+    };
+    let stream_dict = dictionary! {
+        "Type" => Object::Name(b"XObject".to_vec()),
+        "Subtype" => Object::Name(b"Form".to_vec()),
+        "FormType" => Object::Integer(1),
+        "BBox" => Object::Array(vec![
+            Object::Real(0.0),
+            Object::Real(0.0),
+            Object::Real(w),
+            Object::Real(h),
+        ]),
+        "Resources" => Object::Dictionary(resources),
+    };
+    let stream = Stream::new(stream_dict, content.into_bytes());
+    doc.add_object(Object::Stream(stream))
 }
 
 // ── Public entry point ─────────────────────────────────────────────────────────
@@ -1093,6 +1199,149 @@ mod tests {
         assert!(
             field.rect.is_some(),
             "rect must be populated from widget /Rect"
+        );
+    }
+
+    // ── Appearance generation tests ───────────────────────────────────────────
+
+    /// Build a minimal font object and return its ObjectId.
+    fn add_font(doc: &mut Document) -> ObjectId {
+        doc.add_object(Object::Dictionary(dictionary! {
+            "Type" => Object::Name(b"Font".to_vec()),
+            "Subtype" => Object::Name(b"Type1".to_vec()),
+            "BaseFont" => Object::Name(b"Helvetica".to_vec()),
+        }))
+    }
+
+    #[test]
+    fn appearance_has_value_and_font() {
+        let mut doc = Document::with_version("1.5");
+        let font_id = add_font(&mut doc);
+        // rect: llx=0, lly=0, urx=100, ury=20  →  w=100, h=20
+        let rect = [0.0_f32, 0.0, 100.0, 20.0];
+        let xobj_id = text_appearance(&mut doc, rect, 10.0, 0, font_id, "Hello");
+
+        let stream = match doc.get_object(xobj_id).expect("XObject must exist") {
+            Object::Stream(s) => s,
+            _ => panic!("expected a Stream object"),
+        };
+
+        // BBox must be [0 0 100 20].
+        let bbox_arr = stream
+            .dict
+            .get(b"BBox")
+            .expect("BBox")
+            .as_array()
+            .expect("BBox must be array");
+        let bbox_nums: Vec<f32> = bbox_arr
+            .iter()
+            .map(|o| match o {
+                Object::Real(r) => *r,
+                Object::Integer(i) => *i as f32,
+                _ => panic!("non-numeric BBox element"),
+            })
+            .collect();
+        assert_eq!(bbox_nums.len(), 4);
+        assert!((bbox_nums[0]).abs() < 0.01);
+        assert!((bbox_nums[1]).abs() < 0.01);
+        assert!(
+            (bbox_nums[2] - 100.0).abs() < 0.01,
+            "BBox width must be 100"
+        );
+        assert!((bbox_nums[3] - 20.0).abs() < 0.01, "BBox height must be 20");
+
+        // Content must reference the font and paint the value.
+        let content = std::str::from_utf8(&stream.content).expect("content must be UTF-8");
+        assert!(
+            content.contains("(Hello) Tj"),
+            "content must contain (Hello) Tj; got: {content}"
+        );
+        assert!(
+            content.contains("/MagnaCartaFormFont"),
+            "content must reference /MagnaCartaFormFont; got: {content}"
+        );
+    }
+
+    #[test]
+    fn appearance_auto_sizes_when_da_zero() {
+        let mut doc = Document::with_version("1.5");
+        let font_id = add_font(&mut doc);
+        // height = 20 → auto size = (20 × 0.6).clamp(6, 12) = 12.0
+        let rect = [0.0_f32, 0.0, 100.0, 20.0];
+        let xobj_id = text_appearance(&mut doc, rect, 0.0, 0, font_id, "Test");
+
+        let stream = match doc.get_object(xobj_id).expect("XObject must exist") {
+            Object::Stream(s) => s,
+            _ => panic!("expected a Stream object"),
+        };
+        let content = std::str::from_utf8(&stream.content).expect("content must be UTF-8");
+
+        // Extract the Tf size from the content stream.
+        // Format: "... /MagnaCartaFormFont <size> Tf ..."
+        let tf_pos = content.find("Tf").expect("content must have Tf operator");
+        let before_tf = content[..tf_pos].trim_end();
+        let size_str = before_tf
+            .split_whitespace()
+            .last()
+            .expect("size token must precede Tf");
+        let tf_size: f32 = size_str.parse().expect("size must be a float");
+
+        assert!(
+            (6.0..=12.0).contains(&tf_size),
+            "auto-fitted size must be in [6, 12]; got {tf_size}"
+        );
+    }
+
+    #[test]
+    fn appearance_right_aligns() {
+        let mut doc = Document::with_version("1.5");
+        let font_id = add_font(&mut doc);
+        let rect = [0.0_f32, 0.0, 100.0, 20.0];
+        let xobj_id = text_appearance(&mut doc, rect, 10.0, 2, font_id, "Hello");
+
+        let stream = match doc.get_object(xobj_id).expect("XObject must exist") {
+            Object::Stream(s) => s,
+            _ => panic!("expected a Stream object"),
+        };
+        let content = std::str::from_utf8(&stream.content).expect("content must be UTF-8");
+
+        // Extract tx from "... <tx> <ty> Td ...".
+        let td_pos = content.find("Td").expect("content must have Td operator");
+        let before_td = content[..td_pos].trim_end();
+        let tokens: Vec<&str> = before_td.split_whitespace().collect();
+        // The last two tokens before Td are ty then tx... wait: "tx ty Td" so tx is second-to-last.
+        let tx: f32 = tokens[tokens.len() - 2]
+            .parse()
+            .expect("tx must parse as float");
+
+        // For right-alignment: tx ≈ w − measured_width − 2
+        let expected_tx = (100.0_f32 - helvetica_text_width("Hello", 10.0) - 2.0).max(2.0);
+        assert!(
+            (tx - expected_tx).abs() < 0.1,
+            "right-aligned tx should be ≈ {expected_tx:.2}, got {tx:.2}"
+        );
+        assert!(
+            tx > 2.0,
+            "right-aligned tx must be distinctly greater than the left-pad default 2.0"
+        );
+    }
+
+    #[test]
+    fn appearance_escapes_parens() {
+        let mut doc = Document::with_version("1.5");
+        let font_id = add_font(&mut doc);
+        let rect = [0.0_f32, 0.0, 100.0, 20.0];
+        let xobj_id = text_appearance(&mut doc, rect, 10.0, 0, font_id, "a(b)");
+
+        let stream = match doc.get_object(xobj_id).expect("XObject must exist") {
+            Object::Stream(s) => s,
+            _ => panic!("expected a Stream object"),
+        };
+        let content = std::str::from_utf8(&stream.content).expect("content must be UTF-8");
+
+        assert!(
+            content.contains("a\\(b\\)"),
+            "parentheses in value must be escaped; got: {content}"
         );
     }
 }
