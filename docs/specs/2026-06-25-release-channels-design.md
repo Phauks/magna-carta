@@ -78,6 +78,13 @@ Each gated feature is one boolean flag in Flagship with a standard targeting rul
 
 One SPA bundle for all channels. The resolved flag set for the current session is delivered to the client through the existing `/me` bootstrap response; UI gates on it. **No per-channel static bundles in v1** — kept as a seam for a future genuinely-incompatible UI rewrite.
 
+### Beta visibility & feedback (frontend, Plan 2)
+
+A feature that is *on because it is beta* must be **visibly marked as in active development**, and must carry a **feedback / bug-report affordance** — so users (1) know they are on unfinished work and (2) are primed to share freely and expect rough edges. Two requirements, with the exact visual treatment deferred to the frontend slice where it can be designed against real screens:
+
+- **The enabling metadata is a rails concern (Plan 1):** each catalog flag carries a `stage` (`alpha | beta | stable`). The client marks any feature where `flags[key] === true && stage !== "stable"`. When a feature graduates, its `stage` flips to `stable` (or the flag is removed) and every marker for it disappears automatically — the visibility lifecycle *is* the rollout lifecycle.
+- **The treatment is a UI decision (Plan 2):** a design-system marker at the feature's *edge* (its nav entry / page header), honoring the calm-workflow-surfaces design law — on-token, Lucide icon, no emoji. Plus a feedback affordance routed to the **existing** pipelines (the in-house bug-reporting/incident path, and optionally the community feedback board), not a new one. The intensity (quiet badge + popover vs. a first-encounter dismissible callout vs. a persistent banner) is chosen visually in Plan 2.
+
 ## v1 scope — the rails, not the features
 
 v1 ships the **complete mechanism with zero product features gated**, proven end-to-end by one trivial throwaway flag:
@@ -91,7 +98,7 @@ v1 ships the **complete mechanism with zero product features gated**, proven end
 
 Real features adopt the rails as they ship. This is the YAGNI-correct first slice: build the expensive-to-retrofit seam now, gate nothing speculative.
 
-**Plan decomposition.** v1 splits into two independently-testable plans: **Plan 1 — backend rails** (column, permission, both endpoints, the `@magna-carta/feature-flags` package, `/me` delivery, audit, contract regen) and **Plan 2 — frontend** (the beta opt-in Settings section with its consent dialog, and one UI element gated on the throwaway flag). Plan 1 lands and is verified through the worker integration tests before Plan 2 is planned.
+**Plan decomposition.** v1 splits into two independently-testable plans: **Plan 1 — backend rails** (column, permission, both endpoints, the `@magna-carta/feature-flags` package including the per-flag `stage` metadata, `/me` delivery, audit, contract regen) and **Plan 2 — frontend** (the beta opt-in Settings section with its consent dialog; one UI element gated on the throwaway flag; and the **beta-feature visibility marker + feedback affordance** described under _Frontend_). Plan 1 lands and is verified through the worker integration tests before Plan 2 is planned.
 
 ## Audit & docs
 

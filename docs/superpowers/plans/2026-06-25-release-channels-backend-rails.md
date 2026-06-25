@@ -43,7 +43,8 @@ A dependency-light leaf package: the channel type, the flag catalog, the evaluat
   - `type ReleaseChannel = "stable" | "beta" | "alpha"` and `const RELEASE_CHANNELS: readonly ReleaseChannel[]`
   - `interface FlagContext { targetingKey: string; firmId: string; channel: ReleaseChannel }`
   - `interface FlagEvaluator { getBoolean(flagKey: string, defaultValue: boolean, context: FlagContext): Promise<boolean> }`
-  - `const FLAG_CATALOG: Record<string, { defaultValue: boolean; description: string }>` (v1 holds one throwaway flag `"release-channels.smoke"`)
+  - `type FlagStage = "alpha" | "beta" | "stable"`
+  - `const FLAG_CATALOG: Record<string, { defaultValue: boolean; stage: FlagStage; description: string }>` (v1 holds one throwaway flag `"release-channels.smoke"`). `stage` lets the SPA mark any enabled-but-not-yet-`stable` feature as in active development; it lives in this shared package so the web app reads it statically.
   - `function evaluateCatalog(evaluator: FlagEvaluator, context: FlagContext): Promise<Record<string, boolean>>`
   - `interface FlagshipBinding { getBooleanValue(flagKey: string, defaultValue: boolean, context: Record<string, string>): Promise<boolean> }`
   - `function flagshipEvaluator(binding: FlagshipBinding): FlagEvaluator`
@@ -137,16 +138,24 @@ export interface FlagEvaluator {
 Create `packages/feature-flags/src/catalog.ts`:
 
 ```typescript
+// A feature's maturity. The client marks anything enabled whose stage is not "stable" as in active
+// development; graduating a feature to "stable" (or removing its flag) clears that marker — the
+// visibility lifecycle is the rollout lifecycle.
+export type FlagStage = "alpha" | "beta" | "stable";
+
 // The known boolean flags the bootstrap evaluates and ships to the client. Each entry names its
-// safe default (stable behavior). v1 carries one throwaway flag that proves the evaluation path
-// end to end; real features add their own entry here as they adopt the rails.
-export const FLAG_CATALOG: Record<string, { readonly defaultValue: boolean; readonly description: string }> =
-  {
-    "release-channels.smoke": {
-      defaultValue: false,
-      description: "Wiring smoke test for the release-channels evaluation path; not a product feature.",
-    },
-  };
+// safe default (stable behavior) and its stage. v1 carries one throwaway flag that proves the
+// evaluation path end to end; real features add their own entry here as they adopt the rails.
+export const FLAG_CATALOG: Record<
+  string,
+  { readonly defaultValue: boolean; readonly stage: FlagStage; readonly description: string }
+> = {
+  "release-channels.smoke": {
+    defaultValue: false,
+    stage: "beta",
+    description: "Wiring smoke test for the release-channels evaluation path; not a product feature.",
+  },
+};
 ```
 
 - [ ] **Step 3: Write the failing evaluate-catalog test**
