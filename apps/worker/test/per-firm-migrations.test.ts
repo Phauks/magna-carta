@@ -70,7 +70,9 @@ it("0016 ties amount_minor to rate_e4 by a paired-null CHECK", async () => {
     .all<{ sql: string }>();
   const sql = ddl.results[0]?.sql ?? "";
   // amount_minor is non-null exactly when rate_e4 is non-null (non-billable rows leave both null).
-  expect(sql.replace(/\s+/g, " ")).toContain("(`amount_minor` IS NULL) = (`rate_e4` IS NULL)");
+  expect(sql.replace(/\s+/g, " ")).toContain(
+    '("time_entry"."amount_minor" IS NULL) = ("time_entry"."rate_e4" IS NULL)',
+  );
 });
 
 it("0016 creates the two partial unique indexes (one open rate row per scope; one live_run_id)", async () => {
