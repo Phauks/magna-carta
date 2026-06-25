@@ -229,7 +229,8 @@ describe("end-to-end", () => {
       // customFields:purge grants (0013_custom-fields.sql) + tools:whois / tools:safeBrowse
       // (0017_seed-tools-web-domains.sql, seeded onto every default role) + tools:fileConverter
       // (0018_seed-tools-file-converter.sql) + firm:scanFile (0019_seed-scan-file-permission.sql) +
-      // tools:metadataScrubber (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role). Sorted.
+      // tools:metadataScrubber (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role) +
+      // tools:fileIntegrity (0021_seed-tools-file-integrity.sql, seeded onto every default role). Sorted.
       permissions: [
         "customFields:manage",
         "customFields:purge",
@@ -255,6 +256,7 @@ describe("end-to-end", () => {
         "matters:reopen",
         "shipping:manage",
         "tools:fileConverter",
+        "tools:fileIntegrity",
         "tools:firmUsage",
         "tools:metadataScrubber",
         "tools:safeBrowse",

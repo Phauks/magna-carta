@@ -148,6 +148,13 @@
       "when": 1782300000001,
       "tag": "0020_seed-tools-metadata-scrubber",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1782300200000,
+      "tag": "0021_seed-tools-file-integrity",
+      "breakpoints": true
     }
   ]
 }
