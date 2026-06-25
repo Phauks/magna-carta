@@ -31,7 +31,7 @@ import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "./app.ts";
 import { presignerForEnv } from "./files/presigner-wiring.ts";
-import { resolveFirmDatabase } from "./firm-binding-resolver.ts";
+import { firmDatabaseFor, type ProxyBatchDatabase } from "./firm-database/firm-database-proxy.ts";
 import { firmKeyProviderForEnv } from "./firm-key-provider-wiring.ts";
 import { consumeMemberProvision } from "./member-provision-consumer.ts";
 import { maybeEmitCompleted } from "./usage/completed.ts";
@@ -91,31 +91,29 @@ function logDeadLetter(
   };
 }
 
-// An active firm this deployment can reach: the control-plane row joined to its resolved binding.
+// An active firm this deployment can reach: addressed by firmId through its per-firm FirmDatabase
+// Durable Object, self-migrating on first access. Every active firm is reachable by name.
 // bucketName is the firm's R2 bucket (null until provisioning records it) — the stale-pending sweep
 // needs it to abort a multipart upload at R2.
 export interface ReachableActiveFirm {
   readonly firmId: string;
-  readonly database: D1Database;
+  readonly database: ProxyBatchDatabase;
   readonly bucketName: string | null;
 }
 
 // The ONE active-firm enumeration per cron pass — the per-firm sweep, the stale-pending sweep, and the
-// reconciliation backstop all consume the same list. Firms with no recorded database, or whose
-// database this deployment cannot reach, are skipped; the next pass retries them.
+// reconciliation backstop all consume the same list. Every active firm is reachable by firmId through
+// its FirmDatabase Durable Object, so no firm is ever skipped for an unreachable database.
 export async function listReachableActiveFirms(env: Bindings): Promise<ReachableActiveFirm[]> {
   const firms = await env.DB_CONTROL.prepare(
-    "SELECT id, database_identifier, bucket_name FROM firm WHERE status = 'active'",
-  ).all<{ id: string; database_identifier: string | null; bucket_name: string | null }>();
+    "SELECT id, bucket_name FROM firm WHERE status = 'active'",
+  ).all<{ id: string; bucket_name: string | null }>();
 
-  const reachable: ReachableActiveFirm[] = [];
-  for (const firm of firms.results) {
-    const database =
-      firm.database_identifier === null ? null : resolveFirmDatabase(env, firm.database_identifier);
-    if (database === null) continue;
-    reachable.push({ firmId: firm.id, database, bucketName: firm.bucket_name });
-  }
-  return reachable;
+  return firms.results.map((firm) => ({
+    firmId: firm.id,
+    database: firmDatabaseFor(env.FIRM_DATABASE, firm.id),
+    bucketName: firm.bucket_name,
+  }));
 }
 
 // The reconciliation backstop: control-plane users with no member row
@@ -337,7 +335,7 @@ export interface ReconciliationReport {
 }
 
 // Reads a firm's authoritative storage rollup for the reconciliation diff.
-async function readMeterRows(database: D1Database): Promise<MeterRow[]> {
+async function readMeterRows(database: ProxyBatchDatabase): Promise<MeterRow[]> {
   const { results } = await database
     .prepare("SELECT storage_class, artifact_role, prefix, bytes, object_count FROM storage_meter")
     .all<{
