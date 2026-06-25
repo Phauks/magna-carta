@@ -406,6 +406,53 @@ export async function loadCommittedVersionByR2Key(
   };
 }
 
+// A dedicated statement for the integrity baseline: the current clean version's R2 key, byte size,
+// and the SHA-256 recorded at ingest. Kept as a sibling of selectCurrentCleanVersionStatement rather
+// than an extension of it — each reader projects its own columns (the preview function established
+// this pattern), and isolating the projection means neither caller is coupled to the other's columns.
+export function selectCurrentCleanVersionForIntegrityStatement(
+  database: SqlDatabase,
+  fileId: FileId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT v.id, v.r2_key, v.size_bytes, v.content_sha256 FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id WHERE f.id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean'`,
+    )
+    .bind(fileId);
+}
+
+export interface VersionIntegrity {
+  readonly id: FileVersionId;
+  readonly r2Key: string;
+  readonly sizeBytes: number | null;
+  readonly contentSha256: string | null;
+}
+
+// The current clean version's R2 key plus the SHA-256 recorded at ingest — the integrity baseline.
+// Returns undefined when the file has no clean current version (e.g. still pending or quarantined).
+export async function getCurrentVersionForIntegrity(
+  database: SqlDatabase,
+  fileId: FileId,
+): Promise<VersionIntegrity | undefined> {
+  const { results } = await selectCurrentCleanVersionForIntegrityStatement(
+    database,
+    fileId,
+  ).all<{
+    id: FileVersionId;
+    r2_key: string;
+    size_bytes: number | null;
+    content_sha256: string | null;
+  }>();
+  const row = results[0];
+  if (row === undefined) return undefined;
+  return {
+    id: row.id,
+    r2Key: row.r2_key,
+    sizeBytes: row.size_bytes,
+    contentSha256: row.content_sha256,
+  };
+}
+
 // Every folder in a matter (id, parent, name) — the input to folder-tree path composition for the
 // ZIP download. Folders carry no status gate (only file_version does), so this is an unguarded read.
 export function listFoldersByMatterStatement(
