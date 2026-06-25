@@ -38,6 +38,7 @@ describe("tool catalog", () => {
       "whois-lookup",
       "safe-website-viewer",
       "file-converter",
+      "metadata-scrubber",
     ]);
   });
 

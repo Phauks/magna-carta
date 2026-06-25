@@ -59,5 +59,11 @@ if [ "$clamd_ready" -ne 1 ]; then
   exit 1
 fi
 
+# Expose the baked YARA Forge release tag to the service: it becomes the engine-version `yara-rules`
+# component (the staleness gate's rules key). The blob path is set via ENV in the Dockerfile; the tag
+# lives beside it. `unknown` if the file is somehow absent — the service still loads the blob and serves;
+# only the version label degrades, never the scan.
+export YARA_RULES_TAG="$(cat /etc/scan/yara-rules.tag 2>/dev/null || echo unknown)"
+
 # Hand off to the scan service (PID 1) on :8080.
 exec /usr/local/bin/scan

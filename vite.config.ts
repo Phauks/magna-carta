@@ -41,6 +41,7 @@ export default defineConfig({
       "packages/*/vitest.config.ts",
       "tooling/doc-fragments/vitest.config.ts",
       "tooling/worktrees/vitest.config.ts",
+      "tooling/clean/vitest.config.ts",
     ],
   },
   // vp reads test/lint/format defaults from here; run.tasks declares the monorepo graph.
@@ -77,6 +78,17 @@ export default defineConfig({
       // Run before starting a stream or editing a cross-cutting file (see docs/active-work/README.md).
       worktrees: {
         command: "node tooling/worktrees/index.mjs",
+      },
+      // Reclaim regenerable build artifacts from merged worktrees + dangling Docker cache. Runs
+      // automatically from the post-merge hook (tooling/git-hooks/post-merge); also runnable by
+      // hand. Pass flags to the script directly for a preview: node tooling/clean/index.mjs --dry-run
+      clean: {
+        command: "node tooling/clean/index.mjs",
+      },
+      // One-time per clone: point git at the tracked hooks directory so the post-merge auto-clean
+      // is active. Idempotent.
+      "setup-hooks": {
+        command: "git config core.hooksPath tooling/git-hooks",
       },
     },
   },

@@ -30,6 +30,13 @@ export const PROBLEM_TYPES = {
   // the real bytes at the ingest gate. DISTINCT from `validation` (request-shape) — the request is
   // well-formed; the firm policy refuses its content.
   "upload-not-allowed": "upload-not-allowed",
+  // A download of a version a re-scan flagged as malware (HTTP 409). Informed access: the file is not
+  // hidden, but the raw download is gated until the member acknowledges the risk (acknowledgeMalware).
+  "malware-flagged": "malware-flagged",
+  // An unsupported format conversion (HTTP 422): the requested from→to format pair has no path in
+  // the conversion graph — either the format is unknown or no engine covers the pair. DISTINCT from
+  // `validation` (request-shape) — the request is well-formed; the registry has no path.
+  "unsupported-conversion": "unsupported-conversion",
   // An unexpected, unhandled server error (HTTP 500). The telemetry middleware's final catch maps
   // any escaped exception to this — the one error type the client cannot have caused, carrying only
   // the Error ID to quote.

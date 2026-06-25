@@ -1,9 +1,9 @@
 import { z } from "@hono/zod-openapi";
 import type { MalwareScanPort, ScanResult } from "@magna-carta/file-manager/scan-port";
 
-// The scan Container's HTTP surface, narrowed to the one call the adapter makes. The container instance
-// from `getContainer(env.SCAN_CONTAINER, ...)` satisfies it; tests pass a fake so the adapter is
-// exercised without a real container (or Docker).
+// The scan service's HTTP surface, narrowed to the one call the adapter makes. The SCAN_SERVICE
+// Fetcher binding satisfies it; tests pass a fake so the adapter is exercised without a real
+// scan worker running in the pool.
 export interface ScanContainerFetcher {
   fetch(request: Request): Promise<Response>;
 }

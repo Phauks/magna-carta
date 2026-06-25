@@ -26,11 +26,12 @@ routes requests through the chokepoint into those packages.
   types). See the flow below.
 - `src/files/` — the ingest consumer (single-read pipeline shell over `@magna-carta/file-manager`), the
   presigner wiring, and the malware-scan wiring: `scan-port-binding.ts` (`resolveScanPort` — the
-  engine-less adapter, or the Container adapter when bound), `scan-container.ts` (the `ScanContainer`
-  Container class), `container-scan-adapter.ts` (POST→`ScanResult`, zod-validated, throw-not-clean), and
-  `scan-warm.ts` (the warm-poke). The scan engine itself is the `containers/scan` Rust crate; the worker
-  only talks to it over HTTP. The Container binding is a **deploy-time activation** — it cannot run under
-  the local test pool, so `resolveScanPort` falls back to the engine-less adapter everywhere in tests.
+  engine-less adapter, or the remote adapter over the `SCAN_SERVICE` binding when bound) and
+  `container-scan-adapter.ts` (POST→`ScanResult`, zod-validated, throw-not-clean). The scan engine itself
+  runs in its own Worker (`apps/scan-worker`, service `magna-carta-scan`), which owns the `ScanContainer`
+  (the `containers/scan` Rust crate); this worker reaches it over the `SCAN_SERVICE` service binding. That
+  binding is a **deploy-time activation** — it cannot run under the local test pool (a stub stands in for
+  it), so `resolveScanPort` falls back to the engine-less adapter everywhere in tests.
 - `wrangler.jsonc` — bindings (D1/R2/Queues/DO/Analytics/Email), the `secrets.required` deploy gate, the
   queue producers/consumers, the Cron triggers, and the `durable_objects` + `migrations` ledger.
 - `openapi/openapi.json` — the committed contract snapshot. **Never hand-edit;** run
@@ -73,6 +74,42 @@ built in the background instead of streamed inline:
 artifact lives in the firm's own bucket and is expired by a `bundles/` R2 lifecycle rule (the deploy
 runbook, section 8) — a regenerable cache, so expiry only forces a later rebuild. Notifications-push
 delivery (instead of polling) and a Container escalation for outlier-large bundles are named seams.
+
+## Conversion subsystem — orchestration here, engines in a dedicated worker
+
+The server-side file conversion path (`src/conversions/`) holds the **orchestration** — the
+`ConversionJob` Durable Object (keyed `firmId:jobId`), the `CONVERSION` queue + consumer, and the
+routes — and is wired but **dormant** until the engines are reachable. `resolveEnginePort` in
+`conversion-engine.ts` returns the deferred port (`engine-not-implemented`) for now, so the routes are
+fully functional in tests and in production, they just cannot yet execute real conversions.
+
+The **engines** (the pure-Rust raster service, LibreOffice headless, FFmpeg, the future Rust PDF
+engine) do **not** belong in this app worker — they are the same CPU/memory-bound, untrusted-bytes,
+outbound-disabled Container runtimes that scan was extracted into its own worker for. They live in a
+**dedicated conversion worker** that owns the engine Container(s) and is reached from here through a
+thin **service-binding adapter** that implements the same `ConversionPort` (the split is the existing
+port boundary, so the DO/queue/consumer do not change). All raster work runs in the
+`RasterEngineContainer` inside `apps/convert-worker` — there is no in-process codec path in this
+worker.
+
+To activate real conversions:
+
+1. **Build and deploy the pure-Rust raster engine Container image** (`containers/raster/`) for the
+   `magna-carta-convert` worker and deploy that worker. The worker scaffold and the `CONVERT` service
+   binding already exist; `resolveEnginePort` returns the `serviceBindingPort` adapter automatically
+   once the binding is present — no code change needed here. The engine is memory-safe by design
+   (pure Rust, no C codecs — see `containers/raster/CLAUDE.md` for the invariants). The `CONVERT`
+   worker owns the `RasterEngineContainer` Durable Object (the Container-backed DO); once deployed,
+   it handles PNG/JPEG/WebP/TIFF/GIF/BMP conversions via the `image` crate.
+2. **Add the R2 lifecycle rule** expiring the `conversions/` prefix (~24 h). Conversion results are
+   transient presigned-GET artifacts; expiry forces the client to re-convert rather than accumulate
+   stale files.
+
+The dedicated-worker split is a cross-cutting decision shared with the scan, editing, and PDF-engine
+subsystems (search is the exception — its index is durable per-firm data); land it as one shared
+decision, coordinated via `vp run worktrees`, with `apps/scan-worker` as the working template.
+
+Until step 2 is done, `resolveEnginePort` returns the deferred port and all three conversion routes operate correctly (upload, submit → 202, poll → `engine-not-implemented` failure). The Container binding cannot run under the local Miniflare test pool, which is why `resolveEnginePort` is injectable and the e2e tests supply a fake engine.
 
 ## Gotchas
 

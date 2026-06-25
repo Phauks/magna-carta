@@ -217,22 +217,54 @@ The Worker `wrangler.jsonc` binds both; Wrangler errors on deploy if they do not
 
 **Cost:** near-zero marginal — Queues + DO invocations + R2 PUT/GET on a regenerable, TTL-expired artifact; no always-on compute. The Container escalation for outlier-large bundles is a named seam, not built here.
 
-## 11. Malware-scan Container — deploy-time activation + signature refresh (slice 2·1 Plan 2)
+## 11. Malware-scan Worker — deploy-time activation + Cloudflare-native signature refresh
 
-The scan engine is a `linux/amd64` Container (`containers/scan/`): a long-lived clamd daemon plus a Rust HTTP service that fans each file to clamd (signatures), yara-x (heuristic rules), and structural heuristics (PDF/Office/archive). It is **built and unit-tested, but not wired into the running Worker** — the code seam `resolveScanPort` selects it only when its binding is present, and that binding is **deliberately absent everywhere until this deploy step**, because a Container cannot run under the local worker test pool (`@cloudflare/vitest-pool-workers` does not support container bindings — workers-sdk#10408). Until activation, every firm runs the engine-less adapter (an honest `unscanned`/no-engine, never a false `clean`).
+The scan engine lives in its own Worker (`apps/scan-worker`, service `magna-carta-scan`). It owns the `ScanContainer` — a `linux/amd64` Container (`containers/scan/`): a long-lived clamd daemon plus a Rust HTTP service that fans each file to clamd (signatures), yara-x (heuristic rules), and structural heuristics (PDF/Office/archive). The app Worker (`apps/worker`) reaches it exclusively over a `SCAN_SERVICE` service binding; `resolveScanPort` selects the remote engine when that binding is present, otherwise the engine-less `unscanned` adapter (an honest `unscanned`/no-engine verdict, never a false `clean`). The app Worker carries **no** container config of its own.
 
-**Activation (one deploy-time edit + a build):**
+The scan worker is **built and unit-tested, but not yet connected to Workers Builds and not yet deployed** — the `SCAN_SERVICE` service binding in the app Worker is absent until the scan service is live. Until activation, every firm runs the engine-less adapter.
 
-1. Add the three wrangler blocks to `apps/worker/wrangler.jsonc` (kept out until now so the test pool needs no Docker):
-   - `"containers": [{ "class_name": "ScanContainer", "image": "../../containers/scan/Dockerfile", "max_instances": 5, "instance_type": "standard-1" }]` — `standard-1` (4 GiB) is the floor: clamd loads a ~1–2 GiB signature DB into RAM. **`entrypoint.sh` raises clamd's `StreamMaxLength`/`MaxScanSize`/`MaxFileSize` to 2048M so clamd scans the whole 2 GiB inspectable cap** — its stock limits (`StreamMaxLength` 25M, `MaxScanSize`/`MaxFileSize` 100M) would refuse anything larger over INSTREAM and degrade it to a retryable engine fault. A scan near the cap holds the full body in the Rust service **and** clamd's own copy atop the resident DB, so for reliable full-size (≈2 GiB) scanning, raise `instance_type` above `standard-1` or lower `fileManager.inspectableSizeCapBytes` — the clamd limits and the inspectable cap must stay aligned.
-   - append `{ "name": "SCAN_CONTAINER", "class_name": "ScanContainer" }` to `durable_objects.bindings` (alongside `BUNDLE_COORDINATOR`).
-   - append a **new** migration tag `{ "tag": "v2", "new_sqlite_classes": ["ScanContainer"] }` (never edit the shipped `v1`; a Container class is SQLite-backed).
-2. `wrangler deploy` builds the image (freshclam bakes the initial signature DB at **build** time — the container runs with `enableInternet = false`, so it has **no runtime egress** to fetch signatures) and pushes it. The `*/20` warm-poke cron then keeps one instance — and clamd's resident DB — alive.
+### First-activation steps
 
-**Engine-fault handling:** a clamd fault with no other signal returns **503**, so the ingest consumer retries the message — a running container always booted with clamd ready (the entrypoint fails fast otherwise), so this is exceptional, not a steady state. A persistent fault dead-letters to `magna-carta-production-files-ingest-deadletter`, leaving the file pending (never a usable-but-unscanned object) as a loud ops signal. The Container never commits a file as `unscanned`/no-engine; that honest verdict belongs only to the engine-less launch adapter that runs before this activation.
+1. **Connect `apps/scan-worker` to Workers Builds.** In the Cloudflare dashboard, go to **Workers & Pages → Create → Import a repository** (or **Connect to Git** on the existing `magna-carta-scan` Worker if already created). Select the repository and configure `apps/scan-worker` as the build root. Workers Builds is Cloudflare-side CI — there is **no `CLOUDFLARE_API_TOKEN` in GitHub**; the connection is managed entirely from the dashboard. Every push to the production branch triggers a build: `freshclam` bakes the current signature DB and `build-yara-rules` fetches + compiles the latest YARA Forge rule package, both baked into the image at build time, and the new image is deployed.
 
-**Signature refresh:** because there is no runtime egress, a signature update is an **image rebuild** (re-run `wrangler deploy`, which re-runs `freshclam` in the build). A scheduled signed-update job is a documented seam, not built. clamd listens on **loopback TCP `127.0.0.1:3310`** (not a Unix socket — the cross-platform client transport; loopback only, still no egress).
+2. **Set the Deploy Hook secret on the scan worker.**
 
-**Acceptance gate:** `containers/scan/tests/eicar_e2e.sh` (and the `scan-container` CI job) build the image and assert EICAR → `infected` end to end. This is the engine's proof — it runs in CI (Docker), not under the local worker pool.
+   ```sh
+   wrangler secret put SCAN_BUILD_DEPLOY_HOOK_URL --name magna-carta-scan
+   ```
 
-**Cost:** ~$35–50/mo at MVP scale for one warm `standard-1` instance (the warm-poke keeps it from cold-starting the ~1–2 GiB DB); scales with concurrent scan volume up to `max_instances`. Self-hosted — privileged client bytes never leave our compute.
+   Paste the **Workers Builds Deploy Hook URL** for `magna-carta-scan` at the prompt (generated in the dashboard under the Worker's **Settings → Builds → Deploy Hooks → Create**). This URL is what the scan worker's daily `0 7 * * *` cron POSTs to trigger a nightly image rebuild and signature refresh. Keep the URL out of shell history and chat transcripts — treat it like a secret (it triggers a deploy).
+
+3. **Push to the production branch** to trigger the first Workers Builds build. The build runs `freshclam` (baking the current signature DB) and `build-yara-rules` (fetching + compiling the latest YARA Forge package), then deploys `magna-carta-scan`. The `*/20` warm-poke cron then keeps one instance — and clamd's resident DB — alive.
+
+4. **Deploy the app Worker** (`apps/worker`) so the `SCAN_SERVICE` binding resolves to the now-live scan service. `resolveScanPort` then selects the remote engine path on the next ingest.
+
+### Architecture notes
+
+**No runtime egress — signatures and rules are image-only.** The container runs with `enableInternet = false`; there is no runtime path to fetch signatures or rules. Freshness comes entirely from image rebuilds. The daily `0 7 * * *` cron on the scan worker POSTs `SCAN_BUILD_DEPLOY_HOOK_URL`, triggering a Workers Builds rebuild+redeploy that re-runs both `freshclam` and `build-yara-rules` — a Cloudflare-native loop with no GitHub involvement.
+
+**YARA rules source — YARA Forge `extended`, self-updating, FP-filtered.** The build fetches the latest [YARA Forge](https://yarahq.github.io/) release (the `YARA_FORGE_TIER` build ARG, default `extended`; pin `YARA_FORGE_TAG` for a reproducible build or a rollback), and `build-yara-rules` drops the false-positive-prone heuristic pocket (`_SUSP_` rules scoring below `YARA_MIN_SUSP_SCORE`, default 75), compiles the kept set with yara-x (skipping + logging any rule yara-x cannot compile, failing the build only on a systemic collapse), and serializes it into the image. The service deserializes the blob at boot — no startup recompile. The resolved release tag becomes the engine-version `yara-rules/<tag>` component, so when a nightly rebuild picks up a **new** Forge release the engine version changes and the access-triggered re-scan staleness gate re-scans the fleet against the new rules; an unchanged release leaves the version (and the fleet) untouched. A YARA hit is treated identically to a clamd signature hit (`infected`) — one quarantine path, no separate workflow.
+
+> **Re-scan cadence.** YARA Forge publishes roughly **weekly** (date-tagged releases), so the nightly rebuild resolves a new `latest` ~once a week → a fleet-wide re-scan wave about weekly (access-triggered + cache-first, so a file nobody opens is never re-scanned and identical content reuses its verdict). If that recurring cost is unwanted, **pin `YARA_FORGE_TAG`** and bump it deliberately (matching the "engine-code bump is intentional" philosophy) — the default is unpinned `latest` so rules self-update.
+>
+> **Supply-chain note (accepted).** The downloaded ZIP is fetched over TLS but is **not** checksum/signature-verified — the same trust model as `freshclam`. A compromised upstream release would ship on the next nightly rebuild. This is the deliberate cost of self-updating from a trusted maintained provider; mitigations if the posture tightens are pinning `YARA_FORGE_TAG` to a reviewed release and/or adding a SHA-256 verification step before unzip.
+
+**clamd limits and the inspectable cap must stay aligned.** `entrypoint.sh` raises clamd's `StreamMaxLength`/`MaxScanSize`/`MaxFileSize` to 2048M so clamd scans the whole 2 GiB inspectable cap. The stock clamd limits (`StreamMaxLength` 25M, `MaxScanSize`/`MaxFileSize` 100M) would refuse anything larger over INSTREAM and degrade it to a retryable engine fault. A scan near the cap holds the full body in the Rust service **and** clamd's own copy atop the resident clamd DB — plus, since rule-loading landed, the resident `Arc<yara_x::Rules>` (the ~15 MB blob expands to compiled bytecode/atom tables) and yara-x's per-scan working set over the 2 GiB buffer. `standard-1` (4 GiB) is the floor for this reason. For reliable full-size (≈2 GiB) scanning, keep `instance_type` at or above `standard-1`, or lower `fileManager.inspectableSizeCapBytes` — the clamd limits and the inspectable cap must always be consistent. (The body bytes are file-backed/mmap and reclaimable; the rules and clamd DB are resident.)
+
+**Engine-fault handling.** A clamd fault with no other signal returns **503**, so the ingest consumer retries the message — a running container always boots with clamd ready (the entrypoint fails fast otherwise), so this is exceptional, not a steady state. A persistent fault dead-letters to `magna-carta-production-files-ingest-deadletter`, leaving the file pending (never a usable-but-unscanned object) as a loud ops signal.
+
+**clamd transport.** clamd listens on **loopback TCP `127.0.0.1:3310`** (not a Unix socket — the cross-platform client transport; loopback only, still no egress).
+
+### Acceptance checks (run after activation)
+
+1. **EICAR test (live engine proof).** Send an authenticated `POST /api/v1/scan/diagnose` with an EICAR test-file body against the production app Worker. Expect a `200` response with `verdict: "infected"`. This proves the full path: app Worker → `SCAN_SERVICE` binding → scan worker → container → clamd → result.
+
+2. **2 GiB resident-memory check.** On a scan near the 2 GiB inspectable cap, observe the container's resident memory — expect approximately 2 GiB (the body held in the Rust service plus clamd's own copy atop the ~1–2 GiB resident DB). If resident memory exceeds the `standard-1` (4 GiB) ceiling or scan throughput degrades, raise `instance_type` or lower the inspectable cap.
+
+### CI engine test
+
+`containers/scan/tests/eicar_e2e.sh` (and the `scan-container` CI job) build the image and assert EICAR → `infected` end to end. This is the engine's proof in CI (Docker) — independent of the live deployment acceptance checks above.
+
+### Cost
+
+~$35–50/mo at MVP scale for one warm `standard-1` instance (the warm-poke keeps it from cold-starting the ~1–2 GiB DB); scales with concurrent scan volume up to `max_instances`. Self-hosted — privileged client bytes never leave our compute.

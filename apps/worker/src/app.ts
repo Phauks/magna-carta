@@ -15,7 +15,15 @@ import { registerHealthRoute } from "./routes/health.ts";
 import { createCloudflareEmailAdapter, type CloudflareEmailBinding } from "./email-cloudflare.ts";
 import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
 import { registerBundleStatusRoute } from "./routes/bundle-status.ts";
+import { registerConversionRoutes } from "./routes/conversions.ts";
 import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
+import { registerTimeEntriesRoutes } from "./routes/time-entries.ts";
+import { registerTimerRoutes } from "./routes/timer.ts";
+import { registerRateCardsRoutes } from "./routes/rate-cards.ts";
+import { registerUtbmsCodesRoutes } from "./routes/utbms-codes.ts";
+import { registerNonBillableCategoriesRoutes } from "./routes/non-billable-categories.ts";
+import { registerNarrativeTemplatesRoutes } from "./routes/narrative-templates.ts";
+import { registerMyDayRoutes } from "./routes/my-day.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerDownloadsRoutes } from "./routes/downloads.ts";
@@ -23,6 +31,8 @@ import { registerDocumentCheckoutRoutes } from "./editing/checkout-routes.ts";
 import { registerDocumentEditingRoutes } from "./editing/edit-session-route.ts";
 import { registerWopiHostRoutes } from "./editing/wopi-host.ts";
 import { registerFilesRoutes } from "./routes/files.ts";
+import { registerScanDiagnoseRoute } from "./routes/scan-diagnose.ts";
+import { registerScanMatterRoute } from "./routes/scan-matter.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
 import { registerFoldersRoutes } from "./routes/folders.ts";
 import { registerIncidentsRoute } from "./routes/incidents.ts";
@@ -36,6 +46,7 @@ import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
 import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
 import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
+import { registerMetadataRoutes } from "./routes/metadata.ts";
 import { registerDevWebToolsDemoRoute } from "./routes/dev-web-tools-demo.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
@@ -72,14 +83,24 @@ export type Bindings = {
   >;
   // The bundle-build queue the coordinator enqueues onto; its consumer streams R2 -> client-zip -> R2.
   BUNDLE_BUILD: Queue<import("./downloads/bundle-types.ts").BundleBuildMessage>;
-  // The malware-scan Container (slice 2·1 Plan 2). Optional: absent in every test environment (the
-  // container cannot run under the local pool) and until the deploy-time wrangler activation, where
-  // resolveScanPort falls back to the engine-less adapter. Present in production once wired.
-  SCAN_CONTAINER?: DurableObjectNamespace<import("./files/scan-container.ts").ScanContainer>;
+  // The malware-scan Worker service binding. Dispatches file content to the scan worker for a
+  // verdict. Optional here so the pool can start without a running scan service; resolveScanPort
+  // falls back to the no-engine adapter when absent or when the bound service returns unscanned.
+  SCAN_SERVICE?: Fetcher;
   // The off-hot-path AI inference dispatch queue: an inference request is enqueued here and the consumer
   // (src/inference/inference-consumer.ts) runs env.AI.run, so a single firm cannot starve the shared
   // gateway cap synchronously on the request path. Distinct from QUEUE (jobs) and FILES_INGEST.
   INFERENCE: Queue;
+  // The conversion-job coordinator: keyed firmId:jobId, single-flights one conversion per job.
+  CONVERSION_JOB: DurableObjectNamespace<
+    import("./conversions/conversion-coordinator.ts").ConversionJob
+  >;
+  // The server-conversion queue the coordinator enqueues onto; the consumer runs the ConversionPort adapter.
+  CONVERSION: Queue<import("./conversions/conversion-types.ts").ConversionMessage>;
+  // The dedicated conversion engine worker (magna-carta-convert), reached over a service binding.
+  // Optional: absent in every test environment and until the deploy-time binding is added; while
+  // unset, resolveEnginePort returns the deferred port (engine-not-implemented).
+  CONVERT?: Fetcher;
   // The authenticated Workers AI binding — the only path inference reaches the gateway through (no raw
   // gateway token in any firm-reachable config). Pre-authenticated within the account.
   AI: Ai;
@@ -136,6 +157,12 @@ export type Bindings = {
   // Optional: until that container is deployed the editor-launch route falls back to a local default,
   // and the real discovery fetch replaces this static value when the container lands.
   COLLABORA_DISCOVERY_URLSRC?: string;
+  // The per-timekeeper live-timer Durable Object namespace (the first DO). The timer routes proxy to
+  // one instance per `${firmId}:${userId}`; the stop-commit reads the DO's final state and writes the
+  // time entry through the data-access chokepoint. The DO holds no business rows.
+  DURABLE_TIMER: DurableObjectNamespace<
+    import("./timer/live-timer-durable-object.ts").LiveTimerDurableObject
+  >;
   // Browser Rendering Workers binding — used by POST /api/v1/safe-browse to render a URL in an
   // isolated remote browser. Optional here so Miniflare (which has no local browser emulation) can
   // boot and run the full test suite without touching this binding; the route ALWAYS receives an
@@ -325,6 +352,7 @@ export function createApp(options: CreateAppOptions = {}) {
   // without touching the BROWSER binding. Production: createBrowserRenderer(c.env.BROWSER) +
   // createFetchRedirectProbe() — built lazily in the handler, never at startup.
   registerSafeBrowseRoute(app, chokepoint, options.safeBrowseDeps ?? {});
+  registerMetadataRoutes(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
   registerIncidentsRoute(app, chokepoint);
@@ -350,6 +378,10 @@ export function createApp(options: CreateAppOptions = {}) {
   // Slice 2·2: offline checkout / check-in — take a working copy out and return it through the
   // quarantine ingest, reconciling divergence as a human-reviewed conflicting copy.
   registerDocumentCheckoutRoutes(app, chokepoint);
+  // The one-off, matter-less malware-scan diagnostic — stream a file through the engine, get a verdict.
+  registerScanDiagnoseRoute(app, chokepoint);
+  // "Scan this matter now" — queue a background re-scan of a matter's stale files on the bulk lane.
+  registerScanMatterRoute(app, chokepoint);
   // The async bulk-download poll endpoint — the status side of the download route's 202 hand-off.
   registerBundleStatusRoute(app, chokepoint);
   // Slice 1·3: the directory (persons/organizations, names, sensitive identifiers, edges,
@@ -358,6 +390,23 @@ export function createApp(options: CreateAppOptions = {}) {
   // Slice 1·4: firm-defined custom fields (definitions, picklist options, temporal values, the
   // non-destructive Convert, and the compliance purge seam) — composed through the same chokepoint.
   registerCustomFieldsRoutes(app, chokepoint);
+  // Time tracking — the work-in-progress entry surface, composed through the same chokepoint.
+  registerTimeEntriesRoutes(app, chokepoint);
+  // Timer routes: the per-timekeeper live timer (DO proxy) and the idempotent stop-commit.
+  registerTimerRoutes(app, chokepoint);
+  // Rate card management: create cards, append effective-dated rates, re-rate unbilled drafts.
+  registerRateCardsRoutes(app, chokepoint);
+  // UTBMS code catalog: list and toggle enable/disable on the seeded ABA set.
+  registerUtbmsCodesRoutes(app, chokepoint);
+  // Non-billable category management: create, rename, soft-archive.
+  registerNonBillableCategoriesRoutes(app, chokepoint);
+  // Narrative template management: create, list, archive, and read recent narratives.
+  registerNarrativeTemplatesRoutes(app, chokepoint);
+  // My Day: daily headline totals (billable, non-billable, target, shortfall).
+  registerMyDayRoutes(app, chokepoint);
+  // The server-conversion surface: presign an upload slot, submit a job, and poll its state.
+  // Each route traverses the same chokepoint under the tools:fileConverter permission.
+  registerConversionRoutes(app, chokepoint);
 
   // The plugin runtime: production defaults (a fetch-backed http client; the firm_secret store seam
   // that throws until the marketplace wires the live credential read), overridable in tests.

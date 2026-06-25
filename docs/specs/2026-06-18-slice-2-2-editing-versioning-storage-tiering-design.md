@@ -89,6 +89,7 @@ Three access intents (identity = firm `member`; matter scoping governs view vs e
 - **Exclusive lock — opt-in.** A member may deliberately take an **exclusive lock** to avoid a reconcile up front (a large solo revision, or the desktop-Word path). While locked, others **read** but do not edit. A tool, not the default.
 
 **Stale-lock clearing** — two timers, opposite goals:
+
 - **Dead co-edit session → reaped fast.** The DO heartbeat (alarm-driven, §9) detects no live connections and reaps the session (cutting the session-close version, returning to idle) on the order of ~60–90 s, tuned by the spike. The 30-min WOPI expiry is only the outer backstop. Because editing isn't exclusive, others rarely wait (they join).
 - **Stale exclusive lock → generous auto-release + manual force-release.** Shows "checked out by [name] since [time]," marked **stale** after inactivity, **auto-releases after a generous, firm-configurable idle period** (so a genuine multi-hour/day offline edit isn't cut short), and is **force-releasable at any time** by an authorized member. **`documents:forceReleaseLock` resolves matter-scoped** (via `RESOURCE_BY_PERMISSION_NAMESPACE → matter`), so an ethical-wall-excluded member is **denied even if firm-admin** (404; fitness, §12). Default authority: matter-team-with-edit + firm admins/owners. Force-release is always **safe** (immutable versions + reconcile catch any returning work).
 

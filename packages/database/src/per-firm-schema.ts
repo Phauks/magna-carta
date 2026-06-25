@@ -45,16 +45,22 @@ import type {
   MatterTypeId,
   MemberLocationId,
   MemberRoleId,
+  NarrativeTemplateId,
+  NonBillableCategoryId,
   NumberingSchemeId,
   OutboxId,
   PicklistOptionId,
+  RateCardId,
+  RateId,
   RoleId,
   RolePermissionId,
   ShipmentId,
   ShipmentLabelId,
+  TimeEntryId,
   TrackingEventId,
   UploadSessionId,
   UserId,
+  UtbmsCodeId,
 } from "@magna-carta/identifiers/types";
 
 // PER-FIRM LINEAGE. Every tenant firm's D1 carries these tables; drizzle-kit generates per-firm
@@ -441,6 +447,9 @@ export const matter = sqliteTable(
       .references(() => member.userId),
     clientDisplayName: text("client_display_name"), // display-only until the Directory link lands
     clientCode: text("client_code"),
+    // On when the matter bills through an e-billing (LEDES/UTBMS) channel; capture validation reads
+    // it to require a UTBMS task/activity code. Lands ahead of any capture logic that consults it.
+    eBilling: integer("e_billing").notNull().default(0),
     matterNumber: text("matter_number"), // null until open draws it; frozen thereafter
     numberedAt: text("numbered_at"),
     openedAt: text("opened_at"),
@@ -465,6 +474,7 @@ export const matter = sqliteTable(
     index("matter_created_at_id_index").on(table.createdAt, table.id),
     check("matter_status_check", sql`${table.status} IN ('prospective', 'open', 'closed')`),
     check("matter_title_nonempty_check", sql`length(${table.title}) > 0`),
+    check("matter_e_billing_check", sql`${table.eBilling} IN (0, 1)`),
   ],
 );
 
@@ -794,6 +804,29 @@ export const setting = sqliteTable("setting", {
   value: text("value").notNull(), // JSON
   updatedAt: text("updated_at").notNull(),
 });
+
+// Scope-resolved settings: most-specific-first precedence (matter -> client -> user -> location ->
+// firm -> in-code default). The first realization of the settings-precedence chain; the flat
+// `setting` table stays for firm-level-only knobs. A firm row carries a null scoped_id.
+export const scopedSetting = sqliteTable(
+  "scoped_setting",
+  {
+    key: text("key").notNull(),
+    scopeTier: text("scope_tier", {
+      enum: ["matter", "client", "user", "location", "firm"],
+    }).notNull(),
+    scopedId: text("scoped_id"), // null for the firm tier
+    value: text("value").notNull(), // JSON
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.key, table.scopeTier, table.scopedId] }),
+    check(
+      "scoped_setting_scope_tier_check",
+      sql`${table.scopeTier} IN ('matter', 'client', 'user', 'location', 'firm')`,
+    ),
+  ],
+);
 
 // Append-only per-firm audit log. Written in the same batch as the mutation it records; metadata is
 // redacted JSON (ids and non-privileged fields only, NEVER privileged content). actor_user_id is not
@@ -1373,5 +1406,190 @@ export const customFieldValue = sqliteTable(
     index("custom_field_value_record_index").on(table.targetRowId, table.isCurrent),
     index("custom_field_value_field_index").on(table.fieldId),
     index("custom_field_value_reference_index").on(table.valueReferenceId),
+  ],
+);
+
+// Effective-dated rate cards. Multiple named cards per firm (e.g. "Standard", "Insurance-capped");
+// a matter/client can be placed on a specific card. Soft-archived, never hard-deleted.
+export const rateCard = sqliteTable(
+  "rate_card",
+  {
+    id: text("id").primaryKey().$type<RateCardId>(), // rateCard_ handle
+    name: text("name").notNull(),
+    archivedAt: text("archived_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [check("rate_card_name_nonempty_check", sql`length(${table.name}) > 0`)],
+);
+
+// Append-only rate versions. A rate change inserts a new row with a fresh valid_from; an existing
+// row is never edited except to close its valid_to when a newer version supersedes it. The partial
+// UNIQUE index enforces one OPEN row per (card, tier, scoped_id); closed-interval non-overlap is the
+// service's job (SQLite has no range-exclusion constraint).
+export const rate = sqliteTable(
+  "rate",
+  {
+    id: text("id").primaryKey().$type<RateId>(), // rate_ handle
+    rateCardId: text("rate_card_id")
+      .notNull()
+      .$type<RateCardId>()
+      .references(() => rateCard.id),
+    tier: text("tier", { enum: ["matter", "client", "timekeeper", "role"] }).notNull(),
+    scopedId: text("scoped_id"), // null = the card-wide default for this tier
+    rateE4: integer("rate_e4").notNull(), // rate per hour, scale 4 (integer-minor, no floats)
+    currency: text("currency").notNull(), // ISO-4217, CHECK against the registered set
+    validFrom: text("valid_from").notNull(), // civil PlainDate (YYYY-MM-DD)
+    validTo: text("valid_to"), // null = open-ended
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("rate_open_row_unique_index")
+      .on(table.rateCardId, table.tier, table.scopedId)
+      .where(sql`${table.validTo} IS NULL`),
+    index("rate_resolution_index").on(
+      table.rateCardId,
+      table.tier,
+      table.scopedId,
+      table.validFrom,
+    ),
+    check("rate_tier_check", sql`${table.tier} IN ('matter', 'client', 'timekeeper', 'role')`),
+    check("rate_currency_check", sql`${table.currency} IN ('USD')`),
+  ],
+);
+
+// The ABA UTBMS task/activity/expense code catalog. Seeded from the published sets as data; firms
+// enable/disable rows, never invent codes. Owned here; the costs/billing slices read it.
+export const utbmsCode = sqliteTable(
+  "utbms_code",
+  {
+    id: text("id").primaryKey().$type<UtbmsCodeId>(), // utbmsCode_ handle
+    codeSet: text("code_set", { enum: ["task", "activity", "expense"] }).notNull(),
+    code: text("code").notNull(), // e.g. L120, A101, E101
+    label: text("label").notNull(),
+    practiceArea: text("practice_area"),
+    active: integer("active").notNull().default(1),
+  },
+  (table) => [
+    unique().on(table.codeSet, table.code),
+    check("utbms_code_set_check", sql`${table.codeSet} IN ('task', 'activity', 'expense')`),
+    check("utbms_code_active_check", sql`${table.active} IN (0, 1)`),
+  ],
+);
+
+// Firm-configurable categories for non-billable internal time (seed-and-fork defaults). Soft-archived.
+export const nonBillableCategory = sqliteTable(
+  "non_billable_category",
+  {
+    id: text("id").primaryKey().$type<NonBillableCategoryId>(), // nonBillableCategory_ handle
+    name: text("name").notNull(),
+    archivedAt: text("archived_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [check("non_billable_category_name_nonempty_check", sql`length(${table.name}) > 0`)],
+);
+
+// Per-task-code narrative templates: a reusable description plus an optional default rate, filled
+// into a new entry together. Soft-archived.
+export const narrativeTemplate = sqliteTable(
+  "narrative_template",
+  {
+    id: text("id").primaryKey().$type<NarrativeTemplateId>(), // narrativeTemplate_ handle
+    utbmsTaskCodeId: text("utbms_task_code_id")
+      .$type<UtbmsCodeId>()
+      .references(() => utbmsCode.id),
+    narrativeTemplate: text("narrative_template").notNull(),
+    defaultRateE4: integer("default_rate_e4"), // optional default hourly rate, scale 4
+    archivedAt: text("archived_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [index("narrative_template_utbms_task_code_index").on(table.utbmsTaskCodeId)],
+);
+
+// The work-in-progress store: one committed unit of captured time. The resolved rate is SNAPSHOT on
+// capture (rate in force on work_date) and kept; amount_minor is recomputed only on an explicit
+// re-rate. A billed/void row's business columns freeze — the service refuses any update beyond the
+// billing invoice_id/lock set. rate_e4/rate_card_id/rate_source/amount_minor are null together for
+// non-billable internal time (the paired-null CHECK).
+export const timeEntry = sqliteTable(
+  "time_entry",
+  {
+    id: text("id").primaryKey().$type<TimeEntryId>(), // timeEntry_ handle
+    matterId: text("matter_id")
+      .notNull()
+      .$type<MatterId>()
+      .references(() => matter.id),
+    timekeeperUserId: text("timekeeper_user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    workDate: text("work_date").notNull(), // civil PlainDate (YYYY-MM-DD) — the effective date
+    durationMinutes: integer("duration_minutes").notNull(), // rounded billable quantity
+    rawDurationMinutes: integer("raw_duration_minutes").notNull(), // captured pre-rounding minutes
+    narrative: text("narrative").notNull(),
+    billable: integer("billable").notNull(),
+    nonBillableCategoryId: text("non_billable_category_id")
+      .$type<NonBillableCategoryId>()
+      .references(() => nonBillableCategory.id),
+    currency: text("currency").notNull(), // ISO-4217, CHECK against the registered set
+    rateE4: integer("rate_e4"), // resolved rate snapshot, scale 4; null for non-billable
+    rateCardId: text("rate_card_id")
+      .$type<RateCardId>()
+      .references(() => rateCard.id),
+    rateSource: text("rate_source", {
+      enum: ["override", "matter", "client", "timekeeper", "role", "card_default"],
+    }),
+    amountMinor: integer("amount_minor"), // round(rate x hours), scale 2; null when rate_e4 is null
+    utbmsTaskCodeId: text("utbms_task_code_id")
+      .$type<UtbmsCodeId>()
+      .references(() => utbmsCode.id),
+    utbmsActivityCodeId: text("utbms_activity_code_id")
+      .$type<UtbmsCodeId>()
+      .references(() => utbmsCode.id),
+    status: text("status", {
+      enum: ["draft", "submitted", "approved", "billed", "void"],
+    }).notNull(),
+    source: text("source", {
+      enum: ["timer", "manual", "quick_add", "grid", "offline_sync", "calendar"],
+    }).notNull(),
+    liveRunId: text("live_run_id"), // set for source = timer; the stop-commit dedup anchor
+    invoiceId: text("invoice_id"), // set at billing; null until billed
+    // The reviewer's note set on kick-back, cleared when the timekeeper resubmits. Stored here
+    // (not audit_log.metadata) so it inherits the entry's tenancy, RBAC, and retention, and
+    // can be read back by the timekeeper without a privileged audit-log read.
+    kickBackReason: text("kick_back_reason"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"), // actor user handle (not an FK)
+  },
+  (table) => [
+    index("time_entry_timekeeper_work_date_index").on(table.timekeeperUserId, table.workDate),
+    index("time_entry_matter_status_index").on(table.matterId, table.status),
+    index("time_entry_status_work_date_index").on(table.status, table.workDate),
+    // Collapses racing stop-commits of one live timer to one entry.
+    uniqueIndex("time_entry_live_run_id_unique_index")
+      .on(table.liveRunId)
+      .where(sql`${table.liveRunId} IS NOT NULL`),
+    check("time_entry_billable_check", sql`${table.billable} IN (0, 1)`),
+    check(
+      "time_entry_status_check",
+      sql`${table.status} IN ('draft', 'submitted', 'approved', 'billed', 'void')`,
+    ),
+    check(
+      "time_entry_source_check",
+      sql`${table.source} IN ('timer', 'manual', 'quick_add', 'grid', 'offline_sync', 'calendar')`,
+    ),
+    check(
+      "time_entry_rate_source_check",
+      sql`${table.rateSource} IS NULL OR ${table.rateSource} IN ('override', 'matter', 'client', 'timekeeper', 'role', 'card_default')`,
+    ),
+    check("time_entry_currency_check", sql`${table.currency} IN ('USD')`),
+    // The money snapshot is all-or-nothing: amount_minor is present exactly when rate_e4 is.
+    check(
+      "time_entry_amount_paired_null_check",
+      sql`(${table.amountMinor} IS NULL) = (${table.rateE4} IS NULL)`,
+    ),
   ],
 );

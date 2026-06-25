@@ -33,6 +33,7 @@
 ### Task 0: Collabora-on-Containers measurement spike
 
 **Files:**
+
 - Create: `containers/collabora/Dockerfile` (throwaway-grade; promoted in Task 4)
 - Create: `spikes/collabora-topology/README.md` (records the three numbers + go/no-go)
 
@@ -50,10 +51,12 @@
 ### Task 1: `documents:` permission namespace
 
 **Files:**
+
 - Modify: `packages/access-control/src/permissions.ts` (the PERMISSIONS registry + `RESOURCE_BY_PERMISSION_NAMESPACE`)
 - Test: `packages/access-control/src/permissions.test.ts`
 
 **Interfaces:**
+
 - Produces: permission keys `documents:edit`, `documents:checkout`, `documents:forceReleaseLock`, `documents:reconcile`; namespace `documents` mapped to the `matter` resource.
 
 - [ ] **Step 1:** Write a failing test asserting the four `documents:*` permissions exist, are seeded to the expected roles (edit/checkout/reconcile → matter-team-edit + admin; forceReleaseLock → matter-team-edit + admin/owner), and `RESOURCE_BY_PERMISSION_NAMESPACE['documents'] === 'matter'`.
@@ -65,10 +68,12 @@
 ### Task 2: Schema additions (Drizzle source of truth)
 
 **Files:**
+
 - Modify: `packages/database/src/per-firm-schema.ts` (the `file`/`file_version` tables; a new `document_checkout` table)
 - Test: `packages/database/src/per-firm-schema.test.ts` (the schema-fitness + migration round-trip)
 
 **Interfaces:**
+
 - Produces: `file.current_r2_key`, `file.current_sha256`, `file.current_size_bytes`, `file.current_wopi_timestamp` (all nullable), `file.edit_state` (`'idle'|'coediting'|'checked_out'` DEFAULT `'idle'`); `file_version.reconciliation_status` (`'clean'|'conflict_pending'|'reconciled'` DEFAULT `'clean'`), `file_version.diverged_from_version_id` (nullable FK to `file_version.id`); table `document_checkout` (`id`, `file_id`, `holder_member_id`, `lock_type` `'exclusive'|'offline_working_copy'`, `base_version_id`, `acquired_at`, `last_activity_at`, `status` `'active'|'stale'|'released'|'reconciling'`, `idle_release_at`).
 
 - [ ] **Step 1:** Write failing tests: the new columns/table exist with the stated defaults; CHECK constraints reject an out-of-enum `edit_state`/`reconciliation_status`/`lock_type`/`status`; a fresh migration applies and an existing `file` row gets `edit_state='idle'`/`reconciliation_status='clean'` (expand-contract safe default).
@@ -80,11 +85,13 @@
 ### Task 3: `DocumentSession` Durable Object skeleton
 
 **Files:**
+
 - Create: `apps/worker/src/editing/document-session.ts` (the DO class)
 - Modify: `apps/worker/wrangler.jsonc` (DO binding `DOCUMENT_SESSION`; migration tag)
 - Test: `apps/worker/src/editing/document-session.test.ts` (Vitest + Miniflare DO)
 
 **Interfaces:**
+
 - Produces: class `DocumentSession extends DurableObject` with `ctx.storage` SQLite holding `session_state` (participants, wopi_lock_value, coolwsd_affinity, current metadata, checkout pointer); methods (RPC) `getState()`, `recordParticipant(memberId, capability)`, `dropParticipant(memberId)`, `setCurrentMeta({sha256, size, wopiTimestamp})`, `setAlarm(ms)`. Durable across container sleep.
 
 - [ ] **Step 1:** Verify current DO docs (golden rule 11): `ctx.storage` SQLite API, `alarm()`, RPC method exposure, the Container-is-a-DO model.
@@ -104,11 +111,13 @@
 > a warm-poke, not a `DocumentSession.containerFetch`. Copy the scan worker as the template.
 
 **Files:**
+
 - Create: `apps/edit-worker` (its own `wrangler.jsonc` — Container config: image, instance type from Task 0, `min_instances`, `sleepAfter`; no egress; no R2/D1 bindings) mirroring `apps/scan-worker`
 - Modify: `containers/collabora/Dockerfile` (promote the spike image), `containers/collabora/coolwsd.xml`
 - Test: a config-fitness assertion (no egress + no firm bindings on the edit worker) + the warm-poke cron
 
 **Interfaces:**
+
 - Produces: the `magna-carta-edit` Worker fronting the per-document coolwsd Container; the container has **no egress**, **no R2/D1 creds or key material**, runs ephemeral per document, and reaches firm data ONLY by calling back through the app Worker's token-authenticated WOPI host.
 
 - [ ] **Step 1:** Verify current `@cloudflare/containers` config (golden rule 11): per-DO container ownership, `getContainer(binding, fileId)` keying, image/instance config, egress controls.
@@ -123,10 +132,12 @@
 ### Task 5: Access-token mint + verify
 
 **Files:**
+
 - Create: `apps/worker/src/editing/wopi-token.ts`
 - Test: `apps/worker/src/editing/wopi-token.test.ts`
 
 **Interfaces:**
+
 - Consumes: `apps/worker/src/constant-time.ts` (`timingSafeEqual`).
 - Produces: `mintEditToken(claims: {firmId, matterId, fileId, versionId, memberId, capability: 'view'|'edit', sessionId}, env): Promise<string>` and `verifyEditToken(token: string, env): Promise<EditTokenClaims>` (throws `WopiTokenError` on bad MAC/expiry/skew); per-firm key via `HKDF(rootSigningKey, firmId)`; envelope carries `kid`; constant-time verify-before-trust; `jti` + short `exp` + clock-skew tolerance.
 
@@ -138,10 +149,12 @@
 ### Task 6: WOPI guard — tenancy at use + capability
 
 **Files:**
+
 - Create: `apps/worker/src/editing/wopi-guard.ts`
 - Test: `apps/worker/src/editing/wopi-guard.test.ts`
 
 **Interfaces:**
+
 - Consumes: `verifyEditToken`; the firm-binding resolver (existing `resolveFirmContext`/firm-DB binding from the chokepoint internals).
 - Produces: `wopiGuard(c): Promise<{claims, firmDb, bucket, objectKeyFor(kind: 'current'|'version'): string}>`; re-derives key + firm DB/bucket **only** from the token; ignores request-path `fileId`; cross-firm/mismatch → 404; for write/lock ops, rejects `capability !== 'edit'`.
 
@@ -153,10 +166,12 @@
 ### Task 7: CheckFileInfo + GetFile
 
 **Files:**
+
 - Create: `apps/worker/src/editing/wopi-routes.ts` (handlers)
 - Test: `apps/worker/src/editing/wopi-routes.test.ts`
 
 **Interfaces:**
+
 - Consumes: `wopiGuard`; `@magna-carta/file-manager` reads (file/version metadata).
 - Produces: `GET …/wopi/files/{fileId}` (CheckFileInfo JSON: `BaseFileName`, `Size`, `UserCanWrite` from capability, `LastModifiedTime` = the server `current_wopi_timestamp`); `GET …/wopi/files/{fileId}/contents` (GetFile → stream the token-derived object from R2).
 
@@ -168,11 +183,13 @@
 ### Task 8: PutFile — streaming hash, current object, timestamp guard
 
 **Files:**
+
 - Modify: `apps/worker/src/editing/wopi-routes.ts`
 - Modify: `apps/worker/src/editing/document-session.ts` (record current meta; server-assign timestamp)
 - Test: `apps/worker/src/editing/wopi-routes.test.ts`
 
 **Interfaces:**
+
 - Produces: `POST …/wopi/files/{fileId}/contents` (PutFile): pipes the body through a streaming SHA-256 into the R2 put of `files/{fileId}/current`; compares the presented `X-COOL-WOPI-Timestamp` against the **DO-recorded** `current_wopi_timestamp`; on mismatch returns **409 `{"COOLStatusCode":1010}`**; on success host-assigns a new timestamp and records `{sha256, size, wopiTimestamp}` on the DO.
 
 - [ ] **Step 1:** Verify current Collabora PutFile timestamp-conflict + lock-mismatch semantics (golden rule 11): `X-COOL-WOPI-Timestamp` is a request header; the distinct standard 409s (X-WOPI-Lock mismatch; unlocked non-zero PutFile).
@@ -183,10 +200,12 @@
 ### Task 9: Lock / Unlock / RefreshLock / UnlockAndRelock
 
 **Files:**
+
 - Modify: `apps/worker/src/editing/wopi-routes.ts`, `apps/worker/src/editing/document-session.ts` (the single session lock in DO SQLite)
 - Test: `apps/worker/src/editing/wopi-routes.test.ts`
 
 **Interfaces:**
+
 - Produces: the WOPI `X-WOPI-Override` Lock family on `POST …/wopi/files/{fileId}`; one session lock per document held in the DO; first editor locks, co-editors join the same lock, last leaver unlocks; 409 + `X-WOPI-Lock` current-value on mismatch.
 
 - [ ] **Step 1:** Verify current WOPI Lock contract (golden rule 11): lock string ≤1024 chars, file-scoped, 30-min default expiry, the `X-WOPI-Lock` mismatch response.
@@ -197,11 +216,13 @@
 ### Task 10: Editor-launch route + iframe origin/CSP
 
 **Files:**
+
 - Create: `apps/worker/src/editing/edit-session-route.ts`
 - Modify: the route composition root (`apps/worker/src/.../v1` registration)
 - Test: `apps/worker/src/editing/edit-session-route.test.ts`
 
 **Interfaces:**
+
 - Consumes: `defineOpenAPIRoute`, the chokepoint, `mintEditToken`, the Collabora discovery `urlsrc`.
 - Produces: `POST /api/v1/documents/{fileId}/edit-session` → `{ editorUrl, accessToken, accessTokenTtl }` where `editorUrl` is `urlsrc?WOPISrc=<host>/wopi/files/{fileId}` on the cookieless editor origin; `accessTokenTtl` an absolute epoch-ms hours-window value; sets `frame-ancestors`/CSP for the editor origin.
 
@@ -212,10 +233,12 @@
 ### Task 11: Errors & diagnostics on the WOPI surface
 
 **Files:**
+
 - Modify: `apps/worker/src/editing/wopi-guard.ts`, `wopi-routes.ts`
 - Test: `apps/worker/src/editing/wopi-diagnostics.test.ts`
 
 **Interfaces:**
+
 - Consumes: `@magna-carta/telemetry` Logger seam (`cor_`/`err_` builders).
 - Produces: every WOPI fault returns the WOPI-contract status to coolwsd **and** emits a redacted telemetry event with an `err_` Error ID; a `cor_` correlation ID is minted per callback.
 
@@ -230,11 +253,13 @@
 ### Task 12: Version-cut from `current` (CopyObject + commit + no-op skip)
 
 **Files:**
+
 - Create: `apps/worker/src/editing/version-cut.ts`
 - Modify: `packages/file-manager/src/file-service.ts` (a sibling commit path that needs no `upload_session`)
 - Test: `packages/file-manager/src/file-service.test.ts`, `apps/worker/src/editing/version-cut.test.ts`
 
 **Interfaces:**
+
 - Consumes: the DO `current` meta (`sha256`, `size`); `commitEffectBatch`; `meterTierChangeStatements` is unrelated here.
 - Produces: `commitEditedVersion({firmDb, fileId, currentKey, sha256, size, actorMemberId}): Promise<{versionId, skipped: boolean}>` — if `sha256 === latestVersionSha256` returns `{skipped:true}` (no-op); else `CopyObject` `current` → `files/{fileId}/{versionId}`, writes the immutable `file_version` row (monotonic `version_number`), increments `storage_meter`, audits `file.version_committed`, emits the outbox topic — all in one batch.
 
@@ -245,10 +270,12 @@
 ### Task 13: Version-cut triggers (Save + session-close, not autosave/join)
 
 **Files:**
+
 - Modify: `apps/worker/src/editing/wopi-routes.ts` (PutFile reads `X-COOL-WOPI-IsAutosave`), `document-session.ts` (session-close on last-leaver)
 - Test: `apps/worker/src/editing/version-cut-triggers.test.ts`
 
 **Interfaces:**
+
 - Produces: an explicit Save (`IsAutosave=false`) calls `commitEditedVersion`; `dropParticipant` reaching zero participants cuts a session-close version; autosave (`IsAutosave=true`) and a co-author join cut nothing.
 
 - [ ] **Step 1:** Verify the `X-COOL-WOPI-IsAutosave` header semantics (golden rule 11).
@@ -263,10 +290,12 @@
 ### Task 14: Co-editing join + read-only viewer
 
 **Files:**
+
 - Modify: `apps/worker/src/editing/edit-session-route.ts`, `document-session.ts`
 - Test: `apps/worker/src/editing/coediting.test.ts`
 
 **Interfaces:**
+
 - Produces: a second `edit-session` on a live document returns a token that **joins** the existing session (same `sessionId`/lock); a view-capability launch joins read-only; `edit_state` transitions `idle→coediting` and back on reap.
 
 - [ ] **Step 1:** Write failing tests: two edit launches on one document share the session lock (one WOPI lock total); a view launch during a live session succeeds (read-only) and never blocks; `edit_state` reflects `coediting`.
@@ -276,11 +305,13 @@
 ### Task 15: Checkout (presigned) + check-in (through quarantine ingest) + divergence
 
 **Files:**
+
 - Create: `apps/worker/src/editing/checkout-routes.ts`
 - Modify: `apps/worker/src/files/ingest-consumer.ts` (recognize a check-in-origin object → route to divergence resolution after clearing)
 - Test: `apps/worker/src/editing/checkout.test.ts`
 
 **Interfaces:**
+
 - Consumes: the presign helper (`aws4fetch` SigV4, ADR-0081); the `files-ingest` queue + consumer.
 - Produces: `POST /api/v1/documents/{fileId}/checkout` → `{ presignedGetUrl (short TTL, server-derived key), checkoutId }` and sets a `document_checkout` row (`offline_working_copy`, `base_version_id`); `POST …/checkin` → a presigned PUT into the quarantine pipeline; after the gate clears, `resolveCheckin(fileId, checkoutId, cleanObjectKey)`: if `current_version_id === base_version_id` fast-forward (cut a normal version), else create a **conflicting copy** (`file_version` with `reconciliation_status='conflict_pending'`, `diverged_from_version_id=base`) and flag the document.
 
@@ -291,10 +322,12 @@
 ### Task 16: Reconciliation resolution
 
 **Files:**
+
 - Modify: `apps/worker/src/editing/checkout-routes.ts`
 - Test: `apps/worker/src/editing/reconcile.test.ts`
 
 **Interfaces:**
+
 - Produces: `POST /api/v1/documents/{fileId}/reconcile` (`documents:reconcile`, matter-scoped) `{ keep: 'current'|'incoming'|'both', resolvedNote? }` → cuts the resolved version (or marks the conflicting copy superseded), flips `reconciliation_status conflict_pending→reconciled`, clears the document flag + the reconciling checkout, audits `document.reconciled`, emits the outbox topic. The conflicting copy is **retained forever** regardless of `keep`.
 
 - [ ] **Step 1:** Write failing tests: reconcile flips the status to `reconciled`, clears the flag, cuts/labels the right version per `keep`, audits with both the actor and the resolution; the conflicting `file_version` row still exists afterward (retained); a walled member → 404.
@@ -304,11 +337,13 @@
 ### Task 17: Exclusive lock, stale reap & force-release
 
 **Files:**
+
 - Create: `apps/worker/src/editing/lock-admin.ts`
 - Modify: `apps/worker/src/editing/document-session.ts` (heartbeat alarm reap)
 - Test: `apps/worker/src/editing/lock-admin.test.ts`
 
 **Interfaces:**
+
 - Produces: `POST …/documents/{fileId}/checkout` with `lock_type='exclusive'` (opt-in); the DO alarm reaps a dead co-edit session within the spike-derived window (cut session-close version, `edit_state→idle`); `POST …/documents/{fileId}/force-release` (`documents:forceReleaseLock`, **matter-scoped**) releases an exclusive lock and audits both actor + displaced holder; a generous, firm-configurable idle auto-release flips `status active→stale→released`; a revoked member's check-in is refused + the checkout force-released.
 
 - [ ] **Step 1:** Write failing tests: an exclusive lock makes a second edit launch read-only (others still read); a dead session is reaped by the alarm and the document frees; force-release by an authorized member releases + audits both parties; a **walled-off-but-firm-admin** member → 404 on force-release (matter-scoped denial); a deactivated member's check-in is refused and their checkout force-released.
@@ -322,11 +357,13 @@
 ### Task 18: Standard→IA tiering (conservative trigger)
 
 **Files:**
+
 - Create: `apps/worker/src/editing/tiering-sweep.ts`
 - Modify: `apps/worker/wrangler.jsonc` (cron, reusing the reconciliation cadence)
 - Test: `apps/worker/src/editing/tiering.test.ts`
 
 **Interfaces:**
+
 - Consumes: `meterTierChangeStatements` (file-manager, ADR-0078).
 - Produces: a cron sweep that, for **superseded, non-current** versions older than the IA 30-day minimum, `CopyObject`s in place to `STANDARD_IA` and updates `storage_meter` in the same batch; never tiers the live/latest version; never deletes.
 
@@ -342,10 +379,12 @@
 ### Task 19: Keep-alive + durable reconnect
 
 **Files:**
+
 - Modify: `apps/worker/src/editing/document-session.ts`
 - Test: `apps/worker/src/editing/reliability.test.ts`
 
 **Interfaces:**
+
 - Produces: an **alarm-driven** keep-alive (`renewActivityTimeout` + container ping; pre-extend `sleepAfter` before long ops) — never WebSocket-frame-driven; on a simulated container death the session re-establishes from DO SQLite + R2 `current` with zero lost work.
 
 - [ ] **Step 1:** Write failing tests: the alarm fires the keep-alive on cadence (not on WS frames); after a simulated container eviction the next callback re-establishes the session from durable state and no version/work is lost.
@@ -355,10 +394,12 @@
 ### Task 20: `current`-object lifecycle on delete / restore
 
 **Files:**
+
 - Modify: `packages/file-manager/src/file-service.ts` (soft-delete + restore paths), `apps/worker/src/editing/document-session.ts`
 - Test: `packages/file-manager/src/file-service.test.ts`
 
 **Interfaces:**
+
 - Produces: soft-deleting a file with a live session reaps the session first (cut session-close version) then soft-deletes; `current` is destroyed-with-file and its `storage_meter` row decremented; undelete restores or lazily re-materializes `current` from `current_version_id`; version-restore copies an archived version forward into a new `current` + cuts a new version (forward-only).
 
 - [ ] **Step 1:** Write failing tests: soft-delete with a live session reaps then deletes and decrements the meter for `current`; undelete re-materializes `current`; version-restore writes a new `current` and cuts a forward version without rewriting history.
@@ -368,10 +409,12 @@
 ### Task 21: OpenAPI contract + WOPI allow-list
 
 **Files:**
+
 - Modify: the OpenAPI snapshot + the `PUBLIC_ALLOW_LIST` conformance config
 - Test: the existing contract drift + conformance suite
 
 **Interfaces:**
+
 - Produces: the session routes (`edit-session`, `checkout`, `checkin`, `force-release`, `reconcile`, reads) in the committed `openapi.json`; the WOPI routes declared token-guarded in `PUBLIC_ALLOW_LIST` with a justification.
 
 - [ ] **Step 1:** Run the snapshot-drift + conformance suite; expect FAIL (new routes not in snapshot; WOPI routes not allow-listed).
@@ -381,10 +424,12 @@
 ### Task 22: Load-profile harness extension
 
 **Files:**
+
 - Modify: `packages/fixtures/` (the volume profile generator + measured set)
 - Test: the fixtures measure harness (committed baseline)
 
 **Interfaces:**
+
 - Produces: editing volume (version-row accretion, the version-cut write batch, the tiering sweep, the `storage_meter` rollup under growth, the DO SQLite read on the WOPI hot path) in the profile; profile bumped to the next `ledgerVolume` version; seed-twice determinism preserved.
 
 - [ ] **Step 1:** Verify the fixtures accretion recipe (`packages/fixtures/CLAUDE.md`).
@@ -394,6 +439,7 @@
 ### Task 23: Fitness functions
 
 **Files:**
+
 - Create: `apps/worker/src/editing/editing.fitness.test.ts`
 - Test: the same
 
@@ -406,6 +452,7 @@
 ### Task 24: End-to-end suite
 
 **Files:**
+
 - Create: `apps/worker/src/editing/editing.e2e.test.ts`
 
 **Interfaces:** the whole journey over the real HTTP + WOPI surface.
@@ -417,6 +464,7 @@
 ### Task 25: Documentation (definition-of-done)
 
 **Files:**
+
 - Modify: `ROADMAP.md`, `STATUS.md`, `changelog.d/<slug>.md`, the white-paper _Documents → Editing_ / _versioning & tiering_ sections; finalize the two `docs/decisions/pending/<slug>.md` (status Accepted on owner sign-off)
 - Test: `pnpm run lint:process-refs` (source/tests clean of process refs)
 

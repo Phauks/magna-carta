@@ -53,6 +53,17 @@ const DEMO_PAGE = /* html */ `<!doctype html>
   <pre id="sb-meta"></pre>
 </section>
 
+<section>
+  <h2>Metadata Inspector &amp; Scrubber <span class="note">(.docx, .jpg, .png)</span></h2>
+  <p>
+    <input id="md-file" type="file" />
+    <button id="md-inspect">Inspect</button>
+    <button id="md-scrub">Scrub &amp; download</button>
+  </p>
+  <pre id="md-out">(results appear here)</pre>
+  <div id="md-dl"></div>
+</section>
+
 <script>
 const $ = (id) => document.getElementById(id);
 
@@ -100,8 +111,60 @@ async function safeBrowse() {
   } catch (e) { $("sb-status").textContent = ""; $("sb-meta").className = "err"; $("sb-meta").textContent = String(e); }
 }
 
+async function fileToBase64(file) {
+  const buf = new Uint8Array(await file.arrayBuffer());
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < buf.length; i += chunk)
+    binary += String.fromCharCode(...buf.subarray(i, i + chunk));
+  return btoa(binary);
+}
+
+async function mdInspect() {
+  const file = $("md-file").files[0];
+  if (!file) {
+    $("md-out").textContent = "Pick a file first.";
+    return;
+  }
+  $("md-out").textContent = "Inspecting...";
+  const r = await fetch("/api/v1/metadata/inspect", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ filename: file.name, contentBase64: await fileToBase64(file) }),
+  });
+  $("md-out").textContent = JSON.stringify(await r.json().catch(() => ({})), null, 2);
+}
+
+async function mdScrub() {
+  const file = $("md-file").files[0];
+  if (!file) {
+    $("md-out").textContent = "Pick a file first.";
+    return;
+  }
+  $("md-out").textContent = "Scrubbing...";
+  const r = await fetch("/api/v1/metadata/scrub", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ filename: file.name, contentBase64: await fileToBase64(file) }),
+  });
+  const body = await r.json().catch(() => ({}));
+  $("md-out").textContent = JSON.stringify(body.report ?? body, null, 2);
+  $("md-dl").innerHTML = "";
+  if (body.cleanedBase64) {
+    const a = document.createElement("a");
+    a.href = "data:" + body.mediaType + ";base64," + body.cleanedBase64;
+    a.download = "cleaned-" + file.name;
+    a.textContent = "Download cleaned file";
+    $("md-dl").appendChild(a);
+  }
+}
+
 $("whois-go").addEventListener("click", whois);
 $("sb-go").addEventListener("click", safeBrowse);
+$("md-inspect").addEventListener("click", mdInspect);
+$("md-scrub").addEventListener("click", mdScrub);
 </script>
 </body>
 </html>`;

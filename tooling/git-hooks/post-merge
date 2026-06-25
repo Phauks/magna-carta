@@ -1,0 +1,9 @@
+#!/bin/sh
+# post-merge — after a branch lands in main, reclaim regenerable build artifacts from merged
+# worktrees and prune dangling Docker cache (tooling/clean/index.mjs). Guarded on main so a routine
+# `git pull` on a feature branch is a no-op. Cleanup must never fail a merge: always exit 0.
+branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null)"
+[ "$branch" = "main" ] || exit 0
+root="$(git rev-parse --show-toplevel)"
+node "$root/tooling/clean/index.mjs" || true
+exit 0

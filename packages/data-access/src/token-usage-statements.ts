@@ -1,4 +1,8 @@
-import type { SqlDatabase, SqlStatement } from "./idempotency-statements.ts";
+import {
+  idempotencyRecordInsertStatement,
+  type SqlDatabase,
+  type SqlStatement,
+} from "./idempotency-statements.ts";
 
 // Authoritative per-firm AI token usage, captured from the inference response — never the gateway
 // logs. Behavior over the table lives here (the structure lives in @magna-carta/database's per-firm
@@ -28,6 +32,19 @@ export function tokenUsageCommitStatements(
       )
       .bind(key.day, key.slot, key.modelId, inputTokens, outputTokens),
   ];
+}
+
+// The same-batch dedup record for an inference queue run: a UNIQUE(key)-keyed insert over the
+// idempotency table. Composed beside the metering write so a redelivery's whole batch rolls back on
+// the key collision — the re-meter stop. The key is the consumer's inferenceJobDedupKey; the
+// fingerprint is the key itself (the only delivery for this key is this run, carrying no varying
+// payload so fingerprint divergence is not meaningful here).
+export function inferenceDedupStatements(
+  database: SqlDatabase,
+  key: string,
+  now: string,
+): SqlStatement[] {
+  return [idempotencyRecordInsertStatement(database, { key, fingerprint: key, now })];
 }
 
 export interface TokenUsageRow {

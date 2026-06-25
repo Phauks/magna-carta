@@ -26,4 +26,16 @@ describe("registry", () => {
     expect(edgesFrom("png").every((e) => e.from === "png")).toBe(true);
     expect(edgesFrom("png").length).toBeGreaterThan(0);
   });
+
+  it("has image-pdf edges for all six raster sources to pdf", () => {
+    const rasterSources = ["png", "jpeg", "webp", "tiff", "gif", "bmp"] as const;
+    for (const source of rasterSources) {
+      const edge = EDGES.find(
+        (e) => e.from === source && e.to === "pdf" && e.engineId === "image-pdf",
+      );
+      expect(edge, `expected image-pdf edge from ${source} to pdf`).toBeDefined();
+      expect(edge?.recipeRef).toBe("image-pdf");
+      expect(edge?.weight).toBe(1);
+    }
+  });
 });

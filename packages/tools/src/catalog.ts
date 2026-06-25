@@ -106,4 +106,14 @@ export const CATALOG: readonly ToolManifest[] = [
     backing: { kind: "library" },
     matterContext: "none",
   },
+  {
+    id: "metadata-scrubber",
+    name: "Metadata Inspector & Scrubber",
+    icon: "file-search",
+    subjectGroup: "documents",
+    permission: assertPermission("tools:metadataScrubber"),
+    contextTags: ["none"],
+    backing: { kind: "library" },
+    matterContext: "none",
+  },
 ];
