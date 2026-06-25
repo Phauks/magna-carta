@@ -1,6 +1,7 @@
-// Bates numbering — label model: formatting, glyph-width measurement, PDF literal escaping.
+// Bates numbering — additive overlay: the label model (formatting, glyph-width
+// measurement, PDF literal escaping), rotation-aware per-page stamping (non-destructive
+// resource merge + content append), and document/set continuous numbering.
 // A Bates stamp is an ADDITIVE OVERLAY; it never removes or modifies existing page content.
-// Placement, resource merge, content append, and document/set stamping are built in later steps.
 
 use lopdf::{dictionary, Object};
 

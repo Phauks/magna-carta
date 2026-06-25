@@ -354,6 +354,8 @@ interface DetectionReport {
 
 **Additive overlay — not redaction.** The label is added as selectable PDF text on top of existing content. No existing text, images, vector graphics, or metadata are removed or modified. To permanently remove content, use `redactDocument`.
 
+**Scope (v1).** `stampBates` produces one stamped file per input document; combining a set into a single merged PDF and inserting slip or cover pages are not part of this version. To number a set continuously, thread the counter across calls (pass the previous result's `end + 1` as the next `startNumber`).
+
 ### `stampBates(bytes, options?)`
 
 ```ts
