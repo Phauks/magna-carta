@@ -15,7 +15,7 @@ export const SUBJECT_GROUP_ORDER = [
 export type SubjectGroup = (typeof SUBJECT_GROUP_ORDER)[number];
 
 // What real-world input a tool acts on — drives contextual surfacing. `none` = general-only.
-export type ContextTag = "address" | "person" | "company" | "matter" | "website" | "none";
+export type ContextTag = "address" | "person" | "company" | "matter" | "website" | "file" | "none";
 
 // `library` = self-contained, no connection and no credential — a pure link generator OR an
 // interactive client-side widget; the difference is purely UI, handled by the shell. `integration`
