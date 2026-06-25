@@ -14,7 +14,7 @@ pub struct RuleMeta {
 pub type SideMap = std::collections::HashMap<String, RuleMeta>;
 
 /// A single yara match enriched with its baked metadata. Serialized into the raw scan response.
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct RuleMatch {
     #[serde(rename = "ruleId")]
     pub rule_id: String,
