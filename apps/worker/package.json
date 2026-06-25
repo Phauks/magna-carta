@@ -15,6 +15,7 @@
     "@cloudflare/containers": "catalog:",
     "@hono/zod-openapi": "catalog:",
     "@magna-carta/access-control": "workspace:*",
+    "@magna-carta/billing-core": "workspace:*",
     "@magna-carta/conversion": "workspace:*",
     "@magna-carta/costs": "workspace:*",
     "@magna-carta/custom-fields": "workspace:*",

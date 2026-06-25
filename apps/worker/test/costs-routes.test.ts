@@ -21,7 +21,11 @@ let poolFirmId: FirmId;
 let ownerCookie: string;
 let ownerUserId: UserId;
 let readOnlyCookie: string;
+// A user with costs:track but NOT costs:approve — used to test approve/kickBack 403 gate.
+let trackOnlyCookie: string;
 let matterId: string;
+// An e-billing matter used for the batch atomicity test.
+let eBillingMatterId: string;
 
 const clock = { now: () => new Date().toISOString() };
 
@@ -69,6 +73,15 @@ beforeAll(async () => {
   await mirrorMemberWithDirectGrant(readOnly.userId, "Cost Read-Only", "firm:reportIncident");
   readOnlyCookie = await signInForSessionCookie("cost-readonly@example.com");
 
+  // A user with costs:track only (no costs:approve) — used to prove kickBack/approve require
+  // the costs:approve capability.
+  const trackOnly = await seedCredentialedUser("cost-trackonly@example.com", {
+    userName: "Cost Track Only",
+    firmId: poolFirmId,
+  });
+  await mirrorMemberWithDirectGrant(trackOnly.userId, "Cost Track Only", "costs:track");
+  trackOnlyCookie = await signInForSessionCookie("cost-trackonly@example.com");
+
   // Set a simple numbering scheme so we can open a numbered matter.
   await SELF.fetch("https://example.com/api/v1/numbering-scheme", {
     method: "PUT",
@@ -101,6 +114,28 @@ beforeAll(async () => {
     }),
   });
   matterId = ((await created.json()) as { matterId: string }).matterId;
+
+  // An e-billing matter: required for the batch atomicity test (billable entry without a UTBMS
+  // expense code is rejected on an e-billing matter).
+  const eBillingCreated = await SELF.fetch("https://example.com/api/v1/matters", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: "https://example.com",
+      cookie: ownerCookie,
+      "Idempotency-Key": crypto.randomUUID(),
+    },
+    body: JSON.stringify({
+      title: "Cost E-Billing Matter",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+    }),
+  });
+  eBillingMatterId = ((await eBillingCreated.json()) as { matterId: string }).matterId;
+  // Flip the e_billing flag on the matter so captureCost enforces UTBMS codes.
+  await env.DB_FIRM_POOL_1.prepare("UPDATE matter SET e_billing = 1 WHERE id = ?1")
+    .bind(eBillingMatterId)
+    .run();
 });
 
 function authHeaders(cookie: string, withKey = false): HeadersInit {
@@ -326,6 +361,192 @@ describe("cost entry update", () => {
       .run();
 
     const response = await patch(`/api/v1/costs/${costEntryId}`, { description: "frozen edit" });
+    expect(response.status).toBe(409);
+  });
+});
+
+describe("cost entry batch capture", () => {
+  it("POST /costs/batch captures two rows atomically with source=grid", async () => {
+    const response = await post("/api/v1/costs/batch", {
+      rows: [
+        {
+          matterId,
+          incurredDate: "2026-06-25",
+          amountMinor: 1000,
+          currency: "USD",
+          disbursementClass: "hard",
+          billable: true,
+          description: "Batch row A",
+        },
+        {
+          matterId,
+          incurredDate: "2026-06-25",
+          amountMinor: 2000,
+          currency: "USD",
+          disbursementClass: "soft",
+          billable: false,
+          description: "Batch row B",
+        },
+      ],
+    });
+    expect(response.status).toBe(201);
+    const body = (await response.json()) as { costEntryIds: string[] };
+    expect(Array.isArray(body.costEntryIds)).toBe(true);
+    expect(body.costEntryIds).toHaveLength(2);
+
+    // Both rows must be in the DB with source=grid.
+    for (const id of body.costEntryIds) {
+      const row = await env.DB_FIRM_POOL_1.prepare(
+        "SELECT status, source FROM cost_entry WHERE id = ?1",
+      )
+        .bind(id)
+        .first<{ status: string; source: string }>();
+      expect(row).not.toBeNull();
+      expect(row?.status).toBe("draft");
+      expect(row?.source).toBe("grid");
+    }
+  });
+
+  it("batch with an e-billing row missing a UTBMS code returns 422 and neither row is written (atomic)", async () => {
+    const countBefore = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT COUNT(*) AS c FROM cost_entry",
+    ).first<{ c: number }>();
+
+    const response = await post("/api/v1/costs/batch", {
+      rows: [
+        {
+          // Valid row on the regular matter.
+          matterId,
+          incurredDate: "2026-06-25",
+          amountMinor: 500,
+          currency: "USD",
+          disbursementClass: "hard",
+          billable: false,
+          description: "Non-billable valid row",
+        },
+        {
+          // Billable row on the e-billing matter without a UTBMS expense code — must fail.
+          matterId: eBillingMatterId,
+          incurredDate: "2026-06-25",
+          amountMinor: 1500,
+          currency: "USD",
+          disbursementClass: "hard",
+          billable: true,
+          description: "Missing UTBMS code",
+        },
+      ],
+    });
+    expect(response.status).toBe(422);
+
+    // Neither row must have been written (the batch is all-or-nothing).
+    const countAfter = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT COUNT(*) AS c FROM cost_entry",
+    ).first<{ c: number }>();
+    expect(countAfter?.c).toBe(countBefore?.c);
+  });
+});
+
+describe("cost entry lifecycle transitions", () => {
+  it("submit then approve (gate on) moves draft->submitted->approved", async () => {
+    // Enable the review gate for this firm so the submit->approve path is legal.
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+    )
+      .bind("billing.approval_required", "true", new Date().toISOString())
+      .run();
+
+    const created = await post("/api/v1/costs", {
+      matterId,
+      incurredDate: "2026-06-25",
+      amountMinor: 3000,
+      currency: "USD",
+      disbursementClass: "hard",
+      billable: true,
+      description: "For review",
+    });
+    const { costEntryId } = (await created.json()) as { costEntryId: string };
+
+    // A costs:track member can submit their matter's cost.
+    expect((await post(`/api/v1/costs/${costEntryId}/submit`, {})).status).toBe(200);
+
+    // An owner (who has costs:approve) completes the review.
+    expect((await post(`/api/v1/costs/${costEntryId}/approve`, {})).status).toBe(200);
+
+    const row = await env.DB_FIRM_POOL_1.prepare("SELECT status FROM cost_entry WHERE id = ?1")
+      .bind(costEntryId)
+      .first<{ status: string }>();
+    expect(row?.status).toBe("approved");
+
+    // Restore gate off so other tests are not affected.
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+    )
+      .bind("billing.approval_required", "false", new Date().toISOString())
+      .run();
+  });
+
+  it("void a draft cost entry sets status=void", async () => {
+    const created = await post("/api/v1/costs", {
+      matterId,
+      incurredDate: "2026-06-25",
+      amountMinor: 800,
+      currency: "USD",
+      disbursementClass: "soft",
+      billable: false,
+      description: "To be voided",
+    });
+    const { costEntryId } = (await created.json()) as { costEntryId: string };
+
+    const response = await post(`/api/v1/costs/${costEntryId}/void`, {});
+    expect(response.status).toBe(200);
+
+    const row = await env.DB_FIRM_POOL_1.prepare("SELECT status FROM cost_entry WHERE id = ?1")
+      .bind(costEntryId)
+      .first<{ status: string }>();
+    expect(row?.status).toBe("void");
+  });
+
+  it("kickBack requires costs:approve — a costs:track-only member gets 403", async () => {
+    const created = await post("/api/v1/costs", {
+      matterId,
+      incurredDate: "2026-06-25",
+      amountMinor: 600,
+      currency: "USD",
+      disbursementClass: "hard",
+      billable: false,
+      description: "Kick-back permission test",
+    });
+    const { costEntryId } = (await created.json()) as { costEntryId: string };
+    // Move directly to submitted in the DB to prime the kick-back target.
+    await env.DB_FIRM_POOL_1.prepare("UPDATE cost_entry SET status = 'submitted' WHERE id = ?1")
+      .bind(costEntryId)
+      .run();
+
+    // trackOnlyCookie holds costs:track but NOT costs:approve — the chokepoint returns 403.
+    const response = await post(
+      `/api/v1/costs/${costEntryId}/kick-back`,
+      { reason: "not allowed" },
+      trackOnlyCookie,
+    );
+    expect(response.status).toBe(403);
+  });
+
+  it("any transition on a billed (frozen) entry returns 409", async () => {
+    const created = await post("/api/v1/costs", {
+      matterId,
+      incurredDate: "2026-06-25",
+      amountMinor: 4000,
+      currency: "USD",
+      disbursementClass: "hard",
+      billable: true,
+      description: "Already billed",
+    });
+    const { costEntryId } = (await created.json()) as { costEntryId: string };
+    await env.DB_FIRM_POOL_1.prepare("UPDATE cost_entry SET status = 'billed' WHERE id = ?1")
+      .bind(costEntryId)
+      .run();
+
+    const response = await post(`/api/v1/costs/${costEntryId}/void`, {});
     expect(response.status).toBe(409);
   });
 });

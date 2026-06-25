@@ -2,9 +2,18 @@ import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
-import { captureCost, updateDraftCost } from "@magna-carta/costs/cost-entry-service";
+import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
+import {
+  captureCost,
+  updateDraftCost,
+  submitCost,
+  approveCost,
+  kickBackCost,
+  voidCost,
+} from "@magna-carta/costs/cost-entry-service";
 import type { CostDraftPatch } from "@magna-carta/costs/cost-entry-statements";
 import { CostValidationError } from "@magna-carta/costs/cost-validation";
+import { approvalRequiredDefinition } from "@magna-carta/billing-core/review-gate";
 import type { CostEntryId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
@@ -83,6 +92,14 @@ const CostListResponse = z.object({ data: z.array(CostSummary) }).openapi("CostL
 
 const CostAck = z.object({ costEntryId: z.string() }).openapi("CostAck");
 
+const CostBatchAck = z.object({ costEntryIds: z.array(z.string()) }).openapi("CostBatchAck");
+
+const CostBatchRequest = z
+  .object({ rows: z.array(CreateCostRequest).min(1).max(200) })
+  .openapi("CostBatchRequest");
+
+const CostKickBackRequest = z.object({ reason: z.string().min(1) }).openapi("CostKickBackRequest");
+
 const costParam = z.object({ id: identifierPathParam("costEntry", "id") });
 
 const listQuery = z.object({
@@ -156,6 +173,11 @@ function writeMeta(operationId: string, permission: typeof TRACK | typeof APPROV
 
 const createMeta = writeMeta("costs.create", TRACK);
 const updateMeta = writeMeta("costs.update", TRACK);
+const batchMeta = writeMeta("costs.batch", TRACK);
+const submitMeta = writeMeta("costs.submit", TRACK);
+const approveMeta = writeMeta("costs.approve", APPROVE);
+const kickBackMeta = writeMeta("costs.kickBack", APPROVE);
+const voidMeta = writeMeta("costs.void", TRACK);
 
 const listMeta: RouteMeta = {
   operationId: "costs.list",
@@ -262,6 +284,102 @@ const updateRoute = defineOpenAPIRoute(updateMeta, {
     429: writeErrorResponses[429],
   },
 });
+
+const batchRoute = defineOpenAPIRoute(batchMeta, {
+  method: "post",
+  path: "/api/v1/costs/batch",
+  description:
+    "Captures a batch of cost entries from the grid in one request. All rows are written atomically — if any row is invalid the entire batch is refused.",
+  request: {
+    headers: idempotencyKeyHeader,
+    body: { content: { "application/json": { schema: CostBatchRequest } }, required: true },
+  },
+  responses: {
+    201: {
+      description: "The batch was captured",
+      content: { "application/json": { schema: CostBatchAck } },
+    },
+    400: writeErrorResponses[400],
+    401: writeErrorResponses[401],
+    403: writeErrorResponses[403],
+    404: writeErrorResponses[404],
+    409: writeErrorResponses[409],
+    422: writeErrorResponses[422],
+    429: writeErrorResponses[429],
+  },
+});
+
+function costTransitionRoute(
+  meta: RouteMeta,
+  action: string,
+  description: string,
+  withBody?: z.ZodTypeAny,
+) {
+  return defineOpenAPIRoute(meta, {
+    method: "post",
+    path: `/api/v1/costs/{id}/${action}`,
+    description,
+    request: {
+      headers: idempotencyKeyHeader,
+      params: costParam,
+      ...(withBody
+        ? { body: { content: { "application/json": { schema: withBody } }, required: true } }
+        : {}),
+    },
+    responses: {
+      200: {
+        description: "The transition was applied",
+        content: { "application/json": { schema: CostAck } },
+      },
+      400: writeErrorResponses[400],
+      401: writeErrorResponses[401],
+      403: writeErrorResponses[403],
+      404: writeErrorResponses[404],
+      409: writeErrorResponses[409],
+      422: writeErrorResponses[422],
+      429: writeErrorResponses[429],
+    },
+  });
+}
+
+const submitRoute = costTransitionRoute(
+  submitMeta,
+  "submit",
+  "Submits a draft cost entry for review. Only legal when the firm's billing review gate is on.",
+);
+const approveRoute = costTransitionRoute(
+  approveMeta,
+  "approve",
+  "Approves a submitted cost entry, making it eligible for billing.",
+);
+const kickBackRoute = defineOpenAPIRoute(kickBackMeta, {
+  method: "post",
+  path: "/api/v1/costs/{id}/kick-back",
+  description: "Returns a submitted cost entry to draft with an audited reason.",
+  request: {
+    headers: idempotencyKeyHeader,
+    params: costParam,
+    body: { content: { "application/json": { schema: CostKickBackRequest } }, required: true },
+  },
+  responses: {
+    200: {
+      description: "The transition was applied",
+      content: { "application/json": { schema: CostAck } },
+    },
+    400: writeErrorResponses[400],
+    401: writeErrorResponses[401],
+    403: writeErrorResponses[403],
+    404: writeErrorResponses[404],
+    409: writeErrorResponses[409],
+    422: writeErrorResponses[422],
+    429: writeErrorResponses[429],
+  },
+});
+const voidRoute = costTransitionRoute(
+  voidMeta,
+  "void",
+  "Voids a cost entry. The row freezes — it can no longer be edited or billed.",
+);
 
 function costErrorResponse(
   c: Context,
@@ -381,6 +499,67 @@ async function commitCostEffect(
 }
 
 export function registerCostsRoutes(app: CostApp, chokepoint: Chokepoint): void {
+  // POST /api/v1/costs/batch — bulk grid capture (registered before /{id}/* routes).
+  app.openapi(
+    { ...batchRoute, middleware: chokepointMiddleware(chokepoint, batchRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { rows } = c.req.valid("json");
+
+      const now = () => new Date().toISOString();
+      let result;
+      try {
+        result = await runIdempotentEffect({
+          database: firm.firmDatabase,
+          key: idempotency.key,
+          fingerprint: idempotency.fingerprint,
+          now,
+          effect: async () => {
+            const statements: EffectWrite["statements"][number][] = [];
+            const outboxMessages: EffectWrite["outboxMessages"][number][] = [];
+            const ids: string[] = [];
+            for (const row of rows) {
+              const captured = await captureCost(
+                firm.firmDatabase,
+                {
+                  matterId: row.matterId,
+                  vendorId: row.vendorId ?? undefined,
+                  incurredDate: row.incurredDate,
+                  amountMinor: row.amountMinor,
+                  currency: row.currency,
+                  disbursementClass: row.disbursementClass,
+                  billable: row.billable,
+                  utbmsExpenseCodeId: row.utbmsExpenseCodeId ?? undefined,
+                  description: row.description,
+                  source: "grid",
+                  recoveryCategory: row.recoveryCategory,
+                },
+                { clock: { now }, actorUserId: userId },
+              );
+              statements.push(...captured.effect.statements);
+              outboxMessages.push(...captured.effect.outboxMessages);
+              ids.push(captured.costEntryId);
+            }
+            return {
+              write: { statements, outboxMessages },
+              responseCode: 201,
+              responseBody: canonicalJsonStringify({ costEntryIds: ids }),
+            };
+          },
+        });
+      } catch (caught) {
+        if (caught instanceof CostValidationError) return costErrorResponse(c, caught);
+        throw caught;
+      }
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
+        return problemResponseForIdempotencyConflict(c, result);
+      if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
+      return c.json(JSON.parse(result.responseBody ?? "{}") as z.infer<typeof CostBatchAck>, 201);
+    },
+  );
+
   // POST /api/v1/costs — capture a manual cost entry
   app.openapi(
     { ...createRoute, middleware: chokepointMiddleware(chokepoint, createRoute) },
@@ -522,6 +701,99 @@ export function registerCostsRoutes(app: CostApp, chokepoint: Chokepoint): void 
 
       const outcome = await commitCostEffect(c, firm.firmDatabase, idempotency, entryId, () =>
         updateDraftCost(firm.firmDatabase, entryId, patch, {
+          clock: { now: () => new Date().toISOString() },
+          actorUserId: userId,
+        }),
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ costEntryId: outcome.id } as z.infer<typeof CostAck>, 200);
+    },
+  );
+
+  // POST /api/v1/costs/{id}/submit | /approve | /kick-back | /void — lifecycle transitions.
+  // submit/approve/kickBack resolve the firm review gate; void is always legal from any non-frozen state.
+  app.openapi(
+    { ...submitRoute, middleware: chokepointMiddleware(chokepoint, submitRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const entryId = id as CostEntryId;
+      const gateOn = await readFirmSetting(firm.firmDatabase, approvalRequiredDefinition);
+      const outcome = await commitCostEffect(c, firm.firmDatabase, idempotency, entryId, () =>
+        submitCost(firm.firmDatabase, entryId, gateOn, {
+          clock: { now: () => new Date().toISOString() },
+          actorUserId: userId,
+        }),
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ costEntryId: outcome.id } as z.infer<typeof CostAck>, 200);
+    },
+  );
+
+  app.openapi(
+    { ...approveRoute, middleware: chokepointMiddleware(chokepoint, approveRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const entryId = id as CostEntryId;
+      const gateOn = await readFirmSetting(firm.firmDatabase, approvalRequiredDefinition);
+      const outcome = await commitCostEffect(c, firm.firmDatabase, idempotency, entryId, () =>
+        approveCost(firm.firmDatabase, entryId, gateOn, {
+          clock: { now: () => new Date().toISOString() },
+          actorUserId: userId,
+        }),
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ costEntryId: outcome.id } as z.infer<typeof CostAck>, 200);
+    },
+  );
+
+  app.openapi(
+    { ...kickBackRoute, middleware: chokepointMiddleware(chokepoint, kickBackRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const entryId = id as CostEntryId;
+      const { reason } = c.req.valid("json") as z.infer<typeof CostKickBackRequest>;
+      const gateOn = await readFirmSetting(firm.firmDatabase, approvalRequiredDefinition);
+      const outcome = await commitCostEffect(c, firm.firmDatabase, idempotency, entryId, () =>
+        kickBackCost(
+          firm.firmDatabase,
+          entryId,
+          gateOn,
+          {
+            clock: { now: () => new Date().toISOString() },
+            actorUserId: userId,
+          },
+          reason,
+        ),
+      );
+      if (!outcome.ok) return outcome.problem;
+      if (outcome.replayed) c.header("Idempotency-Replayed", "true");
+      return c.json({ costEntryId: outcome.id } as z.infer<typeof CostAck>, 200);
+    },
+  );
+
+  app.openapi(
+    { ...voidRoute, middleware: chokepointMiddleware(chokepoint, voidRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const idempotency = requireChokepointIdempotency(c);
+      const { id } = c.req.valid("param");
+      const entryId = id as CostEntryId;
+      const gateOn = await readFirmSetting(firm.firmDatabase, approvalRequiredDefinition);
+      const outcome = await commitCostEffect(c, firm.firmDatabase, idempotency, entryId, () =>
+        voidCost(firm.firmDatabase, entryId, gateOn, {
           clock: { now: () => new Date().toISOString() },
           actorUserId: userId,
         }),

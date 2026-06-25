@@ -200,6 +200,9 @@ importers:
       '@magna-carta/access-control':
         specifier: workspace:*
         version: link:../../packages/access-control
+      '@magna-carta/billing-core':
+        specifier: workspace:*
+        version: link:../../packages/billing-core
       '@magna-carta/conversion':
         specifier: workspace:*
         version: link:../../packages/conversion
