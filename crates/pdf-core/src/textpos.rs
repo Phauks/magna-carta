@@ -12,7 +12,8 @@ use hayro::hayro_syntax::Pdf;
 use kurbo::{Affine, BezPath, Rect, Shape};
 
 // GlyphMark, CoverMark, PageObservation, and observe_page are pub(crate) API
-// surfaces consumed by detect.rs and the scan orchestrator (a later task).
+// surfaces consumed by detect.rs (bad-redaction detection) and redact.rs (the
+// surgery outcome gate).
 pub(crate) struct GlyphMark {
     pub text: String,
     pub bbox: Rect,
@@ -35,7 +36,8 @@ pub(crate) struct CoverMark {
 pub(crate) struct PageObservation {
     pub glyphs: Vec<GlyphMark>,
     pub covers: Vec<CoverMark>,
-    // width_pt is consumed by the scan orchestrator (a later task); height_pt is read now.
+    // width_pt is retained for symmetry and exercised by tests; height_pt drives the
+    // display-point y-flip in the detector and the surgery outcome gate.
     #[allow(dead_code)]
     pub width_pt: f32,
     pub height_pt: f32,
