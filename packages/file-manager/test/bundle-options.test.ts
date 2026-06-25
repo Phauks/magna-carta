@@ -35,10 +35,14 @@ describe("bundle-options", () => {
   });
 
   it("rejects a non-positive split size", () => {
-    expect(() => parseBundleOptions({ ...DEFAULT_BUNDLE_OPTIONS, split: { maxPartBytes: 0 } })).toThrow();
+    expect(() =>
+      parseBundleOptions({ ...DEFAULT_BUNDLE_OPTIONS, split: { maxPartBytes: 0 } }),
+    ).toThrow();
   });
 
   it("rejects an unknown format", () => {
-    expect(bundleOptionsSchema.safeParse({ ...DEFAULT_BUNDLE_OPTIONS, format: "rar" }).success).toBe(false);
+    expect(
+      bundleOptionsSchema.safeParse({ ...DEFAULT_BUNDLE_OPTIONS, format: "rar" }).success,
+    ).toBe(false);
   });
 });

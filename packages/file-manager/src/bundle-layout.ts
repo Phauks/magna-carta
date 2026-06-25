@@ -17,9 +17,7 @@ export function applyBundleLayout(
   const entries: ZipEntry[] = resolved.entries
     .map((entry): { entry: ZipEntry; path: string } => {
       const base =
-        options.layout === "flatten"
-          ? (entry.path.split("/").pop() ?? entry.path)
-          : entry.path;
+        options.layout === "flatten" ? (entry.path.split("/").pop() ?? entry.path) : entry.path;
       return { entry, path: sanitizeArchivePath(`${wrapperPrefix}${base}`) };
     })
     .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
