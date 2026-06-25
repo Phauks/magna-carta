@@ -34,6 +34,10 @@ export const firm = sqliteTable("firm", {
   // Provisioning lifecycle: the provisioner writes 'provisioning' first and flips to 'active' once
   // the firm's resources exist. The DEFAULT keeps pre-lifecycle rows valid (expand-contract).
   status: text("status").notNull().default("active"),
+  // The firm's release channel — which behavior is lit for this tenant. stable (default) is the
+  // vetted line; beta is firm-admin opt-in; alpha is a platform-only grant. Channels gate behavior
+  // through feature flags, never schema. DEFAULT keeps pre-channel rows valid (expand-contract).
+  releaseChannel: text("release_channel").notNull().default("stable"),
   // The per-firm R2 bucket backing this firm. Null = the bucket has not been provisioned yet.
   bucketName: text("bucket_name"),
   // WHO owns the firm: set in the same activation batch that inserts the owner user

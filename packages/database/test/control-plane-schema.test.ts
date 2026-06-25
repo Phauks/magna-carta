@@ -52,6 +52,13 @@ describe("control-plane schema: firm registry", () => {
     expect(columnOf(firm, "bucket_name").getSQLType()).toBe("text");
   });
 
+  it("carries release_channel as TEXT NOT NULL defaulting to stable", () => {
+    const column = columnOf(firm, "release_channel");
+    expect(column.notNull).toBe(true);
+    expect(column.getSQLType()).toBe("text");
+    expect(column.default).toBe("stable");
+  });
+
   it("records WHO owns the firm: owner_user_id nullable text, deliberately not a foreign key", () => {
     // Null while provisioning (the owner user does not exist yet) and for pre-lifecycle rows the
     // 0001 rebuild backfills; set in the same activation batch that inserts the owner user. No

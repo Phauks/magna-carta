@@ -5,6 +5,7 @@ import controlPlaneJournal from "@magna-carta/database/drizzle/control-plane/met
 import firmRegistrySql from "@magna-carta/database/drizzle/control-plane/0000_firm-registry.sql";
 import authAndProvisioningSql from "@magna-carta/database/drizzle/control-plane/0001_auth-and-provisioning.sql";
 import firmKeyColumnsSql from "@magna-carta/database/drizzle/control-plane/0002_firm-key-columns.sql";
+import releaseChannelSql from "@magna-carta/database/drizzle/control-plane/0003_handy_rattler.sql";
 
 // Bring the Miniflare control-plane D1 to the CURRENT committed schema through the same
 // journal-driven runner production uses. The SQL is bundled as text (plain `.sql` imports — see
@@ -16,6 +17,7 @@ export async function applyControlPlaneMigrations(database: D1Database): Promise
     "0000_firm-registry": firmRegistrySql,
     "0001_auth-and-provisioning": authAndProvisioningSql,
     "0002_firm-key-columns": firmKeyColumnsSql,
+    "0003_handy_rattler": releaseChannelSql,
   });
   await runPendingMigrations(d1MigrationTarget(database), migrations);
 }
