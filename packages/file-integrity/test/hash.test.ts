@@ -44,4 +44,14 @@ describe("hashAll", () => {
     expect(result.md5).toBe("d41d8cd98f00b204e9800998ecf8427e");
     expect(result.sizeBytes).toBe(0);
   });
+
+  it("rejects and does not return a partial digest when the source errors mid-stream", async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("hello"));
+        controller.error(new Error("boom"));
+      },
+    });
+    await expect(hashAll(stream, createNodeDigestSink)).rejects.toThrow("boom");
+  });
 });

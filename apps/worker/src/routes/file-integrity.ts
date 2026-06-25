@@ -240,8 +240,17 @@ export function registerFileIntegrityRoutes(app: FileIntegrityApp, chokepoint: C
 
       // Enforce the size cap against the stored sizeBytes — never against a client-supplied value.
       const cap = await readInspectableSizeCap(firm.firmDatabase);
-      // A clean committed version always has sizeBytes recorded at ingest; null is unreachable here — the streaming digest never buffers regardless.
-      if (version.sizeBytes !== null && version.sizeBytes > cap) {
+      if (version.sizeBytes === null) {
+        // A clean version should carry its byte size from ingest; a null size is an integrity gap,
+        // not a licence to read unbounded bytes from R2. Refuse rather than skip the cap.
+        return problemJson(c, {
+          type: "not-found",
+          title: "No verifiable version",
+          status: 404,
+          detail: "The file's stored version is missing size metadata.",
+        });
+      }
+      if (version.sizeBytes > cap) {
         return problemJson(c, {
           type: "upload-not-allowed",
           title: "File too large to verify inline",

@@ -15,6 +15,7 @@ export async function hashAll(
   const sinks = HASH_ALGORITHMS.map((algorithm) => ({ algorithm, sink: createSink(algorithm) }));
   const reader = stream.getReader();
   let sizeBytes = 0;
+  let threw = false;
   try {
     for (;;) {
       const { done, value } = await reader.read();
@@ -22,8 +23,12 @@ export async function hashAll(
       sizeBytes += value.byteLength;
       await Promise.all(sinks.map(({ sink }) => Promise.resolve(sink.write(value))));
     }
+  } catch (error) {
+    threw = true;
+    throw error;
   } finally {
     reader.releaseLock();
+    if (threw) for (const { sink } of sinks) await sink.abort?.();
   }
   const digests = await Promise.all(
     sinks.map(

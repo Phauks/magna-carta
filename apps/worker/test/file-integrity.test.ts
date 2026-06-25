@@ -222,6 +222,57 @@ describe("POST /api/v1/file-integrity/verify", () => {
     expect(body.comparison).toBe("mismatch");
   });
 
+  it("reports no-baseline when the stored version has no ingest SHA-256 and records an audit row", async () => {
+    const bytes = new TextEncoder().encode("abc");
+    // Seed a clean version with size_bytes set but content_sha256 NULL — the no-baseline path.
+    const fileId = newIdentifier("file");
+    const versionId = newIdentifier("fileVersion");
+    const r2Key = `files/${fileId}/${versionId}`;
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, 'test.txt', NULL, NULL, NULL, ?3, ?3)",
+    )
+      .bind(fileId, verifyMatterId, ISO)
+      .run();
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at, inline_playable, storage_class, storage_encoding, artifact_role) " +
+        "VALUES (?1, ?2, 1, ?3, ?4, 'application/octet-stream', 'text/plain', NULL, 'clean', ?5, ?6, ?6, NULL, 'standard', 'full', 'original')",
+    )
+      .bind(versionId, fileId, r2Key, bytes.byteLength, verifyOwnerUserId, ISO)
+      .run();
+    await env.DB_FIRM_POOL_1.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+      .bind(fileId, versionId)
+      .run();
+    await env.R2.put(r2Key, bytes);
+
+    const response = await app.request(
+      "https://example.com/api/v1/file-integrity/verify",
+      {
+        method: "POST",
+        headers: {
+          cookie: verifyOwnerCookie,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ fileId }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      comparison: string;
+      baselineSha256: string | null;
+    };
+    expect(body.comparison).toBe("no-baseline");
+    expect(body.baselineSha256).toBeNull();
+
+    const auditCount = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT COUNT(*) AS count FROM audit_log WHERE event = 'file.integrity_verified' AND subject_id = ?1",
+    )
+      .bind(fileId)
+      .first<{ count: number }>();
+    expect(auditCount?.count).toBe(1);
+  });
+
   it("returns 401 for an unauthenticated request", async () => {
     const response = await app.request(
       "https://example.com/api/v1/file-integrity/verify",

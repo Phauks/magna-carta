@@ -20,6 +20,8 @@ export const ALGORITHM_RESULT_KEY = {
 export interface DigestSink {
   write(chunk: Uint8Array): Promise<void> | void;
   close(): Promise<string>;
+  /** releases the sink without producing a digest, for the error path. */
+  abort?(reason?: unknown): void | Promise<void>;
 }
 export type CreateDigestSink = (algorithm: HashAlgorithm) => DigestSink;
 

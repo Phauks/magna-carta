@@ -26,5 +26,6 @@ export function createWorkerDigestSink(algorithm: HashAlgorithm): DigestSink {
       await writer.close();
       return toHex(await stream.digest);
     },
+    abort: (reason) => writer.abort(reason),
   };
 }

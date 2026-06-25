@@ -19,5 +19,6 @@ export function createNodeDigestSink(algorithm: HashAlgorithm): DigestSink {
       hash.update(chunk);
     },
     close: async () => hash.digest("hex"),
+    abort: () => {},
   };
 }
