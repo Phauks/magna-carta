@@ -1,6 +1,7 @@
 import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
-import type { FirmId } from "@magna-carta/identifiers/types";
+import { newIdentifier } from "@magna-carta/identifiers/generate";
+import type { FileId, FileVersionId, FirmId, MatterId, UserId } from "@magna-carta/identifiers/types";
 import { createApp } from "../src/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
@@ -78,6 +79,172 @@ describe("POST /api/v1/file-integrity/hash", () => {
       env,
     );
     expect(response.status).toBe(401);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+  });
+});
+
+describe("POST /api/v1/file-integrity/verify", () => {
+  let verifyOwnerCookie: string;
+  let verifyMatterId: MatterId;
+  let verifyOwnerUserId: UserId;
+
+  // Seed the ISO timestamp once per describe — stable enough for test rows.
+  const ISO = "2026-06-25T00:00:00.000Z";
+
+  // Seeds a committed clean file whose R2 bytes are at the version's key. contentSha256 is the
+  // SHA-256 hex of the bytes being stored (pre-computed by the caller so the seeder stays a pure
+  // data helper and never re-hashes).
+  async function seedCleanFile(
+    bytes: Uint8Array,
+    contentSha256: string,
+  ): Promise<{ fileId: FileId; versionId: FileVersionId; r2Key: string }> {
+    const fileId = newIdentifier("file");
+    const versionId = newIdentifier("fileVersion");
+    const r2Key = `files/${fileId}/${versionId}`;
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, 'test.txt', NULL, NULL, NULL, ?3, ?3)",
+    )
+      .bind(fileId, verifyMatterId, ISO)
+      .run();
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at, inline_playable, storage_class, storage_encoding, artifact_role) " +
+        "VALUES (?1, ?2, 1, ?3, ?4, 'application/octet-stream', 'text/plain', ?5, 'clean', ?6, ?7, ?7, NULL, 'standard', 'full', 'original')",
+    )
+      .bind(versionId, fileId, r2Key, bytes.byteLength, contentSha256, verifyOwnerUserId, ISO)
+      .run();
+    await env.DB_FIRM_POOL_1.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+      .bind(fileId, versionId)
+      .run();
+    await env.R2.put(r2Key, bytes);
+    return { fileId, versionId, r2Key };
+  }
+
+  beforeAll(async () => {
+    const { userId } = await seedCredentialedUser("file-integrity-verify@example.com", {
+      userName: "Integrity Verify Owner",
+      firmId: poolFirmId,
+    });
+    verifyOwnerUserId = userId;
+    await mirrorMemberWithOwnerRole(userId, "Integrity Verify Owner");
+    verifyOwnerCookie = await signInForSessionCookie("file-integrity-verify@example.com");
+
+    verifyMatterId = newIdentifier("matter");
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Verify Test Matter', 'open', ?2, ?3, ?3)",
+    )
+      .bind(verifyMatterId, verifyOwnerUserId, ISO)
+      .run();
+  });
+
+  it("matches a stored file's bytes against its ingest baseline and records an audit row", async () => {
+    const bytes = new TextEncoder().encode("abc");
+    // SHA-256 of "abc" — the known correct digest for the bytes being stored.
+    const sha256 = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+    const { fileId, versionId } = await seedCleanFile(bytes, sha256);
+
+    const response = await app.request(
+      "https://example.com/api/v1/file-integrity/verify",
+      {
+        method: "POST",
+        headers: {
+          cookie: verifyOwnerCookie,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ fileId }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      comparison: string;
+      algorithms: { sha256: string };
+      sizeBytes: number;
+      baselineSha256: string;
+      receipt: { verification: { auditLogId: string } };
+    };
+    expect(body.comparison).toBe("match");
+    expect(body.algorithms.sha256).toBe(sha256);
+    expect(body.sizeBytes).toBe(3);
+    expect(body.baselineSha256).toBe(sha256);
+    expect(body.receipt.verification.auditLogId).toBeTruthy();
+
+    // Exactly one file.integrityVerified audit row must exist for this file (the subject_id).
+    const auditRow = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT COUNT(*) AS count FROM audit_log WHERE event = 'file.integrityVerified' AND subject_id = ?1",
+    )
+      .bind(fileId)
+      .first<{ count: number }>();
+    expect(auditRow?.count).toBe(1);
+
+    // The receipt's auditLogId must match the row that was written.
+    const auditIdRow = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT id FROM audit_log WHERE event = 'file.integrityVerified' AND subject_id = ?1",
+    )
+      .bind(fileId)
+      .first<{ id: string }>();
+    expect(auditIdRow?.id).toBe(body.receipt.verification.auditLogId);
+
+    // Silence the unused versionId warning — the variable is declared in the destructure and
+    // serves as documentation that the test seeds exactly one version.
+    void versionId;
+  });
+
+  it("reports mismatch when the stored bytes were altered after ingest", async () => {
+    const bytes = new TextEncoder().encode("abc");
+    const sha256 = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+    const { fileId, r2Key } = await seedCleanFile(bytes, sha256);
+
+    // Overwrite the R2 object with different bytes — the route must report a mismatch.
+    await env.R2.put(r2Key, new TextEncoder().encode("tampered"));
+
+    const response = await app.request(
+      "https://example.com/api/v1/file-integrity/verify",
+      {
+        method: "POST",
+        headers: {
+          cookie: verifyOwnerCookie,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ fileId }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { comparison: string };
+    expect(body.comparison).toBe("mismatch");
+  });
+
+  it("returns 401 for an unauthenticated request", async () => {
+    const response = await app.request(
+      "https://example.com/api/v1/file-integrity/verify",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ fileId: "file_abc12345678901234567890" }),
+      },
+      env,
+    );
+    expect(response.status).toBe(401);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+  });
+
+  it("returns 404 when the file has no clean current version", async () => {
+    // A file that does not exist in this firm resolves to no clean version.
+    const response = await app.request(
+      "https://example.com/api/v1/file-integrity/verify",
+      {
+        method: "POST",
+        headers: {
+          cookie: verifyOwnerCookie,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ fileId: newIdentifier("file") }),
+      },
+      env,
+    );
+    expect(response.status).toBe(404);
     expect(response.headers.get("content-type")).toContain("application/problem+json");
   });
 });

@@ -63,6 +63,8 @@ const NON_MUTATING_POST_ALLOW_LIST: Record<string, string> = {
     "Pure computation over the uploaded bytes — reports metadata findings; nothing is stored, no firm data is written.",
   "metadata.scrub":
     "Pure computation over the uploaded bytes — returns a cleaned copy in-process; nothing is stored, no firm data is written.",
+  "fileIntegrity.hash":
+    "Pure computation over the streamed request body — computes five digests in one pass; nothing is stored, no firm data is written.",
 };
 
 // Subsystems whose every route must be idempotency: required (money/trust/payment/outbound-comms).
@@ -528,6 +530,8 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "documentTypes.update",
       "downloads.bundleStatus",
       "downloads.zip",
+      "fileIntegrity.hash",
+      "fileIntegrity.verify",
       "files.delete",
       "files.download",
       "files.get",

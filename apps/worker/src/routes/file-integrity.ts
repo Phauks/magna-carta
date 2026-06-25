@@ -1,11 +1,22 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
+import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
+import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { compareToBaseline } from "@magna-carta/file-integrity/compare";
 import { hashAll } from "@magna-carta/file-integrity/hash";
+import { buildReceipt } from "@magna-carta/file-integrity/receipt";
+import { getCurrentVersionForIntegrity } from "@magna-carta/file-manager/queries";
 import { readInspectableSizeCap } from "@magna-carta/file-manager/upload-policy";
+import { newIdentifier } from "@magna-carta/identifiers/generate";
+import type { FileId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
-import { requireChokepointFirmContext } from "../chokepoint/context-accessors.ts";
+import {
+  requireChokepointFirmContext,
+  requireChokepointUserId,
+} from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
+import { identifierField } from "../contracts/common.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { createWorkerDigestSink } from "../file-integrity/worker-sink.ts";
@@ -74,6 +85,68 @@ export const fileIntegrityHashRoute = defineOpenAPIRoute(fileIntegrityHashMeta, 
   },
 });
 
+const VerifyRequest = z.object({ fileId: identifierField("file") });
+
+const VerifyResponseSchema = z
+  .object({
+    algorithms: Algorithms,
+    sizeBytes: z.number(),
+    baselineSha256: z.string().nullable(),
+    comparison: z.enum(["match", "mismatch", "no-baseline"]),
+    computedAt: z.string(),
+    receipt: z.unknown(),
+  })
+  .openapi("FileIntegrityVerifyResponse");
+
+export const fileIntegrityVerifyMeta: RouteMeta = {
+  operationId: "fileIntegrity.verify",
+  surface: "app",
+  authenticated: true,
+  permission: "tools:fileIntegrity",
+  resource: "firm",
+  // Writes a file.integrityVerified audit row to the per-firm audit_log — the chain-of-custody
+  // record that the check ran, who ran it, and what it found.
+  audited: true,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+export const fileIntegrityVerifyRoute = defineOpenAPIRoute(fileIntegrityVerifyMeta, {
+  method: "post",
+  path: "/api/v1/file-integrity/verify",
+  description:
+    "Recompute a stored file's digests from its bytes at rest and compare the SHA-256 to the digest recorded at intake, recording the check. Returns the digests, the baseline result, and a hash receipt.",
+  request: {
+    body: { content: { "application/json": { schema: VerifyRequest } } },
+  },
+  responses: {
+    200: {
+      description: "The recomputed digests, the baseline comparison, and the receipt",
+      content: { "application/json": { schema: VerifyResponseSchema } },
+    },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "Authenticated, but the member lacks tools:fileIntegrity",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    404: {
+      description: "No clean current version exists for the file",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    413: {
+      description: "The stored file exceeds the firm's inspectable-size cap for inline verification",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
 type FileIntegrityApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
 function matchExpected(
@@ -130,6 +203,122 @@ export function registerFileIntegrityRoutes(app: FileIntegrityApp, chokepoint: C
           sizeBytes: hashes.sizeBytes,
           computedAt: new Date().toISOString(),
           expectedMatch: matchExpected(hashes, expected),
+        },
+        200,
+      );
+    },
+  );
+
+  // POST /api/v1/file-integrity/verify — resolve the file's current clean version from the
+  // firm-scoped database, read its bytes from R2, recompute all five digests, compare the SHA-256
+  // to the ingest baseline, write a chain-of-custody audit row, and return the digests plus a
+  // hash receipt. The R2 key is always server-resolved from the firm-scoped fileId — never
+  // client-supplied.
+  app.openapi(
+    { ...fileIntegrityVerifyRoute, middleware: chokepointMiddleware(chokepoint, fileIntegrityVerifyRoute) },
+    async (c) => {
+      const firm = requireChokepointFirmContext(c);
+      const userId = requireChokepointUserId(c);
+      const { fileId } = c.req.valid("json");
+
+      const version = await getCurrentVersionForIntegrity(firm.firmDatabase, fileId as FileId);
+      if (version === undefined) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "No verifiable version",
+          status: 404,
+          detail: "The file has no clean current version to verify.",
+        });
+      }
+
+      // Enforce the size cap against the stored sizeBytes — never against a client-supplied value.
+      const cap = await readInspectableSizeCap(firm.firmDatabase);
+      if (version.sizeBytes !== null && version.sizeBytes > cap) {
+        return problemJson(c, {
+          type: "upload-not-allowed",
+          title: "File too large to verify inline",
+          status: 413,
+          detail: `The stored file exceeds this firm's inspectable-size cap (${cap} bytes).`,
+        });
+      }
+
+      // The R2 key is firm-scoped and server-resolved — never sourced from the request body.
+      const object = await c.env.R2.get(version.r2Key);
+      if (object === null) {
+        return problemJson(c, {
+          type: "not-found",
+          title: "Stored bytes unavailable",
+          status: 404,
+          detail: "The file's stored object could not be read.",
+        });
+      }
+
+      const hashes = await hashAll(object.body, createWorkerDigestSink);
+      const comparison = compareToBaseline(hashes.sha256, version.contentSha256);
+      const computedAt = new Date().toISOString();
+
+      // Write the chain-of-custody audit row before returning. Metadata carries ids, digests,
+      // result, size, and timestamp — never file contents or display names (redacted by default).
+      const auditLogId = newIdentifier("auditLog");
+      await commitEffectBatch(
+        firm.firmDatabase,
+        {
+          statements: [
+            insertAuditLogStatement(firm.firmDatabase, {
+              id: auditLogId,
+              event: "file.integrityVerified",
+              actorUserId: userId,
+              subjectId: fileId,
+              metadata: {
+                versionId: version.id,
+                baselineSha256: version.contentSha256,
+                computed: {
+                  md5: hashes.md5,
+                  sha1: hashes.sha1,
+                  sha256: hashes.sha256,
+                  sha384: hashes.sha384,
+                  sha512: hashes.sha512,
+                },
+                result: comparison,
+                sizeBytes: hashes.sizeBytes,
+                verifiedAt: computedAt,
+              },
+              now: computedAt,
+            }),
+          ],
+          outboxMessages: [],
+        },
+        { now: () => computedAt },
+      );
+
+      const receipt = buildReceipt({
+        tool: { name: "File Hash & Integrity", version: "1" },
+        firmName: firm.firmName,
+        file: { name: null, fileId, versionId: version.id },
+        hashes,
+        verification: {
+          baselineSha256: version.contentSha256,
+          comparison,
+          verifiedBy: userId,
+          auditLogId,
+        },
+        computedAt,
+      });
+
+      return c.json(
+        {
+          algorithms: {
+            md5: hashes.md5,
+            sha1: hashes.sha1,
+            sha256: hashes.sha256,
+            sha384: hashes.sha384,
+            sha512: hashes.sha512,
+          },
+          sizeBytes: hashes.sizeBytes,
+          baselineSha256: version.contentSha256,
+          comparison,
+          computedAt,
+          receipt,
         },
         200,
       );

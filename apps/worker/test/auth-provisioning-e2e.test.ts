@@ -402,6 +402,8 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       // Pure-compute POSTs — inspect/scrub operate over the request body only; nothing is stored.
       "metadata.inspect",
       "metadata.scrub",
+      // Pure computation over the streamed request body — computes five digests; nothing is stored.
+      "fileIntegrity.hash",
     ]);
 
     for (const { operation, label } of mutatingV1) {
