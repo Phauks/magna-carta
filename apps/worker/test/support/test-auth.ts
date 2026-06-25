@@ -32,8 +32,9 @@ export interface SeededFirm {
 }
 
 // user.firm_id is a NOT NULL foreign key — every seeded user needs its tenant firm row first.
-// firm.database_identifier is now vestigial (the per-firm database is addressed by firmId through its
-// FirmDatabase Durable Object), but the column is NOT NULL so a unique placeholder is still written.
+// firm.database_identifier is vestigial (the per-firm database is addressed by firmId through its
+// FirmDatabase Durable Object) and nullable, but seedFirm still writes a per-seed-unique placeholder
+// so older suites that read the column keep observing a stable value.
 export async function seedFirm(options?: {
   readonly name?: string;
   readonly databaseIdentifier?: string;

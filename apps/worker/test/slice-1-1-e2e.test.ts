@@ -151,14 +151,12 @@ describe("slice 1·1 end-to-end", () => {
     firm = (await provisionResponse.json()) as ProvisionResponseBody;
     expect(firm.status).toBe("active");
 
-    // The firm claims the first dev-pool binding; the dev resource provider records a per-firm-unique
-    // deterministic bucket name (the ingest consumer's event→firm resolution key).
-    const firmRow = await env.DB_CONTROL.prepare(
-      "SELECT database_identifier, bucket_name FROM firm WHERE id = ?1",
-    )
+    // The dev resource provider records a per-firm-unique deterministic bucket name (the ingest
+    // consumer's event→firm resolution key); the firm's per-firm database is its firmId-addressed
+    // FirmDatabase DO, which self-migrates on first access and needs no provisioning step.
+    const firmRow = await env.DB_CONTROL.prepare("SELECT bucket_name FROM firm WHERE id = ?1")
       .bind(firm.id)
-      .first<{ database_identifier: string; bucket_name: string }>();
-    expect(firmRow?.database_identifier).toBe("DB_FIRM_POOL_1");
+      .first<{ bucket_name: string }>();
     expect(firmRow?.bucket_name).toBe(await firmResourceName(firm.id as FirmId));
     bucketName = firmRow?.bucket_name ?? "";
 

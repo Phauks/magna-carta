@@ -21,11 +21,11 @@ import { createAuthenticator, secretFromTotpUri } from "./support/totp.ts";
 // database and control-plane rows carry no trace of firm A's activity.
 //
 // Storage is per-test-FILE and shared across this file's tests, so the journey runs as ONE
-// sequence of `it` steps over module-level state (the firms.test.ts pattern). The dev pool has
-// exactly two bindings; this file provisions both firms, claiming both.
+// sequence of `it` steps over module-level state (the firms.test.ts pattern). Each firm's per-firm
+// database is its firmId-addressed FirmDatabase DO, which self-migrates on first access.
 
 beforeAll(async () => {
-  // Control plane only — the provisioner migrates each claimed pool firm database itself (that
+  // Control plane only — each firm's FirmDatabase DO self-migrates to head on first access (that
   // is part of what this e2e proves), so the per-firm migrations are deliberately NOT pre-applied.
   await applyControlPlaneMigrations(env.DB_CONTROL);
 });
@@ -68,7 +68,7 @@ async function postFirms(body: unknown): Promise<Response> {
 }
 
 describe("end-to-end", () => {
-  it("provisions firm A and firm B, each claiming its own dev-pool database", async () => {
+  it("provisions firm A and firm B, each backed by its own self-migrating firm database", async () => {
     const responseA = await postFirms(FIRM_A_INPUT);
     expect(responseA.status).toBe(201);
     firmA = (await responseA.json()) as ProvisionResponseBody;
@@ -79,18 +79,15 @@ describe("end-to-end", () => {
     firmB = (await responseB.json()) as ProvisionResponseBody;
     expect(firmB.status).toBe("active");
 
-    // Provision order pins the pool claims: firm A on the first binding, firm B on the second —
-    // the handle every later isolation assert keys its direct database reads off.
-    for (const [firmId, expectedBinding] of [
-      [firmA.id, "DB_FIRM_POOL_1"],
-      [firmB.id, "DB_FIRM_POOL_2"],
-    ] as const) {
-      const firmRow = await env.DB_CONTROL.prepare(
-        "SELECT database_identifier FROM firm WHERE id = ?1",
-      )
-        .bind(firmId)
-        .first<{ database_identifier: string }>();
-      expect(firmRow?.database_identifier).toBe(expectedBinding);
+    // Each firm's per-firm database is its firmId-addressed FirmDatabase DO, which self-migrated to
+    // head on first access (no provisioning step) — the Owner/Admin role seed is resolvable in
+    // each, the handle every later isolation assert keys its direct database reads off.
+    for (const firmId of [firmA.id, firmB.id]) {
+      const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+      const roleRows = await firmDatabase
+        .prepare("SELECT id FROM role WHERE name = 'Owner/Admin'")
+        .all<{ id: string }>();
+      expect(roleRows.results[0]?.id).toMatch(/^role_/);
     }
   });
 

@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { isFirmActivationConflict } from "../src/control-plane-conflicts.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   provisionFirm,
   type FirmProvisionerDependencies,
@@ -13,8 +14,8 @@ import { applyControlPlaneMigrations } from "./support/apply-control-plane-migra
 
 // Provisioner state-machine tests: FAKE ports that count calls (the resume assertions), a REAL
 // Miniflare control-plane database (the guards are SQL — stubbing the database would test nothing).
-
-const HEAD = "0002_member-rbac";
+// The firm's per-firm database is the firmId-addressed FirmDatabase DO, which self-migrates on
+// first access — provisioning has no database-create or migrate step, so the ports cover only R2.
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
@@ -23,24 +24,16 @@ beforeAll(async () => {
 interface FakePorts {
   readonly dependencies: FirmProvisionerDependencies;
   readonly calls: {
-    createDatabase: number;
     createBucket: number;
     configureBucketNotifications: number;
-    migrate: number;
   };
-  failures: { createDatabase?: boolean; createBucket?: boolean; migrate?: boolean };
+  failures: { createBucket?: boolean };
 }
 
 function fakePorts(): FakePorts {
-  const calls = { createDatabase: 0, createBucket: 0, configureBucketNotifications: 0, migrate: 0 };
+  const calls = { createBucket: 0, configureBucketNotifications: 0 };
   const failures: FakePorts["failures"] = {};
   const resourceProvider: FirmResourceProvider = {
-    createDatabase(firmId: FirmId) {
-      calls.createDatabase += 1;
-      if (failures.createDatabase)
-        return Promise.reject(new Error("injected createDatabase crash"));
-      return Promise.resolve({ databaseIdentifier: `fake-database-${firmId}` });
-    },
     createBucket(firmId: FirmId) {
       calls.createBucket += 1;
       if (failures.createBucket) return Promise.reject(new Error("injected createBucket crash"));
@@ -57,17 +50,6 @@ function fakePorts(): FakePorts {
     dependencies: {
       controlPlaneDatabase: env.DB_CONTROL,
       resourceProvider,
-      migrateFirmDatabaseToHead: (databaseIdentifier: string) => {
-        calls.migrate += 1;
-        if (failures.migrate) return Promise.reject(new Error("injected migrate crash"));
-        if (!databaseIdentifier.startsWith("fake-database-")) {
-          throw new Error(
-            `fake migrate port received an identifier this provider never issued: "${databaseIdentifier}"`,
-          );
-        }
-        return Promise.resolve({ latestTag: HEAD });
-      },
-      headSchemaVersion: HEAD,
       // A fixed base64 32-byte placeholder — the wrap is real (importRootKek/wrapFirmKey), so the
       // minted wrapped_firm_key is a genuine AES-KW ciphertext, just under a test root KEK.
       rootKekBase64: "bWFnbmEtY2FydGEtbG9jYWwtZGV2LXJvb3Qta2VrISE=",
@@ -77,14 +59,12 @@ function fakePorts(): FakePorts {
 
 async function firmRowByName(name: string) {
   return env.DB_CONTROL.prepare(
-    "SELECT id, status, database_identifier, per_firm_schema_version, bucket_name, owner_user_id FROM firm WHERE name = ?1",
+    "SELECT id, status, bucket_name, owner_user_id FROM firm WHERE name = ?1",
   )
     .bind(name)
     .first<{
       id: string;
       status: string;
-      database_identifier: string | null;
-      per_firm_schema_version: string | null;
       bucket_name: string | null;
       owner_user_id: string | null;
     }>();
@@ -127,11 +107,18 @@ describe("provisionFirm", () => {
     expect(firmRow).toEqual({
       id: outcome.firmId,
       status: "active",
-      database_identifier: `fake-database-${outcome.firmId}`,
-      per_firm_schema_version: HEAD,
       bucket_name: `fake-bucket-${outcome.firmId}`,
       owner_user_id: outcome.ownerUserId, // recorded by the activation batch — the owner of record
     });
+
+    // The firm's per-firm database needed no provisioning step: its FirmDatabase DO self-migrates
+    // to head on first access. A read through firmDatabaseFor proves it — the 0002 Owner/Admin role
+    // seed is present without provisioning ever having migrated anything.
+    const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, outcome.firmId);
+    const ownerRole = await firmDatabase
+      .prepare("SELECT id FROM role WHERE name = 'Owner/Admin'")
+      .all<{ id: string }>();
+    expect(ownerRole.results[0]?.id).toMatch(/^role_/);
 
     // The firm-key mint step (4c) sealed a wrapped data key — a non-null AES-KW ciphertext, never
     // the raw bytes; version columns default 1.
@@ -189,62 +176,12 @@ describe("provisionFirm", () => {
     });
 
     expect(ports.calls).toEqual({
-      createDatabase: 1,
-      migrate: 1,
       createBucket: 1,
       configureBucketNotifications: 1,
     });
   });
 
-  it("resumes after a crash in createDatabase: the firm row survives, no step re-runs early", async () => {
-    const ports = fakePorts();
-    const input = inputFor("Crash At Database Firm");
-
-    ports.failures.createDatabase = true;
-    await expect(provisionFirm(ports.dependencies, input)).rejects.toThrow(
-      "injected createDatabase crash",
-    );
-    const partialRow = await firmRowByName(input.name);
-    expect(partialRow?.status).toBe("provisioning");
-    expect(partialRow?.database_identifier).toBeNull();
-
-    ports.failures.createDatabase = false;
-    const outcome = await provisionAndCommit(ports, input);
-    expect(outcome.kind).toBe("ready-to-activate");
-    expect((await firmRowByName(input.name))?.status).toBe("active");
-    // createDatabase never succeeded, so the resume retries it; everything else ran once.
-    expect(ports.calls).toEqual({
-      createDatabase: 2,
-      migrate: 1,
-      createBucket: 1,
-      configureBucketNotifications: 1,
-    });
-  });
-
-  it("resumes after a crash in the migrate step without re-creating the database", async () => {
-    const ports = fakePorts();
-    const input = inputFor("Crash At Migrate Firm");
-
-    ports.failures.migrate = true;
-    await expect(provisionFirm(ports.dependencies, input)).rejects.toThrow(
-      "injected migrate crash",
-    );
-    const partialRow = await firmRowByName(input.name);
-    expect(partialRow?.database_identifier).toMatch(/^fake-database-/);
-    expect(partialRow?.per_firm_schema_version).toBeNull();
-
-    ports.failures.migrate = false;
-    const outcome = await provisionAndCommit(ports, input);
-    expect(outcome.kind).toBe("ready-to-activate");
-    expect(ports.calls).toEqual({
-      createDatabase: 1,
-      migrate: 2,
-      createBucket: 1,
-      configureBucketNotifications: 1,
-    });
-  });
-
-  it("resumes after a crash in createBucket without re-running database or migration", async () => {
+  it("resumes after a crash in createBucket: the firm row survives, the bucket step re-runs", async () => {
     const ports = fakePorts();
     const input = inputFor("Crash At Bucket Firm");
 
@@ -253,15 +190,15 @@ describe("provisionFirm", () => {
       "injected createBucket crash",
     );
     const partialRow = await firmRowByName(input.name);
-    expect(partialRow?.per_firm_schema_version).toBe(HEAD);
+    expect(partialRow?.status).toBe("provisioning");
     expect(partialRow?.bucket_name).toBeNull();
 
     ports.failures.createBucket = false;
     const outcome = await provisionAndCommit(ports, input);
     expect(outcome.kind).toBe("ready-to-activate");
+    expect((await firmRowByName(input.name))?.status).toBe("active");
+    // createBucket never succeeded, so the resume retries it; everything else ran once.
     expect(ports.calls).toEqual({
-      createDatabase: 1,
-      migrate: 1,
       createBucket: 2,
       configureBucketNotifications: 1,
     });
@@ -281,14 +218,11 @@ describe("provisionFirm", () => {
     const outcome = await provisionAndCommit(ports, input);
     expect(outcome.kind).toBe("ready-to-activate");
     expect((await firmRowByName(input.name))?.status).toBe("active");
-    // The guarded resource steps (createDatabase/migrate/createBucket) were already durable, so
-    // neither run re-invoked them. configureBucketNotifications is UNCONDITIONAL and idempotent —
-    // it runs once per run reaching the bucket step (twice across the two runs here), the price of
-    // its resume-safety (a run that created the bucket but died before configuring must still
-    // configure on retry).
+    // The guarded createBucket step was already durable, so neither run re-invoked it.
+    // configureBucketNotifications is UNCONDITIONAL and idempotent — it runs once per run reaching
+    // the bucket step (twice across the two runs here), the price of its resume-safety (a run that
+    // created the bucket but died before configuring must still configure on retry).
     expect(ports.calls).toEqual({
-      createDatabase: 1,
-      migrate: 1,
       createBucket: 1,
       configureBucketNotifications: 2,
     });
@@ -309,8 +243,6 @@ describe("provisionFirm", () => {
     expect(second.owner.email).toBe(ownerEmailFor(input.name));
     expect(second.owner.name).toBe("Owning Owner");
     expect(ports.calls).toEqual({
-      createDatabase: 1,
-      migrate: 1,
       createBucket: 1,
       configureBucketNotifications: 1,
     });
@@ -369,47 +301,6 @@ describe("provisionFirm", () => {
       .bind(outcome.firmId)
       .first<{ wrapped_firm_key: string | null }>();
     expect(afterResume?.wrapped_firm_key).toBeNull();
-  });
-
-  it("fails loud when a concurrent run recorded a DIFFERENT database identifier (double-claim guard)", async () => {
-    const input = inputFor("Concurrent Claim Firm");
-    // Interleaving simulated INSIDE the fake port: while this run's createDatabase is in flight,
-    // a concurrent run wins the IS NULL claim with its OWN identifier — this run's guarded UPDATE
-    // no-ops, and continuing would migrate a database no firm row records.
-    const dependencies: FirmProvisionerDependencies = {
-      controlPlaneDatabase: env.DB_CONTROL,
-      resourceProvider: {
-        async createDatabase() {
-          await env.DB_CONTROL.prepare(
-            "UPDATE firm SET database_identifier = 'concurrent-winner-database' WHERE name = ?1",
-          )
-            .bind(input.name)
-            .run();
-          return { databaseIdentifier: "this-run-database" };
-        },
-        createBucket() {
-          throw new Error("unreachable: the double-claim guard must throw before the bucket step");
-        },
-        configureBucketNotifications() {
-          throw new Error(
-            "unreachable: the double-claim guard throws before the notification step",
-          );
-        },
-      },
-      migrateFirmDatabaseToHead: () => {
-        throw new Error("unreachable: the double-claim guard must throw before the migrate step");
-      },
-      headSchemaVersion: HEAD,
-      rootKekBase64: "bWFnbmEtY2FydGEtbG9jYWwtZGV2LXJvb3Qta2VrISE=",
-    };
-
-    await expect(provisionFirm(dependencies, input)).rejects.toThrow(
-      /concurrent provisioning detected/,
-    );
-    // The winner's claim survives untouched — re-invoking resumes from the recorded state.
-    expect((await firmRowByName(input.name))?.database_identifier).toBe(
-      "concurrent-winner-database",
-    );
   });
 
   it("answers name-conflict when an ACTIVE firm holds the name with a different owner", async () => {
@@ -475,11 +366,9 @@ describe("provisionFirm", () => {
     });
     expect(runB.kind).toBe("ready-to-activate");
     if (runB.kind !== "ready-to-activate") return;
-    // B adopted A's recorded resources — the guarded creation ports never re-ran; only the
+    // B adopted A's recorded bucket — the guarded createBucket port never re-ran; only the
     // unconditional, idempotent configureBucketNotifications fired (once, for B's run).
     expect(portsB.calls).toEqual({
-      createDatabase: 0,
-      migrate: 0,
       createBucket: 0,
       configureBucketNotifications: 1,
     });
