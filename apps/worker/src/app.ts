@@ -47,6 +47,7 @@ import { registerMetadataRoutes } from "./routes/metadata.ts";
 import { registerDevWebToolsDemoRoute } from "./routes/dev-web-tools-demo.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
+import { registerReleaseChannelRoute } from "./routes/release-channel.ts";
 import { registerNumberingRoutes } from "./routes/numbering.ts";
 import { registerUploadsRoutes } from "./routes/uploads.ts";
 import { registerPreviewServeRoute } from "./files/preview-serve.ts";
@@ -347,6 +348,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerSafeBrowseRoute(app, chokepoint, options.safeBrowseDeps ?? {});
   registerMetadataRoutes(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);
+  registerReleaseChannelRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
   registerIncidentsRoute(app, chokepoint);
   registerUploadsRoutes(app, chokepoint);

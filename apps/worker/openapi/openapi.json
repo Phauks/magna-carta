@@ -518,6 +518,40 @@
           "name"
         ]
       },
+      "SetReleaseChannelResponse": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "enum": [
+              "stable",
+              "beta"
+            ]
+          }
+        },
+        "required": [
+          "channel"
+        ]
+      },
+      "SetReleaseChannelRequest": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "enum": [
+              "stable",
+              "beta"
+            ]
+          },
+          "consentAcknowledged": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "channel"
+        ]
+      },
       "ProvisionFirmResponse": {
         "type": "object",
         "properties": {
@@ -5427,6 +5461,130 @@
           },
           "422": {
             "description": "The email is already in use, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm/release-channel": {
+      "put": {
+        "description": "Sets the session firm's release channel to stable or beta. Moving to beta requires an explicit consent acknowledgment (the firm confirms it accepts pre-release behavior on live data). Returning to stable needs no acknowledgment. Alpha is a platform-only channel and is rejected at the schema level.",
+        "operationId": "firm.setReleaseChannel",
+        "tags": [
+          "firm"
+        ],
+        "x-mc-operationId": "firm.setReleaseChannel",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageReleaseChannel",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "firm"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetReleaseChannelRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's release channel after the update",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetReleaseChannelResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one); or beta requested without consent acknowledgment",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageReleaseChannel",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The session's firm is not reachable from this deployment, or the session member is deactivated (absent, never an existence oracle)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (e.g. channel value outside the firm-accessible set); or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -18956,6 +19114,9 @@
     },
     {
       "name": "files"
+    },
+    {
+      "name": "firm"
     },
     {
       "name": "firmUsage"

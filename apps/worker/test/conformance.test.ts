@@ -540,6 +540,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "files.preview",
       "files.update",
       "files.versions",
+      "firm.setReleaseChannel",
       "firmUsage.get",
       "firms.provision",
       "folders.create",
