@@ -101,6 +101,7 @@ describe("permission registry", () => {
       "tools:safeBrowse",
       "tools:fileConverter",
       "tools:metadataScrubber",
+      "tools:fileIntegrity",
     ]);
   });
 
