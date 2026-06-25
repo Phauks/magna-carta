@@ -46,12 +46,11 @@ Both writes are audited: old → new channel, actor, timestamp, and (for beta) t
 
 ## Resolution & Flagship
 
-### The port
+### The wrapper
 
-A new package `@magna-carta/feature-flags` exposes an **OpenFeature-shaped port** — a thin interface (`getBooleanValue(flagKey, default, context)` and typed siblings) that call sites use without knowing the provider.
+A new package `@magna-carta/feature-flags` wraps Cloudflare Flagship directly behind a thin interface (`getBooleanValue(flagKey, default, context)` and typed siblings). This is not a swappable-provider abstraction — the firm has committed to Flagship as the flag engine — but a thin seam still earns its keep: it centralizes evaluation-context construction and safe-default handling in one place, and lets tests substitute a fake flag set without a live binding.
 
-- **Adapter 1 (v1 provider): Cloudflare Flagship**, via the `env.FLAGS` Worker binding. Flags evaluate inside the Worker against KV + Durable Objects with **no outbound HTTP** — off the request hot path by construction (golden rule 10). Flagship supports custom targeting attributes, nested AND/OR rules, percentage rollout with consistent hashing, typed variants, and audit history.
-- **Adapter 2 (seam): in-house D1-backed** fallback. Not built in v1, but the port exists so the provider is swappable. This neutralizes both Flagship's public-beta maturity risk and any vendor lock-in (OpenFeature is a portable standard).
+Flags evaluate via the `env.FLAGS` Worker binding, inside the Worker against KV + Durable Objects with **no outbound HTTP** — off the request hot path by construction (golden rule 10). The native binding is used directly (no OpenFeature SDK layer — cross-provider portability is a non-goal). Flagship supports custom targeting attributes, nested AND/OR rules, percentage rollout with consistent hashing, typed variants, and audit history.
 
 ### Evaluation context
 
@@ -82,7 +81,7 @@ v1 ships the **complete mechanism with zero product features gated**, proven end
 1. `firm.release_channel` column + control-plane migration.
 2. `firm:manageReleaseChannel` permission + the beta firm-setting door (DAL + route + consent gate + audit).
 3. The alpha secret-guarded platform door + audit.
-4. `@magna-carta/feature-flags` port + Flagship adapter (+ `env.FLAGS` binding); in-house fallback adapter is a stubbed seam.
+4. `@magna-carta/feature-flags` wrapper over the `env.FLAGS` Flagship binding, with a test fake for unit tests.
 5. Session-context channel read; `/me` resolved-flag delivery.
 6. One throwaway boolean flag wired through API + UI to prove the path, removed or left as the reference example.
 
@@ -91,7 +90,7 @@ Real features adopt the rails as they ship. This is the YAGNI-correct first slic
 ## Audit & docs
 
 - Channel changes audited through both doors (actor, old → new, timestamp; beta carries the consent acknowledgment).
-- New ADR(s): (a) adopt Cloudflare Flagship behind an OpenFeature-shaped port; (b) release channels gate behavior, not schema.
+- New ADR(s): (a) adopt Cloudflare Flagship as the feature-flag engine; (b) release channels gate behavior, not schema.
 - New white-paper topic _Release channels_.
 - User-facing help for the beta opt-in (its consequences and how to leave).
 - ROADMAP / CHANGELOG fragments per the documentation golden rule.
@@ -99,13 +98,12 @@ Real features adopt the rails as they ship. This is the YAGNI-correct first slic
 ## Alternatives considered
 
 - **Full-stack channels** (forked backend code + ahead-of-stable migrations per cohort). Rejected: breaks the single-fleet model; ahead-of-stable migrations on live financial data are near-irreversible if the design changes before stabilizing; needs a hand-rolled cohort router because Cloudflare gradual deployments are percentage-based, not cohort-pinned. Disproportionate, permanent ops weight for a benefit flags already deliver.
-- **In-house feature-flag engine from scratch.** Rejected for v1: targeting, gradual rollout, audit, and a management dashboard are real work; Flagship-behind-a-port delivers them at near-zero cost and stays portable. Kept as the fallback adapter so the dependency is never load-bearing.
+- **In-house feature-flag engine from scratch.** Rejected: targeting, gradual rollout, audit, and a management dashboard are real work that Flagship delivers natively. The firm has committed to Flagship as the flag engine; no fallback provider is maintained.
 - **Per-user alpha** (a user-level channel overriding the firm's). Rejected: mixed channels inside one firm let an alpha user write data — including audit and ledger entries — through in-progress code that stable colleagues then see with no UI, an integrity and audit hazard in a legal platform. "Invite one person" is served instead by internal alpha firms, or (if ever needed) a single-`userId` allowlist on one specific flag — explicitly out of v1.
 - **Per-channel SPA bundles.** Deferred to a seam: unnecessary once flags gate UI within a single bundle.
 
 ## Open questions / deferred seams
 
-- In-house D1-backed flag adapter — built only if Flagship maturity or terms ever require leaving it.
 - Per-feature single-user early-access (Flagship `userId` allowlist) — out of v1; revisit if a real champion-at-a-client-firm need appears.
 - Per-channel SPA bundle — only for a future incompatible UI rewrite.
 - Whether a real platform-staff RBAC identity should eventually replace the secret-guarded alpha door (tracks with any broader platform-admin-identity work).

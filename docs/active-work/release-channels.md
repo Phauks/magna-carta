@@ -9,7 +9,7 @@
 ## Scope / files expected to touch
 
 - `packages/database/src/control-plane-schema.ts` — add `firm.release_channel` column (+ generated control-plane migration).
-- `packages/feature-flags/` — NEW package: OpenFeature-shaped port + Flagship adapter + in-house D1 fallback adapter (seam).
+- `packages/feature-flags/` — NEW package: thin wrapper over the Flagship `env.FLAGS` binding (context-building + safe defaults + test fake).
 - `packages/access-control/src/registry.ts` — add `firm:manageReleaseChannel` permission.
 - `apps/worker/` — beta firm-setting door (DAL + route), alpha secret-guarded platform door, `/me` resolved-flag delivery, `env.FLAGS` binding in `wrangler.jsonc`, session-context channel read.
 - Settings registry entry for the beta opt-in (audited + consent-gated).
