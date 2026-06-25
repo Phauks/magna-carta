@@ -348,6 +348,74 @@ interface DetectionReport {
 }
 ```
 
+## Bates numbering
+
+`stampBates(bytes, options?)` adds a sequential identifying label to every page of a PDF. Each label is printed in Helvetica at a configurable corner of the page and reads upright regardless of the page's rotation.
+
+**Additive overlay — not redaction.** The label is added as selectable PDF text on top of existing content. No existing text, images, vector graphics, or metadata are removed or modified. To permanently remove content, use `redactDocument`.
+
+### `stampBates(bytes, options?)`
+
+```ts
+import { stampBates } from "@magna-carta/pdf";
+
+const bytes = new Uint8Array(await file.arrayBuffer());
+const result = await stampBates(bytes, {
+  prefix: "SMITH-",
+  startNumber: 1,
+  padding: 6,
+  position: "bottomRight",
+});
+// result.pdf      — Uint8Array of the stamped PDF
+// result.start    — Bates number on the first page (1)
+// result.end      — Bates number on the last page
+// result.pageCount — total pages stamped
+```
+
+### `BatesStampOptions`
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `prefix` | `string` | `""` | Text prepended before the zero-padded number, e.g. `"SMITH-"` produces labels like `SMITH-000001`. |
+| `startNumber` | `number` | `1` | Bates number assigned to the first page. |
+| `padding` | `number` | `6` | Minimum digit width. Numbers shorter than `padding` digits are zero-padded; numbers longer than `padding` digits are not truncated. |
+| `position` | `BatesPosition` | `"bottomRight"` | Corner or edge where the label is placed. |
+| `marginPt` | `number` | `18` | Distance in PDF points from the nearest page edge. |
+| `fontSizePt` | `number` | `8` | Font size in PDF points. |
+
+`BatesPosition` is one of: `"bottomRight"` · `"bottomLeft"` · `"bottomCenter"` · `"topRight"` · `"topLeft"` · `"topCenter"`.
+
+### `BatesStampResult`
+
+```ts
+interface BatesStampResult {
+  pdf: Uint8Array;   // the stamped PDF bytes
+  start: number;     // Bates number on the first page (inclusive)
+  end: number;       // Bates number on the last page (inclusive)
+  pageCount: number; // total pages stamped
+}
+```
+
+### Stamping a multi-document set with continuous numbering
+
+`stampBates` stamps a single document. To stamp a set of documents with a continuous Bates range (where each document continues from where the previous one left off), call `stampBates` in sequence, threading `startNumber` from the previous result's `end + 1`:
+
+```ts
+let nextNumber = 1;
+const stamped: Uint8Array[] = [];
+for (const docBytes of documentSet) {
+  const result = await stampBates(docBytes, { prefix: "SMITH-", startNumber: nextNumber });
+  stamped.push(result.pdf);
+  nextNumber = result.end + 1;
+}
+```
+
+### Placement and rotation
+
+The label is placed in the requested corner of the page as it appears to a viewer — after the viewer applies any `/Rotate` entry. On a page rotated 90°, `"bottomRight"` still places the label at the visual bottom right of the displayed page, and the text reads upright.
+
+The engine uses base-14 Helvetica, which is natively available in every PDF viewer without embedding. The label is placed using a shared font object added once per document, so stamping a 500-page document adds a single font dictionary regardless of page count.
+
 ## Build notes
 
 The WASM binary at `src/pkg/pdf_core_bg.wasm` is produced by `wasm-pack build crates/pdf-core --target web --out-dir packages/pdf/src/pkg --release --no-opt`. It is not committed to version control; run `vp run rust-wasm-build` (or `pnpm --filter @magna-carta/pdf run build:wasm`) to regenerate it. In development the binary is rebuilt automatically as part of `vp run build-all`.

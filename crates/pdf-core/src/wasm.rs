@@ -249,6 +249,86 @@ pub fn sanitize_document_edge(bytes: Vec<u8>, opts: JsValue) -> Result<JsValue, 
     Ok(result.into())
 }
 
+impl From<crate::bates::BatesError> for JsError {
+    fn from(e: crate::bates::BatesError) -> Self {
+        JsError::new(match e {
+            crate::bates::BatesError::Parse => "failed to parse PDF",
+            crate::bates::BatesError::NoPages => "document has no pages",
+            crate::bates::BatesError::Reassemble => "failed to reassemble PDF",
+        })
+    }
+}
+
+#[derive(serde::Deserialize, Default)]
+struct JsBatesOpts {
+    prefix: Option<String>,
+    #[serde(rename = "startNumber")]
+    start_number: Option<u64>,
+    padding: Option<u8>,
+    position: Option<String>,
+    #[serde(rename = "marginPt")]
+    margin_pt: Option<f32>,
+    #[serde(rename = "fontSizePt")]
+    font_size_pt: Option<f32>,
+}
+
+/// Stamps sequential Bates labels onto every page of a PDF.
+///
+/// The stamp is an ADDITIVE OVERLAY: all existing page content is preserved.
+/// A new text stream carrying the label is appended last so it renders on top.
+/// Nothing is removed, flattened, or redacted.
+///
+/// Returns `{ pdf: Uint8Array, start: number, end: number, pageCount: number }`.
+#[wasm_bindgen(js_name = stampBates)]
+pub fn stamp_bates(bytes: Vec<u8>, opts: JsValue) -> Result<JsValue, JsError> {
+    let js_opts: JsBatesOpts = if opts.is_undefined() || opts.is_null() {
+        JsBatesOpts::default()
+    } else {
+        serde_wasm_bindgen::from_value(opts)?
+    };
+
+    let position = match js_opts.position.as_deref() {
+        Some("bottomLeft") => crate::bates::BatesPosition::BottomLeft,
+        Some("bottomCenter") => crate::bates::BatesPosition::BottomCenter,
+        Some("topRight") => crate::bates::BatesPosition::TopRight,
+        Some("topLeft") => crate::bates::BatesPosition::TopLeft,
+        Some("topCenter") => crate::bates::BatesPosition::TopCenter,
+        _ => crate::bates::BatesPosition::BottomRight,
+    };
+
+    let defaults = crate::bates::BatesOptions::default();
+    let bates_opts = crate::bates::BatesOptions {
+        prefix: js_opts.prefix.unwrap_or(defaults.prefix),
+        start_number: js_opts.start_number.unwrap_or(defaults.start_number),
+        padding: js_opts.padding.unwrap_or(defaults.padding),
+        position,
+        margin_pt: js_opts.margin_pt.unwrap_or(defaults.margin_pt),
+        font_size_pt: js_opts.font_size_pt.unwrap_or(defaults.font_size_pt),
+    };
+
+    let start = bates_opts.start_number;
+    let (pdf_bytes, range) = crate::bates::stamp_document(&bytes, &bates_opts, start)?;
+
+    let result = js_sys::Object::new();
+    js_sys::Reflect::set(
+        &result,
+        &"pdf".into(),
+        &js_sys::Uint8Array::from(&pdf_bytes[..]),
+    )
+    .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    js_sys::Reflect::set(&result, &"start".into(), &JsValue::from(range.start as f64))
+        .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    js_sys::Reflect::set(&result, &"end".into(), &JsValue::from(range.end as f64))
+        .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    js_sys::Reflect::set(
+        &result,
+        &"pageCount".into(),
+        &JsValue::from(range.page_count as u32),
+    )
+    .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    Ok(result.into())
+}
+
 impl From<crate::DetectError> for JsError {
     fn from(e: crate::DetectError) -> Self {
         match e {

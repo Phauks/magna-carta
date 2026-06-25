@@ -197,7 +197,67 @@ export interface DetectionReport {
   pagesUnreadable: number[];
 }
 
+import { stampBates as wasmStampBates } from "./pkg/pdf_core.js";
 import { detectDocument as wasmDetect } from "./pkg/pdf_core.js";
+
+/** One of the six corners or edges where a Bates label can be placed. */
+export type BatesPosition =
+  | "bottomRight"
+  | "bottomLeft"
+  | "bottomCenter"
+  | "topRight"
+  | "topLeft"
+  | "topCenter";
+
+/** Options for `stampBates`. All fields are optional; defaults match `BatesOptions::default()` in the engine. */
+export interface BatesStampOptions {
+  /** Text prepended before the zero-padded number, e.g. `"SMITH-"`. Default `""`. */
+  prefix?: string;
+  /** Number assigned to the first page. Default `1`. */
+  startNumber?: number;
+  /** Minimum digit width; shorter numbers are zero-padded to this width. Default `6`. */
+  padding?: number;
+  /** Corner or edge where the label is drawn. Default `"bottomRight"`. */
+  position?: BatesPosition;
+  /** Distance in points from the nearest page edge. Default `18`. */
+  marginPt?: number;
+  /** Font size in points. Default `8`. */
+  fontSizePt?: number;
+}
+
+/**
+ * The result of `stampBates`. `start` and `end` are the inclusive Bates numbers
+ * assigned to the first and last pages of the document.
+ */
+export interface BatesStampResult {
+  /** The stamped PDF bytes. */
+  pdf: Uint8Array;
+  /** Bates number on the first page (inclusive). */
+  start: number;
+  /** Bates number on the last page (inclusive). */
+  end: number;
+  /** Number of pages stamped. */
+  pageCount: number;
+}
+
+/**
+ * Stamp sequential Bates labels onto every page of a PDF.
+ *
+ * **Additive overlay — not redaction.** This function adds selectable Helvetica
+ * text to each page. It does not remove, flatten, rasterise, or modify any
+ * existing page content. Use `redactDocument` to permanently remove content.
+ *
+ * The label on each page is `prefix` followed by the page's Bates number
+ * zero-padded to `padding` digits. The first page receives `startNumber`; each
+ * subsequent page increments by one.
+ */
+export async function stampBates(
+  bytes: Uint8Array,
+  options: BatesStampOptions = {},
+): Promise<BatesStampResult> {
+  await ensureReady();
+  return wasmStampBates(bytes, options) as BatesStampResult;
+}
 
 /**
  * Scan a PDF for failed redactions — recoverable text that is covered, invisible,
