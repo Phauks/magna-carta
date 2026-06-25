@@ -1,7 +1,9 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
+import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
 import { readFirmReleaseChannelStatement } from "@magna-carta/data-access/firm-release-channel-statements";
 import { writeFirmReleaseChannelStatement } from "@magna-carta/data-access/firm-release-channel-statements";
+import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { Bindings } from "../app.ts";
 import type { createAuth } from "../auth.ts";
@@ -10,9 +12,11 @@ import type { AppVariables } from "../chokepoint/ports.ts";
 import {
   requireChokepointFirmContext,
   requireChokepointFirmId,
+  requireChokepointIdempotency,
   requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
+import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { idempotencyKeyHeader } from "../contracts/common.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
@@ -41,8 +45,9 @@ export const setReleaseChannelMeta: RouteMeta = {
   resource: "firm",
   audited: true,
   idempotency: "required",
-  // Business effect targets the control-plane firm registry — the idempotency record commits there
-  // too so the record and the channel write are in the same database (atomic-batch aligned).
+  // The channel write and the idempotency record both target the control-plane firm registry,
+  // so they commit in one atomic D1 batch. The per-firm audit_log row commits after that batch
+  // succeeds (it lives in a separate per-firm database and cannot share the batch).
   idempotencyStore: "control",
   rateLimit: "default",
 };
@@ -137,31 +142,65 @@ export function registerReleaseChannelRoute(
         });
       }
 
-      const now = new Date().toISOString();
+      const idempotency = requireChokepointIdempotency(c);
 
-      // Read the current channel before writing — captured for the audit trail.
-      const channelRow = await readFirmReleaseChannelStatement(c.env.DB_CONTROL, firmId).first<{
-        release_channel: string;
-      }>();
-      const oldChannel = channelRow?.release_channel ?? "stable";
+      // Captured inside the effect for use in the post-commit per-firm audit write.
+      let capturedOldChannel = "stable";
+      let capturedNow = new Date().toISOString();
 
-      // Write the new channel to the control-plane firm registry.
-      await writeFirmReleaseChannelStatement(c.env.DB_CONTROL, firmId, channel).run();
+      const result = await runIdempotentEffect({
+        database: c.env.DB_CONTROL,
+        key: idempotency.key,
+        fingerprint: idempotency.fingerprint,
+        // The speculative effect: reads the current channel then returns the channel write as a
+        // prepared statement. The idempotency record and channel write commit atomically in one
+        // control-plane batch — a replayed key short-circuits here before this effect runs, so no
+        // duplicate channel write or audit row is ever produced.
+        effect: async () => {
+          capturedNow = new Date().toISOString();
 
-      // Write the per-firm audit row (ids + non-privileged fields only, never privileged content).
-      await insertAuditLogStatement(firmContext.firmDatabase, {
-        id: newIdentifier("auditLog"),
-        event: "firm.release_channel_changed",
-        actorUserId: userId,
-        subjectId: firmId,
-        metadata: {
-          firmId,
-          oldChannel,
-          newChannel: channel,
-          consentAcknowledged: channel === "beta",
+          // Read the current channel before writing — captured for the audit trail.
+          const channelRow = await readFirmReleaseChannelStatement(c.env.DB_CONTROL, firmId).first<{
+            release_channel: string;
+          }>();
+          capturedOldChannel = channelRow?.release_channel ?? "stable";
+
+          return {
+            write: {
+              statements: [writeFirmReleaseChannelStatement(c.env.DB_CONTROL, firmId, channel)],
+              outboxMessages: [],
+            },
+            responseCode: 200,
+            responseBody: canonicalJsonStringify({ channel }),
+          };
         },
-        now,
-      }).run();
+      });
+
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+        return problemResponseForIdempotencyConflict(c, result);
+      }
+
+      if (result.kind === "replayed") {
+        c.header("Idempotency-Replayed", "true");
+      } else {
+        // First execution: write the per-firm audit row after the control-plane batch has committed.
+        // The audit_log lives in the per-firm database and cannot share the control-plane batch;
+        // committing it here, after the idempotency record is durable, means a replay will
+        // short-circuit before reaching this branch and cannot produce a duplicate audit row.
+        await insertAuditLogStatement(firmContext.firmDatabase, {
+          id: newIdentifier("auditLog"),
+          event: "firm.release_channel_changed",
+          actorUserId: userId,
+          subjectId: firmId,
+          metadata: {
+            firmId,
+            oldChannel: capturedOldChannel,
+            newChannel: channel,
+            consentAcknowledged: channel === "beta",
+          },
+          now: capturedNow,
+        }).run();
+      }
 
       return c.json({ channel }, 200);
     },

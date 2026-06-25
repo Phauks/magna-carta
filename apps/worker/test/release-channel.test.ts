@@ -76,8 +76,8 @@ describe("PUT /api/v1/firm/release-channel", () => {
     expect(body.channel).toBe("beta");
 
     // Verify the channel was written to the control-plane firm registry.
-    // (GET /api/v1/me does not yet expose channel — Task 9 adds that;
-    //  assert directly on the DB instead of inventing a /me field.)
+    // The /me response does not yet expose channel, so assert the persisted value via the
+    // control-plane firm row.
     const firmRow = await env.DB_CONTROL.prepare("SELECT release_channel FROM firm WHERE id = ?1")
       .bind(poolFirmId)
       .first<{ release_channel: string }>();
@@ -128,5 +128,47 @@ describe("PUT /api/v1/firm/release-channel", () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as { channel: string };
     expect(body.channel).toBe("stable");
+  });
+
+  it("replaying the same Idempotency-Key produces 200 on both requests and exactly one audit_log row", async () => {
+    const sessionCookie = await signInAsOwner("rc-owner-replay@example.com");
+    const idempotencyKey = crypto.randomUUID();
+
+    // Snapshot the audit_log count before the requests so other tests' rows do not affect the
+    // assertion (all tests share the same poolFirmId within this file).
+    const countBefore =
+      (
+        await env.DB_FIRM_POOL_1.prepare(
+          "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'firm.release_channel_changed' AND subject_id = ?1",
+        )
+          .bind(poolFirmId)
+          .first<{ n: number }>()
+      )?.n ?? 0;
+
+    // First request — executes the write and commits the idempotency record.
+    const firstResponse = await putReleaseChannel(
+      { channel: "beta", consentAcknowledged: true },
+      { cookie: sessionCookie, idempotencyKey },
+    );
+    expect(firstResponse.status).toBe(200);
+
+    // Second request with the same Idempotency-Key — the pre-decision replays without re-running
+    // the handler, so no duplicate channel write or audit row is produced.
+    const secondResponse = await putReleaseChannel(
+      { channel: "beta", consentAcknowledged: true },
+      { cookie: sessionCookie, idempotencyKey },
+    );
+    expect(secondResponse.status).toBe(200);
+
+    // Exactly one additional audit_log row must exist — the replay must not have inserted another.
+    const countAfter =
+      (
+        await env.DB_FIRM_POOL_1.prepare(
+          "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'firm.release_channel_changed' AND subject_id = ?1",
+        )
+          .bind(poolFirmId)
+          .first<{ n: number }>()
+      )?.n ?? 0;
+    expect(countAfter - countBefore).toBe(1);
   });
 });
