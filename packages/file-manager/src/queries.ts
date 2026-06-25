@@ -434,10 +434,7 @@ export async function getCurrentVersionForIntegrity(
   database: SqlDatabase,
   fileId: FileId,
 ): Promise<VersionIntegrity | undefined> {
-  const { results } = await selectCurrentCleanVersionForIntegrityStatement(
-    database,
-    fileId,
-  ).all<{
+  const { results } = await selectCurrentCleanVersionForIntegrityStatement(database, fileId).all<{
     id: FileVersionId;
     r2_key: string;
     size_bytes: number | null;

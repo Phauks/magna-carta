@@ -137,7 +137,8 @@ export const fileIntegrityVerifyRoute = defineOpenAPIRoute(fileIntegrityVerifyMe
       content: { "application/problem+json": { schema: Problem } },
     },
     413: {
-      description: "The stored file exceeds the firm's inspectable-size cap for inline verification",
+      description:
+        "The stored file exceeds the firm's inspectable-size cap for inline verification",
       content: { "application/problem+json": { schema: Problem } },
     },
     429: {
@@ -166,7 +167,10 @@ export function registerFileIntegrityRoutes(app: FileIntegrityApp, chokepoint: C
   // digest. No request-body schema (the bytes are binary), so the raw stream reaches the hasher
   // unbuffered; the size cap is enforced from Content-Length before hashing.
   app.openapi(
-    { ...fileIntegrityHashRoute, middleware: chokepointMiddleware(chokepoint, fileIntegrityHashRoute) },
+    {
+      ...fileIntegrityHashRoute,
+      middleware: chokepointMiddleware(chokepoint, fileIntegrityHashRoute),
+    },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const body = c.req.raw.body;
@@ -215,7 +219,10 @@ export function registerFileIntegrityRoutes(app: FileIntegrityApp, chokepoint: C
   // hash receipt. The R2 key is always server-resolved from the firm-scoped fileId — never
   // client-supplied.
   app.openapi(
-    { ...fileIntegrityVerifyRoute, middleware: chokepointMiddleware(chokepoint, fileIntegrityVerifyRoute) },
+    {
+      ...fileIntegrityVerifyRoute,
+      middleware: chokepointMiddleware(chokepoint, fileIntegrityVerifyRoute),
+    },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);

@@ -20,15 +20,14 @@ export async function hashAll(
       const { done, value } = await reader.read();
       if (done) break;
       sizeBytes += value.byteLength;
-      await Promise.all(sinks.map(({ sink }) => sink.write(value)));
+      await Promise.all(sinks.map(({ sink }) => Promise.resolve(sink.write(value))));
     }
   } finally {
     reader.releaseLock();
   }
   const digests = await Promise.all(
     sinks.map(
-      async ({ algorithm, sink }) =>
-        [ALGORITHM_RESULT_KEY[algorithm], await sink.close()] as const,
+      async ({ algorithm, sink }) => [ALGORITHM_RESULT_KEY[algorithm], await sink.close()] as const,
     ),
   );
   const byKey = Object.fromEntries(digests) as Record<string, string>;

@@ -24,6 +24,7 @@
 ## File Structure
 
 **New pure package `packages/file-integrity/`:**
+
 - `package.json` — workspace package manifest (mirrors `packages/whois`).
 - `tsconfig.json` — extends the shared base.
 - `vitest.config.ts` — node pool, root-pinned.
@@ -37,31 +38,38 @@
 - `CLAUDE.md` — local area notes.
 
 **Worker (`apps/worker/`):**
+
 - `src/file-integrity/worker-sink.ts` — the real `crypto.DigestStream`-backed `DigestSink` factory + `toHex`.
 - `src/routes/file-integrity.ts` — the `hash` and `verify` routes + `registerFileIntegrityRoutes`.
 - `src/app.ts` — register the routes (one line).
 - `test/file-integrity.test.ts` — Workers-pool route tests.
 
 **File-manager (`packages/file-manager/`):**
+
 - `src/queries.ts` — add `getCurrentVersionForIntegrity(database, fileId)` and its `exports` entry is already `./queries`.
 
 **Access control (`packages/access-control/`):**
+
 - `src/registry.ts` — one new `tools:fileIntegrity` line.
 - `test/registry.test.ts` — add it to the `tools` enumeration.
 
 **Tools catalog (`packages/tools/`):**
+
 - `src/types.ts` — add `"file"` to `ContextTag`.
 - `src/catalog.ts` — one new row.
 - `test/select.test.ts` — a `toolsFor("file")` assertion (if the file exists; else add to the existing catalog test).
 
 **Database (`packages/database/`):**
+
 - `drizzle/per-firm/0021_seed-tools-file-integrity.sql` — role seed.
 - `drizzle/per-firm/meta/_journal.json` — new entry (idx 21).
 
 **Worker migration registration:**
+
 - `apps/worker/src/per-firm-migrations.ts` — import + map entry.
 
 **Docs:**
+
 - `STATUS.md`, `ROADMAP.md`, `changelog.d/file-hash-integrity.md`, `docs/decisions/pending/file-hash-integrity-architecture.md`.
 
 ---
@@ -69,6 +77,7 @@
 ## Task 1: Scaffold the pure package + algorithm metadata and types
 
 **Files:**
+
 - Create: `packages/file-integrity/package.json`
 - Create: `packages/file-integrity/tsconfig.json`
 - Create: `packages/file-integrity/vitest.config.ts`
@@ -77,6 +86,7 @@
 - Test: `packages/file-integrity/test/types.test.ts`
 
 **Interfaces:**
+
 - Produces: `HASH_ALGORITHMS: readonly ["MD5","SHA-1","SHA-256","SHA-384","SHA-512"]`; `type HashAlgorithm`; `ALGORITHM_RESULT_KEY: Record<HashAlgorithm, "md5"|"sha1"|"sha256"|"sha384"|"sha512">`; `interface DigestSink { write(chunk: Uint8Array): Promise<void> | void; close(): Promise<string> }`; `type CreateDigestSink = (algorithm: HashAlgorithm) => DigestSink`; `interface HashResult { md5; sha1; sha256; sha384; sha512: string; sizeBytes: number }`; `type BaselineComparison = "match"|"mismatch"|"no-baseline"`; `interface VerifyResult { hashes: HashResult; baselineSha256: string | null; comparison: BaselineComparison }`.
 
 - [ ] **Step 1: Create the package manifest**
@@ -236,7 +246,12 @@ export {
 } from "./types.ts";
 export { hashAll } from "./hash.ts";
 export { compareToBaseline } from "./compare.ts";
-export { buildReceipt, renderReceiptText, type ReceiptInput, type ReceiptPayload } from "./receipt.ts";
+export {
+  buildReceipt,
+  renderReceiptText,
+  type ReceiptInput,
+  type ReceiptPayload,
+} from "./receipt.ts";
 ```
 
 > Note: `src/index.ts` references `hash.ts`, `compare.ts`, `receipt.ts` created in later tasks. Run the test for THIS task against the `test/types.test.ts` file directly; the full package typecheck happens once those files exist (Task 4).
@@ -261,11 +276,13 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 2: The streaming multi-digest core (`hashAll`)
 
 **Files:**
+
 - Create: `packages/file-integrity/src/hash.ts`
 - Create: `packages/file-integrity/test/node-sink.ts`
 - Test: `packages/file-integrity/test/hash.test.ts`
 
 **Interfaces:**
+
 - Consumes: `HASH_ALGORITHMS`, `ALGORITHM_RESULT_KEY`, `CreateDigestSink`, `HashResult` (Task 1).
 - Produces: `hashAll(stream: ReadableStream<Uint8Array>, createSink: CreateDigestSink): Promise<HashResult>`. Reads the stream once, feeds every chunk to all five sinks, counts bytes, returns the five hex digests + `sizeBytes`. `createNodeDigestSink(algorithm)` (test helper).
 
@@ -340,17 +357,13 @@ describe("hashAll", () => {
       streamOf(encoder.encode("a"), encoder.encode("bc")),
       createNodeDigestSink,
     );
-    expect(split.sha256).toBe(
-      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
-    );
+    expect(split.sha256).toBe("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
     expect(split.sizeBytes).toBe(3);
   });
 
   it("handles the empty stream", async () => {
     const result = await hashAll(streamOf(), createNodeDigestSink);
-    expect(result.sha256).toBe(
-      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    );
+    expect(result.sha256).toBe("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
     expect(result.md5).toBe("d41d8cd98f00b204e9800998ecf8427e");
     expect(result.sizeBytes).toBe(0);
   });
@@ -367,7 +380,12 @@ Expected: FAIL — cannot resolve `../src/hash.ts`.
 `packages/file-integrity/src/hash.ts`:
 
 ```typescript
-import { ALGORITHM_RESULT_KEY, HASH_ALGORITHMS, type CreateDigestSink, type HashResult } from "./types.ts";
+import {
+  ALGORITHM_RESULT_KEY,
+  HASH_ALGORITHMS,
+  type CreateDigestSink,
+  type HashResult,
+} from "./types.ts";
 
 // Read the byte stream exactly once and fan every chunk into one sink per algorithm. The cost is a
 // single pass over the bytes regardless of how many algorithms are requested; nothing is buffered
@@ -390,7 +408,9 @@ export async function hashAll(
     reader.releaseLock();
   }
   const digests = await Promise.all(
-    sinks.map(async ({ algorithm, sink }) => [ALGORITHM_RESULT_KEY[algorithm], await sink.close()] as const),
+    sinks.map(
+      async ({ algorithm, sink }) => [ALGORITHM_RESULT_KEY[algorithm], await sink.close()] as const,
+    ),
   );
   const byKey = Object.fromEntries(digests) as Record<string, string>;
   return {
@@ -423,10 +443,12 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 3: Baseline comparison (`compareToBaseline`)
 
 **Files:**
+
 - Create: `packages/file-integrity/src/compare.ts`
 - Test: `packages/file-integrity/test/compare.test.ts`
 
 **Interfaces:**
+
 - Consumes: `BaselineComparison` (Task 1).
 - Produces: `compareToBaseline(computedSha256: string, baselineSha256: string | null): BaselineComparison`.
 
@@ -503,10 +525,12 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 4: The hash receipt (`buildReceipt` + `renderReceiptText`)
 
 **Files:**
+
 - Create: `packages/file-integrity/src/receipt.ts`
 - Test: `packages/file-integrity/test/receipt.test.ts`
 
 **Interfaces:**
+
 - Consumes: `HashResult`, `BaselineComparison` (Task 1).
 - Produces: `interface ReceiptInput`, `type ReceiptPayload = ReceiptInput`, `buildReceipt(input: ReceiptInput): ReceiptPayload`, `renderReceiptText(payload: ReceiptPayload): string`.
 
@@ -591,7 +615,11 @@ import { HASH_ALGORITHMS, type BaselineComparison, type HashResult } from "./typ
 export interface ReceiptInput {
   readonly tool: { readonly name: string; readonly version: string };
   readonly firmName: string | null;
-  readonly file: { readonly name: string | null; readonly fileId: string | null; readonly versionId: string | null };
+  readonly file: {
+    readonly name: string | null;
+    readonly fileId: string | null;
+    readonly versionId: string | null;
+  };
   readonly hashes: HashResult;
   // null for the standalone surface (no in-system file, no baseline, no audit record).
   readonly verification: {
@@ -702,10 +730,12 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 5: Register the `tools:fileIntegrity` permission
 
 **Files:**
+
 - Modify: `packages/access-control/src/registry.ts` (the `tools:*` block)
 - Modify: `packages/access-control/test/registry.test.ts` (the `permissionsForNamespace("tools")` expectation)
 
 **Interfaces:**
+
 - Produces: the string `"tools:fileIntegrity"` as a registered `Permission`, usable by `assertPermission(...)`.
 
 - [ ] **Step 1: Update the registry test (failing) first**
@@ -713,22 +743,22 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 In `packages/access-control/test/registry.test.ts`, add `"tools:fileIntegrity"` to the end of the `tools` expectation array:
 
 ```typescript
-  it("permissionsForNamespace('tools') returns exactly the tools keys, in registry order", () => {
-    expect(permissionsForNamespace("tools")).toEqual([
-      "tools:propertyListings",
-      "tools:propertyRecords",
-      "tools:businessLookup",
-      "tools:attorneyLicense",
-      "tools:shipping",
-      "tools:speedTest",
-      "tools:firmUsage",
-      "tools:whois",
-      "tools:safeBrowse",
-      "tools:fileConverter",
-      "tools:metadataScrubber",
-      "tools:fileIntegrity",
-    ]);
-  });
+it("permissionsForNamespace('tools') returns exactly the tools keys, in registry order", () => {
+  expect(permissionsForNamespace("tools")).toEqual([
+    "tools:propertyListings",
+    "tools:propertyRecords",
+    "tools:businessLookup",
+    "tools:attorneyLicense",
+    "tools:shipping",
+    "tools:speedTest",
+    "tools:firmUsage",
+    "tools:whois",
+    "tools:safeBrowse",
+    "tools:fileConverter",
+    "tools:metadataScrubber",
+    "tools:fileIntegrity",
+  ]);
+});
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -763,11 +793,13 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 6: Add the `file` context tag and the catalog row
 
 **Files:**
+
 - Modify: `packages/tools/src/types.ts` (the `ContextTag` union)
 - Modify: `packages/tools/src/catalog.ts` (one new row)
 - Test: `packages/tools/test/select.test.ts` (a `toolsFor("file")` assertion) — if this file does not exist, add the test to the existing catalog/selector test file in `packages/tools/test/`.
 
 **Interfaces:**
+
 - Consumes: `toolsFor(catalog, tag, permissions)` and `ToolManifest` (existing in `@magna-carta/tools`).
 - Produces: `ContextTag` now includes `"file"`; the catalog contains a `file-hash-integrity` row tagged `["file", "none"]`.
 
@@ -847,10 +879,12 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 7: File-manager query for the integrity baseline
 
 **Files:**
+
 - Modify: `packages/file-manager/src/queries.ts` (add `getCurrentVersionForIntegrity`)
 - Test: `packages/file-manager/test/queries.test.ts` (add a case) — use the existing queries test file; if integrity needs the Workers pool it instead lives in `apps/worker/test` (see note).
 
 **Interfaces:**
+
 - Consumes: the existing `selectCurrentCleanVersionStatement` pattern + `FileId`, `FileVersionId`, `SqlDatabase`.
 - Produces: `getCurrentVersionForIntegrity(database: SqlDatabase, fileId: FileId): Promise<VersionIntegrity | undefined>` where `interface VersionIntegrity { id: FileVersionId; r2Key: string; sizeBytes: number | null; contentSha256: string | null }`.
 
@@ -912,12 +946,14 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 8: Worker digest sink + the `hash` route
 
 **Files:**
+
 - Create: `apps/worker/src/file-integrity/worker-sink.ts`
 - Create: `apps/worker/src/routes/file-integrity.ts` (the `hash` route + `registerFileIntegrityRoutes`; the `verify` route is added in Task 9)
 - Modify: `apps/worker/src/app.ts` (register the routes)
 - Test: `apps/worker/test/file-integrity.test.ts`
 
 **Interfaces:**
+
 - Consumes: `hashAll` (Task 2), `HashAlgorithm`/`DigestSink` (Task 1), the chokepoint helpers (`chokepointMiddleware`, `requireChokepointFirmContext`), `defineOpenAPIRoute`/`RouteMeta`, `readInspectableSizeCap`.
 - Produces: `createWorkerDigestSink(algorithm: HashAlgorithm): DigestSink`; `registerFileIntegrityRoutes(app, chokepoint)`; `POST /api/v1/file-integrity/hash`.
 
@@ -938,7 +974,11 @@ describe("POST /api/v1/file-integrity/hash", () => {
       "/api/v1/file-integrity/hash",
       {
         method: "POST",
-        headers: { ...session.headers, "content-type": "application/octet-stream", "content-length": "3" },
+        headers: {
+          ...session.headers,
+          "content-type": "application/octet-stream",
+          "content-length": "3",
+        },
         body: new TextEncoder().encode("abc"),
       },
       env,
@@ -1108,7 +1148,10 @@ export function registerFileIntegrityRoutes(app: FileIntegrityApp, chokepoint: C
   // digest. No request-body schema (the bytes are binary), so the raw stream reaches the hasher
   // unbuffered; the size cap is enforced from Content-Length before hashing.
   app.openapi(
-    { ...fileIntegrityHashRoute, middleware: chokepointMiddleware(chokepoint, fileIntegrityHashRoute) },
+    {
+      ...fileIntegrityHashRoute,
+      middleware: chokepointMiddleware(chokepoint, fileIntegrityHashRoute),
+    },
     async (c) => {
       const firm = requireChokepointFirmContext(c);
       const body = c.req.raw.body;
@@ -1160,7 +1203,7 @@ In `apps/worker/src/app.ts`, import and call (placing it near the other tool rou
 ```typescript
 import { registerFileIntegrityRoutes } from "./routes/file-integrity.ts";
 // ... in the registration body, alongside registerFirmUsageRoute(app, chokepoint); :
-  registerFileIntegrityRoutes(app, chokepoint);
+registerFileIntegrityRoutes(app, chokepoint);
 ```
 
 - [ ] **Step 6: Run the test to verify it passes**
@@ -1194,10 +1237,12 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 9: The `verify` route (R2 read, baseline compare, audit row, receipt)
 
 **Files:**
+
 - Modify: `apps/worker/src/routes/file-integrity.ts` (add the `verify` route to `registerFileIntegrityRoutes`)
 - Test: `apps/worker/test/file-integrity.test.ts` (add verify cases)
 
 **Interfaces:**
+
 - Consumes: `getCurrentVersionForIntegrity` (Task 7), `hashAll` (Task 2), `compareToBaseline` (Task 3), `buildReceipt` (Task 4), `createWorkerDigestSink` (Task 8), `insertAuditLogStatement`/`commitEffectBatch`/`newIdentifier`, `requireChokepointFirmContext`/`requireChokepointUserId`.
 - Produces: `POST /api/v1/file-integrity/verify`.
 
@@ -1229,7 +1274,7 @@ describe("POST /api/v1/file-integrity/verify", () => {
     );
     expect(body.receipt.verification.auditLogId).toBeTruthy();
 
-    const audit = await env.DB /* the firm db handle the suite exposes */;
+    const audit = await env.DB; /* the firm db handle the suite exposes */
     // Assert one file.integrityVerified row exists for this file (use the suite's firm-db query helper).
   });
 
@@ -1240,7 +1285,11 @@ describe("POST /api/v1/file-integrity/verify", () => {
     await env.R2.put(r2Key, new TextEncoder().encode("tampered")); // overwrite the object bytes
     const response = await app.request(
       "/api/v1/file-integrity/verify",
-      { method: "POST", headers: { ...session.headers, "content-type": "application/json" }, body: JSON.stringify({ fileId }) },
+      {
+        method: "POST",
+        headers: { ...session.headers, "content-type": "application/json" },
+        body: JSON.stringify({ fileId }),
+      },
       env,
     );
     const body = await response.json();
@@ -1325,7 +1374,8 @@ export const fileIntegrityVerifyRoute = defineOpenAPIRoute(fileIntegrityVerifyMe
       content: { "application/problem+json": { schema: Problem } },
     },
     413: {
-      description: "The stored file exceeds the firm's inspectable-size cap for inline verification",
+      description:
+        "The stored file exceeds the firm's inspectable-size cap for inline verification",
       content: { "application/problem+json": { schema: Problem } },
     },
     429: {
@@ -1339,114 +1389,117 @@ export const fileIntegrityVerifyRoute = defineOpenAPIRoute(fileIntegrityVerifyMe
 Inside `registerFileIntegrityRoutes`, after the hash route's `app.openapi(...)`, add:
 
 ```typescript
-  // POST /api/v1/file-integrity/verify — recompute a stored file's digests from R2 and compare the
-  // SHA-256 to the ingest baseline, recording a chain-of-custody audit row.
-  app.openapi(
-    { ...fileIntegrityVerifyRoute, middleware: chokepointMiddleware(chokepoint, fileIntegrityVerifyRoute) },
-    async (c) => {
-      const firm = requireChokepointFirmContext(c);
-      const userId = requireChokepointUserId(c);
-      const { fileId } = c.req.valid("json");
+// POST /api/v1/file-integrity/verify — recompute a stored file's digests from R2 and compare the
+// SHA-256 to the ingest baseline, recording a chain-of-custody audit row.
+app.openapi(
+  {
+    ...fileIntegrityVerifyRoute,
+    middleware: chokepointMiddleware(chokepoint, fileIntegrityVerifyRoute),
+  },
+  async (c) => {
+    const firm = requireChokepointFirmContext(c);
+    const userId = requireChokepointUserId(c);
+    const { fileId } = c.req.valid("json");
 
-      const version = await getCurrentVersionForIntegrity(firm.firmDatabase, fileId);
-      if (version === undefined) {
-        return problemJson(c, {
-          type: "not-found",
-          title: "No verifiable version",
-          status: 404,
-          detail: "The file has no clean current version to verify.",
-        });
-      }
-
-      const cap = await readInspectableSizeCap(firm.firmDatabase);
-      if (version.sizeBytes !== null && version.sizeBytes > cap) {
-        return problemJson(c, {
-          type: "upload-not-allowed",
-          title: "File too large to verify inline",
-          status: 413,
-          detail: `The stored file exceeds this firm's inspectable-size cap (${cap} bytes).`,
-        });
-      }
-
-      const object = await c.env.R2.get(version.r2Key);
-      if (object === null) {
-        return problemJson(c, {
-          type: "not-found",
-          title: "Stored bytes unavailable",
-          status: 404,
-          detail: "The file's stored object could not be read.",
-        });
-      }
-
-      const hashes = await hashAll(object.body, createWorkerDigestSink);
-      const comparison = compareToBaseline(hashes.sha256, version.contentSha256);
-      const computedAt = new Date().toISOString();
-
-      const auditLogId = newIdentifier("auditLog");
-      await commitEffectBatch(
-        firm.firmDatabase,
-        {
-          statements: [
-            insertAuditLogStatement(firm.firmDatabase, {
-              id: auditLogId,
-              event: "file.integrityVerified",
-              actorUserId: userId,
-              subjectId: fileId,
-              metadata: {
-                versionId: version.id,
-                baselineSha256: version.contentSha256,
-                computed: {
-                  md5: hashes.md5,
-                  sha1: hashes.sha1,
-                  sha256: hashes.sha256,
-                  sha384: hashes.sha384,
-                  sha512: hashes.sha512,
-                },
-                result: comparison,
-                sizeBytes: hashes.sizeBytes,
-                verifiedAt: computedAt,
-              },
-              now: computedAt,
-            }),
-          ],
-          outboxMessages: [],
-        },
-        { now: () => computedAt },
-      );
-
-      const receipt = buildReceipt({
-        tool: { name: "File Hash & Integrity", version: "1" },
-        firmName: firm.firmName ?? null,
-        file: { name: null, fileId, versionId: version.id },
-        hashes,
-        verification: {
-          baselineSha256: version.contentSha256,
-          comparison,
-          verifiedBy: userId,
-          auditLogId,
-        },
-        computedAt,
+    const version = await getCurrentVersionForIntegrity(firm.firmDatabase, fileId);
+    if (version === undefined) {
+      return problemJson(c, {
+        type: "not-found",
+        title: "No verifiable version",
+        status: 404,
+        detail: "The file has no clean current version to verify.",
       });
+    }
 
-      return c.json(
-        {
-          algorithms: {
-            md5: hashes.md5,
-            sha1: hashes.sha1,
-            sha256: hashes.sha256,
-            sha384: hashes.sha384,
-            sha512: hashes.sha512,
-          },
-          sizeBytes: hashes.sizeBytes,
-          baselineSha256: version.contentSha256,
-          comparison,
-          computedAt,
-          receipt,
+    const cap = await readInspectableSizeCap(firm.firmDatabase);
+    if (version.sizeBytes !== null && version.sizeBytes > cap) {
+      return problemJson(c, {
+        type: "upload-not-allowed",
+        title: "File too large to verify inline",
+        status: 413,
+        detail: `The stored file exceeds this firm's inspectable-size cap (${cap} bytes).`,
+      });
+    }
+
+    const object = await c.env.R2.get(version.r2Key);
+    if (object === null) {
+      return problemJson(c, {
+        type: "not-found",
+        title: "Stored bytes unavailable",
+        status: 404,
+        detail: "The file's stored object could not be read.",
+      });
+    }
+
+    const hashes = await hashAll(object.body, createWorkerDigestSink);
+    const comparison = compareToBaseline(hashes.sha256, version.contentSha256);
+    const computedAt = new Date().toISOString();
+
+    const auditLogId = newIdentifier("auditLog");
+    await commitEffectBatch(
+      firm.firmDatabase,
+      {
+        statements: [
+          insertAuditLogStatement(firm.firmDatabase, {
+            id: auditLogId,
+            event: "file.integrityVerified",
+            actorUserId: userId,
+            subjectId: fileId,
+            metadata: {
+              versionId: version.id,
+              baselineSha256: version.contentSha256,
+              computed: {
+                md5: hashes.md5,
+                sha1: hashes.sha1,
+                sha256: hashes.sha256,
+                sha384: hashes.sha384,
+                sha512: hashes.sha512,
+              },
+              result: comparison,
+              sizeBytes: hashes.sizeBytes,
+              verifiedAt: computedAt,
+            },
+            now: computedAt,
+          }),
+        ],
+        outboxMessages: [],
+      },
+      { now: () => computedAt },
+    );
+
+    const receipt = buildReceipt({
+      tool: { name: "File Hash & Integrity", version: "1" },
+      firmName: firm.firmName ?? null,
+      file: { name: null, fileId, versionId: version.id },
+      hashes,
+      verification: {
+        baselineSha256: version.contentSha256,
+        comparison,
+        verifiedBy: userId,
+        auditLogId,
+      },
+      computedAt,
+    });
+
+    return c.json(
+      {
+        algorithms: {
+          md5: hashes.md5,
+          sha1: hashes.sha1,
+          sha256: hashes.sha256,
+          sha384: hashes.sha384,
+          sha512: hashes.sha512,
         },
-        200,
-      );
-    },
-  );
+        sizeBytes: hashes.sizeBytes,
+        baselineSha256: version.contentSha256,
+        comparison,
+        computedAt,
+        receipt,
+      },
+      200,
+    );
+  },
+);
 ```
 
 > `firm.firmName` may not exist on the firm context; if not, pass `null` (the receipt's firm line is optional). Read `requireChokepointFirmContext`'s return type and use the available firm-name field, or `null`.
@@ -1478,17 +1531,19 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 10: Seed the permission to roles (migration)
 
 **Files:**
+
 - Create: `packages/database/drizzle/per-firm/0021_seed-tools-file-integrity.sql`
 - Modify: `packages/database/drizzle/per-firm/meta/_journal.json` (add idx 21)
 - Modify: `apps/worker/src/per-firm-migrations.ts` (import + map entry)
 - Test: the worker per-firm migration test / any all-roles seed test (run the suite; update enumerations if present)
 
 **Interfaces:**
+
 - Produces: every default role granted `tools:fileIntegrity` (an everyday file utility, the same broad reach as `tools:whois`/`tools:safeBrowse`/`tools:fileConverter`).
 
 - [ ] **Step 1: Create the migration**
 
-`packages/database/drizzle/per-firm/0021_seed-tools-file-integrity.sql` — grant to all five default roles (the role_ ids are the defaults from the member-rbac seed, identical to the web-domains seed). Mint five fresh unique `rolePermission_` ids:
+`packages/database/drizzle/per-firm/0021_seed-tools-file-integrity.sql` — grant to all five default roles (the role* ids are the defaults from the member-rbac seed, identical to the web-domains seed). Mint five fresh unique `rolePermission*` ids:
 
 ```sql
 -- Seed tools:fileIntegrity onto every default role. Computing a file's digests and verifying a stored
@@ -1510,13 +1565,13 @@ INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermi
 In `packages/database/drizzle/per-firm/meta/_journal.json`, append to `entries` (after idx 20):
 
 ```json
-    {
-      "idx": 21,
-      "version": "6",
-      "when": 1782300200000,
-      "tag": "0021_seed-tools-file-integrity",
-      "breakpoints": true
-    }
+{
+  "idx": 21,
+  "version": "6",
+  "when": 1782300200000,
+  "tag": "0021_seed-tools-file-integrity",
+  "breakpoints": true
+}
 ```
 
 (Add a comma after the idx-20 object's closing brace.)
@@ -1554,6 +1609,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Task 11: Full quality gate, docs, and changelog/decision fragments
 
 **Files:**
+
 - Modify: `STATUS.md` (the Tools area / this slice's row only)
 - Modify: `ROADMAP.md` (a line under the Tools area)
 - Create: `changelog.d/file-hash-integrity.md`
@@ -1564,10 +1620,12 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 - [ ] **Step 1: Run the full quality gate**
 
 Run:
+
 ```bash
 pnpm check
 vp test
 ```
+
 Expected: fmt + lint + typecheck + svelte-check pass; the full unit/integration suite passes (including the Miniflare worker integration test). Fix anything that fails before continuing.
 
 - [ ] **Step 2: Run the process-reference fitness check**
@@ -1622,6 +1680,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Self-Review
 
 **Spec coverage:**
+
 - Pure core (`hashAll` one-read-five-hashes) → Task 2. `compareToBaseline` → Task 3. `buildReceipt`/receipt → Task 4. ✓
 - Server-side compute on every surface → the worker sink (Task 8) is the only digest backend the routes use; the standalone hash route streams the body server-side. ✓
 - Three surfaces: standalone hash (Task 8), per-file verify (Task 9); matter-action seam stays deferred (`matterContext: "none"`, Task 6). ✓

@@ -10,4 +10,9 @@ export {
 } from "./types.ts";
 export { hashAll } from "./hash.ts";
 export { compareToBaseline } from "./compare.ts";
-export { buildReceipt, renderReceiptText, type ReceiptInput, type ReceiptPayload } from "./receipt.ts";
+export {
+  buildReceipt,
+  renderReceiptText,
+  type ReceiptInput,
+  type ReceiptPayload,
+} from "./receipt.ts";

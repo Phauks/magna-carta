@@ -34,17 +34,13 @@ describe("hashAll", () => {
       streamOf(encoder.encode("a"), encoder.encode("bc")),
       createNodeDigestSink,
     );
-    expect(split.sha256).toBe(
-      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
-    );
+    expect(split.sha256).toBe("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
     expect(split.sizeBytes).toBe(3);
   });
 
   it("handles the empty stream", async () => {
     const result = await hashAll(streamOf(), createNodeDigestSink);
-    expect(result.sha256).toBe(
-      "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    );
+    expect(result.sha256).toBe("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
     expect(result.md5).toBe("d41d8cd98f00b204e9800998ecf8427e");
     expect(result.sizeBytes).toBe(0);
   });

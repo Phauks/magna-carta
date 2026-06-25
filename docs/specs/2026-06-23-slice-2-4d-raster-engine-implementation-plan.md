@@ -23,10 +23,12 @@
 ### Task 1: Scaffold the `containers/raster` crate
 
 **Files:**
+
 - Create: `containers/raster/Cargo.toml`, `containers/raster/src/lib.rs`, `containers/raster/src/main.rs`, `containers/raster/.gitignore`
 - Reference: `containers/scan/Cargo.toml`, `containers/scan/.gitignore`
 
 **Interfaces:**
+
 - Produces: crate `magna-carta-raster` with `pub fn router() -> axum::Router` (just `GET /ready` → 200 for now) and a binary serving it on `:8080`.
 
 - [ ] **Step 1: `Cargo.toml`** — package `magna-carta-raster`, `edition = "2021"`, `publish = false`; `[lib]` (path `src/lib.rs`) + `[[bin]]` (name `magna-carta-raster`, path `src/main.rs`). Deps: `tokio = { version = "1", features = ["full"] }`, `axum = "0.8"`, `image = "<latest stable from docs.rs>"`. Dev-deps: `tower = { version = "0.5", features = ["util"] }` (for `oneshot` router tests), `http-body-util = "0.1"`. `.gitignore` = `/target`.
@@ -44,10 +46,12 @@
 ### Task 2: The conversion core (`src/convert.rs`)
 
 **Files:**
+
 - Create: `containers/raster/src/convert.rs`
 - Modify: `containers/raster/src/lib.rs` (add `mod convert;`)
 
 **Interfaces:**
+
 - Produces: `pub enum ConvertError { UnsupportedFormat, Decode, Encode }` (or similar); `pub fn convert(bytes: &[u8], source_format: &str, target_format: &str, recipe: &str) -> Result<(Vec<u8>, &'static str), ConvertError>` returning the encoded bytes + the MIME string.
 
 - [ ] **Step 1: Write the failing tests** in `src/convert.rs` (`#[cfg(test)] mod tests`). Generate fixtures in-test (don't commit binaries): build a tiny `image::RgbaImage`, encode it to PNG bytes with the `image` crate, then feed those to `convert`:
@@ -167,9 +171,11 @@ pub fn convert(
 ### Task 3: The `/convert` route (`src/lib.rs`)
 
 **Files:**
+
 - Modify: `containers/raster/src/lib.rs`
 
 **Interfaces:**
+
 - Consumes: `convert(...)`, `ConvertError` (Task 2).
 - Produces: `router()` now serving `POST /convert` with the frozen contract + a raised body limit.
 
@@ -188,6 +194,7 @@ pub fn convert(
 ### Task 4: Dockerfile + CLAUDE.md
 
 **Files:**
+
 - Create: `containers/raster/Dockerfile`, `containers/raster/CLAUDE.md`
 - Reference: `containers/scan/Dockerfile`, `containers/scan/CLAUDE.md`
 
@@ -218,6 +225,7 @@ ENTRYPOINT ["/usr/local/bin/raster"]
 ### Task 5: Rename the worker placeholder + point at the real image
 
 **Files:**
+
 - Rename: `apps/convert-worker/src/libvips-container.ts` → `apps/convert-worker/src/raster-engine-container.ts`
 - Modify: `apps/convert-worker/src/index.ts`, `apps/convert-worker/wrangler.jsonc`
 - Delete: `containers/convert/` (the placeholder Dockerfile + CLAUDE.md)
@@ -237,6 +245,7 @@ ENTRYPOINT ["/usr/local/bin/raster"]
 ### Task 6: Docs, status, and final gates
 
 **Files:**
+
 - Create: `changelog.d/slice-2-4d-raster-engine.md`
 - Modify: `STATUS.md` (the 2·4 row only), `apps/worker/CLAUDE.md` (the conversion note: the raster engine is now built in pure Rust)
 

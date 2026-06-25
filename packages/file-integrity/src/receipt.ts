@@ -3,7 +3,11 @@ import { HASH_ALGORITHMS, type BaselineComparison, type HashResult } from "./typ
 export interface ReceiptInput {
   readonly tool: { readonly name: string; readonly version: string };
   readonly firmName: string | null;
-  readonly file: { readonly name: string | null; readonly fileId: string | null; readonly versionId: string | null };
+  readonly file: {
+    readonly name: string | null;
+    readonly fileId: string | null;
+    readonly versionId: string | null;
+  };
   readonly hashes: HashResult;
   // null for the standalone surface (no in-system file, no baseline, no audit record).
   readonly verification: {

@@ -22,9 +22,11 @@
 ### Task 1: image→PDF in the raster engine (`convert.rs`) + the route test
 
 **Files:**
+
 - Modify: `containers/raster/Cargo.toml` (add `krilla`), `containers/raster/src/convert.rs`, `containers/raster/src/lib.rs` (a route test)
 
 **Interfaces:**
+
 - Consumes: the existing `convert(bytes, source_format, target_format, recipe)`, the limited-decode helper, `ConvertError`.
 - Produces: `convert` now returns a valid PDF (`%PDF-…`, `application/pdf`) when `target_format == "pdf"`.
 
@@ -78,10 +80,12 @@ Add `fn image_to_pdf(image: &DynamicImage) -> Result<Vec<u8>, ...>` using krilla
 ### Task 2: Register the image→PDF edges (server-only) in `@magna-carta/conversion`
 
 **Files:**
+
 - Modify: `packages/conversion/src/format.ts` (the `EngineId` union), `packages/conversion/src/placement.ts` (`ENGINE_PLACEMENTS`), `packages/conversion/src/registry.ts` (the edges)
 - Test: the package's registry / pathfinding / placement tests
 
 **Interfaces:**
+
 - Consumes: the `EngineId` type, `ENGINE_PLACEMENTS`, the edge list, `findPath`, `canConvertLocally`.
 - Produces: `png/jpeg/webp/tiff/gif/bmp → pdf` edges under engineId `"image-pdf"` (placement `["server"]`).
 
@@ -109,6 +113,7 @@ Add `fn image_to_pdf(image: &DynamicImage) -> Result<Vec<u8>, ...>` using krilla
 ### Task 3: Docs, status, and final gates
 
 **Files:**
+
 - Create: `changelog.d/slice-2-4e-image-to-pdf.md`
 - Modify: `containers/raster/CLAUDE.md` (note the pdf output), `STATUS.md` (2·4 row only)
 
