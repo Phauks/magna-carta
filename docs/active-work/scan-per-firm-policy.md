@@ -2,7 +2,7 @@
 branch: scan-per-firm-policy
 worktree: C:/dev/magna-carta-worktrees/scan-per-firm-policy
 area: Per-firm scan policy â€” firm-selectable YARA tier/score + firm-chosen treatment of flagged files
-status: designing
+status: building
 touches: containers/scan, packages/file-manager (scan-port, scan-cache, ingest-core), apps/worker (scan routes, firm-settings), packages/database (per-firm migration + firm-scoped settings), the design-system firm-settings UI, STATUS.md, ROADMAP.md, docs/specs, docs/decisions/pending, changelog.d
 ---
 
@@ -22,3 +22,13 @@ Heads-up for concurrent streams: this **edits the merged, reviewed scan path** â
 touch the scan engine, file ingest, or firm settings, sync with me first. Builds in two slices:
 **A** = engine substrate (tagger + concurrent engines + enriched raw contract + cache reshape);
 **B** = firm policy settings + per-firm verdict + treatment at ingest/access + UI. A precedes B.
+
+**Slice A (engine substrate) is complete.** The Container returns `RawScanResult` (raw.rs); the full
+corpus is baked + tagged `{tier, score, isSuspicious}`; `combine()`/`verdict.rs` is gone. The app side
+is wired end-to-end: `computeVerdict`/`DEFAULT_SCAN_POLICY`/`ScanFaultError` (verdict.ts), the raw-result
+`scan_cache` (migration `0022_raw_scan_cache`), ingest decides app-side (ingest-core.ts), and the worker
+adapter/consumer/diagnostic route + the test stub consume the raw facts. The scan_cache key and the
+committed `scan_engine_version` now both derive from `raw.engineVersion`, so a clean ingest commit
+repopulates the cache (scan-once dedup live again). Scan-related worker + file-manager suites green;
+`cargo clippy -p magna-carta-scan -- -D warnings` clean. **Next: Slice B** (firm-scoped scan-policy
+settings + per-firm verdict + treatment menu at ingest/access + UI).

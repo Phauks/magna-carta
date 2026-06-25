@@ -1,5 +1,5 @@
 import { fileTypeFromBuffer } from "file-type";
-import type { MalwareScanPort } from "./scan-port.ts";
+import type { MalwareScanPort, RawScanResult } from "./scan-port.ts";
 import {
   computeVerdict,
   DEFAULT_SCAN_POLICY,
@@ -62,6 +62,11 @@ export type IngestOutcome =
       scanVerdict: "unscanned" | "clean";
       scanEngineVersion: string | null;
       scanDetail: string | null;
+      // The full raw scan result behind this commit, threaded to the commit so the content-dedup cache
+      // is populated atomically on a clean commit (the "scan-once" dedup). null when no engine ran (the
+      // oversize short-circuit); the cache is only written for a real-engine clean verdict, and the
+      // cache key + the stamped engine version both derive from this result's `engineVersion`.
+      rawScanResult: RawScanResult | null;
     }
   | { kind: "quarantine"; reason: QuarantineReason; scanDetail: string | null };
 
@@ -129,6 +134,7 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
       scanVerdict: "unscanned",
       scanEngineVersion: null,
       scanDetail: "oversize",
+      rawScanResult: null, // the engine never ran — nothing to cache
     };
   }
 
@@ -188,6 +194,9 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
     sniffedContentType,
     contentSha256: hashed.hash,
     scanVerdict: fileVerdict.verdict === "clean" ? "clean" : "unscanned",
+    // Both the committed `scan_engine_version` and the dedup-cache key derive from the SAME honest
+    // source — the raw result's `engineVersion` — so a clean commit always repopulates the cache under
+    // the exact engine version it stamps (the scan-once dedup the re-scan path reuses).
     scanEngineVersion: raw.engineVersion,
     scanDetail:
       fileVerdict.verdict === "clean"
@@ -195,5 +204,6 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
           ? "active-content"
           : null
         : fileVerdict.reason,
+    rawScanResult: raw,
   };
 }

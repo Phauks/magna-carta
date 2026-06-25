@@ -2,8 +2,7 @@
 // Mirrors the deleted Rust `combine` function, generalized to a single `flagged` state.
 // The precedence order below is the behaviour-preservation core — do not reorder.
 
-import type { RuleMatch, Tier } from "./scan-port.ts";
-import type { RawScanResult } from "./scan-port.ts";
+import type { RawScanResult, RuleMatch, Tier } from "./scan-port.ts";
 
 export interface ScanPolicy {
   tier: Tier;

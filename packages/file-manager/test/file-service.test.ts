@@ -163,7 +163,7 @@ describe("quarantineVersion", () => {
     const { versionId } = await initiate(database, matterId);
     const result = await quarantineVersion(
       database,
-      { versionId, reason: "scan-infected", scanDetail: null },
+      { versionId, reason: "scan-flagged", scanDetail: null },
       options,
     );
     await commitEffectBatch(database, result.effect, { now });
@@ -209,7 +209,7 @@ describe("commitVersion — scan_detail persistence", () => {
     const { versionId } = await initiate(database, matterId);
     const result = await quarantineVersion(
       database,
-      { versionId, reason: "scan-infected", scanDetail: "trojan detected" },
+      { versionId, reason: "scan-flagged", scanDetail: "trojan detected" },
       options,
     );
     await commitEffectBatch(database, result.effect, { now });

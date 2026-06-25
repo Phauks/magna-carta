@@ -109,7 +109,8 @@ function makeZip(entries) {
 const samples = [];
 
 // EICAR: the standard antivirus test string. clamd's baked signature database flags it ->
-// infected (../src/clamav.rs + verdict::combine). This is the canonical "it caught malware" demo.
+// clam: infected (../src/clamav.rs); the app-side verdict layer turns that raw fact into a flagged
+// verdict. This is the canonical "it caught malware" demo.
 const EICAR = "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*";
 samples.push({
   name: "eicar.com",
@@ -194,8 +195,9 @@ samples.push({
   data: makeZip(manyEntries),
 });
 
-// An encrypted zip entry (encryption bit set). The walker cannot read an encrypted entry, so it flags
-// and never decompresses -> unscanned / encrypted (../src/heuristics/mod.rs + verdict::combine).
+// An encrypted zip entry (encryption bit set). The walker cannot read an encrypted entry, so it reports
+// the raw `heuristic: encrypted` fact and never decompresses (../src/heuristics/mod.rs); the app-side
+// verdict layer maps that to unscanned / encrypted.
 samples.push({
   name: "encrypted.zip",
   contentType: "application/zip",

@@ -66,6 +66,15 @@ describe("runIngest", () => {
       scanVerdict: "unscanned",
       scanEngineVersion: null,
       scanDetail: "no-engine",
+      // The engine-less launch adapter's raw facts ride along on the commit outcome; with a null
+      // engineVersion the commit never writes the dedup cache.
+      rawScanResult: {
+        engineVersion: null,
+        clam: { state: "unavailable" },
+        heuristic: { kind: "none" },
+        matches: [],
+        timings: { clamdMs: 0, yaraMs: 0 },
+      },
     });
   });
 
