@@ -16,12 +16,12 @@
 //! of rules; the string+comment+regex-aware scan recovers all of them). The build bin cross-checks the
 //! split's block count against the package's own header count and fails loud on any drift.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// Which YARA Forge package a rule first appears in. The packages are nested (core ⊂ extended ⊂ full),
 /// so a rule's tier is the narrowest package containing it. Carried per rule so the app can gate matches
 /// to a firm's chosen tier without re-running the engine.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Tier {
     Core,
