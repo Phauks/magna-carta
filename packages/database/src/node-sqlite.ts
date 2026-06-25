@@ -14,6 +14,7 @@ export interface NodeSqlStatement {
   bind(...values: unknown[]): NodeSqlStatement;
   run(): Promise<{ meta: { changes: number } }>;
   all<T = Record<string, unknown>>(): Promise<{ results: T[] }>;
+  first<T = Record<string, unknown>>(): Promise<T | null>;
 }
 
 export interface NodeBatchDatabase {
@@ -39,6 +40,10 @@ export function nodeSqliteBatchDatabase(database: DatabaseSync): NodeBatchDataba
       all: <T>() => {
         const results = database.prepare(sql).all(...(bindings as SQLInputValue[])) as T[];
         return Promise.resolve({ results });
+      },
+      first: <T>(): Promise<T | null> => {
+        const results = database.prepare(sql).all(...(bindings as SQLInputValue[])) as T[];
+        return Promise.resolve(results.length > 0 ? (results[0] as T) : null);
       },
     };
   }

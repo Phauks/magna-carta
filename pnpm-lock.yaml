@@ -400,6 +400,9 @@ importers:
       '@magna-carta/encryption':
         specifier: workspace:*
         version: link:../encryption
+      '@magna-carta/feature-flags':
+        specifier: workspace:*
+        version: link:../feature-flags
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers

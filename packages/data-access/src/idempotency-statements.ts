@@ -12,6 +12,8 @@ export interface SqlStatement {
   // meta.changes is the affected-row count (D1Result.meta.changes) — guarded updates branch on it.
   run(): Promise<{ meta: { changes: number } }>;
   all<T = Record<string, unknown>>(): Promise<{ results: T[] }>;
+  // Returns the first row, or null when no rows match. Mirrors D1PreparedStatement.first().
+  first<T = Record<string, unknown>>(colName?: string): Promise<T | null>;
 }
 
 // Table name tracked against @magna-carta/database's schema by the schema-name-sync fitness test.
