@@ -1,6 +1,5 @@
 import type { DurableObjectId, DurableObjectStub } from "@cloudflare/workers-types";
 import type { FirmDatabase } from "./firm-database-object.ts";
-import { isUniqueConflict } from "./rpc-types.ts";
 
 // The minimal SQL-statement shape the statement modules and effect-batch build against.
 // Mirrors SqlDatabase / SqlStatement from @magna-carta/data-access/idempotency-statements —
@@ -26,8 +25,9 @@ export interface ProxyBatchDatabase {
 // is one commitBatch RPC, giving the transactional guarantee with no buffering in the worker.
 //
 // On a typed conflict outcome the proxy reconstructs the exact SQLite error message the
-// data-access conflict detectors (isIdempotencyKeyConflict) already match, so neither the
-// detectors nor their callers need to change — the adapter is transparent.
+// data-access conflict detectors (isIdempotencyKeyConflict, isMatterNumberConflict, …) already
+// match, from the column list the outcome carries — so neither the detectors nor their callers need
+// to change, and detection works for every unique constraint, not just one. The adapter is transparent.
 export function firmDatabaseProxy(stub: DurableObjectStub<FirmDatabase>): ProxyBatchDatabase {
   function makeStatement(sql: string, bindings: readonly unknown[]): ProxySqlStatement {
     return {
@@ -35,7 +35,8 @@ export function firmDatabaseProxy(stub: DurableObjectStub<FirmDatabase>): ProxyB
       bindings,
       bind: (...values: unknown[]) => makeStatement(sql, values),
       run: async () => ({ meta: { changes: (await stub.runWrite(sql, [...bindings])).changes } }),
-      all: async <T>() => (await stub.runRead(sql, [...bindings])) as { results: T[] },
+      all: async <T>() =>
+        await (stub.runRead(sql, [...bindings]) as unknown as Promise<{ results: T[] }>),
     };
   }
 
@@ -47,12 +48,10 @@ export function firmDatabaseProxy(stub: DurableObjectStub<FirmDatabase>): ProxyB
         statements.map((s) => ({ sql: s.sql, bindings: [...s.bindings] })),
       );
       if (!outcome.ok) {
-        // Reconstruct the SQLite UNIQUE constraint message so the data-access detectors'
-        // message-based checks work unchanged. The "unique" arm is currently unreachable
-        // (the DO only produces "idempotency_key" and re-throws everything else as a fault)
-        // but is included so the type is fully handled.
-        const column = outcome.conflict === "idempotency_key" ? "idempotency_key.key" : "unique";
-        throw new Error(`UNIQUE constraint failed: ${column}`);
+        // Reconstruct the SQLite UNIQUE constraint message from the column list the DO parsed, so the
+        // data-access detectors' message-based checks (each an .includes on its own column) work
+        // unchanged — for every unique constraint, not just one.
+        throw new Error(`UNIQUE constraint failed: ${outcome.uniqueConstraint}`);
       }
       return statements.map(() => ({ success: true }));
     },
@@ -81,6 +80,3 @@ export function firmDatabaseFor(
   const stub = namespace.get(namespace.idFromName(firmId)) as DurableObjectStub<FirmDatabase>;
   return firmDatabaseProxy(stub);
 }
-
-// Re-export so callers that need both the proxy and the conflict tester can import from one place.
-export { isUniqueConflict };

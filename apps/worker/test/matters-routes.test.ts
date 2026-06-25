@@ -262,3 +262,35 @@ describe("permission enforcement", () => {
     expect(response.status).toBe(403);
   });
 });
+
+describe("manual renumber conflict", () => {
+  // End-to-end proof that a NON-idempotency UNIQUE violation (matter.matter_number) is detected
+  // through the real FIRM_DATABASE Durable Object. The DO catches the violation, the proxy
+  // reconstructs "UNIQUE constraint failed: matter.matter_number", isMatterNumberConflict matches it,
+  // and the service maps it to matter-number-taken → 409. Were detection still tied to one hardcoded
+  // column (the pre-fix behaviour), this conflict would cross RPC as a raw fault and surface as 500.
+  it("returns 409 when renumbering a matter to a number already in use", async () => {
+    const first = await post("/api/v1/matters", {
+      title: "Renumber Source",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+    });
+    expect(first.status).toBe(201);
+    const firstId = ((await first.json()) as { matterId: string }).matterId;
+
+    const second = await post("/api/v1/matters", {
+      title: "Renumber Target",
+      status: "open",
+      responsibleMemberId: ownerUserId,
+    });
+    expect(second.status).toBe(201);
+    const secondNumber = ((await second.json()) as { matterNumber: string }).matterNumber;
+
+    // Renumber the first matter onto the second's number → the matter_number UNIQUE index aborts.
+    const conflict = await post(`/api/v1/matters/${firstId}/renumber`, {
+      matterNumber: secondNumber,
+    });
+    expect(conflict.status).toBe(409);
+    expect(((await conflict.json()) as { type: string }).type).toContain("conflict");
+  });
+});

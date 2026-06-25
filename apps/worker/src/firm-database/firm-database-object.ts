@@ -4,7 +4,7 @@ import { doSqliteBatchDatabase } from "@magna-carta/database/do-sqlite-batch-dat
 import { runPendingMigrations } from "@magna-carta/database/migration-runner";
 import type { Bindings } from "../app.ts";
 import { perFirmMigrations } from "../per-firm-migrations.ts";
-import { isUniqueConflict, type CommitOutcome, type RpcStatement } from "./rpc-types.ts";
+import { uniqueConstraintColumns, type CommitOutcome, type RpcStatement } from "./rpc-types.ts";
 
 // One firm's per-firm database. Addressed idFromName(firmId): binding-free, created on first access,
 // self-migrating on wake. The app Worker reaches it through firm-database-proxy.ts (the SqlDatabase
@@ -44,10 +44,11 @@ export class FirmDatabase extends DurableObject<Bindings> {
       await database.batch(prepared);
       return { ok: true };
     } catch (error) {
-      // Translate the only conflict the effect path expects into a typed outcome. Anything else is a
-      // real fault and must surface as a thrown RPC error (the worker maps it to a 500).
-      if (isUniqueConflict(error, "idempotency_key.key"))
-        return { ok: false, conflict: "idempotency_key" };
+      // Translate any UNIQUE violation into a typed outcome carrying its column list, so conflict
+      // detection never depends on the SQLite message surviving RPC. Anything else is a real fault
+      // and must surface as a thrown RPC error (the worker maps it to a 500).
+      const columns = uniqueConstraintColumns(error);
+      if (columns !== null) return { ok: false, uniqueConstraint: columns };
       throw error;
     }
   }
@@ -60,6 +61,18 @@ export class FirmDatabase extends DurableObject<Bindings> {
             .exec("SELECT count(*) AS c FROM sqlite_master WHERE type = 'table'")
             .one() as { c: number }
         ).c,
+    );
+  }
+
+  // The applied-migration tags the self-migration recorded, so a test can assert the full per-firm
+  // lineage ran (not just that some tables exist) and catch a partial-lineage regression.
+  appliedMigrationTagsForTest(): Promise<string[]> {
+    return this.ready.then(() =>
+      (
+        this.ctx.storage.sql.exec("SELECT tag FROM _migrations ORDER BY tag").toArray() as {
+          tag: string;
+        }[]
+      ).map((row) => row.tag),
     );
   }
 }
