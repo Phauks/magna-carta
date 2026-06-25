@@ -1,4 +1,5 @@
 import type { FileId, FileVersionId, FolderId } from "@magna-carta/identifiers/types";
+import { disambiguate } from "./bundle-paths.ts";
 import type { FolderNode, MatterCleanFile } from "./queries.ts";
 
 // Pure composition for the bulk-ZIP download: resolves a {folderIds, fileIds} selection over a
@@ -50,27 +51,6 @@ function fileEntryPath(
 ): string {
   const folderSegments = folderId === null ? [] : folderPath(folderId, byId);
   return [...folderSegments, name].join("/");
-}
-
-function disambiguate(path: string, taken: Set<string>): string {
-  if (!taken.has(path)) {
-    taken.add(path);
-    return path;
-  }
-  const slash = path.lastIndexOf("/");
-  const dir = slash === -1 ? "" : path.slice(0, slash + 1);
-  const base = slash === -1 ? path : path.slice(slash + 1);
-  const dot = base.lastIndexOf(".");
-  const stem = dot <= 0 ? base : base.slice(0, dot);
-  const ext = dot <= 0 ? "" : base.slice(dot);
-  let counter = 1;
-  let candidate = `${dir}${stem} (${counter})${ext}`;
-  while (taken.has(candidate)) {
-    counter += 1;
-    candidate = `${dir}${stem} (${counter})${ext}`;
-  }
-  taken.add(candidate);
-  return candidate;
 }
 
 // Descendant-folder closure of the selected folders: a selected folder pulls in every file beneath
