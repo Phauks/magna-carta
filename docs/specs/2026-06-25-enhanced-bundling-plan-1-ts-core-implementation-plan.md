@@ -389,9 +389,8 @@ const RESERVED_DEVICE_NAMES = new Set([
 
 function sanitizeSegment(segment: string): string {
   // Replace characters illegal on Windows/macOS, then trim trailing dots/spaces (Windows strips them,
-  // which would silently collide two distinct names). Control chars go too.
-  // eslint-disable-next-line no-control-regex
-  let cleaned = segment.replace(/[<>:"/\\|?* -]/g, "_").replace(/[ .]+$/g, "");
+  // which would silently collide two distinct names). Spaces inside a name are legal and kept.
+  let cleaned = segment.replace(/[<>:"/\\|?*]/g, "_").replace(/[ .]+$/g, "");
   if (cleaned.length === 0) cleaned = "_";
   const stem = cleaned.split(".")[0]?.toUpperCase() ?? "";
   if (RESERVED_DEVICE_NAMES.has(stem)) cleaned = `_${cleaned}`;
@@ -658,7 +657,7 @@ git commit -m "feat(bundling): CONTENTS manifest generator"
 
 **Files:**
 - Modify: `packages/file-manager/src/zip-composition.ts` (add `bundleCacheKey`)
-- Test: `packages/file-manager/test/zip-composition.test.ts` (append a `describe` block)
+- Test: `packages/file-manager/test/zip-composition.test.ts` (append a `describe` block; place the new imports with the existing top-of-file imports)
 
 **Interfaces:**
 - Consumes: `BundleOptions` from `./bundle-options.ts`; existing `bundleManifestHash`.
@@ -666,13 +665,18 @@ git commit -m "feat(bundling): CONTENTS manifest generator"
 
 **Why:** the existing `bundleManifestHash` keys the store-mode ZIP cache by content alone. Once two different option sets (e.g. compressed vs. stored, or different wrapper names) can target the same files, the cache must key on the options too, or they collide on one artifact. The **password and the `encryption` block are excluded** — encrypted bundles are never cached, and excluding the block keeps secrets out of the key.
 
-- [ ] **Step 1: Write the failing test (append to the existing file)**
+- [ ] **Step 1: Write the failing test (add to the existing file)**
+
+Add these imports to the top of `packages/file-manager/test/zip-composition.test.ts` (with the other imports), then append the `describe` block at the end:
 
 ```ts
-// append to packages/file-manager/test/zip-composition.test.ts
+// top-of-file imports (add alongside the existing ones)
 import { bundleCacheKey } from "../src/zip-composition.ts";
 import { DEFAULT_BUNDLE_OPTIONS } from "../src/bundle-options.ts";
+```
 
+```ts
+// append at the end of packages/file-manager/test/zip-composition.test.ts
 describe("bundleCacheKey", () => {
   const entries = [{ r2Key: "files/f1/v1", path: "a.pdf" }];
 
@@ -757,8 +761,8 @@ git commit -m "feat(bundling): options-aware bundle cache key (excludes secrets)
 
 ## Self-review
 
-- **Spec coverage (Plan 1 portion):** options model (Task 1) ✓; format/capability registry + per-format validation (Task 2) ✓; cross-platform name sanitization + shared disambiguation (Task 3) ✓; wrapper folder + flatten layout (Task 4) ✓; CONTENTS manifest (Task 5) ✓; options-aware, secret-excluding cache key (Task 6) ✓. Correctness items ZIP64 / UTF-8 / timestamps belong to the encoder (Plan 2 — container), not this pure layer; sanitization is the one correctness item realizable purely and is covered here.
-- **Out of this plan (later plans):** the Rust `containers/bundle` encoder (Plan 2, gated on a 7z-crate evaluation), the worker `downloads/` orchestration extensions + container adapter + the encrypted in-memory-password path (Plan 3), and the UI bundle-options surface (Plan 4).
+- **Spec coverage (Plan 1 portion):** options model (Task 1); format/capability registry + per-format validation (Task 2); cross-platform name sanitization + shared disambiguation (Task 3); wrapper folder + flatten layout (Task 4); CONTENTS manifest (Task 5); options-aware, secret-excluding cache key (Task 6). Correctness items ZIP64 / UTF-8 / timestamps belong to the encoder (the container plan), not this pure layer; sanitization is the one correctness item realizable purely and is covered here.
+- **Out of this plan (later plans):** the Rust `containers/bundle` encoder (gated on a 7z-crate evaluation), the worker `downloads/` orchestration extensions + container adapter + the encrypted in-memory-password path, and the UI bundle-options surface.
 - **Placeholder scan:** none — every step carries runnable code and an exact command.
 - **Type consistency:** `BundleOptions`/`BundleFormat`/`CompressionLevel` defined in Task 1 are consumed verbatim in Tasks 2/4/6; `ResolvedZip`/`ZipEntry` reused from `zip-composition.ts`; `disambiguate`/`sanitizeArchivePath` defined in Task 3 are consumed in Task 4; `bundleManifestHash` reused in Task 6.
 
