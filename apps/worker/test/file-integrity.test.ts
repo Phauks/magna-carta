@@ -175,9 +175,9 @@ describe("POST /api/v1/file-integrity/verify", () => {
     expect(body.baselineSha256).toBe(sha256);
     expect(body.receipt.verification.auditLogId).toBeTruthy();
 
-    // Exactly one file.integrityVerified audit row must exist for this file (the subject_id).
+    // Exactly one file.integrity_verified audit row must exist for this file (the subject_id).
     const auditRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS count FROM audit_log WHERE event = 'file.integrityVerified' AND subject_id = ?1",
+      "SELECT COUNT(*) AS count FROM audit_log WHERE event = 'file.integrity_verified' AND subject_id = ?1",
     )
       .bind(fileId)
       .first<{ count: number }>();
@@ -185,7 +185,7 @@ describe("POST /api/v1/file-integrity/verify", () => {
 
     // The receipt's auditLogId must match the row that was written.
     const auditIdRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT id FROM audit_log WHERE event = 'file.integrityVerified' AND subject_id = ?1",
+      "SELECT id FROM audit_log WHERE event = 'file.integrity_verified' AND subject_id = ?1",
     )
       .bind(fileId)
       .first<{ id: string }>();

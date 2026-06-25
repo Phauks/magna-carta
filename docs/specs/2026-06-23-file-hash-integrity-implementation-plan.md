@@ -4,7 +4,7 @@
 
 **Goal:** Add an ethereal Tools-area utility that computes a file's cryptographic digests (MD5, SHA-1, SHA-256, SHA-384, SHA-512 in one streaming pass) and verifies a stored file still matches the SHA-256 baseline recorded at ingest, with a chain-of-custody audit row and a downloadable hash receipt.
 
-**Architecture:** A new pure TypeScript package `@magna-carta/file-integrity` owns the streaming multi-digest core, the baseline comparison, and the receipt builder — all I/O (the digest backend, R2 reads, the clock) injected. Two Worker routes through the chokepoint expose it: a stateless `hash` over a streamed request body, and a `verify` that re-reads a file's bytes from R2, compares to the stored baseline, and records a `file.integrityVerified` audit row. The Tools catalog gains one row and a new `file` context tag (the first per-file contextual action).
+**Architecture:** A new pure TypeScript package `@magna-carta/file-integrity` owns the streaming multi-digest core, the baseline comparison, and the receipt builder — all I/O (the digest backend, R2 reads, the clock) injected. Two Worker routes through the chokepoint expose it: a stateless `hash` over a streamed request body, and a `verify` that re-reads a file's bytes from R2, compares to the stored baseline, and records a `file.integrity_verified` audit row. The Tools catalog gains one row and a new `file` context tag (the first per-file contextual action).
 
 **Tech Stack:** TypeScript (ESM, `.ts` extensionful imports), Cloudflare Workers (`crypto.DigestStream`, R2 binding `env.R2`), Hono + `@hono/zod-openapi`, Vitest (node pool for the pure package; Cloudflare Workers pool under `apps/worker/test/` for the routes), Drizzle SQL migrations.
 
@@ -1275,7 +1275,7 @@ describe("POST /api/v1/file-integrity/verify", () => {
     expect(body.receipt.verification.auditLogId).toBeTruthy();
 
     const audit = await env.DB; /* the firm db handle the suite exposes */
-    // Assert one file.integrityVerified row exists for this file (use the suite's firm-db query helper).
+    // Assert one file.integrity_verified row exists for this file (use the suite's firm-db query helper).
   });
 
   it("reports mismatch when the stored bytes were altered after ingest", async () => {
@@ -1442,7 +1442,7 @@ app.openapi(
         statements: [
           insertAuditLogStatement(firm.firmDatabase, {
             id: auditLogId,
-            event: "file.integrityVerified",
+            event: "file.integrity_verified",
             actorUserId: userId,
             subjectId: fileId,
             metadata: {
@@ -1686,7 +1686,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 - Three surfaces: standalone hash (Task 8), per-file verify (Task 9); matter-action seam stays deferred (`matterContext: "none"`, Task 6). ✓
 - New `file` context tag + catalog row → Task 6. ✓
 - `tools:fileIntegrity` permission + role seed → Tasks 5 + 10. ✓
-- Chain-of-custody `audit_log` row (`file.integrityVerified`, exact metadata shape) → Task 9. ✓
+- Chain-of-custody `audit_log` row (`file.integrity_verified`, exact metadata shape) → Task 9. ✓
 - Hash receipt (.txt/.json; the API returns the structured payload, the UI renders text) → Task 4 + returned by Task 9. ✓
 - Baseline from `file_version.content_sha256` → Task 7. ✓
 - Large-file inline cap (default = inspectable-size cap) + 413 → Tasks 8 + 9; async-Queue path stays deferred. ✓

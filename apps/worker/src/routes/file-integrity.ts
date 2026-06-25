@@ -104,7 +104,7 @@ export const fileIntegrityVerifyMeta: RouteMeta = {
   authenticated: true,
   permission: "tools:fileIntegrity",
   resource: "firm",
-  // Writes a file.integrityVerified audit row to the per-firm audit_log — the chain-of-custody
+  // Writes a file.integrity_verified audit row to the per-firm audit_log — the chain-of-custody
   // record that the check ran, who ran it, and what it found.
   audited: true,
   idempotency: "optional",
@@ -240,6 +240,7 @@ export function registerFileIntegrityRoutes(app: FileIntegrityApp, chokepoint: C
 
       // Enforce the size cap against the stored sizeBytes — never against a client-supplied value.
       const cap = await readInspectableSizeCap(firm.firmDatabase);
+      // A clean committed version always has sizeBytes recorded at ingest; null is unreachable here — the streaming digest never buffers regardless.
       if (version.sizeBytes !== null && version.sizeBytes > cap) {
         return problemJson(c, {
           type: "upload-not-allowed",
@@ -273,7 +274,7 @@ export function registerFileIntegrityRoutes(app: FileIntegrityApp, chokepoint: C
           statements: [
             insertAuditLogStatement(firm.firmDatabase, {
               id: auditLogId,
-              event: "file.integrityVerified",
+              event: "file.integrity_verified",
               actorUserId: userId,
               subjectId: fileId,
               metadata: {

@@ -15,7 +15,7 @@ Scope of THIS stream: the pure `@magna-carta/file-integrity` core (`hashAll` fan
 `buildReceipt`) + two worker routes (`/api/v1/file-integrity/hash`, `/api/v1/file-integrity/verify`) + one
 catalog row + the new `file` context tag (first per-file contextual action) + `tools:fileIntegrity`
 permission + role seed. Server-side compute on every surface (forensic attestability + MD5). Per-file verify
-records a `file.integrityVerified` row to the per-firm `audit_log`. Hash receipt (.txt/.json) in v1.
+records a `file.integrity_verified` row to the per-firm `audit_log`. Hash receipt (.txt/.json) in v1.
 
 Touch-overlap coordination: `packages/tools/src/catalog.ts`, `packages/access-control/src/registry.ts`,
 `STATUS.md`, `ROADMAP.md` are also touched by tools-metadata-scrubber (one-row / one-permission additions —

@@ -77,7 +77,7 @@ The `DigestStream` constructor is reached through a precisely-typed accessor (th
 **Chain-of-custody record.** Every per-file verify writes one `audit_log` row via the existing redaction-safe helper (`insertAuditLogStatement` / the file-manager `fileAuditStatement` wrapper):
 
 ```
-event: "file.integrityVerified"
+event: "file.integrity_verified"
 actor_user_id: <verifying user>
 subject_id: <fileId>
 metadata: { versionId, baselineSha256, computed: { md5, sha1, sha256, sha384, sha512 },
