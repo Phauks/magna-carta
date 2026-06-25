@@ -1,5 +1,11 @@
 import { fileTypeFromBuffer } from "file-type";
 import type { MalwareScanPort } from "./scan-port.ts";
+import {
+  computeVerdict,
+  DEFAULT_SCAN_POLICY,
+  ScanFaultError,
+  type FileVerdict,
+} from "./verdict.ts";
 import { checkUploadPolicy, type UploadPolicy } from "./upload-policy.ts";
 import { FileManagerValidationError } from "./validation.ts";
 
@@ -45,8 +51,7 @@ export type QuarantineReason =
   | "size-mismatch"
   | "policy-size"
   | "policy-type"
-  | "scan-infected"
-  | "scan-suspicious";
+  | "scan-flagged";
 
 export type IngestOutcome =
   | {
@@ -128,7 +133,7 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
   }
 
   const [hashStream, scanStream] = bodyStream.tee();
-  const [scan, hashed] = await Promise.all([
+  const [raw, hashed] = await Promise.all([
     input.scanPort.scan(scanStream, {
       sizeBytes: input.objectSize,
       sniffedContentType,
@@ -168,18 +173,27 @@ export async function runIngest(input: IngestInput): Promise<IngestOutcome> {
     }
     throw error;
   }
-  if (scan.verdict === "infected")
-    return { kind: "quarantine", reason: "scan-infected", scanDetail: scan.signature };
-  if (scan.verdict === "suspicious")
-    return { kind: "quarantine", reason: "scan-suspicious", scanDetail: scan.reason };
+  let fileVerdict: FileVerdict;
+  try {
+    fileVerdict = computeVerdict(raw, DEFAULT_SCAN_POLICY);
+  } catch (error) {
+    if (error instanceof ScanFaultError) throw error; // retryable — never commit
+    throw error;
+  }
+  if (fileVerdict.verdict === "flagged")
+    return { kind: "quarantine", reason: "scan-flagged", scanDetail: fileVerdict.reason };
   return {
     kind: "commit",
     sizeBytes: input.objectSize,
     sniffedContentType,
     contentSha256: hashed.hash,
-    scanVerdict: scan.verdict === "clean" ? "clean" : "unscanned",
-    scanEngineVersion: scan.engineVersion,
+    scanVerdict: fileVerdict.verdict === "clean" ? "clean" : "unscanned",
+    scanEngineVersion: raw.engineVersion,
     scanDetail:
-      scan.verdict === "clean" ? (scan.activeContent ? "active-content" : null) : scan.reason,
+      fileVerdict.verdict === "clean"
+        ? fileVerdict.activeContent
+          ? "active-content"
+          : null
+        : fileVerdict.reason,
   };
 }

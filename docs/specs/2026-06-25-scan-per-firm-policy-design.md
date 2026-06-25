@@ -36,7 +36,7 @@ informed access, per-firm dedup, redact-by-default) and without losing cross-fir
 
 ## Decisions (settled in brainstorming)
 
-- **Scan-all, gate-after.** Bake the *full* corpus and decide per-firm at verdict time, rather than
+- **Scan-all, gate-after.** Bake the _full_ corpus and decide per-firm at verdict time, rather than
   scanning a per-firm subset. Confirmed acceptable because extended≈10k and full≈11k rules (~10% more)
   and, once engines run concurrently, the yara scan hides under clamd's ~15 MiB/s floor.
 - **Concurrency over corpus-restriction.** Running only a firm's subset would require separately
@@ -78,7 +78,7 @@ bounds the custom range to where the `_SUSP_` score histogram is meaningful (emi
   all three Forge packages and diffing rule identifiers (nested: core ⊂ extended ⊂ full) — robust, no
   dependence on an internal meta field. No rules are dropped at build time.
 - **`build-yara-rules`** bakes the full compiled blob **plus** a side map `ruleId → {tier, score,
-  isSuspicious}`, and emits the `_SUSP_` score histogram for the UI range.
+isSuspicious}`, and emits the `_SUSP_` score histogram for the UI range.
 - **`Dockerfile`** fetches all three tier packages (still build-time only; `enableInternet = false`
   unchanged) and resolves the same `yara-rules/<tag>` engine-version component.
 - **Concurrent engines** in `lib.rs`: `tokio::join!` the clamd scan with the yara `spawn_blocking`
@@ -145,7 +145,7 @@ Four values resolved through the existing scoped-setting resolver (firm scope):
 - `stepUpReauthOnFlagged` — boolean (default `false`)
 
 **Default for a new firm:** `extended / 75 / block / false` — the safest equivalent of today's
-behaviour (curated extended, quarantine flagged). Firms opt *into* more access, never silently into
+behaviour (curated extended, quarantine flagged). Firms opt _into_ more access, never silently into
 less safety.
 
 ## Invariants preserved
@@ -191,7 +191,7 @@ verdict. Recorded here so it is not missed.
 
 - **Rust:** `forge.rs` tier-tagging (core/extended/full membership from the three-package diff);
   build-bin histogram + side-map emission; concurrent-engine equivalence (same matches as sequential)
-  + timing present; enriched raw output shape; fault still 503.
+  - timing present; enriched raw output shape; fault still 503.
 - **App:** `verdict()` truth table across tier × floor × match kinds (clamd sig, high-confidence rule,
   suspicious-above/below floor, structural, encrypted, fault); cache stores/reads the raw shape; dedup
   unaffected; a policy change re-evaluates without a re-scan.

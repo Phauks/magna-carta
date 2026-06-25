@@ -7,13 +7,13 @@ touches: containers/scan, packages/file-manager (scan-port, scan-cache, ingest-c
 ---
 
 Makes the malware scanner's two fixed behaviors firm-configurable. (1) **Tier/score selection** —
-bake the *full* YARA Forge corpus, tag every rule `{tier, score, isSuspicious}`, scan once, and apply
+bake the _full_ YARA Forge corpus, tag every rule `{tier, score, isSuspicious}`, scan once, and apply
 each firm's `(tier × suspicious-score floor)` policy at verdict time (presets core/extended/full ×
 curated/raw, plus a custom floor). The container stops deciding infected/suspicious and returns the
-*raw* enriched match set; the per-firm verdict is computed app-side from cache, so a policy change
+_raw_ enriched match set; the per-firm verdict is computed app-side from cache, so a policy change
 re-evaluates with no container re-scan and cross-firm content dedup stays global. (2) **Flagged-file
 treatment** — one `flagged` state (reason shown), one firm-chosen treatment menu (block /
-informed-access ± step-up re-auth / allow-and-flag) applied uniformly at ingest *and* access; always
+informed-access ± step-up re-auth / allow-and-flag) applied uniformly at ingest _and_ access; always
 audited, never silently cleaned.
 
 Heads-up for concurrent streams: this **edits the merged, reviewed scan path** — `containers/scan`

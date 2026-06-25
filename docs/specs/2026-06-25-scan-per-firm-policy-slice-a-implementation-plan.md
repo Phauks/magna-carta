@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Refactor the scan engine so the container reports *raw* facts (clamd verdict + enriched YARA matches tagged with tier/score + structural flags) and the verdict is computed app-side — with **zero behaviour change** (default policy reproduces today's extended/75 result), laying the contract Slice B's per-firm policy needs.
+**Goal:** Refactor the scan engine so the container reports _raw_ facts (clamd verdict + enriched YARA matches tagged with tier/score + structural flags) and the verdict is computed app-side — with **zero behaviour change** (default policy reproduces today's extended/75 result), laying the contract Slice B's per-firm policy needs.
 
-**Architecture:** The container bakes the *full* YARA Forge corpus, tags every rule `{tier, score, isSuspicious}`, runs clamd and yara **concurrently**, and returns a `RawScanResult` instead of a decided verdict. A new pure TypeScript function `computeVerdict(raw, policy)` reproduces the old `combine` logic; `scan_cache` stores the raw result so dedup stays global and Slice B can re-evaluate policy with no re-scan.
+**Architecture:** The container bakes the _full_ YARA Forge corpus, tags every rule `{tier, score, isSuspicious}`, runs clamd and yara **concurrently**, and returns a `RawScanResult` instead of a decided verdict. A new pure TypeScript function `computeVerdict(raw, policy)` reproduces the old `combine` logic; `scan_cache` stores the raw result so dedup stays global and Slice B can re-evaluate policy with no re-scan.
 
 **Tech Stack:** Rust (yara-x 1.18, axum 0.8, tokio, serde/serde_json), TypeScript (Cloudflare Workers, Drizzle, Vitest + `@cloudflare/vitest-pool-workers`), Docker.
 
@@ -26,7 +26,8 @@
 ## File Structure
 
 **Rust container (`containers/scan/`)**
-- `src/forge.rs` — gains a `Tier` enum, a `tier` field on `ForgeRule`, `rule_ids()`, and `assign_tiers()`. Stops being the place rules are *dropped*; becomes the tagger.
+
+- `src/forge.rs` — gains a `Tier` enum, a `tier` field on `ForgeRule`, `rule_ids()`, and `assign_tiers()`. Stops being the place rules are _dropped_; becomes the tagger.
 - `src/bin/build-yara-rules.rs` — takes three input packages (core/extended/full), bakes the **full** compiled blob, writes a **side-map** `ruleId → {tier, score, isSuspicious}`, and emits the `_SUSP_` score histogram. Keeps all fail-loud gates.
 - `src/yara.rs` — gains `RuleMeta`, a baked-side-map loader, and an enriched scan that returns `Vec<RuleMatch>`.
 - `src/raw.rs` (NEW) — the `RawScanResult` serialized response struct (clamd verdict + matches + heuristic flag + engineVersion + timings). Replaces the container's role in `verdict.rs`.
@@ -36,12 +37,14 @@
 - `Dockerfile` — fetches all three tier packages; passes them to `build-yara-rules`; bakes the side-map file.
 
 **TypeScript (`packages/file-manager/src/`)**
+
 - `scan-port.ts` — `MalwareScanPort.scan` returns `RawScanResult` (new TS type mirroring `raw.rs`); `unscannedAdapter` returns a no-engine raw result.
 - `verdict.ts` (NEW) — `computeVerdict(raw, policy): FileVerdict` (the old `combine`, app-side) + `DEFAULT_SCAN_POLICY`.
 - `scan-cache.ts` — stores/reads the raw result (serialized JSON) instead of a decided verdict.
 - `ingest-core.ts` — calls `computeVerdict(raw, DEFAULT_SCAN_POLICY)` then branches commit/quarantine exactly as today.
 
 **Worker (`apps/worker/src/files/`)**
+
 - `container-scan-adapter.ts` — new zod schema parsing `RawScanResult`.
 - `ingest-consumer.ts` — `handleRescanMessage` reads the cached raw result and recomputes the verdict.
 - `apps/worker/vitest.config.ts` — the `magna-carta-scan` stub returns a no-engine `RawScanResult`.
@@ -51,10 +54,12 @@
 ## Task 1: `forge.rs` — tier tagging
 
 **Files:**
+
 - Modify: `containers/scan/src/forge.rs`
 - Test: `containers/scan/src/forge.rs` (`#[cfg(test)]`)
 
 **Interfaces:**
+
 - Produces: `pub enum Tier { Core, Extended, Full }` (derives `Debug, Clone, Copy, PartialEq, Eq, Serialize` with `#[serde(rename_all = "lowercase")]`); `pub fn rule_ids(source: &str) -> std::collections::HashSet<String>`; `pub fn assign_tiers(full_source: &str, core_ids: &HashSet<String>, extended_ids: &HashSet<String>) -> Vec<ForgeRule>` where each returned `ForgeRule` has its `tier` set (Core if its name ∈ core_ids, else Extended if ∈ extended_ids, else Full); `ForgeRule` gains `pub tier: Tier`.
 
 - [ ] **Step 1: Write the failing test**
@@ -152,10 +157,12 @@ git commit -m "feat(scan): tag YARA rules with their Forge tier (core/extended/f
 ## Task 2: `yara.rs` — rule metadata side-map + enriched matches
 
 **Files:**
+
 - Modify: `containers/scan/src/yara.rs`
 - Test: `containers/scan/src/yara.rs` (`#[cfg(test)]`)
 
 **Interfaces:**
+
 - Consumes: `forge::Tier` (Task 1).
 - Produces: `pub struct RuleMeta { pub tier: forge::Tier, pub score: i32, pub is_suspicious: bool }` (derives `Debug, Clone, Serialize, Deserialize, PartialEq`); `pub type SideMap = std::collections::HashMap<String, RuleMeta>`; `pub fn serialize_side_map(map: &SideMap) -> Vec<u8>` and `pub fn deserialize_side_map(bytes: &[u8]) -> Result<SideMap, String>` (JSON); `pub struct RuleMatch { pub rule_id: String, pub tier: forge::Tier, pub score: i32, pub is_suspicious: bool }` (derives `Debug, Clone, Serialize, PartialEq`); `pub fn enrich_matches(ids: Vec<String>, map: &SideMap) -> Vec<RuleMatch>` (a matched id absent from the map — defensive — is emitted as `tier=Full, score=0, is_suspicious=false`, i.e. it always counts, fail-safe-toward-flagging).
 
@@ -254,10 +261,12 @@ git commit -m "feat(scan): rule metadata side-map + enriched yara matches"
 ## Task 3: `build-yara-rules.rs` — bake full corpus + side-map + histogram
 
 **Files:**
+
 - Modify: `containers/scan/src/bin/build-yara-rules.rs`
 - Test: `containers/scan/src/bin/build-yara-rules.rs` (`#[cfg(test)]`)
 
 **Interfaces:**
+
 - Consumes: `forge::{assign_tiers, rule_ids, Tier}`, `yara::{RuleMeta, SideMap, serialize_side_map, compile_tolerant}`.
 - Produces: a CLI `build-yara-rules <full.yar> <core.yar> <extended.yar> <out.bin> <out.sidemap.json> [min_suspicious_score]` that bakes the full compiled blob (tolerant compile, all gates retained) AND writes the side-map JSON. The `min_suspicious_score` no longer DROPS rules — it is recorded only for the histogram/log; all rules are baked (gating happens app-side). The empty-corpus gate now checks the full parsed/compiled count, not a post-filter count.
 
@@ -365,10 +374,12 @@ git commit -m "feat(scan): bake the full YARA corpus + tier/score side-map (no b
 ## Task 4: `Dockerfile` — fetch all three tiers, bake the side-map
 
 **Files:**
+
 - Modify: `containers/scan/Dockerfile`
 - Modify: `containers/scan/entrypoint.sh` (export `YARA_SIDEMAP_PATH`)
 
 **Interfaces:**
+
 - Produces: image bakes `/etc/scan/yara-rules.bin`, `/etc/scan/yara-rules.tag`, and `/etc/scan/yara-rules.sidemap.json`; runtime env `YARA_SIDEMAP_PATH=/etc/scan/yara-rules.sidemap.json`.
 
 - [ ] **Step 1: Edit the build stage**
@@ -409,11 +420,13 @@ git commit -m "build(scan): fetch all three YARA Forge tiers and bake the rule s
 ## Task 5: `raw.rs` — the RawScanResult response; delete container-side verdict
 
 **Files:**
+
 - Create: `containers/scan/src/raw.rs`
 - Delete: `containers/scan/src/verdict.rs`
 - Modify: `containers/scan/src/lib.rs` (module wiring; keep `combine` call-sites until Task 6)
 
 **Interfaces:**
+
 - Consumes: `yara::RuleMatch`, `heuristics::{Heuristic, Reason}`, `clamav::ClamVerdict`.
 - Produces: `RawScanResult` (serialized to the HTTP body) and `EngineTimings`:
 
@@ -537,9 +550,11 @@ git commit -m "refactor(scan): container returns raw facts (RawScanResult), not 
 ## Task 6: `lib.rs` — concurrent engines, build & serialize RawScanResult
 
 **Files:**
+
 - Modify: `containers/scan/src/lib.rs`, `containers/scan/src/main.rs`
 
 **Interfaces:**
+
 - Consumes: `raw::{RawScanResult, clam_fact, heuristic_fact, EngineTimings}`, `yara::{enrich_matches, SideMap}`.
 - Produces: `AppState` gains `pub side_map: Arc<yara::SideMap>`. `finish` returns `200 + RawScanResult` JSON; a clamd-`Unavailable` with empty matches AND `HeuristicFact::None`/`Encrypted` is still surfaced as a raw result (the app decides retry), BUT the never-silently-clean contract is preserved by the app: see Task 8. The container’s only 503 stays the **engine panic** isolation (a parser crash), not clamd-unavailable.
 
@@ -628,23 +643,33 @@ git commit -m "feat(scan): run clamd and yara concurrently; serialize raw facts 
 ## Task 7: `scan-port.ts` — RawScanResult contract
 
 **Files:**
+
 - Modify: `packages/file-manager/src/scan-port.ts`
 - Test: `packages/file-manager/test/scan-port.test.ts` (create if absent; else colocated)
 
 **Interfaces:**
+
 - Produces:
 
 ```typescript
 export type Tier = "core" | "extended" | "full";
 
-export interface RuleMatch { ruleId: string; tier: Tier; score: number; isSuspicious: boolean; }
+export interface RuleMatch {
+  ruleId: string;
+  tier: Tier;
+  score: number;
+  isSuspicious: boolean;
+}
 
 export type RawScanResult = {
   engineVersion: string | null;
   clam: { state: "clean" } | { state: "infected"; signature: string } | { state: "unavailable" };
   heuristic:
     | { kind: "none" }
-    | { kind: "structural"; reason: "decompression-bomb" | "archive-nesting" | "archive-entry-count" }
+    | {
+        kind: "structural";
+        reason: "decompression-bomb" | "archive-nesting" | "archive-entry-count";
+      }
     | { kind: "encrypted" }
     | { kind: "active-content" };
   matches: RuleMatch[];
@@ -652,7 +677,10 @@ export type RawScanResult = {
 };
 
 export interface MalwareScanPort {
-  scan(body: ReadableStream<Uint8Array>, meta: { sizeBytes: number; sniffedContentType: string | null }): Promise<RawScanResult>;
+  scan(
+    body: ReadableStream<Uint8Array>,
+    meta: { sizeBytes: number; sniffedContentType: string | null },
+  ): Promise<RawScanResult>;
 }
 ```
 
@@ -664,11 +692,18 @@ import { unscannedAdapter } from "../src/scan-port.ts";
 
 describe("unscannedAdapter", () => {
   it("returns a no-engine raw result", async () => {
-    const body = new ReadableStream<Uint8Array>({ start(c) { c.close(); } });
+    const body = new ReadableStream<Uint8Array>({
+      start(c) {
+        c.close();
+      },
+    });
     const raw = await unscannedAdapter.scan(body, { sizeBytes: 0, sniffedContentType: null });
     expect(raw).toEqual({
-      engineVersion: null, clam: { state: "unavailable" }, heuristic: { kind: "none" },
-      matches: [], timings: { clamdMs: 0, yaraMs: 0 },
+      engineVersion: null,
+      clam: { state: "unavailable" },
+      heuristic: { kind: "none" },
+      matches: [],
+      timings: { clamdMs: 0, yaraMs: 0 },
     });
   });
 });
@@ -691,15 +726,20 @@ git commit -m "feat(file-manager): MalwareScanPort returns RawScanResult"
 ## Task 8: `verdict.ts` — app-side computeVerdict (the old `combine`, exactly)
 
 **Files:**
+
 - Create: `packages/file-manager/src/verdict.ts`
 - Test: `packages/file-manager/test/verdict.test.ts`
 
 **Interfaces:**
+
 - Consumes: `RawScanResult`, `RuleMatch`, `Tier` (Task 7).
 - Produces:
 
 ```typescript
-export interface ScanPolicy { tier: Tier; suspiciousScoreFloor: number; }
+export interface ScanPolicy {
+  tier: Tier;
+  suspiciousScoreFloor: number;
+}
 export const DEFAULT_SCAN_POLICY: ScanPolicy = { tier: "extended", suspiciousScoreFloor: 75 };
 
 export type FileVerdict =
@@ -709,7 +749,9 @@ export type FileVerdict =
 
 export class ScanFaultError extends Error {} // thrown → consumer retries; NEVER a clean
 
-export function tierRank(tier: Tier): number { return tier === "core" ? 0 : tier === "extended" ? 1 : 2; }
+export function tierRank(tier: Tier): number {
+  return tier === "core" ? 0 : tier === "extended" ? 1 : 2;
+}
 
 export function matchCounts(match: RuleMatch, policy: ScanPolicy): boolean {
   if (tierRank(match.tier) > tierRank(policy.tier)) return false;
@@ -720,6 +762,7 @@ export function computeVerdict(raw: RawScanResult, policy: ScanPolicy): FileVerd
 ```
 
 `computeVerdict` precedence (mirrors the deleted Rust `combine`, generalized to one `flagged` state):
+
 1. `clam.state === "infected"` → `flagged` (reason = `clam.signature`).
 2. a counting match → `flagged` (reason = its `ruleId`).
 3. `heuristic.kind === "structural"` → `flagged` (reason = its `reason`).
@@ -737,45 +780,76 @@ import { computeVerdict, DEFAULT_SCAN_POLICY, ScanFaultError } from "../src/verd
 import type { RawScanResult } from "../src/scan-port.ts";
 
 const base: RawScanResult = {
-  engineVersion: "engine/1", clam: { state: "clean" }, heuristic: { kind: "none" },
-  matches: [], timings: { clamdMs: 1, yaraMs: 1 },
+  engineVersion: "engine/1",
+  clam: { state: "clean" },
+  heuristic: { kind: "none" },
+  matches: [],
+  timings: { clamdMs: 1, yaraMs: 1 },
 };
 
 describe("computeVerdict (default policy = extended/75)", () => {
   it("clamd signature -> flagged with the signature", () => {
-    expect(computeVerdict({ ...base, clam: { state: "infected", signature: "Eicar" } }, DEFAULT_SCAN_POLICY))
-      .toEqual({ verdict: "flagged", reason: "Eicar" });
+    expect(
+      computeVerdict(
+        { ...base, clam: { state: "infected", signature: "Eicar" } },
+        DEFAULT_SCAN_POLICY,
+      ),
+    ).toEqual({ verdict: "flagged", reason: "Eicar" });
   });
   it("a high-confidence yara match in-tier -> flagged", () => {
-    expect(computeVerdict({ ...base, matches: [{ ruleId: "R", tier: "core", score: 90, isSuspicious: false }] }, DEFAULT_SCAN_POLICY))
-      .toEqual({ verdict: "flagged", reason: "R" });
+    expect(
+      computeVerdict(
+        { ...base, matches: [{ ruleId: "R", tier: "core", score: 90, isSuspicious: false }] },
+        DEFAULT_SCAN_POLICY,
+      ),
+    ).toEqual({ verdict: "flagged", reason: "R" });
   });
   it("a suspicious match below the floor does NOT count", () => {
-    expect(computeVerdict({ ...base, matches: [{ ruleId: "S", tier: "extended", score: 40, isSuspicious: true }] }, DEFAULT_SCAN_POLICY))
-      .toEqual({ verdict: "clean", activeContent: false });
+    expect(
+      computeVerdict(
+        { ...base, matches: [{ ruleId: "S", tier: "extended", score: 40, isSuspicious: true }] },
+        DEFAULT_SCAN_POLICY,
+      ),
+    ).toEqual({ verdict: "clean", activeContent: false });
   });
   it("a full-only match is out of an extended policy's tier", () => {
-    expect(computeVerdict({ ...base, matches: [{ ruleId: "F", tier: "full", score: 90, isSuspicious: false }] }, DEFAULT_SCAN_POLICY))
-      .toEqual({ verdict: "clean", activeContent: false });
+    expect(
+      computeVerdict(
+        { ...base, matches: [{ ruleId: "F", tier: "full", score: 90, isSuspicious: false }] },
+        DEFAULT_SCAN_POLICY,
+      ),
+    ).toEqual({ verdict: "clean", activeContent: false });
   });
   it("structural attack -> flagged", () => {
-    expect(computeVerdict({ ...base, heuristic: { kind: "structural", reason: "decompression-bomb" } }, DEFAULT_SCAN_POLICY))
-      .toEqual({ verdict: "flagged", reason: "decompression-bomb" });
+    expect(
+      computeVerdict(
+        { ...base, heuristic: { kind: "structural", reason: "decompression-bomb" } },
+        DEFAULT_SCAN_POLICY,
+      ),
+    ).toEqual({ verdict: "flagged", reason: "decompression-bomb" });
   });
   it("encrypted -> unscanned/encrypted", () => {
-    expect(computeVerdict({ ...base, heuristic: { kind: "encrypted" } }, DEFAULT_SCAN_POLICY))
-      .toEqual({ verdict: "unscanned", reason: "encrypted" });
+    expect(
+      computeVerdict({ ...base, heuristic: { kind: "encrypted" } }, DEFAULT_SCAN_POLICY),
+    ).toEqual({ verdict: "unscanned", reason: "encrypted" });
   });
   it("no-engine (null version, unavailable) -> unscanned/no-engine", () => {
-    expect(computeVerdict({ ...base, engineVersion: null, clam: { state: "unavailable" } }, DEFAULT_SCAN_POLICY))
-      .toEqual({ verdict: "unscanned", reason: "no-engine" });
+    expect(
+      computeVerdict(
+        { ...base, engineVersion: null, clam: { state: "unavailable" } },
+        DEFAULT_SCAN_POLICY,
+      ),
+    ).toEqual({ verdict: "unscanned", reason: "no-engine" });
   });
   it("a DEPLOYED engine going unavailable throws (retry, never clean)", () => {
-    expect(() => computeVerdict({ ...base, clam: { state: "unavailable" } }, DEFAULT_SCAN_POLICY)).toThrow(ScanFaultError);
+    expect(() =>
+      computeVerdict({ ...base, clam: { state: "unavailable" } }, DEFAULT_SCAN_POLICY),
+    ).toThrow(ScanFaultError);
   });
   it("active content rides a clean verdict", () => {
-    expect(computeVerdict({ ...base, heuristic: { kind: "active-content" } }, DEFAULT_SCAN_POLICY))
-      .toEqual({ verdict: "clean", activeContent: true });
+    expect(
+      computeVerdict({ ...base, heuristic: { kind: "active-content" } }, DEFAULT_SCAN_POLICY),
+    ).toEqual({ verdict: "clean", activeContent: true });
   });
 });
 ```
@@ -795,11 +869,13 @@ git commit -m "feat(file-manager): app-side computeVerdict from raw scan facts +
 ## Task 9: `scan-cache.ts` + `ingest-core.ts` — store raw, decide app-side
 
 **Files:**
+
 - Modify: `packages/file-manager/src/scan-cache.ts` (store/read the raw result JSON)
 - Modify: `packages/file-manager/src/ingest-core.ts` (use `computeVerdict`)
 - Test: existing `ingest-core` tests + a cache round-trip test
 
 **Interfaces:**
+
 - Consumes: `RawScanResult`, `computeVerdict`, `DEFAULT_SCAN_POLICY`, `ScanFaultError`.
 - `scan_cache` keeps the `(content_sha256, engine_version)` key; the stored value column becomes the serialized `RawScanResult` (JSON text). `lookupScanCache` returns `RawScanResult | undefined`; `recordScanCache` takes a `RawScanResult`.
 - `ingest-core.ts`: replace the `scan.verdict === "infected" | "suspicious" | "clean"` branch (current lines ~171-184) with:
@@ -821,8 +897,12 @@ return {
   contentSha256: hashed.hash,
   scanVerdict: fileVerdict.verdict === "clean" ? "clean" : "unscanned",
   scanEngineVersion: raw.engineVersion,
-  scanDetail: fileVerdict.verdict === "clean" ? (fileVerdict.activeContent ? "active-content" : null)
-    : fileVerdict.reason,
+  scanDetail:
+    fileVerdict.verdict === "clean"
+      ? fileVerdict.activeContent
+        ? "active-content"
+        : null
+      : fileVerdict.reason,
 };
 ```
 
@@ -832,10 +912,19 @@ The `QuarantineReason` union `"scan-infected" | "scan-suspicious"` collapses to 
 
 ```typescript
 it("quarantines a flagged upload with the reason text", async () => {
-  const raw = { engineVersion: "engine/1", clam: { state: "infected", signature: "Eicar" },
-    heuristic: { kind: "none" }, matches: [], timings: { clamdMs: 1, yaraMs: 1 } } as const;
+  const raw = {
+    engineVersion: "engine/1",
+    clam: { state: "infected", signature: "Eicar" },
+    heuristic: { kind: "none" },
+    matches: [],
+    timings: { clamdMs: 1, yaraMs: 1 },
+  } as const;
   const outcome = await runIngestWithRaw(raw); // existing harness, injecting the scan adapter
-  expect(outcome).toMatchObject({ kind: "quarantine", reason: "scan-flagged", scanDetail: "Eicar" });
+  expect(outcome).toMatchObject({
+    kind: "quarantine",
+    reason: "scan-flagged",
+    scanDetail: "Eicar",
+  });
 });
 ```
 
@@ -854,12 +943,14 @@ git commit -m "feat(file-manager): cache raw scan facts; decide verdict app-side
 ## Task 10: Worker adapter + consumer + test stub — integration green
 
 **Files:**
+
 - Modify: `apps/worker/src/files/container-scan-adapter.ts` (parse `RawScanResult`)
 - Modify: `apps/worker/src/files/ingest-consumer.ts` (`handleRescanMessage` recomputes from raw)
 - Modify: `apps/worker/vitest.config.ts` (the `magna-carta-scan` stub returns a no-engine `RawScanResult`)
 - Test: `apps/worker/test/container-scan-adapter.test.ts`, `ingest-consumer.test.ts`
 
 **Interfaces:**
+
 - `container-scan-adapter.ts`: replace the 4-variant `scanResultSchema` with a zod schema for `RawScanResult` (object with `engineVersion`, `clam` discriminated on `state`, `heuristic` discriminated on `kind`, `matches` array, `timings`). Returns `RawScanResult`.
 - `handleRescanMessage`: today it maps a cached verdict; now it `lookupScanCache → RawScanResult`, calls `computeVerdict(raw, DEFAULT_SCAN_POLICY)`, and records the resulting verdict (re-scan via the container when the cache misses on the new engineVersion, exactly as today).
 - `vitest.config.ts` `SCAN_SERVICE_STUB_SCRIPT`: return `{"engineVersion":null,"clam":{"state":"unavailable"},"heuristic":{"kind":"none"},"matches":[],"timings":{"clamdMs":0,"yaraMs":0}}`.
@@ -868,9 +959,13 @@ git commit -m "feat(file-manager): cache raw scan facts; decide verdict app-side
 
 ```typescript
 it("parses a RawScanResult from the container", async () => {
-  const raw = { engineVersion: "engine/1", clam: { state: "infected", signature: "Eicar-Test-Signature" },
-    heuristic: { kind: "none" }, matches: [{ ruleId: "R", tier: "core", score: 90, isSuspicious: false }],
-    timings: { clamdMs: 3, yaraMs: 1 } };
+  const raw = {
+    engineVersion: "engine/1",
+    clam: { state: "infected", signature: "Eicar-Test-Signature" },
+    heuristic: { kind: "none" },
+    matches: [{ ruleId: "R", tier: "core", score: 90, isSuspicious: false }],
+    timings: { clamdMs: 3, yaraMs: 1 },
+  };
   const result = await containerScanAdapter(fakeContainer(raw)).scan(emptyBody(), meta);
   expect(result).toEqual(raw);
 });

@@ -16,7 +16,10 @@ export type RawScanResult = {
   clam: { state: "clean" } | { state: "infected"; signature: string } | { state: "unavailable" };
   heuristic:
     | { kind: "none" }
-    | { kind: "structural"; reason: "decompression-bomb" | "archive-nesting" | "archive-entry-count" }
+    | {
+        kind: "structural";
+        reason: "decompression-bomb" | "archive-nesting" | "archive-entry-count";
+      }
     | { kind: "encrypted" }
     | { kind: "active-content" };
   matches: RuleMatch[];
