@@ -100,6 +100,19 @@ export type SafeWebsiteView = {
     links: Array<string>;
 };
 
+export type FileIntegrityHashResponse = {
+    algorithms: {
+        md5: string;
+        sha1: string;
+        sha256: string;
+        sha384: string;
+        sha512: string;
+    };
+    sizeBytes: number;
+    computedAt: string;
+    expectedMatch: 'md5' | 'sha1' | 'sha256' | 'sha384' | 'sha512' | null;
+};
+
 export type MetadataReport = {
     format: string;
     findings: Array<{
@@ -1137,6 +1150,49 @@ export type SafeBrowsePostResponses = {
 };
 
 export type SafeBrowsePostResponse = SafeBrowsePostResponses[keyof SafeBrowsePostResponses];
+
+export type FileIntegrityHashData = {
+    body?: never;
+    path?: never;
+    query?: {
+        expected?: string;
+    };
+    url: '/api/v1/file-integrity/hash';
+};
+
+export type FileIntegrityHashErrors = {
+    /**
+     * Empty request body
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:fileIntegrity
+     */
+    403: Problem;
+    /**
+     * The body exceeds the firm's inspectable-size cap
+     */
+    413: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FileIntegrityHashError = FileIntegrityHashErrors[keyof FileIntegrityHashErrors];
+
+export type FileIntegrityHashResponses = {
+    /**
+     * The five digests and byte size of the supplied body
+     */
+    200: FileIntegrityHashResponse;
+};
+
+export type FileIntegrityHashResponse2 = FileIntegrityHashResponses[keyof FileIntegrityHashResponses];
 
 export type MetadataInspectData = {
     body: {

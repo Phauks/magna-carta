@@ -377,6 +377,64 @@
           "links"
         ]
       },
+      "FileIntegrityHashResponse": {
+        "type": "object",
+        "properties": {
+          "algorithms": {
+            "type": "object",
+            "properties": {
+              "md5": {
+                "type": "string"
+              },
+              "sha1": {
+                "type": "string"
+              },
+              "sha256": {
+                "type": "string"
+              },
+              "sha384": {
+                "type": "string"
+              },
+              "sha512": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "md5",
+              "sha1",
+              "sha256",
+              "sha384",
+              "sha512"
+            ]
+          },
+          "sizeBytes": {
+            "type": "number"
+          },
+          "computedAt": {
+            "type": "string"
+          },
+          "expectedMatch": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "md5",
+              "sha1",
+              "sha256",
+              "sha384",
+              "sha512",
+              null
+            ]
+          }
+        },
+        "required": [
+          "algorithms",
+          "sizeBytes",
+          "computedAt",
+          "expectedMatch"
+        ]
+      },
       "MetadataReport": {
         "type": "object",
         "properties": {
@@ -4286,6 +4344,101 @@
           },
           "502": {
             "description": "The remote browser renderer is unavailable or at capacity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/file-integrity/hash": {
+      "post": {
+        "description": "Compute MD5, SHA-1, SHA-256, SHA-384 and SHA-512 digests of the request body in a single pass. Optionally report which algorithm matches an expected digest. Nothing is stored.",
+        "operationId": "fileIntegrity.hash",
+        "tags": [
+          "fileIntegrity"
+        ],
+        "x-mc-operationId": "fileIntegrity.hash",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:fileIntegrity",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "fileIntegrity"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": false,
+            "name": "expected",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The five digests and byte size of the supplied body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileIntegrityHashResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty request body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the member lacks tools:fileIntegrity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body exceeds the firm's inspectable-size cap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -14616,6 +14769,9 @@
     },
     {
       "name": "downloads"
+    },
+    {
+      "name": "fileIntegrity"
     },
     {
       "name": "files"
