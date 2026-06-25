@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { firmRateGate, tokenUsageKeyForDay } from "../src/inference/inference-consumer.ts";
+import {
+  firmRateGate,
+  inferenceJobDedupKey,
+  tokenUsageKeyForDay,
+  type InferenceJob,
+} from "../src/inference/inference-consumer.ts";
 
 describe("firmRateGate (the back-pressure seam)", () => {
   it("is a pass-through no-op at launch — never throws, returns nothing", () => {
@@ -19,5 +24,23 @@ describe("tokenUsageKeyForDay", () => {
       slot: "reasoning",
       modelId: "anthropic/claude-opus-4-8",
     });
+  });
+});
+
+describe("InferenceJob carries a producer-set idempotency key", () => {
+  it("the job shape exposes idempotencyKey (the producer's stable per-run anchor)", () => {
+    const job: InferenceJob = {
+      firmId: "firm_abc",
+      databaseIdentifier: "DB_FIRM_POOL_1",
+      prompt: "draft a narrative",
+      idempotencyKey: "narrative:deadbeef",
+    };
+    expect(job.idempotencyKey).toBe("narrative:deadbeef");
+  });
+});
+
+describe("inferenceJobDedupKey", () => {
+  it("derives the per-run dedup record key from the job's producer key", () => {
+    expect(inferenceJobDedupKey("narrative:deadbeef")).toBe("inference:narrative:deadbeef");
   });
 });

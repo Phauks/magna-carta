@@ -2,7 +2,7 @@
 // seed (new archetype, changed faker call order, …) — it participates in snapshot identity, so a
 // stale cached artifact can never be measured against silently. Profile parameter changes bump
 // the profile's own `version` instead.
-export const GENERATOR_VERSION = 4;
+export const GENERATOR_VERSION = 5;
 
 // Transaction archetypes, weighted (faker.helpers.weightedArrayElement). The settlement archetype
 // is the multi-line tail; the rest are two-line entries. Weights are profile PARAMETERS, never
@@ -110,6 +110,28 @@ export interface DirectoryVolume {
 // profile `version`, so a baseline never silently compares two different shapes. Sized like an
 // established firm's field usage, not a stress run; the per-scope and per-field counts stay well under
 // the limits.ts caps so the measured per-record read keeps its realistic ceiling.
+// The timekeeping volume laid over the practice book: rate cards with effective-dated rate versions, and
+// captured time entries spread across the firm's timekeepers and matters, in a draft/billed mix with a
+// UTBMS-coded fraction. This is the queryable shadow of the WIP store + rate engine — the My Day daily
+// totals read, the weekly-grid fan, the per-matter unbilled-WIP read (billing query), and rate
+// resolution. Every count/distribution is a PARAMETER here, never a generator constant — changing one
+// bumps the profile `version`. Sized like an established firm's monthly capture, not a stress run.
+export interface TimeVolume {
+  // Time entries captured per timekeeper per day over the span (the My Day / weekly-grid fan).
+  readonly entriesPerTimekeeperPerDay: number;
+  // Named rate cards the firm runs (e.g. Standard, Insurance-capped).
+  readonly rateCardCount: number;
+  // Effective-dated rate versions appended per card (closed-interval history the resolver walks).
+  readonly ratesPerCard: number;
+  // Fraction of billable entries carrying UTBMS task + activity codes.
+  readonly utbmsCodedFraction: number;
+  // Fraction of captured entries already marked billed (the rest stay draft — the unbilled-WIP read's
+  // selectivity). 0–1.
+  readonly draftBilledMix: number;
+  // Days the capture span covers (work_date dispersal via fixed-clock advances).
+  readonly spanDays: number;
+}
+
 export interface CustomFieldVolume {
   // Fields defined on each matter type (attachment_id = the matter type) — the matter detail panel
   // renders this many custom rows for a matter of that type.
@@ -153,6 +175,8 @@ export interface LedgerVolumeProfile {
   readonly shipping: ShippingVolume;
   // The custom-field volume laid over the practice + directory (fields, options, values, history).
   readonly customFields: CustomFieldVolume;
+  // The timekeeping volume laid over the practice book (rate cards, effective-dated rates, time entries).
+  readonly time: TimeVolume;
 }
 
 // A plausible established small firm: a few years of posting activity over a 200-client trust book,
@@ -222,6 +246,17 @@ export const ledgerVolume: LedgerVolumeProfile = {
     historyDepth: 3,
     referenceShare: 0.2,
   },
+  time: {
+    // An established firm's monthly capture: a handful of entries per timekeeper per day across the
+    // span, two named rate cards each with a few effective-dated versions, two-thirds UTBMS-coded, a
+    // third already billed, over a quarter's worth of work days.
+    entriesPerTimekeeperPerDay: 6,
+    rateCardCount: 2,
+    ratesPerCard: 4,
+    utbmsCodedFraction: 0.66,
+    draftBilledMix: 0.33,
+    spanDays: 90,
+  },
 };
 
 // One profile, every scale: CI smoke (~0.01), local working scale (1), deliberate stress runs
@@ -273,6 +308,16 @@ export function scaleProfile(
       optionsPerPicklist: scaleCount(profile.customFields.optionsPerPicklist, 2),
       valuesPerRecord: scaleCount(profile.customFields.valuesPerRecord, 3),
       historyDepth: scaleCount(profile.customFields.historyDepth, 1),
+    },
+    time: {
+      ...profile.time,
+      // Floors keep a couple of entries per timekeeper-day (so the My Day / grid reads have a fan), at
+      // least one rate card with a couple of effective-dated versions (so resolution walks history), and
+      // a handful of span days at the smoke multiplier. The fractions are not scaled.
+      entriesPerTimekeeperPerDay: scaleCount(profile.time.entriesPerTimekeeperPerDay, 2),
+      rateCardCount: scaleCount(profile.time.rateCardCount, 1),
+      ratesPerCard: scaleCount(profile.time.ratesPerCard, 2),
+      spanDays: scaleCount(profile.time.spanDays, 5),
     },
   };
 }

@@ -226,11 +226,13 @@ describe("end-to-end", () => {
       // incidents:viewDescription grants (0006) + shipping:manage (0008_elite_genesis) + the slice
       // 1·3 directory:edit / directory:viewSensitiveIdentifiers grants (0009_directory) +
       // tools:firmUsage (0010_seed-tools-firm-usage.sql) + the slice 1·4 customFields:manage /
-      // customFields:purge grants (0013_custom-fields.sql) + tools:whois / tools:safeBrowse
-      // (0017_seed-tools-web-domains.sql, seeded onto every default role) + tools:fileConverter
-      // (0018_seed-tools-file-converter.sql) + firm:scanFile (0019_seed-scan-file-permission.sql) +
-      // tools:metadataScrubber (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role) +
-      // tools:fileIntegrity (0021_seed-tools-file-integrity.sql, seeded onto every default role). Sorted.
+      // customFields:purge grants (0013_custom-fields.sql) + the time: grants (0021_outgoing_talon) +
+      // tools:whois / tools:safeBrowse (0017_seed-tools-web-domains.sql, seeded onto every default
+      // role) + tools:fileConverter (0018_seed-tools-file-converter.sql) + firm:scanFile
+      // (0019_seed-scan-file-permission.sql) + tools:metadataScrubber
+      // (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role) +
+      // tools:fileIntegrity (0022_seed-tools-file-integrity.sql, seeded onto every default role).
+      // Sorted.
       permissions: [
         "customFields:manage",
         "customFields:purge",
@@ -255,6 +257,12 @@ describe("end-to-end", () => {
         "matters:renumber",
         "matters:reopen",
         "shipping:manage",
+        "time:approve",
+        "time:manageRates",
+        "time:manageSettings",
+        "time:manageUtbms",
+        "time:track",
+        "time:viewFirm",
         "tools:fileConverter",
         "tools:fileIntegrity",
         "tools:firmUsage",
@@ -398,6 +406,7 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       "shipping.rateShipment",
       "shipping.tracking",
       "customFields.previewConvert",
+      "timeEntries.previewQuickAdd",
       "conversions.upload",
       "conversions.submit",
       "safeBrowse.post",

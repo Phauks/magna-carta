@@ -53,6 +53,13 @@ export const PERMISSIONS = [
   // Custom fields — define and maintain field schemas; purge hard-deletes all values for a field.
   "customFields:manage",
   "customFields:purge",
+  // Time tracking, WIP & the rate engine — one namespace per subsystem (house convention).
+  "time:track", // create/edit own time entries and run the timer
+  "time:viewFirm", // see other timekeepers' time (firm-wide My Day / report gating)
+  "time:approve", // submit-for-review / approve / kick-back when the review gate is on
+  "time:manageRates", // rate cards, rate versions, and the re-rate-unbilled-drafts action
+  "time:manageUtbms", // enable/disable the UTBMS code catalog
+  "time:manageSettings", // the scoped time settings, non-billable categories, narrative templates
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

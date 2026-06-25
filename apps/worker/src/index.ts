@@ -8,6 +8,7 @@ import type { BundleBuildMessage } from "./downloads/bundle-types.ts";
 import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
 import { inferenceQueue, type InferenceJob } from "./inference/inference-consumer.ts";
 import { runScheduledSweep, runStorageReconciliation } from "./scheduled.ts";
+import { LiveTimerDurableObject } from "./timer/live-timer-durable-object.ts";
 
 // The async bulk-download coordinator Durable Object must be exported from the Worker's main entrypoint
 // so the runtime can instantiate the class named in wrangler.jsonc's durable_objects binding.
@@ -71,3 +72,7 @@ export default {
     return ingestQueue(batch as MessageBatch<R2EventMessage>, env);
   },
 } satisfies ExportedHandler<Bindings>;
+
+// The Durable Object class the DURABLE_TIMER binding instantiates — exported from the Worker entrypoint
+// so the runtime can construct it. The timer routes proxy to it; it writes no business data itself.
+export { LiveTimerDurableObject };

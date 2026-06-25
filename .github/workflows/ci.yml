@@ -105,6 +105,47 @@ jobs:
         run: pnpm --filter @magna-carta/worker exec wrangler deploy --dry-run
         # To deploy for real: add a CLOUDFLARE_API_TOKEN secret and drop --dry-run
 
+  rust-pdf-core:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+
+      # cargo fmt needs --all to find targets in a workspace when using --manifest-path.
+      - name: Format check
+        run: cargo fmt --manifest-path crates/Cargo.toml --all --check
+
+      - name: Clippy (warnings as errors)
+        run: cargo clippy --manifest-path crates/Cargo.toml --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo test --manifest-path crates/Cargo.toml
+
+      - name: pdf-eval smoke (default features — no pdfium, no dll required in CI)
+        run: cargo run --manifest-path crates/Cargo.toml -p pdf-eval --release -- smoke crates/pdf-eval/corpus-ci
+
+      - run: cargo run --manifest-path crates/Cargo.toml -p pdf-eval --release -- redact-smoke crates/pdf-eval/corpus-ci/basicapi.pdf
+
+      - name: pdf-eval sanitize-smoke (default features — no pdfium)
+        run: cargo run --manifest-path crates/Cargo.toml -p pdf-eval --release -- sanitize-smoke crates/pdf-eval/corpus-ci/basicapi.pdf
+
+      - name: pdf-eval detect-smoke (default features — no pdfium)
+        run: cargo run --manifest-path crates/Cargo.toml -p pdf-eval --release -- detect-smoke crates/pdf-eval/corpus-ci/basicapi.pdf
+
+      # wasm-opt is not available on the ubuntu runner; --no-opt skips the optimisation pass.
+      # The produced .wasm is a correct, unoptimised release build — identical semantics, larger bytes.
+      # Add a wasm-opt install step here when a size budget matters.
+      - name: Install wasm-pack
+        run: cargo install wasm-pack
+
+      - name: wasm-pack build (pdf-core, web target)
+        run: wasm-pack build crates/pdf-core --target web --out-dir /tmp/pkg --release --no-opt
+
   # The malware-scan Container (slice 2·1 Plan 2): a Rust + clamd image. Separate job so its heavy
   # image build runs in parallel with the main gate and only when its sources change. The EICAR
   # end-to-end gate is the scan engine's acceptance test — it cannot run under the local worker test

@@ -17,6 +17,13 @@ import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
 import { registerBundleStatusRoute } from "./routes/bundle-status.ts";
 import { registerConversionRoutes } from "./routes/conversions.ts";
 import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
+import { registerTimeEntriesRoutes } from "./routes/time-entries.ts";
+import { registerTimerRoutes } from "./routes/timer.ts";
+import { registerRateCardsRoutes } from "./routes/rate-cards.ts";
+import { registerUtbmsCodesRoutes } from "./routes/utbms-codes.ts";
+import { registerNonBillableCategoriesRoutes } from "./routes/non-billable-categories.ts";
+import { registerNarrativeTemplatesRoutes } from "./routes/narrative-templates.ts";
+import { registerMyDayRoutes } from "./routes/my-day.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerDownloadsRoutes } from "./routes/downloads.ts";
@@ -140,6 +147,12 @@ export type Bindings = {
   // unset and keep the logging adapter, so no real email is sent and no domain onboarding is required.
   SEND_EMAIL?: CloudflareEmailBinding;
   EMAIL_FROM?: string;
+  // The per-timekeeper live-timer Durable Object namespace (the first DO). The timer routes proxy to
+  // one instance per `${firmId}:${userId}`; the stop-commit reads the DO's final state and writes the
+  // time entry through the data-access chokepoint. The DO holds no business rows.
+  DURABLE_TIMER: DurableObjectNamespace<
+    import("./timer/live-timer-durable-object.ts").LiveTimerDurableObject
+  >;
   // Browser Rendering Workers binding — used by POST /api/v1/safe-browse to render a URL in an
   // isolated remote browser. Optional here so Miniflare (which has no local browser emulation) can
   // boot and run the full test suite without touching this binding; the route ALWAYS receives an
@@ -359,6 +372,20 @@ export function createApp(options: CreateAppOptions = {}) {
   // Slice 1·4: firm-defined custom fields (definitions, picklist options, temporal values, the
   // non-destructive Convert, and the compliance purge seam) — composed through the same chokepoint.
   registerCustomFieldsRoutes(app, chokepoint);
+  // Time tracking — the work-in-progress entry surface, composed through the same chokepoint.
+  registerTimeEntriesRoutes(app, chokepoint);
+  // Timer routes: the per-timekeeper live timer (DO proxy) and the idempotent stop-commit.
+  registerTimerRoutes(app, chokepoint);
+  // Rate card management: create cards, append effective-dated rates, re-rate unbilled drafts.
+  registerRateCardsRoutes(app, chokepoint);
+  // UTBMS code catalog: list and toggle enable/disable on the seeded ABA set.
+  registerUtbmsCodesRoutes(app, chokepoint);
+  // Non-billable category management: create, rename, soft-archive.
+  registerNonBillableCategoriesRoutes(app, chokepoint);
+  // Narrative template management: create, list, archive, and read recent narratives.
+  registerNarrativeTemplatesRoutes(app, chokepoint);
+  // My Day: daily headline totals (billable, non-billable, target, shortfall).
+  registerMyDayRoutes(app, chokepoint);
   // The server-conversion surface: presign an upload slot, submit a job, and poll its state.
   // Each route traverses the same chokepoint under the tools:fileConverter permission.
   registerConversionRoutes(app, chokepoint);

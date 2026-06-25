@@ -1,0 +1,15 @@
+[package]
+name = "detector-feasibility"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# Throwaway feasibility spike for the bad-redaction detector. NOT a workspace member.
+[dependencies]
+hayro = "0.7"
+kurbo = "0.13"
+lopdf = "0.41"
+
+[[bin]]
+name = "detector-feasibility"
+path = "src/main.rs"

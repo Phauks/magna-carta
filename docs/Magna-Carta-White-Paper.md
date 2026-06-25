@@ -660,7 +660,7 @@ The **daily driver** — every lawyer touches it constantly, so it is engineered
 
 **Narrative ergonomics:** snippet/abbreviation expansion, recent-narrative reuse, and per-task-code templates — minimizing keystrokes on the firm's most repeated action.
 
-**Lifecycle — no approval workflow:** **Draft (freely editable) → Billed (locked).** There is no submit/approve step. Once an entry lands on a finalized invoice it locks; post-bill corrections are new adjusting entries (append-only, per _Financial Core_).
+**Lifecycle — Draft → Billed, with an optional review gate:** **Draft (freely editable) → Billed (locked)** by default — no submit/approve step, so the daily driver stays frictionless. A firm may turn on an **optional review gate** (Draft → **Submitted** → **Approved** → Billed): the timekeeper submits, a reviewer approves or kicks back, and only approved entries bill. The gate is **off by default**, firm-configurable, and also hosts the future passive-capture draft-approve queue. Once an entry lands on a finalized invoice it locks; post-bill corrections are new adjusting entries (the entry freezes at billed/void — a column-level freeze, distinct from the ledger's append-only rule).
 
 **Time is WIP, not a ledger posting.** Unbilled time lives in a **work-in-progress** store and does **not** touch the append-only double-entry ledger; at invoicing, billable time converts to an A/R receivable ledger entry. This keeps the ledger purely money-movement while WIP is independently tracked.
 

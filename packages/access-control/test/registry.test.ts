@@ -120,6 +120,17 @@ describe("permission registry", () => {
     expect(isPermission("customFields:purge")).toBe(true);
   });
 
+  it("permissionsForNamespace('time') returns exactly the time keys, in registry order", () => {
+    expect(permissionsForNamespace("time")).toEqual([
+      "time:track",
+      "time:viewFirm",
+      "time:approve",
+      "time:manageRates",
+      "time:manageUtbms",
+      "time:manageSettings",
+    ]);
+  });
+
   it("web-domains tool permissions are registered", () => {
     expect(isPermission("tools:whois")).toBe(true);
     expect(isPermission("tools:safeBrowse")).toBe(true);
