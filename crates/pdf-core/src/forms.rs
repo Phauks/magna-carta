@@ -4,7 +4,7 @@
 //! rules defined in the PDF specification (/FT, /Ff, /DA, /V cascade from
 //! parent field nodes to their terminal descendants).
 //!
-//! This module handles read only. Fill and flatten extend it in later tasks.
+//! This module handles read only. Fill and flatten are separate operations built on top of this enumeration.
 
 use std::collections::BTreeSet;
 
@@ -78,8 +78,8 @@ pub enum FormError {
 
 /// A terminal field (has an effective /FT, no field-type child nodes) as
 /// produced by the depth-first walk. Used by fill to locate and update fields.
-// Consumed by fill (later task): provides efficient lookup of field objects
-// and their widget annotations for /V updates and /AP generation.
+// Carries the resolved per-field data the fill logic indexes by name to locate
+// and update each field's widget annotations for /V, /AS, and /AP generation.
 #[allow(dead_code)]
 pub(crate) struct TerminalField {
     /// Object ID of the field dictionary.
@@ -1055,5 +1055,44 @@ mod tests {
         assert_eq!(fields.len(), 1);
         let f = &fields[0];
         assert_eq!(f.widgets.len(), 2, "should have two widget IDs");
+    }
+
+    #[test]
+    fn reads_field_when_annots_is_indirect_reference() {
+        let (mut doc, page_id) = base_doc();
+
+        // Build the widget annotation and register it directly (no page wiring yet).
+        let widget = dictionary! {
+            "Type" => "Annot",
+            "Subtype" => "Widget",
+            "FT" => "Tx",
+            "T" => Object::string_literal("IndirectAnnotsField"),
+            "Rect" => rect_obj(),
+        };
+        let widget_id = doc.add_object(Object::Dictionary(widget));
+
+        // Store /Annots as an Object::Reference to a separately-added array object,
+        // exercising the indirect-deref branch in page_annotation_ids that the
+        // inline-array tests do not reach.
+        let annots_array_id = doc.add_object(Object::Array(vec![Object::Reference(widget_id)]));
+        let page = doc.get_object_mut(page_id).unwrap().as_dict_mut().unwrap();
+        page.set("Annots", Object::Reference(annots_array_id));
+
+        add_acroform(&mut doc, &[widget_id]);
+        let bytes = to_bytes(&mut doc);
+
+        let fields = read_form(&bytes).expect("read_form");
+        assert_eq!(fields.len(), 1, "one field expected");
+        let field = &fields[0];
+        assert_eq!(field.name, "IndirectAnnotsField");
+        assert_eq!(
+            field.page,
+            Some(0),
+            "field must be located on page 0 (0-based)"
+        );
+        assert!(
+            field.rect.is_some(),
+            "rect must be populated from widget /Rect"
+        );
     }
 }
