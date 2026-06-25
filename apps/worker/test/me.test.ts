@@ -50,7 +50,8 @@ describe("GET /api/v1/me", () => {
       headers: { cookie: sessionCookie },
     });
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
       user: { id: userId, name: "Me Test User", email: "me-member@example.com" },
       firm: { id: firmId, name: "Me Test Firm" },
       // Owner/Admin's seeded role_permission rows: firm:manageMembers (0002_member-rbac.sql) +
@@ -103,6 +104,8 @@ describe("GET /api/v1/me", () => {
         "tools:whois",
       ],
     });
+    expect(body.channel).toBe("stable");
+    expect(body.flags).toEqual({ "release-channels.smoke": false });
   });
 
   it("answers 404 when the session member is DEACTIVATED in the firm database (absent — the deactivated-context promise)", async () => {
@@ -150,6 +153,8 @@ describe("GET /api/v1/me", () => {
       user: { id: userId, name: "Unmirrored User", email: "me-unmirrored@example.com" },
       firm: { id: firmId, name: "Me Test Firm" },
       permissions: [],
+      channel: "stable",
+      flags: { "release-channels.smoke": false },
     });
   });
 

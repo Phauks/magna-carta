@@ -148,12 +148,28 @@
             "items": {
               "type": "string"
             }
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "stable",
+              "beta",
+              "alpha"
+            ]
+          },
+          "flags": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
           }
         },
         "required": [
           "user",
           "firm",
-          "permissions"
+          "permissions",
+          "channel",
+          "flags"
         ]
       },
       "FirmUsageResponse": {

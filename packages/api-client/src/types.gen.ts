@@ -39,6 +39,10 @@ export type MeResponse = {
         name: string;
     };
     permissions: Array<string>;
+    channel: 'stable' | 'beta' | 'alpha';
+    flags: {
+        [key: string]: boolean;
+    };
 };
 
 export type FirmUsageResponse = {

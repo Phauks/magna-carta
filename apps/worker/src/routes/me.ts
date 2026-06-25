@@ -11,12 +11,17 @@ import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { Problem } from "../contracts/problem.ts";
 import { loadEffectivePermissions } from "../session-context.ts";
+import { readFirmReleaseChannelStatement } from "@magna-carta/data-access/firm-release-channel-statements";
+import { evaluateCatalog, isReleaseChannel, type ReleaseChannel } from "@magna-carta/feature-flags";
+import { resolveFlagEvaluator } from "../flags/flag-evaluator.ts";
 
 const MeResponse = z
   .object({
     user: z.object({ id: z.string(), name: z.string(), email: z.string() }),
     firm: z.object({ id: z.string(), name: z.string() }),
     permissions: z.array(z.string()),
+    channel: z.enum(["stable", "beta", "alpha"]),
+    flags: z.record(z.string(), z.boolean()),
   })
   .openapi("MeResponse");
 
@@ -93,12 +98,25 @@ export function registerMeRoute(
 
     const permissions = await loadEffectivePermissions(firmContext.firmDatabase, userId);
 
+    const channelRow = await readFirmReleaseChannelStatement(c.env.DB_CONTROL, firmId).first<{
+      release_channel: string;
+    }>();
+    const rawChannel = channelRow?.release_channel ?? "stable";
+    const channel: ReleaseChannel = isReleaseChannel(rawChannel) ? rawChannel : "stable";
+    const flags = await evaluateCatalog(resolveFlagEvaluator(c.env), {
+      targetingKey: userId,
+      firmId,
+      channel,
+    });
+
     return c.json(
       {
         user: { id: userId, name: userRow.name, email: userRow.email },
         firm: { id: firmId, name: firmContext.firmName },
         // Sorted for a deterministic wire shape (a Set has insertion order, not a contract).
         permissions: [...permissions].sort(),
+        channel,
+        flags,
       },
       200,
     );
