@@ -23,13 +23,9 @@ export const firm = sqliteTable("firm", {
   // are CSPRNG handles minted per attempt, so the name is the only stable client-supplied handle.
   // Platform-admin-controlled input on a fleet of ~1; revisit if self-serve signup ever exists.
   name: text("name").notNull().unique(),
-  // The Cloudflare D1 database backing this firm (the database UUID from the Cloudflare API;
-  // locally a dev-pool binding name). Null = the provisioner has not created/claimed it yet —
-  // the firm row is inserted FIRST so the firm id is stable across provisioning resumes.
-  // UNIQUE still holds (SQLite unique indexes admit multiple NULLs).
+  // vestigial: per-firm DB is the firmId-addressed FirmDatabase DO; drop in a later control-plane migration
   databaseIdentifier: text("database_identifier").unique(),
-  // Mirror of the firm database's latest applied migration tag (fleet-wide visibility).
-  // Null = the firm database has not been provisioned yet. Tags order lexicographically (NNNN_ prefix).
+  // vestigial: the FirmDatabase DO self-migrates on first access; drop in a later control-plane migration
   perFirmSchemaVersion: text("per_firm_schema_version"),
   // Provisioning lifecycle: the provisioner writes 'provisioning' first and flips to 'active' once
   // the firm's resources exist. The DEFAULT keeps pre-lifecycle rows valid (expand-contract).
