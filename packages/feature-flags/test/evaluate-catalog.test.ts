@@ -23,7 +23,7 @@ describe("evaluateCatalog", () => {
     expect(flags).toEqual({ "release-channels.smoke": true });
   });
 
-  it("returns the safe default for a stable firm", async () => {
+  it("returns the evaluator's verdict for a stable firm", async () => {
     const flags = await evaluateCatalog(channelTargetingEvaluator(), stableContext);
     expect(flags).toEqual({ "release-channels.smoke": false });
   });
