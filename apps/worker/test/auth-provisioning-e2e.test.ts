@@ -230,7 +230,8 @@ describe("end-to-end", () => {
       // tools:whois / tools:safeBrowse (0017_seed-tools-web-domains.sql, seeded onto every default role) +
       // tools:fileConverter (0018_seed-tools-file-converter.sql) + firm:scanFile
       // (0019_seed-scan-file-permission.sql) + tools:metadataScrubber
-      // (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role). Sorted.
+      // (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role) +
+      // firm:manageReleaseChannel (0022_seed-release-channel-permission, Owner/Admin only). Sorted.
       permissions: [
         "customFields:manage",
         "customFields:purge",
@@ -241,6 +242,7 @@ describe("end-to-end", () => {
         "files:organize",
         "files:upload",
         "firm:manageMembers",
+        "firm:manageReleaseChannel",
         "firm:manageSecrets",
         "firm:reportIncident",
         "firm:scanFile",
