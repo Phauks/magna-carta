@@ -16,6 +16,19 @@
 //! of rules; the string+comment+regex-aware scan recovers all of them). The build bin cross-checks the
 //! split's block count against the package's own header count and fails loud on any drift.
 
+use serde::Serialize;
+
+/// Which YARA Forge package a rule first appears in. The packages are nested (core ⊂ extended ⊂ full),
+/// so a rule's tier is the narrowest package containing it. Carried per rule so the app can gate matches
+/// to a firm's chosen tier without re-running the engine.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Tier {
+    Core,
+    Extended,
+    Full,
+}
+
 /// One parsed rule block from a YARA Forge package.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForgeRule {
@@ -30,6 +43,9 @@ pub struct ForgeRule {
     pub is_suspicious: bool,
     /// The full rule text, from its `rule …` line through its closing `}` (inclusive).
     pub text: String,
+    /// The narrowest YARA Forge tier whose package contains this rule. Defaults to `Full` when provenance
+    /// is unknown; overwritten by `assign_tiers` once the per-tier package membership sets are available.
+    pub tier: Tier,
 }
 
 impl ForgeRule {
@@ -221,6 +237,7 @@ pub fn split_rules(source: &str) -> Vec<ForgeRule> {
             is_private,
             is_suspicious,
             text,
+            tier: Tier::Full,
         });
         if end <= header_start {
             break; // defensive: guarantee forward progress
@@ -288,6 +305,33 @@ pub fn filter(source: &str, min_suspicious_score: i32) -> (String, FilterStats) 
         }
     }
     (out, stats)
+}
+
+/// The set of rule names declared in a package source — used to derive tier membership by diffing the
+/// three packages (a rule in core.yar is tier Core, in extended.yar but not core is Extended, etc.).
+pub fn rule_ids(source: &str) -> std::collections::HashSet<String> {
+    split_rules(source).into_iter().map(|rule| rule.name).collect()
+}
+
+/// Parses the full package and tags every rule with the narrowest tier whose package contains it.
+pub fn assign_tiers(
+    full_source: &str,
+    core_ids: &std::collections::HashSet<String>,
+    extended_ids: &std::collections::HashSet<String>,
+) -> Vec<ForgeRule> {
+    split_rules(full_source)
+        .into_iter()
+        .map(|mut rule| {
+            rule.tier = if core_ids.contains(&rule.name) {
+                Tier::Core
+            } else if extended_ids.contains(&rule.name) {
+                Tier::Extended
+            } else {
+                Tier::Full
+            };
+            rule
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -468,5 +512,28 @@ rule SOURCE_SUSP_HighScore_Heuristic
         let rules = split_rules(src);
         assert_eq!(rules[0].score, 0);
         assert!(!rules[0].is_kept(75));
+    }
+
+    #[test]
+    fn assigns_tier_by_package_membership() {
+        let full = "import \"pe\"\n\n\
+            rule Core_Rule\n{\n condition:\n  true\n}\n\n\
+            rule Extended_Rule\n{\n condition:\n  true\n}\n\n\
+            rule Full_Only_Rule\n{\n condition:\n  true\n}\n";
+        let core_ids: std::collections::HashSet<String> = ["Core_Rule".to_string()].into_iter().collect();
+        let extended_ids: std::collections::HashSet<String> =
+            ["Core_Rule".to_string(), "Extended_Rule".to_string()].into_iter().collect();
+        let tagged = assign_tiers(full, &core_ids, &extended_ids);
+        let tier = |name: &str| tagged.iter().find(|r| r.name == name).unwrap().tier;
+        assert_eq!(tier("Core_Rule"), Tier::Core);
+        assert_eq!(tier("Extended_Rule"), Tier::Extended);
+        assert_eq!(tier("Full_Only_Rule"), Tier::Full);
+    }
+
+    #[test]
+    fn rule_ids_extracts_every_header_name() {
+        let src = "rule A\n{\n condition:\n true\n}\n\nprivate rule B\n{\n condition:\n true\n}\n";
+        let ids = rule_ids(src);
+        assert!(ids.contains("A") && ids.contains("B") && ids.len() == 2);
     }
 }
