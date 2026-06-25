@@ -30,7 +30,10 @@ function guardedAssertTransition(
     assertTransition(from, to, gateOn);
   } catch (error) {
     if (error instanceof IllegalTransitionError) {
-      throw new TimeEntryValidationError("illegal-transition", error.message);
+      throw new TimeEntryValidationError(
+        "illegal-transition",
+        `cannot move a time entry from ${error.from} to ${error.to} (review gate ${error.gateOn ? "on" : "off"})`,
+      );
     }
     throw error;
   }
