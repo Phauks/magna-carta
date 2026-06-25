@@ -59,6 +59,9 @@ export const PERMISSIONS = [
   "time:manageRates", // rate cards, rate versions, and the re-rate-unbilled-drafts action
   "time:manageUtbms", // enable/disable the UTBMS code catalog
   "time:manageSettings", // the scoped time settings, non-billable categories, narrative templates
+  // Costs / disbursements — soft costs and hard costs captured against a matter.
+  "costs:track", // create/edit cost entries (manual and grid sources)
+  "costs:approve", // approve / kick-back cost entries when the review gate is on
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

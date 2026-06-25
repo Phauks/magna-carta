@@ -203,6 +203,9 @@ importers:
       '@magna-carta/conversion':
         specifier: workspace:*
         version: link:../../packages/conversion
+      '@magna-carta/costs':
+        specifier: workspace:*
+        version: link:../../packages/costs
       '@magna-carta/custom-fields':
         specifier: workspace:*
         version: link:../../packages/custom-fields

@@ -31,3 +31,12 @@ CREATE TABLE `cost_entry` (
 CREATE INDEX `cost_entry_matter_status_index` ON `cost_entry` (`matter_id`,`status`);--> statement-breakpoint
 CREATE INDEX `cost_entry_status_incurred_date_index` ON `cost_entry` (`status`,`incurred_date`);--> statement-breakpoint
 CREATE UNIQUE INDEX `cost_entry_recovery_ref_unique` ON `cost_entry` (`recovery_ref`) WHERE "cost_entry"."recovery_ref" IS NOT NULL;
+-- Seed costs:track onto Owner/Admin, Attorney, and Paralegal, and costs:approve onto Owner/Admin
+-- and Billing. The role_id literals are the handles minted in 0002_member-rbac.sql; the
+-- rolePermission_ handles are minted once so every firm's defaults match byte-for-byte.
+INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES
+	('rolePermission_costs1TrackOwnerAdmin', 'role_Gw-zKO8hOHQuNv2bWokMp', 'costs:track'),
+	('rolePermission_costs2TrackAttorney0', 'role_gEyJ_YqL1_RI_yDqSa28Y', 'costs:track'),
+	('rolePermission_costs3TrackParalegal', 'role_917LCQyRKP50Z9bW89vXl', 'costs:track'),
+	('rolePermission_costs4ApproveOwnerAdm', 'role_Gw-zKO8hOHQuNv2bWokMp', 'costs:approve'),
+	('rolePermission_costs5ApproveBilling', 'role_hwwC1D98d8Lazc_asL6vO', 'costs:approve');

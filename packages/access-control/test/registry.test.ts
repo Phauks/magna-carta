@@ -130,6 +130,15 @@ describe("permission registry", () => {
     ]);
   });
 
+  it("permissionsForNamespace('costs') returns exactly the costs keys, in registry order", () => {
+    expect(permissionsForNamespace("costs")).toEqual(["costs:track", "costs:approve"]);
+  });
+
+  it("registers the costs permissions", () => {
+    expect(isPermission("costs:track")).toBe(true);
+    expect(isPermission("costs:approve")).toBe(true);
+  });
+
   it("web-domains tool permissions are registered", () => {
     expect(isPermission("tools:whois")).toBe(true);
     expect(isPermission("tools:safeBrowse")).toBe(true);
