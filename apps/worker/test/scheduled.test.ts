@@ -14,20 +14,18 @@ import {
   listReachableActiveFirms,
   runScheduledSweep,
 } from "../src/scheduled.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 import { seedFirm } from "./support/test-auth.ts";
 
-// firm.database_identifier is UNIQUE and the pool firm is shared by this file's tests (the
-// members.test.ts pattern): seeded once here, per-test writes are isolated by the harness.
+// The pool firm is seeded once here and its per-firm data lives in the firm's FirmDatabase Durable
+// Object (addressed by firmId, self-migrating on first access). Per-test writes are isolated by the
+// harness; no D1 pool binding is needed for per-firm data.
 let poolFirmId: FirmId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  poolFirmId = (
-    await seedFirm({ name: "Scheduled Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
-  ).firmId;
+  poolFirmId = (await seedFirm({ name: "Scheduled Test Firm" })).firmId;
 });
 
 // Mirrors the invite endpoint's own write — a control-plane user row on the pool firm.
@@ -57,14 +55,26 @@ async function insertMemberProvisionOutboxRow(
   return outboxId;
 }
 
+// A minimal common interface satisfied by both D1Database and ProxyBatchDatabase: supports the
+// prepare → bind → all read path used by this helper. Both D1PreparedStatement and ProxySqlStatement
+// expose .all<T>() returning a { results: T[] } shape, so the structural overlap is safe.
+type AnyReadableDatabase = {
+  prepare(sql: string): {
+    bind(...values: unknown[]): {
+      all<T = Record<string, unknown>>(): Promise<{ results: T[] }>;
+    };
+  };
+};
+
 async function outboxRowState(
-  database: D1Database,
+  database: AnyReadableDatabase,
   outboxId: string,
 ): Promise<{ status: string; attempts: number } | null> {
-  return database
+  const { results } = await database
     .prepare("SELECT status, attempts FROM outbox WHERE id = ?1")
     .bind(outboxId)
-    .first<{ status: string; attempts: number }>();
+    .all<{ status: string; attempts: number }>();
+  return results[0] ?? null;
 }
 
 describe("runScheduledSweep — member.provision consumption", () => {
@@ -92,12 +102,11 @@ describe("runScheduledSweep — member.provision consumption", () => {
     expect(report.controlPlane.failed).toBe(0);
 
     // The member mirror landed in the firm database; the invite carries no role (roleName null).
-    const memberRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT display_name, status FROM member WHERE user_id = ?1",
-    )
+    const { results: memberResults } = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT display_name, status FROM member WHERE user_id = ?1")
       .bind(invitedUserId)
-      .first<{ display_name: string; status: string }>();
-    expect(memberRow).toEqual({ display_name: "Sweep Invitee", status: "active" });
+      .all<{ display_name: string; status: string }>();
+    expect(memberResults[0]).toEqual({ display_name: "Sweep Invitee", status: "active" });
 
     // The reconciliation backstop is clean again (control-plane users without a member row in their
     // firm database).
@@ -106,12 +115,11 @@ describe("runScheduledSweep — member.provision consumption", () => {
     // Re-running the sweep is a no-op: the row is dispatched, nothing duplicates.
     const secondReport = await runScheduledSweep(env);
     expect(secondReport.controlPlane.dispatched).toBe(0);
-    const memberCount = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS count FROM member WHERE user_id = ?1",
-    )
+    const { results: countResults } = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT COUNT(*) AS count FROM member WHERE user_id = ?1")
       .bind(invitedUserId)
-      .first<{ count: number }>();
-    expect(memberCount?.count).toBe(1);
+      .all<{ count: number }>();
+    expect(countResults[0]?.count).toBe(1);
   });
 
   it("assigns the named seeded role and dedups a redelivery (at-least-once contract)", async () => {
@@ -130,12 +138,13 @@ describe("runScheduledSweep — member.provision consumption", () => {
       attempts: 0,
     });
 
-    const seededRole = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT id FROM role WHERE name = 'Owner/Admin'",
-    ).first<{ id: string }>();
-    const roleRows = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT role_id FROM member_role WHERE member_user_id = ?1",
-    )
+    const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
+    const { results: roleResults } = await firmDatabase
+      .prepare("SELECT id FROM role WHERE name = 'Owner/Admin'")
+      .all<{ id: string }>();
+    const seededRole = roleResults[0];
+    const roleRows = await firmDatabase
+      .prepare("SELECT role_id FROM member_role WHERE member_user_id = ?1")
       .bind(userId)
       .all<{ role_id: string }>();
     expect(roleRows.results).toEqual([{ role_id: seededRole?.id }]);
@@ -148,25 +157,25 @@ describe("runScheduledSweep — member.provision consumption", () => {
       .run();
     await runScheduledSweep(env);
 
-    const memberCount = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS count FROM member WHERE user_id = ?1",
-    )
+    const { results: memberCountResults } = await firmDatabase
+      .prepare("SELECT COUNT(*) AS count FROM member WHERE user_id = ?1")
       .bind(userId)
-      .first<{ count: number }>();
-    expect(memberCount?.count).toBe(1);
-    const roleCount = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS count FROM member_role WHERE member_user_id = ?1",
-    )
+      .all<{ count: number }>();
+    expect(memberCountResults[0]?.count).toBe(1);
+    const { results: roleCountResults } = await firmDatabase
+      .prepare("SELECT COUNT(*) AS count FROM member_role WHERE member_user_id = ?1")
       .bind(userId)
-      .first<{ count: number }>();
-    expect(roleCount?.count).toBe(1);
+      .all<{ count: number }>();
+    expect(roleCountResults[0]?.count).toBe(1);
   });
 
   it("dead-letters a poisoned message after max attempts without touching any firm database", async () => {
-    // Poison: a firmId no firm row records — the consumer throws on every delivery.
+    // Poison: a malformed firmId format — parseMemberProvisionPayload throws assertIdentifier on
+    // every delivery before the firm database is accessed. The relay increments attempts and
+    // dead-letters at max attempts (5).
     const outboxId = await insertMemberProvisionOutboxRow(env.DB_CONTROL, {
       userId: newIdentifier("user"),
-      firmId: newIdentifier("firm"),
+      firmId: "not-a-valid-firm-id",
       displayName: "Poisoned",
       roleName: null,
     });
@@ -222,12 +231,11 @@ describe("runScheduledSweep — member.provision consumption", () => {
       attempts: 1,
     });
     // No member row was written for the dropped-field payload.
-    const memberRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT user_id FROM member WHERE user_id = ?1",
-    )
+    const { results: memberResults } = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT user_id FROM member WHERE user_id = ?1")
       .bind(userId)
-      .first();
-    expect(memberRow).toBeNull();
+      .all();
+    expect(memberResults[0]).toBeUndefined();
   });
 
   it("dead-letters a message whose topic has no registered consumer", async () => {
@@ -250,15 +258,16 @@ describe("runScheduledSweep — per-firm relay and TTL purge", () => {
     // Nothing consumes the per-firm queue yet this slice — publishing + the dispatched mark IS
     // the relay contract; the consumer arrives with the first per-firm topic.
     const outboxId = newIdentifier("outbox");
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO outbox (id, topic, payload, aggregate_key, seq, status, attempts, created_at) VALUES (?1, 'demo.topic', '{}', NULL, NULL, 'pending', 0, ?2)",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO outbox (id, topic, payload, aggregate_key, seq, status, attempts, created_at) VALUES (?1, 'demo.topic', '{}', NULL, NULL, 'pending', 0, ?2)",
+      )
       .bind(outboxId, new Date().toISOString())
       .run();
 
     const report = await runScheduledSweep(env);
     expect(report.firmSweeps).toBeGreaterThanOrEqual(1);
-    expect(await outboxRowState(env.DB_FIRM_POOL_1, outboxId)).toEqual({
+    expect(await outboxRowState(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), outboxId)).toEqual({
       status: "dispatched",
       attempts: 0,
     });
@@ -270,9 +279,10 @@ describe("runScheduledSweep — per-firm relay and TTL purge", () => {
     // messages cross the single SHARED queue (the first per-firm consumer, slice 0·5+, has no other
     // handle on which physical database the row came from). A capturing fake QUEUE pins the shape.
     const outboxId = newIdentifier("outbox");
-    await env.DB_FIRM_POOL_1.prepare(
-      `INSERT INTO outbox (id, topic, payload, aggregate_key, seq, status, attempts, created_at) VALUES (?1, 'demo.shape', '{"demo":true}', 'agg_demo', 7, 'pending', 0, ?2)`,
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        `INSERT INTO outbox (id, topic, payload, aggregate_key, seq, status, attempts, created_at) VALUES (?1, 'demo.shape', '{"demo":true}', 'agg_demo', 7, 'pending', 0, ?2)`,
+      )
       .bind(outboxId, new Date().toISOString())
       .run();
 
@@ -300,7 +310,21 @@ describe("runScheduledSweep — per-firm relay and TTL purge", () => {
     const hourMilliseconds = 60 * 60 * 1000;
     const expired = new Date(Date.now() - 25 * hourMilliseconds).toISOString();
     const fresh = new Date().toISOString();
-    for (const database of [env.DB_CONTROL, env.DB_FIRM_POOL_1]) {
+    const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
+    // A minimal common interface satisfied by both D1Database and firmDatabase (ProxyBatchDatabase).
+    // Both support prepare().bind().run() and prepare().all() (the bound form is a fluent no-op
+    // when no parameters are needed: ProxySqlStatement.bind returns itself unchanged).
+    type AnyWriteReadDatabase = {
+      prepare(sql: string): {
+        bind(...values: unknown[]): {
+          run(): Promise<unknown>;
+          all<T>(): Promise<{ results: T[] }>;
+        };
+        all<T>(): Promise<{ results: T[] }>;
+        run(): Promise<unknown>;
+      };
+    };
+    for (const database of [env.DB_CONTROL as AnyWriteReadDatabase, firmDatabase]) {
       for (const [key, createdAt] of [
         ["ttl-expired", expired],
         ["ttl-fresh", fresh],
@@ -316,7 +340,7 @@ describe("runScheduledSweep — per-firm relay and TTL purge", () => {
 
     await runScheduledSweep(env);
 
-    for (const database of [env.DB_CONTROL, env.DB_FIRM_POOL_1]) {
+    for (const database of [env.DB_CONTROL as AnyWriteReadDatabase, firmDatabase]) {
       const remaining = await database
         .prepare("SELECT key FROM idempotency_key WHERE key IN ('ttl-expired', 'ttl-fresh')")
         .all<{ key: string }>();
@@ -343,11 +367,10 @@ describe("scheduled handler wiring", () => {
     worker.scheduled(controller, env, executionContext);
     await waitOnExecutionContext(executionContext);
 
-    const memberRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT display_name FROM member WHERE user_id = ?1",
-    )
+    const { results: memberResults } = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT display_name FROM member WHERE user_id = ?1")
       .bind(userId)
-      .first<{ display_name: string }>();
-    expect(memberRow).toEqual({ display_name: "Cron User" });
+      .all<{ display_name: string }>();
+    expect(memberResults[0]).toEqual({ display_name: "Cron User" });
   });
 });
