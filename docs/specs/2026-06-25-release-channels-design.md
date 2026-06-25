@@ -34,7 +34,7 @@ The channel value has two distinct write paths with different trust boundaries; 
 ### Beta — firm self-serve
 
 - A new RBAC permission `firm:manageReleaseChannel` (seeded to Owner / firm admin), enforced **server-side in the firm-scoped data-access layer** — never the UI alone.
-- Surfaced through the existing Settings registry as a firm-scoped, **audited** setting whose allowed values are restricted to `{ stable, beta }`. The firm-facing write path **rejects `alpha`**, so the alpha boundary is enforced by *which door is used*, not by per-value RBAC (which the settings framework's per-setting `editRole` cannot express).
+- Surfaced through a **dedicated firm endpoint that writes the control-plane `firm.release_channel` column directly** — *not* the per-firm scoped-setting registry. That registry exists and works, but it lives in each firm's own database; channel needs a control-plane home shared with the platform-level alpha door, and a single source of truth for both doors. The endpoint accepts only `{ stable, beta }` and **rejects `alpha`**, so the alpha boundary is enforced by *which door is used*. The Settings UI surfaces this endpoint as a bespoke section (a later frontend slice), not a generated setting.
 - **Explicit recorded consent gate.** Opting a legal firm's live data onto pre-release software is not a silent toggle: the admin must acknowledge an explicit "I understand this firm will run pre-release features on live data" statement, and that acknowledgment (who, when, the exact text/version) is recorded in the audit trail alongside the channel change. Leaving beta (back to stable) needs no consent.
 
 ### Alpha — developer-only
@@ -42,7 +42,11 @@ The channel value has two distinct write paths with different trust boundaries; 
 - Set or cleared only through a **secret-guarded platform endpoint**, the same trust lane as `firm:provision` (the platform has no staff-RBAC identity today; platform actions are secret-guarded). Not reachable from any firm-facing surface.
 - The firm's own team dogfoods by pinning **dedicated internal firms** to alpha. Real client firms reach alpha only by a deliberate developer grant.
 
-Both writes are audited: old → new channel, actor, timestamp, and (for beta) the consent acknowledgment.
+Both writes are audited, in the home that matches the door:
+- **Beta** (firm session): a per-firm `audit_log` row — event `firm.release_channel_changed`, actor = the admin, with the consent acknowledgment in redacted metadata.
+- **Alpha** (platform, no firm session): a control-plane `auth_audit` row — event `firm.release_channel_set_alpha`, `user_id` null (like `firm.provisioned`), metadata `{ firmId, oldChannel, newChannel }`.
+
+Both record old → new channel and timestamp.
 
 ## Resolution & Flagship
 
@@ -79,13 +83,15 @@ One SPA bundle for all channels. The resolved flag set for the current session i
 v1 ships the **complete mechanism with zero product features gated**, proven end-to-end by one trivial throwaway flag:
 
 1. `firm.release_channel` column + control-plane migration.
-2. `firm:manageReleaseChannel` permission + the beta firm-setting door (DAL + route + consent gate + audit).
+2. `firm:manageReleaseChannel` permission (seeded to Owner/Admin) + the beta door: a dedicated firm endpoint writing the control-plane column, with a consent acknowledgment required in the request and recorded to per-firm `audit_log`.
 3. The alpha secret-guarded platform door + audit.
 4. `@magna-carta/feature-flags` wrapper over the `env.FLAGS` Flagship binding, with a test fake for unit tests.
 5. Session-context channel read; `/me` resolved-flag delivery.
 6. One throwaway boolean flag wired through API + UI to prove the path, removed or left as the reference example.
 
 Real features adopt the rails as they ship. This is the YAGNI-correct first slice: build the expensive-to-retrofit seam now, gate nothing speculative.
+
+**Plan decomposition.** v1 splits into two independently-testable plans: **Plan 1 — backend rails** (column, permission, both endpoints, the `@magna-carta/feature-flags` package, `/me` delivery, audit, contract regen) and **Plan 2 — frontend** (the beta opt-in Settings section with its consent dialog, and one UI element gated on the throwaway flag). Plan 1 lands and is verified through the worker integration tests before Plan 2 is planned.
 
 ## Audit & docs
 
