@@ -32,4 +32,16 @@ describe("bundle-formats", () => {
       }),
     ).toEqual([]);
   });
+
+  it("split is 7z-only: zip cannot split (no Rust crate writes spanned ZIP)", () => {
+    expect(capabilitiesFor("zip").supportsSplit).toBe(false);
+    expect(capabilitiesFor("sevenZip").supportsSplit).toBe(true);
+    const errors = validateOptionsForFormat({
+      ...DEFAULT_BUNDLE_OPTIONS,
+      format: "zip",
+      split: { maxPartBytes: 20_000_000 },
+    });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatch(/split/i);
+  });
 });

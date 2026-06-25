@@ -17,7 +17,7 @@ export const FORMAT_CAPABILITIES: Record<BundleFormat, FormatCapabilities> = {
     supportsCompression: true,
     supportsEncryption: true,
     supportsHeaderEncryption: false, // ZIP AES leaves the file list visible
-    supportsSplit: true,
+    supportsSplit: false, // PKWARE disk-spanning (.z01) is not writable by any Rust crate; split is 7z-only
   },
   sevenZip: {
     extension: "7z",
