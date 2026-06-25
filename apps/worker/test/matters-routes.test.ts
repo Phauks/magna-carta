@@ -8,7 +8,7 @@ import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -28,16 +28,19 @@ let ownerUserId: UserId;
 
 // Mirror a member carrying a named seeded role (the Read-only role grants no slice 1·1 permission).
 async function mirrorMemberWithRole(userId: UserId, displayName: string, roleName: string) {
-  const role = await env.DB_FIRM_POOL_1.prepare("SELECT id FROM role WHERE name = ?1")
+  const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
+  const roleResult = await firmDatabase
+    .prepare("SELECT id FROM role WHERE name = ?1")
     .bind(roleName)
-    .first<{ id: string }>();
-  if (role === null) throw new Error(`seeded role ${roleName} missing`);
-  await insertMemberStatement(env.DB_FIRM_POOL_1, {
+    .all<{ id: string }>();
+  const role = roleResult.results[0];
+  if (role === undefined) throw new Error(`seeded role ${roleName} missing`);
+  await insertMemberStatement(firmDatabase, {
     userId,
     displayName,
     now: new Date().toISOString(),
   }).run();
-  await insertRoleAssignmentStatement(env.DB_FIRM_POOL_1, {
+  await insertRoleAssignmentStatement(firmDatabase, {
     id: newIdentifier("memberRole"),
     memberUserId: userId,
     roleId: assertIdentifier(role.id, "role"),
@@ -46,7 +49,6 @@ async function mirrorMemberWithRole(userId: UserId, displayName: string, roleNam
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   poolFirmId = (await seedFirm({ name: "Matters Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
     .firmId;
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
@@ -58,7 +60,7 @@ beforeAll(async () => {
     firmId: poolFirmId,
   });
   ownerUserId = owner.userId;
-  await mirrorMemberWithOwnerRole(owner.userId, "Matters Owner");
+  await mirrorMemberWithOwnerRole(owner.userId, "Matters Owner", poolFirmId);
   ownerCookie = await signInForSessionCookie("matters-owner@example.com");
 
   const readOnly = await seedCredentialedUser("matters-readonly@example.com", {
@@ -121,9 +123,10 @@ describe("numbering-scheme routes", () => {
     expect(previewResponse.status).toBe(200);
     const preview = (await previewResponse.json()) as { number: string; scopeKey: string };
     expect(preview.number).toMatch(/^\d{4}-0042$/);
-    const counters = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM matter_number_counter",
-    ).first<{ c: number }>();
+    const countersResult = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT COUNT(*) AS c FROM matter_number_counter")
+      .all<{ c: number }>();
+    const counters = countersResult.results[0];
     expect(counters?.c).toBe(0);
   });
 
