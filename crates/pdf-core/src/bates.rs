@@ -79,9 +79,9 @@ pub enum BatesError {
 
 /// Formats a Bates label: `prefix` followed by `number` zero-padded to at least
 /// `padding` digits. When `number` is wider than `padding`, no truncation occurs.
-// Consumed by the document-level stamping entry point (built next), which derives a
-// per-page label from BatesOptions before handing it to stamp_page.
-#[allow(dead_code)]
+///
+/// Called by `stamp_document` to derive a per-page label from `BatesOptions` before
+/// passing it to `stamp_page`.
 pub(crate) fn format_label(prefix: &str, number: u64, padding: u8) -> String {
     format!("{prefix}{number:0width$}", width = padding as usize)
 }
@@ -156,18 +156,20 @@ fn text_matrix(rotation: i64, llx: f32, lly: f32, w: f32, h: f32, dx: f32, dy: f
 /// The label is placed in the requested corner of the *displayed* page (after the
 /// viewer applies `/Rotate` and the MediaBox origin) and reads upright. A
 /// self-contained `/Resources` dictionary is written onto the page that merges the
-/// page's effective resources with one new stamp font named `MagnaCartaBates`, so a
-/// page that inherited its resources keeps every inherited entry.
+/// page's effective resources with the shared stamp font object (`font_id`) under
+/// the name `MagnaCartaBates`, so a page that inherited its resources keeps every
+/// inherited entry.
+///
+/// `font_id` must be the `ObjectId` of a `<< /Type /Font /Subtype /Type1 /BaseFont
+/// /Helvetica >>` object already added to `doc`. `stamp_document` adds the object
+/// once per document and passes its id to every call on that document, so the
+/// document contains exactly one stamp font object shared by all stamped pages.
 ///
 /// Returns `BatesError::Parse` only when the page has no resolvable MediaBox.
-// Consumed by the document- and set-level stamping entry points built in the next
-// step; until that caller lands this seam has no in-crate use site. The annotation
-// also keeps its placement/escape helpers (label_width_pt, text_matrix,
-// escape_pdf_literal, helvetica_advance) live for the same reason.
-#[allow(dead_code)]
 pub(crate) fn stamp_page(
     doc: &mut lopdf::Document,
     page_id: lopdf::ObjectId,
+    font_id: lopdf::ObjectId,
     label: &str,
     opts: &BatesOptions,
 ) -> Result<(), BatesError> {
@@ -223,14 +225,10 @@ pub(crate) fn stamp_page(
         Err(_) => lopdf::Dictionary::new(),
     };
 
-    // Add the stamp font and reference it under a distinctive name that will not
-    // clobber an existing /Font resource.
-    let stamp_font_id = doc.add_object(dictionary! {
-        b"Type" => Object::Name(b"Font".to_vec()),
-        b"Subtype" => Object::Name(b"Type1".to_vec()),
-        b"BaseFont" => Object::Name(b"Helvetica".to_vec()),
-    });
-    font_dict.set(b"MagnaCartaBates", Object::Reference(stamp_font_id));
+    // Reference the shared stamp font object under a distinctive name that will not
+    // clobber an existing /Font resource. The caller (stamp_document) creates this
+    // object once per document and passes its id so all pages share it.
+    font_dict.set(b"MagnaCartaBates", Object::Reference(font_id));
 
     // Build the merged resources: every existing entry, with /Font replaced by the
     // merged font dict. Write it onto the PAGE dict so the page is self-contained.
@@ -278,6 +276,79 @@ pub(crate) fn stamp_page(
     }
 
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Document and set stamping — continuous Bates numbering
+// ---------------------------------------------------------------------------
+
+/// Stamps every page of the PDF `bytes` with a sequential Bates label, starting at
+/// `start`. Returns the serialised output bytes and the inclusive range stamped.
+///
+/// A single Helvetica font dictionary is added to the document and shared by every
+/// stamped page (`/MagnaCartaBates`), so the document contains exactly one new font
+/// object regardless of page count.
+///
+/// Page order is determined by the 1-based page numbers in `doc.get_pages()`, which
+/// matches the reading order viewers present to users.
+pub fn stamp_document(
+    bytes: &[u8],
+    opts: &BatesOptions,
+    start: u64,
+) -> Result<(Vec<u8>, BatesRange), BatesError> {
+    let mut doc = lopdf::Document::load_mem(bytes).map_err(|_| BatesError::Parse)?;
+
+    // Collect page ObjectIds in reading order (sorted by 1-based page number).
+    let mut pages: Vec<(u32, lopdf::ObjectId)> = doc.get_pages().into_iter().collect();
+    if pages.is_empty() {
+        return Err(BatesError::NoPages);
+    }
+    pages.sort_by_key(|(page_number, _)| *page_number);
+
+    let page_count = pages.len();
+
+    // Add the shared stamp font object once per document; every page references it.
+    let font_id = doc.add_object(dictionary! {
+        b"Type" => Object::Name(b"Font".to_vec()),
+        b"Subtype" => Object::Name(b"Type1".to_vec()),
+        b"BaseFont" => Object::Name(b"Helvetica".to_vec()),
+    });
+
+    for (index, (_, page_id)) in pages.into_iter().enumerate() {
+        let label = format_label(&opts.prefix, start + index as u64, opts.padding);
+        stamp_page(&mut doc, page_id, font_id, &label, opts)?;
+    }
+
+    let mut output = Vec::new();
+    doc.save_to(&mut output)
+        .map_err(|_| BatesError::Reassemble)?;
+
+    let range = BatesRange {
+        start,
+        end: start + page_count as u64 - 1,
+        page_count,
+    };
+    Ok((output, range))
+}
+
+/// Stamps each document in `docs` with sequential Bates labels, threading the
+/// counter from one document to the next. The first document starts at
+/// `opts.start_number`; each subsequent document continues from where the
+/// previous one left off.
+///
+/// Returns a `Vec` of `(stamped_bytes, range)` in the same order as `docs`.
+pub fn stamp_set(
+    docs: &[Vec<u8>],
+    opts: &BatesOptions,
+) -> Result<Vec<(Vec<u8>, BatesRange)>, BatesError> {
+    let mut results = Vec::with_capacity(docs.len());
+    let mut next = opts.start_number;
+    for document in docs {
+        let (stamped, range) = stamp_document(document, opts, next)?;
+        next = range.end + 1;
+        results.push((stamped, range));
+    }
+    Ok(results)
 }
 
 // ---------------------------------------------------------------------------
@@ -360,7 +431,19 @@ mod tests {
             page_dict.set(b"Resources", Object::Reference(resources_id));
         }
 
-        stamp_page(&mut doc, page_id, "SMITH-000001", &BatesOptions::default()).unwrap();
+        let font_id = doc.add_object(dictionary! {
+            b"Type" => Object::Name(b"Font".to_vec()),
+            b"Subtype" => Object::Name(b"Type1".to_vec()),
+            b"BaseFont" => Object::Name(b"Helvetica".to_vec()),
+        });
+        stamp_page(
+            &mut doc,
+            page_id,
+            font_id,
+            "SMITH-000001",
+            &BatesOptions::default(),
+        )
+        .unwrap();
 
         // Resolve the page's /Resources → /Font and assert both fonts are present.
         let resources = crate::surgery::resolve_inherited_resources(&doc, page_id)
@@ -382,7 +465,12 @@ mod tests {
     fn stamped_label_renders_at_bottom_right() {
         let (mut doc, page_id) = page_doc([0, 0, 612, 792]);
         let label = "ACME-000042";
-        stamp_page(&mut doc, page_id, label, &BatesOptions::default()).unwrap();
+        let font_id = doc.add_object(dictionary! {
+            b"Type" => Object::Name(b"Font".to_vec()),
+            b"Subtype" => Object::Name(b"Type1".to_vec()),
+            b"BaseFont" => Object::Name(b"Helvetica".to_vec()),
+        });
+        stamp_page(&mut doc, page_id, font_id, label, &BatesOptions::default()).unwrap();
 
         let pdf = render(&mut doc);
         let obs = crate::textpos::observe_page(&pdf, 0).expect("observe stamped page");
@@ -416,7 +504,12 @@ mod tests {
                 page_dict.set(b"Rotate", Object::Integer(rotation));
             }
             let label = "ROT-000007";
-            stamp_page(&mut doc, page_id, label, &BatesOptions::default()).unwrap();
+            let font_id = doc.add_object(dictionary! {
+                b"Type" => Object::Name(b"Font".to_vec()),
+                b"Subtype" => Object::Name(b"Type1".to_vec()),
+                b"BaseFont" => Object::Name(b"Helvetica".to_vec()),
+            });
+            stamp_page(&mut doc, page_id, font_id, label, &BatesOptions::default()).unwrap();
 
             let pdf = render(&mut doc);
             let obs = crate::textpos::observe_page(&pdf, 0)
@@ -482,7 +575,19 @@ mod tests {
         }
 
         let label = "DOC-000123";
-        stamp_page(&mut doc, page_id, label, &BatesOptions::default()).unwrap();
+        let stamp_font_id = doc.add_object(dictionary! {
+            b"Type" => Object::Name(b"Font".to_vec()),
+            b"Subtype" => Object::Name(b"Type1".to_vec()),
+            b"BaseFont" => Object::Name(b"Helvetica".to_vec()),
+        });
+        stamp_page(
+            &mut doc,
+            page_id,
+            stamp_font_id,
+            label,
+            &BatesOptions::default(),
+        )
+        .unwrap();
 
         let pdf = render(&mut doc);
         let obs = crate::textpos::observe_page(&pdf, 0).expect("observe stamped page");
@@ -533,5 +638,223 @@ mod tests {
     #[test]
     fn escapes_pdf_literal_specials() {
         assert_eq!(escape_pdf_literal(r"a(b)c\d"), r"a\(b\)c\\d");
+    }
+
+    // ── Document and set stamping helpers ─────────────────────────────────────
+
+    /// Build a minimal multi-page PDF document and return it as bytes.
+    ///
+    /// Each page is blank (empty content stream, inline resources). All pages share
+    /// a single `/Pages` node. `mediabox` is `[llx lly urx ury]` applied to all pages.
+    fn multi_page_pdf_bytes(page_count: usize, mediabox: [i64; 4]) -> Vec<u8> {
+        let mut doc = Document::with_version("1.5");
+
+        let pages_id = doc.add_object(dictionary! {
+            b"Type" => Object::Name(b"Pages".to_vec()),
+            b"Kids" => Object::Array(vec![]),
+            b"Count" => Object::Integer(0),
+        });
+        let catalog_id = doc.add_object(dictionary! {
+            b"Type" => Object::Name(b"Catalog".to_vec()),
+            b"Pages" => Object::Reference(pages_id),
+        });
+        doc.trailer.set(b"Root", Object::Reference(catalog_id));
+
+        let mut kid_refs = Vec::with_capacity(page_count);
+        for _ in 0..page_count {
+            let content_id =
+                doc.add_object(Object::Stream(Stream::new(dictionary! {}, b"".to_vec())));
+            let page_id = doc.add_object(dictionary! {
+                b"Type" => Object::Name(b"Page".to_vec()),
+                b"Parent" => Object::Reference(pages_id),
+                b"MediaBox" => Object::Array(vec![
+                    Object::Integer(mediabox[0]),
+                    Object::Integer(mediabox[1]),
+                    Object::Integer(mediabox[2]),
+                    Object::Integer(mediabox[3]),
+                ]),
+                b"Contents" => Object::Reference(content_id),
+                b"Resources" => Object::Dictionary(dictionary! {
+                    b"Font" => Object::Dictionary(dictionary! {}),
+                }),
+            });
+            kid_refs.push(Object::Reference(page_id));
+        }
+
+        if let Ok(Object::Dictionary(pages_dict)) = doc.get_object_mut(pages_id) {
+            pages_dict.set(b"Kids", Object::Array(kid_refs));
+            pages_dict.set(b"Count", Object::Integer(page_count as i64));
+        }
+
+        let mut bytes = Vec::new();
+        doc.save_to(&mut bytes).expect("serialize multi-page doc");
+        bytes
+    }
+
+    // ── Document and set stamping tests ───────────────────────────────────────
+
+    #[test]
+    fn stamp_document_numbers_every_page() {
+        // A 2-page document stamped from 5 must produce a BatesRange {5, 6, 2} and
+        // each page must render the correct label.
+        let bytes = multi_page_pdf_bytes(2, [0, 0, 612, 792]);
+        let opts = BatesOptions {
+            prefix: String::new(),
+            start_number: 5,
+            ..BatesOptions::default()
+        };
+
+        let (stamped, range) = stamp_document(&bytes, &opts, 5).expect("stamp_document succeeds");
+
+        assert_eq!(
+            range,
+            BatesRange {
+                start: 5,
+                end: 6,
+                page_count: 2
+            },
+            "range must span the two stamped pages"
+        );
+
+        let pdf = Pdf::new(stamped).expect("hayro parses stamped document");
+
+        let obs0 = crate::textpos::observe_page(&pdf, 0).expect("observe page 0");
+        let text0: String = obs0.glyphs.iter().map(|g| g.text.as_str()).collect();
+        assert!(
+            text0.contains("000005"),
+            "page 0 must show label ending in 000005; got {text0:?}"
+        );
+
+        let obs1 = crate::textpos::observe_page(&pdf, 1).expect("observe page 1");
+        let text1: String = obs1.glyphs.iter().map(|g| g.text.as_str()).collect();
+        assert!(
+            text1.contains("000006"),
+            "page 1 must show label ending in 000006; got {text1:?}"
+        );
+    }
+
+    #[test]
+    fn stamp_set_numbers_continuously() {
+        // Two docs (2 pages, 3 pages) from start 1 → ranges {1,2,2} and {3,5,3}.
+        let doc_a = multi_page_pdf_bytes(2, [0, 0, 612, 792]);
+        let doc_b = multi_page_pdf_bytes(3, [0, 0, 612, 792]);
+        let opts = BatesOptions::default(); // start_number = 1
+
+        let results = stamp_set(&[doc_a, doc_b], &opts).expect("stamp_set succeeds");
+
+        assert_eq!(results.len(), 2);
+        assert_eq!(
+            results[0].1,
+            BatesRange {
+                start: 1,
+                end: 2,
+                page_count: 2
+            },
+            "first document range"
+        );
+        assert_eq!(
+            results[1].1,
+            BatesRange {
+                start: 3,
+                end: 5,
+                page_count: 3
+            },
+            "second document range"
+        );
+    }
+
+    #[test]
+    fn empty_document_errors() {
+        // A document with no pages must produce BatesError::NoPages.
+        let mut doc = Document::with_version("1.5");
+        let pages_id = doc.add_object(dictionary! {
+            b"Type" => Object::Name(b"Pages".to_vec()),
+            b"Kids" => Object::Array(vec![]),
+            b"Count" => Object::Integer(0),
+        });
+        let catalog_id = doc.add_object(dictionary! {
+            b"Type" => Object::Name(b"Catalog".to_vec()),
+            b"Pages" => Object::Reference(pages_id),
+        });
+        doc.trailer.set(b"Root", Object::Reference(catalog_id));
+
+        let mut bytes = Vec::new();
+        doc.save_to(&mut bytes).expect("serialize empty doc");
+
+        let result = stamp_document(&bytes, &BatesOptions::default(), 1);
+        assert!(
+            matches!(result, Err(BatesError::NoPages)),
+            "empty document must return BatesError::NoPages; got {result:?}"
+        );
+    }
+
+    #[test]
+    fn shared_stamp_font_deduped() {
+        // A multi-page stamped document must contain exactly one font object with
+        // /BaseFont /Helvetica and /Subtype /Type1 added by stamping, and all stamped
+        // pages must reference the same ObjectId under /MagnaCartaBates.
+        let bytes = multi_page_pdf_bytes(3, [0, 0, 612, 792]);
+        let (stamped, _) =
+            stamp_document(&bytes, &BatesOptions::default(), 1).expect("stamp_document succeeds");
+
+        let doc = lopdf::Document::load_mem(&stamped).expect("parse stamped document");
+
+        // Count how many objects in the document match the stamp font signature.
+        let stamp_font_count = doc
+            .objects
+            .values()
+            .filter(|obj| {
+                if let lopdf::Object::Dictionary(dict) = obj {
+                    dict.get(b"Subtype")
+                        .ok()
+                        .and_then(|v| v.as_name().ok())
+                        .is_some_and(|n| n == b"Type1")
+                        && dict
+                            .get(b"BaseFont")
+                            .ok()
+                            .and_then(|v| v.as_name().ok())
+                            .is_some_and(|n| n == b"Helvetica")
+                } else {
+                    false
+                }
+            })
+            .count();
+
+        // Exactly ONE Helvetica/Type1 object should exist (the shared stamp font).
+        // The blank test pages have no pre-existing fonts, so any Helvetica/Type1 is ours.
+        assert_eq!(
+            stamp_font_count, 1,
+            "the stamped document must contain exactly one Helvetica/Type1 font object, found {stamp_font_count}"
+        );
+
+        // Additionally assert that all pages' /MagnaCartaBates resolve to the same ObjectId.
+        let mut pages: Vec<(u32, lopdf::ObjectId)> = doc.get_pages().into_iter().collect();
+        pages.sort_by_key(|(n, _)| *n);
+
+        let font_object_ids: Vec<lopdf::ObjectId> = pages
+            .iter()
+            .filter_map(|(_, page_id)| {
+                let page_dict = doc.get_dictionary(*page_id).ok()?;
+                let resources = page_dict.get(b"Resources").ok()?;
+                let res_dict = crate::surgery::resolve_dict(&doc, resources)?;
+                let font_obj = res_dict.get(b"Font").ok()?;
+                let font_dict = crate::surgery::resolve_dict(&doc, font_obj)?;
+                match font_dict.get(b"MagnaCartaBates").ok()? {
+                    lopdf::Object::Reference(id) => Some(*id),
+                    _ => None,
+                }
+            })
+            .collect();
+
+        assert_eq!(
+            font_object_ids.len(),
+            3,
+            "all 3 pages must have /MagnaCartaBates; found {}",
+            font_object_ids.len()
+        );
+        assert!(
+            font_object_ids.windows(2).all(|w| w[0] == w[1]),
+            "all pages must reference the same stamp font ObjectId; got {font_object_ids:?}"
+        );
     }
 }

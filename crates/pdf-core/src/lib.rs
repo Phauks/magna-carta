@@ -5,7 +5,7 @@ mod standard_fonts;
 mod standard_fonts_data;
 
 mod bates;
-pub use bates::{BatesError, BatesOptions, BatesPosition, BatesRange};
+pub use bates::{stamp_document, stamp_set, BatesError, BatesOptions, BatesPosition, BatesRange};
 
 mod redact;
 pub use redact::*;
