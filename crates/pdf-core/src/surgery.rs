@@ -552,7 +552,7 @@ pub(crate) fn enumerate_page_glyphs(
                             }
                             _ => {
                                 // Numeric kerning adjustment: shift Tm before the next glyph.
-                                if let Some(n) = number_from_object(element) {
+                                if let Some(n) = number_value(element) {
                                     let shift = -(n / 1000.0 * font_size * horiz_scale) as f64;
                                     text_matrix *= Affine::translate((shift, 0.0));
                                 }
@@ -740,27 +740,18 @@ fn affine_from_operands(operands: &[Object]) -> Option<Affine> {
     if operands.len() < 6 {
         return None;
     }
-    let a = number_from_object(&operands[0])? as f64;
-    let b = number_from_object(&operands[1])? as f64;
-    let c = number_from_object(&operands[2])? as f64;
-    let d = number_from_object(&operands[3])? as f64;
-    let e = number_from_object(&operands[4])? as f64;
-    let f = number_from_object(&operands[5])? as f64;
+    let a = number_value(&operands[0])? as f64;
+    let b = number_value(&operands[1])? as f64;
+    let c = number_value(&operands[2])? as f64;
+    let d = number_value(&operands[3])? as f64;
+    let e = number_value(&operands[4])? as f64;
+    let f = number_value(&operands[5])? as f64;
     Some(Affine::new([a, b, c, d, e, f]))
 }
 
 /// Extract the n-th operand as an f32, accepting both `Integer` and `Real`.
 fn number_from_operand(operands: &[Object], index: usize) -> Option<f32> {
-    operands.get(index).and_then(number_from_object)
-}
-
-/// Extract a number from any `Object` that carries one.
-fn number_from_object(obj: &Object) -> Option<f32> {
-    match obj {
-        Object::Integer(n) => Some(*n as f32),
-        Object::Real(r) => Some(*r),
-        _ => None,
-    }
+    operands.get(index).and_then(number_value)
 }
 
 /// Extract the raw bytes of a string operand at `index` (covers both literal and hex strings).

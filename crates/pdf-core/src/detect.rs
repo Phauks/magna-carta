@@ -447,26 +447,14 @@ fn inactive_ocgs(doc: &lopdf::Document) -> Vec<lopdf::ObjectId> {
         .unwrap_or_default()
 }
 
-/// Resolve a dictionary value that may be stored inline or as an indirect reference.
-fn resolve_dict<'a>(
-    doc: &'a lopdf::Document,
-    obj: &'a lopdf::Object,
-) -> Option<&'a lopdf::Dictionary> {
-    match obj {
-        lopdf::Object::Dictionary(d) => Some(d),
-        lopdf::Object::Reference(id) => doc.get_object(*id).ok().and_then(|o| o.as_dict().ok()),
-        _ => None,
-    }
-}
-
 fn property_ocg(
     doc: &lopdf::Document,
     page_id: lopdf::ObjectId,
     name: &[u8],
 ) -> Option<lopdf::ObjectId> {
     let page = doc.get_object(page_id).ok()?.as_dict().ok()?;
-    let resources = resolve_dict(doc, page.get(b"Resources").ok()?)?;
-    let properties = resolve_dict(doc, resources.get(b"Properties").ok()?)?;
+    let resources = crate::surgery::resolve_dict(doc, page.get(b"Resources").ok()?)?;
+    let properties = crate::surgery::resolve_dict(doc, resources.get(b"Properties").ok()?)?;
     properties.get(name).ok()?.as_reference().ok()
 }
 
@@ -575,9 +563,12 @@ pub fn detect(bytes: Vec<u8>) -> Result<DetectionReport, DetectError> {
     let pdf = hayro::hayro_syntax::Pdf::new(bytes.clone()).map_err(|_| DetectError::Parse)?;
     let page_count = pdf.pages().len();
 
-    // Load the lopdf document once for the per-page annotation pass. A separate
-    // fresh copy is used for structural_findings because that function mutates its
-    // document (traverse_objects takes &mut).
+    // Load the lopdf document once for the per-page annotation pass and the
+    // hidden-layer pass (both read-only). structural_findings runs on a separate
+    // pristine copy below — deliberately, not as an unmerged optimization: its
+    // `traverse_objects` call takes `&mut`, so a shared copy could perturb the
+    // read-only passes' view, and a separate copy also keeps finding emission order
+    // stable.
     let lo = lopdf::Document::load_mem(&bytes).ok();
     let page_ids: std::collections::BTreeMap<usize, lopdf::ObjectId> = lo
         .as_ref()
@@ -607,8 +598,8 @@ pub fn detect(bytes: Vec<u8>) -> Result<DetectionReport, DetectError> {
         }
     }
 
-    // Structural pass: needs its own mutable copy for traverse_objects; hidden_layer
-    // pass reuses the shared immutable reference loaded above.
+    // Structural pass: runs on its own pristine mutable copy (see the load comment
+    // above); the hidden-layer pass reuses the shared immutable reference.
     if let Some(doc) = lo.as_ref() {
         let mut doc_mut = lopdf::Document::load_mem(&bytes).unwrap_or_else(|_| doc.clone());
         findings.extend(structural_findings(&mut doc_mut, 3));
