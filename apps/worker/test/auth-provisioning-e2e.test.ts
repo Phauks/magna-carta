@@ -1,6 +1,7 @@
 import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { isPermission } from "@magna-carta/access-control/registry";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { runScheduledSweep } from "../src/scheduled.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
@@ -103,14 +104,16 @@ describe("end-to-end", () => {
     const report = await runScheduledSweep(env);
     expect(report.controlPlane.failed).toBe(0);
 
-    for (const [owner, firmDatabase] of [
-      [firmA.owner, env.DB_FIRM_POOL_1],
-      [firmB.owner, env.DB_FIRM_POOL_2],
+    for (const [owner, firmId] of [
+      [firmA.owner, firmA.id],
+      [firmB.owner, firmB.id],
     ] as const) {
-      const memberRow = await firmDatabase
+      const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+      const memberResults = await firmDatabase
         .prepare("SELECT display_name, status FROM member WHERE user_id = ?1")
         .bind(owner.id)
-        .first<{ display_name: string; status: string }>();
+        .all<{ display_name: string; status: string }>();
+      const memberRow = memberResults.results[0];
       expect(memberRow).toEqual({ display_name: owner.name, status: "active" });
 
       const roleRows = await firmDatabase
@@ -282,38 +285,39 @@ describe("end-to-end", () => {
     const report = await runScheduledSweep(env);
     expect(report.controlPlane.failed).toBe(0);
 
-    const memberRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT display_name, status FROM member WHERE user_id = ?1",
-    )
+    const firmADatabase = firmDatabaseFor(env.FIRM_DATABASE, firmA.id);
+    const memberResults = await firmADatabase
+      .prepare("SELECT display_name, status FROM member WHERE user_id = ?1")
       .bind(invitedParalegalId)
-      .first<{ display_name: string; status: string }>();
+      .all<{ display_name: string; status: string }>();
+    const memberRow = memberResults.results[0];
     expect(memberRow).toEqual({ display_name: PARALEGAL_NAME, status: "active" });
 
     // The invite carries no role (roleName rides the outbox as null): the member lands roleless —
     // the role-assignment API is a later slice. The seeded Paralegal role IS resolvable in firm
     // A's database, ready for that slice to assign.
-    const roleAssignmentCount = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS count FROM member_role WHERE member_user_id = ?1",
-    )
+    const roleAssignmentResults = await firmADatabase
+      .prepare("SELECT COUNT(*) AS count FROM member_role WHERE member_user_id = ?1")
       .bind(invitedParalegalId)
-      .first<{ count: number }>();
-    expect(roleAssignmentCount?.count).toBe(0);
-    const paralegalRole = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT id FROM role WHERE name = 'Paralegal'",
-    ).first<{ id: string }>();
-    expect(paralegalRole?.id).toMatch(/^role_/);
+      .all<{ count: number }>();
+    expect(roleAssignmentResults.results[0]?.count).toBe(0);
+    const paralegalRoleResults = await firmADatabase
+      .prepare("SELECT id FROM role WHERE name = 'Paralegal'")
+      .all<{ id: string }>();
+    expect(paralegalRoleResults.results[0]?.id).toMatch(/^role_/);
   });
 
   it("leaves no trace of firm A's activity in firm B (tenant isolation)", async () => {
     // Firm B's database holds EXACTLY its own owner — by exhaustive enumeration, so no row for
     // the invitee or firm A's owner can hide; same for the role assignments.
-    const firmBMembers = await env.DB_FIRM_POOL_2.prepare(
-      "SELECT user_id FROM member ORDER BY user_id",
-    ).all<{ user_id: string }>();
+    const firmBDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmB.id);
+    const firmBMembers = await firmBDatabase
+      .prepare("SELECT user_id FROM member ORDER BY user_id")
+      .all<{ user_id: string }>();
     expect(firmBMembers.results).toEqual([{ user_id: firmB.owner.id }]);
-    const firmBRoleAssignments = await env.DB_FIRM_POOL_2.prepare(
-      "SELECT member_user_id FROM member_role ORDER BY member_user_id",
-    ).all<{ member_user_id: string }>();
+    const firmBRoleAssignments = await firmBDatabase
+      .prepare("SELECT member_user_id FROM member_role ORDER BY member_user_id")
+      .all<{ member_user_id: string }>();
     expect(firmBRoleAssignments.results).toEqual([{ member_user_id: firmB.owner.id }]);
 
     // Firm B's control-plane slice is untouched beyond its own: its only user is its owner, and

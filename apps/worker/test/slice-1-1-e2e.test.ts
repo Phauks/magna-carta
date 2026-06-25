@@ -4,8 +4,9 @@ import type { FirmId } from "@magna-carta/identifiers/types";
 import { firmResourceName } from "../src/firm-resource-provider.ts";
 import { runScheduledSweep } from "../src/scheduled.ts";
 import { handleIngestMessage } from "../src/files/ingest-consumer.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
+import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 import {
   captureResetToken,
   liveCookie,
@@ -70,12 +71,13 @@ let locationId = "";
 let consultationId = "";
 let openMatterId = "";
 let uploadedFileId = "";
+let isolationFirmId = "";
 
 beforeAll(async () => {
-  // Control plane only — the provisioner migrates the claimed pool firm database itself. The second
-  // pool binding is migrated here so the isolation step can read it as an empty, intact tenant.
+  // Control plane only — the provisioner migrates the claimed pool firm database itself.
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_2);
+  // An isolation firmId whose DO will be empty — used in the isolation step to prove no tenant bleed.
+  isolationFirmId = newIdentifier("firm");
 });
 
 function authHeaders(cookie: string, withKey = false): HeadersInit {
@@ -176,12 +178,11 @@ describe("slice 1·1 end-to-end", () => {
     // row every firm-scoped route resolves the session against.
     const report = await runScheduledSweep(env);
     expect(report.controlPlane.failed).toBe(0);
-    const memberRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT status FROM member WHERE user_id = ?1",
-    )
+    const memberResults = await firmDatabaseFor(env.FIRM_DATABASE, firm.id as FirmId)
+      .prepare("SELECT status FROM member WHERE user_id = ?1")
       .bind(firm.owner.id)
-      .first<{ status: string }>();
-    expect(memberRow?.status).toBe("active");
+      .all<{ status: string }>();
+    expect(memberResults.results[0]?.status).toBe("active");
   });
 
   it("creates a Location and a matter type", async () => {
@@ -254,12 +255,11 @@ describe("slice 1·1 end-to-end", () => {
     );
     uploadedFileId = fileId;
 
-    const versionRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT status FROM file_version WHERE id = ?1",
-    )
+    const versionResults = await firmDatabaseFor(env.FIRM_DATABASE, firm.id as FirmId)
+      .prepare("SELECT status FROM file_version WHERE id = ?1")
       .bind(versionId)
-      .first<{ status: string }>();
-    expect(versionRow?.status).toBe("clean");
+      .all<{ status: string }>();
+    expect(versionResults.results[0]?.status).toBe("clean");
 
     const files = await get(`/api/v1/files?matterId=${openMatterId}`);
     const filesBody = (await files.json()) as { data: { id: string; name: string }[] };
@@ -282,12 +282,11 @@ describe("slice 1·1 end-to-end", () => {
     await handleIngestMessage(env, ingestEvent(initiated.key, PDF_BYTES.byteLength));
 
     // The identical-hash version is abandoned, not committed — the file keeps a single clean version.
-    const secondVersion = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT status FROM file_version WHERE id = ?1",
-    )
+    const secondVersionResults = await firmDatabaseFor(env.FIRM_DATABASE, firm.id as FirmId)
+      .prepare("SELECT status FROM file_version WHERE id = ?1")
       .bind(initiated.versionId)
-      .first<{ status: string }>();
-    expect(secondVersion?.status).toBe("abandoned");
+      .all<{ status: string }>();
+    expect(secondVersionResults.results[0]?.status).toBe("abandoned");
 
     const versions = await get(`/api/v1/files/${uploadedFileId}/versions`);
     const versionsBody = (await versions.json()) as { data: unknown[] };
@@ -307,12 +306,11 @@ describe("slice 1·1 end-to-end", () => {
     await env.R2.put(initiated.key, PDF_BYTES);
     await handleIngestMessage(env, ingestEvent(initiated.key, PDF_BYTES.byteLength));
 
-    const versionRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT status FROM file_version WHERE id = ?1",
-    )
+    const quarantinedResults = await firmDatabaseFor(env.FIRM_DATABASE, firm.id as FirmId)
+      .prepare("SELECT status FROM file_version WHERE id = ?1")
       .bind(initiated.versionId)
-      .first<{ status: string }>();
-    expect(versionRow?.status).toBe("quarantined");
+      .all<{ status: string }>();
+    expect(quarantinedResults.results[0]?.status).toBe("quarantined");
 
     const files = await get(`/api/v1/files?matterId=${openMatterId}`);
     const filesBody = (await files.json()) as { data: { name: string }[] };
@@ -371,12 +369,11 @@ describe("slice 1·1 end-to-end", () => {
       SECOND_PDF_BYTES,
     );
 
-    const versionRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT status FROM file_version WHERE id = ?1",
-    )
+    const postCloseVersionResults = await firmDatabaseFor(env.FIRM_DATABASE, firm.id as FirmId)
+      .prepare("SELECT status FROM file_version WHERE id = ?1")
       .bind(versionId)
-      .first<{ status: string }>();
-    expect(versionRow?.status).toBe("clean");
+      .all<{ status: string }>();
+    expect(postCloseVersionResults.results[0]?.status).toBe("clean");
 
     const files = await get(`/api/v1/files?matterId=${openMatterId}`);
     const filesBody = (await files.json()) as { data: { id: string }[] };
@@ -384,19 +381,20 @@ describe("slice 1·1 end-to-end", () => {
   });
 
   it("leaves the second tenant's database untouched (isolation)", async () => {
-    // The second dev-pool binding is a separate firm's database: it carries none of this journey's
-    // matters, files, or versions — exhaustive counts, so no row can hide.
-    const matters = await env.DB_FIRM_POOL_2.prepare("SELECT COUNT(*) AS n FROM matter").first<{
-      n: number;
-    }>();
-    expect(matters?.n).toBe(0);
-    const files = await env.DB_FIRM_POOL_2.prepare("SELECT COUNT(*) AS n FROM file").first<{
-      n: number;
-    }>();
-    expect(files?.n).toBe(0);
-    const versions = await env.DB_FIRM_POOL_2.prepare(
-      "SELECT COUNT(*) AS n FROM file_version WHERE status IS NOT NULL",
-    ).first<{ n: number }>();
-    expect(versions?.n).toBe(0);
+    // A fresh firmId whose DO has never been written to carries none of this journey's matters,
+    // files, or versions — exhaustive counts, so no row can hide.
+    const isolationDatabase = firmDatabaseFor(env.FIRM_DATABASE, isolationFirmId);
+    const mattersResult = await isolationDatabase
+      .prepare("SELECT COUNT(*) AS n FROM matter")
+      .all<{ n: number }>();
+    expect(mattersResult.results[0]?.n).toBe(0);
+    const filesResult = await isolationDatabase
+      .prepare("SELECT COUNT(*) AS n FROM file")
+      .all<{ n: number }>();
+    expect(filesResult.results[0]?.n).toBe(0);
+    const versionsResult = await isolationDatabase
+      .prepare("SELECT COUNT(*) AS n FROM file_version WHERE status IS NOT NULL")
+      .all<{ n: number }>();
+    expect(versionsResult.results[0]?.n).toBe(0);
   });
 });
