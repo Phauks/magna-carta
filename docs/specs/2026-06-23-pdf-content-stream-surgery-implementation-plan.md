@@ -80,12 +80,14 @@ pub enum RedactionMode { Flatten, Surgery }   // Default = Flatten
 ### Task 1: Font metrics — bytes-per-code and per-code advance widths
 
 **Files:**
+
 - Create: `crates/pdf-core/src/surgery.rs`
 - Modify: `crates/pdf-core/src/lib.rs` (add `mod surgery;`)
 
 **Interfaces:** Produces `FontMetrics`, `page_fonts` (signatures above).
 
 Width values are in glyph-space thousandths (the PDF `/Widths` unit). Rules:
+
 - **Simple font** (`/Subtype` Type1/TrueType/MMType1/Type0-absent): `bytes_per_code = 1`. Read `/FirstChar` (int) and `/Widths` (array of numbers); `widths[FirstChar + i] = Widths[i]`. `default_width` = `/MissingWidth` from `/FontDescriptor` if present else `0.0`. If `/Widths` is absent → `Unsupported`.
 - **Type0** (`/Subtype` = `Type0`): `/Encoding` must be `Object::Name(b"Identity-H")` or `b"Identity-V"`; any other encoding → `Unsupported`. `bytes_per_code = 2`. Resolve `/DescendantFonts` (array; first element, a reference) → descendant dict; read `/DW` (default width, default `1000.0`) and `/W`. Parse `/W` in both forms: `c [w1 w2 …]` (consecutive CIDs from `c`) and `c_first c_last w` (range gets one width). `default_width = DW`.
 - **Type3** or any other subtype → `Unsupported`.
@@ -192,14 +194,16 @@ mod tests {
 ### Task 2: Position-tracking glyph enumeration
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/surgery.rs`
 - Modify: `crates/pdf-core/src/detect.rs` (make `to_display_rect`, `rect_contains` `pub(crate)`)
 
 **Interfaces:** Consumes `FontMetrics`/`page_fonts`. Produces `GlyphSlot`, `enumerate_page_glyphs`.
 
-The walk maintains: a CTM stack (`Vec<kurbo::Affine>`, push on `q`, pop on `Q`, pre-multiply on `cm`), the text matrix `Tm` and line matrix `Tlm` (`kurbo::Affine`), and text state `font`, `font_size`, `char_spacing`, `word_spacing`, `horiz_scale` (`Tz`/100, default 1.0), `leading` (`TL`), `rise` (`Ts`). Operators handled: `q Q cm BT ET Tm Td TD T* Tc Tw Tz TL Ts Tr Tf Tj TJ ' "`. Any **other operator that is not in a known-ignorable set while text would be shown** does not by itself fail — only an unsupported *font actually showing text*, an unbalanced `Q` (pop on empty stack), or a show op under a font with no metrics entry → `Err(())`.
+The walk maintains: a CTM stack (`Vec<kurbo::Affine>`, push on `q`, pop on `Q`, pre-multiply on `cm`), the text matrix `Tm` and line matrix `Tlm` (`kurbo::Affine`), and text state `font`, `font_size`, `char_spacing`, `word_spacing`, `horiz_scale` (`Tz`/100, default 1.0), `leading` (`TL`), `rise` (`Ts`). Operators handled: `q Q cm BT ET Tm Td TD T* Tc Tw Tz TL Ts Tr Tf Tj TJ ' "`. Any **other operator that is not in a known-ignorable set while text would be shown** does not by itself fail — only an unsupported _font actually showing text_, an unbalanced `Q` (pop on empty stack), or a show op under a font with no metrics entry → `Err(())`.
 
 Per glyph code in a show string (split the operand bytes into `bytes_per_code`-sized codes):
+
 - text-space glyph origin = `Tm` applied to `(0, rise)`.
 - horizontal advance in text space (before `Tz`): `w = widths.get(code).unwrap_or(default_width)` (glyph-space/1000); `adv = (w/1000.0 * font_size + char_spacing + word_spacing_if_applicable)`. `word_spacing` applies only when `bytes_per_code == 1` and `code == 32`.
 - the post-glyph `Tm` update: translate `Tm` by `(adv * horiz_scale, 0)` in text space, i.e. `Tm = Tm * Affine::translate((adv * horiz_scale as f64, 0.0))`.
@@ -307,6 +311,7 @@ fn cm_scaling_moves_positions() {
 `mark_in_rects`: return indices of slots whose `(cx, cy)` satisfies `rect_contains(rect, cx, cy)` for any rect.
 
 `apply_excision`: for each operation that has ≥1 marked glyph, rebuild it as a `TJ`:
+
 - Walk the operand's codes in order; accumulate kept code bytes into the current string fragment; when a marked code is dropped, flush the current fragment as an `Object::String`, accumulate the dropped run's compensation, and emit an `Object::Real(n)` where `n = -(sum over dropped glyphs of (w + (char_spacing + word_spacing_term) * 1000.0 / font_size))`, with `w` the glyph width (glyph-space/1000) and `word_spacing_term` applied only for a 1-byte code 32. (For `char_spacing == 0 && word_spacing == 0`, `n = -sum(w)` exactly.) Preserve existing `TJ` numeric elements that are not part of a dropped run.
 - Replace the operation's `operator` with `"TJ"` and `operands` with `[Object::Array(rebuilt)]`. (A `'`/`"` becomes the line-move semantics + a `TJ`: emit the line move as a preceding `T*` operation when the original was `'`/`"`, then the `TJ`. Insert the extra operation by rebuilding `content.operations` rather than mutating in place.)
 - After processing all operations, append redaction boxes once: for each rect, append `q`, `0 0 0 rg` (`Operation::new("rg", [0,0,0])`), `re` with `[x0, y0, x1-x0, y1-y0]` (normalized corners, display points), `f`, `Q`. These draw opaque black rectangles in page space so the redaction is visibly marked and any sub-glyph remnant is covered.
@@ -342,6 +347,7 @@ fn excise_draws_redaction_box() {
     assert!(content.operations.iter().any(|o| o.operator == "f"));
 }
 ```
+
 (`real_eq` = small helper accepting `Integer` or `Real`.)
 
 - [ ] **Step 2:** Run — FAIL. **Step 3:** Implement. **Step 4:** PASS; clippy + fmt. **Step 5:** Commit `feat(pdf-core): surgery excision with advance-preserving compensation and redaction boxes`.
@@ -355,6 +361,7 @@ fn excise_draws_redaction_box() {
 **Interfaces:** Produces `try_build_surgery(doc, page_id, rects, page_height_pt) -> Option<Vec<u8>>`.
 
 Steps inside:
+
 1. `let raw = doc.get_page_content(page_id).ok()?;`
 2. `let content = Content::decode(&raw).ok()?;`
 3. **round-trip guard:** `let enc = content.encode().ok()?; if Content::decode(&enc).map(|c| c.operations.len()).ok()? != content.operations.len() { return None; }`
@@ -389,7 +396,7 @@ Add `RedactionMode { Flatten, Surgery }` (derive `Debug, Clone, Copy`), `Redacti
 - **`verify_gate` adjustment:** it currently asserts every affected page is text-free. Split the affected pages into surgered vs flattened; assert text-free only for **flattened** pages. Surgered pages are already proven clear by the outcome gate (no glyph in rect) and remain subject to the document-wide supplied-string + `scan_logical_content` checks. Pass the surgered/flattened split into `verify_gate` (new params) or perform the per-page structural check inline in `redact()` and call a slimmer `verify_gate`.
 
 - [ ] **Step 1: Tests** (in `redact.rs` tests):
-  - `surgery_mode_preserves_nontarget_text`: redact `hello.pdf` with a rect over part of the page in `Surgery` mode; assert the reloaded page still has *some* extractable text (not image-only) when surgery succeeds, and the report lists the page in `pages_surgered`.
+  - `surgery_mode_preserves_nontarget_text`: redact `hello.pdf` with a rect over part of the page in `Surgery` mode; assert the reloaded page still has _some_ extractable text (not image-only) when surgery succeeds, and the report lists the page in `pages_surgered`.
   - `surgery_mode_removes_target_text`: a rect over the word → reloaded extract does not contain it; the detector (`crate::detect`) re-run reports no finding for that text (self-cross-check).
   - `surgery_falls_back_to_flatten_when_unsupported`: a fixture page the builder rejects (e.g. force via an inline-image fixture or a Type3) → page appears in `pages_flattened`, target still absent, gate passes.
   - `flatten_mode_unchanged`: `mode = Flatten` (default) → `pages_surgered` empty, behavior identical to today (existing tests still pass).

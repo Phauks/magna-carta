@@ -3,18 +3,35 @@ const fs = require("fs");
 // --- 1. encodings: eval the pdf.js arrays (strip the trailing `export {}`) ---
 let enc = fs.readFileSync("encodings.js", "utf8").replace(/export\s*\{[\s\S]*?\};?/m, "");
 const sandbox = {};
-new Function("with(this){" + enc + ";this.__out={StandardEncoding,WinAnsiEncoding,MacRomanEncoding,SymbolSetEncoding,ZapfDingbatsEncoding};}").call(sandbox);
+new Function(
+  "with(this){" +
+    enc +
+    ";this.__out={StandardEncoding,WinAnsiEncoding,MacRomanEncoding,SymbolSetEncoding,ZapfDingbatsEncoding};}",
+).call(sandbox);
 const E = sandbox.__out;
 for (const k of Object.keys(E)) {
   const a = E[k].slice(0, 256);
   while (a.length < 256) a.push("");
-  E[k] = a.map(x => x || "");
+  E[k] = a.map((x) => x || "");
 }
 
 // --- 2. AFM widths: parse `C code ; WX w ; N name ;` -> {name: width} ---
-const fonts = ["Helvetica","Helvetica-Bold","Helvetica-Oblique","Helvetica-BoldOblique",
-  "Courier","Courier-Bold","Courier-Oblique","Courier-BoldOblique",
-  "Times-Roman","Times-Bold","Times-Italic","Times-BoldItalic","Symbol","ZapfDingbats"];
+const fonts = [
+  "Helvetica",
+  "Helvetica-Bold",
+  "Helvetica-Oblique",
+  "Helvetica-BoldOblique",
+  "Courier",
+  "Courier-Bold",
+  "Courier-Oblique",
+  "Courier-BoldOblique",
+  "Times-Roman",
+  "Times-Bold",
+  "Times-Italic",
+  "Times-BoldItalic",
+  "Symbol",
+  "ZapfDingbats",
+];
 const widths = {};
 for (const f of fonts) {
   const txt = fs.readFileSync(f + ".afm", "utf8");
@@ -27,21 +44,22 @@ for (const f of fonts) {
 }
 
 // --- 3. emit Rust ---
-const constName = f => f.toUpperCase().replace(/-/g, "_");
+const constName = (f) => f.toUpperCase().replace(/-/g, "_");
 function emitWidths(f) {
   const m = widths[f];
   const keys = Object.keys(m).sort();
-  const items = keys.map(n => `("${n}", ${m[n]})`).join(", ");
+  const items = keys.map((n) => `("${n}", ${m[n]})`).join(", ");
   return `pub(crate) const ${constName(f)}: &[(&str, i16)] = &[${items}];`;
 }
 function emitEnc(name, arr) {
-  const items = arr.map(s => `"${s}"`).join(", ");
+  const items = arr.map((s) => `"${s}"`).join(", ");
   return `pub(crate) const ${name}: [&str; 256] = [${items}];`;
 }
 let out = "";
 out += "// Adobe Core-14 standard-font glyph advance widths (glyph-space, 1000 units/em)\n";
 out += "// and the standard code-to-glyph-name encoding tables. The advance values are\n";
-out += "// functional font metrics. Generated data: see crates/pdf-core/tools/gen-standard-fonts.\n";
+out +=
+  "// functional font metrics. Generated data: see crates/pdf-core/tools/gen-standard-fonts.\n";
 out += "// Each font slice is sorted by glyph name for binary search.\n\n";
 for (const f of fonts) out += emitWidths(f) + "\n";
 out += "\n";

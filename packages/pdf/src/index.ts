@@ -6,9 +6,7 @@ let ready: Promise<unknown> | undefined;
 
 export async function ensureReady(wasmInput?: BufferSource | WebAssembly.Module): Promise<void> {
   if (ready === undefined) {
-    ready = wasmInput !== undefined
-      ? init({ module_or_path: wasmInput })
-      : init();
+    ready = wasmInput !== undefined ? init({ module_or_path: wasmInput }) : init();
   }
   await ready;
 }
@@ -34,7 +32,10 @@ export interface RenderOptions {
 export class PdfDocument {
   private constructor(private readonly handle: WasmDocument) {}
 
-  static async load(bytes: Uint8Array, wasmInput?: BufferSource | WebAssembly.Module): Promise<PdfDocument> {
+  static async load(
+    bytes: Uint8Array,
+    wasmInput?: BufferSource | WebAssembly.Module,
+  ): Promise<PdfDocument> {
     await ensureReady(wasmInput);
     return new PdfDocument(WasmDocument.load(bytes));
   }
@@ -71,7 +72,10 @@ export class PdfDocument {
   }
 }
 
-export async function loadDocument(bytes: Uint8Array, wasmInput?: BufferSource | WebAssembly.Module): Promise<PdfDocument> {
+export async function loadDocument(
+  bytes: Uint8Array,
+  wasmInput?: BufferSource | WebAssembly.Module,
+): Promise<PdfDocument> {
   return PdfDocument.load(bytes, wasmInput);
 }
 

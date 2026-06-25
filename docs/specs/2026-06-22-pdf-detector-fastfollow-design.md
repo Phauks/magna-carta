@@ -13,16 +13,16 @@ The detector engine shipped five detectors and honestly disclosed that hidden op
 
 **In:** two new detectors + their report categories, wired into `detect()`; the wasm/TS category surface; docs.
 
-1. **RemovableAnnotation (Critical).** A visible, extractable glyph whose center lies under an *obscuring* annotation's `/Rect` (the annotation can be deleted to reveal the text). Per-page — needs both the observed glyphs and the page's `/Annots`.
+1. **RemovableAnnotation (Critical).** A visible, extractable glyph whose center lies under an _obscuring_ annotation's `/Rect` (the annotation can be deleted to reveal the text). Per-page — needs both the observed glyphs and the page's `/Annots`.
 2. **HiddenLayer (High).** Text drawn inside an optional-content group that the default configuration turns OFF. Document-level (page-scoped region, no per-glyph geometry).
 
-**Out:** per-glyph geometry for HiddenLayer (the operator scan has no positions); annotation *appearance-stream* opacity analysis (v1 keys off annotation subtype, not a rendered appearance); everything already shipped.
+**Out:** per-glyph geometry for HiddenLayer (the operator scan has no positions); annotation _appearance-stream_ opacity analysis (v1 keys off annotation subtype, not a rendered appearance); everything already shipped.
 
 Read-only throughout — both detectors only read the object model and the existing observation.
 
 ## 2. Detectors
 
-**RemovableAnnotation** (`detect.rs`, per-page). Inputs: the page's `PageObservation` (glyphs, display-point bboxes) + the lopdf `Document` + the page's lopdf `ObjectId`. For each obscuring annotation on the page (`/Subtype` in {`Redact`, `Square`, `Circle`, `Polygon`, `FreeText`, `Stamp`, `Highlight`, `Ink`} — kinds that paint over content; `Redact` is the highest signal: an *unapplied* redaction mark), collect every visible+extractable glyph whose display-point bbox center falls inside the annotation's `/Rect`. Group per annotation → one finding with the concatenated recovered text, `region` = the annotation rect, `detail` naming the subtype and the remediation ("delete this annotation to reveal the text"). Severity **Critical** — the concealment is trivially reversible. (A glyph caught here may also match the geometric CoveredText detector; RemovableAnnotation is the more specific, more actionable category and takes precedence — the engine prefers it when the cover is an annotation.)
+**RemovableAnnotation** (`detect.rs`, per-page). Inputs: the page's `PageObservation` (glyphs, display-point bboxes) + the lopdf `Document` + the page's lopdf `ObjectId`. For each obscuring annotation on the page (`/Subtype` in {`Redact`, `Square`, `Circle`, `Polygon`, `FreeText`, `Stamp`, `Highlight`, `Ink`} — kinds that paint over content; `Redact` is the highest signal: an _unapplied_ redaction mark), collect every visible+extractable glyph whose display-point bbox center falls inside the annotation's `/Rect`. Group per annotation → one finding with the concatenated recovered text, `region` = the annotation rect, `detail` naming the subtype and the remediation ("delete this annotation to reveal the text"). Severity **Critical** — the concealment is trivially reversible. (A glyph caught here may also match the geometric CoveredText detector; RemovableAnnotation is the more specific, more actionable category and takes precedence — the engine prefers it when the cover is an annotation.)
 
 **HiddenLayer** (`detect.rs`, document-level). Read `/OCProperties /D /OFF` → the inactive OCG id set. For each page, `get_and_decode_page_content` → scan operators: track `/OC <name> BDC … EMC` nesting where `<name>` resolves through `/Resources /Properties` to an inactive OCG; collect `Tj`/`TJ` text inside. One finding per page with hidden-layer text, `page` set, `region` `None` (page-level), severity **High**, `detail` "Text on an optional-content layer that is hidden by default."
 

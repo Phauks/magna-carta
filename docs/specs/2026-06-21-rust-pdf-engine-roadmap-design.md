@@ -25,23 +25,23 @@ Replace the forked-PDFium PDF stack (white paper _PDF services_; ADR-0088) with 
 
 ## 2. The reframe — a third path
 
-The decision is **not** "from-scratch engine (multi-year) vs. keep the PDFium fork (status quo)." A pure-Rust **compose-and-fill-gaps** path became viable in late 2025 / early 2026, when pure-Rust *rendering* — historically the missing piece — reached real fidelity. This path also **is** the "shared doc/discovery core → WASM for web + native for desktop" the stack already calls for (white paper _Delivery model_, _Stack at a glance_): client-side-by-default, identical bytes on web and Tauri, server/Container fallback only for batch/ingest scale.
+The decision is **not** "from-scratch engine (multi-year) vs. keep the PDFium fork (status quo)." A pure-Rust **compose-and-fill-gaps** path became viable in late 2025 / early 2026, when pure-Rust _rendering_ — historically the missing piece — reached real fidelity. This path also **is** the "shared doc/discovery core → WASM for web + native for desktop" the stack already calls for (white paper _Delivery model_, _Stack at a glance_): client-side-by-default, identical bytes on web and Tauri, server/Container fallback only for batch/ingest scale.
 
-| Approach | What it is | Verdict |
-| --- | --- | --- |
-| **A — Compose permissive pure-Rust crates + build only the gaps** | A `@magna-carta` Rust PDF core over `hayro` (render) + `krilla`/`pdf-writer` (write) + `lopdf`/`pdf-rs` (model); redaction/forms/sign built by us in Rust. Compiles to WASM + native. | **Chosen.** Only path that satisfies all four drivers at once. |
-| B — From scratch, no dependencies | Write parser + renderer + writer ourselves. | Rejected — multi-year; re-solves what `hayro`/`krilla` already solved. |
-| C — Keep the forked PDFium, sharpen it | Stay on the EmbedPDF strategy (ADR-0088). | Rejected as the destination — keeps every driver above unaddressed. Retained transitionally (see §8). |
+| Approach                                                          | What it is                                                                                                                                                                            | Verdict                                                                                               |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| **A — Compose permissive pure-Rust crates + build only the gaps** | A `@magna-carta` Rust PDF core over `hayro` (render) + `krilla`/`pdf-writer` (write) + `lopdf`/`pdf-rs` (model); redaction/forms/sign built by us in Rust. Compiles to WASM + native. | **Chosen.** Only path that satisfies all four drivers at once.                                        |
+| B — From scratch, no dependencies                                 | Write parser + renderer + writer ourselves.                                                                                                                                           | Rejected — multi-year; re-solves what `hayro`/`krilla` already solved.                                |
+| C — Keep the forked PDFium, sharpen it                            | Stay on the EmbedPDF strategy (ADR-0088).                                                                                                                                             | Rejected as the destination — keeps every driver above unaddressed. Retained transitionally (see §8). |
 
-This **revisits ADR-0088**: the fork-as-given doctrine was sound for its moment, but its premises (no pure-Rust render fidelity; PDFium the only realistic base) no longer hold. ADR-0088 is superseded *as the strategic destination* by the slice-1 ADR, not deleted — the PDFium fork remains the transitional incumbent until the Rust core proves out (§8).
+This **revisits ADR-0088**: the fork-as-given doctrine was sound for its moment, but its premises (no pure-Rust render fidelity; PDFium the only realistic base) no longer hold. ADR-0088 is superseded _as the strategic destination_ by the slice-1 ADR, not deleted — the PDFium fork remains the transitional incumbent until the Rust core proves out (§8).
 
 ---
 
 ## 3. Landscape — the permissive pure-Rust ecosystem (2026)
 
-The key finding: **no single crate is an "Acrobat,"** but the *primitives* now exist as MIT/Apache crates, several by one author (Laurenz Stampfl) and designed to compose.
+The key finding: **no single crate is an "Acrobat,"** but the _primitives_ now exist as MIT/Apache crates, several by one author (Laurenz Stampfl) and designed to compose.
 
-- **Render (the historical blocker, now solved):** **`hayro`** — pure-Rust PDF interpreter + renderer (raster + SVG), tested against 1400+ PDFs scraped from the pdf.js and PDFBox regression suites; dual MIT/Apache; alpha but *very* active (≈1.7k commits, 30 releases). Same author as `krilla`, and integrated into Typst. Peers: Zed's `Hydro` (shipped pure-Rust preview, Jan 2026), `fop-pdf-renderer`.
+- **Render (the historical blocker, now solved):** **`hayro`** — pure-Rust PDF interpreter + renderer (raster + SVG), tested against 1400+ PDFs scraped from the pdf.js and PDFBox regression suites; dual MIT/Apache; alpha but _very_ active (≈1.7k commits, 30 releases). Same author as `krilla`, and integrated into Typst. Peers: Zed's `Hydro` (shipped pure-Rust preview, Jan 2026), `fop-pdf-renderer`.
 - **Write / generate (mature):** **`krilla`** (high-level; OpenType, gradients, blend modes; powers Typst's rewritten PDF export), **`pdf-writer`** (low-level), **`printpdf`**.
 - **Parse / object model:** **`lopdf`**, **`pdf-rs` (`pdf`)** — read/manipulate/write the PDF object graph and content streams.
 - **Extraction (adjacent):** `oxidize-pdf`, `pdf_oxide` — fast text/structure extraction; useful for discovery/search, not the core.
@@ -55,20 +55,20 @@ All MIT/Apache. The render+write+model triad is a coherent, composable foundatio
 
 Scoped to what Magna Carta needs (white paper _PDF services_, _Discovery_, _Document Automation_, _E-signature_), not all of Acrobat.
 
-| Capability | Permissive pure-Rust option | Status |
-| --- | --- | --- |
-| Parse + object model | `lopdf`, `pdf-rs` | ✅ Covered |
-| Render to raster/canvas (preview, flatten) | `hayro` | ✅ Newly covered — fidelity/perf maturing |
-| Generate / write PDFs | `krilla`, `pdf-writer`, `printpdf` | ✅ Mature |
-| Merge / split / rotate / stamp / watermark / Bates | model + render/write layers | 🟡 Assembly on top of the above |
-| Encrypt / secure (password, AES-256) | `lopdf` (partial) | 🟡 Build missing modes |
-| **True content redaction** | *none* | 🔴 **Gap — we build it.** The headline differentiator; now feasible because the model crates expose the content-stream layer the AGPL engines guarded. |
-| Forms — AcroForm fill | partial in `lopdf`/`pdf-rs` | 🟡 Build the form layer |
-| Forms — **XFA** | *none* (Adobe/PDFium-only) | ⛔ **Out of scope** (§5). |
-| Text / object editing ("Edit PDF") | *none* | 🔴 Gap — hardest; deferred to far-future slice or scoped down |
-| Sign / seal (PAdES) | `krilla`/`pdf-writer` write structure; crypto host-side | 🟡 Build structure + embed; crypto already host-side in current design |
-| OCR (scanned → searchable) | `ocrs` / Tesseract sidecar | ✅ Separate engine, not the PDF core |
-| Compare / preflight / accessibility tagging | *none* | 🔴 Gaps — low priority, far future |
+| Capability                                         | Permissive pure-Rust option                             | Status                                                                                                                                                 |
+| -------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Parse + object model                               | `lopdf`, `pdf-rs`                                       | ✅ Covered                                                                                                                                             |
+| Render to raster/canvas (preview, flatten)         | `hayro`                                                 | ✅ Newly covered — fidelity/perf maturing                                                                                                              |
+| Generate / write PDFs                              | `krilla`, `pdf-writer`, `printpdf`                      | ✅ Mature                                                                                                                                              |
+| Merge / split / rotate / stamp / watermark / Bates | model + render/write layers                             | 🟡 Assembly on top of the above                                                                                                                        |
+| Encrypt / secure (password, AES-256)               | `lopdf` (partial)                                       | 🟡 Build missing modes                                                                                                                                 |
+| **True content redaction**                         | _none_                                                  | 🔴 **Gap — we build it.** The headline differentiator; now feasible because the model crates expose the content-stream layer the AGPL engines guarded. |
+| Forms — AcroForm fill                              | partial in `lopdf`/`pdf-rs`                             | 🟡 Build the form layer                                                                                                                                |
+| Forms — **XFA**                                    | _none_ (Adobe/PDFium-only)                              | ⛔ **Out of scope** (§5).                                                                                                                              |
+| Text / object editing ("Edit PDF")                 | _none_                                                  | 🔴 Gap — hardest; deferred to far-future slice or scoped down                                                                                          |
+| Sign / seal (PAdES)                                | `krilla`/`pdf-writer` write structure; crypto host-side | 🟡 Build structure + embed; crypto already host-side in current design                                                                                 |
+| OCR (scanned → searchable)                         | `ocrs` / Tesseract sidecar                              | ✅ Separate engine, not the PDF core                                                                                                                   |
+| Compare / preflight / accessibility tagging        | _none_                                                  | 🔴 Gaps — low priority, far future                                                                                                                     |
 
 ---
 
@@ -84,9 +84,9 @@ Scoped to what Magna Carta needs (white paper _PDF services_, _Discovery_, _Docu
 
 Each is a vertical slice (schema → firm-scoped data-access → API → UI → tests → docs) with its own spec and load-profile measurement, per _How we work_.
 
-1. **Core + render** *(the wedge — specced next).* The `@magna-carta` Rust PDF core: `lopdf`/`pdf-rs` model + `hayro` render, compiled to WASM (web, client-side-by-default) and native (Tauri/Container). Stood up as a **measured parallel-evaluation track** against the in-flight EmbedPDF preview (slice 2·3) — apples-to-apples fidelity, speed, and WASM-bundle-size on a regression corpus of real firm PDFs. Carries the `hayro` dependency doctrine (§7) and the go/no-go gate for everything after it. **Begins with a feasibility spike** (§10) before committing the slice.
+1. **Core + render** _(the wedge — specced next)._ The `@magna-carta` Rust PDF core: `lopdf`/`pdf-rs` model + `hayro` render, compiled to WASM (web, client-side-by-default) and native (Tauri/Container). Stood up as a **measured parallel-evaluation track** against the in-flight EmbedPDF preview (slice 2·3) — apples-to-apples fidelity, speed, and WASM-bundle-size on a regression corpus of real firm PDFs. Carries the `hayro` dependency doctrine (§7) and the go/no-go gate for everything after it. **Begins with a feasibility spike** (§10) before committing the slice.
 2. **True redaction — safe route.** The malpractice-critical differentiator (white paper _Discovery_). Rasterize-and-reassemble (flatten each affected page to an image, strip text/annotations) + the lopdf **verification gate** (does the redacted text still extract?). **Retires the white paper's AGPL-driven deferral** — the feasibility spike proved both redaction strategies are pure-Rust-feasible. Own spec: `2026-06-22-pdf-slice-2-redaction-design.md`.
-3. **Text-position primitive + bad-redaction detector + surgery.** A thin `hayro-interpret` `Device::draw_glyph` shim yields per-glyph page-space positions (feasibility-proven), which powers two features on one foundation: (a) the **bad-redaction detector** _(owner-requested)_ — scan a PDF and flag *failed* redactions (extractable text under an opaque fill/image/removable annotation, hidden OCG layers, metadata leaks) for vetting outbound productions, validated against a synthetic + real bad-redaction corpus and cross-checked against an LLM reading; (b) **content-stream surgery** — region-precise, text-preserving redaction (keeps the rest of the page selectable).
+3. **Text-position primitive + bad-redaction detector + surgery.** A thin `hayro-interpret` `Device::draw_glyph` shim yields per-glyph page-space positions (feasibility-proven), which powers two features on one foundation: (a) the **bad-redaction detector** _(owner-requested)_ — scan a PDF and flag _failed_ redactions (extractable text under an opaque fill/image/removable annotation, hidden OCG layers, metadata leaks) for vetting outbound productions, validated against a synthetic + real bad-redaction corpus and cross-checked against an LLM reading; (b) **content-stream surgery** — region-precise, text-preserving redaction (keeps the rest of the page selectable).
 4. **Generate + stamp / Bates / watermark / merge / split.** Feeds _Document Automation_ and _Discovery_ production.
 5. **Forms (AcroForm) + secure/encrypt.** Court/government form fill; password/permissions/AES-256.
 6. **Sign / seal (PAdES).** Folds in the existing `@magna-carta/signing` design (host-side crypto unchanged; the Rust core owns the PDF structure end-to-end — the "one engine owns the bytes" thesis, now in Rust).
@@ -102,13 +102,13 @@ Mirrors ADR-0088's "fork-as-given, never gate on merge," but **cheaper** here �
 - **Contribute fixes upstream in good faith.** Young and active → PRs are plausibly accepted; we close the fidelity gaps we find.
 - **Carry patches in our own fork if upstream is slow.** The permissive license makes this clean; we never gate a release on a merge.
 
-**Honest risks to hold:** `hayro` is **alpha** ("still in a very development stage"); **performance is explicitly not yet optimized** ("has not been a focus at all so far") — a direct hit on driver 3, and the reason slice 1 is *measured*, not a blind switch; **bus-factor 1**; known render gaps (knockout groups, non-embedded CID fonts). These are why slice 1 leads with a spike and runs as a parallel track.
+**Honest risks to hold:** `hayro` is **alpha** ("still in a very development stage"); **performance is explicitly not yet optimized** ("has not been a focus at all so far") — a direct hit on driver 3, and the reason slice 1 is _measured_, not a blind switch; **bus-factor 1**; known render gaps (knockout groups, non-embedded CID fonts). These are why slice 1 leads with a spike and runs as a parallel track.
 
 ---
 
 ## 8. Relationship to the in-flight EmbedPDF / PDFium work
 
-The EmbedPDF fork is **not retired on day one.** It stays the **transitional incumbent** — slice 2·3 preview and the sanitize/OCG/signing work continue to ship on it — while the Rust core is built and measured beside it. The switch is **evidence-gated:** the Rust core replaces EmbedPDF for a capability only once it meets or beats it on fidelity, speed, and bundle size on the regression corpus. This keeps risk bounded (driver-3 perf and `hayro` maturity are unproven) and gives every upstream contribution a concrete target. ADR-0088 is superseded *as the destination*, honored *as the bridge*.
+The EmbedPDF fork is **not retired on day one.** It stays the **transitional incumbent** — slice 2·3 preview and the sanitize/OCG/signing work continue to ship on it — while the Rust core is built and measured beside it. The switch is **evidence-gated:** the Rust core replaces EmbedPDF for a capability only once it meets or beats it on fidelity, speed, and bundle size on the regression corpus. This keeps risk bounded (driver-3 perf and `hayro` maturity are unproven) and gives every upstream contribution a concrete target. ADR-0088 is superseded _as the destination_, honored _as the bridge_.
 
 ---
 

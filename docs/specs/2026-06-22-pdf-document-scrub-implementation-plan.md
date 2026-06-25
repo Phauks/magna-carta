@@ -29,10 +29,12 @@
 ### Task 1: `ScrubOptions` + `sanitize_document` for the catalog/trailer surfaces
 
 **Files:**
+
 - Create: `crates/pdf-core/src/scrub.rs`
 - Modify: `crates/pdf-core/src/lib.rs` (add `mod scrub; pub use scrub::*;`)
 
 **Interfaces:**
+
 - Produces: `ScrubOptions { metadata, attachments, xfa, form_field_values, structure_tree, outlines, optional_content: bool }` with `Default` (all true); `enum ScrubError { Parse, Reassemble, GateFailed { detail: String } }`; `fn sanitize_document(doc: &mut lopdf::Document, opts: &ScrubOptions) -> Result<(), ScrubError>`; `pub(crate) fn catalog_subdict_mut<'a>(doc: &'a mut lopdf::Document, key: &[u8]) -> Option<&'a mut lopdf::Dictionary>`; `pub(crate) fn catalog_subdict<'a>(doc: &'a lopdf::Document, key: &[u8]) -> Option<&'a lopdf::Dictionary>`.
 
 - [ ] **Step 1: Write the failing tests** — create `crates/pdf-core/src/scrub.rs` with only this test module:
@@ -299,9 +301,11 @@ git commit -m "feat(pdf-core): document scrub options and catalog/trailer surfac
 ### Task 2: Attachments surface (embedded files, portfolio, file-attachment annotations)
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/scrub.rs`
 
 **Interfaces:**
+
 - Consumes: `catalog_subdict_mut` (Task 1).
 - Produces: `fn scrub_attachments(doc: &mut lopdf::Document)`, dispatched from `sanitize_document` when `opts.attachments`.
 
@@ -440,9 +444,11 @@ git commit -m "feat(pdf-core): scrub embedded files, portfolio, and file-attachm
 ### Task 3: Form-field values surface (recursive AcroForm walk)
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/scrub.rs`
 
 **Interfaces:**
+
 - Consumes: `catalog_subdict`, `catalog_subdict_mut` (Task 1).
 - Produces: `pub(crate) fn collect_field_ids(doc: &lopdf::Document) -> Vec<lopdf::ObjectId>` (reused by the gate in Task 4); `fn scrub_form_field_values(doc: &mut lopdf::Document)`, dispatched from `sanitize_document` when `opts.form_field_values`.
 
@@ -562,10 +568,12 @@ git commit -m "feat(pdf-core): clear AcroForm field values, keeping blank fields
 ### Task 4: The hardened gate — structural-absence + logical-content decompress-scan
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/scrub.rs` (add `verify_scrub_absence`)
 - Modify: `crates/pdf-core/src/redact.rs` (add `scan_logical_content`; call it inside `verify_gate`)
 
 **Interfaces:**
+
 - Consumes: `ScrubOptions`, `ScrubError`, `catalog_subdict`, `collect_field_ids` (Tasks 1, 3); `RedactError`, `verify_gate` (existing `redact.rs`).
 - Produces: `pub(crate) fn verify_scrub_absence(doc: &lopdf::Document, opts: &ScrubOptions) -> Result<(), ScrubError>`; `pub(crate) fn scan_logical_content(doc: &lopdf::Document, needles: &[String]) -> Option<String>`.
 
@@ -758,10 +766,12 @@ git commit -m "feat(pdf-core): scrub absence gate and logical-content decompress
 ### Task 5: Standalone `sanitize` + compose scrub into `redact`
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/scrub.rs` (add the `sanitize` free function)
 - Modify: `crates/pdf-core/src/redact.rs` (`RedactionOptions.scrub`; run scrub inside `redact`)
 
 **Interfaces:**
+
 - Consumes: `sanitize_document`, `verify_scrub_absence`, `ScrubOptions`, `ScrubError` (Tasks 1–4).
 - Produces: `pub fn sanitize(bytes: Vec<u8>, opts: &ScrubOptions) -> Result<Vec<u8>, ScrubError>`; `RedactionOptions` gains `pub scrub: ScrubOptions` (default all-true); `redact` runs `sanitize_document` + `verify_scrub_absence`.
 
@@ -909,11 +919,13 @@ git commit -m "feat(pdf-core): standalone sanitize and sanitized-by-default reda
 ### Task 6: WASM edge + `@magna-carta/pdf` wrapper
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/wasm.rs`
 - Modify: `packages/pdf/src/index.ts`
 - Test: `packages/pdf/test/sanitize.test.ts`
 
 **Interfaces:**
+
 - Consumes: `sanitize`, `ScrubOptions` (Task 5); the existing `redactDocument` edge + `redact`.
 - Produces (JS): `sanitizeDocument(bytes: Uint8Array, opts?: ScrubOptions): { pdf: Uint8Array }`; `ScrubOptions = { metadata?, attachments?, xfa?, formFieldValues?, structureTree?, outlines?, optionalContent?: boolean }`; `redactDocument` opts gain `scrub?: ScrubOptions`.
 
@@ -1128,6 +1140,7 @@ describe("sanitizeDocument", () => {
 pnpm --filter @magna-carta/pdf run build:wasm
 pnpm --filter @magna-carta/pdf test
 ```
+
 Expected: PASS (the slice-1 render tests + the redaction tests + the 2 new sanitize tests). If `pnpm` fails for an environment reason (not a code error), capture the exact error and report it — do not fake green.
 
 - [ ] **Step 6: Commit**
@@ -1142,6 +1155,7 @@ git commit -m "feat(pdf): sanitizeDocument wasm edge, scrub option on redactDocu
 ### Task 7: `pdf-eval` sanitize smoke + CI + docs
 
 **Files:**
+
 - Modify: `crates/pdf-eval/src/main.rs`
 - Modify: `.github/workflows/ci.yml`
 - Modify: `packages/pdf/README.md` (append a Sanitize section)
@@ -1150,6 +1164,7 @@ git commit -m "feat(pdf): sanitizeDocument wasm edge, scrub option on redactDocu
 - Modify: `ROADMAP.md`, `STATUS.md` (own slice row only)
 
 **Interfaces:**
+
 - Consumes: `pdf_core::{sanitize, ScrubOptions}`.
 - Produces: a `pdf-eval sanitize-smoke <pdf>` mode that sanitizes a corpus file with default options and asserts the absence gate passes.
 
@@ -1186,8 +1201,8 @@ Expected: `ok sanitized N bytes -> M bytes`, exit 0. (If `crates/pdf-eval/corpus
 - [ ] **Step 3: Add a CI sanitize-smoke step** — in `.github/workflows/ci.yml`, in the `rust-pdf-core` job after the existing `redact-smoke` step, add (match the neighboring step's form, and give it a `name:`):
 
 ```yaml
-      - name: pdf-eval sanitize-smoke (default features — no pdfium)
-        run: cargo run --manifest-path crates/Cargo.toml -p pdf-eval --release -- sanitize-smoke crates/pdf-eval/corpus-ci/basicapi.pdf
+- name: pdf-eval sanitize-smoke (default features — no pdfium)
+  run: cargo run --manifest-path crates/Cargo.toml -p pdf-eval --release -- sanitize-smoke crates/pdf-eval/corpus-ci/basicapi.pdf
 ```
 
 - [ ] **Step 4: Write the docs**

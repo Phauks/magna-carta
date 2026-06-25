@@ -3,7 +3,7 @@
 **Status:** Draft (implementation-grade design) · **Date:** 2026-06-22 · **Owner:** Trevor Goldsmith
 **Roadmap home:** [`2026-06-21-rust-pdf-engine-roadmap-design.md`](2026-06-21-rust-pdf-engine-roadmap-design.md) §6 (slice 2) · builds on slice 1 ([`2026-06-21-pdf-slice-1-core-render-design.md`](2026-06-21-pdf-slice-1-core-render-design.md))
 **Feasibility:** [`2026-06-22-pdf-redaction-feasibility-findings.md`](2026-06-22-pdf-redaction-feasibility-findings.md) (this cycle) — both redaction strategies proven feasible in pure Rust; the gate (lopdf `extract_text`) and the text-position primitive (`hayro-interpret` `Device::draw_glyph`) both confirmed.
-**Relates to / revisits:** white paper _PDF services_ ("Deferred — true redaction", AGPL wall) — **this slice retires that deferral**; ADR-0090 (the redaction *verification gate* is the protected product layer); _Discovery_ (the eventual consumer).
+**Relates to / revisits:** white paper _PDF services_ ("Deferred — true redaction", AGPL wall) — **this slice retires that deferral**; ADR-0090 (the redaction _verification gate_ is the protected product layer); _Discovery_ (the eventual consumer).
 **ADRs to raise:** `pdf-redaction-rasterize-route` (the safe-by-construction strategy + the hard verification gate + surgery deferred).
 **Build gates:** slice 1 landed (`pdf-core` + `@magna-carta/pdf` + harness). Backend-first — no UI.
 
@@ -59,7 +59,7 @@ pub fn redact(bytes: Vec<u8>, regions: &[RedactionRegion], opts: &RedactionOptio
 1. **Render** the page to a raster at `opts.dpi` (default **300**) via hayro (slice-1 `render_page` path).
 2. **Burn** opaque black rectangles over each region — map the region's PDF-point `Rect` to pixels (§5).
 3. **Reassemble** with lopdf: replace the page's content stream with one that draws a single full-page image XObject (the flattened raster), keep the same `MediaBox`, and **remove** the original content stream and the page's `/Annots`.
-4. **Prune orphans:** replacing `/Contents` only *unlinks* the original streams — their bytes (the original text operators, fonts, images) still serialize unless removed. After all pages are reassembled, prune every object no longer reachable from the trailer (lopdf `prune_objects`), so the original content is physically absent from the output, not merely unreferenced. This is the difference between *removed* and *hidden* at the byte level, and is enforced by a test asserting the original (uncompressed) text bytes are gone from the emitted file.
+4. **Prune orphans:** replacing `/Contents` only _unlinks_ the original streams — their bytes (the original text operators, fonts, images) still serialize unless removed. After all pages are reassembled, prune every object no longer reachable from the trailer (lopdf `prune_objects`), so the original content is physically absent from the output, not merely unreferenced. This is the difference between _removed_ and _hidden_ at the byte level, and is enforced by a test asserting the original (uncompressed) text bytes are gone from the emitted file.
 5. The page's original text/vectors/annotations are now **gone** — only pixels remain.
 
 **Image encoding:** default **lossless DEFLATE** (no JPEG artifacts on text — defensibility over size). `opts` exposes DPI; colorspace down-conversion (grayscale/bitonal for text pages, a major size win for large productions) is a named optimization seam, not v1.
@@ -68,7 +68,7 @@ pub fn redact(bytes: Vec<u8>, regions: &[RedactionRegion], opts: &RedactionOptio
 
 ## 4. The verification gate — the safety core
 
-This is *why* the output is defensible, and it runs after reassembly, before returning:
+This is _why_ the output is defensible, and it runs after reassembly, before returning:
 
 - **Structural (always):** for every affected page, lopdf `extract_text(page)` must return empty. Because the page is now a single image, surviving text means the rewrite failed.
 - **Content (when `opts.redacted_text` is supplied):** none of those strings may appear anywhere in the whole document's extracted text.
@@ -110,7 +110,7 @@ Each of these gets a targeted test with a known rect → known pixel block.
 ## 8. Deferred / named seams
 
 - **The text-position primitive (`hayro-interpret` `Device::draw_glyph` shim)** — the next slice; the shared foundation for the two below.
-- **Bad-redaction detector** *(owner-requested, next slice)* — the inverse tool: scan a PDF and flag *failed* redactions — extractable text whose bbox is covered by an opaque fill/image/removable annotation ("recoverable redacted text"), hidden OCG layers, and metadata leaks; report `{page, region, recovered text, severity}`. High-value malpractice-prevention for vetting outbound productions. Validated against a synthetic + real bad-redaction corpus, cross-checked against an LLM reading.
+- **Bad-redaction detector** _(owner-requested, next slice)_ — the inverse tool: scan a PDF and flag _failed_ redactions — extractable text whose bbox is covered by an opaque fill/image/removable annotation ("recoverable redacted text"), hidden OCG layers, and metadata leaks; report `{page, region, recovered text, severity}`. High-value malpractice-prevention for vetting outbound productions. Validated against a synthetic + real bad-redaction corpus, cross-checked against an LLM reading.
 - **Content-stream surgery** — region-precise, text-preserving redaction (keeps the rest of the page selectable); feasibility banked, built on the same primitive.
 - **Document-level metadata deep-scrub** (whole-doc XMP/Info) — v1 strips affected-page content + annotations; whole-document metadata scrub flagged as a consideration.
 - **Discovery Bates/production pipeline** — the batch consumer.
