@@ -1,0 +1,21 @@
+# Throwaway WASM-size probe — measures the client-bundle cost of hayro render.
+# NOT a workspace member, NOT shipped.
+[package]
+name = "pdf-engine-wasm"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+hayro = "0.7"
+
+# Size-realistic client-bundle profile.
+[profile.release]
+opt-level = "z"
+lto = true
+panic = "abort"
+codegen-units = 1
+strip = true
