@@ -4,7 +4,7 @@ import { strToU8, zipSync } from "fflate";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { createApp } from "../src/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -45,19 +45,18 @@ let poolFirmId: FirmId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  // Apply all per-firm migrations (schema + permission seeds for existing tools).
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  // tools:metadataScrubber is seeded onto roles in Task 16's migration (not yet on main).
-  // Grant it here directly so the route tests can run before that migration lands.
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT OR IGNORE INTO role_permission (id, role_id, permission) VALUES (?1, ?2, ?3)",
-  )
-    .bind("rolePermission_MetadataOwnerTest0001", OWNER_ADMIN_ROLE_ID, "tools:metadataScrubber")
-    .run();
-
+  // Seed the firm first to get its id, then grant the permission into its Durable Object.
   poolFirmId = (
     await seedFirm({ name: "Metadata Route Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
   ).firmId;
+  // The DO self-migrates the per-firm lineage on first access; grant tools:metadataScrubber to
+  // Owner/Admin directly because the migration that seeds it does not exist yet on this branch.
+  await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+    .prepare(
+      "INSERT OR IGNORE INTO role_permission (id, role_id, permission) VALUES (?1, ?2, ?3)",
+    )
+    .bind("rolePermission_MetadataOwnerTest0001", OWNER_ADMIN_ROLE_ID, "tools:metadataScrubber")
+    .run();
 });
 
 describe("POST /api/v1/metadata/inspect", () => {
@@ -100,7 +99,7 @@ describe("POST /api/v1/metadata/inspect", () => {
       userName: "Metadata OK",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Metadata OK"); // Owner/Admin carries tools:metadataScrubber (seeded above)
+    await mirrorMemberWithOwnerRole(userId, "Metadata OK", poolFirmId); // Owner/Admin carries tools:metadataScrubber (seeded above)
     const cookie = await signInForSessionCookie("metadata-ok@example.com");
     const response = await app.request(
       "https://example.com/api/v1/metadata/inspect",
@@ -130,7 +129,7 @@ describe("POST /api/v1/metadata/inspect", () => {
       userName: "Unsupported File",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Unsupported File");
+    await mirrorMemberWithOwnerRole(userId, "Unsupported File", poolFirmId);
     const cookie = await signInForSessionCookie("metadata-unsupported@example.com");
     const response = await app.request(
       "https://example.com/api/v1/metadata/inspect",
@@ -159,7 +158,7 @@ describe("POST /api/v1/metadata/scrub", () => {
       userName: "Scrub User",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Scrub User");
+    await mirrorMemberWithOwnerRole(userId, "Scrub User", poolFirmId);
     const cookie = await signInForSessionCookie("metadata-scrub@example.com");
     const response = await app.request(
       "https://example.com/api/v1/metadata/scrub",
