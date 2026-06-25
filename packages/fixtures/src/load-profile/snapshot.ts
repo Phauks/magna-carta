@@ -26,6 +26,7 @@ import { generateProtectedVolume, type ProtectedProbes } from "./protected-gener
 import { generateDirectoryVolume, type DirectoryProbes } from "./directory-generate.ts";
 import { generateShippingVolume, type ShippingProbes } from "./shipping-generate.ts";
 import { generateCustomFieldVolume, type CustomFieldProbes } from "./custom-field-generate.ts";
+import { generateTimeVolume, type TimeProbes } from "./timekeeping-generate.ts";
 import { GENERATOR_VERSION, type LedgerVolumeProfile } from "./profile.ts";
 
 // Snapshot identity: the resolved profile parameters, the generation seed, the per-firm schema
@@ -69,6 +70,13 @@ export interface SnapshotManifest {
   readonly picklistOptionCount: number;
   readonly customFieldValueCount: number;
   readonly customFieldProbes: CustomFieldProbes;
+  // The timekeeping volume laid over the practice book (rate cards, effective-dated rates, time entries)
+  // and the probe identifiers the timekeeping measurement layer binds its My Day / grid / unbilled-WIP /
+  // rate-resolution reads to.
+  readonly timeEntryCount: number;
+  readonly rateCount: number;
+  readonly rateCardCount: number;
+  readonly timeProbes: TimeProbes;
 }
 
 export interface LoadedSnapshot extends MigratedNodeDatabase {
@@ -180,6 +188,18 @@ export async function loadProfileSnapshot(
         profile.customFields,
         options,
       );
+      // The timekeeping volume rides last on the practice book — it binds its entries to the matters the
+      // practice generation laid down and the responsible member, so it must run after practice.
+      const time = await generateTimeVolume(
+        generated.database,
+        context,
+        profile.time,
+        {
+          timekeeperUserId: practice.probes.responsibleMemberId,
+          matterIds: [practice.probes.busiestMatterId],
+        },
+        options,
+      );
       const manifest: SnapshotManifest = {
         profile,
         seed,
@@ -206,6 +226,10 @@ export async function loadProfileSnapshot(
         picklistOptionCount: customFields.picklistOptionCount,
         customFieldValueCount: customFields.customFieldValueCount,
         customFieldProbes: customFields.probes,
+        timeEntryCount: time.timeEntryCount,
+        rateCount: time.rateCount,
+        rateCardCount: time.rateCardCount,
+        timeProbes: time.probes,
       };
       // Artifact before manifest: the replay gate above requires BOTH files, so a crash between
       // the two writes leaves a regenerable miss, never a manifest pointing at a missing artifact.

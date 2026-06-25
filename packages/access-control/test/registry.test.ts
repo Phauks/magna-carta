@@ -46,6 +46,7 @@ describe("permission registry", () => {
       "firm:manageMembers",
       "firm:provision",
       "firm:reportIncident",
+      "firm:scanFile",
       "firm:manageSecrets",
     ]);
   });
@@ -96,6 +97,10 @@ describe("permission registry", () => {
       "tools:shipping",
       "tools:speedTest",
       "tools:firmUsage",
+      "tools:whois",
+      "tools:safeBrowse",
+      "tools:fileConverter",
+      "tools:metadataScrubber",
     ]);
   });
 
@@ -112,6 +117,22 @@ describe("permission registry", () => {
   it("registers the custom-fields permissions", () => {
     expect(isPermission("customFields:manage")).toBe(true);
     expect(isPermission("customFields:purge")).toBe(true);
+  });
+
+  it("permissionsForNamespace('time') returns exactly the time keys, in registry order", () => {
+    expect(permissionsForNamespace("time")).toEqual([
+      "time:track",
+      "time:viewFirm",
+      "time:approve",
+      "time:manageRates",
+      "time:manageUtbms",
+      "time:manageSettings",
+    ]);
+  });
+
+  it("web-domains tool permissions are registered", () => {
+    expect(isPermission("tools:whois")).toBe(true);
+    expect(isPermission("tools:safeBrowse")).toBe(true);
   });
 
   it("every registered key is `<subsystem>:<action>` — lowercase-led camelCase segments", () => {

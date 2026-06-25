@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { FileId, FileVersionId, FolderId } from "@magna-carta/identifiers/types";
 import type { FolderNode, MatterCleanFile } from "../src/queries.ts";
-import { resolveZipSelection } from "../src/zip-composition.ts";
+import { bundleManifestHash, resolveZipSelection } from "../src/zip-composition.ts";
 
 // Pure selection -> version-pinned entries + folder-tree paths. No I/O: the resolver only ever sees
 // already-clean files, so a pending/quarantined/deleted version cannot enter the archive by
@@ -82,5 +82,21 @@ describe("resolveZipSelection", () => {
       "report (1).pdf",
       "report.pdf",
     ]);
+  });
+});
+
+describe("bundleManifestHash", () => {
+  const a = { r2Key: "files/f1/v1", path: "a.pdf" };
+  const b = { r2Key: "files/f2/v1", path: "b.pdf" };
+  it("is order-independent", async () => {
+    expect(await bundleManifestHash([a, b])).toBe(await bundleManifestHash([b, a]));
+  });
+  it("changes when an entry changes", async () => {
+    expect(await bundleManifestHash([a, b])).not.toBe(
+      await bundleManifestHash([a, { ...b, path: "b2.pdf" }]),
+    );
+  });
+  it("is a 64-char hex digest", async () => {
+    expect(await bundleManifestHash([a])).toMatch(/^[0-9a-f]{64}$/);
   });
 });

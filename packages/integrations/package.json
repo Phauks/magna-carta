@@ -13,7 +13,8 @@
     "./connection": "./src/connection.ts",
     "./registry": "./src/registry.ts",
     "./manifest": "./src/manifest.ts",
-    "./http": "./src/http.ts"
+    "./http": "./src/http.ts",
+    "./safe-target": "./src/safe-target.ts"
   },
   "scripts": {
     "test": "vp test run"

@@ -78,6 +78,19 @@ export const ENTITY_PREFIXES = {
   customField: "customField",
   picklistOption: "picklistOption",
   customFieldValue: "customFieldValue",
+  // Time tracking, WIP & the rate engine. `timeEntry` is one captured unit of time (the WIP store);
+  // `rateCard`/`rate` are the effective-dated rate versions; `utbmsCode` is one ABA UTBMS catalog
+  // entry; `nonBillableCategory` classifies non-billable internal time; `narrativeTemplate` is a
+  // reusable per-task-code description. Full-word prefixes (no abbreviations) per golden rule 12.
+  timeEntry: "timeEntry",
+  rateCard: "rateCard",
+  rate: "rate",
+  utbmsCode: "utbmsCode",
+  nonBillableCategory: "nonBillableCategory",
+  narrativeTemplate: "narrativeTemplate",
+  // Server-side conversion — a transient job identifier minted at presign time and used to key the
+  // coordinator Durable Object. Not persisted in D1; the DO itself is the state store for the job.
+  conversionJob: "conversionJob",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

@@ -3,15 +3,25 @@ import {
   commitVersion,
   loadPendingVersionForIngest,
   quarantineVersion,
+  recordRescanVerdict,
 } from "@magna-carta/file-manager/file-service";
 import { runIngest } from "@magna-carta/file-manager/ingest-core";
-import { unscannedAdapter } from "@magna-carta/file-manager/scan-port";
-import { readUploadPolicy } from "@magna-carta/file-manager/upload-policy";
+import { loadCommittedVersionByR2Key } from "@magna-carta/file-manager/queries";
+import { lookupScanCache } from "@magna-carta/file-manager/scan-cache";
+import type { MalwareScanPort } from "@magna-carta/file-manager/scan-port";
+import {
+  readInspectableSizeCap,
+  readScanEngineVersion,
+  readUploadPolicy,
+} from "@magna-carta/file-manager/upload-policy";
+import { ingestVerdict } from "@magna-carta/telemetry/events";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
+import type { Logger } from "@magna-carta/telemetry/logger";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
 import { resolveFirmDatabase } from "../firm-binding-resolver.ts";
+import { resolveScanPort } from "./scan-port-binding.ts";
 
 // The files-ingest queue consumer: one R2 object-create event drives the single-read ingest pipeline
 // (gates + streaming SHA-256 + scan port) to a clean commit or a quarantine. A thin shell around the
@@ -42,7 +52,13 @@ export interface R2EventMessage {
 // Process one event. Returns (acks) for every terminal outcome — commit, quarantine, or a no-op
 // (unknown bucket / unbound firm / no pending version). THROWS only on a transient condition (the
 // object not yet readable) so the queue retries and, at max attempts, dead-letters.
-export async function handleIngestMessage(env: Bindings, message: R2EventMessage): Promise<void> {
+export async function handleIngestMessage(
+  env: Bindings,
+  message: R2EventMessage,
+  scanPort: MalwareScanPort = resolveScanPort(env),
+  logger?: Logger,
+  correlationId: string = newCorrelationId(),
+): Promise<void> {
   // bucket → firm (the control-plane registry). An unknown bucket or a firm this deployment cannot
   // reach is acked: there is no work this Worker can do, and retrying cannot make the binding exist.
   const firm = await env.DB_CONTROL.prepare(
@@ -56,7 +72,13 @@ export async function handleIngestMessage(env: Bindings, message: R2EventMessage
 
   // Status-first: only a pending version is ingested (the replay guard).
   const pending = await loadPendingVersionForIngest(firmDatabase, message.object.key);
-  if (pending === undefined) return;
+  if (pending === undefined) {
+    // No pending version → this may be an access-triggered re-scan of an ALREADY-COMMITTED version
+    // (the dispatch's second branch). It acks as a no-op unless it finds a committed version whose
+    // recorded engine version is stale relative to the firm's current scan engine.
+    await handleRescanMessage(env, message, firmDatabase, scanPort);
+    return;
+  }
 
   const object = await env.R2.get(message.object.key);
   if (object === null) {
@@ -64,7 +86,10 @@ export async function handleIngestMessage(env: Bindings, message: R2EventMessage
     throw new Error(`R2 object not readable for a pending version: ${message.object.key}`);
   }
 
-  const policy = await readUploadPolicy(firmDatabase);
+  const [policy, inspectableSizeCap] = await Promise.all([
+    readUploadPolicy(firmDatabase),
+    readInspectableSizeCap(firmDatabase),
+  ]);
   const outcome = await runIngest({
     objectBody: object.body,
     objectSize: object.size,
@@ -75,7 +100,8 @@ export async function handleIngestMessage(env: Bindings, message: R2EventMessage
       fileName: pending.name,
     },
     policy,
-    scanPort: unscannedAdapter,
+    scanPort,
+    inspectableSizeCap,
   });
 
   const now = () => new Date().toISOString();
@@ -86,7 +112,7 @@ export async function handleIngestMessage(env: Bindings, message: R2EventMessage
   // version id — the only delivery for this key is this version's ingest, and it carries no request
   // payload to vary on. The response is trivial (the consumer returns nothing to a caller).
   const fingerprint = pending.id;
-  await runIdempotentEffect({
+  const idempotentResult = await runIdempotentEffect({
     database: firmDatabase,
     key: `ingest:${pending.id}`,
     fingerprint,
@@ -102,6 +128,7 @@ export async function handleIngestMessage(env: Bindings, message: R2EventMessage
             contentSha256: outcome.contentSha256,
             scanVerdict: outcome.scanVerdict,
             scanEngineVersion: outcome.scanEngineVersion,
+            scanDetail: outcome.scanDetail,
             now: now(),
           },
           options,
@@ -114,13 +141,128 @@ export async function handleIngestMessage(env: Bindings, message: R2EventMessage
       }
       const result = await quarantineVersion(
         firmDatabase,
-        { versionId: pending.id, reason: outcome.reason },
+        { versionId: pending.id, reason: outcome.reason, scanDetail: outcome.scanDetail },
         options,
       );
       return {
         write: result.effect,
         responseCode: 200,
         responseBody: JSON.stringify({ versionId: pending.id }),
+      };
+    },
+  });
+
+  // One verdict event per terminal outcome — rates are observable without any file-identifying
+  // field (structural redaction: the allowlist has no slot for id, name, key, or content).
+  // Only the delivery that won the idempotency race emits the event: a replayed result means the
+  // effect was already applied by a concurrent delivery, so the event was already emitted once.
+  if (idempotentResult.kind === "executed") {
+    logger?.log(
+      ingestVerdict(
+        { correlationId, now: new Date().toISOString() },
+        outcome.kind === "commit"
+          ? {
+              outcome: "commit",
+              scanVerdict: outcome.scanVerdict,
+              scanDetail: outcome.scanDetail,
+              quarantineReason: null,
+            }
+          : {
+              outcome: "quarantine",
+              scanVerdict: null,
+              scanDetail: outcome.scanDetail,
+              quarantineReason: outcome.reason,
+            },
+      ),
+    );
+  }
+}
+
+// The access-triggered re-scan path for an ALREADY-COMMITTED version (dispatched when a queued event
+// has no pending version). Only a committed version whose recorded engine version is STALE relative to
+// the firm's CURRENT engine is re-scanned; cache-first, so identical content already scanned under the
+// current engine reuses the verdict with no engine call. The verdict is stamped in place — no pointer
+// move, and an infected finding stays visible (informed access). NEVER-SILENT-CLEAN: a null current
+// engine (unset setting) is a no-op (never fabricate a key); an `unscanned`/`suspicious` engine result
+// leaves the version's prior verdict untouched (never downgraded without a definitive scan). Idempotent
+// on `rescan:<versionId>:<engineVersion>` so a redelivery under the same engine no-ops, while a later
+// engine version legitimately re-scans.
+async function handleRescanMessage(
+  env: Bindings,
+  message: R2EventMessage,
+  firmDatabase: D1Database,
+  scanPort: MalwareScanPort,
+): Promise<void> {
+  const committed = await loadCommittedVersionByR2Key(firmDatabase, message.object.key);
+  if (committed === undefined) return; // not a committed version → nothing to re-scan
+  if (committed.contentSha256 === null) return; // no content hash (legacy) → cannot dedup/cache; skip
+
+  const currentEngineVersion = await readScanEngineVersion(firmDatabase);
+  if (currentEngineVersion === null) return; // no current engine recorded yet → never fabricate a key
+  if (committed.scanEngineVersion === currentEngineVersion) return; // already current → not stale
+
+  const contentSha256 = committed.contentSha256;
+  const now = () => new Date().toISOString();
+  const options = { clock: { now }, actorUserId: null };
+
+  await runIdempotentEffect({
+    database: firmDatabase,
+    key: `rescan:${committed.id}:${currentEngineVersion}`,
+    fingerprint: `${committed.id}:${currentEngineVersion}`,
+    now,
+    effect: async () => {
+      // Cache-first: identical content already scanned under THIS engine reuses the verdict (no scan).
+      let verdict: "clean" | "infected" | null = null;
+      let signature: string | null = null;
+      const cached = await lookupScanCache(firmDatabase, contentSha256, currentEngineVersion);
+      if (cached !== null) {
+        verdict = cached.verdict;
+        signature = cached.signature;
+      } else {
+        // Cache miss → scan the bytes. A not-yet-readable object is transient (throw → retry).
+        const object = await env.R2.get(message.object.key);
+        if (object === null) {
+          throw new Error(`R2 object not readable for a re-scan: ${message.object.key}`);
+        }
+        const result = await scanPort.scan(object.body, {
+          sizeBytes: object.size,
+          sniffedContentType: null,
+        });
+        if (result.verdict === "clean") {
+          verdict = "clean";
+        } else if (result.verdict === "infected") {
+          verdict = "infected";
+          signature = result.signature;
+        } else {
+          // `unscanned`/`suspicious` is NOT a definitive verdict — leave the version's prior verdict
+          // untouched (never downgrade without a real scan). The idempotency record still lands, so a
+          // redelivery under this engine does not re-scan; a future engine version will try again.
+          return {
+            write: { statements: [], outboxMessages: [] },
+            responseCode: 200,
+            responseBody: "{}",
+          };
+        }
+      }
+
+      const rescan = recordRescanVerdict(
+        firmDatabase,
+        {
+          fileId: committed.fileId,
+          versionId: committed.id,
+          scanVerdict: verdict,
+          scanEngineVersion: currentEngineVersion,
+          scanDetail: signature,
+          signature,
+          contentSha256,
+          now: now(),
+        },
+        options,
+      );
+      return {
+        write: rescan.effect,
+        responseCode: 200,
+        responseBody: JSON.stringify({ versionId: committed.id }),
       };
     },
   });
@@ -138,11 +280,12 @@ export async function ingestQueue(
   // — the console ban is structural) and is retried, dead-lettering at max attempts.
   const logger = createWorkersLogger(env.TELEMETRY);
   for (const message of batch.messages) {
+    const correlationId = newCorrelationId();
     try {
-      await handleIngestMessage(env, message.body);
+      await handleIngestMessage(env, message.body, undefined, logger, correlationId);
       message.ack();
     } catch (error) {
-      logOperationFailed(logger, `queue:files-ingest:${message.id}`, error, newCorrelationId());
+      logOperationFailed(logger, `queue:files-ingest:${message.id}`, error, correlationId);
       message.retry();
     }
   }

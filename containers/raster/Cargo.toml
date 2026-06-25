@@ -1,0 +1,38 @@
+[package]
+name = "magna-carta-raster"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# A lib (the router + codec modules, unit-testable) plus a thin binary that serves it on :8080.
+[lib]
+name = "magna_carta_raster"
+path = "src/lib.rs"
+
+[[bin]]
+name = "magna-carta-raster"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+# Pure-Rust image codec library. Default features are disabled to exclude the AVIF encoder, which
+# pulls in `ravif`/`rav1e`/`libfuzzer-sys`/`cc` (a C-compiler wrapper) — violating the no-C rule.
+# Only the six pure-Rust codecs we actually convert are enabled; no C/-sys crate is in the tree.
+image = { version = "0.25", default-features = false, features = [
+  "png",
+  "jpeg",
+  "gif",
+  "webp",
+  "tiff",
+  "bmp",
+] }
+# Pure-Rust PDF writer. Only the raster-images feature is enabled; simple-text and rayon are
+# excluded (no font shaping, no thread-pool required for image-to-PDF). No C/-sys dependency is
+# introduced — the pure-Rust codec chain (png/zune-jpeg/image-webp/gif) handles all image decoding
+# inside krilla, and the image crate above supplies the decoded pixel data via from_rgba8.
+krilla = { version = "0.8.2", default-features = false, features = ["raster-images"] }
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"

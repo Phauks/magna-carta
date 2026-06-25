@@ -70,6 +70,64 @@ export type FirmUsageResponse = {
     };
 };
 
+export type WhoisResponse = {
+    source: 'rdap' | 'whois-43';
+    target: string;
+    registrar?: string;
+    registeredAt?: string;
+    expiresAt?: string;
+    lastChangedAt?: string;
+    nameservers?: Array<string>;
+    statuses?: Array<string>;
+    registrant?: string;
+    raw?: string;
+};
+
+export type SafeWebsiteView = {
+    requestedUrl: string;
+    finalUrl: string;
+    redirectChain: Array<{
+        url: string;
+        status: number;
+        location?: string;
+    }>;
+    responseHeaders: {
+        [key: string]: string;
+    };
+    screenshotBase64: string;
+    title?: string;
+    markdown?: string;
+    links: Array<string>;
+};
+
+export type MetadataReport = {
+    format: string;
+    findings: Array<{
+        category: string;
+        label: string;
+        risk: 'high' | 'medium' | 'low';
+        count: number;
+        defaultScrub: boolean;
+    }>;
+    clean: boolean;
+};
+
+export type MetadataScrubResult = {
+    mediaType: string;
+    filename: string;
+    cleanedBase64: string;
+    report: MetadataReport;
+};
+
+export type MetadataScrubOptions = {
+    identifyingMetadata: boolean;
+    trackedChanges: boolean;
+    comments: boolean;
+    hiddenContent: boolean;
+    customProperties: boolean;
+    imageMetadata: boolean;
+};
+
 export type InviteMemberResponse = {
     id: string;
     email: string;
@@ -147,6 +205,7 @@ export type InitiateUploadRequest = {
     declaredContentType: string | null;
     documentTypeId?: string | null;
     fileId?: string;
+    uploadKind?: 'interactive' | 'bulk';
 };
 
 export type SignUploadPartResponse = {
@@ -478,10 +537,47 @@ export type PatchFileRequest = {
     documentTypeId?: string | null;
 };
 
+export type PreviewGrant = {
+    mode: 'inline-media' | 'download-only';
+    verdict: 'playable' | 'download-only' | 'indeterminate' | null;
+    streamUrl?: string;
+    contentType?: string;
+    sizeBytes?: number | null;
+    reason?: 'verdict' | 'unknown-verdict' | 'tiered' | 'encoded' | 'derived' | 'unknown-type' | 'host-unavailable';
+    downloadUrl: string;
+};
+
+export type BundleReady = {
+    url: string;
+};
+
+export type BundleBuildAccepted = {
+    jobId: string;
+    status: string;
+};
+
 export type ZipDownloadRequest = {
     matterId: string;
     folderIds?: Array<string>;
     fileIds?: Array<string>;
+};
+
+export type ScanDiagnosis = {
+    verdict: 'clean' | 'infected' | 'unscanned' | 'suspicious';
+    engineVersion: string | null;
+    signature: string | null;
+    reason: string | null;
+    activeContent: boolean;
+};
+
+export type MatterRescanResult = {
+    enqueued: number;
+    capped: boolean;
+};
+
+export type BundleStatus = {
+    status: string;
+    url?: string;
 };
 
 export type CreatedDirectoryEntityResponse = {
@@ -749,6 +845,31 @@ export type CustomFieldValueRow = {
     validTo: string | null;
 };
 
+export type ConversionUploadResponse = {
+    jobId: string;
+    uploadUrl: string;
+    sourceKey: string;
+};
+
+export type ConversionSubmitResponse = {
+    jobId: string;
+    status: 'queued';
+};
+
+export type ConversionSubmitRequest = {
+    jobId: string;
+    sourceKey: string;
+    from: string;
+    to: string;
+};
+
+export type ConversionStatus = {
+    status: string;
+    url?: string;
+    mediaType?: string;
+    reason?: string;
+};
+
 export type ShippingConnectAck = {
     id: string;
     status: string;
@@ -934,6 +1055,169 @@ export type FirmUsageGetResponses = {
 };
 
 export type FirmUsageGetResponse = FirmUsageGetResponses[keyof FirmUsageGetResponses];
+
+export type WhoisGetData = {
+    body?: never;
+    path?: never;
+    query: {
+        query: string;
+    };
+    url: '/api/v1/whois';
+};
+
+export type WhoisGetErrors = {
+    /**
+     * The query target is not a valid public domain or IP address
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:whois
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type WhoisGetError = WhoisGetErrors[keyof WhoisGetErrors];
+
+export type WhoisGetResponses = {
+    /**
+     * The registration record for the queried domain or IP address
+     */
+    200: WhoisResponse;
+};
+
+export type WhoisGetResponse = WhoisGetResponses[keyof WhoisGetResponses];
+
+export type SafeBrowsePostData = {
+    body: {
+        url: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/safe-browse';
+};
+
+export type SafeBrowsePostErrors = {
+    /**
+     * The target URL resolves to a non-public address (SSRF guard rejected it)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:safeBrowse
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The remote browser renderer is unavailable or at capacity
+     */
+    502: Problem;
+};
+
+export type SafeBrowsePostError = SafeBrowsePostErrors[keyof SafeBrowsePostErrors];
+
+export type SafeBrowsePostResponses = {
+    /**
+     * Static snapshot of the rendered page
+     */
+    200: SafeWebsiteView;
+};
+
+export type SafeBrowsePostResponse = SafeBrowsePostResponses[keyof SafeBrowsePostResponses];
+
+export type MetadataInspectData = {
+    body: {
+        filename: string;
+        contentBase64: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/metadata/inspect';
+};
+
+export type MetadataInspectErrors = {
+    /**
+     * Unprocessable file
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Missing tools:metadataScrubber
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MetadataInspectError = MetadataInspectErrors[keyof MetadataInspectErrors];
+
+export type MetadataInspectResponses = {
+    /**
+     * Metadata report
+     */
+    200: MetadataReport;
+};
+
+export type MetadataInspectResponse = MetadataInspectResponses[keyof MetadataInspectResponses];
+
+export type MetadataScrubData = {
+    body: {
+        filename: string;
+        contentBase64: string;
+        options?: MetadataScrubOptions;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/metadata/scrub';
+};
+
+export type MetadataScrubErrors = {
+    /**
+     * Unprocessable file
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Missing tools:metadataScrubber
+     */
+    403: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MetadataScrubError = MetadataScrubErrors[keyof MetadataScrubErrors];
+
+export type MetadataScrubResponses = {
+    /**
+     * Cleaned file + report
+     */
+    200: MetadataScrubResult;
+};
+
+export type MetadataScrubResponse = MetadataScrubResponses[keyof MetadataScrubResponses];
 
 export type MembersInviteData = {
     body: InviteMemberRequest;
@@ -2921,11 +3205,43 @@ export type FilesDownloadData = {
     path: {
         id: string;
     };
-    query?: never;
+    query?: {
+        acknowledgeMalware?: 'true';
+    };
     url: '/api/v1/files/{id}/download';
 };
 
 export type FilesDownloadErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the file is unknown
+     */
+    404: Problem;
+    /**
+     * The current version was flagged as malware; re-request with acknowledgeMalware=true to download it
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FilesDownloadError = FilesDownloadErrors[keyof FilesDownloadErrors];
+
+export type FilesPreviewData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/files/{id}/preview';
+};
+
+export type FilesPreviewErrors = {
     /**
      * No valid session
      */
@@ -2940,7 +3256,16 @@ export type FilesDownloadErrors = {
     429: Problem;
 };
 
-export type FilesDownloadError = FilesDownloadErrors[keyof FilesDownloadErrors];
+export type FilesPreviewError = FilesPreviewErrors[keyof FilesPreviewErrors];
+
+export type FilesPreviewResponses = {
+    /**
+     * The preview delivery descriptor
+     */
+    200: PreviewGrant;
+};
+
+export type FilesPreviewResponse = FilesPreviewResponses[keyof FilesPreviewResponses];
 
 export type DownloadsZipData = {
     body: ZipDownloadRequest;
@@ -2972,12 +3297,119 @@ export type DownloadsZipError = DownloadsZipErrors[keyof DownloadsZipErrors];
 
 export type DownloadsZipResponses = {
     /**
-     * A streamed ZIP archive of the selected files
+     * A streamed ZIP archive of the selected files; or, when the selection exceeds the live threshold and an identical bundle was already built, a JSON body with a fresh signed URL.
      */
-    200: Blob | File;
+    200: BundleReady;
+    /**
+     * The selection exceeds the live-download threshold; a background build was started or is already in progress. Poll the bundle-status endpoint with the returned jobId.
+     */
+    202: BundleBuildAccepted;
 };
 
 export type DownloadsZipResponse = DownloadsZipResponses[keyof DownloadsZipResponses];
+
+export type ScanDiagnoseData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/scan/diagnose';
+};
+
+export type ScanDiagnoseErrors = {
+    /**
+     * Empty request body
+     */
+    400: Problem;
+    /**
+     * Not authenticated
+     */
+    401: Problem;
+    /**
+     * The body exceeds the firm's inspectable-size cap
+     */
+    413: Problem;
+};
+
+export type ScanDiagnoseError = ScanDiagnoseErrors[keyof ScanDiagnoseErrors];
+
+export type ScanDiagnoseResponses = {
+    /**
+     * The scan diagnosis
+     */
+    200: ScanDiagnosis;
+};
+
+export type ScanDiagnoseResponse = ScanDiagnoseResponses[keyof ScanDiagnoseResponses];
+
+export type ScanMatterData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/scan/matter/{id}';
+};
+
+export type ScanMatterErrors = {
+    /**
+     * Not authenticated
+     */
+    401: Problem;
+    /**
+     * The member lacks files:upload
+     */
+    403: Problem;
+};
+
+export type ScanMatterError = ScanMatterErrors[keyof ScanMatterErrors];
+
+export type ScanMatterResponses = {
+    /**
+     * The re-scan enqueue result
+     */
+    200: MatterRescanResult;
+};
+
+export type ScanMatterResponse = ScanMatterResponses[keyof ScanMatterResponses];
+
+export type DownloadsBundleStatusData = {
+    body?: never;
+    path: {
+        manifestHash: string;
+    };
+    query?: never;
+    url: '/api/v1/downloads/bundles/{manifestHash}';
+};
+
+export type DownloadsBundleStatusErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks files:organize
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DownloadsBundleStatusError = DownloadsBundleStatusErrors[keyof DownloadsBundleStatusErrors];
+
+export type DownloadsBundleStatusResponses = {
+    /**
+     * The job's current state, with a signed URL when ready
+     */
+    200: BundleStatus;
+};
+
+export type DownloadsBundleStatusResponse = DownloadsBundleStatusResponses[keyof DownloadsBundleStatusResponses];
 
 export type DirectoryCreatePersonData = {
     body: CreateDirectoryPersonRequest;
@@ -4643,6 +5075,123 @@ export type CustomFieldsValueHistoryResponses = {
 };
 
 export type CustomFieldsValueHistoryResponse = CustomFieldsValueHistoryResponses[keyof CustomFieldsValueHistoryResponses];
+
+export type ConversionsUploadData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/conversions/upload';
+};
+
+export type ConversionsUploadErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks tools:fileConverter
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConversionsUploadError = ConversionsUploadErrors[keyof ConversionsUploadErrors];
+
+export type ConversionsUploadResponses = {
+    /**
+     * A jobId, the presigned upload URL, and the source R2 key
+     */
+    200: ConversionUploadResponse;
+};
+
+export type ConversionsUploadResponse = ConversionsUploadResponses[keyof ConversionsUploadResponses];
+
+export type ConversionsSubmitData = {
+    body: ConversionSubmitRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/conversions';
+};
+
+export type ConversionsSubmitErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks tools:fileConverter
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The requested format conversion is not supported (no conversion path found)
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConversionsSubmitError = ConversionsSubmitErrors[keyof ConversionsSubmitErrors];
+
+export type ConversionsSubmitResponses = {
+    /**
+     * The job was accepted and is now queued for conversion
+     */
+    202: ConversionSubmitResponse;
+};
+
+export type ConversionsSubmitResponse = ConversionsSubmitResponses[keyof ConversionsSubmitResponses];
+
+export type ConversionsStatusData = {
+    body?: never;
+    path: {
+        jobId: string;
+    };
+    query?: never;
+    url: '/api/v1/conversions/{jobId}';
+};
+
+export type ConversionsStatusErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks tools:fileConverter
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ConversionsStatusError = ConversionsStatusErrors[keyof ConversionsStatusErrors];
+
+export type ConversionsStatusResponses = {
+    /**
+     * The job's current state; a done job includes a presigned URL and media type
+     */
+    200: ConversionStatus;
+};
+
+export type ConversionsStatusResponse = ConversionsStatusResponses[keyof ConversionsStatusResponses];
 
 export type ShippingConnectData = {
     body: ShippingConnectRequest;

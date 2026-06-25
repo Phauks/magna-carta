@@ -138,6 +138,13 @@ export function createAuth(env: Bindings, sendEmail: SendEmail) {
       },
     },
     advanced: {
+      // Cookies stay at Better Auth's HOST-ONLY default (crossSubDomainCookies off => the session
+      // cookie carries no Domain attribute, so it is scoped to the exact host that set it). Do NOT
+      // enable cross-subdomain cookies: every user belongs to exactly one firm, and firms get branded
+      // per-firm subdomains (<firm>.magnacarta.esq) — a parent-scoped cookie would be sent to every
+      // sibling firm's subdomain AND to the cookieless files.* delivery host, leaking a session across
+      // tenants. (__Host- would harden this further, but the pinned better-auth emits __Secure-, not
+      // __Host-, with no option to force it.) Pinned by test/auth-cookie-isolation.test.ts.
       database: {
         generateId: ({ model }) => {
           const entityType = ENTITY_TYPE_BY_MODEL[model];

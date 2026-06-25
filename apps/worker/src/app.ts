@@ -9,15 +9,27 @@ import { createChokepoint } from "./chokepoint/chokepoint.ts";
 import { createChokepointIdempotency } from "./chokepoint/idempotency-port.ts";
 import { createChokepointPorts, type AppVariables, type FirmContext } from "./chokepoint/ports.ts";
 import { createInMemoryRateLimiter } from "./chokepoint/rate-limiter.ts";
+import { noindexResponseMiddleware } from "./crawler-directives.ts";
 import { defaultHook } from "./contracts/problem.ts";
 import { registerHealthRoute } from "./routes/health.ts";
 import { createCloudflareEmailAdapter, type CloudflareEmailBinding } from "./email-cloudflare.ts";
 import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
+import { registerBundleStatusRoute } from "./routes/bundle-status.ts";
+import { registerConversionRoutes } from "./routes/conversions.ts";
 import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
+import { registerTimeEntriesRoutes } from "./routes/time-entries.ts";
+import { registerTimerRoutes } from "./routes/timer.ts";
+import { registerRateCardsRoutes } from "./routes/rate-cards.ts";
+import { registerUtbmsCodesRoutes } from "./routes/utbms-codes.ts";
+import { registerNonBillableCategoriesRoutes } from "./routes/non-billable-categories.ts";
+import { registerNarrativeTemplatesRoutes } from "./routes/narrative-templates.ts";
+import { registerMyDayRoutes } from "./routes/my-day.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerDownloadsRoutes } from "./routes/downloads.ts";
 import { registerFilesRoutes } from "./routes/files.ts";
+import { registerScanDiagnoseRoute } from "./routes/scan-diagnose.ts";
+import { registerScanMatterRoute } from "./routes/scan-matter.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
 import { registerFoldersRoutes } from "./routes/folders.ts";
 import { registerIncidentsRoute } from "./routes/incidents.ts";
@@ -29,10 +41,15 @@ import { firmSecretStoreNotYetAvailable } from "./plugins/secret-store.ts";
 import { registerMatterTypesRoutes } from "./routes/matter-types.ts";
 import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
+import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
+import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
+import { registerMetadataRoutes } from "./routes/metadata.ts";
+import { registerDevWebToolsDemoRoute } from "./routes/dev-web-tools-demo.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
 import { registerNumberingRoutes } from "./routes/numbering.ts";
 import { registerUploadsRoutes } from "./routes/uploads.ts";
+import { registerPreviewServeRoute } from "./files/preview-serve.ts";
 import { telemetryErrorHandler, telemetryMiddleware } from "./telemetry-middleware.ts";
 import { createUsageConsentResolver } from "./usage/consent.ts";
 import { usageReachedMiddleware } from "./usage/reached-middleware.ts";
@@ -48,16 +65,46 @@ export type Bindings = {
   DB_FIRM_POOL_2: D1Database;
   R2: R2Bucket;
   QUEUE: Queue;
+  // The files-ingest queue binding for the interactive lane (files/ prefix).
+  FILES_INGEST?: Queue;
+  // The files-ingest-bulk queue binding for the bulk lane (bulk/ prefix, lower concurrency).
+  FILES_INGEST_BULK?: Queue;
+  // The async bulk-download coordinator (the codebase's first Durable Object): keyed
+  // firmId:manifestHash, it single-flights one ZIP build per content-addressed selection.
+  BUNDLE_COORDINATOR: DurableObjectNamespace<
+    import("./downloads/bundle-coordinator.ts").BundleBuildCoordinator
+  >;
+  // The bundle-build queue the coordinator enqueues onto; its consumer streams R2 -> client-zip -> R2.
+  BUNDLE_BUILD: Queue<import("./downloads/bundle-types.ts").BundleBuildMessage>;
+  // The malware-scan Worker service binding. Dispatches file content to the scan worker for a
+  // verdict. Optional here so the pool can start without a running scan service; resolveScanPort
+  // falls back to the no-engine adapter when absent or when the bound service returns unscanned.
+  SCAN_SERVICE?: Fetcher;
   // The off-hot-path AI inference dispatch queue: an inference request is enqueued here and the consumer
   // (src/inference/inference-consumer.ts) runs env.AI.run, so a single firm cannot starve the shared
   // gateway cap synchronously on the request path. Distinct from QUEUE (jobs) and FILES_INGEST.
   INFERENCE: Queue;
+  // The conversion-job coordinator: keyed firmId:jobId, single-flights one conversion per job.
+  CONVERSION_JOB: DurableObjectNamespace<
+    import("./conversions/conversion-coordinator.ts").ConversionJob
+  >;
+  // The server-conversion queue the coordinator enqueues onto; the consumer runs the ConversionPort adapter.
+  CONVERSION: Queue<import("./conversions/conversion-types.ts").ConversionMessage>;
+  // The dedicated conversion engine worker (magna-carta-convert), reached over a service binding.
+  // Optional: absent in every test environment and until the deploy-time binding is added; while
+  // unset, resolveEnginePort returns the deferred port (engine-not-implemented).
+  CONVERT?: Fetcher;
   // The authenticated Workers AI binding — the only path inference reaches the gateway through (no raw
   // gateway token in any firm-reachable config). Pre-authenticated within the account.
   AI: Ai;
   // Better Auth's signing/encryption secret. Local dev + tests load it from .dev.vars;
   // production sets it with `wrangler secret put AUTH_SECRET`.
   AUTH_SECRET: string;
+  // The cookieless files host (e.g. files.magnacarta.esq). Optional: does not exist until the apex
+  // domain attaches; while unset the preview grant degrades to download-only. The cookieless serve
+  // route only ever answers when the request hostname equals this value. A public hostname, not a
+  // secret — bound via wrangler.jsonc vars, never .dev.vars.
+  FILES_ORIGIN?: string;
   // The POST /api/v1/firms guard secret (constant-time-compared against X-Platform-Admin-Key — a
   // stand-in seam until a real platform-admin principal model exists). Local dev + tests load the
   // placeholder from .dev.vars; production sets it with `wrangler secret put PLATFORM_ADMIN_KEY`.
@@ -99,6 +146,21 @@ export type Bindings = {
   // unset and keep the logging adapter, so no real email is sent and no domain onboarding is required.
   SEND_EMAIL?: CloudflareEmailBinding;
   EMAIL_FROM?: string;
+  // The per-timekeeper live-timer Durable Object namespace (the first DO). The timer routes proxy to
+  // one instance per `${firmId}:${userId}`; the stop-commit reads the DO's final state and writes the
+  // time entry through the data-access chokepoint. The DO holds no business rows.
+  DURABLE_TIMER: DurableObjectNamespace<
+    import("./timer/live-timer-durable-object.ts").LiveTimerDurableObject
+  >;
+  // Browser Rendering Workers binding — used by POST /api/v1/safe-browse to render a URL in an
+  // isolated remote browser. Optional here so Miniflare (which has no local browser emulation) can
+  // boot and run the full test suite without touching this binding; the route ALWAYS receives an
+  // injected renderer dep in tests, so c.env.BROWSER is never accessed during testing.
+  BROWSER?: unknown;
+  // Throwaway dev-only switch for the barebones /__dev/web-tools demo page (WHOIS + Safe Website
+  // Viewer). Unset in production, so the demo route answers 404 there; set DEV_DEMO_TOOLS=1 in
+  // .dev.vars to view it locally. Not part of any contract; remove the demo route when no longer needed.
+  DEV_DEMO_TOOLS?: string;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
@@ -150,6 +212,14 @@ export interface CreateAppOptions {
   includeTelemetryProbes?: boolean;
   // Overrides the plugin runtime for tests (a fake EasyPost http client + an in-memory secret store).
   pluginRuntime?: Partial<PluginRuntime>;
+  // Overrides the WHOIS route dependencies for tests (a fake RDAP http client + a fake socket).
+  // Production defaults: fetchHttpClient() for RDAP, the cloudflare:sockets connect() adapter for
+  // port-43 WHOIS, and no resolver (DNS-rebinding protection is deferred until a DoH adapter is wired).
+  whoisDeps?: Partial<WhoisRouteDeps>;
+  // Overrides the safe-browse route dependencies for tests (a fake renderer + a fake probe).
+  // Production defaults: createBrowserRenderer(c.env.BROWSER) + createFetchRedirectProbe().
+  // Tests ALWAYS supply safeBrowseDeps so c.env.BROWSER is never accessed in the test pool.
+  safeBrowseDeps?: SafeBrowseRouteDeps;
 }
 
 export function createApp(options: CreateAppOptions = {}) {
@@ -192,6 +262,22 @@ export function createApp(options: CreateAppOptions = {}) {
     idempotency: createChokepointIdempotency(),
   });
 
+  // The cookieless preview serve route: a bare, host-guarded route on the files host, OUTSIDE the
+  // chokepoint (no session on files.*), under /api/ so it reaches the Worker (run_worker_first).
+  // Registered FIRST so its files-host catch-all seals the cookieless origin BEFORE any other route
+  // (health, Better Auth, /api/v1, ASSETS) can answer on files.* — the seal only holds if nothing is
+  // registered ahead of it. On the app origin the catch-all falls through (next()), so the routes
+  // below are unaffected. A standing fitness test asserts /api/health and /api/auth/* return the bare
+  // 404 on the files host, so this ordering seal cannot silently regress as routes are added.
+  registerPreviewServeRoute(app);
+
+  // Stamp X-Robots-Tag: noindex on every response BELOW this point. Registered AFTER the cookieless
+  // preview route on purpose: Hono middleware only wraps routes registered after it, so the sealed
+  // files.* edge (attachment bytes + bare 404s, never an indexable page) keeps its exhaustive,
+  // payload-derived header set untouched, while the app origin, API, Better Auth, health, and the SPA
+  // shell — every private, firm-scoped surface this Worker serves — are kept out of search indexes.
+  app.use("*", noindexResponseMiddleware());
+
   // Health is platform plumbing: public, unauthenticated, no /api/v1 surface — it still rides the
   // chokepoint (rate-limit only, no session/firm/RBAC) so EVERY declared route is enforced through
   // the one seam, none reachable that skips it.
@@ -207,6 +293,55 @@ export function createApp(options: CreateAppOptions = {}) {
   // middleware, run before the chokepoint's idempotency/rate-limit gates (see routes/firms.ts).
   registerMeRoute(app, chokepoint);
   registerFirmUsageRoute(app, chokepoint);
+
+  // The WHOIS route: RDAP-first domain/IP registration lookup with a port-43 fallback. All outbound
+  // effects go through injected deps so tests substitute fakes without touching global fetch or sockets.
+  // The production socket opens a raw TCP connection on port 43 via cloudflare:sockets connect().
+  const productionWhoisSocket: WhoisRouteDeps["socket"] = {
+    async query(host, request) {
+      // Imported lazily: cloudflare:sockets is a Workers-only module, so a top-level import would
+      // break Node-based tooling (the emit-openapi script loads this file outside the Worker runtime).
+      const { connect } = await import("cloudflare:sockets");
+      const socket = connect({ hostname: host, port: 43 });
+      const writer = socket.writable.getWriter();
+      await writer.write(new TextEncoder().encode(request));
+      await writer.close();
+      const reader = socket.readable.getReader();
+      const chunks: Uint8Array[] = [];
+      try {
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+        }
+      } finally {
+        // cloudflare:sockets does not auto-close when the readable is exhausted; release the
+        // reader lock first so close() can drain and tear down the underlying TCP connection.
+        reader.releaseLock();
+        await socket.close();
+      }
+      const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+      const merged = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        merged.set(chunk, offset);
+        offset += chunk.length;
+      }
+      return new TextDecoder().decode(merged);
+    },
+  };
+  const whoisDeps: WhoisRouteDeps = {
+    http: options.whoisDeps?.http ?? fetchHttpClient(),
+    socket: options.whoisDeps?.socket ?? productionWhoisSocket,
+    resolve: options.whoisDeps?.resolve,
+  };
+  registerWhoisRoute(app, chokepoint, whoisDeps);
+  // The safe-browse route: renders a suspect URL in an isolated remote browser and returns a
+  // static snapshot. All outbound effects go through injected deps so tests substitute fakes
+  // without touching the BROWSER binding. Production: createBrowserRenderer(c.env.BROWSER) +
+  // createFetchRedirectProbe() — built lazily in the handler, never at startup.
+  registerSafeBrowseRoute(app, chokepoint, options.safeBrowseDeps ?? {});
+  registerMetadataRoutes(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
   registerIncidentsRoute(app, chokepoint);
@@ -223,12 +358,35 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFoldersRoutes(app, chokepoint);
   registerFilesRoutes(app, chokepoint);
   registerDownloadsRoutes(app, chokepoint);
+  // The one-off, matter-less malware-scan diagnostic — stream a file through the engine, get a verdict.
+  registerScanDiagnoseRoute(app, chokepoint);
+  // "Scan this matter now" — queue a background re-scan of a matter's stale files on the bulk lane.
+  registerScanMatterRoute(app, chokepoint);
+  // The async bulk-download poll endpoint — the status side of the download route's 202 hand-off.
+  registerBundleStatusRoute(app, chokepoint);
   // Slice 1·3: the directory (persons/organizations, names, sensitive identifiers, edges,
   // categories, search, merge, matter-party link) — composed through the same chokepoint.
   registerDirectoryRoutes(app, chokepoint);
   // Slice 1·4: firm-defined custom fields (definitions, picklist options, temporal values, the
   // non-destructive Convert, and the compliance purge seam) — composed through the same chokepoint.
   registerCustomFieldsRoutes(app, chokepoint);
+  // Time tracking — the work-in-progress entry surface, composed through the same chokepoint.
+  registerTimeEntriesRoutes(app, chokepoint);
+  // Timer routes: the per-timekeeper live timer (DO proxy) and the idempotent stop-commit.
+  registerTimerRoutes(app, chokepoint);
+  // Rate card management: create cards, append effective-dated rates, re-rate unbilled drafts.
+  registerRateCardsRoutes(app, chokepoint);
+  // UTBMS code catalog: list and toggle enable/disable on the seeded ABA set.
+  registerUtbmsCodesRoutes(app, chokepoint);
+  // Non-billable category management: create, rename, soft-archive.
+  registerNonBillableCategoriesRoutes(app, chokepoint);
+  // Narrative template management: create, list, archive, and read recent narratives.
+  registerNarrativeTemplatesRoutes(app, chokepoint);
+  // My Day: daily headline totals (billable, non-billable, target, shortfall).
+  registerMyDayRoutes(app, chokepoint);
+  // The server-conversion surface: presign an upload slot, submit a job, and poll its state.
+  // Each route traverses the same chokepoint under the tools:fileConverter permission.
+  registerConversionRoutes(app, chokepoint);
 
   // The plugin runtime: production defaults (a fetch-backed http client; the firm_secret store seam
   // that throws until the marketplace wires the live credential read), overridable in tests.
@@ -254,6 +412,10 @@ export function createApp(options: CreateAppOptions = {}) {
       throw new Error("telemetry probe boom for leak@example.com");
     });
   }
+
+  // Throwaway dev-only demo page for the Websites & Domains tools (gated on DEV_DEMO_TOOLS; 404 in
+  // production). A bare route, so it never enters the OpenAPI contract. Remove with the demo file.
+  registerDevWebToolsDemoRoute(app);
 
   // Everything not handled above falls through to the static-asset SPA (Workers Static Assets binding).
   app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));

@@ -10,6 +10,7 @@ export const PERMISSIONS = [
   "firm:manageMembers", // invite/deactivate members, assign roles
   "firm:provision", // reserved: platform-level firm creation (guarded by secret this slice)
   "firm:reportIncident", // file a diagnostic incident (slice 0·6) — seeded to every default role
+  "firm:scanFile", // run a one-off, matter-less malware-scan diagnostic — seeded to every default role
   "firm:manageSecrets", // read/write the encrypted per-firm secret store (an audited decrypt on read)
   // Incidents — gates on the user-authored incident report beyond filing it.
   "incidents:viewDescription", // decrypt and read an incident's protected description (audited)
@@ -44,9 +45,20 @@ export const PERMISSIONS = [
   "tools:shipping", // shipping & postage (the shipping integration)
   "tools:speedTest", // in-app network speed test (runs client-side against the Cloudflare edge)
   "tools:firmUsage", // firm usage snapshot — storage + entity counts (read-only, per-firm)
+  "tools:whois", // WHOIS/RDAP registration lookup for a website's domain or an IP
+  "tools:safeBrowse", // render a suspect URL in an isolated remote browser (static snapshot only)
+  "tools:fileConverter", // general matter-free file converter — convert a file to another format
+  "tools:metadataScrubber", // inspect/scrub a file's metadata & content artifacts (ephemeral, matter-free)
   // Custom fields — define and maintain field schemas; purge hard-deletes all values for a field.
   "customFields:manage",
   "customFields:purge",
+  // Time tracking, WIP & the rate engine — one namespace per subsystem (house convention).
+  "time:track", // create/edit own time entries and run the timer
+  "time:viewFirm", // see other timekeepers' time (firm-wide My Day / report gating)
+  "time:approve", // submit-for-review / approve / kick-back when the review gate is on
+  "time:manageRates", // rate cards, rate versions, and the re-rate-unbilled-drafts action
+  "time:manageUtbms", // enable/disable the UTBMS code catalog
+  "time:manageSettings", // the scoped time settings, non-billable categories, narrative templates
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

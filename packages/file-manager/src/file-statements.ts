@@ -17,9 +17,16 @@ export const UPLOAD_SESSION_TABLE = "upload_session";
 // The top-level R2 key segment for matter files (also the storage_meter prefix). Keys are opaque:
 // files/{fileId}/{versionId} — never derived from a folder path, so a rename moves no bytes.
 export const FILES_PREFIX = "files";
+// The R2 key prefix for bulk-uploaded objects. Bulk objects live under bulk/ but still meter under
+// the files/ logical dimension — the lane benefit is queue topology, not a different meter bucket.
+export const BULK_PREFIX = "bulk";
 
-export function fileVersionKey(fileId: FileId, versionId: FileVersionId): string {
-  return `${FILES_PREFIX}/${fileId}/${versionId}`;
+export function fileVersionKey(
+  fileId: FileId,
+  versionId: FileVersionId,
+  prefix: string = FILES_PREFIX,
+): string {
+  return `${prefix}/${fileId}/${versionId}`;
 }
 
 export interface InsertFileRow {
@@ -165,6 +172,7 @@ export interface CommitVersionRow {
   readonly contentSha256: string;
   readonly scanVerdict: "unscanned" | "clean";
   readonly scanEngineVersion: string | null;
+  readonly scanDetail: string | null;
   readonly committedAt: string;
 }
 
@@ -172,7 +180,7 @@ export interface CommitVersionRow {
 export function commitVersionStatement(database: SqlDatabase, row: CommitVersionRow): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${FILE_VERSION_TABLE} SET status = 'clean', size_bytes = ?2, sniffed_content_type = ?3, content_sha256 = ?4, scan_verdict = ?5, scan_engine_version = ?6, committed_at = ?7 WHERE id = ?1 AND status = 'pending'`,
+      `UPDATE ${FILE_VERSION_TABLE} SET status = 'clean', size_bytes = ?2, sniffed_content_type = ?3, content_sha256 = ?4, scan_verdict = ?5, scan_engine_version = ?6, scan_detail = ?7, committed_at = ?8 WHERE id = ?1 AND status = 'pending'`,
     )
     .bind(
       row.versionId,
@@ -181,8 +189,32 @@ export function commitVersionStatement(database: SqlDatabase, row: CommitVersion
       row.contentSha256,
       row.scanVerdict,
       row.scanEngineVersion,
+      row.scanDetail,
       row.committedAt,
     );
+}
+
+export interface RescanVerdictRow {
+  readonly versionId: FileVersionId;
+  readonly scanVerdict: "clean" | "infected";
+  readonly scanEngineVersion: string;
+  readonly scanDetail: string | null;
+}
+
+// The in-place re-scan stamp: an ALREADY-COMMITTED version (status = 'clean') is re-scanned under a
+// newer engine and its verdict recorded WITHOUT moving the current-version pointer or changing
+// visibility. Gated on status = 'clean' so it can never touch a pending row (the commit path owns
+// those, and an out-of-order commit must not be clobbered), and so an infected re-scan finding stays
+// VISIBLE — only scan_verdict moves to 'infected'; the status (and the file's current-version pointer)
+// is untouched. The download path gates an infected verdict; the listing does not (informed access,
+// no data loss). NOT to be confused with commitVersionStatement (which gates 'pending' and moves the
+// lifecycle) — a re-scan only stamps the safety result on a version that is already live.
+export function rescanVerdictStatement(database: SqlDatabase, row: RescanVerdictRow): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${FILE_VERSION_TABLE} SET scan_verdict = ?2, scan_engine_version = ?3, scan_detail = ?4 WHERE id = ?1 AND status = 'clean'`,
+    )
+    .bind(row.versionId, row.scanVerdict, row.scanEngineVersion, row.scanDetail);
 }
 
 // Monotonic: the current-version pointer only advances. Ingest commits can land out of order (v2
@@ -207,12 +239,13 @@ export function bumpFileCurrentVersionStatement(
 export function quarantineVersionStatement(
   database: SqlDatabase,
   versionId: FileVersionId,
+  scanDetail: string | null,
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${FILE_VERSION_TABLE} SET status = 'quarantined' WHERE id = ?1 AND status = 'pending'`,
+      `UPDATE ${FILE_VERSION_TABLE} SET status = 'quarantined', scan_detail = ?2 WHERE id = ?1 AND status = 'pending'`,
     )
-    .bind(versionId);
+    .bind(versionId, scanDetail);
 }
 
 // The no-op skip: identical re-upload abandons the freshly-minted pending version.
