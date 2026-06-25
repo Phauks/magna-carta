@@ -30,8 +30,16 @@ describe("bundle-options", () => {
       layout: "flatten",
       manifest: true,
     });
-    expect(parsed.split?.maxPartBytes).toBe(20_000_000);
-    expect(parsed.encryption?.encryptFileNames).toBe(true);
+    expect(parsed).toEqual({
+      format: "sevenZip",
+      compression: "maximum",
+      encryption: { algorithm: "aes-256", encryptFileNames: true },
+      split: { maxPartBytes: 20_000_000 },
+      outputName: "smith.7z",
+      wrapperFolder: { name: "Smith v Jones" },
+      layout: "flatten",
+      manifest: true,
+    });
   });
 
   it("rejects a non-positive split size", () => {

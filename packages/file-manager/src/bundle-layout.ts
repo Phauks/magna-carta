@@ -5,7 +5,8 @@ import type { ResolvedZip, ZipEntry } from "./zip-composition.ts";
 // Composes the user's layout choice on top of the resolver's version-pinned entries: optionally flatten
 // every entry to its base name, optionally nest everything under a single wrapper folder, and always
 // sanitize the resulting paths for cross-platform extraction. Pure — sizes and identities are untouched,
-// only paths change; collisions introduced by flattening are disambiguated deterministically.
+// only paths change; entries are returned sorted by path; collisions introduced by flattening are
+// disambiguated deterministically.
 export function applyBundleLayout(
   resolved: ResolvedZip,
   options: Pick<BundleOptions, "layout" | "wrapperFolder">,

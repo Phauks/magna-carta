@@ -129,9 +129,11 @@ export async function bundleManifestHash(
 }
 
 // The cache/dedup key for an OPTIONED bundle: the content manifest hash folded together with the
-// non-secret options that change the output bytes. The `encryption` block is deliberately excluded —
-// encrypted bundles are never cached (their output is non-deterministic and the password must not enter
-// any persisted key) — so the key stays stable whether or not encryption was requested.
+// non-secret options that change the output bytes. Two exclusions: `encryption` is omitted because
+// encrypted bundles are never cached (their output is non-deterministic and the password must not
+// enter any persisted key); `outputName` is omitted because it is a display/Content-Disposition
+// name that does not affect the archive bytes, so identical content with different display names
+// shares one cached artifact.
 export async function bundleCacheKey(
   entries: readonly { r2Key: string; path: string }[],
   options: BundleOptions,
@@ -140,7 +142,6 @@ export async function bundleCacheKey(
     format: options.format,
     compression: options.compression,
     split: options.split,
-    outputName: options.outputName,
     wrapperFolder: options.wrapperFolder,
     layout: options.layout,
     manifest: options.manifest,

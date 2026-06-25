@@ -126,6 +126,12 @@ describe("bundleCacheKey", () => {
     expect(plain).toBe(encrypted);
   });
 
+  it("is identical when only the display outputName differs (it does not change the bytes)", async () => {
+    const a = await bundleCacheKey(entries, { ...DEFAULT_BUNDLE_OPTIONS, outputName: "a.zip" });
+    const b = await bundleCacheKey(entries, { ...DEFAULT_BUNDLE_OPTIONS, outputName: "b.zip" });
+    expect(a).toBe(b);
+  });
+
   it("is a 64-char hex digest", async () => {
     expect(await bundleCacheKey(entries, DEFAULT_BUNDLE_OPTIONS)).toMatch(/^[0-9a-f]{64}$/);
   });
