@@ -34,7 +34,7 @@ Documentation is **segmented and non-duplicative.** Every fact has one authorita
 - **Frontend:** Svelte 5 / SvelteKit (SPA, `adapter-cloudflare`); Tailwind v4 + the in-house **`@magna-carta/design-system`** (styled directly on headless **Bits UI**); DTCG tokens via Terrazzo; **Lucide icons**.
 - **Backend:** Cloudflare **Workers** + **Hono**; REST as **OpenAPI 3.1 code-as-contract** (zod).
 - **Data/platform:** per-firm **D1** + control-plane **D1**; per-firm **R2**; **Queues**, **Durable Objects**, **Vectorize**, **KV**; **Containers** (Collabora, Tantivy, OCR, LibreOffice).
-- **Auth:** Better Auth (control-plane D1). **Desktop:** Tauri 2 (after web MVP). **Tooling:** **Vite+** (CLI `vp`; manages pnpm + dev/build/pack/test + `vp check` for fmt/lint/typecheck — Oxc) · rustfmt/clippy. **Source control:** GitHub + GitHub Actions (CI → Cloudflare via Wrangler).
+- **Auth:** Better Auth (control-plane D1). **Desktop:** Tauri 2 (after web MVP). **Tooling:** **Vite+** (CLI `vp`; manages pnpm + dev/build/pack/test + `vp check` for fmt/lint/typecheck — Oxc) · rustfmt/clippy. **Source control:** GitHub (repos, branch protection, PRs, review). **CI/CD:** **Cloudflare Workers Builds** — the integrated build-and-deploy pipeline, building each Worker on push (`vp run build-all` → `wrangler deploy`). Not GitHub Actions.
 
 Architecture detail: the [white paper](docs/Magna-Carta-White-Paper.md) — _Delivery model_, _Authentication & encryption_, _Core domain_.
 
@@ -62,7 +62,7 @@ Broad principles for how we build — they apply across the work, not just one s
 ## How we work
 
 - **Build in vertical slices:** each feature complete through every layer (schema → firm-scoped data-access layer → API → UI → tests → docs), not horizontal layers — each slice ships working and is perf-tested against the load-profile fixtures as built.
-- **Build when in the area:** when a slice is open, include the cheap-from-the-getgo / expensive-to-retrofit parts up front — seams, schema columns, instrumentation. "Build when measured" gates are for heavy machinery only (golden rule 10 governs optimization, not foundations). (ADR-0078)
+- **Build when in the area:** when a slice is open, include the cheap-from-the-getgo / expensive-to-retrofit parts up front — seams, schema columns, instrumentation. "Build when measured" gates are for heavy machinery only (golden rule 10 governs optimization, not foundations). This includes **build-time performance**: anything that builds repeatedly in CI or the cloud is made fast by default (caching, path-filtering, slow inputs baked at build time) — fast feedback compounds, and a cache is a foundation you add up front, not a measure-first optimization. Home: [`docs/conventions/build-performance.md`](docs/conventions/build-performance.md). (ADR-0078)
 - **Implementation:** autonomous and terse; comprehensive fixes over incremental patches. Design and brainstorming stay collaborative.
 - **Per-area `CLAUDE.md`:** each code area carries its own (template in [`docs/conventions/`](docs/conventions/)) for local rules and the domain invariants that apply there — keep cross-cutting rules in `docs/conventions/`, not duplicated locally.
 
@@ -79,7 +79,7 @@ Several worktrees run at once, so streams must stay aware of each other and keep
 
 ```
 vp install                                                              # deps (vp manages pnpm + Node version)
-vp run setup-hooks                                                      # one-time per clone: activate the tracked git hooks (auto-clean on merge to main)
+vp run setup-hooks                                                      # one-time per clone: activate the tracked git hooks (pre-push quality gate + auto-clean on merge to main)
 vp dev                                                                  # web SPA dev server only (Vite HMR, no Worker)
 vp run worker-dev                                                       # full local app: builds the SPA, then runs wrangler dev (Miniflare: local D1/R2/Queues)
 vp run build-all                                                        # build all apps in dependency order
