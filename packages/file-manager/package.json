@@ -23,6 +23,7 @@
     "./zip-composition": "./src/zip-composition.ts",
     "./audit": "./src/audit.ts",
     "./bundle-options": "./src/bundle-options.ts",
+    "./bundle-formats": "./src/bundle-formats.ts",
     "./validation": "./src/validation.ts"
   },
   "scripts": {
