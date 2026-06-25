@@ -624,6 +624,38 @@
           "owner"
         ]
       },
+      "PlatformSetReleaseChannelResponse": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "enum": [
+              "stable",
+              "beta",
+              "alpha"
+            ]
+          }
+        },
+        "required": [
+          "channel"
+        ]
+      },
+      "PlatformSetReleaseChannelRequest": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "enum": [
+              "stable",
+              "beta",
+              "alpha"
+            ]
+          }
+        },
+        "required": [
+          "channel"
+        ]
+      },
       "ReportIncidentResponse": {
         "type": "object",
         "properties": {
@@ -5689,6 +5721,129 @@
           },
           "422": {
             "description": "The owner email already belongs to another user, or the Idempotency-Key was reused with a different payload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/platform/firms/{firmId}/release-channel": {
+      "post": {
+        "description": "Platform-admin endpoint to set any firm's release channel (including alpha). Requires the X-Platform-Admin-Key secret header. Alpha is accessible only through this platform path; the firm-admin PUT /api/v1/firm/release-channel accepts stable and beta only.",
+        "operationId": "platform.setFirmReleaseChannel",
+        "tags": [
+          "platform"
+        ],
+        "x-mc-operationId": "platform.setFirmReleaseChannel",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:provision",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "auth",
+        "x-mc-tags": [
+          "platform"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^firm_[A-Za-z0-9_-]{21}$"
+            },
+            "required": true,
+            "name": "firmId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlatformSetReleaseChannelRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The firm's release channel after the update",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlatformSetReleaseChannelResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong X-Platform-Admin-Key",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No firm with the given identifier exists in the control plane",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation failed (channel value outside the allowed set); or the Idempotency-Key was reused with a different payload",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -19162,6 +19317,9 @@
     },
     {
       "name": "numbering"
+    },
+    {
+      "name": "platform"
     },
     {
       "name": "rateCards"

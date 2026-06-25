@@ -31,6 +31,7 @@ import { registerFilesRoutes } from "./routes/files.ts";
 import { registerScanDiagnoseRoute } from "./routes/scan-diagnose.ts";
 import { registerScanMatterRoute } from "./routes/scan-matter.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
+import { registerPlatformReleaseChannelRoute } from "./routes/platform-release-channel.ts";
 import { registerFoldersRoutes } from "./routes/folders.ts";
 import { registerIncidentsRoute } from "./routes/incidents.ts";
 import { registerLocationsRoutes } from "./routes/locations.ts";
@@ -350,6 +351,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerMembersRoute(app, chokepoint, authForEnv);
   registerReleaseChannelRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
+  registerPlatformReleaseChannelRoute(app, chokepoint);
   registerIncidentsRoute(app, chokepoint);
   registerUploadsRoutes(app, chokepoint);
   // Slice 1·1: matters (shell + lifecycle), per-firm matter/document types, Locations, and the

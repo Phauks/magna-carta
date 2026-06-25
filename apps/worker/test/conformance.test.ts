@@ -583,6 +583,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "numbering.get",
       "numbering.preview",
       "numbering.set",
+      "platform.setFirmReleaseChannel",
       "rateCards.create",
       "rateCards.list",
       "rates.append",
