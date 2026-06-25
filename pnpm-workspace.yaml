@@ -20,9 +20,13 @@ catalog:
   # Toolchain
   vite-plus: 0.1.24
   # Cloudflare
-  wrangler: 4.98.0
-  "@cloudflare/workers-types": 4.20260604.1
-  "@cloudflare/vitest-pool-workers": 0.16.13
+  wrangler: 4.105.0
+  "@cloudflare/workers-types": 4.20260625.1
+  # Bump in lockstep with wrangler: this pin hard-depends on an exact (wrangler, miniflare) pair, and
+  # the bundled miniflare is what pulls undici/ws into the dev/test graph — moving wrangler alone
+  # leaves the old miniflare (and its vulnerable undici/ws) resolved under this package. workers-types
+  # tracks the same compatibility date as wrangler; keep all three aligned.
+  "@cloudflare/vitest-pool-workers": 0.16.20
   # The Container base class + getContainer helper for the scan Container (slice 2·1 Plan 2).
   "@cloudflare/containers": 0.3.7
   # vitest is declared by apps/worker so @cloudflare/vitest-pool-workers can resolve `vitest/worker` into the workerd VM; the `overrides` below alias the actual resolution to the Vite+ test distribution, so this version only has to satisfy the pool's `vitest@^4.1.0` peer range (it is the upstream vitest that Vite+ bundles).
