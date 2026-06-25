@@ -22,6 +22,7 @@
     "./preview-policy": "./src/preview-policy.ts",
     "./zip-composition": "./src/zip-composition.ts",
     "./audit": "./src/audit.ts",
+    "./bundle-options": "./src/bundle-options.ts",
     "./validation": "./src/validation.ts"
   },
   "scripts": {
