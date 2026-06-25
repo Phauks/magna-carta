@@ -81,4 +81,12 @@ describe("firm release-channel statements", () => {
     }>();
     expect(row?.release_channel).toBe("beta");
   });
+
+  it("returns null when the firm does not exist", async () => {
+    const absentFirmId = newIdentifier("firm");
+    const database = makeSqlDatabaseAdapter(setupDatabase());
+
+    const row = await readFirmReleaseChannelStatement(database, absentFirmId).first();
+    expect(row).toBeNull();
+  });
 });
