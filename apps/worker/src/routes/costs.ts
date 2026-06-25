@@ -791,9 +791,9 @@ export function registerCostsRoutes(app: CostApp, chokepoint: Chokepoint): void 
       const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const entryId = id as CostEntryId;
-      const gateOn = await readFirmSetting(firm.firmDatabase, approvalRequiredDefinition);
+      // void is reachable from any non-terminal state regardless of the review gate, so no setting read is needed
       const outcome = await commitCostEffect(c, firm.firmDatabase, idempotency, entryId, () =>
-        voidCost(firm.firmDatabase, entryId, gateOn, {
+        voidCost(firm.firmDatabase, entryId, false, {
           clock: { now: () => new Date().toISOString() },
           actorUserId: userId,
         }),

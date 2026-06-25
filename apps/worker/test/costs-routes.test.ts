@@ -469,6 +469,13 @@ describe("cost entry lifecycle transitions", () => {
     // A costs:track member can submit their matter's cost.
     expect((await post(`/api/v1/costs/${costEntryId}/submit`, {})).status).toBe(200);
 
+    const afterSubmit = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT status FROM cost_entry WHERE id = ?1",
+    )
+      .bind(costEntryId)
+      .first<{ status: string }>();
+    expect(afterSubmit?.status).toBe("submitted");
+
     // An owner (who has costs:approve) completes the review.
     expect((await post(`/api/v1/costs/${costEntryId}/approve`, {})).status).toBe(200);
 
