@@ -79,3 +79,4 @@ export type UtbmsCodeId = Identifier<"utbmsCode">;
 export type NonBillableCategoryId = Identifier<"nonBillableCategory">;
 export type NarrativeTemplateId = Identifier<"narrativeTemplate">;
 export type ConversionJobId = Identifier<"conversionJob">;
+export type CostEntryId = Identifier<"costEntry">;
