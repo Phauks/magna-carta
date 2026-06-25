@@ -37,26 +37,9 @@
       "database_name": "magna-carta-production-platform-control",
       "database_id": "a0982ab7-97d9-471b-8dd7-19f18aa53f04",
     },
-    // The firm-database pool (slice 0·4, decided #12): Miniflare cannot create D1 databases
-    // at runtime, so local dev and tests pre-declare a fixed pool the dev FirmResourceProvider
-    // claims from. A claimed firm's database_identifier IS the binding name, resolved through
-    // src/firm-binding-resolver.ts — the same seam deploy-time per-firm bindings use later.
-    // The databases are real account resources (created 2026-06-12) because deploys validate
-    // every database_id; locally Miniflare just keys its simulated SQLite off the ids. In
-    // production the same pool is the pre-REST-adapter starter fleet: until the Cloudflare
-    // REST adapter has credentials, provisioning claims these slots (the demo firm takes the
-    // first one). Per-firm databases beyond the pool are created and bound through the REST
-    // adapter, which requires the documented config-commit + deploy step.
-    {
-      "binding": "DB_FIRM_POOL_1",
-      "database_name": "magna-carta-production-firm-pool-1",
-      "database_id": "41cc8ea3-003d-4bbc-a236-7f35d63d03f7",
-    },
-    {
-      "binding": "DB_FIRM_POOL_2",
-      "database_name": "magna-carta-production-firm-pool-2",
-      "database_id": "eb1b184e-a181-42c7-9895-3ec6d8e8321a",
-    },
+    // Per-firm data lives in the firmId-addressed FirmDatabase Durable Object (the FIRM_DATABASE
+    // namespace below), which self-migrates on first access — there is no per-firm D1 pool to
+    // pre-declare here.
   ],
   // Runtime secrets this Worker requires — set in the Cloudflare dashboard (Worker → Settings →
   // Variables and Secrets) or with `wrangler secret put`. Declaring them here makes `wrangler deploy`

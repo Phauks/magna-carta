@@ -52,10 +52,6 @@ import { usageReachedMiddleware } from "./usage/reached-middleware.ts";
 export type Bindings = {
   ASSETS: Fetcher;
   DB_CONTROL: D1Database;
-  // The dev firm-database pool — pre-declared because Miniflare cannot create D1 at runtime;
-  // resolved from a firm's database_identifier by firm-binding-resolver.ts.
-  DB_FIRM_POOL_1: D1Database;
-  DB_FIRM_POOL_2: D1Database;
   R2: R2Bucket;
   QUEUE: Queue;
   // The files-ingest queue binding for the interactive lane (files/ prefix).
@@ -243,7 +239,8 @@ export function createApp(options: CreateAppOptions = {}) {
   );
 
   // The chokepoint: built once over the REAL ports — session resolution, firm-context
-  // resolution (control-plane lookup + firm-binding-resolver + member-active check), permission
+  // resolution (control-plane lookup + the firmId-addressed FirmDatabase DO + member-active
+  // check), permission
   // loading, the platform-scoped/firm-scoped idempotency gate, and a per-isolate in-memory rate
   // limiter (one limiter per app instance, never per request). This is THE single
   // tenancy/authn/RBAC/idempotency/rate-limit enforcement point every /api/v1 route traverses.
