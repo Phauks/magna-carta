@@ -16,8 +16,8 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { firmKeyProviderForEnv } from "../src/firm-key-provider-wiring.ts";
 import { shredFirmKey } from "../src/firm-key-shred.ts";
+import { firmDatabaseFor, type ProxyBatchDatabase } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -45,7 +45,7 @@ function protectedContextFor(firmId: FirmId): ProtectedContext {
 
 function readContextFor(
   firmId: FirmId,
-  firmDatabase: D1Database,
+  firmDatabase: ProxyBatchDatabase,
   permissions: Permission[],
   actorUserId: UserId,
 ): ProtectedReadContext {
@@ -58,24 +58,22 @@ function readContextFor(
   };
 }
 
-function secretWriteContextFor(firmId: FirmId, firmDatabase: D1Database) {
+function secretWriteContextFor(firmId: FirmId, firmDatabase: ProxyBatchDatabase) {
   return { ...protectedContextFor(firmId), database: firmDatabase, clock: NOW_CLOCK };
 }
 
-async function decryptAuditCount(database: D1Database, subjectId: string): Promise<number> {
-  const row = await database
+async function decryptAuditCount(database: ProxyBatchDatabase, subjectId: string): Promise<number> {
+  const result = await database
     .prepare(
       "SELECT COUNT(*) AS count FROM audit_log WHERE event = 'protected.decrypt' AND subject_id = ?1",
     )
     .bind(subjectId)
-    .first<{ count: number }>();
-  return row?.count ?? 0;
+    .all<{ count: number }>();
+  return result.results[0]?.count ?? 0;
 }
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_2);
   firmAId = (await seedFirm({ name: "E2E Firm A", databaseIdentifier: "DB_FIRM_POOL_1" })).firmId;
   firmBId = (await seedFirm({ name: "E2E Firm B", databaseIdentifier: "DB_FIRM_POOL_2" })).firmId;
   await seedFirmKey(firmAId);
@@ -88,47 +86,60 @@ describe("slice 1·2 e2e — the named-secret store", () => {
       userName: "Secret Reader",
       firmId: firmAId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Secret Reader");
+    await mirrorMemberWithOwnerRole(userId, "Secret Reader", firmAId);
 
     const secretName = "stripe-webhook-signing-key";
     const secretValue = "whsec_super_secret_value_12345";
-    await putSecret(secretWriteContextFor(firmAId, env.DB_FIRM_POOL_1), secretName, secretValue);
+    await putSecret(
+      secretWriteContextFor(firmAId, firmDatabaseFor(env.FIRM_DATABASE, firmAId)),
+      secretName,
+      secretValue,
+    );
 
     // The value never lands in the clear: the stored row holds only ciphertext.
-    const stored = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT ciphertext FROM firm_secret WHERE name = ?1",
-    )
+    const storedResult = await firmDatabaseFor(env.FIRM_DATABASE, firmAId)
+      .prepare("SELECT ciphertext FROM firm_secret WHERE name = ?1")
       .bind(secretName)
-      .first<{ ciphertext: string }>();
+      .all<{ ciphertext: string }>();
+    const stored = storedResult.results[0];
     expect(stored?.ciphertext).toEqual(expect.any(String));
     expect(stored?.ciphertext).not.toContain(secretValue);
 
     // A member WITHOUT firm:manageSecrets is forbidden — no decrypt, no audit row.
-    const forbiddenContext = readContextFor(firmAId, env.DB_FIRM_POOL_1, [], userId);
+    const forbiddenContext = readContextFor(
+      firmAId,
+      firmDatabaseFor(env.FIRM_DATABASE, firmAId),
+      [],
+      userId,
+    );
     await expect(getSecret(forbiddenContext, secretName)).rejects.toThrow(/firm:manageSecrets/);
 
     // WITH the permission: the plaintext comes back and exactly one protected.decrypt audit row was
     // committed (keyed on the firm_secret row id, not the name).
-    const secretRowId = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT id FROM firm_secret WHERE name = ?1",
-    )
+    const secretRowIdResult = await firmDatabaseFor(env.FIRM_DATABASE, firmAId)
+      .prepare("SELECT id FROM firm_secret WHERE name = ?1")
       .bind(secretName)
-      .first<{ id: string }>();
-    expect(await decryptAuditCount(env.DB_FIRM_POOL_1, secretRowId?.id ?? "")).toBe(0);
+      .all<{ id: string }>();
+    const secretRowId = secretRowIdResult.results[0];
+    expect(
+      await decryptAuditCount(firmDatabaseFor(env.FIRM_DATABASE, firmAId), secretRowId?.id ?? ""),
+    ).toBe(0);
 
     const allowedContext = readContextFor(
       firmAId,
-      env.DB_FIRM_POOL_1,
+      firmDatabaseFor(env.FIRM_DATABASE, firmAId),
       [assertPermission("firm:manageSecrets")],
       userId,
     );
     expect(await getSecret(allowedContext, secretName)).toBe(secretValue);
 
-    const auditRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT actor_user_id, metadata FROM audit_log WHERE event = 'protected.decrypt' AND subject_id = ?1",
-    )
+    const auditRowResult = await firmDatabaseFor(env.FIRM_DATABASE, firmAId)
+      .prepare(
+        "SELECT actor_user_id, metadata FROM audit_log WHERE event = 'protected.decrypt' AND subject_id = ?1",
+      )
       .bind(secretRowId?.id ?? "")
-      .first<{ actor_user_id: string; metadata: string }>();
+      .all<{ actor_user_id: string; metadata: string }>();
+    const auditRow = auditRowResult.results[0];
     expect(auditRow?.actor_user_id).toBe(userId);
     expect(JSON.parse(auditRow?.metadata ?? "{}")).toEqual({
       table: "firm_secret",
@@ -144,7 +155,7 @@ describe("slice 1·2 e2e — incident description through the route, audited rea
       userName: "Incident Reporter",
       firmId: firmAId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Incident Reporter");
+    await mirrorMemberWithOwnerRole(userId, "Incident Reporter", firmAId);
     const cookie = await signInForSessionCookie("incident-e2e@example.com");
 
     const response = await SELF.fetch("https://example.com/api/v1/incidents", {
@@ -160,18 +171,18 @@ describe("slice 1·2 e2e — incident description through the route, audited rea
     expect(response.status).toBe(201);
     const { id } = (await response.json()) as { id: string };
 
-    const row = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT description, description_ciphertext FROM incident WHERE id = ?1",
-    )
+    const rowResult = await firmDatabaseFor(env.FIRM_DATABASE, firmAId)
+      .prepare("SELECT description, description_ciphertext FROM incident WHERE id = ?1")
       .bind(id)
-      .first<{ description: string | null; description_ciphertext: string | null }>();
+      .all<{ description: string | null; description_ciphertext: string | null }>();
+    const row = rowResult.results[0];
     expect(row?.description).toBeNull();
     expect(row?.description_ciphertext).toEqual(expect.any(String));
 
     // The decrypt needs incidents:viewDescription; with it, the plaintext returns after the audit.
     const allowed = readContextFor(
       firmAId,
-      env.DB_FIRM_POOL_1,
+      firmDatabaseFor(env.FIRM_DATABASE, firmAId),
       [assertPermission("incidents:viewDescription")],
       userId,
     );
@@ -183,7 +194,7 @@ describe("slice 1·2 e2e — incident description through the route, audited rea
         id,
       ),
     ).toBe("Client disclosed a sensitive matter detail.");
-    expect(await decryptAuditCount(env.DB_FIRM_POOL_1, id)).toBe(1);
+    expect(await decryptAuditCount(firmDatabaseFor(env.FIRM_DATABASE, firmAId), id)).toBe(1);
   });
 });
 
@@ -229,25 +240,25 @@ describe("slice 1·2 e2e — crypto-shred isolation across two firms", () => {
 
     // A secret and an incident in EACH firm, sealed under that firm's own key.
     await putSecret(
-      secretWriteContextFor(firmAId, env.DB_FIRM_POOL_1),
+      secretWriteContextFor(firmAId, firmDatabaseFor(env.FIRM_DATABASE, firmAId)),
       "shred-probe",
       "firm-A-only",
     );
     await putSecret(
-      secretWriteContextFor(firmBId, env.DB_FIRM_POOL_2),
+      secretWriteContextFor(firmBId, firmDatabaseFor(env.FIRM_DATABASE, firmBId)),
       "shred-probe",
       "firm-B-only",
     );
 
-    const seedIncident = async (database: D1Database, words: string): Promise<string> => {
+    const seedIncident = async (targetFirmId: FirmId, words: string): Promise<string> => {
       const incidentId = newIdentifier("incident");
       const sealed = await composeProtectedWrite(
-        protectedContextFor(database === env.DB_FIRM_POOL_1 ? firmAId : firmBId),
+        protectedContextFor(targetFirmId),
         incidentDescription,
         incidentId,
         words,
       );
-      await database
+      await firmDatabaseFor(env.FIRM_DATABASE, targetFirmId)
         .prepare(
           "INSERT INTO incident (id, error_ids, breadcrumbs, description, description_ciphertext, context, reported_by, created_at) " +
             "VALUES (?1, '[]', '[]', NULL, ?2, '{}', ?3, ?4)",
@@ -256,22 +267,22 @@ describe("slice 1·2 e2e — crypto-shred isolation across two firms", () => {
         .run();
       return incidentId;
     };
-    const incidentAId = await seedIncident(env.DB_FIRM_POOL_1, "Firm A confidential note.");
-    const incidentBId = await seedIncident(env.DB_FIRM_POOL_2, "Firm B confidential note.");
+    const incidentAId = await seedIncident(firmAId, "Firm A confidential note.");
+    const incidentBId = await seedIncident(firmBId, "Firm B confidential note.");
 
-    const cipherOf = async (database: D1Database, incidentId: string): Promise<string> =>
-      (
-        await database
-          .prepare("SELECT description_ciphertext FROM incident WHERE id = ?1")
-          .bind(incidentId)
-          .first<{ description_ciphertext: string }>()
-      )?.description_ciphertext ?? "";
-    const cipherB = await cipherOf(env.DB_FIRM_POOL_2, incidentBId);
+    const cipherOf = async (targetFirmId: FirmId, incidentId: string): Promise<string> => {
+      const result = await firmDatabaseFor(env.FIRM_DATABASE, targetFirmId)
+        .prepare("SELECT description_ciphertext FROM incident WHERE id = ?1")
+        .bind(incidentId)
+        .all<{ description_ciphertext: string }>();
+      return result.results[0]?.description_ciphertext ?? "";
+    };
+    const cipherB = await cipherOf(firmBId, incidentBId);
 
     // Pre-shred: firm A reads both surfaces.
     const firmASecrets = readContextFor(
       firmAId,
-      env.DB_FIRM_POOL_1,
+      firmDatabaseFor(env.FIRM_DATABASE, firmAId),
       [assertPermission("firm:manageSecrets")],
       actor,
     );
@@ -288,12 +299,12 @@ describe("slice 1·2 e2e — crypto-shred isolation across two firms", () => {
     await expect(getSecret(firmASecrets, "shred-probe")).rejects.toThrow(
       /no firm data key available/,
     );
-    const cipherA = await cipherOf(env.DB_FIRM_POOL_1, incidentAId);
+    const cipherA = await cipherOf(firmAId, incidentAId);
     await expect(
       readProtected(
         readContextFor(
           firmAId,
-          env.DB_FIRM_POOL_1,
+          firmDatabaseFor(env.FIRM_DATABASE, firmAId),
           [assertPermission("incidents:viewDescription")],
           actor,
         ),
@@ -306,7 +317,7 @@ describe("slice 1·2 e2e — crypto-shred isolation across two firms", () => {
     // Firm B is wholly unaffected — its own key still opens both its secret and its incident.
     const firmBSecrets = readContextFor(
       firmBId,
-      env.DB_FIRM_POOL_2,
+      firmDatabaseFor(env.FIRM_DATABASE, firmBId),
       [assertPermission("firm:manageSecrets")],
       actor,
     );
@@ -315,7 +326,7 @@ describe("slice 1·2 e2e — crypto-shred isolation across two firms", () => {
       await readProtected(
         readContextFor(
           firmBId,
-          env.DB_FIRM_POOL_2,
+          firmDatabaseFor(env.FIRM_DATABASE, firmBId),
           [assertPermission("incidents:viewDescription")],
           actor,
         ),
