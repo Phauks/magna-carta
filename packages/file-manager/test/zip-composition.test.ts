@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { FileId, FileVersionId, FolderId } from "@magna-carta/identifiers/types";
 import type { FolderNode, MatterCleanFile } from "../src/queries.ts";
-import { bundleManifestHash, resolveZipSelection } from "../src/zip-composition.ts";
+import { bundleCacheKey, bundleManifestHash, resolveZipSelection } from "../src/zip-composition.ts";
+import { DEFAULT_BUNDLE_OPTIONS } from "../src/bundle-options.ts";
 
 // Pure selection -> version-pinned entries + folder-tree paths. No I/O: the resolver only ever sees
 // already-clean files, so a pending/quarantined/deleted version cannot enter the archive by
@@ -98,5 +99,34 @@ describe("bundleManifestHash", () => {
   });
   it("is a 64-char hex digest", async () => {
     expect(await bundleManifestHash([a])).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+describe("bundleCacheKey", () => {
+  const entries = [{ r2Key: "files/f1/v1", path: "a.pdf" }];
+
+  it("differs when a non-secret option differs", async () => {
+    const stored = await bundleCacheKey(entries, {
+      ...DEFAULT_BUNDLE_OPTIONS,
+      compression: "store",
+    });
+    const max = await bundleCacheKey(entries, {
+      ...DEFAULT_BUNDLE_OPTIONS,
+      compression: "maximum",
+    });
+    expect(stored).not.toBe(max);
+  });
+
+  it("is identical regardless of the encryption block (encrypted bundles are never cached)", async () => {
+    const plain = await bundleCacheKey(entries, { ...DEFAULT_BUNDLE_OPTIONS });
+    const encrypted = await bundleCacheKey(entries, {
+      ...DEFAULT_BUNDLE_OPTIONS,
+      encryption: { algorithm: "aes-256", encryptFileNames: false },
+    });
+    expect(plain).toBe(encrypted);
+  });
+
+  it("is a 64-char hex digest", async () => {
+    expect(await bundleCacheKey(entries, DEFAULT_BUNDLE_OPTIONS)).toMatch(/^[0-9a-f]{64}$/);
   });
 });

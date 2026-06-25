@@ -1,5 +1,6 @@
 import type { FileId, FileVersionId, FolderId } from "@magna-carta/identifiers/types";
 import { disambiguate } from "./bundle-paths.ts";
+import type { BundleOptions } from "./bundle-options.ts";
 import type { FolderNode, MatterCleanFile } from "./queries.ts";
 
 // Pure composition for the bulk-ZIP download: resolves a {folderIds, fileIds} selection over a
@@ -124,5 +125,30 @@ export async function bundleManifestHash(
     .sort()
     .join("\n");
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+// The cache/dedup key for an OPTIONED bundle: the content manifest hash folded together with the
+// non-secret options that change the output bytes. The `encryption` block is deliberately excluded —
+// encrypted bundles are never cached (their output is non-deterministic and the password must not enter
+// any persisted key) — so the key stays stable whether or not encryption was requested.
+export async function bundleCacheKey(
+  entries: readonly { r2Key: string; path: string }[],
+  options: BundleOptions,
+): Promise<string> {
+  const optionSignature = JSON.stringify({
+    format: options.format,
+    compression: options.compression,
+    split: options.split,
+    outputName: options.outputName,
+    wrapperFolder: options.wrapperFolder,
+    layout: options.layout,
+    manifest: options.manifest,
+  });
+  const contentHash = await bundleManifestHash(entries);
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(`${contentHash}\n${optionSignature}`),
+  );
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
