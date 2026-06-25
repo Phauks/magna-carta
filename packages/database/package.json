@@ -14,7 +14,6 @@
     "./do-sqlite-migration-target": "./src/do-sqlite-migration-target.ts",
     "./do-sqlite-batch-database": "./src/do-sqlite-batch-database.ts",
     "./node-sqlite": "./src/node-sqlite.ts",
-    "./fleet-rollout": "./src/fleet-rollout.ts",
     "./drizzle/*": "./drizzle/*"
   },
   "scripts": {
