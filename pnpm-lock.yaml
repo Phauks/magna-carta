@@ -343,6 +343,13 @@ importers:
         version: link:../tsconfig
 
   packages/billing-core:
+    dependencies:
+      '@magna-carta/data-access':
+        specifier: workspace:*
+        version: link:../data-access
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*
@@ -878,6 +885,9 @@ importers:
 
   packages/timekeeping:
     dependencies:
+      '@magna-carta/billing-core':
+        specifier: workspace:*
+        version: link:../billing-core
       '@magna-carta/data-access':
         specifier: workspace:*
         version: link:../data-access

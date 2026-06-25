@@ -12,6 +12,10 @@
   "scripts": {
     "test": "vp test run"
   },
+  "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
+    "zod": "catalog:"
+  },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",

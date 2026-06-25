@@ -31,6 +31,7 @@
     "test": "vp test run"
   },
   "dependencies": {
+    "@magna-carta/billing-core": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/money": "workspace:*",
