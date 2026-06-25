@@ -4,7 +4,7 @@
 
 **Branch:** `release-channels` (worktree `C:/dev/magna-carta-worktrees/release-channels`), off `main`.
 
-**Status:** Design. Spec at `docs/specs/2026-06-25-release-channels-design.md`. Not yet planned or built.
+**Status:** Backend rails built (2026-06-25). Plan 2 (frontend opt-in UI + stage-labeled alpha/beta visibility) pending.
 
 ## Scope / files expected to touch
 
@@ -13,7 +13,7 @@
 - `packages/access-control/src/registry.ts` — add `firm:manageReleaseChannel` permission.
 - `apps/worker/` — beta firm-setting door (DAL + route), alpha secret-guarded platform door, `/me` resolved-flag delivery, `env.FLAGS` binding in `wrangler.jsonc`, session-context channel read.
 - Beta opt-in = a dedicated firm endpoint writing the control-plane channel column (NOT the per-firm scoped-setting registry); Settings UI section is a later frontend slice.
-- Docs: white-paper *Release channels* topic, ADR fragment(s), user help for beta opt-in, ROADMAP/CHANGELOG fragment.
+- Docs: white-paper _Release channels_ topic, ADR fragment(s), user help for beta opt-in, ROADMAP/CHANGELOG fragment.
 
 ## Notes
 
