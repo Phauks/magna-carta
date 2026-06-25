@@ -29,9 +29,27 @@ number: u64             // the sequential value for a page
 padding: u8             // zero-pad width, e.g. 6 -> "000042"
 ```
 
-The drawn label is `format!("{prefix}{number:0padding$}")` → e.g. `SMITH-000042`. No
-suffix in v1 (fold any trailing text into the prefix concept is out of scope; keep it
-prefix + padded number, the dominant convention).
+The drawn label is `format!("{prefix}{number:0padding$}{suffix}")` → e.g. `SMITH-000042`
+or `ACME-000042-CONF`. `prefix`, `suffix`, and the digit count (`padding`) together give
+full control of the label string; the number starts at `start_number`.
+
+**Configurability (full user control of font + format + placement + size).**
+
+- **Font** — `font: BatesFont`, one of the twelve standard text fonts (Helvetica, Times,
+  Courier × regular/bold/italic/oblique), default Helvetica. All twelve have baked
+  advance-width metrics and render natively in the engine (the spike proved base-14
+  Helvetica draws without embedding; the same holds for the other standard fonts), so no
+  font embedding is required. The label width is measured with the chosen font's metrics
+  (not always Helvetica's). Symbol/ZapfDingbats are intentionally excluded — they have no
+  ordinary letters/digits and would render a label as symbols. Uploading an arbitrary
+  custom font (font-program embedding + subsetting) is a separate, larger future effort.
+- **Format** — `prefix`, `suffix`, `padding` (digit count) as above; `start_number` (the
+  first number); and an optional `stop_number: Option<u64>` ceiling. If a document (or a
+  set) would number past `stop_number`, stamping fails with `BatesError::RangeExceeded`
+  rather than overrunning an allocated Bates range (e.g. an allocation of
+  `SMITH-000001…000500`). When `stop_number` is `None`, numbering runs to the page count.
+- **Placement** — `position` (six corners) + `margin_pt` (already present).
+- **Size** — `font_size_pt` (already present).
 
 ## Placement
 
