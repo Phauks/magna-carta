@@ -255,6 +255,9 @@ impl From<crate::bates::BatesError> for JsError {
             crate::bates::BatesError::Parse => "failed to parse PDF",
             crate::bates::BatesError::NoPages => "document has no pages",
             crate::bates::BatesError::Reassemble => "failed to reassemble PDF",
+            crate::bates::BatesError::RangeExceeded => {
+                "bates numbering exceeds the configured stop number"
+            }
         })
     }
 }
@@ -262,10 +265,17 @@ impl From<crate::bates::BatesError> for JsError {
 #[derive(serde::Deserialize, Default)]
 struct JsBatesOpts {
     prefix: Option<String>,
+    suffix: Option<String>,
     #[serde(rename = "startNumber")]
     start_number: Option<u64>,
+    /// Read as f64 so a plain JavaScript number like `4` is always accepted.
+    /// `u64` in serde-wasm-bindgen 0.6 expects BigInt on the serialization path;
+    /// reading via f64 avoids any mismatch when the caller passes a regular number.
+    #[serde(rename = "stopNumber")]
+    stop_number: Option<f64>,
     padding: Option<u8>,
     position: Option<String>,
+    font: Option<String>,
     #[serde(rename = "marginPt")]
     margin_pt: Option<f32>,
     #[serde(rename = "fontSizePt")]
@@ -296,12 +306,37 @@ pub fn stamp_bates(bytes: Vec<u8>, opts: JsValue) -> Result<JsValue, JsError> {
         _ => crate::bates::BatesPosition::BottomRight,
     };
 
+    let font = match js_opts.font.as_deref() {
+        Some("helvetica-bold") => crate::bates::BatesFont::HelveticaBold,
+        Some("helvetica-oblique") => crate::bates::BatesFont::HelveticaOblique,
+        Some("helvetica-boldoblique") => crate::bates::BatesFont::HelveticaBoldOblique,
+        Some("times-roman") => crate::bates::BatesFont::TimesRoman,
+        Some("times-bold") => crate::bates::BatesFont::TimesBold,
+        Some("times-italic") => crate::bates::BatesFont::TimesItalic,
+        Some("times-bolditalic") => crate::bates::BatesFont::TimesBoldItalic,
+        Some("courier") => crate::bates::BatesFont::Courier,
+        Some("courier-bold") => crate::bates::BatesFont::CourierBold,
+        Some("courier-oblique") => crate::bates::BatesFont::CourierOblique,
+        Some("courier-boldoblique") => crate::bates::BatesFont::CourierBoldOblique,
+        // "helvetica", unknown values, and absent all default to Helvetica.
+        _ => crate::bates::BatesFont::Helvetica,
+    };
+
     let defaults = crate::bates::BatesOptions::default();
     let bates_opts = crate::bates::BatesOptions {
         prefix: js_opts.prefix.unwrap_or(defaults.prefix),
+        suffix: js_opts.suffix.unwrap_or(defaults.suffix),
         start_number: js_opts.start_number.unwrap_or(defaults.start_number),
+        stop_number: js_opts.stop_number.and_then(|n| {
+            if n.is_finite() && n >= 0.0 {
+                Some(n as u64)
+            } else {
+                None
+            }
+        }),
         padding: js_opts.padding.unwrap_or(defaults.padding),
         position,
+        font,
         margin_pt: js_opts.margin_pt.unwrap_or(defaults.margin_pt),
         font_size_pt: js_opts.font_size_pt.unwrap_or(defaults.font_size_pt),
     };

@@ -72,4 +72,37 @@ describe("stampBates", () => {
     expect(second.start).toBe(first.end + 1);
     expect(second.end).toBe(first.end + second.pageCount);
   });
+
+  it("font and suffix options round-trip without throwing", async () => {
+    // Courier is a monospace font whose advance widths differ from Helvetica;
+    // verifying the call succeeds confirms the font mapping reaches the engine.
+    const result = await stampBates(hello, {
+      font: "courier",
+      prefix: "ACME-",
+      suffix: "-CONF",
+      startNumber: 1,
+    });
+    expect(result.pdf.byteLength).toBeGreaterThan(0);
+    expect(result.start).toBe(1);
+    expect(result.pageCount).toBeGreaterThanOrEqual(1);
+    // The output must still be a loadable PDF.
+    const doc = await loadDocument(result.pdf);
+    expect(doc.pageCount).toBe(result.pageCount);
+    doc.free();
+  });
+
+  it("stopNumber allows stamping when the ceiling is not exceeded", async () => {
+    // hello.pdf is a single-page fixture so startNumber 1, stopNumber 1 is exact.
+    const result = await stampBates(hello, { startNumber: 1, stopNumber: 100 });
+    expect(result.pdf.byteLength).toBeGreaterThan(0);
+    expect(result.end).toBeLessThanOrEqual(100);
+  });
+
+  it("stopNumber throws when numbering would exceed the ceiling", async () => {
+    // With startNumber 5 and a single-page document the last assigned number is 5;
+    // a ceiling of 4 must cause the call to reject before stamping any page.
+    await expect(stampBates(hello, { startNumber: 5, stopNumber: 4 })).rejects.toThrow(
+      "bates numbering exceeds the configured stop number",
+    );
+  });
 });

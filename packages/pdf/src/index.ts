@@ -209,16 +209,50 @@ export type BatesPosition =
   | "topLeft"
   | "topCenter";
 
+/**
+ * One of the twelve standard PDF Type 1 text fonts available for Bates labels.
+ * All twelve are built-in standard fonts that every conforming PDF viewer supplies
+ * without font embedding. Custom or uploaded fonts are not supported.
+ */
+export type BatesFont =
+  | "helvetica"
+  | "helvetica-bold"
+  | "helvetica-oblique"
+  | "helvetica-boldoblique"
+  | "times-roman"
+  | "times-bold"
+  | "times-italic"
+  | "times-bolditalic"
+  | "courier"
+  | "courier-bold"
+  | "courier-oblique"
+  | "courier-boldoblique";
+
 /** Options for `stampBates`. All fields are optional; defaults match `BatesOptions::default()` in the engine. */
 export interface BatesStampOptions {
   /** Text prepended before the zero-padded number, e.g. `"SMITH-"`. Default `""`. */
   prefix?: string;
+  /** Text appended after the zero-padded number, e.g. `"-CONF"`. Default `""`. */
+  suffix?: string;
   /** Number assigned to the first page. Default `1`. */
   startNumber?: number;
+  /**
+   * Inclusive upper bound on the last Bates number that may be stamped.
+   * When set, the call throws if stamping the document would assign any number
+   * beyond this ceiling. The check occurs before any page is modified.
+   * Absent or `undefined` means no ceiling is enforced.
+   */
+  stopNumber?: number;
   /** Minimum digit width; shorter numbers are zero-padded to this width. Default `6`. */
   padding?: number;
   /** Corner or edge where the label is drawn. Default `"bottomRight"`. */
   position?: BatesPosition;
+  /**
+   * Typeface for the stamp label. Must be one of the twelve built-in standard PDF
+   * Type 1 text fonts — custom or uploaded fonts are not supported in this version.
+   * Default `"helvetica"`.
+   */
+  font?: BatesFont;
   /** Distance in points from the nearest page edge. Default `18`. */
   marginPt?: number;
   /** Font size in points. Default `8`. */
@@ -243,13 +277,15 @@ export interface BatesStampResult {
 /**
  * Stamp sequential Bates labels onto every page of a PDF.
  *
- * **Additive overlay — not redaction.** This function adds selectable Helvetica
- * text to each page. It does not remove, flatten, rasterise, or modify any
- * existing page content. Use `redactDocument` to permanently remove content.
+ * **Additive overlay — not redaction.** This function adds selectable PDF text
+ * to each page using the chosen built-in font. It does not remove, flatten,
+ * rasterise, or modify any existing page content. Use `redactDocument` to
+ * permanently remove content.
  *
  * The label on each page is `prefix` followed by the page's Bates number
- * zero-padded to `padding` digits. The first page receives `startNumber`; each
- * subsequent page increments by one.
+ * zero-padded to `padding` digits, then `suffix`. The first page receives
+ * `startNumber`; each subsequent page increments by one. If `stopNumber` is set
+ * and stamping would exceed it, the call throws before modifying any page.
  */
 export async function stampBates(
   bytes: Uint8Array,

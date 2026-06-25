@@ -379,13 +379,33 @@ const result = await stampBates(bytes, {
 | Field | Type | Default | Description |
 | --- | --- | --- | --- |
 | `prefix` | `string` | `""` | Text prepended before the zero-padded number, e.g. `"SMITH-"` produces labels like `SMITH-000001`. |
+| `suffix` | `string` | `""` | Text appended after the zero-padded number, e.g. `"-CONF"` produces labels like `SMITH-000001-CONF`. |
 | `startNumber` | `number` | `1` | Bates number assigned to the first page. |
-| `padding` | `number` | `6` | Minimum digit width. Numbers shorter than `padding` digits are zero-padded; numbers longer than `padding` digits are not truncated. |
+| `stopNumber` | `number` | _(none)_ | Inclusive ceiling on the last Bates number that may be stamped. When set, the call throws if any page in the document would receive a number greater than `stopNumber`. The check runs before any page is modified, so either all pages are stamped or none are. |
+| `padding` | `number` | `6` | Minimum digit width. Numbers shorter than `padding` digits are zero-padded to that width; numbers longer than `padding` digits are not truncated. |
 | `position` | `BatesPosition` | `"bottomRight"` | Corner or edge where the label is placed. |
+| `font` | `BatesFont` | `"helvetica"` | Typeface for the stamp label. Must be one of the twelve built-in standard PDF Type 1 text fonts listed below. Custom or uploaded fonts are not supported in this version. |
 | `marginPt` | `number` | `18` | Distance in PDF points from the nearest page edge. |
 | `fontSizePt` | `number` | `8` | Font size in PDF points. |
 
 `BatesPosition` is one of: `"bottomRight"` · `"bottomLeft"` · `"bottomCenter"` · `"topRight"` · `"topLeft"` · `"topCenter"`.
+
+`BatesFont` is one of the twelve built-in standard PDF Type 1 text fonts. These fonts are guaranteed to be present in every conforming PDF viewer without requiring font embedding — the stamp adds a three-key font reference only, never a font file:
+
+| Value | Family | Style |
+| --- | --- | --- |
+| `"helvetica"` | Helvetica | Regular |
+| `"helvetica-bold"` | Helvetica | Bold |
+| `"helvetica-oblique"` | Helvetica | Oblique |
+| `"helvetica-boldoblique"` | Helvetica | Bold Oblique |
+| `"times-roman"` | Times | Regular |
+| `"times-bold"` | Times | Bold |
+| `"times-italic"` | Times | Italic |
+| `"times-bolditalic"` | Times | Bold Italic |
+| `"courier"` | Courier | Regular |
+| `"courier-bold"` | Courier | Bold |
+| `"courier-oblique"` | Courier | Oblique |
+| `"courier-boldoblique"` | Courier | Bold Oblique |
 
 ### `BatesStampResult`
 
@@ -416,7 +436,7 @@ for (const docBytes of documentSet) {
 
 The label is placed in the requested corner of the page as it appears to a viewer — after the viewer applies any `/Rotate` entry. On a page rotated 90°, `"bottomRight"` still places the label at the visual bottom right of the displayed page, and the text reads upright.
 
-The engine uses base-14 Helvetica, which is natively available in every PDF viewer without embedding. The label is placed using a shared font object added once per document, so stamping a 500-page document adds a single font dictionary regardless of page count.
+The engine uses the chosen built-in standard font (default Helvetica), which is natively available in every PDF viewer without embedding. The label is placed using a shared font object added once per document, so stamping a 500-page document adds a single font dictionary regardless of page count.
 
 ## Build notes
 

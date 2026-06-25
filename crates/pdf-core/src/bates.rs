@@ -905,9 +905,10 @@ mod tests {
 
     #[test]
     fn shared_stamp_font_deduped() {
-        // A multi-page stamped document must contain exactly one font object with
-        // /Subtype /Type1 added by stamping (the shared stamp font), and all stamped
-        // pages must reference the same ObjectId under /MagnaCartaBates.
+        // Using the default options (Helvetica), a multi-page stamped document must
+        // contain exactly one font object with /Subtype /Type1 added by stamping (the
+        // shared stamp font), and all stamped pages must reference the same ObjectId
+        // under /MagnaCartaBates.
         let bytes = multi_page_pdf_bytes(3, [0, 0, 612, 792]);
         let (stamped, _) =
             stamp_document(&bytes, &BatesOptions::default(), 1).expect("stamp_document succeeds");
