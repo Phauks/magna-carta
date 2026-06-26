@@ -13,6 +13,9 @@ pub use detect::detect;
 mod pdf;
 pub use pdf::PdfAdapter;
 
+mod zip_adapter;
+pub use zip_adapter::ZipAdapter;
+
 #[cfg(test)]
 mod smoke {
     #[test]
