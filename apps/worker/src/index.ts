@@ -18,6 +18,11 @@ export { BundleBuildCoordinator } from "./downloads/bundle-coordinator.ts";
 // per job. Exported so the runtime can instantiate the class named in wrangler.jsonc's binding.
 export { ConversionJob } from "./conversions/conversion-coordinator.ts";
 
+// The per-firm SQLite-backed database Durable Object: one instance per firm (idFromName(firmId)),
+// self-migrating on wake. Must be exported here so the runtime can instantiate the class named in
+// wrangler.jsonc's durable_objects binding.
+export { FirmDatabase } from "./firm-database/firm-database-object.ts";
+
 // The bundle-build queue's name (wrangler.jsonc queues.consumers) — the queue() handler routes its
 // batches to the bundle consumer, every other queue to the files-ingest consumer.
 const BUNDLE_BUILD_QUEUE = "magna-carta-production-bundle-build";

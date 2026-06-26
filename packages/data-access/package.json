@@ -30,7 +30,8 @@
     "./firm-secret-credential-store": "./src/firm-secret-credential-store.ts",
     "./shipment-statements": "./src/shipment-statements.ts",
     "./shipment-service": "./src/shipment-service.ts",
-    "./usage-consent-statements": "./src/usage-consent-statements.ts"
+    "./usage-consent-statements": "./src/usage-consent-statements.ts",
+    "./firm-release-channel-statements": "./src/firm-release-channel-statements.ts"
   },
   "scripts": {
     "test": "vp test run"
@@ -39,6 +40,7 @@
     "@magna-carta/access-control": "workspace:*",
     "@magna-carta/database": "workspace:*",
     "@magna-carta/encryption": "workspace:*",
+    "@magna-carta/feature-flags": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/integrations": "workspace:*",
     "hono": "catalog:",

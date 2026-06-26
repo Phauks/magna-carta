@@ -5,7 +5,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import worker from "../src/index.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   captureResetToken,
   mirrorMemberWithOwnerRole,
@@ -15,18 +15,13 @@ import {
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
-// firm.database_identifier is UNIQUE and storage is shared within this file, so the resolvable
-// pool firm is seeded once here and every test attaches its users to it.
+// The pool firm is seeded once here and every test attaches its users to it. Its per-firm data lives
+// in the firm's FirmDatabase Durable Object (addressed by firmId, self-migrating on first access).
 let poolFirmId: FirmId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  // DB_FIRM_POOL_1 stands in for a provisioned firm's database (full per-firm lineage + role seeds);
-  // DB_FIRM_POOL_2 backs the second firm of the cross-firm idempotency-scoping test.
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_2);
-  poolFirmId = (await seedFirm({ name: "Members Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
-    .firmId;
+  poolFirmId = (await seedFirm({ name: "Members Test Firm" })).firmId;
 });
 
 // Mirrors the invite endpoint's own write: a user row with NO credential account row.
@@ -113,7 +108,7 @@ async function postMembers(
 // firm:manageMembers), and signs in — the inviting principal for the happy paths.
 async function signInAsOwner(email: string): Promise<string> {
   const { userId } = await seedCredentialedUser(email, { firmId: poolFirmId });
-  await mirrorMemberWithOwnerRole(userId, "Inviting Owner");
+  await mirrorMemberWithOwnerRole(userId, "Inviting Owner", poolFirmId);
   return signInForSessionCookie(email);
 }
 
@@ -182,8 +177,9 @@ describe("POST /api/v1/members", () => {
     const { userId } = await seedCredentialedUser("invite-deactivated@example.com", {
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Deactivated Inviter");
-    await env.DB_FIRM_POOL_1.prepare("UPDATE member SET status = 'deactivated' WHERE user_id = ?1")
+    await mirrorMemberWithOwnerRole(userId, "Deactivated Inviter", poolFirmId);
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("UPDATE member SET status = 'deactivated' WHERE user_id = ?1")
       .bind(userId)
       .run();
     const sessionCookie = await signInForSessionCookie("invite-deactivated@example.com");
@@ -517,14 +513,11 @@ describe("POST /api/v1/members", () => {
   it("scopes idempotency keys to the firm: another firm's key neither replays nor poisons", async () => {
     // Firm A is the pool firm; firm B lives on the second dev-pool database.
     const firmACookie = await signInAsOwner("cross-firm-a-owner@example.com");
-    const firmB = await seedFirm({
-      name: "Cross-Firm Test Firm",
-      databaseIdentifier: "DB_FIRM_POOL_2",
-    });
+    const firmB = await seedFirm({ name: "Cross-Firm Test Firm" });
     const { userId: firmBOwnerId } = await seedCredentialedUser("cross-firm-b-owner@example.com", {
       firmId: firmB.firmId,
     });
-    await mirrorMemberWithOwnerRole(firmBOwnerId, "Cross-Firm Owner", env.DB_FIRM_POOL_2);
+    await mirrorMemberWithOwnerRole(firmBOwnerId, "Cross-Firm Owner", firmB.firmId);
     const firmBCookie = await signInForSessionCookie("cross-firm-b-owner@example.com");
 
     // Cross-firm replay: firm B presenting firm A's exact key + body must NOT receive firm A's
@@ -616,12 +609,14 @@ describe("POST /api/v1/members", () => {
     // Await the route's waitUntil(runScheduledSweep) — no manual sweep call anywhere in this test.
     await waitOnExecutionContext(executionContext);
 
-    const memberRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT display_name, status FROM member WHERE user_id = ?1",
-    )
+    const memberResult = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT display_name, status FROM member WHERE user_id = ?1")
       .bind(invitedUserId)
-      .first<{ display_name: string; status: string }>();
-    expect(memberRow).toEqual({ display_name: "Request Path Invitee", status: "active" });
+      .all<{ display_name: string; status: string }>();
+    expect(memberResult.results[0]).toEqual({
+      display_name: "Request Path Invitee",
+      status: "active",
+    });
   });
 
   it("emits the route into the OpenAPI document with the native operationId and x-mc metadata", async () => {

@@ -2,9 +2,11 @@
 
 **Purpose.** The malware-scan engine for the untrusted-file pipeline — the **repo's first Rust crate**,
 run as a `linux/amd64` Cloudflare Container. An axum HTTP service (`/ready`, `POST /scan`) fans each
-file body to three engines and combines them into one verdict matching the worker's `MalwareScanPort`
-contract: **clamd** (signatures), **yara-x** (heuristic rules), and **structural heuristics**
-(PDF/Office/archive). Detection-only — it reports, never rewrites or destroys (no CDR).
+file body to three engines and reports their **raw facts** as a `RawScanResult` matching the worker's
+`MalwareScanPort` contract: **clamd** (signatures), **yara-x** (heuristic rules), and **structural
+heuristics** (PDF/Office/archive). The engine decides nothing — the per-firm verdict is computed app-side
+from those facts (`packages/file-manager/src/verdict.ts`), so the full rule corpus is scanned once and a
+firm's policy can re-tier it with no re-scan. Detection-only — it reports, never rewrites or destroys (no CDR).
 
 **White paper:** _Performance & concurrency model_ (sandbox-hardened processing). **Worker side:**
 `apps/worker/src/files/{scan-container,container-scan-adapter,scan-port-binding,scan-warm}.ts`. **Deploy:**
@@ -13,20 +15,23 @@ contract: **clamd** (signatures), **yara-x** (heuristic rules), and **structural
 ## Key files
 
 - `src/lib.rs` — the axum router + `AppState` (compiled `Rules` behind an `Arc`, clamd address, caps,
-  engine version); `POST /scan` runs all three engines and returns the combined verdict.
+  engine version); `POST /scan` runs all three engines concurrently and returns their raw facts as a
+  `RawScanResult` (HTTP 200). An in-process engine panic/fault is the **only** 503 (`engines_unavailable`).
 - `src/clamav.rs` — clamd scan over **loopback TCP** (`clamav_client::tokio::Tcp`); `clean()` is bool-only,
   so the signature name is parsed from the raw INSTREAM reply.
 - `src/yara.rs` — runtime rule loading + scanning: `deserialize_rules` restores the baked blob at boot
   (no startup recompile); `yara_scan` returns matching identifiers. `build_rules` (fail-fast compile) is
   the empty/dev path; `compile_tolerant` (skip + log incompatible rules) is the build-time path.
 - `src/forge.rs` + `src/bin/build-yara-rules.rs` — build-time YARA Forge bundling: parse the package,
-  drop the FP-prone heuristic `_SUSP_` pocket, compile with yara-x, serialize the blob the runtime loads.
+  bake EVERY tier with its score/tier side-map (the full corpus), compile with yara-x, serialize the blob
+  the runtime loads. Each match carries `{ruleId, tier, score, isSuspicious}` so the app can tier app-side.
 - `src/heuristics/{mod,pdf,office}.rs` — `inspect()` dispatches by magic bytes: PDF (lopdf) active-content
   / encrypted; OLE/CFB (cfb) macros / `EncryptedPackage`; ZIP (zip) archive caps + OOXML macros. Size/ratio
   checks read entry **metadata** only, so a zip bomb is caught before expansion.
-- `src/verdict.rs` — `combine()` → `CombineOutcome` (a verdict, or a retryable signature-engine fault);
-  precedence infected > suspicious > unscanned(encrypted) > retryable-fault > clean+activeContent. The
-  `ScanResult` serde union byte-matches `packages/file-manager/src/scan-port.ts`.
+- `src/raw.rs` — the `RawScanResult` facts and the `clam_fact` / `heuristic_fact` mappers. This struct's
+  JSON byte-matches `packages/file-manager/src/scan-port.ts`'s `RawScanResult` — the Rust⇄TS boundary.
+  The engine reports facts only; precedence and the clean/flagged/unscanned decision live app-side in
+  `packages/file-manager/src/verdict.ts`.
 - `Dockerfile` / `entrypoint.sh` — multi-stage build; clamd + a **build-time-baked** signature DB **and
   YARA rule blob** (the build fetches the latest YARA Forge `extended` release and runs `build-yara-rules`);
   the entrypoint raises clamd's scan-size limits to the inspectable-size cap and exports the baked rules
@@ -34,19 +39,23 @@ contract: **clamd** (signatures), **yara-x** (heuristic rules), and **structural
 
 ## Local rules / invariants
 
-- **`ScanResult` is the Rust⇄TS boundary.** Its JSON must stay identical to `scan-port.ts`; the worker
-  adapter re-validates it with zod. A change is a change on both sides.
-- **Fail safe, never silent-clean.** A clamd fault with no other signal is a **retryable 503** (the worker
-  adapter throws → the ingest queue re-scans), never a verdict: a running container always booted with
-  clamd ready, so it never self-reports `unscanned`/no-engine — that honest verdict is the engine-less
-  launch adapter's alone (`packages/file-manager/src/scan-port.ts`). A locked file → `unscanned`/encrypted
-  (re-scanning cannot help); active content is a clean-with-badge signal, never a quarantine on its own.
-  The fail-safe net is total: a clamd **timeout** (the whole exchange — connect + INSTREAM write + read —
-  is bounded in `clamav.rs`), an **engine panic** (yara/heuristics run under `spawn_blocking` +
-  `catch_unwind` in `lib.rs::finish`), a **yara scan timeout/error** (`yara_scan` is `set_timeout`-bounded
-  and returns `Err` → `finish` maps it to the same retryable 503, never a swallowed no-match), or a clamd
-  reply with **any non-OK record** all map to the same retryable 503, never clean. `interpret_reply`
-  parses the reply record-by-record so a `FOUND` can never be masked by a sibling `OK`.
+- **`RawScanResult` is the Rust⇄TS boundary.** Its JSON must stay identical to `scan-port.ts`'s
+  `RawScanResult`; the worker adapter re-validates it with zod. A change is a change on both sides. The
+  engine reports facts only — the clean/flagged/unscanned decision is `verdict.ts`'s, not the container's.
+- **Fail safe, never silent-clean.** The engine reports raw facts; it never fabricates a clean. clamd going
+  dark is reported as the raw fact `clam: { state: unavailable }` with **HTTP 200** — the app-side verdict
+  layer raises that to a retryable fault (so the ingest queue re-scans), never a clean. The **only** 503 is
+  an in-process **engine panic/fault** (`engines_unavailable` in `lib.rs::finish`): yara/heuristics run under
+  `spawn_blocking` + `catch_unwind`, and a yara scan timeout/error (`yara_scan` is `set_timeout`-bounded and
+  returns `Err`) collapses to the same 503 — never a swallowed no-match, never clean. A clamd **timeout**
+  (the whole exchange — connect + INSTREAM write + read — is bounded in `clamav.rs`) or a clamd reply with
+  **any non-OK record** surfaces as `clam: unavailable`, never a masked clean: `interpret_reply` parses the
+  reply record-by-record so a `FOUND` can never be hidden by a sibling `OK`. A locked file → the raw
+  `heuristic: encrypted` fact (→ `unscanned`/encrypted app-side; re-scanning cannot help); active content
+  is a raw `heuristic: active-content` fact (a clean-with-badge signal app-side, never a quarantine alone).
+  A running container always booted with clamd ready, so it never self-reports the no-engine state — that
+  honest `engineVersion: null` + `clam: unavailable` is the engine-less launch adapter's alone
+  (`packages/file-manager/src/scan-port.ts`).
 - **No reachable panic/abort on the per-file path.** Ordinary engine panics are caught; the one fault
   `catch_unwind` cannot catch is a **stack overflow → SIGABRT**, which lopdf 0.41's unbounded-recursion
   parser can hit on a crafted deeply-nested PDF. `heuristics::pdf` guards it on two fronts before

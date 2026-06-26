@@ -2,7 +2,7 @@ import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -10,17 +10,13 @@ import {
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
-// firm.database_identifier is UNIQUE and storage is shared within this file, so the resolvable
-// pool firm is seeded once here and every test attaches its users to it.
+// The pool firm is seeded once here and every test attaches its users to it. Its per-firm data lives
+// in the firm's FirmDatabase Durable Object (addressed by firmId, self-migrating on first access).
 let poolFirmId: FirmId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  // DB_FIRM_POOL_1 stands in for a provisioned firm's database: migrated with the full per-firm
-  // lineage (0000 + 0001_ledger-core + 0002_member-rbac), which also lands the seeded roles.
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  poolFirmId = (await seedFirm({ name: "Me Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
-    .firmId;
+  poolFirmId = (await seedFirm({ name: "Me Test Firm" })).firmId;
 });
 
 describe("GET /api/v1/me", () => {
@@ -43,14 +39,15 @@ describe("GET /api/v1/me", () => {
       userName: "Me Test User",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Me Test User");
+    await mirrorMemberWithOwnerRole(userId, "Me Test User", poolFirmId);
     const sessionCookie = await signInForSessionCookie("me-member@example.com");
 
     const response = await SELF.fetch("https://example.com/api/v1/me", {
       headers: { cookie: sessionCookie },
     });
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
       user: { id: userId, name: "Me Test User", email: "me-member@example.com" },
       firm: { id: firmId, name: "Me Test Firm" },
       // Owner/Admin's seeded role_permission rows: firm:manageMembers (0002_member-rbac.sql) +
@@ -64,8 +61,8 @@ describe("GET /api/v1/me", () => {
       // seeded onto every default role) + tools:fileConverter (0018_seed-tools-file-converter.sql) +
       // firm:scanFile (0019_seed-scan-file-permission.sql) + tools:metadataScrubber
       // (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role) +
-      // tools:fileIntegrity (0022_seed-tools-file-integrity.sql, seeded onto every default role).
-      // Sorted.
+      // tools:fileIntegrity (0022_seed-tools-file-integrity.sql, seeded onto every default role) +
+      // firm:manageReleaseChannel (0024_seed-release-channel-permission.sql, Owner/Admin only). Sorted.
       permissions: [
         "customFields:manage",
         "customFields:purge",
@@ -76,6 +73,7 @@ describe("GET /api/v1/me", () => {
         "files:organize",
         "files:upload",
         "firm:manageMembers",
+        "firm:manageReleaseChannel",
         "firm:manageSecrets",
         "firm:reportIncident",
         "firm:scanFile",
@@ -104,6 +102,8 @@ describe("GET /api/v1/me", () => {
         "tools:whois",
       ],
     });
+    expect(body.channel).toBe("stable");
+    expect(body.flags).toEqual({ "release-channels.smoke": false });
   });
 
   it("answers 404 when the session member is DEACTIVATED in the firm database (absent — the deactivated-context promise)", async () => {
@@ -111,8 +111,9 @@ describe("GET /api/v1/me", () => {
       userName: "Deactivated Member",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Deactivated Member");
-    await env.DB_FIRM_POOL_1.prepare("UPDATE member SET status = 'deactivated' WHERE user_id = ?1")
+    await mirrorMemberWithOwnerRole(userId, "Deactivated Member", poolFirmId);
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("UPDATE member SET status = 'deactivated' WHERE user_id = ?1")
       .bind(userId)
       .run();
     const sessionCookie = await signInForSessionCookie("me-deactivated@example.com");
@@ -151,29 +152,9 @@ describe("GET /api/v1/me", () => {
       user: { id: userId, name: "Unmirrored User", email: "me-unmirrored@example.com" },
       firm: { id: firmId, name: "Me Test Firm" },
       permissions: [],
+      channel: "stable",
+      flags: { "release-channels.smoke": false },
     });
-  });
-
-  it("answers 404 when the session firm's database resolves to no binding (cross-firm reserve)", async () => {
-    // The firm row exists, but its database_identifier matches no binding in this deployment —
-    // indistinguishable from the firm being absent: 404, never a 500 and never an existence oracle.
-    await seedCredentialedUser("me-foreign@example.com", {
-      firmDatabaseIdentifier: "d1-not-bound-in-this-deployment",
-    });
-    const sessionCookie = await signInForSessionCookie("me-foreign@example.com");
-
-    const response = await SELF.fetch("https://example.com/api/v1/me", {
-      headers: { cookie: sessionCookie },
-    });
-    expect(response.status).toBe(404);
-    expect(response.headers.get("content-type")).toContain("application/problem+json");
-    const body = (await response.json()) as Record<string, unknown>;
-    expect(body).toMatchObject({
-      type: "https://api.magnacarta.esq/problems/not-found",
-      title: "Not found",
-      status: 404,
-    });
-    expect(body["errorId"]).toMatch(/^error_/);
   });
 
   it("emits the route into the OpenAPI document with the native operationId and x-mc metadata", async () => {

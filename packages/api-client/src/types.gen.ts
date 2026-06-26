@@ -39,6 +39,10 @@ export type MeResponse = {
         name: string;
     };
     permissions: Array<string>;
+    channel: 'stable' | 'beta' | 'alpha';
+    flags: {
+        [key: string]: boolean;
+    };
 };
 
 export type FirmUsageResponse = {
@@ -167,6 +171,15 @@ export type InviteMemberRequest = {
     name: string;
 };
 
+export type SetReleaseChannelResponse = {
+    channel: 'stable' | 'beta';
+};
+
+export type SetReleaseChannelRequest = {
+    channel: 'stable' | 'beta';
+    consentAcknowledged?: boolean;
+};
+
 export type ProvisionFirmResponse = {
     id: string;
     name: string;
@@ -184,6 +197,14 @@ export type ProvisionFirmRequest = {
         email: string;
         name: string;
     };
+};
+
+export type PlatformSetReleaseChannelResponse = {
+    channel: 'stable' | 'beta' | 'alpha';
+};
+
+export type PlatformSetReleaseChannelRequest = {
+    channel: 'stable' | 'beta' | 'alpha';
 };
 
 export type ReportIncidentResponse = {
@@ -1624,6 +1645,58 @@ export type MembersInviteResponses = {
 
 export type MembersInviteResponse = MembersInviteResponses[keyof MembersInviteResponses];
 
+export type FirmSetReleaseChannelData = {
+    body: SetReleaseChannelRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/release-channel';
+};
+
+export type FirmSetReleaseChannelErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one); or beta requested without consent acknowledgment
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageReleaseChannel
+     */
+    403: Problem;
+    /**
+     * The session's firm is not reachable from this deployment, or the session member is deactivated (absent, never an existence oracle)
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * Validation failed (e.g. channel value outside the firm-accessible set); or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmSetReleaseChannelError = FirmSetReleaseChannelErrors[keyof FirmSetReleaseChannelErrors];
+
+export type FirmSetReleaseChannelResponses = {
+    /**
+     * The firm's release channel after the update
+     */
+    200: SetReleaseChannelResponse;
+};
+
+export type FirmSetReleaseChannelResponse = FirmSetReleaseChannelResponses[keyof FirmSetReleaseChannelResponses];
+
 export type FirmsProvisionData = {
     body: ProvisionFirmRequest;
     headers: {
@@ -1667,6 +1740,56 @@ export type FirmsProvisionResponses = {
 };
 
 export type FirmsProvisionResponse = FirmsProvisionResponses[keyof FirmsProvisionResponses];
+
+export type PlatformSetFirmReleaseChannelData = {
+    body: PlatformSetReleaseChannelRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        firmId: string;
+    };
+    query?: never;
+    url: '/api/v1/platform/firms/{firmId}/release-channel';
+};
+
+export type PlatformSetFirmReleaseChannelErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * Missing or wrong X-Platform-Admin-Key
+     */
+    401: Problem;
+    /**
+     * No firm with the given identifier exists in the control plane
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * Validation failed (channel value outside the allowed set); or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformSetFirmReleaseChannelError = PlatformSetFirmReleaseChannelErrors[keyof PlatformSetFirmReleaseChannelErrors];
+
+export type PlatformSetFirmReleaseChannelResponses = {
+    /**
+     * The firm's release channel after the update
+     */
+    200: PlatformSetReleaseChannelResponse;
+};
+
+export type PlatformSetFirmReleaseChannelResponse = PlatformSetFirmReleaseChannelResponses[keyof PlatformSetFirmReleaseChannelResponses];
 
 export type IncidentsReportData = {
     body: ReportIncidentRequest;

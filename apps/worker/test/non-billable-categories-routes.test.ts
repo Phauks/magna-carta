@@ -9,7 +9,7 @@ import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -28,7 +28,6 @@ let readOnlyCookie: string;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   poolFirmId = (
     await seedFirm({
       name: "Non-Billable Category Test Firm",
@@ -43,22 +42,23 @@ beforeAll(async () => {
     userName: "NBC Owner",
     firmId: poolFirmId,
   });
-  await mirrorMemberWithOwnerRole(owner.userId, "NBC Owner");
+  await mirrorMemberWithOwnerRole(owner.userId, "NBC Owner", poolFirmId);
   ownerCookie = await signInForSessionCookie("nbc-owner@example.com");
 
   const readOnly = await seedCredentialedUser("nbc-readonly@example.com", {
     userName: "NBC Read Only",
     firmId: poolFirmId,
   });
-  const role = await env.DB_FIRM_POOL_1.prepare("SELECT id FROM role WHERE name = ?1")
+  const role = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+    .prepare("SELECT id FROM role WHERE name = ?1")
     .bind("Read-only")
     .first<{ id: string }>();
-  await insertMemberStatement(env.DB_FIRM_POOL_1, {
+  await insertMemberStatement(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), {
     userId: readOnly.userId,
     displayName: "NBC Read Only",
     now: new Date().toISOString(),
   }).run();
-  await insertRoleAssignmentStatement(env.DB_FIRM_POOL_1, {
+  await insertRoleAssignmentStatement(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), {
     id: newIdentifier("memberRole"),
     memberUserId: readOnly.userId,
     roleId: assertIdentifier(role!.id, "role"),
@@ -132,9 +132,8 @@ describe("non-billable category lifecycle", () => {
     expect(archiveResponse.status).toBe(200);
 
     // Verify the row is still in the database (soft-archived, not hard-deleted)
-    const row = await env.DB_FIRM_POOL_1.prepare(
-      `SELECT id, archived_at FROM ${NON_BILLABLE_CATEGORY_TABLE} WHERE id = ?1`,
-    )
+    const row = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(`SELECT id, archived_at FROM ${NON_BILLABLE_CATEGORY_TABLE} WHERE id = ?1`)
       .bind(nonBillableCategoryId)
       .first<{ id: string; archived_at: string | null }>();
     expect(row).not.toBeNull();

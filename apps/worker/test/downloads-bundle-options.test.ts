@@ -2,7 +2,7 @@ import { env, SELF } from "cloudflare:test";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -21,6 +21,9 @@ let ownerCookie: string;
 // selection and reaches the 202 hand-off (the 422/501 tests use a throwaway empty matter instead,
 // since those responses fire before any selection query).
 let seededMatterId: string;
+// The per-firm data plane is the firmId-addressed FirmDatabase Durable Object; seed firm rows through
+// this handle (it self-migrates on first access — there is no per-firm migration step).
+let firmDb: ReturnType<typeof firmDatabaseFor>;
 
 // Seeds one clean, committed file (file + current clean file_version) under a matter directly in the
 // per-firm database — the same three-step shape the ingest gate produces (insert file, insert clean
@@ -30,28 +33,31 @@ async function seedCleanFile(matterId: string, name: string): Promise<void> {
   const fileId = newIdentifier("file");
   const versionId = newIdentifier("fileVersion");
   const r2Key = `files/${fileId}/${versionId}`;
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, ?3, NULL, NULL, NULL, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, ?3, NULL, NULL, NULL, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')",
+    )
     .bind(fileId, matterId, name)
     .run();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at, inline_playable, storage_class, storage_encoding, artifact_role) VALUES (?1, ?2, 1, ?3, 2048, 'application/octet-stream', 'application/octet-stream', NULL, 'clean', NULL, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z', NULL, 'standard', 'full', 'original')",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at, inline_playable, storage_class, storage_encoding, artifact_role) VALUES (?1, ?2, 1, ?3, 2048, 'application/octet-stream', 'application/octet-stream', NULL, 'clean', NULL, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z', NULL, 'standard', 'full', 'original')",
+    )
     .bind(versionId, fileId, r2Key)
     .run();
-  await env.DB_FIRM_POOL_1.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+  await firmDb
+    .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
     .bind(fileId, versionId)
     .run();
 }
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   const { firmId } = await seedFirm({
     name: "Download Options Test Firm",
     databaseIdentifier: "DB_FIRM_POOL_1",
   });
+  firmDb = firmDatabaseFor(env.FIRM_DATABASE, firmId);
   // The download route calls requireBucket(firm.bucketName) before options validation; set a bucket
   // so the handler reaches the options check without throwing.
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
@@ -61,17 +67,20 @@ beforeAll(async () => {
     userName: "Download Options Owner",
     firmId,
   });
-  await mirrorMemberWithOwnerRole(owner.userId, "Download Options Owner");
+  await mirrorMemberWithOwnerRole(owner.userId, "Download Options Owner", firmId);
   ownerCookie = await signInForSessionCookie("download-opts-owner@example.com");
 
   // A member + matter so the file/version FKs resolve; then two clean files under it.
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO member (user_id, display_name, status, created_at) VALUES ('bundle_opts_member', 'BO', 'active', '2026-01-01T00:00:00.000Z')",
-  ).run();
+  await firmDb
+    .prepare(
+      "INSERT INTO member (user_id, display_name, status, created_at) VALUES ('bundle_opts_member', 'BO', 'active', '2026-01-01T00:00:00.000Z')",
+    )
+    .run();
   seededMatterId = newIdentifier("matter");
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO matter (id, title, description, status, matter_type_id, location_id, responsible_member_id, client_display_name, client_code, matter_number, numbered_at, opened_at, closed_at, created_at, updated_at) VALUES (?1, 'M', NULL, 'open', NULL, NULL, 'bundle_opts_member', NULL, NULL, NULL, NULL, NULL, NULL, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO matter (id, title, description, status, matter_type_id, location_id, responsible_member_id, client_display_name, client_code, matter_number, numbered_at, opened_at, closed_at, created_at, updated_at) VALUES (?1, 'M', NULL, 'open', NULL, NULL, 'bundle_opts_member', NULL, NULL, NULL, NULL, NULL, NULL, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')",
+    )
     .bind(seededMatterId)
     .run();
   await seedCleanFile(seededMatterId, "a.pdf");
@@ -282,9 +291,11 @@ describe("POST /api/v1/downloads/zip — optioned lanes", () => {
 
     // The export is audited with an `encrypted` flag, but the password must NEVER reach the audit row
     // (machine-checks the in-request-only guarantee, on top of the data-access redaction guard).
-    const auditRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT metadata FROM audit_log WHERE event = 'files.bulkDownloaded' AND metadata LIKE '%\"encrypted\":true%' ORDER BY created_at DESC LIMIT 1",
-    ).first<{ metadata: string }>();
+    const auditRow = await firmDb
+      .prepare(
+        "SELECT metadata FROM audit_log WHERE event = 'files.bulkDownloaded' AND metadata LIKE '%\"encrypted\":true%' ORDER BY created_at DESC LIMIT 1",
+      )
+      .first<{ metadata: string }>();
     expect(auditRow).not.toBeNull();
     expect(auditRow?.metadata).not.toContain("correct-horse-battery-staple");
     const metadata = JSON.parse(auditRow?.metadata ?? "{}") as Record<string, unknown>;

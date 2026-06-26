@@ -243,6 +243,9 @@ importers:
       '@magna-carta/encryption':
         specifier: workspace:*
         version: link:../../packages/encryption
+      '@magna-carta/feature-flags':
+        specifier: workspace:*
+        version: link:../../packages/feature-flags
       '@magna-carta/file-integrity':
         specifier: workspace:*
         version: link:../../packages/file-integrity
@@ -428,6 +431,9 @@ importers:
       '@magna-carta/encryption':
         specifier: workspace:*
         version: link:../encryption
+      '@magna-carta/feature-flags':
+        specifier: workspace:*
+        version: link:../feature-flags
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers
@@ -524,6 +530,18 @@ importers:
       '@magna-carta/identifiers':
         specifier: workspace:*
         version: link:../identifiers
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.1
+      vitest:
+        specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))(yaml@2.9.0)'
+
+  packages/feature-flags:
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*
