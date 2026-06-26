@@ -4,6 +4,7 @@ import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { initiateUpload } from "@magna-carta/file-manager/file-service";
 import { listFiles } from "@magna-carta/file-manager/queries";
 import type { MalwareScanPort } from "@magna-carta/file-manager/scan-port";
+import { flaggedTreatmentDefinition } from "@magna-carta/file-manager/scan-policy-settings";
 import { inspectableSizeCapDefinition } from "@magna-carta/file-manager/upload-policy";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, MatterId, UserId } from "@magna-carta/identifiers/types";
@@ -732,5 +733,114 @@ describe("handleIngestMessage — access-triggered re-scan", () => {
       .run();
     await maybeEnqueueRescanOnAccess(queue, env.DB_FIRM_POOL_1, BUCKET, r2Key, 100);
     expect(captured).toHaveLength(1);
+  });
+});
+
+describe("handleIngestMessage — firm flagged-treatment policy", () => {
+  // Verifies that the consumer honours the firm's scan.flagged_treatment setting: an infected file
+  // should be committed as flagged (status='clean', scan_verdict='flagged') when the firm opts in to
+  // informed-access, and quarantined under the default block treatment.
+
+  const infectedPort: MalwareScanPort = {
+    scan: async (_body, _meta) => ({
+      engineVersion: "test-treatment-1",
+      clam: { state: "infected", signature: "Eicar-Treatment-Test" },
+      heuristic: { kind: "none" },
+      matches: [],
+      timings: { clamdMs: 1, yaraMs: 1 },
+    }),
+  };
+
+  async function seedInfectedPendingVersion(name: string): Promise<{
+    fileId: string;
+    versionId: string;
+    sessionId: string;
+    r2Key: string;
+  }> {
+    const fileId = newIdentifier("file");
+    const versionId = newIdentifier("fileVersion");
+    const sessionId = newIdentifier("uploadSession");
+    const r2Key = `files/${fileId}/${versionId}`;
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO file (id, matter_id, name, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?4)",
+    )
+      .bind(fileId, matterId, name, clock.now())
+      .run();
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO file_version (id, file_id, version_number, r2_key, declared_content_type, status, uploaded_by, created_at) VALUES (?1, ?2, 1, ?3, 'application/pdf', 'pending', ?4, ?5)",
+    )
+      .bind(versionId, fileId, r2Key, ACTOR, clock.now())
+      .run();
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO upload_session (id, file_version_id, mode, declared_size, declared_content_type, status, created_at) VALUES (?1, ?2, 'put', ?3, 'application/pdf', 'open', ?4)",
+    )
+      .bind(sessionId, versionId, PDF_BYTES.byteLength, clock.now())
+      .run();
+    await env.R2.put(r2Key, PDF_BYTES);
+    return { fileId, versionId, sessionId, r2Key };
+  }
+
+  async function cleanupInfectedVersion(
+    fileId: string,
+    versionId: string,
+    sessionId: string,
+  ): Promise<void> {
+    await env.DB_FIRM_POOL_1.prepare("DELETE FROM upload_session WHERE id = ?1")
+      .bind(sessionId)
+      .run();
+    // Nullify the FK on `file` before removing `file_version`: a committed version sets
+    // `current_version_id`, which would block the file_version delete otherwise.
+    await env.DB_FIRM_POOL_1.prepare("UPDATE file SET current_version_id = NULL WHERE id = ?1")
+      .bind(fileId)
+      .run();
+    await env.DB_FIRM_POOL_1.prepare("DELETE FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .run();
+    await env.DB_FIRM_POOL_1.prepare("DELETE FROM file WHERE id = ?1").bind(fileId).run();
+  }
+
+  it("commits as flagged (status='clean', scan_verdict='flagged') when treatment is 'informed-access'", async () => {
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT OR REPLACE INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3)",
+    )
+      .bind(flaggedTreatmentDefinition.key, JSON.stringify("informed-access"), clock.now())
+      .run();
+
+    const { fileId, versionId, sessionId, r2Key } =
+      await seedInfectedPendingVersion("informed.pdf");
+    await handleIngestMessage(env, event(BUCKET, r2Key, PDF_BYTES.byteLength), infectedPort);
+
+    const version = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT status, scan_verdict FROM file_version WHERE id = ?1",
+    )
+      .bind(versionId)
+      .first<{ status: string; scan_verdict: string }>();
+    // Committed (not quarantined) — visible behind the access gate.
+    expect(version?.status).toBe("clean");
+    expect(version?.scan_verdict).toBe("flagged");
+
+    await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+      .bind(flaggedTreatmentDefinition.key)
+      .run();
+    await cleanupInfectedVersion(fileId, versionId, sessionId);
+  });
+
+  it("quarantines (status='quarantined') when no treatment setting is present (default 'block')", async () => {
+    // Ensure no residual setting from a prior test.
+    await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+      .bind(flaggedTreatmentDefinition.key)
+      .run();
+
+    const { fileId, versionId, sessionId, r2Key } = await seedInfectedPendingVersion("blocked.pdf");
+    await handleIngestMessage(env, event(BUCKET, r2Key, PDF_BYTES.byteLength), infectedPort);
+
+    const version = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT status FROM file_version WHERE id = ?1",
+    )
+      .bind(versionId)
+      .first<{ status: string }>();
+    expect(version?.status).toBe("quarantined");
+
+    await cleanupInfectedVersion(fileId, versionId, sessionId);
   });
 });

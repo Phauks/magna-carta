@@ -9,7 +9,7 @@ import { runIngest } from "@magna-carta/file-manager/ingest-core";
 import { loadCommittedVersionByR2Key } from "@magna-carta/file-manager/queries";
 import { lookupScanCache } from "@magna-carta/file-manager/scan-cache";
 import type { MalwareScanPort, RawScanResult } from "@magna-carta/file-manager/scan-port";
-import { computeVerdict, DEFAULT_SCAN_POLICY } from "@magna-carta/file-manager/verdict";
+import { computeVerdict } from "@magna-carta/file-manager/verdict";
 import {
   readInspectableSizeCap,
   readScanEngineVersion,
@@ -215,6 +215,12 @@ async function handleRescanMessage(
   if (currentEngineVersion === null) return; // no current engine recorded yet → never fabricate a key
   if (committed.scanEngineVersion === currentEngineVersion) return; // already current → not stale
 
+  // Resolve the firm's scan policy here (outside the idempotency effect) so the verdict computation
+  // uses the firm's configured tier and threshold rather than the hardcoded default. The rescan does
+  // NOT apply flaggedTreatment — the version is already committed; a re-flagged finding stays
+  // committed and visible; the download gate (a later task) enforces treatment at access time.
+  const firmScanPolicy = await readFirmScanPolicy(firmDatabase);
+
   const contentSha256 = committed.contentSha256;
   const now = () => new Date().toISOString();
   const options = { clock: { now }, actorUserId: null };
@@ -245,10 +251,10 @@ async function handleRescanMessage(
         fromCache = false;
       }
 
-      // Decide the verdict app-side from the raw facts. A deployed engine reporting unavailable throws
-      // ScanFaultError, which propagates out of the effect → the queue retries; the version's prior
-      // verdict is never touched on a fault.
-      const fileVerdict = computeVerdict(raw, DEFAULT_SCAN_POLICY);
+      // Decide the verdict app-side from the raw facts using the firm's configured scan policy.
+      // A deployed engine reporting unavailable throws ScanFaultError, which propagates out of the
+      // effect → the queue retries; the version's prior verdict is never touched on a fault.
+      const fileVerdict = computeVerdict(raw, firmScanPolicy);
 
       // Only a DEFINITIVE verdict restamps the version. An `unscanned` result (encrypted / no-engine) is
       // not definitive — leave the version's prior verdict untouched (never downgrade without a real
