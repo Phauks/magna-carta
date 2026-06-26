@@ -22,11 +22,13 @@
 ### Task 1: Bundle the control-plane lineage + share it with the test applier
 
 **Files:**
+
 - Create: `apps/worker/src/control-plane-migrations.ts`
 - Modify: `apps/worker/test/support/apply-control-plane-migrations.ts`
 - Test: `apps/worker/test/control-plane-migrations.test.ts`
 
 **Interfaces:**
+
 - Consumes: `migrationsFromJournal`, `type Migration` from `@magna-carta/database/migration`; the control-plane journal + SQL text imports under `@magna-carta/database/drizzle/control-plane/`; `runPendingMigrations` from `@magna-carta/database/migration-runner`; `d1MigrationTarget` from `@magna-carta/database/d1-migration-target`.
 - Produces: `controlPlaneMigrations(): Migration[]` and `controlPlaneHeadSchemaVersion(): string`.
 
@@ -109,9 +111,7 @@ describe("controlPlaneMigrations bundle", () => {
     const first = await runPendingMigrations(target, controlPlaneMigrations());
     expect(first.appliedTags).toContain("0003_handy_rattler");
     // The release-channel column exists -> the control-plane schema is at head.
-    const probe = await env.DB_CONTROL.prepare(
-      "SELECT release_channel FROM firm LIMIT 1",
-    ).all();
+    const probe = await env.DB_CONTROL.prepare("SELECT release_channel FROM firm LIMIT 1").all();
     expect(probe.success).toBe(true);
     // Idempotent: a second run applies nothing.
     const second = await runPendingMigrations(target, controlPlaneMigrations());
@@ -149,10 +149,12 @@ git commit -m "feat(migrations): bundle control-plane lineage + share with test 
 ### Task 2: Apply control-plane migrations from the scheduled handler
 
 **Files:**
+
 - Modify: `apps/worker/src/scheduled.ts` (inside `runScheduledSweep`, before the control-plane outbox sweep)
 - Test: `apps/worker/test/scheduled.test.ts`
 
 **Interfaces:**
+
 - Consumes: `controlPlaneMigrations()` (Task 1); `runPendingMigrations`, `d1MigrationTarget`; the handler's existing `logger` + `correlationId`; `logOperationFailed` from `@magna-carta/telemetry/operation` (already imported in `scheduled.ts`).
 - Produces: control-plane `DB_CONTROL` is brought to head on each scheduled pass, error-isolated.
 
@@ -192,20 +194,20 @@ import { controlPlaneMigrations } from "./control-plane-migrations.ts";
 Inside `runScheduledSweep(env)`, immediately AFTER `logger`/`correlationId` are created and BEFORE the `const controlPlane = await sweepOutbox({...})` line, add the migration step, error-isolated so a failure is observable but does not starve the rest of the pass (mirror the `logOperationFailed` usage already present elsewhere in this file — find an existing `logOperationFailed(` call and copy its argument shape):
 
 ```typescript
-  // The control plane has no provision-time migration gate (unlike per-firm DBs, which migrate when
-  // a firm is provisioned), so the scheduled pass is the single-flighted applier that brings the
-  // control-plane schema to head. Idempotent: a no-op once at head. Error-isolated: a migration
-  // failure is logged and the rest of the pass still runs.
-  try {
-    await runPendingMigrations(d1MigrationTarget(env.DB_CONTROL), controlPlaneMigrations());
-  } catch (error) {
-    logger.log(
-      logOperationFailed(
-        { correlationId, now: new Date().toISOString() },
-        { operation: "control-plane-migrations", error },
-      ),
-    );
-  }
+// The control plane has no provision-time migration gate (unlike per-firm DBs, which migrate when
+// a firm is provisioned), so the scheduled pass is the single-flighted applier that brings the
+// control-plane schema to head. Idempotent: a no-op once at head. Error-isolated: a migration
+// failure is logged and the rest of the pass still runs.
+try {
+  await runPendingMigrations(d1MigrationTarget(env.DB_CONTROL), controlPlaneMigrations());
+} catch (error) {
+  logger.log(
+    logOperationFailed(
+      { correlationId, now: new Date().toISOString() },
+      { operation: "control-plane-migrations", error },
+    ),
+  );
+}
 ```
 
 (Match `logOperationFailed`'s real signature to the existing call site in this file — adjust the second argument's field names to whatever that call uses; do not invent fields.)
@@ -229,10 +231,12 @@ git commit -m "feat(migrations): apply control-plane migrations from the schedul
 ### Task 3: Make `/me` channel + flags fail-safe
 
 **Files:**
+
 - Modify: `apps/worker/src/routes/me.ts`
 - Test: `apps/worker/test/me-channel-failsafe.test.ts` (new unit test); `apps/worker/test/me.test.ts` (must still pass)
 
 **Interfaces:**
+
 - Consumes: `readFirmReleaseChannelStatement`, `evaluateCatalog`, `isReleaseChannel`, `defaultOffEvaluator`, `type ReleaseChannel` (`@magna-carta/feature-flags`); `resolveFlagEvaluator` (`../flags/flag-evaluator.ts`); `type Bindings`; `type FirmId` (`@magna-carta/identifiers/types`).
 - Produces: `resolveChannelAndFlags(env: Bindings, userId: string, firmId: FirmId): Promise<{ channel: ReleaseChannel; flags: Record<string, boolean> }>` — exported from `me.ts`, used by the handler.
 
@@ -313,7 +317,7 @@ export async function resolveChannelAndFlags(
 Then replace the inline channel/flags block in the handler (the `const channelRow … const flags = await evaluateCatalog(…)` lines) with:
 
 ```typescript
-    const { channel, flags } = await resolveChannelAndFlags(c.env, userId, firmId);
+const { channel, flags } = await resolveChannelAndFlags(c.env, userId, firmId);
 ```
 
 (The `c.json({ …, channel, flags }, 200)` body stays the same.)
@@ -337,6 +341,7 @@ git commit -m "fix(release-channels): make /me channel + flags fail-safe to stab
 ### Task 4: Documentation
 
 **Files:**
+
 - Modify: `docs/conventions/operations.md` (new control-plane-migrations section)
 - Create: `docs/decisions/pending/control-plane-migration-applier.md`
 - Create: `changelog.d/control-plane-migration-applier.md`
@@ -374,6 +379,7 @@ git commit -m "docs(migrations): control-plane migration applier ops + ADR + cha
 ## Self-Review
 
 **Spec coverage:**
+
 - Bundle `controlPlaneMigrations()` + share with test applier → Task 1.
 - Cron sweep as sole single-flighted applier → Task 2.
 - `/me` fail-safe read discipline → Task 3.

@@ -27,6 +27,7 @@
 A dependency-light leaf package: the channel type, the flag catalog, the evaluator interface, a Flagship adapter, a default-off evaluator, and a catalog-evaluation helper.
 
 **Files:**
+
 - Create: `packages/feature-flags/package.json`
 - Create: `packages/feature-flags/tsconfig.json`
 - Create: `packages/feature-flags/vitest.config.ts`
@@ -39,6 +40,7 @@ A dependency-light leaf package: the channel type, the flag catalog, the evaluat
 - Test: `packages/feature-flags/test/default-off-adapter.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `type ReleaseChannel = "stable" | "beta" | "alpha"` and `const RELEASE_CHANNELS: readonly ReleaseChannel[]`
   - `interface FlagContext { targetingKey: string; firmId: string; channel: ReleaseChannel }`
@@ -153,7 +155,8 @@ export const FLAG_CATALOG: Record<
   "release-channels.smoke": {
     defaultValue: false,
     stage: "beta",
-    description: "Wiring smoke test for the release-channels evaluation path; not a product feature.",
+    description:
+      "Wiring smoke test for the release-channels evaluation path; not a product feature.",
   },
 };
 ```
@@ -318,10 +321,12 @@ git commit -m "feat(release-channels): add @magna-carta/feature-flags package"
 ### Task 2: Register the `firm:manageReleaseChannel` permission
 
 **Files:**
+
 - Modify: `packages/access-control/src/registry.ts` (the `PERMISSIONS` array)
 - Test: `packages/access-control/test/registry.test.ts`
 
 **Interfaces:**
+
 - Produces: the registered permission key `"firm:manageReleaseChannel"`.
 
 - [ ] **Step 1: Add the failing test assertion**
@@ -368,6 +373,7 @@ git commit -m "feat(release-channels): register firm:manageReleaseChannel permis
 Hand-written seed migration (drizzle-kit does not emit data seeds), mirroring `packages/database/drizzle/per-firm/0019_seed-scan-file-permission.sql`. Owner/Admin only — managing the channel is an admin action like `firm:manageMembers`.
 
 **Files:**
+
 - Create: `packages/database/drizzle/per-firm/0022_seed-release-channel-permission.sql`
 - Modify: `packages/database/drizzle/per-firm/meta/_journal.json` (append the 0022 entry)
 - Modify: `apps/worker/src/per-firm-migrations.ts` (import + map entry)
@@ -375,6 +381,7 @@ Hand-written seed migration (drizzle-kit does not emit data seeds), mirroring `p
 - Test (existing, must stay green): `packages/database/test/generated-migrations.test.ts`
 
 **Interfaces:**
+
 - Consumes: the registered permission from Task 2; the default role id `role_Gw-zKO8hOHQuNv2bWokMp` (Owner/Admin, from `0002_member-rbac.sql`).
 - Produces: Owner/Admin holds `firm:manageReleaseChannel` in every newly provisioned firm.
 
@@ -397,13 +404,13 @@ INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermi
 In `packages/database/drizzle/per-firm/meta/_journal.json`, append to the `entries` array after the last entry (`0021_outgoing_talon`), mirroring the existing entry shape. Use the next `idx` (22) and a fixed millisecond timestamp greater than the previous entry's:
 
 ```json
-    {
-      "idx": 22,
-      "version": "6",
-      "when": 1782000000000,
-      "tag": "0022_seed-release-channel-permission",
-      "breakpoints": true
-    }
+{
+  "idx": 22,
+  "version": "6",
+  "when": 1782000000000,
+  "tag": "0022_seed-release-channel-permission",
+  "breakpoints": true
+}
 ```
 
 (Add a comma after the previous closing brace. `version` and `breakpoints` mirror every existing per-firm entry.)
@@ -448,6 +455,7 @@ git commit -m "feat(release-channels): seed firm:manageReleaseChannel onto Owner
 ### Task 4: Add the `release_channel` control-plane column (migration 0003)
 
 **Files:**
+
 - Modify: `packages/database/src/control-plane-schema.ts` (the `firm` table)
 - Create: `packages/database/drizzle/control-plane/0003_*.sql` (drizzle-kit names it)
 - Modify: `packages/database/drizzle/control-plane/meta/_journal.json` (drizzle-kit updates it)
@@ -455,6 +463,7 @@ git commit -m "feat(release-channels): seed firm:manageReleaseChannel onto Owner
 - Test: `packages/database/test/control-plane-schema.test.ts`
 
 **Interfaces:**
+
 - Produces: `firm.release_channel` (`text NOT NULL DEFAULT 'stable'`) on the control-plane firm registry.
 
 - [ ] **Step 1: Add the failing schema-conformance test**
@@ -492,7 +501,7 @@ In `packages/database/src/control-plane-schema.ts`, inside the `firm = sqliteTab
 
 Run: `pnpm --filter @magna-carta/database run generate-control-plane-migrations`
 (Fallback if that script is named differently: `pnpm --filter @magna-carta/database exec drizzle-kit generate --config=drizzle-control-plane.config.ts`.)
-Expected: creates `packages/database/drizzle/control-plane/0003_<name>.sql` containing `ALTER TABLE \`firm\` ADD \`release_channel\` text DEFAULT 'stable' NOT NULL;` and appends an `idx: 3` entry to the control-plane `_journal.json`. Note the exact generated tag (e.g. `0003_<name>`).
+Expected: creates `packages/database/drizzle/control-plane/0003_<name>.sql` containing `ALTER TABLE \`firm\` ADD \`release*channel\` text DEFAULT 'stable' NOT NULL;`and appends an`idx: 3`entry to the control-plane`\_journal.json`. Note the exact generated tag (e.g. `0003*<name>`).
 
 - [ ] **Step 5: Register the migration in the test applier**
 
@@ -527,10 +536,12 @@ git commit -m "feat(release-channels): add firm.release_channel control-plane co
 ### Task 5: Data-access statements for the channel column
 
 **Files:**
+
 - Create: `packages/data-access/src/firm-release-channel-statements.ts`
 - Test: `packages/data-access/test/firm-release-channel-statements.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ReleaseChannel` from `@magna-carta/feature-flags/port`; `firm.release_channel` column (Task 4); the `SqlDatabase`/`SqlStatement` types used by the sibling statement modules (see `packages/data-access/src/audit-statements.ts` for the exact import).
 - Produces:
   - `writeFirmReleaseChannelStatement(database, firmId, channel): SqlStatement` — `UPDATE firm SET release_channel = ?2 WHERE id = ?1`
@@ -597,10 +608,11 @@ export function writeFirmReleaseChannelStatement(
     .bind(firmId, channel);
 }
 
-export function readFirmReleaseChannelStatement(database: SqlDatabase, firmId: FirmId): SqlStatement {
-  return database
-    .prepare(`SELECT release_channel FROM ${FIRM_TABLE} WHERE id = ?1`)
-    .bind(firmId);
+export function readFirmReleaseChannelStatement(
+  database: SqlDatabase,
+  firmId: FirmId,
+): SqlStatement {
+  return database.prepare(`SELECT release_channel FROM ${FIRM_TABLE} WHERE id = ?1`).bind(firmId);
 }
 ```
 
@@ -621,12 +633,14 @@ git commit -m "feat(release-channels): data-access statements for firm.release_c
 ### Task 6: Wire the `FLAGS` binding and the worker-side evaluator resolver
 
 **Files:**
+
 - Modify: `apps/worker/wrangler.jsonc` (add the `flagship` binding)
 - Modify: `apps/worker/src/app.ts` (the `Bindings` type)
 - Create: `apps/worker/src/flags/flag-evaluator.ts`
 - Test: `apps/worker/test/flags/flag-evaluator.test.ts`
 
 **Interfaces:**
+
 - Consumes: `flagshipEvaluator`, `defaultOffEvaluator`, `FlagshipBinding` from `@magna-carta/feature-flags`.
 - Produces: `resolveFlagEvaluator(env: Bindings): FlagEvaluator` — returns the Flagship-backed evaluator when `env.FLAGS` is present, else `defaultOffEvaluator`.
 
@@ -728,12 +742,14 @@ git commit -m "feat(release-channels): FLAGS binding + worker flag-evaluator res
 Firm-admin endpoint, RBAC-gated, accepting only `{stable, beta}`, requiring a consent acknowledgment when moving to `beta`, writing the control-plane column and a per-firm `audit_log` row.
 
 **Files:**
+
 - Create: `apps/worker/src/routes/release-channel.ts`
 - Modify: `apps/worker/src/app.ts` (register the route)
 - Test: `apps/worker/test/release-channel.test.ts`
 - Regenerate: `apps/worker/openapi/openapi.json`, `packages/api-client/src/*.gen.ts`
 
 **Interfaces:**
+
 - Consumes: `writeFirmReleaseChannelStatement` (Task 5); `insertAuditLogStatement` from `@magna-carta/data-access` (per-firm `audit_log`); `RELEASE_CHANNELS`/`isReleaseChannel` from `@magna-carta/feature-flags`; the chokepoint context accessors and `defineOpenAPIRoute`/`RouteMeta` (see `apps/worker/src/routes/members.ts`).
 - Produces: `registerReleaseChannelRoute(app, chokepoint, authForEnv)` (match the registration signature `members.ts` uses).
 
@@ -840,12 +856,14 @@ git commit -m "feat(release-channels): beta door — PUT /api/v1/firm/release-ch
 Platform-only endpoint to set any firm's channel (including `alpha`), mirroring the firm-provisioning guard in `apps/worker/src/routes/firms.ts`.
 
 **Files:**
+
 - Create: `apps/worker/src/routes/platform-release-channel.ts`
 - Modify: `apps/worker/src/app.ts` (register the route)
 - Test: `apps/worker/test/platform-release-channel.test.ts`
 - Regenerate: `apps/worker/openapi/openapi.json`, `packages/api-client/src/*.gen.ts`
 
 **Interfaces:**
+
 - Consumes: `platformAdminGuard` from `apps/worker/src/routes/firms.ts` (export it if not already exported); `writeFirmReleaseChannelStatement` (Task 5); `insertAuthAuditStatement` from `@magna-carta/data-access`; `isReleaseChannel`/`RELEASE_CHANNELS`.
 - Produces: `registerPlatformReleaseChannelRoute(app, chokepoint)`.
 
@@ -892,7 +910,9 @@ app.openapi(
       platformAdminGuard as MiddlewareHandler,
     ]),
   },
-  async (c) => { /* handler */ },
+  async (c) => {
+    /* handler */
+  },
 );
 ```
 
@@ -924,11 +944,13 @@ git commit -m "feat(release-channels): alpha door — secret-guarded platform en
 ### Task 9: Deliver channel + flags through `/me`
 
 **Files:**
+
 - Modify: `apps/worker/src/routes/me.ts`
 - Test: `apps/worker/test/me.test.ts`
 - Regenerate: `apps/worker/openapi/openapi.json`, `packages/api-client/src/*.gen.ts`
 
 **Interfaces:**
+
 - Consumes: `resolveFlagEvaluator` (Task 6); `evaluateCatalog`, `isReleaseChannel` from `@magna-carta/feature-flags`; `readFirmReleaseChannelStatement` (Task 5).
 - Produces: `MeResponse` gains `channel: ReleaseChannel` and `flags: Record<string, boolean>`.
 
@@ -1003,6 +1025,7 @@ git commit -m "feat(release-channels): deliver channel + flags via /me"
 ### Task 10: Documentation, ADRs, and changelog
 
 **Files:**
+
 - Modify: `docs/Magna-Carta-White-Paper.md` (new _Release channels_ topic)
 - Create: `docs/decisions/pending/release-channels-flagship.md`
 - Create: `docs/decisions/pending/release-channels-gate-behavior-not-schema.md`
@@ -1020,6 +1043,7 @@ Add a _Release channels_ topic under the delivery/operations area: the `stable/b
 - [ ] **Step 2: ADR fragments**
 
 Write the two pending ADR fragments following the repo's fragment frontmatter convention (copy an existing file in `docs/decisions/pending/` as the template):
+
 - `release-channels-flagship.md` — adopt Cloudflare Flagship as the feature-flag engine, wrapped in `@magna-carta/feature-flags`; context carries only non-privileged identifiers; defaults are stable behavior.
 - `release-channels-gate-behavior-not-schema.md` — channels gate behavior, never schema; feature code ships dark to the single fleet; the alpha grant is a secret-guarded platform door, beta is firm RBAC + consent.
 
@@ -1045,6 +1069,7 @@ git commit -m "docs(release-channels): white paper, ADR fragments, changelog, st
 ## Self-Review
 
 **Spec coverage:**
+
 - Model (`firm.release_channel`, firm-level, nesting) → Tasks 4, 5; `ReleaseChannel` in Task 1.
 - Beta door (RBAC + consent + control-plane write + per-firm audit) → Tasks 2, 3, 7.
 - Alpha door (secret-guarded platform write + control-plane audit) → Task 8.

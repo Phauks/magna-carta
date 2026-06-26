@@ -9,7 +9,7 @@
 
 The firm wants a way to expose unfinished work to willing audiences before it reaches everyone — to de-risk releases (catch defects in the wild), reward engaged firms with early access, dogfood internally, and gather feedback on intentionally-rough features. The same mechanism serves all four.
 
-The platform is deliberately built as **one fleet, one schema**: `fleet-rollout.ts` marches every firm's database to the *latest* migration, and the control plane mirrors a single `per_firm_schema_version`. That is a correctness property — it keeps a firm's trust ledger from ever running unvetted code against real money. Any channel system must respect it.
+The platform is deliberately built as **one fleet, one schema**: `fleet-rollout.ts` marches every firm's database to the _latest_ migration, and the control plane mirrors a single `per_firm_schema_version`. That is a correctness property — it keeps a firm's trust ledger from ever running unvetted code against real money. Any channel system must respect it.
 
 ## Core principle — channels gate behavior, never schema
 
@@ -34,7 +34,7 @@ The channel value has two distinct write paths with different trust boundaries; 
 ### Beta — firm self-serve
 
 - A new RBAC permission `firm:manageReleaseChannel` (seeded to Owner / firm admin), enforced **server-side in the firm-scoped data-access layer** — never the UI alone.
-- Surfaced through a **dedicated firm endpoint that writes the control-plane `firm.release_channel` column directly** — *not* the per-firm scoped-setting registry. That registry exists and works, but it lives in each firm's own database; channel needs a control-plane home shared with the platform-level alpha door, and a single source of truth for both doors. The endpoint accepts only `{ stable, beta }` and **rejects `alpha`**, so the alpha boundary is enforced by *which door is used*. The Settings UI surfaces this endpoint as a bespoke section (a later frontend slice), not a generated setting.
+- Surfaced through a **dedicated firm endpoint that writes the control-plane `firm.release_channel` column directly** — _not_ the per-firm scoped-setting registry. That registry exists and works, but it lives in each firm's own database; channel needs a control-plane home shared with the platform-level alpha door, and a single source of truth for both doors. The endpoint accepts only `{ stable, beta }` and **rejects `alpha`**, so the alpha boundary is enforced by _which door is used_. The Settings UI surfaces this endpoint as a bespoke section (a later frontend slice), not a generated setting.
 - **Explicit recorded consent gate.** Opting a legal firm's live data onto pre-release software is not a silent toggle: the admin must acknowledge an explicit "I understand this firm will run pre-release features on live data" statement, and that acknowledgment (who, when, the exact text/version) is recorded in the audit trail alongside the channel change. Leaving beta (back to stable) needs no consent.
 
 ### Alpha — developer-only
@@ -43,6 +43,7 @@ The channel value has two distinct write paths with different trust boundaries; 
 - The firm's own team dogfoods by pinning **dedicated internal firms** to alpha. Real client firms reach alpha only by a deliberate developer grant.
 
 Both writes are audited, in the home that matches the door:
+
 - **Beta** (firm session): a per-firm `audit_log` row — event `firm.release_channel_changed`, actor = the admin, with the consent acknowledgment in redacted metadata.
 - **Alpha** (platform, no firm session): a control-plane `auth_audit` row — event `firm.release_channel_set_alpha`, `user_id` null (like `firm.provisioned`), metadata `{ firmId, oldChannel, newChannel }`.
 
@@ -72,7 +73,7 @@ Only non-privileged identifiers travel to the flag provider — never firm conte
 
 ### Per-feature convention
 
-Each gated feature is one boolean flag in Flagship with a standard targeting rule: *serve `on` when `channel in [beta, alpha]`* (or `[alpha]` for alpha-only), optionally with a `% rollout` to ramp within a channel for staged de-risking. Flipping exposure is a dashboard change — no deploy.
+Each gated feature is one boolean flag in Flagship with a standard targeting rule: _serve `on` when `channel in [beta, alpha]`_ (or `[alpha]` for alpha-only), optionally with a `% rollout` to ramp within a channel for staged de-risking. Flipping exposure is a dashboard change — no deploy.
 
 ## Frontend
 
@@ -80,10 +81,10 @@ One SPA bundle for all channels. The resolved flag set for the current session i
 
 ### Alpha/beta visibility & feedback (frontend, Plan 2)
 
-Any feature that is *on because it is pre-stable* — **alpha or beta** — must be **visibly marked as in active development** and must carry a **feedback / bug-report affordance** — so users (1) know they are on unfinished work and (2) are primed to share freely and expect rough edges. The marker is **stage-labeled**: an alpha feature reads "Alpha," a beta feature reads "Beta," because the two set different expectations (alpha is rougher and narrower; beta is the wider opt-in). Both get the showcase and the feedback action. The exact visual treatment is deferred to the frontend slice, where it can be designed against real screens:
+Any feature that is _on because it is pre-stable_ — **alpha or beta** — must be **visibly marked as in active development** and must carry a **feedback / bug-report affordance** — so users (1) know they are on unfinished work and (2) are primed to share freely and expect rough edges. The marker is **stage-labeled**: an alpha feature reads "Alpha," a beta feature reads "Beta," because the two set different expectations (alpha is rougher and narrower; beta is the wider opt-in). Both get the showcase and the feedback action. The exact visual treatment is deferred to the frontend slice, where it can be designed against real screens:
 
-- **The enabling metadata is a rails concern (Plan 1):** each catalog flag carries a `stage` (`alpha | beta | stable`). The client marks any feature where `flags[key] === true && stage !== "stable"`, using the stage as the label. When a feature graduates, its `stage` flips to `stable` (or the flag is removed) and every marker for it disappears automatically — the visibility lifecycle *is* the rollout lifecycle.
-- **The treatment is a UI decision (Plan 2):** a stage-labeled design-system marker at the feature's *edge* (its nav entry / page header), honoring the calm-workflow-surfaces design law — on-token, Lucide icon, no emoji. Plus a feedback affordance routed to the **existing** pipelines (the in-house bug-reporting/incident path, and optionally the community feedback board), not a new one. The intensity (quiet badge + popover vs. a first-encounter dismissible callout vs. a persistent banner) is chosen visually in Plan 2.
+- **The enabling metadata is a rails concern (Plan 1):** each catalog flag carries a `stage` (`alpha | beta | stable`). The client marks any feature where `flags[key] === true && stage !== "stable"`, using the stage as the label. When a feature graduates, its `stage` flips to `stable` (or the flag is removed) and every marker for it disappears automatically — the visibility lifecycle _is_ the rollout lifecycle.
+- **The treatment is a UI decision (Plan 2):** a stage-labeled design-system marker at the feature's _edge_ (its nav entry / page header), honoring the calm-workflow-surfaces design law — on-token, Lucide icon, no emoji. Plus a feedback affordance routed to the **existing** pipelines (the in-house bug-reporting/incident path, and optionally the community feedback board), not a new one. The intensity (quiet badge + popover vs. a first-encounter dismissible callout vs. a persistent banner) is chosen visually in Plan 2.
 
 ## v1 scope — the rails, not the features
 
