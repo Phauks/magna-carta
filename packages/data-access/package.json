@@ -30,7 +30,8 @@
     "./firm-secret-credential-store": "./src/firm-secret-credential-store.ts",
     "./shipment-statements": "./src/shipment-statements.ts",
     "./shipment-service": "./src/shipment-service.ts",
-    "./usage-consent-statements": "./src/usage-consent-statements.ts"
+    "./usage-consent-statements": "./src/usage-consent-statements.ts",
+    "./support-access-statements": "./src/support-access-statements.ts"
   },
   "scripts": {
     "test": "vp test run"

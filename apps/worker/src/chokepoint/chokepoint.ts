@@ -34,6 +34,13 @@ import type { RateLimiter } from "./rate-limiter.ts";
 export interface ResolvedSession {
   readonly userId: UserId;
   readonly firmId: FirmId;
+  // Present when the principal is a support session (a staff identity under a firm grant). The
+  // chokepoint threads it to loadPermissions to choose the tier-scoped permission set.
+  readonly support?: {
+    readonly grantId: import("@magna-carta/identifiers/types").SupportGrantId;
+    readonly principalId: import("@magna-carta/identifiers/types").PlatformStaffId;
+    readonly tier: import("@magna-carta/data-access/support-access-statements").SupportGrantTier;
+  };
 }
 
 // The ports the chokepoint is built over. FirmContext is generic and opaque to the chokepoint: the
