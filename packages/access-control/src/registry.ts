@@ -50,6 +50,7 @@ export const PERMISSIONS = [
   "tools:safeBrowse", // render a suspect URL in an isolated remote browser (static snapshot only)
   "tools:fileConverter", // general matter-free file converter — convert a file to another format
   "tools:metadataScrubber", // inspect/scrub a file's metadata & content artifacts (ephemeral, matter-free)
+  "tools:fileIntegrity", // compute a file's cryptographic digests + verify a stored file against its ingest baseline
   // Custom fields — define and maintain field schemas; purge hard-deletes all values for a field.
   "customFields:manage",
   "customFields:purge",

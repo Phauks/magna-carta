@@ -159,8 +159,22 @@
     {
       "idx": 22,
       "version": "6",
-      "when": 1782000000000,
-      "tag": "0022_seed-release-channel-permission",
+      "when": 1782300200000,
+      "tag": "0022_seed-tools-file-integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1782500000000,
+      "tag": "0023_raw_scan_cache",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1782600000000,
+      "tag": "0024_seed-release-channel-permission",
       "breakpoints": true
     }
   ]

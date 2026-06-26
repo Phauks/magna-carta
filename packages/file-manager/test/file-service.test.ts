@@ -163,7 +163,7 @@ describe("quarantineVersion", () => {
     const { versionId } = await initiate(database, matterId);
     const result = await quarantineVersion(
       database,
-      { versionId, reason: "scan-infected", scanDetail: null },
+      { versionId, reason: "scan-flagged", scanDetail: null },
       options,
     );
     await commitEffectBatch(database, result.effect, { now });
@@ -209,7 +209,7 @@ describe("commitVersion — scan_detail persistence", () => {
     const { versionId } = await initiate(database, matterId);
     const result = await quarantineVersion(
       database,
-      { versionId, reason: "scan-infected", scanDetail: "trojan detected" },
+      { versionId, reason: "scan-flagged", scanDetail: "trojan detected" },
       options,
     );
     await commitEffectBatch(database, result.effect, { now });
@@ -428,6 +428,13 @@ describe("recordRescanVerdict — in-place re-scan", () => {
       .bind(fileId)
       .all<{ current_version_id: string }>();
 
+    const cleanRaw = {
+      engineVersion: "clamav/2.0",
+      clam: { state: "clean" as const },
+      heuristic: { kind: "none" as const },
+      matches: [],
+      timings: { clamdMs: 3, yaraMs: 2 },
+    };
     await commitEffectBatch(
       database,
       recordRescanVerdict(
@@ -441,6 +448,7 @@ describe("recordRescanVerdict — in-place re-scan", () => {
           signature: null,
           contentSha256: "hash-x",
           now: now(),
+          rawScanResult: cleanRaw,
         },
         options,
       ).effect,
@@ -461,16 +469,20 @@ describe("recordRescanVerdict — in-place re-scan", () => {
       .bind(fileId)
       .all<{ current_version_id: string }>();
     expect(after.results[0]?.current_version_id).toBe(before.results[0]?.current_version_id);
-    expect(await lookupScanCache(database, "hash-x", "clamav/2.0")).toEqual({
-      verdict: "clean",
-      signature: null,
-    });
+    expect(await lookupScanCache(database, "hash-x", "clamav/2.0")).toEqual(cleanRaw);
   });
 
   it("an infected re-scan keeps the version VISIBLE (status stays clean) — informed access, no data loss", async () => {
     const database = freshDatabase();
     const { versionId, fileId } = await committedVersion(database, "hash-bad");
 
+    const infectedRaw = {
+      engineVersion: "clamav/2.0",
+      clam: { state: "infected" as const, signature: "Eicar-Test-Signature" },
+      heuristic: { kind: "none" as const },
+      matches: [],
+      timings: { clamdMs: 4, yaraMs: 1 },
+    };
     const { effect } = recordRescanVerdict(
       database,
       {
@@ -482,6 +494,7 @@ describe("recordRescanVerdict — in-place re-scan", () => {
         signature: "Eicar-Test-Signature",
         contentSha256: "hash-bad",
         now: now(),
+        rawScanResult: infectedRaw,
       },
       options,
     );
@@ -497,10 +510,7 @@ describe("recordRescanVerdict — in-place re-scan", () => {
       .all<{ scan_verdict: string; status: string }>();
     // The hallmark of informed access: flagged but still committed/visible — never hidden or regressed.
     expect(row.results[0]).toMatchObject({ scan_verdict: "infected", status: "clean" });
-    expect(await lookupScanCache(database, "hash-bad", "clamav/2.0")).toEqual({
-      verdict: "infected",
-      signature: "Eicar-Test-Signature",
-    });
+    expect(await lookupScanCache(database, "hash-bad", "clamav/2.0")).toEqual(infectedRaw);
   });
 });
 

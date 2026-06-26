@@ -26,8 +26,9 @@ const INSTREAM_COMMAND: &[u8] = b"zINSTREAM\0";
 // floor is ~140s, and archive expansion (`MaxScanSize` is raised to the cap) can multiply the bytes
 // clamd actually inspects, so the budget carries several minutes of headroom on top. Too tight here
 // would false-positive a wedge on a large but legitimate upload and bounce it into a retry loop; on
-// elapse the exchange returns `Unavailable`, which `combine()` maps to the retryable 503 (never clean),
-// and the spooled scratch file drops — so a wedged daemon cannot leak a connection or a file.
+// elapse the exchange returns `Unavailable`, reported as the raw fact `clam: unavailable` (never a
+// fabricated clean) for the app-side verdict layer to raise to a retryable fault, and the spooled
+// scratch file drops — so a wedged daemon cannot leak a connection or a file.
 //
 // Overridable by `CLAMD_EXCHANGE_TIMEOUT_SECS` for operations (raise it for a slower DB / larger cap)
 // and so a test can shrink it to drive the wedged-daemon path quickly.

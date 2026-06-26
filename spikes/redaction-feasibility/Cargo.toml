@@ -1,0 +1,16 @@
+[package]
+name = "redaction-feasibility"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "redaction-feasibility"
+path = "src/main.rs"
+
+[dependencies]
+lopdf = "0.41"
+pdf-extract = "0.7"
+hayro-interpret = { version = "0.7", features = ["embed-fonts", "embed-cmaps"] }
+hayro-syntax = { version = "0.7", features = ["std", "images", "unsafe"] }
+kurbo = "0.13"
+image = "0.25"

@@ -104,6 +104,34 @@ export type SafeWebsiteView = {
     links: Array<string>;
 };
 
+export type FileIntegrityHashResponse = {
+    algorithms: {
+        md5: string;
+        sha1: string;
+        sha256: string;
+        sha384: string;
+        sha512: string;
+    };
+    sizeBytes: number;
+    computedAt: string;
+    expectedMatch: 'md5' | 'sha1' | 'sha256' | 'sha384' | 'sha512' | null;
+};
+
+export type FileIntegrityVerifyResponse = {
+    algorithms: {
+        md5: string;
+        sha1: string;
+        sha256: string;
+        sha384: string;
+        sha512: string;
+    };
+    sizeBytes: number;
+    baselineSha256: string | null;
+    comparison: 'match' | 'mismatch' | 'no-baseline';
+    computedAt: string;
+    receipt?: unknown;
+};
+
 export type MetadataReport = {
     format: string;
     findings: Array<{
@@ -1378,6 +1406,92 @@ export type SafeBrowsePostResponses = {
 };
 
 export type SafeBrowsePostResponse = SafeBrowsePostResponses[keyof SafeBrowsePostResponses];
+
+export type FileIntegrityHashData = {
+    body?: never;
+    path?: never;
+    query?: {
+        expected?: string;
+    };
+    url: '/api/v1/file-integrity/hash';
+};
+
+export type FileIntegrityHashErrors = {
+    /**
+     * Empty request body
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:fileIntegrity
+     */
+    403: Problem;
+    /**
+     * The body exceeds the firm's inspectable-size cap
+     */
+    413: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FileIntegrityHashError = FileIntegrityHashErrors[keyof FileIntegrityHashErrors];
+
+export type FileIntegrityHashResponses = {
+    /**
+     * The five digests and byte size of the supplied body
+     */
+    200: FileIntegrityHashResponse;
+};
+
+export type FileIntegrityHashResponse2 = FileIntegrityHashResponses[keyof FileIntegrityHashResponses];
+
+export type FileIntegrityVerifyData = {
+    body?: {
+        fileId: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/file-integrity/verify';
+};
+
+export type FileIntegrityVerifyErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:fileIntegrity
+     */
+    403: Problem;
+    /**
+     * No clean current version exists for the file
+     */
+    404: Problem;
+    /**
+     * The stored file exceeds the firm's inspectable-size cap for inline verification
+     */
+    413: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FileIntegrityVerifyError = FileIntegrityVerifyErrors[keyof FileIntegrityVerifyErrors];
+
+export type FileIntegrityVerifyResponses = {
+    /**
+     * The recomputed digests, the baseline comparison, and the receipt
+     */
+    200: FileIntegrityVerifyResponse;
+};
+
+export type FileIntegrityVerifyResponse2 = FileIntegrityVerifyResponses[keyof FileIntegrityVerifyResponses];
 
 export type MetadataInspectData = {
     body: {
