@@ -77,7 +77,34 @@ keeps the scope honest, uses the capability registry as designed, and gives spli
 format (7z is what 7-Zip itself produces). Recorded in the ADR
 (`docs/decisions/pending/enhanced-bundling-formats-encryption-split.md`).
 
+## Container ↔ R2 data flow (resolved by "outbound Workers")
+
+How does `containers/bundle` read inputs and write output volumes? Three models were weighed:
+
+1. **Container ↔ R2 directly (S3 API / presigned URLs).** Container holds scoped R2 credentials (or
+   per-object presigned URLs) and needs egress to the R2 endpoint. Keeps bytes off the Worker but adds a
+   credential + egress surface to a new container.
+2. **Worker proxies bytes (the `containers/scan` model).** Worker POSTs inputs to the container and
+   receives the archive. Container stays credential/egress-free, but the Worker custom-proxies many
+   inputs + a large output.
+3. **Outbound Workers (RECOMMENDED).** Since 2026-03-26 (`@cloudflare/containers` ≥ 0.2.0), a container
+   reaches Worker bindings over HTTP: it requests `http://<host>/<key>` and an `outboundByHost` handler
+   **in the owner Worker** services it via `env.R2` (`get`→stream `object.body` on a GET, `put(key, body)`
+   on a PUT). The handler runs in the Workers runtime, outside the container sandbox. Docs:
+   [outbound traffic](https://developers.cloudflare.com/containers/platform-details/outbound-traffic/),
+   [changelog](https://developers.cloudflare.com/changelog/post/2026-03-26-outbound-workers/).
+
+**Decision: model 3.** The container holds **no R2 credentials and needs no general egress** — as hardened
+as `containers/scan` (`enableInternet=false`, loopback-only). Every R2 read/write is **mediated by the
+owner Worker's existing `env.R2` binding** (it authorizes each key against the firm/job), and bytes stream
+through the platform's outbound mechanism rather than custom hot-path proxy code. The container spools the
+encoded archive to ephemeral disk (Finding A) so it knows each volume's exact size and issues sized PUTs.
+The HTTP contract the Worker sends the container is therefore a **manifest only** — `{ inputs:
+[{ r2Key, archivePath }], options, password? (in-memory), outputKeyPrefix }` — never bytes. Requires the
+worker's `@cloudflare/containers` Container class at ≥ 0.2.0 (verify the pinned version when building).
+
 ## Conclusion
 
 Crates are sufficient for ZIP (Deflate/ZIP64/AES, single-artifact) and 7z (LZMA2/AES-256/header-encryption
-+ byte-split volumes) with a disk-spool output model. Plan 2 is feasible.
++ byte-split volumes) with a disk-spool output model, and the container reaches R2 through the owner
+Worker's `env.R2` binding via outbound Workers — credential-free and egress-free. Plan 2 is feasible.
