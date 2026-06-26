@@ -10,6 +10,9 @@ pub use adapter::{
 mod detect;
 pub use detect::detect;
 
+mod pdf;
+pub use pdf::PdfAdapter;
+
 #[cfg(test)]
 mod smoke {
     #[test]
