@@ -1,6 +1,7 @@
 import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { isPermission } from "@magna-carta/access-control/registry";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { runScheduledSweep } from "../src/scheduled.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 import {
@@ -20,11 +21,11 @@ import { createAuthenticator, secretFromTotpUri } from "./support/totp.ts";
 // database and control-plane rows carry no trace of firm A's activity.
 //
 // Storage is per-test-FILE and shared across this file's tests, so the journey runs as ONE
-// sequence of `it` steps over module-level state (the firms.test.ts pattern). The dev pool has
-// exactly two bindings; this file provisions both firms, claiming both.
+// sequence of `it` steps over module-level state (the firms.test.ts pattern). Each firm's per-firm
+// database is its firmId-addressed FirmDatabase DO, which self-migrates on first access.
 
 beforeAll(async () => {
-  // Control plane only — the provisioner migrates each claimed pool firm database itself (that
+  // Control plane only — each firm's FirmDatabase DO self-migrates to head on first access (that
   // is part of what this e2e proves), so the per-firm migrations are deliberately NOT pre-applied.
   await applyControlPlaneMigrations(env.DB_CONTROL);
 });
@@ -67,7 +68,7 @@ async function postFirms(body: unknown): Promise<Response> {
 }
 
 describe("end-to-end", () => {
-  it("provisions firm A and firm B, each claiming its own dev-pool database", async () => {
+  it("provisions firm A and firm B, each backed by its own self-migrating firm database", async () => {
     const responseA = await postFirms(FIRM_A_INPUT);
     expect(responseA.status).toBe(201);
     firmA = (await responseA.json()) as ProvisionResponseBody;
@@ -78,18 +79,15 @@ describe("end-to-end", () => {
     firmB = (await responseB.json()) as ProvisionResponseBody;
     expect(firmB.status).toBe("active");
 
-    // Provision order pins the pool claims: firm A on the first binding, firm B on the second —
-    // the handle every later isolation assert keys its direct database reads off.
-    for (const [firmId, expectedBinding] of [
-      [firmA.id, "DB_FIRM_POOL_1"],
-      [firmB.id, "DB_FIRM_POOL_2"],
-    ] as const) {
-      const firmRow = await env.DB_CONTROL.prepare(
-        "SELECT database_identifier FROM firm WHERE id = ?1",
-      )
-        .bind(firmId)
-        .first<{ database_identifier: string }>();
-      expect(firmRow?.database_identifier).toBe(expectedBinding);
+    // Each firm's per-firm database is its firmId-addressed FirmDatabase DO, which self-migrated to
+    // head on first access (no provisioning step) — the Owner/Admin role seed is resolvable in
+    // each, the handle every later isolation assert keys its direct database reads off.
+    for (const firmId of [firmA.id, firmB.id]) {
+      const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+      const roleRows = await firmDatabase
+        .prepare("SELECT id FROM role WHERE name = 'Owner/Admin'")
+        .all<{ id: string }>();
+      expect(roleRows.results[0]?.id).toMatch(/^role_/);
     }
   });
 
@@ -103,14 +101,16 @@ describe("end-to-end", () => {
     const report = await runScheduledSweep(env);
     expect(report.controlPlane.failed).toBe(0);
 
-    for (const [owner, firmDatabase] of [
-      [firmA.owner, env.DB_FIRM_POOL_1],
-      [firmB.owner, env.DB_FIRM_POOL_2],
+    for (const [owner, firmId] of [
+      [firmA.owner, firmA.id],
+      [firmB.owner, firmB.id],
     ] as const) {
-      const memberRow = await firmDatabase
+      const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+      const memberResults = await firmDatabase
         .prepare("SELECT display_name, status FROM member WHERE user_id = ?1")
         .bind(owner.id)
-        .first<{ display_name: string; status: string }>();
+        .all<{ display_name: string; status: string }>();
+      const memberRow = memberResults.results[0];
       expect(memberRow).toEqual({ display_name: owner.name, status: "active" });
 
       const roleRows = await firmDatabase
@@ -297,38 +297,39 @@ describe("end-to-end", () => {
     const report = await runScheduledSweep(env);
     expect(report.controlPlane.failed).toBe(0);
 
-    const memberRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT display_name, status FROM member WHERE user_id = ?1",
-    )
+    const firmADatabase = firmDatabaseFor(env.FIRM_DATABASE, firmA.id);
+    const memberResults = await firmADatabase
+      .prepare("SELECT display_name, status FROM member WHERE user_id = ?1")
       .bind(invitedParalegalId)
-      .first<{ display_name: string; status: string }>();
+      .all<{ display_name: string; status: string }>();
+    const memberRow = memberResults.results[0];
     expect(memberRow).toEqual({ display_name: PARALEGAL_NAME, status: "active" });
 
     // The invite carries no role (roleName rides the outbox as null): the member lands roleless —
     // the role-assignment API is a later slice. The seeded Paralegal role IS resolvable in firm
     // A's database, ready for that slice to assign.
-    const roleAssignmentCount = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS count FROM member_role WHERE member_user_id = ?1",
-    )
+    const roleAssignmentResults = await firmADatabase
+      .prepare("SELECT COUNT(*) AS count FROM member_role WHERE member_user_id = ?1")
       .bind(invitedParalegalId)
-      .first<{ count: number }>();
-    expect(roleAssignmentCount?.count).toBe(0);
-    const paralegalRole = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT id FROM role WHERE name = 'Paralegal'",
-    ).first<{ id: string }>();
-    expect(paralegalRole?.id).toMatch(/^role_/);
+      .all<{ count: number }>();
+    expect(roleAssignmentResults.results[0]?.count).toBe(0);
+    const paralegalRoleResults = await firmADatabase
+      .prepare("SELECT id FROM role WHERE name = 'Paralegal'")
+      .all<{ id: string }>();
+    expect(paralegalRoleResults.results[0]?.id).toMatch(/^role_/);
   });
 
   it("leaves no trace of firm A's activity in firm B (tenant isolation)", async () => {
     // Firm B's database holds EXACTLY its own owner — by exhaustive enumeration, so no row for
     // the invitee or firm A's owner can hide; same for the role assignments.
-    const firmBMembers = await env.DB_FIRM_POOL_2.prepare(
-      "SELECT user_id FROM member ORDER BY user_id",
-    ).all<{ user_id: string }>();
+    const firmBDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmB.id);
+    const firmBMembers = await firmBDatabase
+      .prepare("SELECT user_id FROM member ORDER BY user_id")
+      .all<{ user_id: string }>();
     expect(firmBMembers.results).toEqual([{ user_id: firmB.owner.id }]);
-    const firmBRoleAssignments = await env.DB_FIRM_POOL_2.prepare(
-      "SELECT member_user_id FROM member_role ORDER BY member_user_id",
-    ).all<{ member_user_id: string }>();
+    const firmBRoleAssignments = await firmBDatabase
+      .prepare("SELECT member_user_id FROM member_role ORDER BY member_user_id")
+      .all<{ member_user_id: string }>();
     expect(firmBRoleAssignments.results).toEqual([{ member_user_id: firmB.owner.id }]);
 
     // Firm B's control-plane slice is untouched beyond its own: its only user is its owner, and

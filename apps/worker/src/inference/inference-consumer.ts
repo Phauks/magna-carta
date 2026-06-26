@@ -10,18 +10,20 @@ import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
-import { resolveFirmDatabase } from "../firm-binding-resolver.ts";
+import { firmDatabaseFor } from "../firm-database/firm-database-proxy.ts";
 import { inferencePortFor, resolveReasoningModel } from "./call-site.ts";
 
 // The inference queue consumer runs OFF the hot path: a single firm cannot starve the shared gateway
-// cap synchronously on the request path. It derives the firm database from the firm-scoped job context,
-// routes through the firmRateGate back-pressure seam, calls the AI binding, captures the authoritative
-// token usage from the response, and writes the metering record through the firm-scoped data-access
-// layer — the firm's own D1 handle is the structural isolation.
+// cap synchronously on the request path. It resolves the firm's per-firm database by firmId, routes
+// through the firmRateGate back-pressure seam, calls the AI binding, captures the authoritative token
+// usage from the response, and writes the metering record through the firm-scoped data-access layer —
+// the firm's own per-firm database handle is the structural isolation.
 
 export interface InferenceJob {
   readonly firmId: string;
-  readonly databaseIdentifier: string; // the firm's database binding name (the firm-scoped context)
+  // Vestigial: the firm is addressed by firmId through its per-firm FirmDatabase Durable Object, so
+  // this no longer selects the database. Retained until producers stop writing it.
+  readonly databaseIdentifier: string;
   readonly prompt: string;
   // The producer's stable per-run idempotency anchor: identical across a redelivery of the SAME run,
   // so the two dedup guards below collapse a redelivery to a single spend + a single meter. The
@@ -53,10 +55,10 @@ export function tokenUsageKeyForDay(nowIso: string, slot: string, modelId: strin
 const ENVIRONMENT_LABEL = "production";
 
 export async function handleInferenceJob(env: Bindings, job: InferenceJob): Promise<void> {
-  // An unknown database identifier means this deployment cannot reach the firm — ack and move on.
-  // Retrying cannot conjure a missing binding; the ingest consumer uses the same pattern.
-  const firmDatabase = resolveFirmDatabase(env, job.databaseIdentifier);
-  if (firmDatabase === null) return;
+  // The firm's per-firm FirmDatabase Durable Object is addressed by its firmId and self-migrates the
+  // per-firm lineage on first access — every firm is reachable by name. The firm came from the
+  // job's firm-scoped context, never client input.
+  const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, job.firmId);
 
   firmRateGate(job.firmId);
 

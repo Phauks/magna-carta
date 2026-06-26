@@ -3,7 +3,7 @@ import { createMemoryLogger } from "@magna-carta/telemetry/logger";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -21,7 +21,6 @@ import {
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
 });
 
 describe("slice 0·6 end-to-end — the correlation story", () => {
@@ -36,7 +35,7 @@ describe("slice 0·6 end-to-end — the correlation story", () => {
       userName: "E2E Reporter",
       firmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "E2E Reporter");
+    await mirrorMemberWithOwnerRole(userId, "E2E Reporter", firmId);
     const cookie = await signInForSessionCookie("e2e-telemetry@example.com");
 
     const memory = createMemoryLogger();
@@ -78,14 +77,18 @@ describe("slice 0·6 end-to-end — the correlation story", () => {
 
     // 3. The firm-scoped row carries the quoted Error ID, and the incident.created outbox row rode
     //    the same batch — the queue seam the diagnostics agent will consume.
-    const row = await env.DB_FIRM_POOL_1.prepare("SELECT error_ids FROM incident WHERE id = ?1")
+    const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+    const incidentResults = await firmDatabase
+      .prepare("SELECT error_ids FROM incident WHERE id = ?1")
       .bind(incidentId)
-      .first<{ error_ids: string }>();
+      .all<{ error_ids: string }>();
+    const row = incidentResults.results[0] ?? null;
     expect(JSON.parse(row?.error_ids ?? "[]")).toEqual([failureBody.errorId]);
 
-    const outbox = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT topic FROM outbox WHERE topic = 'incident.created'",
-    ).first<{ topic: string }>();
+    const outboxResults = await firmDatabase
+      .prepare("SELECT topic FROM outbox WHERE topic = 'incident.created'")
+      .all<{ topic: string }>();
+    const outbox = outboxResults.results[0] ?? null;
     expect(outbox?.topic).toBe("incident.created");
   });
 });

@@ -1,16 +1,18 @@
 import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { firmResourceName } from "../src/firm-resource-provider.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
 
 // POST /api/v1/firms end-to-end (Miniflare): the platform-admin guard, the resumable provisioner
-// behind the dev pool-claiming resource provider, idempotent replay, and the conflict problems.
+// behind the R2 resource provider, idempotent replay, and the conflict problems. Each firm's
+// per-firm database is its firmId-addressed FirmDatabase DO, which self-migrates on first access —
+// provisioning has no database-create or migrate step.
 //
-// Storage is SHARED across this file's tests and the dev pool has exactly two bindings, so the
-// suite runs as one sequence over two firms: "Integration Firm One" (DB_FIRM_POOL_1) carries the
-// happy path, the replay, the double-invoke, and the name conflict; "Email Clash Firm"
-// (DB_FIRM_POOL_2) carries the owner-email conflict and the corrected resume.
+// Storage is SHARED across this file's tests, so the suite runs as one sequence over two firms:
+// "Integration Firm One" carries the happy path, the replay, the double-invoke, and the name
+// conflict; "Email Clash Firm" carries the owner-email conflict and the corrected resume.
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
@@ -160,7 +162,7 @@ describe("POST /api/v1/firms", () => {
     expect(body["errorId"]).toMatch(/^error_/);
   });
 
-  it("provisions a firm end-to-end: active row, claimed pool binding, migrated firm database, owner effects", async () => {
+  it("provisions a firm end-to-end: active row, self-migrated firm database, owner effects", async () => {
     firmOneKey = crypto.randomUUID();
     const response = await postFirms(FIRM_ONE_INPUT, { idempotencyKey: firmOneKey });
     expect(response.status).toBe(201);
@@ -172,36 +174,34 @@ describe("POST /api/v1/firms", () => {
     expect(firmOneBody.owner.email).toBe(FIRM_ONE_OWNER_EMAIL);
     expect(firmOneBody.owner.name).toBe("Firm Owner");
 
-    // The firm row: active, first pool binding claimed, mirror at head, dev bucket recorded.
+    // The firm row: active, dev bucket recorded.
     const firmRow = await env.DB_CONTROL.prepare(
-      "SELECT status, database_identifier, per_firm_schema_version, bucket_name FROM firm WHERE id = ?1",
+      "SELECT status, bucket_name FROM firm WHERE id = ?1",
     )
       .bind(firmOneBody.id)
       .first<{
         status: string;
-        database_identifier: string;
-        per_firm_schema_version: string;
         bucket_name: string;
       }>();
     expect(firmRow).toEqual({
       status: "active",
-      database_identifier: "DB_FIRM_POOL_1",
-      per_firm_schema_version: "0022_seed-tools-file-integrity",
       // The dev provider records a per-firm-unique deterministic bucket name (the event→firm
       // resolution key), not a shared literal.
       bucket_name: await firmResourceName(firmOneBody.id as FirmId),
     });
 
-    // The claimed firm database really is migrated to head — the mirror column MATCHES the
-    // firm database's own _migrations truth, and the 0002 role seeds exist.
-    const latestApplied = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT tag FROM _migrations ORDER BY tag DESC LIMIT 1",
-    ).first<{ tag: string }>();
-    expect(latestApplied?.tag).toBe(firmRow?.per_firm_schema_version);
-    const ownerRole = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT id FROM role WHERE name = 'Owner/Admin'",
-    ).first<{ id: string }>();
-    expect(ownerRole?.id).toMatch(/^role_/);
+    // The firm's per-firm database is its firmId-addressed FirmDatabase DO, which self-migrated to
+    // head on first access (no provisioning step) — its _migrations carries the lineage head and
+    // the 0002 Owner/Admin role seed exists.
+    const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmOneBody.id);
+    const latestApplied = await firmDatabase
+      .prepare("SELECT tag FROM _migrations ORDER BY tag DESC LIMIT 1")
+      .all<{ tag: string }>();
+    expect(latestApplied.results[0]?.tag).toBe("0023_raw_scan_cache");
+    const ownerRole = await firmDatabase
+      .prepare("SELECT id FROM role WHERE name = 'Owner/Admin'")
+      .all<{ id: string }>();
+    expect(ownerRole.results[0]?.id).toMatch(/^role_/);
 
     // The owner user: unverified, account-less (activation through the reset link — Path A).
     const ownerRow = await env.DB_CONTROL.prepare(
@@ -323,8 +323,8 @@ describe("POST /api/v1/firms", () => {
   });
 
   it("answers 422 for a taken owner email and lets a corrected re-invoke resume the SAME firm", async () => {
-    // Second firm, firm one's owner email: steps 1-4 succeed (the second pool binding is
-    // claimed), then the activation batch trips UNIQUE(user.email) and rolls back whole.
+    // Second firm, firm one's owner email: steps 1-2 succeed (the bucket is created), then the
+    // activation batch trips UNIQUE(user.email) and rolls back whole.
     const clashing = await postFirms(
       { name: "Email Clash Firm", owner: { email: FIRM_ONE_OWNER_EMAIL, name: "Clashing Owner" } },
       { idempotencyKey: crypto.randomUUID() },
@@ -336,16 +336,12 @@ describe("POST /api/v1/firms", () => {
       status: 422,
     });
     const partialRow = await env.DB_CONTROL.prepare(
-      "SELECT status, database_identifier, per_firm_schema_version FROM firm WHERE name = 'Email Clash Firm'",
-    ).first<{ status: string; database_identifier: string; per_firm_schema_version: string }>();
-    expect(partialRow).toEqual({
-      status: "provisioning",
-      database_identifier: "DB_FIRM_POOL_2",
-      per_firm_schema_version: "0022_seed-tools-file-integrity",
-    });
+      "SELECT status FROM firm WHERE name = 'Email Clash Firm'",
+    ).first<{ status: string }>();
+    expect(partialRow).toEqual({ status: "provisioning" });
 
     // Re-invoking with a FREE owner email (new key — a corrected request) resumes the partial
-    // firm by name: no new row, no new pool claim, activation completes.
+    // firm by name: no new row, activation completes.
     const corrected = await postFirms(
       {
         name: "Email Clash Firm",
@@ -356,18 +352,19 @@ describe("POST /api/v1/firms", () => {
     expect(corrected.status).toBe(201);
     const correctedBody = (await corrected.json()) as ProvisionResponseBody;
     const resumedRow = await env.DB_CONTROL.prepare(
-      "SELECT id, status, database_identifier FROM firm WHERE name = 'Email Clash Firm'",
-    ).first<{ id: string; status: string; database_identifier: string }>();
+      "SELECT id, status FROM firm WHERE name = 'Email Clash Firm'",
+    ).first<{ id: string; status: string }>();
     expect(resumedRow).toEqual({
       id: correctedBody.id,
       status: "active",
-      database_identifier: "DB_FIRM_POOL_2",
     });
-    // The resumed firm's database was migrated during the failed attempt and stayed migrated.
-    const poolTwoRole = await env.DB_FIRM_POOL_2.prepare(
-      "SELECT id FROM role WHERE name = 'Owner/Admin'",
-    ).first<{ id: string }>();
-    expect(poolTwoRole?.id).toMatch(/^role_/);
+    // The resumed firm's per-firm database (its FirmDatabase DO) self-migrated on first access —
+    // the Owner/Admin role seed is resolvable.
+    const firmTwoDatabase = firmDatabaseFor(env.FIRM_DATABASE, correctedBody.id);
+    const roleRows = await firmTwoDatabase
+      .prepare("SELECT id FROM role WHERE name = 'Owner/Admin'")
+      .all<{ id: string }>();
+    expect(roleRows.results[0]?.id).toMatch(/^role_/);
   });
 
   it("emits the route into the OpenAPI document with the native operationId and x-mc metadata", async () => {

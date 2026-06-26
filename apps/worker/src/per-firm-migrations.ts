@@ -26,12 +26,12 @@ import seedToolsFileIntegritySql from "@magna-carta/database/drizzle/per-firm/00
 import rawScanCacheSql from "@magna-carta/database/drizzle/per-firm/0023_raw_scan_cache.sql";
 import seedReleaseChannelPermissionSql from "@magna-carta/database/drizzle/per-firm/0024_seed-release-channel-permission.sql";
 
-// The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the firm
-// provisioner migrates a freshly created firm database to head at provisioning time, so the SQL
-// must ship in the bundle, not only in test support. Plain `.sql` imports — the dual
+// The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
+// Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
+// so the SQL must ship in the bundle, not only in test support. Plain `.sql` imports — the dual
 // Vite/wrangler bundling contract lives in src/sql-modules.d.ts.
 // migrationsFromJournal fails loud when the journal gains a migration this map does not carry:
-// add the new import alongside its journal entry (apply-per-firm-migrations.ts reuses this module).
+// add the new import alongside its journal entry. The test support reuses this same lineage.
 export function perFirmMigrations(): Migration[] {
   return migrationsFromJournal(perFirmJournal, {
     "0000_foundational-tables": foundationalTablesSql,
@@ -60,12 +60,4 @@ export function perFirmMigrations(): Migration[] {
     "0023_raw_scan_cache": rawScanCacheSql,
     "0024_seed-release-channel-permission": seedReleaseChannelPermissionSql,
   });
-}
-
-// The lineage head (latest journal tag) — the provisioner's migrate-step guard compares the firm
-// row's mirrored per_firm_schema_version against this without touching the firm database.
-export function perFirmHeadSchemaVersion(): string {
-  const lastEntry = [...perFirmJournal.entries].sort((a, b) => a.idx - b.idx).at(-1);
-  if (lastEntry === undefined) throw new Error("per-firm migration journal is empty");
-  return lastEntry.tag;
 }

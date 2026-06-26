@@ -5,7 +5,6 @@ import type { HttpClient } from "@magna-carta/integrations/http";
 import type { WhoisSocket } from "@magna-carta/whois/types";
 import { createApp } from "../src/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -59,7 +58,6 @@ let poolFirmId: FirmId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1); // includes 0016 (all roles get tools:whois)
   poolFirmId = (await seedFirm({ name: "WHOIS Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
     .firmId;
 });
@@ -96,7 +94,7 @@ describe("GET /api/v1/whois", () => {
       userName: "WHOIS OK",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "WHOIS OK"); // Owner/Admin carries tools:whois (0016)
+    await mirrorMemberWithOwnerRole(userId, "WHOIS OK", poolFirmId); // Owner/Admin carries tools:whois (0016)
     const cookie = await signInForSessionCookie("whois-ok@example.com");
     const response = await app.request(
       "https://example.com/api/v1/whois?query=example.com",

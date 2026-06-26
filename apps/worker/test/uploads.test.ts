@@ -4,7 +4,7 @@ import { insertMemberStatement } from "@magna-carta/data-access/member-statement
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, MatterId } from "@magna-carta/identifiers/types";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -23,7 +23,6 @@ let ownerCookie: string;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   poolFirmId = (await seedFirm({ name: "Uploads Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
     .firmId;
   // An active firm carries a provisioned bucket; the dev pool firm shares the single R2 binding.
@@ -35,15 +34,16 @@ beforeAll(async () => {
     userName: "Uploads Owner",
     firmId: poolFirmId,
   });
-  await mirrorMemberWithOwnerRole(owner.userId, "Uploads Owner");
+  await mirrorMemberWithOwnerRole(owner.userId, "Uploads Owner", poolFirmId);
   ownerCookie = await signInForSessionCookie("uploads-owner@example.com");
 
   // A matter to upload into (responsible member = the mirrored owner).
   matterId = newIdentifier("matter");
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) " +
-      "VALUES (?1, 'Upload Matter', 'open', ?2, ?3, ?3)",
-  )
+  await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+    .prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) " +
+        "VALUES (?1, 'Upload Matter', 'open', ?2, ?3, ?3)",
+    )
     .bind(matterId, owner.userId, "2026-06-13T00:00:00.000Z")
     .run();
 });
@@ -156,7 +156,7 @@ describe("POST /api/v1/uploads — initiate", () => {
       firmId: poolFirmId,
     });
     // Mirror as a member with NO role assignment → empty effective permissions.
-    await insertMemberStatement(env.DB_FIRM_POOL_1, {
+    await insertMemberStatement(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), {
       userId,
       displayName: "No Perms",
       now: "2026-06-13T00:00:00.000Z",
@@ -186,11 +186,13 @@ describe("POST /api/v1/uploads — initiate", () => {
     expect(secondBody.uploadId).toBe(firstBody.uploadId);
 
     // Exactly one session for that version, and its r2_upload_id is set exactly once (the winner's).
-    const sessions = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS n FROM upload_session WHERE file_version_id = ?1 AND r2_upload_id IS NOT NULL",
-    )
+    const sessionsResult = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "SELECT COUNT(*) AS n FROM upload_session WHERE file_version_id = ?1 AND r2_upload_id IS NOT NULL",
+      )
       .bind(firstBody.versionId)
-      .first<{ n: number }>();
+      .all<{ n: number }>();
+    const sessions = sessionsResult.results[0];
     expect(sessions?.n).toBe(1);
   });
 
@@ -217,11 +219,11 @@ describe("POST /api/v1/uploads — initiate", () => {
 
     // The record lives in the per-firm idempotency_key table (raw key — the table is physically
     // tenant-isolated), never the shared control-plane table.
-    const firmRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT key FROM idempotency_key WHERE key = ?1",
-    )
+    const firmRowResult = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT key FROM idempotency_key WHERE key = ?1")
       .bind(idempotencyKey)
-      .first<{ key: string }>();
+      .all<{ key: string }>();
+    const firmRow = firmRowResult.results[0];
     expect(firmRow?.key).toBe(idempotencyKey);
     const controlRow = await env.DB_CONTROL.prepare(
       "SELECT key FROM idempotency_key WHERE key = ?1 OR key = ?2",
@@ -274,11 +276,11 @@ describe("POST /api/v1/uploads/{id}/complete", () => {
       ownerCookie,
     );
     expect(response.status).toBe(200);
-    const status = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT status FROM upload_session WHERE id = ?1",
-    )
+    const statusResult = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT status FROM upload_session WHERE id = ?1")
       .bind(uploadId)
-      .first<{ status: string }>();
+      .all<{ status: string }>();
+    const status = statusResult.results[0];
     expect(status?.status).toBe("completed");
   });
 
@@ -303,17 +305,17 @@ describe("POST /api/v1/uploads/{id}/abort", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ status: "aborted" });
 
-    const session = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT status FROM upload_session WHERE id = ?1",
-    )
+    const sessionResult = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT status FROM upload_session WHERE id = ?1")
       .bind(uploadId)
-      .first<{ status: string }>();
+      .all<{ status: string }>();
+    const session = sessionResult.results[0];
     expect(session?.status).toBe("aborted");
-    const version = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT status FROM file_version WHERE id = ?1",
-    )
+    const versionResult = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT status FROM file_version WHERE id = ?1")
       .bind(versionId)
-      .first<{ status: string }>();
+      .all<{ status: string }>();
+    const version = versionResult.results[0];
     expect(version?.status).toBe("abandoned");
   });
 

@@ -10,7 +10,7 @@ import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type { FirmId, RateCardId, UserId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -39,16 +39,17 @@ let rateCardId: RateCardId;
 const clock = { now: () => new Date().toISOString() };
 
 async function mirrorMemberWithRole(userId: UserId, displayName: string, roleName: string) {
-  const role = await env.DB_FIRM_POOL_1.prepare("SELECT id FROM role WHERE name = ?1")
+  const role = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+    .prepare("SELECT id FROM role WHERE name = ?1")
     .bind(roleName)
     .first<{ id: string }>();
   if (role === null) throw new Error(`seeded role ${roleName} missing`);
-  await insertMemberStatement(env.DB_FIRM_POOL_1, {
+  await insertMemberStatement(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), {
     userId,
     displayName,
     now: new Date().toISOString(),
   }).run();
-  await insertRoleAssignmentStatement(env.DB_FIRM_POOL_1, {
+  await insertRoleAssignmentStatement(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), {
     id: newIdentifier("memberRole"),
     memberUserId: userId,
     roleId: assertIdentifier(role.id, "role"),
@@ -62,22 +63,22 @@ async function mirrorMemberWithDirectGrant(
   displayName: string,
   permission: string,
 ): Promise<void> {
-  await insertMemberStatement(env.DB_FIRM_POOL_1, {
+  await insertMemberStatement(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), {
     userId,
     displayName,
     now: new Date().toISOString(),
   }).run();
   const now = new Date().toISOString();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO direct_grant (id, member_user_id, permission, granted_by, expires_at, created_at) VALUES (?1, ?2, ?3, ?2, NULL, ?4)",
-  )
+  await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+    .prepare(
+      "INSERT INTO direct_grant (id, member_user_id, permission, granted_by, expires_at, created_at) VALUES (?1, ?2, ?3, ?2, NULL, ?4)",
+    )
     .bind(newIdentifier("grant"), userId, permission, now)
     .run();
 }
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   poolFirmId = (await seedFirm({ name: "Time Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
     .firmId;
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
@@ -89,7 +90,7 @@ beforeAll(async () => {
     firmId: poolFirmId,
   });
   ownerUserId = owner.userId;
-  await mirrorMemberWithOwnerRole(owner.userId, "Time Owner");
+  await mirrorMemberWithOwnerRole(owner.userId, "Time Owner", poolFirmId);
   ownerCookie = await signInForSessionCookie("time-owner@example.com");
 
   const readOnly = await seedCredentialedUser("time-readonly@example.com", {
@@ -144,14 +145,16 @@ beforeAll(async () => {
 
   // One rate card with an open timekeeper-tier rate, laid down through the real rate write path.
   const card = await createRateCard(
-    env.DB_FIRM_POOL_1,
+    firmDatabaseFor(env.FIRM_DATABASE, poolFirmId),
     { name: "Standard" },
     { clock, actorUserId: ownerUserId },
   );
-  await commitEffectBatch(env.DB_FIRM_POOL_1, card.effect, { now: clock.now });
+  await commitEffectBatch(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), card.effect, {
+    now: clock.now,
+  });
   rateCardId = card.rateCardId;
   const rate = await appendRate(
-    env.DB_FIRM_POOL_1,
+    firmDatabaseFor(env.FIRM_DATABASE, poolFirmId),
     {
       rateCardId: card.rateCardId,
       tier: "timekeeper",
@@ -162,7 +165,9 @@ beforeAll(async () => {
     },
     { clock, actorUserId: ownerUserId },
   );
-  await commitEffectBatch(env.DB_FIRM_POOL_1, rate.effect, { now: clock.now });
+  await commitEffectBatch(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), rate.effect, {
+    now: clock.now,
+  });
 });
 
 function authHeaders(cookie: string, withKey = false): HeadersInit {
@@ -208,9 +213,10 @@ describe("time-entry capture", () => {
     const body = (await response.json()) as { timeEntryId: string };
     expect(body.timeEntryId).toMatch(/^timeEntry_/);
 
-    const row = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT duration_minutes, raw_duration_minutes, rate_e4, rate_source, amount_minor, currency, status FROM time_entry WHERE id = ?1",
-    )
+    const row = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "SELECT duration_minutes, raw_duration_minutes, rate_e4, rate_source, amount_minor, currency, status FROM time_entry WHERE id = ?1",
+      )
       .bind(body.timeEntryId)
       .first<{
         duration_minutes: number;
@@ -233,9 +239,10 @@ describe("time-entry capture", () => {
 
   it("captures a non-billable entry with no rate and a category", async () => {
     const categoryId = newIdentifier("nonBillableCategory");
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO non_billable_category (id, name, created_at, updated_at) VALUES (?1, ?2, ?3, ?3)",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO non_billable_category (id, name, created_at, updated_at) VALUES (?1, ?2, ?3, ?3)",
+      )
       .bind(categoryId, "Administrative", new Date().toISOString())
       .run();
     const response = await post("/api/v1/time-entries", {
@@ -250,9 +257,10 @@ describe("time-entry capture", () => {
     });
     expect(response.status).toBe(201);
     const id = ((await response.json()) as { timeEntryId: string }).timeEntryId;
-    const row = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT rate_e4, amount_minor, rate_source, non_billable_category_id FROM time_entry WHERE id = ?1",
-    )
+    const row = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "SELECT rate_e4, amount_minor, rate_source, non_billable_category_id FROM time_entry WHERE id = ?1",
+      )
       .bind(id)
       .first<{
         rate_e4: number | null;
@@ -307,7 +315,8 @@ describe("draft-only freeze and the review path", () => {
     });
     const id = ((await created.json()) as { timeEntryId: string }).timeEntryId;
     // Move it to billed directly (the billing lock is wired in the billing slice).
-    await env.DB_FIRM_POOL_1.prepare("UPDATE time_entry SET status = 'billed' WHERE id = ?1")
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("UPDATE time_entry SET status = 'billed' WHERE id = ?1")
       .bind(id)
       .run();
     const response = await patch(`/api/v1/time-entries/${id}`, { narrative: "edited" });
@@ -326,7 +335,8 @@ describe("draft-only freeze and the review path", () => {
     });
     const id = ((await created.json()) as { timeEntryId: string }).timeEntryId;
     // Move it to submitted directly without the gate on (simulates a DB state bypassing the gate).
-    await env.DB_FIRM_POOL_1.prepare("UPDATE time_entry SET status = 'submitted' WHERE id = ?1")
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("UPDATE time_entry SET status = 'submitted' WHERE id = ?1")
       .bind(id)
       .run();
     const response = await patch(`/api/v1/time-entries/${id}`, { narrative: "edited" });
@@ -351,9 +361,10 @@ describe("draft-only freeze and the review path", () => {
 
   it("walks the submit -> approve review path when the approval gate is on", async () => {
     // Enable the review gate for this firm so the submit->approve path is legal.
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+      )
       .bind("time.approval_required", "true", new Date().toISOString())
       .run();
 
@@ -371,29 +382,31 @@ describe("draft-only freeze and the review path", () => {
     expect((await post(`/api/v1/time-entries/${id}/submit`, {})).status).toBe(200);
     // An approver with time:approve completes the review.
     expect((await post(`/api/v1/time-entries/${id}/approve`, {})).status).toBe(200);
-    const row = await env.DB_FIRM_POOL_1.prepare("SELECT status FROM time_entry WHERE id = ?1")
+    const row = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT status FROM time_entry WHERE id = ?1")
       .bind(id)
       .first<{ status: string }>();
     expect(row?.status).toBe("approved");
 
     // Restore the gate to off so other tests that rely on the gate-off default are not surprised.
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+      )
       .bind("time.approval_required", "false", new Date().toISOString())
       .run();
   });
 
   it("returns 404 (not 200) for a non-existent entry and writes no audit row", async () => {
     const phantomId = "timeEntry_000000000000000000000"; // valid shape; no such row
-    const auditBefore = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM audit_log",
-    ).first<{ c: number }>();
+    const auditBefore = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT COUNT(*) AS c FROM audit_log")
+      .first<{ c: number }>();
     const response = await post(`/api/v1/time-entries/${phantomId}/submit`, {});
     expect(response.status).toBe(404);
-    const auditAfter = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM audit_log",
-    ).first<{ c: number }>();
+    const auditAfter = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT COUNT(*) AS c FROM audit_log")
+      .first<{ c: number }>();
     // No phantom audit row must have been written for a non-existent entry.
     expect(auditAfter?.c).toBe(auditBefore?.c);
   });
@@ -401,9 +414,11 @@ describe("draft-only freeze and the review path", () => {
 
 describe("quick-add preview is read-shaped", () => {
   it("returns parsed candidates and writes nothing", async () => {
-    const before = await env.DB_FIRM_POOL_1.prepare("SELECT COUNT(*) AS c FROM time_entry").first<{
-      c: number;
-    }>();
+    const before = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT COUNT(*) AS c FROM time_entry")
+      .first<{
+        c: number;
+      }>();
     const response = await post("/api/v1/time-entries/quick-add-preview", {
       text: "0.5 Smith — drafted demand letter",
     });
@@ -418,9 +433,11 @@ describe("quick-add preview is read-shaped", () => {
     expect(body.matterHint).toBe("Smith");
     expect(body.narrative).toBe("drafted demand letter");
     expect(body.candidates.some((c) => c.id === matterId)).toBe(true);
-    const after = await env.DB_FIRM_POOL_1.prepare("SELECT COUNT(*) AS c FROM time_entry").first<{
-      c: number;
-    }>();
+    const after = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT COUNT(*) AS c FROM time_entry")
+      .first<{
+        c: number;
+      }>();
     expect(after?.c).toBe(before?.c);
   });
 });
@@ -603,23 +620,29 @@ describe("zero-duration guard", () => {
     // Write the scoped settings at firm tier (scoped_id NULL). The value column stores JSON, so a
     // string enum is stored with its surrounding quotes; a number is stored without.
     const now = new Date().toISOString();
-    await env.DB_FIRM_POOL_1.prepare(
-      "DELETE FROM scoped_setting WHERE key IN ('time.increment_minutes','time.rounding_direction')",
-    ).run();
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO scoped_setting (key, scope_tier, scoped_id, value, updated_at) VALUES (?1, 'firm', NULL, ?2, ?3)",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "DELETE FROM scoped_setting WHERE key IN ('time.increment_minutes','time.rounding_direction')",
+      )
+      .run();
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO scoped_setting (key, scope_tier, scoped_id, value, updated_at) VALUES (?1, 'firm', NULL, ?2, ?3)",
+      )
       .bind("time.increment_minutes", "6", now)
       .run();
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO scoped_setting (key, scope_tier, scoped_id, value, updated_at) VALUES (?1, 'firm', NULL, ?2, ?3)",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO scoped_setting (key, scope_tier, scoped_id, value, updated_at) VALUES (?1, 'firm', NULL, ?2, ?3)",
+      )
       .bind("time.rounding_direction", '"down"', now)
       .run();
 
-    const before = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM time_entry WHERE raw_duration_minutes = 5 AND narrative = 'Sub-increment test'",
-    ).first<{ c: number }>();
+    const before = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "SELECT COUNT(*) AS c FROM time_entry WHERE raw_duration_minutes = 5 AND narrative = 'Sub-increment test'",
+      )
+      .first<{ c: number }>();
 
     const response = await post("/api/v1/time-entries", {
       matterId,
@@ -632,15 +655,19 @@ describe("zero-duration guard", () => {
     });
     expect(response.status).toBe(422);
 
-    const after = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM time_entry WHERE raw_duration_minutes = 5 AND narrative = 'Sub-increment test'",
-    ).first<{ c: number }>();
+    const after = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "SELECT COUNT(*) AS c FROM time_entry WHERE raw_duration_minutes = 5 AND narrative = 'Sub-increment test'",
+      )
+      .first<{ c: number }>();
     expect(after?.c).toBe(before?.c ?? 0);
 
     // Restore defaults so other tests are not affected by the per-firm rounding override.
-    await env.DB_FIRM_POOL_1.prepare(
-      "DELETE FROM scoped_setting WHERE key IN ('time.increment_minutes','time.rounding_direction')",
-    ).run();
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "DELETE FROM scoped_setting WHERE key IN ('time.increment_minutes','time.rounding_direction')",
+      )
+      .run();
   });
 });
 
@@ -649,7 +676,7 @@ describe("workDate patch with rate re-resolution", () => {
   it("patching workDate re-resolves the rate snapshot for the new date", async () => {
     // Append a second rate version effective from 2026-07-01 at a different rateE4.
     const laterRate = await appendRate(
-      env.DB_FIRM_POOL_1,
+      firmDatabaseFor(env.FIRM_DATABASE, poolFirmId),
       {
         rateCardId,
         tier: "timekeeper",
@@ -660,7 +687,9 @@ describe("workDate patch with rate re-resolution", () => {
       },
       { clock, actorUserId: ownerUserId },
     );
-    await commitEffectBatch(env.DB_FIRM_POOL_1, laterRate.effect, { now: clock.now });
+    await commitEffectBatch(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), laterRate.effect, {
+      now: clock.now,
+    });
 
     // Create a draft on 2026-06-22, which resolves at $300/hr (3_000_000 rate_e4).
     const created = await post("/api/v1/time-entries", {
@@ -676,9 +705,8 @@ describe("workDate patch with rate re-resolution", () => {
     expect(created.status).toBe(201);
     const id = ((await created.json()) as { timeEntryId: string }).timeEntryId;
 
-    const before = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT work_date, rate_e4, amount_minor FROM time_entry WHERE id = ?1",
-    )
+    const before = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT work_date, rate_e4, amount_minor FROM time_entry WHERE id = ?1")
       .bind(id)
       .first<{ work_date: string; rate_e4: number; amount_minor: number }>();
     expect(before?.work_date).toBe("2026-06-22");
@@ -688,9 +716,8 @@ describe("workDate patch with rate re-resolution", () => {
     const patchResponse = await patch(`/api/v1/time-entries/${id}`, { workDate: "2026-07-01" });
     expect(patchResponse.status).toBe(200);
 
-    const after = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT work_date, rate_e4, amount_minor FROM time_entry WHERE id = ?1",
-    )
+    const after = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT work_date, rate_e4, amount_minor FROM time_entry WHERE id = ?1")
       .bind(id)
       .first<{ work_date: string; rate_e4: number; amount_minor: number }>();
     expect(after?.work_date).toBe("2026-07-01");
@@ -715,7 +742,8 @@ describe("void", () => {
     const id = ((await created.json()) as { timeEntryId: string }).timeEntryId;
     const response = await post(`/api/v1/time-entries/${id}/void`, {});
     expect(response.status).toBe(200);
-    const row = await env.DB_FIRM_POOL_1.prepare("SELECT status FROM time_entry WHERE id = ?1")
+    const row = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT status FROM time_entry WHERE id = ?1")
       .bind(id)
       .first<{ status: string }>();
     expect(row?.status).toBe("void");
@@ -732,7 +760,8 @@ describe("void", () => {
       source: "manual",
     });
     const id = ((await created.json()) as { timeEntryId: string }).timeEntryId;
-    await env.DB_FIRM_POOL_1.prepare("UPDATE time_entry SET status = 'billed' WHERE id = ?1")
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("UPDATE time_entry SET status = 'billed' WHERE id = ?1")
       .bind(id)
       .run();
     const response = await post(`/api/v1/time-entries/${id}/void`, {});
@@ -743,9 +772,10 @@ describe("void", () => {
 describe("kickBack", () => {
   it("kicks back a submitted entry and sets the kick_back_reason", async () => {
     // Enable the approval gate so submit->kickBack is legal.
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+      )
       .bind("time.approval_required", "true", new Date().toISOString())
       .run();
 
@@ -766,18 +796,18 @@ describe("kickBack", () => {
     });
     expect(kickResponse.status).toBe(200);
 
-    const row = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT status, kick_back_reason FROM time_entry WHERE id = ?1",
-    )
+    const row = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT status, kick_back_reason FROM time_entry WHERE id = ?1")
       .bind(id)
       .first<{ status: string; kick_back_reason: string | null }>();
     expect(row?.status).toBe("draft");
     expect(row?.kick_back_reason).toBe("wrong matter code");
 
     // Restore gate off.
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+      )
       .bind("time.approval_required", "false", new Date().toISOString())
       .run();
   });
@@ -794,7 +824,8 @@ describe("kickBack", () => {
       source: "manual",
     });
     const id = ((await created.json()) as { timeEntryId: string }).timeEntryId;
-    await env.DB_FIRM_POOL_1.prepare("UPDATE time_entry SET status = 'submitted' WHERE id = ?1")
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("UPDATE time_entry SET status = 'submitted' WHERE id = ?1")
       .bind(id)
       .run();
     // trackOnlyCookie only has time:track, not time:approve — the chokepoint blocks at 403.
@@ -837,9 +868,8 @@ describe("gridBatch", () => {
     const body = (await response.json()) as { timeEntryIds: string[] };
     expect(body.timeEntryIds).toHaveLength(2);
     for (const timeEntryId of body.timeEntryIds) {
-      const row = await env.DB_FIRM_POOL_1.prepare(
-        "SELECT rate_e4, amount_minor FROM time_entry WHERE id = ?1",
-      )
+      const row = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+        .prepare("SELECT rate_e4, amount_minor FROM time_entry WHERE id = ?1")
         .bind(timeEntryId)
         .first<{ rate_e4: number; amount_minor: number }>();
       expect(row?.rate_e4).toBe(3_000_000); // $300/hr, valid from 2026-01-01
@@ -864,7 +894,8 @@ describe("gridBatch", () => {
       }),
     });
     const eMatterId = ((await eMatter.json()) as { matterId: string }).matterId;
-    await env.DB_FIRM_POOL_1.prepare("UPDATE matter SET e_billing = 1 WHERE id = ?1")
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("UPDATE matter SET e_billing = 1 WHERE id = ?1")
       .bind(eMatterId)
       .run();
 

@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { runScheduledSweep } from "../src/scheduled.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -36,8 +36,6 @@ function postIncident(body: unknown, cookie?: string): Promise<Response> {
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_2);
   firmAId = (await seedFirm({ name: "Incident Firm A", databaseIdentifier: "DB_FIRM_POOL_1" }))
     .firmId;
   firmBId = (await seedFirm({ name: "Incident Firm B", databaseIdentifier: "DB_FIRM_POOL_2" }))
@@ -54,7 +52,7 @@ describe("POST /api/v1/incidents", () => {
       userName: "Incident Reporter",
       firmId: firmAId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Incident Reporter");
+    await mirrorMemberWithOwnerRole(userId, "Incident Reporter", firmAId);
     const cookie = await signInForSessionCookie("incident-reporter@example.com");
 
     const response = await postIncident(
@@ -69,11 +67,12 @@ describe("POST /api/v1/incidents", () => {
     // The per-firm incident row landed, redacted-by-construction JSON columns and all. The
     // description is encrypted-only: the plaintext column is NULL and description_ciphertext holds
     // the sealed value (never the plaintext words).
-    const row = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT id, error_ids, description, description_ciphertext, reported_by, status FROM incident WHERE id = ?1",
-    )
+    const { results: incidentResults } = await firmDatabaseFor(env.FIRM_DATABASE, firmAId)
+      .prepare(
+        "SELECT id, error_ids, description, description_ciphertext, reported_by, status FROM incident WHERE id = ?1",
+      )
       .bind(body.id)
-      .first<{
+      .all<{
         id: string;
         error_ids: string;
         description: string | null;
@@ -81,7 +80,8 @@ describe("POST /api/v1/incidents", () => {
         reported_by: string;
         status: string;
       }>();
-    expect(row).not.toBeNull();
+    const row = incidentResults[0];
+    expect(row).toBeDefined();
     expect(row?.error_ids).toBe("[]");
     expect(row?.description).toBeNull();
     expect(row?.description_ciphertext).toEqual(expect.any(String));
@@ -91,16 +91,18 @@ describe("POST /api/v1/incidents", () => {
 
     // The incident.created outbox row rode the same batch; the relay sweep dispatches it to the
     // Queue and marks it dispatched — never dead-lettered by mere non-consumption.
-    const pending = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT status FROM outbox WHERE topic = 'incident.created'",
-    ).first<{ status: string }>();
+    const { results: pendingResults } = await firmDatabaseFor(env.FIRM_DATABASE, firmAId)
+      .prepare("SELECT status FROM outbox WHERE topic = 'incident.created'")
+      .all<{ status: string }>();
+    const pending = pendingResults[0];
     expect(pending?.status).toBe("pending");
 
     await runScheduledSweep(env);
 
-    const swept = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT status, attempts FROM outbox WHERE topic = 'incident.created'",
-    ).first<{ status: string; attempts: number }>();
+    const { results: sweptResults } = await firmDatabaseFor(env.FIRM_DATABASE, firmAId)
+      .prepare("SELECT status, attempts FROM outbox WHERE topic = 'incident.created'")
+      .all<{ status: string; attempts: number }>();
+    const swept = sweptResults[0];
     expect(swept?.status).toBe("dispatched");
   });
 
@@ -117,7 +119,7 @@ describe("POST /api/v1/incidents", () => {
       userName: "Over Cap",
       firmId: firmAId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Over Cap");
+    await mirrorMemberWithOwnerRole(userId, "Over Cap", firmAId);
     const cookie = await signInForSessionCookie("incident-overcap@example.com");
 
     const tooMany = Array.from({ length: 51 }, () => ({
@@ -137,8 +139,8 @@ describe("POST /api/v1/incidents", () => {
       userName: "Rate Limited",
       firmId: firmBId,
     });
-    // Firm B's member lives in DB_FIRM_POOL_2 (its database_identifier) — mirror there, not the default.
-    await mirrorMemberWithOwnerRole(userId, "Rate Limited", env.DB_FIRM_POOL_2);
+    // Firm B's member lives in its own DO-backed database — mirror there, not the default.
+    await mirrorMemberWithOwnerRole(userId, "Rate Limited", firmBId);
     const cookie = await signInForSessionCookie("incident-rate@example.com");
 
     const statuses: number[] = [];

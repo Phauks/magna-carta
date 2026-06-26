@@ -2,7 +2,7 @@ import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -16,7 +16,6 @@ let poolFirmId: FirmId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   poolFirmId = (
     await seedFirm({ name: "Release Channel Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
   ).firmId;
@@ -44,7 +43,7 @@ async function putReleaseChannel(
 // firm:manageReleaseChannel), and signs in — the acting principal for the happy paths.
 async function signInAsOwner(email: string): Promise<string> {
   const { userId } = await seedCredentialedUser(email, { firmId: poolFirmId });
-  await mirrorMemberWithOwnerRole(userId, "Release Channel Owner");
+  await mirrorMemberWithOwnerRole(userId, "Release Channel Owner", poolFirmId);
   return signInForSessionCookie(email);
 }
 
@@ -138,9 +137,10 @@ describe("PUT /api/v1/firm/release-channel", () => {
     // assertion (all tests share the same poolFirmId within this file).
     const countBefore =
       (
-        await env.DB_FIRM_POOL_1.prepare(
-          "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'firm.release_channel_changed' AND subject_id = ?1",
-        )
+        await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+          .prepare(
+            "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'firm.release_channel_changed' AND subject_id = ?1",
+          )
           .bind(poolFirmId)
           .first<{ n: number }>()
       )?.n ?? 0;
@@ -163,9 +163,10 @@ describe("PUT /api/v1/firm/release-channel", () => {
     // Exactly one additional audit_log row must exist — the replay must not have inserted another.
     const countAfter =
       (
-        await env.DB_FIRM_POOL_1.prepare(
-          "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'firm.release_channel_changed' AND subject_id = ?1",
-        )
+        await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+          .prepare(
+            "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'firm.release_channel_changed' AND subject_id = ?1",
+          )
           .bind(poolFirmId)
           .first<{ n: number }>()
       )?.n ?? 0;
