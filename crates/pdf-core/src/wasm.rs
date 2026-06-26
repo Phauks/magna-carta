@@ -282,6 +282,167 @@ struct JsBatesOpts {
     font_size_pt: Option<f32>,
 }
 
+impl From<crate::FormError> for JsError {
+    fn from(e: crate::FormError) -> Self {
+        JsError::new(match e {
+            crate::FormError::Parse(_) => "failed to parse PDF",
+            crate::FormError::Reassemble(_) => "failed to reassemble PDF",
+            crate::FormError::NoAcroForm => "document has no interactive form",
+        })
+    }
+}
+
+fn field_kind_str(k: crate::FieldKind) -> &'static str {
+    match k {
+        crate::FieldKind::Text => "text",
+        crate::FieldKind::Checkbox => "checkbox",
+        crate::FieldKind::Radio => "radio",
+        crate::FieldKind::Choice => "choice",
+        crate::FieldKind::PushButton => "pushButton",
+        crate::FieldKind::Signature => "signature",
+        crate::FieldKind::Unknown => "unknown",
+    }
+}
+
+/// Enumerate all interactive form fields in a PDF.
+///
+/// Returns an array of field objects, each with: `name` (string), `kind`
+/// (string — one of `"text"`, `"checkbox"`, `"radio"`, `"choice"`,
+/// `"pushButton"`, `"signature"`, `"unknown"`), `value` (string | boolean |
+/// null), `options` (string[]), `readOnly` (boolean), `page` (number | null),
+/// `rect` ([number,number,number,number] | null).
+///
+/// **Forms are not redaction.** This function reads field metadata only; no
+/// content is removed or modified. Use `redactDocument`/`sanitizeDocument` to
+/// remove content.
+#[wasm_bindgen(js_name = readForm)]
+pub fn read_form_edge(bytes: Vec<u8>) -> Result<JsValue, JsError> {
+    let fields = crate::read_form(&bytes)?;
+    let set = |o: &js_sys::Object, k: &str, v: &JsValue| {
+        let _ = js_sys::Reflect::set(o, &k.into(), v);
+    };
+    let arr = js_sys::Array::new();
+    for f in &fields {
+        let o = js_sys::Object::new();
+        set(&o, "name", &f.name.as_str().into());
+        set(&o, "kind", &field_kind_str(f.kind).into());
+        let value_js = match &f.value {
+            Some(crate::FieldValue::Text(s)) => JsValue::from_str(s),
+            Some(crate::FieldValue::Choice(s)) => JsValue::from_str(s),
+            Some(crate::FieldValue::Bool(b)) => JsValue::from(*b),
+            None => JsValue::NULL,
+        };
+        set(&o, "value", &value_js);
+        let options_arr = js_sys::Array::new();
+        for opt in &f.options {
+            options_arr.push(&JsValue::from_str(opt));
+        }
+        set(&o, "options", &options_arr);
+        set(&o, "readOnly", &JsValue::from(f.read_only));
+        set(
+            &o,
+            "page",
+            &f.page.map(|p| JsValue::from(p)).unwrap_or(JsValue::NULL),
+        );
+        let rect_js = match f.rect {
+            Some(r) => {
+                let ra = js_sys::Array::new();
+                for v in &r {
+                    ra.push(&JsValue::from(*v));
+                }
+                ra.into()
+            }
+            None => JsValue::NULL,
+        };
+        set(&o, "rect", &rect_js);
+        arr.push(&o);
+    }
+    Ok(arr.into())
+}
+
+/// Fill interactive form fields by name and optionally flatten the form.
+///
+/// `values` is a plain JS object mapping field names to fill values: pass a
+/// string for text, choice, and radio fields; pass a boolean for checkboxes.
+/// Extra keys that do not match a field are silently ignored.
+///
+/// `options.flatten` (default `false`): when `true`, widget appearances are
+/// baked into page content and the AcroForm dictionary is dropped, producing a
+/// flat static PDF. When `false`, the form remains interactive.
+///
+/// **Forms are not redaction.** Filling sets visible field values. Flattening
+/// makes those values permanent static content. Neither operation removes hidden
+/// content, metadata, or other surfaces — use `redactDocument`/`sanitizeDocument`
+/// for that.
+///
+/// Returns `{ pdf: Uint8Array }`.
+#[wasm_bindgen(js_name = fillForm)]
+pub fn fill_form_edge(
+    bytes: Vec<u8>,
+    values: JsValue,
+    options: JsValue,
+) -> Result<JsValue, JsError> {
+    let mut map = std::collections::BTreeMap::<String, crate::FieldValue>::new();
+    if !values.is_undefined() && !values.is_null() {
+        if let Some(obj) = values.dyn_ref::<js_sys::Object>() {
+            let entries = js_sys::Object::entries(obj);
+            for i in 0..entries.length() {
+                let pair = js_sys::Array::from(&entries.get(i));
+                let key = pair.get(0).as_string().unwrap_or_default();
+                let val = pair.get(1);
+                if let Some(s) = val.as_string() {
+                    // Every JS string is mapped to FieldValue::Choice so that
+                    // text fields, choice/list fields, and radio groups are all
+                    // filled uniformly from a bare string — the engine's fill
+                    // logic treats Text and Choice identically for appearance
+                    // generation, and Radio requires Choice(on_state).
+                    map.insert(key, crate::FieldValue::Choice(s));
+                } else if let Some(b) = val.as_bool() {
+                    map.insert(key, crate::FieldValue::Bool(b));
+                }
+            }
+        }
+    }
+    #[derive(serde::Deserialize, Default)]
+    struct JsFormFillOpts {
+        flatten: Option<bool>,
+    }
+    let js_opts: JsFormFillOpts = if options.is_undefined() || options.is_null() {
+        JsFormFillOpts::default()
+    } else {
+        serde_wasm_bindgen::from_value(options)?
+    };
+    let opts = crate::FormFillOptions {
+        flatten: js_opts.flatten.unwrap_or(false),
+    };
+    let pdf = crate::fill_form(&bytes, &map, &opts)?;
+    let result = js_sys::Object::new();
+    js_sys::Reflect::set(&result, &"pdf".into(), &js_sys::Uint8Array::from(&pdf[..]))
+        .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    Ok(result.into())
+}
+
+/// Flatten all interactive form fields into static page content.
+///
+/// Each widget's current appearance is drawn into the page via a `Do` operator,
+/// page resources are merged non-destructively, widget annotations are removed,
+/// and the `/AcroForm` dictionary is dropped. The result is permanent static
+/// content renderable by any PDF viewer without form support.
+///
+/// **Forms are not redaction.** Flattening bakes visible form values into page
+/// content. It does not remove hidden content, metadata, or other surfaces — use
+/// `redactDocument`/`sanitizeDocument` for that.
+///
+/// Returns `{ pdf: Uint8Array }`.
+#[wasm_bindgen(js_name = flattenForm)]
+pub fn flatten_form_edge(bytes: Vec<u8>) -> Result<JsValue, JsError> {
+    let pdf = crate::flatten_form(&bytes)?;
+    let result = js_sys::Object::new();
+    js_sys::Reflect::set(&result, &"pdf".into(), &js_sys::Uint8Array::from(&pdf[..]))
+        .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    Ok(result.into())
+}
+
 /// Stamps sequential Bates labels onto every page of a PDF.
 ///
 /// The stamp is an ADDITIVE OVERLAY: all existing page content is preserved.
