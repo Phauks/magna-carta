@@ -122,6 +122,26 @@ Workers AI or an external inference API). The app's other GPU-amenable work (tra
 inference) rides Cloudflare's **managed** GPU and needs no rented box. Build the Rung 3 adapter behind a port
 general enough to be that seam later, without over-building it now.
 
+**GPU vendor selection (from the 2026 vendor assessment).** The two workloads have opposite trust profiles
+and select different vendors:
+
+- **Cracking tier (Rung 3, build now — only the extracted hash egresses).** Build the adapter against a port
+  with two interchangeable backends: **Vast.ai** (primary — cheapest 4090s, mature CLI/REST/SDK, per-second
+  billing, the de-facto hashcat platform) and **RunPod** (fallback — per-ms billing, automatic
+  balance-based teardown, a first-party Secure Cloud tier). **Avoid** Modal (its cryptominer auto-detection
+  will false-flag a GPU-saturating hashcat job), Fly.io (GPUs end-of-life mid-2026), and Salad
+  (consumer-PC substrate) for cracking.
+- **Confidential tier (the future private-LLM seam — privileged content on the GPU).** Lead candidate
+  **Azure** (NCCads H100 v5 — confidential GPU on a true on-demand SKU, data encrypted in-use on the H100,
+  HIPAA BAA, EU Data Boundary); runner-up GCP (confidential H100 still Preview on-demand); AWS has no GPU
+  confidential-computing option today. **Never** run privileged inference on any marketplace tier (Vast,
+  Salad, RunPod Community), on Modal (its BAA excludes user code/volumes/memory), or on Together.ai (its ToS
+  bans transmitting sensitive personal data).
+- **Cross-cutting:** no vendor's AUP affirmatively permits password recovery — the viable ones simply do not
+  prohibit it, so secure written vendor sign-off and retain documented client authorization before running
+  real hashes. Treat every SOC 2 / ISO / HIPAA claim as unverified until the report is reviewed under NDA at
+  contract time.
+
 ## 4. Orchestration & job model
 
 A recovery is a long-running job, so it uses the conversion/timekeeping precedent:
@@ -289,4 +309,5 @@ as fragments under `docs/decisions/pending/` in the build commits (golden rule 8
   fetch).
 - Right-size `recovery-worker` Container instances and the Queue shard count against the load-profile harness.
 - Cost-accounting + spend-cap design for Rung 3 (a rented-GPU job spends real money) — surface an estimate and
-  a ceiling before "go hard" starts.
+  a ceiling before "go hard" starts, and enforce it with **our own hard billing killswitch** (auto-tear-down
+  the box), because provider budgets (GCP/Azure) are advisory, not hard caps.
