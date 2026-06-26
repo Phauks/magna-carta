@@ -593,6 +593,8 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "safeBrowse.post",
       "scan.diagnose",
       "scan.matter",
+      "scanPolicy.get",
+      "scanPolicy.update",
       "shipping.connect",
       "shipping.createShipment",
       "shipping.label",

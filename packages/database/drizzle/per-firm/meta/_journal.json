@@ -176,6 +176,13 @@
       "when": 1782600000000,
       "tag": "0024_scan_verdict_flagged",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1782700000000,
+      "tag": "0025_seed-scan-policy-permission",
+      "breakpoints": true
     }
   ]
 }

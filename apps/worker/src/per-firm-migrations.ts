@@ -25,6 +25,7 @@ import timeTrackingSql from "@magna-carta/database/drizzle/per-firm/0021_outgoin
 import seedToolsFileIntegritySql from "@magna-carta/database/drizzle/per-firm/0022_seed-tools-file-integrity.sql";
 import rawScanCacheSql from "@magna-carta/database/drizzle/per-firm/0023_raw_scan_cache.sql";
 import scanVerdictFlaggedSql from "@magna-carta/database/drizzle/per-firm/0024_scan_verdict_flagged.sql";
+import seedScanPolicyPermissionSql from "@magna-carta/database/drizzle/per-firm/0025_seed-scan-policy-permission.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the firm
 // provisioner migrates a freshly created firm database to head at provisioning time, so the SQL
@@ -59,6 +60,7 @@ export function perFirmMigrations(): Migration[] {
     "0022_seed-tools-file-integrity": seedToolsFileIntegritySql,
     "0023_raw_scan_cache": rawScanCacheSql,
     "0024_scan_verdict_flagged": scanVerdictFlaggedSql,
+    "0025_seed-scan-policy-permission": seedScanPolicyPermissionSql,
   });
 }
 

@@ -78,6 +78,9 @@
           },
           "requestAccess": {
             "type": "boolean"
+          },
+          "stepUpRequired": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -2469,6 +2472,85 @@
           "enqueued",
           "capped"
         ]
+      },
+      "ScanPolicyResponse": {
+        "type": "object",
+        "properties": {
+          "policy": {
+            "type": "object",
+            "properties": {
+              "tier": {
+                "type": "string",
+                "enum": [
+                  "core",
+                  "extended",
+                  "full"
+                ]
+              },
+              "suspiciousScoreFloor": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "tier",
+              "suspiciousScoreFloor"
+            ]
+          },
+          "flaggedTreatment": {
+            "type": "string",
+            "enum": [
+              "block",
+              "informed-access",
+              "allow-and-flag"
+            ]
+          },
+          "stepUpReauthOnFlagged": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "policy",
+          "flaggedTreatment",
+          "stepUpReauthOnFlagged"
+        ]
+      },
+      "PatchScanPolicyRequest": {
+        "type": "object",
+        "properties": {
+          "policy": {
+            "type": "object",
+            "properties": {
+              "tier": {
+                "type": "string",
+                "enum": [
+                  "core",
+                  "extended",
+                  "full"
+                ]
+              },
+              "suspiciousScoreFloor": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              }
+            },
+            "required": [
+              "tier",
+              "suspiciousScoreFloor"
+            ]
+          },
+          "flaggedTreatment": {
+            "type": "string",
+            "enum": [
+              "block",
+              "informed-access",
+              "allow-and-flag"
+            ]
+          },
+          "stepUpReauthOnFlagged": {
+            "type": "boolean"
+          }
+        }
       },
       "BundleStatus": {
         "type": "object",
@@ -10635,6 +10717,170 @@
           },
           "403": {
             "description": "The member lacks files:upload",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm/scan-policy": {
+      "get": {
+        "description": "Reads the firm's malware scan-policy settings: the scan tier, suspicious-score floor, flagged-file treatment, and step-up re-auth preference. Missing rows return the built-in defaults so a fresh firm always reads a valid configuration.",
+        "operationId": "scanPolicy.get",
+        "tags": [
+          "scanPolicy"
+        ],
+        "x-mc-operationId": "scanPolicy.get",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageScanPolicy",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "scanPolicy"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm scan-policy settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanPolicyResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageScanPolicy",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "description": "Updates one or more of the firm's malware scan-policy settings. Only the supplied fields are changed; absent fields retain their current values. Writes are batched atomically with an audit log entry. Returns the full resolved settings after the update.",
+        "operationId": "scanPolicy.update",
+        "tags": [
+          "scanPolicy"
+        ],
+        "x-mc-operationId": "scanPolicy.update",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageScanPolicy",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "scanPolicy"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchScanPolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated scan-policy settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanPolicyResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageScanPolicy",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request body is invalid",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -19330,6 +19576,9 @@
     },
     {
       "name": "scan"
+    },
+    {
+      "name": "scanPolicy"
     },
     {
       "name": "shipping"
