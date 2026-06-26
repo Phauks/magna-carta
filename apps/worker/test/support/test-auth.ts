@@ -10,6 +10,7 @@ import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { createAuth } from "../../src/auth.ts";
 import { createLoggingEmailAdapter } from "../../src/email-port.ts";
+import { firmDatabaseFor } from "../../src/firm-database/firm-database-proxy.ts";
 
 // Shared helpers for the worker's auth-dependent integration suites (auth, TOTP, /v1/me) — one
 // home so the auth construction, firm/user seeding, and cookie plumbing cannot drift apart.
@@ -31,8 +32,9 @@ export interface SeededFirm {
 }
 
 // user.firm_id is a NOT NULL foreign key — every seeded user needs its tenant firm row first.
-// The database identifier defaults to a unique NON-resolvable placeholder; a test that needs the
-// firm's per-firm database to resolve passes a dev-pool binding name (e.g. "DB_FIRM_POOL_1").
+// firm.database_identifier is vestigial (the per-firm database is addressed by firmId through its
+// FirmDatabase Durable Object) and nullable, but seedFirm still writes a per-seed-unique placeholder
+// so older suites that read the column keep observing a stable value.
 export async function seedFirm(options?: {
   readonly name?: string;
   readonly databaseIdentifier?: string;
@@ -192,17 +194,22 @@ export async function signInForSessionCookie(email: string): Promise<string> {
 }
 
 // Mirrors the user into a firm database's member table and assigns the seeded Owner/Admin role
-// (the rol_ handle is a committed literal in 0002_member-rbac.sql — read back by name). Defaults
-// to DB_FIRM_POOL_1; cross-firm tests pass another migrated pool binding.
+// (the rol_ handle is a committed literal in 0002_member-rbac.sql — read back by name). The firm's
+// per-firm FirmDatabase Durable Object is addressed by firmId and self-migrates the per-firm lineage
+// on first access, so the seeded role row already exists.
 export async function mirrorMemberWithOwnerRole(
   userId: UserId,
   displayName: string,
-  firmDatabase: D1Database = env.DB_FIRM_POOL_1,
+  firmId: FirmId,
 ): Promise<void> {
-  const ownerRole = await firmDatabase
+  const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+  const ownerRoleResult = await firmDatabase
     .prepare("SELECT id FROM role WHERE name = 'Owner/Admin'")
-    .first<{ id: string }>();
-  if (ownerRole === null) throw new Error("seeded Owner/Admin role missing from the firm database");
+    .all<{ id: string }>();
+  const ownerRole = ownerRoleResult.results[0];
+  if (ownerRole === undefined) {
+    throw new Error("seeded Owner/Admin role missing from the firm database");
+  }
   await insertMemberStatement(firmDatabase, {
     userId,
     displayName,

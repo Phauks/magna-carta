@@ -19,7 +19,7 @@
 // A request failing an earlier gate NEVER touches a later port (fail-closed, short-circuit at the
 // first failure). The chokepoint is a factory over injected ports so it is testable with fakes
 // (chokepoint.test.ts records port invocation order and asserts it); the ports are wired to the
-// implementations (session-context.ts, firm-binding-resolver.ts, the idempotency middleware).
+// implementations (session-context.ts, the firmId-addressed FirmDatabase DO, the idempotency middleware).
 import type { Context, MiddlewareHandler } from "hono";
 import { assertPermission, isPermission } from "@magna-carta/access-control/registry";
 import type { Permission } from "@magna-carta/access-control/registry";
@@ -45,7 +45,7 @@ export interface ChokepointPorts<FirmContext> {
   resolveSession: (c: Context) => Promise<ResolvedSession | null>;
   // Step 3a: the session's firm → the firm's context, or null for STRUCTURAL ABSENCE (firm row
   // missing, firm DB unbound, member deactivated). null → 404, no existence oracle.
-  // Encapsulates the control-plane lookup + resolveFirmDatabase + member-active check. The
+  // Encapsulates the control-plane lookup + the firmId-addressed FirmDatabase DO + member-active check. The
   // WHOLE session is passed (not just firmId) so the port can run the member-active check against
   // the session's userId — a deactivated member is absent, folded in HERE so the same
   // 404 covers a missing firm and a deactivated member with no per-handler discipline.

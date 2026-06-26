@@ -2,8 +2,8 @@
 -- of the pre-decided verdict + signature pair. The (content_sha256, engine_version) composite key
 -- is unchanged; only the value column changes shape. The verdict CHECK constraint is dropped along
 -- with the old columns — the stored value is now opaque JSON, not a constrained enum.
--- contract: pre-production reshape — scan_cache holds no rows yet, so DROP TABLE + CREATE TABLE is a
--- safe forward migration with no data loss; the (content_sha256, engine_version) key is unchanged.
+-- Pre-production: no rows exist, so DROP TABLE + CREATE TABLE is a safe forward migration.
+-- contract: DROP TABLE scan_cache — deliberate destructive reshape, safe because no rows exist yet.
 DROP TABLE `scan_cache`;
 --> statement-breakpoint
 CREATE TABLE `scan_cache` (

@@ -173,22 +173,29 @@
     {
       "idx": 24,
       "version": "6",
-      "when": 1782500000001,
-      "tag": "0024_amusing_robbie_robertson",
+      "when": 1782600000000,
+      "tag": "0024_seed-release-channel-permission",
       "breakpoints": true
     },
     {
       "idx": 25,
       "version": "6",
-      "when": 1782500000002,
-      "tag": "0025_needy_rage",
+      "when": 1782600000001,
+      "tag": "0025_amusing_robbie_robertson",
       "breakpoints": true
     },
     {
       "idx": 26,
       "version": "6",
-      "when": 1782500000003,
-      "tag": "0026_smart_stellaris",
+      "when": 1782600000002,
+      "tag": "0026_needy_rage",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "6",
+      "when": 1782600000003,
+      "tag": "0027_smart_stellaris",
       "breakpoints": true
     }
   ]

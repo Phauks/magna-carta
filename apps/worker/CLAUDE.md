@@ -22,6 +22,12 @@ routes requests through the chokepoint into those packages.
 - `src/chokepoint/` — the ordered enforcement middleware + its ports; `defineOpenAPIRoute` carries each
   route's `RouteMeta`, and `chokepointMiddleware` enforces it. No per-handler auth discipline.
 - `src/routes/` — one module per surface; each is a route-bundle registered in `app.ts`.
+- `src/firm-database/` — the `FirmDatabase` Durable Object (one per firm, `idFromName(firmId)`,
+  self-migrating the per-firm lineage on wake) and its worker-side proxy: `firm-database-proxy.ts`
+  exports `firmDatabaseFor(firmId, env)` which returns a DO-backed `SqlDatabase` handle. All ~185
+  data-access statement modules resolve a firm's database through this proxy — **not** a D1 binding.
+  The retired `DB_FIRM_POOL_*` bindings and `firm-binding-resolver.ts` are gone; `rpc-types.ts` holds
+  the DO RPC shape.
 - `src/downloads/` — the async bulk-download build (the DO coordinator, the queue consumer, the shared
   types). See the flow below.
 - `src/files/` — the ingest consumer (single-read pipeline shell over `@magna-carta/file-manager`), the
@@ -111,6 +117,21 @@ subsystems (search is the exception — its index is durable per-firm data); lan
 decision, coordinated via `vp run worktrees`, with `apps/scan-worker` as the working template.
 
 Until step 2 is done, `resolveEnginePort` returns the deferred port and all three conversion routes operate correctly (upload, submit → 202, poll → `engine-not-implemented` failure). The Container binding cannot run under the local Miniflare test pool, which is why `resolveEnginePort` is injectable and the e2e tests supply a fake engine.
+
+## Release channels — the two doors and the flag catalog
+
+A firm's `release_channel` (`stable | beta | alpha`) is stored on the control-plane `firm` row and is read into every session. Two routes write it:
+
+- **Beta door:** `PUT /api/v1/firm/release-channel` — accepts only `{ stable, beta }`; backed by `firm:manageReleaseChannel` enforced at the chokepoint; requires an explicit consent payload recorded in the per-firm `audit_log`.
+- **Alpha door:** a secret-guarded platform endpoint (same lane as `POST /v1/firms`); writes any channel value; no firm-session required; audit goes to the control-plane `auth_audit`.
+
+**Adding a feature flag.** To gate a new feature behind a release channel:
+
+1. Add an entry to `FLAG_CATALOG` in `@magna-carta/feature-flags` — keyed by the flag key, with `defaultValue` (the safe default = stable behavior), `stage: "alpha" | "beta" | "stable"`, and a `description`.
+2. Add a matching boolean flag in the Flagship dashboard with a targeting rule: `channel in [beta, alpha]` (or `[alpha]` for alpha-only), optionally with a `%` rollout.
+3. Call `getBooleanValue(flagKey, false, context)` (or `evaluateCatalog`) in the route or session handler. Stable behavior is always the default — the second argument must equal what a `stable` firm would see.
+
+**The `FLAGS` binding is a production deploy-time wiring step.** The local Miniflare test pool does not support the Flagship binding shape. The `env.FLAGS` binding is declared **optional** in `wrangler.jsonc`; when absent, `resolveFlagEvaluator` returns the `defaultOffEvaluator` (all flags off, the safe stable default). Tests that need a specific flag on inject a `FlagEvaluator` fake directly — no Flagship account required. This means the fail-safe is structural: any test environment or local dev session silently sees stable behavior for every flag unless a fake is injected.
 
 ## Gotchas
 

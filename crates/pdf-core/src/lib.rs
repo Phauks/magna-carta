@@ -4,6 +4,12 @@ mod wasm;
 mod standard_fonts;
 mod standard_fonts_data;
 
+mod forms;
+pub use forms::{
+    fill_form, flatten_form, read_form, FieldKind, FieldValue, FormError, FormField,
+    FormFillOptions,
+};
+
 mod bates;
 pub use bates::{
     stamp_document, stamp_set, BatesError, BatesFont, BatesOptions, BatesPosition, BatesRange,

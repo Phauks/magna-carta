@@ -1,8 +1,7 @@
 // The real chokepoint ports: the bridge from the chokepoint's injected
-// interfaces (chokepoint.ts) to the implementations (session-context.ts, firm-binding-
-// resolver.ts). The chokepoint is built over fakes; this module supplies the production
-// resolvers and the FirmContext the handlers read. One home for the wiring so app.ts stays a
-// thin composition root.
+// interfaces (chokepoint.ts) to the implementations (session-context.ts, firm-database-proxy.ts).
+// The chokepoint is built over fakes; this module supplies the production resolvers and the
+// FirmContext the handlers read. One home for the wiring so app.ts stays a thin composition root.
 import type { Context } from "hono";
 import type { Permission } from "@magna-carta/access-control/registry";
 import type { IdempotencyContext } from "@magna-carta/data-access/hono-idempotency-middleware";
@@ -11,7 +10,7 @@ import type { FirmId } from "@magna-carta/identifiers/types";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import type { Bindings } from "../app.ts";
 import type { createAuth } from "../auth.ts";
-import { resolveFirmDatabase } from "../firm-binding-resolver.ts";
+import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import {
   loadEffectivePermissions,
   resolveSession,
@@ -20,11 +19,11 @@ import {
 import type { ChokepointPorts, ResolvedSession } from "./chokepoint.ts";
 
 // What resolveFirmContext returns and the chokepoint threads to loadPermissions and the handler:
-// the session firm's per-firm D1 handle plus its display name (so a handler reading the firm need
-// not re-query the control plane). Opaque to the chokepoint; consumed by handlers via c.get(
+// the session firm's per-firm database handle plus its display name (so a handler reading the firm
+// need not re-query the control plane). Opaque to the chokepoint; consumed by handlers via c.get(
 // "chokepointFirmContext"). The firm came from the SESSION, never the URL.
 export interface FirmContext {
-  readonly firmDatabase: D1Database;
+  readonly firmDatabase: ProxyBatchDatabase;
   readonly firmName: string;
   // The firm's R2 bucket name, for the upload/download presigner (null until provisioning created it;
   // an active firm always has it). The bucket came from the SESSION firm row, never client input.
@@ -66,7 +65,6 @@ function makeResolveSession(
 // resolveFirmContext port (the structural-absence gate). Returns null — mapped to the
 // chokepoint's 404, no existence oracle — for EVERY structural absence:
 //   • the firm row is missing from this control plane,
-//   • the firm's database_identifier binds to no D1 in this deployment (cross-firm / unreachable),
 //   • the session member is DEACTIVATED in the firm (a deliberate absent state).
 // A NEVER-MIRRORED user (no member row yet — the owner-activation sweep-lag window) is NOT absent:
 // it returns the context so the read self-heals to a 200 with empty permissions; only an explicit
@@ -78,15 +76,15 @@ function makeResolveFirmContext(): (
 ) => Promise<FirmContext | null> {
   return async (c, session) => {
     const env = (c as Context<{ Bindings: Bindings }>).env;
-    const firmRow = await env.DB_CONTROL.prepare(
-      "SELECT name, database_identifier, bucket_name FROM firm WHERE id = ?1",
-    )
+    const firmRow = await env.DB_CONTROL.prepare("SELECT name, bucket_name FROM firm WHERE id = ?1")
       .bind(session.firmId)
-      .first<{ name: string; database_identifier: string; bucket_name: string | null }>();
+      .first<{ name: string; bucket_name: string | null }>();
     if (firmRow === null) return null;
 
-    const firmDatabase = resolveFirmDatabase(env, firmRow.database_identifier);
-    if (firmDatabase === null) return null;
+    // Every firm is reachable by name through its per-firm FirmDatabase Durable Object; the stub
+    // self-migrates the per-firm lineage on first access. The firm is addressed by its session
+    // firmId — never client input.
+    const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, session.firmId);
 
     // Member-active check: a row whose status is anything other than 'active' is a
     // DEACTIVATED member → absent → 404. Zero rows is the never-mirrored sweep-lag window → present.

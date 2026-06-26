@@ -58,7 +58,7 @@ async function withPopulatedContext<T>(
 const FIRM = "firm_test0000000000000" as FirmId;
 const USER = "user_test0000000000000" as UserId;
 const FIRM_CONTEXT = {
-  firmDatabase: {} as D1Database,
+  firmDatabase: {} as FirmContext["firmDatabase"],
   firmName: "Test Firm",
   bucketName: "test-firm-bucket",
 } satisfies FirmContext;

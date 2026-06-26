@@ -34,6 +34,7 @@ import { registerFilesRoutes } from "./routes/files.ts";
 import { registerScanDiagnoseRoute } from "./routes/scan-diagnose.ts";
 import { registerScanMatterRoute } from "./routes/scan-matter.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
+import { registerPlatformReleaseChannelRoute } from "./routes/platform-release-channel.ts";
 import { registerFoldersRoutes } from "./routes/folders.ts";
 import { registerIncidentsRoute } from "./routes/incidents.ts";
 import { registerLocationsRoutes } from "./routes/locations.ts";
@@ -51,6 +52,7 @@ import { registerMetadataRoutes } from "./routes/metadata.ts";
 import { registerDevWebToolsDemoRoute } from "./routes/dev-web-tools-demo.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
+import { registerReleaseChannelRoute } from "./routes/release-channel.ts";
 import { registerNumberingRoutes } from "./routes/numbering.ts";
 import { registerUploadsRoutes } from "./routes/uploads.ts";
 import { registerPreviewServeRoute } from "./files/preview-serve.ts";
@@ -63,10 +65,6 @@ import { usageReachedMiddleware } from "./usage/reached-middleware.ts";
 export type Bindings = {
   ASSETS: Fetcher;
   DB_CONTROL: D1Database;
-  // The dev firm-database pool — pre-declared because Miniflare cannot create D1 at runtime;
-  // resolved from a firm's database_identifier by firm-binding-resolver.ts.
-  DB_FIRM_POOL_1: D1Database;
-  DB_FIRM_POOL_2: D1Database;
   R2: R2Bucket;
   QUEUE: Queue;
   // The per-document editing session coordinator (one Durable Object per open file), SQLite-backed so
@@ -81,6 +79,11 @@ export type Bindings = {
   // firmId:manifestHash, it single-flights one ZIP build per content-addressed selection.
   BUNDLE_COORDINATOR: DurableObjectNamespace<
     import("./downloads/bundle-coordinator.ts").BundleBuildCoordinator
+  >;
+  // The per-firm SQLite-backed database DO: one instance per firm, addressed idFromName(firmId),
+  // self-migrating on wake. All per-firm data-plane SQL routes through here.
+  FIRM_DATABASE: DurableObjectNamespace<
+    import("./firm-database/firm-database-object.ts").FirmDatabase
   >;
   // The bundle-build queue the coordinator enqueues onto; its consumer streams R2 -> client-zip -> R2.
   BUNDLE_BUILD: Queue<import("./downloads/bundle-types.ts").BundleBuildMessage>;
@@ -174,6 +177,10 @@ export type Bindings = {
   // Viewer). Unset in production, so the demo route answers 404 there; set DEV_DEMO_TOOLS=1 in
   // .dev.vars to view it locally. Not part of any contract; remove the demo route when no longer needed.
   DEV_DEMO_TOOLS?: string;
+  // Cloudflare Flagship feature-flag binding. Optional: absent in local dev, tests, and deployments
+  // before the Flagship provider is wired. The resolver (src/flags/flag-evaluator.ts) falls back to
+  // defaultOffEvaluator when this is undefined, so every flag returns its stable default safely.
+  FLAGS?: import("@magna-carta/feature-flags").FlagshipBinding;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
@@ -264,7 +271,8 @@ export function createApp(options: CreateAppOptions = {}) {
   );
 
   // The chokepoint: built once over the REAL ports — session resolution, firm-context
-  // resolution (control-plane lookup + firm-binding-resolver + member-active check), permission
+  // resolution (control-plane lookup + the firmId-addressed FirmDatabase DO + member-active
+  // check), permission
   // loading, the platform-scoped/firm-scoped idempotency gate, and a per-isolate in-memory rate
   // limiter (one limiter per app instance, never per request). This is THE single
   // tenancy/authn/RBAC/idempotency/rate-limit enforcement point every /api/v1 route traverses.
@@ -357,7 +365,9 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFileIntegrityRoutes(app, chokepoint);
   registerMetadataRoutes(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);
+  registerReleaseChannelRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
+  registerPlatformReleaseChannelRoute(app, chokepoint);
   registerIncidentsRoute(app, chokepoint);
   registerUploadsRoutes(app, chokepoint);
   // Slice 1·1: matters (shell + lifecycle), per-firm matter/document types, Locations, and the

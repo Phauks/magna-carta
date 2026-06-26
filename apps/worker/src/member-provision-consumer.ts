@@ -9,7 +9,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "./app.ts";
-import { resolveFirmDatabase } from "./firm-binding-resolver.ts";
+import { firmDatabaseFor } from "./firm-database/firm-database-proxy.ts";
 
 // The member.provision payload as the producers write it (routes/members.ts invite,
 // firm-provisioner.ts owner activation): ids + non-privileged fields only.
@@ -61,28 +61,15 @@ function parseMemberProvisionPayload(row: OutboxRow): MemberProvisionPayload {
 // insertMemberStatement is ON CONFLICT DO NOTHING and the role assignment dedups on
 // UNIQUE(member_user_id, role_id) — so a redelivery (or an overlapping sweep) is a no-op.
 //
-// Every unresolvable state throws: unknown firm, firm without a recorded database, a database this
-// deployment cannot reach, an unknown role name. The relay turns the throw into attempts += 1 and
-// dead-letters at max attempts — failure stays visible, the message is never half-applied (the
-// member row and role assignment commit in ONE batch).
+// An unknown role name throws: the relay turns the throw into attempts += 1 and dead-letters at max
+// attempts — failure stays visible, the message is never half-applied (the member row and role
+// assignment commit in ONE batch). The firm's per-firm FirmDatabase Durable Object is addressed by
+// the payload's firmId and self-migrates the per-firm lineage on first access, so every firm is
+// reachable by name — no control-plane lookup to resolve a database handle.
 export async function consumeMemberProvision(env: Bindings, row: OutboxRow): Promise<void> {
   const payload = parseMemberProvisionPayload(row);
 
-  const firmRow = await env.DB_CONTROL.prepare("SELECT database_identifier FROM firm WHERE id = ?1")
-    .bind(payload.firmId)
-    .first<{ database_identifier: string | null }>();
-  if (firmRow === null) {
-    throw new Error(`member.provision ${row.id}: unknown firm ${payload.firmId}`);
-  }
-  if (firmRow.database_identifier === null) {
-    throw new Error(`member.provision ${row.id}: firm ${payload.firmId} has no database recorded`);
-  }
-  const firmDatabase = resolveFirmDatabase(env, firmRow.database_identifier);
-  if (firmDatabase === null) {
-    throw new Error(
-      `member.provision ${row.id}: firm ${payload.firmId} database is not reachable from this deployment`,
-    );
-  }
+  const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, payload.firmId);
 
   const statements: SqlStatement[] = [
     insertMemberStatement(firmDatabase, {
@@ -95,11 +82,12 @@ export async function consumeMemberProvision(env: Bindings, row: OutboxRow): Pro
     // Seeded role handles are committed literals in the per-firm migration (0002_member-rbac.sql);
     // the producer names the role and the id is resolved here at consume time — the worker never
     // hardcodes rol_ handles.
-    const role = await firmDatabase
+    const roleResult = await firmDatabase
       .prepare("SELECT id FROM role WHERE name = ?1")
       .bind(payload.roleName)
-      .first<{ id: string }>();
-    if (role === null) {
+      .all<{ id: string }>();
+    const role = roleResult.results[0];
+    if (role === undefined) {
       throw new Error(`member.provision ${row.id}: unknown role "${payload.roleName}"`);
     }
     statements.push(
@@ -111,8 +99,8 @@ export async function consumeMemberProvision(env: Bindings, row: OutboxRow): Pro
     );
   }
   // One atomic batch: a crash can never leave the member row without its role (or vice versa).
-  // Deliberate pin: the BatchDatabase annotation proves at compile time that D1Database still
-  // satisfies the data-access batch port — a port drift fails here, not at runtime.
+  // Deliberate pin: the BatchDatabase annotation proves at compile time that the firm-database proxy
+  // still satisfies the data-access batch port — a port drift fails here, not at runtime.
   const batchDatabase: BatchDatabase = firmDatabase;
   await batchDatabase.batch(statements);
 }

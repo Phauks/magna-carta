@@ -49,6 +49,10 @@ function makeSqlDatabaseAdapter(database: DatabaseSync) {
           const rows = database.prepare(sql.replace(/\?\d+/g, "?")).all(...(bindings as never[]));
           return Promise.resolve({ results: rows as T[] });
         },
+        first<T>() {
+          const rows = database.prepare(sql.replace(/\?\d+/g, "?")).all(...(bindings as never[]));
+          return Promise.resolve(rows.length > 0 ? (rows[0] as T) : null);
+        },
       };
       return stmt;
     },
