@@ -438,6 +438,81 @@ The label is placed in the requested corner of the page as it appears to a viewe
 
 The engine uses the chosen built-in standard font (default Helvetica), which is natively available in every PDF viewer without embedding. The label is placed using a shared font object added once per document, so stamping a 500-page document adds a single font dictionary regardless of page count.
 
+## Forms
+
+`readForm`, `fillForm`, and `flattenForm` provide AcroForm support: enumerate fields, fill values, and bake a form into permanent static content.
+
+**Forms are not redaction.** Filling sets visible field values; flattening makes them permanent. Neither operation removes hidden content, metadata, or any other surface. Use `redactDocument`/`sanitizeDocument` for that.
+
+### Supported field types
+
+The four fillable types are **text**, **checkbox**, **radio**, and **choice** (list/combo). Pass a string for text/choice/radio fields; pass a boolean for checkboxes. `"pushButton"` and `"signature"` fields are enumerated by `readForm` but filling their values is a no-op in this version.
+
+### `readForm(bytes)`
+
+```ts
+import { readForm } from "@magna-carta/pdf";
+
+const fields = await readForm(new Uint8Array(inputBytes));
+// fields — FormField[] sorted by page and field tree order
+// Each field: { name, kind, value, options, readOnly, page, rect }
+```
+
+Returns a `FormField[]`. Each entry carries the fully-qualified field name, kind, current value (string, boolean, or `null`), option list for choice/radio fields, read-only flag, 0-based page index, and bounding-box rect.
+
+### `fillForm(bytes, values, options?)`
+
+```ts
+import { fillForm } from "@magna-carta/pdf";
+
+const result = await fillForm(new Uint8Array(inputBytes), {
+  "topmostSubform[0].Page1[0].f1_01[0]": "Jane Smith",
+  "topmostSubform[0].Page1[0].c1_1[0]": true,  // checkbox
+}, { flatten: false });
+// result.pdf — Uint8Array of the PDF with field values written
+```
+
+`values` maps fully-qualified field names (as returned by `readForm`) to fill values. Extra keys that do not match any field are silently ignored. `options.flatten` (default `false`): when `true`, appearances are baked into content and the AcroForm is dropped (see `flattenForm` below).
+
+### `flattenForm(bytes)`
+
+```ts
+import { flattenForm } from "@magna-carta/pdf";
+
+const result = await flattenForm(new Uint8Array(inputBytes));
+// result.pdf — Uint8Array of the flattened static PDF
+```
+
+Bakes each widget's current appearance into the page via a `Do` operator, merges page resources non-destructively, removes widget annotations, and drops the `/AcroForm` dictionary. The output renders identically in any PDF viewer, including those without form support. After flattening, `readForm` returns an empty array.
+
+### V1 boundaries
+
+- **Appearances use Helvetica (base-14).** Filled text and choice appearances are generated in Helvetica — no font embedding, no custom typeface, single-line only (no rich text or multiline).
+- **Checkbox/radio render through their existing state appearances.** Filling a checkbox or radio sets the field value and the widget's selected state (`/V` and `/AS`); it does not generate an appearance. Rendering — and what `flattenForm` bakes — relies on the on/off state appearance streams the field already carries. A checkbox or radio widget that lacks those streams is filled at the value level but will not show a mark until a viewer synthesizes one. Text and choice fields do not have this caveat (their appearances are generated).
+- **No XFA.** XFA-only documents are not supported; the call throws `"document has no interactive form"`.
+- **No digital-signature creation.** Signature fields are enumerated by `readForm` but signing is deferred.
+- **No `/MK` border styling.** Widget appearance dictionaries (`/MK`) are not applied to generated appearances.
+
+### Types
+
+```ts
+type FieldKind = "text" | "checkbox" | "radio" | "choice" | "pushButton" | "signature" | "unknown";
+
+interface FormField {
+  name: string;                               // fully-qualified dot-joined field name
+  kind: FieldKind;
+  value: string | boolean | null;             // current value, or null
+  options: string[];                          // /Opt entries (choice/radio)
+  readOnly: boolean;
+  page: number | null;                        // 0-based page index
+  rect: [number, number, number, number] | null;  // [llx, lly, urx, ury] display points
+}
+
+type FormFillValues = Record<string, string | boolean>;
+interface FormFillOptions { flatten?: boolean }
+interface FormFillResult  { pdf: Uint8Array }
+```
+
 ## Build notes
 
 The WASM binary at `src/pkg/pdf_core_bg.wasm` is produced by `wasm-pack build crates/pdf-core --target web --out-dir packages/pdf/src/pkg --release --no-opt`. It is not committed to version control; run `vp run rust-wasm-build` (or `pnpm --filter @magna-carta/pdf run build:wasm`) to regenerate it. In development the binary is rebuilt automatically as part of `vp run build-all`.
