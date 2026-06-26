@@ -9,8 +9,7 @@
     "./cost-entry-statements": "./src/cost-entry-statements.ts",
     "./cost-validation": "./src/cost-validation.ts",
     "./recoverable-charge": "./src/recoverable-charge.ts",
-    "./recovery-policy": "./src/recovery-policy.ts",
-    "./queries": "./src/queries.ts"
+    "./recovery-policy": "./src/recovery-policy.ts"
   },
   "scripts": {
     "test": "vp test run"
