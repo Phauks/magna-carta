@@ -28,9 +28,9 @@
   // files.magnacartausercontent.com — the SAME dedicated content domain the editor uses (a separate
   // registrable domain from the app, so served bytes never carry an app cookie); the app worker takes a
   // `files.magnacartausercontent.com/*` route, more specific than the editor's wildcard. The placeholder
-  // value lets the Miniflare test pool exercise the host branch. EDITOR_ORIGIN_DOMAIN
-  // (= magnacartausercontent.com) is the editor half, set as a deploy var so local dev keeps its
-  // edit.localhost fallback.
+  // value lets the Miniflare test pool exercise the host branch. The editor half is USERCONTENT_DOMAIN
+  // (the bare content domain), which defaults to magnacartausercontent.com in code — no deploy var, prod
+  // can't forget it; only local dev overrides it.
   "vars": { "FILES_ORIGIN": "files.example.com" },
   // Real production resources (created 2026-06-09; naming convention in ADR-0075:
   // magna-carta-<environment>-<scope>[-<purpose-or-slug>]). Binding names are the code-facing

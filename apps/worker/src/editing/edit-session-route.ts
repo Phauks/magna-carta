@@ -32,11 +32,12 @@ const TOKEN_WINDOW_MS = 60 * 60 * 1000;
 // in the magna-carta-edit worker (apps/magna-carta-edit/src/document-editor-container.ts).
 const WOPI_HOST = "wopi.magna-carta.internal";
 
-// The base domain of the cookieless editor origin served by the magna-carta-edit worker. The per-document
-// editor loads at `<documentKey>.<domain>` (a deploy-time wildcard route); a local default stands in
-// until the domain is configured.
-function editorBaseDomain(env: Bindings): string {
-  return env.EDITOR_ORIGIN_DOMAIN ?? "edit.localhost";
+// The dedicated cookieless content domain — a separate registrable domain from the app, the one home for
+// all browser-served untrusted bytes (the editor at `<documentKey>.<domain>`, file previews/downloads at
+// `files.<domain>`). It is fixed, owned infrastructure, so the production value is the default and prod
+// needs no deploy var; only local dev overrides USERCONTENT_DOMAIN (e.g. to edit.localhost in .dev.vars).
+function userContentDomain(env: Bindings): string {
+  return env.USERCONTENT_DOMAIN ?? "magnacartausercontent.com";
 }
 
 // The opaque, stable per-document key — the first label of the editor origin. Deterministic, so a
@@ -128,7 +129,7 @@ async function buildLaunch(
   // /wopi surface, so the editor reaches the document with no egress. Object keys are derived from the
   // signed token, never the URL.
   const documentKey = await deriveDocumentKey(input.fileId);
-  const editorOrigin = `https://${documentKey}.${editorBaseDomain(c.env)}`;
+  const editorOrigin = `https://${documentKey}.${userContentDomain(c.env)}`;
   const wopiSrc = `http://${WOPI_HOST}/wopi/files/${input.fileId}`;
   const editorUrl = `${editorOrigin}/browser/dist/cool.html?WOPISrc=${encodeURIComponent(wopiSrc)}`;
   return {
