@@ -176,9 +176,9 @@ dependencies = [
 
 [[package]]
 name = "base64"
-version = "0.21.7"
+version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
+checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "bit_field"
@@ -552,8 +552,10 @@ dependencies = [
  "hmac",
  "lopdf",
  "md-5",
+ "ms-offcrypto-writer",
  "office-crypto",
  "pbkdf2",
+ "rand 0.9.4",
  "rayon",
  "rc4",
  "sha1",
@@ -1437,6 +1439,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "ms-offcrypto-writer"
+version = "1.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "529052c4c157e0dc775fed7eab670312ba9423ffb1eaaa52e223545cfba2e45e"
+dependencies = [
+ "aes",
+ "base64",
+ "cbc",
+ "cfb",
+ "cipher",
+ "hmac",
+ "rand 0.9.4",
+ "sha2",
+ "widestring",
+]
+
+[[package]]
 name = "new_debug_unreachable"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1524,9 +1543,9 @@ dependencies = [
 
 [[package]]
 name = "office-crypto"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "306364100605694fbe531a3cf39e1f45ca472079d777c005ef5b73a4cbd8c830"
+checksum = "9f65985b0b4d18bfa5be6a26d178a2028a8711eff265d32557f607698edbdcf0"
 dependencies = [
  "aes",
  "base64",
@@ -1534,11 +1553,13 @@ dependencies = [
  "cbc",
  "derivative",
  "ecb",
+ "md-5",
  "packed_struct",
  "quick-xml",
+ "rc4",
  "sha1",
  "sha2",
- "thiserror 1.0.69",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -1886,9 +1907,9 @@ checksum = "a993555f31e5a609f617c12db6250dedcac1b0a85076912c436e6fc9b2c8e6a3"
 
 [[package]]
 name = "quick-xml"
-version = "0.27.1"
+version = "0.38.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffc053f057dd768a56f62cd7e434c42c831d296968997e9ac1f76ea7c2d14c41"
+checksum = "b66c2058c55a409d601666cffe35f04333cf1013010882cec174a7467cd4e21c"
 dependencies = [
  "memchr",
 ]
@@ -2609,6 +2630,12 @@ name = "weezl"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a28ac98ddc8b9274cb41bb4d9d4d5c425b6020c50c46f25559911905610b4a88"
+
+[[package]]
+name = "widestring"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72069c3113ab32ab29e5584db3c6ec55d416895e60715417b5b883a357c3e471"
 
 [[package]]
 name = "windows-core"

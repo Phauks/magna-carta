@@ -12,6 +12,9 @@ pub use detect::detect;
 
 mod hex;
 
+mod ooxml;
+pub use ooxml::OoxmlAdapter;
+
 mod pdf;
 pub use pdf::PdfAdapter;
 
