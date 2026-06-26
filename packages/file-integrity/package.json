@@ -1,0 +1,22 @@
+{
+  "name": "@magna-carta/file-integrity",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./types": "./src/types.ts",
+    "./hash": "./src/hash.ts",
+    "./compare": "./src/compare.ts",
+    "./receipt": "./src/receipt.ts",
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

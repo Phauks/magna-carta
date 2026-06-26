@@ -55,6 +55,7 @@ export const PERMISSIONS = [
   "documents:forceReleaseLock", // release another member's exclusive lock
   "documents:reconcile", // resolve a divergent check-in — choose which copy becomes authoritative
   "tools:metadataScrubber", // inspect/scrub a file's metadata & content artifacts (ephemeral, matter-free)
+  "tools:fileIntegrity", // compute a file's cryptographic digests + verify a stored file against its ingest baseline
   // Custom fields — define and maintain field schemas; purge hard-deletes all values for a field.
   "customFields:manage",
   "customFields:purge",

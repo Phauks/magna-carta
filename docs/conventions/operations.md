@@ -261,10 +261,38 @@ The scan worker is **built and unit-tested, but not yet connected to Workers Bui
 
 2. **2 GiB resident-memory check.** On a scan near the 2 GiB inspectable cap, observe the container's resident memory — expect approximately 2 GiB (the body held in the Rust service plus clamd's own copy atop the ~1–2 GiB resident DB). If resident memory exceeds the `standard-1` (4 GiB) ceiling or scan throughput degrades, raise `instance_type` or lower the inspectable cap.
 
-### CI engine test
+### Engine acceptance test (pre-merge)
 
-`containers/scan/tests/eicar_e2e.sh` (and the `scan-container` CI job) build the image and assert EICAR → `infected` end to end. This is the engine's proof in CI (Docker) — independent of the live deployment acceptance checks above.
+`containers/scan/tests/eicar_e2e.sh` builds the image and asserts EICAR → `infected` end to end (Docker required). This is the engine's proof before merge — run it locally (or as a Workers Builds build step) on any change under `containers/scan/**`; it is independent of the live deployment acceptance checks above. It needs a Docker daemon, so it does not run inside the `vp test` Miniflare pool.
 
 ### Cost
 
 ~$35–50/mo at MVP scale for one warm `standard-1` instance (the warm-poke keeps it from cold-starting the ~1–2 GiB DB); scales with concurrent scan volume up to `max_instances`. Self-hosted — privileged client bytes never leave our compute.
+
+---
+
+## 12. Cloudflare Workers Builds — CI/CD pipeline + fast-build settings
+
+The build-and-deploy pipeline is **Cloudflare Workers Builds** (the deploy model; ADR-0075 as amended), not GitHub Actions. Each Worker (`magna-carta`, `magna-carta-scan`) is connected to the GitHub repository and builds + deploys on push to `main`. Build-time performance is a standing requirement — see [`build-performance.md`](build-performance.md).
+
+### Per-Worker build configuration (dashboard: **Workers & Pages → _the Worker_ → Settings → Builds**)
+
+Build and deploy commands are already set (do not change without cause) — recorded here so the pipeline is documented:
+
+- `magna-carta` — build `pnpm install --frozen-lockfile && pnpm exec vp run build-all`; deploy `pnpm --filter @magna-carta/worker exec wrangler deploy`.
+- `magna-carta-scan` — root directory `apps/scan-worker`; build `pnpm run build`; deploy `npx wrangler deploy`. Deploying the scan Worker builds and pushes the `containers/scan` image referenced by its Container binding.
+
+Two settings to **enable/set** (the fast-build levers — see [`build-performance.md`](build-performance.md)):
+
+- **Build Caching — turn ON for both Workers.** Caches dependencies and build outputs across builds (a project-wide cache), so a build does not re-download the pnpm store or rebuild unchanged outputs every run. This is the primary fast-build lever and the analog of a CI dependency cache.
+- **Build Watch Paths — set per Worker** so an unrelated change does not rebuild every Worker. Patterns are repo-root-relative; a single `*` matches zero or more characters across directories; excludes are filtered first, then a build runs only if a changed path still matches an include. (Workers Builds always builds regardless of paths when a push has 0 changes, 3000+ changes, or 20+ commits.)
+  - `magna-carta` (depends on most of the repo — scope by exclusion): **Include** `*` · **Exclude** `docs/*`, `containers/*`, `spikes/*`, `*.md`. So a docs- or scan-only change no longer rebuilds and redeploys the app Worker.
+  - `magna-carta-scan` (depends only on its own package + the scan image — scope by inclusion): **Include** `apps/scan-worker/*`, `containers/scan/*`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` · **Exclude** (none). So a change to `apps/web` or any `packages/*` no longer triggers a scan rebuild — the largest waste today.
+
+### Quality gates (no separate CI runner) — the `pre-push` hook
+
+With GitHub Actions retired, Workers Builds builds and deploys but runs no checks. The gates live in the tracked **`pre-push` git hook** (`tooling/git-hooks/pre-push`): it runs `pnpm audit`, `pnpm check`, the governance lints, `vp test`, the OpenAPI contract drift/Spectral gates, and — when `containers/scan/**` changed and Docker is available — the scan EICAR acceptance test (§11), blocking the push on any failure. Activate it once per clone with **`vp run setup-hooks`** (the same step that installs the post-merge auto-clean hook; `core.hooksPath` → `tooling/git-hooks`). `SKIP_PREPUSH=1 git push` bypasses it in a genuine emergency — fix forward. `oasdiff` (breaking-change vs. the base) and the Prism mock smoke are not in the hook (they are review-time / base-branch checks); run them in review if needed.
+
+### Container image cache (scan Worker)
+
+The scan image build uses BuildKit cache mounts (`containers/scan/Dockerfile`) so an unchanged Cargo dependency graph is not recompiled. Mounts are build-local; if cold Rust dependency compiles in the Workers Build become the bottleneck, a cache-mount export is the documented upgrade path ([`build-performance.md`](build-performance.md)).

@@ -755,27 +755,23 @@ export const storageMeter = sqliteTable(
   (table) => [primaryKey({ columns: [table.storageClass, table.artifactRole, table.prefix] })],
 );
 
-// Per-firm content-addressed scan cache — the "scan-once" dedup. Records a DEFINITIVE verdict for a
-// content hash under a specific engine version, so a re-scan or bulk migration can SKIP the scan engine
-// when identical content was already scanned by the SAME engine. Sound: identical bytes + the same
-// signature database yield the same verdict, and `engine_version` is part of the key, so a database
-// update is a cache MISS (the content is re-scanned under the new engine) — never a stale clean. Only
-// definitive verdicts are cached ('clean'/'infected'); 'unscanned' (no engine ran) is never written.
-// Natural composite key (content hash + engine version), not a handle. The win is on duplicate-heavy
-// imports: the first copy of a given content is scanned, every later copy reuses the verdict.
+// Per-firm content-addressed scan cache — the "scan-once" dedup. Records the full serialized
+// RawScanResult for a content hash under a specific engine version, so a re-scan or bulk migration
+// can SKIP the scan engine when identical content was already scanned by the SAME engine. Sound:
+// identical bytes + the same signature database yield the same raw result, and `engine_version` is
+// part of the key, so a database update is a cache MISS (the content is re-scanned under the new
+// engine) — never a stale result. Only real engine scans are cached (engineVersion non-null);
+// the no-engine adapter is never written here.
+// Natural composite key (content hash + engine version), not a handle.
 export const scanCache = sqliteTable(
   "scan_cache",
   {
     contentSha256: text("content_sha256").notNull(),
     engineVersion: text("engine_version").notNull(),
-    verdict: text("verdict", { enum: ["clean", "infected"] }).notNull(),
-    signature: text("signature"), // malware signature name for 'infected'; NULL for 'clean'
+    rawResult: text("raw_result").notNull(), // JSON-serialized RawScanResult
     scannedAt: text("scanned_at").notNull(),
   },
-  (table) => [
-    primaryKey({ columns: [table.contentSha256, table.engineVersion] }),
-    check("scan_cache_verdict_check", sql`${table.verdict} IN ('clean', 'infected')`),
-  ],
+  (table) => [primaryKey({ columns: [table.contentSha256, table.engineVersion] })],
 );
 
 // Authoritative per-firm AI token usage, captured from the inference RESPONSE (the provider usage

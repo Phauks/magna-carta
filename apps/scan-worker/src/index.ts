@@ -31,7 +31,7 @@ const SCAN_WARM_CRON = "*/20 * * * *";
 
 export default {
   // The /scan proxy: receives the streamed file body + query string from the app worker (via service
-  // binding), forwards it to the scan Container, and returns the JSON ScanResult verbatim.
+  // binding), forwards it to the scan Container, and returns the JSON RawScanResult verbatim.
   // No authentication is performed here — the service binding provides the trust boundary
   // (only the app worker can reach this worker; it is not reachable from the public internet).
   async fetch(request: Request, env: Bindings): Promise<Response> {

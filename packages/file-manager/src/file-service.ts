@@ -45,6 +45,7 @@ import {
 } from "./file-statements.ts";
 import { selectFolderStatement } from "./folder-statements.ts";
 import { meterCommitStatements } from "./metering-statements.ts";
+import type { RawScanResult } from "./scan-port.ts";
 import { recordScanCacheStatement } from "./scan-cache.ts";
 import {
   checkUploadPolicy,
@@ -369,6 +370,9 @@ export interface CommitVersionInput {
   readonly scanEngineVersion: string | null;
   readonly scanDetail: string | null;
   readonly now: string;
+  // The full raw scan result — written atomically to the content-dedup cache on a definitive CLEAN
+  // verdict from a real engine. Omit (or null) for unscanned commits; the cache is not written then.
+  readonly rawScanResult?: RawScanResult | null;
 }
 
 export interface CommittedVersion {
@@ -435,27 +439,30 @@ export async function commitVersion(
         ),
         fileAuditStatement(database, options, "file.version_committed", input.versionId),
         // Populate the content-dedup cache (scan-once) atomically with the commit — but ONLY for a
-        // definitive CLEAN verdict from a real engine. `unscanned`/no-engine commits (the launch
-        // adapter, or a missing engine version) are never cached, so a later re-scan still runs the
-        // engine; an `infected` outcome never reaches commit (it quarantines).
+        // definitive CLEAN verdict from a real engine with the full raw result available.
+        // `unscanned`/no-engine commits are never cached; rawScanResult is optional — omit for
+        // callers that do not yet supply it, and the cache write is skipped.
+        ...(input.scanVerdict === "clean" &&
+        input.rawScanResult != null &&
+        input.contentSha256 !== null
+          ? [
+              recordScanCacheStatement(
+                database,
+                input.contentSha256,
+                input.rawScanResult,
+                input.now,
+              ),
+            ]
+          : []),
+        // Stamp the firm's "current scan engine version" from the engine that just produced a real
+        // clean verdict — guarded on a non-null engineVersion, so it advances only on a definitive
+        // scan. The access-triggered re-scan path compares a version's stored scan_engine_version
+        // against this to decide staleness; the dedup cache is keyed on it. An `unscanned`/no-engine
+        // commit never sets it, so it is never fabricated without a real scan.
         ...(input.scanVerdict === "clean" &&
         input.scanEngineVersion !== null &&
         input.contentSha256 !== null
           ? [
-              recordScanCacheStatement(database, {
-                contentSha256: input.contentSha256,
-                engineVersion: input.scanEngineVersion,
-                verdict: "clean",
-                signature: null,
-                scannedAt: input.now,
-              }),
-              // Stamp the firm's "current scan engine version" from the engine that just produced a
-              // real clean verdict — guarded identically to the cache record above, so it advances
-              // only on a definitive scan. This makes the current engine version an observable,
-              // auditable fact: the access-triggered re-scan path compares a version's stored
-              // scan_engine_version against this to decide staleness, and the dedup cache is keyed
-              // on it. An `unscanned`/no-engine commit never sets it, so it is never fabricated
-              // without a real scan.
               writeFirmSettingStatement(
                 database,
                 scanEngineVersionDefinition,
@@ -517,20 +524,11 @@ export async function commitCheckinVersion(
   const file = await loadFile(database, version.fileId);
   const baseIsCurrent = file?.currentVersionId === checkout.baseVersionId;
 
-  // Same scan-cache rule as commitVersion: cache only a definitive clean verdict from a real engine.
+  // Same scan-cache rule as commitVersion: cache only a definitive clean verdict from a real engine,
+  // with the full raw result available (rawScanResult is optional — the cache write is skipped without it).
   const scanCacheStatements =
-    input.scanVerdict === "clean" &&
-    input.scanEngineVersion !== null &&
-    input.contentSha256 !== null
-      ? [
-          recordScanCacheStatement(database, {
-            contentSha256: input.contentSha256,
-            engineVersion: input.scanEngineVersion,
-            verdict: "clean",
-            signature: null,
-            scannedAt: input.now,
-          }),
-        ]
+    input.scanVerdict === "clean" && input.rawScanResult != null && input.contentSha256 !== null
+      ? [recordScanCacheStatement(database, input.contentSha256, input.rawScanResult, input.now)]
       : [];
 
   const commitStatement = commitVersionStatement(database, {
@@ -721,6 +719,9 @@ export interface RescanVerdictInput {
   readonly signature: string | null; // malware signature name for 'infected'; null for 'clean'
   readonly contentSha256: string;
   readonly now: string;
+  // The full raw scan result — written to the content-dedup cache when provided. Omit (or null) for
+  // legacy call sites that do not yet supply it; the cache write is skipped but the verdict stamp lands.
+  readonly rawScanResult?: RawScanResult | null;
 }
 
 // Applies an in-place re-scan verdict to an already-committed version: stamps scan_verdict /
@@ -743,13 +744,18 @@ export function recordRescanVerdict(
           scanEngineVersion: input.scanEngineVersion,
           scanDetail: input.scanDetail,
         }),
-        recordScanCacheStatement(database, {
-          contentSha256: input.contentSha256,
-          engineVersion: input.scanEngineVersion,
-          verdict: input.scanVerdict,
-          signature: input.signature,
-          scannedAt: input.now,
-        }),
+        // Write the raw scan result to the content-dedup cache when the caller supplies it.
+        // rawScanResult is optional — legacy callers that do not yet supply it skip the cache write.
+        ...(input.rawScanResult != null
+          ? [
+              recordScanCacheStatement(
+                database,
+                input.contentSha256,
+                input.rawScanResult,
+                input.now,
+              ),
+            ]
+          : []),
         fileAuditStatement(database, options, "file.version_rescanned", input.versionId),
       ],
       // Notify on a fresh infected finding so the file's users learn their already-visible file is now

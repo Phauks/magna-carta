@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { ScanResult } from "@magna-carta/file-manager/scan-port";
+import type { RawScanResult } from "@magna-carta/file-manager/scan-port";
 import {
   containerScanAdapter,
   type ScanContainerFetcher,
 } from "../src/files/container-scan-adapter.ts";
 
 // The adapter is exercised with a fake container (no real binding, no Docker): each fake returns one
-// ScanResult JSON shape (or a fault), and the adapter must map it to the typed result or throw.
+// RawScanResult JSON shape (or a fault), and the adapter must parse it to the typed facts or throw.
 
 function fakeContainer(body: unknown, status = 200): ScanContainerFetcher {
   return {
@@ -22,12 +22,43 @@ const meta = { sizeBytes: 42, sniffedContentType: "application/pdf" };
 const emptyBody = () => new Response("").body ?? new ReadableStream<Uint8Array>();
 
 describe("containerScanAdapter", () => {
-  it("maps each ScanResult verdict shape", async () => {
-    const shapes: ScanResult[] = [
-      { verdict: "clean", engineVersion: "e/1", activeContent: false },
-      { verdict: "infected", engineVersion: "e/1", signature: "Eicar-Test-Signature" },
-      { verdict: "unscanned", reason: "encrypted", engineVersion: "e/1" },
-      { verdict: "suspicious", reason: "decompression-bomb", engineVersion: "e/1" },
+  it("parses each RawScanResult shape", async () => {
+    const shapes: RawScanResult[] = [
+      {
+        engineVersion: "e/1",
+        clam: { state: "clean" },
+        heuristic: { kind: "active-content" },
+        matches: [],
+        timings: { clamdMs: 3, yaraMs: 1 },
+      },
+      {
+        engineVersion: "e/1",
+        clam: { state: "infected", signature: "Eicar-Test-Signature" },
+        heuristic: { kind: "none" },
+        matches: [{ ruleId: "R", tier: "core", score: 90, isSuspicious: false }],
+        timings: { clamdMs: 2, yaraMs: 4 },
+      },
+      {
+        engineVersion: "e/1",
+        clam: { state: "clean" },
+        heuristic: { kind: "encrypted" },
+        matches: [],
+        timings: { clamdMs: 1, yaraMs: 0 },
+      },
+      {
+        engineVersion: "e/1",
+        clam: { state: "clean" },
+        heuristic: { kind: "structural", reason: "decompression-bomb" },
+        matches: [],
+        timings: { clamdMs: 5, yaraMs: 2 },
+      },
+      {
+        engineVersion: null,
+        clam: { state: "unavailable" },
+        heuristic: { kind: "none" },
+        matches: [],
+        timings: { clamdMs: 0, yaraMs: 0 },
+      },
     ];
     for (const shape of shapes) {
       const result = await containerScanAdapter(fakeContainer(shape)).scan(emptyBody(), meta);
@@ -37,13 +68,24 @@ describe("containerScanAdapter", () => {
 
   it("throws on a non-200 response (never returns clean)", async () => {
     const adapter = containerScanAdapter(
-      fakeContainer({ verdict: "clean", engineVersion: "e" }, 500),
+      fakeContainer(
+        {
+          engineVersion: "e",
+          clam: { state: "clean" },
+          heuristic: { kind: "none" },
+          matches: [],
+          timings: { clamdMs: 0, yaraMs: 0 },
+        },
+        500,
+      ),
     );
     await expect(adapter.scan(emptyBody(), meta)).rejects.toThrow();
   });
 
-  it("throws on a malformed body (an unrecognized verdict is a fault)", async () => {
-    const adapter = containerScanAdapter(fakeContainer({ verdict: "definitely-not-a-verdict" }));
+  it("throws on a malformed body (an unrecognized shape is a fault)", async () => {
+    const adapter = containerScanAdapter(
+      fakeContainer({ clam: { state: "definitely-not-a-state" } }),
+    );
     await expect(adapter.scan(emptyBody(), meta)).rejects.toThrow();
   });
 
