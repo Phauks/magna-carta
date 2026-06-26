@@ -154,6 +154,10 @@
     { "binding": "SCAN_SERVICE", "service": "magna-carta-scan" },
     // The bundle-build worker: builds multi-volume ZIP bundles off the hot path; POST /build.
     { "binding": "BUNDLE_SERVICE", "service": "magna-carta-bundle" },
+    // The dedicated conversion engine worker: the app worker reaches it over this binding to call its
+    // POST /convert endpoint. Optional at deploy time — absent until the worker is deployed and wired;
+    // resolveEnginePort returns the deferred port while unbound.
+    { "binding": "CONVERT", "service": "magna-carta-convert" },
   ],
   // Browser Rendering Workers binding — used by POST /api/v1/safe-browse to render suspect URLs
   // in Cloudflare's isolated remote browser. Requires compatibility_date >= 2026-03-24 for
@@ -173,10 +177,6 @@
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["BundleBuildCoordinator", "ConversionJob"] },
   ],
-  // The dedicated conversion engine worker: the app worker reaches it over this service binding to
-  // call its POST /convert endpoint. Optional at deploy time — absent until the worker is deployed
-  // and wired; resolveEnginePort returns the deferred port while unbound.
-  "services": [{ "binding": "CONVERT", "service": "magna-carta-convert" }],
   // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines
   // the telemetry Workers logger emits land here). Logpush → R2 is a deploy-time runbook step
   // (docs/conventions/operations.md), not code — it is account configuration (slice 0·6, ADR-0074).
