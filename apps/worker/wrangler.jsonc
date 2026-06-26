@@ -151,22 +151,30 @@
   // class is exported from src/index.ts (a binding to a class with no export fails the deploy).
   // FIRM_DATABASE is the per-firm SQLite-backed DO: one instance per firm (idFromName(firmId)),
   // self-migrating on wake, and the data-plane RPC target for all per-firm SQL.
+  // EVERY Durable Object binding MUST live in this one block: JSONC keeps only the last duplicate
+  // top-level key, so a second "durable_objects" (or "migrations") key silently drops every binding
+  // declared above it. DURABLE_TIMER is the per-timekeeper live-timer coordinator — one instance per
+  // `${firmId}:${userId}` (firm-namespaced, so a timer never holds another firm's state), holding only
+  // transient live-timer state; a committed time entry flows through the data-access chokepoint into
+  // the per-firm database, never the DO.
   "durable_objects": {
     "bindings": [
       { "name": "BUNDLE_COORDINATOR", "class_name": "BundleBuildCoordinator" },
       // The conversion-job coordinator: keyed firmId:jobId, single-flights one conversion per job.
       { "name": "CONVERSION_JOB", "class_name": "ConversionJob" },
+      { "name": "DURABLE_TIMER", "class_name": "LiveTimerDurableObject" },
       // The per-firm SQLite-backed database: one instance per firm (idFromName(firmId)), self-migrating
       // on wake, and the data-plane RPC target for all per-firm SQL.
       { "name": "FIRM_DATABASE", "class_name": "FirmDatabase" },
     ],
   },
-  // SQLite-backed DO classes are introduced through a migration tag. v1 introduced the bulk-download
-  // coordinator and the conversion-job coordinator; v2 introduces the per-firm database DO (one
-  // SQLite-backed instance per firm).
+  // SQLite-backed DO classes are introduced through a migration tag — ONE consolidated lineage (a
+  // second "migrations" key would override this one). v1 the bulk-download + conversion-job
+  // coordinators; v2 the live-timer coordinator; v3 the per-firm database DO.
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["BundleBuildCoordinator", "ConversionJob"] },
-    { "tag": "v2", "new_sqlite_classes": ["FirmDatabase"] },
+    { "tag": "v2", "new_sqlite_classes": ["LiveTimerDurableObject"] },
+    { "tag": "v3", "new_sqlite_classes": ["FirmDatabase"] },
   ],
   // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines
   // the telemetry Workers logger emits land here). Logpush → R2 is a deploy-time runbook step

@@ -31,7 +31,7 @@ amendment when 2·4 is designed; this doc is the evidence base for that decision
 > LibreOffice/email/libvips/FFmpeg), the §5 LibreOfficeKit-fork-pool decision, and the cross-cutting
 > untrusted-input posture. Authoritative now: [`docs/specs/2026-06-21-slice-2-4a-conversion-core-design.md`](../specs/2026-06-21-slice-2-4a-conversion-core-design.md)
 >
-> - ADR-conversion-in-house-only-single-engine.
+> - ADR-0116.
 
 ---
 

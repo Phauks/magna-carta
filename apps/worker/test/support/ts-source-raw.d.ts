@@ -4,3 +4,12 @@ declare module "*.ts?raw" {
   const content: string;
   export default content;
 }
+
+// Virtual module provided by the timekeepingPackageSources() Vite plugin in vitest.config.ts.
+// Exposes packages/timekeeping/src/**/*.ts as a map from relative path → raw source text so the
+// fitness scans can cover the package sources even though import.meta.glob cannot resolve paths
+// outside the Vite root (apps/worker).
+declare module "virtual:timekeeping-package-sources" {
+  const sources: Record<string, string>;
+  export default sources;
+}

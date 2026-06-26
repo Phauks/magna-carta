@@ -116,6 +116,7 @@ describe("inference per-firm isolation (the firm's own database handle)", () => 
       firmId: firmOneId,
       databaseIdentifier: "vestigial",
       prompt: "Draft.",
+      idempotencyKey: "test:isolation-metering",
     });
 
     // Firm one now has two usage rows: the opus row from test 2, and a sonnet row from this run.
@@ -165,6 +166,7 @@ describe("inference consumer resilience", () => {
         firmId: firmOneId,
         databaseIdentifier: "vestigial",
         prompt: "trigger-retryable",
+        idempotencyKey: "test:retryable-failure",
       }),
     ).rejects.toThrow();
 
@@ -203,6 +205,7 @@ describe("inference consumer resilience", () => {
         firmId: firmOneId,
         databaseIdentifier: "vestigial",
         prompt: "good prompt",
+        idempotencyKey: "test:batch-good-1",
       } satisfies InferenceJob,
       ack: vi.fn(),
       retry: vi.fn(),
@@ -213,6 +216,7 @@ describe("inference consumer resilience", () => {
         firmId: firmOneId,
         databaseIdentifier: "vestigial",
         prompt: "boom",
+        idempotencyKey: "test:batch-bad-1",
       } satisfies InferenceJob,
       ack: vi.fn(),
       retry: vi.fn(),
@@ -231,11 +235,14 @@ describe("inference consumer resilience", () => {
     expect(msgBad.ack).not.toHaveBeenCalled();
   });
 
-  it("redelivery re-meters — at-least-once semantics write requestCount twice for the same job", async () => {
-    // A redelivered message (e.g. the metering commit succeeded but was not acked before the
-    // worker restarted) re-runs the model and increments requestCount again. This test pins that
-    // documented at-least-once behaviour so a future producer-set idempotency key + dedup guard
-    // that makes this exactly-once is visible as a deliberate change, not a silent regression.
+  it("redelivery deduplicates — the dedup guard collapses a redelivered job to exactly one meter", async () => {
+    // A redelivered message carries the same idempotencyKey as the original. The dedup record
+    // inserted on the first successful commit is inside the same batch as the meter increment; the
+    // second delivery's INSERT hits the UNIQUE constraint and rolls back the whole batch, so the
+    // second delivery's meter is never written. This test pins that exactly-once guarantee:
+    // the first delivery meters once, the second delivery throws (batch-rollback) and leaves the
+    // meter unchanged. The sentinel comment this test replaced read "a future dedup guard makes
+    // this exactly-once" — that future has arrived.
     const fixedAi = {
       run: async (_model: string, _input: unknown, _options: unknown) => ({
         response: "idempotency-test",
@@ -258,18 +265,21 @@ describe("inference consumer resilience", () => {
       firmId: firmOneId,
       databaseIdentifier: "vestigial",
       prompt: "redelivery-rerun",
+      idempotencyKey: "test:redelivery-rerun",
     };
 
-    // First delivery — meters one run.
+    // First delivery — commits the meter + dedup record atomically.
     await handleInferenceJob(fakeEnv, job);
-    // Second delivery of the identical job — meters again (at-least-once).
-    await handleInferenceJob(fakeEnv, job);
+    // Second delivery of the identical job: the dedup INSERT hits the UNIQUE constraint and rolls
+    // back the whole batch (meter increment included) — exactly-once guarantee in action.
+    await expect(handleInferenceJob(fakeEnv, job)).rejects.toThrow();
 
     const usageAfter = await readTokenUsage(firmDatabaseFor(env.FIRM_DATABASE, firmOneId));
     const sonnetAfter = usageAfter.find((r) => r.modelId === "anthropic/claude-sonnet-4-6");
 
-    expect(sonnetAfter?.requestCount).toBe(baseRequestCount + 2);
-    expect(sonnetAfter?.inputTokens).toBe(baseInputTokens + 100);
-    expect(sonnetAfter?.outputTokens).toBe(baseOutputTokens + 120);
+    // Only one delivery metered — the dedup guard prevented the second increment.
+    expect(sonnetAfter?.requestCount).toBe(baseRequestCount + 1);
+    expect(sonnetAfter?.inputTokens).toBe(baseInputTokens + 50);
+    expect(sonnetAfter?.outputTokens).toBe(baseOutputTokens + 60);
   });
 });

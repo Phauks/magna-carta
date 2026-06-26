@@ -44,7 +44,8 @@
     "@magna-carta/ledger": "workspace:*",
     "@magna-carta/locations": "workspace:*",
     "@magna-carta/matters": "workspace:*",
-    "@magna-carta/money": "workspace:*"
+    "@magna-carta/money": "workspace:*",
+    "@magna-carta/timekeeping": "workspace:*"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

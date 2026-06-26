@@ -12,6 +12,7 @@
     "./auth-audit-statements": "./src/auth-audit-statements.ts",
     "./audit-statements": "./src/audit-statements.ts",
     "./setting-statements": "./src/setting-statements.ts",
+    "./scoped-setting-statements": "./src/scoped-setting-statements.ts",
     "./token-usage-statements": "./src/token-usage-statements.ts",
     "./outbox-statements": "./src/outbox-statements.ts",
     "./effect-batch": "./src/effect-batch.ts",

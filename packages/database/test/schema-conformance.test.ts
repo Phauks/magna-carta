@@ -58,12 +58,16 @@ describe("schema conformance (fitness functions)", () => {
     // directory_entity_category is the many-to-many join between a directory entity and a category —
     // the pair (entity_id, category_id) is the natural key; no handle is warranted.
     // scan_cache is keyed by the content hash + engine version whose verdict it caches.
+    // scoped_setting is keyed by (key, scope_tier, scoped_id) — the triple IS the identity of a
+    // setting row (which key, at which scope tier, for which scoped entity); a separate handle
+    // would add nothing and every read would need an extra join to find a row by its natural triple.
     const compositeKeyTables = new Set([
       "storage_meter",
       "token_usage_meter",
       "directory_name_phonetic_code",
       "directory_entity_category",
       "scan_cache",
+      "scoped_setting",
     ]);
 
     for (const table of ALL_TABLES) {

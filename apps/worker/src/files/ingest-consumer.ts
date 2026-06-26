@@ -8,7 +8,8 @@ import {
 import { runIngest } from "@magna-carta/file-manager/ingest-core";
 import { loadCommittedVersionByR2Key } from "@magna-carta/file-manager/queries";
 import { lookupScanCache } from "@magna-carta/file-manager/scan-cache";
-import type { MalwareScanPort } from "@magna-carta/file-manager/scan-port";
+import type { MalwareScanPort, RawScanResult } from "@magna-carta/file-manager/scan-port";
+import { computeVerdict, DEFAULT_SCAN_POLICY } from "@magna-carta/file-manager/verdict";
 import {
   readInspectableSizeCap,
   readScanEngineVersion,
@@ -128,6 +129,10 @@ export async function handleIngestMessage(
             scanEngineVersion: outcome.scanEngineVersion,
             scanDetail: outcome.scanDetail,
             now: now(),
+            // Carry the raw scan result into the commit so a clean commit repopulates the content-dedup
+            // cache atomically — the cache key derives from this result's engineVersion, the same source
+            // as scanEngineVersion above, so the scan-once dedup is keyed by the engine that just ran.
+            rawScanResult: outcome.rawScanResult,
           },
           options,
         );
@@ -179,10 +184,11 @@ export async function handleIngestMessage(
 // The access-triggered re-scan path for an ALREADY-COMMITTED version (dispatched when a queued event
 // has no pending version). Only a committed version whose recorded engine version is STALE relative to
 // the firm's CURRENT engine is re-scanned; cache-first, so identical content already scanned under the
-// current engine reuses the verdict with no engine call. The verdict is stamped in place — no pointer
-// move, and an infected finding stays visible (informed access). NEVER-SILENT-CLEAN: a null current
-// engine (unset setting) is a no-op (never fabricate a key); an `unscanned`/`suspicious` engine result
-// leaves the version's prior verdict untouched (never downgraded without a definitive scan). Idempotent
+// current engine reuses the raw facts with no engine call. The verdict is computed app-side from those
+// facts and stamped in place — no pointer move, and a flagged finding stays visible (informed access).
+// NEVER-SILENT-CLEAN: a null current engine (unset setting) is a no-op (never fabricate a key); an
+// `unscanned` verdict leaves the version's prior verdict untouched (never downgraded without a definitive
+// scan), and a deployed engine reporting unavailable throws ScanFaultError → the queue retries. Idempotent
 // on `rescan:<versionId>:<engineVersion>` so a redelivery under the same engine no-ops, while a later
 // engine version legitimately re-scans.
 async function handleRescanMessage(
@@ -209,51 +215,63 @@ async function handleRescanMessage(
     fingerprint: `${committed.id}:${currentEngineVersion}`,
     now,
     effect: async () => {
-      // Cache-first: identical content already scanned under THIS engine reuses the verdict (no scan).
-      let verdict: "clean" | "infected" | null = null;
-      let signature: string | null = null;
+      // Cache-first: identical content already scanned under THIS engine reuses the raw facts (no scan).
+      let raw: RawScanResult;
+      let fromCache: boolean;
       const cached = await lookupScanCache(firmDatabase, contentSha256, currentEngineVersion);
-      if (cached !== null) {
-        verdict = cached.verdict;
-        signature = cached.signature;
+      if (cached !== undefined) {
+        raw = cached;
+        fromCache = true;
       } else {
         // Cache miss → scan the bytes. A not-yet-readable object is transient (throw → retry).
         const object = await env.R2.get(message.object.key);
         if (object === null) {
           throw new Error(`R2 object not readable for a re-scan: ${message.object.key}`);
         }
-        const result = await scanPort.scan(object.body, {
+        raw = await scanPort.scan(object.body, {
           sizeBytes: object.size,
           sniffedContentType: null,
         });
-        if (result.verdict === "clean") {
-          verdict = "clean";
-        } else if (result.verdict === "infected") {
-          verdict = "infected";
-          signature = result.signature;
-        } else {
-          // `unscanned`/`suspicious` is NOT a definitive verdict — leave the version's prior verdict
-          // untouched (never downgrade without a real scan). The idempotency record still lands, so a
-          // redelivery under this engine does not re-scan; a future engine version will try again.
-          return {
-            write: { statements: [], outboxMessages: [] },
-            responseCode: 200,
-            responseBody: "{}",
-          };
-        }
+        fromCache = false;
       }
 
+      // Decide the verdict app-side from the raw facts. A deployed engine reporting unavailable throws
+      // ScanFaultError, which propagates out of the effect → the queue retries; the version's prior
+      // verdict is never touched on a fault.
+      const fileVerdict = computeVerdict(raw, DEFAULT_SCAN_POLICY);
+
+      // Only a DEFINITIVE verdict restamps the version. An `unscanned` result (encrypted / no-engine) is
+      // not definitive — leave the version's prior verdict untouched (never downgrade without a real
+      // scan). The idempotency record still lands, so a redelivery under this engine does not re-scan; a
+      // future engine version will try again.
+      if (fileVerdict.verdict === "unscanned") {
+        return {
+          write: { statements: [], outboxMessages: [] },
+          responseCode: 200,
+          responseBody: "{}",
+        };
+      }
+
+      // A `flagged` verdict (clamd signature, a counting YARA match, or a structural heuristic) stamps as
+      // `infected` so the already-committed version stays visible behind the download gate (informed
+      // access); `clean` clears it. The reason text is the recorded signature/detail.
+      const isClean = fileVerdict.verdict === "clean";
+      const signature = isClean ? null : fileVerdict.reason;
       const rescan = recordRescanVerdict(
         firmDatabase,
         {
           fileId: committed.fileId,
           versionId: committed.id,
-          scanVerdict: verdict,
+          scanVerdict: isClean ? "clean" : "infected",
           scanEngineVersion: currentEngineVersion,
           scanDetail: signature,
           signature,
           contentSha256,
           now: now(),
+          // Populate the dedup cache only on a FRESH scan — a cache hit already has the row. The raw
+          // result is a real-engine one here (a definitive verdict means the engine ran), so its
+          // engineVersion is non-null and the cache write is sound.
+          rawScanResult: fromCache ? null : raw,
         },
         options,
       );

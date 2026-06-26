@@ -1,5 +1,0 @@
----
-category: Added
----
-
-**`X-Robots-Tag: noindex, nofollow` on every private application surface.** The application Worker now stamps a `noindex` directive on every app-origin response — the SvelteKit SPA shell, the API, Better Auth, health, and every branded per-firm subdomain — so no authenticated, firm-scoped surface (e.g. a client portal) can be indexed by a search engine. The directive is a code-owned Worker response-header middleware (version-controlled, covered by a standing fitness test) rather than a dashboard rule; the existing Cloudflare-managed `robots.txt` is kept as complementary (it governs crawling, the header governs indexing). The middleware is registered after the cookieless preview route, so the sealed `files.*` edge — which serves only `Content-Disposition: attachment` bytes and bare 404s, never an indexable page — keeps its exhaustive payload-derived header set untouched. The public marketing site, when built, is a separate app on its own host and does not run through this Worker, so it does not inherit the directive.

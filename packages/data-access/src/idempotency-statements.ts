@@ -55,6 +55,22 @@ export function insertCompletedIdempotencyRecordStatement(
     );
 }
 
+// A minimal completed-record insert for same-batch dedup guards that do not carry an HTTP response
+// (e.g. queue-consumer idempotency records). Uses the key as the id, because the key is already the
+// stable unique anchor and no separate identifier is meaningful for a non-HTTP effect.
+// The fingerprint is caller-supplied; the status is always 'completed' — a dedup record that commits
+// in the same batch as its effect is complete by construction.
+export function idempotencyRecordInsertStatement(
+  database: SqlDatabase,
+  record: { key: string; fingerprint: string; now: string },
+): SqlStatement {
+  return database
+    .prepare(
+      `INSERT INTO ${IDEMPOTENCY_TABLE} (id, key, fingerprint, status, response_code, response_body, created_at) VALUES (?1, ?2, ?3, 'completed', NULL, NULL, ?4)`,
+    )
+    .bind(record.key, record.key, record.fingerprint, record.now);
+}
+
 // TTL purge: the record is ephemeral dedup state, not the record of truth. The schedule
 // (Cron) lives with apps/worker; the cutoff is an ISO-8601 instant.
 export function purgeExpiredIdempotencyRecordsStatement(

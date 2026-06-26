@@ -14,7 +14,14 @@ import { runScheduledSweep } from "./scheduled.ts";
 // status transition is guarded and every consumer dedups). Runs off the response path through
 // executionCtx.waitUntil; any failure is swallowed and logged through the telemetry pipeline
 // (operation.failed) so a sweep hiccup never disturbs the already-committed 201.
-export function scheduleRequestPathSweep(executionContext: ExecutionContext, env: Bindings): void {
+// Narrowed to the one method used: hono's `c.executionCtx` is structurally narrower than the ambient
+// Workers `ExecutionContext` (which carries runtime-only fields like `tracing`), so taking the full
+// type would reject the call site. Depending only on `waitUntil` keeps this stable as the Workers
+// type surface grows.
+export function scheduleRequestPathSweep(
+  executionContext: Pick<ExecutionContext, "waitUntil">,
+  env: Bindings,
+): void {
   executionContext.waitUntil(
     runScheduledSweep(env).catch((caught: unknown) => {
       logOperationFailed(createWorkersLogger(env.TELEMETRY), "request-path-sweep", caught);

@@ -10,6 +10,10 @@ export interface ProxySqlStatement {
   bind(...values: unknown[]): ProxySqlStatement;
   run(): Promise<{ meta: { changes: number } }>;
   all<T = Record<string, unknown>>(): Promise<{ results: T[] }>;
+  // D1-parity convenience: the first row, or null when the read returns none. The statement modules
+  // only ever call run()/all() (the SqlStatement contract has no first()); first() exists for direct
+  // callers — tests and ad-hoc reads — so a single-row lookup need not destructure results[0].
+  first<T = Record<string, unknown>>(): Promise<T | null>;
 }
 
 // The full BatchDatabase shape that commitEffectBatch drives: a SqlDatabase (prepare) plus
@@ -39,6 +43,12 @@ function firmDatabaseProxy(stub: DurableObjectStub<FirmDatabase>): ProxyBatchDat
       run: async () => ({ meta: { changes: (await stub.runWrite(sql, [...bindings])).changes } }),
       all: async <T>() =>
         await (stub.runRead(sql, [...bindings]) as unknown as Promise<{ results: T[] }>),
+      first: async <T>() => {
+        const { results } = await (stub.runRead(sql, [...bindings]) as unknown as Promise<{
+          results: T[];
+        }>);
+        return results[0] ?? null;
+      },
     };
   }
 

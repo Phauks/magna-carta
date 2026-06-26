@@ -33,7 +33,8 @@ routes requests through the chokepoint into those packages.
 - `src/files/` — the ingest consumer (single-read pipeline shell over `@magna-carta/file-manager`), the
   presigner wiring, and the malware-scan wiring: `scan-port-binding.ts` (`resolveScanPort` — the
   engine-less adapter, or the remote adapter over the `SCAN_SERVICE` binding when bound) and
-  `container-scan-adapter.ts` (POST→`ScanResult`, zod-validated, throw-not-clean). The scan engine itself
+  `container-scan-adapter.ts` (POST→`RawScanResult`, zod-validated, throw-not-clean; the per-firm verdict
+  is computed app-side from those raw facts). The scan engine itself
   runs in its own Worker (`apps/scan-worker`, service `magna-carta-scan`), which owns the `ScanContainer`
   (the `containers/scan` Rust crate); this worker reaches it over the `SCAN_SERVICE` service binding. That
   binding is a **deploy-time activation** — it cannot run under the local test pool (a stub stands in for

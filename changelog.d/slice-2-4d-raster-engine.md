@@ -1,5 +1,0 @@
----
-category: Added
----
-
-**Pure-Rust raster engine for the `magna-carta-convert` conversion worker.** The raster image engine that backs the conversion worker is now a dedicated Cloudflare Container service built in pure Rust (`containers/raster/`, `magna-carta-raster`): an axum HTTP service (`GET /ready`, `POST /convert`) that decodes source images and re-encodes them to the target format using the `image` crate exclusively — no native libvips or any other C codec library, so untrusted document bytes never touch a memory-unsafe codec. Supported formats are PNG, JPEG, WebP, TIFF, GIF, and BMP; a per-decode bomb guard (`image::Limits`) rejects pixel bombs and decompression bombs before any allocation. The engine Container is a deploy-time build: build and deploy `magna-carta-convert` and the `CONVERT` service binding activates it; until then the worker returns `engine-not-implemented` for raster conversions as before. The engine class is `RasterEngineContainer` (the convert worker's Container-backed Durable Object, keyed `"raster"`).

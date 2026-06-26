@@ -15,14 +15,20 @@
     "./usage": "./src/usage.ts",
     "./ingest-core": "./src/ingest-core.ts",
     "./scan-port": "./src/scan-port.ts",
+    "./verdict": "./src/verdict.ts",
     "./safe-rendition-port": "./src/safe-rendition-port.ts",
     "./upload-policy": "./src/upload-policy.ts",
     "./queries": "./src/queries.ts",
     "./scan-cache": "./src/scan-cache.ts",
     "./preview-policy": "./src/preview-policy.ts",
+    "./bundle-paths": "./src/bundle-paths.ts",
     "./zip-composition": "./src/zip-composition.ts",
     "./audit": "./src/audit.ts",
-    "./validation": "./src/validation.ts"
+    "./bundle-layout": "./src/bundle-layout.ts",
+    "./bundle-options": "./src/bundle-options.ts",
+    "./bundle-formats": "./src/bundle-formats.ts",
+    "./validation": "./src/validation.ts",
+    "./contents-manifest": "./src/contents-manifest.ts"
   },
   "scripts": {
     "test": "vp test run"

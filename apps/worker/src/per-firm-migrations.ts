@@ -21,6 +21,9 @@ import seedToolsWebDomainsSql from "@magna-carta/database/drizzle/per-firm/0017_
 import seedToolsFileConverterSql from "@magna-carta/database/drizzle/per-firm/0018_seed-tools-file-converter.sql";
 import seedScanFilePermissionSql from "@magna-carta/database/drizzle/per-firm/0019_seed-scan-file-permission.sql";
 import seedToolsMetadataScrubberSql from "@magna-carta/database/drizzle/per-firm/0020_seed-tools-metadata-scrubber.sql";
+import timeTrackingSql from "@magna-carta/database/drizzle/per-firm/0021_outgoing_talon.sql";
+import seedToolsFileIntegritySql from "@magna-carta/database/drizzle/per-firm/0022_seed-tools-file-integrity.sql";
+import rawScanCacheSql from "@magna-carta/database/drizzle/per-firm/0023_raw_scan_cache.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -51,5 +54,8 @@ export function perFirmMigrations(): Migration[] {
     "0018_seed-tools-file-converter": seedToolsFileConverterSql,
     "0019_seed-scan-file-permission": seedScanFilePermissionSql,
     "0020_seed-tools-metadata-scrubber": seedToolsMetadataScrubberSql,
+    "0021_outgoing_talon": timeTrackingSql,
+    "0022_seed-tools-file-integrity": seedToolsFileIntegritySql,
+    "0023_raw_scan_cache": rawScanCacheSql,
   });
 }

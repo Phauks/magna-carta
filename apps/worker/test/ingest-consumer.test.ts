@@ -346,7 +346,13 @@ describe("handleIngestMessage", () => {
 
   it("commits with scan_verdict 'clean' when the injected scan port returns a clean verdict", async () => {
     const fakeScanPort: MalwareScanPort = {
-      scan: async (_body, _meta) => ({ verdict: "clean", engineVersion: "test-1" }),
+      scan: async (_body, _meta) => ({
+        engineVersion: "test-1",
+        clam: { state: "clean" },
+        heuristic: { kind: "none" },
+        matches: [],
+        timings: { clamdMs: 1, yaraMs: 1 },
+      }),
     };
     const { versionId, r2Key } = await seedPendingVersion(
       "scan-clean.pdf",
@@ -357,19 +363,42 @@ describe("handleIngestMessage", () => {
     await handleIngestMessage(env, event(BUCKET, r2Key, PDF_BYTES.byteLength), fakeScanPort);
 
     const version = await firmDatabase
-      .prepare("SELECT status, scan_verdict FROM file_version WHERE id = ?1")
+      .prepare(
+        "SELECT status, scan_verdict, content_sha256, scan_engine_version FROM file_version WHERE id = ?1",
+      )
       .bind(versionId)
-      .first<{ status: string; scan_verdict: string }>();
+      .first<{
+        status: string;
+        scan_verdict: string;
+        content_sha256: string;
+        scan_engine_version: string;
+      }>();
     expect(version?.status).toBe("clean");
     expect(version?.scan_verdict).toBe("clean");
+
+    // The clean commit repopulates the content-dedup cache (the scan-once dedup is live again). The
+    // cache row's engine_version is derived from the SAME raw result that produced the committed row's
+    // scan_engine_version — they must match, so a later re-scan of identical content hits this row.
+    expect(version?.scan_engine_version).toBe("test-1");
+    const cached = await firmDatabase
+      .prepare("SELECT engine_version, raw_result FROM scan_cache WHERE content_sha256 = ?1")
+      .bind(version!.content_sha256)
+      .first<{ engine_version: string; raw_result: string }>();
+    expect(cached?.engine_version).toBe(version?.scan_engine_version);
+    expect(JSON.parse(cached!.raw_result)).toMatchObject({
+      engineVersion: "test-1",
+      clam: { state: "clean" },
+    });
   });
 
-  it("quarantines with reason 'scan-infected' when the injected scan port returns an infected verdict", async () => {
+  it("quarantines with reason 'scan-flagged' when the injected scan port returns an infected verdict", async () => {
     const fakeScanPort: MalwareScanPort = {
       scan: async (_body, _meta) => ({
-        verdict: "infected",
         engineVersion: "test-1",
-        signature: "Test.Sig",
+        clam: { state: "infected", signature: "Test.Sig" },
+        heuristic: { kind: "none" },
+        matches: [],
+        timings: { clamdMs: 1, yaraMs: 1 },
       }),
     };
     const fileId = newIdentifier("file");
@@ -408,7 +437,7 @@ describe("handleIngestMessage", () => {
       .prepare("SELECT payload FROM outbox WHERE topic = 'file.quarantined' AND payload LIKE ?1")
       .bind(`%${versionId}%`)
       .first<{ payload: string }>();
-    expect(quarantine?.payload).toContain("scan-infected");
+    expect(quarantine?.payload).toContain("scan-flagged");
 
     // Clean up inserted rows so subsequent tests start clean.
     await firmDatabase.prepare("DELETE FROM upload_session WHERE id = ?1").bind(sessionId).run();
@@ -460,9 +489,11 @@ describe("handleIngestMessage — verdict telemetry", () => {
   it("emits exactly one ingest.verdict event on a quarantine outcome", async () => {
     const fakeScanPort: MalwareScanPort = {
       scan: async (_body, _meta) => ({
-        verdict: "infected",
         engineVersion: "test-1",
-        signature: "Test.Eicar",
+        clam: { state: "infected", signature: "Test.Eicar" },
+        heuristic: { kind: "none" },
+        matches: [],
+        timings: { clamdMs: 1, yaraMs: 1 },
       }),
     };
     const fileId = newIdentifier("file");
@@ -502,7 +533,7 @@ describe("handleIngestMessage — verdict telemetry", () => {
 
     const fields = verdictEvents[0]!.fields;
     expect(fields.outcome).toBe("quarantine");
-    expect(fields.quarantineReason).toBe("scan-infected");
+    expect(fields.quarantineReason).toBe("scan-flagged");
 
     // Structural redaction: no file-identifying fields are present
     expect(fields).not.toHaveProperty("id");
@@ -586,11 +617,18 @@ describe("handleIngestMessage — access-triggered re-scan", () => {
       uniqueBytes(1),
     );
     await setCurrentEngine("clamav/1.0");
+    const cleanRaw = {
+      engineVersion: "clamav/1.0",
+      clam: { state: "clean" },
+      heuristic: { kind: "none" },
+      matches: [],
+      timings: { clamdMs: 0, yaraMs: 0 },
+    };
     await firmDatabase
       .prepare(
-        "INSERT INTO scan_cache (content_sha256, engine_version, verdict, signature, scanned_at) VALUES (?1, 'clamav/1.0', 'clean', NULL, ?2)",
+        "INSERT INTO scan_cache (content_sha256, engine_version, raw_result, scanned_at) VALUES (?1, 'clamav/1.0', ?2, ?3)",
       )
-      .bind(contentSha256, clock.now())
+      .bind(contentSha256, JSON.stringify(cleanRaw), clock.now())
       .run();
 
     let scanCalls = 0;
@@ -598,7 +636,13 @@ describe("handleIngestMessage — access-triggered re-scan", () => {
       async scan(body) {
         scanCalls++;
         await body.cancel();
-        return { verdict: "clean", engineVersion: "clamav/1.0" };
+        return {
+          engineVersion: "clamav/1.0",
+          clam: { state: "clean" },
+          heuristic: { kind: "none" },
+          matches: [],
+          timings: { clamdMs: 0, yaraMs: 0 },
+        };
       },
     };
     await handleIngestMessage(env, event(BUCKET, r2Key, uniqueBytes(1).byteLength), stub);
@@ -627,7 +671,13 @@ describe("handleIngestMessage — access-triggered re-scan", () => {
       async scan(body) {
         scanCalls++;
         await body.cancel();
-        return { verdict: "infected", engineVersion: "clamav/2.0", signature: "Eicar-Test" };
+        return {
+          engineVersion: "clamav/2.0",
+          clam: { state: "infected", signature: "Eicar-Test" },
+          heuristic: { kind: "none" },
+          matches: [],
+          timings: { clamdMs: 2, yaraMs: 1 },
+        };
       },
     };
     await handleIngestMessage(env, event(BUCKET, r2Key, uniqueBytes(2).byteLength), stub);
@@ -639,13 +689,20 @@ describe("handleIngestMessage — access-triggered re-scan", () => {
       .first<{ scan_verdict: string; status: string }>();
     // Informed access: flagged but still committed/visible.
     expect(v).toMatchObject({ scan_verdict: "infected", status: "clean" });
+    // The fresh scan's raw facts are cached under the current engine — the dedup row the next re-scan
+    // of identical content reuses. The cache stores the full RawScanResult, not a pre-decided verdict.
     const cached = await firmDatabase
       .prepare(
-        "SELECT verdict, signature FROM scan_cache WHERE content_sha256 = ?1 AND engine_version = 'clamav/2.0'",
+        "SELECT raw_result FROM scan_cache WHERE content_sha256 = ?1 AND engine_version = 'clamav/2.0'",
       )
       .bind(contentSha256)
-      .first<{ verdict: string; signature: string }>();
-    expect(cached).toMatchObject({ verdict: "infected", signature: "Eicar-Test" });
+      .first<{ raw_result: string }>();
+    expect(cached?.raw_result).toBeDefined();
+    const cachedRaw = JSON.parse(cached!.raw_result);
+    expect(cachedRaw).toMatchObject({
+      engineVersion: "clamav/2.0",
+      clam: { state: "infected", signature: "Eicar-Test" },
+    });
   });
 
   it("does NOT re-scan when no current engine version is set (never fabricates a verdict)", async () => {
@@ -657,7 +714,13 @@ describe("handleIngestMessage — access-triggered re-scan", () => {
       async scan(body) {
         scanCalls++;
         await body.cancel();
-        return { verdict: "clean", engineVersion: "x" };
+        return {
+          engineVersion: "x",
+          clam: { state: "clean" },
+          heuristic: { kind: "none" },
+          matches: [],
+          timings: { clamdMs: 0, yaraMs: 0 },
+        };
       },
     };
     await handleIngestMessage(env, event(BUCKET, r2Key, uniqueBytes(3).byteLength), stub);

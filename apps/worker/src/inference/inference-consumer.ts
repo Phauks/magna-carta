@@ -1,5 +1,6 @@
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import {
+  inferenceDedupStatements,
   tokenUsageCommitStatements,
   type TokenUsageKey,
 } from "@magna-carta/data-access/token-usage-statements";
@@ -24,6 +25,17 @@ export interface InferenceJob {
   // this no longer selects the database. Retained until producers stop writing it.
   readonly databaseIdentifier: string;
   readonly prompt: string;
+  // The producer's stable per-run idempotency anchor: identical across a redelivery of the SAME run,
+  // so the two dedup guards below collapse a redelivery to a single spend + a single meter. The
+  // producer (src/timekeeping/narrative-inference.ts) mints it via buildInferenceJobIdempotencyKey;
+  // the consumer's inferenceJobDedupKey namespaces it for the dedup record family.
+  readonly idempotencyKey: string;
+}
+
+// The per-run dedup record key: namespaced off the producer's idempotency key so it cannot collide
+// with any other idempotency-record family in the firm database.
+export function inferenceJobDedupKey(producerKey: string): string {
+  return `inference:${producerKey}`;
 }
 
 // The per-firm back-pressure seam: a pass-through no-op at launch, sited between the queue dequeue
@@ -71,28 +83,36 @@ export async function handleInferenceJob(env: Bindings, job: InferenceJob): Prom
 
   const entry = catalogEntryFor(modelId);
   const slot = entry?.slot ?? "reasoning";
-  // This path is at-least-once with NO idempotency guard. A redelivery of the SAME message — e.g.
-  // port.generate above succeeded but commitEffectBatch below then threw, so the queue retries the
-  // message — RE-RUNS the model (re-billing a frontier model) and re-meters (request_count += 1).
-  // Making it exactly-once requires a producer-set stable idempotency key on InferenceJob plus a dedup
-  // guard composed into the SAME batch as the metering write (and, because the model spend precedes the
-  // commit, ideally a pre-model-call check too). That lands with the first AI feature's producer — there
-  // is no producer and no key to guard on yet. The same-batch-commit precedent is
-  // apps/worker/src/files/ingest-consumer.ts (runIdempotentEffect): the dedup record and the effect
-  // commit or roll back together.
-  // One timestamp for the whole batch: the bucket day and any future batch-stamped row are then
-  // provably consistent (no latent UTC-midnight split between reading the day and writing the rows).
+  // EXACTLY-ONCE on a redelivery is two guards over the producer's idempotency key. The queue is
+  // at-least-once, and the model spend at port.generate above precedes the commit below, so a
+  // redelivery would otherwise both re-bill the frontier model AND re-meter.
+  //   Guard 1 (the re-BILL stop): a pre-model-call read of the dedup record keyed by
+  //   inferenceJobDedupKey(job.idempotencyKey). On a hit the run already committed, so the model
+  //   call is skipped entirely — the spend never repeats. The narrative call-site in
+  //   src/timekeeping/narrative-inference.ts wires this pre-call read when the live suggestion
+  //   feature ships in slice 3·5; the gated dark producer reaches no model today, so there is
+  //   nothing to re-bill — the record family + key derivation are what land now.
+  //   Guard 2 (the re-METER stop): the dedup record INSERT is composed into the SAME batch as the
+  //   metering write, so the second delivery loses the UNIQUE(key) race and its whole batch — meter
+  //   increment included — rolls back. The same-batch precedent is
+  //   apps/worker/src/files/ingest-consumer.ts (runIdempotentEffect): the dedup record and the
+  //   effect commit or roll back together.
+  // One timestamp for the whole batch: the bucket day and the dedup row are provably consistent
+  // (no latent UTC-midnight split between reading the day and writing the rows).
   const nowIso = new Date().toISOString();
   const key = tokenUsageKeyForDay(nowIso, slot, modelId);
   await commitEffectBatch(
     firmDatabase,
     {
-      statements: tokenUsageCommitStatements(
-        firmDatabase,
-        key,
-        result.value.usage.inputTokens,
-        result.value.usage.outputTokens,
-      ),
+      statements: [
+        ...tokenUsageCommitStatements(
+          firmDatabase,
+          key,
+          result.value.usage.inputTokens,
+          result.value.usage.outputTokens,
+        ),
+        ...inferenceDedupStatements(firmDatabase, inferenceJobDedupKey(job.idempotencyKey), nowIso),
+      ],
       outboxMessages: [],
     },
     { now: () => nowIso },

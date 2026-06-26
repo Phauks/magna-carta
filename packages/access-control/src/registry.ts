@@ -49,9 +49,17 @@ export const PERMISSIONS = [
   "tools:safeBrowse", // render a suspect URL in an isolated remote browser (static snapshot only)
   "tools:fileConverter", // general matter-free file converter — convert a file to another format
   "tools:metadataScrubber", // inspect/scrub a file's metadata & content artifacts (ephemeral, matter-free)
+  "tools:fileIntegrity", // compute a file's cryptographic digests + verify a stored file against its ingest baseline
   // Custom fields — define and maintain field schemas; purge hard-deletes all values for a field.
   "customFields:manage",
   "customFields:purge",
+  // Time tracking, WIP & the rate engine — one namespace per subsystem (house convention).
+  "time:track", // create/edit own time entries and run the timer
+  "time:viewFirm", // see other timekeepers' time (firm-wide My Day / report gating)
+  "time:approve", // submit-for-review / approve / kick-back when the review gate is on
+  "time:manageRates", // rate cards, rate versions, and the re-rate-unbilled-drafts action
+  "time:manageUtbms", // enable/disable the UTBMS code catalog
+  "time:manageSettings", // the scoped time settings, non-billable categories, narrative templates
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

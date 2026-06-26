@@ -1,0 +1,45 @@
+{
+  "name": "@magna-carta/timekeeping",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./rounding": "./src/rounding.ts",
+    "./settings": "./src/settings.ts",
+    "./audit": "./src/audit.ts",
+    "./rate-statements": "./src/rate-statements.ts",
+    "./rate-service": "./src/rate-service.ts",
+    "./rate-resolution": "./src/rate-resolution.ts",
+    "./lifecycle": "./src/lifecycle.ts",
+    "./time-entry-validation": "./src/time-entry-validation.ts",
+    "./rate-validation": "./src/rate-validation.ts",
+    "./time-entry-statements": "./src/time-entry-statements.ts",
+    "./time-entry-service": "./src/time-entry-service.ts",
+    "./utbms-catalog": "./src/utbms-catalog.ts",
+    "./utbms-statements": "./src/utbms-statements.ts",
+    "./utbms-service": "./src/utbms-service.ts",
+    "./non-billable-category-statements": "./src/non-billable-category-statements.ts",
+    "./non-billable-category-service": "./src/non-billable-category-service.ts",
+    "./narrative-template-statements": "./src/narrative-template-statements.ts",
+    "./narrative-template-service": "./src/narrative-template-service.ts",
+    "./quick-add-parser": "./src/quick-add-parser.ts",
+    "./my-day": "./src/my-day.ts",
+    "./queries": "./src/queries.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/data-access": "workspace:*",
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/money": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/database": "workspace:*",
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}
