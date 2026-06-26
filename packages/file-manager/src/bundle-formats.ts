@@ -46,5 +46,10 @@ export function validateOptionsForFormat(options: BundleOptions): readonly strin
   if (options.split !== null && !capabilities.supportsSplit) {
     errors.push(`${options.format} does not support splitting`);
   }
+  // An encrypted bundle is delivered as a single streamed file (its password is never persisted, so it
+  // cannot ride the async multi-volume build), so encryption and splitting are mutually exclusive.
+  if (options.encryption !== null && options.split !== null) {
+    errors.push("an encrypted bundle cannot be split (it is delivered as a single file)");
+  }
   return errors;
 }
