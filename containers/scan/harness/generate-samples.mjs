@@ -119,7 +119,7 @@ samples.push({
   data: Buffer.from(EICAR, "ascii"),
 });
 
-// A plain clean document: no signature, no active content, not an archive -> clean (../src/verdict.rs).
+// A plain clean document: no signature, no active content, not an archive -> clean (../src/raw.rs).
 samples.push({
   name: "clean.txt",
   contentType: "text/plain",

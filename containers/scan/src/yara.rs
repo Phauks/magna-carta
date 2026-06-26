@@ -33,8 +33,10 @@ pub fn deserialize_side_map(bytes: &[u8]) -> Result<SideMap, String> {
 }
 
 /// Enriches bare matched rule ids with their baked metadata. An id missing from the map (a blob/side-map
-/// mismatch — should never happen, both are built together) fails safe toward flagging: tier Full, score 0,
-/// not suspicious, so the match always counts under any policy rather than being silently dropped.
+/// mismatch — should never happen, both are built together) fails safe toward flagging: `Tier::Core`,
+/// score 0, not suspicious. Core has the narrowest tier rank (0), so it is within every firm policy,
+/// meaning an unmapped match always counts and is never silently dropped. The fallback should never fire
+/// because the rule blob and side-map are built in the same step; if it ever does, the match must count.
 pub fn enrich_matches(ids: Vec<String>, map: &SideMap) -> Vec<RuleMatch> {
     ids.into_iter()
         .map(|rule_id| match map.get(&rule_id) {
@@ -46,7 +48,7 @@ pub fn enrich_matches(ids: Vec<String>, map: &SideMap) -> Vec<RuleMatch> {
             },
             None => RuleMatch {
                 rule_id,
-                tier: crate::forge::Tier::Full,
+                tier: crate::forge::Tier::Core,
                 score: 0,
                 is_suspicious: false,
             },
@@ -236,12 +238,13 @@ mod tests {
                 is_suspicious: false,
             }
         );
-        // An unmapped match fails safe toward flagging: Full tier, score 0, not suspicious — always counts.
+        // An unmapped match fails safe toward flagging: Core tier (rank 0, always within any firm
+        // policy), score 0, not suspicious — the match always counts and is never silently dropped.
         assert_eq!(
             enriched[1],
             RuleMatch {
                 rule_id: "Unknown_Rule".into(),
-                tier: Tier::Full,
+                tier: Tier::Core,
                 score: 0,
                 is_suspicious: false,
             }

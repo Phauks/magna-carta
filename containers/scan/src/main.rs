@@ -29,6 +29,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // it is empty, matching the rule-free corpus.
     let side_map = load_yara_side_map_at_startup();
 
+    // Coupling gate: a non-empty rule corpus must be accompanied by a non-empty side-map.
+    // Without the side-map every match falls through to the Core-tier fallback in enrich_matches,
+    // which means the YARA layer still flags but every match carries no metadata — a build error,
+    // not a graceful degradation. A rule-free dev/test build (rulesets_version == 0) is allowed
+    // to have an empty map; only a loaded corpus with a missing map is fatal.
+    if yara::rulesets_version(&rules) > 0 && side_map.is_empty() {
+        eprintln!(
+            "FATAL: a non-empty YARA rule corpus is loaded but the side-map is empty. \
+             Every match would be unenrichable — tier, score, and suspicious flag lost for all \
+             matches. The rule blob and side-map must be built and baked together. Fix: ensure \
+             YARA_SIDEMAP_PATH is set and points at the side-map produced by build-yara-rules."
+        );
+        std::process::exit(1);
+    }
+
     // Read the clamd signature-database version once at startup. clamd is baked into the same image
     // with `enableInternet = false`, so the DB is fixed for this instance's lifetime — a single read
     // is correct. We must have it before serving: the composite engine version drives re-scan
