@@ -21,6 +21,12 @@ export type Bindings = {
 
 export { DocumentEditorContainer } from "./document-editor-container.ts";
 
+// Required by @cloudflare/containers: the runtime resolves the container's outbound-interception proxy
+// via `ctx.exports.ContainerProxy`, so the entrypoint MUST re-export it. Without it, starting a container
+// that uses `outboundByHost` (our WOPI-callback path) throws "ctx.exports.ContainerProxy is undefined".
+// It is a WorkerEntrypoint, not a Durable Object — no wrangler binding or migration is needed.
+export { ContainerProxy } from "@cloudflare/containers";
+
 export default {
   async fetch(request: Request, env: Bindings): Promise<Response> {
     const key = documentKeyFromHost(request.headers.get("host") ?? "");
