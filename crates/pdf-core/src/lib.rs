@@ -6,7 +6,8 @@ mod standard_fonts_data;
 
 mod forms;
 pub use forms::{
-    fill_form, read_form, FieldKind, FieldValue, FormError, FormField, FormFillOptions,
+    fill_form, flatten_form, read_form, FieldKind, FieldValue, FormError, FormField,
+    FormFillOptions,
 };
 
 mod bates;

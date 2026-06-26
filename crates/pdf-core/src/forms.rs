@@ -9,7 +9,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use lopdf::{dictionary, Document, Object, ObjectId, Stream};
+use lopdf::{dictionary, Dictionary, Document, Object, ObjectId, Stream};
 
 use crate::scrub::catalog_subdict;
 use crate::standard_fonts_data::{HELVETICA, WIN_ANSI_ENCODING};
@@ -926,12 +926,378 @@ pub fn fill_form(
     Ok(output)
 }
 
+// ── Public entry point: flatten ────────────────────────────────────────────────
+
+/// Bake widget appearances into permanent page content and remove the interactive form.
+///
+/// For each widget annotation that carries a rendered appearance (`/AP /N`), the
+/// appearance stream is added to the page as a Form XObject and a `cm`/`Do` draw
+/// call is appended to the page content so the appearance is part of the static
+/// page. The widget annotation is then removed from `/Annots`. Non-widget
+/// annotations (e.g. `/Link`) are preserved untouched.
+///
+/// After all pages are processed the `/AcroForm` entry is removed from the
+/// catalog, making the document non-interactive.
+///
+/// Returns `FormError::NoAcroForm` when the document has no AcroForm.
+pub fn flatten_form(bytes: &[u8]) -> Result<Vec<u8>, FormError> {
+    let mut doc = Document::load_mem(bytes).map_err(|e| FormError::Parse(e.to_string()))?;
+
+    if catalog_subdict(&doc, b"AcroForm").is_none() {
+        return Err(FormError::NoAcroForm);
+    }
+
+    // Pages in reading order (1-based BTreeMap key → sort → visit).
+    let mut pages: Vec<(u32, ObjectId)> = doc.get_pages().into_iter().collect();
+    pages.sort_by_key(|(n, _)| *n);
+
+    for (_, page_id) in &pages {
+        let page_id = *page_id;
+
+        // Dereference /Annots — it may be an inline array OR an indirect reference.
+        let annots_obj: Object = match doc
+            .get_object(page_id)
+            .ok()
+            .and_then(|o| o.as_dict().ok())
+            .and_then(|d| d.get(b"Annots").ok())
+        {
+            Some(o) => o.clone(),
+            None => continue,
+        };
+
+        let annot_refs: Vec<Object> = match annots_obj {
+            Object::Array(a) => a,
+            Object::Reference(id) => doc
+                .get_object(id)
+                .ok()
+                .and_then(|o| o.as_array().ok())
+                .cloned()
+                .unwrap_or_default(),
+            _ => continue,
+        };
+
+        let annot_ids: Vec<ObjectId> = annot_refs
+            .iter()
+            .filter_map(|o| o.as_reference().ok())
+            .collect();
+
+        let mut draw_ops: Vec<String> = Vec::new();
+        let mut baked_widget_ids: BTreeSet<ObjectId> = BTreeSet::new();
+        // Counter used to mint unique XObject names on this page (MagnaCartaFlat0, 1, …).
+        let mut xobj_counter: usize = 0;
+
+        for &widget_id in &annot_ids {
+            // Clone the widget dict so we release the immutable borrow on doc.
+            let widget_dict: Dictionary = match doc
+                .get_object(widget_id)
+                .ok()
+                .and_then(|o| o.as_dict().ok())
+                .cloned()
+            {
+                Some(d) => d,
+                None => continue,
+            };
+
+            // Only process /Widget annotations.
+            let is_widget = matches!(
+                widget_dict.get(b"Subtype").ok(),
+                Some(Object::Name(n)) if n == b"Widget"
+            );
+            if !is_widget {
+                continue;
+            }
+
+            // Skip widgets with no /AP — nothing to bake.
+            let ap_obj: Object = match widget_dict.get(b"AP").ok().cloned() {
+                Some(o) => o,
+                None => continue,
+            };
+
+            // Resolve /AP to its dictionary (inline or indirect).
+            let ap_dict: Dictionary = match crate::surgery::resolve_dict(&doc, &ap_obj).cloned() {
+                Some(d) => d,
+                None => continue,
+            };
+
+            // Clone /AP /N so we can inspect it without holding a doc borrow.
+            let n_obj: Object = match ap_dict.get(b"N").ok().cloned() {
+                Some(o) => o,
+                None => continue,
+            };
+
+            // Resolve the appearance stream ObjectId.
+            // /N may be a direct stream reference, or a dict of named states (checkbox/radio).
+            // For named states we look up the widget's /AS key.
+            let appearance_stream_id: ObjectId = {
+                // Check whether /N (if a reference) points directly at a stream.
+                let direct_stream_id: Option<ObjectId> = match &n_obj {
+                    Object::Reference(id) => match doc.get_object(*id).ok() {
+                        Some(Object::Stream(_)) => Some(*id),
+                        _ => None,
+                    },
+                    _ => None,
+                };
+
+                if let Some(stream_id) = direct_stream_id {
+                    stream_id
+                } else {
+                    // Named-states dict: select the substream for the widget's /AS state.
+                    let as_key: Vec<u8> = match widget_dict.get(b"AS").ok() {
+                        Some(Object::Name(n)) => n.clone(),
+                        _ => continue,
+                    };
+
+                    let state_ref: Option<ObjectId> = match &n_obj {
+                        Object::Reference(id) => {
+                            // /N is an indirect dict of named states.
+                            doc.get_object(*id)
+                                .ok()
+                                .and_then(|o| o.as_dict().ok())
+                                .and_then(|d| d.get(as_key.as_slice()).ok())
+                                .and_then(|o| o.as_reference().ok())
+                        }
+                        Object::Dictionary(inline_dict) => {
+                            // /N is an inline dict of named states.
+                            inline_dict
+                                .get(as_key.as_slice())
+                                .ok()
+                                .and_then(|o| o.as_reference().ok())
+                        }
+                        _ => None,
+                    };
+
+                    match state_ref {
+                        Some(id) => id,
+                        None => continue,
+                    }
+                }
+            };
+
+            // Extract /BBox and optional /Matrix from the appearance stream.
+            let (bbox_obj, matrix_obj): (Option<Object>, Option<Object>) =
+                match doc.get_object(appearance_stream_id).ok() {
+                    Some(Object::Stream(s)) => (
+                        s.dict.get(b"BBox").ok().cloned(),
+                        s.dict.get(b"Matrix").ok().cloned(),
+                    ),
+                    _ => continue,
+                };
+
+            // Parse BBox as [bx0, by0, bx1, by1].
+            let bbox_nums: Vec<f32> = match bbox_obj.as_ref().and_then(|o| o.as_array().ok()) {
+                Some(arr) => arr
+                    .iter()
+                    .filter_map(|o| match o {
+                        Object::Integer(n) => Some(*n as f32),
+                        Object::Real(r) => Some(*r),
+                        _ => None,
+                    })
+                    .collect(),
+                None => continue,
+            };
+            if bbox_nums.len() < 4 {
+                continue;
+            }
+            let (bx0, by0, bx1, by1) = (bbox_nums[0], bbox_nums[1], bbox_nums[2], bbox_nums[3]);
+            let bbox_w = bx1 - bx0;
+            let bbox_h = by1 - by0;
+            // Guard against a degenerate (zero-area) BBox — skip rather than divide by zero.
+            if bbox_w.abs() < 1e-6 || bbox_h.abs() < 1e-6 {
+                continue;
+            }
+
+            // Parse widget /Rect as [rx0, ry0, rx1, ry1], normalising to x0<x1, y0<y1.
+            let rect_nums: Vec<f32> = match widget_dict
+                .get(b"Rect")
+                .ok()
+                .and_then(|o| o.as_array().ok())
+            {
+                Some(arr) => arr
+                    .iter()
+                    .filter_map(|o| match o {
+                        Object::Integer(n) => Some(*n as f32),
+                        Object::Real(r) => Some(*r),
+                        _ => None,
+                    })
+                    .collect(),
+                None => continue,
+            };
+            if rect_nums.len() < 4 {
+                continue;
+            }
+            let rx0 = rect_nums[0].min(rect_nums[2]);
+            let ry0 = rect_nums[1].min(rect_nums[3]);
+            let rx1 = rect_nums[0].max(rect_nums[2]);
+            let ry1 = rect_nums[1].max(rect_nums[3]);
+            let rect_w = rx1 - rx0;
+            let rect_h = ry1 - ry0;
+            let sx = rect_w / bbox_w;
+            let sy = rect_h / bbox_h;
+
+            // Build the placement transform as a single `cm` [a b c d e f].
+            // Without /Matrix: maps the BBox lower-left to the rect lower-left and scales to fit.
+            // With /Matrix M: compose M then the rect-fit (PDF row-vector convention):
+            //   a = ma*sx, b = mb*sy, c = mc*sx, d = md*sy,
+            //   e = me*sx + (rx0 - bx0*sx), f = mf*sy + (ry0 - by0*sy)
+            let cm: [f32; 6] = if let Some(mat) = matrix_obj {
+                if let Ok(arr) = mat.as_array() {
+                    let m: Vec<f32> = arr
+                        .iter()
+                        .filter_map(|o| match o {
+                            Object::Integer(n) => Some(*n as f32),
+                            Object::Real(r) => Some(*r),
+                            _ => None,
+                        })
+                        .collect();
+                    if m.len() >= 6 {
+                        [
+                            m[0] * sx,
+                            m[1] * sy,
+                            m[2] * sx,
+                            m[3] * sy,
+                            m[4] * sx + (rx0 - bx0 * sx),
+                            m[5] * sy + (ry0 - by0 * sy),
+                        ]
+                    } else {
+                        [sx, 0.0, 0.0, sy, rx0 - bx0 * sx, ry0 - by0 * sy]
+                    }
+                } else {
+                    [sx, 0.0, 0.0, sy, rx0 - bx0 * sx, ry0 - by0 * sy]
+                }
+            } else {
+                [sx, 0.0, 0.0, sy, rx0 - bx0 * sx, ry0 - by0 * sy]
+            };
+
+            // Mint a unique XObject name that won't collide with existing resources.
+            let xobj_name = format!("MagnaCartaFlat{xobj_counter}");
+            xobj_counter += 1;
+
+            // --- Resource merge (non-destructive, mirrors the Bates stamp pattern) ---
+            // Resolve the page's effective /Resources (handles inheritance and indirect refs).
+            let existing_resources: Dictionary =
+                crate::surgery::resolve_inherited_resources(&doc, page_id)
+                    .cloned()
+                    .unwrap_or_default();
+
+            // Clone the existing /XObject subdict so no prior XObject entry is dropped.
+            let mut xobj_dict: Dictionary = match existing_resources.get(b"XObject") {
+                Ok(xobj_obj) => crate::surgery::resolve_dict(&doc, xobj_obj)
+                    .cloned()
+                    .unwrap_or_default(),
+                Err(_) => Dictionary::new(),
+            };
+
+            // Register the appearance stream under the new distinctive name.
+            xobj_dict.set(
+                xobj_name.as_bytes(),
+                Object::Reference(appearance_stream_id),
+            );
+
+            // Write the merged /Resources back onto the page dict (all doc borrows end here).
+            let mut merged_resources = existing_resources;
+            merged_resources.set(b"XObject", Object::Dictionary(xobj_dict));
+            if let Ok(Object::Dictionary(page_dict)) = doc.get_object_mut(page_id) {
+                page_dict.set(b"Resources", Object::Dictionary(merged_resources));
+            }
+
+            // Record the draw call for this widget (accumulated per page, appended as one stream).
+            let [cm_a, cm_b, cm_c, cm_d, cm_e, cm_f] = cm;
+            draw_ops.push(format!(
+                "q {cm_a:.6} {cm_b:.6} {cm_c:.6} {cm_d:.6} {cm_e:.6} {cm_f:.6} cm /{xobj_name} Do Q"
+            ));
+
+            baked_widget_ids.insert(widget_id);
+        }
+
+        // Append one new content stream at the end of the page's /Contents so all
+        // widget appearances paint on top of existing content.
+        if !draw_ops.is_empty() {
+            let combined = draw_ops.join("\n");
+            let new_stream = Stream::new(dictionary! {}, combined.into_bytes());
+            let new_stream_id = doc.add_object(Object::Stream(new_stream));
+
+            let contents_obj = doc
+                .get_dictionary(page_id)
+                .ok()
+                .and_then(|d| d.get(b"Contents").ok().cloned());
+
+            match contents_obj {
+                Some(Object::Reference(old_id)) => {
+                    if let Ok(Object::Dictionary(page_dict)) = doc.get_object_mut(page_id) {
+                        page_dict.set(
+                            b"Contents",
+                            Object::Array(vec![
+                                Object::Reference(old_id),
+                                Object::Reference(new_stream_id),
+                            ]),
+                        );
+                    }
+                }
+                Some(Object::Array(mut arr)) => {
+                    arr.push(Object::Reference(new_stream_id));
+                    if let Ok(Object::Dictionary(page_dict)) = doc.get_object_mut(page_id) {
+                        page_dict.set(b"Contents", Object::Array(arr));
+                    }
+                }
+                _ => {
+                    if let Ok(Object::Dictionary(page_dict)) = doc.get_object_mut(page_id) {
+                        page_dict.set(b"Contents", Object::Reference(new_stream_id));
+                    }
+                }
+            }
+        }
+
+        // Rebuild /Annots retaining only the annotations that were not baked.
+        // Non-widget annotations (e.g. /Link) and widgets without a bakeable
+        // appearance are kept; baked widgets are dropped.
+        let kept_annots: Vec<Object> = annot_refs
+            .into_iter()
+            .filter(|o| {
+                !o.as_reference()
+                    .ok()
+                    .map(|id| baked_widget_ids.contains(&id))
+                    .unwrap_or(false)
+            })
+            .collect();
+
+        if let Ok(Object::Dictionary(page_dict)) = doc.get_object_mut(page_id) {
+            if kept_annots.is_empty() {
+                page_dict.remove(b"Annots");
+            } else {
+                page_dict.set(b"Annots", Object::Array(kept_annots));
+            }
+        }
+    }
+
+    // Remove /AcroForm from the catalog. Also remove /NeedAppearances if the catalog
+    // carries it directly (it normally lives inside the AcroForm dict, but guard
+    // against non-conformant documents that place it at catalog level).
+    {
+        let catalog_id: Option<ObjectId> = doc
+            .trailer
+            .get(b"Root")
+            .ok()
+            .and_then(|o| o.as_reference().ok());
+        if let Some(catalog_id) = catalog_id {
+            if let Ok(Object::Dictionary(catalog_dict)) = doc.get_object_mut(catalog_id) {
+                catalog_dict.remove(b"AcroForm");
+                catalog_dict.remove(b"NeedAppearances");
+            }
+        }
+    }
+
+    let mut output = Vec::new();
+    doc.save_to(&mut output)
+        .map_err(|e| FormError::Reassemble(e.to_string()))?;
+    Ok(output)
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lopdf::{dictionary, Dictionary, Document, Object};
+    use lopdf::{dictionary, Dictionary, Document, Object, Stream};
 
     // ── Test helpers ──────────────────────────────────────────────────────────
 
@@ -1774,6 +2140,25 @@ mod tests {
         );
     }
 
+    /// Build and register a minimal Form XObject appearance stream.
+    /// `bbox` is `[bx0, by0, bx1, by1]` stored as PDF integers.
+    fn add_ap_stream(doc: &mut Document, bbox: [i64; 4], content: &[u8]) -> ObjectId {
+        let ap_stream = Stream::new(
+            dictionary! {
+                "Type" => Object::Name(b"XObject".to_vec()),
+                "Subtype" => Object::Name(b"Form".to_vec()),
+                "BBox" => Object::Array(vec![
+                    Object::Integer(bbox[0]),
+                    Object::Integer(bbox[1]),
+                    Object::Integer(bbox[2]),
+                    Object::Integer(bbox[3]),
+                ]),
+            },
+            content.to_vec(),
+        );
+        doc.add_object(Object::Stream(ap_stream))
+    }
+
     #[test]
     fn fill_clears_needappearances_for_inline_acroform() {
         let (mut doc, page_id) = base_doc();
@@ -1812,6 +2197,275 @@ mod tests {
             acro.get(b"NeedAppearances").unwrap().as_bool().unwrap(),
             false,
             "inline-AcroForm /NeedAppearances must be cleared after fill"
+        );
+    }
+
+    // ── Flatten tests ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn flatten_bakes_value_and_drops_form() {
+        let (mut doc, page_id) = base_doc();
+
+        // A widget with an /AP /N stream — the minimal bakeable form field.
+        let ap_id = add_ap_stream(&mut doc, [0, 0, 150, 20], b"q Q");
+        let field = dictionary! {
+            "Type" => Object::Name(b"Annot".to_vec()),
+            "Subtype" => Object::Name(b"Widget".to_vec()),
+            "FT" => Object::Name(b"Tx".to_vec()),
+            "T" => Object::string_literal("FullName"),
+            "Rect" => rect_obj(),
+            "AP" => Object::Dictionary(dictionary! {
+                "N" => Object::Reference(ap_id),
+            }),
+        };
+        let fid = add_annot(&mut doc, page_id, field);
+        add_acroform(&mut doc, &[fid]);
+        let bytes = to_bytes(&mut doc);
+
+        let out = flatten_form(&bytes).expect("flatten_form");
+
+        // AcroForm is dropped — read_form returns empty.
+        let fields = read_form(&out).expect("read_form after flatten");
+        assert!(
+            fields.is_empty(),
+            "AcroForm must be removed; got {fields:?}"
+        );
+
+        let doc2 = Document::load_mem(&out).expect("reload flattened doc");
+
+        // No page /Annots entry may carry a /Widget subtype.
+        for (_, pid) in doc2.get_pages() {
+            let page_dict = doc2.get_object(pid).unwrap().as_dict().unwrap();
+            if let Ok(annots_obj) = page_dict.get(b"Annots") {
+                let annots: Vec<Object> = match annots_obj {
+                    Object::Array(a) => a.clone(),
+                    Object::Reference(id) => doc2
+                        .get_object(*id)
+                        .ok()
+                        .and_then(|o| o.as_array().ok())
+                        .cloned()
+                        .unwrap_or_default(),
+                    _ => vec![],
+                };
+                for annot_ref in &annots {
+                    if let Ok(aid) = annot_ref.as_reference() {
+                        let sub = doc2
+                            .get_object(aid)
+                            .ok()
+                            .and_then(|o| o.as_dict().ok())
+                            .and_then(|d| d.get(b"Subtype").ok())
+                            .and_then(|o| o.as_name().ok().map(|n| n.to_vec()));
+                        assert_ne!(
+                            sub.as_deref(),
+                            Some(b"Widget".as_ref()),
+                            "baked widget must be removed from /Annots"
+                        );
+                    }
+                }
+            }
+        }
+
+        // Page /Resources /XObject gained an entry for the baked appearance.
+        let (_, pid) = doc2.get_pages().into_iter().next().unwrap();
+        let resources = crate::surgery::resolve_inherited_resources(&doc2, pid)
+            .expect("page resources must exist after flatten");
+        let xobj_obj = resources
+            .get(b"XObject")
+            .expect("/XObject must be present in page /Resources after flatten");
+        let xobj_dict = crate::surgery::resolve_dict(&doc2, xobj_obj)
+            .expect("/XObject must resolve to a dictionary");
+        assert!(
+            !xobj_dict.is_empty(),
+            "/XObject dict must contain at least one entry"
+        );
+
+        // Page content must contain a Do operator (draws the baked appearance).
+        let page_dict = doc2.get_dictionary(pid).expect("page dict");
+        let contents_obj = page_dict.get(b"Contents").ok().cloned();
+        let stream_ids: Vec<ObjectId> = match contents_obj {
+            Some(Object::Reference(id)) => vec![id],
+            Some(Object::Array(arr)) => arr.iter().filter_map(|o| o.as_reference().ok()).collect(),
+            _ => vec![],
+        };
+        let has_do = stream_ids.iter().any(|&sid| {
+            doc2.get_object(sid)
+                .ok()
+                .and_then(|o| {
+                    if let Object::Stream(s) = o {
+                        Some(s)
+                    } else {
+                        None
+                    }
+                })
+                .map(|s| String::from_utf8_lossy(&s.content).contains("Do"))
+                .unwrap_or(false)
+        });
+        assert!(
+            has_do,
+            "page content must contain a Do operator after flatten"
+        );
+    }
+
+    #[test]
+    fn flatten_keeps_non_widget_annotations() {
+        let (mut doc, page_id) = base_doc();
+
+        // Widget with appearance — will be baked and removed from /Annots.
+        let ap_id = add_ap_stream(&mut doc, [0, 0, 150, 20], b"q Q");
+        let widget = dictionary! {
+            "Type" => Object::Name(b"Annot".to_vec()),
+            "Subtype" => Object::Name(b"Widget".to_vec()),
+            "FT" => Object::Name(b"Tx".to_vec()),
+            "T" => Object::string_literal("Field"),
+            "Rect" => rect_obj(),
+            "AP" => Object::Dictionary(dictionary! {
+                "N" => Object::Reference(ap_id),
+            }),
+        };
+        let widget_id = add_annot(&mut doc, page_id, widget);
+
+        // Non-widget /Link annotation — must survive flatten unchanged.
+        let link = dictionary! {
+            "Type" => Object::Name(b"Annot".to_vec()),
+            "Subtype" => Object::Name(b"Link".to_vec()),
+            "Rect" => rect_obj(),
+        };
+        let link_id = add_annot(&mut doc, page_id, link);
+
+        add_acroform(&mut doc, &[widget_id]);
+        let bytes = to_bytes(&mut doc);
+
+        let out = flatten_form(&bytes).expect("flatten_form");
+
+        let doc2 = Document::load_mem(&out).expect("reload");
+        let (_, pid) = doc2.get_pages().into_iter().next().unwrap();
+        let page_dict = doc2.get_object(pid).unwrap().as_dict().unwrap();
+
+        // /Annots must still be present (the /Link was kept).
+        let annots_obj = page_dict
+            .get(b"Annots")
+            .expect("/Annots must survive when non-widget annotations exist");
+        let annots: Vec<Object> = match annots_obj {
+            Object::Array(a) => a.clone(),
+            Object::Reference(id) => doc2
+                .get_object(*id)
+                .ok()
+                .and_then(|o| o.as_array().ok())
+                .cloned()
+                .unwrap_or_default(),
+            _ => vec![],
+        };
+        let annot_ids: Vec<ObjectId> = annots
+            .iter()
+            .filter_map(|o| o.as_reference().ok())
+            .collect();
+
+        assert!(
+            !annot_ids.contains(&widget_id),
+            "baked widget must be removed from /Annots"
+        );
+        assert!(
+            annot_ids.contains(&link_id),
+            "/Link annotation must survive flatten; remaining annots: {annot_ids:?}"
+        );
+    }
+
+    #[test]
+    fn flatten_scales_bbox_to_rect() {
+        // Appearance /BBox [0 0 10 10] baked onto widget /Rect [100 100 300 140].
+        // rect_w = 200, rect_h = 40; bbox_w = 10, bbox_h = 10.
+        // sx = 200/10 = 20, sy = 40/10 = 4.
+        // e = rx0 - bx0*sx = 100 - 0 = 100; f = ry0 - by0*sy = 100 - 0 = 100.
+        // Expected cm: [20, 0, 0, 4, 100, 100].
+        let (mut doc, page_id) = base_doc();
+
+        let ap_id = add_ap_stream(&mut doc, [0, 0, 10, 10], b"q Q");
+        let widget = dictionary! {
+            "Type" => Object::Name(b"Annot".to_vec()),
+            "Subtype" => Object::Name(b"Widget".to_vec()),
+            "FT" => Object::Name(b"Tx".to_vec()),
+            "T" => Object::string_literal("ScaleTest"),
+            "Rect" => Object::Array(vec![
+                Object::Integer(100),
+                Object::Integer(100),
+                Object::Integer(300),
+                Object::Integer(140),
+            ]),
+            "AP" => Object::Dictionary(dictionary! {
+                "N" => Object::Reference(ap_id),
+            }),
+        };
+        let fid = add_annot(&mut doc, page_id, widget);
+        add_acroform(&mut doc, &[fid]);
+        let bytes = to_bytes(&mut doc);
+
+        let out = flatten_form(&bytes).expect("flatten_form");
+
+        let doc2 = Document::load_mem(&out).expect("reload");
+        let (_, pid) = doc2.get_pages().into_iter().next().unwrap();
+        let page_dict = doc2.get_dictionary(pid).expect("page dict");
+        let contents_obj = page_dict
+            .get(b"Contents")
+            .expect("/Contents must exist after flatten")
+            .clone();
+
+        // Collect content stream ids; the appended draw stream is last.
+        let stream_ids: Vec<ObjectId> = match contents_obj {
+            Object::Reference(id) => vec![id],
+            Object::Array(arr) => arr.iter().filter_map(|o| o.as_reference().ok()).collect(),
+            _ => panic!("unexpected /Contents object type"),
+        };
+        let last_id = *stream_ids.last().expect("at least one content stream");
+        let content_bytes = match doc2.get_object(last_id).expect("stream object") {
+            Object::Stream(s) => s.content.clone(),
+            _ => panic!("expected a stream object"),
+        };
+        let content_str =
+            String::from_utf8(content_bytes).expect("content stream must be valid UTF-8");
+
+        // Appended content format: "q <a> <b> <c> <d> <e> <f> cm /<name> Do Q"
+        let cm_pos = content_str
+            .find(" cm ")
+            .expect("appended content must contain the cm operator");
+        let before_cm = content_str[..cm_pos].trim();
+        let tokens: Vec<&str> = before_cm.split_whitespace().collect();
+        assert!(
+            tokens.len() >= 6,
+            "expected at least 6 operands before cm; got tokens: {tokens:?}"
+        );
+        let n = tokens.len();
+        let cm_a: f32 = tokens[n - 6].parse().expect("cm_a must be a number");
+        let cm_b: f32 = tokens[n - 5].parse().expect("cm_b must be a number");
+        let cm_c: f32 = tokens[n - 4].parse().expect("cm_c must be a number");
+        let cm_d: f32 = tokens[n - 3].parse().expect("cm_d must be a number");
+        let cm_e: f32 = tokens[n - 2].parse().expect("cm_e must be a number");
+        let cm_f: f32 = tokens[n - 1].parse().expect("cm_f must be a number");
+
+        assert!(
+            (cm_a - 20.0).abs() < 0.01,
+            "cm_a (sx) must be 20; got {cm_a}"
+        );
+        assert!((cm_b - 0.0).abs() < 0.01, "cm_b must be 0; got {cm_b}");
+        assert!((cm_c - 0.0).abs() < 0.01, "cm_c must be 0; got {cm_c}");
+        assert!((cm_d - 4.0).abs() < 0.01, "cm_d (sy) must be 4; got {cm_d}");
+        assert!(
+            (cm_e - 100.0).abs() < 0.01,
+            "cm_e (tx) must be 100; got {cm_e}"
+        );
+        assert!(
+            (cm_f - 100.0).abs() < 0.01,
+            "cm_f (ty) must be 100; got {cm_f}"
+        );
+    }
+
+    #[test]
+    fn flatten_no_acroform_errs() {
+        let (mut doc, _page_id) = base_doc();
+        let bytes = to_bytes(&mut doc);
+        let result = flatten_form(&bytes);
+        assert!(
+            matches!(result, Err(FormError::NoAcroForm)),
+            "a document with no AcroForm must return FormError::NoAcroForm"
         );
     }
 }
