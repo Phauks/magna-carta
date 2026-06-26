@@ -68,6 +68,25 @@ export default {
 };
 `;
 
+// Stub for the magna-carta-bundle service binding in tests — no real bundle worker runs under
+// the local pool, so the service binding must resolve to something or workerd refuses to boot.
+// POST /build returns a minimal canned BuildResponse (ok, one zero-byte volume key) so
+// bundle-coordinator tests can exercise the coordinator's happy path without a live worker.
+const BUNDLE_SERVICE_STUB_SCRIPT = `
+export default {
+  fetch() {
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        volumes: [{ key: "bundles/stub/bundle.zip", sizeBytes: 0 }],
+        error: null,
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  }
+};
+`;
+
 // Run Vitest inside Miniflare so the integration test gets real Worker bindings (D1/R2/Queues/ASSETS) loaded from wrangler.jsonc.
 // @cloudflare/vitest-pool-workers 0.16.x exposes the harness as the cloudflareTest() Vite plugin (the older defineWorkersConfig/poolOptions shape was removed); configPath points it at our Wrangler config so the same bindings back the test as back `wrangler dev`.
 // root is pinned to this package so the pool resolves `vitest/worker` (and the wrangler config) from apps/worker even when this config is loaded as a Vitest project from the repo-root `vp test`; without it the workerd VM reports `No such module "vitest/worker"`.
@@ -81,11 +100,13 @@ export default defineConfig({
     cloudflareTest({
       wrangler: { configPath: `${import.meta.dirname}/wrangler.jsonc` },
       remoteBindings: false,
-      // Two service bindings in wrangler.jsonc reference dedicated workers that do not run under the
-      // local pool — magna-carta-scan (SCAN_SERVICE) and magna-carta-convert (CONVERT). Miniflare
-      // requires both to exist, so register minimal stubs. The scan stub returns the no-engine
-      // ScanResult (an honest unscanned, never a fake clean); the convert stub only satisfies startup
-      // validation (conversion-engine tests inject fake CONVERT fetchers directly, never call it).
+      // Three service bindings in wrangler.jsonc reference dedicated workers that do not run under
+      // the local pool — magna-carta-scan (SCAN_SERVICE), magna-carta-convert (CONVERT), and
+      // magna-carta-bundle (BUNDLE_SERVICE). Miniflare requires all to exist, so register minimal
+      // stubs. The scan stub returns the no-engine ScanResult (an honest unscanned, never a fake
+      // clean); the convert stub only satisfies startup validation (conversion-engine tests inject
+      // fake CONVERT fetchers directly, never call it); the bundle stub returns a canned BuildResponse
+      // so coordinator tests can exercise the happy path without a live bundle worker.
       miniflare: {
         workers: [
           {
@@ -97,6 +118,11 @@ export default defineConfig({
             name: "magna-carta-convert",
             modules: true,
             script: `export default { fetch() { return new Response("stub", { status: 501 }); } };`,
+          },
+          {
+            name: "magna-carta-bundle",
+            modules: true,
+            script: BUNDLE_SERVICE_STUB_SCRIPT,
           },
         ],
       },
