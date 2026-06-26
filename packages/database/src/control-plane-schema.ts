@@ -6,7 +6,9 @@ import type {
   FirmId,
   IdempotencyRecordId,
   OutboxId,
+  PlatformStaffId,
   SessionId,
+  SupportGrantId,
   TwoFactorId,
   UserId,
   VerificationId,
@@ -51,6 +53,12 @@ export const firm = sqliteTable("firm", {
   // it. Both default 1 so pre-mint rows are valid (expand-contract); rotation bumps them.
   firmKeyVersion: integer("firm_key_version").notNull().default(1),
   rootKeyVersion: integer("root_key_version").notNull().default(1),
+  // Firm policy: when true, a PRIVILEGED support grant is created in 'requested' state and needs an
+  // admin co-sign before it becomes redeemable. Default false — self-scoping already bounds a
+  // privileged session to the requester's own access, so co-sign is opt-in hardening. Promoted into
+  // the declarative settings registry later; an interim control-plane column keeps grant creation a
+  // single control-plane read.
+  supportRequiresCosign: integer("support_requires_cosign", { mode: "boolean" }).notNull().default(false),
   // ISO-8601 UTC instant.
   createdAt: text("created_at").notNull(),
 });
@@ -180,6 +188,47 @@ export const authAudit = sqliteTable("auth_audit", {
   metadata: text("metadata"), // JSON: ids + non-privileged fields ONLY, redacted (never privileged content)
   createdAt: text("created_at").notNull(), // ISO-8601 instant
 });
+
+// Platform support staff — named human (later: agent) principals who redeem support grants. Separate
+// from firm `user` (every user belongs to exactly one firm; staff belong to none). Self-service staff
+// login + MFA is built later; until then rows are seeded and the redeem route is platform-admin-gated.
+export const platformStaff = sqliteTable("platform_staff", {
+  id: text("id").primaryKey().$type<PlatformStaffId>(), // platformStaff_ handle
+  email: text("email").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  // 'support' may redeem diagnostic grants; 'support_lead' additionally may redeem privileged grants.
+  role: text("role", { enum: ["support", "support_lead"] }).notNull(),
+  status: text("status", { enum: ["active", "disabled"] }).notNull().default("active"),
+  createdAt: text("created_at").notNull(), // ISO-8601 instant
+});
+
+// Support grant — one row per firm member's request for help-desk access. The request IS the consent;
+// there is no staff-initiated path. A grant is redeemable only while status='active' AND now<=expires_at.
+export const supportGrant = sqliteTable(
+  "support_grant",
+  {
+    id: text("id").primaryKey().$type<SupportGrantId>(), // supportGrant_ handle
+    firmId: text("firm_id")
+      .notNull()
+      .$type<FirmId>()
+      .references(() => firm.id),
+    // The firm member who requested help — the consent anchor and the privileged-tier authority source.
+    requestedByUserId: text("requested_by_user_id").notNull().$type<UserId>(),
+    tier: text("tier", { enum: ["diagnostic", "privileged"] }).notNull(),
+    scope: text("scope", { enum: ["self"] }).notNull().default("self"),
+    status: text("status", {
+      enum: ["requested", "active", "revoked", "expired", "closed"],
+    }).notNull(),
+    reason: text("reason"), // non-privileged free text
+    // The staff principal that redeemed the grant (null until first redeemed).
+    principalId: text("principal_id").$type<PlatformStaffId>(),
+    requiresCosign: integer("requires_cosign", { mode: "boolean" }).notNull().default(false),
+    cosignedByUserId: text("cosigned_by_user_id").$type<UserId>(),
+    expiresAt: text("expires_at").notNull(), // ISO-8601 instant; hard time-box
+    createdAt: text("created_at").notNull(), // ISO-8601 instant
+  },
+  (table) => [index("support_grant_firm_id_index").on(table.firmId)],
+);
 
 // Control-plane copies of the reliability tables — same shapes as the per-firm lineage so the
 // data-access middleware and relay run identically against either database.
