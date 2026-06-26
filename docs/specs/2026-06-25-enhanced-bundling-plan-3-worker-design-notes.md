@@ -71,6 +71,20 @@ confidentiality story and covers the common "email a password-protected archive"
 + split** to a later iteration (option B) and have the capability surface reflect that (encrypted disables
 split in the UI, and vice versa). This keeps Plan 3 shippable and the secret posture airtight.
 
+### DECISION (resolved 2026-06-26): option A — stream, never store
+
+Confirmed: passwords are **never stored** (user-supplied only; storing would defeat the encryption for
+the external-delivery use case and add a standing secret liability — re-bundling on demand covers any
+"re-download/lost password" convenience). Encrypted bundles take lane **A**: the container streams the
+single encrypted archive back through the worker to the client, **no R2 artifact, no cache, no queue**;
+the password lives only for the request. **Encrypted is single-file only in v1 — encrypted + split is
+invalid** (deferred to a later ephemeral-async iteration). A stored-password "delivery record" remains a
+possible future opt-in feature (encrypted vault + access control + its own ADR), explicitly out of v1.
+
+Immediate consequence realized now (ahead of the full plan): `validateOptionsForFormat` rejects
+`encryption != null && split != null`, and the UI mutually disables split and encryption. The rest of
+Plan 3 (the worker tasks above) is now fully specified and ready to write.
+
 ## Out of scope for Plan 3
 
 UI (Plan 4). The live `bundle-worker` container deploy + `BUNDLE_SERVICE` activation are deploy-time
