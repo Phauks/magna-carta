@@ -182,6 +182,7 @@ export function attachReceiptStatement(
   fileId: string,
   updatedAt: string,
 ): SqlStatement {
+  // fitness:allow-billing-lock — NOT IN ('billed','void') is a freeze guard (excludes, not targets).
   return database
     .prepare(
       `UPDATE ${COST_ENTRY_TABLE} SET receipt_file_id = ?2, updated_at = ?3 WHERE id = ?1 AND status NOT IN ('billed','void')`,
@@ -195,6 +196,7 @@ export function detachReceiptStatement(
   id: CostEntryId,
   updatedAt: string,
 ): SqlStatement {
+  // fitness:allow-billing-lock — NOT IN ('billed','void') is a freeze guard (excludes, not targets).
   return database
     .prepare(
       `UPDATE ${COST_ENTRY_TABLE} SET receipt_file_id = NULL, updated_at = ?2 WHERE id = ?1 AND status NOT IN ('billed','void')`,

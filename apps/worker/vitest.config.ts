@@ -16,14 +16,18 @@ function sqlAsText(): Plugin {
   };
 }
 
-// The fitness scan tests (timekeeping-wip-ledger-fitness, timekeeping-freeze-fitness) need to scan
-// packages/timekeeping/src/**/*.ts, but import.meta.glob cannot resolve outside the Vite root
-// (apps/worker). This plugin provides a virtual module that inlines those sources at build time so
-// the scans cover the package where the SQL statement strings actually live.
-function timekeepingPackageSources(): Plugin {
-  const virtualModuleId = "virtual:timekeeping-package-sources";
+// The fitness scan tests (billing-wip-ledger-fitness, billing-freeze-fitness) need to scan the
+// package sources where the SQL statement strings actually live — packages/timekeeping/src,
+// packages/costs/src, and packages/billing-core/src — but import.meta.glob cannot resolve outside
+// the Vite root (apps/worker). This plugin provides a virtual module that inlines those sources at
+// build time, each file keyed under its own package prefix, so the scans cover all three packages
+// and each can be floored for non-vacuity independently.
+function billingPackageSources(): Plugin {
+  const virtualModuleId = "virtual:billing-package-sources";
   const resolvedVirtualModuleId = "\0" + virtualModuleId;
-  const packageSrcDir = path.resolve(import.meta.dirname, "../../packages/timekeeping/src");
+  const timekeepingSrcDir = path.resolve(import.meta.dirname, "../../packages/timekeeping/src");
+  const costsSrcDir = path.resolve(import.meta.dirname, "../../packages/costs/src");
+  const billingCoreSrcDir = path.resolve(import.meta.dirname, "../../packages/billing-core/src");
 
   function collectSources(dir: string, prefix: string): Record<string, string> {
     const result: Record<string, string> = {};
@@ -40,14 +44,17 @@ function timekeepingPackageSources(): Plugin {
   }
 
   return {
-    name: "magna-carta:timekeeping-package-sources",
+    name: "magna-carta:billing-package-sources",
     resolveId(id) {
       if (id === virtualModuleId) return resolvedVirtualModuleId;
       return undefined;
     },
     load(id) {
       if (id !== resolvedVirtualModuleId) return undefined;
-      const sources = collectSources(packageSrcDir, "packages/timekeeping/src");
+      const sources: Record<string, string> = {};
+      Object.assign(sources, collectSources(timekeepingSrcDir, "packages/timekeeping/src"));
+      Object.assign(sources, collectSources(costsSrcDir, "packages/costs/src"));
+      Object.assign(sources, collectSources(billingCoreSrcDir, "packages/billing-core/src"));
       return `export default ${JSON.stringify(sources)};`;
     },
   };
@@ -77,7 +84,7 @@ export default defineConfig({
   root: import.meta.dirname,
   plugins: [
     sqlAsText(),
-    timekeepingPackageSources(),
+    billingPackageSources(),
     cloudflareTest({
       wrangler: { configPath: `${import.meta.dirname}/wrangler.jsonc` },
       remoteBindings: false,
