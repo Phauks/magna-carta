@@ -56,6 +56,30 @@ describe("forwardBuild", () => {
     expect(new Uint8Array(buffer)).toEqual(archiveBytes);
   });
 
+  it("passes the request body and query string through to the container", async () => {
+    // A capturing fake records the request the proxy actually sends to the container, so we can assert
+    // the manifest body and the ?stream flag reach it (not just that some response comes back).
+    let seenUrl = "";
+    let seenBody = "";
+    const container = {
+      async fetch(req: Request): Promise<Response> {
+        seenUrl = req.url;
+        seenBody = await req.text();
+        return new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } });
+      },
+    };
+    const manifest = JSON.stringify({ jobId: "job-3", format: "sevenZip", entries: [] });
+    const request = new Request("http://bundle-worker/build?stream=1", {
+      method: "POST",
+      body: manifest,
+      duplex: "half",
+    } as RequestInit & { duplex: "half" });
+
+    await forwardBuild(request, container);
+    expect(seenBody).toBe(manifest);
+    expect(seenUrl).toContain("/build?stream=1");
+  });
+
   it("returns 404 for a non-POST method", async () => {
     const container = fakeContainer(new Response("ok", { status: 200 }));
     const request = new Request("http://bundle-worker/build", { method: "GET" });

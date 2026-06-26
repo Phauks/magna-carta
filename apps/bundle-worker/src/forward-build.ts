@@ -22,14 +22,16 @@ export async function forwardBuild(
     return new Response("Not Found", { status: 404 });
   }
   // Proxy the entire request body and query string to the container's /build endpoint, preserving
-  // duplex so the Workers runtime can stream the manifest body without buffering it. An
-  // AbortSignal.timeout backstop ensures the handler always terminates even if the container hangs.
+  // duplex so the Workers runtime can stream the manifest body without buffering it. The signal is the
+  // caller's own signal raced against a timeout backstop: a caller disconnect (the app worker's
+  // service-binding call being cancelled) aborts the container build immediately rather than letting it
+  // run on and saturate the instance pool, while the timeout still bounds a genuinely hung container.
   const containerResponse = await container.fetch(
     new Request(`http://bundle/build${url.search}`, {
       method: "POST",
       body: request.body,
       duplex: "half",
-      signal: AbortSignal.timeout(BUILD_TIMEOUT_MS),
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(BUILD_TIMEOUT_MS)]),
     } as RequestInit & { duplex: "half" }),
   );
   // Return the container's response verbatim — status, headers, and body (the BuildResponse JSON

@@ -11,8 +11,7 @@
     "test": "vp test run"
   },
   "dependencies": {
-    "@cloudflare/containers": "catalog:",
-    "zod": "catalog:"
+    "@cloudflare/containers": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "catalog:",
