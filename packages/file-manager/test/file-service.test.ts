@@ -557,14 +557,17 @@ describe("commitVersion — flagged-but-committed version", () => {
       flaggedRaw,
     );
 
-    // A commit audit row must exist for this version.
+    // A commit audit row must exist for this version, and its metadata must carry the flagged verdict +
+    // reason so the audit trail is useful without exposing privileged content.
     const audit = await database
       .prepare(
-        "SELECT event FROM audit_log WHERE event = 'file.version_committed' AND subject_id = ?1",
+        "SELECT event, metadata FROM audit_log WHERE event = 'file.version_committed' AND subject_id = ?1",
       )
       .bind(versionId)
-      .all<{ event: string }>();
+      .all<{ event: string; metadata: string }>();
     expect(audit.results).toHaveLength(1);
+    const parsed = JSON.parse(audit.results[0]!.metadata as string);
+    expect(parsed).toMatchObject({ scanVerdict: "flagged", scanDetail: "Eicar-Test-Signature" });
   });
 });
 
