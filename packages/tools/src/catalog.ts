@@ -116,4 +116,14 @@ export const CATALOG: readonly ToolManifest[] = [
     backing: { kind: "library" },
     matterContext: "none",
   },
+  {
+    id: "file-hash-integrity",
+    name: "File Hash & Integrity",
+    icon: "fingerprint",
+    subjectGroup: "documents",
+    permission: assertPermission("tools:fileIntegrity"),
+    contextTags: ["file", "none"],
+    backing: { kind: "library" },
+    matterContext: "none",
+  },
 ];

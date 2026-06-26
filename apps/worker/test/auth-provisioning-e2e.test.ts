@@ -227,10 +227,12 @@ describe("end-to-end", () => {
       // 1·3 directory:edit / directory:viewSensitiveIdentifiers grants (0009_directory) +
       // tools:firmUsage (0010_seed-tools-firm-usage.sql) + the slice 1·4 customFields:manage /
       // customFields:purge grants (0013_custom-fields.sql) + the time: grants (0021_outgoing_talon) +
-      // tools:whois / tools:safeBrowse (0017_seed-tools-web-domains.sql, seeded onto every default role) +
-      // tools:fileConverter (0018_seed-tools-file-converter.sql) + firm:scanFile
+      // tools:whois / tools:safeBrowse (0017_seed-tools-web-domains.sql, seeded onto every default
+      // role) + tools:fileConverter (0018_seed-tools-file-converter.sql) + firm:scanFile
       // (0019_seed-scan-file-permission.sql) + tools:metadataScrubber
-      // (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role). Sorted.
+      // (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role) +
+      // tools:fileIntegrity (0022_seed-tools-file-integrity.sql, seeded onto every default role).
+      // Sorted.
       permissions: [
         "customFields:manage",
         "customFields:purge",
@@ -262,6 +264,7 @@ describe("end-to-end", () => {
         "time:track",
         "time:viewFirm",
         "tools:fileConverter",
+        "tools:fileIntegrity",
         "tools:firmUsage",
         "tools:metadataScrubber",
         "tools:safeBrowse",
@@ -410,6 +413,8 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       // Pure-compute POSTs — inspect/scrub operate over the request body only; nothing is stored.
       "metadata.inspect",
       "metadata.scrub",
+      // Pure computation over the streamed request body — computes five digests; nothing is stored.
+      "fileIntegrity.hash",
     ]);
 
     for (const { operation, label } of mutatingV1) {
