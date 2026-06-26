@@ -69,6 +69,13 @@ pub enum EntrySource {
     Inline { bytes_base64: String },   // small generated content (e.g. the CONTENTS manifest)
 }
 
+// GOLDEN wire shape (must stay byte-identical to the worker's `BundleManifestEntry` in
+// packages/file-manager/src/bundle-manifest.ts — the discriminator is FLATTENED onto the entry):
+//   { "archivePath": "Pleadings/a.pdf", "mtimeEpochSecs": 1700000000, "source": "r2", "r2Key": "files/f1/v1" }
+//   { "archivePath": "CONTENTS.txt",    "mtimeEpochSecs": null,       "source": "inline", "bytesBase64": "..." }
+// NOT a nested `"source": { "source": "r2", ... }` object. `#[serde(flatten)]` over the internally-tagged
+// enum produces exactly the flat form above.
+
 // The /build response. `volumes` are the R2 keys written, in order.
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]

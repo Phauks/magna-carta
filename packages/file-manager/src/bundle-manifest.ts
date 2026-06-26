@@ -7,13 +7,17 @@ import { buildContentsManifest, type ManifestEntry } from "./contents-manifest.t
 // `BuildRequest` (camelCase serde). Bytes never appear here — only R2 keys, plus optional inline bytes
 // for a generated CONTENTS file. The password rides `options.encryption` for the streamed encrypted lane
 // only and is never persisted.
-export interface BundleManifestEntry {
+// The discriminator is flattened onto the entry (`source: "r2" | "inline"` + its data alongside the
+// shared fields), matching the container's Rust `Entry` (a struct with a `#[serde(flatten)]`
+// internally-tagged `EntrySource` enum). Wire JSON: `{archivePath, mtimeEpochSecs, source:"r2", r2Key}`
+// or `{archivePath, mtimeEpochSecs, source:"inline", bytesBase64}`.
+export type BundleManifestEntry = {
   readonly archivePath: string;
   readonly mtimeEpochSecs: number | null;
-  readonly source:
-    | { readonly source: "r2"; readonly r2Key: string }
-    | { readonly source: "inline"; readonly bytesBase64: string };
-}
+} & (
+  | { readonly source: "r2"; readonly r2Key: string }
+  | { readonly source: "inline"; readonly bytesBase64: string }
+);
 
 export interface BundleManifest {
   readonly jobId: string;
@@ -57,7 +61,8 @@ export function buildBundleManifest(args: BuildBundleManifestArgs): BundleManife
   const fileEntries: BundleManifestEntry[] = laidOut.entries.map((entry) => ({
     archivePath: entry.path,
     mtimeEpochSecs: mtimeByR2Key.get(entry.r2Key) ?? null,
-    source: { source: "r2", r2Key: entry.r2Key },
+    source: "r2",
+    r2Key: entry.r2Key,
   }));
 
   const allEntries: BundleManifestEntry[] = [...fileEntries];
@@ -67,19 +72,20 @@ export function buildBundleManifest(args: BuildBundleManifestArgs): BundleManife
     allEntries.push({
       archivePath: "CONTENTS.txt",
       mtimeEpochSecs: null,
-      source: { source: "inline", bytesBase64: textToBase64(contentsText) },
+      source: "inline",
+      bytesBase64: textToBase64(contentsText),
     });
   }
 
-  const encryption =
-    options.encryption === null
-      ? null
-      : {
-          // password is guaranteed non-null by callers that set encryption (the encrypted stream
-          // lane always supplies it; the non-null assertion is safe by contract).
-          password: password!,
-          encryptFileNames: options.encryption.encryptFileNames,
-        };
+  let encryption: BundleManifest["encryption"] = null;
+  if (options.encryption !== null) {
+    // The contract is that a caller requesting encryption supplies the password; enforce it at runtime
+    // (not just a non-null assertion) so a null password can never reach the manifest as `{password: null}`.
+    if (password === null) {
+      throw new Error("buildBundleManifest: a password is required when options.encryption is set");
+    }
+    encryption = { password, encryptFileNames: options.encryption.encryptFileNames };
+  }
 
   const split =
     options.split === null ? null : { maxPartBytes: options.split.maxPartBytes };

@@ -297,13 +297,15 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
       // no R2 artifact, no cache — the password and the bytes exist only for the request. The password
       // is validated non-null above; this lane is only reached when options.encryption is non-null.
       if (lane === "encryptedStream" && options !== undefined) {
+        // The fail-fast check before the DB read already returns 503 for this case; this re-check is the
+        // type-narrowing guard so the compiler knows BUNDLE_SERVICE is defined at the buildStream call
+        // below (the earlier guard's narrowing does not carry across the intervening await).
         if (c.env.BUNDLE_SERVICE === undefined) {
           return problemJson(c, {
             type: "service-unavailable",
             title: "Bundle service not configured",
             status: 503,
-            detail:
-              "The bundle service is not available. Contact support if this persists.",
+            detail: "The bundle service is not available. Contact support if this persists.",
           });
         }
 

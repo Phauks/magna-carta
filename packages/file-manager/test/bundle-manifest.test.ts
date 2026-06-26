@@ -72,12 +72,14 @@ describe("buildBundleManifest", () => {
 
     const first = result.entries.find((e) => e.archivePath === "Pleadings/a.pdf");
     expect(first).toBeDefined();
-    expect(first!.source).toEqual({ source: "r2", r2Key: "files/f1/v1" });
+    expect(first!.source).toBe("r2");
+    if (first!.source === "r2") expect(first!.r2Key).toBe("files/f1/v1");
     expect(first!.mtimeEpochSecs).toBe(1_700_000_000);
 
     const second = result.entries.find((e) => e.archivePath === "b.pdf");
     expect(second).toBeDefined();
-    expect(second!.source).toEqual({ source: "r2", r2Key: "files/f2/v2" });
+    expect(second!.source).toBe("r2");
+    if (second!.source === "r2") expect(second!.r2Key).toBe("files/f2/v2");
     expect(second!.mtimeEpochSecs).toBeNull();
   });
 
@@ -96,7 +98,10 @@ describe("buildBundleManifest", () => {
 
     expect(result.entries).toHaveLength(1);
     expect(result.entries[0]!.archivePath).toBe("Smith v Jones/a.pdf");
-    expect(result.entries[0]!.source).toEqual({ source: "r2", r2Key: "files/f1/v1" });
+    expect(result.entries[0]!.source).toBe("r2");
+    if (result.entries[0]!.source === "r2") {
+      expect(result.entries[0]!.r2Key).toBe("files/f1/v1");
+    }
   });
 
   it("applies flatten layout so archivePaths are base names without folder segments", () => {
@@ -142,14 +147,14 @@ describe("buildBundleManifest", () => {
     // File entries come first; CONTENTS.txt is last.
     expect(result.entries).toHaveLength(2);
     const fileEntry = result.entries[0];
-    expect(fileEntry!.source.source).toBe("r2");
+    expect(fileEntry!.source).toBe("r2");
 
     const contentsEntry = result.entries[result.entries.length - 1];
     expect(contentsEntry!.archivePath).toBe("CONTENTS.txt");
-    expect(contentsEntry!.source.source).toBe("inline");
+    expect(contentsEntry!.source).toBe("inline");
 
-    if (contentsEntry!.source.source === "inline") {
-      const decoded = decodeBase64ToString(contentsEntry!.source.bytesBase64);
+    if (contentsEntry!.source === "inline") {
+      const decoded = decodeBase64ToString(contentsEntry!.bytesBase64);
       expect(decoded).toBe(buildContentsManifest(manifestEntries));
     }
   });
@@ -258,10 +263,22 @@ describe("buildBundleManifest", () => {
 
     const last = result.entries[result.entries.length - 1];
     expect(last!.archivePath).toBe("CONTENTS.txt");
-    if (last!.source.source === "inline") {
-      expect(decodeBase64ToString(last!.source.bytesBase64)).toBe(
-        buildContentsManifest(manifestEntries),
-      );
+    if (last!.source === "inline") {
+      expect(decodeBase64ToString(last!.bytesBase64)).toBe(buildContentsManifest(manifestEntries));
     }
+  });
+
+  it("throws when encryption is requested but no password is supplied", () => {
+    expect(() =>
+      buildBundleManifest({
+        jobId: "job-012",
+        resolved: resolved([entry("a.pdf", "f1", "files/f1/v1", 10)]),
+        options: { ...baseOptions, encryption: { algorithm: "aes-256", encryptFileNames: false } },
+        password: null,
+        manifestEntries: [],
+        outputKeyPrefix: "bundles/xyz",
+        mtimeByR2Key: new Map(),
+      }),
+    ).toThrow(/password is required/i);
   });
 });
