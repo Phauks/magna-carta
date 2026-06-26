@@ -197,6 +197,7 @@ export interface DetectionReport {
   pagesUnreadable: number[];
 }
 
+import { readForm as wasmReadForm, fillForm as wasmFillForm, flattenForm as wasmFlattenForm } from "./pkg/pdf_core.js";
 import { stampBates as wasmStampBates } from "./pkg/pdf_core.js";
 import { detectDocument as wasmDetect } from "./pkg/pdf_core.js";
 
@@ -304,4 +305,118 @@ export async function stampBates(
 export async function detectDocument(bytes: Uint8Array): Promise<DetectionReport> {
   await ensureReady();
   return wasmDetect(bytes) as DetectionReport;
+}
+
+// ── Forms ─────────────────────────────────────────────────────────────────────
+//
+// NOTE: Forms are not redaction. readForm/fillForm/flattenForm read and write
+// visible field values. They do not remove hidden content, metadata, or any
+// other surface from the document. Use redactDocument/sanitizeDocument for that.
+
+/** The interactive role of a form field. */
+export type FieldKind =
+  | "text"
+  | "checkbox"
+  | "radio"
+  | "choice"
+  | "pushButton"
+  | "signature"
+  | "unknown";
+
+/** A resolved interactive form field with all inherited PDF attributes applied. */
+export interface FormField {
+  /** Fully-qualified dot-joined field name (ancestor /T values joined with "."). */
+  name: string;
+  /** Interactive role of the field. */
+  kind: FieldKind;
+  /** Current field value, or null when the field has no value set. */
+  value: string | boolean | null;
+  /** /Opt display entries for Choice fields; on-state export names for Radio groups. */
+  options: string[];
+  /** True when the field's read-only flag (/Ff bit 1) is set. */
+  readOnly: boolean;
+  /** 0-based page index of the first widget annotation, or null if unknown. */
+  page: number | null;
+  /** Bounding box of the first widget in display points [llx, lly, urx, ury], or null. */
+  rect: [number, number, number, number] | null;
+}
+
+/**
+ * Values to fill into form fields. Keys are fully-qualified field names.
+ * Use a string for text, choice, and radio fields; use a boolean for checkboxes.
+ */
+export type FormFillValues = Record<string, string | boolean>;
+
+/** Options for `fillForm`. */
+export interface FormFillOptions {
+  /**
+   * When `true`, widget appearances are baked into page content and the AcroForm
+   * dictionary is dropped. When `false` (the default), the form remains interactive.
+   */
+  flatten?: boolean;
+}
+
+/** The output of `fillForm` and `flattenForm`. */
+export interface FormFillResult {
+  /** The output PDF bytes. */
+  pdf: Uint8Array;
+}
+
+/**
+ * Enumerate all interactive form fields in a PDF.
+ *
+ * Returns an array of `FormField` objects with resolved names, kinds, current
+ * values, options, page locations, and bounding boxes. The four fillable kinds
+ * are `"text"`, `"checkbox"`, `"radio"`, and `"choice"`. `"pushButton"` and
+ * `"signature"` fields are enumerated but their values are read-only in this
+ * version.
+ *
+ * **Forms are not redaction.** This function reads field metadata only; it never
+ * modifies the input bytes. Use `redactDocument`/`sanitizeDocument` to remove
+ * content.
+ */
+export async function readForm(bytes: Uint8Array): Promise<FormField[]> {
+  await ensureReady();
+  return wasmReadForm(bytes) as FormField[];
+}
+
+/**
+ * Fill interactive form fields by name and optionally flatten the form.
+ *
+ * `values` maps fully-qualified field names to fill values: pass a string for
+ * text, choice, and radio fields; pass a boolean for checkboxes. Extra keys that
+ * do not match any field are silently ignored.
+ *
+ * When `options.flatten` is `true`, widget appearances are baked into page content
+ * and the AcroForm dictionary is dropped, producing a flat static PDF. When
+ * `false` (the default), the form remains interactive with the new values set.
+ *
+ * **Forms are not redaction.** Filling sets visible field values. Flattening makes
+ * those values permanent static content. Neither operation removes hidden content,
+ * metadata, or other surfaces — use `redactDocument`/`sanitizeDocument` for that.
+ */
+export async function fillForm(
+  bytes: Uint8Array,
+  values: FormFillValues,
+  options?: FormFillOptions,
+): Promise<FormFillResult> {
+  await ensureReady();
+  return wasmFillForm(bytes, values, options ?? {}) as FormFillResult;
+}
+
+/**
+ * Flatten all interactive form fields into static page content.
+ *
+ * Each widget's current appearance is drawn into the page via a `Do` operator,
+ * page resources are merged non-destructively, widget annotations are removed,
+ * and the `/AcroForm` dictionary is dropped. The result is permanent static
+ * content renderable by any PDF viewer without form support.
+ *
+ * **Forms are not redaction.** Flattening bakes visible form values into page
+ * content. It does not remove hidden content, metadata, or other surfaces — use
+ * `redactDocument`/`sanitizeDocument` for that.
+ */
+export async function flattenForm(bytes: Uint8Array): Promise<FormFillResult> {
+  await ensureReady();
+  return wasmFlattenForm(bytes) as FormFillResult;
 }
