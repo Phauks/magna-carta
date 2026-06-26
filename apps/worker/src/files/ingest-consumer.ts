@@ -255,7 +255,7 @@ async function handleRescanMessage(
       }
 
       // A `flagged` verdict (clamd signature, a counting YARA match, or a structural heuristic) stamps as
-      // `infected` so the already-committed version stays visible behind the download gate (informed
+      // `flagged` so the already-committed version stays visible behind the download gate (informed
       // access); `clean` clears it. The reason text is the recorded signature/detail.
       const isClean = fileVerdict.verdict === "clean";
       const signature = isClean ? null : fileVerdict.reason;
@@ -264,7 +264,7 @@ async function handleRescanMessage(
         {
           fileId: committed.fileId,
           versionId: committed.id,
-          scanVerdict: isClean ? "clean" : "infected",
+          scanVerdict: isClean ? "clean" : "flagged",
           scanEngineVersion: currentEngineVersion,
           scanDetail: signature,
           signature,

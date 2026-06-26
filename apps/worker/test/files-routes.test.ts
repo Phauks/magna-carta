@@ -329,7 +329,7 @@ describe("GET /api/v1/files/{id}/download", () => {
     const { fileId, r2Key } = await seedCleanFile("flagged.txt", null, "flagged-bytes");
     // A re-scan flagged the committed (still-visible) current version as malware — informed access.
     await env.DB_FIRM_POOL_1.prepare(
-      "UPDATE file_version SET scan_verdict = 'infected', scan_detail = 'Eicar-Test' WHERE r2_key = ?1",
+      "UPDATE file_version SET scan_verdict = 'flagged', scan_detail = 'Eicar-Test' WHERE r2_key = ?1",
     )
       .bind(r2Key)
       .run();

@@ -196,7 +196,7 @@ export function commitVersionStatement(database: SqlDatabase, row: CommitVersion
 
 export interface RescanVerdictRow {
   readonly versionId: FileVersionId;
-  readonly scanVerdict: "clean" | "infected";
+  readonly scanVerdict: "clean" | "flagged";
   readonly scanEngineVersion: string;
   readonly scanDetail: string | null;
 }
@@ -204,9 +204,9 @@ export interface RescanVerdictRow {
 // The in-place re-scan stamp: an ALREADY-COMMITTED version (status = 'clean') is re-scanned under a
 // newer engine and its verdict recorded WITHOUT moving the current-version pointer or changing
 // visibility. Gated on status = 'clean' so it can never touch a pending row (the commit path owns
-// those, and an out-of-order commit must not be clobbered), and so an infected re-scan finding stays
-// VISIBLE — only scan_verdict moves to 'infected'; the status (and the file's current-version pointer)
-// is untouched. The download path gates an infected verdict; the listing does not (informed access,
+// those, and an out-of-order commit must not be clobbered), and so a flagged re-scan finding stays
+// VISIBLE — only scan_verdict moves to 'flagged'; the status (and the file's current-version pointer)
+// is untouched. The download path gates a flagged verdict; the listing does not (informed access,
 // no data loss). NOT to be confused with commitVersionStatement (which gates 'pending' and moves the
 // lifecycle) — a re-scan only stamps the safety result on a version that is already live.
 export function rescanVerdictStatement(database: SqlDatabase, row: RescanVerdictRow): SqlStatement {

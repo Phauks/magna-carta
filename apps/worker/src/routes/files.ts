@@ -371,7 +371,7 @@ const downloadFileRoute = defineOpenAPIRoute(downloadFileMeta, {
   request: {
     params: fileParam,
     query: z.object({
-      // Informed access: a version a re-scan flagged infected stays downloadable, but only with an
+      // Informed access: a version a re-scan flagged stays downloadable, but only with an
       // explicit acknowledgment — the member confirms they accept the risk. Absent it, the download
       // returns 409 with the signature so the UI can prompt.
       acknowledgeMalware: z.literal("true").optional(),
@@ -720,13 +720,13 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
           detail: "No such file with a downloadable version in this firm.",
         });
       }
-      // Informed access: a version a re-scan flagged `infected` stays accessible (no data loss), but a
+      // Informed access: a version a re-scan flagged stays accessible (no data loss), but a
       // raw download is gated — the member must explicitly acknowledge the risk. Without the
       // acknowledgment, 409 carrying the signature so the UI can prompt; with it, the download proceeds
       // and is audited as an acknowledged malware override. (Stronger re-authentication is a follow-up;
       // the acknowledgment + audit is the first slice.)
       const acknowledgedMalware = c.req.valid("query").acknowledgeMalware === "true";
-      if (version.scanVerdict === "infected" && !acknowledgedMalware) {
+      if (version.scanVerdict === "flagged" && !acknowledgedMalware) {
         return problemJson(c, {
           type: "malware-flagged",
           title: "File flagged as malware",
@@ -762,7 +762,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
               // A distinct event when the member downloaded a malware-flagged file after acknowledging
               // it — the audited override is the record of who pulled known-bad bytes and when.
               event:
-                version.scanVerdict === "infected"
+                version.scanVerdict === "flagged"
                   ? "file.downloaded_malware_acknowledged"
                   : "file.downloaded",
               actorUserId: userId,

@@ -564,7 +564,7 @@ export const fileVersion = sqliteTable(
     storageClass: text("storage_class", { enum: ["standard", "infrequent_access"] })
       .notNull()
       .default("standard"),
-    scanVerdict: text("scan_verdict", { enum: ["unscanned", "clean", "infected"] }),
+    scanVerdict: text("scan_verdict", { enum: ["unscanned", "clean", "flagged"] }),
     scanEngineVersion: text("scan_engine_version"),
     // The reason behind an `unscanned` badge ("no-engine"/"encrypted"/"oversize"), an "active-content"
     // badge on an otherwise-clean file (PDF JavaScript / Office macros), or a suspicious
@@ -601,7 +601,7 @@ export const fileVersion = sqliteTable(
     ),
     check(
       "file_version_scan_verdict_check",
-      sql`${table.scanVerdict} IS NULL OR ${table.scanVerdict} IN ('unscanned', 'clean', 'infected')`,
+      sql`${table.scanVerdict} IS NULL OR ${table.scanVerdict} IN ('unscanned', 'clean', 'flagged')`,
     ),
     check(
       "file_version_inline_playable_check",

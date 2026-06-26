@@ -488,7 +488,7 @@ describe("recordRescanVerdict — in-place re-scan", () => {
       {
         fileId,
         versionId,
-        scanVerdict: "infected",
+        scanVerdict: "flagged",
         scanEngineVersion: "clamav/2.0",
         scanDetail: "Eicar-Test-Signature",
         signature: "Eicar-Test-Signature",
@@ -509,7 +509,7 @@ describe("recordRescanVerdict — in-place re-scan", () => {
       .bind(versionId)
       .all<{ scan_verdict: string; status: string }>();
     // The hallmark of informed access: flagged but still committed/visible — never hidden or regressed.
-    expect(row.results[0]).toMatchObject({ scan_verdict: "infected", status: "clean" });
+    expect(row.results[0]).toMatchObject({ scan_verdict: "flagged", status: "clean" });
     expect(await lookupScanCache(database, "hash-bad", "clamav/2.0")).toEqual(infectedRaw);
   });
 });

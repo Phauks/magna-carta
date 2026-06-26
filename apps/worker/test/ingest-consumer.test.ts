@@ -655,7 +655,7 @@ describe("handleIngestMessage — access-triggered re-scan", () => {
       .bind(versionId)
       .first<{ scan_verdict: string; status: string }>();
     // Informed access: flagged but still committed/visible.
-    expect(v).toMatchObject({ scan_verdict: "infected", status: "clean" });
+    expect(v).toMatchObject({ scan_verdict: "flagged", status: "clean" });
     // The fresh scan's raw facts are cached under the current engine — the dedup row the next re-scan
     // of identical content reuses. The cache stores the full RawScanResult, not a pre-decided verdict.
     const cached = await env.DB_FIRM_POOL_1.prepare(

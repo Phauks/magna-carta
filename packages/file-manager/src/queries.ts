@@ -128,9 +128,9 @@ export interface CleanVersion {
   readonly sizeBytes: number | null;
   readonly versionNumber: number;
   // The committed version's scan verdict + detail. A re-scan can flag an ALREADY-committed (still
-  // visible) version `infected` without hiding it (informed access) — so the download path must read
-  // the verdict here and gate an infected version, rather than assume status='clean' means safe.
-  readonly scanVerdict: "unscanned" | "clean" | "infected" | null;
+  // visible) version `flagged` without hiding it (informed access) — so the download path must read
+  // the verdict here and gate a flagged version, rather than assume status='clean' means safe.
+  readonly scanVerdict: "unscanned" | "clean" | "flagged" | null;
   readonly scanDetail: string | null;
 }
 
@@ -143,7 +143,7 @@ export async function getCurrentCleanVersion(
     r2_key: string;
     size_bytes: number | null;
     version_number: number;
-    scan_verdict: "unscanned" | "clean" | "infected" | null;
+    scan_verdict: "unscanned" | "clean" | "flagged" | null;
     scan_detail: string | null;
   }>();
   const row = results[0];
