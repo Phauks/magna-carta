@@ -26,6 +26,10 @@ export function sqliteBatchDatabase(database: DatabaseSync): BatchDatabase {
         const results = database.prepare(sql).all(...(bindings as never[])) as T[];
         return Promise.resolve({ results });
       },
+      first: <T = Record<string, unknown>>(): Promise<T | null> => {
+        const results = database.prepare(sql).all(...(bindings as never[])) as T[];
+        return Promise.resolve(results.length > 0 ? (results[0] as T) : null);
+      },
     };
   }
 

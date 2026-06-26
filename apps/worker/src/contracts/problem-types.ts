@@ -37,6 +37,10 @@ export const PROBLEM_TYPES = {
   // the conversion graph — either the format is unknown or no engine covers the pair. DISTINCT from
   // `validation` (request-shape) — the request is well-formed; the registry has no path.
   "unsupported-conversion": "unsupported-conversion",
+  // A beta-channel activation rejected because the required consent acknowledgment was absent.
+  // Distinct from `validation` (request-shape failures) — the request is well-formed; a business
+  // rule gates the channel transition on explicit opt-in.
+  "beta-consent-required": "beta-consent-required",
   // An unexpected, unhandled server error (HTTP 500). The telemetry middleware's final catch maps
   // any escaped exception to this — the one error type the client cannot have caused, carrying only
   // the Error ID to quote.

@@ -63,6 +63,13 @@
   // Workers AI — the authenticated binding the inference foundation reaches the AI Gateway through.
   // No per-firm provider key at launch (Unified Billing, Cloudflare-managed credentials).
   "ai": { "binding": "AI" },
+  // Cloudflare Flagship feature-flag binding omitted here: Miniflare (the local test runtime)
+  // rejects the "flagship" key because it expects an array, not an object. The binding is a
+  // production-only wiring step — add it in the deploy runbook once the Flagship provider is
+  // provisioned. The optional FLAGS? type on Bindings and resolveFlagEvaluator already handle its
+  // absence everywhere: the resolver falls back to defaultOffEvaluator (stable behavior).
+  // Production wrangler.jsonc snippet (add manually at deploy time):
+  //   "flagship": { "binding": "FLAGS" },
   // FILES_INGEST carries one R2 event per uploaded object to the ingest consumer (single read:
   // magic-byte gates + streaming SHA-256 + scan port, then commit or quarantine). It is a distinct
   // queue from the platform job queue so upload bursts cannot starve the outbox relay, and so its

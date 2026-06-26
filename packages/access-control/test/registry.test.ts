@@ -48,6 +48,7 @@ describe("permission registry", () => {
       "firm:reportIncident",
       "firm:scanFile",
       "firm:manageSecrets",
+      "firm:manageReleaseChannel",
     ]);
   });
 
@@ -134,6 +135,10 @@ describe("permission registry", () => {
   it("web-domains tool permissions are registered", () => {
     expect(isPermission("tools:whois")).toBe(true);
     expect(isPermission("tools:safeBrowse")).toBe(true);
+  });
+
+  it("registers firm:manageReleaseChannel", () => {
+    expect(isPermission("firm:manageReleaseChannel")).toBe(true);
   });
 
   it("every registered key is `<subsystem>:<action>` — lowercase-led camelCase segments", () => {
