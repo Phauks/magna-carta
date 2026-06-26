@@ -15,6 +15,10 @@ import {
   readScanEngineVersion,
   readUploadPolicy,
 } from "@magna-carta/file-manager/upload-policy";
+import {
+  readFlaggedTreatment,
+  readFirmScanPolicy,
+} from "@magna-carta/file-manager/scan-policy-settings";
 import { ingestVerdict } from "@magna-carta/telemetry/events";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
@@ -87,9 +91,11 @@ export async function handleIngestMessage(
     throw new Error(`R2 object not readable for a pending version: ${message.object.key}`);
   }
 
-  const [policy, inspectableSizeCap] = await Promise.all([
+  const [policy, inspectableSizeCap, scanPolicy, flaggedTreatment] = await Promise.all([
     readUploadPolicy(firmDatabase),
     readInspectableSizeCap(firmDatabase),
+    readFirmScanPolicy(firmDatabase),
+    readFlaggedTreatment(firmDatabase),
   ]);
   const outcome = await runIngest({
     objectBody: object.body,
@@ -103,6 +109,8 @@ export async function handleIngestMessage(
     policy,
     scanPort,
     inspectableSizeCap,
+    scanPolicy,
+    flaggedTreatment,
   });
 
   const now = () => new Date().toISOString();
