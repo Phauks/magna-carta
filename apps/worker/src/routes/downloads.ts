@@ -15,6 +15,8 @@ import {
   resolveZipSelection,
   type ZipEntry,
 } from "@magna-carta/file-manager/zip-composition";
+import { bundleOptionsSchema } from "@magna-carta/file-manager/bundle-options";
+import { validateOptionsForFormat } from "@magna-carta/file-manager/bundle-formats";
 import type { FileId, FolderId, MatterId } from "@magna-carta/identifiers/types";
 import { makeZip } from "client-zip";
 import type { Bindings } from "../app.ts";
@@ -31,6 +33,7 @@ import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
 import { requireBucket } from "../files/require-bucket.ts";
+import { selectBundleLane } from "../downloads/bundle-lane.ts";
 
 // Bulk download. A {matterId, folderIds?, fileIds?} selection resolves to the matter's clean CURRENT
 // versions at request time (version-pinned: a later upload never changes what this archive holds). A
@@ -46,6 +49,8 @@ const ZipRequest = z
     matterId: identifierField("matter"),
     folderIds: z.array(identifierField("folder")).optional(),
     fileIds: z.array(identifierField("file")).optional(),
+    // Bundle format options: absent means the existing plain-ZIP fast lane unchanged.
+    options: bundleOptionsSchema.optional(),
   })
   .openapi("ZipDownloadRequest");
 
@@ -112,8 +117,20 @@ const zipDownloadRoute = defineOpenAPIRoute(zipDownloadMeta, {
       description: "The firm is unreachable, the member is deactivated, or the selection is empty",
       content: { "application/problem+json": { schema: Problem } },
     },
+    422: {
+      description:
+        "The supplied bundle options are incoherent for the chosen format (e.g. ZIP with split " +
+        "enabled, or encryption combined with split). The detail field lists each violation.",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     429: {
       description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    501: {
+      description:
+        "The requested bundle option (non-plain compression, encryption, split, or 7z format) is " +
+        "not yet available. The plain-ZIP fast lane is always available.",
       content: { "application/problem+json": { schema: Problem } },
     },
   },
@@ -141,6 +158,39 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
       const bucket = requireBucket(firm.bucketName);
       const request = c.req.valid("json");
       const matterId: MatterId = request.matterId;
+      const options = request.options;
+
+      // Validate format-capability constraints before any expensive operations. An incoherent option
+      // set (e.g. ZIP + split, encryption + split) is rejected here with each violation listed so the
+      // caller can fix all problems in one round trip. This check is purely structural — the lane
+      // selector runs immediately after.
+      if (options !== undefined) {
+        const violations = validateOptionsForFormat(options);
+        if (violations.length > 0) {
+          return problemJson(c, {
+            type: "validation",
+            title: "Invalid bundle options",
+            status: 422,
+            detail: violations.join("; "),
+          });
+        }
+      }
+
+      // Route to the correct delivery lane. The plain lane (absent options or explicit ZIP/store/no
+      // encryption/no split) falls through to the existing logic below. The heavy-async and encrypted-
+      // stream lanes are not yet wired — they return 501 as an explicit interim and will be replaced
+      // when the bundle container tasks land.
+      const lane = selectBundleLane(options);
+      if (lane === "heavyAsync" || lane === "encryptedStream") {
+        return problemJson(c, {
+          type: "not-implemented",
+          title: "Bundle option not yet available",
+          status: 501,
+          detail:
+            "Non-plain bundle options (compression other than store, 7z format, encryption, or " +
+            "split) are not yet available. The plain ZIP fast lane is always available.",
+        });
+      }
 
       // Resolve the selection to version-pinned clean entries (the status-gated reads in queries.ts).
       const [folders, cleanFiles] = await Promise.all([
@@ -181,7 +231,8 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
 
       // The export is recorded AFTER the delivery side-effect succeeds (matching the per-file download
       // in routes/files.ts), so the audit trail never claims an export that a later presign/build
-      // failure prevented.
+      // failure prevented. Bundle-option flags (counts and booleans only — never password or content)
+      // are included when options are present so the audit trail reflects what format was requested.
       const now = new Date().toISOString();
       const recordExport = () =>
         commitEffectBatch(
@@ -199,6 +250,13 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
                   liveMaxFileCount,
                   liveMaxTotalBytes,
                   delivery,
+                  // Options flags: absent when no options were supplied (legacy path).
+                  ...(options !== undefined && {
+                    format: options.format,
+                    compression: options.compression,
+                    encrypted: options.encryption !== null,
+                    split: options.split !== null,
+                  }),
                 },
                 now,
               }),

@@ -41,6 +41,10 @@ export const PROBLEM_TYPES = {
   // any escaped exception to this — the one error type the client cannot have caused, carrying only
   // the Error ID to quote.
   internal: "internal",
+  // A feature that is known but not yet wired end-to-end (HTTP 501). Used for interim stubs where
+  // the route schema and lane routing are in place but the backing implementation lands in a later
+  // task. Clients should treat this like a transient error and retry after a deployment.
+  "not-implemented": "not-implemented",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;
