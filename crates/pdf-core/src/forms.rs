@@ -7,7 +7,7 @@
 //! This module handles read and appearance generation. Fill and flatten are
 //! separate operations built on top of this enumeration.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use lopdf::{dictionary, Document, Object, ObjectId, Stream};
 
@@ -82,7 +82,6 @@ pub enum FormError {
 /// produced by the depth-first walk. Used by fill to locate and update fields.
 // Carries the resolved per-field data the fill logic indexes by name to locate
 // and update each field's widget annotations for /V, /AS, and /AP generation.
-#[allow(dead_code)]
 pub(crate) struct TerminalField {
     /// Object ID of the field dictionary.
     pub id: ObjectId,
@@ -505,7 +504,6 @@ fn walk_acroform_fields(doc: &Document) -> Vec<WalkedField> {
 /// Returns an empty vec when there is no AcroForm.
 // Consumed by fill: builds the name-to-field index used to locate and update
 // each field's /V, /AS, and /AP entries.
-#[allow(dead_code)]
 pub(crate) fn terminal_fields(doc: &Document) -> Vec<TerminalField> {
     walk_acroform_fields(doc)
         .into_iter()
@@ -527,8 +525,6 @@ pub(crate) fn terminal_fields(doc: &Document) -> Vec<TerminalField> {
 ///
 /// Returns 0.0 for code-points ≥ 256, slots with no glyph name assigned, and
 /// glyph names absent from the Helvetica metrics table.
-// Called by helvetica_text_width; consumed by the fill logic built in the next task.
-#[allow(dead_code)]
 fn helvetica_advance(ch: char) -> f32 {
     let code = ch as u32;
     if code >= 256 {
@@ -549,8 +545,6 @@ fn helvetica_advance(ch: char) -> f32 {
 ///
 /// Each character is looked up via the WinAnsi encoding. Characters outside the
 /// WinAnsi range or absent from the metrics table contribute 0.0.
-// Consumed by the fill logic built in the next task.
-#[allow(dead_code)]
 pub(crate) fn helvetica_text_width(text: &str, size_pt: f32) -> f32 {
     let glyph_units: f32 = text.chars().map(helvetica_advance).sum();
     (glyph_units / 1000.0) * size_pt
@@ -569,8 +563,6 @@ pub(crate) fn helvetica_text_width(text: &str, size_pt: f32) -> f32 {
 /// `font_id` must be the `ObjectId` of a Type 1 font object already added to
 /// `doc` — the caller creates this once per document and passes it here so all
 /// appearance streams can share it.
-// Consumed by the fill logic built in the next task.
-#[allow(dead_code)]
 pub(crate) fn text_appearance(
     doc: &mut Document,
     rect: [f32; 4],
@@ -682,6 +674,238 @@ pub fn read_form(bytes: &[u8]) -> Result<Vec<FormField>, FormError> {
     }
 
     Ok(fields)
+}
+
+// ── Widget rect resolution ────────────────────────────────────────────────────
+
+/// Resolve the /Rect of a widget annotation.
+/// Returns `None` when the widget has no /Rect or when it cannot be parsed.
+fn get_widget_rect(doc: &Document, widget_id: ObjectId) -> Option<[f32; 4]> {
+    let dict = doc.get_object(widget_id).ok()?.as_dict().ok()?;
+    let arr = dict.get(b"Rect").ok()?.as_array().ok()?;
+    let nums: Vec<f32> = arr
+        .iter()
+        .filter_map(|o| match o {
+            Object::Integer(n) => Some(*n as f32),
+            Object::Real(r) => Some(*r),
+            _ => None,
+        })
+        .collect();
+    if nums.len() >= 4 {
+        Some([nums[0], nums[1], nums[2], nums[3]])
+    } else {
+        None
+    }
+}
+
+/// Find the on-state name for a checkbox — the first non-"Off" key in the
+/// widget's /AP /N dictionary. Returns `None` when no such key exists.
+fn get_checkbox_on_state(doc: &Document, widget_ids: &[ObjectId]) -> Option<String> {
+    widget_ids.iter().find_map(|&widget_id| {
+        let widget_dict = doc.get_object(widget_id).ok()?.as_dict().ok()?;
+        let ap_dict = widget_dict
+            .get(b"AP")
+            .ok()
+            .and_then(|o| resolve_dict(doc, o))?;
+        let n_dict = ap_dict.get(b"N").ok().and_then(|o| resolve_dict(doc, o))?;
+        n_dict.iter().find_map(|(key, _)| {
+            if key != b"Off" {
+                Some(String::from_utf8_lossy(key).into_owned())
+            } else {
+                None
+            }
+        })
+    })
+}
+
+/// Return `true` when the widget's /AP /N dictionary contains `state` as a key.
+fn widget_has_ap_n_key(doc: &Document, widget_id: ObjectId, state: &str) -> bool {
+    let widget_dict = match doc
+        .get_object(widget_id)
+        .ok()
+        .and_then(|o| o.as_dict().ok())
+    {
+        Some(d) => d,
+        None => return false,
+    };
+    let ap_obj = match widget_dict.get(b"AP").ok() {
+        Some(o) => o,
+        None => return false,
+    };
+    let ap_dict = match resolve_dict(doc, ap_obj) {
+        Some(d) => d,
+        None => return false,
+    };
+    let n_obj = match ap_dict.get(b"N").ok() {
+        Some(o) => o,
+        None => return false,
+    };
+    match resolve_dict(doc, n_obj) {
+        Some(n_dict) => n_dict.has(state.as_bytes()),
+        None => false,
+    }
+}
+
+// ── Public entry point: fill ───────────────────────────────────────────────────
+
+/// Fill interactive AcroForm fields with the provided values.
+///
+/// For each `(name, FieldValue)` entry in `values` that names a terminal field
+/// in the document, the field's stored value and widget appearances are updated:
+///
+/// - **Text / Choice** — `/V` set to the string; a Form XObject appearance is
+///   generated for each widget and written to `/AP /N`.
+/// - **Checkbox** — `/V` and each widget `/AS` set to the on-state name (the
+///   first non-"Off" key in `/AP /N`, defaulting to "Yes") or "Off".
+/// - **Radio** — `/V` set to the chosen state; each kid widget `/AS` set to
+///   that state if the kid's `/AP /N` carries it, otherwise "Off".
+/// - **PushButton / Signature / Unknown**, or a name absent from the form —
+///   silently ignored.
+///
+/// Returns `FormError::NoAcroForm` when the document has no AcroForm.
+pub fn fill_form(
+    bytes: &[u8],
+    values: &BTreeMap<String, FieldValue>,
+    _opts: &FormFillOptions,
+) -> Result<Vec<u8>, FormError> {
+    let mut doc = Document::load_mem(bytes).map_err(|e| FormError::Parse(e.to_string()))?;
+
+    if catalog_subdict(&doc, b"AcroForm").is_none() {
+        return Err(FormError::NoAcroForm);
+    }
+
+    // Add one shared Helvetica font object for text-field appearance streams.
+    let font_id = doc.add_object(Object::Dictionary(dictionary! {
+        "Type" => Object::Name(b"Font".to_vec()),
+        "Subtype" => Object::Name(b"Type1".to_vec()),
+        "BaseFont" => Object::Name(b"Helvetica".to_vec()),
+    }));
+
+    // Build a name → TerminalField index for fast lookup.
+    let field_index: BTreeMap<String, TerminalField> = terminal_fields(&doc)
+        .into_iter()
+        .map(|f| (f.name.clone(), f))
+        .collect();
+
+    for (name, value) in values {
+        let field = match field_index.get(name) {
+            Some(f) => f,
+            None => continue,
+        };
+        let field_id = field.id;
+        let kind = field.kind;
+        let da_size = field.da_size;
+        let quadding = field.quadding;
+        let widget_ids: Vec<ObjectId> = field.widgets.clone();
+
+        match kind {
+            FieldKind::Text | FieldKind::Choice => {
+                let text = match value {
+                    FieldValue::Text(s) | FieldValue::Choice(s) => s.as_str(),
+                    FieldValue::Bool(_) => continue,
+                };
+                // Set /V on the field dict.
+                if let Ok(obj) = doc.get_object_mut(field_id) {
+                    if let Ok(dict) = obj.as_dict_mut() {
+                        dict.set(b"V", Object::string_literal(text));
+                    }
+                }
+                // Generate an appearance stream for each widget.
+                for widget_id in &widget_ids {
+                    let rect = match get_widget_rect(&doc, *widget_id) {
+                        Some(r) => r,
+                        None => continue,
+                    };
+                    let appearance_id =
+                        text_appearance(&mut doc, rect, da_size, quadding, font_id, text);
+                    let ap_dict = dictionary! { "N" => Object::Reference(appearance_id) };
+                    if let Ok(obj) = doc.get_object_mut(*widget_id) {
+                        if let Ok(dict) = obj.as_dict_mut() {
+                            dict.set(b"AP", Object::Dictionary(ap_dict));
+                        }
+                    }
+                }
+            }
+            FieldKind::Checkbox => {
+                let checked = match value {
+                    FieldValue::Bool(b) => *b,
+                    _ => continue,
+                };
+                let on_state =
+                    get_checkbox_on_state(&doc, &widget_ids).unwrap_or_else(|| "Yes".to_string());
+                let state_bytes: Vec<u8> = if checked {
+                    on_state.into_bytes()
+                } else {
+                    b"Off".to_vec()
+                };
+                // Set /V on the field dict.
+                if let Ok(obj) = doc.get_object_mut(field_id) {
+                    if let Ok(dict) = obj.as_dict_mut() {
+                        dict.set(b"V", Object::Name(state_bytes.clone()));
+                    }
+                }
+                // Set /AS on each widget.
+                for widget_id in &widget_ids {
+                    if let Ok(obj) = doc.get_object_mut(*widget_id) {
+                        if let Ok(dict) = obj.as_dict_mut() {
+                            dict.set(b"AS", Object::Name(state_bytes.clone()));
+                        }
+                    }
+                }
+            }
+            FieldKind::Radio => {
+                let state = match value {
+                    FieldValue::Choice(s) => s.as_str(),
+                    _ => continue,
+                };
+                // Set /V on the field dict.
+                if let Ok(obj) = doc.get_object_mut(field_id) {
+                    if let Ok(dict) = obj.as_dict_mut() {
+                        dict.set(b"V", Object::Name(state.as_bytes().to_vec()));
+                    }
+                }
+                // Set /AS on each kid widget to the chosen state or "Off".
+                for widget_id in &widget_ids {
+                    let has_state = widget_has_ap_n_key(&doc, *widget_id, state);
+                    let as_bytes: Vec<u8> = if has_state {
+                        state.as_bytes().to_vec()
+                    } else {
+                        b"Off".to_vec()
+                    };
+                    if let Ok(obj) = doc.get_object_mut(*widget_id) {
+                        if let Ok(dict) = obj.as_dict_mut() {
+                            dict.set(b"AS", Object::Name(as_bytes));
+                        }
+                    }
+                }
+            }
+            FieldKind::PushButton | FieldKind::Signature | FieldKind::Unknown => {
+                // Not fillable; silently skip.
+            }
+        }
+    }
+
+    // Clear /NeedAppearances so viewers render the appearances we generated.
+    {
+        let acroform_id: Option<ObjectId> = (|| -> Option<ObjectId> {
+            let root_obj = doc.trailer.get(b"Root").ok()?;
+            let catalog_id = root_obj.as_reference().ok()?;
+            let catalog = doc.get_object(catalog_id).ok()?.as_dict().ok()?;
+            catalog.get(b"AcroForm").ok()?.as_reference().ok()
+        })();
+        if let Some(acro_id) = acroform_id {
+            if let Ok(obj) = doc.get_object_mut(acro_id) {
+                if let Ok(dict) = obj.as_dict_mut() {
+                    dict.set(b"NeedAppearances", Object::Boolean(false));
+                }
+            }
+        }
+    }
+
+    let mut output = Vec::new();
+    doc.save_to(&mut output)
+        .map_err(|e| FormError::Reassemble(e.to_string()))?;
+    Ok(output)
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -1287,8 +1511,8 @@ mod tests {
         let tf_size: f32 = size_str.parse().expect("size must be a float");
 
         assert!(
-            (6.0..=12.0).contains(&tf_size),
-            "auto-fitted size must be in [6, 12]; got {tf_size}"
+            (tf_size - 12.0).abs() < 0.01,
+            "auto-fitted size for a 20-pt-tall rect must be ≈ 12.0; got {tf_size}"
         );
     }
 
@@ -1342,6 +1566,193 @@ mod tests {
         assert!(
             content.contains("a\\(b\\)"),
             "parentheses in value must be escaped; got: {content}"
+        );
+    }
+
+    // ── Fill tests ────────────────────────────────────────────────────────────
+
+    /// Follow a widget's /AP /N to its appearance stream and return its content
+    /// as a string. Panics if the chain is missing or not a stream.
+    fn ap_n_content(doc: &Document, widget_id: ObjectId) -> String {
+        let widget = doc.get_object(widget_id).unwrap().as_dict().unwrap();
+        let ap = resolve_dict(doc, widget.get(b"AP").unwrap()).expect("/AP dict");
+        let n_id = ap.get(b"N").unwrap().as_reference().expect("/N reference");
+        let stream = match doc.get_object(n_id).unwrap() {
+            Object::Stream(s) => s,
+            _ => panic!("/AP /N must be a stream"),
+        };
+        String::from_utf8(stream.content.clone()).expect("appearance content must be UTF-8")
+    }
+
+    #[test]
+    fn fills_text_field_value_renders() {
+        let (mut doc, page_id) = base_doc();
+        let field = dictionary! {
+            "Type" => "Annot",
+            "Subtype" => "Widget",
+            "FT" => "Tx",
+            "T" => Object::string_literal("FirstName"),
+            "Rect" => rect_obj(),
+        };
+        let fid = add_annot(&mut doc, page_id, field);
+        add_acroform(&mut doc, &[fid]);
+        let bytes = to_bytes(&mut doc);
+
+        let mut values = std::collections::BTreeMap::new();
+        values.insert("FirstName".to_string(), FieldValue::Text("Bob".into()));
+        let out =
+            fill_form(&bytes, &values, &FormFillOptions { flatten: false }).expect("fill_form");
+
+        // /V is updated and a /AP /N appearance painting the value is generated.
+        let filled = read_form(&out).expect("read_form");
+        assert_eq!(filled.len(), 1);
+        assert_eq!(filled[0].value, Some(FieldValue::Text("Bob".into())));
+
+        // The field dict is its own widget (merged), so /AP lives on it.
+        let doc2 = Document::load_mem(&out).expect("reload");
+        let content = ap_n_content(&doc2, fid);
+        assert!(
+            content.contains("(Bob) Tj"),
+            "generated appearance must paint the value; got: {content}"
+        );
+    }
+
+    #[test]
+    fn checks_checkbox_sets_state() {
+        let (mut doc, page_id) = base_doc();
+        // Checkbox widget carries an /AP /N with an on-state ("Yes") and "Off".
+        let ap_n_id = doc.add_object(Object::Dictionary(dictionary! {
+            "Yes" => Object::Null,
+            "Off" => Object::Null,
+        }));
+        let ap_id = doc.add_object(Object::Dictionary(dictionary! {
+            "N" => Object::Reference(ap_n_id),
+        }));
+        let field = dictionary! {
+            "Type" => "Annot",
+            "Subtype" => "Widget",
+            "FT" => "Btn",
+            "T" => Object::string_literal("Agree"),
+            "Ff" => Object::Integer(0),
+            "AS" => Object::Name(b"Off".to_vec()),
+            "AP" => Object::Reference(ap_id),
+            "Rect" => rect_obj(),
+        };
+        let fid = add_annot(&mut doc, page_id, field);
+        add_acroform(&mut doc, &[fid]);
+        let bytes = to_bytes(&mut doc);
+
+        let mut values = std::collections::BTreeMap::new();
+        values.insert("Agree".to_string(), FieldValue::Bool(true));
+        let out =
+            fill_form(&bytes, &values, &FormFillOptions { flatten: false }).expect("fill_form");
+
+        // Both /V and the widget /AS must read the on-state name.
+        let doc2 = Document::load_mem(&out).expect("reload");
+        let dict = doc2.get_object(fid).unwrap().as_dict().unwrap();
+        assert_eq!(dict.get(b"V").unwrap().as_name().unwrap(), b"Yes");
+        assert_eq!(dict.get(b"AS").unwrap().as_name().unwrap(), b"Yes");
+    }
+
+    #[test]
+    fn selects_radio_kid() {
+        let (mut doc, page_id) = base_doc();
+
+        let ap_n_a_id = doc.add_object(Object::Dictionary(dictionary! {
+            "A" => Object::Null, "Off" => Object::Null,
+        }));
+        let ap_a_id = doc.add_object(Object::Dictionary(dictionary! {
+            "N" => Object::Reference(ap_n_a_id),
+        }));
+        let widget_a_id = add_annot(
+            &mut doc,
+            page_id,
+            dictionary! {
+                "Type" => "Annot", "Subtype" => "Widget",
+                "AP" => Object::Reference(ap_a_id),
+                "AS" => Object::Name(b"Off".to_vec()),
+                "Rect" => rect_obj(),
+            },
+        );
+
+        let ap_n_b_id = doc.add_object(Object::Dictionary(dictionary! {
+            "B" => Object::Null, "Off" => Object::Null,
+        }));
+        let ap_b_id = doc.add_object(Object::Dictionary(dictionary! {
+            "N" => Object::Reference(ap_n_b_id),
+        }));
+        let widget_b_id = add_annot(
+            &mut doc,
+            page_id,
+            dictionary! {
+                "Type" => "Annot", "Subtype" => "Widget",
+                "AP" => Object::Reference(ap_b_id),
+                "AS" => Object::Name(b"Off".to_vec()),
+                "Rect" => Object::Array(vec![
+                    Object::Integer(50), Object::Integer(660),
+                    Object::Integer(200), Object::Integer(680),
+                ]),
+            },
+        );
+
+        let field = dictionary! {
+            "FT" => "Btn",
+            "T" => Object::string_literal("Color"),
+            "Ff" => Object::Integer(0x8000),
+            "Kids" => vec![
+                Object::Reference(widget_a_id),
+                Object::Reference(widget_b_id),
+            ],
+        };
+        let fid = doc.add_object(Object::Dictionary(field));
+        add_acroform(&mut doc, &[fid]);
+        let bytes = to_bytes(&mut doc);
+
+        let mut values = std::collections::BTreeMap::new();
+        values.insert("Color".to_string(), FieldValue::Choice("A".into()));
+        let out =
+            fill_form(&bytes, &values, &FormFillOptions { flatten: false }).expect("fill_form");
+
+        let doc2 = Document::load_mem(&out).expect("reload");
+        // Field /V is the chosen state; the matching kid is selected, the other Off.
+        let field_dict = doc2.get_object(fid).unwrap().as_dict().unwrap();
+        assert_eq!(field_dict.get(b"V").unwrap().as_name().unwrap(), b"A");
+        let a_dict = doc2.get_object(widget_a_id).unwrap().as_dict().unwrap();
+        assert_eq!(a_dict.get(b"AS").unwrap().as_name().unwrap(), b"A");
+        let b_dict = doc2.get_object(widget_b_id).unwrap().as_dict().unwrap();
+        assert_eq!(b_dict.get(b"AS").unwrap().as_name().unwrap(), b"Off");
+    }
+
+    #[test]
+    fn unknown_field_name_is_noop() {
+        let (mut doc, page_id) = base_doc();
+        let field = dictionary! {
+            "Type" => "Annot",
+            "Subtype" => "Widget",
+            "FT" => "Tx",
+            "T" => Object::string_literal("FirstName"),
+            "V" => Object::string_literal("Alice"),
+            "Rect" => rect_obj(),
+        };
+        let fid = add_annot(&mut doc, page_id, field);
+        add_acroform(&mut doc, &[fid]);
+        let bytes = to_bytes(&mut doc);
+
+        let mut values = std::collections::BTreeMap::new();
+        values.insert("DoesNotExist".to_string(), FieldValue::Text("x".into()));
+        let out =
+            fill_form(&bytes, &values, &FormFillOptions { flatten: false }).expect("fill_form");
+
+        // The existing field is untouched and no spurious appearance is added.
+        let filled = read_form(&out).expect("read_form");
+        assert_eq!(filled.len(), 1);
+        assert_eq!(filled[0].name, "FirstName");
+        assert_eq!(filled[0].value, Some(FieldValue::Text("Alice".into())));
+        let doc2 = Document::load_mem(&out).expect("reload");
+        let dict = doc2.get_object(fid).unwrap().as_dict().unwrap();
+        assert!(
+            dict.get(b"AP").is_err(),
+            "no appearance should be generated"
         );
     }
 }
