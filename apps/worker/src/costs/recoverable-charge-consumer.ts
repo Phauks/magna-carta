@@ -13,7 +13,7 @@ import type { Bindings } from "../app.ts";
 import { resolveFirmDatabase } from "../firm-binding-resolver.ts";
 import {
   buildShipmentRecoverableCharge,
-  type ShipmentPurchasedPayload,
+  parseShipmentPurchasedPayload,
 } from "./shipping-cost-recovery.ts";
 
 // The first per-firm queue consumer: it posts matter disbursements for the financial core off the
@@ -69,7 +69,15 @@ async function handleShipmentPurchased(
   message: PerFirmQueueMessage,
   logger: Logger,
 ): Promise<void> {
-  const payload = JSON.parse(message.payload) as ShipmentPurchasedPayload;
+  const payload = parseShipmentPurchasedPayload(message.payload);
+  if (payload === null) {
+    // Unparseable or structurally invalid payload (no shipment id, no currency, a non-integer minor
+    // amount) → permanently unprocessable. Retrying can never make it valid; it would only march a
+    // permanent error to the dead-letter queue. Ack-drop with telemetry instead. A well-formed payload
+    // that merely yields no recoverable lines (e.g. zero amounts) is NOT malformed and flows on below.
+    logger.count("costs.recovery.malformed_payload", {}, 1);
+    return;
+  }
   const event = await buildShipmentRecoverableCharge(firmDatabase, payload);
   if (event === null) {
     // No shipment row for the id → permanently unprocessable (producer/store drift or a deleted
@@ -105,9 +113,11 @@ async function handleShipmentPurchased(
     // ONE idempotent effect PER LINE, keyed on the line's recoveryRef (`${shipmentId}:${category}`).
     // A queue redelivery re-derives the identical key, so the pre-check replays the stored response and
     // posts no second row. The fingerprint is the immutable charge identity (matter + amount + currency
-    // + category), deliberately EXCLUDING the wall-clock incurredDate so a cross-day redelivery still
-    // replays cleanly rather than tripping a spurious fingerprint mismatch; a genuine producer drift
-    // (same line, changed amount) would still surface as a mismatch instead of a silent replay.
+    // + category), deliberately EXCLUDING the wall-clock incurredDate: the per-line recoveryRef is the
+    // real double-post floor, so leaving the date out lets a cross-day redelivery replay cleanly instead
+    // of tripping a spurious mismatch. A genuine producer drift (same line, changed amount) instead
+    // surfaces as a fingerprint-mismatch outcome, which is recorded on a counter below rather than
+    // acked away unseen.
     const fingerprint = canonicalJsonStringify({
       matterId: input.matterId,
       amountMinor: input.amountMinor,
@@ -115,8 +125,9 @@ async function handleShipmentPurchased(
       recoveryCategory: input.recoveryCategory ?? null,
       recoveryRef: input.recoveryRef ?? null,
     });
+    let result;
     try {
-      await runIdempotentEffect({
+      result = await runIdempotentEffect({
         database: firmDatabase,
         key: input.recoveryRef,
         fingerprint,
@@ -139,14 +150,27 @@ async function handleShipmentPurchased(
       });
     } catch (caught) {
       if (caught instanceof CostValidationError) {
-        // A permanently malformed line (non-positive/non-integer amount, or an e-billing matter with no
-        // UTBMS code): retrying can never make it valid, so drop THIS line with telemetry and let the
-        // siblings post. A non-validation error (a transient DB fault) propagates → the message retries,
-        // and any already-posted sibling line is short-circuited by its idempotency key on redelivery.
+        // A permanently malformed line (non-positive/non-integer amount): retrying can never make it
+        // valid, so drop THIS line with telemetry and let the siblings post. A non-validation error (a
+        // transient DB fault) propagates → the message retries, and any already-posted sibling line is
+        // short-circuited by its idempotency key on redelivery.
         logger.count("costs.recovery.rejected", { code: caught.code }, 1);
         continue;
       }
       throw caught;
+    }
+
+    if (result.kind === "fingerprint-mismatch") {
+      // The stored line under this recoveryRef carries a DIFFERENT immutable identity — the producer
+      // re-emitted the same line with a changed amount/currency/category. At-least-once delivery makes a
+      // clean replay routine, but a mismatch is real producer drift, so make it observable rather than a
+      // silent ack. The already-stored line stands; nothing here overwrites it, and the message is acked
+      // normally (re-applying an already-posted line is not a transient fault to retry).
+      logger.count(
+        "costs.recovery.fingerprint_mismatch",
+        { recoveryCategory: input.recoveryCategory ?? "" },
+        1,
+      );
     }
   }
 }

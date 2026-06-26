@@ -155,6 +155,25 @@ describe("captureCost", () => {
     expect(row?.utbms_expense_code_id).toBe("utbmsCode_e101");
     expect(row?.status).toBe("draft");
   });
+
+  it("captures a system-recovered billable cost on an e_billing matter as uncoded WIP", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1", 1);
+    // A recovered disbursement (postage or fee the firm has fronted) reaches the WIP store with no human
+    // at the capture point to choose a UTBMS code. It must be captured as uncoded draft WIP rather than
+    // dropped — dropping it would silently lose real fronted money. The e-billing coding requirement is
+    // re-enforced later, at the submit/bill gate. No UTBMS code is supplied here and the capture succeeds.
+    const { costEntryId, effect } = await captureCost(
+      database,
+      { ...BASE_INPUT, source: "recovery" },
+      options,
+    );
+    await commitEffectBatch(database, effect, { now: clock.now });
+    const row = await readEntry(database, costEntryId);
+    expect(row?.utbms_expense_code_id).toBeNull();
+    expect(row?.status).toBe("draft");
+    expect(row?.source).toBe("recovery");
+  });
 });
 
 it("CostValidationError carries a stable code", () => {

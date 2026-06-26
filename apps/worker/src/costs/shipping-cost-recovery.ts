@@ -21,6 +21,34 @@ export interface ShipmentPurchasedPayload {
   readonly currency: string;
 }
 
+// Defensively parses and shape-checks the queue payload at the trust boundary. The relay hands the
+// outbox row's canonical JSON over as a STRING; a payload that will not parse, or whose shape is
+// structurally invalid, can never become valid on retry, so the consumer ack-drops a null return
+// rather than retry-storming a permanent error to the dead-letter queue. Only the fields this
+// consumer relies on are checked: a non-empty shipment id, a currency, and — when present — integer
+// minor amounts (the captures carry integer-minor money, so a fractional amount is a producer bug,
+// not a transient fault). A well-formed payload whose amounts are merely zero is NOT invalid here:
+// it parses cleanly and simply yields no recoverable lines downstream.
+export function parseShipmentPurchasedPayload(raw: string): ShipmentPurchasedPayload | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null) return null;
+  const candidate = parsed as Record<string, unknown>;
+  if (typeof candidate.shipmentId !== "string" || candidate.shipmentId.length === 0) return null;
+  if (typeof candidate.currency !== "string" || candidate.currency.length === 0) return null;
+  if (candidate.postageCostMinor !== undefined && !Number.isInteger(candidate.postageCostMinor)) {
+    return null;
+  }
+  if (candidate.serviceFeeMinor !== undefined && !Number.isInteger(candidate.serviceFeeMinor)) {
+    return null;
+  }
+  return parsed as ShipmentPurchasedPayload;
+}
+
 // Only the column this adapter needs from the shipment row: the matter the charge disburses to. The
 // payload carries the amounts but NOT the matter link, so the matter is read back from the firm
 // database by shipment id. matter_ref is nullable — a shipment may be firm-administrative, with

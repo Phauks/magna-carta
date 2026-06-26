@@ -227,4 +227,116 @@ describe("perFirmQueue — shipment.purchased cost recovery", () => {
     expect(acks).toEqual([`outbox_${shipmentId}`]);
     expect(retries).toEqual([]);
   });
+
+  it("acks and posts no cost row when the firm has no control-plane row (unresolvable firm)", async () => {
+    // A firmId with no firm row: the two-hop resolution finds no database_identifier, so the dispatcher
+    // returns without work. A retry cannot make the firm exist, so the message is acked, not retried.
+    const unknownFirmId = newIdentifier("firm");
+    const shipmentId = newIdentifier("shipment") as ShipmentId;
+    const message: PerFirmQueueMessage = {
+      id: `outbox_${shipmentId}`,
+      firmId: unknownFirmId,
+      topic: "shipment.purchased",
+      payload: JSON.stringify({
+        shipmentId,
+        postageCostMinor: 1299,
+        serviceFeeMinor: 150,
+        currency: "USD",
+      }),
+      aggregateKey: null,
+      seq: null,
+    };
+
+    const { batch, acks, retries } = makeBatch(message);
+    await expect(perFirmQueue(batch, env)).resolves.toBeUndefined();
+
+    expect(await costRowsForShipment(shipmentId)).toHaveLength(0);
+    expect(acks).toEqual([`outbox_${shipmentId}`]);
+    expect(retries).toEqual([]);
+  });
+
+  it("ack-drops a shipment.purchased whose shipment row is absent (no cost row, no throw)", async () => {
+    // No seedShipment: the producer adapter reads no shipment row back and returns null, so the handler
+    // drops the message rather than retry a row that will never appear.
+    const shipmentId = newIdentifier("shipment") as ShipmentId;
+
+    const { batch, acks, retries } = makeBatch(
+      purchasedMessage(shipmentId, { postageCostMinor: 1299, serviceFeeMinor: 150 }),
+    );
+    await expect(perFirmQueue(batch, env)).resolves.toBeUndefined();
+
+    expect(await costRowsForShipment(shipmentId)).toHaveLength(0);
+    expect(acks).toEqual([`outbox_${shipmentId}`]);
+    expect(retries).toEqual([]);
+  });
+
+  it("captures the postage recovery on an e-billing matter as uncoded WIP, never dropping it", async () => {
+    // The regression guard for the e-billing exemption: a system-recovered cost has no human at capture
+    // time to supply a UTBMS code, so it must land as uncoded draft WIP rather than be dropped (which
+    // would silently lose the fronted disbursement). Coding is re-enforced later at the submit/bill gate.
+    const eBillingMatterId = newIdentifier("matter") as MatterId;
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, e_billing, created_at, updated_at) VALUES (?1, 'E-Billing Matter', 'open', ?2, 1, ?3, ?3)",
+    )
+      .bind(eBillingMatterId, ACTOR, TS)
+      .run();
+    const shipmentId = newIdentifier("shipment") as ShipmentId;
+    await seedShipment(shipmentId, eBillingMatterId);
+
+    const { batch, acks, retries } = makeBatch(
+      purchasedMessage(shipmentId, { postageCostMinor: 1299, serviceFeeMinor: 150 }),
+    );
+    await perFirmQueue(batch, env);
+
+    const { results } = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT recovery_ref, amount_minor, utbms_expense_code_id, source FROM cost_entry WHERE recovery_ref = ?1",
+    )
+      .bind(`${shipmentId}:postage`)
+      .all<{
+        recovery_ref: string;
+        amount_minor: number;
+        utbms_expense_code_id: string | null;
+        source: string;
+      }>();
+    expect(results).toHaveLength(1);
+    expect(results[0]?.utbms_expense_code_id).toBeNull();
+    expect(results[0]?.amount_minor).toBe(1299);
+    expect(results[0]?.source).toBe("recovery");
+    expect(acks).toEqual([`outbox_${shipmentId}`]);
+    expect(retries).toEqual([]);
+  });
+
+  it("retries (never acks) when the firm database read throws a non-validation fault", async () => {
+    // A firm whose database_identifier points at a bound-but-unmigrated pool member: the two-hop
+    // resolution succeeds (the binding exists), but the producer adapter's `SELECT ... FROM shipment`
+    // throws (no such table) — a non-CostValidationError. It propagates so the message is RETRIED, not
+    // acked, since a later attempt (or a repaired binding) could clear the fault. This exercises the
+    // transient-fault branch without mocking the consumer's internals.
+    const faultFirmId = newIdentifier("firm");
+    await env.DB_CONTROL.prepare(
+      "INSERT INTO firm (id, name, database_identifier, bucket_name, status, created_at) VALUES (?1, ?2, 'DB_FIRM_POOL_2', ?3, 'active', ?4)",
+    )
+      .bind(faultFirmId, "Unmigrated Pool Firm", "unmigrated-pool-bucket", TS)
+      .run();
+    const shipmentId = newIdentifier("shipment") as ShipmentId;
+    const message: PerFirmQueueMessage = {
+      id: `outbox_${shipmentId}`,
+      firmId: faultFirmId,
+      topic: "shipment.purchased",
+      payload: JSON.stringify({
+        shipmentId,
+        postageCostMinor: 1299,
+        serviceFeeMinor: 150,
+        currency: "USD",
+      }),
+      aggregateKey: null,
+      seq: null,
+    };
+
+    const { batch, acks, retries } = makeBatch(message);
+    await expect(perFirmQueue(batch, env)).resolves.toBeUndefined();
+
+    expect(retries).toEqual([`outbox_${shipmentId}`]);
+    expect(acks).toEqual([]);
+  });
 });

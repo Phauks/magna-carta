@@ -128,12 +128,17 @@ export async function captureCost(
     );
   }
 
-  // An electronic-billing matter cannot carry a billable cost entry without a UTBMS expense code —
-  // the LEDES exporter rejects an uncoded line, so refusing here keeps an uncodeable entry out of
-  // the WIP store.
+  // A human-captured billable cost on an electronic-billing matter must carry a UTBMS expense code:
+  // the LEDES exporter rejects an uncoded line, and at a manual or grid capture a person is present to
+  // supply the code, so refusing here keeps an uncodeable entry out of the WIP store. A system-recovered
+  // cost is exempt from this capture-time check: no human stands at the capture point to choose a code,
+  // and dropping the line would silently lose a real fronted disbursement (the postage or fee the firm
+  // has already paid). Such a cost is captured as uncoded draft WIP; the e-billing UTBMS requirement is
+  // re-enforced later, at the submit/bill gate, where a person and the billing context exist to code it.
   if (
     input.billable &&
     input.utbmsExpenseCodeId === undefined &&
+    input.source !== "recovery" &&
     (await isEBillingMatter(database, input.matterId))
   ) {
     throw new CostValidationError(
