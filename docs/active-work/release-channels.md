@@ -4,7 +4,7 @@
 
 **Branch:** `release-channels` (worktree `C:/dev/magna-carta-worktrees/release-channels`), off `main`.
 
-**Status:** Backend rails built (2026-06-25). Plan 2 (frontend opt-in UI + stage-labeled alpha/beta visibility) pending.
+**Status:** Backend rails built (2026-06-25). Plan 2 (frontend opt-in UI + stage-labeled alpha/beta visibility) **deferred until after slice 0.7** (design-system work). Next backend piece: automate control-plane migration application (the deploy precondition below).
 
 ## Scope / files expected to touch
 
@@ -22,8 +22,8 @@
 
 ## Deferred to Plan 2 / before first real client
 
-- **Consent text + version recording.** The beta door currently records only a `consentAcknowledged` boolean in `audit_log`. The design wants the *exact consent statement text and version* the admin saw recorded for the defensible artifact. Add a `consentVersion` (and the canonical statement text) to the beta request contract + audit metadata when Plan 2 authors the consent dialog, before the first real client firm opts into beta.
+- **Consent text + version recording.** The beta door currently records only a `consentAcknowledged` boolean in `audit_log`. The design wants the _exact consent statement text and version_ the admin saw recorded for the defensible artifact. Add a `consentVersion` (and the canonical statement text) to the beta request contract + audit metadata when Plan 2 authors the consent dialog, before the first real client firm opts into beta.
 
 ## Deploy precondition (backend rails)
 
-- **Apply control-plane migration `0003_handy_rattler` to the production control-plane D1 before this worker code goes live.** `/me` reads `firm.release_channel` unconditionally; on a control-plane D1 without `0003`, every session bootstrap would 500. There is currently no automated control-plane migration applier (only the test applier and the per-firm fleet-rollout exist), so this is a manual, ordered deploy step. No production firms exist yet, so present risk is low — but the runbook must apply `0003` first.
+- **No manual migration step is required.** The scheduled handler (`apps/worker/src/scheduled.ts`) now applies control-plane migrations automatically — `0003_handy_rattler` will land within one `*/5` cron cycle after the worker deploys. During that brief window, `/me` fail-safes to `channel: "stable"` and the default flag set on any channel-read error, so no session bootstrap fails. An operator who needs the schema applied immediately can wait one cron cycle (at most ~5 minutes) or invoke the scheduled handler manually.
