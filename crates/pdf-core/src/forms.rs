@@ -886,17 +886,35 @@ pub fn fill_form(
     }
 
     // Clear /NeedAppearances so viewers render the appearances we generated.
+    // The catalog's /AcroForm may be an indirect reference or an inline dict;
+    // both reach the fill path through the NoAcroForm gate, so both must clear.
     {
-        let acroform_id: Option<ObjectId> = (|| -> Option<ObjectId> {
-            let root_obj = doc.trailer.get(b"Root").ok()?;
-            let catalog_id = root_obj.as_reference().ok()?;
-            let catalog = doc.get_object(catalog_id).ok()?.as_dict().ok()?;
-            catalog.get(b"AcroForm").ok()?.as_reference().ok()
-        })();
-        if let Some(acro_id) = acroform_id {
-            if let Ok(obj) = doc.get_object_mut(acro_id) {
-                if let Ok(dict) = obj.as_dict_mut() {
-                    dict.set(b"NeedAppearances", Object::Boolean(false));
+        let catalog_id: Option<ObjectId> = doc
+            .trailer
+            .get(b"Root")
+            .ok()
+            .and_then(|o| o.as_reference().ok());
+        if let Some(catalog_id) = catalog_id {
+            let acroform_ref: Option<ObjectId> = doc
+                .get_object(catalog_id)
+                .ok()
+                .and_then(|o| o.as_dict().ok())
+                .and_then(|cat| cat.get(b"AcroForm").ok())
+                .and_then(|o| o.as_reference().ok());
+            match acroform_ref {
+                // Indirect reference: mutate the referenced AcroForm object.
+                Some(acro_id) => {
+                    if let Ok(dict) = doc.get_object_mut(acro_id).and_then(|o| o.as_dict_mut()) {
+                        dict.set(b"NeedAppearances", Object::Boolean(false));
+                    }
+                }
+                // Inline dict: mutate /AcroForm in place within the catalog.
+                None => {
+                    if let Ok(cat) = doc.get_object_mut(catalog_id).and_then(|o| o.as_dict_mut()) {
+                        if let Ok(Object::Dictionary(d)) = cat.get_mut(b"AcroForm") {
+                            d.set(b"NeedAppearances", Object::Boolean(false));
+                        }
+                    }
                 }
             }
         }
@@ -1753,6 +1771,47 @@ mod tests {
         assert!(
             dict.get(b"AP").is_err(),
             "no appearance should be generated"
+        );
+    }
+
+    #[test]
+    fn fill_clears_needappearances_for_inline_acroform() {
+        let (mut doc, page_id) = base_doc();
+        let field = dictionary! {
+            "Type" => "Annot",
+            "Subtype" => "Widget",
+            "FT" => "Tx",
+            "T" => Object::string_literal("FirstName"),
+            "Rect" => rect_obj(),
+        };
+        let fid = add_annot(&mut doc, page_id, field);
+        // /AcroForm as an inline dictionary (not an indirect reference).
+        doc.catalog_mut().unwrap().set(
+            "AcroForm",
+            Object::Dictionary(dictionary! {
+                "Fields" => vec![Object::Reference(fid)],
+                "NeedAppearances" => Object::Boolean(true),
+            }),
+        );
+        let bytes = to_bytes(&mut doc);
+
+        let mut values = std::collections::BTreeMap::new();
+        values.insert("FirstName".to_string(), FieldValue::Text("Bob".into()));
+        let out =
+            fill_form(&bytes, &values, &FormFillOptions { flatten: false }).expect("fill_form");
+
+        let doc2 = Document::load_mem(&out).expect("reload");
+        let acro = doc2
+            .catalog()
+            .unwrap()
+            .get(b"AcroForm")
+            .unwrap()
+            .as_dict()
+            .unwrap();
+        assert_eq!(
+            acro.get(b"NeedAppearances").unwrap().as_bool().unwrap(),
+            false,
+            "inline-AcroForm /NeedAppearances must be cleared after fill"
         );
     }
 }
