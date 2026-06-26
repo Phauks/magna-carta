@@ -10,6 +10,8 @@ pub use adapter::{
 mod detect;
 pub use detect::detect;
 
+mod hex;
+
 mod pdf;
 pub use pdf::PdfAdapter;
 

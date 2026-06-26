@@ -85,7 +85,8 @@ impl ZipAdapter {
         let key_len = aes_key_len(strength)
             .ok_or_else(|| ExtractError::Unsupported(format!("AES mode {strength}")))?;
 
-        let salt = hex_decode(fields[3])?;
+        let salt = crate::hex::decode(fields[3])
+            .ok_or_else(|| ExtractError::Malformed("invalid hex field".into()))?;
         if salt.len() != key_len / 2 {
             return Err(ExtractError::Malformed(format!(
                 "salt is {} bytes, expected {} for AES mode {strength}",
@@ -94,7 +95,8 @@ impl ZipAdapter {
             )));
         }
 
-        let verifier_bytes = hex_decode(fields[4])?;
+        let verifier_bytes = crate::hex::decode(fields[4])
+            .ok_or_else(|| ExtractError::Malformed("invalid hex field".into()))?;
         let verifier: [u8; 2] = verifier_bytes
             .as_slice()
             .try_into()
@@ -404,11 +406,11 @@ fn build_aes_job(
 
     let hash = format!(
         "$zip2$*0*{strength}*0*{}*{}*{:x}*{}*{}*$/zip2$",
-        hex_encode(&salt),
-        hex_encode(&verifier),
+        crate::hex::encode(&salt),
+        crate::hex::encode(&verifier),
         ciphertext.len(),
-        hex_encode(ciphertext),
-        hex_encode(auth),
+        crate::hex::encode(ciphertext),
+        crate::hex::encode(auth),
     );
 
     Ok(RecoveryJob {
@@ -495,31 +497,8 @@ fn format_pkzip2(
         data.len(),
         crc_magic,
         timestamp_magic,
-        hex_encode(data),
+        crate::hex::encode(data),
     ))
-}
-
-/// Lowercase hex encoding for the hash strings (the `hex` crate is a dev-only dependency).
-fn hex_encode(bytes: &[u8]) -> String {
-    let mut out = String::with_capacity(bytes.len() * 2);
-    for byte in bytes {
-        out.push_str(&format!("{byte:02x}"));
-    }
-    out
-}
-
-/// Decode a hex string into bytes, rejecting odd lengths and non-hex digits.
-fn hex_decode(text: &str) -> Result<Vec<u8>, ExtractError> {
-    if !text.len().is_multiple_of(2) {
-        return Err(ExtractError::Malformed("odd-length hex field".into()));
-    }
-    (0..text.len())
-        .step_by(2)
-        .map(|index| {
-            u8::from_str_radix(&text[index..index + 2], 16)
-                .map_err(|_| ExtractError::Malformed("invalid hex digit".into()))
-        })
-        .collect()
 }
 
 impl FormatAdapter for ZipAdapter {
@@ -668,6 +647,18 @@ mod tests {
             ZipAdapter::extract_hash(&zip_bytes),
             Err(ExtractError::NotEncrypted)
         ));
+    }
+
+    #[test]
+    fn parse_hash_rejects_non_ascii_hex_field_without_panicking() {
+        // The salt field receives "€€" (U+20AC twice = 6 UTF-8 bytes, even byte count).
+        // The former byte-offset &str slice `text[0..2]` panicked on char-boundary
+        // violation; hex::decode operates on raw bytes and returns None → Err, no panic.
+        let hash = "$zip2$*0*3*0*€€*1320*e*aa*bb*$/zip2$";
+        assert!(
+            ZipAdapter::parse_hash(hash).is_err(),
+            "parse_hash must return Err, not panic, on non-ASCII in the salt field"
+        );
     }
 
     #[test]

@@ -220,7 +220,8 @@ impl PdfAdapter {
             let declared = usize::try_from(num(index)?).map_err(|_| {
                 ExtractError::Malformed(format!("field {index} length out of range"))
             })?;
-            let bytes = hex_decode(fields[index + 1])?;
+            let bytes = crate::hex::decode(fields[index + 1])
+                .ok_or_else(|| ExtractError::Malformed("invalid hex field".into()))?;
             if bytes.len() != declared {
                 return Err(ExtractError::Malformed(format!(
                     "field {} length {} does not match {} bytes",
@@ -333,19 +334,19 @@ fn format_pdf_hash(params: &KdfParams) -> String {
         "$pdf${v}*{r}*{key_bits}*{p}*{}*{}*{}*{}*{}*{}*{}",
         u8::from(*encrypt_metadata),
         id.len(),
-        hex_encode(id),
+        crate::hex::encode(id),
         u.len(),
-        hex_encode(u),
+        crate::hex::encode(u),
         o.len(),
-        hex_encode(o),
+        crate::hex::encode(o),
     );
     if *r >= 5 {
         hash.push_str(&format!(
             "*{}*{}*{}*{}",
             ue.len(),
-            hex_encode(ue),
+            crate::hex::encode(ue),
             oe.len(),
-            hex_encode(oe),
+            crate::hex::encode(oe),
         ));
     }
     hash
@@ -552,30 +553,6 @@ fn rc4_apply(key: &[u8], data: &mut [u8]) {
     }
 }
 
-/// Lowercase hex encoding, used to build the `$pdf$` string in non-test code (the `hex`
-/// crate is a dev-only dependency).
-fn hex_encode(bytes: &[u8]) -> String {
-    let mut out = String::with_capacity(bytes.len() * 2);
-    for byte in bytes {
-        out.push_str(&format!("{byte:02x}"));
-    }
-    out
-}
-
-/// Decode a lowercase/uppercase hex string into bytes.
-fn hex_decode(text: &str) -> Result<Vec<u8>, ExtractError> {
-    if !text.len().is_multiple_of(2) {
-        return Err(ExtractError::Malformed("odd-length hex field".into()));
-    }
-    (0..text.len())
-        .step_by(2)
-        .map(|index| {
-            u8::from_str_radix(&text[index..index + 2], 16)
-                .map_err(|_| ExtractError::Malformed("invalid hex digit".into()))
-        })
-        .collect()
-}
-
 /// Render a dictionary key for diagnostics; keys are ASCII PDF names.
 fn as_str(key: &[u8]) -> String {
     String::from_utf8_lossy(key).into_owned()
@@ -753,6 +730,21 @@ mod tests {
                 "verify_guess must return false (not panic) for key_bits={key_bits}"
             );
         }
+    }
+
+    #[test]
+    fn parse_hash_rejects_non_ascii_hex_field_without_panicking() {
+        // "€€" is U+20AC twice: 6 UTF-8 bytes (even byte count). The former
+        // byte-offset &str slice `text[0..2]` panicked on char-boundary violation.
+        // hex::decode operates on raw bytes, so it returns None → Err, no panic.
+        let id_hex = "€€";
+        let u_hex = "00".repeat(32);
+        let o_hex = "00".repeat(32);
+        let hash = format!("$pdf$2*3*128*-4*1*6*{id_hex}*32*{u_hex}*32*{o_hex}");
+        assert!(
+            PdfAdapter::parse_hash(&hash).is_err(),
+            "parse_hash must return Err, not panic, on non-ASCII in a hex field"
+        );
     }
 
     #[test]
