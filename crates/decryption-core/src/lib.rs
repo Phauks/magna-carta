@@ -7,6 +7,9 @@ pub use adapter::{
     DecryptError, DecryptedFile, ExtractError, Format, FormatAdapter, KdfParams, RecoveryJob,
 };
 
+mod detect;
+pub use detect::detect;
+
 #[cfg(test)]
 mod smoke {
     #[test]
