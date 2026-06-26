@@ -132,6 +132,39 @@ export interface TimeVolume {
   readonly spanDays: number;
 }
 
+// The costs/expenses volume laid over the practice book: disbursement entries (filing fees, postage,
+// court reporters, …) spread across the firm's matters, in a hard/soft class mix and a billable
+// fraction, resting at points across the draft→billed lifecycle, with a slice arriving through the
+// cost-recovery seam. This is the queryable shadow of the disbursement WIP store — the per-matter
+// unbilled-cost read (the billing query), the by-id lifecycle-guard read, the matter e-billing-flag
+// read, and the recovery dedup lookup. Every count/distribution is a PARAMETER here, never a generator
+// constant — changing one bumps the profile `version`. Sized like an established firm's monthly
+// disbursement volume, not a stress run.
+export interface CostVolume {
+  // Cost entries captured per matter over the span (the per-matter unbilled-WIP fan).
+  readonly entriesPerMatter: { readonly min: number; readonly max: number };
+  // Fraction of entries classed as a hard cost (third-party disbursement the firm fronts) vs a soft
+  // cost (in-house charge). 0–1.
+  readonly hardCostFraction: number;
+  // Fraction of entries marked billable to the client (the rest are non-billable write-offs). 0–1.
+  readonly billableFraction: number;
+  // Relative weights for the lifecycle status an entry rests at. The unbilled-WIP read's selectivity
+  // comes from the billed/void tail being excluded — most disbursements settle, leaving a live head of
+  // draft/submitted/approved the read returns.
+  readonly statusWeights: {
+    readonly draft: number;
+    readonly submitted: number;
+    readonly approved: number;
+    readonly billed: number;
+    readonly void: number;
+  };
+  // Fraction of entries that arrive through the cost-recovery seam (source 'recovery', carrying a
+  // recovery_category + a unique recovery_ref). The rest are captured manually or imported from a grid.
+  readonly recoveryFraction: number;
+  // Days the incurred-date window covers (incurred_date dispersal via fixed-base arithmetic).
+  readonly spanDays: number;
+}
+
 export interface CustomFieldVolume {
   // Fields defined on each matter type (attachment_id = the matter type) — the matter detail panel
   // renders this many custom rows for a matter of that type.
@@ -177,6 +210,8 @@ export interface LedgerVolumeProfile {
   readonly customFields: CustomFieldVolume;
   // The timekeeping volume laid over the practice book (rate cards, effective-dated rates, time entries).
   readonly time: TimeVolume;
+  // The costs volume laid over the practice book (disbursement entries across the lifecycle + recovery).
+  readonly costs: CostVolume;
 }
 
 // A plausible established small firm: a few years of posting activity over a 200-client trust book,
@@ -184,7 +219,7 @@ export interface LedgerVolumeProfile {
 // files with multi-version histories.
 export const ledgerVolume: LedgerVolumeProfile = {
   name: "ledgerVolume",
-  version: 7,
+  version: 8,
   trustSubledgerCount: 200,
   entryCount: 25_000,
   postingSpanDays: 1_095,
@@ -257,6 +292,17 @@ export const ledgerVolume: LedgerVolumeProfile = {
     draftBilledMix: 0.33,
     spanDays: 90,
   },
+  costs: {
+    // An established firm's monthly disbursement volume: a handful of entries per matter across the
+    // span, two-thirds hard third-party costs, most billable, a lifecycle weighted toward settled
+    // (billed/void) with a live draft/submitted/approved head, and a tenth arriving via cost recovery.
+    entriesPerMatter: { min: 1, max: 8 },
+    hardCostFraction: 0.66,
+    billableFraction: 0.85,
+    statusWeights: { draft: 20, submitted: 10, approved: 10, billed: 55, void: 5 },
+    recoveryFraction: 0.1,
+    spanDays: 90,
+  },
 };
 
 // One profile, every scale: CI smoke (~0.01), local working scale (1), deliberate stress runs
@@ -318,6 +364,16 @@ export function scaleProfile(
       rateCardCount: scaleCount(profile.time.rateCardCount, 1),
       ratesPerCard: scaleCount(profile.time.ratesPerCard, 2),
       spanDays: scaleCount(profile.time.spanDays, 5),
+    },
+    costs: {
+      ...profile.costs,
+      // Floors keep a couple of entries per matter (so the per-matter unbilled read has a fan) and a
+      // handful of span days at the smoke multiplier. The fractions and status weights are not scaled.
+      entriesPerMatter: {
+        min: Math.max(1, Math.round(profile.costs.entriesPerMatter.min * multiplier)),
+        max: Math.max(2, Math.round(profile.costs.entriesPerMatter.max * multiplier)),
+      },
+      spanDays: scaleCount(profile.costs.spanDays, 5),
     },
   };
 }
