@@ -762,11 +762,15 @@ fn widget_has_ap_n_key(doc: &Document, widget_id: ObjectId, state: &str) -> bool
 /// - **PushButton / Signature / Unknown**, or a name absent from the form —
 ///   silently ignored.
 ///
+/// When `opts.flatten` is true, the filled document is flattened in the same
+/// pass: appearances are baked into page content and the interactive form is
+/// dropped. The returned bytes carry no AcroForm.
+///
 /// Returns `FormError::NoAcroForm` when the document has no AcroForm.
 pub fn fill_form(
     bytes: &[u8],
     values: &BTreeMap<String, FieldValue>,
-    _opts: &FormFillOptions,
+    opts: &FormFillOptions,
 ) -> Result<Vec<u8>, FormError> {
     let mut doc = Document::load_mem(bytes).map_err(|e| FormError::Parse(e.to_string()))?;
 
@@ -923,6 +927,9 @@ pub fn fill_form(
     let mut output = Vec::new();
     doc.save_to(&mut output)
         .map_err(|e| FormError::Reassemble(e.to_string()))?;
+    if opts.flatten {
+        return flatten_form(&output);
+    }
     Ok(output)
 }
 
@@ -2584,6 +2591,86 @@ mod tests {
         assert!(
             matches!(result, Err(FormError::NoAcroForm)),
             "a document with no AcroForm must return FormError::NoAcroForm"
+        );
+    }
+
+    // ── W-9 real-fixture tests ────────────────────────────────────────────────
+
+    #[test]
+    fn w9_read_lists_text_fields() {
+        let w9 = include_bytes!("../../pdf-eval/corpus-ci/gov_irs_w9_acroform.pdf").to_vec();
+        let fields = read_form(&w9).expect("read_form on W-9 must succeed");
+        let text_count = fields.iter().filter(|f| f.kind == FieldKind::Text).count();
+        assert!(
+            text_count >= 5,
+            "W-9 must have at least 5 Text fields; found {text_count}"
+        );
+        for f in &fields {
+            assert!(
+                !f.name.is_empty(),
+                "every field must have a non-empty name; field: {f:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn w9_fill_and_flatten_end_to_end() {
+        use hayro::hayro_syntax::Pdf;
+
+        let w9 = include_bytes!("../../pdf-eval/corpus-ci/gov_irs_w9_acroform.pdf").to_vec();
+        let fields = read_form(&w9).expect("read_form on W-9 must succeed");
+
+        // Pick the first Text field that has both a page and a rect so an appearance
+        // can be generated and baked into page content.
+        let target = fields
+            .iter()
+            .find(|f| f.kind == FieldKind::Text && f.page.is_some() && f.rect.is_some())
+            .expect("W-9 must have at least one Text field with page and rect");
+
+        let field_name = target.name.clone();
+        let field_page = target.page.unwrap_or(0) as usize;
+
+        let mut values = std::collections::BTreeMap::new();
+        values.insert(field_name.clone(), FieldValue::Text("ACMECORP".into()));
+
+        let out = fill_form(&w9, &values, &FormFillOptions { flatten: true })
+            .expect("fill_form with flatten:true must succeed on W-9");
+
+        // Self-cross-check: the interactive form was dropped by the flatten pass.
+        // read_form returns Ok(vec![]) when there is no AcroForm.
+        let post_fields = read_form(&out).expect("read_form on flattened output must succeed");
+        assert!(
+            post_fields.is_empty(),
+            "flattened document must carry no interactive form fields; found {} field(s): {:?}",
+            post_fields.len(),
+            post_fields
+                .iter()
+                .map(|f| f.name.as_str())
+                .collect::<Vec<_>>()
+        );
+
+        // Value renders: confirm the filled value appears in the rendered glyphs.
+        // Try the field's own page first; then scan all pages until observe_page
+        // returns None (out-of-bounds), so the check is robust to page-index variance.
+        let pdf = Pdf::new(out).expect("hayro must parse the flattened output");
+
+        let found = (0_usize..)
+            .map(|page_index| crate::textpos::observe_page(&pdf, page_index))
+            .take_while(|obs| obs.is_some())
+            .filter_map(|obs| obs)
+            .any(|obs| {
+                obs.glyphs
+                    .iter()
+                    .map(|g| g.text.as_str())
+                    .collect::<String>()
+                    .contains("ACMECORP")
+            });
+
+        assert!(
+            found,
+            "filled value 'ACMECORP' must appear in rendered glyphs \
+             (field '{}', expected on page {})",
+            field_name, field_page
         );
     }
 }
