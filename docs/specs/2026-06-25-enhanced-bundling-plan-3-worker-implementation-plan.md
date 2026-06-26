@@ -85,20 +85,23 @@ Mirror `containerScanAdapter` (`apps/worker/src/files/container-scan-adapter.ts`
 - [ ] **Step 3: implement** the adapter (zod schema for `BuildResponse`; throw-not-ok).
 - [ ] **Step 4: GREEN + commit** — `"feat(bundling): bundle container adapter (build + buildStream over BUNDLE_SERVICE)"`.
 
-### Task A3: Accept `BundleOptions` in the download route + lane selection
+### Task A3: Accept `BundleOptions` in the download route + a pure lane selector
+
+**Scope note (ordering):** A3 is self-contained — it adds the request `options` field, the `422` validation, and a **pure `selectBundleLane` function** (unit-tested in isolation), and keeps today's plain behavior for absent/plain options. It does NOT execute the optioned lanes — that wiring lands in A4 (async) and A5 (encrypted), which consume `selectBundleLane`'s result. So A3 has no dependency on A4/A5.
 
 **Files:**
-- Modify: `apps/worker/src/routes/downloads.ts`
-- Test: `apps/worker/test/downloads-options.test.ts` (extend existing download tests)
+- Create: `apps/worker/src/downloads/bundle-lane.ts` (the pure `selectBundleLane`)
+- Modify: `apps/worker/src/routes/downloads.ts` (add `options` to the schema + `422` validation; call `selectBundleLane`; for now, an optioned lane that isn't yet wired returns a `501`/clear problem OR falls through to the existing behavior only for the plain case — see below)
+- Test: `apps/worker/test/bundle-lane.test.ts` (the pure selector) + extend `apps/worker/test/...downloads...` for the `422` path
 
-**Behavior:** `ZipRequest` gains `options: bundleOptionsSchema.optional()`. When absent → today's behavior unchanged (plain store-ZIP lanes). When present: `validateOptionsForFormat(options)` non-empty → `422` problem listing the violations. Compute the lane:
-- `options` absent OR (`format==="zip"` && `compression==="store"` && no encryption && no split) → **plain lanes** (unchanged: 302 / inline `client-zip` / existing async `bundles/<manifestHash>.zip`).
-- `options.encryption !== null` → **encrypted stream lane** (Task A5).
-- else (compression / 7z / split) → **heavy unencrypted async lane** (Task A4).
+**Behavior:**
+- `ZipRequest` gains `options: bundleOptionsSchema.optional()`. Absent → today's behavior unchanged.
+- Present → `validateOptionsForFormat(options)` non-empty → `422` problem listing the violations.
+- `selectBundleLane(options | undefined): "plain" | "heavyAsync" | "encryptedStream"` (pure): `undefined` OR (`format==="zip"` && `compression==="store"` && `encryption===null` && `split===null`) → `"plain"`; else `encryption!==null` → `"encryptedStream"`; else → `"heavyAsync"`.
+- In the route this task: `"plain"` → the existing lanes unchanged. `"heavyAsync"`/`"encryptedStream"` → return a `501` problem ("bundle option not yet available") as an explicit interim, replaced in A4/A5. (This keeps A3 shippable and honest; the `501` is removed when A4/A5 land.)
+- The audit `recordExport` gains `format`/`compression`/`encrypted`/`split` flags (counts/flags only, never content or password) — applied in the plain path now, extended in A4/A5.
 
-Apply `applyBundleLayout(resolved, options)` before building the manifest/cache key in the optioned lanes. Keep the audit `recordExport` (add `format`/`compression`/`encrypted`/`split` to its metadata — counts/flags only, never content or password).
-
-- [ ] Steps: failing test (422 on invalid options; lane routing asserted via the stubbed adapter/coordinator) → RED → implement schema + validation + lane branch (delegating to A4/A5 helpers) → GREEN → **re-emit OpenAPI + regenerate client** → commit `"feat(bundling): accept BundleOptions in the download route + lane selection"`.
+- [ ] Steps: failing test for `selectBundleLane` (all branches) + the route `422` on invalid options → RED → implement `bundle-lane.ts` + the schema/validation/501-interim in the route → GREEN → **re-emit OpenAPI + regenerate client** (the new `options` field + `422`/`501` responses change the contract) → commit `"feat(bundling): accept BundleOptions in the download route + pure lane selector"`.
 
 ### Task A4: Heavy unencrypted async lane (coordinator + queue + consumer)
 
