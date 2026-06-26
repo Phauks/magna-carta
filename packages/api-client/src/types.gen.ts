@@ -605,6 +605,7 @@ export type ZipDownloadRequest = {
         layout: 'preserveTree' | 'flatten';
         manifest: boolean;
     };
+    password?: string;
 };
 
 export type ScanDiagnosis = {
@@ -3648,9 +3649,9 @@ export type DownloadsZipErrors = {
      */
     429: Problem;
     /**
-     * The requested bundle option (non-plain compression, encryption, split, or 7z format) is not yet available. The plain-ZIP fast lane is always available.
+     * The bundle service worker binding is not configured. This is a deploy-time activation; the plain-ZIP fast lane is always available without it.
      */
-    501: Problem;
+    503: Problem;
 };
 
 export type DownloadsZipError = DownloadsZipErrors[keyof DownloadsZipErrors];

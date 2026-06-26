@@ -70,11 +70,20 @@ export default {
 
 // Stub for the magna-carta-bundle service binding in tests — no real bundle worker runs under
 // the local pool, so the service binding must resolve to something or workerd refuses to boot.
-// POST /build returns a minimal canned BuildResponse (ok, one zero-byte volume key) so
-// bundle-coordinator tests can exercise the coordinator's happy path without a live worker.
+// POST /build (non-streaming) returns a minimal canned BuildResponse (ok, one zero-byte volume
+// key) so bundle-coordinator tests can exercise the coordinator's happy path without a live worker.
+// POST /build?stream=1 (encrypted-stream lane) returns a small fixed body so the encrypted-stream
+// route tests can assert the 200 + content-type without a real container.
 const BUNDLE_SERVICE_STUB_SCRIPT = `
 export default {
-  fetch() {
+  fetch(request) {
+    const url = new URL(request.url);
+    if (url.searchParams.has("stream")) {
+      return new Response("stub-archive-bytes", {
+        status: 200,
+        headers: { "content-type": "application/zip" },
+      });
+    }
     return new Response(
       JSON.stringify({
         ok: true,

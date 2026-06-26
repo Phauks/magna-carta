@@ -45,6 +45,10 @@ export const PROBLEM_TYPES = {
   // the route schema and lane routing are in place but the backing implementation lands in a later
   // task. Clients should treat this like a transient error and retry after a deployment.
   "not-implemented": "not-implemented",
+  // A required downstream service is absent or unreachable (HTTP 503): the worker cannot fulfil
+  // the request because a backing worker service binding is not configured. Callers should retry
+  // after a short delay; the condition resolves when the binding is activated at deploy time.
+  "service-unavailable": "service-unavailable",
 } as const;
 
 export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;

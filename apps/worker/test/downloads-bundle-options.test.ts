@@ -181,12 +181,62 @@ describe("POST /api/v1/downloads/zip — invalid bundle options (422)", () => {
   });
 });
 
+describe("POST /api/v1/downloads/zip — password cross-field validation (422)", () => {
+  // These tests exercise the cross-field password checks that fire before any selection query.
+
+  it("rejects an encrypted option without a password", async () => {
+    const response = await postDownload({
+      matterId: freshMatter(),
+      options: {
+        format: "zip",
+        compression: "store",
+        encryption: { algorithm: "aes-256", encryptFileNames: false },
+        split: null,
+        outputName: "secret.zip",
+        wrapperFolder: null,
+        layout: "preserveTree",
+        manifest: false,
+      },
+      // no password field — encryption requires one
+    });
+    expect(response.status).toBe(422);
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body.type).toContain("validation");
+    expect(body.status).toBe(422);
+    expect(typeof body.detail).toBe("string");
+    expect((body.detail as string).toLowerCase()).toContain("password");
+  });
+
+  it("rejects a password supplied without encryption options", async () => {
+    const response = await postDownload({
+      matterId: freshMatter(),
+      options: {
+        format: "zip",
+        compression: "store",
+        encryption: null,
+        split: null,
+        outputName: "bundle.zip",
+        wrapperFolder: null,
+        layout: "preserveTree",
+        manifest: false,
+      },
+      password: "should-not-be-here",
+    });
+    expect(response.status).toBe(422);
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body.type).toContain("validation");
+    expect(body.status).toBe(422);
+    expect(typeof body.detail).toBe("string");
+    expect((body.detail as string).toLowerCase()).toContain("password");
+  });
+});
+
 describe("POST /api/v1/downloads/zip — optioned lanes", () => {
   // A well-formed, capability-valid non-plain option set routes through selectBundleLane. The
   // heavy-unencrypted-async lane (compression / 7z / split) is wired: it resolves the selection,
   // content-addresses the bundle, and hands off a background container build, returning 202 + a jobId.
-  // The encrypted-stream lane is not yet wired, so it still returns a 501 interim (before any
-  // selection query, so its throwaway matter need not exist).
+  // The encrypted-stream lane is also wired: it passes the manifest (with the password, in-request
+  // only) to the bundle container and streams the result back — no queue, no coordinator, no artifact.
   it("returns 202 with a jobId for a valid heavy-async option (compression other than store)", async () => {
     const response = await postDownload({
       matterId: seededMatterId,
@@ -208,9 +258,12 @@ describe("POST /api/v1/downloads/zip — optioned lanes", () => {
     expect(body.status).toBe("building");
   });
 
-  it("returns 501 for a valid encrypted option (encrypted stream lane not yet wired)", async () => {
+  it("returns 200 with application/zip for a valid encrypted stream request", async () => {
+    // Uses seededMatterId (two clean files) so the selection resolves to a non-empty set and the
+    // route reaches the encrypted-stream lane. The BUNDLE_SERVICE stub returns a small fixed body
+    // for POST /build?stream=1 so the test exercises the full route without a live container.
     const response = await postDownload({
-      matterId: freshMatter(),
+      matterId: seededMatterId,
       options: {
         format: "zip",
         compression: "store",
@@ -221,9 +274,10 @@ describe("POST /api/v1/downloads/zip — optioned lanes", () => {
         layout: "preserveTree",
         manifest: false,
       },
+      password: "correct-horse-battery-staple",
     });
-    expect(response.status).toBe(501);
-    const body = (await response.json()) as Record<string, unknown>;
-    expect(body.type).toContain("not-implemented");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("application/zip");
+    expect(response.headers.get("content-disposition")).toContain("secret.zip");
   });
 });

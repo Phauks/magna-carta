@@ -2503,6 +2503,10 @@
               "layout",
               "manifest"
             ]
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1
           }
         },
         "required": [
@@ -10628,8 +10632,8 @@
               }
             }
           },
-          "501": {
-            "description": "The requested bundle option (non-plain compression, encryption, split, or 7z format) is not yet available. The plain-ZIP fast lane is always available.",
+          "503": {
+            "description": "The bundle service worker binding is not configured. This is a deploy-time activation; the plain-ZIP fast lane is always available without it.",
             "content": {
               "application/problem+json": {
                 "schema": {
