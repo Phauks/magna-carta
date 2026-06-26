@@ -26,7 +26,8 @@ const buildResponseSchema = z.object({
       sizeBytes: z.number(),
     }),
   ),
-  error: z.string().nullable(),
+  // nullish (not just nullable) so a success response may omit `error` entirely without a parse failure.
+  error: z.string().nullish(),
 });
 
 // The worker-side ceiling on a single bundle build request. The container enforces its own per-leg
