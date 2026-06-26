@@ -39,6 +39,25 @@ pub enum KdfParams {
         ue: Vec<u8>,
         oe: Vec<u8>,
     },
+    /// WinZip-AES (AE-1/AE-2) key-derivation inputs for testing a candidate without
+    /// re-reading the archive. `strength` is the AES strength byte from the `0x9901`
+    /// extra field (1, 2, 3 select AES-128/192/256); `salt` is the PBKDF2-HMAC-SHA1
+    /// salt (8, 12, or 16 bytes, one half of the key length); `verifier` is the
+    /// 2-byte password-verification value stored on disk just after the salt. A guess
+    /// authenticates when the last two bytes of the 1000-round derived key equal it.
+    ZipAes {
+        strength: u8,
+        salt: Vec<u8>,
+        verifier: [u8; 2],
+    },
+    /// Legacy ZipCrypto key-schedule inputs. `header12` is the 12-byte encryption
+    /// header stored at the start of the entry data; `crc_high` is the expected value
+    /// of the twelfth decrypted header byte — the high-order byte of the entry CRC-32,
+    /// or of the DOS modification time when the entry carries a data descriptor.
+    ZipCrypto {
+        header12: [u8; 12],
+        crc_high: u8,
+    },
 }
 
 #[derive(Debug, Clone)]
