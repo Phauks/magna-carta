@@ -91,6 +91,10 @@ export const ENTITY_PREFIXES = {
   // Server-side conversion — a transient job identifier minted at presign time and used to key the
   // coordinator Durable Object. Not persisted in D1; the DO itself is the state store for the job.
   conversionJob: "conversionJob",
+  // Support-access framework. `platformStaff` identifies a named help-desk operator on the control
+  // plane; `supportGrant` is a time-boxed, pull-redeemed access grant issued to that operator.
+  platformStaff: "platformStaff",
+  supportGrant: "supportGrant",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;
