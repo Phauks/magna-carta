@@ -28,7 +28,9 @@ export interface ProxyBatchDatabase {
 // data-access conflict detectors (isIdempotencyKeyConflict, isMatterNumberConflict, …) already
 // match, from the column list the outcome carries — so neither the detectors nor their callers need
 // to change, and detection works for every unique constraint, not just one. The adapter is transparent.
-export function firmDatabaseProxy(stub: DurableObjectStub<FirmDatabase>): ProxyBatchDatabase {
+// Module-internal: callers resolve a firm database through firmDatabaseFor (below), the one annotated
+// boundary — the proxy is never wrapped around a stub from outside this module.
+function firmDatabaseProxy(stub: DurableObjectStub<FirmDatabase>): ProxyBatchDatabase {
   function makeStatement(sql: string, bindings: readonly unknown[]): ProxySqlStatement {
     return {
       sql,
