@@ -170,7 +170,7 @@ export interface CommitVersionRow {
   readonly sizeBytes: number;
   readonly sniffedContentType: string | null;
   readonly contentSha256: string;
-  readonly scanVerdict: "unscanned" | "clean";
+  readonly scanVerdict: "unscanned" | "clean" | "flagged";
   readonly scanEngineVersion: string | null;
   readonly scanDetail: string | null;
   readonly committedAt: string;
