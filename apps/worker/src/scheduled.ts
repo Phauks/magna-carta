@@ -124,11 +124,20 @@ export async function listReachableActiveFirms(env: Bindings): Promise<Reachable
 // so unreachable firms are skipped the same way the sweep skips them.
 //
 // The control-plane users are read in ONE grouped query (not per firm — that was an N+1 across the
-// fleet), bucketed by firm_id in JS; the per-firm member reads stay per firm (irreducible — the
-// firm databases are separate physical D1 instances).
+// fleet), bucketed by firm_id in JS; the per-firm member reads stay per firm (irreducible — each
+// firm's members live in its own firmId-addressed FirmDatabase Durable Object).
+//
+// One sick firm DO must never abort the whole pass: every firm is addressable, so an unguarded read
+// here would throw out of the entire cron pass — skipping the control-plane idempotency purge and
+// both security backfills fleet-wide. The per-firm member read is quarantined the same way the
+// outbox sweep quarantines a throwing firm (logged through the one pipeline, then `continue`). The
+// logger + correlation id default to a fresh pair so a standalone caller (a test) needs neither; the
+// scheduled pass passes its own so the failure correlates with the rest of the pass.
 export async function findUnprovisionedMembers(
   env: Bindings,
   firms: readonly ReachableActiveFirm[],
+  logger: Logger = createWorkersLogger(env.TELEMETRY),
+  correlationId: string = newCorrelationId(),
 ): Promise<UnprovisionedMember[]> {
   const allUsers = await env.DB_CONTROL.prepare('SELECT id, firm_id FROM "user"').all<{
     id: string;
@@ -149,9 +158,24 @@ export async function findUnprovisionedMembers(
     const firmUserIds = userIdsByFirm.get(firm.firmId);
     if (firmUserIds === undefined || firmUserIds.length === 0) continue;
 
-    const members = await firm.database.prepare("SELECT user_id FROM member").all<{
-      user_id: string;
-    }>();
+    let members: { results: { user_id: string }[] };
+    try {
+      members = await firm.database.prepare("SELECT user_id FROM member").all<{
+        user_id: string;
+      }>();
+    } catch (caught) {
+      // This firm's database threw (a sick DO: migration failure, transient overload, eviction
+      // mid-flight). Quarantine it the same way the per-firm outbox sweep does — log through the one
+      // pipeline and skip — so one firm can never abort the reconciliation backstop or the security
+      // backfills that run after it; the next Cron fire retries.
+      logOperationFailed(
+        logger,
+        `cron:reconciliation-backstop:${firm.firmId}`,
+        caught,
+        correlationId,
+      );
+      continue;
+    }
     const memberUserIds = new Set(members.results.map((row) => row.user_id));
     for (const userId of firmUserIds) {
       if (!memberUserIds.has(userId)) {
@@ -264,7 +288,7 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
 
   await purgeExpiredIdempotencyRecordsStatement(env.DB_CONTROL, idempotencyCutoff).run();
 
-  const unprovisionedMembers = await findUnprovisionedMembers(env, firms);
+  const unprovisionedMembers = await findUnprovisionedMembers(env, firms, logger, correlationId);
   if (unprovisionedMembers.length > 0) {
     // The backstop finding is a self-healing operational signal (the relay clears it next pass), so
     // it rides a counter, not an event: the count is the alertable signal, and the per-user detail
