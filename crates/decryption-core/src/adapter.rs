@@ -19,6 +19,26 @@ pub struct DecryptedFile {
 #[derive(Debug, Clone)]
 pub enum KdfParams {
     Placeholder,
+    /// PDF standard-security-handler parameters read from the `/Encrypt` dictionary
+    /// and the trailer `/ID`. Holds everything `verify_guess` needs to test a
+    /// candidate against the user or owner key for revisions 2 through 6.
+    ///
+    /// `u`/`o` are the 32-byte (R<=4) or 48-byte (R5/R6) password strings; `ue`/`oe`
+    /// are the 32-byte intermediate-key blobs present only for R5/R6 (empty otherwise).
+    /// `p` is the signed 32-bit permissions value; `key_bits` is the file-encryption-key
+    /// length in bits.
+    Pdf {
+        v: u8,
+        r: u8,
+        key_bits: u32,
+        p: i32,
+        encrypt_metadata: bool,
+        id: Vec<u8>,
+        u: Vec<u8>,
+        o: Vec<u8>,
+        ue: Vec<u8>,
+        oe: Vec<u8>,
+    },
 }
 
 #[derive(Debug, Clone)]
