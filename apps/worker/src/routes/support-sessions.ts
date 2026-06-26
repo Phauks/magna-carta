@@ -90,6 +90,10 @@ export const redeemSessionRoute = defineOpenAPIRoute(redeemSessionMeta, {
         "No redeemable grant (absent, not active, or expired), or unknown/disabled principal",
       content: { "application/problem+json": { schema: Problem } },
     },
+    409: {
+      description: "A request with this Idempotency-Key is still in progress",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     422: {
       description: "The body failed validation",
       content: { "application/problem+json": { schema: Problem } },

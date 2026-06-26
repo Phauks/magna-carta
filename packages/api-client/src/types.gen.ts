@@ -7149,6 +7149,10 @@ export type SupportSessionsRedeemErrors = {
      */
     404: Problem;
     /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
      * The body failed validation
      */
     422: Problem;

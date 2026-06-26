@@ -346,7 +346,7 @@ export function registerSupportGrantsRoutes(
         metadata: { grantId, firmId, cosignedByUserId },
         now,
       });
-      return c.json({ id: grantId, status: "active" }, 200);
+      return c.json({ id: grantId, status: "active" } as z.infer<typeof GrantStatusResult>, 200);
     },
   );
 
@@ -376,7 +376,7 @@ export function registerSupportGrantsRoutes(
         metadata: { grantId, firmId, revokedByUserId: actingUserId },
         now,
       });
-      return c.json({ id: grantId, status: "revoked" }, 200);
+      return c.json({ id: grantId, status: "revoked" } as z.infer<typeof GrantStatusResult>, 200);
     },
   );
 }
