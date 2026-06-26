@@ -273,7 +273,7 @@ The scan worker is **built and unit-tested, but not yet connected to Workers Bui
 
 ## 12. Cloudflare Workers Builds — CI/CD pipeline + fast-build settings
 
-The build-and-deploy pipeline is **Cloudflare Workers Builds** (the deploy model; ADR-0075 as amended), not GitHub Actions. Each Worker (`magna-carta`, `magna-carta-scan`) is connected to the GitHub repository and builds + deploys on push to `main`. Build-time performance is a standing requirement — see [`build-performance.md`](build-performance.md).
+The build-and-deploy pipeline is **Cloudflare Workers Builds** (the deploy model; ADR-0075 as amended), not GitHub Actions. Each Worker (`magna-carta`, `magna-carta-scan`, `magna-carta-bundle`) is connected to the GitHub repository and builds + deploys on push to `main`. Build-time performance is a standing requirement — see [`build-performance.md`](build-performance.md).
 
 ### Per-Worker build configuration (dashboard: **Workers & Pages → _the Worker_ → Settings → Builds**)
 
@@ -281,6 +281,7 @@ Build and deploy commands are already set (do not change without cause) — reco
 
 - `magna-carta` — build `pnpm install --frozen-lockfile && pnpm exec vp run build-all`; deploy `pnpm --filter @magna-carta/worker exec wrangler deploy`.
 - `magna-carta-scan` — root directory `apps/scan-worker`; build `pnpm run build`; deploy `npx wrangler deploy`. Deploying the scan Worker builds and pushes the `containers/scan` image referenced by its Container binding.
+- `magna-carta-bundle` — root directory `apps/bundle-worker`; build `pnpm run build`; deploy `npx wrangler deploy`. Deploying the bundle Worker builds and pushes the `containers/bundle` image referenced by its Container binding. The image is a separate slice's deliverable (`containers/bundle/Dockerfile`); until it exists the bundle Worker cannot deploy, so the `BUNDLE_SERVICE` binding in the app Worker stays unbound and the encrypted/heavy bundle lanes return `503` (the plain ZIP fast lane is unaffected).
 
 Two settings to **enable/set** (the fast-build levers — see [`build-performance.md`](build-performance.md)):
 
@@ -288,6 +289,7 @@ Two settings to **enable/set** (the fast-build levers — see [`build-performanc
 - **Build Watch Paths — set per Worker** so an unrelated change does not rebuild every Worker. Patterns are repo-root-relative; a single `*` matches zero or more characters across directories; excludes are filtered first, then a build runs only if a changed path still matches an include. (Workers Builds always builds regardless of paths when a push has 0 changes, 3000+ changes, or 20+ commits.)
   - `magna-carta` (depends on most of the repo — scope by exclusion): **Include** `*` · **Exclude** `docs/*`, `containers/*`, `spikes/*`, `*.md`. So a docs- or scan-only change no longer rebuilds and redeploys the app Worker.
   - `magna-carta-scan` (depends only on its own package + the scan image — scope by inclusion): **Include** `apps/scan-worker/*`, `containers/scan/*`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` · **Exclude** (none). So a change to `apps/web` or any `packages/*` no longer triggers a scan rebuild — the largest waste today.
+  - `magna-carta-bundle` (depends only on its own package + the bundle image — scope by inclusion): **Include** `apps/bundle-worker/*`, `containers/bundle/*`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` · **Exclude** (none).
 
 ### Quality gates (no separate CI runner) — the `pre-push` hook
 
