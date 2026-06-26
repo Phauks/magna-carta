@@ -220,6 +220,10 @@ describe("end-to-end", () => {
         email: FIRM_A_INPUT.owner.email,
       },
       firm: { id: firmA.id, name: FIRM_A_INPUT.name },
+      // A firm defaults to the stable release channel; the throwaway catalog flag resolves to its
+      // safe default with no flag provider bound in the test pool.
+      channel: "stable",
+      flags: { "release-channels.smoke": false },
       // Owner/Admin's seeded role_permission rows: firm:manageMembers (0002) + firm:reportIncident
       // (0003, seeded onto every default role) + the slice 1·1 matters/locations/files grants
       // (0004_matters-locations-file-manager.sql) + the slice 1·2 firm:manageSecrets /
@@ -438,24 +442,28 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       entry.path.startsWith("/api/v1/"),
     );
 
-    // Exactly ONE operation documents the platform-admin posture (x-mc-surface "public" — the
-    // header-secret guard, no session): firms.provision. A future unguarded route cannot hide
-    // behind the exception, because the exception is this exact set.
+    // The operations that document the platform-admin posture (x-mc-surface "public" — the
+    // header-secret guard, no session): the firm provisioner and the platform release-channel
+    // setter. A future unguarded route cannot hide behind the exception, because the exception is
+    // this exact set, and each member is asserted guarded below.
     const publicSurface = v1Operations.filter(
       (entry) => entry.operation["x-mc-surface"] === "public",
     );
-    expect(publicSurface.map((entry) => entry.operation["operationId"])).toEqual([
+    expect(publicSurface.map((entry) => entry.operation["operationId"]).sort()).toEqual([
       "firms.provision",
+      "platform.setFirmReleaseChannel",
     ]);
-    // And even the exception is no signup hole: authenticated (the X-Platform-Admin-Key guard)
-    // with the reserved registry permission — matching how routes/firms.ts documents it.
-    const provisionOperation = publicSurface[0]?.operation;
-    expect(provisionOperation?.["x-mc-authenticated"]).toBe(true);
-    expect(provisionOperation?.["x-mc-permission"]).toBe("firm:provision");
+    // And even the exception is no signup hole: each public operation is authenticated (the
+    // X-Platform-Admin-Key guard) and carries a registered registry permission.
+    for (const { operation, label } of publicSurface) {
+      expect(operation["x-mc-authenticated"], label).toBe(true);
+      expect(isPermission(operation["x-mc-permission"] as string), label).toBe(true);
+    }
 
-    // Every other /v1 operation is an app-surface (session cookie) operation this slice.
+    // Every other /v1 operation is an app-surface (session cookie) operation.
+    const publicOperations = new Set(publicSurface.map((entry) => entry.operation));
     for (const { operation, label } of v1Operations) {
-      if (operation === provisionOperation) continue;
+      if (publicOperations.has(operation)) continue;
       expect(operation["x-mc-surface"], label).toBe("app");
     }
   });
