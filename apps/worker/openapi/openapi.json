@@ -4518,6 +4518,36 @@
           "principalId"
         ]
       },
+      "SupportDiagnosticOverview": {
+        "type": "object",
+        "properties": {
+          "firmId": {
+            "type": "string"
+          },
+          "firmStatus": {
+            "type": "string"
+          },
+          "perFirmSchemaVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bucketProvisioned": {
+            "type": "boolean"
+          },
+          "activeMemberCount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "firmId",
+          "firmStatus",
+          "perFirmSchemaVersion",
+          "bucketProvisioned",
+          "activeMemberCount"
+        ]
+      },
       "ShippingConnectAck": {
         "type": "object",
         "properties": {
@@ -18682,6 +18712,79 @@
         }
       }
     },
+    "/api/v1/support/diagnostics/overview": {
+      "get": {
+        "description": "Non-privileged firm system state for help-desk diagnosis: firm status, per-firm schema version, storage provisioning state, and active member count. Accessible only from a diagnostic support session — the permission is never seeded to a firm role.",
+        "operationId": "supportDiagnostics.overview",
+        "tags": [
+          "supportDiagnostics"
+        ],
+        "x-mc-operationId": "supportDiagnostics.overview",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "diagnostics:overview",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "supportDiagnostics"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm system-state overview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportDiagnosticOverview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session, or the support-session token's backing grant is revoked or expired",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the principal lacks diagnostics:overview",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The session's firm is not reachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/integrations/shipping/connection": {
       "post": {
         "description": "Connects the firm's EasyPost postage account by storing its API key as a firm secret.",
@@ -19593,6 +19696,9 @@
     },
     {
       "name": "shipping"
+    },
+    {
+      "name": "supportDiagnostics"
     },
     {
       "name": "supportGrants"

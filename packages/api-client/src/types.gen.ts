@@ -1127,6 +1127,14 @@ export type RedeemSupportSession = {
     principalId: string;
 };
 
+export type SupportDiagnosticOverview = {
+    firmId: string;
+    firmStatus: string;
+    perFirmSchemaVersion: string | null;
+    bucketProvisioned: boolean;
+    activeMemberCount: number;
+};
+
 export type ShippingConnectAck = {
     id: string;
     status: string;
@@ -7160,6 +7168,43 @@ export type SupportSessionsRedeemResponses = {
 };
 
 export type SupportSessionsRedeemResponse = SupportSessionsRedeemResponses[keyof SupportSessionsRedeemResponses];
+
+export type SupportDiagnosticsOverviewData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/support/diagnostics/overview';
+};
+
+export type SupportDiagnosticsOverviewErrors = {
+    /**
+     * No valid session, or the support-session token's backing grant is revoked or expired
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the principal lacks diagnostics:overview
+     */
+    403: Problem;
+    /**
+     * The session's firm is not reachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SupportDiagnosticsOverviewError = SupportDiagnosticsOverviewErrors[keyof SupportDiagnosticsOverviewErrors];
+
+export type SupportDiagnosticsOverviewResponses = {
+    /**
+     * The firm system-state overview
+     */
+    200: SupportDiagnosticOverview;
+};
+
+export type SupportDiagnosticsOverviewResponse = SupportDiagnosticsOverviewResponses[keyof SupportDiagnosticsOverviewResponses];
 
 export type ShippingConnectData = {
     body: ShippingConnectRequest;

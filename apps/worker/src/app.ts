@@ -46,6 +46,7 @@ import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe
 import { registerMetadataRoutes } from "./routes/metadata.ts";
 import { registerSupportGrantsRoutes } from "./routes/support-grants.ts";
 import { registerSupportSessionsRoute } from "./routes/support-sessions.ts";
+import { registerSupportDiagnosticsRoute } from "./routes/support-diagnostics.ts";
 import { registerDevWebToolsDemoRoute } from "./routes/dev-web-tools-demo.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
@@ -397,6 +398,9 @@ export function createApp(options: CreateAppOptions = {}) {
   // token. Public surface (platform-admin-key guard); the chokepoint applies the idempotency and
   // rate-limit gates.
   registerSupportSessionsRoute(app, chokepoint);
+  // Support diagnostics — the read-only firm system-state overview gated on diagnostics:overview,
+  // a permission never seeded to any firm role. Only a diagnostic support session carries it.
+  registerSupportDiagnosticsRoute(app, chokepoint);
 
   // The plugin runtime: production defaults (a fetch-backed http client; the firm_secret store seam
   // that throws until the marketplace wires the live credential read), overridable in tests.

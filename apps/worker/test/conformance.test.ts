@@ -140,6 +140,9 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string> = {
   // support:* governs help-desk access grants on a firm; grants are firm-scoped (the consent
   // anchor is a firm member, the grant row lives in the control-plane firm namespace).
   support: "firm",
+  // diagnostics:* is the read-only system-state surface granted only by a diagnostic support session;
+  // no firm role holds it. The resource is the firm — the overview is per-firm state.
+  diagnostics: "firm",
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
@@ -599,6 +602,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "shipping.rateShipment",
       "shipping.refund",
       "shipping.tracking",
+      "supportDiagnostics.overview",
       "supportGrants.cosign",
       "supportGrants.list",
       "supportGrants.request",
