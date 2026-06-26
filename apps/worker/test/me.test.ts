@@ -63,7 +63,9 @@ describe("GET /api/v1/me", () => {
       // (0021_outgoing_talon) + tools:whois / tools:safeBrowse (0017_seed-tools-web-domains.sql,
       // seeded onto every default role) + tools:fileConverter (0018_seed-tools-file-converter.sql) +
       // firm:scanFile (0019_seed-scan-file-permission.sql) + tools:metadataScrubber
-      // (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role). Sorted.
+      // (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role) +
+      // tools:fileIntegrity (0022_seed-tools-file-integrity.sql, seeded onto every default role).
+      // Sorted.
       permissions: [
         "customFields:manage",
         "customFields:purge",
@@ -95,6 +97,7 @@ describe("GET /api/v1/me", () => {
         "time:track",
         "time:viewFirm",
         "tools:fileConverter",
+        "tools:fileIntegrity",
         "tools:firmUsage",
         "tools:metadataScrubber",
         "tools:safeBrowse",

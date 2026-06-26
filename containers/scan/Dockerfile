@@ -22,7 +22,16 @@ RUN apt-get update \
 
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
-RUN cargo build --release --bin magna-carta-scan --bin build-yara-rules
+# BuildKit cache mounts keep the Cargo registry, git cache, and target/ warm across builds so an
+# unchanged dependency graph is not recompiled. A cache mount is not part of the image layer, so the
+# two binaries are copied out to /artifacts (a normal path) in the same RUN before the mount drops —
+# later stages read them from there, not from target/. See docs/conventions/build-performance.md.
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,target=/src/target \
+    cargo build --release --bin magna-carta-scan --bin build-yara-rules \
+ && mkdir -p /artifacts \
+ && cp target/release/magna-carta-scan target/release/build-yara-rules /artifacts/
 
 # Resolve the release tag (latest unless pinned), download all three tier packages (core/extended/full),
 # then filter + compile + serialize them with build-yara-rules into a single binary rule blob and a
@@ -57,7 +66,7 @@ RUN set -eux; \
     CORE_YAR="$(find     /forge/core     -name '*.yar')"; \
     EXTENDED_YAR="$(find /forge/extended -name '*.yar')"; \
     FULL_YAR="$(find     /forge/full     -name '*.yar')"; \
-    /src/target/release/build-yara-rules \
+    /artifacts/build-yara-rules \
       "$FULL_YAR" "$CORE_YAR" "$EXTENDED_YAR" \
       /out/yara-rules.bin /out/yara-rules.sidemap.json "${YARA_MIN_SUSP_SCORE}"; \
     printf '%s' "$TAG" > /out/yara-rules.tag
@@ -76,7 +85,7 @@ RUN apt-get update \
 # not fail the image; clamd reports an empty DB clearly if it ever happens.
 RUN freshclam || true
 
-COPY --from=build /src/target/release/magna-carta-scan /usr/local/bin/scan
+COPY --from=build /artifacts/magna-carta-scan /usr/local/bin/scan
 
 # The compiled, filtered, serialized YARA rule blob and the release tag it was built from. The service
 # deserializes the blob at boot (no startup recompile) and reports the tag in its engine version. The

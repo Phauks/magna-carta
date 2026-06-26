@@ -1,5 +1,6 @@
 import { assertPermission, type Permission } from "@magna-carta/access-control/registry";
 import { describe, expect, it } from "vitest";
+import { CATALOG } from "../src/catalog.ts";
 import { toolsByGroup, toolsFor } from "../src/select.ts";
 import type { ToolManifest } from "../src/types.ts";
 
@@ -79,6 +80,19 @@ describe("toolsFor", () => {
 
   it("returns [] when nothing matches the tag", () => {
     expect(toolsFor(catalog, "person", allPermissions)).toEqual([]);
+  });
+});
+
+describe("file context tag", () => {
+  it("surfaces file-hash-integrity for the 'file' context when permitted", () => {
+    const permissions = new Set([assertPermission("tools:fileIntegrity")]);
+    const ids = toolsFor(CATALOG, "file", permissions).map((tool) => tool.id);
+    expect(ids).toContain("file-hash-integrity");
+  });
+
+  it("hides it without the permission", () => {
+    const ids = toolsFor(CATALOG, "file", new Set()).map((tool) => tool.id);
+    expect(ids).not.toContain("file-hash-integrity");
   });
 });
 
