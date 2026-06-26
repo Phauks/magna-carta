@@ -984,7 +984,7 @@ pub fn flatten_form(bytes: &[u8]) -> Result<Vec<u8>, FormError> {
         let mut draw_ops: Vec<String> = Vec::new();
         let mut baked_widget_ids: BTreeSet<ObjectId> = BTreeSet::new();
         // Counter used to mint unique XObject names on this page (MagnaCartaFlat0, 1, …).
-        let mut xobj_counter: usize = 0;
+        let mut xobject_counter: usize = 0;
 
         for &widget_id in &annot_ids {
             // Clone the widget dict so we release the immutable borrow on doc.
@@ -1131,16 +1131,15 @@ pub fn flatten_form(bytes: &[u8]) -> Result<Vec<u8>, FormError> {
             let ry1 = rect_nums[1].max(rect_nums[3]);
             let rect_w = rx1 - rx0;
             let rect_h = ry1 - ry0;
-            let sx = rect_w / bbox_w;
-            let sy = rect_h / bbox_h;
 
-            // Build the placement transform as a single `cm` [a b c d e f].
-            // Without /Matrix: maps the BBox lower-left to the rect lower-left and scales to fit.
-            // With /Matrix M: compose M then the rect-fit (PDF row-vector convention):
-            //   a = ma*sx, b = mb*sy, c = mc*sx, d = md*sy,
-            //   e = me*sx + (rx0 - bx0*sx), f = mf*sy + (ry0 - by0*sy)
-            let cm: [f32; 6] = if let Some(mat) = matrix_obj {
-                if let Ok(arr) = mat.as_array() {
+            // Place the appearance into the widget rect. A Form XObject's /Matrix is
+            // applied automatically by the `Do` operator, so the placement `cm` must map
+            // the *transformed* BBox onto the rect WITHOUT re-applying /Matrix itself
+            // (re-applying it here would transform the appearance twice). Transform the
+            // four BBox corners by /Matrix, take their upright bounding box, and fit that
+            // box to the rect with a pure translate+scale.
+            let matrix: [f32; 6] = match matrix_obj.as_ref().and_then(|o| o.as_array().ok()) {
+                Some(arr) => {
                     let m: Vec<f32> = arr
                         .iter()
                         .filter_map(|o| match o {
@@ -1150,27 +1149,52 @@ pub fn flatten_form(bytes: &[u8]) -> Result<Vec<u8>, FormError> {
                         })
                         .collect();
                     if m.len() >= 6 {
-                        [
-                            m[0] * sx,
-                            m[1] * sy,
-                            m[2] * sx,
-                            m[3] * sy,
-                            m[4] * sx + (rx0 - bx0 * sx),
-                            m[5] * sy + (ry0 - by0 * sy),
-                        ]
+                        [m[0], m[1], m[2], m[3], m[4], m[5]]
                     } else {
-                        [sx, 0.0, 0.0, sy, rx0 - bx0 * sx, ry0 - by0 * sy]
+                        [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]
                     }
-                } else {
-                    [sx, 0.0, 0.0, sy, rx0 - bx0 * sx, ry0 - by0 * sy]
                 }
-            } else {
-                [sx, 0.0, 0.0, sy, rx0 - bx0 * sx, ry0 - by0 * sy]
+                None => [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
             };
+            // Map a point through /Matrix (PDF row-vector convention:
+            // x' = a*x + c*y + e, y' = b*x + d*y + f).
+            let map_point = |x: f32, y: f32| -> (f32, f32) {
+                (
+                    matrix[0] * x + matrix[2] * y + matrix[4],
+                    matrix[1] * x + matrix[3] * y + matrix[5],
+                )
+            };
+            let corners = [
+                map_point(bx0, by0),
+                map_point(bx1, by0),
+                map_point(bx1, by1),
+                map_point(bx0, by1),
+            ];
+            let tx0 = corners.iter().map(|c| c.0).fold(f32::INFINITY, f32::min);
+            let tx1 = corners
+                .iter()
+                .map(|c| c.0)
+                .fold(f32::NEG_INFINITY, f32::max);
+            let ty0 = corners.iter().map(|c| c.1).fold(f32::INFINITY, f32::min);
+            let ty1 = corners
+                .iter()
+                .map(|c| c.1)
+                .fold(f32::NEG_INFINITY, f32::max);
+            let transformed_w = tx1 - tx0;
+            let transformed_h = ty1 - ty0;
+            // Degenerate transformed box — skip rather than divide by zero.
+            if transformed_w.abs() < 1e-6 || transformed_h.abs() < 1e-6 {
+                continue;
+            }
+            let sx = rect_w / transformed_w;
+            let sy = rect_h / transformed_h;
+            // The placement transform A maps the transformed box origin to the rect
+            // origin and scales to fit; `Do` then applies /Matrix on top of A.
+            let cm: [f32; 6] = [sx, 0.0, 0.0, sy, rx0 - tx0 * sx, ry0 - ty0 * sy];
 
             // Mint a unique XObject name that won't collide with existing resources.
-            let xobj_name = format!("MagnaCartaFlat{xobj_counter}");
-            xobj_counter += 1;
+            let xobject_name = format!("MagnaCartaFlat{xobject_counter}");
+            xobject_counter += 1;
 
             // --- Resource merge (non-destructive, mirrors the Bates stamp pattern) ---
             // Resolve the page's effective /Resources (handles inheritance and indirect refs).
@@ -1180,22 +1204,22 @@ pub fn flatten_form(bytes: &[u8]) -> Result<Vec<u8>, FormError> {
                     .unwrap_or_default();
 
             // Clone the existing /XObject subdict so no prior XObject entry is dropped.
-            let mut xobj_dict: Dictionary = match existing_resources.get(b"XObject") {
-                Ok(xobj_obj) => crate::surgery::resolve_dict(&doc, xobj_obj)
+            let mut xobject_dict: Dictionary = match existing_resources.get(b"XObject") {
+                Ok(xobject_obj) => crate::surgery::resolve_dict(&doc, xobject_obj)
                     .cloned()
                     .unwrap_or_default(),
                 Err(_) => Dictionary::new(),
             };
 
             // Register the appearance stream under the new distinctive name.
-            xobj_dict.set(
-                xobj_name.as_bytes(),
+            xobject_dict.set(
+                xobject_name.as_bytes(),
                 Object::Reference(appearance_stream_id),
             );
 
             // Write the merged /Resources back onto the page dict (all doc borrows end here).
             let mut merged_resources = existing_resources;
-            merged_resources.set(b"XObject", Object::Dictionary(xobj_dict));
+            merged_resources.set(b"XObject", Object::Dictionary(xobject_dict));
             if let Ok(Object::Dictionary(page_dict)) = doc.get_object_mut(page_id) {
                 page_dict.set(b"Resources", Object::Dictionary(merged_resources));
             }
@@ -1203,7 +1227,7 @@ pub fn flatten_form(bytes: &[u8]) -> Result<Vec<u8>, FormError> {
             // Record the draw call for this widget (accumulated per page, appended as one stream).
             let [cm_a, cm_b, cm_c, cm_d, cm_e, cm_f] = cm;
             draw_ops.push(format!(
-                "q {cm_a:.6} {cm_b:.6} {cm_c:.6} {cm_d:.6} {cm_e:.6} {cm_f:.6} cm /{xobj_name} Do Q"
+                "q {cm_a:.6} {cm_b:.6} {cm_c:.6} {cm_d:.6} {cm_e:.6} {cm_f:.6} cm /{xobject_name} Do Q"
             ));
 
             baked_widget_ids.insert(widget_id);
@@ -2269,13 +2293,13 @@ mod tests {
         let (_, pid) = doc2.get_pages().into_iter().next().unwrap();
         let resources = crate::surgery::resolve_inherited_resources(&doc2, pid)
             .expect("page resources must exist after flatten");
-        let xobj_obj = resources
+        let xobject_obj = resources
             .get(b"XObject")
             .expect("/XObject must be present in page /Resources after flatten");
-        let xobj_dict = crate::surgery::resolve_dict(&doc2, xobj_obj)
+        let xobject_dict = crate::surgery::resolve_dict(&doc2, xobject_obj)
             .expect("/XObject must resolve to a dictionary");
         assert!(
-            !xobj_dict.is_empty(),
+            !xobject_dict.is_empty(),
             "/XObject dict must contain at least one entry"
         );
 
@@ -2456,6 +2480,100 @@ mod tests {
             (cm_f - 100.0).abs() < 0.01,
             "cm_f (ty) must be 100; got {cm_f}"
         );
+    }
+
+    #[test]
+    fn flatten_composes_appearance_matrix() {
+        // A Form XObject's /Matrix is applied by `Do` itself, so the placement cm must
+        // fit the *transformed* BBox to the rect WITHOUT re-applying /Matrix.
+        // BBox [0 0 10 10], /Matrix [2 0 0 2 5 5] → transformed corners (5,5)…(25,25),
+        // i.e. transformed box [5 5 25 25] (20×20). Rect [0 0 20 20] → sx = sy = 1.0,
+        // e = rx0 - tx0*sx = 0 - 5 = -5, f = -5. Expected cm: [1 0 0 1 -5 -5].
+        // (The earlier double-applying code would have produced a = 4 here.)
+        let (mut doc, page_id) = base_doc();
+
+        let ap_stream = Stream::new(
+            dictionary! {
+                "Type" => Object::Name(b"XObject".to_vec()),
+                "Subtype" => Object::Name(b"Form".to_vec()),
+                "BBox" => Object::Array(vec![
+                    Object::Integer(0),
+                    Object::Integer(0),
+                    Object::Integer(10),
+                    Object::Integer(10),
+                ]),
+                "Matrix" => Object::Array(vec![
+                    Object::Integer(2),
+                    Object::Integer(0),
+                    Object::Integer(0),
+                    Object::Integer(2),
+                    Object::Integer(5),
+                    Object::Integer(5),
+                ]),
+            },
+            b"q Q".to_vec(),
+        );
+        let ap_id = doc.add_object(Object::Stream(ap_stream));
+        let widget = dictionary! {
+            "Type" => Object::Name(b"Annot".to_vec()),
+            "Subtype" => Object::Name(b"Widget".to_vec()),
+            "FT" => Object::Name(b"Tx".to_vec()),
+            "T" => Object::string_literal("MatrixTest"),
+            "Rect" => Object::Array(vec![
+                Object::Integer(0),
+                Object::Integer(0),
+                Object::Integer(20),
+                Object::Integer(20),
+            ]),
+            "AP" => Object::Dictionary(dictionary! {
+                "N" => Object::Reference(ap_id),
+            }),
+        };
+        let fid = add_annot(&mut doc, page_id, widget);
+        add_acroform(&mut doc, &[fid]);
+        let bytes = to_bytes(&mut doc);
+
+        let out = flatten_form(&bytes).expect("flatten_form");
+
+        let doc2 = Document::load_mem(&out).expect("reload");
+        let (_, pid) = doc2.get_pages().into_iter().next().unwrap();
+        let page_dict = doc2.get_dictionary(pid).expect("page dict");
+        let contents_obj = page_dict
+            .get(b"Contents")
+            .expect("/Contents must exist after flatten")
+            .clone();
+        let stream_ids: Vec<ObjectId> = match contents_obj {
+            Object::Reference(id) => vec![id],
+            Object::Array(arr) => arr.iter().filter_map(|o| o.as_reference().ok()).collect(),
+            _ => panic!("unexpected /Contents object type"),
+        };
+        let last_id = *stream_ids.last().expect("at least one content stream");
+        let content_str = match doc2.get_object(last_id).expect("stream object") {
+            Object::Stream(s) => String::from_utf8(s.content.clone()).expect("valid UTF-8"),
+            _ => panic!("expected a stream object"),
+        };
+
+        let cm_pos = content_str
+            .find(" cm ")
+            .expect("appended content must have cm");
+        let tokens: Vec<&str> = content_str[..cm_pos].trim().split_whitespace().collect();
+        let n = tokens.len();
+        let cm_a: f32 = tokens[n - 6].parse().unwrap();
+        let cm_b: f32 = tokens[n - 5].parse().unwrap();
+        let cm_c: f32 = tokens[n - 4].parse().unwrap();
+        let cm_d: f32 = tokens[n - 3].parse().unwrap();
+        let cm_e: f32 = tokens[n - 2].parse().unwrap();
+        let cm_f: f32 = tokens[n - 1].parse().unwrap();
+
+        assert!(
+            (cm_a - 1.0).abs() < 0.01,
+            "cm_a must be 1 (matrix NOT baked into cm); got {cm_a}"
+        );
+        assert!((cm_b - 0.0).abs() < 0.01, "cm_b must be 0; got {cm_b}");
+        assert!((cm_c - 0.0).abs() < 0.01, "cm_c must be 0; got {cm_c}");
+        assert!((cm_d - 1.0).abs() < 0.01, "cm_d must be 1; got {cm_d}");
+        assert!((cm_e + 5.0).abs() < 0.01, "cm_e must be -5; got {cm_e}");
+        assert!((cm_f + 5.0).abs() < 0.01, "cm_f must be -5; got {cm_f}");
     }
 
     #[test]
