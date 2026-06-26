@@ -7,17 +7,25 @@ import {
   type PlatformStaffRow,
   type SupportGrantRow,
 } from "@magna-carta/data-access/support-access-statements";
+import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
+import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
+import { insertAuthAuditStatement } from "@magna-carta/data-access/auth-audit-statements";
+import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { Bindings } from "../app.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
+import { requireChokepointIdempotency } from "../chokepoint/context-accessors.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { idempotencyKeyHeader } from "../contracts/common.ts";
+import {
+  problemResponseForIdempotencyConflict,
+  storedResponseBody,
+} from "../idempotency-conflict-problems.ts";
 import { platformAdminGuard } from "./firms.ts";
 import { supportGrantUsable } from "../support/grant-lifecycle.ts";
 import { mintSupportSessionToken } from "../support/support-session-token.ts";
-import { writeSupportAudit } from "../support/support-audit.ts";
 
 const RedeemBody = z
   .object({ grantId: z.string(), principalId: z.string() })
@@ -107,7 +115,10 @@ export function registerSupportSessionsRoute(
     async (c) => {
       const { grantId, principalId } = c.req.valid("json");
       const now = new Date().toISOString();
+      const idempotency = requireChokepointIdempotency(c);
 
+      // Pre-condition guards: denied requests are not stored idempotent effects — they return
+      // directly so a retry with the same Idempotency-Key re-evaluates the current state.
       const grant = (
         await selectSupportGrantStatement(c.env.DB_CONTROL, grantId as never).all<SupportGrantRow>()
       ).results[0];
@@ -134,36 +145,65 @@ export function registerSupportSessionsRoute(
         });
       }
 
-      await redeemSupportGrantStatement(c.env.DB_CONTROL, {
-        id: grant.id,
-        principalId: principal.id,
-      }).run();
-
-      const token = await mintSupportSessionToken(c.env.AUTH_SECRET, {
-        grantId: grant.id,
-        principalId: principal.id,
-        firmId: grant.firm_id,
-        requesterUserId: grant.requested_by_user_id,
-        tier: grant.tier,
-        exp: Math.floor(Date.parse(grant.expires_at) / 1000),
-      });
-
-      await writeSupportAudit(c.env.DB_CONTROL, {
-        event: "support.grant.redeemed",
-        requesterUserId: grant.requested_by_user_id,
-        metadata: {
-          grantId: grant.id,
-          principalId: principal.id,
-          firmId: grant.firm_id,
-          tier: grant.tier,
+      // The successful mint runs inside runIdempotentEffect so the redeem update, the audit row,
+      // and the idempotency record all commit atomically. A retry with the same Idempotency-Key
+      // replays the stored 201 + token without re-executing any mutations.
+      const result = await runIdempotentEffect({
+        database: c.env.DB_CONTROL,
+        key: idempotency.key,
+        fingerprint: idempotency.fingerprint,
+        effect: async () => {
+          const token = await mintSupportSessionToken(c.env.AUTH_SECRET, {
+            grantId: grant.id,
+            principalId: principal.id,
+            firmId: grant.firm_id,
+            requesterUserId: grant.requested_by_user_id,
+            tier: grant.tier,
+            exp: Math.floor(Date.parse(grant.expires_at) / 1000),
+          });
+          return {
+            write: {
+              statements: [
+                redeemSupportGrantStatement(c.env.DB_CONTROL, {
+                  id: grant.id,
+                  principalId: principal.id,
+                }),
+                insertAuthAuditStatement(c.env.DB_CONTROL, {
+                  id: newIdentifier("authAudit"),
+                  event: "support.grant.redeemed",
+                  userId: grant.requested_by_user_id,
+                  metadata: {
+                    grantId: grant.id,
+                    principalId: principal.id,
+                    firmId: grant.firm_id,
+                    tier: grant.tier,
+                  },
+                  now,
+                }),
+              ],
+              outboxMessages: [],
+            },
+            responseCode: 201,
+            responseBody: canonicalJsonStringify({
+              token,
+              tier: grant.tier,
+              firmId: grant.firm_id,
+              expiresAt: grant.expires_at,
+            }),
+          };
         },
-        now,
       });
 
-      return c.json(
-        { token, tier: grant.tier, firmId: grant.firm_id, expiresAt: grant.expires_at },
-        201,
-      );
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
+        return problemResponseForIdempotencyConflict(c, result);
+      }
+
+      if (result.kind === "replayed") {
+        c.header("Idempotency-Replayed", "true");
+      }
+
+      const responseBody = JSON.parse(storedResponseBody(result)) as z.infer<typeof RedeemResult>;
+      return c.json(responseBody, 201);
     },
   );
 }
