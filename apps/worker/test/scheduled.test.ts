@@ -325,6 +325,18 @@ describe("runScheduledSweep — per-firm relay and TTL purge", () => {
   });
 });
 
+describe("runScheduledSweep — control-plane migrations", () => {
+  it("runs the control-plane migration step without error and leaves DB_CONTROL at head", async () => {
+    await runScheduledSweep(env);
+    const probe = await env.DB_CONTROL.prepare("SELECT release_channel FROM firm LIMIT 1").all();
+    expect(probe.success).toBe(true);
+    const applied = await env.DB_CONTROL.prepare(
+      "SELECT tag FROM _migrations WHERE tag = '0003_handy_rattler'",
+    ).first<{ tag: string }>();
+    expect(applied?.tag).toBe("0003_handy_rattler");
+  });
+});
+
 describe("scheduled handler wiring", () => {
   it("runs the sweep from the Worker's scheduled entry point", async () => {
     const userId = await directInsertUser("sweep-cron-user@example.com", "Cron User");

@@ -31,6 +31,7 @@ import { registerFilesRoutes } from "./routes/files.ts";
 import { registerScanDiagnoseRoute } from "./routes/scan-diagnose.ts";
 import { registerScanMatterRoute } from "./routes/scan-matter.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
+import { registerPlatformReleaseChannelRoute } from "./routes/platform-release-channel.ts";
 import { registerFoldersRoutes } from "./routes/folders.ts";
 import { registerIncidentsRoute } from "./routes/incidents.ts";
 import { registerLocationsRoutes } from "./routes/locations.ts";
@@ -48,6 +49,7 @@ import { registerMetadataRoutes } from "./routes/metadata.ts";
 import { registerDevWebToolsDemoRoute } from "./routes/dev-web-tools-demo.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
+import { registerReleaseChannelRoute } from "./routes/release-channel.ts";
 import { registerNumberingRoutes } from "./routes/numbering.ts";
 import { registerUploadsRoutes } from "./routes/uploads.ts";
 import { registerPreviewServeRoute } from "./files/preview-serve.ts";
@@ -162,6 +164,10 @@ export type Bindings = {
   // Viewer). Unset in production, so the demo route answers 404 there; set DEV_DEMO_TOOLS=1 in
   // .dev.vars to view it locally. Not part of any contract; remove the demo route when no longer needed.
   DEV_DEMO_TOOLS?: string;
+  // Cloudflare Flagship feature-flag binding. Optional: absent in local dev, tests, and deployments
+  // before the Flagship provider is wired. The resolver (src/flags/flag-evaluator.ts) falls back to
+  // defaultOffEvaluator when this is undefined, so every flag returns its stable default safely.
+  FLAGS?: import("@magna-carta/feature-flags").FlagshipBinding;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
@@ -345,7 +351,9 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFileIntegrityRoutes(app, chokepoint);
   registerMetadataRoutes(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);
+  registerReleaseChannelRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
+  registerPlatformReleaseChannelRoute(app, chokepoint);
   registerIncidentsRoute(app, chokepoint);
   registerUploadsRoutes(app, chokepoint);
   // Slice 1·1: matters (shell + lifecycle), per-firm matter/document types, Locations, and the

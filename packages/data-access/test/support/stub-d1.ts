@@ -28,6 +28,7 @@ export interface StubStatement {
   bind(...values: unknown[]): StubStatement;
   run(): Promise<{ success: boolean; meta: { changes: number } }>;
   all<T>(): Promise<{ results: T[]; success: boolean }>;
+  first<T>(): Promise<T | null>;
 }
 
 // Narrow a builder-returned statement (typed as the package's minimal SqlStatement) back to the
@@ -59,6 +60,13 @@ export function stubD1(): StubD1 {
         const results =
           typeof scripted?.results === "function" ? scripted.results() : (scripted?.results ?? []);
         return Promise.resolve({ results: results as T[], success: true });
+      },
+      first: <T>() => {
+        executed.push({ sql, bindings });
+        const scripted = scriptedResults.find((entry) => sql.includes(entry.match));
+        const results =
+          typeof scripted?.results === "function" ? scripted.results() : (scripted?.results ?? []);
+        return Promise.resolve(results.length > 0 ? (results[0] as T) : null);
       },
     };
   }

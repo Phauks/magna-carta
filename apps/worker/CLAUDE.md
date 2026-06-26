@@ -112,6 +112,21 @@ decision, coordinated via `vp run worktrees`, with `apps/scan-worker` as the wor
 
 Until step 2 is done, `resolveEnginePort` returns the deferred port and all three conversion routes operate correctly (upload, submit → 202, poll → `engine-not-implemented` failure). The Container binding cannot run under the local Miniflare test pool, which is why `resolveEnginePort` is injectable and the e2e tests supply a fake engine.
 
+## Release channels — the two doors and the flag catalog
+
+A firm's `release_channel` (`stable | beta | alpha`) is stored on the control-plane `firm` row and is read into every session. Two routes write it:
+
+- **Beta door:** `PUT /api/v1/firm/release-channel` — accepts only `{ stable, beta }`; backed by `firm:manageReleaseChannel` enforced at the chokepoint; requires an explicit consent payload recorded in the per-firm `audit_log`.
+- **Alpha door:** a secret-guarded platform endpoint (same lane as `POST /v1/firms`); writes any channel value; no firm-session required; audit goes to the control-plane `auth_audit`.
+
+**Adding a feature flag.** To gate a new feature behind a release channel:
+
+1. Add an entry to `FLAG_CATALOG` in `@magna-carta/feature-flags` — keyed by the flag key, with `defaultValue` (the safe default = stable behavior), `stage: "alpha" | "beta" | "stable"`, and a `description`.
+2. Add a matching boolean flag in the Flagship dashboard with a targeting rule: `channel in [beta, alpha]` (or `[alpha]` for alpha-only), optionally with a `%` rollout.
+3. Call `getBooleanValue(flagKey, false, context)` (or `evaluateCatalog`) in the route or session handler. Stable behavior is always the default — the second argument must equal what a `stable` firm would see.
+
+**The `FLAGS` binding is a production deploy-time wiring step.** The local Miniflare test pool does not support the Flagship binding shape. The `env.FLAGS` binding is declared **optional** in `wrangler.jsonc`; when absent, `resolveFlagEvaluator` returns the `defaultOffEvaluator` (all flags off, the safe stable default). Tests that need a specific flag on inject a `FlagEvaluator` fake directly — no Flagship account required. This means the fail-safe is structural: any test environment or local dev session silently sees stable behavior for every flag unless a fake is injected.
+
 ## Gotchas
 
 - A declared queue **consumer** with no exported handler fails the deploy; a declared **producer** does

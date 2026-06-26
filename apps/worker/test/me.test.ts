@@ -50,7 +50,8 @@ describe("GET /api/v1/me", () => {
       headers: { cookie: sessionCookie },
     });
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
       user: { id: userId, name: "Me Test User", email: "me-member@example.com" },
       firm: { id: firmId, name: "Me Test Firm" },
       // Owner/Admin's seeded role_permission rows: firm:manageMembers (0002_member-rbac.sql) +
@@ -64,8 +65,8 @@ describe("GET /api/v1/me", () => {
       // seeded onto every default role) + tools:fileConverter (0018_seed-tools-file-converter.sql) +
       // firm:scanFile (0019_seed-scan-file-permission.sql) + tools:metadataScrubber
       // (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role) +
-      // tools:fileIntegrity (0022_seed-tools-file-integrity.sql, seeded onto every default role).
-      // Sorted.
+      // tools:fileIntegrity (0022_seed-tools-file-integrity.sql, seeded onto every default role) +
+      // firm:manageReleaseChannel (0024_seed-release-channel-permission.sql, Owner/Admin only). Sorted.
       permissions: [
         "customFields:manage",
         "customFields:purge",
@@ -76,6 +77,7 @@ describe("GET /api/v1/me", () => {
         "files:organize",
         "files:upload",
         "firm:manageMembers",
+        "firm:manageReleaseChannel",
         "firm:manageSecrets",
         "firm:reportIncident",
         "firm:scanFile",
@@ -104,6 +106,8 @@ describe("GET /api/v1/me", () => {
         "tools:whois",
       ],
     });
+    expect(body.channel).toBe("stable");
+    expect(body.flags).toEqual({ "release-channels.smoke": false });
   });
 
   it("answers 404 when the session member is DEACTIVATED in the firm database (absent — the deactivated-context promise)", async () => {
@@ -151,6 +155,8 @@ describe("GET /api/v1/me", () => {
       user: { id: userId, name: "Unmirrored User", email: "me-unmirrored@example.com" },
       firm: { id: firmId, name: "Me Test Firm" },
       permissions: [],
+      channel: "stable",
+      flags: { "release-channels.smoke": false },
     });
   });
 

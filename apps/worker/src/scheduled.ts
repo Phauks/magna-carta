@@ -29,7 +29,10 @@ import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
+import { runPendingMigrations } from "@magna-carta/database/migration-runner";
+import { d1MigrationTarget } from "@magna-carta/database/d1-migration-target";
 import type { Bindings } from "./app.ts";
+import { controlPlaneMigrations } from "./control-plane-migrations.ts";
 import { presignerForEnv } from "./files/presigner-wiring.ts";
 import { resolveFirmDatabase } from "./firm-binding-resolver.ts";
 import { firmKeyProviderForEnv } from "./firm-key-provider-wiring.ts";
@@ -179,6 +182,16 @@ export async function runScheduledSweep(env: Bindings): Promise<ScheduledSweepRe
   // (no request context here — the pass is the unit of work).
   const logger = createWorkersLogger(env.TELEMETRY);
   const correlationId = newCorrelationId();
+
+  // The control plane has no provision-time migration gate (unlike per-firm databases, which migrate
+  // when a firm is provisioned), so the scheduled pass is the single-flighted applier that brings
+  // the control-plane schema to head. Idempotent: a no-op once at head. Error-isolated: a migration
+  // failure is logged and the rest of the pass still runs.
+  try {
+    await runPendingMigrations(d1MigrationTarget(env.DB_CONTROL), controlPlaneMigrations());
+  } catch (caught) {
+    logOperationFailed(logger, "cron:control-plane-migrations", caught, correlationId);
+  }
 
   const controlPlane = await sweepOutbox({
     database: env.DB_CONTROL,
