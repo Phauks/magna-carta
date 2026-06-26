@@ -166,16 +166,27 @@
   // The async bulk-download coordinator — the codebase's first Durable Object. Keyed
   // firmId:manifestHash, it single-flights one ZIP build per content-addressed file selection. The
   // class is exported from src/index.ts (a binding to a class with no export fails the deploy).
+  // One durable_objects block and one migrations block for the whole worker: wrangler takes the LAST
+  // value of any duplicated top-level key, so a second block of either silently drops every binding /
+  // class declared in the first. All current Durable Objects are declared together here.
   "durable_objects": {
     "bindings": [
       { "name": "BUNDLE_COORDINATOR", "class_name": "BundleBuildCoordinator" },
       // The conversion-job coordinator: keyed firmId:jobId, single-flights one conversion per job.
       { "name": "CONVERSION_JOB", "class_name": "ConversionJob" },
+      // The per-timekeeper live-timer coordinator: one instance per `${firmId}:${userId}`
+      // (firm-namespaced, so a timer never holds another firm's state), holding only transient
+      // live-timer state — a committed time entry flows through the data-access chokepoint into
+      // per-firm D1, never the DO.
+      { "name": "DURABLE_TIMER", "class_name": "LiveTimerDurableObject" },
     ],
   },
-  // SQLite-backed DO classes are introduced through a migration tag; this is the first one.
+  // SQLite-backed DO classes are introduced through a migration tag; all current classes ride v1.
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["BundleBuildCoordinator", "ConversionJob"] },
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["BundleBuildCoordinator", "ConversionJob", "LiveTimerDurableObject"],
+    },
   ],
   // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines
   // the telemetry Workers logger emits land here). Logpush → R2 is a deploy-time runbook step
@@ -187,15 +198,6 @@
   "analytics_engine_datasets": [
     { "binding": "TELEMETRY", "dataset": "magna-carta-production-telemetry" },
   ],
-  // The per-timekeeper live-timer coordinator (the first Durable Object). One instance per
-  // `${firmId}:${userId}` (firm-namespaced, so a timer never holds another firm's state), holding only
-  // transient live-timer state in DO storage — a committed time entry flows through the data-access
-  // chokepoint into per-firm D1, never the DO. new_sqlite_classes puts the instance on the
-  // SQLite-backed storage backend (the current default for new classes).
-  "durable_objects": {
-    "bindings": [{ "name": "DURABLE_TIMER", "class_name": "LiveTimerDurableObject" }],
-  },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LiveTimerDurableObject"] }],
   // Cloudflare Email Service send binding (slice 0·6, ADR-0074). The adapter is SELECTED only when
   // EMAIL_FROM is also set — deliberately NOT committed as a var here: it is the activation switch
   // the deploy-time runbook flips once magnacarta.esq is onboarded for Email Sending (DKIM/SPF —

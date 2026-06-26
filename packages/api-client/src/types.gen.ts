@@ -623,6 +623,7 @@ export type MatterRescanResult = {
 export type BundleStatus = {
     status: string;
     url?: string;
+    urls?: Array<string>;
 };
 
 export type CreatedDirectoryEntityResponse = {

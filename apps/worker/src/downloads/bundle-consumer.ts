@@ -1,5 +1,6 @@
 import { makeZip } from "client-zip";
 import type { Bindings } from "../app.ts";
+import { bundleContainerAdapter } from "./bundle-container-adapter.ts";
 import type { BundleBuildMessage } from "./bundle-types.ts";
 
 // The bundle-build queue consumer: for each message, stream the selection's R2 object bodies through
@@ -81,24 +82,43 @@ async function buildOne(env: Bindings, message: BundleBuildMessage): Promise<voi
   // presign against. message.bucketName is the forward-looking routing key for when per-firm buckets
   // are provisioned: at that point this consumer and the routes must resolve the SAME per-firm R2
   // handle from bucketName (read inputs, write the artifact, head, and presign all against it).
-  const key = `bundles/${message.manifestHash}.zip`;
-  async function* inputs() {
-    for (const entry of message.entries) {
-      const object = await env.R2.get(entry.r2Key);
-      if (object === null) continue; // reaped between resolve and build — skip, never abort the archive
-      yield { name: entry.path, input: object.body };
-    }
-  }
   const coordinator = env.BUNDLE_COORDINATOR.get(
     env.BUNDLE_COORDINATOR.idFromName(`${message.firmId}:${message.manifestHash}`),
   );
   try {
+    if (message.manifest !== undefined) {
+      // The optioned lane (compression / 7z / split): the container owns the build and the R2 writes
+      // (it reaches R2 through the bundle worker's outbound handler), so this consumer only hands it
+      // the prebuilt manifest and records the volume keys it reports back. Nothing streams through the
+      // Worker here — the artifact never touches this isolate.
+      const service = env.BUNDLE_SERVICE;
+      if (service === undefined) {
+        // No bound bundle worker (a deployment without the service binding): a retryable failure, so
+        // the build is not silently dropped — it re-queues until the binding is present.
+        throw new Error("bundle service binding is not configured");
+      }
+      const volumes = await bundleContainerAdapter(service).build(message.manifest);
+      await coordinator.markReadyVolumes(volumes);
+      return;
+    }
+
+    // The plain client-zip lane: stream each entry's R2 object body through client-zip into a single
+    // R2 object, then mark ready with that one artifact key.
+    const key = `bundles/${message.manifestHash}.zip`;
+    async function* inputs() {
+      for (const entry of message.entries) {
+        const object = await env.R2.get(entry.r2Key);
+        if (object === null) continue; // reaped between resolve and build — skip, never abort the archive
+        yield { name: entry.path, input: object.body };
+      }
+    }
     await putStreamMultipart(env.R2, key, makeZip(inputs()));
     await coordinator.markReady(key);
   } catch (error) {
     // markFailed only transitions a still-`building` job (the coordinator guards it), so a transient
     // failure here briefly shows `failed` but self-heals: the rethrow retries the queue message, and a
-    // later success calls markReady. A zombie attempt's markFailed can never clobber that ready.
+    // later success calls markReady/markReadyVolumes. A zombie attempt's markFailed can never clobber
+    // that ready.
     await coordinator.markFailed(error instanceof Error ? error.message : "build failed");
     throw error;
   }

@@ -34,7 +34,14 @@ const bundleStatusMeta: RouteMeta = {
 };
 
 const BundleStatusResponse = z
-  .object({ status: z.string(), url: z.string().optional() })
+  .object({
+    status: z.string(),
+    // The plain client-zip lane yields a single artifact, signed as `url`. The optioned container
+    // lane yields one or more volumes (one for a single-file bundle, several for a 7z split), each
+    // signed into `urls`. Exactly one of the two is present on a ready job.
+    url: z.string().optional(),
+    urls: z.array(z.string()).optional(),
+  })
   .openapi("BundleStatus");
 
 const bundleStatusRoute = defineOpenAPIRoute(bundleStatusMeta, {
@@ -83,6 +90,24 @@ export function registerBundleStatusRoute(app: BundleStatusApp, chokepoint: Chok
         c.env.BUNDLE_COORDINATOR.idFromName(`${firmId}:${manifestHash}`),
       );
       const state = await coordinator.status();
+
+      // The optioned container lane reports N volume keys (one for a single-file bundle, several for a
+      // 7z split). Sign each into `urls`; the reaped-artifact guard runs per volume, since the
+      // `bundles/` lifecycle rule could have expired any of them. A single missing volume makes the
+      // whole bundle unusable, so any miss reports `expired` and the client re-requests a build.
+      if (state.status === "ready" && state.volumes !== undefined) {
+        const presigner = presignerForEnv(c.env);
+        const urls: string[] = [];
+        for (const volume of state.volumes) {
+          const artifact = await c.env.R2.head(volume.key);
+          if (artifact === null) {
+            return c.json({ status: "expired" }, 200);
+          }
+          urls.push(await presigner.presignGet(bucket, volume.key, POLL_URL_TTL_SECONDS));
+        }
+        return c.json({ status: "ready", urls }, 200);
+      }
+
       if (state.status === "ready" && state.r2Key !== null) {
         // Guard against a reaped artifact: the `bundles/` R2 lifecycle rule expires the object after
         // its TTL, but the DO state is durable and would keep reporting `ready` with a stale key —

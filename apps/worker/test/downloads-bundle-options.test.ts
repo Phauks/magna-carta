@@ -17,6 +17,33 @@ import {
 // query so the matter need not exist.
 
 let ownerCookie: string;
+// A matter pre-seeded with two clean files, so a valid heavy-async request resolves to a non-empty
+// selection and reaches the 202 hand-off (the 422/501 tests use a throwaway empty matter instead,
+// since those responses fire before any selection query).
+let seededMatterId: string;
+
+// Seeds one clean, committed file (file + current clean file_version) under a matter directly in the
+// per-firm database — the same three-step shape the ingest gate produces (insert file, insert clean
+// version, point the file at it). No R2 object is needed: the heavy-async lane hands a manifest to the
+// container and returns 202 without reading any bytes in the Worker.
+async function seedCleanFile(matterId: string, name: string): Promise<void> {
+  const fileId = newIdentifier("file");
+  const versionId = newIdentifier("fileVersion");
+  const r2Key = `files/${fileId}/${versionId}`;
+  await env.DB_FIRM_POOL_1.prepare(
+    "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, ?3, NULL, NULL, NULL, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')",
+  )
+    .bind(fileId, matterId, name)
+    .run();
+  await env.DB_FIRM_POOL_1.prepare(
+    "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at, inline_playable, storage_class, storage_encoding, artifact_role) VALUES (?1, ?2, 1, ?3, 2048, 'application/octet-stream', 'application/octet-stream', NULL, 'clean', NULL, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z', NULL, 'standard', 'full', 'original')",
+  )
+    .bind(versionId, fileId, r2Key)
+    .run();
+  await env.DB_FIRM_POOL_1.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+    .bind(fileId, versionId)
+    .run();
+}
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
@@ -36,6 +63,19 @@ beforeAll(async () => {
   });
   await mirrorMemberWithOwnerRole(owner.userId, "Download Options Owner");
   ownerCookie = await signInForSessionCookie("download-opts-owner@example.com");
+
+  // A member + matter so the file/version FKs resolve; then two clean files under it.
+  await env.DB_FIRM_POOL_1.prepare(
+    "INSERT INTO member (user_id, display_name, status, created_at) VALUES ('bundle_opts_member', 'BO', 'active', '2026-01-01T00:00:00.000Z')",
+  ).run();
+  seededMatterId = newIdentifier("matter");
+  await env.DB_FIRM_POOL_1.prepare(
+    "INSERT INTO matter (id, title, description, status, matter_type_id, location_id, responsible_member_id, client_display_name, client_code, matter_number, numbered_at, opened_at, closed_at, created_at, updated_at) VALUES (?1, 'M', NULL, 'open', NULL, NULL, 'bundle_opts_member', NULL, NULL, NULL, NULL, NULL, NULL, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')",
+  )
+    .bind(seededMatterId)
+    .run();
+  await seedCleanFile(seededMatterId, "a.pdf");
+  await seedCleanFile(seededMatterId, "b.pdf");
 });
 
 async function postDownload(body: unknown): Promise<Response> {
@@ -141,14 +181,15 @@ describe("POST /api/v1/downloads/zip — invalid bundle options (422)", () => {
   });
 });
 
-describe("POST /api/v1/downloads/zip — optioned lanes not yet wired (501)", () => {
-  // A well-formed, capability-valid but non-plain option set routes to a lane (heavyAsync /
-  // encryptedStream) that is not yet wired, so the route returns a 501 interim. This verifies the HTTP
-  // plumbing of selectBundleLane's non-plain result, not just the pure selector. The 501 fires before
-  // any selection query, so the matter need not exist.
-  it("returns 501 for a valid non-plain option (compression other than store)", async () => {
+describe("POST /api/v1/downloads/zip — optioned lanes", () => {
+  // A well-formed, capability-valid non-plain option set routes through selectBundleLane. The
+  // heavy-unencrypted-async lane (compression / 7z / split) is wired: it resolves the selection,
+  // content-addresses the bundle, and hands off a background container build, returning 202 + a jobId.
+  // The encrypted-stream lane is not yet wired, so it still returns a 501 interim (before any
+  // selection query, so its throwaway matter need not exist).
+  it("returns 202 with a jobId for a valid heavy-async option (compression other than store)", async () => {
     const response = await postDownload({
-      matterId: freshMatter(),
+      matterId: seededMatterId,
       options: {
         format: "zip",
         compression: "normal",
@@ -160,10 +201,11 @@ describe("POST /api/v1/downloads/zip — optioned lanes not yet wired (501)", ()
         manifest: false,
       },
     });
-    expect(response.status).toBe(501);
-    expect(response.headers.get("content-type")).toContain("application/problem+json");
-    const body = (await response.json()) as Record<string, unknown>;
-    expect(body.type).toContain("not-implemented");
+    expect(response.status).toBe(202);
+    const body = (await response.json()) as { jobId?: string; status?: string };
+    expect(typeof body.jobId).toBe("string");
+    expect((body.jobId ?? "").length).toBeGreaterThan(0);
+    expect(body.status).toBe("building");
   });
 
   it("returns 501 for a valid encrypted option (encrypted stream lane not yet wired)", async () => {

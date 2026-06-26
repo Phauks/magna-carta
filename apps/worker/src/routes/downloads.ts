@@ -11,12 +11,19 @@ import {
   readLiveMaxTotalBytes,
 } from "@magna-carta/file-manager/upload-policy";
 import {
+  bundleCacheKey,
   bundleManifestHash,
   resolveZipSelection,
   type ZipEntry,
 } from "@magna-carta/file-manager/zip-composition";
 import { bundleOptionsSchema } from "@magna-carta/file-manager/bundle-options";
-import { validateOptionsForFormat } from "@magna-carta/file-manager/bundle-formats";
+import {
+  FORMAT_CAPABILITIES,
+  validateOptionsForFormat,
+} from "@magna-carta/file-manager/bundle-formats";
+import { applyBundleLayout } from "@magna-carta/file-manager/bundle-layout";
+import { buildBundleManifest } from "@magna-carta/file-manager/bundle-manifest";
+import type { ManifestEntry } from "@magna-carta/file-manager/contents-manifest";
 import type { FileId, FolderId, MatterId } from "@magna-carta/identifiers/types";
 import { makeZip } from "client-zip";
 import type { Bindings } from "../app.ts";
@@ -177,18 +184,18 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
       }
 
       // Route to the correct delivery lane. The plain lane (absent options or explicit ZIP/store/no
-      // encryption/no split) falls through to the existing logic below. The heavy-async and encrypted-
-      // stream lanes are not yet wired — they return 501 as an explicit interim and will be replaced
-      // when the bundle container tasks land.
+      // encryption/no split) and the heavy unencrypted async lane (compression / 7z / split, built by
+      // the bundle container) both run below. The encrypted single-file stream lane is wired in a
+      // later slice; until then it returns an explicit interim, before any selection work so the
+      // caller learns the option is unavailable without resolving the matter.
       const lane = selectBundleLane(options);
-      if (lane === "heavyAsync" || lane === "encryptedStream") {
+      if (lane === "encryptedStream") {
         return problemJson(c, {
           type: "not-implemented",
           title: "Bundle option not yet available",
           status: 501,
           detail:
-            "Non-plain bundle options (compression other than store, 7z format, encryption, or " +
-            "split) are not yet available. The plain ZIP fast lane is always available.",
+            "Encrypted bundles are not yet available. The plain ZIP fast lane is always available.",
         });
       }
 
@@ -215,26 +222,19 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
         });
       }
 
-      // The two live-vs-async thresholds: a selection over EITHER the file-count or the total-bytes
-      // knob is too retry-unfriendly to stream inline, so it hands off to the background build job. A
-      // single-file selection always redirects (a presigned GET needs no archive), whatever its size.
+      // The live thresholds drive the plain lane's inline-vs-async decision; both are also recorded in
+      // the audit metadata for every lane, so they are read once here regardless of lane.
       const [liveMaxFileCount, liveMaxTotalBytes] = await Promise.all([
         readLiveMaxFileCount(firm.firmDatabase),
         readLiveMaxTotalBytes(firm.firmDatabase),
       ]);
-      const delivery =
-        resolved.entries.length === 1
-          ? "redirect"
-          : resolved.fileCount > liveMaxFileCount || resolved.totalBytes > liveMaxTotalBytes
-            ? "async"
-            : "inline";
 
       // The export is recorded AFTER the delivery side-effect succeeds (matching the per-file download
       // in routes/files.ts), so the audit trail never claims an export that a later presign/build
       // failure prevented. Bundle-option flags (counts and booleans only — never password or content)
       // are included when options are present so the audit trail reflects what format was requested.
       const now = new Date().toISOString();
-      const recordExport = () =>
+      const recordExport = (delivery: string) =>
         commitEffectBatch(
           firm.firmDatabase,
           {
@@ -266,12 +266,93 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
           { now: () => now },
         );
 
+      // Heavy unencrypted async lane: a compressed / 7z / split bundle the bundle container builds off
+      // the hot path. The optioned bundle is content-addressed — the cache key folds the selection's
+      // content together with the non-secret options — and that key is the dedup key, the R2 output
+      // key prefix, AND the job id the client polls. A single-file bundle already built hands back a
+      // fresh signed URL; otherwise the coordinator single-flights the container build via the queue.
+      if (lane === "heavyAsync" && options !== undefined) {
+        // Compose the user's layout (wrapper / flatten) over the version-pinned entries. This drives
+        // the cache key and the queue message. buildBundleManifest re-derives the same layout from the
+        // original resolved set, so it is handed the un-laid-out `resolved` — passing `laidOut` would
+        // apply the wrapper/flatten a second time.
+        const laidOut = applyBundleLayout(resolved, options);
+        const entries = laidOut.entries.map((entry) => ({ r2Key: entry.r2Key, path: entry.path }));
+        const cacheKey = await bundleCacheKey(entries, options);
+        const extension = FORMAT_CAPABILITIES[options.format].extension;
+        // A non-split bundle is one object at <cacheKey>.<ext>; a split bundle is N volumes the
+        // container names under the <cacheKey> prefix. The fast-path HEAD only applies to the former.
+        const outputKeyPrefix =
+          options.split === null ? `bundles/${cacheKey}.${extension}` : `bundles/${cacheKey}`;
+
+        // The CONTENTS manifest rows (path / size / sha256) only when the user asked for a manifest.
+        const manifestEntries: ManifestEntry[] = options.manifest
+          ? laidOut.entries.map((entry) => ({
+              path: entry.path,
+              sizeBytes: entry.sizeBytes,
+              // slice: wire the file_version sha256 (the matter resolver does not yet project
+              // content_sha256, so the CONTENTS manifest records an empty hash for now).
+              sha256: "",
+            }))
+          : [];
+
+        const bundleManifest = buildBundleManifest({
+          jobId: cacheKey,
+          resolved,
+          options,
+          password: null, // the unencrypted lane never carries a password
+          manifestEntries,
+          outputKeyPrefix,
+          // slice: wire file mtime from R2 object metadata (none recorded yet → null per entry).
+          mtimeByR2Key: new Map(),
+        });
+
+        // Fast path (single-file bundles only): an identical optioned selection already built hands
+        // back a fresh signed URL without re-running the container.
+        if (options.split === null) {
+          const existing = await c.env.R2.head(outputKeyPrefix);
+          if (existing !== null) {
+            const url = await presignerForEnv(c.env).presignGet(
+              bucket,
+              outputKeyPrefix,
+              DOWNLOAD_TTL_SECONDS,
+            );
+            await recordExport("async");
+            return c.json({ url }, 200);
+          }
+        }
+
+        const coordinator = c.env.BUNDLE_COORDINATOR.get(
+          c.env.BUNDLE_COORDINATOR.idFromName(`${firmId}:${cacheKey}`),
+        );
+        const state = await coordinator.requestBundle({
+          firmId,
+          bucketName: bucket,
+          manifestHash: cacheKey,
+          entries,
+          options,
+          manifest: bundleManifest,
+        });
+        await recordExport("async");
+        return c.json({ jobId: cacheKey, status: state.status }, 202);
+      }
+
+      // Plain lane: the existing client-zip behavior. A single resolved file redirects; a selection
+      // over EITHER live threshold hands off to a content-addressed background build; otherwise the
+      // store-mode ZIP streams inline.
+      const delivery =
+        resolved.entries.length === 1
+          ? "redirect"
+          : resolved.fileCount > liveMaxFileCount || resolved.totalBytes > liveMaxTotalBytes
+            ? "async"
+            : "inline";
+
       // A single resolved file: redirect to a presigned GET, identical to the per-file download.
       if (delivery === "redirect") {
         const only = resolved.entries[0] as ZipEntry;
         const presigner = presignerForEnv(c.env);
         const url = await presigner.presignGet(bucket, only.r2Key, DOWNLOAD_TTL_SECONDS);
-        await recordExport();
+        await recordExport(delivery);
         return c.redirect(url, 302);
       }
 
@@ -289,7 +370,7 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
             artifactKey,
             DOWNLOAD_TTL_SECONDS,
           );
-          await recordExport();
+          await recordExport(delivery);
           return c.json({ url }, 200);
         }
         const coordinator = c.env.BUNDLE_COORDINATOR.get(
@@ -301,7 +382,7 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
           manifestHash,
           entries,
         });
-        await recordExport();
+        await recordExport(delivery);
         return c.json({ jobId: manifestHash, status: state.status }, 202);
       }
 
@@ -318,7 +399,7 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
           yield { name: entry.path, input: object.body };
         }
       }
-      await recordExport();
+      await recordExport(delivery);
       const zipStream = makeZip(zipInputs());
       return new Response(zipStream, {
         status: 200,
