@@ -8,7 +8,10 @@ import {
   liveMaxFileCountDefinition,
   scanEngineVersionDefinition,
 } from "@magna-carta/file-manager/upload-policy";
-import { flaggedTreatmentDefinition } from "@magna-carta/file-manager/scan-policy-settings";
+import {
+  flaggedTreatmentDefinition,
+  stepUpReauthDefinition,
+} from "@magna-carta/file-manager/scan-policy-settings";
 import { bundleManifestHash } from "@magna-carta/file-manager/zip-composition";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
@@ -464,6 +467,75 @@ describe("GET /api/v1/files/{id}/download", () => {
       expect(audit?.event).toBe("file.downloaded");
       const metadata = JSON.parse(audit?.metadata ?? "{}") as Record<string, unknown>;
       expect(metadata.flagged).toBe(true);
+    } finally {
+      await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+        .bind(flaggedTreatmentDefinition.key)
+        .run();
+    }
+  });
+
+  it("flagged + informed-access + step-up-reauth seam: 409 carries stepUpRequired:true, 302 with ack (advisory only)", async () => {
+    await writeFirmSettingStatement(
+      env.DB_FIRM_POOL_1,
+      flaggedTreatmentDefinition,
+      "informed-access",
+      ISO,
+    ).run();
+    await writeFirmSettingStatement(env.DB_FIRM_POOL_1, stepUpReauthDefinition, true, ISO).run();
+    try {
+      const { fileId, r2Key } = await seedCleanFile("flagged-stepup.txt", null, "stepup-bytes");
+      await env.DB_FIRM_POOL_1.prepare(
+        "UPDATE file_version SET scan_verdict = 'flagged', scan_detail = 'Eicar-Test' WHERE r2_key = ?1",
+      )
+        .bind(r2Key)
+        .run();
+
+      // Without acknowledgment → 409 with stepUpRequired:true signalling the re-auth advisory.
+      const blocked = await SELF.fetch(`https://example.com/api/v1/files/${fileId}/download`, {
+        headers: { cookie: ownerCookie, origin: "https://example.com" },
+        redirect: "manual",
+      });
+      expect(blocked.status).toBe(409);
+      const problem = await blocked.json<{ detail: string; stepUpRequired?: boolean }>();
+      expect(problem.stepUpRequired).toBe(true);
+
+      // Step-up is advisory only: with acknowledgeMalware=true the download still succeeds (302).
+      const allowed = await SELF.fetch(
+        `https://example.com/api/v1/files/${fileId}/download?acknowledgeMalware=true`,
+        { headers: { cookie: ownerCookie, origin: "https://example.com" }, redirect: "manual" },
+      );
+      expect(allowed.status).toBe(302);
+    } finally {
+      await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+        .bind(flaggedTreatmentDefinition.key)
+        .run();
+      await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+        .bind(stepUpReauthDefinition.key)
+        .run();
+    }
+  });
+
+  it("flagged + block treatment (defensive): 409 without acknowledgment — block never serves a flagged file", async () => {
+    await writeFirmSettingStatement(
+      env.DB_FIRM_POOL_1,
+      flaggedTreatmentDefinition,
+      "block",
+      ISO,
+    ).run();
+    try {
+      const { fileId, r2Key } = await seedCleanFile("flagged-block.txt", null, "block-bytes");
+      await env.DB_FIRM_POOL_1.prepare(
+        "UPDATE file_version SET scan_verdict = 'flagged', scan_detail = 'Eicar-Test' WHERE r2_key = ?1",
+      )
+        .bind(r2Key)
+        .run();
+
+      // Block treatment must never serve a flagged file regardless of ingest-time expectations.
+      const blocked = await SELF.fetch(`https://example.com/api/v1/files/${fileId}/download`, {
+        headers: { cookie: ownerCookie, origin: "https://example.com" },
+        redirect: "manual",
+      });
+      expect(blocked.status).toBe(409);
     } finally {
       await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
         .bind(flaggedTreatmentDefinition.key)
