@@ -387,6 +387,12 @@ export async function readForm(bytes: Uint8Array): Promise<FormField[]> {
  * text, choice, and radio fields; pass a boolean for checkboxes. Extra keys that
  * do not match any field are silently ignored.
  *
+ * Text and choice fills generate a Helvetica appearance, so the value renders in
+ * any viewer. Checkbox and radio fills set only the field value and the widget's
+ * selected state (`/V` and `/AS`) and render through the field's existing on/off
+ * state appearances — a checkbox or radio widget that carries no state appearance
+ * streams is filled at the value level but is not given a generated appearance.
+ *
  * When `options.flatten` is `true`, widget appearances are baked into page content
  * and the AcroForm dictionary is dropped, producing a flat static PDF. When
  * `false` (the default), the form remains interactive with the new values set.

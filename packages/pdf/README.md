@@ -488,6 +488,7 @@ Bakes each widget's current appearance into the page via a `Do` operator, merges
 ### V1 boundaries
 
 - **Appearances use Helvetica (base-14).** Filled text and choice appearances are generated in Helvetica — no font embedding, no custom typeface, single-line only (no rich text or multiline).
+- **Checkbox/radio render through their existing state appearances.** Filling a checkbox or radio sets the field value and the widget's selected state (`/V` and `/AS`); it does not generate an appearance. Rendering — and what `flattenForm` bakes — relies on the on/off state appearance streams the field already carries. A checkbox or radio widget that lacks those streams is filled at the value level but will not show a mark until a viewer synthesizes one. Text and choice fields do not have this caveat (their appearances are generated).
 - **No XFA.** XFA-only documents are not supported; the call throws `"document has no interactive form"`.
 - **No digital-signature creation.** Signature fields are enumerated by `readForm` but signing is deferred.
 - **No `/MK` border styling.** Widget appearance dictionaries (`/MK`) are not applied to generated appearances.

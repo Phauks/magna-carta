@@ -2338,6 +2338,96 @@ mod tests {
     }
 
     #[test]
+    fn flatten_accumulates_xobjects_and_preserves_existing() {
+        // Two widgets on one page must BOTH bake (their XObject names accumulate
+        // in the page /Resources /XObject), and a resource the page already carried
+        // must survive the per-widget non-destructive merge.
+        let (mut doc, page_id) = base_doc();
+
+        // Pre-existing page /Resources /XObject entry that must not be dropped.
+        let existing_xobject = add_ap_stream(&mut doc, [0, 0, 5, 5], b"q Q");
+        if let Ok(Object::Dictionary(page_dict)) = doc.get_object_mut(page_id) {
+            page_dict.set(
+                b"Resources",
+                Object::Dictionary(dictionary! {
+                    "XObject" => Object::Dictionary(dictionary! {
+                        "Existing" => Object::Reference(existing_xobject),
+                    }),
+                }),
+            );
+        }
+
+        let make_widget = |doc: &mut Document, name: &str, rect: Object| -> ObjectId {
+            let ap_id = add_ap_stream(doc, [0, 0, 100, 20], b"q Q");
+            let widget = dictionary! {
+                "Type" => Object::Name(b"Annot".to_vec()),
+                "Subtype" => Object::Name(b"Widget".to_vec()),
+                "FT" => Object::Name(b"Tx".to_vec()),
+                "T" => Object::string_literal(name),
+                "Rect" => rect,
+                "AP" => Object::Dictionary(dictionary! {
+                    "N" => Object::Reference(ap_id),
+                }),
+            };
+            add_annot(doc, page_id, widget)
+        };
+        let w1 = make_widget(&mut doc, "First", rect_obj());
+        let w2 = make_widget(
+            &mut doc,
+            "Second",
+            Object::Array(vec![
+                Object::Integer(50),
+                Object::Integer(600),
+                Object::Integer(200),
+                Object::Integer(620),
+            ]),
+        );
+        add_acroform(&mut doc, &[w1, w2]);
+        let bytes = to_bytes(&mut doc);
+
+        let out = flatten_form(&bytes).expect("flatten_form");
+        let doc2 = Document::load_mem(&out).expect("reload");
+        let (_, pid) = doc2.get_pages().into_iter().next().unwrap();
+
+        // The pre-existing entry plus one accumulated entry per baked widget.
+        let resources = crate::surgery::resolve_inherited_resources(&doc2, pid)
+            .expect("page resources after flatten");
+        let xobject_dict =
+            crate::surgery::resolve_dict(&doc2, resources.get(b"XObject").expect("/XObject"))
+                .expect("/XObject dict");
+        assert!(
+            xobject_dict.has(b"Existing"),
+            "the pre-existing /XObject entry must survive the merge"
+        );
+        assert!(
+            xobject_dict.has(b"MagnaCartaFlat0") && xobject_dict.has(b"MagnaCartaFlat1"),
+            "both baked widgets must accumulate distinct /XObject entries; got {:?}",
+            xobject_dict
+                .iter()
+                .map(|(k, _)| k.clone())
+                .collect::<Vec<_>>()
+        );
+
+        // The page content must carry one Do per baked widget (two total).
+        let page_dict = doc2.get_dictionary(pid).expect("page dict");
+        let stream_ids: Vec<ObjectId> = match page_dict.get(b"Contents").ok().cloned() {
+            Some(Object::Reference(id)) => vec![id],
+            Some(Object::Array(arr)) => arr.iter().filter_map(|o| o.as_reference().ok()).collect(),
+            _ => vec![],
+        };
+        let do_count: usize = stream_ids
+            .iter()
+            .filter_map(|&sid| match doc2.get_object(sid).ok()? {
+                Object::Stream(s) => {
+                    Some(String::from_utf8_lossy(&s.content).matches(" Do").count())
+                }
+                _ => None,
+            })
+            .sum();
+        assert_eq!(do_count, 2, "each baked widget contributes one Do operator");
+    }
+
+    #[test]
     fn flatten_keeps_non_widget_annotations() {
         let (mut doc, page_id) = base_doc();
 
