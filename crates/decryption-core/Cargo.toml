@@ -9,7 +9,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 lopdf = { workspace = true }
-zip = "2"
+zip = { version = "2", default-features = false, features = ["aes-crypto", "deflate"] }
 cfb = "0.10"
 office-crypto = "0.1"
 pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"] }
