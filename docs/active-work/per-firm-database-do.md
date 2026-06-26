@@ -2,7 +2,7 @@
 branch: per-firm-database-do
 worktree: C:/dev/magna-carta-worktrees/per-firm-database-do
 area: Tenancy — per-firm database on a SQLite-backed Durable Object
-status: built — full worker + db suites green, vp check clean; pre-merge review pending
+status: built + 7-angle reviewed + fix wave committed (4 commits); format + full worker test suite + process-refs lint green; local tsgo type gate env-blocked (OOM on this 15GB machine) → CI authoritative; awaiting owner merge call
 touches: docs/specs/2026-06-23-per-firm-database-durable-object-design.md (new), docs/decisions/pending/per-firm-database-durable-object.md (new ADR fragment, supersedes per-firm-D1 half of ADR-0003), packages/database/** (doSqliteMigrationTarget + DO-SQLite batch adapter), packages/data-access/** (proxy SqlDatabase), apps/worker/src/spike/** (throwaway, on spike branch only), apps/worker/src/firm-binding-resolver.ts (retire), apps/worker/src/firm-resource-provider.ts (retire per-firm createDatabase), apps/worker/src/scheduled.ts (relay re-homing — HIGH-RISK), apps/worker/wrangler.jsonc (DO binding + migration), apps/worker/src/index.ts (DO export), ~30 apps/worker/test/** files, STATUS.md, ROADMAP.md
 ---
 
