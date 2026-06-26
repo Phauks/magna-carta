@@ -58,6 +58,23 @@ pub enum KdfParams {
         header12: [u8; 12],
         crc_high: u8,
     },
+    /// ECMA-376 agile-encryption (MS-OFFCRYPTO) password-verifier inputs, read from the
+    /// `encryptedKey` element of the `EncryptionInfo` stream. These are everything
+    /// `verify_guess` needs to test a candidate without re-opening the compound document.
+    ///
+    /// `spin_count` is the SHA-512 iteration count; `key_bits` is the AES key length in
+    /// bits (256 for every modern Office file). `salt` is the `encryptedKey` `saltValue`,
+    /// used both as the leading salt of the iterative hash and as the 16-byte AES-CBC IV.
+    /// `enc_verifier_hash_input` and `enc_verifier_hash_value` are the two ciphertext blobs:
+    /// a correct password decrypts the first to a random nonce whose SHA-512 equals the
+    /// decrypted second.
+    OoxmlAgile {
+        spin_count: u32,
+        key_bits: u32,
+        salt: Vec<u8>,
+        enc_verifier_hash_input: Vec<u8>,
+        enc_verifier_hash_value: Vec<u8>,
+    },
 }
 
 #[derive(Debug, Clone)]
