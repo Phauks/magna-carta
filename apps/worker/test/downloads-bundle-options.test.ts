@@ -279,5 +279,16 @@ describe("POST /api/v1/downloads/zip — optioned lanes", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("application/zip");
     expect(response.headers.get("content-disposition")).toContain("secret.zip");
+
+    // The export is audited with an `encrypted` flag, but the password must NEVER reach the audit row
+    // (machine-checks the in-request-only guarantee, on top of the data-access redaction guard).
+    const auditRow = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT metadata FROM audit_log WHERE event = 'files.bulkDownloaded' AND metadata LIKE '%\"encrypted\":true%' ORDER BY created_at DESC LIMIT 1",
+    ).first<{ metadata: string }>();
+    expect(auditRow).not.toBeNull();
+    expect(auditRow?.metadata).not.toContain("correct-horse-battery-staple");
+    const metadata = JSON.parse(auditRow?.metadata ?? "{}") as Record<string, unknown>;
+    expect(metadata.encrypted).toBe(true);
+    expect(metadata).not.toHaveProperty("password");
   });
 });

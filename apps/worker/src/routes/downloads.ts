@@ -213,6 +213,18 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
       // encryptedStream) resolve the selection below before branching into their delivery logic.
       const lane = selectBundleLane(options);
 
+      // Fail fast (before any selection query) when the encrypted lane is requested but the bundle
+      // service binding is absent — a deploy-time activation that may be unbound during a staged
+      // rollout. Same fail-before-DB discipline as the validation checks above.
+      if (lane === "encryptedStream" && c.env.BUNDLE_SERVICE === undefined) {
+        return problemJson(c, {
+          type: "service-unavailable",
+          title: "Bundle service not configured",
+          status: 503,
+          detail: "The bundle service is not available. Contact support if this persists.",
+        });
+      }
+
       // Resolve the selection to version-pinned clean entries (the status-gated reads in queries.ts).
       const [folders, cleanFiles] = await Promise.all([
         listFoldersByMatter(firm.firmDatabase, matterId),
@@ -327,7 +339,12 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
 
         const contentType =
           options.format === "zip" ? "application/zip" : "application/x-7z-compressed";
-        const safeOutputName = options.outputName.replace(/[^A-Za-z0-9._-]/g, "-");
+        // Sanitize for the Content-Disposition header; fall back to a generic name if the output name
+        // is entirely non-filename characters (so the header is never an all-dashes string).
+        const sanitizedOutputName = options.outputName.replace(/[^A-Za-z0-9._-]/g, "-");
+        const safeOutputName = /[A-Za-z0-9]/.test(sanitizedOutputName)
+          ? sanitizedOutputName
+          : "download.zip";
 
         await recordExport("stream");
         return new Response(containerResponse.body, {
