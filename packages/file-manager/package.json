@@ -27,7 +27,8 @@
     "./bundle-options": "./src/bundle-options.ts",
     "./bundle-formats": "./src/bundle-formats.ts",
     "./validation": "./src/validation.ts",
-    "./contents-manifest": "./src/contents-manifest.ts"
+    "./contents-manifest": "./src/contents-manifest.ts",
+    "./bundle-manifest": "./src/bundle-manifest.ts"
   },
   "scripts": {
     "test": "vp test run"
