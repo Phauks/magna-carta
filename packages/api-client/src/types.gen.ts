@@ -1115,6 +1115,18 @@ export type SupportGrantStatusResult = {
     status: string;
 };
 
+export type SupportSessionMinted = {
+    token: string;
+    tier: 'diagnostic' | 'privileged';
+    firmId: string;
+    expiresAt: string;
+};
+
+export type RedeemSupportSession = {
+    grantId: string;
+    principalId: string;
+};
+
 export type ShippingConnectAck = {
     id: string;
     status: string;
@@ -7100,6 +7112,54 @@ export type SupportGrantsRevokeResponses = {
 };
 
 export type SupportGrantsRevokeResponse = SupportGrantsRevokeResponses[keyof SupportGrantsRevokeResponses];
+
+export type SupportSessionsRedeemData = {
+    body: RedeemSupportSession;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/support/sessions';
+};
+
+export type SupportSessionsRedeemErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * Missing or invalid X-Platform-Admin-Key
+     */
+    401: Problem;
+    /**
+     * Principal may not redeem this tier (privileged grants require support_lead role)
+     */
+    403: Problem;
+    /**
+     * No redeemable grant (absent, not active, or expired), or unknown/disabled principal
+     */
+    404: Problem;
+    /**
+     * The body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SupportSessionsRedeemError = SupportSessionsRedeemErrors[keyof SupportSessionsRedeemErrors];
+
+export type SupportSessionsRedeemResponses = {
+    /**
+     * The minted support-session token
+     */
+    201: SupportSessionMinted;
+};
+
+export type SupportSessionsRedeemResponse = SupportSessionsRedeemResponses[keyof SupportSessionsRedeemResponses];
 
 export type ShippingConnectData = {
     body: ShippingConnectRequest;

@@ -45,6 +45,7 @@ import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
 import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
 import { registerMetadataRoutes } from "./routes/metadata.ts";
 import { registerSupportGrantsRoutes } from "./routes/support-grants.ts";
+import { registerSupportSessionsRoute } from "./routes/support-sessions.ts";
 import { registerDevWebToolsDemoRoute } from "./routes/dev-web-tools-demo.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
@@ -392,6 +393,10 @@ export function createApp(options: CreateAppOptions = {}) {
   // the transparency surface (who has or had access to their firm). Co-sign and revoke land in the
   // next task.
   registerSupportGrantsRoutes(app, chokepoint);
+  // Support sessions — a platform-staff principal redeems an active grant for a support-session
+  // token. Public surface (platform-admin-key guard); the chokepoint applies the idempotency and
+  // rate-limit gates.
+  registerSupportSessionsRoute(app, chokepoint);
 
   // The plugin runtime: production defaults (a fetch-backed http client; the firm_secret store seam
   // that throws until the marketplace wires the live credential read), overridable in tests.

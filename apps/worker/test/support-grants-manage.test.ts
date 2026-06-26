@@ -50,20 +50,17 @@ describe("POST /api/v1/support/grants/{grantId}/revoke", () => {
       expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
       now,
     }).run();
-    const res = await SELF.fetch(
-      `https://example.com/api/v1/support/grants/${grantId}/revoke`,
-      {
-        method: "POST",
-        headers: {
-          origin: "https://example.com",
-          cookie: mgrCookie,
-          "content-type": "application/json",
-        },
-        body: "{}",
+    const res = await SELF.fetch(`https://example.com/api/v1/support/grants/${grantId}/revoke`, {
+      method: "POST",
+      headers: {
+        origin: "https://example.com",
+        cookie: mgrCookie,
+        "content-type": "application/json",
       },
-    );
+      body: "{}",
+    });
     expect(res.status).toBe(200);
-    expect((await res.json() as { status: string }).status).toBe("revoked");
+    expect(((await res.json()) as { status: string }).status).toBe("revoked");
   });
 
   it("revoke of a grant belonging to a different firm is 404", async () => {
@@ -101,20 +98,17 @@ describe("POST /api/v1/support/grants/{grantId}/cosign", () => {
       expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
       now,
     }).run();
-    const res = await SELF.fetch(
-      `https://example.com/api/v1/support/grants/${grantId}/cosign`,
-      {
-        method: "POST",
-        headers: {
-          origin: "https://example.com",
-          cookie: mgrCookie,
-          "content-type": "application/json",
-        },
-        body: "{}",
+    const res = await SELF.fetch(`https://example.com/api/v1/support/grants/${grantId}/cosign`, {
+      method: "POST",
+      headers: {
+        origin: "https://example.com",
+        cookie: mgrCookie,
+        "content-type": "application/json",
       },
-    );
+      body: "{}",
+    });
     expect(res.status).toBe(200);
-    expect((await res.json() as { status: string }).status).toBe("active");
+    expect(((await res.json()) as { status: string }).status).toBe("active");
   });
 
   it("cosign of a non-existent grant is 404", async () => {

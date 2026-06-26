@@ -603,6 +603,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "supportGrants.list",
       "supportGrants.request",
       "supportGrants.revoke",
+      "supportSessions.redeem",
       "timeEntries.approve",
       "timeEntries.create",
       "timeEntries.get",

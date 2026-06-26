@@ -4476,6 +4476,48 @@
           "status"
         ]
       },
+      "SupportSessionMinted": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "diagnostic",
+              "privileged"
+            ]
+          },
+          "firmId": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "tier",
+          "firmId",
+          "expiresAt"
+        ]
+      },
+      "RedeemSupportSession": {
+        "type": "object",
+        "properties": {
+          "grantId": {
+            "type": "string"
+          },
+          "principalId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "grantId",
+          "principalId"
+        ]
+      },
       "ShippingConnectAck": {
         "type": "object",
         "properties": {
@@ -18526,6 +18568,120 @@
         }
       }
     },
+    "/api/v1/support/sessions": {
+      "post": {
+        "description": "A platform-staff principal redeems an active support grant for a short-lived support-session token. The token encodes the grant, principal, firm, and tier; the live grant row (checked on every subsequent request) remains the source of truth for revocation and expiry. Privileged grants may only be redeemed by a support_lead principal.",
+        "operationId": "supportSessions.redeem",
+        "tags": [
+          "supportSessions"
+        ],
+        "x-mc-operationId": "supportSessions.redeem",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "support:mintSession",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "auth",
+        "x-mc-tags": [
+          "supportSessions"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedeemSupportSession"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The minted support-session token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportSessionMinted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid X-Platform-Admin-Key",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Principal may not redeem this tier (privileged grants require support_lead role)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No redeemable grant (absent, not active, or expired), or unknown/disabled principal",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The body failed validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/integrations/shipping/connection": {
       "post": {
         "description": "Connects the firm's EasyPost postage account by storing its API key as a firm secret.",
@@ -19440,6 +19596,9 @@
     },
     {
       "name": "supportGrants"
+    },
+    {
+      "name": "supportSessions"
     },
     {
       "name": "timeEntries"
