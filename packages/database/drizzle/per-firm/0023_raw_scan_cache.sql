@@ -3,6 +3,7 @@
 -- is unchanged; only the value column changes shape. The verdict CHECK constraint is dropped along
 -- with the old columns — the stored value is now opaque JSON, not a constrained enum.
 -- Pre-production: no rows exist, so DROP TABLE + CREATE TABLE is a safe forward migration.
+-- contract: DROP TABLE scan_cache — deliberate destructive reshape, safe because no rows exist yet.
 DROP TABLE `scan_cache`;
 --> statement-breakpoint
 CREATE TABLE `scan_cache` (
