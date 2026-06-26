@@ -22,7 +22,10 @@ export async function resolveSupportSession(
   const payload = await verifySupportSessionToken(env.AUTH_SECRET, header, nowSeconds);
   if (payload === null) return null;
 
-  const result = await selectSupportGrantStatement(env.DB_CONTROL, payload.grantId).all<SupportGrantRow>();
+  const result = await selectSupportGrantStatement(
+    env.DB_CONTROL,
+    payload.grantId,
+  ).all<SupportGrantRow>();
   const grant = result.results[0];
   if (grant === undefined) return null;
   const nowIso = new Date(nowSeconds * 1000).toISOString();

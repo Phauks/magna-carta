@@ -1,7 +1,4 @@
-import {
-  type Permission,
-  permissionsForNamespace,
-} from "@magna-carta/access-control/registry";
+import { type Permission, permissionsForNamespace } from "@magna-carta/access-control/registry";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { SupportGrantTier } from "@magna-carta/data-access/support-access-statements";
 import type { UserId } from "@magna-carta/identifiers/types";

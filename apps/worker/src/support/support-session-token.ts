@@ -1,4 +1,9 @@
-import type { FirmId, PlatformStaffId, SupportGrantId, UserId } from "@magna-carta/identifiers/types";
+import type {
+  FirmId,
+  PlatformStaffId,
+  SupportGrantId,
+  UserId,
+} from "@magna-carta/identifiers/types";
 import type { SupportGrantTier } from "@magna-carta/data-access/support-access-statements";
 import { constantTimeStringEquals } from "../constant-time.ts";
 

@@ -63,7 +63,9 @@ describe("GET /api/v1/me", () => {
       // (0021_outgoing_talon) + tools:whois / tools:safeBrowse (0017_seed-tools-web-domains.sql,
       // seeded onto every default role) + tools:fileConverter (0018_seed-tools-file-converter.sql) +
       // firm:scanFile (0019_seed-scan-file-permission.sql) + tools:metadataScrubber
-      // (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role). Sorted.
+      // (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role) + support:request /
+      // support:cosign / support:manage (0022_support-access-permissions.sql, owner/admin gets all
+      // three; other roles get support:request only). Sorted.
       permissions: [
         "customFields:manage",
         "customFields:purge",
@@ -88,6 +90,9 @@ describe("GET /api/v1/me", () => {
         "matters:renumber",
         "matters:reopen",
         "shipping:manage",
+        "support:cosign",
+        "support:manage",
+        "support:request",
         "time:approve",
         "time:manageRates",
         "time:manageSettings",

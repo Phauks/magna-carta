@@ -21,9 +21,17 @@ describe("grant lifecycle", () => {
 
   it("usable only when active and unexpired", () => {
     const now = "2026-06-26T00:30:00.000Z";
-    expect(supportGrantUsable({ status: "active", expires_at: "2026-06-26T01:00:00.000Z" }, now)).toBe(true);
-    expect(supportGrantUsable({ status: "active", expires_at: "2026-06-26T00:00:00.000Z" }, now)).toBe(false); // expired
-    expect(supportGrantUsable({ status: "revoked", expires_at: "2026-06-26T01:00:00.000Z" }, now)).toBe(false);
-    expect(supportGrantUsable({ status: "requested", expires_at: "2026-06-26T01:00:00.000Z" }, now)).toBe(false);
+    expect(
+      supportGrantUsable({ status: "active", expires_at: "2026-06-26T01:00:00.000Z" }, now),
+    ).toBe(true);
+    expect(
+      supportGrantUsable({ status: "active", expires_at: "2026-06-26T00:00:00.000Z" }, now),
+    ).toBe(false); // expired
+    expect(
+      supportGrantUsable({ status: "revoked", expires_at: "2026-06-26T01:00:00.000Z" }, now),
+    ).toBe(false);
+    expect(
+      supportGrantUsable({ status: "requested", expires_at: "2026-06-26T01:00:00.000Z" }, now),
+    ).toBe(false);
   });
 });

@@ -18,6 +18,8 @@ import {
   type SessionContext,
 } from "../session-context.ts";
 import type { ChokepointPorts, ResolvedSession } from "./chokepoint.ts";
+import { resolveSupportSession } from "../support/resolve-support-session.ts";
+import { resolveSupportPermissions } from "../support/tier-permissions.ts";
 
 // What resolveFirmContext returns and the chokepoint threads to loadPermissions and the handler:
 // the session firm's per-firm D1 handle plus its display name (so a handler reading the firm need
@@ -60,7 +62,12 @@ export type AppVariables = ChokepointVariables & {
 function makeResolveSession(
   authForEnv: (env: Bindings) => ReturnType<typeof createAuth>,
 ): (c: Context) => Promise<ResolvedSession | null> {
-  return (c) => resolveSession(authForEnv((c as Context<{ Bindings: Bindings }>).env), c);
+  return async (c) => {
+    const env = (c as Context<{ Bindings: Bindings }>).env;
+    const support = await resolveSupportSession(env, c, Math.floor(Date.now() / 1000));
+    if (support !== null) return support;
+    return resolveSession(authForEnv(env), c);
+  };
 }
 
 // resolveFirmContext port (the structural-absence gate). Returns null — mapped to the
@@ -107,9 +114,12 @@ function makeResolveFirmContext(): (
 // resolveFirmContext already 404'd them.
 function makeLoadPermissions(): (
   firmContext: FirmContext,
-  userId: ResolvedSession["userId"],
+  session: ResolvedSession,
 ) => Promise<ReadonlySet<Permission>> {
-  return (firmContext, userId) => loadEffectivePermissions(firmContext.firmDatabase, userId);
+  return async (firmContext, session) =>
+    session.support === undefined
+      ? loadEffectivePermissions(firmContext.firmDatabase, session.userId)
+      : resolveSupportPermissions(session.support.tier, firmContext.firmDatabase, session.userId);
 }
 
 // Assembles the production ports MINUS the idempotency port (app.ts adds createChokepointIdempotency

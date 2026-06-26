@@ -14,7 +14,10 @@ beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
 });
 
-function ctxWith(token: string | undefined): { req: { header: (n: string) => string | undefined }; env: typeof env } {
+function ctxWith(token: string | undefined): {
+  req: { header: (n: string) => string | undefined };
+  env: typeof env;
+} {
   return {
     env,
     req: { header: (name: string) => (name === "X-Support-Session" ? token : undefined) },

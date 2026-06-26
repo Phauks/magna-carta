@@ -4,7 +4,12 @@ import type { Permission } from "@magna-carta/access-control/registry";
 import { selectMemberPermissionsStatements } from "@magna-carta/data-access/member-statements";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
-import type { FirmId, PlatformStaffId, SupportGrantId, UserId } from "@magna-carta/identifiers/types";
+import type {
+  FirmId,
+  PlatformStaffId,
+  SupportGrantId,
+  UserId,
+} from "@magna-carta/identifiers/types";
 import type { SupportGrantTier } from "@magna-carta/data-access/support-access-statements";
 import type { createAuth } from "./auth.ts";
 
