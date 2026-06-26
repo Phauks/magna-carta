@@ -44,6 +44,7 @@ import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
 import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
 import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
 import { registerMetadataRoutes } from "./routes/metadata.ts";
+import { registerSupportGrantsRoutes } from "./routes/support-grants.ts";
 import { registerDevWebToolsDemoRoute } from "./routes/dev-web-tools-demo.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
@@ -387,6 +388,10 @@ export function createApp(options: CreateAppOptions = {}) {
   // The server-conversion surface: presign an upload slot, submit a job, and poll its state.
   // Each route traverses the same chokepoint under the tools:fileConverter permission.
   registerConversionRoutes(app, chokepoint);
+  // Support access — firm members request time-boxed help-desk access; the list gives all members
+  // the transparency surface (who has or had access to their firm). Co-sign and revoke land in the
+  // next task.
+  registerSupportGrantsRoutes(app, chokepoint);
 
   // The plugin runtime: production defaults (a fetch-backed http client; the firm_secret store seam
   // that throws until the marketplace wires the live credential read), overridable in tests.

@@ -137,6 +137,9 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string> = {
   // time:* governs time entries and the rate engine, all scoped to matters; the matter resource
   // is the nearest tenancy root for every time-entry mutation and read.
   time: "matter",
+  // support:* governs help-desk access grants on a firm; grants are firm-scoped (the consent
+  // anchor is a firm member, the grant row lives in the control-plane firm namespace).
+  support: "firm",
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
@@ -596,6 +599,8 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "shipping.rateShipment",
       "shipping.refund",
       "shipping.tracking",
+      "supportGrants.list",
+      "supportGrants.request",
       "timeEntries.approve",
       "timeEntries.create",
       "timeEntries.get",
