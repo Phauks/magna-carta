@@ -19,3 +19,11 @@
 
 - Channels gate **behavior only** — never backend code-path existence, never schema. Schema stays the single additive fleet union; feature code ships dark to all firms.
 - Cross-cutting files (CLAUDE.md, STATUS.md, ROADMAP.md, white paper, conventions): run `vp run worktrees` and sync `main` before editing.
+
+## Deferred to Plan 2 / before first real client
+
+- **Consent text + version recording.** The beta door currently records only a `consentAcknowledged` boolean in `audit_log`. The design wants the *exact consent statement text and version* the admin saw recorded for the defensible artifact. Add a `consentVersion` (and the canonical statement text) to the beta request contract + audit metadata when Plan 2 authors the consent dialog, before the first real client firm opts into beta.
+
+## Deploy precondition (backend rails)
+
+- **Apply control-plane migration `0003_handy_rattler` to the production control-plane D1 before this worker code goes live.** `/me` reads `firm.release_channel` unconditionally; on a control-plane D1 without `0003`, every session bootstrap would 500. There is currently no automated control-plane migration applier (only the test applier and the per-firm fleet-rollout exist), so this is a manual, ordered deploy step. No production firms exist yet, so present risk is low — but the runbook must apply `0003` first.

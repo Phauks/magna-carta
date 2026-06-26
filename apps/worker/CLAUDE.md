@@ -120,7 +120,7 @@ A firm's `release_channel` (`stable | beta | alpha`) is stored on the control-pl
 
 **Adding a feature flag.** To gate a new feature behind a release channel:
 
-1. Add an entry to `FLAG_CATALOG` in `@magna-carta/feature-flags` — a `key`, a human `name`, and a `stage: "alpha" | "beta" | "stable"`.
+1. Add an entry to `FLAG_CATALOG` in `@magna-carta/feature-flags` — keyed by the flag key, with `defaultValue` (the safe default = stable behavior), `stage: "alpha" | "beta" | "stable"`, and a `description`.
 2. Add a matching boolean flag in the Flagship dashboard with a targeting rule: `channel in [beta, alpha]` (or `[alpha]` for alpha-only), optionally with a `%` rollout.
 3. Call `getBooleanValue(flagKey, false, context)` (or `evaluateCatalog`) in the route or session handler. Stable behavior is always the default — the second argument must equal what a `stable` firm would see.
 
