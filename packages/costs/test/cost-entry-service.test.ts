@@ -5,8 +5,10 @@ import type { CostEntryId, MatterId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import {
   approveCost,
+  attachReceipt,
   captureCost,
   type CaptureCostInput,
+  detachReceipt,
   kickBackCost,
   submitCost,
   updateDraftCost,
@@ -353,6 +355,73 @@ describe("cost-entry lifecycle (review gate off)", () => {
     // billing lock) or void; draft -> submitted is a gate-on-only transition.
     await expect(submitCost(database, id as never, gateOn, options)).rejects.toMatchObject({
       code: "illegal-transition",
+    });
+  });
+});
+
+async function receiptOf(database: BatchDatabase, id: string): Promise<string | null | undefined> {
+  const { results } = await database
+    .prepare("SELECT receipt_file_id FROM cost_entry WHERE id = ?1")
+    .bind(id)
+    .all<{ receipt_file_id: string | null }>();
+  return results[0]?.receipt_file_id;
+}
+
+describe("cost-entry receipt attach/detach", () => {
+  it("attachReceipt sets receipt_file_id on a draft entry", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    const id = await captureDraft(database);
+
+    const attached = await attachReceipt(database, id as never, "file_receipt_a", options);
+    await commitEffectBatch(database, attached.effect, { now: clock.now });
+
+    expect(await receiptOf(database, id)).toBe("file_receipt_a");
+    expect(await countAudits(database, "cost_entry.receipt_attached")).toBe(1);
+  });
+
+  it("attachReceipt on an unknown id throws not-found with no audit row composed", async () => {
+    const database = freshDatabase();
+    await expect(
+      attachReceipt(database, "costEntry_missing" as CostEntryId, "file_receipt_a", options),
+    ).rejects.toMatchObject({ code: "not-found" });
+    // The throw precedes effect composition — no audit statement is ever constructed.
+    expect(await countAudits(database, "cost_entry.receipt_attached")).toBe(0);
+  });
+
+  it("attachReceipt on a billed (frozen) entry throws frozen-entry", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    const id = await captureDraft(database);
+    await billEntry(database, id);
+    await expect(
+      attachReceipt(database, id as never, "file_receipt_a", options),
+    ).rejects.toMatchObject({ code: "frozen-entry" });
+  });
+
+  it("detachReceipt clears receipt_file_id on an entry", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    const id = await captureDraft(database);
+
+    const attached = await attachReceipt(database, id as never, "file_receipt_a", options);
+    await commitEffectBatch(database, attached.effect, { now: clock.now });
+    expect(await receiptOf(database, id)).toBe("file_receipt_a");
+
+    const detached = await detachReceipt(database, id as never, options);
+    await commitEffectBatch(database, detached.effect, { now: clock.now });
+
+    expect(await receiptOf(database, id)).toBeNull();
+    expect(await countAudits(database, "cost_entry.receipt_detached")).toBe(1);
+  });
+
+  it("detachReceipt on a billed (frozen) entry throws frozen-entry", async () => {
+    const database = freshDatabase();
+    await seedMatter(database, "matter_1");
+    const id = await captureDraft(database);
+    await billEntry(database, id);
+    await expect(detachReceipt(database, id as never, options)).rejects.toMatchObject({
+      code: "frozen-entry",
     });
   });
 });

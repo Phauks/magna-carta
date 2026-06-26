@@ -11,6 +11,8 @@ import {
   type BillableStatus,
 } from "@magna-carta/billing-core/lifecycle";
 import {
+  attachReceiptStatement,
+  detachReceiptStatement,
   insertCostEntryStatement,
   selectCostEntryStatement,
   selectMatterEBillingStatement,
@@ -305,6 +307,55 @@ export async function voidCost(
       statements: [
         transitionCostStatusStatement(database, id, from, "void", updatedAt),
         audit(database, options, "cost_entry.voided", id),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+// Links a receipt file to an unfrozen cost entry. Like the lifecycle methods, the pre-read throws
+// not-found before any effect is composed, so an unknown id can never produce a phantom
+// receipt-attached audit row; a billed/void row is refused as frozen. The statement's
+// NOT IN ('billed','void') guard is the freeze backstop if the row freezes after the pre-read.
+export async function attachReceipt(
+  database: SqlDatabase,
+  id: CostEntryId,
+  fileId: string,
+  options: CostServiceOptions,
+): Promise<{ effect: EffectWrite }> {
+  const status = await loadStatus(database, id);
+  if (isFrozen(status)) {
+    throw new CostValidationError("frozen-entry", `cost entry ${id} is ${status} and frozen`);
+  }
+  const updatedAt = options.clock.now();
+  return {
+    effect: {
+      statements: [
+        attachReceiptStatement(database, id, fileId, updatedAt),
+        audit(database, options, "cost_entry.receipt_attached", id),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+// Clears the receipt link from an unfrozen cost entry. Same pre-read-then-compose discipline and
+// freeze backstop as attachReceipt.
+export async function detachReceipt(
+  database: SqlDatabase,
+  id: CostEntryId,
+  options: CostServiceOptions,
+): Promise<{ effect: EffectWrite }> {
+  const status = await loadStatus(database, id);
+  if (isFrozen(status)) {
+    throw new CostValidationError("frozen-entry", `cost entry ${id} is ${status} and frozen`);
+  }
+  const updatedAt = options.clock.now();
+  return {
+    effect: {
+      statements: [
+        detachReceiptStatement(database, id, updatedAt),
+        audit(database, options, "cost_entry.receipt_detached", id),
       ],
       outboxMessages: [],
     },

@@ -693,4 +693,38 @@ describe("cost entry receipt attach/detach", () => {
       .first<{ receipt_file_id: string | null }>();
     expect(row?.receipt_file_id).toBeNull();
   });
+
+  it("DELETE /receipt on a non-existent cost returns 404 and writes no audit row", async () => {
+    const phantomId = "costEntry_222222222222222222222";
+    const auditBefore = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT COUNT(*) AS c FROM audit_log",
+    ).first<{ c: number }>();
+
+    const response = await del(`/api/v1/costs/${phantomId}/receipt`);
+    expect(response.status).toBe(404);
+
+    const auditAfter = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT COUNT(*) AS c FROM audit_log",
+    ).first<{ c: number }>();
+    expect(auditAfter?.c).toBe(auditBefore?.c);
+  });
+
+  it("DELETE /receipt on a billed (frozen) cost entry returns 409", async () => {
+    const created = await post("/api/v1/costs", {
+      matterId,
+      incurredDate: "2026-06-25",
+      amountMinor: 2100,
+      currency: "USD",
+      disbursementClass: "hard",
+      billable: true,
+      description: "Frozen receipt detach test",
+    });
+    const { costEntryId } = (await created.json()) as { costEntryId: string };
+    await env.DB_FIRM_POOL_1.prepare("UPDATE cost_entry SET status = 'billed' WHERE id = ?1")
+      .bind(costEntryId)
+      .run();
+
+    const response = await del(`/api/v1/costs/${costEntryId}/receipt`);
+    expect(response.status).toBe(409);
+  });
 });

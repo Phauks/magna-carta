@@ -1,6 +1,5 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
-import { domainAuditStatement } from "@magna-carta/data-access/audit-statements";
 import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect-batch";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
@@ -11,16 +10,12 @@ import {
   approveCost,
   kickBackCost,
   voidCost,
+  attachReceipt,
+  detachReceipt,
 } from "@magna-carta/costs/cost-entry-service";
 import type { CostDraftPatch } from "@magna-carta/costs/cost-entry-statements";
-import {
-  attachReceiptStatement,
-  detachReceiptStatement,
-  selectCostEntryStatement,
-} from "@magna-carta/costs/cost-entry-statements";
 import { CostValidationError } from "@magna-carta/costs/cost-validation";
 import { approvalRequiredDefinition } from "@magna-carta/billing-core/review-gate";
-import { isFrozen, type BillableStatus } from "@magna-carta/billing-core/lifecycle";
 import type { CostEntryId } from "@magna-carta/identifiers/types";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
@@ -876,50 +871,11 @@ export function registerCostsRoutes(app: CostApp, chokepoint: Chokepoint): void 
       const { fileId } = c.req.valid("json");
       const entryId = id as CostEntryId;
 
-      // Pre-read: surface not-found and frozen before entering the chokepoint to avoid phantom audit rows.
-      const { results } = await selectCostEntryStatement(firm.firmDatabase, entryId).all<{
-        status: string;
-      }>();
-      const existing = results[0];
-      if (existing === undefined) {
-        return problemJson(c, {
-          type: "not-found",
-          title: "Not found",
-          status: 404,
-          detail: "No such cost entry.",
-        });
-      }
-      if (isFrozen(existing.status as BillableStatus)) {
-        return problemJson(c, {
-          type: "conflict",
-          title: "The cost entry cannot change",
-          status: 409,
-          detail: `Cost entry ${entryId} is ${existing.status} and frozen.`,
-        });
-      }
-
-      const outcome = await commitCostEffect(
-        c,
-        firm.firmDatabase,
-        idempotency,
-        entryId,
-        async () => {
-          const updatedAt = new Date().toISOString();
-          return {
-            effect: {
-              statements: [
-                attachReceiptStatement(firm.firmDatabase, entryId, fileId, updatedAt),
-                domainAuditStatement(firm.firmDatabase, {
-                  event: "cost_entry.receipt_attached",
-                  subjectId: entryId,
-                  actorUserId: userId,
-                  clock: { now: () => updatedAt },
-                }),
-              ],
-              outboxMessages: [],
-            },
-          };
-        },
+      const outcome = await commitCostEffect(c, firm.firmDatabase, idempotency, entryId, () =>
+        attachReceipt(firm.firmDatabase, entryId, fileId, {
+          clock: { now: () => new Date().toISOString() },
+          actorUserId: userId,
+        }),
       );
       if (!outcome.ok) return outcome.problem;
       if (outcome.replayed) c.header("Idempotency-Replayed", "true");
@@ -937,50 +893,11 @@ export function registerCostsRoutes(app: CostApp, chokepoint: Chokepoint): void 
       const { id } = c.req.valid("param");
       const entryId = id as CostEntryId;
 
-      // Pre-read: surface not-found and frozen before entering the chokepoint to avoid phantom audit rows.
-      const { results } = await selectCostEntryStatement(firm.firmDatabase, entryId).all<{
-        status: string;
-      }>();
-      const existing = results[0];
-      if (existing === undefined) {
-        return problemJson(c, {
-          type: "not-found",
-          title: "Not found",
-          status: 404,
-          detail: "No such cost entry.",
-        });
-      }
-      if (isFrozen(existing.status as BillableStatus)) {
-        return problemJson(c, {
-          type: "conflict",
-          title: "The cost entry cannot change",
-          status: 409,
-          detail: `Cost entry ${entryId} is ${existing.status} and frozen.`,
-        });
-      }
-
-      const outcome = await commitCostEffect(
-        c,
-        firm.firmDatabase,
-        idempotency,
-        entryId,
-        async () => {
-          const updatedAt = new Date().toISOString();
-          return {
-            effect: {
-              statements: [
-                detachReceiptStatement(firm.firmDatabase, entryId, updatedAt),
-                domainAuditStatement(firm.firmDatabase, {
-                  event: "cost_entry.receipt_detached",
-                  subjectId: entryId,
-                  actorUserId: userId,
-                  clock: { now: () => updatedAt },
-                }),
-              ],
-              outboxMessages: [],
-            },
-          };
-        },
+      const outcome = await commitCostEffect(c, firm.firmDatabase, idempotency, entryId, () =>
+        detachReceipt(firm.firmDatabase, entryId, {
+          clock: { now: () => new Date().toISOString() },
+          actorUserId: userId,
+        }),
       );
       if (!outcome.ok) return outcome.problem;
       if (outcome.replayed) c.header("Idempotency-Replayed", "true");
