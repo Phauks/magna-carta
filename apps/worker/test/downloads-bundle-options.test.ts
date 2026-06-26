@@ -140,3 +140,48 @@ describe("POST /api/v1/downloads/zip — invalid bundle options (422)", () => {
     expect(response.headers.get("content-type")).toContain("application/problem+json");
   });
 });
+
+describe("POST /api/v1/downloads/zip — optioned lanes not yet wired (501)", () => {
+  // A well-formed, capability-valid but non-plain option set routes to a lane (heavyAsync /
+  // encryptedStream) that is not yet wired, so the route returns a 501 interim. This verifies the HTTP
+  // plumbing of selectBundleLane's non-plain result, not just the pure selector. The 501 fires before
+  // any selection query, so the matter need not exist.
+  it("returns 501 for a valid non-plain option (compression other than store)", async () => {
+    const response = await postDownload({
+      matterId: freshMatter(),
+      options: {
+        format: "zip",
+        compression: "normal",
+        encryption: null,
+        split: null,
+        outputName: "bundle.zip",
+        wrapperFolder: null,
+        layout: "preserveTree",
+        manifest: false,
+      },
+    });
+    expect(response.status).toBe(501);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body.type).toContain("not-implemented");
+  });
+
+  it("returns 501 for a valid encrypted option (encrypted stream lane not yet wired)", async () => {
+    const response = await postDownload({
+      matterId: freshMatter(),
+      options: {
+        format: "zip",
+        compression: "store",
+        encryption: { algorithm: "aes-256", encryptFileNames: false },
+        split: null,
+        outputName: "secret.zip",
+        wrapperFolder: null,
+        layout: "preserveTree",
+        manifest: false,
+      },
+    });
+    expect(response.status).toBe(501);
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body.type).toContain("not-implemented");
+  });
+});
