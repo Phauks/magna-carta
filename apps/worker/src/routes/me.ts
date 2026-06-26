@@ -12,8 +12,14 @@ import type { AppVariables } from "../chokepoint/ports.ts";
 import { Problem } from "../contracts/problem.ts";
 import { loadEffectivePermissions } from "../session-context.ts";
 import { readFirmReleaseChannelStatement } from "@magna-carta/data-access/firm-release-channel-statements";
-import { evaluateCatalog, isReleaseChannel, type ReleaseChannel } from "@magna-carta/feature-flags";
+import {
+  defaultOffEvaluator,
+  evaluateCatalog,
+  isReleaseChannel,
+  type ReleaseChannel,
+} from "@magna-carta/feature-flags";
 import { resolveFlagEvaluator } from "../flags/flag-evaluator.ts";
+import type { FirmId } from "@magna-carta/identifiers/types";
 
 const MeResponse = z
   .object({
@@ -69,6 +75,38 @@ export const meRoute = defineOpenAPIRoute(meMeta, {
   },
 });
 
+// The channel + flags are best-effort bootstrap enrichments. A failure to read them — most plausibly
+// the additive release_channel column briefly absent right after a deploy, before the scheduled
+// applier lands it (see src/control-plane-migrations.ts) — degrades to the stable channel and the
+// catalog defaults rather than failing the whole bootstrap. This is the same fail-safe-to-stable
+// posture an absent FLAGS binding already takes.
+export async function resolveChannelAndFlags(
+  env: Bindings,
+  userId: string,
+  firmId: FirmId,
+): Promise<{ channel: ReleaseChannel; flags: Record<string, boolean> }> {
+  try {
+    const channelRow = await readFirmReleaseChannelStatement(env.DB_CONTROL, firmId).first<{
+      release_channel: string;
+    }>();
+    const rawChannel = channelRow?.release_channel ?? "stable";
+    const channel: ReleaseChannel = isReleaseChannel(rawChannel) ? rawChannel : "stable";
+    const flags = await evaluateCatalog(resolveFlagEvaluator(env), {
+      targetingKey: userId,
+      firmId,
+      channel,
+    });
+    return { channel, flags };
+  } catch {
+    const flags = await evaluateCatalog(defaultOffEvaluator, {
+      targetingKey: userId,
+      firmId,
+      channel: "stable",
+    });
+    return { channel: "stable", flags };
+  }
+}
+
 // Registers GET /api/v1/me through the chokepoint. The handler runs ONLY after the chokepoint
 // passed it (session resolved, firm present, member not deactivated). The inline
 // session/firm/member-active checks an earlier version of this handler carried are GONE — the
@@ -98,16 +136,7 @@ export function registerMeRoute(
 
     const permissions = await loadEffectivePermissions(firmContext.firmDatabase, userId);
 
-    const channelRow = await readFirmReleaseChannelStatement(c.env.DB_CONTROL, firmId).first<{
-      release_channel: string;
-    }>();
-    const rawChannel = channelRow?.release_channel ?? "stable";
-    const channel: ReleaseChannel = isReleaseChannel(rawChannel) ? rawChannel : "stable";
-    const flags = await evaluateCatalog(resolveFlagEvaluator(c.env), {
-      targetingKey: userId,
-      firmId,
-      channel,
-    });
+    const { channel, flags } = await resolveChannelAndFlags(c.env, userId, firmId);
 
     return c.json(
       {
