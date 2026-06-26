@@ -144,4 +144,25 @@ describe("permission registry", () => {
   it("has no duplicate keys", () => {
     expect(new Set(PERMISSIONS).size).toBe(PERMISSIONS.length);
   });
+
+  it("permissionsForNamespace('support') returns exactly the support keys, in registry order", () => {
+    expect(permissionsForNamespace("support")).toEqual([
+      "support:request",
+      "support:cosign",
+      "support:manage",
+      "support:mintSession",
+    ]);
+  });
+
+  it("permissionsForNamespace('diagnostics') returns exactly the diagnostics keys", () => {
+    expect(permissionsForNamespace("diagnostics")).toEqual(["diagnostics:overview"]);
+  });
+
+  it("registers the support and diagnostics permission keys", () => {
+    expect(isPermission("support:request")).toBe(true);
+    expect(isPermission("support:cosign")).toBe(true);
+    expect(isPermission("support:manage")).toBe(true);
+    expect(isPermission("support:mintSession")).toBe(true);
+    expect(isPermission("diagnostics:overview")).toBe(true);
+  });
 });

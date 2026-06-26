@@ -59,6 +59,15 @@ export const PERMISSIONS = [
   "time:manageRates", // rate cards, rate versions, and the re-rate-unbilled-drafts action
   "time:manageUtbms", // enable/disable the UTBMS code catalog
   "time:manageSettings", // the scoped time settings, non-billable categories, narrative templates
+  // Support access — a firm member requests time-boxed help-desk access; admins co-sign/manage it.
+  "support:request", // request a support session (seeded to EVERY default role — any member may ask)
+  "support:cosign", // co-sign a privileged support grant when firm policy requires it (admin)
+  "support:manage", // revoke/oversee the firm's support grants (admin)
+  "support:mintSession", // platform-level: redeem a grant for a session token (never seeded to a firm role)
+  // Diagnostics — the read-only system-state surface a DIAGNOSTIC support session is scoped to. These
+  // keys carry NO decrypt capability, so privileged content stays unreachable from a diagnostic session.
+  // Never seeded to a firm role — granted only by holding a diagnostic support session.
+  "diagnostics:overview", // firm system-state overview (status, schema version, member count, storage)
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);
