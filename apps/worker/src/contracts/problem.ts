@@ -42,6 +42,10 @@ export const Problem = z
     // request→grant flow is out of scope this slice — this field is the wire seam for it. Kept a
     // strict boolean so a non-boolean is rejected, never coerced.
     requestAccess: z.boolean().optional(),
+    // Forward seam: set on the malware-flagged 409 when the firm has step-up re-auth enabled for
+    // flagged downloads. The actual challenge (recent-auth check) is wired in a later auth slice;
+    // the flag is present now so clients can show a re-auth prompt as soon as it lands.
+    stepUpRequired: z.boolean().optional(),
   })
   .openapi("Problem");
 
@@ -56,6 +60,9 @@ export interface ProblemOptions {
   // Emitted into the body only when set (the chokepoint sets it true on its 403). A
   // typed optional, not an open extension bag — the only extension this slice admits.
   requestAccess?: boolean;
+  // See stepUpRequired on Problem above. Emitted into the body only when set (true) — the
+  // download handler sets it when the firm has step-up re-auth enabled for flagged downloads.
+  stepUpRequired?: boolean;
   // An already-minted error_ handle to stamp into the body instead of minting a fresh one. The
   // caller wants the SAME Error ID it has already correlated elsewhere — e.g. the platform-admin
   // guard logs a denial cause against the id it then returns to the client (reworked onto the
@@ -106,6 +113,7 @@ export function problemJson<S extends ProblemStatusCode>(
     instance: c.req.path,
     ...(options.errors !== undefined && { errors: options.errors }),
     ...(options.requestAccess !== undefined && { requestAccess: options.requestAccess }),
+    ...(options.stepUpRequired !== undefined && { stepUpRequired: options.stepUpRequired }),
   };
   return c.json(body, options.status, {
     "content-type": "application/problem+json",

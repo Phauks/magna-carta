@@ -168,7 +168,7 @@ export function selectCurrentCleanVersionForPreviewStatement(
 ): SqlStatement {
   return database
     .prepare(
-      `SELECT v.id, v.r2_key, v.size_bytes, v.version_number, v.inline_playable, v.storage_class, v.storage_encoding, v.sniffed_content_type, v.artifact_role FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id WHERE f.id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean'`,
+      `SELECT v.id, v.r2_key, v.size_bytes, v.version_number, v.inline_playable, v.storage_class, v.storage_encoding, v.sniffed_content_type, v.artifact_role, v.scan_verdict FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id WHERE f.id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean'`,
     )
     .bind(fileId);
 }
@@ -183,6 +183,9 @@ export interface CleanVersionForPreview {
   readonly storageEncoding: string;
   readonly sniffedContentType: string | null;
   readonly artifactRole: string;
+  // A re-scan can flag an already-committed (still-clean-status) version; the preview gate reads
+  // it here so a flagged version is always download-only regardless of inline_playable.
+  readonly scanVerdict: "unscanned" | "clean" | "flagged" | null;
 }
 
 export async function getCurrentCleanVersionForPreview(
@@ -199,6 +202,7 @@ export async function getCurrentCleanVersionForPreview(
     storage_encoding: string;
     sniffed_content_type: string | null;
     artifact_role: string;
+    scan_verdict: "unscanned" | "clean" | "flagged" | null;
   }>();
   const row = results[0];
   if (row === undefined) return undefined;
@@ -212,6 +216,7 @@ export async function getCurrentCleanVersionForPreview(
     storageEncoding: row.storage_encoding,
     sniffedContentType: row.sniffed_content_type,
     artifactRole: row.artifact_role,
+    scanVerdict: row.scan_verdict,
   };
 }
 

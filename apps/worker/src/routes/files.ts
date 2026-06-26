@@ -18,6 +18,10 @@ import {
   listFiles,
 } from "@magna-carta/file-manager/queries";
 import { decidePreview } from "@magna-carta/file-manager/preview-policy";
+import {
+  readFlaggedTreatment,
+  readStepUpReauthOnFlagged,
+} from "@magna-carta/file-manager/scan-policy-settings";
 import { mintPreviewDeliveryToken } from "../files/preview-token.ts";
 import { FileManagerValidationError } from "@magna-carta/file-manager/validation";
 import type { FileId, FileVersionId, FolderId, MatterId } from "@magna-carta/identifiers/types";
@@ -720,22 +724,43 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
           detail: "No such file with a downloadable version in this firm.",
         });
       }
-      // Informed access: a version a re-scan flagged stays accessible (no data loss), but a
-      // raw download is gated — the member must explicitly acknowledge the risk. Without the
-      // acknowledgment, 409 carrying the signature so the UI can prompt; with it, the download proceeds
-      // and is audited as an acknowledged malware override. (Stronger re-authentication is a follow-up;
-      // the acknowledgment + audit is the first slice.)
+      // When a re-scan has flagged the committed version, the response depends on the firm's configured
+      // flagged-file treatment. Resolve both settings in parallel to avoid two serial reads.
       const acknowledgedMalware = c.req.valid("query").acknowledgeMalware === "true";
-      if (version.scanVerdict === "flagged" && !acknowledgedMalware) {
-        return problemJson(c, {
-          type: "malware-flagged",
-          title: "File flagged as malware",
-          status: 409,
-          detail:
-            "This file was flagged as containing malware" +
-            (version.scanDetail ? ` (${version.scanDetail})` : "") +
-            ". Re-request with acknowledgeMalware=true to download it anyway; the access is recorded.",
-        });
+      let downloadAuditEvent: string = "file.downloaded";
+      let downloadAuditExtra: Record<string, unknown> = {};
+      if (version.scanVerdict === "flagged") {
+        const [treatment, stepUpReauth] = await Promise.all([
+          readFlaggedTreatment(firm.firmDatabase),
+          readStepUpReauthOnFlagged(firm.firmDatabase),
+        ]);
+        if (treatment === "allow-and-flag") {
+          // Serve the file without an acknowledgment gate; the audit carries a flagged marker so the
+          // access is visible in the audit trail.
+          downloadAuditExtra = { flagged: true };
+        } else {
+          // informed-access: gate behind acknowledgment + audit the override.
+          // block is handled defensively (a flagged+committed version under block treatment should not
+          // exist after ingest, but may appear after a policy change or a re-scan on an older version).
+          if (!acknowledgedMalware) {
+            return problemJson(c, {
+              type: "malware-flagged",
+              title: "File flagged as malware",
+              status: 409,
+              detail:
+                "This file was flagged as containing malware" +
+                (version.scanDetail ? ` (${version.scanDetail})` : "") +
+                ". Re-request with acknowledgeMalware=true to download it anyway; the access is recorded.",
+              // Forward seam: when the firm enables step-up re-auth for flagged downloads, signal it
+              // here so the client can show a re-auth prompt. The challenge is wired in a later auth
+              // slice — for now this is metadata only, not an enforcement gate.
+              ...(treatment === "informed-access" && stepUpReauth ? { stepUpRequired: true } : {}),
+            });
+          }
+          // A distinct event when the member downloaded a malware-flagged file after acknowledging it —
+          // the audited override is the record of who pulled known-bad bytes and when.
+          downloadAuditEvent = "file.downloaded_malware_acknowledged";
+        }
       }
       // Access-triggered re-scan: if this version is stale vs the firm's current engine, re-scan it in
       // the background. Fire-and-forget — never blocks the download.
@@ -759,15 +784,10 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
           statements: [
             insertAuditLogStatement(firm.firmDatabase, {
               id: newIdentifier("auditLog"),
-              // A distinct event when the member downloaded a malware-flagged file after acknowledging
-              // it — the audited override is the record of who pulled known-bad bytes and when.
-              event:
-                version.scanVerdict === "flagged"
-                  ? "file.downloaded_malware_acknowledged"
-                  : "file.downloaded",
+              event: downloadAuditEvent,
               actorUserId: userId,
               subjectId: version.id,
-              metadata: { fileId: id, versionId: version.id },
+              metadata: { fileId: id, versionId: version.id, ...downloadAuditExtra },
               now,
             }),
           ],

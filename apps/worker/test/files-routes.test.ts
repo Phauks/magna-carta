@@ -8,6 +8,7 @@ import {
   liveMaxFileCountDefinition,
   scanEngineVersionDefinition,
 } from "@magna-carta/file-manager/upload-policy";
+import { flaggedTreatmentDefinition } from "@magna-carta/file-manager/scan-policy-settings";
 import { bundleManifestHash } from "@magna-carta/file-manager/zip-composition";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
@@ -377,6 +378,97 @@ describe("GET /api/v1/files/{id}/download", () => {
       },
     );
     expect(response.status).toBe(404);
+  });
+
+  it("flagged + informed-access treatment: 409 without ack, 302 + acknowledged audit with ack", async () => {
+    await writeFirmSettingStatement(
+      env.DB_FIRM_POOL_1,
+      flaggedTreatmentDefinition,
+      "informed-access",
+      ISO,
+    ).run();
+    try {
+      const { fileId, r2Key } = await seedCleanFile("flagged-informed.txt", null, "informed-bytes");
+      await env.DB_FIRM_POOL_1.prepare(
+        "UPDATE file_version SET scan_verdict = 'flagged', scan_detail = 'Eicar-Test' WHERE r2_key = ?1",
+      )
+        .bind(r2Key)
+        .run();
+
+      // Without acknowledgment → 409 (informed-access gate).
+      const blocked = await SELF.fetch(`https://example.com/api/v1/files/${fileId}/download`, {
+        headers: { cookie: ownerCookie, origin: "https://example.com" },
+        redirect: "manual",
+      });
+      expect(blocked.status).toBe(409);
+      const problem = await blocked.json<{ detail: string }>();
+      expect(problem.detail).toContain("Eicar-Test");
+
+      // With acknowledgment → 302, audit records the override.
+      const allowed = await SELF.fetch(
+        `https://example.com/api/v1/files/${fileId}/download?acknowledgeMalware=true`,
+        { headers: { cookie: ownerCookie, origin: "https://example.com" }, redirect: "manual" },
+      );
+      expect(allowed.status).toBe(302);
+      const versionId = (
+        await env.DB_FIRM_POOL_1.prepare("SELECT current_version_id AS v FROM file WHERE id = ?1")
+          .bind(fileId)
+          .first<{ v: string }>()
+      )?.v;
+      const audit = await env.DB_FIRM_POOL_1.prepare(
+        "SELECT event FROM audit_log WHERE subject_id = ?1 AND event = 'file.downloaded_malware_acknowledged'",
+      )
+        .bind(versionId)
+        .first<{ event: string }>();
+      expect(audit?.event).toBe("file.downloaded_malware_acknowledged");
+    } finally {
+      await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+        .bind(flaggedTreatmentDefinition.key)
+        .run();
+    }
+  });
+
+  it("flagged + allow-and-flag treatment: 302 without ack + audit file.downloaded with flagged marker", async () => {
+    await writeFirmSettingStatement(
+      env.DB_FIRM_POOL_1,
+      flaggedTreatmentDefinition,
+      "allow-and-flag",
+      ISO,
+    ).run();
+    try {
+      const { fileId, r2Key } = await seedCleanFile("flagged-allow.txt", null, "allow-bytes");
+      await env.DB_FIRM_POOL_1.prepare(
+        "UPDATE file_version SET scan_verdict = 'flagged', scan_detail = 'Eicar-Test' WHERE r2_key = ?1",
+      )
+        .bind(r2Key)
+        .run();
+
+      // No acknowledgment needed — allow-and-flag serves the file directly.
+      const response = await SELF.fetch(`https://example.com/api/v1/files/${fileId}/download`, {
+        headers: { cookie: ownerCookie, origin: "https://example.com" },
+        redirect: "manual",
+      });
+      expect(response.status).toBe(302);
+
+      // Audit records file.downloaded with a flagged:true marker.
+      const versionId = (
+        await env.DB_FIRM_POOL_1.prepare("SELECT current_version_id AS v FROM file WHERE id = ?1")
+          .bind(fileId)
+          .first<{ v: string }>()
+      )?.v;
+      const audit = await env.DB_FIRM_POOL_1.prepare(
+        "SELECT event, metadata FROM audit_log WHERE subject_id = ?1",
+      )
+        .bind(versionId)
+        .first<{ event: string; metadata: string }>();
+      expect(audit?.event).toBe("file.downloaded");
+      const metadata = JSON.parse(audit?.metadata ?? "{}") as Record<string, unknown>;
+      expect(metadata.flagged).toBe(true);
+    } finally {
+      await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+        .bind(flaggedTreatmentDefinition.key)
+        .run();
+    }
   });
 });
 
@@ -897,6 +989,32 @@ describe("inline preview grant + cookieless delivery", () => {
     // tenant boundary regardless of whether the file id exists in another firm's database.
     const res = await get(`/api/v1/files/${firmBFileId}/preview`); // ownerCookie = firm A
     expect(res.status).toBe(404);
+  });
+
+  it("preview of a flagged version is download-only/verdict regardless of inline_playable", async () => {
+    const { fileId, r2Key } = await seedCleanFile("flagged-preview.mp4", null, "video-bytes", ISO, {
+      inlinePlayable: "playable",
+      sniffedContentType: "video/mp4",
+    });
+    // A re-scan flags the already-committed (still-clean-status) version.
+    await env.DB_FIRM_POOL_1.prepare(
+      "UPDATE file_version SET scan_verdict = 'flagged' WHERE r2_key = ?1",
+    )
+      .bind(r2Key)
+      .run();
+
+    const res = await get(`/api/v1/files/${fileId}/preview`);
+    expect(res.status).toBe(200);
+    const body = await res.json<{
+      mode: string;
+      reason: string;
+      streamUrl?: string;
+      downloadUrl: string;
+    }>();
+    expect(body.mode).toBe("download-only");
+    expect(body.reason).toBe("verdict");
+    expect(body.streamUrl).toBeUndefined();
+    expect(body.downloadUrl).toContain(`/api/v1/files/${fileId}/download`);
   });
 
   it("pre-apex degrade: with FILES_ORIGIN unset the grant is download-only/host-unavailable, downloadUrl only", async () => {
