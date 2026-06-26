@@ -115,13 +115,13 @@ gated by the permission set above; plaintext never leaves our compute. The grant
 `status` are checked per request: an expired or revoked grant makes the support session resolution return
 null → an ordinary RFC 9457 `401`, never a special-cased bypass.
 
-**Open refinements (settle in the plan):**
+**Settled decisions:**
 
-1. Whether the diagnostic set is a brand-new `diagnostics:*` namespace (recommended — clean separation,
-   one home) or reuses scattered existing read keys.
-2. Whether the privileged synthetic `userId` is the requester's own id or a distinct support-principal id
-   stamped through to audit. (Leaning: keep authority resolution keyed to the requester's id, but stamp
-   the **principal** id into every audit row so attribution is unambiguous.)
+1. The diagnostic set is a **brand-new `diagnostics:*` namespace** in the access-control registry — clean
+   separation, one home — not a reuse of scattered existing read keys.
+2. Authority resolution for a privileged session stays keyed to the **requester's own `userId`** (so the
+   permission set is exactly theirs), while the redeeming **staff/agent principal id is stamped into every
+   audit row** — so attribution is unambiguous even though authority mirrors the requester.
 
 ## 6. Consent, notification, revocation
 
