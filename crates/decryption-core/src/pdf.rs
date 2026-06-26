@@ -124,6 +124,16 @@ impl PdfAdapter {
                 .map_err(|_| ExtractError::Malformed("/Length out of range".into()))?
         };
 
+        // The legacy RC4 handler (R2-R4) accepts key lengths of 40-128 bits (5-16 bytes).
+        // A /Length above 128 would require slicing past the 16-byte MD5 output in the key
+        // derivation, and /Length 0 would produce an empty RC4 key where i % 0 is undefined.
+        // Reject the document rather than carrying a value that panics in the crypto path.
+        if r <= 4 && !(40..=128).contains(&key_bits) {
+            return Err(ExtractError::Unsupported(format!(
+                "/Length {key_bits} is outside the valid 40-128 bit range for /R {r}"
+            )));
+        }
+
         // /P is stored as a 32-bit signed integer, often written as its unsigned
         // bit pattern; fold it back to signed 32-bit for the hash string.
         let p = dict_i64(b"P")? as i32;
@@ -228,6 +238,16 @@ impl PdfAdapter {
             u8::try_from(num(1)?).map_err(|_| ExtractError::Malformed("/R out of range".into()))?;
         let key_bits = u32::try_from(num(2)?)
             .map_err(|_| ExtractError::Malformed("key length out of range".into()))?;
+
+        // The legacy RC4 handler (R2-R4) accepts key lengths of 40-128 bits (5-16 bytes).
+        // A key length above 128 would slice past the 16-byte MD5 output in the key
+        // derivation, and 0 bits would produce an empty RC4 key where i % 0 is undefined.
+        if r <= 4 && !(40..=128).contains(&key_bits) {
+            return Err(ExtractError::Unsupported(format!(
+                "key length {key_bits} is outside the valid 40-128 bit range for revision {r}"
+            )));
+        }
+
         let p = num(3)? as i32;
         let encrypt_metadata = num(4)? != 0;
         let id = sized(5)?;
@@ -467,7 +487,16 @@ fn legacy_file_key(
     id: &[u8],
     o: &[u8],
 ) -> Vec<u8> {
-    let key_len = if r == 2 { 5 } else { (key_bits / 8) as usize };
+    // R2 uses a fixed 5-byte key per the spec. R3/R4 derive the length from /Length,
+    // which is validated to 40-128 bits (5-16 bytes) at extraction time. The clamp here
+    // is a secondary guard: MD5 output is 16 bytes, so key_len above 16 would produce an
+    // out-of-bounds slice in the 50-round iteration; key_len=0 makes rc4_apply's keystream
+    // modulo undefined.
+    let key_len = if r == 2 {
+        5
+    } else {
+        ((key_bits / 8) as usize).clamp(5, 16)
+    };
 
     let mut hasher = Md5::new();
     hasher.update(pad_password(password));
@@ -502,6 +531,11 @@ fn pad_password(password: &[u8]) -> [u8; 32] {
 /// key lengths (5-16 bytes), which the type-level `rc4` crate key size does not express,
 /// so the cipher is kept here as the small, self-contained primitive it is.
 fn rc4_apply(key: &[u8], data: &mut [u8]) {
+    // An empty key makes the key-scheduling `i % key.len()` undefined (remainder by zero).
+    // An empty key is never a valid RC4 key; leave data unchanged so the caller sees a mismatch.
+    if key.is_empty() {
+        return;
+    }
     let mut state: [u8; 256] = core::array::from_fn(|i| i as u8);
     let mut j = 0usize;
     for i in 0..256 {
@@ -667,6 +701,58 @@ mod tests {
     fn rejects_wrong_password() {
         let err = PdfAdapter::strip_with_key(ENCRYPTED, "wrong").unwrap_err();
         assert!(matches!(err, crate::DecryptError::WrongPassword));
+    }
+
+    #[test]
+    fn legacy_malformed_key_bits_rejected_or_verify_safe() {
+        // Previously, R3 (and R4) with key_bits=256 caused legacy_file_key to slice
+        // hash[..32] on a 16-byte MD5 output (panic: index out of range), and key_bits=0
+        // produced an empty RC4 key causing i % 0 in rc4_apply (panic: remainder by zero).
+        //
+        // Both are now rejected at parse_hash time as Unsupported. A directly constructed
+        // RecoveryJob with a malformed key length must also not panic — verify_guess must
+        // return false.
+        let id_hex = "00".repeat(16);
+        let u_hex = "00".repeat(32);
+        let o_hex = "00".repeat(32);
+
+        for &key_bits in &[256u32, 0u32] {
+            let hash = format!("$pdf$2*3*{key_bits}*-4*1*16*{id_hex}*32*{u_hex}*32*{o_hex}");
+            assert!(
+                matches!(
+                    PdfAdapter::parse_hash(&hash),
+                    Err(ExtractError::Unsupported(_))
+                ),
+                "parse_hash must reject key_bits={key_bits} for R3 as Unsupported"
+            );
+        }
+
+        // Belt-and-suspenders: a RecoveryJob constructed directly with out-of-range
+        // key_bits must not panic; the secondary guards in legacy_file_key and rc4_apply
+        // must make verify_guess return false.
+        for &key_bits in &[256u32, 0u32] {
+            let job = RecoveryJob {
+                format: Format::Pdf,
+                hash: String::new(),
+                hashcat_mode: 10500,
+                params: KdfParams::Pdf {
+                    v: 2,
+                    r: 3,
+                    key_bits,
+                    p: -4,
+                    encrypt_metadata: true,
+                    id: vec![0u8; 16],
+                    u: vec![0u8; 32],
+                    o: vec![0u8; 32],
+                    ue: vec![],
+                    oe: vec![],
+                },
+            };
+            assert!(
+                !PdfAdapter::verify_guess(&job, "any"),
+                "verify_guess must return false (not panic) for key_bits={key_bits}"
+            );
+        }
     }
 
     #[test]
