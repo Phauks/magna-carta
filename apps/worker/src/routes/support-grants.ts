@@ -1,8 +1,11 @@
 import { z, type OpenAPIHono } from "@hono/zod-openapi";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import {
+  cosignSupportGrantStatement,
   insertSupportGrantStatement,
+  revokeSupportGrantStatement,
   selectFirmSupportGrantsStatement,
+  selectSupportGrantStatement,
   type SupportGrantRow,
 } from "@magna-carta/data-access/support-access-statements";
 import type { Bindings } from "../app.ts";
@@ -13,7 +16,7 @@ import {
   requireChokepointFirmId,
   requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
-import { Problem } from "../contracts/problem.ts";
+import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { computeExpiresAt, initialGrantStatus } from "../support/grant-lifecycle.ts";
 import { writeSupportAudit } from "../support/support-audit.ts";
@@ -135,6 +138,94 @@ export const listGrantsRoute = defineOpenAPIRoute(listGrantsMeta, {
   },
 });
 
+const GrantStatusResult = z
+  .object({ id: z.string(), status: z.string() })
+  .openapi("SupportGrantStatusResult");
+
+export const cosignGrantMeta: RouteMeta = {
+  operationId: "supportGrants.cosign",
+  surface: "app",
+  authenticated: true,
+  permission: "support:cosign",
+  resource: "firm",
+  audited: true,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+export const cosignGrantRoute = defineOpenAPIRoute(cosignGrantMeta, {
+  method: "post",
+  path: "/api/v1/support/grants/{grantId}/cosign",
+  description:
+    "An admin co-signs a privileged support grant that firm policy held for approval. " +
+    "Moves the grant from requested to active so a platform-staff principal may redeem it.",
+  request: { params: z.object({ grantId: z.string() }) },
+  responses: {
+    200: {
+      description: "The grant after co-sign",
+      content: { "application/json": { schema: GrantStatusResult } },
+    },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "The session member lacks support:cosign",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    404: {
+      description: "No such grant in this firm, or it is not awaiting co-sign",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
+export const revokeGrantMeta: RouteMeta = {
+  operationId: "supportGrants.revoke",
+  surface: "app",
+  authenticated: true,
+  permission: "support:manage",
+  resource: "firm",
+  audited: true,
+  idempotency: "optional",
+  rateLimit: "default",
+};
+
+export const revokeGrantRoute = defineOpenAPIRoute(revokeGrantMeta, {
+  method: "post",
+  path: "/api/v1/support/grants/{grantId}/revoke",
+  description:
+    "An admin revokes a support grant; in-flight support access ends on the next request " +
+    "the platform-staff principal makes against the grant-verification middleware.",
+  request: { params: z.object({ grantId: z.string() }) },
+  responses: {
+    200: {
+      description: "The grant after revoke",
+      content: { "application/json": { schema: GrantStatusResult } },
+    },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    403: {
+      description: "The session member lacks support:manage",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    404: {
+      description: "No such grant in this firm, or it is already terminal",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+  },
+});
+
 function toSummary(row: SupportGrantRow) {
   return {
     id: row.id,
@@ -218,6 +309,74 @@ export function registerSupportGrantsRoutes(
         firmId,
       ).all<SupportGrantRow>();
       return c.json({ grants: result.results.map(toSummary) }, 200);
+    },
+  );
+
+  app.openapi(
+    { ...cosignGrantRoute, middleware: chokepointMiddleware(chokepoint, cosignGrantRoute) },
+    async (c) => {
+      const firmId = requireChokepointFirmId(c);
+      const cosignedByUserId = requireChokepointUserId(c);
+      const grantId = c.req.valid("param").grantId as never;
+      const row = (
+        await selectSupportGrantStatement(c.env.DB_CONTROL, grantId).all<SupportGrantRow>()
+      ).results[0];
+      // Firm mismatch is a 404 — the response must not reveal whether the grant belongs to
+      // another firm (no existence oracle across firm boundaries).
+      if (row === undefined || row.firm_id !== firmId) {
+        return problemJson(c, { type: "not-found", status: 404, title: "Not found" });
+      }
+      // The guarded UPDATE moves requested→active only when requires_cosign=1 (wrong-state grants
+      // return changes === 0, which is also a 404 — callers cannot distinguish state from absence).
+      const update = await cosignSupportGrantStatement(c.env.DB_CONTROL, {
+        id: grantId,
+        cosignedByUserId,
+      }).run();
+      if (update.meta.changes === 0) {
+        return problemJson(c, {
+          type: "not-found",
+          status: 404,
+          title: "Grant not awaiting co-sign",
+        });
+      }
+      const now = new Date().toISOString();
+      await writeSupportAudit(c.env.DB_CONTROL, {
+        event: "support.grant.cosigned",
+        requesterUserId: row.requested_by_user_id,
+        metadata: { grantId, firmId, cosignedByUserId },
+        now,
+      });
+      return c.json({ id: grantId, status: "active" }, 200);
+    },
+  );
+
+  app.openapi(
+    { ...revokeGrantRoute, middleware: chokepointMiddleware(chokepoint, revokeGrantRoute) },
+    async (c) => {
+      const firmId = requireChokepointFirmId(c);
+      const actingUserId = requireChokepointUserId(c);
+      const grantId = c.req.valid("param").grantId as never;
+      const row = (
+        await selectSupportGrantStatement(c.env.DB_CONTROL, grantId).all<SupportGrantRow>()
+      ).results[0];
+      // Firm mismatch is a 404 — no existence oracle across firm boundaries.
+      if (row === undefined || row.firm_id !== firmId) {
+        return problemJson(c, { type: "not-found", status: 404, title: "Not found" });
+      }
+      // The guarded UPDATE moves requested/active→revoked only; already-terminal grants produce
+      // changes === 0, treated as 404 so callers cannot probe terminal state.
+      const update = await revokeSupportGrantStatement(c.env.DB_CONTROL, { id: grantId }).run();
+      if (update.meta.changes === 0) {
+        return problemJson(c, { type: "not-found", status: 404, title: "Grant already terminal" });
+      }
+      const now = new Date().toISOString();
+      await writeSupportAudit(c.env.DB_CONTROL, {
+        event: "support.grant.revoked",
+        requesterUserId: row.requested_by_user_id,
+        metadata: { grantId, firmId, revokedByUserId: actingUserId },
+        now,
+      });
+      return c.json({ id: grantId, status: "revoked" }, 200);
     },
   );
 }

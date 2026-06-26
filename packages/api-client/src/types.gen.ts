@@ -1110,6 +1110,11 @@ export type SupportGrantListResponse = {
     grants: Array<SupportGrantSummary>;
 };
 
+export type SupportGrantStatusResult = {
+    id: string;
+    status: string;
+};
+
 export type ShippingConnectAck = {
     id: string;
     status: string;
@@ -7017,6 +7022,84 @@ export type SupportGrantsRequestResponses = {
 };
 
 export type SupportGrantsRequestResponse = SupportGrantsRequestResponses[keyof SupportGrantsRequestResponses];
+
+export type SupportGrantsCosignData = {
+    body?: never;
+    path: {
+        grantId: string;
+    };
+    query?: never;
+    url: '/api/v1/support/grants/{grantId}/cosign';
+};
+
+export type SupportGrantsCosignErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks support:cosign
+     */
+    403: Problem;
+    /**
+     * No such grant in this firm, or it is not awaiting co-sign
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SupportGrantsCosignError = SupportGrantsCosignErrors[keyof SupportGrantsCosignErrors];
+
+export type SupportGrantsCosignResponses = {
+    /**
+     * The grant after co-sign
+     */
+    200: SupportGrantStatusResult;
+};
+
+export type SupportGrantsCosignResponse = SupportGrantsCosignResponses[keyof SupportGrantsCosignResponses];
+
+export type SupportGrantsRevokeData = {
+    body?: never;
+    path: {
+        grantId: string;
+    };
+    query?: never;
+    url: '/api/v1/support/grants/{grantId}/revoke';
+};
+
+export type SupportGrantsRevokeErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks support:manage
+     */
+    403: Problem;
+    /**
+     * No such grant in this firm, or it is already terminal
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SupportGrantsRevokeError = SupportGrantsRevokeErrors[keyof SupportGrantsRevokeErrors];
+
+export type SupportGrantsRevokeResponses = {
+    /**
+     * The grant after revoke
+     */
+    200: SupportGrantStatusResult;
+};
+
+export type SupportGrantsRevokeResponse = SupportGrantsRevokeResponses[keyof SupportGrantsRevokeResponses];
 
 export type ShippingConnectData = {
     body: ShippingConnectRequest;
