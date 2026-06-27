@@ -2488,7 +2488,9 @@
                 ]
               },
               "suspiciousScoreFloor": {
-                "type": "integer"
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
               }
             },
             "required": [
@@ -10812,12 +10814,23 @@
         "x-mc-permission": "firm:manageScanPolicy",
         "x-mc-resource": "firm",
         "x-mc-audited": true,
-        "x-mc-idempotency": "optional",
+        "x-mc-idempotency": "required",
         "x-mc-rateLimit": "default",
         "x-mc-tags": [
           "scanPolicy"
         ],
         "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -10835,6 +10848,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ScanPolicyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The Idempotency-Key header is missing on a write",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -10869,8 +10892,18 @@
               }
             }
           },
+          "409": {
+            "description": "A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "422": {
-            "description": "The request body is invalid",
+            "description": "The request body is invalid, or the Idempotency-Key was reused with a different body",
             "content": {
               "application/problem+json": {
                 "schema": {

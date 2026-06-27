@@ -76,6 +76,7 @@ describe("PATCH /api/v1/firm/scan-policy", () => {
         cookie: ownerCookie,
         "content-type": "application/json",
         origin: "https://example.com",
+        "Idempotency-Key": crypto.randomUUID(),
       },
       body: JSON.stringify({ flaggedTreatment: "informed-access" }),
     });
@@ -96,6 +97,65 @@ describe("PATCH /api/v1/firm/scan-policy", () => {
     expect(body["flaggedTreatment"]).toBe("informed-access");
   });
 
+  it("is idempotent: replaying the same Idempotency-Key writes exactly one audit row", async () => {
+    const key = crypto.randomUUID();
+    const send = () =>
+      SELF.fetch("https://example.com/api/v1/firm/scan-policy", {
+        method: "PATCH",
+        headers: {
+          cookie: ownerCookie,
+          "content-type": "application/json",
+          origin: "https://example.com",
+          "Idempotency-Key": key,
+        },
+        body: JSON.stringify({ stepUpReauthOnFlagged: true }),
+      });
+    const countAudits = async () =>
+      (
+        await env.DB_FIRM_POOL_1.prepare(
+          "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'firm.scan_policy_updated'",
+        ).first<{ n: number }>()
+      )?.n ?? 0;
+
+    const before = await countAudits();
+    const first = await send();
+    expect(first.status).toBe(200);
+    const second = await send();
+    expect(second.status).toBe(200);
+    expect(second.headers.get("Idempotency-Replayed")).toBe("true");
+    // Only the first write created an audit row; the replay added none.
+    expect((await countAudits()) - before).toBe(1);
+  });
+
+  it("an empty PATCH body writes no audit row and returns the current settings", async () => {
+    const before =
+      (
+        await env.DB_FIRM_POOL_1.prepare(
+          "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'firm.scan_policy_updated'",
+        ).first<{ n: number }>()
+      )?.n ?? 0;
+    const response = await SELF.fetch("https://example.com/api/v1/firm/scan-policy", {
+      method: "PATCH",
+      headers: {
+        cookie: ownerCookie,
+        "content-type": "application/json",
+        origin: "https://example.com",
+        "Idempotency-Key": crypto.randomUUID(),
+      },
+      body: JSON.stringify({}),
+    });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body["flaggedTreatment"]).toBeDefined();
+    const after =
+      (
+        await env.DB_FIRM_POOL_1.prepare(
+          "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'firm.scan_policy_updated'",
+        ).first<{ n: number }>()
+      )?.n ?? 0;
+    expect(after).toBe(before);
+  });
+
   it("returns 422 for an invalid PATCH body (invalid tier)", async () => {
     const response = await SELF.fetch("https://example.com/api/v1/firm/scan-policy", {
       method: "PATCH",
@@ -103,6 +163,7 @@ describe("PATCH /api/v1/firm/scan-policy", () => {
         cookie: ownerCookie,
         "content-type": "application/json",
         origin: "https://example.com",
+        "Idempotency-Key": crypto.randomUUID(),
       },
       body: JSON.stringify({ policy: { tier: "invalid", suspiciousScoreFloor: 0 } }),
     });

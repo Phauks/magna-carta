@@ -4,10 +4,10 @@ import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statement
 import { z } from "zod";
 import { DEFAULT_SCAN_POLICY, type ScanPolicy } from "./verdict.ts";
 
-/// How a firm's flagged files are treated — chosen per firm, applied at ingest AND access.
-/// `block`: quarantine, inaccessible (today's behaviour). `informed-access`: commit but gate the raw
-/// download behind an acknowledgment. `allow-and-flag`: commit and serve, visibly marked. No
-/// reject/delete option, by design.
+// How a firm's flagged files are treated — chosen per firm, applied at ingest AND access.
+// `block`: quarantine, inaccessible (today's behaviour). `informed-access`: commit but gate the raw
+// download behind an acknowledgment. `allow-and-flag`: commit and serve, visibly marked. No
+// reject/delete option, by design.
 export type FlaggedTreatment = "block" | "informed-access" | "allow-and-flag";
 export const DEFAULT_FLAGGED_TREATMENT: FlaggedTreatment = "block";
 

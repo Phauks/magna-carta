@@ -118,4 +118,39 @@ describe("matters / locations / file-manager schema", () => {
     expect(() => seedVersion("fileVersion_bad00000000", "deleted")).toThrow(/CHECK/);
     expect(() => seedVersion("fileVersion_good0000000", "pending")).not.toThrow();
   });
+
+  it("the file_version scan_verdict CHECK rejects the superseded 'infected' value and accepts 'flagged'", () => {
+    const raw = new DatabaseSync(":memory:");
+    applyMigrations(raw, loadMigrationsFromDisk("per-firm"));
+    raw.exec("PRAGMA foreign_keys = OFF;"); // isolate the CHECK from the file_id FK
+    const seedVerdict = (id: string, verdict: string) =>
+      raw
+        .prepare(
+          "INSERT INTO file_version (id, file_id, version_number, r2_key, status, scan_verdict, created_at) VALUES (?, 'file_x', 1, ?, 'clean', ?, 't')",
+        )
+        .run(id, `files/${id}`, verdict);
+    expect(() => seedVerdict("fileVersion_infected000", "infected")).toThrow(/CHECK/);
+    expect(() => seedVerdict("fileVersion_flagged0000", "flagged")).not.toThrow();
+  });
+
+  it("migration 0024 maps a pre-existing 'infected' verdict to 'flagged' on copy (no CHECK abort)", () => {
+    const migrations = loadMigrationsFromDisk("per-firm");
+    const cutoff = migrations.findIndex((m) => m.tag === "0024_scan_verdict_flagged");
+    expect(cutoff).toBeGreaterThan(0);
+    const raw = new DatabaseSync(":memory:");
+    // Apply everything up to (but not including) 0024 — the schema where 'infected' was still valid.
+    applyMigrations(raw, migrations.slice(0, cutoff));
+    raw.exec("PRAGMA foreign_keys = OFF;"); // isolate the CHECK from the file_id FK
+    raw
+      .prepare(
+        "INSERT INTO file_version (id, file_id, version_number, r2_key, status, scan_verdict, created_at) VALUES (?, 'file_x', 1, ?, 'clean', 'infected', 't')",
+      )
+      .run("fileVersion_legacy00000", "files/legacy");
+    // Applying 0024 rebuilds the table; the copy must remap 'infected' so the new CHECK does not abort.
+    expect(() => applyMigrations(raw, [migrations[cutoff]!])).not.toThrow();
+    const row = raw
+      .prepare("SELECT scan_verdict FROM file_version WHERE id = 'fileVersion_legacy00000'")
+      .get() as { scan_verdict: string } | undefined;
+    expect(row?.scan_verdict).toBe("flagged");
+  });
 });

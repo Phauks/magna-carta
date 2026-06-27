@@ -701,6 +701,77 @@ describe("handleIngestMessage — access-triggered re-scan", () => {
     expect(v?.scan_verdict).toBe("unscanned"); // unchanged — never downgraded or fabricated
   });
 
+  it("a deployed-engine UNAVAILABLE on re-scan throws (retry) and leaves the prior committed verdict untouched", async () => {
+    const { versionId, r2Key } = await seedCommittedVersion("fault.pdf", uniqueBytes(7));
+    // Give the version a DEFINITIVE prior verdict under an OLD engine so the re-scan sees it as stale.
+    await env.DB_FIRM_POOL_1.prepare(
+      "UPDATE file_version SET scan_verdict = 'flagged', scan_engine_version = 'clamav/old', scan_detail = 'Prior.Sig' WHERE id = ?1",
+    )
+      .bind(versionId)
+      .run();
+    await setCurrentEngine("clamav/3.0");
+
+    // A deployed engine (engineVersion non-null) reporting `unavailable` is a transient FAULT, not a
+    // verdict — computeVerdict throws ScanFaultError, which must propagate so the queue retries.
+    const faultingPort: MalwareScanPort = {
+      async scan(body) {
+        await body.cancel();
+        return {
+          engineVersion: "clamav/3.0",
+          clam: { state: "unavailable" },
+          heuristic: { kind: "none" },
+          matches: [],
+          timings: { clamdMs: 0, yaraMs: 0 },
+        };
+      },
+    };
+    await expect(
+      handleIngestMessage(env, event(BUCKET, r2Key, uniqueBytes(7).byteLength), faultingPort),
+    ).rejects.toThrow();
+
+    // The prior verdict is NEVER silently cleaned on a fault.
+    const v = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT scan_verdict, scan_engine_version FROM file_version WHERE id = ?1",
+    )
+      .bind(versionId)
+      .first<{ scan_verdict: string; scan_engine_version: string }>();
+    expect(v).toMatchObject({ scan_verdict: "flagged", scan_engine_version: "clamav/old" });
+  });
+
+  it("an UNSCANNED re-scan result (encrypted) leaves the prior verdict untouched — never restamped to clean", async () => {
+    const { versionId, r2Key } = await seedCommittedVersion("encrypted.pdf", uniqueBytes(8));
+    await env.DB_FIRM_POOL_1.prepare(
+      "UPDATE file_version SET scan_verdict = 'flagged', scan_engine_version = 'clamav/old', scan_detail = 'Prior.Sig' WHERE id = ?1",
+    )
+      .bind(versionId)
+      .run();
+    await setCurrentEngine("clamav/3.0");
+
+    // An encrypted file yields an `unscanned` verdict — not definitive, so the version's prior verdict
+    // must stay as-is (never downgraded to clean without a real scan).
+    const encryptedPort: MalwareScanPort = {
+      async scan(body) {
+        await body.cancel();
+        return {
+          engineVersion: "clamav/3.0",
+          clam: { state: "clean" },
+          heuristic: { kind: "encrypted" },
+          matches: [],
+          timings: { clamdMs: 1, yaraMs: 0 },
+        };
+      },
+    };
+    await handleIngestMessage(env, event(BUCKET, r2Key, uniqueBytes(8).byteLength), encryptedPort);
+
+    const v = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT scan_verdict, scan_engine_version FROM file_version WHERE id = ?1",
+    )
+      .bind(versionId)
+      .first<{ scan_verdict: string; scan_engine_version: string }>();
+    expect(v?.scan_verdict).not.toBe("clean");
+    expect(v).toMatchObject({ scan_verdict: "flagged", scan_engine_version: "clamav/old" });
+  });
+
   it("maybeEnqueueRescanOnAccess enqueues only for a STALE version, with a current engine, bound queue", async () => {
     const { versionId, r2Key } = await seedCommittedVersion("access.pdf", uniqueBytes(4));
     const captured: Array<{ bucket: string; object: { key: string } }> = [];

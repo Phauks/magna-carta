@@ -6,6 +6,8 @@
 -- Uses PRAGMA defer_foreign_keys (D1-compatible) rather than PRAGMA foreign_keys=OFF/ON
 -- (not in D1's compatible-PRAGMA set) so FK enforcement is deferred until the end of the
 -- migration batch (one transaction), by which time the renamed table is in place.
+-- contract: DROP TABLE file_version — table rebuild to change the scan_verdict CHECK; the shadow
+-- table is populated then renamed in the same batch, so no data is lost.
 PRAGMA defer_foreign_keys = on;--> statement-breakpoint
 CREATE TABLE `__new_file_version` (
 	`id` text PRIMARY KEY NOT NULL,
@@ -37,7 +39,9 @@ CREATE TABLE `__new_file_version` (
 	CONSTRAINT "file_version_size_bytes_nonneg_check" CHECK("__new_file_version"."size_bytes" IS NULL OR "__new_file_version"."size_bytes" >= 0)
 );
 --> statement-breakpoint
-INSERT INTO `__new_file_version`("id", "file_id", "version_number", "r2_key", "size_bytes", "declared_content_type", "sniffed_content_type", "content_sha256", "storage_encoding", "artifact_role", "pinned", "storage_class", "scan_verdict", "scan_engine_version", "inline_playable", "status", "uploaded_by", "created_at", "committed_at", "scan_detail") SELECT "id", "file_id", "version_number", "r2_key", "size_bytes", "declared_content_type", "sniffed_content_type", "content_sha256", "storage_encoding", "artifact_role", "pinned", "storage_class", "scan_verdict", "scan_engine_version", "inline_playable", "status", "uploaded_by", "created_at", "committed_at", "scan_detail" FROM `file_version`;--> statement-breakpoint
+-- A pre-existing 'infected' verdict (the superseded enum value) is mapped to 'flagged' on copy so it
+-- satisfies the new CHECK; every other column is copied verbatim.
+INSERT INTO `__new_file_version`("id", "file_id", "version_number", "r2_key", "size_bytes", "declared_content_type", "sniffed_content_type", "content_sha256", "storage_encoding", "artifact_role", "pinned", "storage_class", "scan_verdict", "scan_engine_version", "inline_playable", "status", "uploaded_by", "created_at", "committed_at", "scan_detail") SELECT "id", "file_id", "version_number", "r2_key", "size_bytes", "declared_content_type", "sniffed_content_type", "content_sha256", "storage_encoding", "artifact_role", "pinned", "storage_class", CASE WHEN "scan_verdict" = 'infected' THEN 'flagged' ELSE "scan_verdict" END AS "scan_verdict", "scan_engine_version", "inline_playable", "status", "uploaded_by", "created_at", "committed_at", "scan_detail" FROM `file_version`;--> statement-breakpoint
 DROP TABLE `file_version`;--> statement-breakpoint
 ALTER TABLE `__new_file_version` RENAME TO `file_version`;--> statement-breakpoint
 CREATE UNIQUE INDEX `file_version_r2_key_unique_index` ON `file_version` (`r2_key`);--> statement-breakpoint

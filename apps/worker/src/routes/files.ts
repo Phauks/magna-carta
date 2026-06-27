@@ -734,14 +734,45 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
           readFlaggedTreatment(firm.firmDatabase),
           readStepUpReauthOnFlagged(firm.firmDatabase),
         ]);
+        if (treatment === "block") {
+          // block means inaccessible: a flagged version under block treatment is never served, and the
+          // acknowledgment override is NOT honored — there is no way to download it through this path.
+          // A flagged+committed version can reach here after a re-scan flips an older clean version's
+          // verdict, or after a policy change to block; refusing here is the access-side enforcement of
+          // the firm's quarantine policy. The denied attempt is recorded (metadata only, no content).
+          const now = new Date().toISOString();
+          await commitEffectBatch(
+            firm.firmDatabase,
+            {
+              statements: [
+                insertAuditLogStatement(firm.firmDatabase, {
+                  id: newIdentifier("auditLog"),
+                  event: "file.download_blocked_flagged",
+                  actorUserId: userId,
+                  subjectId: version.id,
+                  metadata: { fileId: id, versionId: version.id, flagged: true },
+                  now,
+                }),
+              ],
+              outboxMessages: [],
+            },
+            { now: () => now },
+          );
+          return problemJson(c, {
+            type: "malware-flagged",
+            title: "File flagged as malware",
+            status: 403,
+            detail:
+              "This file is flagged and the firm's policy blocks access to flagged files." +
+              (version.scanDetail ? ` (${version.scanDetail})` : ""),
+          });
+        }
         if (treatment === "allow-and-flag") {
           // Serve the file without an acknowledgment gate; the audit carries a flagged marker so the
           // access is visible in the audit trail.
           downloadAuditExtra = { flagged: true };
         } else {
           // informed-access: gate behind acknowledgment + audit the override.
-          // block is handled defensively (a flagged+committed version under block treatment should not
-          // exist after ingest, but may appear after a policy change or a re-scan on an older version).
           if (!acknowledgedMalware) {
             return problemJson(c, {
               type: "malware-flagged",
@@ -754,7 +785,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
               // Forward seam: when the firm enables step-up re-auth for flagged downloads, signal it
               // here so the client can show a re-auth prompt. The challenge is wired in a later auth
               // slice — for now this is metadata only, not an enforcement gate.
-              ...(treatment === "informed-access" && stepUpReauth ? { stepUpRequired: true } : {}),
+              ...(stepUpReauth ? { stepUpRequired: true } : {}),
             });
           }
           // A distinct event when the member downloaded a malware-flagged file after acknowledging it —

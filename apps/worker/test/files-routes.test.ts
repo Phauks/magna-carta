@@ -10,6 +10,7 @@ import {
 } from "@magna-carta/file-manager/upload-policy";
 import {
   flaggedTreatmentDefinition,
+  scanPolicyDefinition,
   stepUpReauthDefinition,
 } from "@magna-carta/file-manager/scan-policy-settings";
 import { bundleManifestHash } from "@magna-carta/file-manager/zip-composition";
@@ -329,41 +330,44 @@ describe("GET /api/v1/files/{id}/download", () => {
     expect(audit?.event).toBe("file.downloaded");
   });
 
-  it("gates a malware-flagged version: 409 without acknowledgment, 302 + override audit with it", async () => {
+  it("flagged + default treatment (block): denied without ack AND with ack — block never serves, denial is audited", async () => {
     const { fileId, r2Key } = await seedCleanFile("flagged.txt", null, "flagged-bytes");
-    // A re-scan flagged the committed (still-visible) current version as malware — informed access.
+    // A re-scan flagged the committed (still-visible) current version as malware. With the default
+    // block treatment the file is inaccessible — there is no acknowledgment override.
     await env.DB_FIRM_POOL_1.prepare(
       "UPDATE file_version SET scan_verdict = 'flagged', scan_detail = 'Eicar-Test' WHERE r2_key = ?1",
     )
       .bind(r2Key)
       .run();
 
-    // Without acknowledgment → 409 carrying the signature (the UI prompts).
+    // Without acknowledgment → 403 denied (block).
     const blocked = await SELF.fetch(`https://example.com/api/v1/files/${fileId}/download`, {
       headers: { cookie: ownerCookie, origin: "https://example.com" },
       redirect: "manual",
     });
-    expect(blocked.status).toBe(409);
-    const problem = await blocked.json<{ detail: string }>();
-    expect(problem.detail).toContain("Eicar-Test");
+    expect(blocked.status).toBe(403);
 
-    // With acknowledgment → 302, and the access is audited as an acknowledged malware override.
-    const allowed = await SELF.fetch(
+    // WITH acknowledgment → still denied (403): the override is NOT honored under block. A flagged file
+    // under block must never resolve to a 302 redirect to its bytes.
+    const stillBlocked = await SELF.fetch(
       `https://example.com/api/v1/files/${fileId}/download?acknowledgeMalware=true`,
       { headers: { cookie: ownerCookie, origin: "https://example.com" }, redirect: "manual" },
     );
-    expect(allowed.status).toBe(302);
+    expect(stillBlocked.status).not.toBe(302);
+    expect(stillBlocked.status).toBe(403);
+
+    // The blocked attempt is recorded in the audit trail (metadata only, no content).
     const versionId = (
       await env.DB_FIRM_POOL_1.prepare("SELECT current_version_id AS v FROM file WHERE id = ?1")
         .bind(fileId)
         .first<{ v: string }>()
     )?.v;
     const audit = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT event FROM audit_log WHERE subject_id = ?1 AND event = 'file.downloaded_malware_acknowledged'",
+      "SELECT event FROM audit_log WHERE subject_id = ?1 AND event = 'file.download_blocked_flagged'",
     )
       .bind(versionId)
       .first<{ event: string }>();
-    expect(audit?.event).toBe("file.downloaded_malware_acknowledged");
+    expect(audit?.event).toBe("file.download_blocked_flagged");
   });
 
   it("404s a file with no clean current version", async () => {
@@ -515,7 +519,7 @@ describe("GET /api/v1/files/{id}/download", () => {
     }
   });
 
-  it("flagged + block treatment (defensive): 409 without acknowledgment — block never serves a flagged file", async () => {
+  it("flagged + explicit block treatment: 403 denied without ack, and acknowledgeMalware=true does NOT serve (no 302)", async () => {
     await writeFirmSettingStatement(
       env.DB_FIRM_POOL_1,
       flaggedTreatmentDefinition,
@@ -535,7 +539,15 @@ describe("GET /api/v1/files/{id}/download", () => {
         headers: { cookie: ownerCookie, origin: "https://example.com" },
         redirect: "manual",
       });
-      expect(blocked.status).toBe(409);
+      expect(blocked.status).toBe(403);
+
+      // The acknowledgment override must NOT bypass block — still denied, never a 302 to the bytes.
+      const acked = await SELF.fetch(
+        `https://example.com/api/v1/files/${fileId}/download?acknowledgeMalware=true`,
+        { headers: { cookie: ownerCookie, origin: "https://example.com" }, redirect: "manual" },
+      );
+      expect(acked.status).not.toBe(302);
+      expect(acked.status).toBe(403);
     } finally {
       await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
         .bind(flaggedTreatmentDefinition.key)
@@ -1137,6 +1149,36 @@ describe("POST /api/v1/scan/diagnose", () => {
       "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'file.scan_diagnosed'",
     ).first<{ n: number }>();
     expect(audit?.n).toBeGreaterThanOrEqual(1);
+  });
+
+  it("uses the firm's own scan policy (not a fixed default) so the diagnosis is consistent with ingest", async () => {
+    // A firm with a custom policy (extended tier, lowered suspicious-score floor) diagnoses through the
+    // same readFirmScanPolicy path ingest uses. With the no-engine stub the verdict is `unscanned`, but
+    // the route must resolve the firm policy without error and still write the audit row.
+    await writeFirmSettingStatement(
+      env.DB_FIRM_POOL_1,
+      scanPolicyDefinition,
+      { tier: "extended", suspiciousScoreFloor: 10 },
+      ISO,
+    ).run();
+    try {
+      const res = await SELF.fetch("https://example.com/api/v1/scan/diagnose", {
+        method: "POST",
+        headers: {
+          cookie: ownerCookie,
+          origin: "https://example.com",
+          "content-type": "application/octet-stream",
+        },
+        body: new Uint8Array([0x25, 0x50, 0x44, 0x46, 9, 9, 9, 9]),
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json<{ verdict: string }>();
+      expect(body.verdict).toBe("unscanned");
+    } finally {
+      await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+        .bind(scanPolicyDefinition.key)
+        .run();
+    }
   });
 
   it("requires authentication (401 without a session)", async () => {

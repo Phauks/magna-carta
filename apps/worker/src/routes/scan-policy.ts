@@ -1,5 +1,6 @@
 import { type OpenAPIHono, z } from "@hono/zod-openapi";
-import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
+import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-statements";
 import {
@@ -15,12 +16,15 @@ import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
   requireChokepointFirmContext,
+  requireChokepointIdempotency,
   requireChokepointUserId,
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
+import { idempotencyKeyHeader } from "../contracts/common.ts";
 import { Problem } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
+import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-problems.ts";
 
 // The firm's malware scan-policy settings: the active scan tier, the suspicious-score floor that
 // determines how aggressively YARA rule matches are flagged, how a flagged file is treated at
@@ -31,7 +35,7 @@ const ScanPolicyResponse = z
   .object({
     policy: z.object({
       tier: z.enum(["core", "extended", "full"]),
-      suspiciousScoreFloor: z.number().int(),
+      suspiciousScoreFloor: z.number().int().min(0).max(100),
     }),
     flaggedTreatment: z.enum(["block", "informed-access", "allow-and-flag"]),
     stepUpReauthOnFlagged: z.boolean(),
@@ -71,11 +75,16 @@ const patchMeta: RouteMeta = {
   permission: PERMISSION,
   resource: "firm",
   audited: true,
-  idempotency: "optional",
+  idempotency: "required",
+  idempotencyStore: "firm",
   rateLimit: "default",
 };
 
 const errorResponses = {
+  400: {
+    description: "The Idempotency-Key header is missing on a write",
+    content: { "application/problem+json": { schema: Problem } },
+  },
   401: {
     description: "No valid session",
     content: { "application/problem+json": { schema: Problem } },
@@ -88,8 +97,13 @@ const errorResponses = {
     description: "The firm is unreachable or the member is deactivated",
     content: { "application/problem+json": { schema: Problem } },
   },
+  409: {
+    description: "A request with this Idempotency-Key is already in progress",
+    content: { "application/problem+json": { schema: Problem } },
+  },
   422: {
-    description: "The request body is invalid",
+    description:
+      "The request body is invalid, or the Idempotency-Key was reused with a different body",
     content: { "application/problem+json": { schema: Problem } },
   },
   429: {
@@ -125,6 +139,7 @@ const patchRoute = defineOpenAPIRoute(patchMeta, {
     "are changed; absent fields retain their current values. Writes are batched atomically with " +
     "an audit log entry. Returns the full resolved settings after the update.",
   request: {
+    headers: idempotencyKeyHeader,
     body: {
       content: { "application/json": { schema: PatchScanPolicyRequest } },
       required: true,
@@ -135,9 +150,11 @@ const patchRoute = defineOpenAPIRoute(patchMeta, {
       description: "The updated scan-policy settings",
       content: { "application/json": { schema: ScanPolicyResponse } },
     },
+    400: errorResponses[400],
     401: errorResponses[401],
     403: errorResponses[403],
     404: errorResponses[404],
+    409: errorResponses[409],
     422: errorResponses[422],
     429: errorResponses[429],
   },
@@ -170,60 +187,108 @@ export function registerScanPolicyRoutes(app: ScanApp, chokepoint: Chokepoint): 
       const firm = requireChokepointFirmContext(c);
       const userId = requireChokepointUserId(c);
       const body = c.req.valid("json");
-      const now = new Date().toISOString();
 
-      const settingStatements = [
-        ...(body.policy !== undefined
-          ? [writeFirmSettingStatement(firm.firmDatabase, scanPolicyDefinition, body.policy, now)]
-          : []),
-        ...(body.flaggedTreatment !== undefined
-          ? [
-              writeFirmSettingStatement(
-                firm.firmDatabase,
-                flaggedTreatmentDefinition,
-                body.flaggedTreatment,
-                now,
-              ),
-            ]
-          : []),
-        ...(body.stepUpReauthOnFlagged !== undefined
-          ? [
-              writeFirmSettingStatement(
-                firm.firmDatabase,
-                stepUpReauthDefinition,
-                body.stepUpReauthOnFlagged,
-                now,
-              ),
-            ]
-          : []),
-      ];
-
-      await commitEffectBatch(
-        firm.firmDatabase,
-        {
-          statements: [
-            ...settingStatements,
-            insertAuditLogStatement(firm.firmDatabase, {
-              id: newIdentifier("auditLog"),
-              event: "firm.scan_policy_updated",
-              actorUserId: userId,
-              subjectId: null,
-              metadata: body,
-              now,
-            }),
-          ],
-          outboxMessages: [],
-        },
-        { now: () => now },
-      );
-
-      // Re-read all three settings so the response reflects the current resolved state.
-      const [policy, flaggedTreatment, stepUpReauthOnFlagged] = await Promise.all([
+      // Read the current resolved settings up front. An empty patch (no present fields) is a no-op:
+      // return the current state without a write or an audit row, so a redelivered no-op never adds a
+      // spurious firm.scan_policy_updated entry. For a real patch these values also seed the response
+      // body so the stored idempotent response reflects the full merged state deterministically.
+      const [currentPolicy, currentFlaggedTreatment, currentStepUp] = await Promise.all([
         readFirmScanPolicy(firm.firmDatabase),
         readFlaggedTreatment(firm.firmDatabase),
         readStepUpReauthOnFlagged(firm.firmDatabase),
       ]);
-      return c.json({ policy, flaggedTreatment, stepUpReauthOnFlagged }, 200);
+      if (
+        body.policy === undefined &&
+        body.flaggedTreatment === undefined &&
+        body.stepUpReauthOnFlagged === undefined
+      ) {
+        return c.json(
+          {
+            policy: currentPolicy,
+            flaggedTreatment: currentFlaggedTreatment,
+            stepUpReauthOnFlagged: currentStepUp,
+          },
+          200,
+        );
+      }
+
+      const idempotency = requireChokepointIdempotency(c);
+      const now = () => new Date().toISOString();
+      const resolved: z.infer<typeof ScanPolicyResponse> = {
+        policy: body.policy ?? currentPolicy,
+        flaggedTreatment: body.flaggedTreatment ?? currentFlaggedTreatment,
+        stepUpReauthOnFlagged: body.stepUpReauthOnFlagged ?? currentStepUp,
+      };
+
+      // The settings writes AND the audit row ride one idempotent batch keyed on the client's
+      // Idempotency-Key: a retried or redelivered PATCH replays the stored response instead of writing
+      // a duplicate audit row.
+      const result = await runIdempotentEffect({
+        database: firm.firmDatabase,
+        key: idempotency.key,
+        fingerprint: idempotency.fingerprint,
+        now,
+        effect: async () => {
+          const ts = now();
+          const settingStatements = [
+            ...(body.policy !== undefined
+              ? [
+                  writeFirmSettingStatement(
+                    firm.firmDatabase,
+                    scanPolicyDefinition,
+                    body.policy,
+                    ts,
+                  ),
+                ]
+              : []),
+            ...(body.flaggedTreatment !== undefined
+              ? [
+                  writeFirmSettingStatement(
+                    firm.firmDatabase,
+                    flaggedTreatmentDefinition,
+                    body.flaggedTreatment,
+                    ts,
+                  ),
+                ]
+              : []),
+            ...(body.stepUpReauthOnFlagged !== undefined
+              ? [
+                  writeFirmSettingStatement(
+                    firm.firmDatabase,
+                    stepUpReauthDefinition,
+                    body.stepUpReauthOnFlagged,
+                    ts,
+                  ),
+                ]
+              : []),
+          ];
+          return {
+            write: {
+              statements: [
+                ...settingStatements,
+                insertAuditLogStatement(firm.firmDatabase, {
+                  id: newIdentifier("auditLog"),
+                  event: "firm.scan_policy_updated",
+                  actorUserId: userId,
+                  subjectId: null,
+                  metadata: body,
+                  now: ts,
+                }),
+              ],
+              outboxMessages: [],
+            },
+            responseCode: 200,
+            responseBody: canonicalJsonStringify(resolved),
+          };
+        },
+      });
+      if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch")
+        return problemResponseForIdempotencyConflict(c, result);
+      if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
+      return c.json(
+        JSON.parse(result.responseBody ?? "{}") as z.infer<typeof ScanPolicyResponse>,
+        200,
+      );
     },
   );
 }
