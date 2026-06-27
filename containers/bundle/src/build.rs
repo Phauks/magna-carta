@@ -26,6 +26,10 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+/// Upper bound on the number of 7z volumes a single build may produce. A defense against a tiny
+/// `maxPartBytes` exploding the part count (and the R2 PUT loop); far above any legitimate split.
+const MAX_VOLUMES: u64 = 100_000;
+
 /// The `/build` query string. `stream=1` selects the streaming (no-persist) lane.
 #[derive(serde::Deserialize)]
 pub struct BuildQuery {
@@ -208,6 +212,17 @@ async fn build(state: &AppState, req: BuildRequest) -> Result<Vec<Volume>, Strin
             encode_to_file(format, compression, encryption, locals, &encode_out)?;
             match split_max {
                 Some(max) => {
+                    // Cap the volume count before cutting: a pathologically small maxPartBytes (e.g. 1)
+                    // would otherwise explode into millions of part files and R2 PUTs. Bounds the blast
+                    // radius regardless of the requested part size.
+                    let size = std::fs::metadata(&encode_out)
+                        .map_err(|e| e.to_string())?
+                        .len();
+                    if size.div_ceil(max) > MAX_VOLUMES {
+                        return Err(format!(
+                            "maxPartBytes too small: would produce more than {MAX_VOLUMES} volumes"
+                        ));
+                    }
                     split::split_file_into_volumes(&encode_out, max).map_err(|e| e.to_string())
                 }
                 None => Ok(vec![encode_out.clone()]),

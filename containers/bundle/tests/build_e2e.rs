@@ -252,6 +252,42 @@ async fn zip_with_split_is_rejected_with_422() {
 }
 
 #[tokio::test]
+async fn absurdly_small_max_part_bytes_is_rejected() {
+    let (base, store) = spawn().await;
+    // ~150 KB of incompressible data stored (no compression) → with maxPartBytes=1 the projected volume
+    // count exceeds the cap and the build is rejected rather than exploding into part files.
+    let mut x: u64 = 0x1234_5678_9abc_def0;
+    let payload: Vec<u8> = (0..150_000)
+        .map(|_| {
+            x ^= x << 13;
+            x ^= x >> 7;
+            x ^= x << 17;
+            (x & 0xff) as u8
+        })
+        .collect();
+    store
+        .lock()
+        .unwrap()
+        .insert("inputs/huge".to_string(), payload);
+
+    let manifest = serde_json::json!({
+        "jobId": "jobExplode",
+        "format": "sevenZip",
+        "compression": "store",
+        "split": { "maxPartBytes": 1 },
+        "entries": [
+            { "archivePath": "huge.bin", "mtimeEpochSecs": null, "source": "r2", "r2Key": "inputs/huge" },
+        ],
+        "outputKeyPrefix": "bundles/explode.7z",
+    });
+    let resp = post_json(&base, &manifest).await;
+    assert_eq!(resp.status(), 422);
+    let body: serde_json::Value = serde_json::from_slice(&resp.bytes().await.unwrap()).unwrap();
+    assert_eq!(body["ok"], false);
+    assert!(body["error"].as_str().unwrap().contains("volumes"));
+}
+
+#[tokio::test]
 async fn missing_r2_input_fails_with_ok_false() {
     let (base, _store) = spawn().await;
     let manifest = serde_json::json!({
