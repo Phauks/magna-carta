@@ -39,6 +39,10 @@ routes requests through the chokepoint into those packages.
   `pnpm --filter @magna-carta/worker run emit-openapi`, then regenerate the client
   (`pnpm --filter @magna-carta/api-client run generate`). A byte-exact test gates drift.
 
+## Firm scan-policy settings API
+
+`src/routes/scan-policy.ts` exposes `GET /api/v1/firm/scan-policy` (returns the resolved `{scanPolicy, flaggedTreatment, stepUpReauthOnFlagged}`) and `PATCH /api/v1/firm/scan-policy` (writes any subset). Both require `firm:manageScanPolicy` (Owner + Admin). The route reads/writes via the `scan-policy-settings.ts` helpers in `@magna-carta/file-manager`; the ingest consumer (`src/files/`) calls those same helpers at queue-consume time, so ingest and the API always agree on defaults. The `downloads.ts` route reads `flaggedTreatment` at access time — a policy change takes effect on the next request without re-ingest.
+
 ## Local rules
 
 - **Every `/api/v1` route goes through the chokepoint.** Register with `defineOpenAPIRoute` + a full
