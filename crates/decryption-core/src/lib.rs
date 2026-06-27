@@ -21,6 +21,9 @@ pub use pdf::PdfAdapter;
 mod zip_adapter;
 pub use zip_adapter::ZipAdapter;
 
+mod dictionary;
+pub use dictionary::{run_dictionary, verify};
+
 #[cfg(test)]
 mod smoke {
     #[test]
