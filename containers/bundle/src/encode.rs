@@ -95,3 +95,61 @@ fn epoch_to_zip_datetime(secs: i64) -> Option<zip::DateTime> {
     let naive = time::PrimitiveDateTime::new(odt.date(), odt.time());
     zip::DateTime::try_from(naive).ok()
 }
+
+/// Streams each entry into a 7z written to `out` (a seekable sink — the temp file; 7z backpatches its
+/// start header on finish, so the sink must seek). Content is compressed with LZMA2 and, when requested,
+/// encrypted with AES-256; the method chain is AES-then-LZMA2 (compress, then encrypt), and header
+/// encryption (which hides the file list) is enabled iff `encrypt_file_names` is set. Original timestamps
+/// are preserved when supplied. The password is used only here and is never logged.
+pub fn encode_7z(
+    entries: impl Iterator<Item = LocalEntry>,
+    compression: Compression,
+    encryption: Option<&Encryption>,
+    out: &mut (impl Write + Seek),
+) -> Result<(), EncodeError> {
+    use sevenz_rust2::lzma::LZMA2Options;
+    use sevenz_rust2::{AesEncoderOptions, Password, SevenZArchiveEntry, SevenZWriter};
+
+    let mut writer = SevenZWriter::new(out).map_err(|e| EncodeError::SevenZip(e.to_string()))?;
+    // LZMA2 preset 0..9: store → fastest/minimal, normal → balanced, maximum → best ratio.
+    let preset: u32 = match compression {
+        Compression::Store => 0,
+        Compression::Normal => 5,
+        Compression::Maximum => 9,
+    };
+    // Order matters: AES is pushed BEFORE LZMA2 so content is compressed and then encrypted.
+    let mut methods = Vec::new();
+    if let Some(enc) = encryption {
+        methods.push(AesEncoderOptions::new(Password::from(enc.password.as_str())).into());
+        writer.set_encrypt_header(enc.encrypt_file_names);
+    } else {
+        writer.set_encrypt_header(false);
+    }
+    methods.push(LZMA2Options::with_preset(preset).into());
+    writer.set_content_methods(methods);
+
+    for entry in entries {
+        let mut meta = SevenZArchiveEntry::new_file(&entry.archive_path);
+        if let Some(secs) = entry.mtime_epoch_secs {
+            if let Some(ft) = epoch_to_file_time(secs) {
+                meta.last_modified_date = ft;
+                meta.has_last_modified_date = true;
+            }
+        }
+        writer
+            .push_archive_entry(meta, Some(entry.reader))
+            .map_err(|e| EncodeError::SevenZip(e.to_string()))?;
+    }
+    writer
+        .finish()
+        .map_err(|e| EncodeError::SevenZip(e.to_string()))?;
+    Ok(())
+}
+
+/// Converts a Unix epoch to the 7z `FileTime` (Windows FILETIME). Returns None for pre-1970 times or any
+/// value the conversion rejects; the caller then omits the timestamp rather than failing.
+fn epoch_to_file_time(epoch_secs: i64) -> Option<sevenz_rust2::nt_time::FileTime> {
+    let secs: u64 = epoch_secs.try_into().ok()?;
+    let system_time = std::time::UNIX_EPOCH.checked_add(std::time::Duration::from_secs(secs))?;
+    sevenz_rust2::nt_time::FileTime::try_from(system_time).ok()
+}
