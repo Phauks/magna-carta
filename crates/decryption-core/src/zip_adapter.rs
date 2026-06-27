@@ -24,7 +24,7 @@ impl ZipAdapter {
     ///
     /// Supports both WinZip-AES (AES-128 and AES-256) and legacy ZipCrypto encryption. For a
     /// single-entry archive the decrypted entry bytes are returned directly along with the entry
-    /// name. For the slice-1 contract only the first entry is processed.
+    /// name. Only the first entry is processed.
     ///
     /// Errors:
     /// - `DecryptError::WrongPassword` — the supplied password does not authenticate.

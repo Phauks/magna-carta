@@ -203,7 +203,7 @@ impl PdfAdapter {
     pub fn parse_hash(hash: &str) -> Result<KdfParams, ExtractError> {
         let body = hash
             .strip_prefix("$pdf$")
-            .ok_or_else(|| ExtractError::Malformed("missing $pdf$ prefix".into()))?;
+            .ok_or_else(|| ExtractError::Unsupported("only the $pdf$ hash is parseable".into()))?;
         let fields: Vec<&str> = body.split('*').collect();
         if fields.len() < 11 {
             return Err(ExtractError::Malformed("too few $pdf$ fields".into()));
@@ -280,8 +280,13 @@ impl PdfAdapter {
     }
 
     /// Test a single candidate password against a PDF recovery job without touching
-    /// the original file. Returns `true` when the candidate authenticates as either
-    /// the user or the owner password.
+    /// the original file.
+    ///
+    /// For R5/R6, returns `true` when the candidate authenticates as either the user
+    /// or the owner password (both are tested per ISO 32000-2 Algorithm 2.A/2.B). For
+    /// legacy R2-R4, only the user password is validated (Algorithms 4 and 5); the
+    /// owner-password recovery path (Algorithm 3 reversal) is not implemented on this
+    /// rung.
     ///
     /// Returns `false` for any non-PDF job, an unmodelled revision, or a structurally
     /// short password string — a failed guess and an unusable job are both "not a

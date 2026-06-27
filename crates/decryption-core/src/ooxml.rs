@@ -7,6 +7,11 @@ use std::io::{Cursor, Read};
 /// hashcat mode for ECMA-376 agile-encrypted Office 2013+ documents (`$office$*2013*…`).
 const HASHCAT_MODE_OFFICE_AGILE: u32 = 9600;
 
+/// Upper bound on `spinCount` accepted from untrusted OOXML input. The ECMA-376 default
+/// is 100 000; values above this constant are rejected before the iterative SHA-512 loop
+/// to prevent an attacker from inducing CPU-exhaustion via a crafted large spin count.
+const MAX_SPIN_COUNT: u32 = 10_000_000;
+
 /// Fixed block keys from MS-OFFCRYPTO §2.3.4.13. Each is concatenated onto the iterative
 /// password hash before a final SHA-512 to derive the AES key for one of the two verifier
 /// blobs — `Hblock = SHA512(H ‖ blockKey)`, first `key_bits/8` bytes taken as the key.
@@ -64,9 +69,7 @@ impl OoxmlAdapter {
             })?;
 
             if !compound_file.is_stream("/EncryptionInfo") {
-                return Err(DecryptError::Malformed(
-                    "OLE2 compound file is missing the required EncryptionInfo stream".to_owned(),
-                ));
+                return Err(DecryptError::NotEncrypted);
             }
             if !compound_file.is_stream("/EncryptedPackage") {
                 return Err(DecryptError::Malformed(
@@ -158,6 +161,11 @@ impl OoxmlAdapter {
         let spin_count = fields[1]
             .parse::<u32>()
             .map_err(|_| ExtractError::Malformed("spin count is not an integer".into()))?;
+        if spin_count > MAX_SPIN_COUNT {
+            return Err(ExtractError::Unsupported(format!(
+                "spinCount {spin_count} exceeds maximum {MAX_SPIN_COUNT}"
+            )));
+        }
         let key_bits = fields[2]
             .parse::<u32>()
             .map_err(|_| ExtractError::Malformed("key bits is not an integer".into()))?;
@@ -253,6 +261,11 @@ impl OoxmlAdapter {
         };
 
         let spin_count = parse_u32("spinCount", attr("spinCount")?)?;
+        if spin_count > MAX_SPIN_COUNT {
+            return Err(ExtractError::Unsupported(format!(
+                "spinCount {spin_count} exceeds maximum {MAX_SPIN_COUNT}"
+            )));
+        }
         let key_bits = parse_u32("keyBits", attr("keyBits")?)?;
         let salt = base64_decode(attr("saltValue")?)
             .ok_or_else(|| ExtractError::Malformed("invalid base64 in saltValue".into()))?;
@@ -753,6 +766,23 @@ mod tests {
                 crate::DecryptError::Malformed(_)
             ),
             "a tiny EncryptedPackage total_size must be rejected as Malformed, not panic"
+        );
+    }
+
+    /// Regression: a `$office$` hash string with an absurdly large spinCount must be
+    /// rejected as `ExtractError::Unsupported` rather than feeding the iterative SHA-512
+    /// loop with billions of rounds (CPU-exhaustion DoS on untrusted input).
+    #[test]
+    fn parse_hash_rejects_excessive_spin_count() {
+        // Reuse the known-good layout from OFFICE_2013_EXAMPLE but replace the
+        // spinCount field (100 000) with 100 000 000 — ten times the MAX_SPIN_COUNT cap.
+        let excessive = "$office$*2013*100000000*256*16*7dd611d7eb4c899f74816d1dec817b3b*948dc0b2c2c6c32f14b5995a543ad037*0b7ee0e48e935f937192a59de48a7d561ef2691d5c8a3ba87ec2d04402a94895";
+        assert!(
+            matches!(
+                OoxmlAdapter::parse_hash(excessive),
+                Err(ExtractError::Unsupported(_))
+            ),
+            "parse_hash must reject spinCount=100_000_000 as Unsupported (DoS guard)"
         );
     }
 }

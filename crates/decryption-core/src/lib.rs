@@ -1,6 +1,6 @@
 //! decryption-core: in-house file decryption + password-recovery primitives.
 //! One FormatAdapter per format behind magic-byte detection; shared RustCrypto
-//! primitives. Consumed by the WASM wrapper and the Worker (built in Plan 2).
+//! primitives. Consumed by the WASM wrapper and the Worker.
 
 mod adapter;
 pub use adapter::{
