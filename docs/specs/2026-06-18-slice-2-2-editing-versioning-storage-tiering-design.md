@@ -3,7 +3,7 @@
 **Status:** Draft (design) · **Date:** 2026-06-18 · **Owner:** Trevor Goldsmith
 **White-paper home:** _Documents → Editing_ · _Document versioning & storage tiering_
 **Research input:** [`docs/research/slice-1-1-file-manager-storage.md`](../research/slice-1-1-file-manager-storage.md) (storage/tiering, §C eviction) · in-cycle topology + cost + concurrency analysis (this design cycle)
-**ADRs:** ADR-0010 (Collabora-on-Containers editor — host choice, locked) · **ADR-0035 (versioning & tiering — _amended by this slice_: the `current` working object becomes a distinct opaque R2 object; version-cut via server-side `CopyObject`)** · ADR-0049 (deleted-file lifecycle) · ADR-0065 (fleet migration / expand-contract) · ADR-0066 (OpenAPI code-as-contract) · ADR-0067 (request chokepoint) · ADR-0068 (within-firm denial = 403; ADR-0052 absence = 404) · ADR-0077 (delta-storage seam — stays deferred) · ADR-0078 (content hash + per-firm metering) · ADR-0081 (inbound upload / quarantine ingest) · ADR-0029 (inline preview sandbox / cookieless origin) · **`ADR-collabora-editing-host-topology` (host, per-document topology, WOPI integration & auth — this slice's new decision)** · **`ADR-document-editing-concurrency-reconciliation` (concurrency, locks & reconciliation — this slice's new decision)**. New ADRs are authored as `docs/decisions/pending/<slug>.md` and numbered at merge by `vp run decisions-build` (golden rule 5/8); the ADR-0035 change amends its existing record.
+**ADRs:** ADR-0010 (Collabora-on-Containers editor — host choice, locked) · **ADR-0035 (versioning & tiering — _amended by this slice_: the `current` working object becomes a distinct opaque R2 object; version-cut via server-side `CopyObject`)** · ADR-0049 (deleted-file lifecycle) · ADR-0065 (fleet migration / expand-contract) · ADR-0066 (OpenAPI code-as-contract) · ADR-0067 (request chokepoint) · ADR-0068 (within-firm denial = 403; ADR-0052 absence = 404) · ADR-0077 (delta-storage seam — stays deferred) · ADR-0078 (content hash + per-firm metering) · ADR-0081 (inbound upload / quarantine ingest) · ADR-0029 (inline preview sandbox / cookieless origin) · **`ADR-0125` (host, per-document topology, WOPI integration & auth — this slice's new decision)** · **`ADR-0126` (concurrency, locks & reconciliation — this slice's new decision)**. New ADRs are authored as `docs/decisions/pending/<slug>.md` and numbered at merge by `vp run decisions-build` (golden rule 5/8); the ADR-0035 change amends its existing record.
 
 This spec is the implementation-grade design for slice 2·2 ([`ROADMAP.md`](../../ROADMAP.md)): in-app `.docx` editing via Collabora Online on Cloudflare Containers, app-managed version objects, Standard→IA storage tiering, and the timestamp-guarded WOPI write path. It builds directly on slice 1·1's File Manager substrate (the `file`/`file_version` model, opaque R2 keys, `commitVersion`, per-firm `storage_meter`, the ADR-0081 quarantine ingest path) and does not restate it. Backend + worker surface; the editor UI shell and the polished reconcile UI ride later (§11).
 
@@ -17,7 +17,7 @@ This spec is the implementation-grade design for slice 2·2 ([`ROADMAP.md`](../.
 
 **Deferred / fast-follow (§11):** the polished in-app Compare/redline reconciliation UI (lean on desktop Word Compare initially); one-click "Open in desktop Word" (WOPI-desktop client); Office-for-web as an alternate WOPI client; periodic auto-checkpoints; the ADR-0077 delta-compression pipeline; aggressive auto-tiering policy; client-portal (external) editing; container pooling (**red-flagged**, §2).
 
-## 2. Hosting topology (`ADR-collabora-editing-host-topology`)
+## 2. Hosting topology (`ADR-0125`)
 
 **One isolated Collabora container per open document, coordinated by a per-document Durable Object** (`DocumentSession`, addressed by `fileId`). **Pooled / shared coolwsd is forbidden** (owner red-flag): a shared coolwsd serving many documents lets one document's crash or memory runaway drop every co-resident session, and puts multiple firms' documents in one process tree — both unacceptable, and a violation of firm-scoping (golden rule 3) at the compute layer. The ~$8–100/mo amortization a pool would save (in-cycle cost model) does not justify the blast-radius and isolation cost.
 
@@ -27,7 +27,7 @@ This spec is the implementation-grade design for slice 2·2 ([`ROADMAP.md`](../.
 - **coolwsd container least-privilege (security.md untrusted-file bar).** coolwsd is a native document processor handling attacker-craftable `.docx` — treat an escape as possible. The container has **no egress** (or a tight allowlist to the host only), **no R2/D1 credentials and no key material** (all object I/O flows through the host WOPI surface, authenticated by the per-document token, §4), is **ephemeral per document**, and runs under resource caps. Cross-firm reachability is structurally impossible: a container can only reach its own document's host endpoints.
 - **Account ceiling is a non-constraint** (6 TiB / 1,500 vCPU; early demand <1%).
 
-## 3. The WOPI host — client-agnostic (`ADR-collabora-editing-host-topology`)
+## 3. The WOPI host — client-agnostic (`ADR-0125`)
 
 We are the WOPI **host**; Collabora is the WOPI **client**. The host is built to the **standard `X-WOPI-*` contract as the baseline**, with Collabora's `X-COOL-WOPI-*` extensions **additive** — the single choice that keeps both Word futures (Office-for-web client; desktop-Word check-out) reachable without a rebuild.
 
@@ -47,7 +47,7 @@ Host surface (per-document, fronted by the `DocumentSession` DO):
 - **The preview-grade `<iframe sandbox>` + `Content-Disposition: attachment` posture (ADR-0029) does NOT apply here.** That defends against raw untrusted bytes rendered in the browser. The live editor is a **trusted derived renderer** (coolwsd), and `GetFile→coolwsd` is pure **server-side R2→container** streaming — the raw `.docx` bytes never reach the browser; the browser only receives Collabora's rendered editor UI. (The untrusted-bytes defense lives at ingest, §7, and at coolwsd least-privilege, §2.)
 - **Framing + postMessage.** The host page sets `frame-ancestors`/CSP to the app origin; the SvelteKit shell ↔ Collabora `postMessage` channel uses an **explicit origin allow-list on both ends — never `'*'`**.
 
-## 4. Editor auth & access tokens (`ADR-collabora-editing-host-topology`)
+## 4. Editor auth & access tokens (`ADR-0125`)
 
 Collabora authenticates **every** WOPI callback with an opaque `access_token` query parameter (no cookie), so the WOPI callbacks are a **distinct surface** with a route-specific guard — not the cookie-session chokepoint (which derives `firmId` from the cookie WOPI callbacks lack). The token is the gate; firm-scope and capability are re-checked at use (§3).
 
@@ -75,7 +75,7 @@ Slice 1·1 shipped versions as **immutable, opaque-keyed, monotonic** rows with 
 - **Standard→IA tiering — mechanism built, trigger conservative.** This slice wires the first production caller of `meterTierChangeStatements`: a superseded version transitions Standard→IA in place via server-side `CopyObject` (`x-amz-storage-class`), updating the per-firm `storage_meter` counters **in the same batch** (ADR-0078), **never deleting**. The **auto-tier trigger is conservative / off by default**: only **superseded, non-current** versions, past the IA 30-day-minimum window — the live `current` and latest version never tier. Aggressive policy is deferred to a measured gate (golden rule 10); IA's retrieval fee + 30-day minimum punish premature tiering.
 - **Metering.** Every version-cut and tier-change updates the exact per-firm D1 `storage_meter` rollup, trued by the existing scheduled R2-LIST reconciliation — also what feeds the Phase-2 ~100 GB delta gate.
 
-## 7. Concurrency & reconciliation model (`ADR-document-editing-concurrency-reconciliation`)
+## 7. Concurrency & reconciliation model (`ADR-0126`)
 
 Three access intents (identity = firm `member`; matter scoping governs view vs edit). The per-document DO is the single authority. **Invariants:** (1) **reading is never blocked**; (2) **no work is ever silently lost or merged** — every merge is human-reviewed; (3) **one isolated container per document**.
 
