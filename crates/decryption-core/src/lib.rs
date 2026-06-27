@@ -24,6 +24,30 @@ pub use zip_adapter::ZipAdapter;
 mod dictionary;
 pub use dictionary::{run_dictionary, verify};
 
+/// Decrypt a password-protected file by detecting its format and dispatching to the
+/// matching adapter. Returns `DecryptError::Unsupported` when the format is not
+/// recognised by `detect`.
+pub fn strip_with_key(bytes: &[u8], password: &str) -> Result<DecryptedFile, DecryptError> {
+    match detect(bytes) {
+        Some(Format::Pdf) => PdfAdapter::strip_with_key(bytes, password),
+        Some(Format::Zip) => ZipAdapter::strip_with_key(bytes, password),
+        Some(Format::Ooxml) => OoxmlAdapter::strip_with_key(bytes, password),
+        None => Err(DecryptError::Unsupported("unrecognized file format".into())),
+    }
+}
+
+/// Extract the password-recovery hash from a password-protected file by detecting its
+/// format and dispatching to the matching adapter. Returns `ExtractError::Unsupported`
+/// when the format is not recognised by `detect`.
+pub fn extract_hash(bytes: &[u8]) -> Result<RecoveryJob, ExtractError> {
+    match detect(bytes) {
+        Some(Format::Pdf) => PdfAdapter::extract_hash(bytes),
+        Some(Format::Zip) => ZipAdapter::extract_hash(bytes),
+        Some(Format::Ooxml) => OoxmlAdapter::extract_hash(bytes),
+        None => Err(ExtractError::Unsupported("unrecognized file format".into())),
+    }
+}
+
 #[cfg(test)]
 mod smoke {
     #[test]
