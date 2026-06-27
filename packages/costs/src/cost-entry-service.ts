@@ -128,13 +128,21 @@ export async function captureCost(
     );
   }
 
+  // The WIP store accepts USD only (the cost_entry currency CHECK is `IN ('USD')`). Guarding here turns
+  // a non-USD value into a per-line CostValidationError the caller can map to 422 / drop, rather than a
+  // raw DB CHECK violation surfacing as a 500 on the route or a retry-storm on the recovery consumer.
+  if (input.currency !== "USD") {
+    throw new CostValidationError("unsupported-currency", "currency must be USD");
+  }
+
   // A human-captured billable cost on an electronic-billing matter must carry a UTBMS expense code:
   // the LEDES exporter rejects an uncoded line, and at a manual or grid capture a person is present to
   // supply the code, so refusing here keeps an uncodeable entry out of the WIP store. A system-recovered
   // cost is exempt from this capture-time check: no human stands at the capture point to choose a code,
   // and dropping the line would silently lose a real fronted disbursement (the postage or fee the firm
-  // has already paid). Such a cost is captured as uncoded draft WIP; the e-billing UTBMS requirement is
-  // re-enforced later, at the submit/bill gate, where a person and the billing context exist to code it.
+  // has already paid). Such a cost is captured as uncoded draft WIP; enforcement of the e-billing UTBMS
+  // requirement is deferred to the FUTURE bill gate, which this slice does not implement (submit and
+  // approve do NOT re-check coding), where a person and the billing context exist to code it.
   if (
     input.billable &&
     input.utbmsExpenseCodeId === undefined &&
@@ -193,6 +201,11 @@ export async function updateDraftCost(
   }
   if (status !== "draft") {
     throw new CostValidationError("draft-only", `cost entry ${id} is ${status}, not draft`);
+  }
+  // USD-only WIP store: refuse a patch that supplies any non-USD currency before it reaches the DB
+  // CHECK (mirrors the capture guard). An absent currency in the patch leaves the stored value alone.
+  if (patch.currency !== undefined && patch.currency !== "USD") {
+    throw new CostValidationError("unsupported-currency", "currency must be USD");
   }
   // An all-undefined patch would produce an invalid UPDATE fragment in the statement layer — refuse
   // early so the caller gets a clear error rather than a silent no-op or SQL syntax error.

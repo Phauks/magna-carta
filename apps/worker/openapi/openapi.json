@@ -3517,7 +3517,9 @@
           },
           "currency": {
             "type": "string",
-            "minLength": 1
+            "enum": [
+              "USD"
+            ]
           },
           "disbursementClass": {
             "type": "string",
@@ -3682,7 +3684,9 @@
           },
           "currency": {
             "type": "string",
-            "minLength": 1
+            "enum": [
+              "USD"
+            ]
           },
           "disbursementClass": {
             "type": "string",

@@ -8,6 +8,7 @@ export type CostValidationCode =
   | "frozen-entry"
   | "illegal-transition"
   | "non-positive-amount"
+  | "unsupported-currency"
   | "utbms-required"
   | "empty-patch";
 

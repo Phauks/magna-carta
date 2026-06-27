@@ -40,3 +40,9 @@ INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES
 	('rolePermission_costs3TrackParalegal', 'role_917LCQyRKP50Z9bW89vXl', 'costs:track'),
 	('rolePermission_costs4ApproveOwnerAdm', 'role_Gw-zKO8hOHQuNv2bWokMp', 'costs:approve'),
 	('rolePermission_costs5ApproveBilling', 'role_hwwC1D98d8Lazc_asL6vO', 'costs:approve');
+--> statement-breakpoint
+-- Carry forward any pre-extraction timekeeping review-gate opt-in to the unified billing key: the
+-- billing-core extraction renamed this firm-setting key from 'time.approval_required' to
+-- 'billing.approval_required'. A no-op on firms that never set the old key (DML, not DDL — the
+-- drizzle schema snapshot is unchanged).
+UPDATE setting SET key = 'billing.approval_required' WHERE key = 'time.approval_required';

@@ -133,6 +133,15 @@ describe("captureCost", () => {
     ).rejects.toMatchObject({ code: "non-positive-amount" });
   });
 
+  it("refuses a non-USD currency (the WIP store is USD-only)", async () => {
+    const database = freshDatabase();
+    // No matter seeded — the currency guard fires before any DB read, so a non-USD value surfaces as a
+    // CostValidationError the caller maps to 422 rather than a raw DB CHECK violation (a 500).
+    await expect(
+      captureCost(database, { ...BASE_INPUT, currency: "EUR" }, options),
+    ).rejects.toMatchObject({ code: "unsupported-currency" });
+  });
+
   it("refuses a billable capture on an e_billing matter without a UTBMS expense code", async () => {
     const database = freshDatabase();
     await seedMatter(database, "matter_1", 1);

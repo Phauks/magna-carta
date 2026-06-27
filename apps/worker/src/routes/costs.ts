@@ -35,8 +35,8 @@ import { problemResponseForIdempotencyConflict } from "../idempotency-conflict-p
 // Costs: the disbursement WIP store. A cost entry enters as draft (source='manual') and advances
 // through the lifecycle defined in the costs service. create is the capture handler — source is
 // always set server-side to 'manual'. update is draft-only: a billed or void row is frozen. The
-// costs:approve permission gates the review-path transitions (submit/approve/kick-back); every
-// other mutation and all reads require costs:track. Integer-minor money throughout.
+// costs:approve permission gates approve + kick-back; submit and every other mutation (and all reads)
+// require costs:track (submit only reaches the non-billing 'submitted' state). Integer-minor money throughout.
 
 const TRACK = "costs:track" as const;
 const APPROVE = "costs:approve" as const;
@@ -47,7 +47,7 @@ const CreateCostRequest = z
     vendorId: identifierField("directory").nullable().optional(),
     incurredDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     amountMinor: z.number().int().positive(),
-    currency: z.string().min(1),
+    currency: z.literal("USD"),
     disbursementClass: z.enum(["hard", "soft"]),
     billable: z.boolean(),
     utbmsExpenseCodeId: identifierField("utbmsCode").nullable().optional(),
@@ -64,7 +64,7 @@ const PatchCostRequest = z
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
     amountMinor: z.number().int().positive().optional(),
-    currency: z.string().min(1).optional(),
+    currency: z.literal("USD").optional(),
     disbursementClass: z.enum(["hard", "soft"]).optional(),
     billable: z.boolean().optional(),
     utbmsExpenseCodeId: identifierField("utbmsCode").nullable().optional(),
@@ -461,7 +461,7 @@ function costErrorResponse(
       detail: error.message,
     });
   }
-  // non-positive-amount | utbms-required | empty-patch
+  // non-positive-amount | unsupported-currency | utbms-required | empty-patch
   return problemJson(c, {
     type: "validation",
     title: "Invalid cost-entry request",

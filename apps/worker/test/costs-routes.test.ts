@@ -233,6 +233,21 @@ describe("cost entry capture", () => {
   });
 });
 
+describe("cost entry currency guard", () => {
+  it("refuses a non-USD currency with 422 (the WIP store is USD-only)", async () => {
+    const response = await post("/api/v1/costs", {
+      matterId,
+      incurredDate: "2026-06-25",
+      amountMinor: 5000,
+      currency: "EUR",
+      disbursementClass: "hard",
+      billable: true,
+      description: "Foreign currency cost",
+    });
+    expect(response.status).toBe(422);
+  });
+});
+
 describe("cost entry permission gate", () => {
   it("refuses a member lacking costs:track (403)", async () => {
     const response = await post(

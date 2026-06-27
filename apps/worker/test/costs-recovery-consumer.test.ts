@@ -270,6 +270,123 @@ describe("perFirmQueue — shipment.purchased cost recovery", () => {
     expect(retries).toEqual([]);
   });
 
+  it("ack-drops a malformed shipment.purchased payload (unparseable or fractional amount), posting no cost row", async () => {
+    // parseShipmentPurchasedPayload returns null for a payload that will not parse or whose shape is
+    // structurally invalid (a fractional minor amount is a producer bug, never a transient fault). The
+    // handler ack-drops it with the costs.recovery.malformed_payload counter rather than retry-storm a
+    // permanent error toward the dead-letter queue.
+
+    // (1) Unparseable payload — there is no shipment id to query, so assert the terminal disposition.
+    const notJson = makeBatch({
+      id: "outbox_notjson",
+      firmId,
+      topic: "shipment.purchased",
+      payload: "not json",
+      aggregateKey: null,
+      seq: null,
+    });
+    await expect(perFirmQueue(notJson.batch, env)).resolves.toBeUndefined();
+    expect(notJson.acks).toEqual(["outbox_notjson"]);
+    expect(notJson.retries).toEqual([]);
+
+    // (2) Well-formed JSON but a fractional postageCostMinor (integer-minor money is mandatory).
+    const shipmentId = newIdentifier("shipment") as ShipmentId;
+    await seedShipment(shipmentId, matterId);
+    const fractional = makeBatch({
+      id: `outbox_${shipmentId}`,
+      firmId,
+      topic: "shipment.purchased",
+      payload: JSON.stringify({
+        shipmentId,
+        postageCostMinor: 12.5,
+        serviceFeeMinor: 150,
+        currency: "USD",
+      }),
+      aggregateKey: null,
+      seq: null,
+    });
+    await perFirmQueue(fractional.batch, env);
+    expect(await costRowsForShipment(shipmentId)).toHaveLength(0);
+    expect(fractional.acks).toEqual([`outbox_${shipmentId}`]);
+    expect(fractional.retries).toEqual([]);
+  });
+
+  it("acks a fingerprint-drift redelivery (producer re-emit with a changed amount), leaving the original row unchanged", async () => {
+    // The producer re-emits the SAME line (same recoveryRef) with a DIFFERENT amount. The per-line
+    // recoveryRef idempotency key still hits, but the stored fingerprint differs, so runIdempotentEffect
+    // returns fingerprint-mismatch: the already-stored line stands, nothing overwrites it, and the message
+    // is acked normally (re-applying an already-posted line is not a transient fault to retry).
+    const shipmentId = newIdentifier("shipment") as ShipmentId;
+    await seedShipment(shipmentId, matterId);
+
+    await perFirmQueue(
+      makeBatch(purchasedMessage(shipmentId, { postageCostMinor: 1299, serviceFeeMinor: 150 }))
+        .batch,
+      env,
+    );
+
+    const redelivery = makeBatch(
+      purchasedMessage(shipmentId, { postageCostMinor: 1500, serviceFeeMinor: 150 }),
+    );
+    await perFirmQueue(redelivery.batch, env);
+
+    const rows = await costRowsForShipment(shipmentId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.recovery_ref).toBe(`${shipmentId}:postage`);
+    // Unchanged — the drifted re-emit did not overwrite the originally-posted amount.
+    expect(rows[0]?.amount_minor).toBe(1299);
+    expect(redelivery.acks).toEqual([`outbox_${shipmentId}`]);
+    expect(redelivery.retries).toEqual([]);
+  });
+
+  it("redelivery after a partial commit posts the missing line without duplicating the first (the partial-commit invariant)", async () => {
+    // The strong form — injecting a transient fault on the SECOND line only — cannot be done without
+    // contorting the consumer's internals (both lines write the same table via the same path, so there is
+    // no clean per-line fault seam). Instead this asserts the weaker-but-real redelivery property the
+    // reviewers flagged: the first pass posts line 1 (postage) but NOT line 2 (service fee), and a
+    // redelivery posts line 2 while line 1 is replayed via its idempotency key, never duplicated — exactly
+    // the path a real "line 1 committed, line 2 threw a transient, message retried" sequence takes. Here the
+    // per-category recovery policy stands in for the fault: OFF on the first pass (so the service-fee line is
+    // absent) and ON for the redelivery (so it posts).
+    const shipmentId = newIdentifier("shipment") as ShipmentId;
+    await seedShipment(shipmentId, matterId);
+
+    // First pass: policy off → only the postage line (line 1) posts.
+    await perFirmQueue(
+      makeBatch(purchasedMessage(shipmentId, { postageCostMinor: 1299, serviceFeeMinor: 150 }))
+        .batch,
+      env,
+    );
+    expect(await costRowsForShipment(shipmentId)).toHaveLength(1);
+
+    // Turn the per-category platform-fee recovery policy on, then redeliver the identical message.
+    await env.DB_FIRM_POOL_1.prepare(
+      "INSERT INTO setting (key, value, updated_at) VALUES (?1, 'true', ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    )
+      .bind(SHIPPING_SERVICE_FEE_SETTING_KEY, TS)
+      .run();
+
+    try {
+      const redelivery = makeBatch(
+        purchasedMessage(shipmentId, { postageCostMinor: 1299, serviceFeeMinor: 150 }),
+      );
+      await perFirmQueue(redelivery.batch, env);
+
+      const rows = await costRowsForShipment(shipmentId);
+      // Both lines now exist exactly once: postage (replayed, not duplicated) + service fee (freshly posted).
+      expect(rows).toHaveLength(2);
+      expect(rows.map((r) => r.recovery_category)).toEqual(["postage", "shipping_service_fee"]);
+      const postage = rows.find((r) => r.recovery_category === "postage");
+      expect(postage?.amount_minor).toBe(1299);
+      expect(redelivery.acks).toEqual([`outbox_${shipmentId}`]);
+      expect(redelivery.retries).toEqual([]);
+    } finally {
+      await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+        .bind(SHIPPING_SERVICE_FEE_SETTING_KEY)
+        .run();
+    }
+  });
+
   it("captures the postage recovery on an e-billing matter as uncoded WIP, never dropping it", async () => {
     // The regression guard for the e-billing exemption: a system-recovered cost has no human at capture
     // time to supply a UTBMS code, so it must land as uncoded draft WIP rather than be dropped (which

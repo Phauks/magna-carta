@@ -47,6 +47,18 @@ export interface PerFirmQueueMessage {
   readonly seq: number | null;
 }
 
+// Recognizes a cost_entry.recovery_ref UNIQUE violation. After the 24h idempotency-TTL purge the
+// per-line idempotency record is gone, so a redelivered already-posted line slips past the idempotency
+// pre-check and re-attempts the insert — the recovery_ref unique index is the surviving floor. D1
+// surfaces SQLite's message text; detection is centralized here so a wire-format change is a one-line fix.
+function isRecoveryRefConflict(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.includes("UNIQUE constraint failed") &&
+    error.message.includes("cost_entry.recovery_ref")
+  );
+}
+
 // A per-topic handler: the firm database is already resolved (the dispatcher does the two-hop), and
 // the handler reads what it needs from the message payload.
 type PerFirmTopicHandler = (
@@ -150,11 +162,21 @@ async function handleShipmentPurchased(
       });
     } catch (caught) {
       if (caught instanceof CostValidationError) {
-        // A permanently malformed line (non-positive/non-integer amount): retrying can never make it
-        // valid, so drop THIS line with telemetry and let the siblings post. A non-validation error (a
-        // transient DB fault) propagates → the message retries, and any already-posted sibling line is
-        // short-circuited by its idempotency key on redelivery.
+        // A permanently malformed line (non-positive/non-integer amount, or a non-USD currency):
+        // retrying can never make it valid, so drop THIS line with telemetry and let the siblings post.
+        // A non-validation error (a transient DB fault) propagates → the message retries, and any
+        // already-posted sibling line is short-circuited by its idempotency key on redelivery.
         logger.count("costs.recovery.rejected", { code: caught.code }, 1);
+        continue;
+      }
+      if (isRecoveryRefConflict(caught)) {
+        // The per-line idempotency record was TTL-purged (>24h), so a redelivered already-posted line
+        // slipped past the idempotency pre-check and re-attempted the insert — and the recovery_ref
+        // unique index caught it. recoveryRef === key by construction, so an existing row provably
+        // represents THIS exact line: this is a benign replay, not a fault. Drop it with telemetry and
+        // let the siblings post — do NOT rethrow (which would retry-storm a poison pill that blocks its
+        // sibling line forever) and do NOT retry.
+        logger.count("costs.recovery.replayed_after_purge", {}, 1);
         continue;
       }
       throw caught;
