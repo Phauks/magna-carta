@@ -47,6 +47,7 @@ export const PERMISSIONS = [
   "tools:firmUsage", // firm usage snapshot — storage + entity counts (read-only, per-firm)
   "tools:whois", // WHOIS/RDAP registration lookup for a website's domain or an IP
   "tools:safeBrowse", // render a suspect URL in an isolated remote browser (static snapshot only)
+  "tools:decryption", // decrypt locked files (PDF/ZIP/OOXML) and recover lost passwords
   "tools:fileConverter", // general matter-free file converter — convert a file to another format
   "tools:metadataScrubber", // inspect/scrub a file's metadata & content artifacts (ephemeral, matter-free)
   "tools:fileIntegrity", // compute a file's cryptographic digests + verify a stored file against its ingest baseline
