@@ -12,6 +12,28 @@ use axum::{
     Json,
 };
 use base64::Engine;
+use std::io::Read;
+use std::path::PathBuf;
+
+/// A spill-file reader that opens its file on first read instead of at construction, so the handler can
+/// build a reader per entry without holding every input file's descriptor open at once.
+struct LazyFile {
+    path: PathBuf,
+    file: Option<std::fs::File>,
+}
+impl LazyFile {
+    fn new(path: PathBuf) -> Self {
+        LazyFile { path, file: None }
+    }
+}
+impl Read for LazyFile {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        if self.file.is_none() {
+            self.file = Some(std::fs::File::open(&self.path)?);
+        }
+        self.file.as_mut().unwrap().read(buf)
+    }
+}
 
 pub async fn build_handler(
     State(state): State<AppState>,
@@ -66,7 +88,11 @@ async fn build(state: &AppState, req: BuildRequest) -> Result<Vec<Volume>, Strin
         locals.push(LocalEntry {
             archive_path: entry.archive_path.clone(),
             mtime_epoch_secs: entry.mtime_epoch_secs,
-            reader: Box::new(std::fs::File::open(&spill).map_err(|e| e.to_string())?),
+            // Open lazily, not now: a bundle can carry thousands of entries, and pre-opening every spill
+            // file would hold thousands of descriptors at once (the default ulimit is ~1024). The encoders
+            // consume entries one at a time and drop each after writing, so a lazy reader keeps just one
+            // input descriptor open during encoding.
+            reader: Box::new(LazyFile::new(spill)),
         });
     }
 
