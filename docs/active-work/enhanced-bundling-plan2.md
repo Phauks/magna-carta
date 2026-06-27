@@ -43,10 +43,31 @@ rather than pre-opening all of them — a bundle can carry thousands of entries 
 would inflate it, so a wrong password can `SevenZReader::new`-open it; the content stream is always
 encrypted, so the encryption test asserts content recovery (right reads / wrong cannot), not open-fails.
 
-**Owed before/at merge (none blocking the build):**
-- Run the Docker acceptance gate (`bash containers/bundle/tests/acceptance.sh`) — needs Docker + python3 + unzip.
-- The pre-merge 7-angle adversarial review (testing.md standard).
-- Changelog fragment + STATUS update held until the feature is user-reachable (container deployed + Plan 4 UI);
-  adding them now would claim a capability that 503s until `BUNDLE_SERVICE` binds.
-- Potential follow-up: axum `Json` extractor's default ~2 MiB body cap on `/build` (a manifest with very
-  many entries or a large inline CONTENTS could 413) — raise it if real bundles approach the limit.
+**Pre-merge 7-angle adversarial review DONE (2026-06-27, Opus 4.8)** — 7 parallel reviewers (correctness,
+security, memory/resource, Rust⇄TS contract, crate-API/build/deploy, spec/invariants, test quality). 1
+Critical + 7 Important confirmed and FIXED (commits 139a5ae, a13b802):
+- **Critical — streaming lane added.** The merged worker `buildStream` POSTs `/build?stream=1` and pipes
+  the body to the client as the archive (encrypted lane, `outputKeyPrefix:""`); the container ignored the
+  query, returned JSON, and PUT to R2 under key `""`. Added a real streaming branch: encode a single
+  archive, stream it straight back (octet-stream), NEVER split, NEVER written to R2. So `/build` now has
+  TWO lanes (buffered→PUT→JSON, and `?stream=1`→stream-back).
+- **7z `store`** now uses `SevenZMethod::COPY` (was LZMA2 preset 0 — silently compressed).
+- **`spawn_blocking`** wraps the CPU-bound encode+split (a blocked async worker thread would fail `/ready`
+  → orchestrator restarts mid-build).
+- **`maxPartBytes==0`** → 422 (was a handler panic); **volume-count cap (100k)** bounds a tiny-part explosion.
+- **`r2_key`/`output_key_prefix`** rejected if they carry a scheme / absolute path / `..` segment.
+- Doc/test fixes: CLAUDE.md no longer claims "pure Rust / no C toolchain" (reqwest rustls-tls pulls
+  `ring`, C/asm — noted under golden-rule-14); `acceptance.sh` re-ported off `--network host` to
+  published-port + `host.docker.internal` (works on Docker Desktop); reqwest connect-timeout; +9 tests
+  (streaming, zip+split 422, missing-R2, 7z store, ZIP timestamp, 7z header-encryption on/off, split
+  boundaries, volume cap). 21 integration tests green, fmt/clippy clean. Verdict: mergeable.
+
+**Owed before/at merge:**
+- Run the Docker acceptance gate (`bash containers/bundle/tests/acceptance.sh`) — needs Docker + python3 +
+  unzip; can't run on this host. Wired into the pre-push hook when `containers/bundle/` changed.
+- Changelog fragment ADDED (`changelog.d/enhanced-bundling.md`). STATUS row still folded under 2·1 (shared
+  row, not edited on a branch).
+- Deferred minors (non-blocking): transient R2 error → 422 (vs 502/503 — worker re-queues on any throw, so
+  retry behavior is unaffected); error strings may include the internal R2 URL/key (recipient is the trusted
+  worker; no password); axum `Json` ~2 MiB body cap on `/build` (many-entry manifest could 413 — raise if
+  real bundles approach it); retained input spills make peak disk ≈ inputs + 2× archive (document at sizing).
