@@ -44,6 +44,7 @@ describe("problem-type URI registry", () => {
         "malware-flagged",
         "unsupported-conversion",
         "internal",
+        "not-implemented",
       ].sort(),
     );
   });

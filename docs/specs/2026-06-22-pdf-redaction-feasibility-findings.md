@@ -10,28 +10,28 @@ Run date: 2026-06-22.
 
 ### lopdf over full corpus (10 files)
 
-| File | Result | First 80 chars |
-|---|---|---|
-| basicapi.pdf | OK | `\n\n\n\n\nTable Of Content \n\n\n\nChapter 1 ...` |
-| court_ao088.pdf | OK | `AO 88 (Rev. 02/14) Subpoena to Appear and Testify...` |
-| court_ao089.pdf | OK | `AO 89 (Rev. 08/09) Subpoena to Testify at a Hearing...` |
-| court_ao240.pdf | OK | `AO 240 (Rev. 07/10) Application to Proceed...` |
-| gov_irs_w4_acroform.pdf | OK | `Form W-4\n2026Employee's Withholding Certificate...` |
-| gov_irs_w9_acroform.pdf | OK | `Form W-9\n(Rev. March 2024)Request for Taxpayer...` |
-| pdfjs_cmykjpeg.pdf | EMPTY (image-only) | — |
-| pdfjs_franz_image.pdf | OK | `Hello World\n` |
-| pdfjs_issue1905.pdf | OK | `TDF NUMBERS\n©The Document Foundation...` |
-| TAMReview.pdf | OK | `Working Papers on Information SystemsISSN 1535-6078...` |
+| File                    | Result             | First 80 chars                                           |
+| ----------------------- | ------------------ | -------------------------------------------------------- |
+| basicapi.pdf            | OK                 | `\n\n\n\n\nTable Of Content \n\n\n\nChapter 1 ...`       |
+| court_ao088.pdf         | OK                 | `AO 88 (Rev. 02/14) Subpoena to Appear and Testify...`   |
+| court_ao089.pdf         | OK                 | `AO 89 (Rev. 08/09) Subpoena to Testify at a Hearing...` |
+| court_ao240.pdf         | OK                 | `AO 240 (Rev. 07/10) Application to Proceed...`          |
+| gov_irs_w4_acroform.pdf | OK                 | `Form W-4\n2026Employee's Withholding Certificate...`    |
+| gov_irs_w9_acroform.pdf | OK                 | `Form W-9\n(Rev. March 2024)Request for Taxpayer...`     |
+| pdfjs_cmykjpeg.pdf      | EMPTY (image-only) | —                                                        |
+| pdfjs_franz_image.pdf   | OK                 | `Hello World\n`                                          |
+| pdfjs_issue1905.pdf     | OK                 | `TDF NUMBERS\n©The Document Foundation...`               |
+| TAMReview.pdf           | OK                 | `Working Papers on Information SystemsISSN 1535-6078...` |
 
 **Summary: 9/10 yield usable text. 1 empty (pdfjs_cmykjpeg.pdf — image-only, as expected). 0 failures.**
 
 ### pdf-extract comparison (3 files)
 
-| File | Result | Notes |
-|---|---|---|
-| basicapi.pdf | OK | Clean text, similar quality to lopdf |
-| TAMReview.pdf | OK (corrupt) | Returns garbled low-control-character garbage — font encoding not resolved |
-| court_ao088.pdf | OK | Clean text |
+| File            | Result       | Notes                                                                      |
+| --------------- | ------------ | -------------------------------------------------------------------------- |
+| basicapi.pdf    | OK           | Clean text, similar quality to lopdf                                       |
+| TAMReview.pdf   | OK (corrupt) | Returns garbled low-control-character garbage — font encoding not resolved |
+| court_ao088.pdf | OK           | Clean text                                                                 |
 
 pdf-extract also emitted hundreds of `unknown glyph name 'gNNN' for font EMMOLK+Cambria` warnings to stderr during basicapi.pdf processing. These are non-fatal but indicate fragility on subset-encoded fonts.
 
@@ -66,6 +66,7 @@ fn draw_glyph(
 A custom `TextPositionCollector` implementing `Device<'a>` was constructed and driven via `hayro_interpret::interpret_page`. Results on corpus:
 
 **basicapi.pdf (page 0):** 198 glyph draw calls. Sample:
+
 ```
 unicode=Some(" ") tx=0.00 ty=76.54
 unicode=Some("T") tx=0.00 ty=841.89
@@ -73,9 +74,11 @@ unicode=Some("a") tx=0.00 ty=841.89
 unicode=Some("b") tx=0.00 ty=841.89
 unicode=Some("l") tx=0.00 ty=841.89
 ```
+
 ty=841.89 ≈ A4 page height (841.89 pt) — correct PDF coordinate origin at bottom-left.
 
 **TAMReview.pdf (page 0):** 1695 glyph draw calls. Sample:
+
 ```
 unicode=Some("W") tx=72.00 ty=806.00
 unicode=Some("o") tx=72.00 ty=806.00
@@ -83,11 +86,13 @@ unicode=Some("r") tx=72.00 ty=806.00
 unicode=Some("k") tx=72.00 ty=806.00
 unicode=Some("i") tx=72.00 ty=806.00
 ```
+
 tx=72.00 = 1 inch left margin. ty=806.00 = near top of body text.
 
 ### Assessment of the API
 
 The `Device` trait gives glyph-level callbacks with full page-space Affine transforms. A thin shim implementing `Device` can:
+
 - Collect `(unicode, tx, ty)` per glyph call
 - Reconstruct per-glyph bounding boxes by combining the transform with the font's advance width (available via the `OutlineGlyph` inside `Glyph::Outline`)
 - Group glyphs into runs/words by proximity and transform similarity
@@ -96,7 +101,7 @@ This is **not** a full interpreter we have to build ourselves — hayro-interpre
 
 ### lopdf alone (without hayro)
 
-`lopdf::content::Content::decode` gives raw PDF operators (`Tj`, `TJ`, `Td`, `Tm`, `cm`, etc.) but does not resolve them to page-space positions. Doing so requires implementing the full PDF text-positioning state machine (Tm, Tlm, Td, TD, T*, text rise, character/word spacing, horizontal scaling, glyph widths — all six components of the text line matrix). This is **major work** (~500–1000 LOC of correct code to cover all the edge cases in PDF 1.7 §9.4).
+`lopdf::content::Content::decode` gives raw PDF operators (`Tj`, `TJ`, `Td`, `Tm`, `cm`, etc.) but does not resolve them to page-space positions. Doing so requires implementing the full PDF text-positioning state machine (Tm, Tlm, Td, TD, T\*, text rise, character/word spacing, horizontal scaling, glyph widths — all six components of the text line matrix). This is **major work** (~500–1000 LOC of correct code to cover all the edge cases in PDF 1.7 §9.4).
 
 ### Q-B Verdict
 
@@ -115,6 +120,7 @@ This is **not** a full interpreter we have to build ourselves — hayro-interpre
 ### Surgery
 
 Steps performed:
+
 1. Load with `lopdf::Document::load_mem`
 2. Add an empty `lopdf::Stream::new(Dictionary::new(), b"".to_vec())` as a new object
 3. Set the page 1 dict `/Contents` reference to the new empty stream
@@ -158,12 +164,14 @@ This API compiles and runs. The `image` crate converts source image data to raw 
 ### Both strategies are feasible in pure Rust.
 
 **Strategy 1 — Rasterize-and-reassemble (safe, ship-first):**
+
 - Feasibility: **Proven.** lopdf content surgery works (Q-C pass). hayro rasterizes to Pixmap. image crate encodes to JPEG/PNG. lopdf places the image. The loop (render → burn-in redaction boxes on the pixmap → encode → reassemble) is fully implementable with existing crates.
 - Safety: The verification gate (Q-A: lopdf extract_text on each page after reassembly) is reliable. A page whose text was replaced by an image returns empty — gate passes.
 - Risk: Output file size grows (images instead of text vectors). Visual fidelity is ~150 DPI without upscaling. Searchability is lost (intentional for redaction). Text selection in the output is lost (acceptable for a redacted document).
 - Verdict: **Ship this first.** It is the safer approach with no risk of partial redaction.
 
 **Strategy 2 — Content-stream surgery (precision, later):**
+
 - Feasibility: **Feasible via hayro-interpret shim.** Position-aware text extraction is available off the shelf (Q-B: thin Device impl, ~50–100 LOC). lopdf content operator editing is possible but requires matching and excising Tj/TJ operators by glyph bounding box — more engineering.
 - Safety: The verification gate (Q-A) still applies after surgery. The gate can catch any text that was missed.
 - Key risk: Per-glyph bounding box reconstruction requires composing both the `transform` and `glyph_transform` Affines from the Device callback, plus the font's advance widths. Wrong bounding box → incomplete redaction. This must be tested thoroughly against all font types (Type1, TrueType, CID-keyed, Type3).

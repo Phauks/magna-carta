@@ -28,9 +28,11 @@
 ### Task 1: HiddenLayer detector
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/detect.rs`
 
 **Interfaces:**
+
 - Produces: `Category` gains `HiddenLayer` AND `RemovableAnnotation` variants (both added now so the enum is stable; RemovableAnnotation's logic lands in Task 2). `pub(crate) fn hidden_layer_findings(doc: &lopdf::Document) -> Vec<Finding>` — one High `HiddenLayer` finding per page that draws text inside an inactive optional-content group.
 
 - [ ] **Step 1: Add the two Category variants** — in `crates/pdf-core/src/detect.rs`, extend the enum:
@@ -215,9 +217,11 @@ git commit -m "feat(pdf-core): detect text hidden in inactive optional-content l
 ### Task 2: RemovableAnnotation detector
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/detect.rs`
 
 **Interfaces:**
+
 - Consumes: `PageObservation`, `to_display_rect`, `Finding`, `Category::RemovableAnnotation` (Task 1).
 - Produces: `pub(crate) fn annotation_findings(obs: &PageObservation, doc: &lopdf::Document, page_id: lopdf::ObjectId, page: usize) -> (Vec<Finding>, std::collections::BTreeSet<usize>)` — Critical `RemovableAnnotation` findings (one per obscuring annotation that covers extractable glyphs) and the set of obs.glyphs indices claimed (so the geometric pass can skip them).
 
@@ -422,9 +426,11 @@ git commit -m "feat(pdf-core): detect extractable text under removable annotatio
 ### Task 3: Wire into `detect()` with covered-vs-annotation precedence
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/detect.rs`
 
 **Interfaces:**
+
 - Consumes: `annotation_findings`, `hidden_layer_findings` (Tasks 1–2).
 - Produces: `page_geometric_findings` gains a `claimed: &std::collections::BTreeSet<usize>` parameter — glyphs whose index is claimed are skipped for the CoveredText/WhiteoutText branches (they are reported as RemovableAnnotation instead). `detect()` loads the lopdf `Document` once, runs `annotation_findings` per page, and threads `claimed` into the geometric pass.
 
@@ -530,12 +536,14 @@ git commit -m "feat(pdf-core): wire annotation + hidden-layer detectors with cov
 ### Task 4: WASM/TS surface + docs
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/wasm.rs`, `packages/pdf/src/index.ts`
 - Modify: `packages/pdf/README.md`, `docs/decisions/pending/pdf-detector-observing-device.md`
 - Create: `changelog.d/pdf-detector-fastfollow.md`
 - Modify: `ROADMAP.md`, `STATUS.md` (own row only)
 
 **Interfaces:**
+
 - Consumes: `Category::{RemovableAnnotation, HiddenLayer}`.
 
 - [ ] **Step 1: Extend the wasm category mapper** — in `crates/pdf-core/src/wasm.rs`, add the two arms to `category_str`:
@@ -569,6 +577,7 @@ Expected: compiles (the match is now exhaustive over the 7 variants).
 pnpm --filter @magna-carta/pdf run build:wasm
 pnpm --filter @magna-carta/pdf test
 ```
+
 Expected: PASS (no regression). If `pnpm` fails for an environment reason, capture the error and report it — do not fake green.
 
 - [ ] **Step 5: Docs**

@@ -25,6 +25,7 @@ import type {
   DirectoryPersonId,
   DirectoryPhoneId,
   DocumentTypeId,
+  DocumentCheckoutId,
   EntityMergeId,
   FileId,
   FileVersionId,
@@ -525,6 +526,21 @@ export const file = sqliteTable(
     currentVersionId: text("current_version_id")
       .$type<FileVersionId>()
       .references((): AnySQLiteColumn => fileVersion.id), // forward ref — set when a version commits
+    // The live editing working copy (slice 2·2): the mutable `current` R2 object an editing session
+    // overwrites on save, plus its host-recorded hash/size/timestamp. All nullable — a file never
+    // opened for editing has no working copy; a version cut copies `current` to an immutable version
+    // key. current_wopi_timestamp is the server-authoritative modification time the WOPI stale-write
+    // guard compares the editor's presented timestamp against.
+    currentR2Key: text("current_r2_key"),
+    currentSha256: text("current_sha256"),
+    currentSizeBytes: integer("current_size_bytes"),
+    currentWopiTimestamp: text("current_wopi_timestamp"),
+    // The document's editing posture: idle, in a live co-editing session, or held under an offline
+    // checkout / exclusive lock. Reading is never blocked in any state; this drives the launch-time
+    // join-vs-new decision and the reap transitions back to idle.
+    editState: text("edit_state", { enum: ["idle", "coediting", "checked_out"] })
+      .notNull()
+      .default("idle"),
     deletedAt: text("deleted_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -536,6 +552,7 @@ export const file = sqliteTable(
     index("file_matter_id_created_at_id_index").on(table.matterId, table.createdAt, table.id),
     index("file_folder_id_created_at_id_index").on(table.folderId, table.createdAt, table.id),
     check("file_name_nonempty_check", sql`length(${table.name}) > 0`),
+    check("file_edit_state_check", sql`${table.editState} IN ('idle', 'coediting', 'checked_out')`),
   ],
 );
 
@@ -581,6 +598,25 @@ export const fileVersion = sqliteTable(
       .notNull()
       .default("pending"),
     uploadedBy: text("uploaded_by").$type<UserId>(), // not an FK — the upload fact outlives the member row
+    // Editing reconciliation (slice 2·2): a version cut from a live save is `clean`; a version landed
+    // from an offline check-in whose base no longer matches `current` is a `conflict_pending`
+    // conflicting copy (retained forever), flipped to `reconciled` once a human resolves it.
+    reconciliationStatus: text("reconciliation_status", {
+      enum: ["clean", "conflict_pending", "reconciled"],
+    })
+      .notNull()
+      .default("clean"),
+    // For a conflicting copy, the version its offline working copy diverged from (the stale base) — a
+    // self-reference into file_version. Null for an ordinary clean version.
+    divergedFromVersionId: text("diverged_from_version_id")
+      .$type<FileVersionId>()
+      .references((): AnySQLiteColumn => fileVersion.id),
+    // Provenance for a version that arrived via an offline check-in: the checkout it came back through.
+    // Null for an ordinary upload or live-edit version. The ingest consumer reads it to route a cleared
+    // check-in into divergence resolution rather than a plain commit.
+    checkoutId: text("checkout_id")
+      .$type<DocumentCheckoutId>()
+      .references((): AnySQLiteColumn => documentCheckout.id),
     createdAt: text("created_at").notNull(),
     committedAt: text("committed_at"),
   },
@@ -591,6 +627,9 @@ export const fileVersion = sqliteTable(
       table.versionNumber,
     ),
     index("file_version_status_index").on(table.status),
+    // The tiering sweep's firm-wide candidate scan (storage_class='standard' + status='clean' +
+    // committed_at < cutoff) seeks this composite instead of walking every clean version.
+    index("file_version_tiering_index").on(table.storageClass, table.status, table.committedAt),
     check(
       "file_version_artifact_role_check",
       sql`${table.artifactRole} IN ('original', 'derived')`,
@@ -612,8 +651,63 @@ export const fileVersion = sqliteTable(
       sql`${table.status} IN ('pending', 'clean', 'quarantined', 'abandoned')`,
     ),
     check(
+      "file_version_reconciliation_status_check",
+      sql`${table.reconciliationStatus} IN ('clean', 'conflict_pending', 'reconciled')`,
+    ),
+    check(
       "file_version_size_bytes_nonneg_check",
       sql`${table.sizeBytes} IS NULL OR ${table.sizeBytes} >= 0`,
+    ),
+  ],
+);
+
+// A document checkout (slice 2·2): an offline-working-copy claim or an opt-in exclusive lock on a
+// file, held by one member against a base version. The row tracks the lifecycle (active -> stale ->
+// released, or reconciling while a divergent check-in is resolved). divergence is detected by
+// comparing the file's current_version_id against base_version_id at check-in time.
+export const documentCheckout = sqliteTable(
+  "document_checkout",
+  {
+    id: text("id").primaryKey().$type<DocumentCheckoutId>(), // documentCheckout_ handle
+    fileId: text("file_id")
+      .notNull()
+      .$type<FileId>()
+      .references(() => file.id),
+    holderMemberId: text("holder_member_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => member.userId),
+    lockType: text("lock_type", { enum: ["exclusive", "offline_working_copy"] }).notNull(),
+    baseVersionId: text("base_version_id")
+      .notNull()
+      .$type<FileVersionId>()
+      .references(() => fileVersion.id),
+    acquiredAt: text("acquired_at").notNull(),
+    lastActivityAt: text("last_activity_at").notNull(),
+    status: text("status", { enum: ["active", "stale", "released", "reconciling"] })
+      .notNull()
+      .default("active"),
+    // When a generous idle window auto-releases the checkout (null until scheduled).
+    idleReleaseAt: text("idle_release_at"),
+  },
+  (table) => [
+    // The active-checkout lookup for a file (the launch + check-in paths) and the holder's open list.
+    index("document_checkout_file_id_index").on(table.fileId),
+    index("document_checkout_holder_member_id_index").on(table.holderMemberId),
+    // The idle-checkout sweep's firm-wide stage-1 scan (status='active' + last_activity_at < cutoff)
+    // seeks this composite instead of walking every checkout; the status prefix also serves the
+    // stage-2 stale scan.
+    index("document_checkout_status_last_activity_index").on(table.status, table.lastActivityAt),
+    // The sweep's stage-2 scan (status='stale' + idle_release_at < cutoff) seeks this composite — the
+    // (status, last_activity_at) index does not cover the idle_release_at range predicate.
+    index("document_checkout_status_idle_release_index").on(table.status, table.idleReleaseAt),
+    check(
+      "document_checkout_lock_type_check",
+      sql`${table.lockType} IN ('exclusive', 'offline_working_copy')`,
+    ),
+    check(
+      "document_checkout_status_check",
+      sql`${table.status} IN ('active', 'stale', 'released', 'reconciling')`,
     ),
   ],
 );
@@ -661,27 +755,23 @@ export const storageMeter = sqliteTable(
   (table) => [primaryKey({ columns: [table.storageClass, table.artifactRole, table.prefix] })],
 );
 
-// Per-firm content-addressed scan cache — the "scan-once" dedup. Records a DEFINITIVE verdict for a
-// content hash under a specific engine version, so a re-scan or bulk migration can SKIP the scan engine
-// when identical content was already scanned by the SAME engine. Sound: identical bytes + the same
-// signature database yield the same verdict, and `engine_version` is part of the key, so a database
-// update is a cache MISS (the content is re-scanned under the new engine) — never a stale clean. Only
-// definitive verdicts are cached ('clean'/'infected'); 'unscanned' (no engine ran) is never written.
-// Natural composite key (content hash + engine version), not a handle. The win is on duplicate-heavy
-// imports: the first copy of a given content is scanned, every later copy reuses the verdict.
+// Per-firm content-addressed scan cache — the "scan-once" dedup. Records the full serialized
+// RawScanResult for a content hash under a specific engine version, so a re-scan or bulk migration
+// can SKIP the scan engine when identical content was already scanned by the SAME engine. Sound:
+// identical bytes + the same signature database yield the same raw result, and `engine_version` is
+// part of the key, so a database update is a cache MISS (the content is re-scanned under the new
+// engine) — never a stale result. Only real engine scans are cached (engineVersion non-null);
+// the no-engine adapter is never written here.
+// Natural composite key (content hash + engine version), not a handle.
 export const scanCache = sqliteTable(
   "scan_cache",
   {
     contentSha256: text("content_sha256").notNull(),
     engineVersion: text("engine_version").notNull(),
-    verdict: text("verdict", { enum: ["clean", "infected"] }).notNull(),
-    signature: text("signature"), // malware signature name for 'infected'; NULL for 'clean'
+    rawResult: text("raw_result").notNull(), // JSON-serialized RawScanResult
     scannedAt: text("scanned_at").notNull(),
   },
-  (table) => [
-    primaryKey({ columns: [table.contentSha256, table.engineVersion] }),
-    check("scan_cache_verdict_check", sql`${table.verdict} IN ('clean', 'infected')`),
-  ],
+  (table) => [primaryKey({ columns: [table.contentSha256, table.engineVersion] })],
 );
 
 // Authoritative per-firm AI token usage, captured from the inference RESPONSE (the provider usage

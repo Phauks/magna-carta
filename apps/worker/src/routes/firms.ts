@@ -17,15 +17,11 @@ import {
   type FirmProvisionerDependencies,
   type ProvisionFirmOutcome,
 } from "../firm-provisioner.ts";
-import {
-  migrateFirmDatabaseToHeadForEnv,
-  resourceProviderForEnv,
-} from "../firm-provisioner-wiring.ts";
+import { resourceProviderForEnv } from "../firm-provisioner-wiring.ts";
 import {
   problemResponseForIdempotencyConflict,
   storedResponseBody,
 } from "../idempotency-conflict-problems.ts";
-import { perFirmHeadSchemaVersion } from "../per-firm-migrations.ts";
 import { scheduleRequestPathSweep } from "../request-path-sweep.ts";
 import { Problem, problemJson } from "../contracts/problem.ts";
 import { idempotencyKeyHeader } from "../contracts/common.ts";
@@ -133,9 +129,10 @@ export const provisionFirmRoute = defineOpenAPIRoute(provisionFirmMeta, {
   method: "post",
   path: "/api/v1/firms",
   description:
-    "Provisions a tenant firm (platform-admin only): firm row, per-firm database created and " +
-    "migrated to head, bucket, owner user with the Owner/Admin role — resumable; re-invoking " +
-    "with the same name no-ops completed steps and returns the existing firm.",
+    "Provisions a tenant firm (platform-admin only): firm row, bucket, owner user with the " +
+    "Owner/Admin role — resumable; re-invoking with the same name no-ops completed steps and " +
+    "returns the existing firm. The firm's per-firm database is the firmId-addressed database " +
+    "that self-migrates on first access, so it needs no provisioning step.",
   request: {
     headers: idempotencyKeyHeader,
     body: {
@@ -207,8 +204,6 @@ export function registerFirmsRoute(
       const dependencies: FirmProvisionerDependencies = {
         controlPlaneDatabase: c.env.DB_CONTROL,
         resourceProvider: resourceProviderForEnv(c.env),
-        migrateFirmDatabaseToHead: migrateFirmDatabaseToHeadForEnv(c.env),
-        headSchemaVersion: perFirmHeadSchemaVersion(),
         rootKekBase64: c.env.ROOT_KEK,
       };
 

@@ -1,0 +1,2 @@
+CREATE INDEX `document_checkout_status_last_activity_index` ON `document_checkout` (`status`,`last_activity_at`);--> statement-breakpoint
+CREATE INDEX `file_version_tiering_index` ON `file_version` (`storage_class`,`status`,`committed_at`);

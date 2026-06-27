@@ -7,21 +7,21 @@ import {
   runStorageReconciliation,
   sweepStalePendingUploads,
 } from "../src/scheduled.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 import { seedFirm } from "./support/test-auth.ts";
 
 // The slice 1·1 storage Crons: the */5 stale-pending upload sweep (an abandoned open session past its
 // expiry is expired and its pending version abandoned) and the daily metering reconciliation (an R2
 // LIST corrects a drifted storage_meter). Driven over real Miniflare bindings.
+// Per-firm data lives in the firm's FirmDatabase Durable Object (addressed by firmId, self-migrating
+// on first access).
 
 let poolFirmId: FirmId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  poolFirmId = (await seedFirm({ name: "Storage Cron Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
-    .firmId;
+  poolFirmId = (await seedFirm({ name: "Storage Cron Firm" })).firmId;
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
     .bind(poolFirmId)
     .run();
@@ -35,29 +35,35 @@ async function seedPendingSession(
   const versionId = newIdentifier("fileVersion");
   const sessionId = newIdentifier("uploadSession");
   const now = new Date().toISOString();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO member (user_id, display_name, status, created_at) VALUES ('user_x', 'Sweeper', 'active', ?1) ON CONFLICT (user_id) DO NOTHING",
-  )
+  const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
+  await firmDatabase
+    .prepare(
+      "INSERT INTO member (user_id, display_name, status, created_at) VALUES ('user_x', 'Sweeper', 'active', ?1) ON CONFLICT (user_id) DO NOTHING",
+    )
     .bind(now)
     .run();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Sweep Matter', 'open', 'user_x', ?2, ?2)",
-  )
+  await firmDatabase
+    .prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Sweep Matter', 'open', 'user_x', ?2, ?2)",
+    )
     .bind(matterId, now)
     .run();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file (id, matter_id, name, created_at, updated_at) VALUES (?1, ?2, 'brief.pdf', ?3, ?3)",
-  )
+  await firmDatabase
+    .prepare(
+      "INSERT INTO file (id, matter_id, name, created_at, updated_at) VALUES (?1, ?2, 'brief.pdf', ?3, ?3)",
+    )
     .bind(fileId, matterId, now)
     .run();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file_version (id, file_id, version_number, r2_key, status, uploaded_by, created_at) VALUES (?1, ?2, 1, ?3, 'pending', 'user_x', ?4)",
-  )
+  await firmDatabase
+    .prepare(
+      "INSERT INTO file_version (id, file_id, version_number, r2_key, status, uploaded_by, created_at) VALUES (?1, ?2, 1, ?3, 'pending', 'user_x', ?4)",
+    )
     .bind(versionId, fileId, `files/${fileId}/${versionId}`, now)
     .run();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO upload_session (id, file_version_id, mode, declared_size, declared_content_type, status, created_at, expires_at) VALUES (?1, ?2, 'put', 1024, 'application/pdf', 'open', ?3, ?4)",
-  )
+  await firmDatabase
+    .prepare(
+      "INSERT INTO upload_session (id, file_version_id, mode, declared_size, declared_content_type, status, created_at, expires_at) VALUES (?1, ?2, 'put', 1024, 'application/pdf', 'open', ?3, ?4)",
+    )
     .bind(sessionId, versionId, now, expiresAt)
     .run();
   return { sessionId, versionId };
@@ -73,18 +79,17 @@ describe("sweepStalePendingUploads", () => {
     const swept = await sweepStalePendingUploads(env, firm!);
     expect(swept).toBeGreaterThanOrEqual(1);
 
-    const session = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT status FROM upload_session WHERE id = ?1",
-    )
+    const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
+    const { results: sessionResults } = await firmDatabase
+      .prepare("SELECT status FROM upload_session WHERE id = ?1")
       .bind(sessionId)
-      .first<{ status: string }>();
-    expect(session?.status).toBe("expired");
-    const version = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT status FROM file_version WHERE id = ?1",
-    )
+      .all<{ status: string }>();
+    expect(sessionResults[0]?.status).toBe("expired");
+    const { results: versionResults } = await firmDatabase
+      .prepare("SELECT status FROM file_version WHERE id = ?1")
       .bind(versionId)
-      .first<{ status: string }>();
-    expect(version?.status).toBe("abandoned");
+      .all<{ status: string }>();
+    expect(versionResults[0]?.status).toBe("abandoned");
   });
 
   it("leaves a not-yet-expired open session untouched", async () => {
@@ -92,12 +97,11 @@ describe("sweepStalePendingUploads", () => {
     const { sessionId } = await seedPendingSession(future);
     const [firm] = await listReachableActiveFirms(env);
     await sweepStalePendingUploads(env, firm!);
-    const session = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT status FROM upload_session WHERE id = ?1",
-    )
+    const { results: sessionResults } = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT status FROM upload_session WHERE id = ?1")
       .bind(sessionId)
-      .first<{ status: string }>();
-    expect(session?.status).toBe("open");
+      .all<{ status: string }>();
+    expect(sessionResults[0]?.status).toBe("open");
   });
 });
 
@@ -109,35 +113,44 @@ async function seedCleanVersion(r2Key: string, sizeBytes: number): Promise<void>
   const fileId = newIdentifier("file");
   const versionId = newIdentifier("fileVersion");
   const now = new Date().toISOString();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO member (user_id, display_name, status, created_at) VALUES ('user_recon', 'Recon', 'active', ?1) ON CONFLICT (user_id) DO NOTHING",
-  )
+  const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
+  await firmDatabase
+    .prepare(
+      "INSERT INTO member (user_id, display_name, status, created_at) VALUES ('user_recon', 'Recon', 'active', ?1) ON CONFLICT (user_id) DO NOTHING",
+    )
     .bind(now)
     .run();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Recon Matter', 'open', 'user_recon', ?2, ?2)",
-  )
+  await firmDatabase
+    .prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Recon Matter', 'open', 'user_recon', ?2, ?2)",
+    )
     .bind(matterId, now)
     .run();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file (id, matter_id, name, created_at, updated_at) VALUES (?1, ?2, 'doc.pdf', ?3, ?3)",
-  )
+  await firmDatabase
+    .prepare(
+      "INSERT INTO file (id, matter_id, name, created_at, updated_at) VALUES (?1, ?2, 'doc.pdf', ?3, ?3)",
+    )
     .bind(fileId, matterId, now)
     .run();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, status, scan_verdict, storage_class, uploaded_by, created_at, committed_at) VALUES (?1, ?2, 1, ?3, ?4, 'clean', 'unscanned', 'standard', 'user_recon', ?5, ?5)",
-  )
+  await firmDatabase
+    .prepare(
+      "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, status, scan_verdict, storage_class, uploaded_by, created_at, committed_at) VALUES (?1, ?2, 1, ?3, ?4, 'clean', 'unscanned', 'standard', 'user_recon', ?5, ?5)",
+    )
     .bind(versionId, fileId, r2Key, sizeBytes, now)
     .run();
-  await env.DB_FIRM_POOL_1.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+  await firmDatabase
+    .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
     .bind(fileId, versionId)
     .run();
 }
 
 async function readFilesMeter(): Promise<{ bytes: number; object_count: number } | null> {
-  return env.DB_FIRM_POOL_1.prepare(
-    "SELECT bytes, object_count FROM storage_meter WHERE storage_class = 'standard' AND prefix = 'files'",
-  ).first<{ bytes: number; object_count: number }>();
+  const { results } = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+    .prepare(
+      "SELECT bytes, object_count FROM storage_meter WHERE storage_class = 'standard' AND prefix = 'files'",
+    )
+    .all<{ bytes: number; object_count: number }>();
+  return results[0] ?? null;
 }
 
 describe("runStorageReconciliation", () => {
@@ -146,9 +159,11 @@ describe("runStorageReconciliation", () => {
     const r2Key = "files/recon-clean/v1";
     await seedCleanVersion(r2Key, 100);
     await env.R2.put(r2Key, new Uint8Array(100));
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO storage_meter (storage_class, artifact_role, prefix, bytes, object_count) VALUES ('standard', 'original', 'files', 999, 5) ON CONFLICT (storage_class, artifact_role, prefix) DO UPDATE SET bytes = 999, object_count = 5",
-    ).run();
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO storage_meter (storage_class, artifact_role, prefix, bytes, object_count) VALUES ('standard', 'original', 'files', 999, 5) ON CONFLICT (storage_class, artifact_role, prefix) DO UPDATE SET bytes = 999, object_count = 5",
+      )
+      .run();
 
     const report = await runStorageReconciliation(env);
     expect(report.firmsReconciled).toBeGreaterThanOrEqual(1);

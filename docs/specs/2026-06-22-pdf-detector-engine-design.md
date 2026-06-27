@@ -69,11 +69,11 @@ Three mechanisms feed the detectors:
 
 **(a) The observing Device (per page).** Implements `Device`, recording glyphs and covers in paint order. A glyph's page-space bbox is `transform * glyph_transform * outline` (feasibility-confirmed); recovered text is `Glyph::as_unicode()`; cover opacity is `Paint::Color → to_rgba8()[3]`. From this one pass:
 
-- **CoveredText** — a visible (`Fill`/`Stroke`) extractable glyph whose bbox center lies under a *later* opaque cover (`alpha ≥ 250`). Recovered text + region. **Critical.** (Partial-opacity covers, `128 ≤ alpha < 250`, are flagged **Low** — a high-recall judgment call.)
+- **CoveredText** — a visible (`Fill`/`Stroke`) extractable glyph whose bbox center lies under a _later_ opaque cover (`alpha ≥ 250`). Recovered text + region. **Critical.** (Partial-opacity covers, `128 ≤ alpha < 250`, are flagged **Low** — a high-recall judgment call.)
 - **InvisibleText** — an extractable glyph drawn in `GlyphDrawMode::Invisible` (Tr 3). The classic OCR-overlay / invisible-text leak. **High.**
 - **WhiteoutText** — an extractable glyph whose fill color equals the opaque fill drawn over/under its bbox (same-color concealment), or near-white on a near-white region. **High.**
 
-**(b) Annotation attribution.** `interpret_page` renders page content, then annotations. To attribute a cover to a *removable annotation* (remediation: "delete this annotation to reveal"), the detector drives interpretation in two phases — page operations first, then each annotation appearance separately, tagging the source. A CoveredText whose covering ink comes from an annotation becomes **RemovableAnnotation** (trivially reversible → **Critical**).
+**(b) Annotation attribution.** `interpret_page` renders page content, then annotations. To attribute a cover to a _removable annotation_ (remediation: "delete this annotation to reveal"), the detector drives interpretation in two phases — page operations first, then each annotation appearance separately, tagging the source. A CoveredText whose covering ink comes from an annotation becomes **RemovableAnnotation** (trivially reversible → **Critical**).
 
 **(c) Structural pass (lopdf, document-level).** For text not on any visible page render:
 
@@ -99,7 +99,7 @@ The default category→tier mapping above is the engine's starting point; the ex
 
 - **Per-glyph bbox** = `transform * glyph_transform * outline` — composing both transforms is mandatory (using `transform` alone collapses every glyph to the text-run origin; feasibility-confirmed).
 - **Cover bbox** = the fill path transformed to page space, bounding-boxed.
-- **Paint order** = Device call order; a cover counts only if it is painted *after* the glyph.
+- **Paint order** = Device call order; a cover counts only if it is painted _after_ the glyph.
 - **Opacity** = `to_rgba8()[3]`; opaque ≥ 250, partial 128–249 (Low), transparent < 128 ignored.
 - Glyphs and covers share the same transform pipeline (one interpret pass), so coordinates are directly comparable regardless of the absolute frame.
 

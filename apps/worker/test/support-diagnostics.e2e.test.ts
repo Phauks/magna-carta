@@ -4,7 +4,6 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { insertPlatformStaffStatement } from "@magna-carta/data-access/support-access-statements";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -12,22 +11,17 @@ import {
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
-// A single pool firm backed by DB_FIRM_POOL_1. Seeded once so database_identifier stays unique.
+// A single firm seeded once; its per-firm data lives in the FirmDatabase Durable Object
+// (addressed by firmId, self-migrating on first access).
 let poolFirmId: FirmId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  poolFirmId = (
-    await seedFirm({
-      name: "Support Diagnostics Test Firm",
-      databaseIdentifier: "DB_FIRM_POOL_1",
-    })
-  ).firmId;
+  poolFirmId = (await seedFirm({ name: "Support Diagnostics Test Firm" })).firmId;
   // Seed a member with the Owner/Admin role so they carry support:request (seeded to every default
-  // role by the per-firm migration) but NOT diagnostics:overview (never seeded to any firm role).
+  // role by the per-firm DO migrations) but NOT diagnostics:overview (never seeded to any firm role).
   const { userId } = await seedCredentialedUser("diag-e2e@example.com", { firmId: poolFirmId });
-  await mirrorMemberWithOwnerRole(userId, "Diagnostics E2E Member");
+  await mirrorMemberWithOwnerRole(userId, "Diagnostics E2E Member", poolFirmId);
 });
 
 const DIAGNOSTIC_OVERVIEW_URL = "https://example.com/api/v1/support/diagnostics/overview";

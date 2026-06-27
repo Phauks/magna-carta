@@ -1,0 +1,51 @@
+{
+  // The standalone in-app document editor worker. It owns the DocumentEditorContainer Durable Object
+  // (Container-backed) — one isolated Collabora Online (coolwsd) instance per open document. Unlike the
+  // scan/convert workers, this one IS browser-facing: the editor iframe + WebSocket load from its
+  // cookieless origin. coolwsd's WOPI callbacks reach the app worker via outbound interception over the
+  // APP_WORKER service binding (enableInternet stays false) — see the collabora-editing-host-topology ADR.
+  "name": "magna-carta-edit",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-06-05",
+  "compatibility_flags": ["nodejs_compat"],
+  // Browser-facing on the dedicated COOKIELESS content domain. Production serves each open document at
+  // `<documentKey>.magnacartausercontent.com` (the per-document key is the Host's first label). The
+  // content domain is a SEPARATE REGISTRABLE DOMAIN from the app (magnacarta.esq), so the browser never
+  // sends an app-session cookie here — cookieless by construction, not by cookie-scoping discipline (the
+  // googleusercontent.com model). The default workers.dev origin is disabled: not cookieless, no wildcard.
+  "workers_dev": false,
+  "preview_urls": false,
+  // The wildcard route. `wrangler deploy` creates the route on the magnacartausercontent.com zone; it only
+  // carries traffic once a matching PROXIED wildcard DNS record `*` exists on that zone (a one-time zone
+  // step — the deploy does not create DNS records for wildcard routes). Document keys are first-level, so
+  // free Universal SSL (`*.magnacartausercontent.com`) covers them. When file previews/downloads move onto
+  // this domain (FILES_ORIGIN), give the app worker the more-specific `files.magnacartausercontent.com/*`
+  // route — Cloudflare matches most-specific first, so it overrides this wildcard for that one host.
+  "routes": [
+    { "pattern": "*.magnacartausercontent.com/*", "zone_name": "magnacartausercontent.com" },
+  ],
+  // The coolwsd Container Durable Object (Container-backed, sqlite-class). coolwsd serves on 9980 with
+  // outbound networking disabled — untrusted document bytes never reach the network; the WOPI host is
+  // reached only through the class's outboundByHost interception. standard-1 (4 GiB) is a headroom
+  // starting point over the spike's 1.16 GiB idle floor; right-size to a custom ~2.5 GiB instance once
+  // the open-document peak is measured against the real WOPI host (the spike could not load documents).
+  "containers": [
+    {
+      "class_name": "DocumentEditorContainer",
+      "image": "../../containers/collabora/Dockerfile",
+      "max_instances": 10,
+      "instance_type": "standard-1",
+    },
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "DOCUMENT_EDITOR", "class_name": "DocumentEditorContainer" }],
+  },
+  // SQLite-backed DO class introduced via migration tag; first migration for this worker.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DocumentEditorContainer"] }],
+  // Service binding to the main app worker — the target of coolwsd's intercepted WOPI callbacks
+  // (/wopi/files/*). This worker holds no R2/D1/secret bindings; all object I/O flows through that host.
+  "services": [{ "binding": "APP_WORKER", "service": "magna-carta" }],
+  // No warm cron: the container scales to zero after sleepAfter, billing only while a document is open.
+  // Cold start on first open is accepted; native min_instances pre-warming is the lever if it bites.
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+}

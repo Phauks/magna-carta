@@ -6,7 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { LiveTimerDurableObject } from "../src/timer/live-timer-durable-object.ts";
 import type { TimerState } from "../src/timer/timer-runtime.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -27,7 +27,6 @@ const clock = { now: () => new Date().toISOString() };
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   poolFirmId = (await seedFirm({ name: "Timer Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
     .firmId;
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
@@ -39,7 +38,7 @@ beforeAll(async () => {
     firmId: poolFirmId,
   });
   ownerUserId = owner.userId;
-  await mirrorMemberWithOwnerRole(owner.userId, "Timer Owner");
+  await mirrorMemberWithOwnerRole(owner.userId, "Timer Owner", poolFirmId);
   ownerCookie = await signInForSessionCookie("timer-owner@example.com");
 
   // A numbering scheme is required before matters can be created (the matter POST 422s without one).
@@ -76,13 +75,15 @@ beforeAll(async () => {
   matterId = ((await created.json()) as { matterId: string }).matterId;
 
   const card = await createRateCard(
-    env.DB_FIRM_POOL_1,
+    firmDatabaseFor(env.FIRM_DATABASE, poolFirmId),
     { name: "Standard" },
     { clock, actorUserId: ownerUserId },
   );
-  await commitEffectBatch(env.DB_FIRM_POOL_1, card.effect, { now: clock.now });
+  await commitEffectBatch(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), card.effect, {
+    now: clock.now,
+  });
   const rate = await appendRate(
-    env.DB_FIRM_POOL_1,
+    firmDatabaseFor(env.FIRM_DATABASE, poolFirmId),
     {
       rateCardId: card.rateCardId,
       tier: "timekeeper",
@@ -93,7 +94,9 @@ beforeAll(async () => {
     },
     { clock, actorUserId: ownerUserId },
   );
-  await commitEffectBatch(env.DB_FIRM_POOL_1, rate.effect, { now: clock.now });
+  await commitEffectBatch(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), rate.effect, {
+    now: clock.now,
+  });
 });
 
 function headers(withKey = true): HeadersInit {
@@ -159,9 +162,8 @@ describe("timer start -> bind -> stop-commit", () => {
     expect(stop.status).toBe(201);
     const { timeEntryId } = (await stop.json()) as { timeEntryId: string };
 
-    const row = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT source, live_run_id, status FROM time_entry WHERE id = ?1",
-    )
+    const row = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT source, live_run_id, status FROM time_entry WHERE id = ?1")
       .bind(timeEntryId)
       .first<{ source: string; live_run_id: string | null; status: string }>();
     expect(row?.source).toBe("timer");
@@ -199,9 +201,8 @@ describe("idempotent stop-commits collapse to one entry", () => {
     // zero-duration billing guard.
     await backdateTimerStart(poolFirmId, ownerUserId, 30);
 
-    const before = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM time_entry WHERE live_run_id = ?1",
-    )
+    const before = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT COUNT(*) AS c FROM time_entry WHERE live_run_id = ?1")
       .bind(liveRunId)
       .first<{ c: number }>();
     expect(before?.c).toBe(0);
@@ -217,9 +218,8 @@ describe("idempotent stop-commits collapse to one entry", () => {
     const { timeEntryId: idSecond } = (await second.json()) as { timeEntryId: string };
     expect(idFirst).toBe(idSecond);
 
-    const after = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM time_entry WHERE live_run_id = ?1",
-    )
+    const after = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT COUNT(*) AS c FROM time_entry WHERE live_run_id = ?1")
       .bind(liveRunId)
       .first<{ c: number }>();
     expect(after?.c).toBe(1);
@@ -263,9 +263,8 @@ describe("zero-duration guard on stop-commit", () => {
     expect(readBody.status).not.toBe("idle");
 
     // Confirm no entry was written for this run.
-    const row = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM time_entry WHERE live_run_id = ?1",
-    )
+    const row = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT COUNT(*) AS c FROM time_entry WHERE live_run_id = ?1")
       .bind(liveRunId)
       .first<{ c: number }>();
     expect(row?.c).toBe(0);

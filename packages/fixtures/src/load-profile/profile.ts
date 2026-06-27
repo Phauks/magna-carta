@@ -152,6 +152,34 @@ export interface CustomFieldVolume {
   readonly referenceShare: number;
 }
 
+// The editing volume laid over the practice's files/versions (slice 2·2): a fraction of superseded
+// (non-current) clean versions already tiered to Infrequent Access, a set of offline/exclusive
+// checkouts across the firm's files, and a handful of files left with a conflict_pending conflicting
+// copy awaiting reconciliation. This is the queryable shadow of the editing background work — the
+// firm-wide tiering candidate scan, the idle-checkout sweep scan, the active-exclusive-lock launch gate,
+// and the reconcile lookup. The two SWEEP scans are firm-wide (every version / every checkout), so they
+// are the volume-shaped operations that must walk an index, not the table. Every count/fraction is a
+// PARAMETER (changing one bumps the profile `version`). Sized like an established firm's editing
+// activity, not a stress run.
+export interface EditingVolume {
+  // Fraction of superseded (non-current) clean versions already moved to Infrequent Access — the
+  // standard/IA mix the tiering candidate scan reads against (its candidates are the standard remainder).
+  readonly tieredVersionFraction: number;
+  // Offline/exclusive checkouts laid across the firm's files — the firm-wide set the idle-checkout
+  // sweep scans. A fraction are left idle (active with an old last_activity) so the sweep's stage-1 scan
+  // is selective and volume-shaped.
+  readonly checkoutCount: number;
+  // Fraction of those checkouts that are exclusive locks (the rest are offline working copies) — gives
+  // the active-exclusive-lock launch gate a populated lookup.
+  readonly exclusiveCheckoutFraction: number;
+  // Fraction of the checkouts left idle (active, last_activity older than any plausible window) — the
+  // stage-1 candidates the idle sweep's firm-wide scan must find selectively.
+  readonly idleCheckoutFraction: number;
+  // Files left with a conflict_pending conflicting copy awaiting human reconciliation (the document
+  // flag the reconcile lookup finds). Created through the real check-in divergence path.
+  readonly conflictCount: number;
+}
+
 export interface LedgerVolumeProfile {
   readonly name: "ledgerVolume";
   // Profile identity: bump on ANY parameter change — baselines measured against different data
@@ -175,6 +203,8 @@ export interface LedgerVolumeProfile {
   readonly shipping: ShippingVolume;
   // The custom-field volume laid over the practice + directory (fields, options, values, history).
   readonly customFields: CustomFieldVolume;
+  // The editing volume laid over the practice's files/versions (tiered versions, checkouts, conflicts).
+  readonly editing: EditingVolume;
   // The timekeeping volume laid over the practice book (rate cards, effective-dated rates, time entries).
   readonly time: TimeVolume;
 }
@@ -184,7 +214,7 @@ export interface LedgerVolumeProfile {
 // files with multi-version histories.
 export const ledgerVolume: LedgerVolumeProfile = {
   name: "ledgerVolume",
-  version: 7,
+  version: 8,
   trustSubledgerCount: 200,
   entryCount: 25_000,
   postingSpanDays: 1_095,
@@ -245,6 +275,16 @@ export const ledgerVolume: LedgerVolumeProfile = {
     valuesPerRecord: 14,
     historyDepth: 3,
     referenceShare: 0.2,
+  },
+  editing: {
+    // An established firm's editing background: a quarter of superseded versions already tiered to IA,
+    // a few hundred checkouts across the document tree (a fifth exclusive, a fifth gone idle), and a
+    // handful of documents currently flagged for reconciliation.
+    tieredVersionFraction: 0.25,
+    checkoutCount: 200,
+    exclusiveCheckoutFraction: 0.2,
+    idleCheckoutFraction: 0.2,
+    conflictCount: 25,
   },
   time: {
     // An established firm's monthly capture: a handful of entries per timekeeper per day across the
@@ -308,6 +348,13 @@ export function scaleProfile(
       optionsPerPicklist: scaleCount(profile.customFields.optionsPerPicklist, 2),
       valuesPerRecord: scaleCount(profile.customFields.valuesPerRecord, 3),
       historyDepth: scaleCount(profile.customFields.historyDepth, 1),
+    },
+    editing: {
+      ...profile.editing,
+      // Floors keep a handful of checkouts (enough for an idle subset + an exclusive subset) and at
+      // least a couple of conflicts at the smoke multiplier. Fractions are not scaled.
+      checkoutCount: scaleCount(profile.editing.checkoutCount, 6),
+      conflictCount: scaleCount(profile.editing.conflictCount, 2),
     },
     time: {
       ...profile.time,

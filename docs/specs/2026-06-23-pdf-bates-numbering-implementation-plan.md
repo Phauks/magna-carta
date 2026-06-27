@@ -40,6 +40,7 @@ pub fn stamp_set(docs: &[Vec<u8>], opts: &BatesOptions) -> Result<Vec<(Vec<u8>, 
 **Files:** Create `crates/pdf-core/src/bates.rs`; modify `crates/pdf-core/src/lib.rs` (`mod bates;`, re-export the public types/functions).
 
 **Produces:** the types above (define them here, behaviour added in later tasks), and:
+
 ```rust
 pub(crate) fn format_label(prefix: &str, number: u64, padding: u8) -> String;
 pub(crate) fn helvetica_advance(ch: char) -> f32;        // glyph-space/1000 units
@@ -53,6 +54,7 @@ pub(crate) fn escape_pdf_literal(s: &str) -> String;     // for ( ) \
 - `escape_pdf_literal`: replace `\` → `\\`, `(` → `\(`, `)` → `\)` (in that order — backslash first).
 
 - [ ] **Step 1: failing tests**
+
 ```rust
 #[test] fn formats_padded_label() {
     assert_eq!(format_label("SMITH-", 42, 6), "SMITH-000042");
@@ -74,7 +76,9 @@ pub(crate) fn escape_pdf_literal(s: &str) -> String;     // for ( ) \
     assert_eq!(escape_pdf_literal(r"a(b)c\d"), r"a\(b\)c\\d");
 }
 ```
+
 (First confirm the four Helvetica widths against `standard_fonts_data.rs` — adjust the asserted numbers to the real baked values if any differ.)
+
 - [ ] **Step 2:** run `cargo test -p pdf-core bates::` (from `crates/`) — FAIL.
 - [ ] **Step 3:** implement.
 - [ ] **Step 4:** PASS; `cargo clippy -p pdf-core --all-targets` + fmt clean (dead-code on the not-yet-used types/functions is expected).
@@ -87,6 +91,7 @@ pub(crate) fn escape_pdf_literal(s: &str) -> String;     // for ( ) \
 **Files:** modify `crates/pdf-core/src/bates.rs`.
 
 **Produces:**
+
 ```rust
 // Stamp ONE page in place with `label`. Returns Err only on structural impossibility
 // (no resolvable MediaBox). Reuses crate::surgery::{resolve_mediabox, resolve_rotate,
@@ -96,10 +101,12 @@ pub(crate) fn stamp_page(doc: &mut lopdf::Document, page_id: lopdf::ObjectId,
 ```
 
 **Placement math.** Let the effective MediaBox be `[llx lly urx ury]`, `W = urx-llx`, `H = ury-lly`, rotation `r = resolve_rotate(...).rem_euclid(360)`, margin `m = opts.margin_pt`, size `s = opts.font_size_pt`, label width `w = label_width_pt(label, s)`. Displayed dims `(Wd, Hd) = (W, H)` for `r ∈ {0,180}`, else `(H, W)`. Choose the text origin in the displayed bottom-left frame `(dx, dy)`:
+
 - BottomLeft `(m, m)`, BottomRight `(Wd - m - w, m)`, BottomCenter `((Wd - w)/2, m)`
 - TopLeft `(m, Hd - m - s)`, TopRight `(Wd - m - w, Hd - m - s)`, TopCenter `((Wd - w)/2, Hd - m - s)`
 
 The text matrix `Tm = [a b c d e f]` maps text space → user space. The linear part counter-rotates the text so it reads upright on the displayed page:
+
 - `r=0`: `[1,0,0,1]`, user origin `(e,f) = (llx + dx, lly + dy)`
 - `r=180`: `[-1,0,0,-1]`, `(e,f) = (llx + W - dx, lly + H - dy)`
 - `r=90`: linear `[0,1,-1,0]`; derive `(e,f)` so the displayed `(dx,dy)` lands correctly

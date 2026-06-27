@@ -25,6 +25,7 @@ function stubDatabase(): SqlDatabase {
     bind: () => statement(sql),
     run: () => Promise.resolve({ meta: { changes: 0 } }),
     all: <T>() => Promise.resolve({ results: [] as T[] }),
+    first: () => Promise.resolve(null),
   });
   return { prepare: statement };
 }

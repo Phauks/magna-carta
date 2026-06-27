@@ -75,7 +75,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     expect(grantsFor("Owner/Admin")).toContain("matters:create");
     // Paralegal: firm:reportIncident (0003) + matters:create + files upload/organize (0004)
     // + tools:whois/safeBrowse (0017) + firm:scanFile (0019) + tools:metadataScrubber (0020)
-    // + support:request (0022 — seeded to every role so any member can request help).
+    // + tools:fileIntegrity (0022) + support:request (0028 — seeded to every role so any member can request help).
     expect(grantsFor("Paralegal").sort()).toEqual(
       [
         "files:organize",
@@ -84,19 +84,22 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "firm:scanFile",
         "matters:create",
         "support:request",
+        "tools:fileIntegrity",
         "tools:metadataScrubber",
         "tools:safeBrowse",
         "tools:whois",
       ].sort(),
     );
     // Billing and Read-only carry firm:reportIncident (0003) + tools:whois/safeBrowse (0017) +
-    // firm:scanFile (0019) + tools:metadataScrubber (0020) + support:request (0022) by default
+    // firm:scanFile (0019) + tools:metadataScrubber (0020) + tools:fileIntegrity (0022) +
+    // support:request (0028) by default
     // (all seeded to every role).
     expect(grantsFor("Billing").sort()).toEqual(
       [
         "firm:reportIncident",
         "firm:scanFile",
         "support:request",
+        "tools:fileIntegrity",
         "tools:metadataScrubber",
         "tools:safeBrowse",
         "tools:whois",
@@ -107,6 +110,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "firm:reportIncident",
         "firm:scanFile",
         "support:request",
+        "tools:fileIntegrity",
         "tools:metadataScrubber",
         "tools:safeBrowse",
         "tools:whois",

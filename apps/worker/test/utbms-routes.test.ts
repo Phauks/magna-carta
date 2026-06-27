@@ -13,7 +13,7 @@ import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -35,7 +35,6 @@ const clock = { now: () => new Date().toISOString() };
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   poolFirmId = (await seedFirm({ name: "UTBMS Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
     .firmId;
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
@@ -46,22 +45,23 @@ beforeAll(async () => {
     userName: "UTBMS Owner",
     firmId: poolFirmId,
   });
-  await mirrorMemberWithOwnerRole(owner.userId, "UTBMS Owner");
+  await mirrorMemberWithOwnerRole(owner.userId, "UTBMS Owner", poolFirmId);
   ownerCookie = await signInForSessionCookie("utbms-owner@example.com");
 
   const readOnly = await seedCredentialedUser("utbms-readonly@example.com", {
     userName: "UTBMS Read Only",
     firmId: poolFirmId,
   });
-  const role = await env.DB_FIRM_POOL_1.prepare("SELECT id FROM role WHERE name = ?1")
+  const role = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+    .prepare("SELECT id FROM role WHERE name = ?1")
     .bind("Read-only")
     .first<{ id: string }>();
-  await insertMemberStatement(env.DB_FIRM_POOL_1, {
+  await insertMemberStatement(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), {
     userId: readOnly.userId,
     displayName: "UTBMS Read Only",
     now: new Date().toISOString(),
   }).run();
-  await insertRoleAssignmentStatement(env.DB_FIRM_POOL_1, {
+  await insertRoleAssignmentStatement(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), {
     id: newIdentifier("memberRole"),
     memberUserId: readOnly.userId,
     roleId: assertIdentifier(role!.id, "role"),
@@ -70,17 +70,17 @@ beforeAll(async () => {
 
   // Seed the ABA UTBMS catalog into the per-firm database. The statements are
   // INSERT OR IGNORE so a re-seed is a no-op.
-  const statements = seedUtbmsCatalogStatements(env.DB_FIRM_POOL_1);
+  const statements = seedUtbmsCatalogStatements(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId));
   await commitEffectBatch(
-    env.DB_FIRM_POOL_1,
+    firmDatabaseFor(env.FIRM_DATABASE, poolFirmId),
     { statements, outboxMessages: [] },
     { now: clock.now },
   );
 
   // Pick the first task-set code id for use in enable/disable tests.
-  const first = await env.DB_FIRM_POOL_1.prepare(
-    `SELECT id FROM ${UTBMS_CODE_TABLE} WHERE code_set = 'task' ORDER BY code LIMIT 1`,
-  ).first<{ id: string }>();
+  const first = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+    .prepare(`SELECT id FROM ${UTBMS_CODE_TABLE} WHERE code_set = 'task' ORDER BY code LIMIT 1`)
+    .first<{ id: string }>();
   firstTaskCodeId = first!.id;
 });
 
@@ -132,9 +132,8 @@ describe("enable / disable", () => {
     expect(disableResponse.status).toBe(200);
 
     // Confirm the active flag is 0 in the database
-    const row = await env.DB_FIRM_POOL_1.prepare(
-      `SELECT active FROM ${UTBMS_CODE_TABLE} WHERE id = ?1`,
-    )
+    const row = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(`SELECT active FROM ${UTBMS_CODE_TABLE} WHERE id = ?1`)
       .bind(firstTaskCodeId)
       .first<{ active: number }>();
     expect(row?.active).toBe(0);

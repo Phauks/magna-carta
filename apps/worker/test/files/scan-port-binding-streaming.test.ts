@@ -34,14 +34,20 @@ describe("resolveScanPort — streaming body forwarding", () => {
     });
 
     // A counting Fetcher: reads the incoming request body fully and records the total byte count.
-    // Returns a valid no-engine ScanResult so the adapter's response parsing succeeds.
+    // Returns a valid no-engine RawScanResult so the adapter's response parsing succeeds.
     let receivedByteCount = 0;
     const countingFetcher = {
       fetch: async (request: Request): Promise<Response> => {
         const buffer = await new Response(request.body).arrayBuffer();
         receivedByteCount = buffer.byteLength;
         return new Response(
-          JSON.stringify({ verdict: "unscanned", reason: "no-engine", engineVersion: null }),
+          JSON.stringify({
+            engineVersion: null,
+            clam: { state: "unavailable" },
+            heuristic: { kind: "none" },
+            matches: [],
+            timings: { clamdMs: 0, yaraMs: 0 },
+          }),
           { status: 200, headers: { "content-type": "application/json" } },
         );
       },
@@ -57,7 +63,8 @@ describe("resolveScanPort — streaming body forwarding", () => {
 
     // The Fetcher must have received every byte that was enqueued.
     expect(receivedByteCount).toBe(BODY_SIZE_BYTES);
-    // The adapter must still return a valid ScanResult (no parse error on the response).
-    expect(result.verdict).toBe("unscanned");
+    // The adapter must still return a valid RawScanResult (no parse error on the response).
+    expect(result.engineVersion).toBeNull();
+    expect(result.clam.state).toBe("unavailable");
   });
 });

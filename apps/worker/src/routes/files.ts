@@ -18,6 +18,7 @@ import {
   listFiles,
 } from "@magna-carta/file-manager/queries";
 import { decidePreview } from "@magna-carta/file-manager/preview-policy";
+import { documentSessionStub } from "../editing/document-session.ts";
 import { mintPreviewDeliveryToken } from "../files/preview-token.ts";
 import { FileManagerValidationError } from "@magna-carta/file-manager/validation";
 import type { FileId, FileVersionId, FolderId, MatterId } from "@magna-carta/identifiers/types";
@@ -670,6 +671,12 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
       const idempotency = requireChokepointIdempotency(c);
       const { id } = c.req.valid("param");
       const now = () => new Date().toISOString();
+      // Reap any live editing session first so the file is not deleted out from under live editors with
+      // a stranded session/lock. Idempotent — force-closing an already-idle session is a no-op.
+      await documentSessionStub(c.env, id).forceClose();
+      // Captured inside the effect so the working-copy object is destroyed only after the soft-delete
+      // batch commits (and only by the winner of the idempotency race).
+      let currentR2KeyToDestroy: string | null = null;
       try {
         const result = await runIdempotentEffect({
           database: firm.firmDatabase,
@@ -680,6 +687,7 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
               clock: { now },
               actorUserId: userId,
             });
+            currentR2KeyToDestroy = deleted.currentR2Key;
             return {
               write: deleted.effect,
               responseCode: 200,
@@ -689,6 +697,11 @@ export function registerFilesRoutes(app: FilesApp, chokepoint: Chokepoint): void
         });
         if (result.kind === "in-progress" || result.kind === "fingerprint-mismatch") {
           return problemResponseForIdempotencyConflict(c, result);
+        }
+        // Destroy the live working copy only on the winning execution (a replay's batch rolled back and
+        // the winner already handled it); the committed versions and their bytes are retained.
+        if (result.kind === "executed" && currentR2KeyToDestroy !== null) {
+          await c.env.R2.delete(currentR2KeyToDestroy);
         }
         if (result.kind === "replayed") c.header("Idempotency-Replayed", "true");
         const body = JSON.parse(storedResponseBody(result)) as z.infer<typeof FileActionAck>;

@@ -39,6 +39,10 @@ export type MeResponse = {
         name: string;
     };
     permissions: Array<string>;
+    channel: 'stable' | 'beta' | 'alpha';
+    flags: {
+        [key: string]: boolean;
+    };
 };
 
 export type FirmUsageResponse = {
@@ -100,6 +104,34 @@ export type SafeWebsiteView = {
     links: Array<string>;
 };
 
+export type FileIntegrityHashResponse = {
+    algorithms: {
+        md5: string;
+        sha1: string;
+        sha256: string;
+        sha384: string;
+        sha512: string;
+    };
+    sizeBytes: number;
+    computedAt: string;
+    expectedMatch: 'md5' | 'sha1' | 'sha256' | 'sha384' | 'sha512' | null;
+};
+
+export type FileIntegrityVerifyResponse = {
+    algorithms: {
+        md5: string;
+        sha1: string;
+        sha256: string;
+        sha384: string;
+        sha512: string;
+    };
+    sizeBytes: number;
+    baselineSha256: string | null;
+    comparison: 'match' | 'mismatch' | 'no-baseline';
+    computedAt: string;
+    receipt?: unknown;
+};
+
 export type MetadataReport = {
     format: string;
     findings: Array<{
@@ -139,6 +171,15 @@ export type InviteMemberRequest = {
     name: string;
 };
 
+export type SetReleaseChannelResponse = {
+    channel: 'stable' | 'beta';
+};
+
+export type SetReleaseChannelRequest = {
+    channel: 'stable' | 'beta';
+    consentAcknowledged?: boolean;
+};
+
 export type ProvisionFirmResponse = {
     id: string;
     name: string;
@@ -156,6 +197,14 @@ export type ProvisionFirmRequest = {
         email: string;
         name: string;
     };
+};
+
+export type PlatformSetReleaseChannelResponse = {
+    channel: 'stable' | 'beta' | 'alpha';
+};
+
+export type PlatformSetReleaseChannelRequest = {
+    channel: 'stable' | 'beta' | 'alpha';
 };
 
 export type ReportIncidentResponse = {
@@ -560,6 +609,72 @@ export type ZipDownloadRequest = {
     matterId: string;
     folderIds?: Array<string>;
     fileIds?: Array<string>;
+    options?: {
+        format: 'zip' | 'sevenZip';
+        compression: 'store' | 'normal' | 'maximum';
+        encryption: {
+            algorithm: 'aes-256';
+            encryptFileNames: boolean;
+        } | null;
+        split: {
+            maxPartBytes: number;
+        } | null;
+        outputName: string;
+        wrapperFolder: {
+            name: string;
+        } | null;
+        layout: 'preserveTree' | 'flatten';
+        manifest: boolean;
+    };
+    password?: string;
+};
+
+export type SessionLaunchResponse = {
+    editorUrl: string;
+    editorOrigin: string;
+    accessToken: string;
+    accessTokenTtl: number;
+    capability: 'edit' | 'view';
+};
+
+export type CheckoutResponse = {
+    checkoutId: string;
+    presignedGetUrl: string;
+};
+
+export type CheckoutRequest = {
+    lockType?: 'offline_working_copy' | 'exclusive';
+};
+
+export type CheckinResponse = {
+    versionId: string;
+    key: string;
+    method: 'PUT';
+    url: string;
+    headers: {
+        [key: string]: string;
+    };
+};
+
+export type CheckinRequest = {
+    checkoutId: string;
+};
+
+export type ReconcileResponse = {
+    status: 'reconciled';
+    reconciledVersionId: string;
+    currentVersionId: string;
+};
+
+export type ReconcileRequest = {
+    keep: 'current' | 'incoming' | 'both';
+    resolvedNote?: string;
+};
+
+export type ForceReleaseResponse = {
+    status: 'released';
+    releasedCheckoutId: string;
+    displacedHolderId: string;
 };
 
 export type ScanDiagnosis = {
@@ -578,6 +693,7 @@ export type MatterRescanResult = {
 export type BundleStatus = {
     status: string;
     url?: string;
+    urls?: Array<string>;
 };
 
 export type CreatedDirectoryEntityResponse = {
@@ -1403,6 +1519,92 @@ export type SafeBrowsePostResponses = {
 
 export type SafeBrowsePostResponse = SafeBrowsePostResponses[keyof SafeBrowsePostResponses];
 
+export type FileIntegrityHashData = {
+    body?: never;
+    path?: never;
+    query?: {
+        expected?: string;
+    };
+    url: '/api/v1/file-integrity/hash';
+};
+
+export type FileIntegrityHashErrors = {
+    /**
+     * Empty request body
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:fileIntegrity
+     */
+    403: Problem;
+    /**
+     * The body exceeds the firm's inspectable-size cap
+     */
+    413: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FileIntegrityHashError = FileIntegrityHashErrors[keyof FileIntegrityHashErrors];
+
+export type FileIntegrityHashResponses = {
+    /**
+     * The five digests and byte size of the supplied body
+     */
+    200: FileIntegrityHashResponse;
+};
+
+export type FileIntegrityHashResponse2 = FileIntegrityHashResponses[keyof FileIntegrityHashResponses];
+
+export type FileIntegrityVerifyData = {
+    body?: {
+        fileId: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/file-integrity/verify';
+};
+
+export type FileIntegrityVerifyErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:fileIntegrity
+     */
+    403: Problem;
+    /**
+     * No clean current version exists for the file
+     */
+    404: Problem;
+    /**
+     * The stored file exceeds the firm's inspectable-size cap for inline verification
+     */
+    413: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FileIntegrityVerifyError = FileIntegrityVerifyErrors[keyof FileIntegrityVerifyErrors];
+
+export type FileIntegrityVerifyResponses = {
+    /**
+     * The recomputed digests, the baseline comparison, and the receipt
+     */
+    200: FileIntegrityVerifyResponse;
+};
+
+export type FileIntegrityVerifyResponse2 = FileIntegrityVerifyResponses[keyof FileIntegrityVerifyResponses];
+
 export type MetadataInspectData = {
     body: {
         filename: string;
@@ -1536,6 +1738,58 @@ export type MembersInviteResponses = {
 
 export type MembersInviteResponse = MembersInviteResponses[keyof MembersInviteResponses];
 
+export type FirmSetReleaseChannelData = {
+    body: SetReleaseChannelRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/release-channel';
+};
+
+export type FirmSetReleaseChannelErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one); or beta requested without consent acknowledgment
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageReleaseChannel
+     */
+    403: Problem;
+    /**
+     * The session's firm is not reachable from this deployment, or the session member is deactivated (absent, never an existence oracle)
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * Validation failed (e.g. channel value outside the firm-accessible set); or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmSetReleaseChannelError = FirmSetReleaseChannelErrors[keyof FirmSetReleaseChannelErrors];
+
+export type FirmSetReleaseChannelResponses = {
+    /**
+     * The firm's release channel after the update
+     */
+    200: SetReleaseChannelResponse;
+};
+
+export type FirmSetReleaseChannelResponse = FirmSetReleaseChannelResponses[keyof FirmSetReleaseChannelResponses];
+
 export type FirmsProvisionData = {
     body: ProvisionFirmRequest;
     headers: {
@@ -1579,6 +1833,56 @@ export type FirmsProvisionResponses = {
 };
 
 export type FirmsProvisionResponse = FirmsProvisionResponses[keyof FirmsProvisionResponses];
+
+export type PlatformSetFirmReleaseChannelData = {
+    body: PlatformSetReleaseChannelRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        firmId: string;
+    };
+    query?: never;
+    url: '/api/v1/platform/firms/{firmId}/release-channel';
+};
+
+export type PlatformSetFirmReleaseChannelErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * Missing or wrong X-Platform-Admin-Key
+     */
+    401: Problem;
+    /**
+     * No firm with the given identifier exists in the control plane
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * Validation failed (channel value outside the allowed set); or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformSetFirmReleaseChannelError = PlatformSetFirmReleaseChannelErrors[keyof PlatformSetFirmReleaseChannelErrors];
+
+export type PlatformSetFirmReleaseChannelResponses = {
+    /**
+     * The firm's release channel after the update
+     */
+    200: PlatformSetReleaseChannelResponse;
+};
+
+export type PlatformSetFirmReleaseChannelResponse = PlatformSetFirmReleaseChannelResponses[keyof PlatformSetFirmReleaseChannelResponses];
 
 export type IncidentsReportData = {
     body: ReportIncidentRequest;
@@ -3553,9 +3857,17 @@ export type DownloadsZipErrors = {
      */
     404: Problem;
     /**
+     * The supplied bundle options are incoherent for the chosen format (e.g. ZIP with split enabled, or encryption combined with split). The detail field lists each violation.
+     */
+    422: Problem;
+    /**
      * Rate limit exceeded
      */
     429: Problem;
+    /**
+     * The bundle service worker binding is not configured. This is a deploy-time activation; the plain-ZIP fast lane is always available without it.
+     */
+    503: Problem;
 };
 
 export type DownloadsZipError = DownloadsZipErrors[keyof DownloadsZipErrors];
@@ -3572,6 +3884,240 @@ export type DownloadsZipResponses = {
 };
 
 export type DownloadsZipResponse = DownloadsZipResponses[keyof DownloadsZipResponses];
+
+export type DocumentsEditSessionData = {
+    body?: never;
+    path: {
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/v1/documents/{fileId}/edit-session';
+};
+
+export type DocumentsEditSessionErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks documents:edit
+     */
+    403: Problem;
+    /**
+     * The file does not exist in this firm, or has no committed version to open
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DocumentsEditSessionError = DocumentsEditSessionErrors[keyof DocumentsEditSessionErrors];
+
+export type DocumentsEditSessionResponses = {
+    /**
+     * The editing session launch payload
+     */
+    200: SessionLaunchResponse;
+};
+
+export type DocumentsEditSessionResponse = DocumentsEditSessionResponses[keyof DocumentsEditSessionResponses];
+
+export type DocumentsViewSessionData = {
+    body?: never;
+    path: {
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/v1/documents/{fileId}/view-session';
+};
+
+export type DocumentsViewSessionErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The file does not exist in this firm, or has no committed version to open
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DocumentsViewSessionError = DocumentsViewSessionErrors[keyof DocumentsViewSessionErrors];
+
+export type DocumentsViewSessionResponses = {
+    /**
+     * The viewer launch payload
+     */
+    200: SessionLaunchResponse;
+};
+
+export type DocumentsViewSessionResponse = DocumentsViewSessionResponses[keyof DocumentsViewSessionResponses];
+
+export type DocumentsCheckoutData = {
+    body?: CheckoutRequest;
+    path: {
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/v1/documents/{fileId}/checkout';
+};
+
+export type DocumentsCheckoutErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks documents:checkout
+     */
+    403: Problem;
+    /**
+     * The file does not exist in this firm, or has no committed version to check out
+     */
+    404: Problem;
+    /**
+     * An exclusive lock was requested but one is already held
+     */
+    409: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DocumentsCheckoutError = DocumentsCheckoutErrors[keyof DocumentsCheckoutErrors];
+
+export type DocumentsCheckoutResponses = {
+    /**
+     * The checkout handle and the presigned download URL
+     */
+    200: CheckoutResponse;
+};
+
+export type DocumentsCheckoutResponse = DocumentsCheckoutResponses[keyof DocumentsCheckoutResponses];
+
+export type DocumentsCheckinData = {
+    body: CheckinRequest;
+    path: {
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/v1/documents/{fileId}/checkin';
+};
+
+export type DocumentsCheckinErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks documents:checkout
+     */
+    403: Problem;
+    /**
+     * No such file in this firm, or no active offline checkout of it with that id
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DocumentsCheckinError = DocumentsCheckinErrors[keyof DocumentsCheckinErrors];
+
+export type DocumentsCheckinResponses = {
+    /**
+     * The pending check-in version and the presigned upload URL
+     */
+    200: CheckinResponse;
+};
+
+export type DocumentsCheckinResponse = DocumentsCheckinResponses[keyof DocumentsCheckinResponses];
+
+export type DocumentsReconcileData = {
+    body: ReconcileRequest;
+    path: {
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/v1/documents/{fileId}/reconcile';
+};
+
+export type DocumentsReconcileErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks documents:reconcile
+     */
+    403: Problem;
+    /**
+     * No such file in this firm, or it has nothing awaiting reconciliation
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DocumentsReconcileError = DocumentsReconcileErrors[keyof DocumentsReconcileErrors];
+
+export type DocumentsReconcileResponses = {
+    /**
+     * The conflict was resolved
+     */
+    200: ReconcileResponse;
+};
+
+export type DocumentsReconcileResponse = DocumentsReconcileResponses[keyof DocumentsReconcileResponses];
+
+export type DocumentsForceReleaseData = {
+    body?: never;
+    path: {
+        fileId: string;
+    };
+    query?: never;
+    url: '/api/v1/documents/{fileId}/force-release';
+};
+
+export type DocumentsForceReleaseErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks documents:forceReleaseLock
+     */
+    403: Problem;
+    /**
+     * No such file in this firm, or it has no active lock to release
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type DocumentsForceReleaseError = DocumentsForceReleaseErrors[keyof DocumentsForceReleaseErrors];
+
+export type DocumentsForceReleaseResponses = {
+    /**
+     * The lock was released
+     */
+    200: ForceReleaseResponse;
+};
+
+export type DocumentsForceReleaseResponse = DocumentsForceReleaseResponses[keyof DocumentsForceReleaseResponses];
 
 export type ScanDiagnoseData = {
     body?: never;

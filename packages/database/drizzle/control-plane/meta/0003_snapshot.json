@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "3e6b6318-b202-4fe8-aee9-c1d6dff5344f",
+  "id": "9448e89d-35e5-4b1e-a9c0-aa5960aa78fe",
   "prevId": "fc6401f9-a855-4cbb-8ec8-29ea8e607d3c",
   "tables": {
     "account": {
@@ -103,9 +103,7 @@
       "indexes": {
         "account_user_id_index": {
           "name": "account_user_id_index",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -114,12 +112,8 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -212,6 +206,14 @@
           "autoincrement": false,
           "default": "'active'"
         },
+        "release_channel": {
+          "name": "release_channel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'stable'"
+        },
         "bucket_name": {
           "name": "bucket_name",
           "type": "text",
@@ -249,14 +251,6 @@
           "autoincrement": false,
           "default": 1
         },
-        "support_requires_cosign": {
-          "name": "support_requires_cosign",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -268,16 +262,12 @@
       "indexes": {
         "firm_name_unique": {
           "name": "firm_name_unique",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": true
         },
         "firm_database_identifier_unique": {
           "name": "firm_database_identifier_unique",
-          "columns": [
-            "database_identifier"
-          ],
+          "columns": ["database_identifier"],
           "isUnique": true
         }
       },
@@ -342,16 +332,12 @@
       "indexes": {
         "idempotency_key_key_unique_index": {
           "name": "idempotency_key_key_unique_index",
-          "columns": [
-            "key"
-          ],
+          "columns": ["key"],
           "isUnique": true
         },
         "idempotency_key_created_at_index": {
           "name": "idempotency_key_created_at_index",
-          "columns": [
-            "created_at"
-          ],
+          "columns": ["created_at"],
           "isUnique": false
         }
       },
@@ -431,72 +417,8 @@
       "indexes": {
         "outbox_status_created_at_index": {
           "name": "outbox_status_created_at_index",
-          "columns": [
-            "status",
-            "created_at"
-          ],
+          "columns": ["status", "created_at"],
           "isUnique": false
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "platform_staff": {
-      "name": "platform_staff",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "email": {
-          "name": "email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "display_name": {
-          "name": "display_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "role": {
-          "name": "role",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'active'"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "platform_staff_email_unique": {
-          "name": "platform_staff_email_unique",
-          "columns": [
-            "email"
-          ],
-          "isUnique": true
         }
       },
       "foreignKeys": {},
@@ -568,16 +490,12 @@
       "indexes": {
         "session_token_unique": {
           "name": "session_token_unique",
-          "columns": [
-            "token"
-          ],
+          "columns": ["token"],
           "isUnique": true
         },
         "session_user_id_index": {
           "name": "session_user_id_index",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -586,131 +504,9 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "support_grant": {
-      "name": "support_grant",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "firm_id": {
-          "name": "firm_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "requested_by_user_id": {
-          "name": "requested_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "tier": {
-          "name": "tier",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "scope": {
-          "name": "scope",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'self'"
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "reason": {
-          "name": "reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "principal_id": {
-          "name": "principal_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "requires_cosign": {
-          "name": "requires_cosign",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "cosigned_by_user_id": {
-          "name": "cosigned_by_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "support_grant_firm_id_index": {
-          "name": "support_grant_firm_id_index",
-          "columns": [
-            "firm_id"
-          ],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "support_grant_firm_id_firm_id_fk": {
-          "name": "support_grant_firm_id_firm_id_fk",
-          "tableFrom": "support_grant",
-          "tableTo": "firm",
-          "columnsFrom": [
-            "firm_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -761,16 +557,12 @@
       "indexes": {
         "two_factor_secret_index": {
           "name": "two_factor_secret_index",
-          "columns": [
-            "secret"
-          ],
+          "columns": ["secret"],
           "isUnique": false
         },
         "two_factor_user_id_index": {
           "name": "two_factor_user_id_index",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -779,12 +571,8 @@
           "name": "two_factor_user_id_user_id_fk",
           "tableFrom": "two_factor",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -867,9 +655,7 @@
       "indexes": {
         "user_email_unique": {
           "name": "user_email_unique",
-          "columns": [
-            "email"
-          ],
+          "columns": ["email"],
           "isUnique": true
         }
       },
@@ -878,12 +664,8 @@
           "name": "user_firm_id_firm_id_fk",
           "tableFrom": "user",
           "tableTo": "firm",
-          "columnsFrom": [
-            "firm_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["firm_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -943,9 +725,7 @@
       "indexes": {
         "verification_identifier_index": {
           "name": "verification_identifier_index",
-          "columns": [
-            "identifier"
-          ],
+          "columns": ["identifier"],
           "isUnique": false
         }
       },

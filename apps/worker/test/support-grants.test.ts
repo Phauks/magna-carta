@@ -2,7 +2,6 @@ import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -10,23 +9,18 @@ import {
   signInForSessionCookie,
 } from "./support/test-auth.ts";
 
-// A single pool firm backed by DB_FIRM_POOL_1. Seeded once so database_identifier stays unique.
+// A single firm seeded once; its per-firm data lives in the FirmDatabase Durable Object
+// (addressed by firmId, self-migrating on first access).
 let poolFirmId: FirmId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  poolFirmId = (
-    await seedFirm({
-      name: "Support Grants Test Firm",
-      databaseIdentifier: "DB_FIRM_POOL_1",
-    })
-  ).firmId;
+  poolFirmId = (await seedFirm({ name: "Support Grants Test Firm" })).firmId;
   // Seed the member who will request grants. Owner/Admin carries support:request (seeded to every
-  // default role in the per-firm migrations). The chokepoint resolves support:request for this user
-  // through the role_permission rows applied by applyPerFirmMigrations.
+  // default role in the per-firm migrations). The FirmDatabase DO self-migrates on first
+  // mirrorMemberWithOwnerRole access, applying those role_permission rows automatically.
   const { userId } = await seedCredentialedUser("req-diag@example.com", { firmId: poolFirmId });
-  await mirrorMemberWithOwnerRole(userId, "Support Requester");
+  await mirrorMemberWithOwnerRole(userId, "Support Requester", poolFirmId);
 });
 
 describe("POST /api/v1/support/grants", () => {

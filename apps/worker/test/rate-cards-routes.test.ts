@@ -8,7 +8,7 @@ import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -29,7 +29,6 @@ let ownerUserId: UserId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   poolFirmId = (
     await seedFirm({ name: "Rate Card Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
   ).firmId;
@@ -42,22 +41,23 @@ beforeAll(async () => {
     firmId: poolFirmId,
   });
   ownerUserId = owner.userId;
-  await mirrorMemberWithOwnerRole(owner.userId, "RC Owner");
+  await mirrorMemberWithOwnerRole(owner.userId, "RC Owner", poolFirmId);
   ownerCookie = await signInForSessionCookie("rc-owner@example.com");
 
   const readOnly = await seedCredentialedUser("rc-readonly@example.com", {
     userName: "RC Read Only",
     firmId: poolFirmId,
   });
-  const role = await env.DB_FIRM_POOL_1.prepare("SELECT id FROM role WHERE name = ?1")
+  const role = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+    .prepare("SELECT id FROM role WHERE name = ?1")
     .bind("Read-only")
     .first<{ id: string }>();
-  await insertMemberStatement(env.DB_FIRM_POOL_1, {
+  await insertMemberStatement(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), {
     userId: readOnly.userId,
     displayName: "RC Read Only",
     now: new Date().toISOString(),
   }).run();
-  await insertRoleAssignmentStatement(env.DB_FIRM_POOL_1, {
+  await insertRoleAssignmentStatement(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), {
     id: newIdentifier("memberRole"),
     memberUserId: readOnly.userId,
     roleId: assertIdentifier(role!.id, "role"),
@@ -147,9 +147,11 @@ describe("rate card lifecycle", () => {
 
   it("returns 404 when appending a rate to a nonexistent rate card, and writes no rate row", async () => {
     const unknownCardId = "rateCard_000000000000000000000"; // valid shape; no such row
-    const before = await env.DB_FIRM_POOL_1.prepare("SELECT COUNT(*) AS count FROM rate").first<{
-      count: number;
-    }>();
+    const before = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT COUNT(*) AS count FROM rate")
+      .first<{
+        count: number;
+      }>();
     const response = await post(`/api/v1/rate-cards/${unknownCardId}/rates`, {
       tier: "timekeeper",
       scopedId: ownerUserId,
@@ -159,14 +161,15 @@ describe("rate card lifecycle", () => {
     });
     expect(response.status).toBe(404);
     // Confirm no rate row was written for the dangling card id.
-    const after = await env.DB_FIRM_POOL_1.prepare("SELECT COUNT(*) AS count FROM rate").first<{
-      count: number;
-    }>();
+    const after = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT COUNT(*) AS count FROM rate")
+      .first<{
+        count: number;
+      }>();
     expect(after?.count).toBe(before?.count);
     // Confirm no audit_log row was written for the phantom card id.
-    const auditCount = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS count FROM audit_log WHERE subject_id = ?1",
-    )
+    const auditCount = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT COUNT(*) AS count FROM audit_log WHERE subject_id = ?1")
       .bind(unknownCardId)
       .first<{ count: number }>();
     expect(auditCount?.count).toBe(0);

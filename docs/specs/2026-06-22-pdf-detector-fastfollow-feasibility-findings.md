@@ -8,6 +8,7 @@ Run date: 2026-06-22. **Verdict: GO** — both deferred detectors are feasible a
 ## HiddenLayer — text in an off-by-default optional-content group
 
 Mechanism (pure lopdf, no rendering):
+
 1. Read `/OCProperties /D /OFF` from the catalog → the set of OCG object ids the default config hides.
 2. `Document::get_and_decode_page_content(page_id)` → `Vec<Operation>` (handles the content-stream array + decompression).
 3. Scan operators for `/OC <name> BDC … EMC`: when a `BDC`/`BMC` has operands `[Name("OC"), Name(prop)]` and `prop` resolves through the page `/Resources /Properties` to an OCG in the OFF set, the enclosed `Tj`/`TJ` text is hidden-layer text.
@@ -19,6 +20,7 @@ Verified lopdf API: `Document::get_and_decode_page_content(page_id) -> Result<Co
 ## RemovableAnnotation — opaque annotation covering text
 
 Mechanism (lopdf `/Annots` + the existing `textpos` glyph positions):
+
 1. For each page, read `/Annots` (inline array or indirect) → each annotation's `/Subtype` and `/Rect` (PDF points, bottom-left — the same frame the detector's `region` uses).
 2. A visible+extractable glyph whose display-point bbox center falls within an annotation's `/Rect`, where the annotation is a cover-type (e.g. `Square`, `Redact`, `FreeText` with an opaque fill), is recoverable text under a removable annotation — delete the annotation and the text is revealed.
 

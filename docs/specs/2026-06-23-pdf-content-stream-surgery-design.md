@@ -13,7 +13,7 @@ per redaction run via a `mode`; flatten remains the default when unspecified.
 
 The crown property is unchanged: **no output is emitted unless the targeted text is
 verifiably gone.** Surgery never relaxes that — it is fail-closed, and any page whose
-removal cannot be *confirmed* falls back to the proven image-flatten path.
+removal cannot be _confirmed_ falls back to the proven image-flatten path.
 
 ## The two-route model
 
@@ -25,13 +25,13 @@ removal cannot be *confirmed* falls back to the proven image-flatten path.
   on a redacted page.
 - **`Surgery`**: each affected page is attempted as content-stream surgery; any page
   that fails the per-page **surgery gate** is flattened instead (automatic, per-page,
-  no caller involvement). "Surgery" therefore means *surgery where provably safe,
-  flatten everywhere else* — it is never less safe than flatten, only more useful when
+  no caller involvement). "Surgery" therefore means _surgery where provably safe,
+  flatten everywhere else_ — it is never less safe than flatten, only more useful when
   it succeeds.
 
 Both modes run the identical whole-document scrub (`sanitize_document`) and the
 identical hard verification gate (`verify_gate`) before emitting bytes. The mode only
-changes how each *affected page's marked regions* are removed.
+changes how each _affected page's marked regions_ are removed.
 
 ## Architecture
 
@@ -68,7 +68,7 @@ Surgery of one page is four stages:
    plus spacing. A glyph's display-point center is `CTM ∘ Tm ∘ glyph-origin`, y-flipped
    to the redaction `Rect` frame (reusing the detector's `to_display_rect`). This avoids
    any dependence on matching hayro's draw order — which on legal forms also draws
-   widget/AcroForm appearance glyphs that are *not* in the page content stream (the
+   widget/AcroForm appearance glyphs that are _not_ in the page content stream (the
    spike's consistent `+1` delta). Correlating to hayro would force those pages to fall
    back; computing positions from the page content handles them.
 
@@ -96,7 +96,7 @@ Surgery of one page is four stages:
    `observe_page` finds no glyph whose center lies inside any redaction rectangle** —
    the detector's own geometry applied to the surgery output. This is the keystone
    guarantee: it does not depend on the positioning math being perfect or on `ToUnicode`
-   being present — it checks the *outcome* directly. If the math mis-located a target
+   being present — it checks the _outcome_ directly. If the math mis-located a target
    glyph and failed to remove it, the re-observation still finds it in the rect → gate
    fails → flatten. Under-removal therefore always falls back to the safe image path;
    the only residual failure mode is over-removal (excising a neighbour that should have
@@ -179,7 +179,7 @@ honest boundaries below.
   unsupported font, missing widths) forcing `None`; the outcome gate rejecting a page
   where a marked glyph would survive.
 - **Integration:** a known fixture redacted in `Surgery` mode → the target word is gone
-  by extraction *and* by `observe_page` render, a chosen non-target word survives, and
+  by extraction _and_ by `observe_page` render, a chosen non-target word survives, and
   the detector re-run reports the target gone (self-cross-check). A page with inline
   images → reported in `pages_flattened`, target still gone.
 - **Coverage measurement:** a non-gating eval over the existing corpus

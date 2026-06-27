@@ -3,7 +3,6 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -12,26 +11,21 @@ import {
 } from "./support/test-auth.ts";
 import { insertSupportGrantStatement } from "@magna-carta/data-access/support-access-statements";
 
-// A single pool firm backed by DB_FIRM_POOL_1. Seeded once so database_identifier stays unique.
+// A single firm seeded once; its per-firm data lives in the FirmDatabase Durable Object
+// (addressed by firmId, self-migrating on first access).
 let poolFirmId: FirmId;
 let mgrUserId: UserId;
 let mgrCookie: string;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  poolFirmId = (
-    await seedFirm({
-      name: "Support Manage Test Firm",
-      databaseIdentifier: "DB_FIRM_POOL_1",
-    })
-  ).firmId;
+  poolFirmId = (await seedFirm({ name: "Support Manage Test Firm" })).firmId;
   // Seed the member who will manage grants. Owner/Admin carries support:manage and support:cosign
-  // (seeded to every default role in the per-firm migrations). The chokepoint resolves these
-  // permissions through the role_permission rows applied by applyPerFirmMigrations.
+  // (seeded to every default role in the per-firm migrations). The FirmDatabase DO self-migrates
+  // on first mirrorMemberWithOwnerRole access, applying those role_permission rows automatically.
   const seeded = await seedCredentialedUser("mgr@example.com", { firmId: poolFirmId });
   mgrUserId = seeded.userId;
-  await mirrorMemberWithOwnerRole(mgrUserId, "Support Manager");
+  await mirrorMemberWithOwnerRole(mgrUserId, "Support Manager", poolFirmId);
   mgrCookie = await signInForSessionCookie("mgr@example.com");
 });
 
