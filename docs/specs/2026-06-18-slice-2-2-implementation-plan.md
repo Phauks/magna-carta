@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript · Cloudflare Workers + Hono + `@hono/zod-openapi` · Durable Objects + Containers (`@cloudflare/containers`) · R2 (`aws4fetch` SigV4) · D1 + Drizzle · Collabora Online (coolwsd, WOPI) · `@magna-carta/access-control`, `@magna-carta/database`, `@magna-carta/file-manager`, `@magna-carta/telemetry`, `@magna-carta/data-access`.
 
-**Spec:** [`2026-06-18-slice-2-2-editing-versioning-storage-tiering-design.md`](2026-06-18-slice-2-2-editing-versioning-storage-tiering-design.md). **Pending ADRs:** `ADR-collabora-editing-host-topology`, `ADR-document-editing-concurrency-reconciliation`; amends ADR-0035.
+**Spec:** [`2026-06-18-slice-2-2-editing-versioning-storage-tiering-design.md`](2026-06-18-slice-2-2-editing-versioning-storage-tiering-design.md). **Pending ADRs:** `ADR-0125`, `ADR-0126`; amends ADR-0035.
 
 ## Global Constraints
 
