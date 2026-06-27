@@ -4,7 +4,7 @@
 
 **Goal:** Build the backend rails that let a firm member request time-boxed, audited help-desk access to their firm's instance, redeemed by a named platform-staff principal, with two scopes (diagnostic system-state vs. privileged self-scoped content) enforced through the existing chokepoint.
 
-**Architecture:** Support is **pull, not push** — a firm member's request mints a `support_grant` row; a named `platform_staff` principal redeems an *active* grant for a short-lived HMAC-signed **support-session token**. Presenting that token resolves to a `SessionContext` the chokepoint already understands (firm from the grant, never the URL), with the permission set computed by tier: `diagnostic` → a fixed `diagnostics:*` allow-list (no decrypt keys → privileged content unreachable by construction); `privileged` → exactly the requester's own effective permissions (no firm-level escalation). Decryption stays server-side; an expired or revoked grant fails the per-request live check → ordinary 401.
+**Architecture:** Support is **pull, not push** — a firm member's request mints a `support_grant` row; a named `platform_staff` principal redeems an _active_ grant for a short-lived HMAC-signed **support-session token**. Presenting that token resolves to a `SessionContext` the chokepoint already understands (firm from the grant, never the URL), with the permission set computed by tier: `diagnostic` → a fixed `diagnostics:*` allow-list (no decrypt keys → privileged content unreachable by construction); `privileged` → exactly the requester's own effective permissions (no firm-level escalation). Decryption stays server-side; an expired or revoked grant fails the per-request live check → ordinary 401.
 
 **Tech Stack:** TypeScript, Cloudflare Workers + Hono + `@hono/zod-openapi`, Drizzle (control-plane + per-firm D1), Better Auth (control-plane), Web Crypto HMAC-SHA256, Vitest + `@cloudflare/vitest-pool-workers` (Miniflare).
 
@@ -27,6 +27,7 @@
 ## File Structure
 
 **New files:**
+
 - `packages/data-access/src/support-access-statements.ts` — control-plane prepared-statement builders for `platform_staff` + `support_grant`.
 - `apps/worker/src/support/grant-lifecycle.ts` — pure lifecycle types, window constants, and state helpers.
 - `apps/worker/src/support/support-session-token.ts` — mint/verify the HMAC support-session bearer token.
@@ -41,6 +42,7 @@
 - Test files alongside each (paths given per task).
 
 **Modified files:**
+
 - `packages/identifiers/src/types.ts`, `packages/identifiers/src/registry.ts` — two new id types.
 - `packages/database/src/control-plane-schema.ts` — two tables + one firm column.
 - `packages/access-control/src/registry.ts` — `support:*` + `diagnostics:*` permission keys.
@@ -56,11 +58,13 @@
 ## Task 1: Branded identifiers for staff and grants
 
 **Files:**
+
 - Modify: `packages/identifiers/src/types.ts`
 - Modify: `packages/identifiers/src/registry.ts`
 - Test: `packages/identifiers/test/registry.test.ts` (or the existing identifiers test file — add a case)
 
 **Interfaces:**
+
 - Produces: `PlatformStaffId`, `SupportGrantId` (branded id types); the registry keys `"platformStaff"` and `"supportGrant"` usable with `newIdentifier(...)` / `assertIdentifier(...)`.
 
 - [ ] **Step 1: Write the failing test**
@@ -126,12 +130,14 @@ git commit -m "feat(identifiers): add platformStaff + supportGrant id types"
 ## Task 2: Control-plane schema — platform_staff, support_grant, firm policy column
 
 **Files:**
+
 - Modify: `packages/database/src/control-plane-schema.ts`
 - Create: `packages/database/drizzle/control-plane/0003_support-access.sql` (generated)
 - Modify: `packages/database/drizzle/control-plane/meta/_journal.json` (generated)
 - Modify: `apps/worker/test/support/apply-control-plane-migrations.ts`
 
 **Interfaces:**
+
 - Produces: control-plane tables `platform_staff` and `support_grant`, and a `firm.support_requires_cosign` column. Column/table names consumed by Task 3's statements.
 
 - [ ] **Step 1: Add the schema definitions**
@@ -166,7 +172,9 @@ export const platformStaff = sqliteTable("platform_staff", {
   displayName: text("display_name").notNull(),
   // 'support' may redeem diagnostic grants; 'support_lead' additionally may redeem privileged grants.
   role: text("role", { enum: ["support", "support_lead"] }).notNull(),
-  status: text("status", { enum: ["active", "disabled"] }).notNull().default("active"),
+  status: text("status", { enum: ["active", "disabled"] })
+    .notNull()
+    .default("active"),
   createdAt: text("created_at").notNull(), // ISO-8601 instant
 });
 
@@ -183,7 +191,9 @@ export const supportGrant = sqliteTable(
     // The firm member who requested help — the consent anchor and the privileged-tier authority source.
     requestedByUserId: text("requested_by_user_id").notNull().$type<UserId>(),
     tier: text("tier", { enum: ["diagnostic", "privileged"] }).notNull(),
-    scope: text("scope", { enum: ["self"] }).notNull().default("self"),
+    scope: text("scope", { enum: ["self"] })
+      .notNull()
+      .default("self"),
     status: text("status", {
       enum: ["requested", "active", "revoked", "expired", "closed"],
     }).notNull(),
@@ -238,10 +248,12 @@ git commit -m "feat(database): control-plane platform_staff + support_grant tabl
 ## Task 3: Control-plane data-access statements
 
 **Files:**
+
 - Create: `packages/data-access/src/support-access-statements.ts`
 - Test: `packages/data-access/test/support-access-statements.test.ts`
 
 **Interfaces:**
+
 - Consumes: `SqlDatabase`, `SqlStatement` from `./idempotency-statements.ts`; `PlatformStaffId`, `SupportGrantId`, `FirmId`, `UserId` from `@magna-carta/identifiers/types`.
 - Produces:
   - `PLATFORM_STAFF_TABLE`, `SUPPORT_GRANT_TABLE` (string consts)
@@ -335,14 +347,20 @@ describe("support-access statements", () => {
 
   it("redeem sets principal only when grant is active", () => {
     const { db, calls } = recorder();
-    redeemSupportGrantStatement(db, { id: "supportGrant_1", principalId: "platformStaff_abc" } as never);
+    redeemSupportGrantStatement(db, {
+      id: "supportGrant_1",
+      principalId: "platformStaff_abc",
+    } as never);
     expect(calls[0]?.sql).toContain("status = 'active'");
     expect(calls[0]?.args).toEqual(["platformStaff_abc", "supportGrant_1"]);
   });
 
   it("cosign flips requested → active", () => {
     const { db, calls } = recorder();
-    cosignSupportGrantStatement(db, { id: "supportGrant_1", cosignedByUserId: "user_admin" } as never);
+    cosignSupportGrantStatement(db, {
+      id: "supportGrant_1",
+      cosignedByUserId: "user_admin",
+    } as never);
     expect(calls[0]?.sql).toContain("'requested'");
     expect(calls[0]?.sql).toContain("'active'");
   });
@@ -375,7 +393,12 @@ Expected: FAIL — module `../src/support-access-statements.ts` not found.
 Create `packages/data-access/src/support-access-statements.ts`:
 
 ```typescript
-import type { FirmId, PlatformStaffId, SupportGrantId, UserId } from "@magna-carta/identifiers/types";
+import type {
+  FirmId,
+  PlatformStaffId,
+  SupportGrantId,
+  UserId,
+} from "@magna-carta/identifiers/types";
 import type { SqlDatabase, SqlStatement } from "./idempotency-statements.ts";
 
 // Control-plane table names. Tracked against @magna-carta/database's control-plane schema.
@@ -550,10 +573,12 @@ git commit -m "feat(data-access): control-plane statements for platform_staff + 
 ## Task 4: Grant lifecycle pure logic
 
 **Files:**
+
 - Create: `apps/worker/src/support/grant-lifecycle.ts`
 - Test: `apps/worker/src/support/grant-lifecycle.test.ts`
 
 **Interfaces:**
+
 - Consumes: `SupportGrantRow`, `SupportGrantTier`, `SupportGrantStatus` from `@magna-carta/data-access/support-access-statements`.
 - Produces:
   - `GRANT_WINDOW_SECONDS: Record<SupportGrantTier, number>` (`diagnostic: 7200`, `privileged: 3600`)
@@ -589,10 +614,18 @@ describe("grant lifecycle", () => {
 
   it("usable only when active and unexpired", () => {
     const now = "2026-06-26T00:30:00.000Z";
-    expect(supportGrantUsable({ status: "active", expires_at: "2026-06-26T01:00:00.000Z" }, now)).toBe(true);
-    expect(supportGrantUsable({ status: "active", expires_at: "2026-06-26T00:00:00.000Z" }, now)).toBe(false); // expired
-    expect(supportGrantUsable({ status: "revoked", expires_at: "2026-06-26T01:00:00.000Z" }, now)).toBe(false);
-    expect(supportGrantUsable({ status: "requested", expires_at: "2026-06-26T01:00:00.000Z" }, now)).toBe(false);
+    expect(
+      supportGrantUsable({ status: "active", expires_at: "2026-06-26T01:00:00.000Z" }, now),
+    ).toBe(true);
+    expect(
+      supportGrantUsable({ status: "active", expires_at: "2026-06-26T00:00:00.000Z" }, now),
+    ).toBe(false); // expired
+    expect(
+      supportGrantUsable({ status: "revoked", expires_at: "2026-06-26T01:00:00.000Z" }, now),
+    ).toBe(false);
+    expect(
+      supportGrantUsable({ status: "requested", expires_at: "2026-06-26T01:00:00.000Z" }, now),
+    ).toBe(false);
   });
 });
 ```
@@ -659,10 +692,12 @@ git commit -m "feat(support): grant lifecycle window + usability helpers"
 ## Task 5: Support-session token (mint + verify)
 
 **Files:**
+
 - Create: `apps/worker/src/support/support-session-token.ts`
 - Test: `apps/worker/src/support/support-session-token.test.ts`
 
 **Interfaces:**
+
 - Consumes: `constantTimeStringEquals` from `../constant-time.ts`; id types from `@magna-carta/identifiers/types`.
 - Produces:
   - `SupportSessionTokenPayload { grantId, principalId, firmId, requesterUserId, tier, exp }`
@@ -732,7 +767,12 @@ Expected: FAIL — module not found.
 Create `apps/worker/src/support/support-session-token.ts`:
 
 ```typescript
-import type { FirmId, PlatformStaffId, SupportGrantId, UserId } from "@magna-carta/identifiers/types";
+import type {
+  FirmId,
+  PlatformStaffId,
+  SupportGrantId,
+  UserId,
+} from "@magna-carta/identifiers/types";
 import type { SupportGrantTier } from "@magna-carta/data-access/support-access-statements";
 import { constantTimeStringEquals } from "../constant-time.ts";
 
@@ -832,12 +872,14 @@ git commit -m "feat(support): HMAC support-session bearer token mint/verify"
 ## Task 6: Permission registry keys + tier→permissions resolver
 
 **Files:**
+
 - Modify: `packages/access-control/src/registry.ts`
 - Create: `apps/worker/src/support/tier-permissions.ts`
 - Test: `apps/worker/src/support/tier-permissions.test.ts`
 - Test (registry): `packages/access-control/test/registry.test.ts` (add a case if the file exists; otherwise fold the assertion into the tier-permissions test which imports the registry)
 
 **Interfaces:**
+
 - Consumes: `permissionsForNamespace`, `Permission` from `@magna-carta/access-control/registry`; `loadEffectivePermissions` from `../session-context.ts`; `SqlDatabase` from `@magna-carta/data-access/idempotency-statements`.
 - Produces:
   - New registry keys: `support:request`, `support:cosign`, `support:manage`, `support:mintSession`, `diagnostics:overview`.
@@ -921,10 +963,7 @@ Expected: FAIL — module not found.
 Create `apps/worker/src/support/tier-permissions.ts`:
 
 ```typescript
-import {
-  type Permission,
-  permissionsForNamespace,
-} from "@magna-carta/access-control/registry";
+import { type Permission, permissionsForNamespace } from "@magna-carta/access-control/registry";
 import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type { SupportGrantTier } from "@magna-carta/data-access/support-access-statements";
 import type { UserId } from "@magna-carta/identifiers/types";
@@ -974,12 +1013,14 @@ git commit -m "feat(support): support:* + diagnostics:* permissions and tier res
 ## Task 7: Per-firm migration — seed support permissions to roles
 
 **Files:**
+
 - Read first: `packages/database/test/generated-migrations.test.ts`, `apps/worker/src/per-firm-migrations.ts`, `packages/database/drizzle/per-firm/meta/_journal.json`, `packages/database/drizzle/per-firm/0002_member-rbac.sql`.
 - Create: `packages/database/drizzle/per-firm/00NN_support-access-permissions.sql` (NN = next index)
 - Modify: `packages/database/drizzle/per-firm/meta/_journal.json`
 - Modify: `apps/worker/src/per-firm-migrations.ts`
 
 **Interfaces:**
+
 - Produces: `support:request` seeded to all five default roles; `support:cosign` + `support:manage` seeded to the Owner/Admin role. `support:mintSession` and `diagnostics:overview` are deliberately NOT seeded.
 
 This is a **data-only** migration (INSERTs, no schema change) — `drizzle-kit generate` produces nothing for it, so it is hand-authored and hand-registered, exactly like the seeded role rows in `0002_member-rbac.sql`.
@@ -1033,6 +1074,7 @@ In `apps/worker/src/per-firm-migrations.ts`, add the import (matching the file's
 ```typescript
 import supportAccessPermissionsSql from "@magna-carta/database/drizzle/per-firm/00NN_support-access-permissions.sql";
 ```
+
 ```typescript
     "00NN_support-access-permissions": supportAccessPermissionsSql,
 ```
@@ -1054,12 +1096,14 @@ git commit -m "feat(database): seed support:* permissions onto default firm role
 ## Task 8: Support-session resolution (header token → SessionContext)
 
 **Files:**
+
 - Modify: `apps/worker/src/session-context.ts` (extend `SessionContext`)
 - Modify: `apps/worker/src/chokepoint/chokepoint.ts` (extend `ResolvedSession`)
 - Create: `apps/worker/src/support/resolve-support-session.ts`
 - Test: `apps/worker/test/resolve-support-session.test.ts`
 
 **Interfaces:**
+
 - Consumes: `verifySupportSessionToken`, `supportGrantUsable`, `selectSupportGrantStatement`, `SupportGrantRow`; `Bindings` from `../app.ts`; `assertIdentifier`.
 - Produces:
   - `SupportPrincipal { grantId: SupportGrantId; principalId: PlatformStaffId; tier: SupportGrantTier }`
@@ -1126,7 +1170,10 @@ beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
 });
 
-function ctxWith(token: string | undefined): { req: { header: (n: string) => string | undefined }; env: typeof env } {
+function ctxWith(token: string | undefined): {
+  req: { header: (n: string) => string | undefined };
+  env: typeof env;
+} {
   return {
     env,
     req: { header: (name: string) => (name === "X-Support-Session" ? token : undefined) },
@@ -1225,7 +1272,10 @@ export async function resolveSupportSession(
   const payload = await verifySupportSessionToken(env.AUTH_SECRET, header, nowSeconds);
   if (payload === null) return null;
 
-  const result = await selectSupportGrantStatement(env.DB_CONTROL, payload.grantId).all<SupportGrantRow>();
+  const result = await selectSupportGrantStatement(
+    env.DB_CONTROL,
+    payload.grantId,
+  ).all<SupportGrantRow>();
   const grant = result.results[0];
   if (grant === undefined) return null;
   const nowIso = new Date(nowSeconds * 1000).toISOString();
@@ -1260,11 +1310,13 @@ git commit -m "feat(support): resolve support-session principal from signed toke
 ## Task 9: Thread support resolution + tier permissions through the chokepoint
 
 **Files:**
+
 - Modify: `apps/worker/src/chokepoint/chokepoint.ts` (the `loadPermissions` port signature + call site)
 - Modify: `apps/worker/src/chokepoint/ports.ts` (support-aware `resolveSession`, `loadPermissions` wiring)
 - Test: covered by existing chokepoint/auth regression tests + Task 14's end-to-end enforcement test.
 
 **Interfaces:**
+
 - Consumes: `resolveSupportSession` (Task 8), `resolveSupportPermissions` (Task 6), `resolveSession`/`loadEffectivePermissions` (existing).
 - Produces: the chokepoint now (a) accepts a support-session principal via the `X-Support-Session` header and (b) computes the permission set by tier.
 
@@ -1273,21 +1325,26 @@ git commit -m "feat(support): resolve support-session principal from signed toke
 In `apps/worker/src/chokepoint/chokepoint.ts`, change the port interface member (around the `ChokepointPorts` definition) from:
 
 ```typescript
-  loadPermissions: (firmContext: FirmContext, userId: UserId) => Promise<ReadonlySet<Permission>>;
+loadPermissions: (firmContext: FirmContext, userId: UserId) => Promise<ReadonlySet<Permission>>;
 ```
+
 to:
+
 ```typescript
-  loadPermissions: (firmContext: FirmContext, session: ResolvedSession) => Promise<ReadonlySet<Permission>>;
+loadPermissions: (firmContext: FirmContext, session: ResolvedSession) =>
+  Promise<ReadonlySet<Permission>>;
 ```
 
 And change the single call site (the RBAC step) from:
 
 ```typescript
-    const permissions = await ports.loadPermissions(firmContext, session.userId);
+const permissions = await ports.loadPermissions(firmContext, session.userId);
 ```
+
 to:
+
 ```typescript
-    const permissions = await ports.loadPermissions(firmContext, session);
+const permissions = await ports.loadPermissions(firmContext, session);
 ```
 
 (`UserId` may become an unused import in this file — remove it if the linter flags it.)
@@ -1299,12 +1356,12 @@ In `apps/worker/src/chokepoint/ports.ts`, update the `resolveSession` port facto
 ```typescript
 import { resolveSupportSession } from "../support/resolve-support-session.ts";
 // ...
-  return async (c: Context): Promise<ResolvedSession | null> => {
-    const env = (c as Context<{ Bindings: Bindings }>).env;
-    const support = await resolveSupportSession(env, c, Math.floor(Date.now() / 1000));
-    if (support !== null) return support;
-    return resolveSession(authForEnv(env), c);
-  };
+return async (c: Context): Promise<ResolvedSession | null> => {
+  const env = (c as Context<{ Bindings: Bindings }>).env;
+  const support = await resolveSupportSession(env, c, Math.floor(Date.now() / 1000));
+  if (support !== null) return support;
+  return resolveSession(authForEnv(env), c);
+};
 ```
 
 (Keep the existing `resolveSession`/`authForEnv` imports; add the `resolveSupportSession` import.)
@@ -1321,7 +1378,9 @@ function makeLoadPermissions(): (
   return (firmContext, userId) => loadEffectivePermissions(firmContext.firmDatabase, userId);
 }
 ```
+
 to:
+
 ```typescript
 import { resolveSupportPermissions } from "../support/tier-permissions.ts";
 // ...
@@ -1361,10 +1420,12 @@ git commit -m "feat(support): chokepoint accepts support sessions and scopes per
 ## Task 10: Support audit helper
 
 **Files:**
+
 - Create: `apps/worker/src/support/support-audit.ts`
 - Test: `apps/worker/test/support-audit.test.ts`
 
 **Interfaces:**
+
 - Consumes: `insertAuthAuditStatement` from `@magna-carta/data-access/auth-audit-statements`; `newIdentifier`.
 - Produces: `writeSupportAudit(controlDb, { event, requesterUserId, metadata, now }): Promise<void>` — writes one `auth_audit` row. `metadata` carries ids/enums only (incl. `principalId` when a staff principal acted).
 
@@ -1459,11 +1520,13 @@ git commit -m "feat(support): support audit helper over the auth_audit lineage"
 ## Task 11: Grant request + list routes
 
 **Files:**
+
 - Create: `apps/worker/src/routes/support-grants.ts` (request + list; cosign/revoke added in Task 12)
 - Modify: `apps/worker/src/app.ts` (register the route module)
 - Test: `apps/worker/test/support-grants.test.ts`
 
 **Interfaces:**
+
 - Consumes: chokepoint accessors (`requireChokepointUserId`, `requireChokepointFirmId`), `defineOpenAPIRoute`, `chokepointMiddleware`, `problemJson`, the support-access statements, `writeSupportAudit`, `initialGrantStatus`/`computeExpiresAt`.
 - Produces: `registerSupportGrantsRoutes(app, chokepoint)`; routes `POST /api/v1/support/grants`, `GET /api/v1/support/grants`.
 
@@ -1489,7 +1552,7 @@ beforeAll(async () => {
 
 describe("support grants", () => {
   it("a firm member requests a diagnostic grant (201, active)", async () => {
-    const { } = await seedCredentialedUser("req-diag@example.com", {
+    const {} = await seedCredentialedUser("req-diag@example.com", {
       firmDatabaseIdentifier: "DB_FIRM_POOL_1",
     });
     const cookie = await signInForSessionCookie("req-diag@example.com");
@@ -1583,8 +1646,11 @@ export const requestGrantMeta: RouteMeta = {
 export const requestGrantRoute = defineOpenAPIRoute(requestGrantMeta, {
   method: "post",
   path: "/api/v1/support/grants",
-  description: "A firm member requests time-boxed help-desk access to their firm. The request is the consent.",
-  request: { body: { content: { "application/json": { schema: RequestGrantBody } }, required: true } },
+  description:
+    "A firm member requests time-boxed help-desk access to their firm. The request is the consent.",
+  request: {
+    body: { content: { "application/json": { schema: RequestGrantBody } }, required: true },
+  },
   responses: {
     201: {
       description: "The created grant",
@@ -1612,7 +1678,8 @@ export const listGrantsMeta: RouteMeta = {
 export const listGrantsRoute = defineOpenAPIRoute(listGrantsMeta, {
   method: "get",
   path: "/api/v1/support/grants",
-  description: "The firm's support grants — who requested help, the scope, status, and the staff principal.",
+  description:
+    "The firm's support grants — who requested help, the scope, status, and the staff principal.",
   responses: {
     200: {
       description: "The firm's support grants, newest first",
@@ -1700,7 +1767,10 @@ export function registerSupportGrantsRoutes(
     { ...listGrantsRoute, middleware: chokepointMiddleware(chokepoint, listGrantsRoute) },
     async (c) => {
       const firmId = requireChokepointFirmId(c);
-      const result = await selectFirmSupportGrantsStatement(c.env.DB_CONTROL, firmId).all<SupportGrantRow>();
+      const result = await selectFirmSupportGrantsStatement(
+        c.env.DB_CONTROL,
+        firmId,
+      ).all<SupportGrantRow>();
       return c.json({ grants: result.results.map(toSummary) }, 200);
     },
   );
@@ -1714,7 +1784,7 @@ In `apps/worker/src/app.ts`, add the import and call alongside the other `regist
 ```typescript
 import { registerSupportGrantsRoutes } from "./routes/support-grants.ts";
 // ... within createApp, with the other registrations:
-  registerSupportGrantsRoutes(app, chokepoint);
+registerSupportGrantsRoutes(app, chokepoint);
 ```
 
 - [ ] **Step 5: Re-emit the OpenAPI contract + regenerate the client**
@@ -1740,10 +1810,12 @@ git commit -m "feat(support): request + list support-grant routes"
 ## Task 12: Cosign + revoke routes
 
 **Files:**
+
 - Modify: `apps/worker/src/routes/support-grants.ts` (add cosign + revoke)
 - Test: `apps/worker/test/support-grants-manage.test.ts`
 
 **Interfaces:**
+
 - Consumes: `cosignSupportGrantStatement`, `revokeSupportGrantStatement`, `selectSupportGrantStatement`.
 - Produces: routes `POST /api/v1/support/grants/{grantId}/cosign`, `POST /api/v1/support/grants/{grantId}/revoke`, registered by the existing `registerSupportGrantsRoutes`.
 
@@ -1791,14 +1863,18 @@ describe("support grant management", () => {
       body: "{}",
     });
     expect(res.status).toBe(200);
-    expect((await res.json() as { status: string }).status).toBe("revoked");
+    expect(((await res.json()) as { status: string }).status).toBe("revoked");
   });
 
   it("revoke of another firm's grant is 404", async () => {
     const cookie = await signInForSessionCookie("mgr@example.com");
     const res = await SELF.fetch(
       `https://example.com/api/v1/support/grants/${newIdentifier("supportGrant")}/revoke`,
-      { method: "POST", headers: { origin: "https://example.com", cookie, "content-type": "application/json" }, body: "{}" },
+      {
+        method: "POST",
+        headers: { origin: "https://example.com", cookie, "content-type": "application/json" },
+        body: "{}",
+      },
     );
     expect(res.status).toBe(404);
   });
@@ -1828,7 +1904,9 @@ import { problemJson } from "../contracts/problem.ts";
 Add the metas + routes (after the list route definition):
 
 ```typescript
-const GrantStatusResult = z.object({ id: z.string(), status: z.string() }).openapi("SupportGrantStatusResult");
+const GrantStatusResult = z
+  .object({ id: z.string(), status: z.string() })
+  .openapi("SupportGrantStatusResult");
 
 export const cosignGrantMeta: RouteMeta = {
   operationId: "support.grants.cosign",
@@ -1847,7 +1925,10 @@ export const cosignGrantRoute = defineOpenAPIRoute(cosignGrantMeta, {
   description: "An admin co-signs a privileged support grant that firm policy held for approval.",
   request: { params: z.object({ grantId: z.string() }) },
   responses: {
-    200: { description: "The grant after co-sign", content: { "application/json": { schema: GrantStatusResult } } },
+    200: {
+      description: "The grant after co-sign",
+      content: { "application/json": { schema: GrantStatusResult } },
+    },
     401: { description: "No valid session" },
     403: { description: "The session member lacks support:cosign" },
     404: { description: "No such grant in this firm, or it is not awaiting co-sign" },
@@ -1869,10 +1950,14 @@ export const revokeGrantMeta: RouteMeta = {
 export const revokeGrantRoute = defineOpenAPIRoute(revokeGrantMeta, {
   method: "post",
   path: "/api/v1/support/grants/{grantId}/revoke",
-  description: "An admin revokes a support grant; in-flight support access ends on the next request.",
+  description:
+    "An admin revokes a support grant; in-flight support access ends on the next request.",
   request: { params: z.object({ grantId: z.string() }) },
   responses: {
-    200: { description: "The grant after revoke", content: { "application/json": { schema: GrantStatusResult } } },
+    200: {
+      description: "The grant after revoke",
+      content: { "application/json": { schema: GrantStatusResult } },
+    },
     401: { description: "No valid session" },
     403: { description: "The session member lacks support:manage" },
     404: { description: "No such grant in this firm, or it is already terminal" },
@@ -1884,55 +1969,62 @@ export const revokeGrantRoute = defineOpenAPIRoute(revokeGrantMeta, {
 Inside `registerSupportGrantsRoutes`, add the two handlers. Both load the grant, enforce the firm match (a firm can only manage its own grants — a mismatch is a 404, never an existence oracle), apply the guarded UPDATE, and audit:
 
 ```typescript
-  app.openapi(
-    { ...cosignGrantRoute, middleware: chokepointMiddleware(chokepoint, cosignGrantRoute) },
-    async (c) => {
-      const firmId = requireChokepointFirmId(c);
-      const cosignedByUserId = requireChokepointUserId(c);
-      const grantId = c.req.valid("param").grantId as never;
-      const row = (await selectSupportGrantStatement(c.env.DB_CONTROL, grantId).all<SupportGrantRow>()).results[0];
-      if (row === undefined || row.firm_id !== firmId) {
-        return problemJson(c, { type: "not-found", status: 404, title: "Not found" });
-      }
-      const update = await cosignSupportGrantStatement(c.env.DB_CONTROL, { id: grantId, cosignedByUserId }).run();
-      if (update.meta.changes === 0) {
-        return problemJson(c, { type: "not-found", status: 404, title: "Not awaiting co-sign" });
-      }
-      const now = new Date().toISOString();
-      await writeSupportAudit(c.env.DB_CONTROL, {
-        event: "support.grant.cosigned",
-        requesterUserId: row.requested_by_user_id,
-        metadata: { grantId, firmId, cosignedByUserId },
-        now,
-      });
-      return c.json({ id: grantId, status: "active" }, 200);
-    },
-  );
+app.openapi(
+  { ...cosignGrantRoute, middleware: chokepointMiddleware(chokepoint, cosignGrantRoute) },
+  async (c) => {
+    const firmId = requireChokepointFirmId(c);
+    const cosignedByUserId = requireChokepointUserId(c);
+    const grantId = c.req.valid("param").grantId as never;
+    const row = (
+      await selectSupportGrantStatement(c.env.DB_CONTROL, grantId).all<SupportGrantRow>()
+    ).results[0];
+    if (row === undefined || row.firm_id !== firmId) {
+      return problemJson(c, { type: "not-found", status: 404, title: "Not found" });
+    }
+    const update = await cosignSupportGrantStatement(c.env.DB_CONTROL, {
+      id: grantId,
+      cosignedByUserId,
+    }).run();
+    if (update.meta.changes === 0) {
+      return problemJson(c, { type: "not-found", status: 404, title: "Not awaiting co-sign" });
+    }
+    const now = new Date().toISOString();
+    await writeSupportAudit(c.env.DB_CONTROL, {
+      event: "support.grant.cosigned",
+      requesterUserId: row.requested_by_user_id,
+      metadata: { grantId, firmId, cosignedByUserId },
+      now,
+    });
+    return c.json({ id: grantId, status: "active" }, 200);
+  },
+);
 
-  app.openapi(
-    { ...revokeGrantRoute, middleware: chokepointMiddleware(chokepoint, revokeGrantRoute) },
-    async (c) => {
-      const firmId = requireChokepointFirmId(c);
-      const actingUserId = requireChokepointUserId(c);
-      const grantId = c.req.valid("param").grantId as never;
-      const row = (await selectSupportGrantStatement(c.env.DB_CONTROL, grantId).all<SupportGrantRow>()).results[0];
-      if (row === undefined || row.firm_id !== firmId) {
-        return problemJson(c, { type: "not-found", status: 404, title: "Not found" });
-      }
-      const update = await revokeSupportGrantStatement(c.env.DB_CONTROL, { id: grantId }).run();
-      if (update.meta.changes === 0) {
-        return problemJson(c, { type: "not-found", status: 404, title: "Already terminal" });
-      }
-      const now = new Date().toISOString();
-      await writeSupportAudit(c.env.DB_CONTROL, {
-        event: "support.grant.revoked",
-        requesterUserId: row.requested_by_user_id,
-        metadata: { grantId, firmId, revokedByUserId: actingUserId },
-        now,
-      });
-      return c.json({ id: grantId, status: "revoked" }, 200);
-    },
-  );
+app.openapi(
+  { ...revokeGrantRoute, middleware: chokepointMiddleware(chokepoint, revokeGrantRoute) },
+  async (c) => {
+    const firmId = requireChokepointFirmId(c);
+    const actingUserId = requireChokepointUserId(c);
+    const grantId = c.req.valid("param").grantId as never;
+    const row = (
+      await selectSupportGrantStatement(c.env.DB_CONTROL, grantId).all<SupportGrantRow>()
+    ).results[0];
+    if (row === undefined || row.firm_id !== firmId) {
+      return problemJson(c, { type: "not-found", status: 404, title: "Not found" });
+    }
+    const update = await revokeSupportGrantStatement(c.env.DB_CONTROL, { id: grantId }).run();
+    if (update.meta.changes === 0) {
+      return problemJson(c, { type: "not-found", status: 404, title: "Already terminal" });
+    }
+    const now = new Date().toISOString();
+    await writeSupportAudit(c.env.DB_CONTROL, {
+      event: "support.grant.revoked",
+      requesterUserId: row.requested_by_user_id,
+      metadata: { grantId, firmId, revokedByUserId: actingUserId },
+      now,
+    });
+    return c.json({ id: grantId, status: "revoked" }, 200);
+  },
+);
 ```
 
 - [ ] **Step 4: Re-emit contract + regenerate client**
@@ -1958,11 +2050,13 @@ git commit -m "feat(support): co-sign + revoke support-grant routes"
 ## Task 13: Staff redeem route (mint the support-session token)
 
 **Files:**
+
 - Create: `apps/worker/src/routes/support-sessions.ts`
 - Modify: `apps/worker/src/app.ts` (register)
 - Test: `apps/worker/test/support-sessions.test.ts`
 
 **Interfaces:**
+
 - Consumes: `platformAdminGuard` (re-exported from `./firms.ts`), `selectSupportGrantStatement`, `selectPlatformStaffStatement`, `redeemSupportGrantStatement`, `supportGrantUsable`, `mintSupportSessionToken`, `writeSupportAudit`.
 - Produces: `registerSupportSessionsRoute(app, chokepoint)`; route `POST /api/v1/support/sessions` (public surface, platform-admin-gated interim).
 
@@ -2091,7 +2185,12 @@ const RedeemBody = z
   .openapi("RedeemSupportSession");
 
 const RedeemResult = z
-  .object({ token: z.string(), tier: z.enum(["diagnostic", "privileged"]), firmId: z.string(), expiresAt: z.string() })
+  .object({
+    token: z.string(),
+    tier: z.enum(["diagnostic", "privileged"]),
+    firmId: z.string(),
+    expiresAt: z.string(),
+  })
   .openapi("SupportSessionMinted");
 
 export const redeemSessionMeta: RouteMeta = {
@@ -2108,10 +2207,14 @@ export const redeemSessionMeta: RouteMeta = {
 export const redeemSessionRoute = defineOpenAPIRoute(redeemSessionMeta, {
   method: "post",
   path: "/api/v1/support/sessions",
-  description: "A platform-staff principal redeems an active grant for a short-lived support-session token.",
+  description:
+    "A platform-staff principal redeems an active grant for a short-lived support-session token.",
   request: { body: { content: { "application/json": { schema: RedeemBody } }, required: true } },
   responses: {
-    201: { description: "The minted support-session token", content: { "application/json": { schema: RedeemResult } } },
+    201: {
+      description: "The minted support-session token",
+      content: { "application/json": { schema: RedeemResult } },
+    },
     400: { description: "Missing Idempotency-Key" },
     401: { description: "Missing or invalid platform-admin key" },
     403: { description: "Principal may not redeem this tier" },
@@ -2145,7 +2248,10 @@ export function registerSupportSessionsRoute(
       }
 
       const principal = (
-        await selectPlatformStaffStatement(c.env.DB_CONTROL, principalId as never).all<PlatformStaffRow>()
+        await selectPlatformStaffStatement(
+          c.env.DB_CONTROL,
+          principalId as never,
+        ).all<PlatformStaffRow>()
       ).results[0];
       if (principal === undefined || principal.status !== "active") {
         return problemJson(c, { type: "not-found", status: 404, title: "Unknown principal" });
@@ -2175,11 +2281,19 @@ export function registerSupportSessionsRoute(
       await writeSupportAudit(c.env.DB_CONTROL, {
         event: "support.grant.redeemed",
         requesterUserId: grant.requested_by_user_id,
-        metadata: { grantId: grant.id, principalId: principal.id, firmId: grant.firm_id, tier: grant.tier },
+        metadata: {
+          grantId: grant.id,
+          principalId: principal.id,
+          firmId: grant.firm_id,
+          tier: grant.tier,
+        },
         now,
       });
 
-      return c.json({ token, tier: grant.tier, firmId: grant.firm_id, expiresAt: grant.expires_at }, 201);
+      return c.json(
+        { token, tier: grant.tier, firmId: grant.firm_id, expiresAt: grant.expires_at },
+        201,
+      );
     },
   );
 }
@@ -2194,7 +2308,7 @@ In `apps/worker/src/app.ts`:
 ```typescript
 import { registerSupportSessionsRoute } from "./routes/support-sessions.ts";
 // ... within createApp:
-  registerSupportSessionsRoute(app, chokepoint);
+registerSupportSessionsRoute(app, chokepoint);
 ```
 
 - [ ] **Step 5: Re-emit contract + regenerate client**
@@ -2220,11 +2334,13 @@ git commit -m "feat(support): staff redeem route mints a support-session token"
 ## Task 14: Diagnostics overview route + end-to-end enforcement
 
 **Files:**
+
 - Create: `apps/worker/src/routes/support-diagnostics.ts`
 - Modify: `apps/worker/src/app.ts` (register)
 - Test: `apps/worker/test/support-diagnostics.e2e.test.ts`
 
 **Interfaces:**
+
 - Produces: `registerSupportDiagnosticsRoute(app, chokepoint)`; route `GET /api/v1/support/diagnostics/overview` gated by `diagnostics:overview`.
 
 This task proves the rails end-to-end: a normal member is denied the diagnostic surface (403), a diagnostic support session is allowed (200), and a revoked grant's token is denied.
@@ -2271,12 +2387,14 @@ async function openDiagnosticSession(cookie: string): Promise<string> {
     },
     body: JSON.stringify({ grantId: grant.id, principalId }),
   });
-  return (await redeemRes.json() as { token: string }).token;
+  return ((await redeemRes.json()) as { token: string }).token;
 }
 
 describe("diagnostic support session enforcement", () => {
   it("a normal member is denied the diagnostic surface (403)", async () => {
-    await seedCredentialedUser("diag-member@example.com", { firmDatabaseIdentifier: "DB_FIRM_POOL_1" });
+    await seedCredentialedUser("diag-member@example.com", {
+      firmDatabaseIdentifier: "DB_FIRM_POOL_1",
+    });
     const cookie = await signInForSessionCookie("diag-member@example.com");
     const res = await SELF.fetch(DIAG, { headers: { origin: "https://example.com", cookie } });
     expect(res.status).toBe(403);
@@ -2295,7 +2413,9 @@ describe("diagnostic support session enforcement", () => {
     const cookie = await signInForSessionCookie("diag-member@example.com");
     const token = await openDiagnosticSession(cookie);
     // revoke every active grant for the firm
-    await env.DB_CONTROL.prepare("UPDATE support_grant SET status = 'revoked' WHERE status = 'active'").run();
+    await env.DB_CONTROL.prepare(
+      "UPDATE support_grant SET status = 'revoked' WHERE status = 'active'",
+    ).run();
     const res = await SELF.fetch(DIAG, { headers: { "X-Support-Session": token } });
     expect(res.status).toBe(401);
   });
@@ -2348,9 +2468,13 @@ export const diagnosticOverviewMeta: RouteMeta = {
 export const diagnosticOverviewRoute = defineOpenAPIRoute(diagnosticOverviewMeta, {
   method: "get",
   path: "/api/v1/support/diagnostics/overview",
-  description: "Non-privileged firm system state for help-desk diagnosis: status, schema version, storage, member count.",
+  description:
+    "Non-privileged firm system state for help-desk diagnosis: status, schema version, storage, member count.",
   responses: {
-    200: { description: "The firm system-state overview", content: { "application/json": { schema: Overview } } },
+    200: {
+      description: "The firm system-state overview",
+      content: { "application/json": { schema: Overview } },
+    },
     401: { description: "No valid session" },
     403: { description: "The principal lacks diagnostics:overview" },
     404: { description: "The firm is not reachable" },
@@ -2363,7 +2487,10 @@ export function registerSupportDiagnosticsRoute(
   chokepoint: Chokepoint,
 ): void {
   app.openapi(
-    { ...diagnosticOverviewRoute, middleware: chokepointMiddleware(chokepoint, diagnosticOverviewRoute) },
+    {
+      ...diagnosticOverviewRoute,
+      middleware: chokepointMiddleware(chokepoint, diagnosticOverviewRoute),
+    },
     async (c) => {
       const firmId = requireChokepointFirmId(c);
       const { firmDatabase, bucketName } = requireChokepointFirmContext(c);
@@ -2397,7 +2524,7 @@ In `apps/worker/src/app.ts`:
 ```typescript
 import { registerSupportDiagnosticsRoute } from "./routes/support-diagnostics.ts";
 // ... within createApp:
-  registerSupportDiagnosticsRoute(app, chokepoint);
+registerSupportDiagnosticsRoute(app, chokepoint);
 ```
 
 - [ ] **Step 5: Re-emit contract + regenerate client**
@@ -2429,6 +2556,7 @@ git commit -m "feat(support): diagnostic overview route + end-to-end tier enforc
 ## Task 15: Documentation, decision record, and status
 
 **Files:**
+
 - Create: `docs/decisions/pending/support-access-framework.md` (ADR fragment)
 - Create: `changelog.d/support-access-framework.md` (changelog fragment)
 - Modify: `STATUS.md` (the support-access slice row — your own row only)

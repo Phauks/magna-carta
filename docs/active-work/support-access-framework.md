@@ -2,7 +2,7 @@
 branch: support-access-framework
 worktree: C:/dev/magna-carta-worktrees/support-access-framework
 area: Platform — Support Access Framework (help-desk instance access; backend rails)
-status: designing
+status: built — pending review
 touches: docs/specs/2026-06-25-support-access-framework-design.md, packages/database/src/control-plane-schema.ts (new platform_staff + support_grant tables), packages/access-control/src/registry.ts (new diagnostics:* namespace), apps/worker/src/session-context.ts + chokepoint (support-principal resolution), apps/worker auth/control-plane migrations, docs/decisions/pending/** (ADR), changelog.d/**, STATUS.md, ROADMAP.md
 ---
 

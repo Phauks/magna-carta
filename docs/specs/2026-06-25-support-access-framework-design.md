@@ -17,17 +17,17 @@ practice-management platform this collides head-on with the product's core guara
 sensitive data is envelope-encrypted (a per-firm data key wrapped under `ROOT_KEK`; `protected()` values
 unreadable without unwrapping it), telemetry redacts by default, and the platform deliberately cannot
 casually read firm content. Support access cannot become a back door around that posture — it must be a
-constrained, attributed, expiring path *through* the same enforcement everything else traverses.
+constrained, attributed, expiring path _through_ the same enforcement everything else traverses.
 
 Two design facts make this tractable:
 
 - The worker **chokepoint** already runs every `/api/v1` route through `tenancy → authn → RBAC →
-  idempotency → rate-limit`. A request's authority is a `SessionContext { userId, firmId }` (the firm
+idempotency → rate-limit`. A request's authority is a `SessionContext { userId, firmId }` (the firm
   comes from the session, never the URL) plus an effective-permission set resolved against that firm's
   database.
 - A **platform-admin surface** and a control-plane `auth_audit` trail already exist as seams.
 
-The framework slots a support session into the *existing* `SessionContext` model rather than bypassing
+The framework slots a support session into the _existing_ `SessionContext` model rather than bypassing
 it. Support enters through the same front door — with a constrained, expiring, named authority.
 
 ## 2. Core concept — a support grant is an alternate principal at the chokepoint
@@ -39,18 +39,18 @@ The whole feature is one idea:
 > grant's tier.
 
 Support is **pull, not push.** Help desk can never open a session unilaterally — a session exists only
-because someone inside the firm requested help. That request *is* the consent and the audit anchor. There
+because someone inside the firm requested help. That request _is_ the consent and the audit anchor. There
 is no help-desk-initiated path.
 
 Two tiers, one mechanism:
 
-| Tier         | What it reaches                                                        | Who requests                         |
-| ------------ | --------------------------------------------------------------------- | ------------------------------------ |
-| `diagnostic` | System state only — never decrypted client content                    | Any firm member                      |
-| `privileged` | Exactly the requester's own authority (`scope: self`) — no more        | Any firm member (optional admin co-sign) |
+| Tier         | What it reaches                                                 | Who requests                             |
+| ------------ | --------------------------------------------------------------- | ---------------------------------------- |
+| `diagnostic` | System state only — never decrypted client content              | Any firm member                          |
+| `privileged` | Exactly the requester's own authority (`scope: self`) — no more | Any firm member (optional admin co-sign) |
 
-The privileged tier rests on one realization: if a privileged session grants help desk *precisely the
-requesting member's own authorization and nothing more*, then **no firm-level privilege is expanded.**
+The privileged tier rests on one realization: if a privileged session grants help desk _precisely the
+requesting member's own authorization and nothing more_, then **no firm-level privilege is expanded.**
 Help desk sees what that one already-authorized user could pull up themselves — the digital equivalent of
 the user turning their monitor around, with their consent, for a bounded time. The client's
 confidentiality envelope is never widened.
@@ -67,7 +67,7 @@ The redeemer is modelled as a **principal**, not hardcoded as a human:
 principal = { principalType: "staff" | "agent", principalId }
 ```
 
-The `agent` variant is reserved, not built — the far-flung AI-agent help-desk case is the *same* grant
+The `agent` variant is reserved, not built — the far-flung AI-agent help-desk case is the _same_ grant
 machinery with a tighter scope and its own credential, added later behind this abstraction. Building
 nothing agent-specific now keeps that future additive.
 
@@ -79,20 +79,20 @@ per-person attribution is the entire value of this feature.
 
 One row per support request.
 
-| Field               | Meaning                                                                              |
-| ------------------- | ------------------------------------------------------------------------------------ |
-| `id`                | Grant handle.                                                                         |
-| `firmId`            | The firm the grant authorizes access to.                                             |
-| `requestedByUserId` | The firm member who requested help — the consent anchor.                            |
-| `tier`              | `diagnostic` \| `privileged`.                                                        |
-| `scope`             | `self` — pins privileged access to the requester's own authority.                   |
-| `status`            | `requested → active → expired \| revoked \| closed`.                                 |
-| `reason`            | Free-text request reason (redacted lineage — non-privileged).                       |
-| `principalId`       | The staff/agent principal that redeemed the grant (null until claimed).              |
-| `requiresCosign`    | Set when firm policy demands admin co-sign for a privileged grant.                  |
-| `cosignedByUserId`  | The admin who co-signed, when required (else null).                                  |
-| `expiresAt`         | Hard time-box (ISO-8601 UTC). Access ends here regardless of activity.              |
-| `createdAt`         | Request instant.                                                                     |
+| Field               | Meaning                                                                 |
+| ------------------- | ----------------------------------------------------------------------- |
+| `id`                | Grant handle.                                                           |
+| `firmId`            | The firm the grant authorizes access to.                                |
+| `requestedByUserId` | The firm member who requested help — the consent anchor.                |
+| `tier`              | `diagnostic` \| `privileged`.                                           |
+| `scope`             | `self` — pins privileged access to the requester's own authority.       |
+| `status`            | `requested → active → expired \| revoked \| closed`.                    |
+| `reason`            | Free-text request reason (redacted lineage — non-privileged).           |
+| `principalId`       | The staff/agent principal that redeemed the grant (null until claimed). |
+| `requiresCosign`    | Set when firm policy demands admin co-sign for a privileged grant.      |
+| `cosignedByUserId`  | The admin who co-signed, when required (else null).                     |
+| `expiresAt`         | Hard time-box (ISO-8601 UTC). Access ends here regardless of activity.  |
+| `createdAt`         | Request instant.                                                        |
 
 The grant lives in the **control plane** (it is cross-firm platform state and links a platform principal
 to a firm), not the per-firm database.
@@ -102,11 +102,11 @@ to a firm), not the per-firm database.
 A support-redeemed request resolves to a `SessionContext { userId, firmId: <granted firm> }` tagged with
 `support: { grantId, principalId, tier }`. The permission set is then computed by tier:
 
-- **`diagnostic`** → a fixed, *additive* allow-list from a new read-only namespace in the access-control
+- **`diagnostic`** → a fixed, _additive_ allow-list from a new read-only namespace in the access-control
   registry (`diagnostics:*` — system state, audit/event timelines, job/queue status, config/flags,
   storage/usage). It contains **no** `view*`/decrypt permission, so the existing audited-decrypt gates
   (`incidents:viewDescription`, `directory:viewSensitiveIdentifiers`, the secret store, …) **never
-  open**. Privileged content is unreachable *by construction*, not by promise.
+  open**. Privileged content is unreachable _by construction_, not by promise.
 - **`privileged` + `scope: self`** → exactly `loadEffectivePermissions(firmDb, requestedByUserId)`: the
   requester's own effective permissions, nothing more. No firm-level escalation can occur.
 
@@ -125,7 +125,7 @@ null → an ordinary RFC 9457 `401`, never a special-cased bypass.
 
 ## 6. Consent, notification, revocation
 
-- **Diagnostic:** any firm member requests; firm admins are **notified** (in-app + email — a *seam* now,
+- **Diagnostic:** any firm member requests; firm admins are **notified** (in-app + email — a _seam_ now,
   wired with the notifications subsystem later) and can **revoke** at any time.
 - **Privileged:** self-scoped, admin-notified, with an **optional** `require_cosign` firm policy (default
   off) that inserts an admin approval step before the grant goes `active`. This mirrors the existing
@@ -139,8 +139,8 @@ null → an ordinary RFC 9457 `401`, never a special-cased bypass.
 Every grant lifecycle transition (`requested`, co-signed, `active`/redeemed, `revoked`, `expired`,
 `closed`) and every support-context request is written to an audit trail extending the control-plane
 `auth_audit` lineage, attributed to the **named principal** and **firm-visible**. This trail is what a
-firm reads to see *who* looked, *when*, *why*, and at *what scope* — it is the feature's product surface.
-House redaction still binds: the audit records *that* an action happened and against which resource,
+firm reads to see _who_ looked, _when_, _why_, and at _what scope_ — it is the feature's product surface.
+House redaction still binds: the audit records _that_ an action happened and against which resource,
 never privileged content.
 
 ## 8. Deferred — named seams, not built now
