@@ -27,7 +27,9 @@ mod detect;
 pub use detect::*;
 
 mod decrypt;
-pub use decrypt::{decrypt, SecureError};
+pub use decrypt::{
+    decrypt, inspect_security, Algorithm, Handler, Permissions, SecureError, SecurityInfo,
+};
 
 mod surgery;
 

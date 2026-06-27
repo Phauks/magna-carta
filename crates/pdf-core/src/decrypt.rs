@@ -28,6 +28,215 @@ pub enum SecureError {
     Reassemble,
 }
 
+/// Which security handler a document declares.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Handler {
+    /// The password-based Standard Security Handler — what this engine reads and writes.
+    Standard,
+    /// A public-key (certificate) handler — classified but not opened.
+    PublicKey,
+    /// The document is not encrypted.
+    None,
+}
+
+/// The cipher a document's content is protected with.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Algorithm {
+    /// RC4 (40–128 bit) — legacy, readable but never written.
+    Rc4,
+    /// AES-128 (`/AESV2`, V4).
+    Aes128,
+    /// AES-256 (`/AESV3`, V5/R6, PDF 2.0) — the write target.
+    Aes256,
+    /// Encrypted, but the cipher could not be read (see [`SecurityInfo`] notes).
+    Unknown,
+    /// The document is not encrypted.
+    None,
+}
+
+/// A document's declared permission policy. These bits are **advisory**: they are
+/// honoured only by cooperating viewers, and any tool that can open the document can
+/// ignore or strip them. The only real confidentiality control is the user (open)
+/// password plus the cipher.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct Permissions {
+    pub print: bool,
+    pub print_high_res: bool,
+    pub copy: bool,
+    pub modify: bool,
+    pub annotate: bool,
+    pub fill_forms: bool,
+    pub assemble: bool,
+    pub accessibility_copy: bool,
+}
+
+impl Permissions {
+    /// Everything allowed — the effective state of an unencrypted document.
+    pub fn all_allowed() -> Self {
+        Self {
+            print: true,
+            print_high_res: true,
+            copy: true,
+            modify: true,
+            annotate: true,
+            fill_forms: true,
+            assemble: true,
+            accessibility_copy: true,
+        }
+    }
+
+    /// Decode the standard `/P` permission bitfield, reusing lopdf's flag definitions.
+    fn from_p(p: i64) -> Self {
+        use lopdf::Permissions as L;
+        let f = L::from_bits_truncate(p as u64);
+        Self {
+            print: f.contains(L::PRINTABLE),
+            print_high_res: f.contains(L::PRINTABLE_IN_HIGH_QUALITY),
+            copy: f.contains(L::COPYABLE),
+            modify: f.contains(L::MODIFIABLE),
+            annotate: f.contains(L::ANNOTABLE),
+            fill_forms: f.contains(L::FILLABLE),
+            assemble: f.contains(L::ASSEMBLABLE),
+            accessibility_copy: f.contains(L::COPYABLE_FOR_ACCESSIBILITY),
+        }
+    }
+}
+
+/// What a document's security looks like, read without opening it.
+///
+/// `permissions` is `Some` when the policy can be read and `None` when it cannot.
+/// The unreadable case arises for a document whose **user (open) password is empty**:
+/// lopdf transparently opens it and consumes the `/Encrypt` dictionary during load, so
+/// the cipher and permission detail are no longer available. Such a document still
+/// reports `encrypted: true` and `has_user_password: false` — the facts a caller needs
+/// to decide whether to prompt. A document that requires an open password yields full
+/// detail.
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct SecurityInfo {
+    pub encrypted: bool,
+    pub handler: Handler,
+    pub algorithm: Algorithm,
+    /// True when an open (user) password is required to view the document.
+    pub has_user_password: bool,
+    /// The advisory permission policy, or `None` when it could not be read.
+    pub permissions: Option<Permissions>,
+}
+
+/// Inspect a PDF's security without opening it.
+///
+/// A still-present `/Encrypt` dictionary after a plain load means an open password is
+/// required (lopdf would otherwise have opened and consumed it). For that case the full
+/// `/Encrypt` detail is read. A document opened with the empty user password reports the
+/// actionable facts only. A public-key handler — which lopdf does not implement, and
+/// which may fail to load at all — is still classified from the raw `/Filter` name.
+pub fn inspect_security(bytes: &[u8]) -> Result<SecurityInfo, SecureError> {
+    let doc = match Document::load_mem(bytes) {
+        Ok(doc) => doc,
+        // A public-key handler can fail to load; classify it from the raw bytes rather
+        // than reporting a corrupt file.
+        Err(_) if is_public_key_handler(bytes) => return Ok(public_key_info()),
+        Err(_) => return Err(SecureError::Parse),
+    };
+
+    if doc.is_encrypted() {
+        let dict = doc.get_encrypted().map_err(|_| SecureError::Parse)?;
+        let handler = match dict.get(b"Filter").ok().and_then(|o| o.as_name().ok()) {
+            Some(b"Standard") => Handler::Standard,
+            // Adobe.PPKLite / Adobe.PubSec / any vendor handler — not opened.
+            Some(_) | None => Handler::PublicKey,
+        };
+        let version = dict
+            .get(b"V")
+            .ok()
+            .and_then(|o| o.as_i64().ok())
+            .unwrap_or(0);
+        let algorithm = match handler {
+            Handler::Standard => algorithm_of(dict, version),
+            _ => Algorithm::Unknown,
+        };
+        let permissions = dict
+            .get(b"P")
+            .ok()
+            .and_then(|o| o.as_i64().ok())
+            .map(Permissions::from_p);
+        return Ok(SecurityInfo {
+            encrypted: true,
+            handler,
+            algorithm,
+            // /Encrypt survived the load, so the empty password did not open it.
+            has_user_password: true,
+            permissions,
+        });
+    }
+
+    if doc.was_encrypted() {
+        // Opened with the empty user password; the /Encrypt dictionary was consumed
+        // during load. The Standard handler is implied — it is the only one lopdf opens.
+        return Ok(SecurityInfo {
+            encrypted: true,
+            handler: Handler::Standard,
+            algorithm: Algorithm::Unknown,
+            has_user_password: false,
+            permissions: None,
+        });
+    }
+
+    Ok(SecurityInfo {
+        encrypted: false,
+        handler: Handler::None,
+        algorithm: Algorithm::None,
+        has_user_password: false,
+        permissions: Some(Permissions::all_allowed()),
+    })
+}
+
+fn public_key_info() -> SecurityInfo {
+    SecurityInfo {
+        encrypted: true,
+        handler: Handler::PublicKey,
+        algorithm: Algorithm::Unknown,
+        has_user_password: false,
+        permissions: None,
+    }
+}
+
+/// Heuristic detection of a public-key (certificate) security handler. The `/Encrypt`
+/// dictionary — including its `/Filter` name — is itself never encrypted, so the
+/// handler name appears verbatim in the bytes even when the document fails to load.
+fn is_public_key_handler(bytes: &[u8]) -> bool {
+    let has = |needle: &[u8]| bytes.windows(needle.len()).any(|w| w == needle);
+    has(b"Adobe.PubSec") || has(b"Adobe.PPKLite")
+}
+
+/// Resolve the content cipher. V1/V2 are RC4; V4/V5 name the cipher in the stream
+/// crypt filter's `/CFM` (falling back to the version when it is absent).
+fn algorithm_of(dict: &lopdf::Dictionary, version: i64) -> Algorithm {
+    if version < 4 {
+        return Algorithm::Rc4;
+    }
+    let stream_filter = dict
+        .get(b"StmF")
+        .ok()
+        .and_then(|o| o.as_name().ok())
+        .unwrap_or(b"StdCF");
+    let cfm = dict
+        .get(b"CF")
+        .ok()
+        .and_then(|o| o.as_dict().ok())
+        .and_then(|cf| cf.get(stream_filter).ok())
+        .and_then(|f| f.as_dict().ok())
+        .and_then(|f| f.get(b"CFM").ok())
+        .and_then(|o| o.as_name().ok());
+    match cfm {
+        Some(b"AESV3") => Algorithm::Aes256,
+        Some(b"AESV2") => Algorithm::Aes128,
+        Some(b"V2") => Algorithm::Rc4,
+        // No (or Identity) stream filter named: infer from the version.
+        _ if version >= 5 => Algorithm::Aes256,
+        _ => Algorithm::Rc4,
+    }
+}
+
 /// Decrypt a password-protected PDF to plaintext bytes.
 ///
 /// A document that is not encrypted is returned unchanged, so callers need not
@@ -74,10 +283,25 @@ fn map_unlock_error(err: lopdf::Error) -> SecureError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lopdf::encryption::crypt_filters::{Aes256CryptFilter, CryptFilter};
-    use lopdf::{dictionary, EncryptionState, EncryptionVersion, Object, Permissions, Stream};
+    use lopdf::encryption::crypt_filters::{Aes128CryptFilter, Aes256CryptFilter, CryptFilter};
+    use lopdf::{dictionary, EncryptionState, EncryptionVersion, Object, Stream};
     use std::collections::BTreeMap;
     use std::sync::Arc;
+
+    // lopdf's permission flags are referenced fully-qualified (`lopdf::Permissions`) so
+    // they never shadow this crate's own `Permissions` decode type in scope here.
+    fn default_perms() -> lopdf::Permissions {
+        lopdf::Permissions::PRINTABLE
+            | lopdf::Permissions::COPYABLE
+            | lopdf::Permissions::COPYABLE_FOR_ACCESSIBILITY
+            | lopdf::Permissions::PRINTABLE_IN_HIGH_QUALITY
+    }
+
+    /// Set a file `/ID`, which the V2/V4 (R2–R4) key derivation requires. V5/R6 does not.
+    fn set_file_id(doc: &mut Document) {
+        let id = Object::String(vec![0x42u8; 16], lopdf::StringFormat::Hexadecimal);
+        doc.trailer.set(b"ID", Object::Array(vec![id.clone(), id]));
+    }
 
     /// A minimal single-page Letter PDF built with lopdf, serialised to bytes.
     /// Built programmatically (rather than from an external fixture) so lopdf
@@ -114,10 +338,10 @@ mod tests {
         bytes
     }
 
-    /// Encrypt a plaintext PDF to AES-256 (V5/R6) for the round-trip fixtures. A
+    /// Encrypt a plaintext PDF to AES-256 (V5/R6) with a chosen permission policy. A
     /// fixed file-encryption key keeps the test deterministic — the real `secure`
     /// path (built next) generates a random key.
-    fn encrypt_aes256(plain: &[u8], owner: &str, user: &str) -> Vec<u8> {
+    fn encrypt_v5(plain: &[u8], owner: &str, user: &str, perms: lopdf::Permissions) -> Vec<u8> {
         let mut doc = Document::load_mem(plain).expect("load plaintext fixture");
         let key = [7u8; 32];
         let crypt_filter: Arc<dyn CryptFilter> = Arc::new(Aes256CryptFilter);
@@ -129,10 +353,7 @@ mod tests {
             string_filter: b"StdCF".to_vec(),
             owner_password: owner,
             user_password: user,
-            permissions: Permissions::PRINTABLE
-                | Permissions::COPYABLE
-                | Permissions::COPYABLE_FOR_ACCESSIBILITY
-                | Permissions::PRINTABLE_IN_HIGH_QUALITY,
+            permissions: perms,
         };
         let state = EncryptionState::try_from(version).expect("build V5 encryption state");
         doc.encrypt(&state).expect("encrypt to AES-256");
@@ -141,11 +362,83 @@ mod tests {
         out
     }
 
+    /// Encrypt to legacy RC4 (V2) — for read/inspect coverage only; we never write it.
+    fn encrypt_rc4(plain: &[u8], owner: &str, user: &str) -> Vec<u8> {
+        let mut doc = Document::load_mem(plain).expect("load plaintext fixture");
+        set_file_id(&mut doc);
+        let version = EncryptionVersion::V2 {
+            document: &doc,
+            owner_password: owner,
+            user_password: user,
+            key_length: 128,
+            permissions: default_perms(),
+        };
+        let state = EncryptionState::try_from(version).expect("build V2 (RC4) state");
+        doc.encrypt(&state).expect("encrypt RC4");
+        let mut out = Vec::new();
+        doc.save_to(&mut out).expect("serialise");
+        out
+    }
+
+    /// Encrypt to AES-128 (V4, `/AESV2`) — for read/inspect coverage only.
+    fn encrypt_aes128(plain: &[u8], owner: &str, user: &str) -> Vec<u8> {
+        let mut doc = Document::load_mem(plain).expect("load plaintext fixture");
+        set_file_id(&mut doc);
+        let crypt_filter: Arc<dyn CryptFilter> = Arc::new(Aes128CryptFilter);
+        let version = EncryptionVersion::V4 {
+            document: &doc,
+            encrypt_metadata: true,
+            crypt_filters: BTreeMap::from([(b"StdCF".to_vec(), crypt_filter)]),
+            stream_filter: b"StdCF".to_vec(),
+            string_filter: b"StdCF".to_vec(),
+            owner_password: owner,
+            user_password: user,
+            permissions: default_perms(),
+        };
+        let state = EncryptionState::try_from(version).expect("build V4 (AES-128) state");
+        doc.encrypt(&state).expect("encrypt AES-128");
+        let mut out = Vec::new();
+        doc.save_to(&mut out).expect("serialise");
+        out
+    }
+
+    /// A minimal document carrying a public-key (`/Adobe.PubSec`) `/Encrypt` dictionary,
+    /// built by hand (lopdf does not produce public-key encryption). The content is not
+    /// actually enciphered — this exercises only the handler classification path.
+    fn fake_pubkey_encrypted() -> Vec<u8> {
+        let mut doc = Document::with_version("1.7");
+        let pages_id = doc.add_object(dictionary! {
+            b"Type" => Object::Name(b"Pages".to_vec()),
+            b"Kids" => Object::Array(vec![]),
+            b"Count" => Object::Integer(0),
+        });
+        let catalog_id = doc.add_object(dictionary! {
+            b"Type" => Object::Name(b"Catalog".to_vec()),
+            b"Pages" => Object::Reference(pages_id),
+        });
+        let enc_id = doc.add_object(dictionary! {
+            b"Filter" => Object::Name(b"Adobe.PubSec".to_vec()),
+            b"V" => Object::Integer(4),
+            b"R" => Object::Integer(4),
+            b"P" => Object::Integer(-44),
+        });
+        doc.trailer.set(b"Root", Object::Reference(catalog_id));
+        doc.trailer.set(b"Encrypt", Object::Reference(enc_id));
+        let mut bytes = Vec::new();
+        doc.save_to(&mut bytes).expect("serialise");
+        bytes
+    }
+
     /// The spike: prove lopdf's whole-document decrypt produces bytes that the
     /// `hayro` render path opens, and that the unlock/error/identity contracts hold.
     #[test]
     fn probe_decrypt_roundtrips_through_hayro() {
-        let encrypted = encrypt_aes256(&minimal_pdf(), "owner-secret", "open-secret");
+        let encrypted = encrypt_v5(
+            &minimal_pdf(),
+            "owner-secret",
+            "open-secret",
+            default_perms(),
+        );
 
         // Sanity: the fixture really is encrypted.
         assert!(Document::load_mem(&encrypted)
@@ -177,5 +470,70 @@ mod tests {
         // An unencrypted input is returned unchanged.
         let plain = minimal_pdf();
         assert_eq!(decrypt(&plain, ""), Ok(plain.clone()));
+    }
+
+    #[test]
+    fn inspect_unencrypted_is_clean() {
+        let info = inspect_security(&minimal_pdf()).expect("inspect");
+        assert!(!info.encrypted);
+        assert_eq!(info.handler, Handler::None);
+        assert_eq!(info.algorithm, Algorithm::None);
+        assert!(!info.has_user_password);
+        assert_eq!(info.permissions, Some(Permissions::all_allowed()));
+    }
+
+    #[test]
+    fn inspect_aes256_with_user_password() {
+        let enc = encrypt_v5(&minimal_pdf(), "owner", "open", default_perms());
+        let info = inspect_security(&enc).expect("inspect");
+        assert!(info.encrypted);
+        assert_eq!(info.handler, Handler::Standard);
+        assert_eq!(info.algorithm, Algorithm::Aes256);
+        assert!(info.has_user_password);
+    }
+
+    #[test]
+    fn inspect_aes256_owner_only_opens_without_prompt() {
+        // An empty user password means the document opens with no prompt. lopdf consumes
+        // the /Encrypt dict during load, so detail is unknown — but the actionable facts
+        // (encrypted, no open password required) are reported.
+        let enc = encrypt_v5(&minimal_pdf(), "owner", "", default_perms());
+        let info = inspect_security(&enc).expect("inspect");
+        assert!(info.encrypted);
+        assert!(!info.has_user_password);
+        assert_eq!(info.handler, Handler::Standard);
+        assert_eq!(info.permissions, None);
+    }
+
+    #[test]
+    fn inspect_classifies_rc4_and_aes128() {
+        let rc4 = encrypt_rc4(&minimal_pdf(), "owner", "open");
+        assert_eq!(inspect_security(&rc4).unwrap().algorithm, Algorithm::Rc4);
+        let aes128 = encrypt_aes128(&minimal_pdf(), "owner", "open");
+        assert_eq!(
+            inspect_security(&aes128).unwrap().algorithm,
+            Algorithm::Aes128
+        );
+    }
+
+    #[test]
+    fn inspect_flags_public_key_handler() {
+        let info = inspect_security(&fake_pubkey_encrypted()).expect("inspect");
+        assert!(info.encrypted);
+        assert_eq!(info.handler, Handler::PublicKey);
+    }
+
+    #[test]
+    fn inspect_decodes_permissions() {
+        // Print allowed; copy and modify denied.
+        let perms = lopdf::Permissions::PRINTABLE | lopdf::Permissions::PRINTABLE_IN_HIGH_QUALITY;
+        let enc = encrypt_v5(&minimal_pdf(), "owner", "open", perms);
+        let info = inspect_security(&enc).expect("inspect");
+        let p = info
+            .permissions
+            .expect("permissions readable for a password-required doc");
+        assert!(p.print);
+        assert!(!p.copy);
+        assert!(!p.modify);
     }
 }
