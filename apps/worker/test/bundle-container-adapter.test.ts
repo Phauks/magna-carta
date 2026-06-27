@@ -44,9 +44,7 @@ const sampleManifest: BundleManifest = {
   outputKeyPrefix: "bundles/test-key",
 };
 
-const sampleVolumes: BuildResultVolume[] = [
-  { key: "bundles/test-key.zip", sizeBytes: 4096 },
-];
+const sampleVolumes: BuildResultVolume[] = [{ key: "bundles/test-key.zip", sizeBytes: 4096 }];
 
 describe("bundleContainerAdapter — build", () => {
   it("returns the parsed volumes on a successful ok:true response", async () => {
@@ -129,7 +127,11 @@ describe("bundleContainerAdapter — buildStream", () => {
   });
 
   it("throws on a non-200 response", async () => {
-    const stream = new ReadableStream<Uint8Array>({ start(c) { c.close(); } });
+    const stream = new ReadableStream<Uint8Array>({
+      start(c) {
+        c.close();
+      },
+    });
     const adapter = bundleContainerAdapter(fakeStreamService(stream, 500));
     await expect(adapter.buildStream(sampleManifest)).rejects.toThrow();
   });

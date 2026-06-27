@@ -335,9 +335,9 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
           mtimeByR2Key: new Map(),
         });
 
-        const containerResponse = await bundleContainerAdapter(
-          c.env.BUNDLE_SERVICE,
-        ).buildStream(streamManifest);
+        const containerResponse = await bundleContainerAdapter(c.env.BUNDLE_SERVICE).buildStream(
+          streamManifest,
+        );
 
         const contentType =
           options.format === "zip" ? "application/zip" : "application/x-7z-compressed";
