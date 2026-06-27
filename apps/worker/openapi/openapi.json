@@ -5521,6 +5521,169 @@
         }
       }
     },
+    "/api/v1/file-type/verify": {
+      "post": {
+        "description": "Identify an uploaded file's true content type from its bytes, compare it to the extension the filename claims, and recommend an extension when it is missing or wrong. Nothing is stored.",
+        "operationId": "fileType.verify",
+        "tags": [
+          "fileType"
+        ],
+        "x-mc-operationId": "fileType.verify",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:fileTypeVerifier",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "fileType"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "filename",
+            "in": "query"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "File type report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "detected": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "detectedLabel": {
+                      "type": "string"
+                    },
+                    "group": {
+                      "type": "string"
+                    },
+                    "confidence": {
+                      "type": "number"
+                    },
+                    "claimedExtension": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "extensionMatch": {
+                      "type": "string",
+                      "enum": [
+                        "match",
+                        "mismatch",
+                        "unverifiable",
+                        "no-extension"
+                      ]
+                    },
+                    "recommendedExtensions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "note": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "detected",
+                    "detectedLabel",
+                    "group",
+                    "confidence",
+                    "claimedExtension",
+                    "extensionMatch",
+                    "recommendedExtensions",
+                    "note"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty request body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing tools:fileTypeVerifier",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "File exceeds the inspectable-size cap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Identification engine unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/metadata/inspect": {
       "post": {
         "description": "Inspect an uploaded file (base64) and report the metadata and content-bearing artifacts it carries, with a risk level per category. Nothing is stored.",
@@ -19599,6 +19762,9 @@
     },
     {
       "name": "fileIntegrity"
+    },
+    {
+      "name": "fileType"
     },
     {
       "name": "files"

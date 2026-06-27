@@ -56,12 +56,20 @@ const verifyRoute = defineOpenAPIRoute(fileTypeVerifyMeta, {
       description: "Empty request body",
       content: { "application/problem+json": { schema: Problem } },
     },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     403: {
       description: "Missing tools:fileTypeVerifier",
       content: { "application/problem+json": { schema: Problem } },
     },
     413: {
       description: "File exceeds the inspectable-size cap",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    429: {
+      description: "Rate limit exceeded",
       content: { "application/problem+json": { schema: Problem } },
     },
     503: {
