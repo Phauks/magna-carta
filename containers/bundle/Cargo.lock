@@ -821,6 +821,7 @@ dependencies = [
  "sevenz-rust2",
  "tempfile",
  "tokio",
+ "tokio-util",
  "zip",
 ]
 
