@@ -26,6 +26,9 @@ mod textpos;
 mod detect;
 pub use detect::*;
 
+mod decrypt;
+pub use decrypt::{decrypt, SecureError};
+
 mod surgery;
 
 use hayro::hayro_interpret::InterpreterSettings;
