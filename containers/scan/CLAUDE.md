@@ -28,6 +28,14 @@ firm's policy can re-tier it with no re-scan. Detection-only — it reports, nev
 - `src/heuristics/{mod,pdf,office}.rs` — `inspect()` dispatches by magic bytes: PDF (lopdf) active-content
   / encrypted; OLE/CFB (cfb) macros / `EncryptedPackage`; ZIP (zip) archive caps + OOXML macros. Size/ratio
   checks read entry **metadata** only, so a zip bomb is caught before expansion.
+- `src/identify.rs` — the **Magika** content-type identification engine behind `POST /identify`. Runs
+  Google Magika's ML model (EMBEDDED in the `magika` crate, no runtime egress, no external model file) and
+  returns the **raw facts** `RawIdentifyResult` (`label`, `score`, `group`, `magikaVersion`, `modelVersion`)
+  — no verdict, no extension recommendation: the app decides whether the content type matches the claimed
+  extension (`apps/worker/src/routes/file-type.ts`). The session takes `&mut self`, so it lives behind a
+  `Mutex` shared via `Arc<IdentifyEngine>` in `AppState`; inference runs on a `spawn_blocking` thread and a
+  fault maps to the same retryable 503 as the scan path. NOTE: magika 1.1 is **not** pure Rust — it infers
+  through `ort` (ONNX Runtime, C++); see Local rules.
 - `src/raw.rs` — the `RawScanResult` facts and the `clam_fact` / `heuristic_fact` mappers. This struct's
   JSON byte-matches `packages/file-manager/src/scan-port.ts`'s `RawScanResult` — the Rust⇄TS boundary.
   The engine reports facts only; precedence and the clean/flagged/unscanned decision live app-side in
@@ -77,6 +85,18 @@ firm's policy can re-tier it with no re-scan. Detection-only — it reports, nev
 - **The `/scan` body limit tracks the cap too.** axum's `Bytes` extractor defaults to a 2 MiB body limit
   — every real document would 413 before reaching any engine; `router()` raises `/scan` to 2 GiB
   (`MAX_SCAN_BODY_BYTES` = `fileManager.inspectableSizeCapBytes`). Keep it aligned with the clamd limits.
+- **`/identify` runs Magika with an embedded model — but on a C++ backend (golden rule 14 flag).** The
+  identification model ships inside the `magika` crate, so there is **no runtime egress and no external
+  model file** — the running container stays sealed. However, magika 1.1 has **no pure-Rust backend**: it
+  infers through `ort` (ONNX Runtime, a C++ library). We pull the prebuilt runtime via `ort`'s
+  `download-binaries` feature, which fetches it **at build time** and **statically links** it — the same
+  build-time-fetch / runtime-sealed pattern as the baked clamd DB and YARA corpus, so the linked binary
+  needs no system `onnxruntime` and no network at run time. ONNX Runtime is a new **C/C++ dependency**;
+  per golden rule 14 (Rust/TS/Svelte without consent), it is **flagged for owner consent** — magika was
+  chosen as the identification engine, and ONNX Runtime is an inherent consequence of that crate (the
+  design's "pure-Rust" assumption was incorrect). On a dev host the `ort` link requires `download-binaries`
+  (already on by default for the crate); without it the link fails (`unresolved external OrtGetApiBase`).
+  Identification returns **raw facts**; the app decides the extension verdict.
 - **No runtime egress.** The Container runs `enableInternet = false`; the signature DB (freshclam) **and
   the YARA rule blob (`build-yara-rules`, the latest YARA Forge release)** are baked at image build, and a
   refresh is an image rebuild. The resolved Forge tag is the engine-version `yara-rules/<tag>` component
