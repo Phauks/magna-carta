@@ -536,4 +536,29 @@ mod tests {
         assert!(!p.copy);
         assert!(!p.modify);
     }
+
+    #[test]
+    fn decrypt_legacy_rc4_and_aes128_inputs() {
+        for enc in [
+            encrypt_rc4(&minimal_pdf(), "owner", "open"),
+            encrypt_aes128(&minimal_pdf(), "owner", "open"),
+        ] {
+            let plain = decrypt(&enc, "open").expect("decrypt legacy input");
+            assert!(!Document::load_mem(&plain)
+                .expect("parse decrypted")
+                .is_encrypted());
+            let doc = crate::Document::load(plain).expect("hayro loads decrypted legacy input");
+            assert_eq!(doc.page_count(), 1);
+        }
+    }
+
+    #[test]
+    fn decrypt_output_feeds_another_engine_module() {
+        // The cross-module proof: once decrypted to bytes, an AES-256 document flows
+        // through a separate engine module (the bad-redaction detector) with no password.
+        let enc = encrypt_v5(&minimal_pdf(), "owner", "open", default_perms());
+        let plain = decrypt(&enc, "open").expect("decrypt");
+        let report = crate::detect(plain).expect("detector runs on decrypted bytes");
+        assert_eq!(report.pages_scanned, 1);
+    }
 }
