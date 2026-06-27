@@ -22,8 +22,19 @@ cbc = "0.1"
 ctr = "0.9"
 cfb-mode = "0.8"
 rc4 = "0.1"
-rayon = "1"
 thiserror = "2"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rayon = "1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
+js-sys = "0.3"
+# lopdf and office-crypto pull in getrandom transitively; wasm32-unknown-unknown
+# requires the wasm_js feature to compile.
+getrandom = { version = "0.4", features = ["wasm_js"] }
 
 [dev-dependencies]
 hex = "0.4"

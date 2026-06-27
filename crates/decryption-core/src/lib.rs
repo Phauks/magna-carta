@@ -21,8 +21,13 @@ pub use pdf::PdfAdapter;
 mod zip_adapter;
 pub use zip_adapter::ZipAdapter;
 
+#[cfg(not(target_arch = "wasm32"))]
 mod dictionary;
+#[cfg(not(target_arch = "wasm32"))]
 pub use dictionary::{run_dictionary, verify};
+
+#[cfg(target_arch = "wasm32")]
+mod wasm;
 
 /// Decrypt a password-protected file by detecting its format and dispatching to the
 /// matching adapter. Returns `DecryptError::Unsupported` when the format is not

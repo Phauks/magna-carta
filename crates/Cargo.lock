@@ -548,8 +548,10 @@ dependencies = [
  "cfb",
  "cfb-mode",
  "ctr",
+ "getrandom 0.4.3",
  "hex",
  "hmac",
+ "js-sys",
  "lopdf",
  "md-5",
  "ms-offcrypto-writer",
@@ -558,9 +560,12 @@ dependencies = [
  "rand 0.9.4",
  "rayon",
  "rc4",
+ "serde",
+ "serde-wasm-bindgen",
  "sha1",
  "sha2",
  "thiserror",
+ "wasm-bindgen",
  "zip",
 ]
 
