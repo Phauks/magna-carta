@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make the malware scanner's tier/score and flagged-file treatment **firm-configurable** end to end on the backend — firm-scoped settings drive `computeVerdict` at ingest/rescan and a firm-chosen treatment (block / informed-access / allow-and-flag) governs flagged files at ingest *and* download/preview — with **zero behaviour change at the default settings**.
+**Goal:** Make the malware scanner's tier/score and flagged-file treatment **firm-configurable** end to end on the backend — firm-scoped settings drive `computeVerdict` at ingest/rescan and a firm-chosen treatment (block / informed-access / allow-and-flag) governs flagged files at ingest _and_ download/preview — with **zero behaviour change at the default settings**.
 
 **Architecture:** Three firm settings (`scan.policy` = `{tier, suspiciousScoreFloor}`, `scan.flagged_treatment`, `scan.step_up_reauth_on_flagged`) defined through the existing scoped-setting resolver. The ingest consumer + rescan handler resolve the firm policy and pass it to `computeVerdict` (replacing the hard-coded `DEFAULT_SCAN_POLICY`). The flagged branch becomes treatment-aware: `block` quarantines (today's behaviour), `informed-access`/`allow-and-flag` commit the version marked `scanVerdict: "flagged"`. The download/preview routes resolve the firm treatment and gate accordingly (generalizing slice 2·3's `acknowledgeMalware` gate). Step-up re-auth is stored but its challenge is a forward seam.
 
@@ -40,10 +40,12 @@
 ## Task 1: `scan-policy-settings.ts` — the firm settings
 
 **Files:**
+
 - Create: `packages/file-manager/src/scan-policy-settings.ts`
 - Test: `packages/file-manager/test/scan-policy-settings.test.ts`
 
 **Interfaces:**
+
 - Consumes: `ScanPolicy`, `DEFAULT_SCAN_POLICY` (from `./verdict.ts`); `FirmSettingDefinition`, `readFirmSetting`, `writeFirmSettingStatement` (from `@magna-carta/data-access/setting-statements`).
 - Produces: `export type FlaggedTreatment = "block" | "informed-access" | "allow-and-flag"`; `export const DEFAULT_FLAGGED_TREATMENT: FlaggedTreatment = "block"`; `scanPolicyDefinition: FirmSettingDefinition<ScanPolicy>` (key `"scan.policy"`); `flaggedTreatmentDefinition: FirmSettingDefinition<FlaggedTreatment>` (key `"scan.flagged_treatment"`); `stepUpReauthDefinition: FirmSettingDefinition<boolean>` (key `"scan.step_up_reauth_on_flagged"`); `readFirmScanPolicy(db)`, `readFlaggedTreatment(db)`, `readStepUpReauthOnFlagged(db)`.
 
@@ -52,7 +54,9 @@
 ```typescript
 import { describe, expect, it } from "vitest";
 import {
-  scanPolicyDefinition, flaggedTreatmentDefinition, stepUpReauthDefinition,
+  scanPolicyDefinition,
+  flaggedTreatmentDefinition,
+  stepUpReauthDefinition,
   DEFAULT_FLAGGED_TREATMENT,
 } from "../src/scan-policy-settings.ts";
 import { DEFAULT_SCAN_POLICY } from "../src/verdict.ts";
@@ -65,10 +69,18 @@ describe("scan policy settings", () => {
     expect(stepUpReauthDefinition.defaultValue).toBe(false);
   });
   it("policy schema accepts a valid policy and rejects an unknown tier / out-of-range floor", () => {
-    expect(scanPolicyDefinition.schema.safeParse({ tier: "full", suspiciousScoreFloor: 0 }).success).toBe(true);
-    expect(scanPolicyDefinition.schema.safeParse({ tier: "strict", suspiciousScoreFloor: 75 }).success).toBe(false);
-    expect(scanPolicyDefinition.schema.safeParse({ tier: "core", suspiciousScoreFloor: 101 }).success).toBe(false);
-    expect(scanPolicyDefinition.schema.safeParse({ tier: "core", suspiciousScoreFloor: -1 }).success).toBe(false);
+    expect(
+      scanPolicyDefinition.schema.safeParse({ tier: "full", suspiciousScoreFloor: 0 }).success,
+    ).toBe(true);
+    expect(
+      scanPolicyDefinition.schema.safeParse({ tier: "strict", suspiciousScoreFloor: 75 }).success,
+    ).toBe(false);
+    expect(
+      scanPolicyDefinition.schema.safeParse({ tier: "core", suspiciousScoreFloor: 101 }).success,
+    ).toBe(false);
+    expect(
+      scanPolicyDefinition.schema.safeParse({ tier: "core", suspiciousScoreFloor: -1 }).success,
+    ).toBe(false);
   });
   it("treatment schema is the three-value enum", () => {
     expect(flaggedTreatmentDefinition.schema.safeParse("allow-and-flag").success).toBe(true);
@@ -141,11 +153,13 @@ export function readStepUpReauthOnFlagged(database: SqlDatabase): Promise<boolea
 ## Task 2: migration — rename `scan_verdict` enum `infected` → `flagged`
 
 **Files:**
+
 - Create: `packages/database/drizzle/per-firm/00NN_scan_verdict_flagged.sql` (NN = next free number — check `meta/_journal.json` head)
 - Modify: `packages/database/src/per-firm-schema.ts` (the `fileVersion.scanVerdict` enum), `apps/worker/src/per-firm-migrations.ts`
 - Modify any TS referencing the literal `"infected"` for a scan verdict: `packages/file-manager/src/queries.ts` (`CleanVersion`), `apps/worker/src/routes/files.ts`, `packages/file-manager/src/preview-policy.ts`, `apps/worker/src/files/ingest-consumer.ts` (rescan), `ingest-core.ts` (it already emits `scan-flagged` reason; check the committed verdict literal).
 
 **Interfaces:**
+
 - Produces: `file_version.scan_verdict` enum becomes `["unscanned", "clean", "flagged"]`. The persisted "a committed version is flagged" marker is `scan_verdict = "flagged"` (replacing `infected`). Pre-production: no firm DB has rows, so a `CREATE`-time enum change is safe; SQLite enums are CHECK constraints, so the migration rebuilds the column's CHECK (or the table) to the new value set.
 
 - [ ] **Step 1: Write the failing test** — extend the existing migration/consistency test (the worker `firms.test.ts` asserts the journal head tag) OR add a focused assertion that a committed-flagged version round-trips. Simplest: a `file-service` test that commits a flagged version with `scanVerdict: "flagged"` and reads it back (this drives the schema). Place it in Task 4's test if the schema isn't independently testable; for this task, the deliverable is "the schema + migration accept `flagged` and reject `infected`".
@@ -158,7 +172,7 @@ it("file_version.scan_verdict accepts 'flagged' and no longer 'infected'", async
 });
 ```
 
-- [ ] **Step 2: Run to verify failure** — the insert with `'flagged'` fails the current CHECK (`infected`). 
+- [ ] **Step 2: Run to verify failure** — the insert with `'flagged'` fails the current CHECK (`infected`).
 - [ ] **Step 3: Implement** — generate the migration via the repo's drizzle per-firm flow: change the `scanVerdict` enum in `per-firm-schema.ts` to `["unscanned", "clean", "flagged"]`, then `pnpm --filter @magna-carta/database exec drizzle-kit generate --config=drizzle-per-firm.config.ts --name=scan_verdict_flagged` (or the repo's documented generate command — check `package.json` scripts). Drizzle will emit a table-rebuild migration (SQLite can't ALTER a CHECK). Verify the SQL preserves all other `file_version` columns/indexes. Wire it into `per-firm-migrations.ts` (import + journal entry, next idx). Then update every TS reference from `"infected"` → `"flagged"` for the scan verdict (the download gate, preview policy, rescan handler, queries `CleanVersion` type). Grep `"infected"` across `packages/file-manager` + `apps/worker/src` and update each scan-verdict use (do NOT touch unrelated "infected" strings if any).
 - [ ] **Step 4: Run to verify pass** — the schema test passes; `pnpm --filter @magna-carta/file-manager run test` green.
 - [ ] **Step 5: Commit** — explicit add of the migration + schema + per-firm-migrations + the updated consumers.
@@ -170,10 +184,12 @@ it("file_version.scan_verdict accepts 'flagged' and no longer 'infected'", async
 ## Task 3: ingest-core — treatment-aware flagged branch
 
 **Files:**
+
 - Modify: `packages/file-manager/src/ingest-core.ts`
 - Test: `apps/worker/test/ingest-core.test.ts` (the existing ingest harness)
 
 **Interfaces:**
+
 - Consumes: `ScanPolicy` (verdict.ts), `FlaggedTreatment` (scan-policy-settings.ts), `computeVerdict`.
 - Produces: `IngestInput` gains `readonly scanPolicy: ScanPolicy` and `readonly flaggedTreatment: FlaggedTreatment`. The flagged branch:
   - `flaggedTreatment === "block"` → `{ kind: "quarantine", reason: "scan-flagged", scanDetail: fileVerdict.reason }` (today's behaviour).
@@ -187,7 +203,11 @@ it("file_version.scan_verdict accepts 'flagged' and no longer 'infected'", async
 it("flagged upload with treatment=block quarantines (scan-flagged)", async () => {
   const raw = infectedRaw("Eicar");
   const outcome = await runIngestWithPolicyTreatment(raw, DEFAULT_SCAN_POLICY, "block");
-  expect(outcome).toMatchObject({ kind: "quarantine", reason: "scan-flagged", scanDetail: "Eicar" });
+  expect(outcome).toMatchObject({
+    kind: "quarantine",
+    reason: "scan-flagged",
+    scanDetail: "Eicar",
+  });
 });
 // flagged + informed-access → commit marked flagged
 it("flagged upload with treatment=informed-access commits as flagged", async () => {
@@ -197,7 +217,11 @@ it("flagged upload with treatment=informed-access commits as flagged", async () 
 });
 // flagged + allow-and-flag → commit marked flagged (same persisted shape; access differs)
 it("flagged upload with treatment=allow-and-flag commits as flagged", async () => {
-  const outcome = await runIngestWithPolicyTreatment(infectedRaw("Eicar"), DEFAULT_SCAN_POLICY, "allow-and-flag");
+  const outcome = await runIngestWithPolicyTreatment(
+    infectedRaw("Eicar"),
+    DEFAULT_SCAN_POLICY,
+    "allow-and-flag",
+  );
   expect(outcome).toMatchObject({ kind: "commit", scanVerdict: "flagged" });
 });
 // policy is honored: a full-tier-only match under an extended policy is clean (no flag)
@@ -208,7 +232,9 @@ it("a full-tier match under an extended policy commits clean", async () => {
 });
 // fault still throws regardless of treatment
 it("a deployed-engine fault throws (never commits) under any treatment", async () => {
-  await expect(runIngestWithPolicyTreatment(deployedUnavailableRaw(), DEFAULT_SCAN_POLICY, "allow-and-flag")).rejects.toThrow();
+  await expect(
+    runIngestWithPolicyTreatment(deployedUnavailableRaw(), DEFAULT_SCAN_POLICY, "allow-and-flag"),
+  ).rejects.toThrow();
 });
 ```
 
@@ -222,10 +248,12 @@ it("a deployed-engine fault throws (never commits) under any treatment", async (
 ## Task 4: file-service — commit a flagged version
 
 **Files:**
+
 - Modify: `packages/file-manager/src/file-service.ts`
 - Test: `packages/file-manager/test/file-service.test.ts`
 
 **Interfaces:**
+
 - `commitVersion`'s `scanVerdict` input widens to `"unscanned" | "clean" | "flagged"`; a `"flagged"` commit sets `file_version.scan_verdict = "flagged"`, `status = "clean"` (committed + accessible-per-treatment), and still populates the scan cache from `rawScanResult` (the engine-version-keyed dedup, unchanged). A flagged commit is audited (`file.version_committed` with the flagged reason in metadata — redact-by-default: reason only).
 
 - [ ] **Step 1: Write the failing test** — commit a version with `scanVerdict: "flagged"`; assert the row has `scan_verdict='flagged'`, `status='clean'`, the cache is populated, and an audit row exists carrying the reason (not content).
@@ -239,10 +267,12 @@ it("a deployed-engine fault throws (never commits) under any treatment", async (
 ## Task 5: ingest-consumer — resolve + thread firm policy/treatment
 
 **Files:**
+
 - Modify: `apps/worker/src/files/ingest-consumer.ts`
 - Test: `apps/worker/test/ingest-consumer.test.ts`
 
 **Interfaces:**
+
 - Consumes: `readFirmScanPolicy`, `readFlaggedTreatment` (scan-policy-settings.ts).
 - `handleIngestMessage`: alongside the existing `readUploadPolicy` / `readInspectableSizeCap` `Promise.all` (~lines 90-106), resolve `readFirmScanPolicy(firmDatabase)` + `readFlaggedTreatment(firmDatabase)` and pass `scanPolicy` + `flaggedTreatment` into `runIngest`.
 - `handleRescanMessage` (~line 243): resolve the firm policy before `computeVerdict` and pass it; the rescan recompute now uses the firm's policy. (Rescan treatment for an already-committed re-flagged file: set `scan_verdict='flagged'`; the access gate applies the treatment — no quarantine of an already-committed version.)
@@ -258,11 +288,13 @@ it("a deployed-engine fault throws (never commits) under any treatment", async (
 ## Task 6: download + preview — treatment-aware access gate
 
 **Files:**
+
 - Modify: `apps/worker/src/routes/files.ts` (download ~728-739, preview ~782-846)
 - Modify: `packages/file-manager/src/preview-policy.ts`
 - Test: `apps/worker/test/` download/preview tests (find the existing files-route test)
 
 **Interfaces:**
+
 - Consumes: `readFlaggedTreatment`, `readStepUpReauthOnFlagged`.
 - Download handler: for a `scanVerdict === "flagged"` version, resolve `readFlaggedTreatment(firm.firmDatabase)`:
   - `informed-access` → today's gate: 409 `malware-flagged` unless `acknowledgeMalware=true`; the acknowledged download is audited (`file.downloaded_malware_acknowledged`).
@@ -282,12 +314,14 @@ it("a deployed-engine fault throws (never commits) under any treatment", async (
 ## Task 7: write API + permission — `GET`/`PATCH /api/v1/firm/scan-policy`
 
 **Files:**
+
 - Create: `apps/worker/src/routes/scan-policy.ts`
 - Modify: the route registry (where routes mount in `apps/worker/src/app.ts`), `packages/access-control/src/registry.ts`
 - Create: `packages/database/drizzle/per-firm/00NN_seed-scan-policy-permission.sql` (seed `firm:manageScanPolicy` to Owner/Admin roles) + wire in `per-firm-migrations.ts`
 - Test: `apps/worker/test/scan-policy.test.ts`
 
 **Interfaces:**
+
 - Consumes: `scanPolicyDefinition`, `flaggedTreatmentDefinition`, `stepUpReauthDefinition`, `writeFirmSettingStatement`, the read helpers.
 - `GET /api/v1/firm/scan-policy` → `{ policy: ScanPolicy, flaggedTreatment, stepUpReauthOnFlagged }` (resolved, with defaults). Permission `firm:manageScanPolicy` (read also allowed to admins; reuse the read-side permission pattern of a firm-settings route).
 - `PATCH /api/v1/firm/scan-policy` → accepts a partial `{ policy?, flaggedTreatment?, stepUpReauthOnFlagged? }`, validates each through its definition's schema, writes via `writeFirmSettingStatement`, audits `firm.scan_policy_updated` (redact-by-default: the new values are policy, not content). Mutating → needs the permission + `audited: true` (conformance fitness functions require a non-null permission + audited for a mutating POST/PATCH — Slice A hit this; follow the `firm:scanFile` precedent).

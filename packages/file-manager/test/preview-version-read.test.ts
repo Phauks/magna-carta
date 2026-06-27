@@ -78,6 +78,7 @@ describe("getCurrentCleanVersionForPreview", () => {
       storageEncoding: "full",
       sniffedContentType: "video/mp4",
       artifactRole: "original",
+      scanVerdict: null,
     });
   });
 

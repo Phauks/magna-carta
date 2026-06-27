@@ -1,5 +1,9 @@
 import { runIngest, type IngestInput } from "@magna-carta/file-manager/ingest-core";
-import type { MalwareScanPort, RawScanResult, RuleMatch } from "@magna-carta/file-manager/scan-port";
+import type {
+  MalwareScanPort,
+  RawScanResult,
+  RuleMatch,
+} from "@magna-carta/file-manager/scan-port";
 import { unscannedAdapter } from "@magna-carta/file-manager/scan-port";
 import type { UploadPolicy } from "@magna-carta/file-manager/upload-policy";
 import { DEFAULT_UPLOAD_POLICY } from "@magna-carta/file-manager/upload-policy";
@@ -331,7 +335,11 @@ describe("runIngest treatment-aware flagged branch", () => {
   it("flagged upload with treatment=block quarantines (scan-flagged)", async () => {
     const raw = infectedRaw("Eicar");
     const outcome = await runIngestWithPolicyTreatment(raw, DEFAULT_SCAN_POLICY, "block");
-    expect(outcome).toMatchObject({ kind: "quarantine", reason: "scan-flagged", scanDetail: "Eicar" });
+    expect(outcome).toMatchObject({
+      kind: "quarantine",
+      reason: "scan-flagged",
+      scanDetail: "Eicar",
+    });
   });
 
   it("flagged upload with treatment=informed-access commits as flagged", async () => {
@@ -341,7 +349,11 @@ describe("runIngest treatment-aware flagged branch", () => {
   });
 
   it("flagged upload with treatment=allow-and-flag commits as flagged", async () => {
-    const outcome = await runIngestWithPolicyTreatment(infectedRaw("Eicar"), DEFAULT_SCAN_POLICY, "allow-and-flag");
+    const outcome = await runIngestWithPolicyTreatment(
+      infectedRaw("Eicar"),
+      DEFAULT_SCAN_POLICY,
+      "allow-and-flag",
+    );
     expect(outcome).toMatchObject({ kind: "commit", scanVerdict: "flagged" });
   });
 

@@ -1,11 +1,6 @@
 import { fileTypeFromBuffer } from "file-type";
 import type { MalwareScanPort, RawScanResult } from "./scan-port.ts";
-import {
-  computeVerdict,
-  ScanFaultError,
-  type FileVerdict,
-  type ScanPolicy,
-} from "./verdict.ts";
+import { computeVerdict, ScanFaultError, type FileVerdict, type ScanPolicy } from "./verdict.ts";
 import type { FlaggedTreatment } from "./scan-policy-settings.ts";
 import { checkUploadPolicy, type UploadPolicy } from "./upload-policy.ts";
 import { FileManagerValidationError } from "./validation.ts";
