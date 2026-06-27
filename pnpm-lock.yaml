@@ -227,6 +227,9 @@ importers:
       '@magna-carta/file-manager':
         specifier: workspace:*
         version: link:../../packages/file-manager
+      '@magna-carta/file-type':
+        specifier: workspace:*
+        version: link:../../packages/file-type
       '@magna-carta/government-links':
         specifier: workspace:*
         version: link:../../packages/government-links
