@@ -14,7 +14,8 @@ This is the implementation-grade design for **costs & expenses** — the firm's 
 **In scope.** A new `@magna-carta/costs` domain package: a per-matter `cost_entry` WIP store; manual + bulk-grid capture; receipt-document attachment; the generalized cost-recovery queue consumer with shipping wired as its only producer. Costs share the **same Draft→Submitted→Approved→Billed lifecycle and the same firm-configurable review gate** as time entries — realized by **extracting that lifecycle into a shared `@magna-carta/billing-core` package** that both `timekeeping` and `costs` (and later `billing`) consume. Backend-only; the UI rides slice 0·7.
 
 **Explicit non-goals (named seams).**
-- **Platform billing (Magna Carta → firm)** — the SaaS-side metering/invoicing of a firm for the features it uses (the postage service fee, future e-sign/SMS/voice fees) is a *separate subsystem* and is **not** this slice. 3·3 only handles the firm→client recovery side.
+
+- **Platform billing (Magna Carta → firm)** — the SaaS-side metering/invoicing of a firm for the features it uses (the postage service fee, future e-sign/SMS/voice fees) is a _separate subsystem_ and is **not** this slice. 3·3 only handles the firm→client recovery side.
 - **cost → A/R posting + cost markup/blending** — the WIP→A/R ledger conversion and any markup happen at invoice finalize in **3·4**. 3·3 persists WIP and emits `cost.recorded`.
 - **Future fee producers** — e-signature, SMS/text, voice/calling, OCR, conversion, etc. plug into the recoverable-charge seam as new categories + topics with **no consumer rewrite**; they are documented seams here, not built (their own features/slices wire them).
 - **AI** — no receipt-OCR / auto-categorization (3·1 carries the candidate first AI feature).
@@ -24,17 +25,18 @@ This is the implementation-grade design for **costs & expenses** — the firm's 
 
 ## 2. The shared lifecycle — `@magna-carta/billing-core` (extraction)
 
-Time entries and cost entries are the same *kind* of thing: **billable WIP that moves through one lifecycle onto an invoice**. They must therefore share **one** state machine and **one** review gate — not two copies. 3·1 built that lifecycle inside `@magna-carta/timekeeping` (`lifecycle.ts`); this slice lifts it into a shared home.
+Time entries and cost entries are the same _kind_ of thing: **billable WIP that moves through one lifecycle onto an invoice**. They must therefore share **one** state machine and **one** review gate — not two copies. 3·1 built that lifecycle inside `@magna-carta/timekeeping` (`lifecycle.ts`); this slice lifts it into a shared home.
 
-**Why a new package (evidence).** Of the 27 packages, none is a correct home: `ledger` is money-movement (WIP is explicitly *not* a ledger posting), `data-access` is the data/chokepoint layer (a transition table is domain logic), `money` is pure arithmetic, and the domain packages (`matters`, `directory`, …) are the wrong domain. There is no `billing`/`wip`/`billable` package. A dedicated shared package is the right move; the dependency direction is clean (`timekeeping`, `costs`, `billing` all depend *down* into `billing-core`, a leaf).
+**Why a new package (evidence).** Of the 27 packages, none is a correct home: `ledger` is money-movement (WIP is explicitly _not_ a ledger posting), `data-access` is the data/chokepoint layer (a transition table is domain logic), `money` is pure arithmetic, and the domain packages (`matters`, `directory`, …) are the wrong domain. There is no `billing`/`wip`/`billable` package. A dedicated shared package is the right move; the dependency direction is clean (`timekeeping`, `costs`, `billing` all depend _down_ into `billing-core`, a leaf).
 
 **What moves into `@magna-carta/billing-core`:**
+
 - The WIP lifecycle: the status type (renamed `TimeEntryStatus` → **`BillableStatus`** — identical states `draft|submitted|approved|billed|void`), the two gate-on/gate-off transition tables, `isFrozen`, `canTransition`, and a generic `assertTransition` that throws a generic **`IllegalTransitionError`** (callers map it to their own validation error). This is a verbatim move of `timekeeping/lifecycle.ts` with the status-type rename and the error decoupled — **no behavior change**.
-- The single shared review-gate setting: the **`approval_required`** scoped-setting *definition* (currently in `timekeeping`), so one canonical gate governs both time and costs. The resolver itself stays in `data-access`; both domains resolve the same definition.
+- The single shared review-gate setting: the **`approval_required`** scoped-setting _definition_ (currently in `timekeeping`), so one canonical gate governs both time and costs. The resolver itself stays in `data-access`; both domains resolve the same definition.
 
 **Extraction safety (an early build task).** Create the package; move + generalize the lifecycle and the gate definition; rewire `timekeeping`'s imports and map `IllegalTransitionError → TimeEntryValidationError("illegal-transition")` at the timekeeping boundary; **re-run 3·1's full suite (timekeeping package + the worker time/timer/e2e/fitness/conformance) and confirm it stays green** before `costs` builds on top. The freeze fitness scan generalizes to scan `billing-core` + both consumers.
 
-**Single gate, split-able later.** One `approval_required` gate is resolved for both time and costs. Because it flows through the scoped-setting precedence chain, a firm *could* be given per-type override later (a `approval_required.cost` scope key) without a schema change — deferred until a firm asks.
+**Single gate, split-able later.** One `approval_required` gate is resolved for both time and costs. Because it flows through the scoped-setting precedence chain, a firm _could_ be given per-type override later (a `approval_required.cost` scope key) without a schema change — deferred until a firm asks.
 
 ---
 
@@ -44,26 +46,26 @@ Time entries and cost entries are the same *kind* of thing: **billable WIP that 
 
 Mirrors `time_entry`'s WIP-store shape. Net-new, no expand-contract.
 
-| Column | Notes |
-|---|---|
-| `id` | `costEntry_` handle PK |
-| `matter_id` | FK `matter` — required |
-| `vendor_id?` | nullable — a Directory entity id (`directory_organization` / `directory_person`); reuse a seeded `vendor` party-role, **no new vendor table** |
-| `incurred_date` | the cost's effective date (reports read this, not `created_at`) |
-| `amount_minor` | integer minor units |
-| `currency` | TEXT, CHECK against the registered set; one currency per entry |
-| `cost_class` | CHECK `('hard','soft')` — hard = real money the firm advanced for the client (recoverable receivable); soft = firm-internal allocation (e.g. in-house copies), no external outlay |
-| `billable` | 0/1 — resolved at creation (manual: user; recovery: policy) |
-| `utbms_expense_code_id?` | nullable FK to the UTBMS catalog (E-series); **required at capture when `matter.e_billing` is on**. This is the user-facing "type" (decision: the UTBMS E-code *is* the type — no separate firm cost-type catalog) |
-| `description` | freeform |
-| `receipt_file_id?` | nullable — a File Manager document (the receipt/invoice image), matter-rooted |
-| `status` | CHECK `('draft','submitted','approved','billed','void')` — the **shared `BillableStatus`** lifecycle |
-| `kick_back_reason?` | nullable — set on kick-back, cleared on resubmit (same contract as time; the reason is a business column, audit metadata stays NULL) |
-| `source` | CHECK `('manual','grid','recovery')` — capture provenance |
-| `recovery_category?` | nullable — for recovery-originated rows only (e.g. `postage`, `shipping_service_fee`; later `esign_fee`, …); drives recovery-policy resolution + 3·6 reporting |
-| `recovery_ref?` | nullable — the producer's source id (e.g. `shipmentId`); the consumer dedup/trace anchor |
-| `invoice_id?` | nullable — set at 3·4 finalize; the billing lock |
-| audit | `created_at` / `updated_at` / `created_by`; writes audited through the chokepoint |
+| Column                   | Notes                                                                                                                                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`                     | `costEntry_` handle PK                                                                                                                                                                                             |
+| `matter_id`              | FK `matter` — required                                                                                                                                                                                             |
+| `vendor_id?`             | nullable — a Directory entity id (`directory_organization` / `directory_person`); reuse a seeded `vendor` party-role, **no new vendor table**                                                                      |
+| `incurred_date`          | the cost's effective date (reports read this, not `created_at`)                                                                                                                                                    |
+| `amount_minor`           | integer minor units                                                                                                                                                                                                |
+| `currency`               | TEXT, CHECK against the registered set; one currency per entry                                                                                                                                                     |
+| `cost_class`             | CHECK `('hard','soft')` — hard = real money the firm advanced for the client (recoverable receivable); soft = firm-internal allocation (e.g. in-house copies), no external outlay                                  |
+| `billable`               | 0/1 — resolved at creation (manual: user; recovery: policy)                                                                                                                                                        |
+| `utbms_expense_code_id?` | nullable FK to the UTBMS catalog (E-series); **required at capture when `matter.e_billing` is on**. This is the user-facing "type" (decision: the UTBMS E-code _is_ the type — no separate firm cost-type catalog) |
+| `description`            | freeform                                                                                                                                                                                                           |
+| `receipt_file_id?`       | nullable — a File Manager document (the receipt/invoice image), matter-rooted                                                                                                                                      |
+| `status`                 | CHECK `('draft','submitted','approved','billed','void')` — the **shared `BillableStatus`** lifecycle                                                                                                               |
+| `kick_back_reason?`      | nullable — set on kick-back, cleared on resubmit (same contract as time; the reason is a business column, audit metadata stays NULL)                                                                               |
+| `source`                 | CHECK `('manual','grid','recovery')` — capture provenance                                                                                                                                                          |
+| `recovery_category?`     | nullable — for recovery-originated rows only (e.g. `postage`, `shipping_service_fee`; later `esign_fee`, …); drives recovery-policy resolution + 3·6 reporting                                                     |
+| `recovery_ref?`          | nullable — the producer's source id (e.g. `shipmentId`); the consumer dedup/trace anchor                                                                                                                           |
+| `invoice_id?`            | nullable — set at 3·4 finalize; the billing lock                                                                                                                                                                   |
+| audit                    | `created_at` / `updated_at` / `created_by`; writes audited through the chokepoint                                                                                                                                  |
 
 Indexes for the hot paths: `(matter_id, status)` (per-matter unbilled list — the 3·4 read), `(status, incurred_date)`, and a partial unique on `recovery_ref` where not null (one cost per recovered producer event — the consumer idempotency floor at the DB level).
 
@@ -88,13 +90,13 @@ Indexes for the hot paths: `(matter_id, status)` (per-matter unbilled list — t
 
 All through the chokepoint, permission namespace **`costs:*`** (`costs:track` for capture/edit/lifecycle; `costs:approve` for submit-review/approve/kick-back, mirroring time's split). A cost belongs to the **matter**, not the recorder, so there is **no per-user self-scoping** (unlike time entries) — `costs:track` holders capture/edit any matter's costs; reads are firm-scoped by tenancy.
 
-| Route | Purpose |
-|---|---|
-| `POST /api/v1/costs` | manual single capture |
-| `POST /api/v1/costs/batch` | bulk grid — an array of rows in **one** idempotent chokepoint write |
-| `POST /api/v1/costs/{id}/receipt` · `DELETE …/receipt` | link / unlink a File Manager receipt |
-| `GET /api/v1/costs` (by matter / filters) · `GET /api/v1/costs/{id}` | list / get |
-| `PATCH /api/v1/costs/{id}` | edit — **recorded/draft only** (frozen otherwise → 409) |
+| Route                                                                  | Purpose                                                                                            |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `POST /api/v1/costs`                                                   | manual single capture                                                                              |
+| `POST /api/v1/costs/batch`                                             | bulk grid — an array of rows in **one** idempotent chokepoint write                                |
+| `POST /api/v1/costs/{id}/receipt` · `DELETE …/receipt`                 | link / unlink a File Manager receipt                                                               |
+| `GET /api/v1/costs` (by matter / filters) · `GET /api/v1/costs/{id}`   | list / get                                                                                         |
+| `PATCH /api/v1/costs/{id}`                                             | edit — **recorded/draft only** (frozen otherwise → 409)                                            |
 | `POST /api/v1/costs/{id}/submit` · `/approve` · `/kick-back` · `/void` | the shared lifecycle transitions (gate-aware), `costs:approve` for submit-review/approve/kick-back |
 
 OpenAPI snapshot regenerated; conformance extended (the `costs` operations, the `costs → matter` resource binding, `costs.previewQuickAdd`-style non-mutating reads if any). Integer-minor money in all schemas.
@@ -117,7 +119,7 @@ recoverable-charge {
 - **`pass_through`** = real third-party money the firm advanced (postage, a court filing fee, an expert invoice). **Default: recovered** (a hard, billable matter disbursement).
 - **`platform_fee`** = Magna Carta's own markup for providing the feature (the shipping service fee; future e-sign/SMS/voice fees). **Default: not recovered** — the firm absorbs it (it is already billed to the firm on the platform side, out of 3·3). A firm may opt a category in to pass it through.
 
-The `kind`/`category` distinction — *did the firm advance real money, or is this our markup* — is what makes the recovery defaults correct across every present and future producer.
+The `kind`/`category` distinction — _did the firm advance real money, or is this our markup_ — is what makes the recovery defaults correct across every present and future producer.
 
 ### 6.2 The recovery policy
 
@@ -126,8 +128,9 @@ A **category-keyed firm setting** resolved through the 3·1 **scoped-setting res
 ### 6.3 Mapping to `cost_entry`
 
 For each event line the consumer:
+
 - **`pass_through`** → always create a `cost_entry` (`cost_class=hard`, `billable=1`, `source=recovery`, `recovery_category=<category>`, `recovery_ref=sourceRef`).
-- **`platform_fee`** → create a `cost_entry` **only if** the recovery policy for that category is on (`cost_class=hard`, `billable=1`, recovered as a *separate, unblended* line). If off, **no `cost_entry`** is created — the absorbed fee stays a pure platform-billing concern, out of 3·3.
+- **`platform_fee`** → create a `cost_entry` **only if** the recovery policy for that category is on (`cost_class=hard`, `billable=1`, recovered as a _separate, unblended_ line). If off, **no `cost_entry`** is created — the absorbed fee stays a pure platform-billing concern, out of 3·3.
 
 A **null `matterRef`** = a firm-administrative use (no client) → the whole event is skipped (no disbursement). After creating the row(s), emit **`cost.recorded`** for 3·4 to pick up billable cost WIP at finalize.
 

@@ -37,12 +37,14 @@
 ## Task 1: Pure selection module + tests
 
 **Files:**
+
 - Create: `tooling/clean/select.mjs`
 - Test: `tooling/clean/select.test.mjs`
 - Create: `tooling/clean/vitest.config.ts`
 - Modify: `vite.config.ts` (add `tooling/clean/vitest.config.ts` to `test.projects`)
 
 **Interfaces:**
+
 - Produces:
   - `ARTIFACT_DIRS: string[]` — `["target", ".svelte-kit", ".wrangler", ".vite", "dist", "build", "coverage"]`
   - `normalizePath(path: string): string` — forward slashes, lowercase drive letter, no trailing slash
@@ -61,7 +63,11 @@ import { eligibleWorktrees, isArtifactDir, normalizePath } from "./select.mjs";
 
 const WORKTREES = [
   { path: "C:/dev/magna-carta-worktrees/main-merge", branch: "main", detached: false },
-  { path: "C:/dev/magna-carta-worktrees/feature-merged", branch: "feature-merged", detached: false },
+  {
+    path: "C:/dev/magna-carta-worktrees/feature-merged",
+    branch: "feature-merged",
+    detached: false,
+  },
   { path: "C:/dev/magna-carta-worktrees/feature-open", branch: "feature-open", detached: false },
   { path: "C:/dev/magna-carta-worktrees/detached", branch: null, detached: true },
   { path: "C:/dev/magna-carta", branch: "current-branch", detached: false },
@@ -217,9 +223,11 @@ git commit -m "feat(tooling): pure selection logic for the build-artifact cleane
 ## Task 2: The clean orchestrator (`vp run clean` script)
 
 **Files:**
+
 - Create: `tooling/clean/index.mjs`
 
 **Interfaces:**
+
 - Consumes (from Task 1): `ARTIFACT_DIRS`, `eligibleWorktrees`, `isArtifactDir`, `normalizePath` from `./select.mjs`
 - Produces: an executable Node entrypoint. Behaviour: `node tooling/clean/index.mjs [--dry-run] [--all-worktrees]` prints a report and (unless `--dry-run`) deletes git-ignored artifact dirs in eligible worktrees and prunes dangling Docker cache.
 
@@ -346,7 +354,9 @@ function dockerPrune() {
     output += execFileSync("docker", ["builder", "prune", "-f"]).toString();
     output += execFileSync("docker", ["image", "prune", "-f"]).toString();
   } catch (error) {
-    return error.code === "ENOENT" ? "  docker not installed — skipped" : "  docker unavailable — skipped";
+    return error.code === "ENOENT"
+      ? "  docker not installed — skipped"
+      : "  docker unavailable — skipped";
   }
   const totals = output.match(/Total reclaimed space: .*/g) || [];
   return totals.length > 0 ? totals.map((line) => `  ${line}`).join("\n") : "  nothing to reclaim";
@@ -379,7 +389,9 @@ for (const worktree of targets) {
     if (!dryRun) rmSync(dir, { recursive: true, force: true });
   }
 }
-console.log(`  ${dryRun ? "would reclaim" : "reclaimed"} ${gibibytes(reclaimed)} of build artifacts\n`);
+console.log(
+  `  ${dryRun ? "would reclaim" : "reclaimed"} ${gibibytes(reclaimed)} of build artifacts\n`,
+);
 
 console.log("Docker cache prune:");
 console.log(dryRun ? "  skipped in dry-run" : dockerPrune());
@@ -412,9 +424,11 @@ git commit -m "feat(tooling): build-artifact + Docker cleaner orchestrator"
 ## Task 3: Register `vp run clean` and `vp run setup-hooks`
 
 **Files:**
+
 - Modify: `vite.config.ts` (`run.tasks`)
 
 **Interfaces:**
+
 - Consumes: `tooling/clean/index.mjs` (Task 2)
 - Produces: `vp run clean` and `vp run setup-hooks` tasks.
 
@@ -460,9 +474,11 @@ git commit -m "feat(tooling): vp run clean + vp run setup-hooks tasks"
 ## Task 4: post-merge hook + installer wiring
 
 **Files:**
+
 - Create: `tooling/git-hooks/post-merge`
 
 **Interfaces:**
+
 - Consumes: `tooling/clean/index.mjs` (Task 2), the `core.hooksPath` config set by `vp run setup-hooks` (Task 3)
 - Produces: an active git hook that runs the cleaner on merges to `main`.
 
@@ -496,17 +512,21 @@ Expected: prints `tooling/git-hooks`.
 - [ ] **Step 4: Verify the guard skips a non-main branch**
 
 Run (from this feature worktree, current branch is `tooling-auto-clean`):
+
 ```bash
 sh tooling/git-hooks/post-merge && echo "exit=$?"
 ```
+
 Expected: no cleaner output (guard exits early), `exit=0`.
 
 - [ ] **Step 5: Verify the hook invokes the cleaner on main (dry simulation)**
 
 Run:
+
 ```bash
 sh -c 'branch=main; [ "$branch" = "main" ] && node "$(git rev-parse --show-toplevel)/tooling/clean/index.mjs" --dry-run'
 ```
+
 Expected: the cleaner's dry-run report prints. (This simulates the `branch == main` path without performing a real merge.)
 
 - [ ] **Step 6: Lint + format**
@@ -526,11 +546,13 @@ git commit -m "feat(tooling): post-merge hook runs auto-clean on merge to main"
 ## Task 5: Documentation (CLAUDE.md + fragments)
 
 **Files:**
+
 - Modify: `CLAUDE.md` (Worktree-lifecycle bullet + Commands block)
 - Create: `changelog.d/auto-clean-build-artifacts.md`
 - Create: `docs/decisions/pending/auto-clean-build-artifacts-on-merge.md`
 
 **Interfaces:**
+
 - Consumes: `vp run clean`, `vp run setup-hooks` (Tasks 3-4)
 - Produces: developer-facing docs + changelog/ADR fragments assembled on `main`.
 
@@ -544,7 +566,7 @@ Expected: confirm no other stream lists `CLAUDE.md` under "Declared touch-overla
 Find the bullet beginning `- **Worktree lifecycle.**` under "Parallel worktrees & branches". Append these two sentences to the end of that bullet (before the next bullet):
 
 ```markdown
- A tracked `post-merge` hook runs `vp run clean` on every merge to `main`, sweeping regenerable build artifacts (`target/`, `.svelte-kit/`, `.wrangler/`, `.vite/`, `dist/`, `build/`, `coverage/`) from worktrees whose branch is merged — and pruning dangling Docker cache — so dead build output never accumulates. The hook is git-ignored-only and never removes a worktree, branch, or `node_modules`. Run **`vp run setup-hooks`** once per clone to activate it; `vp run clean` is also runnable by hand (preview with `node tooling/clean/index.mjs --dry-run`).
+A tracked `post-merge` hook runs `vp run clean` on every merge to `main`, sweeping regenerable build artifacts (`target/`, `.svelte-kit/`, `.wrangler/`, `.vite/`, `dist/`, `build/`, `coverage/`) from worktrees whose branch is merged — and pruning dangling Docker cache — so dead build output never accumulates. The hook is git-ignored-only and never removes a worktree, branch, or `node_modules`. Run **`vp run setup-hooks`** once per clone to activate it; `vp run clean` is also runnable by hand (preview with `node tooling/clean/index.mjs --dry-run`).
 ```
 
 - [ ] **Step 3: Add `setup-hooks` to the Commands block in `CLAUDE.md`**
