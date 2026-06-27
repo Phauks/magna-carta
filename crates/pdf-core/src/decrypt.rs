@@ -24,6 +24,8 @@ pub enum SecureError {
     /// The document uses a security handler this engine does not implement
     /// (e.g. a public-key / certificate handler).
     UnsupportedHandler,
+    /// `secure` was asked to encrypt a document that is already encrypted; unlock it first.
+    AlreadyEncrypted,
     /// The decrypted (or secured) document could not be re-serialised.
     Reassemble,
 }
@@ -99,6 +101,21 @@ impl Permissions {
             assemble: f.contains(L::ASSEMBLABLE),
             accessibility_copy: f.contains(L::COPYABLE_FOR_ACCESSIBILITY),
         }
+    }
+
+    /// Pack into lopdf's `/P` flag set for writing (used by `secure`).
+    pub(crate) fn to_lopdf(self) -> lopdf::Permissions {
+        use lopdf::Permissions as L;
+        let mut f = L::empty();
+        f.set(L::PRINTABLE, self.print);
+        f.set(L::PRINTABLE_IN_HIGH_QUALITY, self.print_high_res);
+        f.set(L::COPYABLE, self.copy);
+        f.set(L::MODIFIABLE, self.modify);
+        f.set(L::ANNOTABLE, self.annotate);
+        f.set(L::FILLABLE, self.fill_forms);
+        f.set(L::ASSEMBLABLE, self.assemble);
+        f.set(L::COPYABLE_FOR_ACCESSIBILITY, self.accessibility_copy);
+        f
     }
 }
 

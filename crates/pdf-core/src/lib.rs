@@ -31,6 +31,9 @@ pub use decrypt::{
     decrypt, inspect_security, Algorithm, Handler, Permissions, SecureError, SecurityInfo,
 };
 
+mod secure;
+pub use secure::{secure, SecureOptions, WriteAlgorithm};
+
 mod surgery;
 
 use hayro::hayro_interpret::InterpreterSettings;
