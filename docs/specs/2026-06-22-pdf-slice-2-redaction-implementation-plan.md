@@ -30,11 +30,13 @@
 ### Task 1: Redaction types + the rect→pixel mapping
 
 **Files:**
+
 - Create: `crates/pdf-core/src/redact.rs`
 - Modify: `crates/pdf-core/src/lib.rs` (add `mod redact; pub use redact::*;`)
 - Modify: `crates/pdf-core/Cargo.toml` (add `lopdf = "0.41"`)
 
 **Interfaces:**
+
 - Produces: `Rect { x0, y0, x1, y1: f32 }`; `RedactionRegion { page: usize, rect: Rect, reason: Option<String> }`; `RedactionOptions { dpi: f32, redacted_text: Vec<String> }` with `Default` (dpi 300); `RedactionReport { pages_redacted: Vec<usize>, region_count: usize }`; `RedactionOutcome { pdf: Vec<u8>, report: RedactionReport }`; `enum RedactError { Parse, PageOutOfRange, Render, Reassemble, GateFailed { detail: String } }`; `fn rect_to_pixels(r: &Rect, page_w_pt: f32, page_h_pt: f32, px_w: u32, px_h: u32) -> (u32, u32, u32, u32)`.
 
 - [ ] **Step 1: Add the dependency** — in `crates/pdf-core/Cargo.toml` under `[dependencies]`:
@@ -179,10 +181,12 @@ git commit -m "feat(pdf-core): redaction types and display-space rect mapping"
 ### Task 2: Render a page and burn in the black boxes
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/redact.rs`
 - Test: reuse `crates/pdf-core/tests/fixtures/blank.pdf` (slice-1 fixture: a 612x792 empty white page)
 
 **Interfaces:**
+
 - Consumes: `Rect`, `RedactionRegion`, `RedactError`, `rect_to_pixels` (Task 1); `pdf_core::Document::{load, page_size, render_page}` (slice 1).
 - Produces: `fn render_redacted_page(doc: &crate::Document, page: usize, rects: &[Rect], dpi: f32) -> Result<(Vec<u8>, u32, u32), RedactError>` — returns `(rgb_bytes, px_w, px_h)`: the page rendered at `dpi` with opaque black boxes painted over `rects`, as packed RGB8 (alpha dropped).
 
@@ -272,10 +276,12 @@ git commit -m "feat(pdf-core): render a page with burned-in redaction boxes"
 ### Task 3: Reassemble a page as a flattened image (lopdf)
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/redact.rs`
 - Create: `crates/pdf-core/tests/fixtures/hello.pdf` (copy of `spikes/pdf-engine-eval/corpus/pdfjs_franz_image.pdf` — 2.8 KB, pdf.js Apache-2.0, extractable text "Hello World")
 
 **Interfaces:**
+
 - Consumes: `RedactError` (Task 1).
 - Produces: `fn reassemble_page(doc: &mut lopdf::Document, page_id: lopdf::ObjectId, rgb: &[u8], px_w: u32, px_h: u32, page_w_pt: f32, page_h_pt: f32) -> Result<(), RedactError>` — replaces the page's content with a single full-`MediaBox` DEFLATE image XObject, sets the MediaBox to the display size, zeroes `/Rotate`, and removes `/Annots`.
 
@@ -384,9 +390,11 @@ git commit -m "feat(pdf-core): reassemble a page as a flattened DEFLATE image"
 ### Task 4: The verification gate + the `redact` orchestration
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/redact.rs`
 
 **Interfaces:**
+
 - Consumes: everything from Tasks 1–3.
 - Produces: `pub fn redact(bytes: Vec<u8>, regions: &[RedactionRegion], opts: &RedactionOptions) -> Result<RedactionOutcome, RedactError>`; `pub(crate) fn verify_gate(doc: &lopdf::Document, affected_pages_1based: &[u32], redacted_text: &[String]) -> Result<(), RedactError>`.
 
@@ -537,11 +545,13 @@ git commit -m "feat(pdf-core): redaction orchestration with a hard verification 
 ### Task 5: WASM edge + `@magna-carta/pdf` wrapper
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/wasm.rs`
 - Modify: `packages/pdf/src/index.ts`
 - Test: `packages/pdf/test/redact.test.ts`
 
 **Interfaces:**
+
 - Consumes: `redact`, the redaction types (Task 1–4).
 - Produces (JS): `redactDocument(bytes: Uint8Array, regions: RedactionRegion[], opts?: { dpi?: number; redactedText?: string[] }): { pdf: Uint8Array; pagesRedacted: number[] }`; `RedactionRegion = { page: number; rect: { x0; y0; x1; y1 }; reason?: string }`.
 
@@ -713,6 +723,7 @@ cp crates/pdf-core/tests/fixtures/hello.pdf packages/pdf/test/fixtures/hello.pdf
 pnpm --filter @magna-carta/pdf run build:wasm
 pnpm --filter @magna-carta/pdf test
 ```
+
 Expected: PASS (the slice-1 tests + the 2 new redaction tests). If `ensureReady` does not already accept an optional wasm-bytes argument, it does (added in slice 1 for Node).
 
 - [ ] **Step 7: Commit**
@@ -727,6 +738,7 @@ git commit -m "feat(pdf): redactDocument wasm edge and typed wrapper"
 ### Task 6: `pdf-eval` redact mode + smoke + docs
 
 **Files:**
+
 - Modify: `crates/pdf-eval/src/main.rs`
 - Create: `packages/pdf/README.md` redaction section (append)
 - Create: `docs/decisions/pending/pdf-redaction-rasterize-route.md`
@@ -734,6 +746,7 @@ git commit -m "feat(pdf): redactDocument wasm edge and typed wrapper"
 - Modify: `ROADMAP.md`, `STATUS.md` (own slice row only)
 
 **Interfaces:**
+
 - Consumes: `pdf_core::{redact, RedactionRegion, RedactionOptions, Rect}`.
 - Produces: a `pdf-eval redact <pdf> <out> --page N --rect x0,y0,x1,y1 [--dpi 300]` mode and a `redact-smoke <pdf>` that redacts a full page and asserts the gate passes.
 
@@ -774,7 +787,7 @@ Expected: `ok redacted page(s) [0], N bytes`, exit 0. Run `cargo clippy -p pdf-e
 - [ ] **Step 3: Add a redaction CI smoke step** — in `.github/workflows/ci.yml`, in the `rust-pdf-core` job after the existing `smoke` step:
 
 ```yaml
-      - run: cargo run --manifest-path crates/Cargo.toml -p pdf-eval --release -- redact-smoke crates/pdf-eval/corpus-ci/basicapi.pdf
+- run: cargo run --manifest-path crates/Cargo.toml -p pdf-eval --release -- redact-smoke crates/pdf-eval/corpus-ci/basicapi.pdf
 ```
 
 - [ ] **Step 4: Write the docs**

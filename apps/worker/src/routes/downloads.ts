@@ -11,10 +11,19 @@ import {
   readLiveMaxTotalBytes,
 } from "@magna-carta/file-manager/upload-policy";
 import {
+  bundleCacheKey,
   bundleManifestHash,
   resolveZipSelection,
   type ZipEntry,
 } from "@magna-carta/file-manager/zip-composition";
+import { bundleOptionsSchema } from "@magna-carta/file-manager/bundle-options";
+import {
+  FORMAT_CAPABILITIES,
+  validateOptionsForFormat,
+} from "@magna-carta/file-manager/bundle-formats";
+import { applyBundleLayout } from "@magna-carta/file-manager/bundle-layout";
+import { buildBundleManifest } from "@magna-carta/file-manager/bundle-manifest";
+import type { ManifestEntry } from "@magna-carta/file-manager/contents-manifest";
 import type { FileId, FolderId, MatterId } from "@magna-carta/identifiers/types";
 import { makeZip } from "client-zip";
 import type { Bindings } from "../app.ts";
@@ -31,6 +40,8 @@ import { Problem, problemJson } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 import { presignerForEnv } from "../files/presigner-wiring.ts";
 import { requireBucket } from "../files/require-bucket.ts";
+import { selectBundleLane } from "../downloads/bundle-lane.ts";
+import { bundleContainerAdapter } from "../downloads/bundle-container-adapter.ts";
 
 // Bulk download. A {matterId, folderIds?, fileIds?} selection resolves to the matter's clean CURRENT
 // versions at request time (version-pinned: a later upload never changes what this archive holds). A
@@ -46,6 +57,12 @@ const ZipRequest = z
     matterId: identifierField("matter"),
     folderIds: z.array(identifierField("folder")).optional(),
     fileIds: z.array(identifierField("file")).optional(),
+    // Bundle format options: absent means the existing plain-ZIP fast lane unchanged.
+    options: bundleOptionsSchema.optional(),
+    // The archive password for an encrypted bundle. Must be present when options.encryption is
+    // non-null and absent otherwise. Held only for the duration of the request — never stored,
+    // never logged, never included in any queue message or audit metadata.
+    password: z.string().min(1).optional(),
   })
   .openapi("ZipDownloadRequest");
 
@@ -112,8 +129,20 @@ const zipDownloadRoute = defineOpenAPIRoute(zipDownloadMeta, {
       description: "The firm is unreachable, the member is deactivated, or the selection is empty",
       content: { "application/problem+json": { schema: Problem } },
     },
+    422: {
+      description:
+        "The supplied bundle options are incoherent for the chosen format (e.g. ZIP with split " +
+        "enabled, or encryption combined with split). The detail field lists each violation.",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     429: {
       description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
+    503: {
+      description:
+        "The bundle service worker binding is not configured. This is a deploy-time activation; " +
+        "the plain-ZIP fast lane is always available without it.",
       content: { "application/problem+json": { schema: Problem } },
     },
   },
@@ -141,6 +170,60 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
       const bucket = requireBucket(firm.bucketName);
       const request = c.req.valid("json");
       const matterId: MatterId = request.matterId;
+      const options = request.options;
+      const password = request.password;
+
+      // Validate format-capability constraints before any expensive operations. An incoherent option
+      // set (e.g. ZIP + split, encryption + split) is rejected here with each violation listed so the
+      // caller can fix all problems in one round trip. This check is purely structural — the lane
+      // selector runs immediately after.
+      if (options !== undefined) {
+        const violations = validateOptionsForFormat(options);
+        if (violations.length > 0) {
+          return problemJson(c, {
+            type: "validation",
+            title: "Invalid bundle options",
+            status: 422,
+            detail: violations.join("; "),
+          });
+        }
+      }
+
+      // Cross-field password checks: encryption and a password must be supplied together or not at
+      // all. These fire before any selection query so an incoherent request fails fast without a
+      // round trip to the database.
+      if (options?.encryption != null && !password) {
+        return problemJson(c, {
+          type: "validation",
+          title: "Encryption requires a password",
+          status: 422,
+          detail: "encryption requires a password",
+        });
+      }
+      if (password && options?.encryption == null) {
+        return problemJson(c, {
+          type: "validation",
+          title: "Password supplied without encryption",
+          status: 422,
+          detail: "password supplied without encryption",
+        });
+      }
+
+      // Select the delivery lane based on the options. All three lanes (plain, heavyAsync, and
+      // encryptedStream) resolve the selection below before branching into their delivery logic.
+      const lane = selectBundleLane(options);
+
+      // Fail fast (before any selection query) when the encrypted lane is requested but the bundle
+      // service binding is absent — a deploy-time activation that may be unbound during a staged
+      // rollout. Same fail-before-DB discipline as the validation checks above.
+      if (lane === "encryptedStream" && c.env.BUNDLE_SERVICE === undefined) {
+        return problemJson(c, {
+          type: "service-unavailable",
+          title: "Bundle service not configured",
+          status: 503,
+          detail: "The bundle service is not available. Contact support if this persists.",
+        });
+      }
 
       // Resolve the selection to version-pinned clean entries (the status-gated reads in queries.ts).
       const [folders, cleanFiles] = await Promise.all([
@@ -165,25 +248,19 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
         });
       }
 
-      // The two live-vs-async thresholds: a selection over EITHER the file-count or the total-bytes
-      // knob is too retry-unfriendly to stream inline, so it hands off to the background build job. A
-      // single-file selection always redirects (a presigned GET needs no archive), whatever its size.
+      // The live thresholds drive the plain lane's inline-vs-async decision; both are also recorded in
+      // the audit metadata for every lane, so they are read once here regardless of lane.
       const [liveMaxFileCount, liveMaxTotalBytes] = await Promise.all([
         readLiveMaxFileCount(firm.firmDatabase),
         readLiveMaxTotalBytes(firm.firmDatabase),
       ]);
-      const delivery =
-        resolved.entries.length === 1
-          ? "redirect"
-          : resolved.fileCount > liveMaxFileCount || resolved.totalBytes > liveMaxTotalBytes
-            ? "async"
-            : "inline";
 
       // The export is recorded AFTER the delivery side-effect succeeds (matching the per-file download
       // in routes/files.ts), so the audit trail never claims an export that a later presign/build
-      // failure prevented.
+      // failure prevented. Bundle-option flags (counts and booleans only — never password or content)
+      // are included when options are present so the audit trail reflects what format was requested.
       const now = new Date().toISOString();
-      const recordExport = () =>
+      const recordExport = (delivery: string) =>
         commitEffectBatch(
           firm.firmDatabase,
           {
@@ -199,6 +276,13 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
                   liveMaxFileCount,
                   liveMaxTotalBytes,
                   delivery,
+                  // Options flags: absent when no options were supplied (legacy path).
+                  ...(options !== undefined && {
+                    format: options.format,
+                    compression: options.compression,
+                    encrypted: options.encryption !== null,
+                    split: options.split !== null,
+                  }),
                 },
                 now,
               }),
@@ -208,12 +292,159 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
           { now: () => now },
         );
 
+      // Encrypted single-file stream lane: the container receives the manifest (with the password) and
+      // streams the encrypted archive back through the worker to the client. No queue, no coordinator,
+      // no R2 artifact, no cache — the password and the bytes exist only for the request. The password
+      // is validated non-null above; this lane is only reached when options.encryption is non-null.
+      if (lane === "encryptedStream" && options !== undefined) {
+        // The fail-fast check before the DB read already returns 503 for this case; this re-check is the
+        // type-narrowing guard so the compiler knows BUNDLE_SERVICE is defined at the buildStream call
+        // below (the earlier guard's narrowing does not carry across the intervening await).
+        if (c.env.BUNDLE_SERVICE === undefined) {
+          return problemJson(c, {
+            type: "service-unavailable",
+            title: "Bundle service not configured",
+            status: 503,
+            detail: "The bundle service is not available. Contact support if this persists.",
+          });
+        }
+
+        // The manifest builder applies the layout internally; the un-laid-out resolved set is passed
+        // so the layout is not applied twice. The laid-out entries are only needed here to build the
+        // optional CONTENTS manifest rows (path + size for each file in its final archive path).
+        const laidOut = options.manifest ? applyBundleLayout(resolved, options) : null;
+        const manifestEntries: ManifestEntry[] = (laidOut?.entries ?? []).map((entry) => ({
+          path: entry.path,
+          sizeBytes: entry.sizeBytes,
+          // Wire the file_version sha256 when the matter resolver projects content_sha256.
+          sha256: "",
+        }));
+
+        const streamManifest = buildBundleManifest({
+          jobId: newIdentifier("auditLog"),
+          resolved,
+          options,
+          // password is guaranteed non-null here: the cross-field check above returns 422 when
+          // encryption is non-null but password is absent, so this branch is only reached when
+          // password is present.
+          password: password!,
+          manifestEntries,
+          // Streaming lane: the container streams the archive to the client rather than writing
+          // it to R2, so no output key prefix is used.
+          outputKeyPrefix: "",
+          mtimeByR2Key: new Map(),
+        });
+
+        const containerResponse = await bundleContainerAdapter(
+          c.env.BUNDLE_SERVICE,
+        ).buildStream(streamManifest);
+
+        const contentType =
+          options.format === "zip" ? "application/zip" : "application/x-7z-compressed";
+        // Sanitize for the Content-Disposition header; fall back to a generic name if the output name
+        // is entirely non-filename characters (so the header is never an all-dashes string).
+        const sanitizedOutputName = options.outputName.replace(/[^A-Za-z0-9._-]/g, "-");
+        const safeOutputName = /[A-Za-z0-9]/.test(sanitizedOutputName)
+          ? sanitizedOutputName
+          : "download.zip";
+
+        await recordExport("stream");
+        return new Response(containerResponse.body, {
+          status: 200,
+          headers: {
+            "content-type": contentType,
+            "content-disposition": `attachment; filename="${safeOutputName}"`,
+          },
+        });
+      }
+
+      // Heavy unencrypted async lane: a compressed / 7z / split bundle the bundle container builds off
+      // the hot path. The optioned bundle is content-addressed — the cache key folds the selection's
+      // content together with the non-secret options — and that key is the dedup key, the R2 output
+      // key prefix, AND the job id the client polls. A single-file bundle already built hands back a
+      // fresh signed URL; otherwise the coordinator single-flights the container build via the queue.
+      if (lane === "heavyAsync" && options !== undefined) {
+        // Compose the user's layout (wrapper / flatten) over the version-pinned entries. This drives
+        // the cache key and the queue message. buildBundleManifest re-derives the same layout from the
+        // original resolved set, so it is handed the un-laid-out `resolved` — passing `laidOut` would
+        // apply the wrapper/flatten a second time.
+        const laidOut = applyBundleLayout(resolved, options);
+        const entries = laidOut.entries.map((entry) => ({ r2Key: entry.r2Key, path: entry.path }));
+        const cacheKey = await bundleCacheKey(entries, options);
+        const extension = FORMAT_CAPABILITIES[options.format].extension;
+        // A non-split bundle is one object at <cacheKey>.<ext>; a split bundle is N volumes the
+        // container names under the <cacheKey> prefix. The fast-path HEAD only applies to the former.
+        const outputKeyPrefix =
+          options.split === null ? `bundles/${cacheKey}.${extension}` : `bundles/${cacheKey}`;
+
+        // The CONTENTS manifest rows (path / size / sha256) only when the user asked for a manifest.
+        const manifestEntries: ManifestEntry[] = options.manifest
+          ? laidOut.entries.map((entry) => ({
+              path: entry.path,
+              sizeBytes: entry.sizeBytes,
+              // slice: wire the file_version sha256 (the matter resolver does not yet project
+              // content_sha256, so the CONTENTS manifest records an empty hash for now).
+              sha256: "",
+            }))
+          : [];
+
+        const bundleManifest = buildBundleManifest({
+          jobId: cacheKey,
+          resolved,
+          options,
+          password: null, // the unencrypted lane never carries a password
+          manifestEntries,
+          outputKeyPrefix,
+          // slice: wire file mtime from R2 object metadata (none recorded yet → null per entry).
+          mtimeByR2Key: new Map(),
+        });
+
+        // Fast path (single-file bundles only): an identical optioned selection already built hands
+        // back a fresh signed URL without re-running the container.
+        if (options.split === null) {
+          const existing = await c.env.R2.head(outputKeyPrefix);
+          if (existing !== null) {
+            const url = await presignerForEnv(c.env).presignGet(
+              bucket,
+              outputKeyPrefix,
+              DOWNLOAD_TTL_SECONDS,
+            );
+            await recordExport("async");
+            return c.json({ url }, 200);
+          }
+        }
+
+        const coordinator = c.env.BUNDLE_COORDINATOR.get(
+          c.env.BUNDLE_COORDINATOR.idFromName(`${firmId}:${cacheKey}`),
+        );
+        const state = await coordinator.requestBundle({
+          firmId,
+          bucketName: bucket,
+          manifestHash: cacheKey,
+          entries,
+          options,
+          manifest: bundleManifest,
+        });
+        await recordExport("async");
+        return c.json({ jobId: cacheKey, status: state.status }, 202);
+      }
+
+      // Plain lane: the existing client-zip behavior. A single resolved file redirects; a selection
+      // over EITHER live threshold hands off to a content-addressed background build; otherwise the
+      // store-mode ZIP streams inline.
+      const delivery =
+        resolved.entries.length === 1
+          ? "redirect"
+          : resolved.fileCount > liveMaxFileCount || resolved.totalBytes > liveMaxTotalBytes
+            ? "async"
+            : "inline";
+
       // A single resolved file: redirect to a presigned GET, identical to the per-file download.
       if (delivery === "redirect") {
         const only = resolved.entries[0] as ZipEntry;
         const presigner = presignerForEnv(c.env);
         const url = await presigner.presignGet(bucket, only.r2Key, DOWNLOAD_TTL_SECONDS);
-        await recordExport();
+        await recordExport(delivery);
         return c.redirect(url, 302);
       }
 
@@ -231,7 +462,7 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
             artifactKey,
             DOWNLOAD_TTL_SECONDS,
           );
-          await recordExport();
+          await recordExport(delivery);
           return c.json({ url }, 200);
         }
         const coordinator = c.env.BUNDLE_COORDINATOR.get(
@@ -243,7 +474,7 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
           manifestHash,
           entries,
         });
-        await recordExport();
+        await recordExport(delivery);
         return c.json({ jobId: manifestHash, status: state.status }, 202);
       }
 
@@ -260,7 +491,7 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
           yield { name: entry.path, input: object.body };
         }
       }
-      await recordExport();
+      await recordExport(delivery);
       const zipStream = makeZip(zipInputs());
       return new Response(zipStream, {
         status: 200,

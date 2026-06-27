@@ -45,9 +45,9 @@ const { widthPt, heightPt } = doc.pageSize(0);
 
 **`doc.renderPage(index, opts?)`** — renders page `index` and returns a `RenderedPage`:
 
-| Option | Type | Default | Description |
-| --- | --- | --- | --- |
-| `dpi` | `number` | `150` | Render resolution. Higher values produce sharper images at the cost of more memory. |
+| Option      | Type      | Default | Description                                                                                                                   |
+| ----------- | --------- | ------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `dpi`       | `number`  | `150`   | Render resolution. Higher values produce sharper images at the cost of more memory.                                           |
 | `encodePng` | `boolean` | `false` | When `true`, the returned `data` is a PNG-encoded `Uint8Array`. When `false` (the default), `data` is a flat RGBA byte array. |
 
 ```ts
@@ -101,19 +101,19 @@ The module initialises itself lazily the first time `loadDocument` is called; `e
 
 ```ts
 interface PageSize {
-  widthPt: number;   // page width in PDF points (1 pt = 1/72 inch)
-  heightPt: number;  // page height in PDF points
+  widthPt: number; // page width in PDF points (1 pt = 1/72 inch)
+  heightPt: number; // page height in PDF points
 }
 
 interface RenderedPage {
-  data: Uint8Array;            // pixel data: flat RGBA bytes, or PNG bytes if encodePng was true
-  width: number;               // pixel width of the rendered image
-  height: number;              // pixel height of the rendered image
-  encoding: "rgba8" | "png";   // matches the encodePng option
+  data: Uint8Array; // pixel data: flat RGBA bytes, or PNG bytes if encodePng was true
+  width: number; // pixel width of the rendered image
+  height: number; // pixel height of the rendered image
+  encoding: "rgba8" | "png"; // matches the encodePng option
 }
 
 interface RenderOptions {
-  dpi?: number;        // default 150
+  dpi?: number; // default 150
   encodePng?: boolean; // default false
 }
 ```
@@ -139,9 +139,9 @@ import { redactDocument } from "@magna-carta/pdf";
 
 const regions = [
   {
-    page: 0,            // 0-based page index
-    rect: { x0: 50, y0: 100, x1: 300, y1: 200 },  // display points, bottom-left origin (same units as the page size)
-    reason: "privileged",  // optional — not written into the output PDF
+    page: 0, // 0-based page index
+    rect: { x0: 50, y0: 100, x1: 300, y1: 200 }, // display points, bottom-left origin (same units as the page size)
+    reason: "privileged", // optional — not written into the output PDF
   },
 ];
 const result = await redactDocument(new Uint8Array(inputBytes), regions, { dpi: 300 });
@@ -171,11 +171,11 @@ try {
 
 ### `RedactionOptions`
 
-| Field | Type | Default | Description |
-| --- | --- | --- | --- |
-| `dpi` | `number` | `300` | Render resolution for rasterization. |
-| `redactedText` | `string[]` | `[]` | Strings the gate checks for survival in the output. Pass the verbatim text you are redacting so the gate can verify it does not appear. |
-| `mode` | `"flatten" \| "surgery"` | `"flatten"` | Redaction route. See the Text-preserving redaction subsection below. |
+| Field          | Type                     | Default     | Description                                                                                                                             |
+| -------------- | ------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `dpi`          | `number`                 | `300`       | Render resolution for rasterization.                                                                                                    |
+| `redactedText` | `string[]`               | `[]`        | Strings the gate checks for survival in the output. Pass the verbatim text you are redacting so the gate can verify it does not appear. |
+| `mode`         | `"flatten" \| "surgery"` | `"flatten"` | Redaction route. See the Text-preserving redaction subsection below.                                                                    |
 
 Redaction always paints an opaque black box (the standard for legal production); the fill colour is not configurable.
 
@@ -183,10 +183,10 @@ Redaction always paints an opaque black box (the standard for legal production);
 
 ```ts
 interface RedactionResult {
-  pdf: Uint8Array;           // the redacted PDF bytes
-  pagesRedacted: number[];   // all page indices (0-based) where content was redacted
-  pagesSurgered: number[];   // pages where text-preserving surgery succeeded (empty in flatten mode)
-  pagesFlattened: number[];  // pages rasterised to an image (all pages in flatten mode, plus any surgery fallbacks)
+  pdf: Uint8Array; // the redacted PDF bytes
+  pagesRedacted: number[]; // all page indices (0-based) where content was redacted
+  pagesSurgered: number[]; // pages where text-preserving surgery succeeded (empty in flatten mode)
+  pagesFlattened: number[]; // pages rasterised to an image (all pages in flatten mode, plus any surgery fallbacks)
 }
 ```
 
@@ -244,15 +244,15 @@ Pass a `ScrubOptions` object as the second argument to opt individual surfaces o
 
 ### `ScrubOptions`
 
-| Field | Type | Default | Surface removed when `true` |
-| --- | --- | --- | --- |
-| `metadata` | `boolean` | `true` | Document metadata stream (`/Metadata`) and the information dictionary (`/Info`) — author, creation date, application name, and similar properties. |
-| `xfa` | `boolean` | `true` | The XFA form definition (`/XFA` in `AcroForm`). Blank AcroForm fields are kept so the document remains a usable form; only the XFA-specific data is stripped. |
-| `structureTree` | `boolean` | `true` | The document structure tree (`/StructTreeRoot`) used for accessibility tagging. |
-| `outlines` | `boolean` | `true` | The bookmark outline tree (`/Outlines`). |
-| `optionalContent` | `boolean` | `true` | Optional-content configuration (`/OCProperties` in the catalog). See the boundaries note below. |
-| `attachments` | `boolean` | `true` | Embedded file attachments — the `/EmbeddedFiles` name tree and any `FileAttachment` annotations on pages. |
-| `formFieldValues` | `boolean` | `true` | Form field values and appearance streams; blank field shells are kept. |
+| Field             | Type      | Default | Surface removed when `true`                                                                                                                                   |
+| ----------------- | --------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `metadata`        | `boolean` | `true`  | Document metadata stream (`/Metadata`) and the information dictionary (`/Info`) — author, creation date, application name, and similar properties.            |
+| `xfa`             | `boolean` | `true`  | The XFA form definition (`/XFA` in `AcroForm`). Blank AcroForm fields are kept so the document remains a usable form; only the XFA-specific data is stripped. |
+| `structureTree`   | `boolean` | `true`  | The document structure tree (`/StructTreeRoot`) used for accessibility tagging.                                                                               |
+| `outlines`        | `boolean` | `true`  | The bookmark outline tree (`/Outlines`).                                                                                                                      |
+| `optionalContent` | `boolean` | `true`  | Optional-content configuration (`/OCProperties` in the catalog). See the boundaries note below.                                                               |
+| `attachments`     | `boolean` | `true`  | Embedded file attachments — the `/EmbeddedFiles` name tree and any `FileAttachment` annotations on pages.                                                     |
+| `formFieldValues` | `boolean` | `true`  | Form field values and appearance streams; blank field shells are kept.                                                                                        |
 
 **Redaction is sanitized-by-default.** `redactDocument` accepts an optional `scrub` field in `RedactionOptions`. When `scrub` is omitted (the default) it is treated as `true`, so the output of a redaction is also sanitized. Pass `scrub: false` to skip sanitization on a redaction output.
 
@@ -260,7 +260,7 @@ Pass a `ScrubOptions` object as the second argument to opt individual surfaces o
 
 `sanitizeDocument` enforces a hard gate: after removing the surfaces, it verifies that every surface you asked to scrub is actually absent from the output. If a scrubbed surface survives — or the document cannot be reassembled — the call throws rather than returning an output. Surfaces you opt out of are not checked.
 
-`sanitizeDocument` takes no `redactedText` list; its gate is structural. The byte-level decompress-and-scan for specific strings (see the boundaries below) belongs to `redactDocument`, where you pass the text being redacted via `redactedText`. To flatten a region *and* verify a particular string is gone document-wide, use `redactDocument` — it is sanitized-by-default, so it scrubs these same surfaces too.
+`sanitizeDocument` takes no `redactedText` list; its gate is structural. The byte-level decompress-and-scan for specific strings (see the boundaries below) belongs to `redactDocument`, where you pass the text being redacted via `redactedText`. To flatten a region _and_ verify a particular string is gone document-wide, use `redactDocument` — it is sanitized-by-default, so it scrubs these same surfaces too.
 
 ### Boundaries
 
@@ -297,26 +297,33 @@ Each entry in `report.findings` has this shape:
 
 ```ts
 interface DetectionFinding {
-  category: "coveredText" | "invisibleText" | "whiteoutText" | "removableAnnotation" | "hiddenLayer" | "metadataLeak" | "orphanedText";
+  category:
+    | "coveredText"
+    | "invisibleText"
+    | "whiteoutText"
+    | "removableAnnotation"
+    | "hiddenLayer"
+    | "metadataLeak"
+    | "orphanedText";
   severity: "critical" | "high" | "medium" | "low" | "info";
-  page: number | null;      // 0-based page index; null for document-level findings
+  page: number | null; // 0-based page index; null for document-level findings
   region: { x0: number; y0: number; x1: number; y1: number } | null; // display-point bbox; null for document-level findings
-  recoveredText: string;    // the text string recovered from the hidden location
-  detail: string;           // human-readable explanation of the finding
+  recoveredText: string; // the text string recovered from the hidden location
+  detail: string; // human-readable explanation of the finding
 }
 ```
 
 ### Detection categories and severities
 
-| `category` | `severity` | What it means |
-| --- | --- | --- |
-| `coveredText` | `critical` | Extractable text sits under an opaque fill that hides it from view. The classic bad redaction: the words are present in the file and selectable; only the visual rendering conceals them. |
-| `invisibleText` | `high` | Text drawn in an invisible render mode (PDF text rendering mode 3, "invisible"). Recoverable by extraction even though it does not appear on screen. |
-| `whiteoutText` | `high` | Text painted the same color as the covering fill — for example, white text under a white box. Both the text and the fill are light-colored, creating a same-color concealment. |
-| `removableAnnotation` | `critical` | Extractable text sits under an annotation that can be deleted to reveal it — for example an unapplied redaction mark. |
-| `hiddenLayer` | `high` | Text drawn on an optional-content layer that the document hides by default. |
-| `metadataLeak` | `medium` | The document's information dictionary, XMP metadata stream, bookmark titles, or AcroForm field values carry text content. These surfaces survive even when page content is removed. |
-| `orphanedText` | `high` | Text present in a PDF object that no page references, but which remains in the file bytes. A copy-and-paste or search tool that reads the raw cross-reference table can recover it. |
+| `category`            | `severity` | What it means                                                                                                                                                                             |
+| --------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `coveredText`         | `critical` | Extractable text sits under an opaque fill that hides it from view. The classic bad redaction: the words are present in the file and selectable; only the visual rendering conceals them. |
+| `invisibleText`       | `high`     | Text drawn in an invisible render mode (PDF text rendering mode 3, "invisible"). Recoverable by extraction even though it does not appear on screen.                                      |
+| `whiteoutText`        | `high`     | Text painted the same color as the covering fill — for example, white text under a white box. Both the text and the fill are light-colored, creating a same-color concealment.            |
+| `removableAnnotation` | `critical` | Extractable text sits under an annotation that can be deleted to reveal it — for example an unapplied redaction mark.                                                                     |
+| `hiddenLayer`         | `high`     | Text drawn on an optional-content layer that the document hides by default.                                                                                                               |
+| `metadataLeak`        | `medium`   | The document's information dictionary, XMP metadata stream, bookmark titles, or AcroForm field values carry text content. These surfaces survive even when page content is removed.       |
+| `orphanedText`        | `high`     | Text present in a PDF object that no page references, but which remains in the file bytes. A copy-and-paste or search tool that reads the raw cross-reference table can recover it.       |
 
 **Why `invisibleText` is `high` rather than `critical`:** PDF invisible text (rendering mode 3) is overwhelmingly benign in practice — OCR workflows commonly place a transparent text layer over a scanned image to enable selection and search. The finding is flagged because invisible text on a document that should not have a text layer is suspicious, but it is not treated as the most severe category.
 
@@ -340,11 +347,11 @@ Before acting on a detection report, understand these limits:
 
 ```ts
 interface DetectionReport {
-  findings: DetectionFinding[];   // ranked critical → info; empty means nothing detected
+  findings: DetectionFinding[]; // ranked critical → info; empty means nothing detected
   summary: { critical: number; high: number; medium: number; low: number; info: number }; // finding counts per tier
-  pagesScanned: number;           // pages the geometric detectors successfully examined
-  glyphsExamined: number;         // total glyphs considered
-  pagesUnreadable: number[];      // page indices the renderer could not interpret
+  pagesScanned: number; // pages the geometric detectors successfully examined
+  glyphsExamined: number; // total glyphs considered
+  pagesUnreadable: number[]; // page indices the renderer could not interpret
 }
 ```
 
@@ -376,44 +383,44 @@ const result = await stampBates(bytes, {
 
 ### `BatesStampOptions`
 
-| Field | Type | Default | Description |
-| --- | --- | --- | --- |
-| `prefix` | `string` | `""` | Text prepended before the zero-padded number, e.g. `"SMITH-"` produces labels like `SMITH-000001`. |
-| `suffix` | `string` | `""` | Text appended after the zero-padded number, e.g. `"-CONF"` produces labels like `SMITH-000001-CONF`. |
-| `startNumber` | `number` | `1` | Bates number assigned to the first page. |
-| `stopNumber` | `number` | _(none)_ | Inclusive ceiling on the last Bates number that may be stamped. When set, the call throws if any page in the document would receive a number greater than `stopNumber`. The check runs before any page is modified, so either all pages are stamped or none are. |
-| `padding` | `number` | `6` | Minimum digit width. Numbers shorter than `padding` digits are zero-padded to that width; numbers longer than `padding` digits are not truncated. |
-| `position` | `BatesPosition` | `"bottomRight"` | Corner or edge where the label is placed. |
-| `font` | `BatesFont` | `"helvetica"` | Typeface for the stamp label. Must be one of the twelve built-in standard PDF Type 1 text fonts listed below. Custom or uploaded fonts are not supported in this version. |
-| `marginPt` | `number` | `18` | Distance in PDF points from the nearest page edge. |
-| `fontSizePt` | `number` | `8` | Font size in PDF points. |
+| Field         | Type            | Default         | Description                                                                                                                                                                                                                                                      |
+| ------------- | --------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `prefix`      | `string`        | `""`            | Text prepended before the zero-padded number, e.g. `"SMITH-"` produces labels like `SMITH-000001`.                                                                                                                                                               |
+| `suffix`      | `string`        | `""`            | Text appended after the zero-padded number, e.g. `"-CONF"` produces labels like `SMITH-000001-CONF`.                                                                                                                                                             |
+| `startNumber` | `number`        | `1`             | Bates number assigned to the first page.                                                                                                                                                                                                                         |
+| `stopNumber`  | `number`        | _(none)_        | Inclusive ceiling on the last Bates number that may be stamped. When set, the call throws if any page in the document would receive a number greater than `stopNumber`. The check runs before any page is modified, so either all pages are stamped or none are. |
+| `padding`     | `number`        | `6`             | Minimum digit width. Numbers shorter than `padding` digits are zero-padded to that width; numbers longer than `padding` digits are not truncated.                                                                                                                |
+| `position`    | `BatesPosition` | `"bottomRight"` | Corner or edge where the label is placed.                                                                                                                                                                                                                        |
+| `font`        | `BatesFont`     | `"helvetica"`   | Typeface for the stamp label. Must be one of the twelve built-in standard PDF Type 1 text fonts listed below. Custom or uploaded fonts are not supported in this version.                                                                                        |
+| `marginPt`    | `number`        | `18`            | Distance in PDF points from the nearest page edge.                                                                                                                                                                                                               |
+| `fontSizePt`  | `number`        | `8`             | Font size in PDF points.                                                                                                                                                                                                                                         |
 
 `BatesPosition` is one of: `"bottomRight"` · `"bottomLeft"` · `"bottomCenter"` · `"topRight"` · `"topLeft"` · `"topCenter"`.
 
 `BatesFont` is one of the twelve built-in standard PDF Type 1 text fonts. These fonts are guaranteed to be present in every conforming PDF viewer without requiring font embedding — the stamp adds a three-key font reference only, never a font file:
 
-| Value | Family | Style |
-| --- | --- | --- |
-| `"helvetica"` | Helvetica | Regular |
-| `"helvetica-bold"` | Helvetica | Bold |
-| `"helvetica-oblique"` | Helvetica | Oblique |
+| Value                     | Family    | Style        |
+| ------------------------- | --------- | ------------ |
+| `"helvetica"`             | Helvetica | Regular      |
+| `"helvetica-bold"`        | Helvetica | Bold         |
+| `"helvetica-oblique"`     | Helvetica | Oblique      |
 | `"helvetica-boldoblique"` | Helvetica | Bold Oblique |
-| `"times-roman"` | Times | Regular |
-| `"times-bold"` | Times | Bold |
-| `"times-italic"` | Times | Italic |
-| `"times-bolditalic"` | Times | Bold Italic |
-| `"courier"` | Courier | Regular |
-| `"courier-bold"` | Courier | Bold |
-| `"courier-oblique"` | Courier | Oblique |
-| `"courier-boldoblique"` | Courier | Bold Oblique |
+| `"times-roman"`           | Times     | Regular      |
+| `"times-bold"`            | Times     | Bold         |
+| `"times-italic"`          | Times     | Italic       |
+| `"times-bolditalic"`      | Times     | Bold Italic  |
+| `"courier"`               | Courier   | Regular      |
+| `"courier-bold"`          | Courier   | Bold         |
+| `"courier-oblique"`       | Courier   | Oblique      |
+| `"courier-boldoblique"`   | Courier   | Bold Oblique |
 
 ### `BatesStampResult`
 
 ```ts
 interface BatesStampResult {
-  pdf: Uint8Array;   // the stamped PDF bytes
-  start: number;     // Bates number on the first page (inclusive)
-  end: number;       // Bates number on the last page (inclusive)
+  pdf: Uint8Array; // the stamped PDF bytes
+  start: number; // Bates number on the first page (inclusive)
+  end: number; // Bates number on the last page (inclusive)
   pageCount: number; // total pages stamped
 }
 ```

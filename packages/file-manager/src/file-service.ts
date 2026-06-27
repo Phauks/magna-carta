@@ -3,6 +3,7 @@ import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statement
 import { writeFirmSettingStatement } from "@magna-carta/data-access/setting-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type {
+  DocumentCheckoutId,
   DocumentTypeId,
   FileId,
   FileVersionId,
@@ -12,21 +13,26 @@ import type {
   UserId,
 } from "@magna-carta/identifiers/types";
 import { fileAuditStatement, type AuditContext } from "./audit.ts";
+import { getCheckoutById, setCheckoutStatusStatement } from "./checkout-statements.ts";
 import {
   abandonVersionStatement,
   assignDocumentTypeStatement,
   BULK_PREFIX,
   bumpFileCurrentVersionStatement,
+  clearCurrentObjectStatement,
   commitVersionStatement,
   fileVersionKey,
   FILES_PREFIX,
   insertFileStatement,
   insertFileVersionStatement,
   insertUploadSessionStatement,
+  markVersionConflictStatement,
   moveFileStatement,
   quarantineVersionStatement,
   renameFileStatement,
   rescanVerdictStatement,
+  restoreFileStatement,
+  selectCleanVersionByIdStatement,
   selectCurrentVersionHashStatement,
   selectFileStatement,
   selectMaxVersionNumberStatement,
@@ -55,6 +61,7 @@ interface StoredFile {
   readonly matterId: MatterId;
   readonly folderId: FolderId | null;
   readonly currentVersionId: FileVersionId | null;
+  readonly currentR2Key: string | null;
   readonly deletedAt: string | null;
 }
 
@@ -64,6 +71,7 @@ async function loadFile(database: SqlDatabase, id: FileId): Promise<StoredFile |
     matter_id: MatterId;
     folder_id: FolderId | null;
     current_version_id: FileVersionId | null;
+    current_r2_key: string | null;
     deleted_at: string | null;
   }>();
   const row = results[0];
@@ -73,6 +81,7 @@ async function loadFile(database: SqlDatabase, id: FileId): Promise<StoredFile |
     matterId: row.matter_id,
     folderId: row.folder_id,
     currentVersionId: row.current_version_id,
+    currentR2Key: row.current_r2_key,
     deletedAt: row.deleted_at,
   };
 }
@@ -216,6 +225,84 @@ export async function initiateUpload(
   };
 }
 
+export interface InitiateCheckinInput {
+  readonly fileId: FileId;
+  readonly checkoutId: DocumentCheckoutId;
+  readonly declaredSize: number | null;
+  readonly declaredContentType: string | null;
+  readonly uploadedBy: UserId;
+  readonly expiresAt?: string | null;
+}
+
+export interface InitiatedCheckin {
+  readonly versionId: FileVersionId;
+  readonly versionNumber: number;
+  readonly r2Key: string;
+  readonly uploadSessionId: string;
+  readonly effect: EffectWrite;
+}
+
+// Mints the return leg of an offline checkout: a new pending file_version on the existing file carrying
+// the checkout id, plus an open upload_session so the ingest gate (which keys off the session for the
+// declared size and the file's name) processes the returning bytes exactly like any other upload — full
+// scan, hash, and policy re-check on untrusted bytes. The bytes never transit here; the route mints a
+// presigned PUT to the version's key. The cleared version routes through commitCheckinVersion
+// (divergence-aware) rather than a plain commit. The caller validates the checkout before this runs.
+// Version numbering mirrors initiateUpload (max over all statuses + 1, protected by the
+// UNIQUE(file_id, version_number) slot) so a concurrent upload and check-in cannot reuse a number.
+export async function initiateCheckin(
+  database: SqlDatabase,
+  input: InitiateCheckinInput,
+  options: FileServiceOptions,
+): Promise<InitiatedCheckin> {
+  await requireFile(database, input.fileId);
+  const { results } = await selectMaxVersionNumberStatement(database, input.fileId).all<{
+    n: number;
+  }>();
+  const versionNumber = (results[0]?.n ?? 0) + 1;
+  const versionId = newIdentifier("fileVersion", options.randomSource);
+  const uploadSessionId = newIdentifier("uploadSession", options.randomSource);
+  const r2Key = fileVersionKey(input.fileId, versionId);
+  return {
+    versionId,
+    versionNumber,
+    r2Key,
+    uploadSessionId,
+    effect: {
+      statements: [
+        insertFileVersionStatement(database, {
+          id: versionId,
+          fileId: input.fileId,
+          versionNumber,
+          r2Key,
+          declaredContentType: input.declaredContentType,
+          uploadedBy: input.uploadedBy,
+          createdAt: options.clock.now(),
+          checkoutId: input.checkoutId,
+        }),
+        insertUploadSessionStatement(database, {
+          id: uploadSessionId,
+          fileVersionId: versionId,
+          mode: "put",
+          declaredSize: input.declaredSize,
+          declaredContentType: input.declaredContentType,
+          createdAt: options.clock.now(),
+          expiresAt: input.expiresAt ?? null,
+        }),
+        fileAuditStatement(database, options, "document.checkin_initiated", input.fileId),
+      ],
+      // Domain event — an offline working copy is being returned (the bytes follow via the presigned
+      // PUT → quarantine ingest, which then commits/reconciles the version). Subscribers: audit, notify.
+      outboxMessages: [
+        {
+          topic: "document.checked_in",
+          payload: { fileId: input.fileId, versionId, checkoutId: input.checkoutId },
+        },
+      ],
+    },
+  };
+}
+
 interface PendingVersion {
   readonly id: FileVersionId;
   readonly fileId: FileId;
@@ -245,6 +332,9 @@ export interface PendingIngestVersion {
   readonly declaredContentType: string | null;
   readonly r2Key: string;
   readonly name: string;
+  // Non-null = this is the return leg of an offline checkout; the consumer routes a cleared version
+  // through commitCheckinVersion (divergence-aware) rather than commitVersion.
+  readonly checkoutId: DocumentCheckoutId | null;
 }
 
 export async function loadPendingVersionForIngest(
@@ -257,6 +347,7 @@ export async function loadPendingVersionForIngest(
     r2_key: string;
     declared_size: number | null;
     file_name: string;
+    checkout_id: DocumentCheckoutId | null;
   }>();
   const row = results[0];
   if (row === undefined) return undefined;
@@ -266,6 +357,7 @@ export async function loadPendingVersionForIngest(
     declaredContentType: row.declared_content_type,
     r2Key: row.r2_key,
     name: row.file_name,
+    checkoutId: row.checkout_id,
   };
 }
 
@@ -385,6 +477,234 @@ export async function commitVersion(
           topic: "file.version_committed",
           payload: { fileId: version.fileId, versionId: input.versionId },
         },
+      ],
+    },
+  };
+}
+
+export interface CommitCheckinVersionInput extends CommitVersionInput {
+  // The checkout this version returned through — validated and transitioned as part of the commit.
+  readonly checkoutId: DocumentCheckoutId;
+}
+
+export interface CommittedCheckinVersion {
+  readonly skipped: boolean; // an unchanged round trip cut no version
+  readonly diverged: boolean; // the base had advanced → a conflicting copy, current untouched
+  readonly fileId: FileId;
+  readonly effect: EffectWrite;
+}
+
+// Commits the cleared return leg of an offline checkout, reconciling it against the file's current
+// version. If the checkout's base is still current, it is a clean fast-forward: the version commits,
+// becomes current, and the checkout is released (an unchanged round trip cuts no version and just
+// releases — the SHA-256 skip). If the base has advanced while the copy was out, the bytes still commit
+// `clean` (they passed the gate) but the version is flagged a `conflict_pending` conflicting copy
+// against its stale base, current is NOT advanced, and the checkout enters `reconciling` for a human to
+// resolve. The conflicting copy is retained forever. Mirrors commitVersion's metering, scan-cache, and
+// idempotency posture (it runs inside the ingest consumer's per-version idempotency batch).
+export async function commitCheckinVersion(
+  database: SqlDatabase,
+  input: CommitCheckinVersionInput,
+  options: FileServiceOptions,
+): Promise<CommittedCheckinVersion> {
+  const version = await loadPendingVersion(database, input.versionId);
+  if (version === undefined) {
+    throw new FileManagerValidationError(
+      "version-not-pending",
+      `version is not pending (already committed, quarantined, or unknown): ${input.versionId}`,
+    );
+  }
+  const checkout = await getCheckoutById(database, input.checkoutId);
+  if (checkout === undefined) {
+    throw new FileManagerValidationError(
+      "unknown-checkout",
+      `no such checkout for this check-in: ${input.checkoutId}`,
+    );
+  }
+  const file = await loadFile(database, version.fileId);
+  const baseIsCurrent = file?.currentVersionId === checkout.baseVersionId;
+
+  // Same scan-cache rule as commitVersion: cache only a definitive clean verdict from a real engine,
+  // with the full raw result available (rawScanResult is optional — the cache write is skipped without it).
+  const scanCacheStatements =
+    input.scanVerdict === "clean" && input.rawScanResult != null && input.contentSha256 !== null
+      ? [recordScanCacheStatement(database, input.contentSha256, input.rawScanResult, input.now)]
+      : [];
+
+  const commitStatement = commitVersionStatement(database, {
+    versionId: input.versionId,
+    sizeBytes: input.sizeBytes,
+    sniffedContentType: input.sniffedContentType,
+    contentSha256: input.contentSha256,
+    scanVerdict: input.scanVerdict,
+    scanEngineVersion: input.scanEngineVersion,
+    scanDetail: input.scanDetail,
+    committedAt: input.now,
+  });
+  const meterStatements = meterCommitStatements(
+    database,
+    { storageClass: "standard", artifactRole: "original", prefix: FILES_PREFIX },
+    input.sizeBytes,
+  );
+
+  if (baseIsCurrent) {
+    const { results } = await selectCurrentVersionHashStatement(database, version.fileId).all<{
+      hash: string | null;
+    }>();
+    const currentHash = results[0]?.hash ?? null;
+    if (currentHash !== null && currentHash === input.contentSha256) {
+      // The offline copy came back byte-identical to the still-current version — nothing to commit.
+      return {
+        skipped: true,
+        diverged: false,
+        fileId: version.fileId,
+        effect: {
+          statements: [
+            abandonVersionStatement(database, input.versionId),
+            setUploadSessionStatusStatement(database, input.versionId, "completed"),
+            setCheckoutStatusStatement(database, input.checkoutId, "released"),
+            fileAuditStatement(database, options, "document.checkin_skipped", version.fileId),
+          ],
+          outboxMessages: [],
+        },
+      };
+    }
+    return {
+      skipped: false,
+      diverged: false,
+      fileId: version.fileId,
+      effect: {
+        statements: [
+          commitStatement,
+          bumpFileCurrentVersionStatement(database, version.fileId, input.versionId, input.now),
+          setUploadSessionStatusStatement(database, input.versionId, "completed"),
+          ...meterStatements,
+          setCheckoutStatusStatement(database, input.checkoutId, "released"),
+          fileAuditStatement(database, options, "document.checkin_committed", version.fileId),
+          ...scanCacheStatements,
+        ],
+        outboxMessages: [
+          {
+            topic: "file.version_committed",
+            payload: { fileId: version.fileId, versionId: input.versionId },
+          },
+        ],
+      },
+    };
+  }
+
+  // The base advanced while the copy was out: land a flagged conflicting copy, never touching current.
+  return {
+    skipped: false,
+    diverged: true,
+    fileId: version.fileId,
+    effect: {
+      statements: [
+        commitStatement,
+        markVersionConflictStatement(database, input.versionId, checkout.baseVersionId),
+        setUploadSessionStatusStatement(database, input.versionId, "completed"),
+        ...meterStatements,
+        setCheckoutStatusStatement(database, input.checkoutId, "reconciling"),
+        fileAuditStatement(database, options, "document.checkin_conflict", version.fileId),
+        ...scanCacheStatements,
+      ],
+      outboxMessages: [
+        {
+          topic: "document.checkin_conflict",
+          payload: {
+            fileId: version.fileId,
+            versionId: input.versionId,
+            divergedFromVersionId: checkout.baseVersionId,
+          },
+        },
+      ],
+    },
+  };
+}
+
+export interface CommitEditedVersionInput {
+  readonly fileId: FileId;
+  readonly currentR2Key: string; // the mutable `current` working object, copied into the new version
+  readonly contentSha256: string; // current's content hash (computed when it was written)
+  readonly sizeBytes: number;
+  readonly uploadedBy: UserId; // the session-owning member — the version's author and the audit actor
+}
+
+export interface CommittedEditedVersion {
+  readonly skipped: boolean;
+  readonly versionId: FileVersionId | null; // null when skipped
+  readonly effect: EffectWrite;
+}
+
+// Cuts an immutable version from the live `current` working object (the in-app editing path; there is
+// no upload session). A server-side R2 copy moves `current`'s bytes into the new version's opaque key,
+// then one batch inserts the committed version, advances the file's current pointer, meters the bytes,
+// audits, and emits the outbox event. An explicit save whose content matches the latest version is a
+// no-op — nothing is copied and no version is cut (the SHA-256 skip). copyObject is the injected
+// server-side R2 copy (current key -> version key), never a buffer through the Worker.
+export async function commitEditedVersion(
+  database: SqlDatabase,
+  input: CommitEditedVersionInput,
+  options: FileServiceOptions,
+  copyObject: (fromKey: string, toKey: string) => Promise<void>,
+): Promise<CommittedEditedVersion> {
+  const { results } = await selectCurrentVersionHashStatement(database, input.fileId).all<{
+    hash: string | null;
+  }>();
+  const currentHash = results[0]?.hash ?? null;
+  if (currentHash !== null && currentHash === input.contentSha256) {
+    return { skipped: true, versionId: null, effect: { statements: [], outboxMessages: [] } };
+  }
+
+  const { results: maxResults } = await selectMaxVersionNumberStatement(
+    database,
+    input.fileId,
+  ).all<{ n: number }>();
+  const versionNumber = (maxResults[0]?.n ?? 0) + 1;
+  const versionId = newIdentifier("fileVersion", options.randomSource);
+  const r2Key = fileVersionKey(input.fileId, versionId);
+  const now = options.clock.now();
+
+  // Move the bytes server-side BEFORE the metadata batch: if the copy fails, no row points at a
+  // missing object. The version row is inserted then immediately committed in the same atomic batch,
+  // so it is never observably pending. An in-app edit is trusted (no untrusted ingest), so the verdict
+  // is `unscanned`; the offline check-in path is what routes through the scan gate.
+  await copyObject(input.currentR2Key, r2Key);
+
+  return {
+    skipped: false,
+    versionId,
+    effect: {
+      statements: [
+        insertFileVersionStatement(database, {
+          id: versionId,
+          fileId: input.fileId,
+          versionNumber,
+          r2Key,
+          declaredContentType: null,
+          uploadedBy: input.uploadedBy,
+          createdAt: now,
+        }),
+        commitVersionStatement(database, {
+          versionId,
+          sizeBytes: input.sizeBytes,
+          sniffedContentType: null,
+          contentSha256: input.contentSha256,
+          scanVerdict: "unscanned",
+          scanEngineVersion: null,
+          scanDetail: null,
+          committedAt: now,
+        }),
+        bumpFileCurrentVersionStatement(database, input.fileId, versionId, now),
+        ...meterCommitStatements(
+          database,
+          { storageClass: "standard", artifactRole: "original", prefix: FILES_PREFIX },
+          input.sizeBytes,
+        ),
+        fileAuditStatement(database, options, "file.version_committed", versionId),
+      ],
+      outboxMessages: [
+        { topic: "file.version_committed", payload: { fileId: input.fileId, versionId } },
       ],
     },
   };
@@ -551,7 +871,33 @@ export async function assignDocumentType(
   };
 }
 
+// Soft-deletes a file: sets deleted_at and destroys the live working copy with it — the current_*
+// pointer is cleared and the file returns to idle. Returns the `current` R2 object key (or null) so the
+// caller deletes that object; the route also reaps any live editing session first. The committed
+// versions and their bytes are retained for the recovery window — only the transient working copy dies.
 export async function softDeleteFile(
+  database: SqlDatabase,
+  fileId: FileId,
+  options: FileServiceOptions,
+): Promise<{ effect: EffectWrite; currentR2Key: string | null }> {
+  const file = await requireFile(database, fileId);
+  return {
+    currentR2Key: file.currentR2Key,
+    effect: {
+      statements: [
+        softDeleteFileStatement(database, fileId, options.clock.now()),
+        clearCurrentObjectStatement(database, fileId, options.clock.now()),
+        fileAuditStatement(database, options, "file.deleted", fileId),
+      ],
+      outboxMessages: [],
+    },
+  };
+}
+
+// Undeletes a soft-deleted file: clears deleted_at so it returns to the default listing. The `current`
+// working copy re-materializes lazily from current_version_id on the next edit launch (GetFile falls
+// back to the committed version when `current` is absent), so nothing is copied here.
+export async function restoreFile(
   database: SqlDatabase,
   fileId: FileId,
   options: FileServiceOptions,
@@ -560,10 +906,106 @@ export async function softDeleteFile(
   return {
     effect: {
       statements: [
-        softDeleteFileStatement(database, fileId, options.clock.now()),
-        fileAuditStatement(database, options, "file.deleted", fileId),
+        restoreFileStatement(database, fileId, options.clock.now()),
+        fileAuditStatement(database, options, "file.restored", fileId),
       ],
       outboxMessages: [],
+    },
+  };
+}
+
+export interface RestoreVersionInput {
+  readonly fileId: FileId;
+  readonly sourceVersionId: FileVersionId; // the archived clean version to bring forward
+  readonly uploadedBy: UserId; // the actor restoring — the new version's author
+}
+
+// Restores an archived version FORWARD: copies a chosen clean version's bytes into a brand-new version
+// (version_number = max + 1) that becomes current, leaving all history untouched (no rewrite, no
+// pointer regression). The bytes move server-side (the injected copyObject: source version key -> new
+// version key), never through the Worker. A no-op when the source already matches the current content
+// (the SHA-256 skip), so restoring the live version cuts nothing. Mirrors commitEditedVersion's
+// commit/meter/audit posture, sourced from an archived version instead of the live working copy.
+export async function restoreVersion(
+  database: SqlDatabase,
+  input: RestoreVersionInput,
+  options: FileServiceOptions,
+  copyObject: (fromKey: string, toKey: string) => Promise<void>,
+): Promise<CommittedEditedVersion> {
+  const { results } = await selectCleanVersionByIdStatement(database, input.sourceVersionId).all<{
+    file_id: FileId;
+    r2_key: string;
+    content_sha256: string | null;
+    size_bytes: number | null;
+  }>();
+  const source = results[0];
+  if (source === undefined || source.file_id !== input.fileId) {
+    throw new FileManagerValidationError(
+      "unknown-version",
+      `no such clean version on this file: ${input.sourceVersionId}`,
+    );
+  }
+
+  const { results: currentResults } = await selectCurrentVersionHashStatement(
+    database,
+    input.fileId,
+  ).all<{ hash: string | null }>();
+  const currentHash = currentResults[0]?.hash ?? null;
+  if (currentHash !== null && currentHash === source.content_sha256) {
+    // The chosen version is already the current content — restoring it would cut a duplicate.
+    return { skipped: true, versionId: null, effect: { statements: [], outboxMessages: [] } };
+  }
+
+  const { results: maxResults } = await selectMaxVersionNumberStatement(
+    database,
+    input.fileId,
+  ).all<{ n: number }>();
+  const versionNumber = (maxResults[0]?.n ?? 0) + 1;
+  const versionId = newIdentifier("fileVersion", options.randomSource);
+  const r2Key = fileVersionKey(input.fileId, versionId);
+  const now = options.clock.now();
+  const sizeBytes = source.size_bytes ?? 0;
+
+  // Move the bytes server-side BEFORE the metadata batch: if the copy fails, no row points at a
+  // missing object. The restored version is a trusted in-app copy of an already-scanned version, so
+  // the verdict is `unscanned` (the offline check-in path is what routes the scan gate).
+  await copyObject(source.r2_key, r2Key);
+
+  return {
+    skipped: false,
+    versionId,
+    effect: {
+      statements: [
+        insertFileVersionStatement(database, {
+          id: versionId,
+          fileId: input.fileId,
+          versionNumber,
+          r2Key,
+          declaredContentType: null,
+          uploadedBy: input.uploadedBy,
+          createdAt: now,
+        }),
+        commitVersionStatement(database, {
+          versionId,
+          sizeBytes,
+          sniffedContentType: null,
+          contentSha256: source.content_sha256 ?? "",
+          scanVerdict: "unscanned",
+          scanEngineVersion: null,
+          scanDetail: null,
+          committedAt: now,
+        }),
+        bumpFileCurrentVersionStatement(database, input.fileId, versionId, now),
+        ...meterCommitStatements(
+          database,
+          { storageClass: "standard", artifactRole: "original", prefix: FILES_PREFIX },
+          sizeBytes,
+        ),
+        fileAuditStatement(database, options, "file.version_restored", versionId),
+      ],
+      outboxMessages: [
+        { topic: "file.version_committed", payload: { fileId: input.fileId, versionId } },
+      ],
     },
   };
 }

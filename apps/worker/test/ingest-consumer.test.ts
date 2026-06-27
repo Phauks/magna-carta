@@ -1,7 +1,7 @@
 import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import { initiateUpload } from "@magna-carta/file-manager/file-service";
+import { initiateCheckin, initiateUpload } from "@magna-carta/file-manager/file-service";
 import { listFiles } from "@magna-carta/file-manager/queries";
 import type { MalwareScanPort } from "@magna-carta/file-manager/scan-port";
 import { inspectableSizeCapDefinition } from "@magna-carta/file-manager/upload-policy";
@@ -443,6 +443,151 @@ describe("handleIngestMessage", () => {
     await firmDatabase.prepare("DELETE FROM upload_session WHERE id = ?1").bind(sessionId).run();
     await firmDatabase.prepare("DELETE FROM file_version WHERE id = ?1").bind(versionId).run();
     await firmDatabase.prepare("DELETE FROM file WHERE id = ?1").bind(fileId).run();
+  });
+});
+
+describe("handleIngestMessage — offline check-in routing", () => {
+  // A pending version carrying a checkout_id is the return leg of an offline edit: the consumer routes
+  // it through commitCheckinVersion (divergence-aware) instead of a plain commit. The bytes still pass
+  // the full ingest gate first — the routing only changes how a cleared version lands.
+
+  async function seedCleanVersion(
+    fileId: string,
+    versionNumber: number,
+    hash: string,
+  ): Promise<string> {
+    const versionId = newIdentifier("fileVersion");
+    await firmDatabase
+      .prepare(
+        "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, content_sha256, status, uploaded_by, created_at, committed_at) VALUES (?1, ?2, ?3, ?4, 10, ?5, 'clean', ?6, ?7, ?7)",
+      )
+      .bind(
+        versionId,
+        fileId,
+        versionNumber,
+        `files/${fileId}/${versionId}`,
+        hash,
+        ACTOR,
+        clock.now(),
+      )
+      .run();
+    return versionId;
+  }
+
+  async function seedCheckedOutFile(currentHash: string): Promise<{
+    fileId: string;
+    baseVersionId: string;
+    checkoutId: string;
+  }> {
+    const fileId = newIdentifier("file");
+    await firmDatabase
+      .prepare(
+        "INSERT INTO file (id, matter_id, name, created_at, updated_at) VALUES (?1, ?2, 'checkin.pdf', ?3, ?3)",
+      )
+      .bind(fileId, matterId, clock.now())
+      .run();
+    const baseVersionId = await seedCleanVersion(fileId, 1, currentHash);
+    await firmDatabase
+      .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+      .bind(fileId, baseVersionId)
+      .run();
+    const checkoutId = newIdentifier("documentCheckout");
+    await firmDatabase
+      .prepare(
+        "INSERT INTO document_checkout (id, file_id, holder_member_id, lock_type, base_version_id, acquired_at, last_activity_at, status, idle_release_at) VALUES (?1, ?2, ?3, 'offline_working_copy', ?4, ?5, ?5, 'active', NULL)",
+      )
+      .bind(checkoutId, fileId, ACTOR, baseVersionId, clock.now())
+      .run();
+    return { fileId, baseVersionId, checkoutId };
+  }
+
+  async function mintCheckin(fileId: string, checkoutId: string): Promise<string> {
+    const initiated = await initiateCheckin(
+      firmDatabase,
+      {
+        fileId: fileId as never,
+        checkoutId: checkoutId as never,
+        declaredSize: PDF_BYTES.byteLength,
+        declaredContentType: "application/pdf",
+        uploadedBy: ACTOR,
+      },
+      options,
+    );
+    await commitEffectBatch(firmDatabase, initiated.effect, { now: clock.now });
+    await env.R2.put(initiated.r2Key, PDF_BYTES);
+    return initiated.versionId;
+  }
+
+  it("fast-forwards a clean check-in: advances current and releases the checkout", async () => {
+    const { fileId, checkoutId } = await seedCheckedOutFile("seed-hash");
+    const versionId = await mintCheckin(fileId, checkoutId);
+
+    await handleIngestMessage(
+      env,
+      event(BUCKET, `files/${fileId}/${versionId}`, PDF_BYTES.byteLength),
+    );
+
+    const version = await firmDatabase
+      .prepare("SELECT status, reconciliation_status FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .first<{ status: string; reconciliation_status: string }>();
+    expect(version).toEqual({ status: "clean", reconciliation_status: "clean" });
+
+    const file = await firmDatabase
+      .prepare("SELECT current_version_id FROM file WHERE id = ?1")
+      .bind(fileId)
+      .first<{ current_version_id: string }>();
+    expect(file?.current_version_id).toBe(versionId);
+
+    const checkout = await firmDatabase
+      .prepare("SELECT status FROM document_checkout WHERE id = ?1")
+      .bind(checkoutId)
+      .first<{ status: string }>();
+    expect(checkout?.status).toBe("released");
+  });
+
+  it("conflicts a check-in whose base advanced: flags the version, leaves current untouched, sets the checkout reconciling", async () => {
+    const { fileId, baseVersionId, checkoutId } = await seedCheckedOutFile("seed-hash");
+    // current advances to v2 while the offline copy is out.
+    const v2 = await seedCleanVersion(fileId, 2, "hash-v2");
+    await firmDatabase
+      .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+      .bind(fileId, v2)
+      .run();
+    const versionId = await mintCheckin(fileId, checkoutId);
+
+    await handleIngestMessage(
+      env,
+      event(BUCKET, `files/${fileId}/${versionId}`, PDF_BYTES.byteLength),
+    );
+
+    const version = await firmDatabase
+      .prepare(
+        "SELECT status, reconciliation_status, diverged_from_version_id FROM file_version WHERE id = ?1",
+      )
+      .bind(versionId)
+      .first<{
+        status: string;
+        reconciliation_status: string;
+        diverged_from_version_id: string | null;
+      }>();
+    expect(version).toEqual({
+      status: "clean",
+      reconciliation_status: "conflict_pending",
+      diverged_from_version_id: baseVersionId,
+    });
+
+    const file = await firmDatabase
+      .prepare("SELECT current_version_id FROM file WHERE id = ?1")
+      .bind(fileId)
+      .first<{ current_version_id: string }>();
+    expect(file?.current_version_id).toBe(v2);
+
+    const checkout = await firmDatabase
+      .prepare("SELECT status FROM document_checkout WHERE id = ?1")
+      .bind(checkoutId)
+      .first<{ status: string }>();
+    expect(checkout?.status).toBe("reconciling");
   });
 });
 

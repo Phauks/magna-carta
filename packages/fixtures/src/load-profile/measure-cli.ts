@@ -35,6 +35,11 @@ import {
   CUSTOM_FIELD_PLAN_SCAN_ALLOWLIST,
 } from "./custom-field-measurements.ts";
 import {
+  editingHotPathPlans,
+  editingMeasurements,
+  EDITING_PLAN_SCAN_ALLOWLIST,
+} from "./editing-measurements.ts";
+import {
   timekeepingHotPathPlans,
   timekeepingMeasurementHandle,
   timekeepingMeasurements,
@@ -68,6 +73,7 @@ const scans = [
   ...findFullScans(directoryHotPathPlans(snapshot), DIRECTORY_PLAN_SCAN_ALLOWLIST),
   ...findFullScans(shippingHotPathPlans(snapshot), SHIPPING_PLAN_SCAN_ALLOWLIST),
   ...findFullScans(customFieldHotPathPlans(snapshot), CUSTOM_FIELD_PLAN_SCAN_ALLOWLIST),
+  ...findFullScans(editingHotPathPlans(snapshot), EDITING_PLAN_SCAN_ALLOWLIST),
   ...findFullScans(timekeepingHotPathPlans(snapshot), TIMEKEEPING_PLAN_SCAN_ALLOWLIST),
 ];
 if (scans.length > 0) {
@@ -80,7 +86,12 @@ if (scans.length > 0) {
 const results = [
   ...(await runMeasurements(
     measurementHandle(snapshot, BASELINE_SEED),
-    [...ledgerMeasurements, ...mattersMeasurements, ...shippingMeasurements],
+    [
+      ...ledgerMeasurements,
+      ...mattersMeasurements,
+      ...shippingMeasurements,
+      ...editingMeasurements,
+    ],
     { warmupIterations: 3, iterations: 30 },
   )),
   ...(await runMeasurements(

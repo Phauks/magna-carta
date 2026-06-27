@@ -34,7 +34,9 @@ export interface ResolvedZip {
 }
 // private today — Task 3 exports it:
 function disambiguate(path: string, taken: Set<string>): string;
-export async function bundleManifestHash(entries: readonly { r2Key: string; path: string }[]): Promise<string>;
+export async function bundleManifestHash(
+  entries: readonly { r2Key: string; path: string }[],
+): Promise<string>;
 ```
 
 ---
@@ -42,11 +44,13 @@ export async function bundleManifestHash(entries: readonly { r2Key: string; path
 ### Task 1: Bundle options model
 
 **Files:**
+
 - Create: `packages/file-manager/src/bundle-options.ts`
 - Test: `packages/file-manager/test/bundle-options.test.ts`
 - Modify: `packages/file-manager/package.json` (add `"./bundle-options": "./src/bundle-options.ts"` to `exports`)
 
 **Interfaces:**
+
 - Produces: `BundleFormat`, `CompressionLevel`, `BundleOptions` (type), `bundleOptionsSchema` (zod), `DEFAULT_BUNDLE_OPTIONS`, `parseBundleOptions(input: unknown): BundleOptions`.
 
 - [ ] **Step 1: Write the failing test**
@@ -90,11 +94,15 @@ describe("bundle-options", () => {
   });
 
   it("rejects a non-positive split size", () => {
-    expect(() => parseBundleOptions({ ...DEFAULT_BUNDLE_OPTIONS, split: { maxPartBytes: 0 } })).toThrow();
+    expect(() =>
+      parseBundleOptions({ ...DEFAULT_BUNDLE_OPTIONS, split: { maxPartBytes: 0 } }),
+    ).toThrow();
   });
 
   it("rejects an unknown format", () => {
-    expect(bundleOptionsSchema.safeParse({ ...DEFAULT_BUNDLE_OPTIONS, format: "rar" }).success).toBe(false);
+    expect(
+      bundleOptionsSchema.safeParse({ ...DEFAULT_BUNDLE_OPTIONS, format: "rar" }).success,
+    ).toBe(false);
   });
 });
 ```
@@ -176,11 +184,13 @@ git commit -m "feat(bundling): bundle options model + zod schema"
 ### Task 2: Format capability registry
 
 **Files:**
+
 - Create: `packages/file-manager/src/bundle-formats.ts`
 - Test: `packages/file-manager/test/bundle-formats.test.ts`
 - Modify: `packages/file-manager/package.json` (`"./bundle-formats": "./src/bundle-formats.ts"`)
 
 **Interfaces:**
+
 - Consumes: `BundleFormat`, `BundleOptions` from `./bundle-options.ts`.
 - Produces: `FormatCapabilities`, `FORMAT_CAPABILITIES`, `capabilitiesFor(format)`, `validateOptionsForFormat(options): readonly string[]` (empty = valid).
 
@@ -307,12 +317,14 @@ git commit -m "feat(bundling): format capability registry + per-format validatio
 ### Task 3: Archive-path helpers (export disambiguation, add sanitization)
 
 **Files:**
+
 - Create: `packages/file-manager/src/bundle-paths.ts`
 - Modify: `packages/file-manager/src/zip-composition.ts` (move `disambiguate` to the new module and re-import it, so both the resolver and the layout transform share one implementation)
 - Test: `packages/file-manager/test/bundle-paths.test.ts`
 - Modify: `packages/file-manager/package.json` (`"./bundle-paths": "./src/bundle-paths.ts"`)
 
 **Interfaces:**
+
 - Produces: `disambiguate(path: string, taken: Set<string>): string` (relocated), `sanitizeArchivePath(path: string): string`.
 - Consumes (by `zip-composition.ts`): `disambiguate` from `./bundle-paths.ts`.
 
@@ -382,9 +394,28 @@ export function disambiguate(path: string, taken: Set<string>): string {
 
 // Windows reserves these device names regardless of extension.
 const RESERVED_DEVICE_NAMES = new Set([
-  "CON", "PRN", "AUX", "NUL",
-  "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-  "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+  "CON",
+  "PRN",
+  "AUX",
+  "NUL",
+  "COM1",
+  "COM2",
+  "COM3",
+  "COM4",
+  "COM5",
+  "COM6",
+  "COM7",
+  "COM8",
+  "COM9",
+  "LPT1",
+  "LPT2",
+  "LPT3",
+  "LPT4",
+  "LPT5",
+  "LPT6",
+  "LPT7",
+  "LPT8",
+  "LPT9",
 ]);
 
 function sanitizeSegment(segment: string): string {
@@ -436,11 +467,13 @@ git commit -m "feat(bundling): shared archive-path helpers (disambiguate + cross
 ### Task 4: Layout transform (wrapper folder, flatten, sanitize)
 
 **Files:**
+
 - Create: `packages/file-manager/src/bundle-layout.ts`
 - Test: `packages/file-manager/test/bundle-layout.test.ts`
 - Modify: `packages/file-manager/package.json` (`"./bundle-layout": "./src/bundle-layout.ts"`)
 
 **Interfaces:**
+
 - Consumes: `ResolvedZip`, `ZipEntry` from `./zip-composition.ts`; `BundleOptions` from `./bundle-options.ts`; `disambiguate`, `sanitizeArchivePath` from `./bundle-paths.ts`.
 - Produces: `applyBundleLayout(resolved: ResolvedZip, options: Pick<BundleOptions, "layout" | "wrapperFolder">): ResolvedZip`.
 
@@ -539,9 +572,7 @@ export function applyBundleLayout(
   const entries: ZipEntry[] = resolved.entries
     .map((entry): { entry: ZipEntry; path: string } => {
       const base =
-        options.layout === "flatten"
-          ? (entry.path.split("/").pop() ?? entry.path)
-          : entry.path;
+        options.layout === "flatten" ? (entry.path.split("/").pop() ?? entry.path) : entry.path;
       return { entry, path: sanitizeArchivePath(`${wrapperPrefix}${base}`) };
     })
     .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
@@ -572,11 +603,13 @@ git commit -m "feat(bundling): layout transform (wrapper folder, flatten, saniti
 ### Task 5: CONTENTS manifest generator
 
 **Files:**
+
 - Create: `packages/file-manager/src/contents-manifest.ts`
 - Test: `packages/file-manager/test/contents-manifest.test.ts`
 - Modify: `packages/file-manager/package.json` (`"./contents-manifest": "./src/contents-manifest.ts"`)
 
 **Interfaces:**
+
 - Produces: `ManifestEntry` (`{ path: string; sizeBytes: number; sha256: string }`), `buildContentsManifest(entries: readonly ManifestEntry[]): string`.
 
 **Note:** the per-entry `sha256` comes from the already-computed `file_version` content hash (recorded at ingest), so this manifest is built from D1 metadata alone — no byte re-read. Wiring that hash through the query is a later (worker) plan; this task only needs the deterministic text generator.
@@ -656,10 +689,12 @@ git commit -m "feat(bundling): CONTENTS manifest generator"
 ### Task 6: Options-aware cache key
 
 **Files:**
+
 - Modify: `packages/file-manager/src/zip-composition.ts` (add `bundleCacheKey`)
 - Test: `packages/file-manager/test/zip-composition.test.ts` (append a `describe` block; place the new imports with the existing top-of-file imports)
 
 **Interfaces:**
+
 - Consumes: `BundleOptions` from `./bundle-options.ts`; existing `bundleManifestHash`.
 - Produces: `bundleCacheKey(entries: readonly { r2Key: string; path: string }[], options: BundleOptions): Promise<string>`.
 
@@ -681,8 +716,14 @@ describe("bundleCacheKey", () => {
   const entries = [{ r2Key: "files/f1/v1", path: "a.pdf" }];
 
   it("differs when a non-secret option differs", async () => {
-    const stored = await bundleCacheKey(entries, { ...DEFAULT_BUNDLE_OPTIONS, compression: "store" });
-    const max = await bundleCacheKey(entries, { ...DEFAULT_BUNDLE_OPTIONS, compression: "maximum" });
+    const stored = await bundleCacheKey(entries, {
+      ...DEFAULT_BUNDLE_OPTIONS,
+      compression: "store",
+    });
+    const max = await bundleCacheKey(entries, {
+      ...DEFAULT_BUNDLE_OPTIONS,
+      compression: "maximum",
+    });
     expect(stored).not.toBe(max);
   });
 

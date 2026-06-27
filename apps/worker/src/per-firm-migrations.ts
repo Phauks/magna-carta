@@ -25,6 +25,9 @@ import timeTrackingSql from "@magna-carta/database/drizzle/per-firm/0021_outgoin
 import seedToolsFileIntegritySql from "@magna-carta/database/drizzle/per-firm/0022_seed-tools-file-integrity.sql";
 import rawScanCacheSql from "@magna-carta/database/drizzle/per-firm/0023_raw_scan_cache.sql";
 import seedReleaseChannelPermissionSql from "@magna-carta/database/drizzle/per-firm/0024_seed-release-channel-permission.sql";
+import editingWorkingCopySql from "@magna-carta/database/drizzle/per-firm/0025_amusing_robbie_robertson.sql";
+import editingSweepIndexesSql from "@magna-carta/database/drizzle/per-firm/0026_needy_rage.sql";
+import idleReleaseIndexSql from "@magna-carta/database/drizzle/per-firm/0027_smart_stellaris.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -59,5 +62,8 @@ export function perFirmMigrations(): Migration[] {
     "0022_seed-tools-file-integrity": seedToolsFileIntegritySql,
     "0023_raw_scan_cache": rawScanCacheSql,
     "0024_seed-release-channel-permission": seedReleaseChannelPermissionSql,
+    "0025_amusing_robbie_robertson": editingWorkingCopySql,
+    "0026_needy_rage": editingSweepIndexesSql,
+    "0027_smart_stellaris": idleReleaseIndexSql,
   });
 }

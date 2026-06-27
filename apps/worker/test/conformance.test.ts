@@ -136,6 +136,9 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string> = {
   // customFields:* governs firm-defined fields on matter/entity records; its routes carry the
   // matter resource (the nearest tenancy root — custom fields extend matter/entity records).
   customFields: "matter",
+  // documents:* governs in-app editing of matter-rooted file objects (the same tenancy root files:*
+  // carries), so its routes carry the matter resource.
+  documents: "matter",
   // time:* governs time entries and the rate engine, all scoped to matters; the matter resource
   // is the nearest tenancy root for every time-entry mutation and read.
   time: "matter",
@@ -533,6 +536,12 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "documentTypes.deactivate",
       "documentTypes.list",
       "documentTypes.update",
+      "documents.checkin",
+      "documents.checkout",
+      "documents.editSession",
+      "documents.forceRelease",
+      "documents.reconcile",
+      "documents.viewSession",
       "downloads.bundleStatus",
       "downloads.zip",
       "fileIntegrity.hash",

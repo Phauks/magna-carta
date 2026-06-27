@@ -23,9 +23,14 @@
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"],
   },
-  // Public, non-secret config. FILES_ORIGIN is the cookieless preview host; bound here (not .dev.vars)
-  // because it is a hostname, not a credential. In production this becomes files.magnacarta.esq once
-  // the apex attaches; the placeholder value lets the Miniflare test pool exercise the host branch.
+  // Public, non-secret config. FILES_ORIGIN is the cookieless preview/download host; bound here (not
+  // .dev.vars) because it is a hostname, not a credential. In production this becomes
+  // files.magnacartausercontent.com — the SAME dedicated content domain the editor uses (a separate
+  // registrable domain from the app, so served bytes never carry an app cookie); the app worker takes a
+  // `files.magnacartausercontent.com/*` route, more specific than the editor's wildcard. The placeholder
+  // value lets the Miniflare test pool exercise the host branch. The editor half is USERCONTENT_DOMAIN
+  // (the bare content domain), which defaults to magnacartausercontent.com in code — no deploy var, prod
+  // can't forget it; only local dev overrides it.
   "vars": { "FILES_ORIGIN": "files.example.com" },
   // Real production resources (created 2026-06-09; naming convention in ADR-0075:
   // magna-carta-<environment>-<scope>[-<purpose-or-slug>]). Binding names are the code-facing
@@ -137,16 +142,15 @@
       },
     ],
   },
-  // Worker service bindings. JSONC keeps only the LAST duplicate top-level key, so both bindings MUST
-  // live in this single array — a second services key would silently drop everything in the first.
-  // SCAN_SERVICE: the malware-scan Worker. The app worker dispatches uploaded files to it for verdict.
-  // Absent in tests unless a stub resolves it (see vitest.config.ts); resolveScanPort falls back to
-  // the no-engine adapter when the service returns the unscanned verdict.
-  // CONVERT: the dedicated conversion engine worker; the app worker reaches it over this binding to
-  // call its POST /convert endpoint. Optional at deploy time — absent until the worker is deployed and
-  // wired; resolveEnginePort returns the deferred port while unbound.
+  // Worker service bindings to dedicated sibling workers. JSONC keeps only the LAST duplicate top-level
+  // key, so ALL bindings must live in this one array. Absent in tests unless stubs resolve them (see
+  // vitest.config.ts); each optional binding has a graceful fallback in production code.
+  //   SCAN_SERVICE: the malware-scan worker (resolveScanPort falls back to the no-engine adapter).
+  //   BUNDLE_SERVICE: the bundle-build worker (POST /build); the bundle lanes 503 until it is bound.
+  //   CONVERT: the conversion engine worker (resolveEnginePort returns the deferred port while unbound).
   "services": [
     { "binding": "SCAN_SERVICE", "service": "magna-carta-scan" },
+    { "binding": "BUNDLE_SERVICE", "service": "magna-carta-bundle" },
     { "binding": "CONVERT", "service": "magna-carta-convert" },
   ],
   // Browser Rendering Workers binding — used by POST /api/v1/safe-browse to render suspect URLs
@@ -156,17 +160,20 @@
   // The async bulk-download coordinator — the codebase's first Durable Object. Keyed
   // firmId:manifestHash, it single-flights one ZIP build per content-addressed file selection. The
   // class is exported from src/index.ts (a binding to a class with no export fails the deploy).
-  // FIRM_DATABASE is the per-firm SQLite-backed DO: one instance per firm (idFromName(firmId)),
-  // self-migrating on wake, and the data-plane RPC target for all per-firm SQL.
   // EVERY Durable Object binding MUST live in this one block: JSONC keeps only the last duplicate
   // top-level key, so a second "durable_objects" (or "migrations") key silently drops every binding
-  // declared above it. DURABLE_TIMER is the per-timekeeper live-timer coordinator — one instance per
+  // declared above it. DOCUMENT_SESSION (slice 2·2) coordinates one per-document editing session
+  // (participants + current working-object metadata + the WOPI session lock), SQLite-backed so its
+  // state survives the editing container sleeping. FIRM_DATABASE is the per-firm SQLite-backed DO (one
+  // instance per firm, idFromName(firmId), self-migrating on wake, the data-plane RPC target for all
+  // per-firm SQL). DURABLE_TIMER is the per-timekeeper live-timer coordinator — one instance per
   // `${firmId}:${userId}` (firm-namespaced, so a timer never holds another firm's state), holding only
   // transient live-timer state; a committed time entry flows through the data-access chokepoint into
   // the per-firm database, never the DO.
   "durable_objects": {
     "bindings": [
       { "name": "BUNDLE_COORDINATOR", "class_name": "BundleBuildCoordinator" },
+      { "name": "DOCUMENT_SESSION", "class_name": "DocumentSession" },
       // The conversion-job coordinator: keyed firmId:jobId, single-flights one conversion per job.
       { "name": "CONVERSION_JOB", "class_name": "ConversionJob" },
       { "name": "DURABLE_TIMER", "class_name": "LiveTimerDurableObject" },
@@ -176,12 +183,14 @@
     ],
   },
   // SQLite-backed DO classes are introduced through a migration tag — ONE consolidated lineage (a
-  // second "migrations" key would override this one). v1 the bulk-download + conversion-job
-  // coordinators; v2 the live-timer coordinator; v3 the per-firm database DO.
+  // second "migrations" key would override this one). Never modify an applied tag, add a new one:
+  // v1 the bulk-download + conversion-job coordinators; v2 the live-timer coordinator; v3 the per-firm
+  // database DO; v4 the editing document-session DO.
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["BundleBuildCoordinator", "ConversionJob"] },
     { "tag": "v2", "new_sqlite_classes": ["LiveTimerDurableObject"] },
     { "tag": "v3", "new_sqlite_classes": ["FirmDatabase"] },
+    { "tag": "v4", "new_sqlite_classes": ["DocumentSession"] },
   ],
   // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines
   // the telemetry Workers logger emits land here). Logpush → R2 is a deploy-time runbook step

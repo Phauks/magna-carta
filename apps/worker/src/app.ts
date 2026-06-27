@@ -27,6 +27,9 @@ import { registerMyDayRoutes } from "./routes/my-day.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerDownloadsRoutes } from "./routes/downloads.ts";
+import { registerDocumentCheckoutRoutes } from "./editing/checkout-routes.ts";
+import { registerDocumentEditingRoutes } from "./editing/edit-session-route.ts";
+import { registerWopiHostRoutes } from "./editing/wopi-host.ts";
 import { registerFilesRoutes } from "./routes/files.ts";
 import { registerScanDiagnoseRoute } from "./routes/scan-diagnose.ts";
 import { registerScanMatterRoute } from "./routes/scan-matter.ts";
@@ -64,6 +67,10 @@ export type Bindings = {
   DB_CONTROL: D1Database;
   R2: R2Bucket;
   QUEUE: Queue;
+  // The per-document editing session coordinator (one Durable Object per open file), SQLite-backed so
+  // its session state survives the editing container sleeping. Unparameterized to avoid a circular
+  // import with the DocumentSession class (which imports this Bindings type).
+  DOCUMENT_SESSION: DurableObjectNamespace;
   // The files-ingest queue binding for the interactive lane (files/ prefix).
   FILES_INGEST?: Queue;
   // The files-ingest-bulk queue binding for the bulk lane (bulk/ prefix, lower concurrency).
@@ -84,6 +91,10 @@ export type Bindings = {
   // verdict. Optional here so the pool can start without a running scan service; resolveScanPort
   // falls back to the no-engine adapter when absent or when the bound service returns unscanned.
   SCAN_SERVICE?: Fetcher;
+  // The dedicated bundle-build worker (magna-carta-bundle), reached over this service binding.
+  // Optional here so the pool can start without a running bundle worker; the bundle coordinator
+  // only calls it at build time (POST /build) and surfaces any absence as a build failure.
+  BUNDLE_SERVICE?: Fetcher;
   // The off-hot-path AI inference dispatch queue: an inference request is enqueued here and the consumer
   // (src/inference/inference-consumer.ts) runs env.AI.run, so a single firm cannot starve the shared
   // gateway cap synchronously on the request path. Distinct from QUEUE (jobs) and FILES_INGEST.
@@ -150,6 +161,11 @@ export type Bindings = {
   // unset and keep the logging adapter, so no real email is sent and no domain onboarding is required.
   SEND_EMAIL?: CloudflareEmailBinding;
   EMAIL_FROM?: string;
+  // The dedicated cookieless content domain (a separate registrable domain from the app) that serves all
+  // browser-served untrusted bytes: the editor at `<documentKey>.<USERCONTENT_DOMAIN>` and file
+  // previews/downloads at `files.<USERCONTENT_DOMAIN>`. Optional and rarely set — the production value is
+  // the code default (magnacartausercontent.com), so only local dev overrides it (e.g. to edit.localhost).
+  USERCONTENT_DOMAIN?: string;
   // The per-timekeeper live-timer Durable Object namespace (the first DO). The timer routes proxy to
   // one instance per `${firmId}:${userId}`; the stop-commit reads the DO's final state and writes the
   // time entry through the data-access chokepoint. The DO holds no business rows.
@@ -370,6 +386,15 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFoldersRoutes(app, chokepoint);
   registerFilesRoutes(app, chokepoint);
   registerDownloadsRoutes(app, chokepoint);
+  // Slice 2·2: in-app document editing — the editor-launch route that mints the WOPI access token and
+  // returns the editor URL to iframe (the WOPI host callback surface is its own token-guarded route).
+  registerDocumentEditingRoutes(app, chokepoint);
+  // Slice 2·2: the WOPI host callback surface (/wopi/files/*) — cookieless, access-token-guarded,
+  // OUTSIDE the chokepoint (the editor sends no session cookie). The editor's data plane.
+  registerWopiHostRoutes(app);
+  // Slice 2·2: offline checkout / check-in — take a working copy out and return it through the
+  // quarantine ingest, reconciling divergence as a human-reviewed conflicting copy.
+  registerDocumentCheckoutRoutes(app, chokepoint);
   // The one-off, matter-less malware-scan diagnostic — stream a file through the engine, get a verdict.
   registerScanDiagnoseRoute(app, chokepoint);
   // "Scan this matter now" — queue a background re-scan of a matter's stale files on the bulk lane.

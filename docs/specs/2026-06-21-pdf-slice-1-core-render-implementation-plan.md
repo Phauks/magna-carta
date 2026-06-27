@@ -27,6 +27,7 @@
 ### Task 1: Cargo workspace + `pdf-core` load & page count
 
 **Files:**
+
 - Create: `crates/Cargo.toml`
 - Create: `crates/pdf-core/Cargo.toml`
 - Create: `crates/pdf-core/src/lib.rs`
@@ -34,6 +35,7 @@
 - Test: in `crates/pdf-core/src/lib.rs` (`#[cfg(test)]` module)
 
 **Interfaces:**
+
 - Produces: `pdf_core::Document::load(bytes: Vec<u8>) -> Result<Document, PdfError>`; `Document::page_count(&self) -> usize`; `enum PdfError { Parse, PageOutOfRange, Render }`.
 
 - [ ] **Step 1: Create the workspace manifest** `crates/Cargo.toml`
@@ -88,10 +90,10 @@ A minimal valid single-page PDF (deterministic, hand-authored — no redistribut
 3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 612 792]/Resources<<>>>>endobj
 xref
 0 4
-0000000000 65535 f 
-0000000009 00000 n 
-0000000052 00000 n 
-0000000101 00000 n 
+0000000000 65535 f
+0000000009 00000 n
+0000000052 00000 n
+0000000101 00000 n
 trailer<</Size 4/Root 1 0 R>>
 startxref
 178
@@ -173,9 +175,11 @@ git commit -m "feat(pdf-core): cargo workspace + document load and page count"
 ### Task 2: `page_size` + `render_page`
 
 **Files:**
+
 - Modify: `crates/pdf-core/src/lib.rs`
 
 **Interfaces:**
+
 - Consumes: `Document`, `PdfError` (Task 1).
 - Produces: `Document::page_size(&self, index: usize) -> Result<PageSize, PdfError>` where `pub struct PageSize { pub width_pt: f32, pub height_pt: f32 }`; `Document::render_page(&self, index: usize, dpi: f32, encode_png: bool) -> Result<RenderedPage, PdfError>` where `pub struct RenderedPage { pub data: Vec<u8>, pub width: u32, pub height: u32, pub png: bool }` (`data` is RGBA8 unless `png`).
 
@@ -287,10 +291,12 @@ git commit -m "feat(pdf-core): page size and render-to-raster (rgba8 or png)"
 ### Task 3: WASM boundary + `wasm-pack` build
 
 **Files:**
+
 - Create: `crates/pdf-core/src/wasm.rs`
 - Modify: `crates/pdf-core/src/lib.rs` (wire the module)
 
 **Interfaces:**
+
 - Consumes: `Document`, `PageSize`, `RenderedPage`, `PdfError` (Tasks 1–2).
 - Produces (JS, via wasm-bindgen): class `PdfDocument` with `static load(bytes: Uint8Array)`, getter `pageCount`, `pageSize(index) -> PageSize`, `renderPage(index, dpi, encodePng) -> RenderedPage`, `free()`. `PageSize { widthPt, heightPt }`, `RenderedPage { data, width, height, png }`.
 
@@ -402,6 +408,7 @@ git commit -m "feat(pdf-core): wasm-bindgen boundary and wasm-pack build"
 ### Task 4: `@magna-carta/pdf` TS wrapper + JS test
 
 **Files:**
+
 - Create: `packages/pdf/package.json`
 - Create: `packages/pdf/tsconfig.json`
 - Create: `packages/pdf/src/index.ts`
@@ -410,6 +417,7 @@ git commit -m "feat(pdf-core): wasm-bindgen boundary and wasm-pack build"
 - Create: `packages/pdf/.gitignore` (`src/pkg/`)
 
 **Interfaces:**
+
 - Consumes: the wasm-pack `PdfDocument` (Task 3).
 - Produces: `loadDocument(bytes: Uint8Array): Promise<PdfDocument>` and the `PdfDocument` wrapper class with `pageCount`, `pageSize(i)`, `renderPage(i, opts?)`, `[Symbol.dispose]()` / `free()`.
 
@@ -559,6 +567,7 @@ git commit -m "feat(pdf): @magna-carta/pdf typed wrapper over the wasm core"
 ### Task 5: Re-home the regression harness as `crates/pdf-eval`
 
 **Files:**
+
 - Create: `crates/pdf-eval/Cargo.toml`
 - Create: `crates/pdf-eval/src/main.rs` (port the spike's render/parse/fidelity modes)
 - Create: `crates/pdf-eval/corpus.lock` (the manifest from the spike)
@@ -566,6 +575,7 @@ git commit -m "feat(pdf): @magna-carta/pdf typed wrapper over the wasm core"
 - Create: `crates/pdf-eval/.gitignore` (`/target/`, `/corpus/`, `/pdfium/`, `/out/`)
 
 **Interfaces:**
+
 - Consumes: `pdf-core` (native `rlib`) for a shared render path; `lopdf`/`pdf`/`pdfium-render`/`image-compare` as before.
 - Produces: a CLI with `parse <dir>`, `render <pdf> <out>`, `fidelity <dir> <pdfium.dll>`, and a new `smoke <dir>` that exits non-zero if any file fails to parse+render.
 
@@ -636,6 +646,7 @@ git commit -m "feat(pdf-eval): permanent regression harness with CI smoke gate"
 ### Task 6: `vp` + CI integration and docs
 
 **Files:**
+
 - Modify: the `vp` task config (the runner under `tooling/` or the root scripts that `vp run build-all` / `vp check` dispatch — inspect first)
 - Modify: the CI workflow under `.github/workflows/`
 - Create: `packages/pdf/README.md`
@@ -646,6 +657,7 @@ git commit -m "feat(pdf-eval): permanent regression harness with CI smoke gate"
 - Modify: `ROADMAP.md`, `STATUS.md` (own slice row only)
 
 **Interfaces:**
+
 - Consumes: everything above.
 - Produces: a green `cargo fmt --check`, `cargo clippy`, `cargo test`, `wasm-pack build`, and `pdf-eval smoke` in CI; the documentation trail (golden rule 5).
 
@@ -657,19 +669,19 @@ Expected: identify where the pnpm `check`/`test` gate runs so a Rust job can sit
 - [ ] **Step 2: Add a Rust CI job** to the workflow (mirror the existing job's triggers):
 
 ```yaml
-  rust-pdf-core:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-          targets: wasm32-unknown-unknown
-      - run: cargo fmt --manifest-path crates/Cargo.toml --check
-      - run: cargo clippy --manifest-path crates/Cargo.toml -- -D warnings
-      - run: cargo test --manifest-path crates/Cargo.toml
-      - run: cargo run --manifest-path crates/Cargo.toml -p pdf-eval --release -- smoke crates/pdf-eval/corpus-ci
-      - run: cargo install wasm-pack && wasm-pack build crates/pdf-core --target web --out-dir /tmp/pkg --release
+rust-pdf-core:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
+        targets: wasm32-unknown-unknown
+    - run: cargo fmt --manifest-path crates/Cargo.toml --check
+    - run: cargo clippy --manifest-path crates/Cargo.toml -- -D warnings
+    - run: cargo test --manifest-path crates/Cargo.toml
+    - run: cargo run --manifest-path crates/Cargo.toml -p pdf-eval --release -- smoke crates/pdf-eval/corpus-ci
+    - run: cargo install wasm-pack && wasm-pack build crates/pdf-core --target web --out-dir /tmp/pkg --release
 ```
 
 - [ ] **Step 3: Wire `vp`** — add cargo fmt/clippy/test to what `vp check` runs and the wasm build to `vp run build-all`, following the runner's existing task-definition pattern (from Step 1). Show the diff; keep the pnpm gate intact.

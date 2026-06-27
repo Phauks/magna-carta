@@ -15,10 +15,10 @@ The tool never stores a file you drop in to hash; it works on the file, shows th
 
 ## The five fingerprints
 
-| Fingerprint           | Use it for                                                                                  |
-| --------------------- | ------------------------------------------------------------------------------------------- |
-| **SHA-256**           | The primary, recommended fingerprint. This is the one Magna Carta records and compares against. |
-| **SHA-384 / SHA-512** | Stronger variants, when a recipient specifically asks for them.                             |
+| Fingerprint           | Use it for                                                                                                                                                                                                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **SHA-256**           | The primary, recommended fingerprint. This is the one Magna Carta records and compares against.                                                                                                                                                                          |
+| **SHA-384 / SHA-512** | Stronger variants, when a recipient specifically asks for them.                                                                                                                                                                                                          |
 | **MD5 / SHA-1**       | Older fingerprints, kept for compatibility — many e-discovery load files and opposing-party tools still require them. They are fine for matching and identification but are **not** secure against deliberate tampering; rely on SHA-256 when integrity is what matters. |
 
 All five are produced from a single read of the file, so asking for every fingerprint costs no more than asking for one.
@@ -51,7 +51,7 @@ All five are produced from a single read of the file, so asking for every finger
 ## Tips and edge cases
 
 - **A "mismatch" is significant.** It means the file's bytes are not what they were when the file entered Magna Carta. This is exactly what integrity verification exists to catch. Do not produce or rely on a mismatched file until you understand why it changed.
-- **MD5 and SHA-1 are for compatibility, not security.** Use them when another system requires them. When you need to *prove* integrity, use SHA-256.
+- **MD5 and SHA-1 are for compatibility, not security.** Use them when another system requires them. When you need to _prove_ integrity, use SHA-256.
 - **"No baseline" is not a failure.** It simply means the file has no recorded fingerprint to compare against — most often because it was very large and skipped automatic inspection when it came in. The tool still gives you its current fingerprints.
 - **Verification is part of the record.** Each time you verify a stored file, Magna Carta keeps a permanent entry of who ran the check and what the result was — without ever storing the file's contents. The receipt is your portable copy of that entry.
 - **Very large files.** Verifying an extremely large stored file is refused with a clear message rather than running indefinitely.

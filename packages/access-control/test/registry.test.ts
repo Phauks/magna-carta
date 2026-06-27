@@ -106,6 +106,15 @@ describe("permission registry", () => {
     ]);
   });
 
+  it("permissionsForNamespace('documents') returns exactly the documents keys, in registry order", () => {
+    expect(permissionsForNamespace("documents")).toEqual([
+      "documents:edit",
+      "documents:checkout",
+      "documents:forceReleaseLock",
+      "documents:reconcile",
+    ]);
+  });
+
   it("permissionsForNamespace returns an empty list for an unknown namespace", () => {
     // 'matter' (singular) is NOT the matters namespace — the keys live under 'matters'.
     expect(permissionsForNamespace("matter")).toEqual([]);

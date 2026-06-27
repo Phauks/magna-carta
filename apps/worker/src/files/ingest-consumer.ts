@@ -1,5 +1,6 @@
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import {
+  commitCheckinVersion,
   commitVersion,
   loadPendingVersionForIngest,
   quarantineVersion,
@@ -118,24 +119,30 @@ export async function handleIngestMessage(
     now,
     effect: async () => {
       if (outcome.kind === "commit") {
-        const result = await commitVersion(
-          firmDatabase,
-          {
-            versionId: pending.id,
-            sizeBytes: outcome.sizeBytes,
-            sniffedContentType: outcome.sniffedContentType,
-            contentSha256: outcome.contentSha256,
-            scanVerdict: outcome.scanVerdict,
-            scanEngineVersion: outcome.scanEngineVersion,
-            scanDetail: outcome.scanDetail,
-            now: now(),
-            // Carry the raw scan result into the commit so a clean commit repopulates the content-dedup
-            // cache atomically — the cache key derives from this result's engineVersion, the same source
-            // as scanEngineVersion above, so the scan-once dedup is keyed by the engine that just ran.
-            rawScanResult: outcome.rawScanResult,
-          },
-          options,
-        );
+        const commitInput = {
+          versionId: pending.id,
+          sizeBytes: outcome.sizeBytes,
+          sniffedContentType: outcome.sniffedContentType,
+          contentSha256: outcome.contentSha256,
+          scanVerdict: outcome.scanVerdict,
+          scanEngineVersion: outcome.scanEngineVersion,
+          scanDetail: outcome.scanDetail,
+          now: now(),
+          // Carry the raw scan result into the commit so a clean commit repopulates the content-dedup
+          // cache atomically — the cache key derives from this result's engineVersion, the same source
+          // as scanEngineVersion above, so the scan-once dedup is keyed by the engine that just ran.
+          rawScanResult: outcome.rawScanResult,
+        };
+        // The return leg of an offline checkout (checkout_id set) reconciles against current —
+        // fast-forward or a flagged conflicting copy. A plain upload commits straight through.
+        const result =
+          pending.checkoutId !== null
+            ? await commitCheckinVersion(
+                firmDatabase,
+                { ...commitInput, checkoutId: pending.checkoutId },
+                options,
+              )
+            : await commitVersion(firmDatabase, commitInput, options);
         return {
           write: result.effect,
           responseCode: 200,
