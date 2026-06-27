@@ -32,6 +32,9 @@ futures-util = { version = "0.3", default-features = false, features = ["std"] }
 tokio-util = { version = "0.7", features = ["io"] }
 tempfile = "3"
 base64 = "0.22"
+# Epoch → ZIP DateTime conversion (zip's `time` feature re-exports it; an explicit dep keeps the helper
+# readable).
+time = "0.3"
 
 [dev-dependencies]
 # Local R2 stub + client for the handler/encoder tests.
