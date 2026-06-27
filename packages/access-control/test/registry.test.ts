@@ -103,6 +103,7 @@ describe("permission registry", () => {
       "tools:fileConverter",
       "tools:metadataScrubber",
       "tools:fileIntegrity",
+      "tools:fileTypeVerifier",
     ]);
   });
 
