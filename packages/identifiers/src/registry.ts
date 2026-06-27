@@ -78,6 +78,9 @@ export const ENTITY_PREFIXES = {
   customField: "customField",
   picklistOption: "picklistOption",
   customFieldValue: "customFieldValue",
+  // In-app editing — a document checkout: an offline-working-copy claim or an opt-in exclusive lock on
+  // a file, tracked through acquisition, staleness, release, and reconciliation.
+  documentCheckout: "documentCheckout",
   // Time tracking, WIP & the rate engine. `timeEntry` is one captured unit of time (the WIP store);
   // `rateCard`/`rate` are the effective-dated rate versions; `utbmsCode` is one ABA UTBMS catalog
   // entry; `nonBillableCategory` classifies non-billable internal time; `narrativeTemplate` is a

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "323736ac-9b91-4d45-bfba-c43be5528ddb",
+  "id": "2e1cc29c-dc8a-4744-866e-409d411eb1ee",
   "prevId": "a67ff93b-0c4a-4e8c-990b-ebfd6175cd25",
   "tables": {
     "account_balance": {
@@ -127,214 +127,6 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
-    },
-    "cost_entry": {
-      "name": "cost_entry",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "vendor_id": {
-          "name": "vendor_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "incurred_date": {
-          "name": "incurred_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "amount_minor": {
-          "name": "amount_minor",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "currency": {
-          "name": "currency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "disbursement_class": {
-          "name": "disbursement_class",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "billable": {
-          "name": "billable",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "utbms_expense_code_id": {
-          "name": "utbms_expense_code_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "''"
-        },
-        "receipt_file_id": {
-          "name": "receipt_file_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "kick_back_reason": {
-          "name": "kick_back_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "source": {
-          "name": "source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "recovery_category": {
-          "name": "recovery_category",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "recovery_ref": {
-          "name": "recovery_ref",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "invoice_id": {
-          "name": "invoice_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "cost_entry_matter_status_index": {
-          "name": "cost_entry_matter_status_index",
-          "columns": ["matter_id", "status"],
-          "isUnique": false
-        },
-        "cost_entry_status_incurred_date_index": {
-          "name": "cost_entry_status_incurred_date_index",
-          "columns": ["status", "incurred_date"],
-          "isUnique": false
-        },
-        "cost_entry_recovery_ref_unique": {
-          "name": "cost_entry_recovery_ref_unique",
-          "columns": ["recovery_ref"],
-          "isUnique": true,
-          "where": "\"cost_entry\".\"recovery_ref\" IS NOT NULL"
-        }
-      },
-      "foreignKeys": {
-        "cost_entry_matter_id_matter_id_fk": {
-          "name": "cost_entry_matter_id_matter_id_fk",
-          "tableFrom": "cost_entry",
-          "tableTo": "matter",
-          "columnsFrom": ["matter_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "cost_entry_utbms_expense_code_id_utbms_code_id_fk": {
-          "name": "cost_entry_utbms_expense_code_id_utbms_code_id_fk",
-          "tableFrom": "cost_entry",
-          "tableTo": "utbms_code",
-          "columnsFrom": ["utbms_expense_code_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "cost_entry_disbursement_class_check": {
-          "name": "cost_entry_disbursement_class_check",
-          "value": "\"cost_entry\".\"disbursement_class\" IN ('hard','soft')"
-        },
-        "cost_entry_status_check": {
-          "name": "cost_entry_status_check",
-          "value": "\"cost_entry\".\"status\" IN ('draft','submitted','approved','billed','void')"
-        },
-        "cost_entry_source_check": {
-          "name": "cost_entry_source_check",
-          "value": "\"cost_entry\".\"source\" IN ('manual','grid','recovery')"
-        },
-        "cost_entry_billable_check": {
-          "name": "cost_entry_billable_check",
-          "value": "\"cost_entry\".\"billable\" IN (0,1)"
-        },
-        "cost_entry_currency_check": {
-          "name": "cost_entry_currency_check",
-          "value": "\"cost_entry\".\"currency\" IN ('USD')"
-        }
-      }
     },
     "custom_field": {
       "name": "custom_field",
@@ -1731,6 +1523,128 @@
         }
       }
     },
+    "document_checkout": {
+      "name": "document_checkout",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "file_id": {
+          "name": "file_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "holder_member_id": {
+          "name": "holder_member_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "lock_type": {
+          "name": "lock_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "base_version_id": {
+          "name": "base_version_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "acquired_at": {
+          "name": "acquired_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "last_activity_at": {
+          "name": "last_activity_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'active'"
+        },
+        "idle_release_at": {
+          "name": "idle_release_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "document_checkout_file_id_index": {
+          "name": "document_checkout_file_id_index",
+          "columns": ["file_id"],
+          "isUnique": false
+        },
+        "document_checkout_holder_member_id_index": {
+          "name": "document_checkout_holder_member_id_index",
+          "columns": ["holder_member_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "document_checkout_file_id_file_id_fk": {
+          "name": "document_checkout_file_id_file_id_fk",
+          "tableFrom": "document_checkout",
+          "tableTo": "file",
+          "columnsFrom": ["file_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "document_checkout_holder_member_id_member_user_id_fk": {
+          "name": "document_checkout_holder_member_id_member_user_id_fk",
+          "tableFrom": "document_checkout",
+          "tableTo": "member",
+          "columnsFrom": ["holder_member_id"],
+          "columnsTo": ["user_id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "document_checkout_base_version_id_file_version_id_fk": {
+          "name": "document_checkout_base_version_id_file_version_id_fk",
+          "tableFrom": "document_checkout",
+          "tableTo": "file_version",
+          "columnsFrom": ["base_version_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "document_checkout_lock_type_check": {
+          "name": "document_checkout_lock_type_check",
+          "value": "\"document_checkout\".\"lock_type\" IN ('exclusive', 'offline_working_copy')"
+        },
+        "document_checkout_status_check": {
+          "name": "document_checkout_status_check",
+          "value": "\"document_checkout\".\"status\" IN ('active', 'stale', 'released', 'reconciling')"
+        }
+      }
+    },
     "document_type": {
       "name": "document_type",
       "columns": {
@@ -1904,6 +1818,42 @@
           "notNull": false,
           "autoincrement": false
         },
+        "current_r2_key": {
+          "name": "current_r2_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "current_sha256": {
+          "name": "current_sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "current_size_bytes": {
+          "name": "current_size_bytes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "current_wopi_timestamp": {
+          "name": "current_wopi_timestamp",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "edit_state": {
+          "name": "edit_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'idle'"
+        },
         "deleted_at": {
           "name": "deleted_at",
           "type": "text",
@@ -1982,6 +1932,10 @@
         "file_name_nonempty_check": {
           "name": "file_name_nonempty_check",
           "value": "length(\"file\".\"name\") > 0"
+        },
+        "file_edit_state_check": {
+          "name": "file_edit_state_check",
+          "value": "\"file\".\"edit_state\" IN ('idle', 'coediting', 'checked_out')"
         }
       }
     },
@@ -2119,6 +2073,28 @@
           "notNull": false,
           "autoincrement": false
         },
+        "reconciliation_status": {
+          "name": "reconciliation_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'clean'"
+        },
+        "diverged_from_version_id": {
+          "name": "diverged_from_version_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "checkout_id": {
+          "name": "checkout_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -2160,6 +2136,24 @@
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
+        },
+        "file_version_diverged_from_version_id_file_version_id_fk": {
+          "name": "file_version_diverged_from_version_id_file_version_id_fk",
+          "tableFrom": "file_version",
+          "tableTo": "file_version",
+          "columnsFrom": ["diverged_from_version_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "file_version_checkout_id_document_checkout_id_fk": {
+          "name": "file_version_checkout_id_document_checkout_id_fk",
+          "tableFrom": "file_version",
+          "tableTo": "document_checkout",
+          "columnsFrom": ["checkout_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -2184,6 +2178,10 @@
         "file_version_status_check": {
           "name": "file_version_status_check",
           "value": "\"file_version\".\"status\" IN ('pending', 'clean', 'quarantined', 'abandoned')"
+        },
+        "file_version_reconciliation_status_check": {
+          "name": "file_version_reconciliation_status_check",
+          "value": "\"file_version\".\"reconciliation_status\" IN ('clean', 'conflict_pending', 'reconciled')"
         },
         "file_version_size_bytes_nonneg_check": {
           "name": "file_version_size_bytes_nonneg_check",
@@ -3077,14 +3075,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "e_billing": {
-          "name": "e_billing",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
         "matter_number": {
           "name": "matter_number",
           "type": "text",
@@ -3190,10 +3180,6 @@
         "matter_title_nonempty_check": {
           "name": "matter_title_nonempty_check",
           "value": "length(\"matter\".\"title\") > 0"
-        },
-        "matter_e_billing_check": {
-          "name": "matter_e_billing_check",
-          "value": "\"matter\".\"e_billing\" IN (0, 1)"
         }
       }
     },
@@ -3568,131 +3554,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "narrative_template": {
-      "name": "narrative_template",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "utbms_task_code_id": {
-          "name": "utbms_task_code_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "narrative_template": {
-          "name": "narrative_template",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "default_rate_e4": {
-          "name": "default_rate_e4",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "archived_at": {
-          "name": "archived_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "narrative_template_utbms_task_code_index": {
-          "name": "narrative_template_utbms_task_code_index",
-          "columns": ["utbms_task_code_id"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "narrative_template_utbms_task_code_id_utbms_code_id_fk": {
-          "name": "narrative_template_utbms_task_code_id_utbms_code_id_fk",
-          "tableFrom": "narrative_template",
-          "tableTo": "utbms_code",
-          "columnsFrom": ["utbms_task_code_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "non_billable_category": {
-      "name": "non_billable_category",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "archived_at": {
-          "name": "archived_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "non_billable_category_name_nonempty_check": {
-          "name": "non_billable_category_name_nonempty_check",
-          "value": "length(\"non_billable_category\".\"name\") > 0"
-        }
-      }
-    },
     "numbering_scheme": {
       "name": "numbering_scheme",
       "columns": {
@@ -3872,160 +3733,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "rate": {
-      "name": "rate",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "rate_card_id": {
-          "name": "rate_card_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "tier": {
-          "name": "tier",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "scoped_id": {
-          "name": "scoped_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "rate_e4": {
-          "name": "rate_e4",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "currency": {
-          "name": "currency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "valid_from": {
-          "name": "valid_from",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "valid_to": {
-          "name": "valid_to",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "rate_open_row_unique_index": {
-          "name": "rate_open_row_unique_index",
-          "columns": ["rate_card_id", "tier", "scoped_id"],
-          "isUnique": true,
-          "where": "\"rate\".\"valid_to\" IS NULL"
-        },
-        "rate_resolution_index": {
-          "name": "rate_resolution_index",
-          "columns": ["rate_card_id", "tier", "scoped_id", "valid_from"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "rate_rate_card_id_rate_card_id_fk": {
-          "name": "rate_rate_card_id_rate_card_id_fk",
-          "tableFrom": "rate",
-          "tableTo": "rate_card",
-          "columnsFrom": ["rate_card_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "rate_tier_check": {
-          "name": "rate_tier_check",
-          "value": "\"rate\".\"tier\" IN ('matter', 'client', 'timekeeper', 'role')"
-        },
-        "rate_currency_check": {
-          "name": "rate_currency_check",
-          "value": "\"rate\".\"currency\" IN ('USD')"
-        }
-      }
-    },
-    "rate_card": {
-      "name": "rate_card",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "archived_at": {
-          "name": "archived_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "rate_card_name_nonempty_check": {
-          "name": "rate_card_name_nonempty_check",
-          "value": "length(\"rate_card\".\"name\") > 0"
-        }
-      }
-    },
     "role": {
       "name": "role",
       "columns": {
@@ -4162,61 +3869,6 @@
         "scan_cache_verdict_check": {
           "name": "scan_cache_verdict_check",
           "value": "\"scan_cache\".\"verdict\" IN ('clean', 'infected')"
-        }
-      }
-    },
-    "scoped_setting": {
-      "name": "scoped_setting",
-      "columns": {
-        "key": {
-          "name": "key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "scope_tier": {
-          "name": "scope_tier",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "scoped_id": {
-          "name": "scoped_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "value": {
-          "name": "value",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "scoped_setting_key_scope_tier_scoped_id_pk": {
-          "columns": ["key", "scope_tier", "scoped_id"],
-          "name": "scoped_setting_key_scope_tier_scoped_id_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "scoped_setting_scope_tier_check": {
-          "name": "scoped_setting_scope_tier_check",
-          "value": "\"scoped_setting\".\"scope_tier\" IN ('matter', 'client', 'user', 'location', 'firm')"
         }
       }
     },
@@ -4537,286 +4189,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "time_entry": {
-      "name": "time_entry",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matter_id": {
-          "name": "matter_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "timekeeper_user_id": {
-          "name": "timekeeper_user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "work_date": {
-          "name": "work_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "duration_minutes": {
-          "name": "duration_minutes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "raw_duration_minutes": {
-          "name": "raw_duration_minutes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "narrative": {
-          "name": "narrative",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "billable": {
-          "name": "billable",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "non_billable_category_id": {
-          "name": "non_billable_category_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "currency": {
-          "name": "currency",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "rate_e4": {
-          "name": "rate_e4",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "rate_card_id": {
-          "name": "rate_card_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "rate_source": {
-          "name": "rate_source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "amount_minor": {
-          "name": "amount_minor",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "utbms_task_code_id": {
-          "name": "utbms_task_code_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "utbms_activity_code_id": {
-          "name": "utbms_activity_code_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "source": {
-          "name": "source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "live_run_id": {
-          "name": "live_run_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "invoice_id": {
-          "name": "invoice_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "kick_back_reason": {
-          "name": "kick_back_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "time_entry_timekeeper_work_date_index": {
-          "name": "time_entry_timekeeper_work_date_index",
-          "columns": ["timekeeper_user_id", "work_date"],
-          "isUnique": false
-        },
-        "time_entry_matter_status_index": {
-          "name": "time_entry_matter_status_index",
-          "columns": ["matter_id", "status"],
-          "isUnique": false
-        },
-        "time_entry_status_work_date_index": {
-          "name": "time_entry_status_work_date_index",
-          "columns": ["status", "work_date"],
-          "isUnique": false
-        },
-        "time_entry_live_run_id_unique_index": {
-          "name": "time_entry_live_run_id_unique_index",
-          "columns": ["live_run_id"],
-          "isUnique": true,
-          "where": "\"time_entry\".\"live_run_id\" IS NOT NULL"
-        }
-      },
-      "foreignKeys": {
-        "time_entry_matter_id_matter_id_fk": {
-          "name": "time_entry_matter_id_matter_id_fk",
-          "tableFrom": "time_entry",
-          "tableTo": "matter",
-          "columnsFrom": ["matter_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "time_entry_timekeeper_user_id_member_user_id_fk": {
-          "name": "time_entry_timekeeper_user_id_member_user_id_fk",
-          "tableFrom": "time_entry",
-          "tableTo": "member",
-          "columnsFrom": ["timekeeper_user_id"],
-          "columnsTo": ["user_id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "time_entry_non_billable_category_id_non_billable_category_id_fk": {
-          "name": "time_entry_non_billable_category_id_non_billable_category_id_fk",
-          "tableFrom": "time_entry",
-          "tableTo": "non_billable_category",
-          "columnsFrom": ["non_billable_category_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "time_entry_rate_card_id_rate_card_id_fk": {
-          "name": "time_entry_rate_card_id_rate_card_id_fk",
-          "tableFrom": "time_entry",
-          "tableTo": "rate_card",
-          "columnsFrom": ["rate_card_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "time_entry_utbms_task_code_id_utbms_code_id_fk": {
-          "name": "time_entry_utbms_task_code_id_utbms_code_id_fk",
-          "tableFrom": "time_entry",
-          "tableTo": "utbms_code",
-          "columnsFrom": ["utbms_task_code_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "time_entry_utbms_activity_code_id_utbms_code_id_fk": {
-          "name": "time_entry_utbms_activity_code_id_utbms_code_id_fk",
-          "tableFrom": "time_entry",
-          "tableTo": "utbms_code",
-          "columnsFrom": ["utbms_activity_code_id"],
-          "columnsTo": ["id"],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "time_entry_billable_check": {
-          "name": "time_entry_billable_check",
-          "value": "\"time_entry\".\"billable\" IN (0, 1)"
-        },
-        "time_entry_status_check": {
-          "name": "time_entry_status_check",
-          "value": "\"time_entry\".\"status\" IN ('draft', 'submitted', 'approved', 'billed', 'void')"
-        },
-        "time_entry_source_check": {
-          "name": "time_entry_source_check",
-          "value": "\"time_entry\".\"source\" IN ('timer', 'manual', 'quick_add', 'grid', 'offline_sync', 'calendar')"
-        },
-        "time_entry_rate_source_check": {
-          "name": "time_entry_rate_source_check",
-          "value": "\"time_entry\".\"rate_source\" IS NULL OR \"time_entry\".\"rate_source\" IN ('override', 'matter', 'client', 'timekeeper', 'role', 'card_default')"
-        },
-        "time_entry_currency_check": {
-          "name": "time_entry_currency_check",
-          "value": "\"time_entry\".\"currency\" IN ('USD')"
-        },
-        "time_entry_amount_paired_null_check": {
-          "name": "time_entry_amount_paired_null_check",
-          "value": "(\"time_entry\".\"amount_minor\" IS NULL) = (\"time_entry\".\"rate_e4\" IS NULL)"
-        }
-      }
-    },
     "token_usage_meter": {
       "name": "token_usage_meter",
       "columns": {
@@ -5051,74 +4423,6 @@
         "upload_session_status_check": {
           "name": "upload_session_status_check",
           "value": "\"upload_session\".\"status\" IN ('open', 'completed', 'aborted', 'expired')"
-        }
-      }
-    },
-    "utbms_code": {
-      "name": "utbms_code",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "code_set": {
-          "name": "code_set",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "code": {
-          "name": "code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "label": {
-          "name": "label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "practice_area": {
-          "name": "practice_area",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "active": {
-          "name": "active",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 1
-        }
-      },
-      "indexes": {
-        "utbms_code_code_set_code_unique": {
-          "name": "utbms_code_code_set_code_unique",
-          "columns": ["code_set", "code"],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "utbms_code_set_check": {
-          "name": "utbms_code_set_check",
-          "value": "\"utbms_code\".\"code_set\" IN ('task', 'activity', 'expense')"
-        },
-        "utbms_code_active_check": {
-          "name": "utbms_code_active_check",
-          "value": "\"utbms_code\".\"active\" IN (0, 1)"
         }
       }
     }

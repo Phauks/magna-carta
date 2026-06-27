@@ -51,9 +51,26 @@ export default defineConfig({
       // Build the whole app in dependency order: the SPA first, then (later) the worker that serves apps/web/build.
       // Named `build-all` (not `build`) so it does not collide with the root package.json `build` script.
       // The command builds every app package (filter excludes the root, which has no buildable entry); `dependsOn` uses the cross-package `package#task` notation to force apps/web's build first.
+      // Also depends on rust-wasm-build so the WASM artefact in packages/pdf/src/pkg is current before the SPA bundles it.
       "build-all": {
         command: 'vp run --filter "./apps/*" build',
-        dependsOn: ["@magna-carta/web#build"],
+        dependsOn: ["@magna-carta/web#build", "rust-wasm-build"],
+      },
+      // Rust quality gate: fmt + clippy + unit tests for the crates/ workspace.
+      // Run via `vp run rust-check`; also wired into the root `check` script so `pnpm check` covers Rust.
+      // --all is required for cargo fmt to discover targets when --manifest-path points at a workspace root.
+      "rust-check": {
+        command:
+          "cargo fmt --manifest-path crates/Cargo.toml --all --check && cargo clippy --manifest-path crates/Cargo.toml --all-targets -- -D warnings && cargo test --manifest-path crates/Cargo.toml",
+      },
+      // Build the pdf-core WASM artefact into packages/pdf/src/pkg.
+      // --no-opt: wasm-opt is not required (and may not be installed); the artefact is semantically correct.
+      // The output directory matches the import path used by packages/pdf/src/index.ts.
+      // wasm-pack resolves --out-dir relative to the crate directory (crates/pdf-core/), so the correct
+      // relative path from there to packages/pdf/src/pkg is ../../packages/pdf/src/pkg.
+      "rust-wasm-build": {
+        command:
+          "wasm-pack build crates/pdf-core --target web --out-dir ../../packages/pdf/src/pkg --release --no-opt",
       },
       // The worker serves apps/web/build, so its build and dev both depend on the SPA build (cross-package package#task notation).
       // Named worker-build / worker-dev (not build / dev) so they do not collide with the root package.json build / dev scripts.

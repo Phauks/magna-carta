@@ -1,4 +1,60 @@
+use serde::{Deserialize, Serialize};
 use yara_x::{Compiler, Rules, Scanner};
+
+/// Per-rule metadata baked beside the compiled blob: the rule's Forge tier, its `score` meta, and whether
+/// it is a heuristic `_SUSP_` rule. The runtime looks this up by rule id to enrich a bare yara match into a
+/// fact the app can gate against a firm's policy — the container itself no longer decides a verdict.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RuleMeta {
+    pub tier: crate::forge::Tier,
+    pub score: i32,
+    pub is_suspicious: bool,
+}
+
+pub type SideMap = std::collections::HashMap<String, RuleMeta>;
+
+/// A single yara match enriched with its baked metadata. Serialized into the raw scan response.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct RuleMatch {
+    #[serde(rename = "ruleId")]
+    pub rule_id: String,
+    pub tier: crate::forge::Tier,
+    pub score: i32,
+    #[serde(rename = "isSuspicious")]
+    pub is_suspicious: bool,
+}
+
+pub fn serialize_side_map(map: &SideMap) -> Vec<u8> {
+    serde_json::to_vec(map).expect("a side map of plain data always serializes")
+}
+
+pub fn deserialize_side_map(bytes: &[u8]) -> Result<SideMap, String> {
+    serde_json::from_slice(bytes).map_err(|error| format!("cannot deserialize rule side map: {error}"))
+}
+
+/// Enriches bare matched rule ids with their baked metadata. An id missing from the map (a blob/side-map
+/// mismatch — should never happen, both are built together) fails safe toward flagging: `Tier::Core`,
+/// score 0, not suspicious. Core has the narrowest tier rank (0), so it is within every firm policy,
+/// meaning an unmapped match always counts and is never silently dropped. The fallback should never fire
+/// because the rule blob and side-map are built in the same step; if it ever does, the match must count.
+pub fn enrich_matches(ids: Vec<String>, map: &SideMap) -> Vec<RuleMatch> {
+    ids.into_iter()
+        .map(|rule_id| match map.get(&rule_id) {
+            Some(meta) => RuleMatch {
+                rule_id,
+                tier: meta.tier,
+                score: meta.score,
+                is_suspicious: meta.is_suspicious,
+            },
+            None => RuleMatch {
+                rule_id,
+                tier: crate::forge::Tier::Core,
+                score: 0,
+                is_suspicious: false,
+            },
+        })
+        .collect()
+}
 
 /// The engine-code component of the composite engine version. Bump this constant whenever the Rust
 /// crate's scan logic changes in a way that could alter verdicts — a bump causes re-scans across the
@@ -108,7 +164,10 @@ pub fn yara_scan(rules: &Rules, bytes: &[u8]) -> Result<Vec<String>, YaraScanFau
 
 #[cfg(test)]
 mod tests {
-    use super::{build_rules, compile_tolerant, deserialize_rules, yara_scan};
+    use super::{
+        build_rules, compile_tolerant, deserialize_rules, deserialize_side_map, enrich_matches,
+        serialize_side_map, yara_scan, RuleMeta, RuleMatch,
+    };
 
     const TRIVIAL_RULE: &str = r#"rule t { strings: $a = "malicious" condition: $a }"#;
 
@@ -155,5 +214,56 @@ mod tests {
         assert!(yara_scan(&rules, b"this is perfectly fine")
             .expect("scan ok")
             .is_empty());
+    }
+
+    #[test]
+    fn enriches_matches_from_the_side_map() {
+        use crate::forge::Tier;
+        let mut map = std::collections::HashMap::new();
+        map.insert(
+            "Known_Rule".to_string(),
+            RuleMeta {
+                tier: Tier::Core,
+                score: 90,
+                is_suspicious: false,
+            },
+        );
+        let enriched = enrich_matches(vec!["Known_Rule".into(), "Unknown_Rule".into()], &map);
+        assert_eq!(
+            enriched[0],
+            RuleMatch {
+                rule_id: "Known_Rule".into(),
+                tier: Tier::Core,
+                score: 90,
+                is_suspicious: false,
+            }
+        );
+        // An unmapped match fails safe toward flagging: Core tier (rank 0, always within any firm
+        // policy), score 0, not suspicious — the match always counts and is never silently dropped.
+        assert_eq!(
+            enriched[1],
+            RuleMatch {
+                rule_id: "Unknown_Rule".into(),
+                tier: Tier::Core,
+                score: 0,
+                is_suspicious: false,
+            }
+        );
+    }
+
+    #[test]
+    fn side_map_round_trips_through_serialization() {
+        use crate::forge::Tier;
+        let mut map = std::collections::HashMap::new();
+        map.insert(
+            "R".to_string(),
+            RuleMeta {
+                tier: Tier::Extended,
+                score: 75,
+                is_suspicious: true,
+            },
+        );
+        let restored = deserialize_side_map(&serialize_side_map(&map)).unwrap();
+        assert_eq!(restored, map);
     }
 }

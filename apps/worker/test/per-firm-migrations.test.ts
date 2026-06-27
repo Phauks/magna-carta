@@ -1,18 +1,24 @@
 import { env } from "cloudflare:test";
 import { beforeAll, expect, it } from "vitest";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { newIdentifier } from "@magna-carta/identifiers/generate";
+import {
+  firmDatabaseFor,
+  type ProxyBatchDatabase,
+} from "../src/firm-database/firm-database-proxy.ts";
 
 // Migration fitness test: a freshly migrated per-firm database carries the expected tables and
 // structural invariants. Each `it` that exercises a migration milestone is independent — all tests
 // share one migrated database (applied once in beforeAll) and assert against sqlite_master.
 
+let testDatabase: ProxyBatchDatabase;
+
 beforeAll(async () => {
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
+  // The DO self-migrates the per-firm schema on first access — no explicit migration call needed.
+  testDatabase = firmDatabaseFor(env.FIRM_DATABASE, newIdentifier("firm"));
 });
 
 it("applies 0012 and creates the custom-fields tables", async () => {
-  const db = env.DB_FIRM_POOL_1;
-  const tables = await db
+  const tables = await testDatabase
     .prepare(
       "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('custom_field','picklist_option','custom_field_value')",
     )
@@ -22,7 +28,7 @@ it("applies 0012 and creates the custom-fields tables", async () => {
     "custom_field_value",
     "picklist_option",
   ]);
-  const idx = await db
+  const idx = await testDatabase
     .prepare(
       "SELECT name FROM sqlite_master WHERE type='index' AND name='custom_field_value_current_unique_index'",
     )
@@ -31,7 +37,7 @@ it("applies 0012 and creates the custom-fields tables", async () => {
 });
 
 it("applies 0016 and creates the time-tracking tables", async () => {
-  const db = env.DB_FIRM_POOL_1;
+  const db = testDatabase;
   const tables = await db
     .prepare(
       "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('time_entry','rate_card','rate','utbms_code','non_billable_category','narrative_template')",
@@ -48,7 +54,7 @@ it("applies 0016 and creates the time-tracking tables", async () => {
 });
 
 it("0016 enforces the time_entry status and source CHECK enums", async () => {
-  const db = env.DB_FIRM_POOL_1;
+  const db = testDatabase;
   const ddl = await db
     .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='time_entry'")
     .all<{ sql: string }>();
@@ -64,19 +70,23 @@ it("0016 enforces the time_entry status and source CHECK enums", async () => {
 });
 
 it("0016 ties amount_minor to rate_e4 by a paired-null CHECK", async () => {
-  const db = env.DB_FIRM_POOL_1;
+  const db = testDatabase;
   const ddl = await db
     .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='time_entry'")
     .all<{ sql: string }>();
   const sql = ddl.results[0]?.sql ?? "";
   // amount_minor is non-null exactly when rate_e4 is non-null (non-billable rows leave both null).
-  expect(sql.replace(/\s+/g, " ")).toContain(
-    '("time_entry"."amount_minor" IS NULL) = ("time_entry"."rate_e4" IS NULL)',
-  );
+  // The DO's sqlite_master stores the verbatim migration DDL (double-quoted, table-qualified); D1
+  // normalizes to backticks. Assert the paired-null invariant quote- and qualifier-agnostically.
+  const normalized = sql
+    .replace(/[`"]/g, "")
+    .replace(/time_entry\./g, "")
+    .replace(/\s+/g, " ");
+  expect(normalized).toContain("(amount_minor IS NULL) = (rate_e4 IS NULL)");
 });
 
 it("0016 creates the two partial unique indexes (one open rate row per scope; one live_run_id)", async () => {
-  const db = env.DB_FIRM_POOL_1;
+  const db = testDatabase;
   const indexes = await db
     .prepare(
       "SELECT name FROM sqlite_master WHERE type='index' AND name IN ('rate_open_row_unique_index','time_entry_live_run_id_unique_index')",
@@ -89,7 +99,7 @@ it("0016 creates the two partial unique indexes (one open rate row per scope; on
 });
 
 it("0016 adds the nullable matter.e_billing flag, defaulting off", async () => {
-  const db = env.DB_FIRM_POOL_1;
+  const db = testDatabase;
   const columns = await db.prepare("PRAGMA table_info('matter')").all<{
     name: string;
     dflt_value: string | null;
@@ -102,7 +112,7 @@ it("0016 adds the nullable matter.e_billing flag, defaulting off", async () => {
 });
 
 it("0016 seeds the six time: permissions onto the Owner/Admin role", async () => {
-  const db = env.DB_FIRM_POOL_1;
+  const db = testDatabase;
   const seeded = await db
     .prepare("SELECT permission FROM role_permission WHERE permission LIKE 'time:%'")
     .all<{ permission: string }>();
@@ -117,7 +127,7 @@ it("0016 seeds the six time: permissions onto the Owner/Admin role", async () =>
 });
 
 it("0016 adds the nullable kick_back_reason column to time_entry", async () => {
-  const db = env.DB_FIRM_POOL_1;
+  const db = testDatabase;
   const columns = await db.prepare("PRAGMA table_info('time_entry')").all<{
     name: string;
     notnull: number;
@@ -128,7 +138,7 @@ it("0016 adds the nullable kick_back_reason column to time_entry", async () => {
 });
 
 it("0016 creates the scoped_setting table with the (key, scope_tier, scoped_id) primary key", async () => {
-  const db = env.DB_FIRM_POOL_1;
+  const db = testDatabase;
   const ddl = await db
     .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='scoped_setting'")
     .all<{ sql: string }>();

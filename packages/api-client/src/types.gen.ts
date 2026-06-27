@@ -39,6 +39,10 @@ export type MeResponse = {
         name: string;
     };
     permissions: Array<string>;
+    channel: 'stable' | 'beta' | 'alpha';
+    flags: {
+        [key: string]: boolean;
+    };
 };
 
 export type FirmUsageResponse = {
@@ -100,6 +104,34 @@ export type SafeWebsiteView = {
     links: Array<string>;
 };
 
+export type FileIntegrityHashResponse = {
+    algorithms: {
+        md5: string;
+        sha1: string;
+        sha256: string;
+        sha384: string;
+        sha512: string;
+    };
+    sizeBytes: number;
+    computedAt: string;
+    expectedMatch: 'md5' | 'sha1' | 'sha256' | 'sha384' | 'sha512' | null;
+};
+
+export type FileIntegrityVerifyResponse = {
+    algorithms: {
+        md5: string;
+        sha1: string;
+        sha256: string;
+        sha384: string;
+        sha512: string;
+    };
+    sizeBytes: number;
+    baselineSha256: string | null;
+    comparison: 'match' | 'mismatch' | 'no-baseline';
+    computedAt: string;
+    receipt?: unknown;
+};
+
 export type MetadataReport = {
     format: string;
     findings: Array<{
@@ -139,6 +171,15 @@ export type InviteMemberRequest = {
     name: string;
 };
 
+export type SetReleaseChannelResponse = {
+    channel: 'stable' | 'beta';
+};
+
+export type SetReleaseChannelRequest = {
+    channel: 'stable' | 'beta';
+    consentAcknowledged?: boolean;
+};
+
 export type ProvisionFirmResponse = {
     id: string;
     name: string;
@@ -156,6 +197,14 @@ export type ProvisionFirmRequest = {
         email: string;
         name: string;
     };
+};
+
+export type PlatformSetReleaseChannelResponse = {
+    channel: 'stable' | 'beta' | 'alpha';
+};
+
+export type PlatformSetReleaseChannelRequest = {
+    channel: 'stable' | 'beta' | 'alpha';
 };
 
 export type ReportIncidentResponse = {
@@ -560,6 +609,24 @@ export type ZipDownloadRequest = {
     matterId: string;
     folderIds?: Array<string>;
     fileIds?: Array<string>;
+    options?: {
+        format: 'zip' | 'sevenZip';
+        compression: 'store' | 'normal' | 'maximum';
+        encryption: {
+            algorithm: 'aes-256';
+            encryptFileNames: boolean;
+        } | null;
+        split: {
+            maxPartBytes: number;
+        } | null;
+        outputName: string;
+        wrapperFolder: {
+            name: string;
+        } | null;
+        layout: 'preserveTree' | 'flatten';
+        manifest: boolean;
+    };
+    password?: string;
 };
 
 export type ScanDiagnosis = {
@@ -578,6 +645,7 @@ export type MatterRescanResult = {
 export type BundleStatus = {
     status: string;
     url?: string;
+    urls?: Array<string>;
 };
 
 export type CreatedDirectoryEntityResponse = {
@@ -843,6 +911,226 @@ export type CustomFieldValueRow = {
     valueReferenceId: string | null;
     validFrom: string;
     validTo: string | null;
+};
+
+export type TimeEntryAck = {
+    timeEntryId: string;
+};
+
+export type CreateTimeEntryRequest = {
+    matterId: string;
+    timekeeperUserId: string;
+    workDate: string;
+    rawDurationMinutes: number;
+    narrative: string;
+    billable: boolean;
+    nonBillableCategoryId?: string | null;
+    source: 'manual' | 'quick_add' | 'grid' | 'offline_sync';
+    utbmsTaskCodeId?: string | null;
+    utbmsActivityCodeId?: string | null;
+    rateCardId?: string | null;
+    overrideRateE4?: number | null;
+};
+
+export type TimeEntryListResponse = {
+    data: Array<TimeEntrySummary>;
+};
+
+export type TimeEntrySummary = {
+    id: string;
+    matterId: string;
+    timekeeperUserId: string;
+    workDate: string;
+    durationMinutes: number;
+    rawDurationMinutes: number;
+    narrative: string;
+    billable: boolean;
+    amountMinor: number | null;
+    currency: string;
+    status: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+};
+
+export type PatchTimeEntryRequest = {
+    narrative?: string;
+    rawDurationMinutes?: number;
+    workDate?: string;
+    utbmsTaskCodeId?: string | null;
+    utbmsActivityCodeId?: string | null;
+};
+
+export type QuickAddPreviewResponse = {
+    durationMinutes: number;
+    matterHint: string | null;
+    narrative: string;
+    candidates: Array<{
+        id: string;
+        title: string;
+    }>;
+};
+
+export type QuickAddPreviewRequest = {
+    text: string;
+};
+
+export type GridBatchAck = {
+    timeEntryIds: Array<string>;
+};
+
+export type GridBatchRequest = {
+    entries: Array<CreateTimeEntryRequest>;
+};
+
+export type KickBackRequest = {
+    reason: string;
+};
+
+export type TimerStartAck = {
+    liveRunId: string;
+    startedAt: string;
+};
+
+export type TimerStartRequest = {
+    matterId?: string | null;
+    label?: string | null;
+    narrative?: string | null;
+    utbmsTaskCodeId?: string | null;
+};
+
+export type TimerAck = {
+    ok: boolean;
+};
+
+export type TimerEmptyRequest = {
+    [key: string]: unknown;
+};
+
+export type TimerBindRequest = {
+    matterId: string;
+    label?: string | null;
+    narrative?: string | null;
+    utbmsTaskCodeId?: string | null;
+};
+
+export type TimerStateResponse = {
+    status: 'running' | 'paused' | 'committing' | 'abandoned' | 'idle';
+    liveRunId: string | null;
+    startedAt: string | null;
+    matterId: string | null;
+    narrative: string | null;
+};
+
+export type TimerStopCommitAck = {
+    timeEntryId: string;
+};
+
+export type RateCardAck = {
+    rateCardId: string;
+};
+
+export type CreateRateCardRequest = {
+    name: string;
+};
+
+export type RateCardListResponse = {
+    data: Array<RateCardSummary>;
+};
+
+export type RateCardSummary = {
+    id: string;
+    name: string;
+};
+
+export type RateAck = {
+    rateId: string;
+};
+
+export type AppendRateRequest = {
+    tier: 'matter' | 'client' | 'timekeeper' | 'role';
+    scopedId?: string | null;
+    rateE4: number;
+    currency: string;
+    validFrom: string;
+};
+
+export type ReRateAck = {
+    count: number;
+};
+
+export type ReRateDraftsRequest = {
+    fromDate: string;
+    toDate: string;
+};
+
+export type UtbmsCodeListResponse = {
+    data: Array<UtbmsCodeSummary>;
+};
+
+export type UtbmsCodeSummary = {
+    id: string;
+    codeSet: string;
+    code: string;
+    label: string;
+    practiceArea: string | null;
+    active: number;
+};
+
+export type UtbmsCodeAck = {
+    utbmsCodeId: string;
+};
+
+export type NonBillableCategoryAck = {
+    nonBillableCategoryId: string;
+};
+
+export type CreateNonBillableCategoryRequest = {
+    name: string;
+};
+
+export type NonBillableCategoryListResponse = {
+    data: Array<NonBillableCategorySummary>;
+};
+
+export type NonBillableCategorySummary = {
+    id: string;
+    name: string;
+    archivedAt: string | null;
+};
+
+export type PatchNonBillableCategoryRequest = {
+    name: string;
+};
+
+export type NarrativeTemplateAck = {
+    narrativeTemplateId: string;
+};
+
+export type CreateNarrativeTemplateRequest = {
+    narrativeTemplate: string;
+    utbmsTaskCodeId?: string | null;
+    defaultRateE4?: number | null;
+};
+
+export type NarrativeTemplateListResponse = {
+    data: Array<NarrativeTemplateSummary>;
+};
+
+export type NarrativeTemplateSummary = {
+    id: string;
+    narrativeTemplate: string;
+    utbmsTaskCodeId: string | null;
+    defaultRateE4: number | null;
+};
+
+export type RecentNarrativesResponse = {
+    data: Array<string>;
+};
+
+export type MyDayResponse = {
+    billableMinutes: number;
+    nonBillableMinutes: number;
+    targetDailyMinutes: number | null;
+    shortfallMinutes: number | null;
+    unloggedDay: boolean;
 };
 
 export type ConversionUploadResponse = {
@@ -1138,6 +1426,92 @@ export type SafeBrowsePostResponses = {
 
 export type SafeBrowsePostResponse = SafeBrowsePostResponses[keyof SafeBrowsePostResponses];
 
+export type FileIntegrityHashData = {
+    body?: never;
+    path?: never;
+    query?: {
+        expected?: string;
+    };
+    url: '/api/v1/file-integrity/hash';
+};
+
+export type FileIntegrityHashErrors = {
+    /**
+     * Empty request body
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:fileIntegrity
+     */
+    403: Problem;
+    /**
+     * The body exceeds the firm's inspectable-size cap
+     */
+    413: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FileIntegrityHashError = FileIntegrityHashErrors[keyof FileIntegrityHashErrors];
+
+export type FileIntegrityHashResponses = {
+    /**
+     * The five digests and byte size of the supplied body
+     */
+    200: FileIntegrityHashResponse;
+};
+
+export type FileIntegrityHashResponse2 = FileIntegrityHashResponses[keyof FileIntegrityHashResponses];
+
+export type FileIntegrityVerifyData = {
+    body?: {
+        fileId: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/file-integrity/verify';
+};
+
+export type FileIntegrityVerifyErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the member lacks tools:fileIntegrity
+     */
+    403: Problem;
+    /**
+     * No clean current version exists for the file
+     */
+    404: Problem;
+    /**
+     * The stored file exceeds the firm's inspectable-size cap for inline verification
+     */
+    413: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FileIntegrityVerifyError = FileIntegrityVerifyErrors[keyof FileIntegrityVerifyErrors];
+
+export type FileIntegrityVerifyResponses = {
+    /**
+     * The recomputed digests, the baseline comparison, and the receipt
+     */
+    200: FileIntegrityVerifyResponse;
+};
+
+export type FileIntegrityVerifyResponse2 = FileIntegrityVerifyResponses[keyof FileIntegrityVerifyResponses];
+
 export type MetadataInspectData = {
     body: {
         filename: string;
@@ -1271,6 +1645,58 @@ export type MembersInviteResponses = {
 
 export type MembersInviteResponse = MembersInviteResponses[keyof MembersInviteResponses];
 
+export type FirmSetReleaseChannelData = {
+    body: SetReleaseChannelRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/release-channel';
+};
+
+export type FirmSetReleaseChannelErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one); or beta requested without consent acknowledgment
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageReleaseChannel
+     */
+    403: Problem;
+    /**
+     * The session's firm is not reachable from this deployment, or the session member is deactivated (absent, never an existence oracle)
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * Validation failed (e.g. channel value outside the firm-accessible set); or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type FirmSetReleaseChannelError = FirmSetReleaseChannelErrors[keyof FirmSetReleaseChannelErrors];
+
+export type FirmSetReleaseChannelResponses = {
+    /**
+     * The firm's release channel after the update
+     */
+    200: SetReleaseChannelResponse;
+};
+
+export type FirmSetReleaseChannelResponse = FirmSetReleaseChannelResponses[keyof FirmSetReleaseChannelResponses];
+
 export type FirmsProvisionData = {
     body: ProvisionFirmRequest;
     headers: {
@@ -1314,6 +1740,56 @@ export type FirmsProvisionResponses = {
 };
 
 export type FirmsProvisionResponse = FirmsProvisionResponses[keyof FirmsProvisionResponses];
+
+export type PlatformSetFirmReleaseChannelData = {
+    body: PlatformSetReleaseChannelRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        firmId: string;
+    };
+    query?: never;
+    url: '/api/v1/platform/firms/{firmId}/release-channel';
+};
+
+export type PlatformSetFirmReleaseChannelErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * Missing or wrong X-Platform-Admin-Key
+     */
+    401: Problem;
+    /**
+     * No firm with the given identifier exists in the control plane
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * Validation failed (channel value outside the allowed set); or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type PlatformSetFirmReleaseChannelError = PlatformSetFirmReleaseChannelErrors[keyof PlatformSetFirmReleaseChannelErrors];
+
+export type PlatformSetFirmReleaseChannelResponses = {
+    /**
+     * The firm's release channel after the update
+     */
+    200: PlatformSetReleaseChannelResponse;
+};
+
+export type PlatformSetFirmReleaseChannelResponse = PlatformSetFirmReleaseChannelResponses[keyof PlatformSetFirmReleaseChannelResponses];
 
 export type IncidentsReportData = {
     body: ReportIncidentRequest;
@@ -3288,9 +3764,17 @@ export type DownloadsZipErrors = {
      */
     404: Problem;
     /**
+     * The supplied bundle options are incoherent for the chosen format (e.g. ZIP with split enabled, or encryption combined with split). The detail field lists each violation.
+     */
+    422: Problem;
+    /**
      * Rate limit exceeded
      */
     429: Problem;
+    /**
+     * The bundle service worker binding is not configured. This is a deploy-time activation; the plain-ZIP fast lane is always available without it.
+     */
+    503: Problem;
 };
 
 export type DownloadsZipError = DownloadsZipErrors[keyof DownloadsZipErrors];
@@ -5075,6 +5559,1517 @@ export type CustomFieldsValueHistoryResponses = {
 };
 
 export type CustomFieldsValueHistoryResponse = CustomFieldsValueHistoryResponses[keyof CustomFieldsValueHistoryResponses];
+
+export type TimeEntriesListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        timekeeperUserId?: string;
+        matterId?: string;
+        workDate?: string;
+        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+    };
+    url: '/api/v1/time-entries';
+};
+
+export type TimeEntriesListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entry is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimeEntriesListError = TimeEntriesListErrors[keyof TimeEntriesListErrors];
+
+export type TimeEntriesListResponses = {
+    /**
+     * The time entries
+     */
+    200: TimeEntryListResponse;
+};
+
+export type TimeEntriesListResponse = TimeEntriesListResponses[keyof TimeEntriesListResponses];
+
+export type TimeEntriesCreateData = {
+    body: CreateTimeEntryRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/time-entries';
+};
+
+export type TimeEntriesCreateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimeEntriesCreateError = TimeEntriesCreateErrors[keyof TimeEntriesCreateErrors];
+
+export type TimeEntriesCreateResponses = {
+    /**
+     * The time entry was captured
+     */
+    201: TimeEntryAck;
+};
+
+export type TimeEntriesCreateResponse = TimeEntriesCreateResponses[keyof TimeEntriesCreateResponses];
+
+export type TimeEntriesGetData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/time-entries/{id}';
+};
+
+export type TimeEntriesGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entry is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimeEntriesGetError = TimeEntriesGetErrors[keyof TimeEntriesGetErrors];
+
+export type TimeEntriesGetResponses = {
+    /**
+     * The time entry
+     */
+    200: TimeEntrySummary;
+};
+
+export type TimeEntriesGetResponse = TimeEntriesGetResponses[keyof TimeEntriesGetResponses];
+
+export type TimeEntriesUpdateData = {
+    body: PatchTimeEntryRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/time-entries/{id}';
+};
+
+export type TimeEntriesUpdateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimeEntriesUpdateError = TimeEntriesUpdateErrors[keyof TimeEntriesUpdateErrors];
+
+export type TimeEntriesUpdateResponses = {
+    /**
+     * The time entry was updated
+     */
+    200: TimeEntryAck;
+};
+
+export type TimeEntriesUpdateResponse = TimeEntriesUpdateResponses[keyof TimeEntriesUpdateResponses];
+
+export type TimeEntriesPreviewQuickAddData = {
+    body: QuickAddPreviewRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/time-entries/quick-add-preview';
+};
+
+export type TimeEntriesPreviewQuickAddErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entry is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimeEntriesPreviewQuickAddError = TimeEntriesPreviewQuickAddErrors[keyof TimeEntriesPreviewQuickAddErrors];
+
+export type TimeEntriesPreviewQuickAddResponses = {
+    /**
+     * The parsed candidate
+     */
+    200: QuickAddPreviewResponse;
+};
+
+export type TimeEntriesPreviewQuickAddResponse = TimeEntriesPreviewQuickAddResponses[keyof TimeEntriesPreviewQuickAddResponses];
+
+export type TimeEntriesGridBatchData = {
+    body: GridBatchRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/time-entries/grid-batch';
+};
+
+export type TimeEntriesGridBatchErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimeEntriesGridBatchError = TimeEntriesGridBatchErrors[keyof TimeEntriesGridBatchErrors];
+
+export type TimeEntriesGridBatchResponses = {
+    /**
+     * The batch was captured
+     */
+    201: GridBatchAck;
+};
+
+export type TimeEntriesGridBatchResponse = TimeEntriesGridBatchResponses[keyof TimeEntriesGridBatchResponses];
+
+export type TimeEntriesSubmitData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/time-entries/{id}/submit';
+};
+
+export type TimeEntriesSubmitErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimeEntriesSubmitError = TimeEntriesSubmitErrors[keyof TimeEntriesSubmitErrors];
+
+export type TimeEntriesSubmitResponses = {
+    /**
+     * The transition was applied
+     */
+    200: TimeEntryAck;
+};
+
+export type TimeEntriesSubmitResponse = TimeEntriesSubmitResponses[keyof TimeEntriesSubmitResponses];
+
+export type TimeEntriesApproveData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/time-entries/{id}/approve';
+};
+
+export type TimeEntriesApproveErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimeEntriesApproveError = TimeEntriesApproveErrors[keyof TimeEntriesApproveErrors];
+
+export type TimeEntriesApproveResponses = {
+    /**
+     * The transition was applied
+     */
+    200: TimeEntryAck;
+};
+
+export type TimeEntriesApproveResponse = TimeEntriesApproveResponses[keyof TimeEntriesApproveResponses];
+
+export type TimeEntriesKickBackData = {
+    body: KickBackRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/time-entries/{id}/kick-back';
+};
+
+export type TimeEntriesKickBackErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimeEntriesKickBackError = TimeEntriesKickBackErrors[keyof TimeEntriesKickBackErrors];
+
+export type TimeEntriesKickBackResponses = {
+    /**
+     * The transition was applied
+     */
+    200: TimeEntryAck;
+};
+
+export type TimeEntriesKickBackResponse = TimeEntriesKickBackResponses[keyof TimeEntriesKickBackResponses];
+
+export type TimeEntriesVoidData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/time-entries/{id}/void';
+};
+
+export type TimeEntriesVoidErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or no rate could be resolved for a billable entry
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimeEntriesVoidError = TimeEntriesVoidErrors[keyof TimeEntriesVoidErrors];
+
+export type TimeEntriesVoidResponses = {
+    /**
+     * The transition was applied
+     */
+    200: TimeEntryAck;
+};
+
+export type TimeEntriesVoidResponse = TimeEntriesVoidResponses[keyof TimeEntriesVoidResponses];
+
+export type TimerStartData = {
+    body: TimerStartRequest;
+    headers?: {
+        'idempotency-key'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/timer/start';
+};
+
+export type TimerStartErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:track
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or the timer has no bound matter to commit
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimerStartError = TimerStartErrors[keyof TimerStartErrors];
+
+export type TimerStartResponses = {
+    /**
+     * Applied
+     */
+    200: TimerStartAck;
+};
+
+export type TimerStartResponse = TimerStartResponses[keyof TimerStartResponses];
+
+export type TimerPauseData = {
+    body: TimerEmptyRequest;
+    headers?: {
+        'idempotency-key'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/timer/pause';
+};
+
+export type TimerPauseErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:track
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or the timer has no bound matter to commit
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimerPauseError = TimerPauseErrors[keyof TimerPauseErrors];
+
+export type TimerPauseResponses = {
+    /**
+     * Applied
+     */
+    200: TimerAck;
+};
+
+export type TimerPauseResponse = TimerPauseResponses[keyof TimerPauseResponses];
+
+export type TimerResumeData = {
+    body: TimerEmptyRequest;
+    headers?: {
+        'idempotency-key'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/timer/resume';
+};
+
+export type TimerResumeErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:track
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or the timer has no bound matter to commit
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimerResumeError = TimerResumeErrors[keyof TimerResumeErrors];
+
+export type TimerResumeResponses = {
+    /**
+     * Applied
+     */
+    200: TimerAck;
+};
+
+export type TimerResumeResponse = TimerResumeResponses[keyof TimerResumeResponses];
+
+export type TimerBindData = {
+    body: TimerBindRequest;
+    headers?: {
+        'idempotency-key'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/timer/bind';
+};
+
+export type TimerBindErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:track
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or the timer has no bound matter to commit
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimerBindError = TimerBindErrors[keyof TimerBindErrors];
+
+export type TimerBindResponses = {
+    /**
+     * Applied
+     */
+    200: TimerAck;
+};
+
+export type TimerBindResponse = TimerBindResponses[keyof TimerBindResponses];
+
+export type TimerDiscardData = {
+    body: TimerEmptyRequest;
+    headers?: {
+        'idempotency-key'?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/timer/discard';
+};
+
+export type TimerDiscardErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:track
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or the timer has no bound matter to commit
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimerDiscardError = TimerDiscardErrors[keyof TimerDiscardErrors];
+
+export type TimerDiscardResponses = {
+    /**
+     * Applied
+     */
+    200: TimerAck;
+};
+
+export type TimerDiscardResponse = TimerDiscardResponses[keyof TimerDiscardResponses];
+
+export type TimerReadData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/timer/read';
+};
+
+export type TimerReadErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:track
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimerReadError = TimerReadErrors[keyof TimerReadErrors];
+
+export type TimerReadResponses = {
+    /**
+     * The timer state
+     */
+    200: TimerStateResponse;
+};
+
+export type TimerReadResponse = TimerReadResponses[keyof TimerReadResponses];
+
+export type TimerStopCommitData = {
+    body: TimerEmptyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/timer/stop-commit';
+};
+
+export type TimerStopCommitErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:track
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or the timer has no bound matter to commit
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type TimerStopCommitError = TimerStopCommitErrors[keyof TimerStopCommitErrors];
+
+export type TimerStopCommitResponses = {
+    /**
+     * Applied
+     */
+    201: TimerStopCommitAck;
+};
+
+export type TimerStopCommitResponse = TimerStopCommitResponses[keyof TimerStopCommitResponses];
+
+export type RateCardsListData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/rate-cards';
+};
+
+export type RateCardsListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:manageRates
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the rate card is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RateCardsListError = RateCardsListErrors[keyof RateCardsListErrors];
+
+export type RateCardsListResponses = {
+    /**
+     * The rate cards
+     */
+    200: RateCardListResponse;
+};
+
+export type RateCardsListResponse = RateCardsListResponses[keyof RateCardsListResponses];
+
+export type RateCardsCreateData = {
+    body: CreateRateCardRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/rate-cards';
+};
+
+export type RateCardsCreateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:manageRates
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the rate card is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or the rate interval overlaps
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RateCardsCreateError = RateCardsCreateErrors[keyof RateCardsCreateErrors];
+
+export type RateCardsCreateResponses = {
+    /**
+     * The rate card was created
+     */
+    201: RateCardAck;
+};
+
+export type RateCardsCreateResponse = RateCardsCreateResponses[keyof RateCardsCreateResponses];
+
+export type RatesAppendData = {
+    body: AppendRateRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/rate-cards/{id}/rates';
+};
+
+export type RatesAppendErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:manageRates
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the rate card is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or the rate interval overlaps
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RatesAppendError = RatesAppendErrors[keyof RatesAppendErrors];
+
+export type RatesAppendResponses = {
+    /**
+     * The rate was appended
+     */
+    201: RateAck;
+};
+
+export type RatesAppendResponse = RatesAppendResponses[keyof RatesAppendResponses];
+
+export type RatesReRateDraftsData = {
+    body: ReRateDraftsRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/rate-cards/{id}/re-rate-drafts';
+};
+
+export type RatesReRateDraftsErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:manageRates
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the rate card is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, or the rate interval overlaps
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type RatesReRateDraftsError = RatesReRateDraftsErrors[keyof RatesReRateDraftsErrors];
+
+export type RatesReRateDraftsResponses = {
+    /**
+     * Re-rating complete
+     */
+    200: ReRateAck;
+};
+
+export type RatesReRateDraftsResponse = RatesReRateDraftsResponses[keyof RatesReRateDraftsResponses];
+
+export type UtbmsCodesListData = {
+    body?: never;
+    path?: never;
+    query: {
+        codeSet: 'task' | 'activity' | 'expense';
+    };
+    url: '/api/v1/utbms-codes';
+};
+
+export type UtbmsCodesListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:manageUtbms
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the code is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type UtbmsCodesListError = UtbmsCodesListErrors[keyof UtbmsCodesListErrors];
+
+export type UtbmsCodesListResponses = {
+    /**
+     * The UTBMS codes
+     */
+    200: UtbmsCodeListResponse;
+};
+
+export type UtbmsCodesListResponse = UtbmsCodesListResponses[keyof UtbmsCodesListResponses];
+
+export type UtbmsCodesEnableData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/utbms-codes/{id}/enable';
+};
+
+export type UtbmsCodesEnableErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:manageUtbms
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the code is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type UtbmsCodesEnableError = UtbmsCodesEnableErrors[keyof UtbmsCodesEnableErrors];
+
+export type UtbmsCodesEnableResponses = {
+    /**
+     * The code was enabled
+     */
+    200: UtbmsCodeAck;
+};
+
+export type UtbmsCodesEnableResponse = UtbmsCodesEnableResponses[keyof UtbmsCodesEnableResponses];
+
+export type UtbmsCodesDisableData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/utbms-codes/{id}/disable';
+};
+
+export type UtbmsCodesDisableErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:manageUtbms
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the code is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type UtbmsCodesDisableError = UtbmsCodesDisableErrors[keyof UtbmsCodesDisableErrors];
+
+export type UtbmsCodesDisableResponses = {
+    /**
+     * The code was disabled
+     */
+    200: UtbmsCodeAck;
+};
+
+export type UtbmsCodesDisableResponse = UtbmsCodesDisableResponses[keyof UtbmsCodesDisableResponses];
+
+export type NonBillableCategoriesListData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/non-billable-categories';
+};
+
+export type NonBillableCategoriesListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:manageSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the category is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NonBillableCategoriesListError = NonBillableCategoriesListErrors[keyof NonBillableCategoriesListErrors];
+
+export type NonBillableCategoriesListResponses = {
+    /**
+     * The categories
+     */
+    200: NonBillableCategoryListResponse;
+};
+
+export type NonBillableCategoriesListResponse = NonBillableCategoriesListResponses[keyof NonBillableCategoriesListResponses];
+
+export type NonBillableCategoriesCreateData = {
+    body: CreateNonBillableCategoryRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/non-billable-categories';
+};
+
+export type NonBillableCategoriesCreateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:manageSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the category is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NonBillableCategoriesCreateError = NonBillableCategoriesCreateErrors[keyof NonBillableCategoriesCreateErrors];
+
+export type NonBillableCategoriesCreateResponses = {
+    /**
+     * The category was created
+     */
+    201: NonBillableCategoryAck;
+};
+
+export type NonBillableCategoriesCreateResponse = NonBillableCategoriesCreateResponses[keyof NonBillableCategoriesCreateResponses];
+
+export type NonBillableCategoriesUpdateData = {
+    body: PatchNonBillableCategoryRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/non-billable-categories/{id}';
+};
+
+export type NonBillableCategoriesUpdateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:manageSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the category is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NonBillableCategoriesUpdateError = NonBillableCategoriesUpdateErrors[keyof NonBillableCategoriesUpdateErrors];
+
+export type NonBillableCategoriesUpdateResponses = {
+    /**
+     * The category was updated
+     */
+    200: NonBillableCategoryAck;
+};
+
+export type NonBillableCategoriesUpdateResponse = NonBillableCategoriesUpdateResponses[keyof NonBillableCategoriesUpdateResponses];
+
+export type NonBillableCategoriesArchiveData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/non-billable-categories/{id}/archive';
+};
+
+export type NonBillableCategoriesArchiveErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:manageSettings
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the category is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NonBillableCategoriesArchiveError = NonBillableCategoriesArchiveErrors[keyof NonBillableCategoriesArchiveErrors];
+
+export type NonBillableCategoriesArchiveResponses = {
+    /**
+     * The category was archived
+     */
+    200: NonBillableCategoryAck;
+};
+
+export type NonBillableCategoriesArchiveResponse = NonBillableCategoriesArchiveResponses[keyof NonBillableCategoriesArchiveResponses];
+
+export type NarrativeTemplatesListData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/narrative-templates';
+};
+
+export type NarrativeTemplatesListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NarrativeTemplatesListError = NarrativeTemplatesListErrors[keyof NarrativeTemplatesListErrors];
+
+export type NarrativeTemplatesListResponses = {
+    /**
+     * The templates
+     */
+    200: NarrativeTemplateListResponse;
+};
+
+export type NarrativeTemplatesListResponse = NarrativeTemplatesListResponses[keyof NarrativeTemplatesListResponses];
+
+export type NarrativeTemplatesCreateData = {
+    body: CreateNarrativeTemplateRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/narrative-templates';
+};
+
+export type NarrativeTemplatesCreateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress
+     */
+    409: Problem;
+    /**
+     * The request is invalid or the Idempotency-Key was reused with a different payload
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NarrativeTemplatesCreateError = NarrativeTemplatesCreateErrors[keyof NarrativeTemplatesCreateErrors];
+
+export type NarrativeTemplatesCreateResponses = {
+    /**
+     * The template was created
+     */
+    201: NarrativeTemplateAck;
+};
+
+export type NarrativeTemplatesCreateResponse = NarrativeTemplatesCreateResponses[keyof NarrativeTemplatesCreateResponses];
+
+export type NarrativeTemplatesRecentNarrativesData = {
+    body?: never;
+    path?: never;
+    query: {
+        timekeeperUserId: string;
+        limit: string;
+    };
+    url: '/api/v1/narrative-templates/recent-narratives';
+};
+
+export type NarrativeTemplatesRecentNarrativesErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type NarrativeTemplatesRecentNarrativesError = NarrativeTemplatesRecentNarrativesErrors[keyof NarrativeTemplatesRecentNarrativesErrors];
+
+export type NarrativeTemplatesRecentNarrativesResponses = {
+    /**
+     * The recent narratives
+     */
+    200: RecentNarrativesResponse;
+};
+
+export type NarrativeTemplatesRecentNarrativesResponse = NarrativeTemplatesRecentNarrativesResponses[keyof NarrativeTemplatesRecentNarrativesResponses];
+
+export type MyDayGetData = {
+    body?: never;
+    path?: never;
+    query: {
+        timekeeperUserId: string;
+        workDate: string;
+    };
+    url: '/api/v1/my-day';
+};
+
+export type MyDayGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks time:track
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type MyDayGetError = MyDayGetErrors[keyof MyDayGetErrors];
+
+export type MyDayGetResponses = {
+    /**
+     * The My Day view
+     */
+    200: MyDayResponse;
+};
+
+export type MyDayGetResponse = MyDayGetResponses[keyof MyDayGetResponses];
 
 export type ConversionsUploadData = {
     body?: never;

@@ -36,6 +36,11 @@ import {
   customFieldMeasurements,
   CUSTOM_FIELD_PLAN_SCAN_ALLOWLIST,
 } from "../src/load-profile/custom-field-measurements.ts";
+import {
+  editingHotPathPlans,
+  editingMeasurements,
+  EDITING_PLAN_SCAN_ALLOWLIST,
+} from "../src/load-profile/editing-measurements.ts";
 import { ledgerVolume, scaleProfile } from "../src/load-profile/profile.ts";
 import { findFullScans, findTempBtreeSorts, runMeasurements } from "../src/load-profile/runner.ts";
 import { loadProfileSnapshot, type LoadedSnapshot } from "../src/load-profile/snapshot.ts";
@@ -77,7 +82,12 @@ describe("load-profile smoke", () => {
 
     const results = await runMeasurements(
       handle,
-      [...ledgerMeasurements, ...mattersMeasurements, ...shippingMeasurements],
+      [
+        ...ledgerMeasurements,
+        ...mattersMeasurements,
+        ...shippingMeasurements,
+        ...editingMeasurements,
+      ],
       {
         warmupIterations: 1,
         iterations: 2,
@@ -104,6 +114,11 @@ describe("load-profile smoke", () => {
         "matter-number.counter-draw",
         "list-shipments.by-matter",
         "list-tracking-events.by-shipment",
+        "tiering-sweep.find-candidates",
+        "idle-checkout-sweep.find-idle",
+        "reconcile.find-conflict",
+        "checkout.active-exclusive-lock",
+        "version-cut.commit",
       ].sort(),
     );
     for (const result of results) {
@@ -263,6 +278,20 @@ describe("load-profile smoke", () => {
       ].sort(),
     );
     expect(findFullScans(customFieldPlans, CUSTOM_FIELD_PLAN_SCAN_ALLOWLIST)).toEqual([]);
+
+    // The editing hot-path plans: same label-set-first guard, then the scan check. The two firm-wide
+    // sweep reads (tiering candidates, idle checkouts) must walk an index, never the table; the
+    // reconcile + exclusive-lock lookups are file-scoped index seeks.
+    const editingPlans = editingHotPathPlans(snapshot);
+    expect(editingPlans.map((plan) => plan.label).sort()).toEqual(
+      [
+        "tiering-sweep.find-candidates",
+        "idle-checkout-sweep.find-idle",
+        "reconcile.find-conflict",
+        "checkout.active-exclusive-lock",
+      ].sort(),
+    );
+    expect(findFullScans(editingPlans, EDITING_PLAN_SCAN_ALLOWLIST)).toEqual([]);
 
     snapshot.close();
   });

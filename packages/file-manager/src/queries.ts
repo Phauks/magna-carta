@@ -8,6 +8,7 @@ import {
 } from "@magna-carta/data-access/cursor-pagination";
 import type { SqlDatabase, SqlStatement } from "@magna-carta/data-access/idempotency-statements";
 import type {
+  DocumentCheckoutId,
   DocumentTypeId,
   FileId,
   FileVersionId,
@@ -134,6 +135,59 @@ export interface CleanVersion {
   readonly scanDetail: string | null;
 }
 
+export interface FileWithCurrentCleanVersion {
+  readonly name: string;
+  readonly matterId: MatterId;
+  readonly deletedAt: string | null;
+  // The current clean version, or null when the file has none (no committed version yet, or current
+  // points at a non-clean version). Distinct from `undefined` (the whole file row absent).
+  readonly currentVersion: CleanVersion | null;
+}
+
+// File metadata + its current clean version in ONE round-trip, for the latency-sensitive hot paths
+// (WOPI CheckFileInfo on every callback, the edit/view launch). A LEFT JOIN gated on status='clean'
+// keeps the file row available so callers still distinguish absent (undefined) vs deleted (deletedAt
+// set) vs no-clean-version (currentVersion null) — without a second read of the file row.
+export async function getFileWithCurrentCleanVersion(
+  database: SqlDatabase,
+  fileId: FileId,
+): Promise<FileWithCurrentCleanVersion | undefined> {
+  const { results } = await database
+    .prepare(
+      `SELECT f.name, f.matter_id, f.deleted_at, v.id AS version_id, v.r2_key, v.size_bytes, v.version_number, v.scan_verdict, v.scan_detail FROM ${FILE_TABLE} f LEFT JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id AND v.status = 'clean' WHERE f.id = ?1`,
+    )
+    .bind(fileId)
+    .all<{
+      name: string;
+      matter_id: MatterId;
+      deleted_at: string | null;
+      version_id: FileVersionId | null;
+      r2_key: string | null;
+      size_bytes: number | null;
+      version_number: number | null;
+      scan_verdict: "unscanned" | "clean" | "infected" | null;
+      scan_detail: string | null;
+    }>();
+  const row = results[0];
+  if (row === undefined) return undefined;
+  return {
+    name: row.name,
+    matterId: row.matter_id,
+    deletedAt: row.deleted_at,
+    currentVersion:
+      row.version_id === null
+        ? null
+        : {
+            id: row.version_id,
+            r2Key: row.r2_key as string,
+            sizeBytes: row.size_bytes,
+            versionNumber: row.version_number as number,
+            scanVerdict: row.scan_verdict,
+            scanDetail: row.scan_detail,
+          },
+  };
+}
+
 export async function getCurrentCleanVersion(
   database: SqlDatabase,
   fileId: FileId,
@@ -155,6 +209,125 @@ export async function getCurrentCleanVersion(
     versionNumber: row.version_number,
     scanVerdict: row.scan_verdict,
     scanDetail: row.scan_detail,
+  };
+}
+
+export interface TierableVersion {
+  readonly id: FileVersionId;
+  readonly r2Key: string;
+  readonly sizeBytes: number;
+  readonly artifactRole: string;
+}
+
+// The tiering sweep's candidates: clean, still-Standard versions that are NOT their file's current
+// version and committed before the cutoff (the conservative IA-minimum window). The current/live
+// version is never returned — tiering only ever touches superseded history. Spans nothing risky: it
+// reads only committed (`clean`) versions and excludes the current pointer. The cutoff is an ISO
+// instant; ISO-8601 sorts lexicographically so the string compare is a chronological compare. Bounded
+// by `limit` so one daily pass never tiers an unbounded backlog. fitness:allow-no-status
+export function listTierableVersionsStatement(
+  database: SqlDatabase,
+  committedBeforeIso: string,
+  limit: number,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT v.id, v.r2_key, v.size_bytes, v.artifact_role ` +
+        `FROM ${FILE_VERSION_TABLE} v JOIN ${FILE_TABLE} f ON f.id = v.file_id ` +
+        `WHERE v.status = 'clean' AND v.storage_class = 'standard' ` +
+        `AND v.committed_at IS NOT NULL AND v.committed_at < ?1 ` +
+        `AND (f.current_version_id IS NULL OR f.current_version_id <> v.id) ` +
+        `LIMIT ?2`,
+    )
+    .bind(committedBeforeIso, limit);
+}
+
+export async function listTierableVersions(
+  database: SqlDatabase,
+  committedBeforeIso: string,
+  limit: number,
+): Promise<TierableVersion[]> {
+  const { results } = await listTierableVersionsStatement(database, committedBeforeIso, limit).all<{
+    id: FileVersionId;
+    r2_key: string;
+    size_bytes: number | null;
+    artifact_role: string;
+  }>();
+  return results.map((row) => ({
+    id: row.id,
+    r2Key: row.r2_key,
+    sizeBytes: row.size_bytes ?? 0,
+    artifactRole: row.artifact_role,
+  }));
+}
+
+export interface ConflictPendingVersion {
+  readonly id: FileVersionId;
+  readonly versionNumber: number;
+  readonly divergedFromVersionId: FileVersionId | null;
+  readonly checkoutId: DocumentCheckoutId | null;
+}
+
+// The conflicting copy awaiting human reconciliation for a file — the document's "needs reconciliation"
+// flag IS a conflict_pending version (no separate column). Returns the most recent one if several
+// offline copies diverged; undefined means nothing to reconcile (the route 404s). Spans the version
+// status by design — a conflicting copy is committed `clean`; reconciliation_status is the gate here.
+// fitness:allow-no-status
+export function getConflictPendingVersionStatement(
+  database: SqlDatabase,
+  fileId: FileId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT id, version_number, diverged_from_version_id, checkout_id FROM ${FILE_VERSION_TABLE} WHERE file_id = ?1 AND reconciliation_status = 'conflict_pending' ORDER BY version_number DESC LIMIT 1`,
+    )
+    .bind(fileId);
+}
+
+// ALL conflict_pending copies for a file, newest first. The reconcile route resolves every one in a
+// single pass — multiple offline copies can diverge concurrently, so resolving only the newest would
+// orphan the rest as permanently-unreconcilable conflict_pending versions. Gated on
+// reconciliation_status (a conflicting copy is committed `clean`), not status. fitness:allow-no-status
+export async function getConflictPendingVersions(
+  database: SqlDatabase,
+  fileId: FileId,
+): Promise<ConflictPendingVersion[]> {
+  const { results } = await database
+    .prepare(
+      `SELECT id, version_number, diverged_from_version_id, checkout_id FROM ${FILE_VERSION_TABLE} WHERE file_id = ?1 AND reconciliation_status = 'conflict_pending' ORDER BY version_number DESC`,
+    )
+    .bind(fileId)
+    .all<{
+      id: FileVersionId;
+      version_number: number;
+      diverged_from_version_id: FileVersionId | null;
+      checkout_id: DocumentCheckoutId | null;
+    }>();
+  return results.map((row) => ({
+    id: row.id,
+    versionNumber: row.version_number,
+    divergedFromVersionId: row.diverged_from_version_id,
+    checkoutId: row.checkout_id,
+  }));
+}
+
+export async function getConflictPendingVersion(
+  database: SqlDatabase,
+  fileId: FileId,
+): Promise<ConflictPendingVersion | undefined> {
+  const { results } = await getConflictPendingVersionStatement(database, fileId).all<{
+    id: FileVersionId;
+    version_number: number;
+    diverged_from_version_id: FileVersionId | null;
+    checkout_id: DocumentCheckoutId | null;
+  }>();
+  const row = results[0];
+  if (row === undefined) return undefined;
+  return {
+    id: row.id,
+    versionNumber: row.version_number,
+    divergedFromVersionId: row.diverged_from_version_id,
+    checkoutId: row.checkout_id,
   };
 }
 
@@ -403,6 +576,50 @@ export async function loadCommittedVersionByR2Key(
     contentSha256: row.content_sha256,
     scanEngineVersion: row.scan_engine_version,
     scanVerdict: row.scan_verdict,
+  };
+}
+
+// A dedicated statement for the integrity baseline: the current clean version's R2 key, byte size,
+// and the SHA-256 recorded at ingest. Kept as a sibling of selectCurrentCleanVersionStatement rather
+// than an extension of it — each reader projects its own columns (the preview function established
+// this pattern), and isolating the projection means neither caller is coupled to the other's columns.
+export function selectCurrentCleanVersionForIntegrityStatement(
+  database: SqlDatabase,
+  fileId: FileId,
+): SqlStatement {
+  return database
+    .prepare(
+      `SELECT v.id, v.r2_key, v.size_bytes, v.content_sha256 FROM ${FILE_TABLE} f JOIN ${FILE_VERSION_TABLE} v ON v.id = f.current_version_id WHERE f.id = ?1 AND f.deleted_at IS NULL AND v.status = 'clean'`,
+    )
+    .bind(fileId);
+}
+
+export interface VersionIntegrity {
+  readonly id: FileVersionId;
+  readonly r2Key: string;
+  readonly sizeBytes: number | null;
+  readonly contentSha256: string | null;
+}
+
+// The current clean version's R2 key plus the SHA-256 recorded at ingest — the integrity baseline.
+// Returns undefined when the file has no clean current version (e.g. still pending or quarantined).
+export async function getCurrentVersionForIntegrity(
+  database: SqlDatabase,
+  fileId: FileId,
+): Promise<VersionIntegrity | undefined> {
+  const { results } = await selectCurrentCleanVersionForIntegrityStatement(database, fileId).all<{
+    id: FileVersionId;
+    r2_key: string;
+    size_bytes: number | null;
+    content_sha256: string | null;
+  }>();
+  const row = results[0];
+  if (row === undefined) return undefined;
+  return {
+    id: row.id,
+    r2Key: row.r2_key,
+    sizeBytes: row.size_bytes,
+    contentSha256: row.content_sha256,
   };
 }
 

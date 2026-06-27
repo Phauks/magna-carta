@@ -10,13 +10,19 @@ import { resolveScanPort } from "../../src/files/scan-port-binding.ts";
 describe("resolveScanPort", () => {
   it("returns an adapter that drives SCAN_SERVICE when the binding is present", async () => {
     // A fake Fetcher that records whether it was actually invoked and answers with a valid
-    // (no-engine) ScanResult so the adapter's response parsing succeeds.
+    // (no-engine) RawScanResult so the adapter's response parsing succeeds.
     let fetched = false;
     const fakeFetcher = {
       fetch: async (_request: Request): Promise<Response> => {
         fetched = true;
         return new Response(
-          JSON.stringify({ verdict: "unscanned", reason: "no-engine", engineVersion: null }),
+          JSON.stringify({
+            engineVersion: null,
+            clam: { state: "unavailable" },
+            heuristic: { kind: "none" },
+            matches: [],
+            timings: { clamdMs: 0, yaraMs: 0 },
+          }),
           { status: 200, headers: { "content-type": "application/json" } },
         );
       },
@@ -32,7 +38,8 @@ describe("resolveScanPort", () => {
     const body = new Response("x").body as ReadableStream<Uint8Array>;
     const result = await port.scan(body, { sizeBytes: 1, sniffedContentType: null });
     expect(fetched).toBe(true);
-    expect(result.verdict).toBe("unscanned");
+    expect(result.engineVersion).toBeNull();
+    expect(result.clam.state).toBe("unavailable");
   });
 
   it("returns unscannedAdapter when SCAN_SERVICE is absent", () => {

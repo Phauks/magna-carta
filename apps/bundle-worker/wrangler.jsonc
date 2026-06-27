@@ -1,0 +1,39 @@
+{
+  // The standalone bundle worker. It owns the BundleContainer Durable Object (a Container-backed
+  // DO that runs the Rust archive builder) and mediates all of the container's R2 access via the
+  // "bundle-r2" outbound handler. Reached only via a service binding from the main app worker —
+  // it has no public routes.
+  "name": "magna-carta-bundle",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-06-05",
+  "compatibility_flags": ["nodejs_compat"],
+  // No public surface: this worker is an internal service reached only via service binding.
+  "workers_dev": false,
+  "preview_urls": false,
+  // The bundle Container Durable Object (Container-backed, sqlite-class).
+  // standard-2 provides extra CPU and memory headroom for large multi-file 7z builds.
+  // max_instances = 5 bounds concurrent heavy builds; adjust based on observed throughput.
+  "containers": [
+    {
+      "class_name": "BundleContainer",
+      "image": "../../containers/bundle/Dockerfile",
+      "instance_type": "standard-2",
+      "max_instances": 5
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "BUNDLE_CONTAINER", "class_name": "BundleContainer" }]
+  },
+  // SQLite-backed DO class introduced via migration tag; first migration for this worker.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["BundleContainer"] }],
+  // R2 bucket binding: the container reads source files and writes assembled archives to this
+  // bucket. The "bundle-r2" outbound handler intercepts the container's http://bundle-r2/<key>
+  // requests and routes them here — the container needs no credentials and no real egress.
+  "r2_buckets": [{ "binding": "R2", "bucket_name": "magna-carta-files" }],
+  // Cron trigger: warm-poke every 8 minutes to keep one container instance alive within the
+  // 10-minute sleepAfter window.
+  "triggers": {
+    "crons": ["*/8 * * * *"]
+  },
+  "observability": { "enabled": true, "head_sampling_rate": 1 }
+}

@@ -23,17 +23,17 @@ export const firm = sqliteTable("firm", {
   // are CSPRNG handles minted per attempt, so the name is the only stable client-supplied handle.
   // Platform-admin-controlled input on a fleet of ~1; revisit if self-serve signup ever exists.
   name: text("name").notNull().unique(),
-  // The Cloudflare D1 database backing this firm (the database UUID from the Cloudflare API;
-  // locally a dev-pool binding name). Null = the provisioner has not created/claimed it yet —
-  // the firm row is inserted FIRST so the firm id is stable across provisioning resumes.
-  // UNIQUE still holds (SQLite unique indexes admit multiple NULLs).
+  // vestigial: per-firm DB is the firmId-addressed FirmDatabase DO; drop in a later control-plane migration
   databaseIdentifier: text("database_identifier").unique(),
-  // Mirror of the firm database's latest applied migration tag (fleet-wide visibility).
-  // Null = the firm database has not been provisioned yet. Tags order lexicographically (NNNN_ prefix).
+  // vestigial: the FirmDatabase DO self-migrates on first access; drop in a later control-plane migration
   perFirmSchemaVersion: text("per_firm_schema_version"),
   // Provisioning lifecycle: the provisioner writes 'provisioning' first and flips to 'active' once
   // the firm's resources exist. The DEFAULT keeps pre-lifecycle rows valid (expand-contract).
   status: text("status").notNull().default("active"),
+  // The firm's release channel — which behavior is lit for this tenant. stable (default) is the
+  // vetted line; beta is firm-admin opt-in; alpha is a platform-only grant. Channels gate behavior
+  // through feature flags, never schema. DEFAULT keeps pre-channel rows valid (expand-contract).
+  releaseChannel: text("release_channel").notNull().default("stable"),
   // The per-firm R2 bucket backing this firm. Null = the bucket has not been provisioned yet.
   bucketName: text("bucket_name"),
   // WHO owns the firm: set in the same activation batch that inserts the owner user

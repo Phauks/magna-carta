@@ -39,6 +39,7 @@ describe("tool catalog", () => {
       "safe-website-viewer",
       "file-converter",
       "metadata-scrubber",
+      "file-hash-integrity",
     ]);
   });
 

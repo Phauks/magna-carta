@@ -8,7 +8,7 @@ import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -27,16 +27,19 @@ let readOnlyCookie: string;
 
 // Mirror a member carrying a named seeded role (the Read-only role grants no custom-fields permission).
 async function mirrorMemberWithRole(userId: UserId, displayName: string, roleName: string) {
-  const role = await env.DB_FIRM_POOL_1.prepare("SELECT id FROM role WHERE name = ?1")
+  const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
+  const roleResult = await firmDatabase
+    .prepare("SELECT id FROM role WHERE name = ?1")
     .bind(roleName)
-    .first<{ id: string }>();
-  if (role === null) throw new Error(`seeded role ${roleName} missing`);
-  await insertMemberStatement(env.DB_FIRM_POOL_1, {
+    .all<{ id: string }>();
+  const role = roleResult.results[0];
+  if (role === undefined) throw new Error(`seeded role ${roleName} missing`);
+  await insertMemberStatement(firmDatabase, {
     userId,
     displayName,
     now: new Date().toISOString(),
   }).run();
-  await insertRoleAssignmentStatement(env.DB_FIRM_POOL_1, {
+  await insertRoleAssignmentStatement(firmDatabase, {
     id: newIdentifier("memberRole"),
     memberUserId: userId,
     roleId: assertIdentifier(role.id, "role"),
@@ -45,7 +48,6 @@ async function mirrorMemberWithRole(userId: UserId, displayName: string, roleNam
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   poolFirmId = (
     await seedFirm({ name: "Custom Fields Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
   ).firmId;
@@ -57,7 +59,7 @@ beforeAll(async () => {
     userName: "Custom Fields Owner",
     firmId: poolFirmId,
   });
-  await mirrorMemberWithOwnerRole(owner.userId, "Custom Fields Owner");
+  await mirrorMemberWithOwnerRole(owner.userId, "Custom Fields Owner", poolFirmId);
   ownerCookie = await signInForSessionCookie("custom-fields-owner@example.com");
 
   const readOnly = await seedCredentialedUser("custom-fields-readonly@example.com", {
@@ -147,11 +149,11 @@ describe("custom-fields field routes", () => {
       value: { kind: "number", number: 1234.56 },
     });
     expect(set.status).toBe(200);
-    const stored = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT value_number FROM custom_field_value WHERE field_id = ?1 AND is_current = 1",
-    )
+    const storedResult = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT value_number FROM custom_field_value WHERE field_id = ?1 AND is_current = 1")
       .bind(fieldId)
-      .first<{ value_number: number }>();
+      .all<{ value_number: number }>();
+    const stored = storedResult.results[0];
     expect(stored?.value_number).toBe(123456);
   });
 
