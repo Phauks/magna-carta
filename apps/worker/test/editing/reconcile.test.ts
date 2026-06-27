@@ -10,7 +10,7 @@ import type {
 } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "../support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "../support/apply-per-firm-migrations.ts";
+import { firmDatabaseHandle } from "../support/firm-database-handle.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -26,6 +26,7 @@ import {
 
 const ISO = "2026-06-20T00:00:00.000Z";
 let firmId: FirmId;
+let firmDb: ReturnType<typeof firmDatabaseHandle>;
 let matterId: MatterId;
 let ownerUserId: UserId;
 let ownerCookie: string;
@@ -45,9 +46,10 @@ async function seedConflict(): Promise<{
   const v2 = newIdentifier("fileVersion");
   const v3 = newIdentifier("fileVersion");
   const checkoutId = newIdentifier("documentCheckout");
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, 'Brief.docx', NULL, NULL, NULL, ?3, ?3)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, 'Brief.docx', NULL, NULL, NULL, ?3, ?3)",
+    )
     .bind(fileId, matterId, ISO)
     .run();
   const insertVersion = (
@@ -56,9 +58,10 @@ async function seedConflict(): Promise<{
     reconciliation: string,
     divergedFrom: string | null,
   ) =>
-    env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, content_sha256, status, reconciliation_status, diverged_from_version_id, checkout_id, uploaded_by, created_at, committed_at) VALUES (?1, ?2, ?3, ?4, 10, ?5, 'clean', ?6, ?7, ?8, ?9, ?10, ?10)",
-    )
+    firmDb
+      .prepare(
+        "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, content_sha256, status, reconciliation_status, diverged_from_version_id, checkout_id, uploaded_by, created_at, committed_at) VALUES (?1, ?2, ?3, ?4, 10, ?5, 'clean', ?6, ?7, ?8, ?9, ?10, ?10)",
+      )
       .bind(
         id,
         fileId,
@@ -74,13 +77,15 @@ async function seedConflict(): Promise<{
       .run();
   await insertVersion(v1, 1, "clean", null);
   await insertVersion(v2, 2, "clean", null);
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO document_checkout (id, file_id, holder_member_id, lock_type, base_version_id, acquired_at, last_activity_at, status, idle_release_at) VALUES (?1, ?2, ?3, 'offline_working_copy', ?4, ?5, ?5, 'reconciling', NULL)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO document_checkout (id, file_id, holder_member_id, lock_type, base_version_id, acquired_at, last_activity_at, status, idle_release_at) VALUES (?1, ?2, ?3, 'offline_working_copy', ?4, ?5, ?5, 'reconciling', NULL)",
+    )
     .bind(checkoutId, fileId, ownerUserId, v1, ISO)
     .run();
   await insertVersion(v3, 3, "conflict_pending", v1);
-  await env.DB_FIRM_POOL_1.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+  await firmDb
+    .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
     .bind(fileId, v2)
     .run();
   return {
@@ -94,31 +99,33 @@ async function seedConflict(): Promise<{
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   firmId = (await seedFirm({ name: "Reconcile Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
     .firmId;
+  firmDb = firmDatabaseHandle(firmId);
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
     .bind(firmId)
     .run();
 
   const owner = await seedCredentialedUser("reconcile-owner@example.com", { firmId });
   ownerUserId = owner.userId;
-  await mirrorMemberWithOwnerRole(owner.userId, "Reconcile Owner");
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, 'documents:reconcile', NULL, ?2, ?3)",
-  )
+  await mirrorMemberWithOwnerRole(owner.userId, "Reconcile Owner", firmId);
+  await firmDb
+    .prepare(
+      "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, 'documents:reconcile', NULL, ?2, ?3)",
+    )
     .bind(newIdentifier("grant"), owner.userId, ISO)
     .run();
   ownerCookie = await signInForSessionCookie("reconcile-owner@example.com");
 
   const noPerm = await seedCredentialedUser("reconcile-noperm@example.com", { firmId });
-  await mirrorMemberWithOwnerRole(noPerm.userId, "Reconcile NoPerm");
+  await mirrorMemberWithOwnerRole(noPerm.userId, "Reconcile NoPerm", firmId);
   noPermCookie = await signInForSessionCookie("reconcile-noperm@example.com");
 
   matterId = newIdentifier("matter");
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'M', 'open', ?2, ?3, ?3)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'M', 'open', ?2, ?3, ?3)",
+    )
     .bind(matterId, ownerUserId, ISO)
     .run();
 });
@@ -132,13 +139,15 @@ function reconcile(fileId: FileId, body: unknown, cookie: string): Promise<Respo
 }
 
 async function versionRow(versionId: string) {
-  return env.DB_FIRM_POOL_1.prepare("SELECT reconciliation_status FROM file_version WHERE id = ?1")
+  return firmDb
+    .prepare("SELECT reconciliation_status FROM file_version WHERE id = ?1")
     .bind(versionId)
     .first<{ reconciliation_status: string }>();
 }
 
 async function currentVersionOf(fileId: string) {
-  const row = await env.DB_FIRM_POOL_1.prepare("SELECT current_version_id FROM file WHERE id = ?1")
+  const row = await firmDb
+    .prepare("SELECT current_version_id FROM file WHERE id = ?1")
     .bind(fileId)
     .first<{ current_version_id: string }>();
   return row?.current_version_id;
@@ -158,21 +167,22 @@ describe("POST /api/v1/documents/{fileId}/reconcile", () => {
     expect((await versionRow(conflictVersionId))?.reconciliation_status).toBe("reconciled");
     expect(await currentVersionOf(fileId)).toBe(currentVersionId);
 
-    const checkout = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT status FROM document_checkout WHERE id = ?1",
-    )
+    const checkout = await firmDb
+      .prepare("SELECT status FROM document_checkout WHERE id = ?1")
       .bind(checkoutId)
       .first<{ status: string }>();
     expect(checkout?.status).toBe("released");
 
     // The conflicting copy is retained forever and the resolution is audited with the actor + choice.
-    const stillThere = await env.DB_FIRM_POOL_1.prepare("SELECT id FROM file_version WHERE id = ?1")
+    const stillThere = await firmDb
+      .prepare("SELECT id FROM file_version WHERE id = ?1")
       .bind(conflictVersionId)
       .first<{ id: string }>();
     expect(stillThere?.id).toBe(conflictVersionId);
-    const audit = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT actor_user_id, metadata FROM audit_log WHERE event = 'document.reconciled' AND subject_id = ?1",
-    )
+    const audit = await firmDb
+      .prepare(
+        "SELECT actor_user_id, metadata FROM audit_log WHERE event = 'document.reconciled' AND subject_id = ?1",
+      )
       .bind(fileId)
       .first<{ actor_user_id: string; metadata: string }>();
     expect(audit?.actor_user_id).toBe(ownerUserId);
@@ -190,9 +200,8 @@ describe("POST /api/v1/documents/{fileId}/reconcile", () => {
     const current = await currentVersionOf(fileId);
     expect(current).not.toBe(conflictVersionId);
     expect(current).not.toBe(currentVersionId);
-    const newCurrent = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT content_sha256, version_number FROM file_version WHERE id = ?1",
-    )
+    const newCurrent = await firmDb
+      .prepare("SELECT content_sha256, version_number FROM file_version WHERE id = ?1")
       .bind(current)
       .first<{ content_sha256: string; version_number: number }>();
     expect(newCurrent?.content_sha256).toBe("hash-3"); // the conflict copy's content, brought forward
@@ -203,9 +212,10 @@ describe("POST /api/v1/documents/{fileId}/reconcile", () => {
     const { fileId, conflictVersionId } = await seedConflict();
     // A second offline copy diverged too: another conflict_pending version on the same file.
     const secondConflict = newIdentifier("fileVersion");
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, content_sha256, status, reconciliation_status, diverged_from_version_id, uploaded_by, created_at, committed_at) VALUES (?1, ?2, 4, ?3, 10, 'hash-4', 'clean', 'conflict_pending', NULL, ?4, ?5, ?5)",
-    )
+    await firmDb
+      .prepare(
+        "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, content_sha256, status, reconciliation_status, diverged_from_version_id, uploaded_by, created_at, committed_at) VALUES (?1, ?2, 4, ?3, 10, 'hash-4', 'clean', 'conflict_pending', NULL, ?4, ?5, ?5)",
+      )
       .bind(secondConflict, fileId, `files/${fileId}/${secondConflict}`, ownerUserId, ISO)
       .run();
 
@@ -227,9 +237,10 @@ describe("POST /api/v1/documents/{fileId}/reconcile", () => {
 
   it("404s a document with nothing awaiting reconciliation", async () => {
     const id = newIdentifier("file");
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO file (id, matter_id, name, created_at, updated_at) VALUES (?1, ?2, 'Clean.docx', ?3, ?3)",
-    )
+    await firmDb
+      .prepare(
+        "INSERT INTO file (id, matter_id, name, created_at, updated_at) VALUES (?1, ?2, 'Clean.docx', ?3, ?3)",
+      )
       .bind(id, matterId, ISO)
       .run();
     expect((await reconcile(id, { keep: "current" }, ownerCookie)).status).toBe(404);

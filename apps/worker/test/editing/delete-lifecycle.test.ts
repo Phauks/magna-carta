@@ -5,7 +5,7 @@ import { beforeAll, expect, it } from "vitest";
 import { documentSessionStub } from "../../src/editing/document-session.ts";
 import type { DocumentSession } from "../../src/editing/document-session.ts";
 import { applyControlPlaneMigrations } from "../support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "../support/apply-per-firm-migrations.ts";
+import { firmDatabaseHandle } from "../support/firm-database-handle.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -19,30 +19,33 @@ import {
 
 const ISO = "2026-06-20T00:00:00.000Z";
 let firmId: FirmId;
+let firmDb: ReturnType<typeof firmDatabaseHandle>;
 let matterId: MatterId;
 let ownerUserId: UserId;
 let ownerCookie: string;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   firmId = (await seedFirm({ name: "Delete Firm", databaseIdentifier: "DB_FIRM_POOL_1" })).firmId;
+  firmDb = firmDatabaseHandle(firmId);
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
     .bind(firmId)
     .run();
   const owner = await seedCredentialedUser("delete-owner@example.com", { firmId });
   ownerUserId = owner.userId;
-  await mirrorMemberWithOwnerRole(owner.userId, "Delete Owner");
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, 'files:delete', NULL, ?2, ?3)",
-  )
+  await mirrorMemberWithOwnerRole(owner.userId, "Delete Owner", firmId);
+  await firmDb
+    .prepare(
+      "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, 'files:delete', NULL, ?2, ?3)",
+    )
     .bind(newIdentifier("grant"), owner.userId, ISO)
     .run();
   ownerCookie = await signInForSessionCookie("delete-owner@example.com");
   matterId = newIdentifier("matter");
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'M', 'open', ?2, ?3, ?3)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'M', 'open', ?2, ?3, ?3)",
+    )
     .bind(matterId, ownerUserId, ISO)
     .run();
 });
@@ -50,17 +53,20 @@ beforeAll(async () => {
 it("reaps the live session and destroys the working copy on soft-delete, retaining versions", async () => {
   const fileId = newIdentifier("file");
   const versionId = newIdentifier("fileVersion");
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file (id, matter_id, name, current_version_id, current_r2_key, current_sha256, current_size_bytes, edit_state, created_at, updated_at) VALUES (?1, ?2, 'Brief.docx', NULL, ?3, 'wc', 5, 'coediting', ?4, ?4)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO file (id, matter_id, name, current_version_id, current_r2_key, current_sha256, current_size_bytes, edit_state, created_at, updated_at) VALUES (?1, ?2, 'Brief.docx', NULL, ?3, 'wc', 5, 'coediting', ?4, ?4)",
+    )
     .bind(fileId, matterId, `files/${fileId}/current`, ISO)
     .run();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, content_sha256, status, uploaded_by, created_at, committed_at) VALUES (?1, ?2, 1, ?3, 10, 'h', 'clean', ?4, ?5, ?5)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, content_sha256, status, uploaded_by, created_at, committed_at) VALUES (?1, ?2, 1, ?3, 10, 'h', 'clean', ?4, ?5, ?5)",
+    )
     .bind(versionId, fileId, `files/${fileId}/${versionId}`, ownerUserId, ISO)
     .run();
-  await env.DB_FIRM_POOL_1.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+  await firmDb
+    .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
     .bind(fileId, versionId)
     .run();
   // A live working copy + a live editing session.
@@ -88,9 +94,8 @@ it("reaps the live session and destroys the working copy on soft-delete, retaini
 
   // The working copy is destroyed and its pointer cleared; the file is soft-deleted.
   expect(await env.R2.get(`files/${fileId}/current`)).toBeNull();
-  const file = await env.DB_FIRM_POOL_1.prepare(
-    "SELECT current_r2_key, edit_state, deleted_at FROM file WHERE id = ?1",
-  )
+  const file = await firmDb
+    .prepare("SELECT current_r2_key, edit_state, deleted_at FROM file WHERE id = ?1")
     .bind(fileId as FileId)
     .first<{ current_r2_key: string | null; edit_state: string; deleted_at: string | null }>();
   expect(file?.current_r2_key).toBeNull();

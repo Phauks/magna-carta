@@ -91,6 +91,10 @@ export type Bindings = {
   // verdict. Optional here so the pool can start without a running scan service; resolveScanPort
   // falls back to the no-engine adapter when absent or when the bound service returns unscanned.
   SCAN_SERVICE?: Fetcher;
+  // The dedicated bundle-build worker (magna-carta-bundle), reached over this service binding.
+  // Optional here so the pool can start without a running bundle worker; the bundle coordinator
+  // only calls it at build time (POST /build) and surfaces any absence as a build failure.
+  BUNDLE_SERVICE?: Fetcher;
   // The off-hot-path AI inference dispatch queue: an inference request is enqueued here and the consumer
   // (src/inference/inference-consumer.ts) runs env.AI.run, so a single firm cannot starve the shared
   // gateway cap synchronously on the request path. Distinct from QUEUE (jobs) and FILES_INGEST.

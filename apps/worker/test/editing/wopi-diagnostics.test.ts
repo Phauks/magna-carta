@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { getFile, runWopiCallback } from "../../src/editing/wopi-routes.ts";
 import { WopiGuardError } from "../../src/editing/wopi-guard.ts";
 import type { EditTokenClaims } from "../../src/editing/wopi-token.ts";
+import type { ProxyBatchDatabase } from "../../src/firm-database/firm-database-proxy.ts";
 
 // The WOPI callback surface authenticates from a token off the cookie chokepoint, so it does not ride
 // the request-path telemetry middleware. runWopiCallback is its diagnostics seam: it mints a
@@ -35,7 +36,11 @@ describe("WOPI surface diagnostics", () => {
     } as unknown as R2Bucket;
 
     const response = await runWopiCallback("wopi.getFile", { logger, now }, () =>
-      getFile(claims, { database: {} as D1Database, bucket: throwingBucket, currentMeta: null }),
+      getFile(claims, {
+        database: {} as unknown as ProxyBatchDatabase,
+        bucket: throwingBucket,
+        currentMeta: null,
+      }),
     );
 
     expect(response.status).toBe(500);

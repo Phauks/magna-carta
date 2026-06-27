@@ -9,7 +9,7 @@ import {
 } from "@magna-carta/file-manager/file-statements";
 import type { FileId, UserId } from "@magna-carta/identifiers/types";
 import type { Bindings } from "../app.ts";
-import { resolveFirmDatabase } from "../firm-binding-resolver.ts";
+import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { shouldCutVersion } from "./version-cut-trigger.ts";
 
 export type ParticipantCapability = "view" | "edit";
@@ -76,15 +76,14 @@ export class DocumentSession extends DurableObject<Bindings> {
 
   // Resolves the firm database from the session's bucket through the control plane — the same seam the
   // ingest consumer uses, since the alarm is a fresh invocation that never saw the request's firm
-  // context. Null when the firm is unreachable from this deployment (nothing the alarm can do).
-  private async resolveFirmDatabase(bucketName: string): Promise<D1Database | null> {
-    const firm = await this.env.DB_CONTROL.prepare(
-      "SELECT database_identifier FROM firm WHERE bucket_name = ?1",
-    )
+  // context. The FirmDatabase Durable Object is addressed by firmId and self-migrates on first access.
+  // Null when the firm row is absent — a firm this deployment cannot reach (nothing the alarm can do).
+  private async resolveFirmDatabase(bucketName: string): Promise<ProxyBatchDatabase | null> {
+    const firm = await this.env.DB_CONTROL.prepare("SELECT id FROM firm WHERE bucket_name = ?1")
       .bind(bucketName)
-      .first<{ database_identifier: string | null }>();
-    if (firm === null || firm.database_identifier === null) return null;
-    return resolveFirmDatabase(this.env, firm.database_identifier);
+      .first<{ id: string }>();
+    if (firm === null) return null;
+    return firmDatabaseFor(this.env.FIRM_DATABASE, firm.id);
   }
 
   async getState(): Promise<DocumentSessionState> {

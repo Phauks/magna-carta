@@ -1,15 +1,15 @@
 import { env } from "cloudflare:test";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
-import type { FileId, FileVersionId } from "@magna-carta/identifiers/types";
+import type { FileId, FileVersionId, FirmId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { checkFileInfo, getFile, lockOperation, putFile } from "../../src/editing/wopi-routes.ts";
 import type { EditTokenClaims } from "../../src/editing/wopi-token.ts";
 import type { CurrentObjectMeta } from "../../src/editing/document-session.ts";
-import { applyPerFirmMigrations } from "../support/apply-per-firm-migrations.ts";
+import { firmDatabaseHandle } from "../support/firm-database-handle.ts";
 
-// The WOPI CheckFileInfo + GetFile handlers, exercised over real Miniflare bindings (the firm D1 from
-// the dev pool, the R2 binding). The handlers receive already-verified token claims (the guard +
-// firm-database resolution happen upstream), so these tests construct the claims directly and assert
+// The WOPI CheckFileInfo + GetFile handlers, exercised over real Miniflare bindings (the firm's
+// FirmDatabase Durable Object, the R2 binding). The handlers receive already-verified token claims (the
+// guard + firm-database resolution happen upstream), so these tests construct the claims directly and assert
 // the protocol shaping: UserCanWrite tracks capability, the file's display name and size come from the
 // firm metadata, LastModifiedTime echoes the session's host-assigned timestamp, and GetFile streams
 // the version bytes for a read-only viewer but the live `current` working object for an edit session.
@@ -17,6 +17,8 @@ import { applyPerFirmMigrations } from "../support/apply-per-firm-migrations.ts"
 const ISO = "2026-06-20T00:00:00.000Z";
 const memberId = newIdentifier("user");
 let matterId: string;
+let firmId: FirmId;
+let firmDb: ReturnType<typeof firmDatabaseHandle>;
 
 // Seeds a clean file with one committed version and writes its bytes into the R2 binding at the
 // version key — the minimal metadata chain CheckFileInfo/GetFile read from.
@@ -27,18 +29,21 @@ async function seedCleanFile(
   const fileId = newIdentifier("file");
   const versionId = newIdentifier("fileVersion");
   const versionKey = `files/${fileId}/${versionId}`;
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, ?3, NULL, NULL, NULL, ?4, ?4)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, ?3, NULL, NULL, NULL, ?4, ?4)",
+    )
     .bind(fileId, matterId, name, ISO)
     .run();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at) " +
-      "VALUES (?1, ?2, 1, ?3, ?4, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', NULL, 'seed-hash', 'clean', ?5, ?6, ?6)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at) " +
+        "VALUES (?1, ?2, 1, ?3, ?4, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', NULL, 'seed-hash', 'clean', ?5, ?6, ?6)",
+    )
     .bind(versionId, fileId, versionKey, versionBytes.length, memberId, ISO)
     .run();
-  await env.DB_FIRM_POOL_1.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+  await firmDb
+    .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
     .bind(fileId, versionId)
     .run();
   await env.R2.put(versionKey, versionBytes);
@@ -51,7 +56,7 @@ function claimsFor(
   capability: "view" | "edit",
 ): EditTokenClaims {
   return {
-    firmId: "firm_pool_one",
+    firmId,
     matterId,
     fileId,
     versionId,
@@ -64,16 +69,19 @@ function claimsFor(
 }
 
 beforeAll(async () => {
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
+  firmId = newIdentifier("firm");
+  firmDb = firmDatabaseHandle(firmId);
   matterId = newIdentifier("matter");
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'Editor', 'active', ?2)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'Editor', 'active', ?2)",
+    )
     .bind(memberId, ISO)
     .run();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Editing Matter', 'open', ?2, ?3, ?3)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Editing Matter', 'open', ?2, ?3, ?3)",
+    )
     .bind(matterId, memberId, ISO)
     .run();
 });
@@ -83,7 +91,7 @@ describe("WOPI CheckFileInfo", () => {
     const { fileId, versionId } = await seedCleanFile("Brief.docx", "hello world");
 
     const info = await checkFileInfo(claimsFor(fileId, versionId, "edit"), {
-      database: env.DB_FIRM_POOL_1,
+      database: firmDb,
       bucket: env.R2,
       currentMeta: null,
     });
@@ -102,7 +110,7 @@ describe("WOPI CheckFileInfo", () => {
     const { fileId, versionId } = await seedCleanFile("ReadOnly.docx", "abc");
 
     const info = await checkFileInfo(claimsFor(fileId, versionId, "view"), {
-      database: env.DB_FIRM_POOL_1,
+      database: firmDb,
       bucket: env.R2,
       currentMeta: null,
     });
@@ -119,7 +127,7 @@ describe("WOPI CheckFileInfo", () => {
     };
 
     const info = await checkFileInfo(claimsFor(fileId, versionId, "edit"), {
-      database: env.DB_FIRM_POOL_1,
+      database: firmDb,
       bucket: env.R2,
       currentMeta,
     });
@@ -135,7 +143,7 @@ describe("WOPI GetFile", () => {
     const { fileId, versionId } = await seedCleanFile("View.docx", "committed-bytes");
 
     const response = await getFile(claimsFor(fileId, versionId, "view"), {
-      database: env.DB_FIRM_POOL_1,
+      database: firmDb,
       bucket: env.R2,
       currentMeta: null,
     });
@@ -155,7 +163,7 @@ describe("WOPI GetFile", () => {
     };
 
     const response = await getFile(claimsFor(fileId, versionId, "edit"), {
-      database: env.DB_FIRM_POOL_1,
+      database: firmDb,
       bucket: env.R2,
       currentMeta,
     });
@@ -168,7 +176,7 @@ describe("WOPI GetFile", () => {
     const { fileId, versionId } = await seedCleanFile("Fresh.docx", "version-bytes");
 
     const response = await getFile(claimsFor(fileId, versionId, "edit"), {
-      database: env.DB_FIRM_POOL_1,
+      database: firmDb,
       bucket: env.R2,
       currentMeta: null,
     });

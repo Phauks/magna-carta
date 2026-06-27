@@ -14,7 +14,7 @@ import { mintEditToken } from "../../src/editing/wopi-token.ts";
 import { runTieringSweep } from "../../src/editing/tiering-sweep.ts";
 import { handleIngestMessage } from "../../src/files/ingest-consumer.ts";
 import { applyControlPlaneMigrations } from "../support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "../support/apply-per-firm-migrations.ts";
+import { firmDatabaseHandle, type FirmDatabaseHandle } from "../support/firm-database-handle.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -33,6 +33,8 @@ import {
 const ISO = "2026-06-20T00:00:00.000Z";
 const PDF_BYTES = new TextEncoder().encode("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer\n%%EOF\n");
 let firmA: FirmId;
+let firmDbA: FirmDatabaseHandle;
+let firmDbB: FirmDatabaseHandle;
 let matterA: MatterId;
 let ownerId: UserId;
 let ownerCookie: string;
@@ -40,7 +42,11 @@ let editorCookie: string;
 let firmBFileId: FileId;
 let firmBVersionId: FileVersionId;
 
-async function grant(database: D1Database, userId: UserId, permission: string): Promise<void> {
+async function grant(
+  database: FirmDatabaseHandle,
+  userId: UserId,
+  permission: string,
+): Promise<void> {
   await database
     .prepare(
       "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, ?3, NULL, ?2, ?4)",
@@ -50,7 +56,7 @@ async function grant(database: D1Database, userId: UserId, permission: string): 
 }
 
 async function seedBaseFile(
-  database: D1Database,
+  database: FirmDatabaseHandle,
   matterId: MatterId,
   uploadedBy: UserId,
 ): Promise<{ fileId: FileId; versionId: FileVersionId }> {
@@ -81,7 +87,7 @@ async function seedBaseFile(
 async function cutVersion(fileId: FileId, hash: string): Promise<void> {
   await env.R2.put(`files/${fileId}/current`, PDF_BYTES);
   const result = await commitEditedVersion(
-    env.DB_FIRM_POOL_1,
+    firmDbA,
     {
       fileId,
       currentR2Key: `files/${fileId}/current`,
@@ -95,7 +101,7 @@ async function cutVersion(fileId: FileId, hash: string): Promise<void> {
       if (object !== null) await env.R2.put(to, object.body);
     },
   );
-  await commitEffectBatch(env.DB_FIRM_POOL_1, result.effect, {
+  await commitEffectBatch(firmDbA, result.effect, {
     now: () => new Date().toISOString(),
   });
 }
@@ -109,59 +115,64 @@ const api = (path: string, cookie: string, body?: unknown): Promise<Response> =>
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_2);
   firmA = (await seedFirm({ name: "Editing E2E A", databaseIdentifier: "DB_FIRM_POOL_1" })).firmId;
+  firmDbA = firmDatabaseHandle(firmA);
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
     .bind(firmA)
     .run();
   // Firm B holds a document the firm-A token must never reach (the tenancy-isolation step).
-  await seedFirm({ name: "Editing E2E B", databaseIdentifier: "DB_FIRM_POOL_2" });
+  const firmB = (await seedFirm({ name: "Editing E2E B", databaseIdentifier: "DB_FIRM_POOL_2" }))
+    .firmId;
+  firmDbB = firmDatabaseHandle(firmB);
 
   const owner = await seedCredentialedUser("e2e-edit-owner@example.com", { firmId: firmA });
   ownerId = owner.userId;
-  await mirrorMemberWithOwnerRole(owner.userId, "E2E Owner");
+  await mirrorMemberWithOwnerRole(owner.userId, "E2E Owner", firmA);
   for (const permission of [
     "documents:edit",
     "documents:checkout",
     "documents:reconcile",
     "documents:forceReleaseLock",
   ]) {
-    await grant(env.DB_FIRM_POOL_1, owner.userId, permission);
+    await grant(firmDbA, owner.userId, permission);
   }
   ownerCookie = await signInForSessionCookie("e2e-edit-owner@example.com");
 
   const editor = await seedCredentialedUser("e2e-edit-editor@example.com", { firmId: firmA });
-  await mirrorMemberWithOwnerRole(editor.userId, "E2E Editor");
-  await grant(env.DB_FIRM_POOL_1, editor.userId, "documents:edit");
+  await mirrorMemberWithOwnerRole(editor.userId, "E2E Editor", firmA);
+  await grant(firmDbA, editor.userId, "documents:edit");
   editorCookie = await signInForSessionCookie("e2e-edit-editor@example.com");
 
   matterA = newIdentifier("matter");
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'M', 'open', ?2, ?3, ?3)",
-  )
+  await firmDbA
+    .prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'M', 'open', ?2, ?3, ?3)",
+    )
     .bind(matterA, ownerId, ISO)
     .run();
 
   // Firm B: a member, a matter, and a document the firm-A token must never reach.
-  await env.DB_FIRM_POOL_2.prepare(
-    "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'B', 'active', ?2)",
-  )
+  await firmDbB
+    .prepare(
+      "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'B', 'active', ?2)",
+    )
     .bind("user_e2e_b" as UserId, ISO)
     .run();
   const matterB = newIdentifier("matter");
-  await env.DB_FIRM_POOL_2.prepare(
-    "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'MB', 'open', ?2, ?3, ?3)",
-  )
+  await firmDbB
+    .prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'MB', 'open', ?2, ?3, ?3)",
+    )
     .bind(matterB, "user_e2e_b" as UserId, ISO)
     .run();
-  const fileB = await seedBaseFile(env.DB_FIRM_POOL_2, matterB, "user_e2e_b" as UserId);
+  const fileB = await seedBaseFile(firmDbB, matterB, "user_e2e_b" as UserId);
   firmBFileId = fileB.fileId;
   firmBVersionId = fileB.versionId;
 });
 
 async function currentVersionOf(fileId: FileId): Promise<string | undefined> {
-  const row = await env.DB_FIRM_POOL_1.prepare("SELECT current_version_id FROM file WHERE id = ?1")
+  const row = await firmDbA
+    .prepare("SELECT current_version_id FROM file WHERE id = ?1")
     .bind(fileId)
     .first<{ current_version_id: string }>();
   return row?.current_version_id;
@@ -169,7 +180,7 @@ async function currentVersionOf(fileId: FileId): Promise<string | undefined> {
 
 describe("editing lifecycle e2e", () => {
   it("runs launch → edit → save → co-edit → view → checkout → divergent check-in → reconcile → lock → force-release → tiering → cross-firm 404", async () => {
-    const { fileId, versionId: v1 } = await seedBaseFile(env.DB_FIRM_POOL_1, matterA, ownerId);
+    const { fileId, versionId: v1 } = await seedBaseFile(firmDbA, matterA, ownerId);
 
     // 1. Launch an editing session — an edit-capability WOPI token.
     const launch = await api(`/api/v1/documents/${fileId}/edit-session`, ownerCookie);
@@ -227,9 +238,8 @@ describe("editing lifecycle e2e", () => {
       object: { key: checkinKey, size: PDF_BYTES.byteLength },
       action: "PutObject",
     });
-    const conflict = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT reconciliation_status FROM file_version WHERE r2_key = ?1",
-    )
+    const conflict = await firmDbA
+      .prepare("SELECT reconciliation_status FROM file_version WHERE r2_key = ?1")
       .bind(checkinKey)
       .first<{ reconciliation_status: string }>();
     expect(conflict?.reconciliation_status).toBe("conflict_pending");
@@ -239,9 +249,8 @@ describe("editing lifecycle e2e", () => {
     expect(
       (await api(`/api/v1/documents/${fileId}/reconcile`, ownerCookie, { keep: "current" })).status,
     ).toBe(200);
-    const reconciled = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT reconciliation_status FROM file_version WHERE r2_key = ?1",
-    )
+    const reconciled = await firmDbA
+      .prepare("SELECT reconciliation_status FROM file_version WHERE r2_key = ?1")
       .bind(checkinKey)
       .first<{ reconciliation_status: string }>();
     expect(reconciled?.reconciliation_status).toBe("reconciled");
@@ -260,16 +269,14 @@ describe("editing lifecycle e2e", () => {
     expect(((await relaunch.json()) as { capability: string }).capability).toBe("edit");
 
     // 10. The tiering sweep cools a cold, superseded Standard version (v1) to Infrequent Access.
-    await env.DB_FIRM_POOL_1.prepare(
-      "UPDATE file_version SET committed_at = '2020-01-01T00:00:00.000Z' WHERE id = ?1",
-    )
+    await firmDbA
+      .prepare("UPDATE file_version SET committed_at = '2020-01-01T00:00:00.000Z' WHERE id = ?1")
       .bind(v1)
       .run();
     const tiered = await runTieringSweep(env, { now: Date.parse("2026-06-23T00:00:00.000Z") });
     expect(tiered.tiered).toBeGreaterThanOrEqual(1);
-    const v1Class = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT storage_class FROM file_version WHERE id = ?1",
-    )
+    const v1Class = await firmDbA
+      .prepare("SELECT storage_class FROM file_version WHERE id = ?1")
       .bind(v1)
       .first<{ storage_class: string }>();
     expect(v1Class?.storage_class).toBe("infrequent_access");

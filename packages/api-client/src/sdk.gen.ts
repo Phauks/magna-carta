@@ -116,7 +116,7 @@ export const firmSetReleaseChannel = <ThrowOnError extends boolean = false>(opti
 });
 
 /**
- * Provisions a tenant firm (platform-admin only): firm row, per-firm database created and migrated to head, bucket, owner user with the Owner/Admin role — resumable; re-invoking with the same name no-ops completed steps and returns the existing firm.
+ * Provisions a tenant firm (platform-admin only): firm row, bucket, owner user with the Owner/Admin role — resumable; re-invoking with the same name no-ops completed steps and returns the existing firm. The firm's per-firm database is the firmId-addressed database that self-migrates on first access, so it needs no provisioning step.
  */
 export const firmsProvision = <ThrowOnError extends boolean = false>(options: Options<FirmsProvisionData, ThrowOnError>): RequestResult<FirmsProvisionResponses, FirmsProvisionErrors, ThrowOnError> => (options.client ?? client).post<FirmsProvisionResponses, FirmsProvisionErrors, ThrowOnError>({
     url: '/api/v1/firms',

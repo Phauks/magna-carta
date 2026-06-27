@@ -34,7 +34,7 @@
 ## Dependencies & contracts
 
 - **The coolwsd container is NOT here.** Per ADR `container-subsystems-extract-to-dedicated-workers`, it lives in a dedicated `magna-carta-edit` worker (no egress, no R2/D1 creds, one per document). The editor (browser iframe) loads it and it calls _back_ into this worker's `/wopi/*` surface — the container is the caller, never invoked from here.
-- Calls: `@magna-carta/file-manager` (version model, checkout/reconcile, tiering statements), the `DocumentSession` DO binding, R2 (`env.R2`), the firm DB resolver (`firm-binding-resolver.ts`).
+- Calls: `@magna-carta/file-manager` (version model, checkout/reconcile, tiering statements), the `DocumentSession` DO binding, R2 (`env.R2`), and the firm database via `firmDatabaseFor(env.FIRM_DATABASE, firmId)` (`firm-database/firm-database-proxy.ts`).
 - The returning check-in routes the `@magna-carta/file-manager` quarantine ingest (`apps/worker/src/files/ingest-consumer.ts`) — **never edit `ingest-core.ts`** (a slice 2·1 boundary).
 
 ## Gotchas

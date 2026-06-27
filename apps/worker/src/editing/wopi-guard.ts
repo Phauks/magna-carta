@@ -5,6 +5,7 @@
 // a token presented against another firm's WOPISrc cannot reach that firm's data — the firm database
 // is keyed by the token's firmId, and the handler then looks the token's fileId up in THAT database.
 
+import type { ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { verifyEditToken, WopiTokenError, type EditTokenClaims } from "./wopi-token.ts";
 
 export type WopiGuardErrorCode = "unauthorized" | "not-found" | "forbidden-readonly";
@@ -19,13 +20,13 @@ export class WopiGuardError extends Error {
 }
 
 // Resolves a firm's per-firm database from the firmId carried in the verified token. The wiring
-// composes the control-plane `database_identifier` lookup with resolveFirmDatabase; null is a firm
-// with no live database (unknown / unprovisioned / key-shredded), which the guard answers as 404.
-export type FirmDatabaseResolver = (firmId: string) => Promise<D1Database | null>;
+// confirms the firm exists in the control plane, then addresses its FirmDatabase Durable Object by
+// firmId; null is an unknown firm (no control-plane row), which the guard answers as 404.
+export type FirmDatabaseResolver = (firmId: string) => Promise<ProxyBatchDatabase | null>;
 
 export interface WopiGuardResult {
   readonly claims: EditTokenClaims;
-  readonly firmDatabase: D1Database;
+  readonly firmDatabase: ProxyBatchDatabase;
 }
 
 // Authenticates a WOPI callback. Throws WopiGuardError("unauthorized") for a bad/expired token and

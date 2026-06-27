@@ -142,16 +142,15 @@
       },
     ],
   },
-  // Worker service bindings. JSONC keeps only the LAST duplicate top-level key, so both bindings MUST
-  // live in this single array — a second services key would silently drop everything in the first.
-  // SCAN_SERVICE: the malware-scan Worker. The app worker dispatches uploaded files to it for verdict.
-  // Absent in tests unless a stub resolves it (see vitest.config.ts); resolveScanPort falls back to
-  // the no-engine adapter when the service returns the unscanned verdict.
-  // CONVERT: the dedicated conversion engine worker; the app worker reaches it over this binding to
-  // call its POST /convert endpoint. Optional at deploy time — absent until the worker is deployed and
-  // wired; resolveEnginePort returns the deferred port while unbound.
+  // Worker service bindings to dedicated sibling workers. JSONC keeps only the LAST duplicate top-level
+  // key, so ALL bindings must live in this one array. Absent in tests unless stubs resolve them (see
+  // vitest.config.ts); each optional binding has a graceful fallback in production code.
+  //   SCAN_SERVICE: the malware-scan worker (resolveScanPort falls back to the no-engine adapter).
+  //   BUNDLE_SERVICE: the bundle-build worker (POST /build); the bundle lanes 503 until it is bound.
+  //   CONVERT: the conversion engine worker (resolveEnginePort returns the deferred port while unbound).
   "services": [
     { "binding": "SCAN_SERVICE", "service": "magna-carta-scan" },
+    { "binding": "BUNDLE_SERVICE", "service": "magna-carta-bundle" },
     { "binding": "CONVERT", "service": "magna-carta-convert" },
   ],
   // Browser Rendering Workers binding — used by POST /api/v1/safe-browse to render suspect URLs
@@ -168,7 +167,9 @@
   // state survives the editing container sleeping. FIRM_DATABASE is the per-firm SQLite-backed DO (one
   // instance per firm, idFromName(firmId), self-migrating on wake, the data-plane RPC target for all
   // per-firm SQL). DURABLE_TIMER is the per-timekeeper live-timer coordinator — one instance per
-  // `${firmId}:${userId}` (firm-namespaced), transient live-timer state only.
+  // `${firmId}:${userId}` (firm-namespaced, so a timer never holds another firm's state), holding only
+  // transient live-timer state; a committed time entry flows through the data-access chokepoint into
+  // the per-firm database, never the DO.
   "durable_objects": {
     "bindings": [
       { "name": "BUNDLE_COORDINATOR", "class_name": "BundleBuildCoordinator" },

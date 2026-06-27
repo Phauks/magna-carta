@@ -3,7 +3,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { beforeAll, describe, expect, it } from "vitest";
 import { runTieringSweep } from "../../src/editing/tiering-sweep.ts";
 import { applyControlPlaneMigrations } from "../support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "../support/apply-per-firm-migrations.ts";
+import { firmDatabaseHandle } from "../support/firm-database-handle.ts";
 
 // The conservative Standard->Infrequent-Access tiering sweep: only superseded, non-current versions
 // past the IA 30-day minimum are tiered; the live/latest version is never touched, the meter shifts
@@ -15,17 +15,21 @@ const MEMBER = "user_tier";
 const NOW_MS = Date.parse("2026-06-22T12:00:00.000Z");
 const daysAgo = (n: number) => new Date(NOW_MS - n * 24 * 60 * 60 * 1000).toISOString();
 
+let firmDb: ReturnType<typeof firmDatabaseHandle>;
+
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
+  const firmId = newIdentifier("firm");
+  firmDb = firmDatabaseHandle(firmId);
   await env.DB_CONTROL.prepare(
     "INSERT INTO firm (id, name, database_identifier, bucket_name, status, created_at) VALUES (?1, 'Tier Firm', 'DB_FIRM_POOL_1', ?2, 'active', ?3)",
   )
-    .bind(newIdentifier("firm"), BUCKET, daysAgo(100))
+    .bind(firmId, BUCKET, daysAgo(100))
     .run();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'Tierer', 'active', ?2)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'Tierer', 'active', ?2)",
+    )
     .bind(MEMBER, daysAgo(100))
     .run();
 });
@@ -38,9 +42,10 @@ async function seedVersion(
   sizeBytes: number,
 ): Promise<string> {
   const versionId = newIdentifier("fileVersion");
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, content_sha256, storage_class, status, uploaded_by, created_at, committed_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'clean', ?8, ?9, ?9)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, content_sha256, storage_class, status, uploaded_by, created_at, committed_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'clean', ?8, ?9, ?9)",
+    )
     .bind(
       versionId,
       fileId,
@@ -58,18 +63,18 @@ async function seedVersion(
 }
 
 async function storageClassOf(versionId: string): Promise<string | undefined> {
-  const row = await env.DB_FIRM_POOL_1.prepare(
-    "SELECT storage_class FROM file_version WHERE id = ?1",
-  )
+  const row = await firmDb
+    .prepare("SELECT storage_class FROM file_version WHERE id = ?1")
     .bind(versionId)
     .first<{ storage_class: string }>();
   return row?.storage_class;
 }
 
 async function meterFor(storageClass: string): Promise<{ bytes: number; object_count: number }> {
-  const row = await env.DB_FIRM_POOL_1.prepare(
-    "SELECT bytes, object_count FROM storage_meter WHERE storage_class = ?1 AND prefix = 'files'",
-  )
+  const row = await firmDb
+    .prepare(
+      "SELECT bytes, object_count FROM storage_meter WHERE storage_class = ?1 AND prefix = 'files'",
+    )
     .bind(storageClass)
     .first<{ bytes: number; object_count: number }>();
   return { bytes: row?.bytes ?? 0, object_count: row?.object_count ?? 0 };
@@ -78,15 +83,17 @@ async function meterFor(storageClass: string): Promise<{ bytes: number; object_c
 describe("runTieringSweep", () => {
   it("tiers only superseded, non-current versions past the 30-day window; never the live version; meter shifts class in place; nothing deleted", async () => {
     const matterId = newIdentifier("matter");
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'M', 'open', ?2, ?3, ?3)",
-    )
+    await firmDb
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'M', 'open', ?2, ?3, ?3)",
+      )
       .bind(matterId, MEMBER, daysAgo(100))
       .run();
     const fileId = newIdentifier("file");
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO file (id, matter_id, name, current_version_id, created_at, updated_at) VALUES (?1, ?2, 'Brief.docx', NULL, ?3, ?3)",
-    )
+    await firmDb
+      .prepare(
+        "INSERT INTO file (id, matter_id, name, current_version_id, created_at, updated_at) VALUES (?1, ?2, 'Brief.docx', NULL, ?3, ?3)",
+      )
       .bind(fileId, matterId, daysAgo(100))
       .run();
 
@@ -96,14 +103,17 @@ describe("runTieringSweep", () => {
     const v2 = await seedVersion(fileId, 2, "standard", daysAgo(40), 2000);
     const v3 = await seedVersion(fileId, 3, "standard", daysAgo(5), 3000);
     const v4 = await seedVersion(fileId, 4, "infrequent_access", daysAgo(40), 4000);
-    await env.DB_FIRM_POOL_1.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+    await firmDb
+      .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
       .bind(fileId, v2)
       .run();
 
     // Seed the authoritative meter to match the four committed versions (3 standard + 1 IA).
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO storage_meter (storage_class, artifact_role, prefix, bytes, object_count) VALUES ('standard', 'original', 'files', 6000, 3), ('infrequent_access', 'original', 'files', 4000, 1)",
-    ).run();
+    await firmDb
+      .prepare(
+        "INSERT INTO storage_meter (storage_class, artifact_role, prefix, bytes, object_count) VALUES ('standard', 'original', 'files', 6000, 3), ('infrequent_access', 'original', 'files', 4000, 1)",
+      )
+      .run();
 
     const tiered: string[] = [];
     const report = await runTieringSweep(env, {

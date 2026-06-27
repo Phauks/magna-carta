@@ -4,7 +4,7 @@ import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Context } from "hono";
 import type { Bindings } from "../app.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
-import { resolveFirmDatabase } from "../firm-binding-resolver.ts";
+import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { documentSessionStub } from "./document-session.ts";
 import { wopiGuard, WopiGuardError, type FirmDatabaseResolver } from "./wopi-guard.ts";
 import { checkFileInfo, getFile, lockOperation, putFile, runWopiCallback } from "./wopi-routes.ts";
@@ -18,16 +18,16 @@ import { checkFileInfo, getFile, lockOperation, putFile, runWopiCallback } from 
 // runWopiCallback, which maps a fault to the WOPI-contract status and emits ONE redacted operation.failed
 // (no document bytes, no token) with an X-MC-Error-Id. Reasoning home: docs/conventions/security.md.
 
-// Resolves a firm's per-firm database from the firmId in the verified token: the control-plane
-// database_identifier lookup composed with the binding resolver. Null (unknown / unprovisioned /
-// unreachable firm) → the guard answers 404.
+// Resolves a firm's per-firm database from the firmId in the verified token: confirm the firm exists
+// in the control plane, then address its FirmDatabase Durable Object by firmId. Null (unknown firm,
+// no control-plane row) → the guard answers 404.
 function firmDatabaseResolverFor(env: Bindings): FirmDatabaseResolver {
   return async (firmId) => {
-    const firm = await env.DB_CONTROL.prepare("SELECT database_identifier FROM firm WHERE id = ?1")
+    const firm = await env.DB_CONTROL.prepare("SELECT id FROM firm WHERE id = ?1")
       .bind(firmId)
-      .first<{ database_identifier: string | null }>();
-    if (firm === null || firm.database_identifier === null) return null;
-    return resolveFirmDatabase(env, firm.database_identifier);
+      .first<{ id: string }>();
+    if (firm === null) return null;
+    return firmDatabaseFor(env.FIRM_DATABASE, firm.id);
   };
 }
 
@@ -41,7 +41,7 @@ async function withWopi(
   operation: string,
   fn: (resolved: {
     claims: Awaited<ReturnType<typeof wopiGuard>>["claims"];
-    firmDatabase: D1Database;
+    firmDatabase: ProxyBatchDatabase;
     fileId: FileId;
     state: Awaited<ReturnType<ReturnType<typeof documentSessionStub>["getState"]>>;
   }) => Promise<Response>,

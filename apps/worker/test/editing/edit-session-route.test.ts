@@ -10,7 +10,7 @@ import type {
 import { beforeAll, describe, expect, it } from "vitest";
 import { verifyEditToken } from "../../src/editing/wopi-token.ts";
 import { applyControlPlaneMigrations } from "../support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "../support/apply-per-firm-migrations.ts";
+import { firmDatabaseHandle } from "../support/firm-database-handle.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -24,6 +24,7 @@ import {
 
 const ISO = "2026-06-20T00:00:00.000Z";
 let firmId: FirmId;
+let firmDb: ReturnType<typeof firmDatabaseHandle>;
 let matterId: MatterId;
 let ownerUserId: UserId;
 let editorCookie: string;
@@ -34,18 +35,21 @@ async function seedCleanFile(): Promise<{ fileId: FileId; versionId: FileVersion
   const id = newIdentifier("file");
   const versionId = newIdentifier("fileVersion");
   const r2Key = `files/${id}/${versionId}`;
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, 'Brief.docx', NULL, NULL, NULL, ?3, ?3)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, 'Brief.docx', NULL, NULL, NULL, ?3, ?3)",
+    )
     .bind(id, matterId, ISO)
     .run();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at) " +
-      "VALUES (?1, ?2, 1, ?3, 10, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', NULL, 'seed-hash', 'clean', ?4, ?5, ?5)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at) " +
+        "VALUES (?1, ?2, 1, ?3, 10, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', NULL, 'seed-hash', 'clean', ?4, ?5, ?5)",
+    )
     .bind(versionId, id, r2Key, ownerUserId, ISO)
     .run();
-  await env.DB_FIRM_POOL_1.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+  await firmDb
+    .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
     .bind(id, versionId)
     .run();
   return { fileId: id, versionId };
@@ -53,9 +57,9 @@ async function seedCleanFile(): Promise<{ fileId: FileId; versionId: FileVersion
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   firmId = (await seedFirm({ name: "Editing Launch Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
     .firmId;
+  firmDb = firmDatabaseHandle(firmId);
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
     .bind(firmId)
     .run();
@@ -65,11 +69,12 @@ beforeAll(async () => {
     firmId,
   });
   ownerUserId = owner.userId;
-  await mirrorMemberWithOwnerRole(owner.userId, "Edit Owner");
+  await mirrorMemberWithOwnerRole(owner.userId, "Edit Owner", firmId);
   // Grant documents:edit directly to this member (the role-seeding migration lands at integration).
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, 'documents:edit', NULL, ?2, ?3)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO direct_grant (id, member_user_id, permission, expires_at, granted_by, created_at) VALUES (?1, ?2, 'documents:edit', NULL, ?2, ?3)",
+    )
     .bind(newIdentifier("grant"), owner.userId, ISO)
     .run();
   editorCookie = await signInForSessionCookie("edit-owner@example.com");
@@ -78,13 +83,14 @@ beforeAll(async () => {
     userName: "No Permission",
     firmId,
   });
-  await mirrorMemberWithOwnerRole(noPerm.userId, "No Permission");
+  await mirrorMemberWithOwnerRole(noPerm.userId, "No Permission", firmId);
   noPermCookie = await signInForSessionCookie("edit-noperm@example.com");
 
   matterId = newIdentifier("matter");
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Editing Matter', 'open', ?2, ?3, ?3)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Editing Matter', 'open', ?2, ?3, ?3)",
+    )
     .bind(matterId, ownerUserId, ISO)
     .run();
   ({ fileId } = await seedCleanFile());

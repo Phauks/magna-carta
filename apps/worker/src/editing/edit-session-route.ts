@@ -16,6 +16,7 @@ import {
 } from "../chokepoint/context-accessors.ts";
 import type { AppVariables } from "../chokepoint/ports.ts";
 import { chokepointMiddleware } from "../chokepoint/register.ts";
+import type { ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { identifierPathParam } from "../contracts/common.ts";
 import { Problem, problemJson, type ProblemResponse } from "../contracts/problem.ts";
 import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
@@ -74,7 +75,7 @@ type LaunchTarget = { readonly matterId: MatterId; readonly versionId: FileVersi
 // version. "not-found" when the file is absent/deleted in this firm; "no-version" when nothing has
 // committed yet (nothing to open).
 async function resolveLaunchTarget(
-  database: D1Database,
+  database: ProxyBatchDatabase,
   fileId: FileId,
 ): Promise<LaunchTarget | "not-found" | "no-version"> {
   // One round-trip: the file row + its current clean version (this is a user-facing launch path).

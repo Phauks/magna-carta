@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
+import type { ProxyBatchDatabase } from "../../src/firm-database/firm-database-proxy.ts";
 import { mintEditToken } from "../../src/editing/wopi-token.ts";
 import { assertEditCapability, wopiGuard, WopiGuardError } from "../../src/editing/wopi-guard.ts";
 
 const env = { AUTH_SECRET: "test-auth-secret-value-not-for-production" };
 // The guard only passes the database through; a stand-in is enough for these unit tests.
-const fakeDatabase = { __stub: "firm-db" } as unknown as D1Database;
+const fakeDatabase = { __stub: "firm-db" } as unknown as ProxyBatchDatabase;
 
 const baseInput = {
   firmId: "firm_aaa",

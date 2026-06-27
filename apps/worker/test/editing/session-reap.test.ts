@@ -3,7 +3,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { DocumentSession } from "../../src/editing/document-session.ts";
 import { applyControlPlaneMigrations } from "../support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "../support/apply-per-firm-migrations.ts";
+import { firmDatabaseHandle } from "../support/firm-database-handle.ts";
 
 // The per-document session coordinator reaps a dead co-editing session: when the idle window elapses
 // with no activity the alarm fires, frees the document (file.edit_state -> idle in the firm database),
@@ -15,6 +15,8 @@ const BUCKET = "magna-carta-test-reap-bucket";
 const ISO = "2026-06-22T00:00:00.000Z";
 const MEMBER = "user_reap";
 
+let firmDb: ReturnType<typeof firmDatabaseHandle>;
+
 function sessionStub(name: string): DurableObjectStub<DocumentSession> {
   return env.DOCUMENT_SESSION.get(
     env.DOCUMENT_SESSION.idFromName(name),
@@ -23,30 +25,37 @@ function sessionStub(name: string): DurableObjectStub<DocumentSession> {
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
+  // The reap path resolves the firm database by looking up the firm whose bucket_name matches the
+  // session's bucketName, then addressing the FirmDatabase DO by that firm id. Seed the same id here
+  // so this test's firm data lives in the DO the alarm will reach.
+  const firmId = newIdentifier("firm");
   await env.DB_CONTROL.prepare(
     "INSERT INTO firm (id, name, database_identifier, bucket_name, status, created_at) VALUES (?1, 'Reap Firm', 'DB_FIRM_POOL_1', ?2, 'active', ?3)",
   )
-    .bind(newIdentifier("firm"), BUCKET, ISO)
+    .bind(firmId, BUCKET, ISO)
     .run();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'Reaper', 'active', ?2)",
-  )
+  firmDb = firmDatabaseHandle(firmId);
+  await firmDb
+    .prepare(
+      "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'Reaper', 'active', ?2)",
+    )
     .bind(MEMBER, ISO)
     .run();
 });
 
 async function seedCoeditingFile(): Promise<string> {
   const matterId = newIdentifier("matter");
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'M', 'open', ?2, ?3, ?3)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'M', 'open', ?2, ?3, ?3)",
+    )
     .bind(matterId, MEMBER, ISO)
     .run();
   const fileId = newIdentifier("file");
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file (id, matter_id, name, edit_state, created_at, updated_at) VALUES (?1, ?2, 'Brief.docx', 'coediting', ?3, ?3)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO file (id, matter_id, name, edit_state, created_at, updated_at) VALUES (?1, ?2, 'Brief.docx', 'coediting', ?3, ?3)",
+    )
     .bind(fileId, matterId, ISO)
     .run();
   return fileId;
@@ -56,19 +65,22 @@ async function seedCoeditingFile(): Promise<string> {
 async function seedCoeditingFileWithVersion(): Promise<{ fileId: string; versionId: string }> {
   const fileId = await seedCoeditingFile();
   const versionId = newIdentifier("fileVersion");
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, content_sha256, status, uploaded_by, created_at, committed_at) VALUES (?1, ?2, 1, ?3, 10, 'v1-hash', 'clean', ?4, ?5, ?5)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, content_sha256, status, uploaded_by, created_at, committed_at) VALUES (?1, ?2, 1, ?3, 10, 'v1-hash', 'clean', ?4, ?5, ?5)",
+    )
     .bind(versionId, fileId, `files/${fileId}/${versionId}`, MEMBER, ISO)
     .run();
-  await env.DB_FIRM_POOL_1.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+  await firmDb
+    .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
     .bind(fileId, versionId)
     .run();
   return { fileId, versionId };
 }
 
 async function editStateOf(fileId: string): Promise<string | undefined> {
-  const row = await env.DB_FIRM_POOL_1.prepare("SELECT edit_state FROM file WHERE id = ?1")
+  const row = await firmDb
+    .prepare("SELECT edit_state FROM file WHERE id = ?1")
     .bind(fileId)
     .first<{ edit_state: string }>();
   return row?.edit_state;
@@ -111,9 +123,10 @@ describe("DocumentSession idle reap", () => {
     });
 
     // A new immutable version was cut from `current`, and the file's current pointer advanced to it.
-    const versions = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT id, version_number, content_sha256, status FROM file_version WHERE file_id = ?1 ORDER BY version_number",
-    )
+    const versions = await firmDb
+      .prepare(
+        "SELECT id, version_number, content_sha256, status FROM file_version WHERE file_id = ?1 ORDER BY version_number",
+      )
       .bind(fileId)
       .all<{ id: string; version_number: number; content_sha256: string; status: string }>();
     expect(versions.results.length).toBe(2);
@@ -122,9 +135,8 @@ describe("DocumentSession idle reap", () => {
     expect(cut.content_sha256).toBe("reaped-hash");
     expect(cut.status).toBe("clean");
     expect(cut.id).not.toBe(v1);
-    const current = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT current_version_id FROM file WHERE id = ?1",
-    )
+    const current = await firmDb
+      .prepare("SELECT current_version_id FROM file WHERE id = ?1")
       .bind(fileId)
       .first<{ current_version_id: string }>();
     expect(current?.current_version_id).toBe(cut.id);
@@ -146,9 +158,8 @@ describe("DocumentSession idle reap", () => {
       await instance.alarm();
     });
 
-    const count = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS n FROM file_version WHERE file_id = ?1",
-    )
+    const count = await firmDb
+      .prepare("SELECT COUNT(*) AS n FROM file_version WHERE file_id = ?1")
       .bind(fileId)
       .first<{ n: number }>();
     expect(count?.n).toBe(1); // still just the base version

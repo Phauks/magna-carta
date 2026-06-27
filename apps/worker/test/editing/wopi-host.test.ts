@@ -11,7 +11,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { documentSessionStub } from "../../src/editing/document-session.ts";
 import { mintEditToken, type EditCapability } from "../../src/editing/wopi-token.ts";
 import { applyControlPlaneMigrations } from "../support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "../support/apply-per-firm-migrations.ts";
+import { firmDatabaseHandle } from "../support/firm-database-handle.ts";
 import { seedFirm } from "../support/test-auth.ts";
 
 // The mounted WOPI host surface (/wopi/files/*) end to end over Miniflare: a minted access_token drives
@@ -21,23 +21,26 @@ import { seedFirm } from "../support/test-auth.ts";
 const ISO = "2026-06-20T00:00:00.000Z";
 const VERSION_BYTES = new TextEncoder().encode("committed version bytes");
 let firmId: FirmId;
+let firmDb: ReturnType<typeof firmDatabaseHandle>;
 let matterId: MatterId;
 const MEMBER = "user_wopi" as UserId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   firmId = (await seedFirm({ name: "WOPI Host Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
     .firmId;
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'WOPI', 'active', ?2)",
-  )
+  firmDb = firmDatabaseHandle(firmId);
+  await firmDb
+    .prepare(
+      "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'WOPI', 'active', ?2)",
+    )
     .bind(MEMBER, ISO)
     .run();
   matterId = newIdentifier("matter");
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'M', 'open', ?2, ?3, ?3)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'M', 'open', ?2, ?3, ?3)",
+    )
     .bind(matterId, MEMBER, ISO)
     .run();
 });
@@ -45,17 +48,20 @@ beforeAll(async () => {
 async function seedFile(): Promise<{ fileId: FileId; versionId: FileVersionId }> {
   const fileId = newIdentifier("file");
   const versionId = newIdentifier("fileVersion");
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file (id, matter_id, name, current_version_id, created_at, updated_at) VALUES (?1, ?2, 'Brief.docx', NULL, ?3, ?3)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO file (id, matter_id, name, current_version_id, created_at, updated_at) VALUES (?1, ?2, 'Brief.docx', NULL, ?3, ?3)",
+    )
     .bind(fileId, matterId, ISO)
     .run();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, content_sha256, status, uploaded_by, created_at, committed_at) VALUES (?1, ?2, 1, ?3, ?4, 'seed', 'clean', ?5, ?6, ?6)",
-  )
+  await firmDb
+    .prepare(
+      "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, content_sha256, status, uploaded_by, created_at, committed_at) VALUES (?1, ?2, 1, ?3, ?4, 'seed', 'clean', ?5, ?6, ?6)",
+    )
     .bind(versionId, fileId, `files/${fileId}/${versionId}`, VERSION_BYTES.byteLength, MEMBER, ISO)
     .run();
-  await env.DB_FIRM_POOL_1.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+  await firmDb
+    .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
     .bind(fileId, versionId)
     .run();
   await env.R2.put(`files/${fileId}/${versionId}`, VERSION_BYTES);

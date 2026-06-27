@@ -2489,6 +2489,106 @@
               "type": "string",
               "pattern": "^file_[A-Za-z0-9_-]{21}$"
             }
+          },
+          "options": {
+            "type": "object",
+            "properties": {
+              "format": {
+                "type": "string",
+                "enum": [
+                  "zip",
+                  "sevenZip"
+                ]
+              },
+              "compression": {
+                "type": "string",
+                "enum": [
+                  "store",
+                  "normal",
+                  "maximum"
+                ]
+              },
+              "encryption": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "algorithm": {
+                    "type": "string",
+                    "enum": [
+                      "aes-256"
+                    ]
+                  },
+                  "encryptFileNames": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "algorithm",
+                  "encryptFileNames"
+                ]
+              },
+              "split": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "maxPartBytes": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": [
+                  "maxPartBytes"
+                ]
+              },
+              "outputName": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 255
+              },
+              "wrapperFolder": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              },
+              "layout": {
+                "type": "string",
+                "enum": [
+                  "preserveTree",
+                  "flatten"
+                ]
+              },
+              "manifest": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "format",
+              "compression",
+              "encryption",
+              "split",
+              "outputName",
+              "wrapperFolder",
+              "layout",
+              "manifest"
+            ]
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1
           }
         },
         "required": [
@@ -2727,6 +2827,12 @@
           },
           "url": {
             "type": "string"
+          },
+          "urls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -11002,8 +11108,28 @@
               }
             }
           },
+          "422": {
+            "description": "The supplied bundle options are incoherent for the chosen format (e.g. ZIP with split enabled, or encryption combined with split). The detail field lists each violation.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The bundle service worker binding is not configured. This is a deploy-time activation; the plain-ZIP fast lane is always available without it.",
             "content": {
               "application/problem+json": {
                 "schema": {

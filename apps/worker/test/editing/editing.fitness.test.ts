@@ -10,7 +10,7 @@ import type {
 import { beforeAll, describe, expect, it } from "vitest";
 import { mintEditToken, type EditCapability } from "../../src/editing/wopi-token.ts";
 import { applyControlPlaneMigrations } from "../support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "../support/apply-per-firm-migrations.ts";
+import { firmDatabaseHandle } from "../support/firm-database-handle.ts";
 import { seedFirm } from "../support/test-auth.ts";
 
 // The slice 2·2 editing invariants, proven structurally. These are the security/tenancy posture the
@@ -22,10 +22,12 @@ import { seedFirm } from "../support/test-auth.ts";
 
 const ISO = "2026-06-20T00:00:00.000Z";
 let firmA: FirmId;
+let firmDb: ReturnType<typeof firmDatabaseHandle>;
+let firmDb2: ReturnType<typeof firmDatabaseHandle>;
 let matterA: MatterId;
 const MEMBER = "user_fitness" as UserId;
 
-async function seedMember(database: D1Database): Promise<void> {
+async function seedMember(database: ReturnType<typeof firmDatabaseHandle>): Promise<void> {
   await database
     .prepare(
       "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'Fitness', 'active', ?2)",
@@ -35,7 +37,7 @@ async function seedMember(database: D1Database): Promise<void> {
 }
 
 async function seedFile(
-  database: D1Database,
+  database: ReturnType<typeof firmDatabaseHandle>,
   matterId: MatterId,
   editState: string,
 ): Promise<{ fileId: FileId; versionId: FileVersionId }> {
@@ -87,17 +89,18 @@ const wopi = (path: string, init?: RequestInit) =>
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_2);
   firmA = (await seedFirm({ name: "Fitness Firm A", databaseIdentifier: "DB_FIRM_POOL_1" })).firmId;
   // Firm B exists only to hold a document the firm-A token must NOT reach (the tenancy test).
-  await seedFirm({ name: "Fitness Firm B", databaseIdentifier: "DB_FIRM_POOL_2" });
-  await seedMember(env.DB_FIRM_POOL_1);
-  await seedMember(env.DB_FIRM_POOL_2);
+  const firmB = (await seedFirm({ name: "Fitness Firm B", databaseIdentifier: "DB_FIRM_POOL_2" }))
+    .firmId;
+  firmDb = firmDatabaseHandle(firmA);
+  firmDb2 = firmDatabaseHandle(firmB);
+  await seedMember(firmDb);
+  await seedMember(firmDb2);
   matterA = newIdentifier("matter");
   for (const [database, matterId] of [
-    [env.DB_FIRM_POOL_1, matterA],
-    [env.DB_FIRM_POOL_2, newIdentifier("matter")],
+    [firmDb, matterA],
+    [firmDb2, newIdentifier("matter")],
   ] as const) {
     await database
       .prepare(
@@ -114,12 +117,13 @@ describe("editing fitness — tenancy", () => {
     // SOLELY from the token, then the handler looks the file up in THAT firm's database — so a
     // cross-firm token finds nothing and 404s. It never reaches firm B's data.
     const matterBId = newIdentifier("matter");
-    await env.DB_FIRM_POOL_2.prepare(
-      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'MB', 'open', ?2, ?3, ?3)",
-    )
+    await firmDb2
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'MB', 'open', ?2, ?3, ?3)",
+      )
       .bind(matterBId, MEMBER, ISO)
       .run();
-    const fileB = await seedFile(env.DB_FIRM_POOL_2, matterBId, "idle");
+    const fileB = await seedFile(firmDb2, matterBId, "idle");
 
     const forgedToken = await token(firmA, matterBId, fileB.fileId, fileB.versionId, "edit");
     const response = await wopi(`${fileB.fileId}?access_token=${encodeURIComponent(forgedToken)}`);
@@ -132,7 +136,7 @@ describe("editing fitness — tenancy", () => {
 
 describe("editing fitness — capability", () => {
   it("a view token cannot mutate the working copy (PutFile) or take the lock", async () => {
-    const file = await seedFile(env.DB_FIRM_POOL_1, matterA, "idle");
+    const file = await seedFile(firmDb, matterA, "idle");
     const viewToken = await token(firmA, matterA, file.fileId, file.versionId, "view");
     const accessToken = encodeURIComponent(viewToken);
 
@@ -153,7 +157,7 @@ describe("editing fitness — capability", () => {
 describe("editing fitness — reading is never blocked", () => {
   it("CheckFileInfo (read) is reachable in every edit_state", async () => {
     for (const editState of ["idle", "coediting", "checked_out"] as const) {
-      const file = await seedFile(env.DB_FIRM_POOL_1, matterA, editState);
+      const file = await seedFile(firmDb, matterA, editState);
       const viewToken = await token(firmA, matterA, file.fileId, file.versionId, "view");
       const response = await wopi(`${file.fileId}?access_token=${encodeURIComponent(viewToken)}`);
       expect(response.status, `edit_state=${editState}`).toBe(200);

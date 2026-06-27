@@ -10,6 +10,7 @@ import type { FileId, FileVersionId } from "@magna-carta/identifiers/types";
 import { operationFailed } from "@magna-carta/telemetry/events";
 import { newCorrelationId, newErrorId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
+import type { ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import type { CurrentObjectMeta } from "./document-session.ts";
 import { assertEditCapability, WopiGuardError } from "./wopi-guard.ts";
 import type { EditTokenClaims } from "./wopi-token.ts";
@@ -39,7 +40,7 @@ export class WopiRouteError extends Error {
 // metadata the session Durable Object recorded on the last PutFile (null when no live session has
 // written `current` yet); it makes the live size/timestamp authoritative over the committed version's.
 export interface WopiFileDeps {
-  readonly database: D1Database;
+  readonly database: ProxyBatchDatabase;
   readonly bucket: R2Bucket;
   readonly currentMeta: CurrentObjectMeta | null;
 }
