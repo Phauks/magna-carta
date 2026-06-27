@@ -2,8 +2,9 @@ use axum::{routing::get, Router};
 use std::sync::Arc;
 
 pub mod contract;
-pub mod encode; // Tasks 3-5
-pub mod r2; // Task 2
+pub mod encode;
+pub mod r2;
+pub mod split;
 
 // `build` (the POST /build handler) lands in a later task; its route is registered then.
 
