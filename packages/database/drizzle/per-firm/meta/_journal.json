@@ -162,6 +162,13 @@
       "when": 1782300200000,
       "tag": "0022_seed-tools-file-integrity",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1782300300000,
+      "tag": "0023_seed-tools-decryption",
+      "breakpoints": true
     }
   ]
 }

@@ -23,6 +23,7 @@ import seedScanFilePermissionSql from "@magna-carta/database/drizzle/per-firm/00
 import seedToolsMetadataScrubberSql from "@magna-carta/database/drizzle/per-firm/0020_seed-tools-metadata-scrubber.sql";
 import timeTrackingSql from "@magna-carta/database/drizzle/per-firm/0021_outgoing_talon.sql";
 import seedToolsFileIntegritySql from "@magna-carta/database/drizzle/per-firm/0022_seed-tools-file-integrity.sql";
+import seedToolsDecryptionSql from "@magna-carta/database/drizzle/per-firm/0023_seed-tools-decryption.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the firm
 // provisioner migrates a freshly created firm database to head at provisioning time, so the SQL
@@ -55,6 +56,7 @@ export function perFirmMigrations(): Migration[] {
     "0020_seed-tools-metadata-scrubber": seedToolsMetadataScrubberSql,
     "0021_outgoing_talon": timeTrackingSql,
     "0022_seed-tools-file-integrity": seedToolsFileIntegritySql,
+    "0023_seed-tools-decryption": seedToolsDecryptionSql,
   });
 }
 
