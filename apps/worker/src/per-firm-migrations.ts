@@ -25,6 +25,7 @@ import timeTrackingSql from "@magna-carta/database/drizzle/per-firm/0021_outgoin
 import seedToolsFileIntegritySql from "@magna-carta/database/drizzle/per-firm/0022_seed-tools-file-integrity.sql";
 import rawScanCacheSql from "@magna-carta/database/drizzle/per-firm/0023_raw_scan_cache.sql";
 import seedReleaseChannelPermissionSql from "@magna-carta/database/drizzle/per-firm/0024_seed-release-channel-permission.sql";
+import seedToolsFileTypeVerifierSql from "@magna-carta/database/drizzle/per-firm/0025_seed-tools-file-type-verifier.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -59,5 +60,6 @@ export function perFirmMigrations(): Migration[] {
     "0022_seed-tools-file-integrity": seedToolsFileIntegritySql,
     "0023_raw_scan_cache": rawScanCacheSql,
     "0024_seed-release-channel-permission": seedReleaseChannelPermissionSql,
+    "0025_seed-tools-file-type-verifier": seedToolsFileTypeVerifierSql,
   });
 }

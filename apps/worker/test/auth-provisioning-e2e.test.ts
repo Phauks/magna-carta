@@ -236,7 +236,9 @@ describe("end-to-end", () => {
       // (0019_seed-scan-file-permission.sql) + tools:metadataScrubber
       // (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role) +
       // tools:fileIntegrity (0022_seed-tools-file-integrity.sql, seeded onto every default role) +
-      // firm:manageReleaseChannel (0024_seed-release-channel-permission, Owner/Admin only). Sorted.
+      // firm:manageReleaseChannel (0024_seed-release-channel-permission, Owner/Admin only) +
+      // tools:fileTypeVerifier (0025_seed-tools-file-type-verifier.sql, seeded onto every default role).
+      // Sorted.
       permissions: [
         "customFields:manage",
         "customFields:purge",
@@ -270,6 +272,7 @@ describe("end-to-end", () => {
         "time:viewFirm",
         "tools:fileConverter",
         "tools:fileIntegrity",
+        "tools:fileTypeVerifier",
         "tools:firmUsage",
         "tools:metadataScrubber",
         "tools:safeBrowse",
