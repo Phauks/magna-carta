@@ -8,8 +8,7 @@ use std::io::{Read, Seek, Write};
 pub enum EncodeError {
     Zip(zip::result::ZipError),
     Io(std::io::Error),
-    SevenZip(String),  // 7z path (a later task)
-    SplitNotSupported, // zip + split guard (a later task)
+    SevenZip(String),
 }
 impl std::fmt::Display for EncodeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -17,9 +16,6 @@ impl std::fmt::Display for EncodeError {
             EncodeError::Zip(e) => write!(f, "zip encode error: {e}"),
             EncodeError::Io(e) => write!(f, "io error: {e}"),
             EncodeError::SevenZip(m) => write!(f, "7z encode error: {m}"),
-            EncodeError::SplitNotSupported => {
-                write!(f, "zip does not support multi-volume splitting")
-            }
         }
     }
 }

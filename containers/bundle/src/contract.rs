@@ -60,8 +60,14 @@ pub struct Entry {
 //   { "archivePath": "CONTENTS.txt",    "mtimeEpochSecs": null,       "source": "inline", "bytesBase64": "..." }
 // NOT a nested `"source": { "source": "r2", ... }` object. `#[serde(flatten)]` over the internally-tagged
 // enum produces exactly the flat form above.
+// `rename_all` renames the variant tags (r2 / inline); `rename_all_fields` renames the fields inside the
+// variants (r2_key → r2Key, bytes_base64 → bytesBase64) so both halves match the camelCase wire shape.
 #[derive(serde::Deserialize)]
-#[serde(tag = "source", rename_all = "camelCase")]
+#[serde(
+    tag = "source",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum EntrySource {
     R2 { r2_key: String },           // fetched via GET {R2_BASE_URL}/{r2_key}
     Inline { bytes_base64: String }, // small generated content (e.g. the CONTENTS manifest)
