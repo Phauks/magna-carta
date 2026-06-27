@@ -36,6 +36,44 @@ beforeAll(async () => {
 });
 
 describe("POST /api/v1/support/grants/{grantId}/revoke", () => {
+  it("revoke via firm-A admin does NOT mutate a grant in firm B (cross-firm isolation)", async () => {
+    // Seed a second firm (firm B) and insert an active grant into it. Firm-A's authenticated
+    // admin then attempts to revoke firm-B's grant — the route and the guarded UPDATE must both
+    // reject it, returning 404 and leaving the grant untouched.
+    const { firmId: firmBId } = await seedFirm({ name: `Firm B Cross-Firm ${Date.now()}` });
+    const grantBId = newIdentifier("supportGrant");
+    const now = new Date().toISOString();
+    await insertSupportGrantStatement(env.DB_CONTROL as never, {
+      id: grantBId,
+      firmId: firmBId,
+      requestedByUserId: mgrUserId,
+      tier: "diagnostic",
+      status: "active",
+      reason: null,
+      requiresCosign: false,
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      now,
+    }).run();
+
+    // Firm-A admin attempts to revoke a grant that belongs to firm B.
+    const res = await SELF.fetch(`https://example.com/api/v1/support/grants/${grantBId}/revoke`, {
+      method: "POST",
+      headers: {
+        origin: "https://example.com",
+        cookie: mgrCookie,
+        "content-type": "application/json",
+      },
+      body: "{}",
+    });
+    expect(res.status).toBe(404);
+
+    // The grant in firm B must still be active — no cross-firm mutation.
+    const row = await env.DB_CONTROL.prepare("SELECT status FROM support_grant WHERE id = ?1")
+      .bind(grantBId)
+      .first<{ status: string }>();
+    expect(row?.status).toBe("active");
+  });
+
   it("an admin revokes an active grant (200, revoked)", async () => {
     const grantId = newIdentifier("supportGrant");
     const now = new Date().toISOString();

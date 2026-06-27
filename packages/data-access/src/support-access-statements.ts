@@ -136,26 +136,28 @@ export function redeemSupportGrantStatement(
     .bind(input.principalId, input.id);
 }
 
-// Cosign: requested → active, recording the approving admin. Guarded to the requested state.
+// Cosign: requested → active, recording the approving admin. Guarded to the requested state and
+// the calling firm — firm_id = ? prevents a cross-firm co-sign even if the pre-check is bypassed.
 export function cosignSupportGrantStatement(
   database: SqlDatabase,
-  input: { readonly id: SupportGrantId; readonly cosignedByUserId: UserId },
+  input: { readonly id: SupportGrantId; readonly cosignedByUserId: UserId; readonly firmId: FirmId },
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${SUPPORT_GRANT_TABLE} SET status = 'active', cosigned_by_user_id = ?1 WHERE id = ?2 AND status = 'requested' AND requires_cosign = 1`,
+      `UPDATE ${SUPPORT_GRANT_TABLE} SET status = 'active', cosigned_by_user_id = ?1 WHERE id = ?2 AND firm_id = ?3 AND status = 'requested' AND requires_cosign = 1`,
     )
-    .bind(input.cosignedByUserId, input.id);
+    .bind(input.cosignedByUserId, input.id, input.firmId);
 }
 
 // Revoke: → revoked, only from a live (requested/active) state — never resurrect a terminal grant.
+// firm_id = ? is defense in depth against cross-firm revoke even if the pre-check is bypassed.
 export function revokeSupportGrantStatement(
   database: SqlDatabase,
-  input: { readonly id: SupportGrantId },
+  input: { readonly id: SupportGrantId; readonly firmId: FirmId },
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${SUPPORT_GRANT_TABLE} SET status = 'revoked' WHERE id = ?1 AND (status = 'active' OR status = 'requested')`,
+      `UPDATE ${SUPPORT_GRANT_TABLE} SET status = 'revoked' WHERE id = ?1 AND firm_id = ?2 AND (status = 'active' OR status = 'requested')`,
     )
-    .bind(input.id);
+    .bind(input.id, input.firmId);
 }

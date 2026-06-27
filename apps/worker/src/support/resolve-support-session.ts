@@ -1,7 +1,9 @@
 import type { Context } from "hono";
-import { assertIdentifier } from "@magna-carta/identifiers/validate";
+import { assertIdentifier, isIdentifier } from "@magna-carta/identifiers/validate";
 import {
+  selectPlatformStaffStatement,
   selectSupportGrantStatement,
+  type PlatformStaffRow,
   type SupportGrantRow,
 } from "@magna-carta/data-access/support-access-statements";
 import type { Bindings } from "../app.ts";
@@ -30,13 +32,24 @@ export async function resolveSupportSession(
   if (grant === undefined) return null;
   const nowIso = new Date(nowSeconds * 1000).toISOString();
   if (!supportGrantUsable(grant, nowIso)) return null;
+  // Guard malformed principal IDs before the staff DB round-trip (runtime defense — the token
+  // deserializes from JSON so the type annotation alone is not a runtime guarantee).
+  if (!isIdentifier(payload.principalId, "platformStaff")) return null;
+  // Re-verify the staff principal is still active on every request so a disabled account loses
+  // access immediately, even with a live token and an unexpired grant.
+  const staffRows = await selectPlatformStaffStatement(
+    env.DB_CONTROL,
+    payload.principalId,
+  ).all<PlatformStaffRow>();
+  const staff = staffRows.results[0];
+  if (!staff || staff.status !== "active") return null;
 
   return {
     userId: assertIdentifier(grant.requested_by_user_id, "user"),
     firmId: assertIdentifier(grant.firm_id, "firm"),
     support: {
       grantId: assertIdentifier(grant.id, "supportGrant"),
-      principalId: assertIdentifier(payload.principalId, "platformStaff"),
+      principalId: payload.principalId,
       tier: grant.tier,
     },
   };

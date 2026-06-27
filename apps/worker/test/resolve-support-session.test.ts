@@ -6,6 +6,7 @@ import { seedFirm } from "./support/test-auth.ts";
 import { resolveSupportSession } from "../src/support/resolve-support-session.ts";
 import { mintSupportSessionToken } from "../src/support/support-session-token.ts";
 import {
+  insertPlatformStaffStatement,
   insertSupportGrantStatement,
   redeemSupportGrantStatement,
 } from "@magna-carta/data-access/support-access-statements";
@@ -44,6 +45,14 @@ async function seedActiveGrant(tier: "diagnostic" | "privileged") {
     now: nowIso,
   }).run();
   await redeemSupportGrantStatement(env.DB_CONTROL as never, { id: grantId, principalId }).run();
+  // Seed the platform_staff row so the per-request liveness check finds an active principal.
+  await insertPlatformStaffStatement(env.DB_CONTROL as never, {
+    id: principalId,
+    email: `staff-${principalId}@example.com`,
+    displayName: "Test Staff",
+    role: "support",
+    now: nowIso,
+  }).run();
   const token = await mintSupportSessionToken(env.AUTH_SECRET, {
     grantId,
     principalId,
@@ -75,6 +84,15 @@ describe("resolveSupportSession", () => {
     const seed = await seedActiveGrant("diagnostic");
     await env.DB_CONTROL.prepare("UPDATE support_grant SET status = 'revoked' WHERE id = ?1")
       .bind(seed.grantId)
+      .run();
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    expect(await resolveSupportSession(env, ctxWith(seed.token) as never, nowSeconds)).toBeNull();
+  });
+
+  it("rejects a token whose platform_staff principal has been disabled (live liveness check)", async () => {
+    const seed = await seedActiveGrant("diagnostic");
+    await env.DB_CONTROL.prepare("UPDATE platform_staff SET status = 'disabled' WHERE id = ?1")
+      .bind(seed.principalId)
       .run();
     const nowSeconds = Math.floor(Date.now() / 1000);
     expect(await resolveSupportSession(env, ctxWith(seed.token) as never, nowSeconds)).toBeNull();

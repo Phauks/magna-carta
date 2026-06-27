@@ -86,21 +86,24 @@ describe("support-access statements", () => {
     expect(calls[0]?.args).toEqual(["platformStaff_abc", "supportGrant_1"]);
   });
 
-  it("cosign flips requested → active", () => {
+  it("cosign flips requested → active and is guarded by firm_id", () => {
     const { db, calls } = recorder();
     cosignSupportGrantStatement(db, {
       id: "supportGrant_1",
       cosignedByUserId: "user_admin",
+      firmId: "firm_1",
     } as never);
     expect(calls[0]?.sql).toContain("'requested'");
     expect(calls[0]?.sql).toContain("'active'");
+    expect(calls[0]?.sql).toContain("firm_id = ?");
   });
 
-  it("revoke guards against terminal states", () => {
+  it("revoke guards against terminal states and is guarded by firm_id", () => {
     const { db, calls } = recorder();
-    revokeSupportGrantStatement(db, { id: "supportGrant_1" } as never);
+    revokeSupportGrantStatement(db, { id: "supportGrant_1", firmId: "firm_1" } as never);
     expect(calls[0]?.sql).toContain("'revoked'");
     expect(calls[0]?.sql).toContain("status = 'active'");
+    expect(calls[0]?.sql).toContain("firm_id = ?");
   });
 
   it("select-by-id and select-firm-grants build statements", () => {

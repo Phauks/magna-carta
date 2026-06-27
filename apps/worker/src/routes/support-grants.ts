@@ -331,6 +331,7 @@ export function registerSupportGrantsRoutes(
       const update = await cosignSupportGrantStatement(c.env.DB_CONTROL, {
         id: grantId,
         cosignedByUserId,
+        firmId,
       }).run();
       if (update.meta.changes === 0) {
         return problemJson(c, {
@@ -365,7 +366,10 @@ export function registerSupportGrantsRoutes(
       }
       // The guarded UPDATE moves requested/active→revoked only; already-terminal grants produce
       // changes === 0, treated as 404 so callers cannot probe terminal state.
-      const update = await revokeSupportGrantStatement(c.env.DB_CONTROL, { id: grantId }).run();
+      const update = await revokeSupportGrantStatement(c.env.DB_CONTROL, {
+        id: grantId,
+        firmId,
+      }).run();
       if (update.meta.changes === 0) {
         return problemJson(c, { type: "not-found", status: 404, title: "Grant already terminal" });
       }
