@@ -44,12 +44,21 @@ R2 mediation, coordinator/queue/routes):** `apps/worker/src/downloads/` and `app
   `format:"zip"` carrying `split` (defense in depth — the TS `validateOptionsForFormat` rejects it first).
 - **No runtime egress.** The Container runs `enableInternet = false`; R2 is the only outbound and the owner
   Worker mediates it via `R2_BASE_URL` (the outbound-Workers virtual host). No credentials live here.
-- **Cross-platform compile.** All deps are pure Rust (no C toolchain), so the crate and its full test suite
-  build on a Windows dev host as well as the Linux image — clean under golden rule 14.
+- **C-dependency note (golden rule 14).** The archive/encode deps are all pure Rust (zip, sevenz-rust2,
+  lzma-rust2, flate2/miniz_oxide, aes/sha2), but `reqwest`'s `rustls-tls` pulls **`ring`** (C + per-arch
+  assembly, needs a C compiler) transitively via rustls. So the crate is NOT C-free: the image builder
+  (`rust:1-bookworm`) and a dev host both need a C toolchain. This is the same R2-transport `ring` dependency
+  tracked under the C-dependency conformance ledger; the scan crate avoids it by keeping reqwest a
+  TLS-less dev-dep. It still builds on Windows (MSVC/clang present) and Linux; it is not "no C toolchain."
 - **Crate pins are verified against docs.rs before use** (golden rule 11): axum 0.8, zip 8.6 (lean
   `deflate-flate2` + `aes-crypto` features — no bzip2/zstd C deps; `flate2` is declared directly so its
   pure-Rust `rust_backend`/miniz_oxide backend is selected), sevenz-rust2 0.7 (`aes256` feature on),
-  reqwest 0.12 (`rustls-tls`), tokio-util, tempfile, base64, time. `Cargo.lock` is committed (binary crate).
+  reqwest 0.12 (`rustls-tls` → brings `ring`), tokio-util, tempfile, base64, time. `Cargo.lock` committed.
+- **`/build` has two lanes** (`build.rs`): buffered (default — encode → optional 7z-split → R2 PUT → JSON
+  `BuildResponse`) and streaming (`?stream=1` — encode a single archive, stream it straight back, NEVER
+  split and NEVER written to R2). The streaming lane is the worker's encrypted path: the archive and its
+  password live only in flight. The CPU-bound encode + split run on `spawn_blocking` so `/ready` stays
+  responsive during a long build (a blocked async worker thread would fail the health probe → restart).
 
 ## Commands
 

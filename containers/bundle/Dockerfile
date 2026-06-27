@@ -24,7 +24,9 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 # --- runtime stage: just the service --------------------------------------------------------------
 FROM debian:bookworm-slim
 
-# ca-certificates so an https R2_BASE_URL would validate; the encoder itself needs no other system deps.
+# reqwest's rustls-tls validates against bundled webpki roots, so TLS does not need system certs; the
+# default R2_BASE_URL is plain http (the internal outbound-Workers host). ca-certificates is kept as cheap
+# insurance only in case the transport is ever pointed at an https endpoint using system roots.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates \
  && rm -rf /var/lib/apt/lists/*

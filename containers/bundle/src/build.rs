@@ -1,19 +1,36 @@
-// The POST /build handler: turn a manifest into one or more archive volumes written to R2. Inputs are
-// spilled to ephemeral disk (R2 GET or inline base64), encoded (ZIP or 7z) into an output temp file,
-// optionally split into 7z volumes, then streamed to R2 — the whole archive never lives fully in memory.
-// The encryption password (in `req.encryption`) is used only for encoding and is never logged.
-use crate::contract::{BuildRequest, BuildResponse, EntrySource, Format, Volume};
+// The POST /build handler: turn a manifest into archive volumes. Two lanes, selected by the `stream`
+// query flag:
+//   - buffered (default): encode → optionally 7z-split → PUT each volume to R2 → return a BuildResponse.
+//   - streaming (`?stream=1`): encode a single archive and stream it straight back in the response body
+//     — never split, never written to R2 (this is the encrypted lane; the archive is never persisted).
+// In both lanes inputs are spilled to ephemeral disk (R2 GET or inline base64) and the encoded archive
+// lives on disk, so the whole archive never sits in memory. The CPU-bound encode (and the split) run on
+// the blocking pool so the async runtime stays free to serve /ready. The encryption password (in
+// `req.encryption`) is used only for encoding and is never logged or persisted.
+use crate::contract::{
+    BuildRequest, BuildResponse, Compression, Encryption, EntrySource, Format, Volume,
+};
 use crate::encode::{encode_7z, encode_zip, LocalEntry};
 use crate::{r2, split, AppState};
 use axum::{
-    extract::State,
-    http::StatusCode,
+    body::{Body, Bytes},
+    extract::{Query, State},
+    http::{header, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
 use base64::Engine;
+use futures_util::Stream;
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::pin::Pin;
+use std::task::{Context, Poll};
+
+/// The `/build` query string. `stream=1` selects the streaming (no-persist) lane.
+#[derive(serde::Deserialize)]
+pub struct BuildQuery {
+    stream: Option<String>,
+}
 
 /// A spill-file reader that opens its file on first read instead of at construction, so the handler can
 /// build a reader per entry without holding every input file's descriptor open at once.
@@ -35,41 +52,92 @@ impl Read for LazyFile {
     }
 }
 
-pub async fn build_handler(
-    State(state): State<AppState>,
-    Json(req): Json<BuildRequest>,
-) -> Response {
-    match build(&state, req).await {
-        Ok(volumes) => Json(BuildResponse {
-            ok: true,
-            volumes,
-            error: None,
-        })
-        .into_response(),
-        Err(message) => (
-            StatusCode::UNPROCESSABLE_ENTITY,
-            Json(BuildResponse {
-                ok: false,
-                volumes: vec![],
-                error: Some(message),
-            }),
-        )
-            .into_response(),
+/// Streams the encoded archive back while keeping its temp directory alive: the response body reads from
+/// the file, and the `TempDir` must not be dropped (which would delete the file) until the body is fully
+/// sent. Holding it here ties the directory's lifetime to the stream.
+struct TempFileStream {
+    _scratch: tempfile::TempDir,
+    inner: tokio_util::io::ReaderStream<tokio::fs::File>,
+}
+impl Stream for TempFileStream {
+    type Item = std::io::Result<Bytes>;
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        // Both fields are Unpin (tokio File + ReaderStream), so projecting through get_mut is sound.
+        let this = self.get_mut();
+        Pin::new(&mut this.inner).poll_next(cx)
     }
 }
 
-async fn build(state: &AppState, req: BuildRequest) -> Result<Vec<Volume>, String> {
-    // Defense in depth: ZIP has no format-native multi-volume splitting (the TS layer rejects it too).
-    if matches!(req.format, Format::Zip) && req.split.is_some() {
-        return Err("zip does not support multi-volume splitting".into());
+pub async fn build_handler(
+    State(state): State<AppState>,
+    Query(query): Query<BuildQuery>,
+    Json(req): Json<BuildRequest>,
+) -> Response {
+    if query.stream.as_deref() == Some("1") {
+        match build_stream(&state, req).await {
+            Ok(response) => response,
+            Err(message) => error_response(message),
+        }
+    } else {
+        match build(&state, req).await {
+            Ok(volumes) => Json(BuildResponse {
+                ok: true,
+                volumes,
+                error: None,
+            })
+            .into_response(),
+            Err(message) => error_response(message),
+        }
     }
+}
 
-    let scratch = tempfile::tempdir().map_err(|e| e.to_string())?;
+fn error_response(message: String) -> Response {
+    (
+        StatusCode::UNPROCESSABLE_ENTITY,
+        Json(BuildResponse {
+            ok: false,
+            volumes: vec![],
+            error: Some(message),
+        }),
+    )
+        .into_response()
+}
 
-    // 1. Spill every input to a temp file (R2 GET or inline base64), then open a reader over each.
+/// Defense in depth at the last hop before R2: reject any key/prefix that could escape the intended
+/// scope or rewrite the request host (a scheme, an absolute path, or a `..` segment). The TS layer
+/// sanitizes upstream; this is the container refusing to be steered by a forged manifest.
+fn reject_unsafe_key(key: &str) -> Result<(), String> {
+    if key.contains("://")
+        || key.starts_with('/')
+        || key.starts_with('\\')
+        || key.split(['/', '\\']).any(|segment| segment == "..")
+    {
+        return Err("rejected an unsafe R2 key or output prefix".into());
+    }
+    Ok(())
+}
+
+fn validate_keys(req: &BuildRequest) -> Result<(), String> {
+    reject_unsafe_key(&req.output_key_prefix)?;
+    for entry in &req.entries {
+        if let EntrySource::R2 { r2_key } = &entry.source {
+            reject_unsafe_key(r2_key)?;
+        }
+    }
+    Ok(())
+}
+
+/// Spills every input to a temp file under `scratch` (R2 GET streamed to disk, or inline base64 decoded),
+/// returning a lazy reader per entry. R2 bodies never fully buffer; the inline path is the small
+/// generated CONTENTS file (bounded by the request body limit).
+async fn spill_inputs(
+    state: &AppState,
+    req: &BuildRequest,
+    scratch: &Path,
+) -> Result<Vec<LocalEntry>, String> {
     let mut locals: Vec<LocalEntry> = Vec::with_capacity(req.entries.len());
     for (i, entry) in req.entries.iter().enumerate() {
-        let spill = scratch.path().join(format!("in-{i}"));
+        let spill = scratch.join(format!("in-{i}"));
         let mut file = std::fs::File::create(&spill).map_err(|e| e.to_string())?;
         match &entry.source {
             EntrySource::R2 { r2_key } => {
@@ -88,36 +156,70 @@ async fn build(state: &AppState, req: BuildRequest) -> Result<Vec<Volume>, Strin
         locals.push(LocalEntry {
             archive_path: entry.archive_path.clone(),
             mtime_epoch_secs: entry.mtime_epoch_secs,
-            // Open lazily, not now: a bundle can carry thousands of entries, and pre-opening every spill
-            // file would hold thousands of descriptors at once (the default ulimit is ~1024). The encoders
-            // consume entries one at a time and drop each after writing, so a lazy reader keeps just one
-            // input descriptor open during encoding.
             reader: Box::new(LazyFile::new(spill)),
         });
     }
+    Ok(locals)
+}
 
-    // 2. Encode into a seekable output temp file.
-    let out_path = scratch.path().join("archive.out");
-    {
-        let mut out = std::fs::File::create(&out_path).map_err(|e| e.to_string())?;
-        let enc = req.encryption.as_ref();
-        match req.format {
-            Format::Zip => encode_zip(locals.into_iter(), req.compression, enc, &mut out),
-            Format::SevenZip => encode_7z(locals.into_iter(), req.compression, enc, &mut out),
-        }
-        .map_err(|e| e.to_string())?;
-        out.sync_all().map_err(|e| e.to_string())?;
+/// The CPU-bound encode, run on the blocking pool. Writes the archive to `out_path` (a seekable file).
+fn encode_to_file(
+    format: Format,
+    compression: Compression,
+    encryption: Option<Encryption>,
+    locals: Vec<LocalEntry>,
+    out_path: &Path,
+) -> Result<(), String> {
+    let mut out = std::fs::File::create(out_path).map_err(|e| e.to_string())?;
+    let enc = encryption.as_ref();
+    match format {
+        Format::Zip => encode_zip(locals.into_iter(), compression, enc, &mut out),
+        Format::SevenZip => encode_7z(locals.into_iter(), compression, enc, &mut out),
     }
+    .map_err(|e| e.to_string())?;
+    out.sync_all().map_err(|e| e.to_string())?;
+    Ok(())
+}
 
-    // 3. Split (7z only) or keep single; PUT each volume to R2.
-    let parts: Vec<std::path::PathBuf> = match &req.split {
-        Some(split) => split::split_file_into_volumes(&out_path, split.max_part_bytes)
-            .map_err(|e| e.to_string())?,
-        None => vec![out_path.clone()],
-    };
+async fn build(state: &AppState, req: BuildRequest) -> Result<Vec<Volume>, String> {
+    // ZIP has no format-native multi-volume splitting (the TS layer rejects it too).
+    if matches!(req.format, Format::Zip) && req.split.is_some() {
+        return Err("zip does not support multi-volume splitting".into());
+    }
+    if let Some(split) = &req.split {
+        if split.max_part_bytes == 0 {
+            return Err("maxPartBytes must be positive".into());
+        }
+    }
+    validate_keys(&req)?;
+
+    let scratch = tempfile::tempdir().map_err(|e| e.to_string())?;
+    let locals = spill_inputs(state, &req, scratch.path()).await?;
+    let out_path = scratch.path().join("archive.out");
+
+    // Encode (and split) off the async worker thread so /ready stays responsive during a long build.
+    let format = req.format;
+    let compression = req.compression;
+    let encryption = req.encryption.clone();
+    let split_max = req.split.as_ref().map(|s| s.max_part_bytes);
+    let encode_out = out_path.clone();
+    let parts: Vec<PathBuf> =
+        tokio::task::spawn_blocking(move || -> Result<Vec<PathBuf>, String> {
+            encode_to_file(format, compression, encryption, locals, &encode_out)?;
+            match split_max {
+                Some(max) => {
+                    split::split_file_into_volumes(&encode_out, max).map_err(|e| e.to_string())
+                }
+                None => Ok(vec![encode_out.clone()]),
+            }
+        })
+        .await
+        .map_err(|e| format!("encode task failed: {e}"))??;
+
+    // PUT each volume to R2. A single (unsplit) artifact keeps the bare prefix; split volumes get the
+    // 7z `.NNN` suffix.
     let mut volumes = Vec::with_capacity(parts.len());
     for (i, part) in parts.iter().enumerate() {
-        // A single (unsplit) artifact keeps the bare prefix; split volumes get the 7z `.NNN` suffix.
         let key = if req.split.is_some() {
             format!("{}.{:03}", req.output_key_prefix, i + 1)
         } else {
@@ -136,4 +238,46 @@ async fn build(state: &AppState, req: BuildRequest) -> Result<Vec<Volume>, Strin
         });
     }
     Ok(volumes)
+}
+
+/// The streaming lane: encode a single archive and stream it straight back, never split and never
+/// written to R2. This is the encrypted lane — the archive (and its password) exist only in flight.
+async fn build_stream(state: &AppState, req: BuildRequest) -> Result<Response, String> {
+    // The streaming lane is single-file: splitting needs persisted, individually addressable volumes.
+    // (encryption+split is already rejected upstream; this rejects split defensively here too.)
+    if req.split.is_some() {
+        return Err("the streaming lane does not support multi-volume splitting".into());
+    }
+    validate_keys(&req)?;
+
+    let scratch = tempfile::tempdir().map_err(|e| e.to_string())?;
+    let locals = spill_inputs(state, &req, scratch.path()).await?;
+    let out_path = scratch.path().join("archive.out");
+
+    let format = req.format;
+    let compression = req.compression;
+    let encryption = req.encryption.clone();
+    let encode_out = out_path.clone();
+    tokio::task::spawn_blocking(move || {
+        encode_to_file(format, compression, encryption, locals, &encode_out)
+    })
+    .await
+    .map_err(|e| format!("encode task failed: {e}"))??;
+
+    // Stream the encoded file as the response body. The TempDir rides along in the stream so it is not
+    // dropped (which would delete the file) until the body is fully sent. The worker sets the
+    // user-facing content-type; the container emits a generic octet-stream.
+    let file = tokio::fs::File::open(&out_path)
+        .await
+        .map_err(|e| e.to_string())?;
+    let stream = TempFileStream {
+        _scratch: scratch,
+        inner: tokio_util::io::ReaderStream::new(file),
+    };
+    Ok((
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "application/octet-stream")],
+        Body::from_stream(stream),
+    )
+        .into_response())
 }

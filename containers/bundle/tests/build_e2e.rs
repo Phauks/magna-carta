@@ -66,8 +66,12 @@ fn b64(bytes: &[u8]) -> String {
 // POSTs a JSON manifest without relying on reqwest's optional `json` feature (serialize/parse with serde
 // directly, since the crate already depends on serde_json).
 async fn post_json(base: &str, manifest: &serde_json::Value) -> reqwest::Response {
+    post_to(base, "/build", manifest).await
+}
+
+async fn post_to(base: &str, path: &str, manifest: &serde_json::Value) -> reqwest::Response {
     reqwest::Client::new()
-        .post(format!("{base}/build"))
+        .post(format!("{base}{path}"))
         .header(reqwest::header::CONTENT_TYPE, "application/json")
         .body(serde_json::to_vec(manifest).unwrap())
         .send()
@@ -177,4 +181,90 @@ async fn encrypted_split_7z_bundle_reassembles_and_opens() {
     let mut reader =
         SevenZReader::new(Cursor::new(joined), len, Password::from("open sesame")).unwrap();
     assert_eq!(reader.read_file("data/big.bin").unwrap(), payload);
+}
+
+#[tokio::test]
+async fn streaming_lane_returns_the_archive_and_persists_nothing() {
+    let (base, store) = spawn().await;
+    store
+        .lock()
+        .unwrap()
+        .insert("inputs/s".to_string(), b"streamed-bytes".to_vec());
+
+    let manifest = serde_json::json!({
+        "jobId": "jobStream",
+        "format": "zip",
+        "compression": "store",
+        "encryption": { "password": "in flight only", "encryptFileNames": false },
+        "entries": [
+            { "archivePath": "s.txt", "mtimeEpochSecs": null, "source": "r2", "r2Key": "inputs/s" },
+        ],
+        "outputKeyPrefix": "",
+    });
+
+    let resp = post_to(&base, "/build?stream=1", &manifest).await;
+    assert_eq!(resp.status(), 200);
+    assert_eq!(
+        resp.headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .map(|v| v.to_str().unwrap().to_string()),
+        Some("application/octet-stream".to_string())
+    );
+    let archive_bytes = resp.bytes().await.unwrap();
+
+    // The body is the encrypted ZIP itself, not JSON — it opens with the password and yields the entry.
+    let mut archive = zip::ZipArchive::new(Cursor::new(archive_bytes.to_vec())).unwrap();
+    let mut s = String::new();
+    archive
+        .by_name_decrypt("s.txt", b"in flight only")
+        .unwrap()
+        .read_to_string(&mut s)
+        .unwrap();
+    assert_eq!(s, "streamed-bytes");
+
+    // Nothing was written to R2 — the streaming lane never persists (the empty key included).
+    let store = store.lock().unwrap();
+    let written_keys: Vec<&String> = store.keys().filter(|k| k.as_str() != "inputs/s").collect();
+    assert!(
+        written_keys.is_empty(),
+        "streaming lane must not write any R2 object, found: {written_keys:?}"
+    );
+}
+
+#[tokio::test]
+async fn zip_with_split_is_rejected_with_422() {
+    let (base, _store) = spawn().await;
+    let manifest = serde_json::json!({
+        "jobId": "jobBad",
+        "format": "zip",
+        "compression": "store",
+        "split": { "maxPartBytes": 1024 },
+        "entries": [
+            { "archivePath": "a.txt", "mtimeEpochSecs": null, "source": "inline", "bytesBase64": b64(b"x") },
+        ],
+        "outputKeyPrefix": "bundles/bad.zip",
+    });
+    let resp = post_json(&base, &manifest).await;
+    assert_eq!(resp.status(), 422);
+    let body: serde_json::Value = serde_json::from_slice(&resp.bytes().await.unwrap()).unwrap();
+    assert_eq!(body["ok"], false);
+    assert!(body["error"].as_str().unwrap().contains("split"));
+}
+
+#[tokio::test]
+async fn missing_r2_input_fails_with_ok_false() {
+    let (base, _store) = spawn().await;
+    let manifest = serde_json::json!({
+        "jobId": "jobMissing",
+        "format": "zip",
+        "compression": "store",
+        "entries": [
+            { "archivePath": "gone.txt", "mtimeEpochSecs": null, "source": "r2", "r2Key": "inputs/does-not-exist" },
+        ],
+        "outputKeyPrefix": "bundles/missing.zip",
+    });
+    let resp = post_json(&base, &manifest).await;
+    assert_eq!(resp.status(), 422);
+    let body: serde_json::Value = serde_json::from_slice(&resp.bytes().await.unwrap()).unwrap();
+    assert_eq!(body["ok"], false);
 }

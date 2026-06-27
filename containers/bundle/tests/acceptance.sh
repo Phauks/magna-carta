@@ -11,8 +11,8 @@ set -euo pipefail
 
 IMAGE=magna-carta-bundle:acceptance
 CONTAINER=magna-carta-bundle-acceptance
-# The service binds 0.0.0.0:8080; with --network host that is the host's :8080.
-BUNDLE_PORT=8080
+# Published port (the service binds 0.0.0.0:8080 inside the container).
+BUNDLE_PORT=18090
 R2_PORT=18091
 BUNDLE_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 STORE_DIR="$(mktemp -d)"
@@ -58,7 +58,9 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
-ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
+# Bind all interfaces: the container reaches this stub via host.docker.internal (the host gateway IP),
+# not loopback, so a 127.0.0.1-only bind would be unreachable from inside the container.
+ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever()
 PY
   R2_PID=$!
 }
@@ -74,9 +76,14 @@ echo "starting R2 stub on :$R2_PORT ..."
 start_r2_stub
 sleep 1
 
-echo "starting bundle container (host network, R2_BASE_URL -> the stub) ..."
-docker run -d --name "$CONTAINER" --network host \
-  -e "R2_BASE_URL=http://127.0.0.1:$R2_PORT" "$IMAGE" >/dev/null
+# Publish the service port and reach the host-side R2 stub via host.docker.internal. This works on Docker
+# Desktop (Windows/macOS, where the pre-push hook usually runs) and on Linux via the host-gateway add-host
+# — unlike `--network host`, which only shares loopback on native Linux.
+echo "starting bundle container (published :$BUNDLE_PORT, R2_BASE_URL -> the host stub) ..."
+docker run -d --name "$CONTAINER" \
+  -p "$BUNDLE_PORT:8080" \
+  --add-host "host.docker.internal:host-gateway" \
+  -e "R2_BASE_URL=http://host.docker.internal:$R2_PORT" "$IMAGE" >/dev/null
 
 echo "waiting for /ready ..."
 for _ in $(seq 1 60); do

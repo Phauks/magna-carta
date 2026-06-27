@@ -104,16 +104,21 @@ pub fn encode_7z(
     out: &mut (impl Write + Seek),
 ) -> Result<(), EncodeError> {
     use sevenz_rust2::lzma::LZMA2Options;
-    use sevenz_rust2::{AesEncoderOptions, Password, SevenZArchiveEntry, SevenZWriter};
+    use sevenz_rust2::{
+        AesEncoderOptions, Password, SevenZArchiveEntry, SevenZMethod, SevenZMethodConfiguration,
+        SevenZWriter,
+    };
 
     let mut writer = SevenZWriter::new(out).map_err(|e| EncodeError::SevenZip(e.to_string()))?;
-    // LZMA2 preset 0..9: store → fastest/minimal, normal → balanced, maximum → best ratio.
-    let preset: u32 = match compression {
-        Compression::Store => 0,
-        Compression::Normal => 5,
-        Compression::Maximum => 9,
+    // The content method. Store → COPY (genuine no-compression, matching ZIP's Stored — the right
+    // choice for already-compressed inputs); Normal/Maximum → LZMA2 preset 5/9.
+    let content_method: SevenZMethodConfiguration = match compression {
+        Compression::Store => SevenZMethodConfiguration::new(SevenZMethod::COPY),
+        Compression::Normal => LZMA2Options::with_preset(5).into(),
+        Compression::Maximum => LZMA2Options::with_preset(9).into(),
     };
-    // Order matters: AES is pushed BEFORE LZMA2 so content is compressed and then encrypted.
+    // Order matters: AES is pushed BEFORE the content method so content is compressed (or stored) and
+    // then encrypted.
     let mut methods = Vec::new();
     if let Some(enc) = encryption {
         methods.push(AesEncoderOptions::new(Password::from(enc.password.as_str())).into());
@@ -121,7 +126,7 @@ pub fn encode_7z(
     } else {
         writer.set_encrypt_header(false);
     }
-    methods.push(LZMA2Options::with_preset(preset).into());
+    methods.push(content_method);
     writer.set_content_methods(methods);
 
     for entry in entries {

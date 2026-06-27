@@ -32,7 +32,7 @@ pub enum Compression {
     Maximum,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Encryption {
     pub password: String,
