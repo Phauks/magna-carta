@@ -7,6 +7,7 @@ import {
   perFirmQueue,
   type PerFirmQueueMessage,
 } from "../../src/costs/recoverable-charge-consumer.ts";
+import { firmDatabaseFor } from "../../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "../support/apply-control-plane-migrations.ts";
 import {
   captureResetToken,
@@ -90,12 +91,13 @@ async function get(path: string): Promise<Response> {
 }
 
 // Writes a firm setting into the per-firm `setting` table the same way the costs routes read it
-// (readFirmSetting): canonical-JSON value, upserted by key. The firm is provisioned onto DB_FIRM_POOL_1
-// in this single-firm harness.
+// (readFirmSetting): canonical-JSON value, upserted by key. The provisioned firm's per-firm data lives
+// in its FirmDatabase Durable Object, addressed by firm.id — the same store the worker resolves.
 async function setFirmSetting(key: string, value: string): Promise<void> {
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-  )
+  await firmDatabaseFor(env.FIRM_DATABASE, firm.id)
+    .prepare(
+      "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    )
     .bind(key, value, TS)
     .run();
 }
@@ -103,9 +105,10 @@ async function setFirmSetting(key: string, value: string): Promise<void> {
 // Seeds a purchased shipment row. The adapter reads only matter_ref back from it (the amounts ride the
 // queue payload), but the row carries the NOT-NULL columns so the insert is valid.
 async function seedShipment(shipmentId: string, matterRef: string | null): Promise<void> {
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO shipment (id, matter_ref, status, from_address, to_address, parcel, options, postage_cost_minor, service_fee_minor, currency, created_at, updated_at) VALUES (?1, ?2, 'purchased', '{}', '{}', '{}', '{}', ?3, ?4, 'USD', ?5, ?5)",
-  )
+  await firmDatabaseFor(env.FIRM_DATABASE, firm.id)
+    .prepare(
+      "INSERT INTO shipment (id, matter_ref, status, from_address, to_address, parcel, options, postage_cost_minor, service_fee_minor, currency, created_at, updated_at) VALUES (?1, ?2, 'purchased', '{}', '{}', '{}', '{}', ?3, ?4, 'USD', ?5, ?5)",
+    )
     .bind(shipmentId, matterRef, 1299, 150, TS)
     .run();
 }
@@ -158,9 +161,10 @@ interface CostRow {
 }
 
 async function recoveryRowsForShipment(shipmentId: string): Promise<CostRow[]> {
-  const { results } = await env.DB_FIRM_POOL_1.prepare(
-    "SELECT recovery_category, disbursement_class, billable, recovery_ref, amount_minor, source, matter_id FROM cost_entry WHERE recovery_ref LIKE ?1 ORDER BY recovery_ref",
-  )
+  const { results } = await firmDatabaseFor(env.FIRM_DATABASE, firm.id)
+    .prepare(
+      "SELECT recovery_category, disbursement_class, billable, recovery_ref, amount_minor, source, matter_id FROM cost_entry WHERE recovery_ref LIKE ?1 ORDER BY recovery_ref",
+    )
     .bind(`${shipmentId}:%`)
     .all<CostRow>();
   return results;
@@ -292,9 +296,10 @@ describe("costs end-to-end", () => {
     expect(costEntryIds).toHaveLength(3);
 
     // The grid source is set server-side, not from the request body.
-    const { results } = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT source, amount_minor FROM cost_entry WHERE id IN (?1, ?2, ?3) ORDER BY amount_minor",
-    )
+    const { results } = await firmDatabaseFor(env.FIRM_DATABASE, firm.id)
+      .prepare(
+        "SELECT source, amount_minor FROM cost_entry WHERE id IN (?1, ?2, ?3) ORDER BY amount_minor",
+      )
       .bind(costEntryIds[0], costEntryIds[1], costEntryIds[2])
       .all<{ source: string; amount_minor: number }>();
     expect(results.map((r) => r.source)).toEqual(["grid", "grid", "grid"]);
@@ -318,9 +323,8 @@ describe("costs end-to-end", () => {
     const attachResponse = await post(`/api/v1/costs/${costId}/receipt`, { fileId });
     expect(attachResponse.status).toBe(200);
 
-    const { results } = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT receipt_file_id FROM cost_entry WHERE id = ?1",
-    )
+    const { results } = await firmDatabaseFor(env.FIRM_DATABASE, firm.id)
+      .prepare("SELECT receipt_file_id FROM cost_entry WHERE id = ?1")
       .bind(costId)
       .all<{ receipt_file_id: string | null }>();
     expect(results[0]?.receipt_file_id).toBe(fileId);
@@ -378,9 +382,8 @@ describe("costs end-to-end", () => {
   it("freezes a billed cost against a draft update (409)", async () => {
     // No costs route sets status='billed' (that is the future billing slice's bill action); drive the
     // approved cost to billed directly to exercise the freeze guard the WIP store enforces.
-    await env.DB_FIRM_POOL_1.prepare(
-      "UPDATE cost_entry SET status = 'billed', updated_at = ?2 WHERE id = ?1",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, firm.id)
+      .prepare("UPDATE cost_entry SET status = 'billed', updated_at = ?2 WHERE id = ?1")
       .bind(manualCostId, TS)
       .run();
 
@@ -388,9 +391,8 @@ describe("costs end-to-end", () => {
     expect(patchResponse.status).toBe(409);
 
     // The frozen row's business columns are unchanged.
-    const { results } = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT amount_minor, status FROM cost_entry WHERE id = ?1",
-    )
+    const { results } = await firmDatabaseFor(env.FIRM_DATABASE, firm.id)
+      .prepare("SELECT amount_minor, status FROM cost_entry WHERE id = ?1")
       .bind(manualCostId)
       .all<{ amount_minor: number; status: string }>();
     expect(results[0]).toMatchObject({ amount_minor: 4200, status: "billed" });

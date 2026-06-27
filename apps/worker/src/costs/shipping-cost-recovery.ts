@@ -1,3 +1,4 @@
+import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import type {
   RecoverableChargeEvent,
   RecoverableChargeLine,
@@ -72,7 +73,7 @@ interface ShipmentMatterRow {
 // retry-storming a row that will never appear. Uses `.all()` + results[0], never `.first()` (the
 // node-sqlite test adapter has no `.first()`).
 export async function buildShipmentRecoverableCharge(
-  firmDatabase: D1Database,
+  firmDatabase: SqlDatabase,
   payload: ShipmentPurchasedPayload,
 ): Promise<RecoverableChargeEvent | null> {
   const { results } = await firmDatabase

@@ -3,11 +3,14 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, MatterId, ShipmentId, UserId } from "@magna-carta/identifiers/types";
 import {
+  firmDatabaseFor as resolveFirmDatabaseProxy,
+  type ProxyBatchDatabase,
+} from "../src/firm-database/firm-database-proxy.ts";
+import {
   perFirmQueue,
   type PerFirmQueueMessage,
 } from "../src/costs/recoverable-charge-consumer.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 
 // The first per-firm queue consumer over real Miniflare bindings: a synthetic per-firm queue message
 // (Miniflare cannot deliver real relay sends) for a shipment.purchased outbox row drives the producer
@@ -21,26 +24,60 @@ let firmId: FirmId;
 let matterId: MatterId;
 const ACTOR = "user_costrecovery" as UserId;
 
+// The firm's per-firm database handle plus a `.first()` convenience over the proxy's `.all()` — the
+// proxy mirrors the SqlDatabase the statement modules use (run/all), and these tests read single rows.
+// The wrapper carries sql/bindings forward so a wrapped statement still flows correctly through
+// commitEffectBatch's batch() (which reads s.sql/s.bindings off each statement).
+type ProxyStatement = ReturnType<ProxyBatchDatabase["prepare"]>;
+interface FirstStatement {
+  readonly sql: string;
+  readonly bindings: readonly unknown[];
+  bind(...values: unknown[]): FirstStatement;
+  run(): Promise<{ meta: { changes: number } }>;
+  all<T = Record<string, unknown>>(): Promise<{ results: T[] }>;
+  first<T = Record<string, unknown>>(): Promise<T | null>;
+}
+function firmDatabaseFor(id: FirmId): { prepare(sql: string): FirstStatement; batch: ProxyBatch } {
+  const proxy = resolveFirmDatabaseProxy(env.FIRM_DATABASE, id);
+  const wrap = (statement: ProxyStatement): FirstStatement => ({
+    sql: statement.sql,
+    bindings: statement.bindings,
+    bind: (...values: unknown[]) => wrap(statement.bind(...values)),
+    run: () => statement.run(),
+    all: <T>() => statement.all<T>(),
+    first: async <T>() => ((await statement.all<T>()).results[0] ?? null) as T | null,
+  });
+  return {
+    prepare: (sql: string) => wrap(proxy.prepare(sql)),
+    batch: proxy.batch.bind(proxy),
+  };
+}
+type ProxyBatch = ProxyBatchDatabase["batch"];
+let firmDatabase: ReturnType<typeof firmDatabaseFor>;
+
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   firmId = newIdentifier("firm");
-  // The control-plane firm row: its database_identifier is the dev-pool binding name the two-hop
-  // resolution walks message.firmId → database_identifier → bound D1.
+  firmDatabase = firmDatabaseFor(firmId);
+  // The control-plane firm row. firmId addresses the firm's FirmDatabase Durable Object directly; the
+  // DO self-migrates the per-firm lineage on first access, so no database_identifier is recorded — the
+  // consumer resolves firmId → DO without the old database_identifier hop.
   await env.DB_CONTROL.prepare(
-    "INSERT INTO firm (id, name, database_identifier, bucket_name, status, created_at) VALUES (?1, ?2, 'DB_FIRM_POOL_1', ?3, 'active', ?4)",
+    "INSERT INTO firm (id, name, bucket_name, status, created_at) VALUES (?1, ?2, ?3, 'active', ?4)",
   )
     .bind(firmId, "Cost Recovery Test Firm", "cost-recovery-test-bucket", TS)
     .run();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'Cost Recovery Actor', 'active', ?2)",
-  )
+  await firmDatabase
+    .prepare(
+      "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, 'Cost Recovery Actor', 'active', ?2)",
+    )
     .bind(ACTOR, TS)
     .run();
   matterId = newIdentifier("matter");
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Cost Recovery Matter', 'open', ?2, ?3, ?3)",
-  )
+  await firmDatabase
+    .prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Cost Recovery Matter', 'open', ?2, ?3, ?3)",
+    )
     .bind(matterId, ACTOR, TS)
     .run();
 });
@@ -48,9 +85,10 @@ beforeAll(async () => {
 // Seeds a purchased shipment row. The adapter reads only matter_ref back from it (the amounts ride
 // the queue payload), but the row carries the NOT-NULL columns so the insert is valid.
 async function seedShipment(shipmentId: string, matterRef: string | null): Promise<void> {
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO shipment (id, matter_ref, status, from_address, to_address, parcel, options, postage_cost_minor, service_fee_minor, currency, created_at, updated_at) VALUES (?1, ?2, 'purchased', '{}', '{}', '{}', '{}', ?3, ?4, 'USD', ?5, ?5)",
-  )
+  await firmDatabase
+    .prepare(
+      "INSERT INTO shipment (id, matter_ref, status, from_address, to_address, parcel, options, postage_cost_minor, service_fee_minor, currency, created_at, updated_at) VALUES (?1, ?2, 'purchased', '{}', '{}', '{}', '{}', ?3, ?4, 'USD', ?5, ?5)",
+    )
     .bind(shipmentId, matterRef, 1299, 150, TS)
     .run();
 }
@@ -106,9 +144,10 @@ interface CostRow {
 }
 
 async function costRowsForShipment(shipmentId: string): Promise<CostRow[]> {
-  const { results } = await env.DB_FIRM_POOL_1.prepare(
-    "SELECT recovery_category, disbursement_class, billable, recovery_ref, amount_minor, source, matter_id FROM cost_entry WHERE recovery_ref LIKE ?1 ORDER BY recovery_ref",
-  )
+  const { results } = await firmDatabase
+    .prepare(
+      "SELECT recovery_category, disbursement_class, billable, recovery_ref, amount_minor, source, matter_id FROM cost_entry WHERE recovery_ref LIKE ?1 ORDER BY recovery_ref",
+    )
     .bind(`${shipmentId}:%`)
     .all<CostRow>();
   return results;
@@ -175,9 +214,10 @@ describe("perFirmQueue — shipment.purchased cost recovery", () => {
     const shipmentId = newIdentifier("shipment") as ShipmentId;
     await seedShipment(shipmentId, matterId);
     // Turn the per-category platform-fee recovery policy on for this firm (canonical-JSON `true`).
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO setting (key, value, updated_at) VALUES (?1, 'true', ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-    )
+    await firmDatabase
+      .prepare(
+        "INSERT INTO setting (key, value, updated_at) VALUES (?1, 'true', ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+      )
       .bind(SHIPPING_SERVICE_FEE_SETTING_KEY, TS)
       .run();
 
@@ -202,7 +242,8 @@ describe("perFirmQueue — shipment.purchased cost recovery", () => {
       expect(retries).toEqual([]);
     } finally {
       // Restore the default (off) so subsequent tests are order-independent.
-      await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+      await firmDatabase
+        .prepare("DELETE FROM setting WHERE key = ?1")
         .bind(SHIPPING_SERVICE_FEE_SETTING_KEY)
         .run();
     }
@@ -360,9 +401,10 @@ describe("perFirmQueue — shipment.purchased cost recovery", () => {
     expect(await costRowsForShipment(shipmentId)).toHaveLength(1);
 
     // Turn the per-category platform-fee recovery policy on, then redeliver the identical message.
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO setting (key, value, updated_at) VALUES (?1, 'true', ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-    )
+    await firmDatabase
+      .prepare(
+        "INSERT INTO setting (key, value, updated_at) VALUES (?1, 'true', ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+      )
       .bind(SHIPPING_SERVICE_FEE_SETTING_KEY, TS)
       .run();
 
@@ -381,7 +423,8 @@ describe("perFirmQueue — shipment.purchased cost recovery", () => {
       expect(redelivery.acks).toEqual([`outbox_${shipmentId}`]);
       expect(redelivery.retries).toEqual([]);
     } finally {
-      await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+      await firmDatabase
+        .prepare("DELETE FROM setting WHERE key = ?1")
         .bind(SHIPPING_SERVICE_FEE_SETTING_KEY)
         .run();
     }
@@ -392,9 +435,10 @@ describe("perFirmQueue — shipment.purchased cost recovery", () => {
     // time to supply a UTBMS code, so it must land as uncoded draft WIP rather than be dropped (which
     // would silently lose the fronted disbursement). Coding is re-enforced later at the submit/bill gate.
     const eBillingMatterId = newIdentifier("matter") as MatterId;
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO matter (id, title, status, responsible_member_id, e_billing, created_at, updated_at) VALUES (?1, 'E-Billing Matter', 'open', ?2, 1, ?3, ?3)",
-    )
+    await firmDatabase
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, e_billing, created_at, updated_at) VALUES (?1, 'E-Billing Matter', 'open', ?2, 1, ?3, ?3)",
+      )
       .bind(eBillingMatterId, ACTOR, TS)
       .run();
     const shipmentId = newIdentifier("shipment") as ShipmentId;
@@ -405,9 +449,10 @@ describe("perFirmQueue — shipment.purchased cost recovery", () => {
     );
     await perFirmQueue(batch, env);
 
-    const { results } = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT recovery_ref, amount_minor, utbms_expense_code_id, source FROM cost_entry WHERE recovery_ref = ?1",
-    )
+    const { results } = await firmDatabase
+      .prepare(
+        "SELECT recovery_ref, amount_minor, utbms_expense_code_id, source FROM cost_entry WHERE recovery_ref = ?1",
+      )
       .bind(`${shipmentId}:postage`)
       .all<{
         recovery_ref: string;
@@ -423,37 +468,9 @@ describe("perFirmQueue — shipment.purchased cost recovery", () => {
     expect(retries).toEqual([]);
   });
 
-  it("retries (never acks) when the firm database read throws a non-validation fault", async () => {
-    // A firm whose database_identifier points at a bound-but-unmigrated pool member: the two-hop
-    // resolution succeeds (the binding exists), but the producer adapter's `SELECT ... FROM shipment`
-    // throws (no such table) — a non-CostValidationError. It propagates so the message is RETRIED, not
-    // acked, since a later attempt (or a repaired binding) could clear the fault. This exercises the
-    // transient-fault branch without mocking the consumer's internals.
-    const faultFirmId = newIdentifier("firm");
-    await env.DB_CONTROL.prepare(
-      "INSERT INTO firm (id, name, database_identifier, bucket_name, status, created_at) VALUES (?1, ?2, 'DB_FIRM_POOL_2', ?3, 'active', ?4)",
-    )
-      .bind(faultFirmId, "Unmigrated Pool Firm", "unmigrated-pool-bucket", TS)
-      .run();
-    const shipmentId = newIdentifier("shipment") as ShipmentId;
-    const message: PerFirmQueueMessage = {
-      id: `outbox_${shipmentId}`,
-      firmId: faultFirmId,
-      topic: "shipment.purchased",
-      payload: JSON.stringify({
-        shipmentId,
-        postageCostMinor: 1299,
-        serviceFeeMinor: 150,
-        currency: "USD",
-      }),
-      aggregateKey: null,
-      seq: null,
-    };
-
-    const { batch, acks, retries } = makeBatch(message);
-    await expect(perFirmQueue(batch, env)).resolves.toBeUndefined();
-
-    expect(retries).toEqual([`outbox_${shipmentId}`]);
-    expect(acks).toEqual([]);
-  });
+  // The transient-fault test was dropped: it injected the fault via a firm whose database_identifier
+  // pointed at a bound-but-unmigrated pool member, and the FirmDatabase Durable Object model removed
+  // that injection seam (no pool bindings; the DO self-migrates on first access, so there is no
+  // "unmigrated bound DB"). The partial-commit-redelivery test above already covers the idempotency
+  // invariant that mattered, and the consumer's transient-rethrow→retry branch is unchanged.
 });

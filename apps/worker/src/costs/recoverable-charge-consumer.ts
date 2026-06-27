@@ -10,7 +10,7 @@ import type { Logger } from "@magna-carta/telemetry/logger";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
-import { resolveFirmDatabase } from "../firm-binding-resolver.ts";
+import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import {
   buildShipmentRecoverableCharge,
   parseShipmentPurchasedPayload,
@@ -59,10 +59,10 @@ function isRecoveryRefConflict(error: unknown): boolean {
   );
 }
 
-// A per-topic handler: the firm database is already resolved (the dispatcher does the two-hop), and
-// the handler reads what it needs from the message payload.
+// A per-topic handler: the firm database is already resolved (the dispatcher addresses the firm's
+// FirmDatabase Durable Object by firmId), and the handler reads what it needs from the message payload.
 type PerFirmTopicHandler = (
-  firmDatabase: D1Database,
+  firmDatabase: ProxyBatchDatabase,
   message: PerFirmQueueMessage,
   logger: Logger,
 ) => Promise<void>;
@@ -77,7 +77,7 @@ const PER_FIRM_CONSUMERS: Readonly<Record<string, PerFirmTopicHandler>> = {
 // resolves the firm's per-category recovery policy, maps the event into cost captures, and commits each
 // capture through the idempotency chokepoint.
 async function handleShipmentPurchased(
-  firmDatabase: D1Database,
+  firmDatabase: ProxyBatchDatabase,
   message: PerFirmQueueMessage,
   logger: Logger,
 ): Promise<void> {
@@ -211,21 +211,18 @@ async function dispatchMessage(
     return;
   }
 
-  // Two-hop firm resolution: the message carries firmId (a control-plane id), NOT a database handle.
-  // 1. firmId → the firm's database_identifier in the control-plane registry; 2. that identifier → the
-  // bound D1 database. A missing firm row, a null identifier, or an unreachable binding is acked and
-  // skipped — there is no work this deployment can do and a retry cannot make the binding exist
+  // firmId → the firm's per-firm database. The message carries firmId (a control-plane id), NOT a
+  // database handle. A row is read from the control-plane registry only to confirm the firm exists;
+  // the firm's FirmDatabase Durable Object is then addressed directly by that firmId and self-migrates
+  // the per-firm lineage on first access — there is no database_identifier hop. A missing firm row is
+  // acked and skipped: there is no work this deployment can do and a retry cannot make the firm exist
   // (mirrors the ingest consumer's bucket→firm resolution). Uses `.all()` + results[0], never
   // `.first()` (absent from the node-sqlite test adapter).
-  const { results } = await env.DB_CONTROL.prepare(
-    "SELECT database_identifier FROM firm WHERE id = ?1",
-  )
+  const { results } = await env.DB_CONTROL.prepare("SELECT id FROM firm WHERE id = ?1")
     .bind(message.firmId)
-    .all<{ database_identifier: string | null }>();
-  const databaseIdentifier = results[0]?.database_identifier ?? null;
-  if (databaseIdentifier === null) return;
-  const firmDatabase = resolveFirmDatabase(env, databaseIdentifier);
-  if (firmDatabase === null) return;
+    .all<{ id: string }>();
+  if (results[0] === undefined) return;
+  const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, message.firmId);
 
   await handler(firmDatabase, message, logger);
 }

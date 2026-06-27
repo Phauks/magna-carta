@@ -3,8 +3,8 @@ import { insertMemberStatement } from "@magna-carta/data-access/member-statement
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -26,6 +26,11 @@ let trackOnlyCookie: string;
 let matterId: string;
 // An e-billing matter used for the batch atomicity test.
 let eBillingMatterId: string;
+// The firm's per-firm database: its FirmDatabase Durable Object addressed by firmId (the production
+// data-plane target), resolved once the firm is seeded. The DO self-migrates the per-firm lineage on
+// first access, so there is no per-firm migration step — seeds and assertions read through the SAME
+// store the worker resolves at request time.
+let firmDatabase: ReturnType<typeof firmDatabaseFor>;
 
 const clock = { now: () => new Date().toISOString() };
 
@@ -35,23 +40,24 @@ async function mirrorMemberWithDirectGrant(
   displayName: string,
   permission: string,
 ): Promise<void> {
-  await insertMemberStatement(env.DB_FIRM_POOL_1, {
+  await insertMemberStatement(firmDatabase, {
     userId,
     displayName,
     now: clock.now(),
   }).run();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO direct_grant (id, member_user_id, permission, granted_by, expires_at, created_at) VALUES (?1, ?2, ?3, ?2, NULL, ?4)",
-  )
+  await firmDatabase
+    .prepare(
+      "INSERT INTO direct_grant (id, member_user_id, permission, granted_by, expires_at, created_at) VALUES (?1, ?2, ?3, ?2, NULL, ?4)",
+    )
     .bind(newIdentifier("grant"), userId, permission, clock.now())
     .run();
 }
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   poolFirmId = (await seedFirm({ name: "Cost Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
     .firmId;
+  firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
     .bind(poolFirmId)
     .run();
@@ -61,7 +67,7 @@ beforeAll(async () => {
     firmId: poolFirmId,
   });
   ownerUserId = owner.userId;
-  await mirrorMemberWithOwnerRole(owner.userId, "Cost Owner");
+  await mirrorMemberWithOwnerRole(owner.userId, "Cost Owner", poolFirmId);
   ownerCookie = await signInForSessionCookie("cost-owner@example.com");
 
   // A user with no costs:track — seeded with no role and no direct grant, so the chokepoint
@@ -133,7 +139,8 @@ beforeAll(async () => {
   });
   eBillingMatterId = ((await eBillingCreated.json()) as { matterId: string }).matterId;
   // Flip the e_billing flag on the matter so captureCost enforces UTBMS codes.
-  await env.DB_FIRM_POOL_1.prepare("UPDATE matter SET e_billing = 1 WHERE id = ?1")
+  await firmDatabase
+    .prepare("UPDATE matter SET e_billing = 1 WHERE id = ?1")
     .bind(eBillingMatterId)
     .run();
 });
@@ -191,9 +198,10 @@ describe("cost entry capture", () => {
     const body = (await response.json()) as { costEntryId: string };
     expect(body.costEntryId).toMatch(/^costEntry_/);
 
-    const row = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT status, source, amount_minor, disbursement_class, billable FROM cost_entry WHERE id = ?1",
-    )
+    const row = await firmDatabase
+      .prepare(
+        "SELECT status, source, amount_minor, disbursement_class, billable FROM cost_entry WHERE id = ?1",
+      )
       .bind(body.costEntryId)
       .first<{
         status: string;
@@ -223,9 +231,8 @@ describe("cost entry capture", () => {
     });
     expect(response.status).toBe(201);
     const body = (await response.json()) as { costEntryId: string };
-    const row = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT disbursement_class, billable FROM cost_entry WHERE id = ?1",
-    )
+    const row = await firmDatabase
+      .prepare("SELECT disbursement_class, billable FROM cost_entry WHERE id = ?1")
       .bind(body.costEntryId)
       .first<{ disbursement_class: string; billable: number }>();
     expect(row?.disbursement_class).toBe("soft");
@@ -343,9 +350,8 @@ describe("cost entry update", () => {
     const body = (await response.json()) as { costEntryId: string };
     expect(body.costEntryId).toBe(costEntryId);
 
-    const row = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT description, amount_minor FROM cost_entry WHERE id = ?1",
-    )
+    const row = await firmDatabase
+      .prepare("SELECT description, amount_minor FROM cost_entry WHERE id = ?1")
       .bind(costEntryId)
       .first<{ description: string; amount_minor: number }>();
     expect(row?.description).toBe("Corrected description");
@@ -354,16 +360,16 @@ describe("cost entry update", () => {
 
   it("PATCH /api/v1/costs/{unknown-id} returns 404 and writes no audit row", async () => {
     const phantomId = "costEntry_000000000000000000000";
-    const auditBefore = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM audit_log",
-    ).first<{ c: number }>();
+    const auditBefore = await firmDatabase
+      .prepare("SELECT COUNT(*) AS c FROM audit_log")
+      .first<{ c: number }>();
 
     const response = await patch(`/api/v1/costs/${phantomId}`, { description: "ghost edit" });
     expect(response.status).toBe(404);
 
-    const auditAfter = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM audit_log",
-    ).first<{ c: number }>();
+    const auditAfter = await firmDatabase
+      .prepare("SELECT COUNT(*) AS c FROM audit_log")
+      .first<{ c: number }>();
     expect(auditAfter?.c).toBe(auditBefore?.c);
   });
 
@@ -378,7 +384,8 @@ describe("cost entry update", () => {
       description: "To be billed",
     });
     const { costEntryId } = (await created.json()) as { costEntryId: string };
-    await env.DB_FIRM_POOL_1.prepare("UPDATE cost_entry SET status = 'billed' WHERE id = ?1")
+    await firmDatabase
+      .prepare("UPDATE cost_entry SET status = 'billed' WHERE id = ?1")
       .bind(costEntryId)
       .run();
 
@@ -418,9 +425,8 @@ describe("cost entry batch capture", () => {
 
     // Both rows must be in the DB with source=grid.
     for (const id of body.costEntryIds) {
-      const row = await env.DB_FIRM_POOL_1.prepare(
-        "SELECT status, source FROM cost_entry WHERE id = ?1",
-      )
+      const row = await firmDatabase
+        .prepare("SELECT status, source FROM cost_entry WHERE id = ?1")
         .bind(id)
         .first<{ status: string; source: string }>();
       expect(row).not.toBeNull();
@@ -430,9 +436,9 @@ describe("cost entry batch capture", () => {
   });
 
   it("batch with an e-billing row missing a UTBMS code returns 422 and neither row is written (atomic)", async () => {
-    const countBefore = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM cost_entry",
-    ).first<{ c: number }>();
+    const countBefore = await firmDatabase
+      .prepare("SELECT COUNT(*) AS c FROM cost_entry")
+      .first<{ c: number }>();
 
     const response = await post("/api/v1/costs/batch", {
       rows: [
@@ -461,9 +467,9 @@ describe("cost entry batch capture", () => {
     expect(response.status).toBe(422);
 
     // Neither row must have been written (the batch is all-or-nothing).
-    const countAfter = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM cost_entry",
-    ).first<{ c: number }>();
+    const countAfter = await firmDatabase
+      .prepare("SELECT COUNT(*) AS c FROM cost_entry")
+      .first<{ c: number }>();
     expect(countAfter?.c).toBe(countBefore?.c);
   });
 });
@@ -471,9 +477,10 @@ describe("cost entry batch capture", () => {
 describe("cost entry lifecycle transitions", () => {
   it("submit then approve (gate on) moves draft->submitted->approved", async () => {
     // Enable the review gate for this firm so the submit->approve path is legal.
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-    )
+    await firmDatabase
+      .prepare(
+        "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+      )
       .bind("billing.approval_required", "true", new Date().toISOString())
       .run();
 
@@ -491,9 +498,8 @@ describe("cost entry lifecycle transitions", () => {
     // A costs:track member can submit their matter's cost.
     expect((await post(`/api/v1/costs/${costEntryId}/submit`, {})).status).toBe(200);
 
-    const afterSubmit = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT status FROM cost_entry WHERE id = ?1",
-    )
+    const afterSubmit = await firmDatabase
+      .prepare("SELECT status FROM cost_entry WHERE id = ?1")
       .bind(costEntryId)
       .first<{ status: string }>();
     expect(afterSubmit?.status).toBe("submitted");
@@ -501,15 +507,17 @@ describe("cost entry lifecycle transitions", () => {
     // An owner (who has costs:approve) completes the review.
     expect((await post(`/api/v1/costs/${costEntryId}/approve`, {})).status).toBe(200);
 
-    const row = await env.DB_FIRM_POOL_1.prepare("SELECT status FROM cost_entry WHERE id = ?1")
+    const row = await firmDatabase
+      .prepare("SELECT status FROM cost_entry WHERE id = ?1")
       .bind(costEntryId)
       .first<{ status: string }>();
     expect(row?.status).toBe("approved");
 
     // Restore gate off so other tests are not affected.
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-    )
+    await firmDatabase
+      .prepare(
+        "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+      )
       .bind("billing.approval_required", "false", new Date().toISOString())
       .run();
   });
@@ -529,7 +537,8 @@ describe("cost entry lifecycle transitions", () => {
     const response = await post(`/api/v1/costs/${costEntryId}/void`, {});
     expect(response.status).toBe(200);
 
-    const row = await env.DB_FIRM_POOL_1.prepare("SELECT status FROM cost_entry WHERE id = ?1")
+    const row = await firmDatabase
+      .prepare("SELECT status FROM cost_entry WHERE id = ?1")
       .bind(costEntryId)
       .first<{ status: string }>();
     expect(row?.status).toBe("void");
@@ -547,7 +556,8 @@ describe("cost entry lifecycle transitions", () => {
     });
     const { costEntryId } = (await created.json()) as { costEntryId: string };
     // Move directly to submitted in the DB to prime the kick-back target.
-    await env.DB_FIRM_POOL_1.prepare("UPDATE cost_entry SET status = 'submitted' WHERE id = ?1")
+    await firmDatabase
+      .prepare("UPDATE cost_entry SET status = 'submitted' WHERE id = ?1")
       .bind(costEntryId)
       .run();
 
@@ -571,7 +581,8 @@ describe("cost entry lifecycle transitions", () => {
       description: "Already billed",
     });
     const { costEntryId } = (await created.json()) as { costEntryId: string };
-    await env.DB_FIRM_POOL_1.prepare("UPDATE cost_entry SET status = 'billed' WHERE id = ?1")
+    await firmDatabase
+      .prepare("UPDATE cost_entry SET status = 'billed' WHERE id = ?1")
       .bind(costEntryId)
       .run();
 
@@ -636,9 +647,8 @@ describe("cost entry receipt attach/detach", () => {
     const body = (await response.json()) as { costEntryId: string };
     expect(body.costEntryId).toBe(costEntryId);
 
-    const row = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT receipt_file_id FROM cost_entry WHERE id = ?1",
-    )
+    const row = await firmDatabase
+      .prepare("SELECT receipt_file_id FROM cost_entry WHERE id = ?1")
       .bind(costEntryId)
       .first<{ receipt_file_id: string | null }>();
     expect(row?.receipt_file_id).toBe(fileId);
@@ -646,17 +656,17 @@ describe("cost entry receipt attach/detach", () => {
 
   it("POST /receipt on a non-existent cost returns 404 and writes no audit row", async () => {
     const phantomId = "costEntry_111111111111111111111";
-    const auditBefore = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM audit_log",
-    ).first<{ c: number }>();
+    const auditBefore = await firmDatabase
+      .prepare("SELECT COUNT(*) AS c FROM audit_log")
+      .first<{ c: number }>();
 
     const fileId = newIdentifier("file");
     const response = await post(`/api/v1/costs/${phantomId}/receipt`, { fileId });
     expect(response.status).toBe(404);
 
-    const auditAfter = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM audit_log",
-    ).first<{ c: number }>();
+    const auditAfter = await firmDatabase
+      .prepare("SELECT COUNT(*) AS c FROM audit_log")
+      .first<{ c: number }>();
     expect(auditAfter?.c).toBe(auditBefore?.c);
   });
 
@@ -671,7 +681,8 @@ describe("cost entry receipt attach/detach", () => {
       description: "Frozen receipt attach test",
     });
     const { costEntryId } = (await created.json()) as { costEntryId: string };
-    await env.DB_FIRM_POOL_1.prepare("UPDATE cost_entry SET status = 'billed' WHERE id = ?1")
+    await firmDatabase
+      .prepare("UPDATE cost_entry SET status = 'billed' WHERE id = ?1")
       .bind(costEntryId)
       .run();
 
@@ -701,9 +712,8 @@ describe("cost entry receipt attach/detach", () => {
     const body = (await response.json()) as { costEntryId: string };
     expect(body.costEntryId).toBe(costEntryId);
 
-    const row = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT receipt_file_id FROM cost_entry WHERE id = ?1",
-    )
+    const row = await firmDatabase
+      .prepare("SELECT receipt_file_id FROM cost_entry WHERE id = ?1")
       .bind(costEntryId)
       .first<{ receipt_file_id: string | null }>();
     expect(row?.receipt_file_id).toBeNull();
@@ -711,16 +721,16 @@ describe("cost entry receipt attach/detach", () => {
 
   it("DELETE /receipt on a non-existent cost returns 404 and writes no audit row", async () => {
     const phantomId = "costEntry_222222222222222222222";
-    const auditBefore = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM audit_log",
-    ).first<{ c: number }>();
+    const auditBefore = await firmDatabase
+      .prepare("SELECT COUNT(*) AS c FROM audit_log")
+      .first<{ c: number }>();
 
     const response = await del(`/api/v1/costs/${phantomId}/receipt`);
     expect(response.status).toBe(404);
 
-    const auditAfter = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM audit_log",
-    ).first<{ c: number }>();
+    const auditAfter = await firmDatabase
+      .prepare("SELECT COUNT(*) AS c FROM audit_log")
+      .first<{ c: number }>();
     expect(auditAfter?.c).toBe(auditBefore?.c);
   });
 
@@ -735,7 +745,8 @@ describe("cost entry receipt attach/detach", () => {
       description: "Frozen receipt detach test",
     });
     const { costEntryId } = (await created.json()) as { costEntryId: string };
-    await env.DB_FIRM_POOL_1.prepare("UPDATE cost_entry SET status = 'billed' WHERE id = ?1")
+    await firmDatabase
+      .prepare("UPDATE cost_entry SET status = 'billed' WHERE id = ?1")
       .bind(costEntryId)
       .run();
 
