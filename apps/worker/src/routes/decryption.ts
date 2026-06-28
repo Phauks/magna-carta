@@ -22,7 +22,7 @@ import { defineOpenAPIRoute, type RouteMeta } from "../contracts/route-meta.ts";
 // declaration must satisfy the compiler in all contexts, not just this assignment.
 const decryptionWasm = decryptionWasmModule as unknown as WebAssembly.Module;
 
-// Base64 → Uint8Array, chunked to avoid blowing the String.fromCharCode argument stack on larger files.
+// atob -> Uint8Array.
 function decodeBase64(value: string): Uint8Array {
   const binary = atob(value);
   const bytes = new Uint8Array(binary.length);
@@ -146,7 +146,20 @@ export function registerDecryptionRoutes(
         });
       }
 
-      const bytes = decodeBase64(fileBase64);
+      // Guard against malformed base64: atob() throws DOMException on invalid input, which would
+      // otherwise escape as an unhandled 500. Catch it here and return a 400 that carries no
+      // echo of the submitted value.
+      let bytes: Uint8Array;
+      try {
+        bytes = decodeBase64(fileBase64);
+      } catch {
+        return problemJson(c, {
+          type: "validation",
+          status: 400,
+          title: "File bytes could not be decoded",
+          detail: "The submitted file could not be decoded. Ensure the body is valid base64.",
+        });
+      }
 
       // Initialise the decryption engine from the compiled WASM module bundled at build time.
       // Passing the module explicitly avoids the URL-fetch fallback that wasm-bindgen would

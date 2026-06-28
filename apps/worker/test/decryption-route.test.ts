@@ -151,6 +151,38 @@ describe("POST /api/v1/decryption/inspect", () => {
     expect(response.headers.get("content-type")).toContain("application/problem+json");
   });
 
+  it("returns 400 (not 500) for malformed base64 input and does not echo the submitted value", async () => {
+    const { userId } = await seedCredentialedUser("decryption-badb64@example.com", {
+      userName: "Bad Base64",
+      firmId: poolFirmId,
+    });
+    await mirrorMemberWithOwnerRole(userId, "Bad Base64");
+    const cookie = await signInForSessionCookie("decryption-badb64@example.com");
+
+    const malformedInput = "!!!not base64!!!";
+    const response = await app.request(
+      "https://example.com/api/v1/decryption/inspect",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "https://example.com",
+          cookie,
+        },
+        body: JSON.stringify({
+          fileBase64: malformedInput,
+          attestation: { authorized: true },
+        }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+    const body = await response.text();
+    expect(body).not.toContain(malformedInput);
+  });
+
   it("returns 401 for an unauthenticated request", async () => {
     const response = await app.request(
       "https://example.com/api/v1/decryption/inspect",
