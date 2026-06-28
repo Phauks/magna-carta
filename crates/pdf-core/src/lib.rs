@@ -36,6 +36,12 @@ pub use secure::{secure, SecureOptions, WriteAlgorithm};
 
 mod surgery;
 
+mod generate;
+pub use generate::{merge, rotate, split, GenerateError, PageRange, PageSelection, Rotation};
+
+mod watermark;
+pub use watermark::{watermark, WatermarkContent, WatermarkOptions, WatermarkPlacement};
+
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_syntax::Pdf;
 use hayro::{render, RenderCache, RenderSettings};
