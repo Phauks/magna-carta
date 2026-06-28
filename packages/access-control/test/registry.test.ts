@@ -48,6 +48,7 @@ describe("permission registry", () => {
       "firm:reportIncident",
       "firm:scanFile",
       "firm:manageSecrets",
+      "firm:manageReleaseChannel",
     ]);
   });
 
@@ -105,6 +106,15 @@ describe("permission registry", () => {
     ]);
   });
 
+  it("permissionsForNamespace('documents') returns exactly the documents keys, in registry order", () => {
+    expect(permissionsForNamespace("documents")).toEqual([
+      "documents:edit",
+      "documents:checkout",
+      "documents:forceReleaseLock",
+      "documents:reconcile",
+    ]);
+  });
+
   it("permissionsForNamespace returns an empty list for an unknown namespace", () => {
     // 'matter' (singular) is NOT the matters namespace — the keys live under 'matters'.
     expect(permissionsForNamespace("matter")).toEqual([]);
@@ -131,9 +141,22 @@ describe("permission registry", () => {
     ]);
   });
 
+  it("permissionsForNamespace('costs') returns exactly the costs keys, in registry order", () => {
+    expect(permissionsForNamespace("costs")).toEqual(["costs:track", "costs:approve"]);
+  });
+
+  it("registers the costs permissions", () => {
+    expect(isPermission("costs:track")).toBe(true);
+    expect(isPermission("costs:approve")).toBe(true);
+  });
+
   it("web-domains tool permissions are registered", () => {
     expect(isPermission("tools:whois")).toBe(true);
     expect(isPermission("tools:safeBrowse")).toBe(true);
+  });
+
+  it("registers firm:manageReleaseChannel", () => {
+    expect(isPermission("firm:manageReleaseChannel")).toBe(true);
   });
 
   it("every registered key is `<subsystem>:<action>` — lowercase-led camelCase segments", () => {

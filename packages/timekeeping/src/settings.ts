@@ -12,13 +12,9 @@ import type { RoundingDirection } from "./rounding.ts";
 // timekeeper/location — ride the scoped-setting resolver (ScopedSettingDefinition), which walks
 // most-specific-first and falls back to this same in-code default.
 
-// The optional review gate. Default off keeps the frictionless capture path (draft -> billed) for a
-// firm that has not opted in.
-export const approvalRequiredDefinition: FirmSettingDefinition<boolean> = {
-  key: "time.approval_required",
-  schema: z.boolean(),
-  defaultValue: false,
-};
+// The review gate lives in billing-core so it is domain-neutral and shareable across cost/billing
+// subsystems. Re-exported here so timekeeping routes import from a single settings module.
+export { approvalRequiredDefinition } from "@magna-carta/billing-core/review-gate";
 
 // How long a still-live timer may sit before the live-timer coordinator flags it abandoned. Ten hours
 // by default — long enough to span a full working day without a spurious flag, short enough that an

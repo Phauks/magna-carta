@@ -17,6 +17,7 @@ import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
 import { registerBundleStatusRoute } from "./routes/bundle-status.ts";
 import { registerConversionRoutes } from "./routes/conversions.ts";
 import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
+import { registerCostsRoutes } from "./routes/costs.ts";
 import { registerTimeEntriesRoutes } from "./routes/time-entries.ts";
 import { registerTimerRoutes } from "./routes/timer.ts";
 import { registerRateCardsRoutes } from "./routes/rate-cards.ts";
@@ -27,11 +28,15 @@ import { registerMyDayRoutes } from "./routes/my-day.ts";
 import { registerDirectoryRoutes } from "./routes/directory.ts";
 import { registerDocumentTypesRoutes } from "./routes/document-types.ts";
 import { registerDownloadsRoutes } from "./routes/downloads.ts";
+import { registerDocumentCheckoutRoutes } from "./editing/checkout-routes.ts";
+import { registerDocumentEditingRoutes } from "./editing/edit-session-route.ts";
+import { registerWopiHostRoutes } from "./editing/wopi-host.ts";
 import { registerFilesRoutes } from "./routes/files.ts";
 import { registerScanDiagnoseRoute } from "./routes/scan-diagnose.ts";
 import { registerScanMatterRoute } from "./routes/scan-matter.ts";
 import { registerScanPolicyRoutes } from "./routes/scan-policy.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
+import { registerPlatformReleaseChannelRoute } from "./routes/platform-release-channel.ts";
 import { registerFoldersRoutes } from "./routes/folders.ts";
 import { registerIncidentsRoute } from "./routes/incidents.ts";
 import { registerLocationsRoutes } from "./routes/locations.ts";
@@ -49,6 +54,7 @@ import { registerMetadataRoutes } from "./routes/metadata.ts";
 import { registerDevWebToolsDemoRoute } from "./routes/dev-web-tools-demo.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
+import { registerReleaseChannelRoute } from "./routes/release-channel.ts";
 import { registerNumberingRoutes } from "./routes/numbering.ts";
 import { registerUploadsRoutes } from "./routes/uploads.ts";
 import { registerPreviewServeRoute } from "./files/preview-serve.ts";
@@ -61,12 +67,12 @@ import { usageReachedMiddleware } from "./usage/reached-middleware.ts";
 export type Bindings = {
   ASSETS: Fetcher;
   DB_CONTROL: D1Database;
-  // The dev firm-database pool — pre-declared because Miniflare cannot create D1 at runtime;
-  // resolved from a firm's database_identifier by firm-binding-resolver.ts.
-  DB_FIRM_POOL_1: D1Database;
-  DB_FIRM_POOL_2: D1Database;
   R2: R2Bucket;
   QUEUE: Queue;
+  // The per-document editing session coordinator (one Durable Object per open file), SQLite-backed so
+  // its session state survives the editing container sleeping. Unparameterized to avoid a circular
+  // import with the DocumentSession class (which imports this Bindings type).
+  DOCUMENT_SESSION: DurableObjectNamespace;
   // The files-ingest queue binding for the interactive lane (files/ prefix).
   FILES_INGEST?: Queue;
   // The files-ingest-bulk queue binding for the bulk lane (bulk/ prefix, lower concurrency).
@@ -76,12 +82,21 @@ export type Bindings = {
   BUNDLE_COORDINATOR: DurableObjectNamespace<
     import("./downloads/bundle-coordinator.ts").BundleBuildCoordinator
   >;
+  // The per-firm SQLite-backed database DO: one instance per firm, addressed idFromName(firmId),
+  // self-migrating on wake. All per-firm data-plane SQL routes through here.
+  FIRM_DATABASE: DurableObjectNamespace<
+    import("./firm-database/firm-database-object.ts").FirmDatabase
+  >;
   // The bundle-build queue the coordinator enqueues onto; its consumer streams R2 -> client-zip -> R2.
   BUNDLE_BUILD: Queue<import("./downloads/bundle-types.ts").BundleBuildMessage>;
   // The malware-scan Worker service binding. Dispatches file content to the scan worker for a
   // verdict. Optional here so the pool can start without a running scan service; resolveScanPort
   // falls back to the no-engine adapter when absent or when the bound service returns unscanned.
   SCAN_SERVICE?: Fetcher;
+  // The dedicated bundle-build worker (magna-carta-bundle), reached over this service binding.
+  // Optional here so the pool can start without a running bundle worker; the bundle coordinator
+  // only calls it at build time (POST /build) and surfaces any absence as a build failure.
+  BUNDLE_SERVICE?: Fetcher;
   // The off-hot-path AI inference dispatch queue: an inference request is enqueued here and the consumer
   // (src/inference/inference-consumer.ts) runs env.AI.run, so a single firm cannot starve the shared
   // gateway cap synchronously on the request path. Distinct from QUEUE (jobs) and FILES_INGEST.
@@ -148,6 +163,11 @@ export type Bindings = {
   // unset and keep the logging adapter, so no real email is sent and no domain onboarding is required.
   SEND_EMAIL?: CloudflareEmailBinding;
   EMAIL_FROM?: string;
+  // The dedicated cookieless content domain (a separate registrable domain from the app) that serves all
+  // browser-served untrusted bytes: the editor at `<documentKey>.<USERCONTENT_DOMAIN>` and file
+  // previews/downloads at `files.<USERCONTENT_DOMAIN>`. Optional and rarely set — the production value is
+  // the code default (magnacartausercontent.com), so only local dev overrides it (e.g. to edit.localhost).
+  USERCONTENT_DOMAIN?: string;
   // The per-timekeeper live-timer Durable Object namespace (the first DO). The timer routes proxy to
   // one instance per `${firmId}:${userId}`; the stop-commit reads the DO's final state and writes the
   // time entry through the data-access chokepoint. The DO holds no business rows.
@@ -163,6 +183,10 @@ export type Bindings = {
   // Viewer). Unset in production, so the demo route answers 404 there; set DEV_DEMO_TOOLS=1 in
   // .dev.vars to view it locally. Not part of any contract; remove the demo route when no longer needed.
   DEV_DEMO_TOOLS?: string;
+  // Cloudflare Flagship feature-flag binding. Optional: absent in local dev, tests, and deployments
+  // before the Flagship provider is wired. The resolver (src/flags/flag-evaluator.ts) falls back to
+  // defaultOffEvaluator when this is undefined, so every flag returns its stable default safely.
+  FLAGS?: import("@magna-carta/feature-flags").FlagshipBinding;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
@@ -253,7 +277,8 @@ export function createApp(options: CreateAppOptions = {}) {
   );
 
   // The chokepoint: built once over the REAL ports — session resolution, firm-context
-  // resolution (control-plane lookup + firm-binding-resolver + member-active check), permission
+  // resolution (control-plane lookup + the firmId-addressed FirmDatabase DO + member-active
+  // check), permission
   // loading, the platform-scoped/firm-scoped idempotency gate, and a per-isolate in-memory rate
   // limiter (one limiter per app instance, never per request). This is THE single
   // tenancy/authn/RBAC/idempotency/rate-limit enforcement point every /api/v1 route traverses.
@@ -346,7 +371,9 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFileIntegrityRoutes(app, chokepoint);
   registerMetadataRoutes(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);
+  registerReleaseChannelRoute(app, chokepoint, authForEnv);
   registerFirmsRoute(app, chokepoint, authForEnv);
+  registerPlatformReleaseChannelRoute(app, chokepoint);
   registerIncidentsRoute(app, chokepoint);
   registerUploadsRoutes(app, chokepoint);
   // Slice 1·1: matters (shell + lifecycle), per-firm matter/document types, Locations, and the
@@ -361,6 +388,15 @@ export function createApp(options: CreateAppOptions = {}) {
   registerFoldersRoutes(app, chokepoint);
   registerFilesRoutes(app, chokepoint);
   registerDownloadsRoutes(app, chokepoint);
+  // Slice 2·2: in-app document editing — the editor-launch route that mints the WOPI access token and
+  // returns the editor URL to iframe (the WOPI host callback surface is its own token-guarded route).
+  registerDocumentEditingRoutes(app, chokepoint);
+  // Slice 2·2: the WOPI host callback surface (/wopi/files/*) — cookieless, access-token-guarded,
+  // OUTSIDE the chokepoint (the editor sends no session cookie). The editor's data plane.
+  registerWopiHostRoutes(app);
+  // Slice 2·2: offline checkout / check-in — take a working copy out and return it through the
+  // quarantine ingest, reconciling divergence as a human-reviewed conflicting copy.
+  registerDocumentCheckoutRoutes(app, chokepoint);
   // The one-off, matter-less malware-scan diagnostic — stream a file through the engine, get a verdict.
   registerScanDiagnoseRoute(app, chokepoint);
   // "Scan this matter now" — queue a background re-scan of a matter's stale files on the bulk lane.
@@ -375,6 +411,8 @@ export function createApp(options: CreateAppOptions = {}) {
   // Slice 1·4: firm-defined custom fields (definitions, picklist options, temporal values, the
   // non-destructive Convert, and the compliance purge seam) — composed through the same chokepoint.
   registerCustomFieldsRoutes(app, chokepoint);
+  // Costs / disbursements — the cost-entry WIP store, composed through the same chokepoint.
+  registerCostsRoutes(app, chokepoint);
   // Time tracking — the work-in-progress entry surface, composed through the same chokepoint.
   registerTimeEntriesRoutes(app, chokepoint);
   // Timer routes: the per-timekeeper live timer (DO proxy) and the idempotent stop-commit.

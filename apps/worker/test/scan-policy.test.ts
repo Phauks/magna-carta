@@ -2,7 +2,7 @@ import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -14,7 +14,9 @@ let poolFirmId: FirmId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1); // full lineage incl. 0025 (Owner/Admin gets firm:manageScanPolicy)
+  // The FirmDatabase Durable Object self-migrates the full per-firm lineage (incl.
+  // 0030 — Owner/Admin gets firm:manageScanPolicy) on first access, so there is no
+  // separate per-firm migration to apply here.
   poolFirmId = (
     await seedFirm({ name: "Scan Policy Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
   ).firmId;
@@ -26,7 +28,7 @@ describe("GET /api/v1/firm/scan-policy", () => {
       userName: "Scan Policy Reader",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Scan Policy Reader");
+    await mirrorMemberWithOwnerRole(userId, "Scan Policy Reader", poolFirmId);
     const cookie = await signInForSessionCookie("scan-policy-get@example.com");
     const response = await SELF.fetch("https://example.com/api/v1/firm/scan-policy", {
       headers: { cookie },
@@ -65,7 +67,7 @@ describe("PATCH /api/v1/firm/scan-policy", () => {
       userName: "Scan Policy Patcher",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Scan Policy Patcher");
+    await mirrorMemberWithOwnerRole(userId, "Scan Policy Patcher", poolFirmId);
     ownerCookie = await signInForSessionCookie("scan-policy-patch@example.com");
   });
 
@@ -112,9 +114,9 @@ describe("PATCH /api/v1/firm/scan-policy", () => {
       });
     const countAudits = async () =>
       (
-        await env.DB_FIRM_POOL_1.prepare(
-          "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'firm.scan_policy_updated'",
-        ).first<{ n: number }>()
+        await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+          .prepare("SELECT COUNT(*) AS n FROM audit_log WHERE event = 'firm.scan_policy_updated'")
+          .first<{ n: number }>()
       )?.n ?? 0;
 
     const before = await countAudits();
@@ -130,9 +132,9 @@ describe("PATCH /api/v1/firm/scan-policy", () => {
   it("an empty PATCH body writes no audit row and returns the current settings", async () => {
     const before =
       (
-        await env.DB_FIRM_POOL_1.prepare(
-          "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'firm.scan_policy_updated'",
-        ).first<{ n: number }>()
+        await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+          .prepare("SELECT COUNT(*) AS n FROM audit_log WHERE event = 'firm.scan_policy_updated'")
+          .first<{ n: number }>()
       )?.n ?? 0;
     const response = await SELF.fetch("https://example.com/api/v1/firm/scan-policy", {
       method: "PATCH",
@@ -149,9 +151,9 @@ describe("PATCH /api/v1/firm/scan-policy", () => {
     expect(body["flaggedTreatment"]).toBeDefined();
     const after =
       (
-        await env.DB_FIRM_POOL_1.prepare(
-          "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'firm.scan_policy_updated'",
-        ).first<{ n: number }>()
+        await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+          .prepare("SELECT COUNT(*) AS n FROM audit_log WHERE event = 'firm.scan_policy_updated'")
+          .first<{ n: number }>()
       )?.n ?? 0;
     expect(after).toBe(before);
   });

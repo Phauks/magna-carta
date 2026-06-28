@@ -8,7 +8,7 @@ import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -32,7 +32,6 @@ let trackOnlyUserId: UserId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   poolFirmId = (await seedFirm({ name: "My Day Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
     .firmId;
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
@@ -44,22 +43,23 @@ beforeAll(async () => {
     firmId: poolFirmId,
   });
   ownerUserId = owner.userId;
-  await mirrorMemberWithOwnerRole(owner.userId, "My Day Owner");
+  await mirrorMemberWithOwnerRole(owner.userId, "My Day Owner", poolFirmId);
   ownerCookie = await signInForSessionCookie("myday-owner@example.com");
 
   const readOnly = await seedCredentialedUser("myday-readonly@example.com", {
     userName: "My Day Read Only",
     firmId: poolFirmId,
   });
-  const role = await env.DB_FIRM_POOL_1.prepare("SELECT id FROM role WHERE name = ?1")
+  const role = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+    .prepare("SELECT id FROM role WHERE name = ?1")
     .bind("Read-only")
     .first<{ id: string }>();
-  await insertMemberStatement(env.DB_FIRM_POOL_1, {
+  await insertMemberStatement(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), {
     userId: readOnly.userId,
     displayName: "My Day Read Only",
     now: new Date().toISOString(),
   }).run();
-  await insertRoleAssignmentStatement(env.DB_FIRM_POOL_1, {
+  await insertRoleAssignmentStatement(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), {
     id: newIdentifier("memberRole"),
     memberUserId: readOnly.userId,
     roleId: assertIdentifier(role!.id, "role"),
@@ -72,14 +72,15 @@ beforeAll(async () => {
     firmId: poolFirmId,
   });
   trackOnlyUserId = trackOnly.userId;
-  await insertMemberStatement(env.DB_FIRM_POOL_1, {
+  await insertMemberStatement(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), {
     userId: trackOnly.userId,
     displayName: "My Day Track Only",
     now: new Date().toISOString(),
   }).run();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO direct_grant (id, member_user_id, permission, granted_by, expires_at, created_at) VALUES (?1, ?2, ?3, ?2, NULL, ?4)",
-  )
+  await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+    .prepare(
+      "INSERT INTO direct_grant (id, member_user_id, permission, granted_by, expires_at, created_at) VALUES (?1, ?2, ?3, ?2, NULL, ?4)",
+    )
     .bind(newIdentifier("grant"), trackOnly.userId, "time:track", new Date().toISOString())
     .run();
   trackOnlyCookie = await signInForSessionCookie("myday-trackonly@example.com");
@@ -116,9 +117,10 @@ describe("My Day view", () => {
 
   it("reflects the firm target when time.target_daily_hours is set", async () => {
     // Set the daily target to 8 hours (480 minutes).
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+      )
       .bind("time.target_daily_hours", "8", new Date().toISOString())
       .run();
 
@@ -135,7 +137,8 @@ describe("My Day view", () => {
     expect(body.shortfallMinutes).toBe(480);
 
     // Restore to no target for subsequent tests.
-    await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("DELETE FROM setting WHERE key = ?1")
       .bind("time.target_daily_hours")
       .run();
   });

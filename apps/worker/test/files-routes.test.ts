@@ -27,7 +27,7 @@ import type {
 import { beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -41,6 +41,7 @@ import {
 // 302 targets a deterministic dev URL). The ZIP path reads real bytes from the Miniflare R2 binding.
 
 let poolFirmId: FirmId;
+let firmBId: FirmId;
 let matterId: MatterId;
 let ownerCookie: string;
 let readOnlyCookie: string;
@@ -49,12 +50,15 @@ let ownerUserId: UserId;
 const ISO = "2026-06-13T00:00:00.000Z";
 
 async function mirrorMemberWithRole(userId: UserId, displayName: string, roleName: string) {
-  const role = await env.DB_FIRM_POOL_1.prepare("SELECT id FROM role WHERE name = ?1")
+  const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
+  const roleResult = await firmDatabase
+    .prepare("SELECT id FROM role WHERE name = ?1")
     .bind(roleName)
-    .first<{ id: string }>();
-  if (role === null) throw new Error(`seeded role ${roleName} missing`);
-  await insertMemberStatement(env.DB_FIRM_POOL_1, { userId, displayName, now: ISO }).run();
-  await insertRoleAssignmentStatement(env.DB_FIRM_POOL_1, {
+    .all<{ id: string }>();
+  const role = roleResult.results[0];
+  if (role === undefined) throw new Error(`seeded role ${roleName} missing`);
+  await insertMemberStatement(firmDatabase, { userId, displayName, now: ISO }).run();
+  await insertRoleAssignmentStatement(firmDatabase, {
     id: newIdentifier("memberRole"),
     memberUserId: userId,
     roleId: assertIdentifier(role.id, "role"),
@@ -64,9 +68,10 @@ async function mirrorMemberWithRole(userId: UserId, displayName: string, roleNam
 // Seeds a folder under the matter (optionally nested).
 async function seedFolder(name: string, parentFolderId: FolderId | null = null): Promise<FolderId> {
   const id = newIdentifier("folder");
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO folder (id, matter_id, parent_folder_id, name, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
-  )
+  await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+    .prepare(
+      "INSERT INTO folder (id, matter_id, parent_folder_id, name, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+    )
     .bind(id, matterId, parentFolderId, name, ISO)
     .run();
   return id;
@@ -92,18 +97,21 @@ async function seedCleanFile(
   createdAt = ISO,
   options: SeedVersionOptions = {},
 ): Promise<{ fileId: FileId; versionId: FileVersionId; r2Key: string }> {
+  const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
   const fileId = newIdentifier("file");
   const versionId = newIdentifier("fileVersion");
   const r2Key = `files/${fileId}/${versionId}`;
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, NULL, NULL, NULL, ?5, ?5)",
-  )
+  await firmDatabase
+    .prepare(
+      "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, NULL, NULL, NULL, ?5, ?5)",
+    )
     .bind(fileId, matterId, folderId, name, createdAt)
     .run();
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at, inline_playable, storage_class, storage_encoding, artifact_role) " +
-      "VALUES (?1, ?2, 1, ?3, ?4, 'application/octet-stream', ?7, 'hash', 'clean', ?5, ?6, ?6, ?8, ?9, ?10, ?11)",
-  )
+  await firmDatabase
+    .prepare(
+      "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at, inline_playable, storage_class, storage_encoding, artifact_role) " +
+        "VALUES (?1, ?2, 1, ?3, ?4, 'application/octet-stream', ?7, 'hash', 'clean', ?5, ?6, ?6, ?8, ?9, ?10, ?11)",
+    )
     .bind(
       versionId,
       fileId,
@@ -118,7 +126,8 @@ async function seedCleanFile(
       options.artifactRole ?? "original",
     )
     .run();
-  await env.DB_FIRM_POOL_1.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+  await firmDatabase
+    .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
     .bind(fileId, versionId)
     .run();
   await env.R2.put(r2Key, bytes);
@@ -127,23 +136,21 @@ async function seedCleanFile(
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  // DB_FIRM_POOL_2 is migrated so the cross-firm isolation test can seed a file in firm B and assert
-  // that a firm-A session receives a 404 when requesting firm B's file id at the preview grant — the
-  // firm-scoped data-access layer must not leak existence across tenant boundaries.
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_2);
   poolFirmId = (await seedFirm({ name: "Files Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
     .firmId;
   await env.DB_CONTROL.prepare("UPDATE firm SET bucket_name = 'R2' WHERE id = ?1")
     .bind(poolFirmId)
     .run();
 
+  // Seed firm B — the cross-firm isolation test checks that firm A's session cannot reach firm B's data.
+  firmBId = (await seedFirm({ name: "Files Test Firm B" })).firmId;
+
   const owner = await seedCredentialedUser("files-owner@example.com", {
     userName: "Files Owner",
     firmId: poolFirmId,
   });
   ownerUserId = owner.userId;
-  await mirrorMemberWithOwnerRole(owner.userId, "Files Owner");
+  await mirrorMemberWithOwnerRole(owner.userId, "Files Owner", poolFirmId);
   ownerCookie = await signInForSessionCookie("files-owner@example.com");
 
   const readOnly = await seedCredentialedUser("files-readonly@example.com", {
@@ -154,9 +161,10 @@ beforeAll(async () => {
   readOnlyCookie = await signInForSessionCookie("files-readonly@example.com");
 
   matterId = newIdentifier("matter");
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Files Matter', 'open', ?2, ?3, ?3)",
-  )
+  await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+    .prepare(
+      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Files Matter', 'open', ?2, ?3, ?3)",
+    )
     .bind(matterId, owner.userId, ISO)
     .run();
 });
@@ -233,13 +241,15 @@ describe("file list / get / patch / delete", () => {
 
     // A pending-only file (no current_version_id) and a soft-deleted file must not appear.
     const pendingFileId = newIdentifier("file");
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO file (id, matter_id, folder_id, name, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, ?3, 'pending.txt', NULL, NULL, ?4, ?4)",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO file (id, matter_id, folder_id, name, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, ?3, 'pending.txt', NULL, NULL, ?4, ?4)",
+      )
       .bind(pendingFileId, matterId, folderId, ISO)
       .run();
     const deleted = await seedCleanFile("deleted.txt", folderId, "x");
-    await env.DB_FIRM_POOL_1.prepare("UPDATE file SET deleted_at = ?2 WHERE id = ?1")
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("UPDATE file SET deleted_at = ?2 WHERE id = ?1")
       .bind(deleted.fileId, ISO)
       .run();
 
@@ -267,9 +277,11 @@ describe("file list / get / patch / delete", () => {
     });
     expect(patched.status).toBe(200);
 
-    const row = await env.DB_FIRM_POOL_1.prepare("SELECT name, folder_id FROM file WHERE id = ?1")
+    const rowResult = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT name, folder_id FROM file WHERE id = ?1")
       .bind(fileId)
-      .first<{ name: string; folder_id: string }>();
+      .all<{ name: string; folder_id: string }>();
+    const row = rowResult.results[0];
     expect(row?.name).toBe("renamed.txt");
     expect(row?.folder_id).toBe(target);
   });
@@ -316,17 +328,16 @@ describe("GET /api/v1/files/{id}/download", () => {
     const location = response.headers.get("location") ?? "";
     expect(location).toContain(encodeURIComponent(r2Key).replace(/%2F/g, "/"));
     // An audit row was written for the export.
-    const audit = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT event FROM audit_log WHERE event = 'file.downloaded' AND subject_id = ?1",
-    )
-      .bind(
-        (
-          await env.DB_FIRM_POOL_1.prepare("SELECT current_version_id AS v FROM file WHERE id = ?1")
-            .bind(fileId)
-            .first<{ v: string }>()
-        )?.v,
-      )
-      .first<{ event: string }>();
+    const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
+    const versionResult = await firmDatabase
+      .prepare("SELECT current_version_id AS v FROM file WHERE id = ?1")
+      .bind(fileId)
+      .all<{ v: string }>();
+    const auditResult = await firmDatabase
+      .prepare("SELECT event FROM audit_log WHERE event = 'file.downloaded' AND subject_id = ?1")
+      .bind(versionResult.results[0]?.v)
+      .all<{ event: string }>();
+    const audit = auditResult.results[0];
     expect(audit?.event).toBe("file.downloaded");
   });
 
@@ -334,9 +345,10 @@ describe("GET /api/v1/files/{id}/download", () => {
     const { fileId, r2Key } = await seedCleanFile("flagged.txt", null, "flagged-bytes");
     // A re-scan flagged the committed (still-visible) current version as malware. With the default
     // block treatment the file is inaccessible — there is no acknowledgment override.
-    await env.DB_FIRM_POOL_1.prepare(
-      "UPDATE file_version SET scan_verdict = 'flagged', scan_detail = 'Eicar-Test' WHERE r2_key = ?1",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "UPDATE file_version SET scan_verdict = 'flagged', scan_detail = 'Eicar-Test' WHERE r2_key = ?1",
+      )
       .bind(r2Key)
       .run();
 
@@ -358,13 +370,15 @@ describe("GET /api/v1/files/{id}/download", () => {
 
     // The blocked attempt is recorded in the audit trail (metadata only, no content).
     const versionId = (
-      await env.DB_FIRM_POOL_1.prepare("SELECT current_version_id AS v FROM file WHERE id = ?1")
+      await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+        .prepare("SELECT current_version_id AS v FROM file WHERE id = ?1")
         .bind(fileId)
         .first<{ v: string }>()
     )?.v;
-    const audit = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT event FROM audit_log WHERE subject_id = ?1 AND event = 'file.download_blocked_flagged'",
-    )
+    const audit = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "SELECT event FROM audit_log WHERE subject_id = ?1 AND event = 'file.download_blocked_flagged'",
+      )
       .bind(versionId)
       .first<{ event: string }>();
     expect(audit?.event).toBe("file.download_blocked_flagged");
@@ -372,9 +386,10 @@ describe("GET /api/v1/files/{id}/download", () => {
 
   it("404s a file with no clean current version", async () => {
     const pendingFileId = newIdentifier("file");
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO file (id, matter_id, folder_id, name, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, 'nope.txt', NULL, NULL, ?3, ?3)",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO file (id, matter_id, folder_id, name, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, 'nope.txt', NULL, NULL, ?3, ?3)",
+      )
       .bind(pendingFileId, matterId, ISO)
       .run();
     const response = await SELF.fetch(
@@ -389,16 +404,17 @@ describe("GET /api/v1/files/{id}/download", () => {
 
   it("flagged + informed-access treatment: 409 without ack, 302 + acknowledged audit with ack", async () => {
     await writeFirmSettingStatement(
-      env.DB_FIRM_POOL_1,
+      firmDatabaseFor(env.FIRM_DATABASE, poolFirmId),
       flaggedTreatmentDefinition,
       "informed-access",
       ISO,
     ).run();
     try {
       const { fileId, r2Key } = await seedCleanFile("flagged-informed.txt", null, "informed-bytes");
-      await env.DB_FIRM_POOL_1.prepare(
-        "UPDATE file_version SET scan_verdict = 'flagged', scan_detail = 'Eicar-Test' WHERE r2_key = ?1",
-      )
+      await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+        .prepare(
+          "UPDATE file_version SET scan_verdict = 'flagged', scan_detail = 'Eicar-Test' WHERE r2_key = ?1",
+        )
         .bind(r2Key)
         .run();
 
@@ -418,18 +434,21 @@ describe("GET /api/v1/files/{id}/download", () => {
       );
       expect(allowed.status).toBe(302);
       const versionId = (
-        await env.DB_FIRM_POOL_1.prepare("SELECT current_version_id AS v FROM file WHERE id = ?1")
+        await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+          .prepare("SELECT current_version_id AS v FROM file WHERE id = ?1")
           .bind(fileId)
           .first<{ v: string }>()
       )?.v;
-      const audit = await env.DB_FIRM_POOL_1.prepare(
-        "SELECT event FROM audit_log WHERE subject_id = ?1 AND event = 'file.downloaded_malware_acknowledged'",
-      )
+      const audit = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+        .prepare(
+          "SELECT event FROM audit_log WHERE subject_id = ?1 AND event = 'file.downloaded_malware_acknowledged'",
+        )
         .bind(versionId)
         .first<{ event: string }>();
       expect(audit?.event).toBe("file.downloaded_malware_acknowledged");
     } finally {
-      await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+      await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+        .prepare("DELETE FROM setting WHERE key = ?1")
         .bind(flaggedTreatmentDefinition.key)
         .run();
     }
@@ -437,16 +456,17 @@ describe("GET /api/v1/files/{id}/download", () => {
 
   it("flagged + allow-and-flag treatment: 302 without ack + audit file.downloaded with flagged marker", async () => {
     await writeFirmSettingStatement(
-      env.DB_FIRM_POOL_1,
+      firmDatabaseFor(env.FIRM_DATABASE, poolFirmId),
       flaggedTreatmentDefinition,
       "allow-and-flag",
       ISO,
     ).run();
     try {
       const { fileId, r2Key } = await seedCleanFile("flagged-allow.txt", null, "allow-bytes");
-      await env.DB_FIRM_POOL_1.prepare(
-        "UPDATE file_version SET scan_verdict = 'flagged', scan_detail = 'Eicar-Test' WHERE r2_key = ?1",
-      )
+      await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+        .prepare(
+          "UPDATE file_version SET scan_verdict = 'flagged', scan_detail = 'Eicar-Test' WHERE r2_key = ?1",
+        )
         .bind(r2Key)
         .run();
 
@@ -459,20 +479,21 @@ describe("GET /api/v1/files/{id}/download", () => {
 
       // Audit records file.downloaded with a flagged:true marker.
       const versionId = (
-        await env.DB_FIRM_POOL_1.prepare("SELECT current_version_id AS v FROM file WHERE id = ?1")
+        await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+          .prepare("SELECT current_version_id AS v FROM file WHERE id = ?1")
           .bind(fileId)
           .first<{ v: string }>()
       )?.v;
-      const audit = await env.DB_FIRM_POOL_1.prepare(
-        "SELECT event, metadata FROM audit_log WHERE subject_id = ?1",
-      )
+      const audit = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+        .prepare("SELECT event, metadata FROM audit_log WHERE subject_id = ?1")
         .bind(versionId)
         .first<{ event: string; metadata: string }>();
       expect(audit?.event).toBe("file.downloaded");
       const metadata = JSON.parse(audit?.metadata ?? "{}") as Record<string, unknown>;
       expect(metadata.flagged).toBe(true);
     } finally {
-      await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+      await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+        .prepare("DELETE FROM setting WHERE key = ?1")
         .bind(flaggedTreatmentDefinition.key)
         .run();
     }
@@ -480,17 +501,23 @@ describe("GET /api/v1/files/{id}/download", () => {
 
   it("flagged + informed-access + step-up-reauth seam: 409 carries stepUpRequired:true, 302 with ack (advisory only)", async () => {
     await writeFirmSettingStatement(
-      env.DB_FIRM_POOL_1,
+      firmDatabaseFor(env.FIRM_DATABASE, poolFirmId),
       flaggedTreatmentDefinition,
       "informed-access",
       ISO,
     ).run();
-    await writeFirmSettingStatement(env.DB_FIRM_POOL_1, stepUpReauthDefinition, true, ISO).run();
+    await writeFirmSettingStatement(
+      firmDatabaseFor(env.FIRM_DATABASE, poolFirmId),
+      stepUpReauthDefinition,
+      true,
+      ISO,
+    ).run();
     try {
       const { fileId, r2Key } = await seedCleanFile("flagged-stepup.txt", null, "stepup-bytes");
-      await env.DB_FIRM_POOL_1.prepare(
-        "UPDATE file_version SET scan_verdict = 'flagged', scan_detail = 'Eicar-Test' WHERE r2_key = ?1",
-      )
+      await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+        .prepare(
+          "UPDATE file_version SET scan_verdict = 'flagged', scan_detail = 'Eicar-Test' WHERE r2_key = ?1",
+        )
         .bind(r2Key)
         .run();
 
@@ -510,10 +537,12 @@ describe("GET /api/v1/files/{id}/download", () => {
       );
       expect(allowed.status).toBe(302);
     } finally {
-      await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+      await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+        .prepare("DELETE FROM setting WHERE key = ?1")
         .bind(flaggedTreatmentDefinition.key)
         .run();
-      await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+      await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+        .prepare("DELETE FROM setting WHERE key = ?1")
         .bind(stepUpReauthDefinition.key)
         .run();
     }
@@ -521,16 +550,17 @@ describe("GET /api/v1/files/{id}/download", () => {
 
   it("flagged + explicit block treatment: 403 denied without ack, and acknowledgeMalware=true does NOT serve (no 302)", async () => {
     await writeFirmSettingStatement(
-      env.DB_FIRM_POOL_1,
+      firmDatabaseFor(env.FIRM_DATABASE, poolFirmId),
       flaggedTreatmentDefinition,
       "block",
       ISO,
     ).run();
     try {
       const { fileId, r2Key } = await seedCleanFile("flagged-block.txt", null, "block-bytes");
-      await env.DB_FIRM_POOL_1.prepare(
-        "UPDATE file_version SET scan_verdict = 'flagged', scan_detail = 'Eicar-Test' WHERE r2_key = ?1",
-      )
+      await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+        .prepare(
+          "UPDATE file_version SET scan_verdict = 'flagged', scan_detail = 'Eicar-Test' WHERE r2_key = ?1",
+        )
         .bind(r2Key)
         .run();
 
@@ -549,7 +579,8 @@ describe("GET /api/v1/files/{id}/download", () => {
       expect(acked.status).not.toBe(302);
       expect(acked.status).toBe(403);
     } finally {
-      await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+      await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+        .prepare("DELETE FROM setting WHERE key = ?1")
         .bind(flaggedTreatmentDefinition.key)
         .run();
     }
@@ -606,12 +637,11 @@ describe("GET /api/v1/files/{id}/preview", () => {
     });
     const res = await get(`/api/v1/files/${fileId}/preview`);
     expect(res.status).toBe(200);
-    const audit = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT event FROM audit_log WHERE subject_id = ?1",
-    )
+    const auditResult = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT event FROM audit_log WHERE subject_id = ?1")
       .bind(versionId)
-      .first<{ event: string }>();
-    expect(audit).toBeNull();
+      .all<{ event: string }>();
+    expect(auditResult.results[0]).toBeUndefined();
   });
 });
 
@@ -664,9 +694,10 @@ describe("POST /api/v1/downloads/zip", () => {
 
   it("streams a ZIP of a 3-file selection with folder-tree paths and byte-equal contents", async () => {
     const zipMatterId = newIdentifier("matter");
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Zip Matter', 'open', ?2, ?3, ?3)",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Zip Matter', 'open', ?2, ?3, ?3)",
+      )
       .bind(zipMatterId, ownerUserId, ISO)
       .run();
     const savedMatter = matterId;
@@ -690,11 +721,13 @@ describe("POST /api/v1/downloads/zip", () => {
       expect(a.r2Key).toMatch(/^files\//);
 
       // Audit row carries counts only.
-      const audit = await env.DB_FIRM_POOL_1.prepare(
-        "SELECT metadata FROM audit_log WHERE event = 'files.bulkDownloaded' AND subject_id = ?1",
-      )
+      const auditResult = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+        .prepare(
+          "SELECT metadata FROM audit_log WHERE event = 'files.bulkDownloaded' AND subject_id = ?1",
+        )
         .bind(zipMatterId)
-        .first<{ metadata: string }>();
+        .all<{ metadata: string }>();
+      const audit = auditResult.results[0];
       const metadata = JSON.parse(audit?.metadata ?? "{}");
       expect(metadata.fileCount).toBe(3);
       expect(metadata.totalBytes).toBe(12);
@@ -708,9 +741,10 @@ describe("POST /api/v1/downloads/zip", () => {
 
   it("excludes a pending/quarantined version from the archive", async () => {
     const zipMatterId = newIdentifier("matter");
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Zip Pending', 'open', ?2, ?3, ?3)",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Zip Pending', 'open', ?2, ?3, ?3)",
+      )
       .bind(zipMatterId, ownerUserId, ISO)
       .run();
     const savedMatter = matterId;
@@ -720,14 +754,17 @@ describe("POST /api/v1/downloads/zip", () => {
       // A pending file (no clean current version).
       const pendingFileId = newIdentifier("file");
       const pendingVersionId = newIdentifier("fileVersion");
-      await env.DB_FIRM_POOL_1.prepare(
-        "INSERT INTO file (id, matter_id, folder_id, name, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, 'pending.txt', NULL, NULL, ?3, ?3)",
-      )
+      const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
+      await firmDatabase
+        .prepare(
+          "INSERT INTO file (id, matter_id, folder_id, name, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, 'pending.txt', NULL, NULL, ?3, ?3)",
+        )
         .bind(pendingFileId, zipMatterId, ISO)
         .run();
-      await env.DB_FIRM_POOL_1.prepare(
-        "INSERT INTO file_version (id, file_id, version_number, r2_key, status, created_at) VALUES (?1, ?2, 1, ?3, 'pending', ?4)",
-      )
+      await firmDatabase
+        .prepare(
+          "INSERT INTO file_version (id, file_id, version_number, r2_key, status, created_at) VALUES (?1, ?2, 1, ?3, 'pending', ?4)",
+        )
         .bind(pendingVersionId, pendingFileId, `files/${pendingFileId}/${pendingVersionId}`, ISO)
         .run();
 
@@ -741,9 +778,10 @@ describe("POST /api/v1/downloads/zip", () => {
 
   it("302s a single-file selection", async () => {
     const zipMatterId = newIdentifier("matter");
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Zip Single', 'open', ?2, ?3, ?3)",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Zip Single', 'open', ?2, ?3, ?3)",
+      )
       .bind(zipMatterId, ownerUserId, ISO)
       .run();
     const savedMatter = matterId;
@@ -760,9 +798,10 @@ describe("POST /api/v1/downloads/zip", () => {
 
   it("pins the resolved version: a version committed after resolution does not change the archive", async () => {
     const zipMatterId = newIdentifier("matter");
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Zip Pinned', 'open', ?2, ?3, ?3)",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Zip Pinned', 'open', ?2, ?3, ?3)",
+      )
       .bind(zipMatterId, ownerUserId, ISO)
       .run();
     const savedMatter = matterId;
@@ -779,9 +818,10 @@ describe("POST /api/v1/downloads/zip", () => {
       // A new version committed AFTER does not retroactively change the already-streamed archive.
       const newVersionId = newIdentifier("fileVersion");
       const newKey = `files/${first.fileId}/${newVersionId}`;
-      await env.DB_FIRM_POOL_1.prepare(
-        "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, status, created_at, committed_at) VALUES (?1, ?2, 2, ?3, 12, 'clean', ?4, ?4)",
-      )
+      await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+        .prepare(
+          "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, status, created_at, committed_at) VALUES (?1, ?2, 2, ?3, 12, 'clean', ?4, ?4)",
+        )
         .bind(newVersionId, first.fileId, newKey, ISO)
         .run();
       await env.R2.put(newKey, "VERSION-TWO!!");
@@ -800,17 +840,18 @@ describe("POST /api/v1/downloads/zip", () => {
 
   it("hands a selection over the live file-count threshold to the async build job (202)", async () => {
     const asyncMatterId = newIdentifier("matter");
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Zip Async', 'open', ?2, ?3, ?3)",
-    )
+    const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, poolFirmId);
+    await firmDatabase
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Zip Async', 'open', ?2, ?3, ?3)",
+      )
       .bind(asyncMatterId, ownerUserId, ISO)
       .run();
     const savedMatter = matterId;
     matterId = asyncMatterId;
     // Drop the live file-count threshold to 1 so a two-file selection exceeds it.
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT OR REPLACE INTO setting (key, value, updated_at) VALUES (?1, '1', ?2)",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("INSERT OR REPLACE INTO setting (key, value, updated_at) VALUES (?1, '1', ?2)")
       .bind(liveMaxFileCountDefinition.key, ISO)
       .run();
     try {
@@ -823,7 +864,8 @@ describe("POST /api/v1/downloads/zip", () => {
       expect(body.jobId).toMatch(/^[0-9a-f]{64}$/);
       expect(body.status).toBe("building");
     } finally {
-      await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+      await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+        .prepare("DELETE FROM setting WHERE key = ?1")
         .bind(liveMaxFileCountDefinition.key)
         .run();
       matterId = savedMatter;
@@ -832,16 +874,16 @@ describe("POST /api/v1/downloads/zip", () => {
 
   it("returns 200 with a signed URL when an identical bundle was already built", async () => {
     const cachedMatterId = newIdentifier("matter");
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Zip Cached', 'open', ?2, ?3, ?3)",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Zip Cached', 'open', ?2, ?3, ?3)",
+      )
       .bind(cachedMatterId, ownerUserId, ISO)
       .run();
     const savedMatter = matterId;
     matterId = cachedMatterId;
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT OR REPLACE INTO setting (key, value, updated_at) VALUES (?1, '1', ?2)",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("INSERT OR REPLACE INTO setting (key, value, updated_at) VALUES (?1, '1', ?2)")
       .bind(liveMaxFileCountDefinition.key, ISO)
       .run();
     try {
@@ -861,7 +903,8 @@ describe("POST /api/v1/downloads/zip", () => {
       const body = (await response.json()) as { url: string };
       expect(body.url).toContain("dev-presigned=get");
     } finally {
-      await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+      await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+        .prepare("DELETE FROM setting WHERE key = ?1")
         .bind(liveMaxFileCountDefinition.key)
         .run();
       matterId = savedMatter;
@@ -892,9 +935,10 @@ describe("inline preview grant + cookieless delivery", () => {
     expect(body.contentType).toBe("video/mp4");
     expect(body.streamUrl).toContain(`https://${env.FILES_ORIGIN}/api/files-preview/`);
     expect(body.downloadUrl).toBe(`/api/v1/files/${fileId}/download`);
-    const audit = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT event FROM audit_log WHERE event = 'file.downloaded' AND subject_id IN (SELECT id FROM file_version WHERE file_id = ?1)",
-    )
+    const audit = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "SELECT event FROM audit_log WHERE event = 'file.downloaded' AND subject_id IN (SELECT id FROM file_version WHERE file_id = ?1)",
+      )
       .bind(fileId)
       .all();
     expect(audit.results).toHaveLength(0);
@@ -1034,38 +1078,43 @@ describe("inline preview grant + cookieless delivery", () => {
   });
 
   it("cross-firm isolation: a firm-A session requesting a firm-B file id at the preview grant receives 404 (no existence oracle)", async () => {
-    // Seed a clean file directly in firm B's database (DB_FIRM_POOL_2). The firm-A session (ownerCookie)
+    // Seed a clean file directly in firm B's DO-backed database. The firm-A session (ownerCookie)
     // then requests firm B's file id at the preview grant endpoint. The firm-scoped data-access layer
     // must not expose existence across tenant boundaries — the response must be a uniform 404.
     //
     // Mirror ownerUserId into firm B's member table so the matter FK (responsible_member_id) resolves.
     // The per-firm member table is a local mirror — no FK back to the control-plane user table.
-    await insertMemberStatement(env.DB_FIRM_POOL_2, {
+    const firmBDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmBId);
+    await insertMemberStatement(firmBDatabase, {
       userId: ownerUserId,
       displayName: "Firm B Placeholder Member",
       now: ISO,
     }).run();
     const firmBMatterId = newIdentifier("matter");
-    await env.DB_FIRM_POOL_2.prepare(
-      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Firm B Matter', 'open', ?2, ?3, ?3)",
-    )
+    await firmBDatabase
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Firm B Matter', 'open', ?2, ?3, ?3)",
+      )
       .bind(firmBMatterId, ownerUserId, ISO)
       .run();
     const firmBFileId = newIdentifier("file");
     const firmBVersionId = newIdentifier("fileVersion");
     const firmBR2Key = `files/${firmBFileId}/${firmBVersionId}`;
-    await env.DB_FIRM_POOL_2.prepare(
-      "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, 'firm-b.mp4', NULL, NULL, NULL, ?3, ?3)",
-    )
+    await firmBDatabase
+      .prepare(
+        "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, 'firm-b.mp4', NULL, NULL, NULL, ?3, ?3)",
+      )
       .bind(firmBFileId, firmBMatterId, ISO)
       .run();
-    await env.DB_FIRM_POOL_2.prepare(
-      "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at, inline_playable, storage_class, storage_encoding, artifact_role) " +
-        "VALUES (?1, ?2, 1, ?3, ?4, 'application/octet-stream', 'video/mp4', 'hash', 'clean', ?5, ?6, ?6, 'playable', 'standard', 'full', 'original')",
-    )
+    await firmBDatabase
+      .prepare(
+        "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at, inline_playable, storage_class, storage_encoding, artifact_role) " +
+          "VALUES (?1, ?2, 1, ?3, ?4, 'application/octet-stream', 'video/mp4', 'hash', 'clean', ?5, ?6, ?6, 'playable', 'standard', 'full', 'original')",
+      )
       .bind(firmBVersionId, firmBFileId, firmBR2Key, MP4_BYTES.length, ownerUserId, ISO)
       .run();
-    await env.DB_FIRM_POOL_2.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+    await firmBDatabase
+      .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
       .bind(firmBFileId, firmBVersionId)
       .run();
     await env.R2.put(firmBR2Key, MP4_BYTES);
@@ -1081,9 +1130,8 @@ describe("inline preview grant + cookieless delivery", () => {
       sniffedContentType: "video/mp4",
     });
     // A re-scan flags the already-committed (still-clean-status) version.
-    await env.DB_FIRM_POOL_1.prepare(
-      "UPDATE file_version SET scan_verdict = 'flagged' WHERE r2_key = ?1",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("UPDATE file_version SET scan_verdict = 'flagged' WHERE r2_key = ?1")
       .bind(r2Key)
       .run();
 
@@ -1145,9 +1193,10 @@ describe("POST /api/v1/scan/diagnose", () => {
     const body = await res.json<{ verdict: string; engineVersion: string | null }>();
     // The stub scan service bound via SCAN_SERVICE returns the no-engine verdict — an honest `unscanned`, never a false clean.
     expect(body.verdict).toBe("unscanned");
-    const audit = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'file.scan_diagnosed'",
-    ).first<{ n: number }>();
+    const auditResult = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT COUNT(*) AS n FROM audit_log WHERE event = 'file.scan_diagnosed'")
+      .all<{ n: number }>();
+    const audit = auditResult.results[0];
     expect(audit?.n).toBeGreaterThanOrEqual(1);
   });
 
@@ -1156,7 +1205,7 @@ describe("POST /api/v1/scan/diagnose", () => {
     // same readFirmScanPolicy path ingest uses. With the no-engine stub the verdict is `unscanned`, but
     // the route must resolve the firm policy without error and still write the audit row.
     await writeFirmSettingStatement(
-      env.DB_FIRM_POOL_1,
+      firmDatabaseFor(env.FIRM_DATABASE, poolFirmId),
       scanPolicyDefinition,
       { tier: "extended", suspiciousScoreFloor: 10 },
       ISO,
@@ -1175,7 +1224,8 @@ describe("POST /api/v1/scan/diagnose", () => {
       const body = await res.json<{ verdict: string }>();
       expect(body.verdict).toBe("unscanned");
     } finally {
-      await env.DB_FIRM_POOL_1.prepare("DELETE FROM setting WHERE key = ?1")
+      await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+        .prepare("DELETE FROM setting WHERE key = ?1")
         .bind(scanPolicyDefinition.key)
         .run();
     }
@@ -1204,7 +1254,7 @@ describe("POST /api/v1/scan/matter/{id}", () => {
 
   it("queues a matter's stale files for re-scan and audits the request", async () => {
     await writeFirmSettingStatement(
-      env.DB_FIRM_POOL_1,
+      firmDatabaseFor(env.FIRM_DATABASE, poolFirmId),
       scanEngineVersionDefinition,
       "clamav/9.9",
       ISO,
@@ -1220,9 +1270,10 @@ describe("POST /api/v1/scan/matter/{id}", () => {
     // The matter's stale clean files (NULL scan_engine_version), including the two just seeded.
     expect(body.enqueued).toBeGreaterThanOrEqual(2);
     expect(body.capped).toBe(false);
-    const audit = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS n FROM audit_log WHERE event = 'matter.files_rescan_requested'",
-    ).first<{ n: number }>();
+    const auditResult = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("SELECT COUNT(*) AS n FROM audit_log WHERE event = 'matter.files_rescan_requested'")
+      .all<{ n: number }>();
+    const audit = auditResult.results[0];
     expect(audit?.n).toBeGreaterThanOrEqual(1);
   });
 });

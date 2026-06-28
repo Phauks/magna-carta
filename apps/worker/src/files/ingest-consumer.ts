@@ -1,5 +1,6 @@
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import {
+  commitCheckinVersion,
   commitVersion,
   loadPendingVersionForIngest,
   quarantineVersion,
@@ -25,7 +26,7 @@ import type { Logger } from "@magna-carta/telemetry/logger";
 import { logOperationFailed } from "@magna-carta/telemetry/operation";
 import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import type { Bindings } from "../app.ts";
-import { resolveFirmDatabase } from "../firm-binding-resolver.ts";
+import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
 import { resolveScanPort } from "./scan-port-binding.ts";
 
 // The files-ingest queue consumer: one R2 object-create event drives the single-read ingest pipeline
@@ -41,9 +42,9 @@ import { resolveScanPort } from "./scan-port-binding.ts";
 // version bump / audit row / outbox message all apply exactly once.
 //
 // PER-FIRM BUCKET SEAM: the object is read from the single bound R2 bucket (env.R2). In production a
-// firm's bytes live in its own bucket; binding that per-firm bucket to the Worker is the same
-// config-commit + deploy step per-firm D1 bindings need (firm-binding-resolver.ts), and the read
-// resolves through the same seam when it lands. Locally and in the dev pool every firm shares env.R2.
+// firm's bytes live in its own bucket; binding that per-firm bucket to the Worker is a config-commit
+// + deploy step, and the read resolves through the same seam when it lands. Locally and in the dev
+// pool every firm shares env.R2.
 
 // The R2 event-notification message shape this consumer needs (the documented payload — full message
 // also carries account/eventTime; only these fields are read).
@@ -64,16 +65,14 @@ export async function handleIngestMessage(
   logger?: Logger,
   correlationId: string = newCorrelationId(),
 ): Promise<void> {
-  // bucket → firm (the control-plane registry). An unknown bucket or a firm this deployment cannot
-  // reach is acked: there is no work this Worker can do, and retrying cannot make the binding exist.
-  const firm = await env.DB_CONTROL.prepare(
-    "SELECT database_identifier FROM firm WHERE bucket_name = ?1",
-  )
+  // bucket → firm (the control-plane registry). An unknown bucket is acked: there is no work this
+  // Worker can do, and retrying cannot make the firm exist. The firm's per-firm FirmDatabase Durable
+  // Object is addressed by its firmId and self-migrates the per-firm lineage on first access.
+  const firm = await env.DB_CONTROL.prepare("SELECT id FROM firm WHERE bucket_name = ?1")
     .bind(message.bucket)
-    .first<{ database_identifier: string | null }>();
-  if (firm === null || firm.database_identifier === null) return;
-  const firmDatabase = resolveFirmDatabase(env, firm.database_identifier);
-  if (firmDatabase === null) return;
+    .first<{ id: string }>();
+  if (firm === null) return;
+  const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firm.id);
 
   // Status-first: only a pending version is ingested (the replay guard).
   const pending = await loadPendingVersionForIngest(firmDatabase, message.object.key);
@@ -128,24 +127,30 @@ export async function handleIngestMessage(
     now,
     effect: async () => {
       if (outcome.kind === "commit") {
-        const result = await commitVersion(
-          firmDatabase,
-          {
-            versionId: pending.id,
-            sizeBytes: outcome.sizeBytes,
-            sniffedContentType: outcome.sniffedContentType,
-            contentSha256: outcome.contentSha256,
-            scanVerdict: outcome.scanVerdict,
-            scanEngineVersion: outcome.scanEngineVersion,
-            scanDetail: outcome.scanDetail,
-            now: now(),
-            // Carry the raw scan result into the commit so a clean commit repopulates the content-dedup
-            // cache atomically — the cache key derives from this result's engineVersion, the same source
-            // as scanEngineVersion above, so the scan-once dedup is keyed by the engine that just ran.
-            rawScanResult: outcome.rawScanResult,
-          },
-          options,
-        );
+        const commitInput = {
+          versionId: pending.id,
+          sizeBytes: outcome.sizeBytes,
+          sniffedContentType: outcome.sniffedContentType,
+          contentSha256: outcome.contentSha256,
+          scanVerdict: outcome.scanVerdict,
+          scanEngineVersion: outcome.scanEngineVersion,
+          scanDetail: outcome.scanDetail,
+          now: now(),
+          // Carry the raw scan result into the commit so a clean commit repopulates the content-dedup
+          // cache atomically — the cache key derives from this result's engineVersion, the same source
+          // as scanEngineVersion above, so the scan-once dedup is keyed by the engine that just ran.
+          rawScanResult: outcome.rawScanResult,
+        };
+        // The return leg of an offline checkout (checkout_id set) reconciles against current —
+        // fast-forward or a flagged conflicting copy. A plain upload commits straight through.
+        const result =
+          pending.checkoutId !== null
+            ? await commitCheckinVersion(
+                firmDatabase,
+                { ...commitInput, checkoutId: pending.checkoutId },
+                options,
+              )
+            : await commitVersion(firmDatabase, commitInput, options);
         return {
           write: result.effect,
           responseCode: 200,
@@ -204,7 +209,7 @@ export async function handleIngestMessage(
 async function handleRescanMessage(
   env: Bindings,
   message: R2EventMessage,
-  firmDatabase: D1Database,
+  firmDatabase: ProxyBatchDatabase,
   scanPort: MalwareScanPort,
 ): Promise<void> {
   const committed = await loadCommittedVersionByR2Key(firmDatabase, message.object.key);

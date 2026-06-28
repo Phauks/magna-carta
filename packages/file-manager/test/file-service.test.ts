@@ -2,11 +2,14 @@ import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import type { FileId, FileVersionId, FolderId, MatterId } from "@magna-carta/identifiers/types";
 import { describe, expect, it } from "vitest";
 import {
+  commitEditedVersion,
   commitVersion,
   initiateUpload,
   moveFile,
   quarantineVersion,
   recordRescanVerdict,
+  restoreFile,
+  restoreVersion,
   softDeleteFile,
 } from "../src/file-service.ts";
 import { createFolder } from "../src/folder-service.ts";
@@ -69,6 +72,89 @@ async function commit(
   await commitEffectBatch(database, result.effect, { now });
   return result;
 }
+
+describe("commitEditedVersion", () => {
+  it("cuts a new immutable version from the current working object and advances the pointer", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId: v1 } = await initiate(database, matterId);
+    await commit(database, v1, "hash-v1");
+
+    const copies: Array<[string, string]> = [];
+    const result = await commitEditedVersion(
+      database,
+      {
+        fileId,
+        currentR2Key: `files/${fileId}/current`,
+        contentSha256: "hash-edited",
+        sizeBytes: 2048,
+        uploadedBy: ACTOR,
+      },
+      options,
+      async (from, to) => {
+        copies.push([from, to]);
+      },
+    );
+
+    expect(result.skipped).toBe(false);
+    expect(result.versionId).not.toBeNull();
+    // server-side copy: current -> the new version's opaque key (no bytes through the Worker)
+    expect(copies).toEqual([[`files/${fileId}/current`, `files/${fileId}/${result.versionId}`]]);
+
+    await commitEffectBatch(database, result.effect, { now });
+
+    const { results: rows } = await database
+      .prepare(
+        "SELECT id, version_number, content_sha256, status FROM file_version WHERE file_id = ?1 ORDER BY version_number",
+      )
+      .bind(fileId)
+      .all<{ id: string; version_number: number; content_sha256: string; status: string }>();
+    expect(rows.map((row) => row.version_number)).toEqual([1, 2]);
+    expect(rows[1]?.id).toBe(result.versionId);
+    expect(rows[1]?.content_sha256).toBe("hash-edited");
+    expect(rows[1]?.status).toBe("clean");
+
+    const { results: fileRow } = await database
+      .prepare("SELECT current_version_id FROM file WHERE id = ?1")
+      .bind(fileId)
+      .all<{ current_version_id: string }>();
+    expect(fileRow[0]?.current_version_id).toBe(result.versionId);
+  });
+
+  it("skips when the saved content matches the current version (no copy, no new version)", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId: v1 } = await initiate(database, matterId);
+    await commit(database, v1, "hash-unchanged");
+
+    const copies: string[] = [];
+    const result = await commitEditedVersion(
+      database,
+      {
+        fileId,
+        currentR2Key: `files/${fileId}/current`,
+        contentSha256: "hash-unchanged",
+        sizeBytes: 2048,
+        uploadedBy: ACTOR,
+      },
+      options,
+      async (from) => {
+        copies.push(from);
+      },
+    );
+
+    expect(result.skipped).toBe(true);
+    expect(result.versionId).toBeNull();
+    expect(copies).toEqual([]);
+    expect(result.effect.statements).toEqual([]);
+
+    const { results: rows } = await database
+      .prepare("SELECT version_number FROM file_version WHERE file_id = ?1")
+      .bind(fileId)
+      .all<{ version_number: number }>();
+    expect(rows).toHaveLength(1);
+  });
+});
 
 describe("initiateUpload", () => {
   it("creates a pending file that is invisible until a version commits", async () => {
@@ -296,6 +382,113 @@ describe("softDeleteFile", () => {
     await expect(softDeleteFile(database, "file_missing" as FileId, options)).rejects.toMatchObject(
       { code: "unknown-file" },
     );
+  });
+
+  it("clears the live working-copy fields and returns the current key to destroy", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId } = await initiate(database, matterId);
+    await commit(database, versionId, "hash-a");
+    // Simulate a live editing session having written a working copy.
+    await database
+      .prepare(
+        "UPDATE file SET current_r2_key = ?2, current_sha256 = 'wc', current_size_bytes = 5, current_wopi_timestamp = 't', edit_state = 'coediting' WHERE id = ?1",
+      )
+      .bind(fileId, `files/${fileId}/current`)
+      .run();
+
+    const result = await softDeleteFile(database, fileId, options);
+    expect(result.currentR2Key).toBe(`files/${fileId}/current`);
+    await commitEffectBatch(database, result.effect, { now });
+
+    const { results } = await database
+      .prepare(
+        "SELECT current_r2_key, current_sha256, current_size_bytes, edit_state, deleted_at FROM file WHERE id = ?1",
+      )
+      .bind(fileId)
+      .all<{
+        current_r2_key: string | null;
+        current_sha256: string | null;
+        current_size_bytes: number | null;
+        edit_state: string;
+        deleted_at: string | null;
+      }>();
+    expect(results[0]).toEqual({
+      current_r2_key: null,
+      current_sha256: null,
+      current_size_bytes: null,
+      edit_state: "idle",
+      deleted_at: now(),
+    });
+  });
+
+  it("returns a null current key when the file had no live working copy", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId } = await initiate(database, matterId);
+    await commit(database, versionId, "hash-a");
+    const result = await softDeleteFile(database, fileId, options);
+    expect(result.currentR2Key).toBeNull();
+  });
+});
+
+describe("restoreFile", () => {
+  it("clears deleted_at so a recovered file returns to the default listing", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId } = await initiate(database, matterId);
+    await commit(database, versionId, "hash-a");
+    await commitEffectBatch(database, (await softDeleteFile(database, fileId, options)).effect, {
+      now,
+    });
+    expect((await listFiles(database, { matterId })).data).toHaveLength(0);
+
+    const restored = await restoreFile(database, fileId, options);
+    await commitEffectBatch(database, restored.effect, { now });
+    expect((await listFiles(database, { matterId })).data.map((row) => row.id)).toEqual([fileId]);
+  });
+});
+
+describe("restoreVersion", () => {
+  it("copies an archived version forward into a new current version, leaving history intact", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { fileId, versionId: v1 } = await initiate(database, matterId);
+    await commit(database, v1, "hash-v1");
+    const { versionId: v2 } = await initiate(database, matterId, { fileId });
+    await commit(database, v2, "hash-v2");
+
+    const copies: Array<[string, string]> = [];
+    const result = await restoreVersion(
+      database,
+      { fileId, sourceVersionId: v1, uploadedBy: ACTOR },
+      options,
+      async (from, to) => {
+        copies.push([from, to]);
+      },
+    );
+    expect(result.skipped).toBe(false);
+    expect(result.versionId).not.toBeNull();
+    // The archived version's bytes are copied forward to the new version's key (forward-only).
+    expect(copies).toEqual([[`files/${fileId}/${v1}`, `files/${fileId}/${result.versionId}`]]);
+    await commitEffectBatch(database, result.effect, { now });
+
+    const { results: rows } = await database
+      .prepare(
+        "SELECT id, version_number, content_sha256 FROM file_version WHERE file_id = ?1 ORDER BY version_number",
+      )
+      .bind(fileId)
+      .all<{ id: string; version_number: number; content_sha256: string }>();
+    // History is intact (v1, v2 untouched) and the restored content is a NEW version 3.
+    expect(rows.map((r) => r.version_number)).toEqual([1, 2, 3]);
+    expect(rows[2]?.id).toBe(result.versionId);
+    expect(rows[2]?.content_sha256).toBe("hash-v1");
+
+    const { results: fileRow } = await database
+      .prepare("SELECT current_version_id FROM file WHERE id = ?1")
+      .bind(fileId)
+      .all<{ current_version_id: string }>();
+    expect(fileRow[0]?.current_version_id).toBe(result.versionId);
   });
 });
 

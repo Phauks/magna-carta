@@ -8,7 +8,7 @@ import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -32,16 +32,19 @@ let ownerCookie: string;
 let readOnlyCookie: string;
 
 async function mirrorMemberWithRole(userId: UserId, displayName: string, roleName: string) {
-  const role = await env.DB_FIRM_POOL_1.prepare("SELECT id FROM role WHERE name = ?1")
+  const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+  const roleResult = await firmDatabase
+    .prepare("SELECT id FROM role WHERE name = ?1")
     .bind(roleName)
-    .first<{ id: string }>();
-  if (role === null) throw new Error(`seeded role ${roleName} missing`);
-  await insertMemberStatement(env.DB_FIRM_POOL_1, {
+    .all<{ id: string }>();
+  const role = roleResult.results[0];
+  if (role === undefined) throw new Error(`seeded role ${roleName} missing`);
+  await insertMemberStatement(firmDatabase, {
     userId,
     displayName,
     now: new Date().toISOString(),
   }).run();
-  await insertRoleAssignmentStatement(env.DB_FIRM_POOL_1, {
+  await insertRoleAssignmentStatement(firmDatabase, {
     id: newIdentifier("memberRole"),
     memberUserId: userId,
     roleId: assertIdentifier(role.id, "role"),
@@ -50,7 +53,6 @@ async function mirrorMemberWithRole(userId: UserId, displayName: string, roleNam
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   firmId = (await seedFirm({ name: "Directory E2E Firm", databaseIdentifier: "DB_FIRM_POOL_1" }))
     .firmId;
   await seedFirmKey(firmId);
@@ -60,7 +62,7 @@ beforeAll(async () => {
     firmId,
   });
   ownerUserId = owner.userId;
-  await mirrorMemberWithOwnerRole(owner.userId, "Directory E2E Owner");
+  await mirrorMemberWithOwnerRole(owner.userId, "Directory E2E Owner", firmId);
   ownerCookie = await signInForSessionCookie("directory-e2e-owner@example.com");
 
   const readOnly = await seedCredentialedUser("directory-e2e-readonly@example.com", {
@@ -100,12 +102,13 @@ async function jsonOf<T>(response: Response): Promise<T> {
 
 // One decrypt-audit row count for a subject (the audit_log row written before any plaintext).
 async function decryptAuditCount(subjectId: string): Promise<number> {
-  const row = await env.DB_FIRM_POOL_1.prepare(
-    "SELECT COUNT(*) AS count FROM audit_log WHERE event = 'protected.decrypt' AND subject_id = ?1",
-  )
+  const result = await firmDatabaseFor(env.FIRM_DATABASE, firmId)
+    .prepare(
+      "SELECT COUNT(*) AS count FROM audit_log WHERE event = 'protected.decrypt' AND subject_id = ?1",
+    )
     .bind(subjectId)
-    .first<{ count: number }>();
-  return row?.count ?? 0;
+    .all<{ count: number }>();
+  return result.results[0]?.count ?? 0;
 }
 
 describe("directory e2e — full journey over the HTTP surface", () => {
@@ -198,11 +201,13 @@ describe("directory e2e — full journey over the HTTP surface", () => {
     expect(added.status).toBe(201);
 
     // The plaintext never lands in the clear: the stored row holds only ciphertext + a blind index.
-    const stored = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT value_ciphertext, value_blind_index FROM directory_identifier WHERE entity_id = ?1 AND identifier_type = 'ssn'",
-    )
+    const storedResult = await firmDatabaseFor(env.FIRM_DATABASE, firmId)
+      .prepare(
+        "SELECT value_ciphertext, value_blind_index FROM directory_identifier WHERE entity_id = ?1 AND identifier_type = 'ssn'",
+      )
       .bind(createdEntityIdentifiers.person ?? "")
-      .first<{ value_ciphertext: string; value_blind_index: string | null }>();
+      .all<{ value_ciphertext: string; value_blind_index: string | null }>();
+    const stored = storedResult.results[0];
     expect(stored?.value_ciphertext).toEqual(expect.any(String));
     expect(stored?.value_ciphertext).not.toContain("123-45-6789");
     expect(stored?.value_ciphertext).not.toContain("123456789");
@@ -299,44 +304,50 @@ describe("directory e2e — full journey over the HTTP surface", () => {
     createdEntityIdentifiers.mergeId = (await jsonOf<{ mergeId: string }>(merge)).mergeId;
     expect(createdEntityIdentifiers.mergeId).toMatch(/^entityMerge_/);
 
+    const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, firmId);
+
     // The subordinate is archived (status='merged_into', merged_into_id=master), never deleted.
-    const subordinate = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT status, merged_into_id, deleted_at FROM directory_person WHERE id = ?1",
-    )
+    const subordinateResult = await firmDatabase
+      .prepare("SELECT status, merged_into_id, deleted_at FROM directory_person WHERE id = ?1")
       .bind(createdEntityIdentifiers.duplicatePerson ?? "")
-      .first<{ status: string; merged_into_id: string | null; deleted_at: string | null }>();
+      .all<{ status: string; merged_into_id: string | null; deleted_at: string | null }>();
+    const subordinate = subordinateResult.results[0];
     expect(subordinate?.status).toBe("merged_into");
     expect(subordinate?.merged_into_id).toBe(createdEntityIdentifiers.person);
     expect(subordinate?.deleted_at).toBeNull();
 
     // Every inbound reference repointed: no matter_party or edge endpoint still names the subordinate.
-    const danglingParty = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM matter_party WHERE entity_id = ?1",
-    )
+    const danglingPartyResult = await firmDatabase
+      .prepare("SELECT COUNT(*) AS c FROM matter_party WHERE entity_id = ?1")
       .bind(createdEntityIdentifiers.duplicatePerson ?? "")
-      .first<{ c: number }>();
+      .all<{ c: number }>();
+    const danglingParty = danglingPartyResult.results[0];
     expect(danglingParty?.c).toBe(0);
-    const danglingEdge = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM directory_edge WHERE from_entity_id = ?1 OR to_entity_id = ?1",
-    )
+    const danglingEdgeResult = await firmDatabase
+      .prepare(
+        "SELECT COUNT(*) AS c FROM directory_edge WHERE from_entity_id = ?1 OR to_entity_id = ?1",
+      )
       .bind(createdEntityIdentifiers.duplicatePerson ?? "")
-      .first<{ c: number }>();
+      .all<{ c: number }>();
+    const danglingEdge = danglingEdgeResult.results[0];
     expect(danglingEdge?.c).toBe(0);
 
     // The master now carries the repointed party.
-    const masterParty = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM matter_party WHERE entity_id = ?1",
-    )
+    const masterPartyResult = await firmDatabase
+      .prepare("SELECT COUNT(*) AS c FROM matter_party WHERE entity_id = ?1")
       .bind(createdEntityIdentifiers.person ?? "")
-      .first<{ c: number }>();
+      .all<{ c: number }>();
+    const masterParty = masterPartyResult.results[0];
     expect(masterParty?.c).toBeGreaterThanOrEqual(2);
 
     // The append-only entity_merge event is complete: master, subordinate, and a recorded repoint list.
-    const event = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT master_id, subordinate_id, repointed, merged_by FROM entity_merge WHERE id = ?1",
-    )
+    const eventResult = await firmDatabase
+      .prepare(
+        "SELECT master_id, subordinate_id, repointed, merged_by FROM entity_merge WHERE id = ?1",
+      )
       .bind(createdEntityIdentifiers.mergeId ?? "")
-      .first<{ master_id: string; subordinate_id: string; repointed: string; merged_by: string }>();
+      .all<{ master_id: string; subordinate_id: string; repointed: string; merged_by: string }>();
+    const event = eventResult.results[0];
     expect(event?.master_id).toBe(createdEntityIdentifiers.person);
     expect(event?.subordinate_id).toBe(createdEntityIdentifiers.duplicatePerson);
     expect(event?.merged_by).toBe(ownerUserId);
@@ -379,11 +390,13 @@ describe("directory e2e — full journey over the HTTP surface", () => {
       "person id must be set by the previous step",
     ).toBeDefined();
     // The identifier row id is the audit subject (the AAD binds the ciphertext to it).
-    const identifierRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT id FROM directory_identifier WHERE entity_id = ?1 AND identifier_type = 'ssn'",
-    )
+    const identifierRowResult = await firmDatabaseFor(env.FIRM_DATABASE, firmId)
+      .prepare(
+        "SELECT id FROM directory_identifier WHERE entity_id = ?1 AND identifier_type = 'ssn'",
+      )
       .bind(createdEntityIdentifiers.person ?? "")
-      .first<{ id: string }>();
+      .all<{ id: string }>();
+    const identifierRow = identifierRowResult.results[0];
     const before = await decryptAuditCount(identifierRow?.id ?? "");
 
     const ownerRead = await get(
@@ -401,11 +414,13 @@ describe("directory e2e — full journey over the HTTP surface", () => {
       createdEntityIdentifiers.person,
       "person id must be set by the previous step",
     ).toBeDefined();
-    const identifierRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT id FROM directory_identifier WHERE entity_id = ?1 AND identifier_type = 'ssn'",
-    )
+    const identifierRowResult = await firmDatabaseFor(env.FIRM_DATABASE, firmId)
+      .prepare(
+        "SELECT id FROM directory_identifier WHERE entity_id = ?1 AND identifier_type = 'ssn'",
+      )
       .bind(createdEntityIdentifiers.person ?? "")
-      .first<{ id: string }>();
+      .all<{ id: string }>();
+    const identifierRow = identifierRowResult.results[0];
     const before = await decryptAuditCount(identifierRow?.id ?? "");
 
     const denied = await get(

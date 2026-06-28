@@ -2,7 +2,7 @@ import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { FirmId } from "@magna-carta/identifiers/types";
 import { applyControlPlaneMigrations } from "../support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "../support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -25,7 +25,6 @@ let ownerCookie: string;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   firmId = (
     await seedFirm({ name: "Custom Fields E2E Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
   ).firmId;
@@ -39,7 +38,7 @@ beforeAll(async () => {
     userName: "Custom Fields E2E Owner",
     firmId,
   });
-  await mirrorMemberWithOwnerRole(owner.userId, "Custom Fields E2E Owner");
+  await mirrorMemberWithOwnerRole(owner.userId, "Custom Fields E2E Owner", firmId);
   ownerCookie = await signInForSessionCookie("custom-fields-e2e-owner@example.com");
 });
 
@@ -296,9 +295,11 @@ describe("custom-fields e2e — full lifecycle over the HTTP surface", () => {
     expect(apply.status).toBe(200);
 
     // The field's kind flipped to currency.
-    const kindRow = await env.DB_FIRM_POOL_1.prepare("SELECT kind FROM custom_field WHERE id = ?1")
+    const kindRowResult = await firmDatabaseFor(env.FIRM_DATABASE, firmId)
+      .prepare("SELECT kind FROM custom_field WHERE id = ?1")
       .bind(ids.estimate!)
-      .first<{ kind: string }>();
+      .all<{ kind: string }>();
+    const kindRow = kindRowResult.results[0];
     expect(kindRow?.kind).toBe("currency");
 
     // No data loss: the original text survives in history even though the current value is parked.
@@ -329,11 +330,11 @@ describe("custom-fields e2e — full lifecycle over the HTTP surface", () => {
     expect(holderValues.some((v) => v.valueReferenceId === ids.contactSubordinate)).toBe(false);
 
     // No custom_field_value still points at the subordinate (the reference repoint is complete).
-    const danglingReference = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM custom_field_value WHERE value_reference_id = ?1",
-    )
+    const danglingReferenceResult = await firmDatabaseFor(env.FIRM_DATABASE, firmId)
+      .prepare("SELECT COUNT(*) AS c FROM custom_field_value WHERE value_reference_id = ?1")
       .bind(ids.contactSubordinate!)
-      .first<{ c: number }>();
+      .all<{ c: number }>();
+    const danglingReference = danglingReferenceResult.results[0];
     expect(danglingReference?.c).toBe(0);
 
     // The master keeps its own current Risk Notes value; the subordinate's owned value was absorbed
@@ -348,11 +349,11 @@ describe("custom-fields e2e — full lifecycle over the HTTP surface", () => {
     );
 
     // No owned custom_field_value row still targets the subordinate (target_row_id repointed/absorbed).
-    const danglingOwned = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM custom_field_value WHERE target_row_id = ?1",
-    )
+    const danglingOwnedResult = await firmDatabaseFor(env.FIRM_DATABASE, firmId)
+      .prepare("SELECT COUNT(*) AS c FROM custom_field_value WHERE target_row_id = ?1")
       .bind(ids.contactSubordinate!)
-      .first<{ c: number }>();
+      .all<{ c: number }>();
+    const danglingOwned = danglingOwnedResult.results[0];
     expect(danglingOwned?.c).toBe(0);
 
     // The merged-away contact still resolves to the master in duplicate detection (the alias endures).
@@ -389,11 +390,11 @@ describe("custom-fields e2e — full lifecycle over the HTTP surface", () => {
     expect(body.detail).toContain("field-in-use");
 
     // The field still exists — the refused delete changed nothing.
-    const stillExists = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS c FROM custom_field WHERE id = ?1",
-    )
+    const stillExistsResult = await firmDatabaseFor(env.FIRM_DATABASE, firmId)
+      .prepare("SELECT COUNT(*) AS c FROM custom_field WHERE id = ?1")
       .bind(ids.stagePicklist!)
-      .first<{ c: number }>();
+      .all<{ c: number }>();
+    const stillExists = stillExistsResult.results[0];
     expect(stillExists?.c).toBe(1);
   });
 });

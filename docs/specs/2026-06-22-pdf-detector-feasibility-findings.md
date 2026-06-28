@@ -9,15 +9,15 @@ Run date: 2026-06-22. Corpus: `spikes/pdf-engine-eval/corpus/basicapi.pdf`.
 
 ## What the spike proved
 
-A custom `Device` observes the page's fully-resolved draw sequence (hayro resolves content streams, XObjects, and annotation appearances for us). It records, in paint order, every glyph (recovered Unicode text + page-space bbox + draw mode) and every opaque fill ("cover": bbox + RGBA + order). A glyph is flagged when a *later* opaque cover contains its bbox center.
+A custom `Device` observes the page's fully-resolved draw sequence (hayro resolves content streams, XObjects, and annotation appearances for us). It records, in paint order, every glyph (recovered Unicode text + page-space bbox + draw mode) and every opaque fill ("cover": bbox + RGBA + order). A glyph is flagged when a _later_ opaque cover contains its bbox center.
 
 Results on `basicapi.pdf` (198 glyphs):
 
-| Case | Findings | Note |
-| --- | --- | --- |
-| Control (original) | **0** | No false positives on a clean document. |
-| Partial black band over the title row | **14** | Selective — recovers exactly `"TableOfContent"`, nothing else. |
-| Full-page black cover | **155** | All visible text; recovers `"TableOfContentChapter1…"`. |
+| Case                                  | Findings | Note                                                           |
+| ------------------------------------- | -------- | -------------------------------------------------------------- |
+| Control (original)                    | **0**    | No false positives on a clean document.                        |
+| Partial black band over the title row | **14**   | Selective — recovers exactly `"TableOfContent"`, nothing else. |
+| Full-page black cover                 | **155**  | All visible text; recovers `"TableOfContentChapter1…"`.        |
 
 The detector **recovers the hidden text**, flags **selectively** (a partial cover flags only the covered region, not the page), and produces **no false positives** on unredacted content.
 
@@ -41,4 +41,4 @@ The detector **recovers the hidden text**, flags **selectively** (a partial cove
 
 - Text encoded only as custom-font glyph codes whose byte sequence does not spell the Unicode is recovered via `as_unicode()` when a ToUnicode map exists, but not otherwise.
 - Per-glyph geometric precision for OCG-hidden text is not available (recovered as text + page-level region).
-- A cover that is *not* fully opaque (partial alpha) is a high-recall judgment call; the engine flags it at a lower severity rather than ignoring it.
+- A cover that is _not_ fully opaque (partial alpha) is a high-recall judgment call; the engine flags it at a lower severity rather than ignoring it.

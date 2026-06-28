@@ -10,7 +10,7 @@ import type {
 } from "@magna-carta/identifiers/types";
 import { createApp } from "../src/app.ts";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -27,18 +27,17 @@ let poolFirmId: FirmId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
-  // tools:fileIntegrity is seeded in a later migration. Grant it directly so the route tests
-  // run before that migration lands.
-  await env.DB_FIRM_POOL_1.prepare(
-    "INSERT OR IGNORE INTO role_permission (id, role_id, permission) VALUES (?1, ?2, ?3)",
-  )
-    .bind("rolePermission_FileIntegrityOwnerTest0001", OWNER_ADMIN_ROLE_ID, "tools:fileIntegrity")
-    .run();
-
+  // The firm's FirmDatabase Durable Object self-migrates on first access (resolved by firmId), so
+  // create the firm row first, then reach its database.
   poolFirmId = (
     await seedFirm({ name: "File Integrity Test Firm", databaseIdentifier: "DB_FIRM_POOL_1" })
   ).firmId;
+  // tools:fileIntegrity is seeded in a later migration. Grant it directly so the route tests
+  // run before that migration lands.
+  await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+    .prepare("INSERT OR IGNORE INTO role_permission (id, role_id, permission) VALUES (?1, ?2, ?3)")
+    .bind("rolePermission_FileIntegrityOwnerTest0001", OWNER_ADMIN_ROLE_ID, "tools:fileIntegrity")
+    .run();
 });
 
 describe("POST /api/v1/file-integrity/hash", () => {
@@ -47,7 +46,7 @@ describe("POST /api/v1/file-integrity/hash", () => {
       userName: "Integrity OK",
       firmId: poolFirmId,
     });
-    await mirrorMemberWithOwnerRole(userId, "Integrity OK");
+    await mirrorMemberWithOwnerRole(userId, "Integrity OK", poolFirmId);
     const cookie = await signInForSessionCookie("file-integrity-ok@example.com");
     const response = await app.request(
       "https://example.com/api/v1/file-integrity/hash",
@@ -107,18 +106,21 @@ describe("POST /api/v1/file-integrity/verify", () => {
     const fileId = newIdentifier("file");
     const versionId = newIdentifier("fileVersion");
     const r2Key = `files/${fileId}/${versionId}`;
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, 'test.txt', NULL, NULL, NULL, ?3, ?3)",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, 'test.txt', NULL, NULL, NULL, ?3, ?3)",
+      )
       .bind(fileId, verifyMatterId, ISO)
       .run();
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at, inline_playable, storage_class, storage_encoding, artifact_role) " +
-        "VALUES (?1, ?2, 1, ?3, ?4, 'application/octet-stream', 'text/plain', ?5, 'clean', ?6, ?7, ?7, NULL, 'standard', 'full', 'original')",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at, inline_playable, storage_class, storage_encoding, artifact_role) " +
+          "VALUES (?1, ?2, 1, ?3, ?4, 'application/octet-stream', 'text/plain', ?5, 'clean', ?6, ?7, ?7, NULL, 'standard', 'full', 'original')",
+      )
       .bind(versionId, fileId, r2Key, bytes.byteLength, contentSha256, verifyOwnerUserId, ISO)
       .run();
-    await env.DB_FIRM_POOL_1.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
       .bind(fileId, versionId)
       .run();
     await env.R2.put(r2Key, bytes);
@@ -131,13 +133,14 @@ describe("POST /api/v1/file-integrity/verify", () => {
       firmId: poolFirmId,
     });
     verifyOwnerUserId = userId;
-    await mirrorMemberWithOwnerRole(userId, "Integrity Verify Owner");
+    await mirrorMemberWithOwnerRole(userId, "Integrity Verify Owner", poolFirmId);
     verifyOwnerCookie = await signInForSessionCookie("file-integrity-verify@example.com");
 
     verifyMatterId = newIdentifier("matter");
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Verify Test Matter', 'open', ?2, ?3, ?3)",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO matter (id, title, status, responsible_member_id, created_at, updated_at) VALUES (?1, 'Verify Test Matter', 'open', ?2, ?3, ?3)",
+      )
       .bind(verifyMatterId, verifyOwnerUserId, ISO)
       .run();
   });
@@ -176,17 +179,19 @@ describe("POST /api/v1/file-integrity/verify", () => {
     expect(body.receipt.verification.auditLogId).toBeTruthy();
 
     // Exactly one file.integrity_verified audit row must exist for this file (the subject_id).
-    const auditRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS count FROM audit_log WHERE event = 'file.integrity_verified' AND subject_id = ?1",
-    )
+    const auditRow = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "SELECT COUNT(*) AS count FROM audit_log WHERE event = 'file.integrity_verified' AND subject_id = ?1",
+      )
       .bind(fileId)
       .first<{ count: number }>();
     expect(auditRow?.count).toBe(1);
 
     // The receipt's auditLogId must match the row that was written.
-    const auditIdRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT id FROM audit_log WHERE event = 'file.integrity_verified' AND subject_id = ?1",
-    )
+    const auditIdRow = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "SELECT id FROM audit_log WHERE event = 'file.integrity_verified' AND subject_id = ?1",
+      )
       .bind(fileId)
       .first<{ id: string }>();
     expect(auditIdRow?.id).toBe(body.receipt.verification.auditLogId);
@@ -228,18 +233,21 @@ describe("POST /api/v1/file-integrity/verify", () => {
     const fileId = newIdentifier("file");
     const versionId = newIdentifier("fileVersion");
     const r2Key = `files/${fileId}/${versionId}`;
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, 'test.txt', NULL, NULL, NULL, ?3, ?3)",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO file (id, matter_id, folder_id, name, document_type_id, current_version_id, deleted_at, created_at, updated_at) VALUES (?1, ?2, NULL, 'test.txt', NULL, NULL, NULL, ?3, ?3)",
+      )
       .bind(fileId, verifyMatterId, ISO)
       .run();
-    await env.DB_FIRM_POOL_1.prepare(
-      "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at, inline_playable, storage_class, storage_encoding, artifact_role) " +
-        "VALUES (?1, ?2, 1, ?3, ?4, 'application/octet-stream', 'text/plain', NULL, 'clean', ?5, ?6, ?6, NULL, 'standard', 'full', 'original')",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, declared_content_type, sniffed_content_type, content_sha256, status, uploaded_by, created_at, committed_at, inline_playable, storage_class, storage_encoding, artifact_role) " +
+          "VALUES (?1, ?2, 1, ?3, ?4, 'application/octet-stream', 'text/plain', NULL, 'clean', ?5, ?6, ?6, NULL, 'standard', 'full', 'original')",
+      )
       .bind(versionId, fileId, r2Key, bytes.byteLength, verifyOwnerUserId, ISO)
       .run();
-    await env.DB_FIRM_POOL_1.prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+    await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
       .bind(fileId, versionId)
       .run();
     await env.R2.put(r2Key, bytes);
@@ -265,9 +273,10 @@ describe("POST /api/v1/file-integrity/verify", () => {
     expect(body.comparison).toBe("no-baseline");
     expect(body.baselineSha256).toBeNull();
 
-    const auditCount = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS count FROM audit_log WHERE event = 'file.integrity_verified' AND subject_id = ?1",
-    )
+    const auditCount = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+      .prepare(
+        "SELECT COUNT(*) AS count FROM audit_log WHERE event = 'file.integrity_verified' AND subject_id = ?1",
+      )
       .bind(fileId)
       .first<{ count: number }>();
     expect(auditCount?.count).toBe(1);

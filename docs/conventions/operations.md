@@ -273,7 +273,7 @@ The scan worker is **built and unit-tested, but not yet connected to Workers Bui
 
 ## 12. Cloudflare Workers Builds — CI/CD pipeline + fast-build settings
 
-The build-and-deploy pipeline is **Cloudflare Workers Builds** (the deploy model; ADR-0075 as amended), not GitHub Actions. Each Worker (`magna-carta`, `magna-carta-scan`) is connected to the GitHub repository and builds + deploys on push to `main`. Build-time performance is a standing requirement — see [`build-performance.md`](build-performance.md).
+The build-and-deploy pipeline is **Cloudflare Workers Builds** (the deploy model; ADR-0075 as amended), not GitHub Actions. Each Worker (`magna-carta`, `magna-carta-scan`, `magna-carta-bundle`) is connected to the GitHub repository and builds + deploys on push to `main`. Build-time performance is a standing requirement — see [`build-performance.md`](build-performance.md).
 
 ### Per-Worker build configuration (dashboard: **Workers & Pages → _the Worker_ → Settings → Builds**)
 
@@ -281,6 +281,7 @@ Build and deploy commands are already set (do not change without cause) — reco
 
 - `magna-carta` — build `pnpm install --frozen-lockfile && pnpm exec vp run build-all`; deploy `pnpm --filter @magna-carta/worker exec wrangler deploy`.
 - `magna-carta-scan` — root directory `apps/scan-worker`; build `pnpm run build`; deploy `npx wrangler deploy`. Deploying the scan Worker builds and pushes the `containers/scan` image referenced by its Container binding.
+- `magna-carta-bundle` — root directory `apps/bundle-worker`; build `pnpm run build`; deploy `npx wrangler deploy`. Deploying the bundle Worker builds and pushes the `containers/bundle` image referenced by its Container binding. The image is a separate slice's deliverable (`containers/bundle/Dockerfile`); until it exists the bundle Worker cannot deploy, so the `BUNDLE_SERVICE` binding in the app Worker stays unbound and the encrypted/heavy bundle lanes return `503` (the plain ZIP fast lane is unaffected).
 
 Two settings to **enable/set** (the fast-build levers — see [`build-performance.md`](build-performance.md)):
 
@@ -288,6 +289,7 @@ Two settings to **enable/set** (the fast-build levers — see [`build-performanc
 - **Build Watch Paths — set per Worker** so an unrelated change does not rebuild every Worker. Patterns are repo-root-relative; a single `*` matches zero or more characters across directories; excludes are filtered first, then a build runs only if a changed path still matches an include. (Workers Builds always builds regardless of paths when a push has 0 changes, 3000+ changes, or 20+ commits.)
   - `magna-carta` (depends on most of the repo — scope by exclusion): **Include** `*` · **Exclude** `docs/*`, `containers/*`, `spikes/*`, `*.md`. So a docs- or scan-only change no longer rebuilds and redeploys the app Worker.
   - `magna-carta-scan` (depends only on its own package + the scan image — scope by inclusion): **Include** `apps/scan-worker/*`, `containers/scan/*`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` · **Exclude** (none). So a change to `apps/web` or any `packages/*` no longer triggers a scan rebuild — the largest waste today.
+  - `magna-carta-bundle` (depends only on its own package + the bundle image — scope by inclusion): **Include** `apps/bundle-worker/*`, `containers/bundle/*`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` · **Exclude** (none).
 
 ### Quality gates (no separate CI runner) — the `pre-push` hook
 
@@ -296,3 +298,29 @@ With GitHub Actions retired, Workers Builds builds and deploys but runs no check
 ### Container image cache (scan Worker)
 
 The scan image build uses BuildKit cache mounts (`containers/scan/Dockerfile`) so an unchanged Cargo dependency graph is not recompiled. Mounts are build-local; if cold Rust dependency compiles in the Workers Build become the bottleneck, a cache-mount export is the documented upgrade path ([`build-performance.md`](build-performance.md)).
+
+---
+
+## 13. Control-plane database migrations
+
+Control-plane D1 migrations apply **automatically** — no manual deploy step is required. The scheduled (Cron) handler (`apps/worker/src/scheduled.ts`) runs `runPendingMigrations` against `env.DB_CONTROL` as its **first action** on every cron tick, before the existing control-plane outbox sweep, so the schema is current before any other control-plane work in the same tick.
+
+**Why the cron is the sole runtime applier — single-flight by construction.** The migration runner is not safe to run concurrently against the same database for the same pending migration. Each migration applies as one atomic `batch()` call (see `packages/database/src/d1-migration-target.ts`), and the runner fails loud on the first error with no internal retry (`packages/database/src/migration-runner.ts`). The `_migrations` table uses `tag TEXT PRIMARY KEY`, so if N worker isolates raced the same pending migration, exactly one batch would commit and every other isolate's batch would fail with a `UNIQUE constraint failed: _migrations.tag` error — a burst of N−1 thrown errors per migration-bearing deploy. The cron fires as a single invocation per tick, so making it the sole applier eliminates that concurrency in the common case; a rare overlapping fire is made safe by the error isolation around the step (the loser throws and is caught, the next tick is a no-op at head).
+
+**Additive migrations + fail-safe reads — tolerating the deploy window.** Between a deploy and the cron tick that applies a new migration (at most one `*/5` cycle, typically under five minutes), request code may read a control-plane column that does not yet exist. The discipline that makes this safe:
+
+- Control-plane migrations are **additive only** (expand-contract; no destructive DDL while data exists).
+- Request code that reads a new additive column must **default safely** on absence rather than propagating an error. Example: `/me` reads `firm.release_channel` on every session bootstrap; if the column is briefly absent right after a deploy (or any transient read error), the handler yields `channel: "stable"` and the default flag set and returns a successful response — the bootstrap never fails fleet-wide while the schema window is open. The same pattern applies to any other endpoint that reads a new control-plane column. (Write endpoints that need the column cannot fail-safe this way; they return an error during the window and recover once the migration lands — see `docs/active-work/release-channels.md`.)
+
+**Deploy-time application — the future zero-window hardening.** Running `runPendingMigrations` in the Workers Builds command (before `wrangler deploy`) would be single-flight by construction: the build runs once, applies the migration, then the deploy follows. That approach eliminates the window entirely (true migrate-before-serve, mirroring how per-firm migrations apply at provision time). It requires a D1-over-HTTP `MigrationTarget` adapter and an API token as a build secret. Adopt this when production firms make a zero-width schema window matter — for now the cron + fail-safe discipline covers the gap.
+
+## 14. Placeholder service workers — REPLACE before activating slices 2·1 / 2·4
+
+The `magna-carta` app worker declares three sibling service bindings (`SCAN_SERVICE`, `BUNDLE_SERVICE`, `CONVERT`). Cloudflare rejects a deploy whose service binding points at a worker that does not exist, so to deploy the editing slice (2·2) without first standing up the bulk-download and conversion subsystems, two of those targets are currently **503 placeholder workers**, deployed 2026-06-27:
+
+- **`magna-carta-bundle`** — placeholder. The real worker (`apps/bundle-worker`, with its `BundleContainer` Rust archive builder) belongs to **slice 2·1 (async bulk-download)**. Until it deploys, the app worker's bundle download lanes return 503 (the code's graceful fallback).
+- **`magna-carta-convert`** — placeholder. The real worker (`apps/convert-worker`, with its `RasterEngineContainer`) belongs to **slice 2·4 (in-app conversion)**. Until it deploys, `resolveEnginePort` falls back to the deferred port.
+
+**To replace each placeholder with the real worker:** connect a Workers Build project for it (dashboard, exactly as §12 / the `magna-carta-edit` setup), since each carries a container image that must build on Cloudflare's runners. Deploying the real worker overwrites the placeholder and adds its container DO migration cleanly (the placeholder has no DO classes). No app-worker config change is needed — the bindings already point at the right names.
+
+**Also pending — the `magna-carta-edit` Workers Build project branch.** Its build project was pointed at the now-deleted `slice-2-2-editing` branch; repoint it to `main` (dashboard → the Worker → Settings → Builds) so future editor-worker changes redeploy on push. The currently deployed editor worker is unaffected.

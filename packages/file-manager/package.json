@@ -8,6 +8,7 @@
     "./folder-statements": "./src/folder-statements.ts",
     "./folder-service": "./src/folder-service.ts",
     "./file-statements": "./src/file-statements.ts",
+    "./checkout-statements": "./src/checkout-statements.ts",
     "./file-service": "./src/file-service.ts",
     "./document-type-statements": "./src/document-type-statements.ts",
     "./document-type-service": "./src/document-type-service.ts",
@@ -29,6 +30,7 @@
     "./bundle-formats": "./src/bundle-formats.ts",
     "./validation": "./src/validation.ts",
     "./contents-manifest": "./src/contents-manifest.ts",
+    "./bundle-manifest": "./src/bundle-manifest.ts",
     "./scan-policy-settings": "./src/scan-policy-settings.ts"
   },
   "scripts": {

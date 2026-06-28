@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { runScheduledSweep } from "../../src/scheduled.ts";
 import type { LiveTimerDurableObject } from "../../src/timer/live-timer-durable-object.ts";
 import type { TimerState } from "../../src/timer/timer-runtime.ts";
+import { firmDatabaseFor } from "../../src/firm-database/firm-database-proxy.ts";
 import { applyControlPlaneMigrations } from "../support/apply-control-plane-migrations.ts";
 import {
   captureResetToken,
@@ -186,9 +187,10 @@ describe("time tracking end-to-end", () => {
 
     // The store carries exactly one timer-sourced entry on the run, with live_run_id set and the
     // rate snapshot captured at commit time (rate_e4 = 2_500_000, the only rate in force).
-    const row = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT source, live_run_id, rate_e4, work_date FROM time_entry WHERE live_run_id = ?1",
-    )
+    const row = await firmDatabaseFor(env.FIRM_DATABASE, firm.id)
+      .prepare(
+        "SELECT source, live_run_id, rate_e4, work_date FROM time_entry WHERE live_run_id = ?1",
+      )
       .bind(liveRunId)
       .all<{ source: string; live_run_id: string; rate_e4: number | null; work_date: string }>();
     expect(row.results.length).toBe(1);
@@ -204,9 +206,8 @@ describe("time tracking end-to-end", () => {
     // already-idle DO returns 409 (no active timer); that is the idempotent collapse from the route's
     // perspective — the entry count stays at 1 either way.
     expect([200, 201, 409, 422]).toContain(replay.status);
-    const rows = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT COUNT(*) AS n FROM time_entry WHERE live_run_id = ?1",
-    )
+    const rows = await firmDatabaseFor(env.FIRM_DATABASE, firm.id)
+      .prepare("SELECT COUNT(*) AS n FROM time_entry WHERE live_run_id = ?1")
       .bind(liveRunId)
       .first<{ n: number }>();
     expect(rows?.n).toBe(1);
@@ -237,9 +238,8 @@ describe("time tracking end-to-end", () => {
     expect(draftEntryId).toMatch(/^timeEntry_/);
 
     // The captured rate snapshot for the draft is the 2026-01-01 rate (only rate in force on 2026-06-22).
-    const draftRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT rate_e4 FROM time_entry WHERE id = ?1",
-    )
+    const draftRow = await firmDatabaseFor(env.FIRM_DATABASE, firm.id)
+      .prepare("SELECT rate_e4 FROM time_entry WHERE id = ?1")
       .bind(draftEntryId)
       .first<{ rate_e4: number }>();
     expect(draftRow?.rate_e4).toBe(2_500_000);
@@ -271,16 +271,14 @@ describe("time tracking end-to-end", () => {
 
     // Neither captured entry has moved yet — appending a new rate version never retroactively
     // rewrites stored rate_e4 columns. This is the frozen-at-capture rule.
-    const timerRow = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT rate_e4 FROM time_entry WHERE id = ?1",
-    )
+    const timerRow = await firmDatabaseFor(env.FIRM_DATABASE, firm.id)
+      .prepare("SELECT rate_e4 FROM time_entry WHERE id = ?1")
       .bind(timerEntryId)
       .first<{ rate_e4: number }>();
     expect(timerRow?.rate_e4).toBe(2_500_000);
 
-    const draftBeforeReRate = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT rate_e4 FROM time_entry WHERE id = ?1",
-    )
+    const draftBeforeReRate = await firmDatabaseFor(env.FIRM_DATABASE, firm.id)
+      .prepare("SELECT rate_e4 FROM time_entry WHERE id = ?1")
       .bind(draftEntryId)
       .first<{ rate_e4: number }>();
     expect(draftBeforeReRate?.rate_e4).toBe(2_500_000);
@@ -295,16 +293,14 @@ describe("time tracking end-to-end", () => {
     expect(reRateResponse.status).toBe(200);
 
     // The draft moved to the new in-force rate (2_750_000); the timer entry keeps its captured rate.
-    const draftAfterReRate = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT rate_e4 FROM time_entry WHERE id = ?1",
-    )
+    const draftAfterReRate = await firmDatabaseFor(env.FIRM_DATABASE, firm.id)
+      .prepare("SELECT rate_e4 FROM time_entry WHERE id = ?1")
       .bind(draftEntryId)
       .first<{ rate_e4: number }>();
     expect(draftAfterReRate?.rate_e4).toBe(2_750_000);
 
-    const timerAfterReRate = await env.DB_FIRM_POOL_1.prepare(
-      "SELECT rate_e4 FROM time_entry WHERE id = ?1",
-    )
+    const timerAfterReRate = await firmDatabaseFor(env.FIRM_DATABASE, firm.id)
+      .prepare("SELECT rate_e4 FROM time_entry WHERE id = ?1")
       .bind(timerEntryId)
       .first<{ rate_e4: number }>();
     expect(timerAfterReRate?.rate_e4).toBe(2_500_000);
@@ -314,10 +310,11 @@ describe("time tracking end-to-end", () => {
     // Drive the entry to billed through the billing-lock seam the service exposes, then prove a draft
     // update is refused. Slice 3·4 billing will drive this transition through the invoice flow; here
     // the test stands in directly at the database level, which is the seam the service enforces.
-    await env.DB_FIRM_POOL_1.prepare(
-      // fitness:allow-billing-lock — the bill applies the invoice lock; the e2e stands in for 3·4 here.
-      "UPDATE time_entry SET status = 'billed', invoice_id = 'invoice_seam' WHERE id = ?1",
-    )
+    await firmDatabaseFor(env.FIRM_DATABASE, firm.id)
+      .prepare(
+        // fitness:allow-billing-lock — the bill applies the invoice lock; the e2e stands in for 3·4 here.
+        "UPDATE time_entry SET status = 'billed', invoice_id = 'invoice_seam' WHERE id = ?1",
+      )
       .bind(draftEntryId)
       .run();
 
@@ -331,7 +328,8 @@ describe("time tracking end-to-end", () => {
     expect([403, 409, 422]).toContain(update.status);
 
     // The narrative is unchanged — the freeze held.
-    const row = await env.DB_FIRM_POOL_1.prepare("SELECT narrative FROM time_entry WHERE id = ?1")
+    const row = await firmDatabaseFor(env.FIRM_DATABASE, firm.id)
+      .prepare("SELECT narrative FROM time_entry WHERE id = ?1")
       .bind(draftEntryId)
       .first<{ narrative: string }>();
     expect(row?.narrative).toBe("Reviewed discovery responses");

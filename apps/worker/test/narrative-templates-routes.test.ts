@@ -8,7 +8,7 @@ import { assertIdentifier } from "@magna-carta/identifiers/validate";
 import type { FirmId, UserId } from "@magna-carta/identifiers/types";
 import { beforeAll, describe, expect, it } from "vitest";
 import { applyControlPlaneMigrations } from "./support/apply-control-plane-migrations.ts";
-import { applyPerFirmMigrations } from "./support/apply-per-firm-migrations.ts";
+import { firmDatabaseFor } from "../src/firm-database/firm-database-proxy.ts";
 import {
   mirrorMemberWithOwnerRole,
   seedCredentialedUser,
@@ -30,7 +30,6 @@ let ownerUserId: UserId;
 
 beforeAll(async () => {
   await applyControlPlaneMigrations(env.DB_CONTROL);
-  await applyPerFirmMigrations(env.DB_FIRM_POOL_1);
   poolFirmId = (
     await seedFirm({
       name: "Narrative Template Test Firm",
@@ -46,7 +45,7 @@ beforeAll(async () => {
     firmId: poolFirmId,
   });
   ownerUserId = owner.userId;
-  await mirrorMemberWithOwnerRole(owner.userId, "NT Owner");
+  await mirrorMemberWithOwnerRole(owner.userId, "NT Owner", poolFirmId);
   ownerCookie = await signInForSessionCookie("nt-owner@example.com");
 
   // A second timekeeper with time:track (Owner/Admin role) — used to assert that a time:track user
@@ -55,22 +54,23 @@ beforeAll(async () => {
     userName: "NT Second",
     firmId: poolFirmId,
   });
-  await mirrorMemberWithOwnerRole(secondTimekeeper.userId, "NT Second");
+  await mirrorMemberWithOwnerRole(secondTimekeeper.userId, "NT Second", poolFirmId);
   secondTimekeeperCookie = await signInForSessionCookie("nt-second@example.com");
 
   const readOnly = await seedCredentialedUser("nt-readonly@example.com", {
     userName: "NT Read Only",
     firmId: poolFirmId,
   });
-  const role = await env.DB_FIRM_POOL_1.prepare("SELECT id FROM role WHERE name = ?1")
+  const role = await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
+    .prepare("SELECT id FROM role WHERE name = ?1")
     .bind("Read-only")
     .first<{ id: string }>();
-  await insertMemberStatement(env.DB_FIRM_POOL_1, {
+  await insertMemberStatement(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), {
     userId: readOnly.userId,
     displayName: "NT Read Only",
     now: new Date().toISOString(),
   }).run();
-  await insertRoleAssignmentStatement(env.DB_FIRM_POOL_1, {
+  await insertRoleAssignmentStatement(firmDatabaseFor(env.FIRM_DATABASE, poolFirmId), {
     id: newIdentifier("memberRole"),
     memberUserId: readOnly.userId,
     roleId: assertIdentifier(role!.id, "role"),
