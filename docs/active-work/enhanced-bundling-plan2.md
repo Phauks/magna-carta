@@ -62,6 +62,17 @@ Critical + 7 Important confirmed and FIXED (commits 139a5ae, a13b802):
   (streaming, zip+split 422, missing-R2, 7z store, ZIP timestamp, 7z header-encryption on/off, split
   boundaries, volume cap). 21 integration tests green, fmt/clippy clean. Verdict: mergeable.
 
+**On-Cloudflare self-test ADDED (2026-06-27).** Because Workers Builds builds the image remotely and a
+container can't run under the Miniflare pool, the truest test is the live deploy. `apps/bundle-worker` now
+has a guarded **`POST /self-test`** (`src/self-test.ts`): runs the deployed container through `/ready`, a
+buffered ZIP build (R2 + inline, verified back in R2), the streaming encrypted lane (archive returned,
+nothing persisted), and a 7z split — cleans up all R2 objects, returns a JSON report. Disabled by default
+(404 unless `BUNDLE_SELF_TEST_KEY` secret is set AND presented as `x-self-test-key`; constant-time
+compare) — safe on prod. 17 worker tests green, `vp check` clean. Procedure in operations.md "Testing a
+container on Cloudflare"; it's the template other container subsystems copy, and demotes the Docker
+`acceptance.sh` to an optional fast smoke. (Required `pnpm install` in the worktree first — vite-plus
+wasn't linked.)
+
 **Owed before/at merge:**
 - Run the Docker acceptance gate (`bash containers/bundle/tests/acceptance.sh`) — needs Docker + python3 +
   unzip; can't run on this host. Wired into the pre-push hook when `containers/bundle/` changed.
