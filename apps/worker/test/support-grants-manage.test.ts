@@ -158,4 +158,42 @@ describe("POST /api/v1/support/grants/{grantId}/cosign", () => {
     );
     expect(res.status).toBe(404);
   });
+
+  it("cosign via firm-A admin does NOT mutate a grant in firm B (cross-firm isolation)", async () => {
+    // Seed a second firm (firm B) and insert a privileged requested grant there. Firm-A's
+    // authenticated admin attempts to cosign firm-B's grant — the route and the guarded UPDATE
+    // must both reject it, returning 404 and leaving the grant status untouched.
+    const { firmId: firmBId } = await seedFirm({ name: `Firm B Cosign Cross-Firm ${Date.now()}` });
+    const grantBId = newIdentifier("supportGrant");
+    const now = new Date().toISOString();
+    await insertSupportGrantStatement(env.DB_CONTROL as never, {
+      id: grantBId,
+      firmId: firmBId,
+      requestedByUserId: mgrUserId,
+      tier: "privileged",
+      status: "requested",
+      reason: "access needed",
+      requiresCosign: true,
+      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+      now,
+    }).run();
+
+    // Firm-A admin attempts to cosign a grant that belongs to firm B.
+    const res = await SELF.fetch(`https://example.com/api/v1/support/grants/${grantBId}/cosign`, {
+      method: "POST",
+      headers: {
+        origin: "https://example.com",
+        cookie: mgrCookie,
+        "content-type": "application/json",
+      },
+      body: "{}",
+    });
+    expect(res.status).toBe(404);
+
+    // The grant in firm B must still be in the requested state — no cross-firm mutation.
+    const row = await env.DB_CONTROL.prepare("SELECT status FROM support_grant WHERE id = ?1")
+      .bind(grantBId)
+      .first<{ status: string }>();
+    expect(row?.status).toBe("requested");
+  });
 });

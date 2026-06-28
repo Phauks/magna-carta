@@ -8,6 +8,11 @@ import {
   type SupportGrantRow,
 } from "@magna-carta/data-access/support-access-statements";
 import { canonicalJsonStringify } from "@magna-carta/data-access/canonical";
+import {
+  decideIdempotency,
+  type IdempotencyRecordRow,
+} from "@magna-carta/data-access/idempotency-decision";
+import { selectIdempotencyRecordStatement } from "@magna-carta/data-access/idempotency-statements";
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { insertAuthAuditStatement } from "@magna-carta/data-access/auth-audit-statements";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
@@ -121,12 +126,49 @@ export function registerSupportSessionsRoute(
       const now = new Date().toISOString();
       const idempotency = requireChokepointIdempotency(c);
 
+      // Replay-first: check for a committed idempotency record BEFORE running any business
+      // pre-checks. A same-key retry returns the stored 201 without re-checking the grant or
+      // principal — so a retry after a grant is later revoked replays the original successful
+      // mint rather than 404-ing. The chokepoint middleware does the same pre-decision, but this
+      // in-handler check closes the narrow window between the middleware's read and the handler's
+      // execution, and is the single-use enforcement gate (see principal_id guard below).
+      const existingRecord = (
+        await selectIdempotencyRecordStatement(
+          c.env.DB_CONTROL,
+          idempotency.key,
+        ).all<IdempotencyRecordRow>()
+      ).results[0];
+      const replayDecision = decideIdempotency(existingRecord, idempotency.fingerprint);
+      switch (replayDecision.kind) {
+        case "in-progress":
+        case "fingerprint-mismatch":
+          return problemResponseForIdempotencyConflict(c, replayDecision);
+        case "replay":
+          c.header("Idempotency-Replayed", "true");
+          return c.json(
+            JSON.parse(
+              storedResponseBody({
+                kind: "replayed" as const,
+                responseCode: replayDecision.responseCode,
+                responseBody: replayDecision.responseBody,
+              }),
+            ) as z.infer<typeof RedeemResult>,
+            201,
+          );
+        // case "execute": no record — proceed to business pre-checks below.
+      }
+
       // Pre-condition guards: denied requests are not stored idempotent effects — they return
       // directly so a retry with the same Idempotency-Key re-evaluates the current state.
       const grant = (
         await selectSupportGrantStatement(c.env.DB_CONTROL, grantId as never).all<SupportGrantRow>()
       ).results[0];
       if (grant === undefined || !supportGrantUsable(grant, now)) {
+        return problemJson(c, { type: "not-found", status: 404, title: "No redeemable grant" });
+      }
+      // Single-use enforcement: once any principal redeems a grant, further new-key redeems are
+      // refused. Same-key retries are handled by replay-first above and never reach this check.
+      if (grant.principal_id !== null) {
         return problemJson(c, { type: "not-found", status: 404, title: "No redeemable grant" });
       }
 
@@ -171,6 +213,7 @@ export function registerSupportSessionsRoute(
                 redeemSupportGrantStatement(c.env.DB_CONTROL, {
                   id: grant.id,
                   principalId: principal.id,
+                  firmId: grant.firm_id,
                 }),
                 insertAuthAuditStatement(c.env.DB_CONTROL, {
                   id: newIdentifier("authAudit"),

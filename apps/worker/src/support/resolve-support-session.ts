@@ -1,5 +1,5 @@
 import type { Context } from "hono";
-import { assertIdentifier, isIdentifier } from "@magna-carta/identifiers/validate";
+import { isIdentifier } from "@magna-carta/identifiers/validate";
 import {
   selectPlatformStaffStatement,
   selectSupportGrantStatement,
@@ -24,6 +24,10 @@ export async function resolveSupportSession(
   const payload = await verifySupportSessionToken(env.AUTH_SECRET, header, nowSeconds);
   if (payload === null) return null;
 
+  // Guard the grantId from the token before binding it in a DB query (the token deserializes from
+  // JSON so the type annotation is not a runtime guarantee; a malformed value must return null, not
+  // reach the DB).
+  if (!isIdentifier(payload.grantId, "supportGrant")) return null;
   const result = await selectSupportGrantStatement(
     env.DB_CONTROL,
     payload.grantId,
@@ -44,11 +48,21 @@ export async function resolveSupportSession(
   const staff = staffRows.results[0];
   if (!staff || staff.status !== "active") return null;
 
+  // Guard all three grant-row identifiers before building the session context. assertIdentifier
+  // would throw on a malformed value, breaking the "never throws" contract — isIdentifier returns
+  // a boolean so a corrupt DB value returns null instead of propagating as an uncaught 500.
+  if (
+    !isIdentifier(grant.requested_by_user_id, "user") ||
+    !isIdentifier(grant.firm_id, "firm") ||
+    !isIdentifier(grant.id, "supportGrant")
+  ) {
+    return null;
+  }
   return {
-    userId: assertIdentifier(grant.requested_by_user_id, "user"),
-    firmId: assertIdentifier(grant.firm_id, "firm"),
+    userId: grant.requested_by_user_id,
+    firmId: grant.firm_id,
     support: {
-      grantId: assertIdentifier(grant.id, "supportGrant"),
+      grantId: grant.id,
       principalId: payload.principalId,
       tier: grant.tier,
     },

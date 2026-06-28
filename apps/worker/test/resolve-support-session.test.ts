@@ -44,7 +44,11 @@ async function seedActiveGrant(tier: "diagnostic" | "privileged") {
     expiresAt,
     now: nowIso,
   }).run();
-  await redeemSupportGrantStatement(env.DB_CONTROL as never, { id: grantId, principalId }).run();
+  await redeemSupportGrantStatement(env.DB_CONTROL as never, {
+    id: grantId,
+    principalId,
+    firmId,
+  }).run();
   // Seed the platform_staff row so the per-request liveness check finds an active principal.
   await insertPlatformStaffStatement(env.DB_CONTROL as never, {
     id: principalId,
@@ -96,5 +100,99 @@ describe("resolveSupportSession", () => {
       .run();
     const nowSeconds = Math.floor(Date.now() / 1000);
     expect(await resolveSupportSession(env, ctxWith(seed.token) as never, nowSeconds)).toBeNull();
+  });
+
+  it("returns null for a grant whose expiresAt is in the past (time-box, distinct from revocation)", async () => {
+    // Insert a grant that expired 1 second ago, but mint a token with a future exp. The token
+    // passes verifySupportSessionToken (future exp), but supportGrantUsable rejects the expired
+    // grant row — proving the live grant row is the authoritative source for expiry.
+    const { firmId } = await seedFirm();
+    const requesterUserId = newIdentifier("user");
+    const grantId = newIdentifier("supportGrant");
+    const principalId = newIdentifier("platformStaff");
+    const nowMs = Date.now();
+    const nowIso = new Date(nowMs).toISOString();
+    const expiredAt = new Date(nowMs - 1000).toISOString(); // 1 second ago
+
+    await insertSupportGrantStatement(env.DB_CONTROL as never, {
+      id: grantId,
+      firmId,
+      requestedByUserId: requesterUserId,
+      tier: "diagnostic",
+      status: "active",
+      reason: null,
+      requiresCosign: false,
+      expiresAt: expiredAt,
+      now: nowIso,
+    }).run();
+    await redeemSupportGrantStatement(env.DB_CONTROL as never, {
+      id: grantId,
+      principalId,
+      firmId,
+    }).run();
+    await insertPlatformStaffStatement(env.DB_CONTROL as never, {
+      id: principalId,
+      email: `staff-expired-${principalId}@example.com`,
+      displayName: "Expired Grant Staff",
+      role: "support",
+      now: nowIso,
+    }).run();
+
+    // Token has a future exp so verifySupportSessionToken passes, but the grant's expiresAt is
+    // in the past so supportGrantUsable rejects it.
+    const token = await mintSupportSessionToken(env.AUTH_SECRET, {
+      grantId,
+      principalId,
+      firmId,
+      requesterUserId,
+      tier: "diagnostic",
+      exp: Math.floor((nowMs + 3_600_000) / 1000),
+    });
+
+    const nowSeconds = Math.floor(nowMs / 1000);
+    expect(await resolveSupportSession(env, ctxWith(token) as never, nowSeconds)).toBeNull();
+  });
+
+  it("returns null (never throws) when the grant row has a malformed requested_by_user_id", async () => {
+    // Insert a support_grant row via raw SQL with a value that does not match the 'user_' prefix.
+    // A valid token for this grant must produce null — not an uncaught 500 — proving the
+    // never-throw contract holds for corrupt DB rows.
+    const { firmId } = await seedFirm();
+    const grantId = newIdentifier("supportGrant");
+    const principalId = newIdentifier("platformStaff");
+    const nowMs = Date.now();
+    const nowIso = new Date(nowMs).toISOString();
+    const expiresAt = new Date(nowMs + 3_600_000).toISOString();
+
+    await env.DB_CONTROL.prepare(
+      `INSERT INTO support_grant (id, firm_id, requested_by_user_id, tier, scope, status, reason, requires_cosign, expires_at, created_at)
+       VALUES (?1, ?2, 'MALFORMED_NOT_A_USER_ID', 'diagnostic', 'self', 'active', NULL, 0, ?3, ?4)`,
+    )
+      .bind(grantId, firmId, expiresAt, nowIso)
+      .run();
+    await env.DB_CONTROL.prepare(`UPDATE support_grant SET principal_id = ?1 WHERE id = ?2`)
+      .bind(principalId, grantId)
+      .run();
+    await insertPlatformStaffStatement(env.DB_CONTROL as never, {
+      id: principalId,
+      email: `staff-malformed-${principalId}@example.com`,
+      displayName: "Malformed Row Staff",
+      role: "support",
+      now: nowIso,
+    }).run();
+
+    const token = await mintSupportSessionToken(env.AUTH_SECRET, {
+      grantId,
+      principalId,
+      firmId,
+      requesterUserId: newIdentifier("user"),
+      tier: "diagnostic",
+      exp: Math.floor(Date.parse(expiresAt) / 1000),
+    });
+
+    const nowSeconds = Math.floor(nowMs / 1000);
+    await expect(
+      resolveSupportSession(env, ctxWith(token) as never, nowSeconds),
+    ).resolves.toBeNull();
   });
 });

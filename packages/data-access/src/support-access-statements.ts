@@ -123,17 +123,19 @@ export function selectFirmSupportGrantsStatement(
     .bind(firmId);
 }
 
-// Redeem: stamp the principal, but only on an active grant (the WHERE guard makes a wrong-state redeem
-// a no-op the caller detects via changes === 0).
+// Redeem: stamp the principal, but only on an active grant belonging to the expected firm. The
+// firm_id guard (defense in depth, consistent with cosign/revoke) ensures a cross-firm redeem is
+// a no-op even if a pre-check is bypassed. The WHERE guard also makes a wrong-state redeem a no-op
+// the caller detects via changes === 0.
 export function redeemSupportGrantStatement(
   database: SqlDatabase,
-  input: { readonly id: SupportGrantId; readonly principalId: PlatformStaffId },
+  input: { readonly id: SupportGrantId; readonly principalId: PlatformStaffId; readonly firmId: FirmId },
 ): SqlStatement {
   return database
     .prepare(
-      `UPDATE ${SUPPORT_GRANT_TABLE} SET principal_id = ?1 WHERE id = ?2 AND status = 'active'`,
+      `UPDATE ${SUPPORT_GRANT_TABLE} SET principal_id = ?1 WHERE id = ?2 AND status = 'active' AND firm_id = ?3`,
     )
-    .bind(input.principalId, input.id);
+    .bind(input.principalId, input.id, input.firmId);
 }
 
 // Cosign: requested → active, recording the approving admin. Guarded to the requested state and

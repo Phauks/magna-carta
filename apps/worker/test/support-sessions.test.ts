@@ -101,4 +101,57 @@ describe("staff redeem", () => {
     const body2 = (await res2.json()) as { token: string };
     expect(body2.token).toBe(body1.token);
   });
+
+  it("second redeem with a DIFFERENT Idempotency-Key on an already-redeemed grant returns 404 (single-use)", async () => {
+    // Ensures that a second principal cannot hijack a grant by using a different Idempotency-Key.
+    // The first redeem stamps principal_id; subsequent new-key redeems must be refused.
+    const principalId1 = await seedStaff("support");
+    const principalId2 = await seedStaff("support");
+    const grantId = await seedActiveGrant("diagnostic");
+
+    const res1 = await redeem({ grantId, principalId: principalId1 });
+    expect(res1.status).toBe(201);
+
+    // Different Idempotency-Key — not a replay, a new request for the same grant.
+    const res2 = await redeem({ grantId, principalId: principalId2 });
+    expect(res2.status).toBe(404);
+
+    // Only the first principal should be stamped on the grant row.
+    const row = await env.DB_CONTROL.prepare("SELECT principal_id FROM support_grant WHERE id = ?1")
+      .bind(grantId)
+      .first<{ principal_id: string | null }>();
+    expect(row?.principal_id).toBe(principalId1);
+  });
+
+  it("returns 404 for a grantId that does not exist", async () => {
+    const principalId = await seedStaff("support");
+    const res = await redeem({ grantId: newIdentifier("supportGrant"), principalId });
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 for a grant that has been revoked before redeem", async () => {
+    const principalId = await seedStaff("support");
+    const grantId = await seedActiveGrant("diagnostic");
+    await env.DB_CONTROL.prepare("UPDATE support_grant SET status = 'revoked' WHERE id = ?1")
+      .bind(grantId)
+      .run();
+    const res = await redeem({ grantId, principalId });
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 for a principalId that was never inserted", async () => {
+    const grantId = await seedActiveGrant("diagnostic");
+    const res = await redeem({ grantId, principalId: newIdentifier("platformStaff") });
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 for a principal inserted with status disabled", async () => {
+    const principalId = await seedStaff("support");
+    await env.DB_CONTROL.prepare("UPDATE platform_staff SET status = 'disabled' WHERE id = ?1")
+      .bind(principalId)
+      .run();
+    const grantId = await seedActiveGrant("diagnostic");
+    const res = await redeem({ grantId, principalId });
+    expect(res.status).toBe(404);
+  });
 });

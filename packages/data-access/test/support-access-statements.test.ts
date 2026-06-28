@@ -76,14 +76,16 @@ describe("support-access statements", () => {
     expect(calls[0]?.args).toContain("diagnostic");
   });
 
-  it("redeem sets principal only when grant is active", () => {
+  it("redeem sets principal only when grant is active and is guarded by firm_id", () => {
     const { db, calls } = recorder();
     redeemSupportGrantStatement(db, {
       id: "supportGrant_1",
       principalId: "platformStaff_abc",
+      firmId: "firm_1",
     } as never);
     expect(calls[0]?.sql).toContain("status = 'active'");
-    expect(calls[0]?.args).toEqual(["platformStaff_abc", "supportGrant_1"]);
+    expect(calls[0]?.sql).toContain("firm_id = ?");
+    expect(calls[0]?.args).toEqual(["platformStaff_abc", "supportGrant_1", "firm_1"]);
   });
 
   it("cosign flips requested → active and is guarded by firm_id", () => {
