@@ -681,7 +681,7 @@ describe("recordRescanVerdict — in-place re-scan", () => {
       {
         fileId,
         versionId,
-        scanVerdict: "infected",
+        scanVerdict: "flagged",
         scanEngineVersion: "clamav/2.0",
         scanDetail: "Eicar-Test-Signature",
         signature: "Eicar-Test-Signature",
@@ -702,8 +702,65 @@ describe("recordRescanVerdict — in-place re-scan", () => {
       .bind(versionId)
       .all<{ scan_verdict: string; status: string }>();
     // The hallmark of informed access: flagged but still committed/visible — never hidden or regressed.
-    expect(row.results[0]).toMatchObject({ scan_verdict: "infected", status: "clean" });
+    expect(row.results[0]).toMatchObject({ scan_verdict: "flagged", status: "clean" });
     expect(await lookupScanCache(database, "hash-bad", "clamav/2.0")).toEqual(infectedRaw);
+  });
+});
+
+describe("commitVersion — flagged-but-committed version", () => {
+  it("persists scan_verdict='flagged', status='clean', populates the scan cache, and records the commit audit", async () => {
+    const database = freshDatabase();
+    const matterId = await seedMatter(database);
+    const { versionId } = await initiate(database, matterId);
+
+    const flaggedRaw = {
+      engineVersion: "clamav/1.0+heuristics/1",
+      clam: { state: "infected" as const, signature: "Eicar-Test-Signature" },
+      heuristic: { kind: "none" as const },
+      matches: [],
+      timings: { clamdMs: 5, yaraMs: 2 },
+    };
+
+    const result = await commitVersion(
+      database,
+      {
+        versionId,
+        sizeBytes: 2048,
+        sniffedContentType: "application/pdf",
+        contentSha256: "hash-flagged",
+        scanVerdict: "flagged",
+        scanEngineVersion: "clamav/1.0+heuristics/1",
+        scanDetail: "Eicar-Test-Signature",
+        now: now(),
+        rawScanResult: flaggedRaw,
+      },
+      options,
+    );
+    await commitEffectBatch(database, result.effect, { now });
+
+    // The version row: flagged verdict, but status is 'clean' (committed + accessible per treatment gate).
+    const row = await database
+      .prepare("SELECT scan_verdict, status FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .all<{ scan_verdict: string; status: string }>();
+    expect(row.results[0]).toMatchObject({ scan_verdict: "flagged", status: "clean" });
+
+    // The scan cache must be populated (engine-version keyed dedup — same as a clean commit).
+    expect(await lookupScanCache(database, "hash-flagged", "clamav/1.0+heuristics/1")).toEqual(
+      flaggedRaw,
+    );
+
+    // A commit audit row must exist for this version, and its metadata must carry the flagged verdict +
+    // reason so the audit trail is useful without exposing privileged content.
+    const audit = await database
+      .prepare(
+        "SELECT event, metadata FROM audit_log WHERE event = 'file.version_committed' AND subject_id = ?1",
+      )
+      .bind(versionId)
+      .all<{ event: string; metadata: string }>();
+    expect(audit.results).toHaveLength(1);
+    const parsed = JSON.parse(audit.results[0]!.metadata as string);
+    expect(parsed).toMatchObject({ scanVerdict: "flagged", scanDetail: "Eicar-Test-Signature" });
   });
 });
 

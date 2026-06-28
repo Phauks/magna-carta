@@ -17,6 +17,7 @@ import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
 import { registerBundleStatusRoute } from "./routes/bundle-status.ts";
 import { registerConversionRoutes } from "./routes/conversions.ts";
 import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
+import { registerCostsRoutes } from "./routes/costs.ts";
 import { registerTimeEntriesRoutes } from "./routes/time-entries.ts";
 import { registerTimerRoutes } from "./routes/timer.ts";
 import { registerRateCardsRoutes } from "./routes/rate-cards.ts";
@@ -33,6 +34,7 @@ import { registerWopiHostRoutes } from "./editing/wopi-host.ts";
 import { registerFilesRoutes } from "./routes/files.ts";
 import { registerScanDiagnoseRoute } from "./routes/scan-diagnose.ts";
 import { registerScanMatterRoute } from "./routes/scan-matter.ts";
+import { registerScanPolicyRoutes } from "./routes/scan-policy.ts";
 import { registerFirmsRoute } from "./routes/firms.ts";
 import { registerPlatformReleaseChannelRoute } from "./routes/platform-release-channel.ts";
 import { registerFoldersRoutes } from "./routes/folders.ts";
@@ -399,6 +401,8 @@ export function createApp(options: CreateAppOptions = {}) {
   registerScanDiagnoseRoute(app, chokepoint);
   // "Scan this matter now" — queue a background re-scan of a matter's stale files on the bulk lane.
   registerScanMatterRoute(app, chokepoint);
+  // Read and update the firm's malware scan-policy settings (tier, score floor, flagged treatment).
+  registerScanPolicyRoutes(app, chokepoint);
   // The async bulk-download poll endpoint — the status side of the download route's 202 hand-off.
   registerBundleStatusRoute(app, chokepoint);
   // Slice 1·3: the directory (persons/organizations, names, sensitive identifiers, edges,
@@ -407,6 +411,8 @@ export function createApp(options: CreateAppOptions = {}) {
   // Slice 1·4: firm-defined custom fields (definitions, picklist options, temporal values, the
   // non-destructive Convert, and the compliance purge seam) — composed through the same chokepoint.
   registerCustomFieldsRoutes(app, chokepoint);
+  // Costs / disbursements — the cost-entry WIP store, composed through the same chokepoint.
+  registerCostsRoutes(app, chokepoint);
   // Time tracking — the work-in-progress entry surface, composed through the same chokepoint.
   registerTimeEntriesRoutes(app, chokepoint);
   // Timer routes: the per-timekeeper live timer (DO proxy) and the idempotent stop-commit.

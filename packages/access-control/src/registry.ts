@@ -12,6 +12,7 @@ export const PERMISSIONS = [
   "firm:reportIncident", // file a diagnostic incident (slice 0·6) — seeded to every default role
   "firm:scanFile", // run a one-off, matter-less malware-scan diagnostic — seeded to every default role
   "firm:manageSecrets", // read/write the encrypted per-firm secret store (an audited decrypt on read)
+  "firm:manageScanPolicy", // read and update the firm's malware scan-policy settings
   "firm:manageReleaseChannel", // set the firm's release channel between {stable, beta}; alpha is platform-only
   // Incidents — gates on the user-authored incident report beyond filing it.
   "incidents:viewDescription", // decrypt and read an incident's protected description (audited)
@@ -67,6 +68,9 @@ export const PERMISSIONS = [
   "time:manageRates", // rate cards, rate versions, and the re-rate-unbilled-drafts action
   "time:manageUtbms", // enable/disable the UTBMS code catalog
   "time:manageSettings", // the scoped time settings, non-billable categories, narrative templates
+  // Costs / disbursements — soft costs and hard costs captured against a matter.
+  "costs:track", // create/edit cost entries (manual and grid sources)
+  "costs:approve", // approve / kick-back cost entries when the review gate is on
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

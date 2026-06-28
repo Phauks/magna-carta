@@ -366,12 +366,17 @@ export interface CommitVersionInput {
   readonly sizeBytes: number;
   readonly sniffedContentType: string | null;
   readonly contentSha256: string;
-  readonly scanVerdict: "unscanned" | "clean";
+  // "flagged" = a definitive verdict from a real engine that found something suspicious, but the
+  // firm's policy elected informed-access (allow-and-flag) rather than quarantine. The version lands
+  // as status='clean' (committed + accessible) with scan_verdict='flagged'; the download gate reads
+  // the verdict and applies the per-firm treatment. "unscanned" = no engine ran (no-engine adapter).
+  readonly scanVerdict: "unscanned" | "clean" | "flagged";
   readonly scanEngineVersion: string | null;
   readonly scanDetail: string | null;
   readonly now: string;
-  // The full raw scan result — written atomically to the content-dedup cache on a definitive CLEAN
-  // verdict from a real engine. Omit (or null) for unscanned commits; the cache is not written then.
+  // The full raw scan result — written atomically to the content-dedup cache on a definitive verdict
+  // from a real engine (clean OR flagged). Omit (or null) for unscanned commits; the cache is not
+  // written then (a no-engine result is never cached — caching "we did not scan it" is worthless).
   readonly rawScanResult?: RawScanResult | null;
 }
 
@@ -437,12 +442,22 @@ export async function commitVersion(
           { storageClass: "standard", artifactRole: "original", prefix: FILES_PREFIX },
           input.sizeBytes,
         ),
-        fileAuditStatement(database, options, "file.version_committed", input.versionId),
-        // Populate the content-dedup cache (scan-once) atomically with the commit — but ONLY for a
-        // definitive CLEAN verdict from a real engine with the full raw result available.
-        // `unscanned`/no-engine commits are never cached; rawScanResult is optional — omit for
-        // callers that do not yet supply it, and the cache write is skipped.
-        ...(input.scanVerdict === "clean" &&
+        // A flagged commit carries the scan reason (detail) in the audit metadata — redact-by-default:
+        // reason only, never file name or content. A clean or unscanned commit carries no metadata.
+        fileAuditStatement(
+          database,
+          options,
+          "file.version_committed",
+          input.versionId,
+          input.scanVerdict === "flagged"
+            ? { scanVerdict: "flagged", scanDetail: input.scanDetail ?? null }
+            : undefined,
+        ),
+        // Populate the content-dedup cache (scan-once) atomically with the commit for any definitive
+        // verdict from a real engine (clean OR flagged). `unscanned`/no-engine commits are never
+        // cached — caching "we did not scan it" would be worse than useless; rawScanResult is
+        // optional — omit for callers that do not yet supply it, and the cache write is skipped.
+        ...(input.scanVerdict !== "unscanned" &&
         input.rawScanResult != null &&
         input.contentSha256 !== null
           ? [
@@ -454,12 +469,12 @@ export async function commitVersion(
               ),
             ]
           : []),
-        // Stamp the firm's "current scan engine version" from the engine that just produced a real
-        // clean verdict — guarded on a non-null engineVersion, so it advances only on a definitive
-        // scan. The access-triggered re-scan path compares a version's stored scan_engine_version
-        // against this to decide staleness; the dedup cache is keyed on it. An `unscanned`/no-engine
-        // commit never sets it, so it is never fabricated without a real scan.
-        ...(input.scanVerdict === "clean" &&
+        // Stamp the firm's "current scan engine version" from the engine that produced a real verdict
+        // (clean OR flagged) — guarded on a non-null engineVersion, so it advances only on a
+        // definitive scan. The access-triggered re-scan path compares a version's stored
+        // scan_engine_version against this to decide staleness; the dedup cache is keyed on it. An
+        // `unscanned`/no-engine commit never sets it, so it is never fabricated without a real scan.
+        ...(input.scanVerdict !== "unscanned" &&
         input.scanEngineVersion !== null &&
         input.contentSha256 !== null
           ? [
@@ -713,10 +728,10 @@ export async function commitEditedVersion(
 export interface RescanVerdictInput {
   readonly fileId: FileId;
   readonly versionId: FileVersionId;
-  readonly scanVerdict: "clean" | "infected";
+  readonly scanVerdict: "clean" | "flagged";
   readonly scanEngineVersion: string; // the engine that produced this verdict — never null on a re-scan
   readonly scanDetail: string | null;
-  readonly signature: string | null; // malware signature name for 'infected'; null for 'clean'
+  readonly signature: string | null; // malware signature name for 'flagged'; null for 'clean'
   readonly contentSha256: string;
   readonly now: string;
   // The full raw scan result — written to the content-dedup cache when provided. Omit (or null) for
@@ -726,7 +741,7 @@ export interface RescanVerdictInput {
 
 // Applies an in-place re-scan verdict to an already-committed version: stamps scan_verdict /
 // scan_engine_version / scan_detail WITHOUT moving the current-version pointer or changing visibility
-// (an infected finding stays accessible behind the download gate — informed access, no data loss),
+// (a flagged finding stays accessible behind the download gate — informed access, no data loss),
 // records the DEFINITIVE verdict in the per-firm dedup cache so identical content re-scanned under the
 // same engine reuses it, and writes one audit row. The caller passes only a real engine verdict; a scan
 // fault never reaches here, so a version's prior verdict is never downgraded without a real scan.
@@ -758,13 +773,13 @@ export function recordRescanVerdict(
           : []),
         fileAuditStatement(database, options, "file.version_rescanned", input.versionId),
       ],
-      // Notify on a fresh infected finding so the file's users learn their already-visible file is now
+      // Notify on a fresh flagged finding so the file's users learn their already-visible file is now
       // flagged (informed access — the file is not hidden). The re-scan idempotency key
       // (rescan:<versionId>:<engineVersion>) guarantees this runs at most once per version per engine,
       // so the event fires once per fresh finding, never per access. Delivery is the outbox relay's
       // concern (the same seam file.quarantined uses); a clean re-scan emits nothing.
       outboxMessages:
-        input.scanVerdict === "infected"
+        input.scanVerdict === "flagged"
           ? [
               {
                 topic: "file.rescan_infected",

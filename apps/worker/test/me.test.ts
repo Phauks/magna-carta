@@ -62,8 +62,11 @@ describe("GET /api/v1/me", () => {
       // firm:scanFile (0019_seed-scan-file-permission.sql) + tools:metadataScrubber
       // (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role) +
       // tools:fileIntegrity (0022_seed-tools-file-integrity.sql, seeded onto every default role) +
-      // firm:manageReleaseChannel (0024_seed-release-channel-permission.sql, Owner/Admin only). Sorted.
+      // firm:manageReleaseChannel (0024_seed-release-channel-permission.sql, Owner/Admin only) + the
+      // costs: grants (0028_burly_piledriver: costs:track + costs:approve onto Owner/Admin). Sorted.
       permissions: [
+        "costs:approve",
+        "costs:track",
         "customFields:manage",
         "customFields:purge",
         "directory:edit",

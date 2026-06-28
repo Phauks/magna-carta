@@ -30,7 +30,8 @@
     "./bundle-formats": "./src/bundle-formats.ts",
     "./validation": "./src/validation.ts",
     "./contents-manifest": "./src/contents-manifest.ts",
-    "./bundle-manifest": "./src/bundle-manifest.ts"
+    "./bundle-manifest": "./src/bundle-manifest.ts",
+    "./scan-policy-settings": "./src/scan-policy-settings.ts"
   },
   "scripts": {
     "test": "vp test run"

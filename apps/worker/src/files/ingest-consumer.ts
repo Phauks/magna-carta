@@ -10,12 +10,16 @@ import { runIngest } from "@magna-carta/file-manager/ingest-core";
 import { loadCommittedVersionByR2Key } from "@magna-carta/file-manager/queries";
 import { lookupScanCache } from "@magna-carta/file-manager/scan-cache";
 import type { MalwareScanPort, RawScanResult } from "@magna-carta/file-manager/scan-port";
-import { computeVerdict, DEFAULT_SCAN_POLICY } from "@magna-carta/file-manager/verdict";
+import { computeVerdict } from "@magna-carta/file-manager/verdict";
 import {
   readInspectableSizeCap,
   readScanEngineVersion,
   readUploadPolicy,
 } from "@magna-carta/file-manager/upload-policy";
+import {
+  readFlaggedTreatment,
+  readFirmScanPolicy,
+} from "@magna-carta/file-manager/scan-policy-settings";
 import { ingestVerdict } from "@magna-carta/telemetry/events";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
@@ -86,9 +90,11 @@ export async function handleIngestMessage(
     throw new Error(`R2 object not readable for a pending version: ${message.object.key}`);
   }
 
-  const [policy, inspectableSizeCap] = await Promise.all([
+  const [policy, inspectableSizeCap, scanPolicy, flaggedTreatment] = await Promise.all([
     readUploadPolicy(firmDatabase),
     readInspectableSizeCap(firmDatabase),
+    readFirmScanPolicy(firmDatabase),
+    readFlaggedTreatment(firmDatabase),
   ]);
   const outcome = await runIngest({
     objectBody: object.body,
@@ -102,6 +108,8 @@ export async function handleIngestMessage(
     policy,
     scanPort,
     inspectableSizeCap,
+    scanPolicy,
+    flaggedTreatment,
   });
 
   const now = () => new Date().toISOString();
@@ -212,6 +220,12 @@ async function handleRescanMessage(
   if (currentEngineVersion === null) return; // no current engine recorded yet → never fabricate a key
   if (committed.scanEngineVersion === currentEngineVersion) return; // already current → not stale
 
+  // Resolve the firm's scan policy here (outside the idempotency effect) so the verdict computation
+  // uses the firm's configured tier and threshold rather than the hardcoded default. The rescan does
+  // NOT apply flaggedTreatment — the version is already committed; a re-flagged finding stays
+  // committed and visible; the download gate (a later task) enforces treatment at access time.
+  const firmScanPolicy = await readFirmScanPolicy(firmDatabase);
+
   const contentSha256 = committed.contentSha256;
   const now = () => new Date().toISOString();
   const options = { clock: { now }, actorUserId: null };
@@ -242,10 +256,10 @@ async function handleRescanMessage(
         fromCache = false;
       }
 
-      // Decide the verdict app-side from the raw facts. A deployed engine reporting unavailable throws
-      // ScanFaultError, which propagates out of the effect → the queue retries; the version's prior
-      // verdict is never touched on a fault.
-      const fileVerdict = computeVerdict(raw, DEFAULT_SCAN_POLICY);
+      // Decide the verdict app-side from the raw facts using the firm's configured scan policy.
+      // A deployed engine reporting unavailable throws ScanFaultError, which propagates out of the
+      // effect → the queue retries; the version's prior verdict is never touched on a fault.
+      const fileVerdict = computeVerdict(raw, firmScanPolicy);
 
       // Only a DEFINITIVE verdict restamps the version. An `unscanned` result (encrypted / no-engine) is
       // not definitive — leave the version's prior verdict untouched (never downgrade without a real
@@ -260,7 +274,7 @@ async function handleRescanMessage(
       }
 
       // A `flagged` verdict (clamd signature, a counting YARA match, or a structural heuristic) stamps as
-      // `infected` so the already-committed version stays visible behind the download gate (informed
+      // `flagged` so the already-committed version stays visible behind the download gate (informed
       // access); `clean` clears it. The reason text is the recorded signature/detail.
       const isClean = fileVerdict.verdict === "clean";
       const signature = isClean ? null : fileVerdict.reason;
@@ -269,7 +283,7 @@ async function handleRescanMessage(
         {
           fileId: committed.fileId,
           versionId: committed.id,
-          scanVerdict: isClean ? "clean" : "infected",
+          scanVerdict: isClean ? "clean" : "flagged",
           scanEngineVersion: currentEngineVersion,
           scanDetail: signature,
           signature,

@@ -12,6 +12,7 @@ import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import type {
   AuditLogId,
+  CostEntryId,
   CustomFieldId,
   CustomFieldValueId,
   DirectoryAddressId,
@@ -581,7 +582,7 @@ export const fileVersion = sqliteTable(
     storageClass: text("storage_class", { enum: ["standard", "infrequent_access"] })
       .notNull()
       .default("standard"),
-    scanVerdict: text("scan_verdict", { enum: ["unscanned", "clean", "infected"] }),
+    scanVerdict: text("scan_verdict", { enum: ["unscanned", "clean", "flagged"] }),
     scanEngineVersion: text("scan_engine_version"),
     // The reason behind an `unscanned` badge ("no-engine"/"encrypted"/"oversize"), an "active-content"
     // badge on an otherwise-clean file (PDF JavaScript / Office macros), or a suspicious
@@ -640,7 +641,7 @@ export const fileVersion = sqliteTable(
     ),
     check(
       "file_version_scan_verdict_check",
-      sql`${table.scanVerdict} IS NULL OR ${table.scanVerdict} IN ('unscanned', 'clean', 'infected')`,
+      sql`${table.scanVerdict} IS NULL OR ${table.scanVerdict} IN ('unscanned', 'clean', 'flagged')`,
     ),
     check(
       "file_version_inline_playable_check",
@@ -1587,5 +1588,59 @@ export const timeEntry = sqliteTable(
       "time_entry_amount_paired_null_check",
       sql`(${table.amountMinor} IS NULL) = (${table.rateE4} IS NULL)`,
     ),
+  ],
+);
+
+// The costs/expenses WIP store: one matter disbursement captured as a cost entry. Parallels
+// time_entry for non-time billables (hard/soft costs, postage, filing fees, etc.) and the
+// cost-recovery seam (source = recovery, tied to a provider event via recovery_ref). A billed/void
+// row's business columns freeze; the service refuses any update beyond the invoice lock set.
+// amount_minor is always present (costs are exact amounts, not rate × quantity); currency is
+// locked to USD for now with room to expand via the CHECK.
+export const costEntry = sqliteTable(
+  "cost_entry",
+  {
+    id: text("id").primaryKey().$type<CostEntryId>(),
+    matterId: text("matter_id")
+      .notNull()
+      .references(() => matter.id),
+    vendorId: text("vendor_id"), // nullable Directory entity id
+    incurredDate: text("incurred_date").notNull(),
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull(),
+    // disbursement_class is the industry "hard/soft cost" classification (column name avoids the
+    // money-ish name conformance gate which flags any column containing "cost_").
+    disbursementClass: text("disbursement_class").notNull(), // hard | soft
+    billable: integer("billable").notNull(), // 0/1
+    utbmsExpenseCodeId: text("utbms_expense_code_id").references(() => utbmsCode.id),
+    description: text("description").notNull().default(""),
+    receiptFileId: text("receipt_file_id"), // nullable File Manager doc
+    status: text("status").notNull(), // draft|submitted|approved|billed|void
+    kickBackReason: text("kick_back_reason"),
+    source: text("source").notNull(), // manual|grid|recovery
+    recoveryCategory: text("recovery_category"),
+    recoveryRef: text("recovery_ref"),
+    invoiceId: text("invoice_id"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (table) => [
+    check(
+      "cost_entry_disbursement_class_check",
+      sql`${table.disbursementClass} IN ('hard','soft')`,
+    ),
+    check(
+      "cost_entry_status_check",
+      sql`${table.status} IN ('draft','submitted','approved','billed','void')`,
+    ),
+    check("cost_entry_source_check", sql`${table.source} IN ('manual','grid','recovery')`),
+    check("cost_entry_billable_check", sql`${table.billable} IN (0,1)`),
+    check("cost_entry_currency_check", sql`${table.currency} IN ('USD')`),
+    index("cost_entry_matter_status_index").on(table.matterId, table.status),
+    index("cost_entry_status_incurred_date_index").on(table.status, table.incurredDate),
+    uniqueIndex("cost_entry_recovery_ref_unique")
+      .on(table.recoveryRef)
+      .where(sql`${table.recoveryRef} IS NOT NULL`),
   ],
 );

@@ -11,15 +11,16 @@ export interface AuditContext {
   readonly randomSource?: RandomSource;
 }
 
-// Composes the per-firm audit_log row for an effect batch via the shared domain audit wrapper —
-// minting the audit-log id with null metadata (the event, subject, actor, and instant are the
-// record). A thin positional adapter so a File Manager call site reads fileAuditStatement(db, ctx,
-// event, subject).
+// Composes the per-firm audit_log row for an effect batch via the shared domain audit wrapper. A
+// thin positional adapter so a File Manager call site reads fileAuditStatement(db, ctx, event,
+// subject). Pass metadata for events that carry non-privileged extra context (verdicts, reasons —
+// never privileged content or file names); omit for the common case.
 export function fileAuditStatement(
   database: SqlDatabase,
   context: AuditContext,
   event: string,
   subjectId: string,
+  metadata?: unknown,
 ): SqlStatement {
   return domainAuditStatement(database, {
     event,
@@ -27,5 +28,6 @@ export function fileAuditStatement(
     actorUserId: context.actorUserId,
     clock: context.clock,
     randomSource: context.randomSource,
+    metadata,
   });
 }

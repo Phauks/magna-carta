@@ -142,6 +142,9 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string> = {
   // time:* governs time entries and the rate engine, all scoped to matters; the matter resource
   // is the nearest tenancy root for every time-entry mutation and read.
   time: "matter",
+  // costs:* governs disbursement WIP entries, all scoped to matters; the matter resource is the
+  // nearest tenancy root for every cost-entry mutation and read (mirrors the time precedent).
+  costs: "matter",
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
@@ -498,6 +501,17 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "conversions.status",
       "conversions.submit",
       "conversions.upload",
+      "costs.approve",
+      "costs.attachReceipt",
+      "costs.batch",
+      "costs.create",
+      "costs.detachReceipt",
+      "costs.get",
+      "costs.kickBack",
+      "costs.list",
+      "costs.submit",
+      "costs.update",
+      "costs.void",
       "customFields.applyConvert",
       "customFields.archiveField",
       "customFields.archiveOption",
@@ -604,6 +618,8 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "safeBrowse.post",
       "scan.diagnose",
       "scan.matter",
+      "scanPolicy.get",
+      "scanPolicy.update",
       "shipping.connect",
       "shipping.createShipment",
       "shipping.label",
