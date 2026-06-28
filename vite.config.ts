@@ -48,12 +48,15 @@ export default defineConfig({
   // Task keys are plain task names with a `command`; the `package#task` form is only valid inside `dependsOn` (see viteplus.dev/config/run).
   run: {
     tasks: {
-      // Build the whole app in dependency order: the SPA first, then (later) the worker that serves apps/web/build.
-      // Named `build-all` (not `build`) so it does not collide with the root package.json `build` script.
-      // The command builds every app package (filter excludes the root, which has no buildable entry); `dependsOn` uses the cross-package `package#task` notation to force apps/web's build first.
-      // Also depends on rust-wasm-build so the WASM artefact in packages/pdf/src/pkg is current before the SPA bundles it.
+      // Build the `magna-carta` app worker's deploy artefacts in dependency order: the wasm, then the
+      // SPA (which bundles it), then the worker that serves apps/web/build. This is the Workers Build
+      // command for `magna-carta` (operations.md §12), so it is deliberately SCOPED to the app worker —
+      // it does NOT build the standalone sibling workers (scan/bundle/convert/edit). Those are separate
+      // deployables with their own Workers Builds; building their container images here is both wasteful
+      // and fragile (e.g. the scan image's YARA Forge download is rate-limited, which would fail the app
+      // deploy on an unrelated worker). `dependsOn` forces the wasm + the SPA before the worker's build.
       "build-all": {
-        command: 'vp run --filter "./apps/*" build',
+        command: 'vp run --filter "@magna-carta/worker" build',
         dependsOn: ["@magna-carta/web#build", "rust-wasm-build"],
       },
       // Rust quality gate: fmt + clippy + unit tests for the crates/ workspace.
