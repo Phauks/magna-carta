@@ -65,6 +65,29 @@ describe("POST /api/v1/file-type/verify", () => {
     expect(body.recommendedExtensions).toContain("jpg");
   });
 
+  it("returns 400 when the request body is empty", async () => {
+    const { userId } = await seedCredentialedUser("file-type-empty-body@example.com", {
+      userName: "File Type Empty Body",
+      firmId: poolFirmId,
+    });
+    await mirrorMemberWithOwnerRole(userId, "File Type Empty Body", poolFirmId);
+    const cookie = await signInForSessionCookie("file-type-empty-body@example.com");
+    const response = await app.request(
+      "https://example.com/api/v1/file-type/verify?filename=contract.pdf",
+      {
+        method: "POST",
+        headers: {
+          cookie,
+          "content-type": "application/octet-stream",
+        },
+        // No body — c.req.raw.body is null, triggering the 400 guard before the scan service.
+      },
+      env,
+    );
+    expect(response.status).toBe(400);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+  });
+
   it("rejects without the permission with 403", async () => {
     // seedCredentialedUser assigns no role; membership alone carries no permission.
     await seedCredentialedUser("file-type-noperm@example.com", {

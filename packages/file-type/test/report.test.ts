@@ -41,6 +41,15 @@ describe("buildFileTypeReport", () => {
     expect(report.recommendedExtensions).toEqual([]);
   });
 
+  it("is unverifiable when detected but no canonical extension is known (macho)", () => {
+    // macho has extensions: [] in labels.ts — detected type is known, but there is nothing to
+    // compare the claimed extension against, so extensionMatch must be "unverifiable", not "mismatch".
+    const report = buildFileTypeReport(raw({ label: "macho", group: "executable" }), "tool.bin");
+    expect(report.extensionMatch).toBe("unverifiable");
+    expect(report.detected).toBe("macho");
+    expect(report.recommendedExtensions).toEqual([]);
+  });
+
   it("carries the confidence score through", () => {
     expect(buildFileTypeReport(raw({ score: 0.87 }), "a.pdf").confidence).toBe(0.87);
   });

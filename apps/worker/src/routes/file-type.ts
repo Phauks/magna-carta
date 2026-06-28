@@ -117,9 +117,8 @@ export function registerFileTypeRoutes(
           detail: "The identification engine is not currently reachable. Try again shortly.",
         });
       }
-      const query = new URLSearchParams({ size: String(sizeBytes) });
       const response = await scan.fetch(
-        new Request(`http://scan/identify?${query.toString()}`, {
+        new Request(`http://scan/identify`, {
           method: "POST",
           body,
           duplex: "half",
