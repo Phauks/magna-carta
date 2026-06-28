@@ -12,6 +12,7 @@ import {
   stepUpReauthDefinition,
 } from "@magna-carta/file-manager/scan-policy-settings";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
+import { fetchScoreHistogram } from "../files/score-histogram.ts";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
@@ -223,31 +224,13 @@ export function registerScanPolicyRoutes(app: ScanApp, chokepoint: Chokepoint): 
     },
   );
 
-  // GET /api/v1/firm/scan-policy/score-histogram — the deployed engine's _SUSP_ score distribution,
-  // gated like the policy itself. Engine-global data, so the handler reaches the scan engine over the
-  // SCAN_SERVICE binding rather than firm storage. The binding is absent in every test environment and
-  // until the scan worker is deployed — there the empty shape is returned (200) so the future slider
-  // renders unbounded rather than surfacing an error. A deployed-but-unreachable engine is a real fault
-  // and propagates through the standard error path, never a fabricated empty.
+  // GET /api/v1/firm/scan-policy/score-histogram — the scan engine's _SUSP_ score distribution, gated
+  // like the policy itself. Engine-global data, so it reaches the scan engine over the SCAN_SERVICE
+  // binding rather than firm storage. The fetch + no-engine + fault handling lives in fetchScoreHistogram
+  // (unit-tested for all three branches); a deployed-but-unreachable engine throws, never a masked empty.
   app.openapi(
     { ...histogramRoute, middleware: chokepointMiddleware(chokepoint, histogramRoute) },
-    async (c) => {
-      const scanService = c.env.SCAN_SERVICE;
-      if (scanService === undefined) {
-        return c.json({ engineVersion: null, minScoreGate: null, total: 0, buckets: [] }, 200);
-      }
-      const upstream = await scanService.fetch("http://scan/rules/score-histogram");
-      if (!upstream.ok) {
-        throw new Error(`scan service returned status ${upstream.status} for the score histogram`);
-      }
-      const histogram = (await upstream.json()) as {
-        engineVersion: string;
-        minScoreGate: number;
-        total: number;
-        buckets: { floor: number; count: number }[];
-      };
-      return c.json(histogram, 200);
-    },
+    async (c) => c.json(await fetchScoreHistogram(c.env.SCAN_SERVICE), 200),
   );
 
   // PATCH /api/v1/firm/scan-policy — update the present fields and audit the change atomically.

@@ -175,9 +175,11 @@ describe("PATCH /api/v1/firm/scan-policy", () => {
 });
 
 describe("GET /api/v1/firm/scan-policy/score-histogram", () => {
-  it("returns the no-engine empty shape (200) when no scan engine is deployed", async () => {
-    // SCAN_SERVICE is unbound in the test environment, so the handler returns the empty shape rather
-    // than erroring — the future slider renders unbounded. The live-engine path is CI/deploy-gated.
+  it("returns the no-engine empty shape (200) through the bound stub", async () => {
+    // SCAN_SERVICE resolves to the no-engine stub in the test pool (vitest.config.ts), which answers the
+    // histogram path with the empty shape — so this exercises the full bound/proxy path and asserts the
+    // route returns it. The genuinely-unbound and fault branches are unit-tested in
+    // test/files/score-histogram.test.ts; the live-engine path is CI/deploy-gated.
     const { userId } = await seedCredentialedUser("scan-policy-hist@example.com", {
       userName: "Scan Policy Histogram Reader",
       firmId: poolFirmId,
