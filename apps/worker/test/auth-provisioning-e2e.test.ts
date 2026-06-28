@@ -231,7 +231,8 @@ describe("end-to-end", () => {
       // role) + tools:fileConverter (0018_seed-tools-file-converter.sql) + firm:scanFile
       // (0019_seed-scan-file-permission.sql) + tools:metadataScrubber
       // (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role) +
-      // tools:fileIntegrity (0022_seed-tools-file-integrity.sql, seeded onto every default role).
+      // tools:fileIntegrity (0022_seed-tools-file-integrity.sql, seeded onto every default role) +
+      // tools:decryption (0023_seed-tools-decryption.sql, seeded onto every default role).
       // Sorted.
       permissions: [
         "customFields:manage",
@@ -263,6 +264,7 @@ describe("end-to-end", () => {
         "time:manageUtbms",
         "time:track",
         "time:viewFirm",
+        "tools:decryption",
         "tools:fileConverter",
         "tools:fileIntegrity",
         "tools:firmUsage",

@@ -515,6 +515,8 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "customFields.setValue",
       "customFields.unarchiveField",
       "customFields.valueHistory",
+      "decryption.inspect",
+      "decryption.unlock",
       "directory.addIdentifier",
       "directory.addName",
       "directory.assignCategory",
