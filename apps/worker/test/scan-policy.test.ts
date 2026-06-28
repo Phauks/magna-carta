@@ -173,3 +173,41 @@ describe("PATCH /api/v1/firm/scan-policy", () => {
     expect(response.headers.get("content-type")).toContain("application/problem+json");
   });
 });
+
+describe("GET /api/v1/firm/scan-policy/score-histogram", () => {
+  it("returns the no-engine empty shape (200) when no scan engine is deployed", async () => {
+    // SCAN_SERVICE is unbound in the test environment, so the handler returns the empty shape rather
+    // than erroring — the future slider renders unbounded. The live-engine path is CI/deploy-gated.
+    const { userId } = await seedCredentialedUser("scan-policy-hist@example.com", {
+      userName: "Scan Policy Histogram Reader",
+      firmId: poolFirmId,
+    });
+    await mirrorMemberWithOwnerRole(userId, "Scan Policy Histogram Reader", poolFirmId);
+    const cookie = await signInForSessionCookie("scan-policy-hist@example.com");
+    const response = await SELF.fetch(
+      "https://example.com/api/v1/firm/scan-policy/score-histogram",
+      { headers: { cookie } },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      engineVersion: null,
+      minScoreGate: null,
+      total: 0,
+      buckets: [],
+    });
+  });
+
+  it("returns 403 for an authenticated member without firm:manageScanPolicy", async () => {
+    await seedCredentialedUser("scan-policy-hist-noperm@example.com", {
+      userName: "No Perm",
+      firmId: poolFirmId,
+    });
+    const cookie = await signInForSessionCookie("scan-policy-hist-noperm@example.com");
+    const response = await SELF.fetch(
+      "https://example.com/api/v1/firm/scan-policy/score-histogram",
+      { headers: { cookie } },
+    );
+    expect(response.status).toBe(403);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+  });
+});

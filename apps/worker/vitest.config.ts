@@ -66,7 +66,17 @@ function billingPackageSources(): Plugin {
 // so scan-path code exercised in tests sees an honest unscanned verdict rather than a fake clean.
 const SCAN_SERVICE_STUB_SCRIPT = `
 export default {
-  fetch() {
+  fetch(request) {
+    const url = new URL(request.url);
+    // GET /rules/score-histogram returns the no-engine histogram shape — the engine-less equivalent of
+    // the real container endpoint, matching what production returns before the scan engine is wired.
+    if (url.pathname === "/rules/score-histogram") {
+      return new Response(
+        JSON.stringify({ engineVersion: null, minScoreGate: null, total: 0, buckets: [] }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+    // The default (/scan): the no-engine RawScanResult, an honest unscanned verdict (not a fake clean).
     return new Response(
       JSON.stringify({
         engineVersion: null,

@@ -625,6 +625,7 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "scan.diagnose",
       "scan.matter",
       "scanPolicy.get",
+      "scanPolicy.scoreHistogram",
       "scanPolicy.update",
       "shipping.connect",
       "shipping.createShipment",
