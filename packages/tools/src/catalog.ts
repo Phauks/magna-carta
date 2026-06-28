@@ -126,4 +126,14 @@ export const CATALOG: readonly ToolManifest[] = [
     backing: { kind: "library" },
     matterContext: "none",
   },
+  {
+    id: "file-type-verifier",
+    name: "File Type Verifier",
+    icon: "file-check",
+    subjectGroup: "documents",
+    permission: assertPermission("tools:fileTypeVerifier"),
+    contextTags: ["file", "none"],
+    backing: { kind: "library" },
+    matterContext: "none",
+  },
 ];

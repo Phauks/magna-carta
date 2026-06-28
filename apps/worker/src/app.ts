@@ -50,6 +50,7 @@ import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
 import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
 import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
 import { registerFileIntegrityRoutes } from "./routes/file-integrity.ts";
+import { registerFileTypeRoutes } from "./routes/file-type.ts";
 import { registerMetadataRoutes } from "./routes/metadata.ts";
 import { registerSupportGrantsRoutes } from "./routes/support-grants.ts";
 import { registerSupportSessionsRoute } from "./routes/support-sessions.ts";
@@ -372,6 +373,7 @@ export function createApp(options: CreateAppOptions = {}) {
   // createFetchRedirectProbe() — built lazily in the handler, never at startup.
   registerSafeBrowseRoute(app, chokepoint, options.safeBrowseDeps ?? {});
   registerFileIntegrityRoutes(app, chokepoint);
+  registerFileTypeRoutes(app, chokepoint);
   registerMetadataRoutes(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);
   registerReleaseChannelRoute(app, chokepoint, authForEnv);

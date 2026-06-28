@@ -74,12 +74,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let engine_version =
         compose_engine_version(yara::ENGINE_CODE_VERSION, &yara_tag, &clamav_db_version);
 
+    // The Magika identification engine ships its model embedded in the binary, so a failure here is an
+    // inference-backend init fault, not a missing file — fatal at boot, the same posture as the rule
+    // blob: refuse to serve rather than answer `/identify` with no engine.
+    let magika = magna_carta_scan::identify::IdentifyEngine::new().unwrap_or_else(|error| {
+        eprintln!(
+            "FATAL: could not initialize the Magika identification engine: {error}. The standard model \
+             is embedded in the binary (no external file), so this is a runtime/backend fault. Refusing \
+             to start rather than serve /identify with no engine."
+        );
+        std::process::exit(1);
+    });
+
     let state = AppState {
         rules: Arc::new(rules),
         side_map: Arc::new(side_map),
         clamd_address: clamav::DEFAULT_CLAMD_ADDRESS.into(),
         caps: ArchiveCaps::default(),
         engine_version: engine_version.into(),
+        magika: Arc::new(magika),
     };
 
     let listener = TcpListener::bind("0.0.0.0:8080").await?;
