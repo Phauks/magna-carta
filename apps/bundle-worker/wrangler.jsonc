@@ -28,8 +28,10 @@
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["BundleContainer"] }],
   // R2 bucket binding: the container reads source files and writes assembled archives to this
   // bucket. The "bundle-r2" outbound handler intercepts the container's http://bundle-r2/<key>
-  // requests and routes them here — the container needs no credentials and no real egress.
-  "r2_buckets": [{ "binding": "R2", "bucket_name": "magna-carta-files" }],
+  // requests and routes them here — the container needs no credentials and no real egress. MUST be
+  // the same bucket the app worker (magna-carta) binds, so the container reads the matter's actual
+  // source files and writes artifacts where the app worker's poll/sign endpoint reads them.
+  "r2_buckets": [{ "binding": "R2", "bucket_name": "magna-carta-production-platform-files" }],
   // Cron trigger: warm-poke every 8 minutes to keep one container instance alive within the
   // 10-minute sleepAfter window.
   "triggers": {
