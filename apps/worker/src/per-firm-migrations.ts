@@ -32,6 +32,7 @@ import costEntrySql from "@magna-carta/database/drizzle/per-firm/0028_burly_pile
 import scanVerdictFlaggedSql from "@magna-carta/database/drizzle/per-firm/0029_scan_verdict_flagged.sql";
 import seedScanPolicyPermissionSql from "@magna-carta/database/drizzle/per-firm/0030_seed-scan-policy-permission.sql";
 import supportAccessPermissionsSql from "@magna-carta/database/drizzle/per-firm/0031_support-access-permissions.sql";
+import seedToolsFileTypeVerifierSql from "@magna-carta/database/drizzle/per-firm/0032_seed-tools-file-type-verifier.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -73,5 +74,6 @@ export function perFirmMigrations(): Migration[] {
     "0029_scan_verdict_flagged": scanVerdictFlaggedSql,
     "0030_seed-scan-policy-permission": seedScanPolicyPermissionSql,
     "0031_support-access-permissions": supportAccessPermissionsSql,
+    "0032_seed-tools-file-type-verifier": seedToolsFileTypeVerifierSql,
   });
 }

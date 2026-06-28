@@ -65,7 +65,9 @@ describe("GET /api/v1/me", () => {
       // firm:manageReleaseChannel (0024_seed-release-channel-permission.sql, Owner/Admin only) + the
       // costs: grants (0028_burly_piledriver: costs:track + costs:approve onto Owner/Admin) +
       // support:request / support:cosign / support:manage (0029_support-access-permissions,
-      // Owner/Admin gets all three; other roles get support:request only). Sorted.
+      // Owner/Admin gets all three; other roles get support:request only) +
+      // tools:fileTypeVerifier (0032_seed-tools-file-type-verifier.sql, seeded onto every default role).
+      // Sorted.
       permissions: [
         "costs:approve",
         "costs:track",
@@ -105,6 +107,7 @@ describe("GET /api/v1/me", () => {
         "time:viewFirm",
         "tools:fileConverter",
         "tools:fileIntegrity",
+        "tools:fileTypeVerifier",
         "tools:firmUsage",
         "tools:metadataScrubber",
         "tools:safeBrowse",

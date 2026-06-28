@@ -20,6 +20,7 @@ pub mod atoms;
 pub mod clamav;
 pub mod forge;
 pub mod heuristics;
+pub mod identify;
 pub mod prefilter;
 pub mod raw;
 #[cfg(unix)]
@@ -39,6 +40,9 @@ pub struct AppState {
     pub clamd_address: Arc<str>,
     pub caps: ArchiveCaps,
     pub engine_version: Arc<str>,
+    /// The Magika content-type identification engine (embedded model), shared behind an `Arc` and used by
+    /// the `/identify` route. Built once at boot (`main`), like the rule corpus.
+    pub magika: Arc<identify::IdentifyEngine>,
 }
 
 /// Composes the three separable engine-version components into the canonical composite string.
@@ -69,6 +73,7 @@ pub fn router(state: AppState) -> Router {
         .route("/ready", get(ready))
         .route("/scan", post(scan))
         .route("/rules/score-histogram", get(score_histogram))
+        .route("/identify", post(identify))
         .with_state(state)
 }
 
@@ -188,6 +193,28 @@ fn too_large() -> Response {
         "body exceeds the inspectable-size cap",
     )
         .into_response()
+}
+
+// Runs Magika over the request body and returns the RAW identification facts (label, score, group,
+// engine/model versions) as a 200 — no verdict, no extension recommendation: the app decides whether the
+// content type matches the claimed extension. The body is collected within the same cap as `/scan`;
+// inference is CPU-bound, so it runs on a blocking thread (off the async reactor), and a panic there
+// surfaces as a `JoinError` mapped to a retryable 503 (`engines_unavailable`) — never a fabricated
+// identification. An over-cap body is the same `too_large()` 413 as `/scan`. `body` must be last: the
+// extractor consumes the request.
+async fn identify(State(state): State<AppState>, body: Body) -> Response {
+    match axum::body::to_bytes(body, MAX_SCAN_BODY_BYTES).await {
+        Ok(bytes) => {
+            let engine = state.magika.clone();
+            match tokio::task::spawn_blocking(move || identify::identify_bytes(&engine, &bytes))
+                .await
+            {
+                Ok(raw) => Json(raw).into_response(),
+                Err(_) => engines_unavailable(),
+            }
+        }
+        Err(_) => too_large(),
+    }
 }
 
 // Owns the body bytes for the engine stage. On Linux it is the spooled, memory-mapped scratch file (no
@@ -425,6 +452,9 @@ mod tests {
             clamd_address: Arc::from("127.0.0.1:3310"),
             caps: ArchiveCaps::default(),
             engine_version: Arc::from("engine/1+yara-rules/none+clamav-db/0"),
+            magika: Arc::new(
+                identify::IdentifyEngine::new().expect("magika builds with the embedded model"),
+            ),
         };
 
         let response = score_histogram(State(state)).await;

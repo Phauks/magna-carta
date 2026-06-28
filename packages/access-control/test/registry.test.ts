@@ -48,6 +48,7 @@ describe("permission registry", () => {
       "firm:reportIncident",
       "firm:scanFile",
       "firm:manageSecrets",
+      "firm:manageScanPolicy",
       "firm:manageReleaseChannel",
     ]);
   });
@@ -103,6 +104,7 @@ describe("permission registry", () => {
       "tools:fileConverter",
       "tools:metadataScrubber",
       "tools:fileIntegrity",
+      "tools:fileTypeVerifier",
     ]);
   });
 

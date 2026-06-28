@@ -62,8 +62,10 @@ function billingPackageSources(): Plugin {
 
 // Stub for the magna-carta-scan service binding in tests — no real scan worker runs under the
 // local pool, so the service binding must resolve to something or workerd refuses to boot.
-// Returning the no-engine RawScanResult matches what production returns before the engine is wired,
-// so scan-path code exercised in tests sees an honest unscanned verdict rather than a fake clean.
+// The stub branches on the request path so both the scan route and the file-type identify route
+// receive honest responses. /scan returns the no-engine RawScanResult (an honest unscanned, never a
+// fake clean); /identify returns a fixed Magika jpeg result so the file-type tests can assert on the
+// report shape without running the real Container.
 const SCAN_SERVICE_STUB_SCRIPT = `
 export default {
   fetch(request) {
@@ -73,6 +75,13 @@ export default {
     if (url.pathname === "/rules/score-histogram") {
       return new Response(
         JSON.stringify({ engineVersion: null, minScoreGate: null, total: 0, buckets: [] }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+    if (url.pathname === "/identify") {
+      return new Response(
+        JSON.stringify({ label: "jpeg", score: 0.99, group: "image",
+          magikaVersion: "test", modelVersion: "test" }),
         { status: 200, headers: { "content-type": "application/json" } }
       );
     }
