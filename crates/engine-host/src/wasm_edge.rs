@@ -77,7 +77,9 @@ mod glue {
         }
 
         pub fn set(self, key: &str, value: &JsValue) -> Self {
-            let _ = js_sys::Reflect::set(&self.object, &JsValue::from_str(key), value);
+            debug_assert!(
+                js_sys::Reflect::set(&self.object, &JsValue::from_str(key), value).is_ok()
+            );
             self
         }
 
@@ -100,13 +102,33 @@ pub use glue::{bytes_out, to_js_error, ObjectBuilder};
 #[cfg(test)]
 mod wasm_tests {
     use super::*;
+    use wasm_bindgen::JsCast;
     use wasm_bindgen::JsValue;
     use wasm_bindgen_test::*;
+
+    // Minimal error type for wasm-boundary tests — satisfies the `EdgeError`
+    // contract without pulling in the native-only `SampleError`.
+    struct WrongPasswordError;
+
+    impl EdgeError for WrongPasswordError {
+        fn code(&self) -> &'static str {
+            "wrongPassword"
+        }
+    }
+
+    #[wasm_bindgen_test]
+    fn to_js_error_emits_stable_code_as_message() {
+        let e = WrongPasswordError;
+        let js_val: JsValue = to_js_error(&e).into();
+        let err: js_sys::Error = js_val.dyn_into().unwrap();
+        assert_eq!(String::from(err.message()), "wrongPassword");
+    }
 
     #[wasm_bindgen_test]
     fn bytes_out_roundtrips_length() {
         let arr = bytes_out(&[1, 2, 3]);
         assert_eq!(arr.length(), 3);
+        assert_eq!(arr.to_vec(), vec![1u8, 2, 3]);
     }
 
     #[wasm_bindgen_test]
