@@ -625,3 +625,169 @@ pub fn detect_document(bytes: Vec<u8>) -> Result<JsValue, JsError> {
     set(&result, "pagesUnreadable", &pages_unreadable);
     Ok(result.into())
 }
+
+// ── Security: inspect / decrypt / secure ────────────────────────────────────────
+//
+// A password NEVER appears in an error: every `SecureError` maps to a static token.
+// `decryptDocument` throws the token `"wrong-password"` so a caller can re-prompt
+// rather than treat a bad password as a corrupt file.
+
+impl From<crate::SecureError> for JsError {
+    fn from(e: crate::SecureError) -> Self {
+        JsError::new(match e {
+            crate::SecureError::Parse => "failed to parse PDF",
+            crate::SecureError::WrongPassword => "wrong-password",
+            crate::SecureError::UnsupportedHandler => "unsupported-encryption",
+            crate::SecureError::AlreadyEncrypted => "already-encrypted",
+            crate::SecureError::Reassemble => "failed to reassemble PDF",
+        })
+    }
+}
+
+fn handler_str(h: crate::Handler) -> &'static str {
+    match h {
+        crate::Handler::Standard => "standard",
+        crate::Handler::PublicKey => "publicKey",
+        crate::Handler::None => "none",
+    }
+}
+
+fn algorithm_str(a: crate::Algorithm) -> &'static str {
+    match a {
+        crate::Algorithm::Rc4 => "rc4",
+        crate::Algorithm::Aes128 => "aes128",
+        crate::Algorithm::Aes256 => "aes256",
+        crate::Algorithm::Unknown => "unknown",
+        crate::Algorithm::None => "none",
+    }
+}
+
+/// Classify a PDF's security without a password.
+///
+/// Returns `{ encrypted: boolean, handler: "standard"|"publicKey"|"none",
+/// algorithm: "rc4"|"aes128"|"aes256"|"unknown"|"none", hasUserPassword: boolean,
+/// permissions: { print, printHighRes, copy, modify, annotate, fillForms, assemble,
+/// accessibilityCopy } | null }`. `permissions` is `null` when the policy cannot be
+/// read (a document opened by the empty password).
+#[wasm_bindgen(js_name = inspectSecurity)]
+pub fn inspect_security_edge(bytes: Vec<u8>) -> Result<JsValue, JsError> {
+    let info = crate::inspect_security(&bytes)?;
+    let set = |o: &js_sys::Object, k: &str, v: &JsValue| {
+        let _ = js_sys::Reflect::set(o, &k.into(), v);
+    };
+    let o = js_sys::Object::new();
+    set(&o, "encrypted", &JsValue::from(info.encrypted));
+    set(&o, "handler", &handler_str(info.handler).into());
+    set(&o, "algorithm", &algorithm_str(info.algorithm).into());
+    set(
+        &o,
+        "hasUserPassword",
+        &JsValue::from(info.has_user_password),
+    );
+    let permissions = match info.permissions {
+        Some(p) => {
+            let po = js_sys::Object::new();
+            set(&po, "print", &JsValue::from(p.print));
+            set(&po, "printHighRes", &JsValue::from(p.print_high_res));
+            set(&po, "copy", &JsValue::from(p.copy));
+            set(&po, "modify", &JsValue::from(p.modify));
+            set(&po, "annotate", &JsValue::from(p.annotate));
+            set(&po, "fillForms", &JsValue::from(p.fill_forms));
+            set(&po, "assemble", &JsValue::from(p.assemble));
+            set(
+                &po,
+                "accessibilityCopy",
+                &JsValue::from(p.accessibility_copy),
+            );
+            po.into()
+        }
+        None => JsValue::NULL,
+    };
+    set(&o, "permissions", &permissions);
+    Ok(o.into())
+}
+
+/// Unlock a password-protected PDF, returning `{ pdf: Uint8Array }` of plaintext.
+///
+/// Throws `"wrong-password"` for a bad password (distinct from a parse failure). An
+/// unencrypted input is returned unchanged. The password is never echoed in an error.
+#[wasm_bindgen(js_name = decryptDocument)]
+pub fn decrypt_document(bytes: Vec<u8>, password: String) -> Result<JsValue, JsError> {
+    let pdf = crate::decrypt(&bytes, &password)?;
+    let result = js_sys::Object::new();
+    js_sys::Reflect::set(&result, &"pdf".into(), &js_sys::Uint8Array::from(&pdf[..]))
+        .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    Ok(result.into())
+}
+
+#[derive(serde::Deserialize, Default)]
+struct JsSecurePermissions {
+    print: Option<bool>,
+    #[serde(rename = "printHighRes")]
+    print_high_res: Option<bool>,
+    copy: Option<bool>,
+    modify: Option<bool>,
+    annotate: Option<bool>,
+    #[serde(rename = "fillForms")]
+    fill_forms: Option<bool>,
+    assemble: Option<bool>,
+    #[serde(rename = "accessibilityCopy")]
+    accessibility_copy: Option<bool>,
+}
+
+#[derive(serde::Deserialize, Default)]
+struct JsSecureOpts {
+    #[serde(rename = "ownerPassword")]
+    owner_password: Option<String>,
+    #[serde(rename = "userPassword")]
+    user_password: Option<String>,
+    permissions: Option<JsSecurePermissions>,
+    #[serde(rename = "encryptMetadata")]
+    encrypt_metadata: Option<bool>,
+    algorithm: Option<String>,
+}
+
+/// Protect a PDF, returning `{ pdf: Uint8Array }`.
+///
+/// `options`: `{ ownerPassword: string, userPassword?: string,
+/// permissions?: Partial<{...eight booleans...}>, encryptMetadata?: boolean,
+/// algorithm?: "aes256"|"aes128" }`. Writes AES-256 by default; never RC4. An omitted
+/// permission bit defaults to allowed; an empty `userPassword` means no open password.
+#[wasm_bindgen(js_name = secureDocument)]
+pub fn secure_document(bytes: Vec<u8>, options: JsValue) -> Result<JsValue, JsError> {
+    let js: JsSecureOpts = serde_wasm_bindgen::from_value(options)?;
+    let owner_password = js.owner_password.unwrap_or_default();
+    if owner_password.is_empty() {
+        return Err(JsError::new("owner-password-required"));
+    }
+    let permissions = match js.permissions {
+        Some(p) => crate::Permissions {
+            print: p.print.unwrap_or(true),
+            print_high_res: p.print_high_res.unwrap_or(true),
+            copy: p.copy.unwrap_or(true),
+            modify: p.modify.unwrap_or(true),
+            annotate: p.annotate.unwrap_or(true),
+            fill_forms: p.fill_forms.unwrap_or(true),
+            assemble: p.assemble.unwrap_or(true),
+            accessibility_copy: p.accessibility_copy.unwrap_or(true),
+        },
+        None => crate::Permissions::all_allowed(),
+    };
+    let algorithm = match js.algorithm.as_deref() {
+        Some("aes128") => crate::WriteAlgorithm::Aes128,
+        _ => crate::WriteAlgorithm::Aes256,
+    };
+    let options = crate::SecureOptions {
+        owner_password,
+        // An empty open password is treated as "no open password".
+        user_password: js.user_password.filter(|s| !s.is_empty()),
+        permissions,
+        encrypt_metadata: js.encrypt_metadata.unwrap_or(true),
+        algorithm,
+    };
+    let pdf = crate::secure(&bytes, &options)?;
+    let result = js_sys::Object::new();
+    js_sys::Reflect::set(&result, &"pdf".into(), &js_sys::Uint8Array::from(&pdf[..]))
+        .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    Ok(result.into())
+}

@@ -26,6 +26,14 @@ mod textpos;
 mod detect;
 pub use detect::*;
 
+mod decrypt;
+pub use decrypt::{
+    decrypt, inspect_security, Algorithm, Handler, Permissions, SecureError, SecurityInfo,
+};
+
+mod secure;
+pub use secure::{secure, SecureOptions, WriteAlgorithm};
+
 mod surgery;
 
 use hayro::hayro_interpret::InterpreterSettings;
@@ -50,6 +58,19 @@ impl Document {
         Pdf::new(bytes)
             .map(|pdf| Document { pdf })
             .map_err(|_| PdfError::Parse)
+    }
+
+    /// Load a possibly-encrypted PDF, decrypting with `password` first so the render
+    /// path sees plaintext. An unencrypted input loads normally; a wrong password
+    /// yields [`SecureError::WrongPassword`].
+    pub fn load_protected(bytes: Vec<u8>, password: &str) -> Result<Self, SecureError> {
+        match decrypt(&bytes, password) {
+            Ok(plain) => Self::load(plain).map_err(|_| SecureError::Parse),
+            // The model parser could not read it at all — it may still be a valid
+            // unencrypted document the render parser accepts. Try it directly.
+            Err(SecureError::Parse) => Self::load(bytes).map_err(|_| SecureError::Parse),
+            Err(other) => Err(other),
+        }
     }
 
     pub fn page_count(&self) -> usize {
@@ -180,5 +201,13 @@ mod tests {
         let page = doc.render_page(0, 72.0, true).unwrap();
         assert!(page.png);
         assert_eq!(&page.data[1..4], b"PNG");
+    }
+
+    #[test]
+    fn load_protected_opens_an_unencrypted_document() {
+        // blank.pdf renders in hayro but is not loadable by the model parser, so this
+        // also exercises load_protected's fallback to the plain render-path load.
+        let doc = Document::load_protected(blank(), "").expect("loads unencrypted via protected");
+        assert_eq!(doc.page_count(), 1);
     }
 }
