@@ -56,6 +56,18 @@ pub fn enrich_matches(ids: Vec<String>, map: &SideMap) -> Vec<RuleMatch> {
         .collect()
 }
 
+/// Counts scores into 5-point buckets, ascending by inclusive floor (`(score / 5) * 5`). The caller
+/// pre-filters to the suspicious (`_SUSP_`) rules whose score the firm's floor actually gates, so this is
+/// the distribution the scan-policy custom-floor slider plots. Shared between `build-yara-rules`' summary
+/// log and the runtime `/rules/score-histogram` endpoint so the two never drift.
+pub fn susp_score_histogram(scores: impl IntoIterator<Item = i32>) -> Vec<(i32, usize)> {
+    let mut buckets: std::collections::BTreeMap<i32, usize> = std::collections::BTreeMap::new();
+    for score in scores {
+        *buckets.entry((score / 5) * 5).or_insert(0) += 1;
+    }
+    buckets.into_iter().collect()
+}
+
 /// The engine-code component of the composite engine version. Bump this constant whenever the Rust
 /// crate's scan logic changes in a way that could alter verdicts — a bump causes re-scans across the
 /// fleet, so it is deliberate and intentional, not automatic. The yara-x library version is a compiled
@@ -166,10 +178,18 @@ pub fn yara_scan(rules: &Rules, bytes: &[u8]) -> Result<Vec<String>, YaraScanFau
 mod tests {
     use super::{
         build_rules, compile_tolerant, deserialize_rules, deserialize_side_map, enrich_matches,
-        serialize_side_map, yara_scan, RuleMeta, RuleMatch,
+        serialize_side_map, susp_score_histogram, yara_scan, RuleMeta, RuleMatch,
     };
 
     const TRIVIAL_RULE: &str = r#"rule t { strings: $a = "malicious" condition: $a }"#;
+
+    #[test]
+    fn susp_score_histogram_buckets_ascending_by_five() {
+        // 40,41 -> [40], 47 -> [45], 75 -> [75]; counts per 5-point floor, ascending; empty -> empty.
+        let histogram = susp_score_histogram([41, 40, 75, 47]);
+        assert_eq!(histogram, vec![(40, 2), (45, 1), (75, 1)]);
+        assert!(susp_score_histogram(std::iter::empty::<i32>()).is_empty());
+    }
 
     #[test]
     fn tolerant_compile_skips_a_broken_rule_then_round_trips_through_serialization() {

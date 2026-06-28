@@ -208,14 +208,12 @@ fn print_report(
     println!("  yara-x warnings:  {}", warnings);
     println!("  wrote {output} ({bytes} bytes)");
 
-    // _SUSP_ score histogram: count of suspicious rules per 5-point score bucket, sorted ascending.
-    let mut buckets: std::collections::BTreeMap<i32, usize> = std::collections::BTreeMap::new();
-    let mut suspicious_total = 0usize;
-    for rule in tagged.iter().filter(|r| r.is_suspicious) {
-        suspicious_total += 1;
-        let bucket = (rule.score / 5) * 5;
-        *buckets.entry(bucket).or_insert(0) += 1;
-    }
+    // _SUSP_ score histogram: count of suspicious rules per 5-point score bucket, ascending. Shares the
+    // bucket logic with the runtime /rules/score-histogram endpoint (yara::susp_score_histogram) so the
+    // build log and the API never drift.
+    let buckets =
+        yara::susp_score_histogram(tagged.iter().filter(|r| r.is_suspicious).map(|r| r.score));
+    let suspicious_total: usize = buckets.iter().map(|(_, count)| count).sum();
     if suspicious_total > 0 {
         println!("  _SUSP_ rules: {suspicious_total} total (min_score gate = {min_score})");
         println!("  _SUSP_ score histogram (5-point buckets):");
