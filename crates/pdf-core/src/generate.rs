@@ -3,6 +3,7 @@
 //! untouched. These are visible, reversible document operations — they do not remove
 //! hidden content or metadata; use `redact`/`sanitize` for that.
 
+use crate::surgery::{resolve_inherited_resources, resolve_mediabox, resolve_rotate};
 use lopdf::{Document, Object, ObjectId};
 
 /// What an assembly operation can fail at. No logging here — the caller owns that.
@@ -95,6 +96,91 @@ pub fn rotate(
     doc.save_to(&mut out)
         .map_err(|_| GenerateError::Reassemble)?;
     Ok(out)
+}
+
+/// The catalog id and the page-tree root id of a document.
+fn catalog_and_pages_root(doc: &Document) -> Result<(ObjectId, ObjectId), GenerateError> {
+    let root = doc
+        .trailer
+        .get(b"Root")
+        .and_then(Object::as_reference)
+        .map_err(|_| GenerateError::Reassemble)?;
+    let pages = doc
+        .get_dictionary(root)
+        .and_then(|c| c.get(b"Pages"))
+        .and_then(Object::as_reference)
+        .map_err(|_| GenerateError::Reassemble)?;
+    Ok((root, pages))
+}
+
+/// Split a document into one output PDF per page range (inclusive, 0-based).
+///
+/// Each output is an independent single document containing only its range's pages.
+/// Inherited `/MediaBox`, `/Resources`, and `/Rotate` are flattened onto the kept pages
+/// so they stay correct after the page tree is rebuilt. The combined document's
+/// outlines, named destinations, and AcroForm are dropped (subset preservation of those
+/// is not attempted). An inverted or out-of-range range is [`GenerateError::PageOutOfRange`].
+pub fn split(bytes: &[u8], ranges: &[PageRange]) -> Result<Vec<Vec<u8>>, GenerateError> {
+    let source = Document::load_mem(bytes).map_err(|_| GenerateError::Parse)?;
+    let total = page_ids(&source).len();
+    if total == 0 {
+        return Err(GenerateError::NoPages);
+    }
+
+    let mut outputs = Vec::with_capacity(ranges.len());
+    for range in ranges {
+        if range.start > range.end || range.end >= total {
+            return Err(GenerateError::PageOutOfRange);
+        }
+        let mut doc = source.clone();
+        let (catalog_id, pages_root) = catalog_and_pages_root(&doc)?;
+        let kept: Vec<ObjectId> = page_ids(&doc)[range.start..=range.end].to_vec();
+
+        // Make each kept page self-contained, then re-parent it to the root.
+        for &page in &kept {
+            let mediabox = resolve_mediabox(&doc, page);
+            let resources = resolve_inherited_resources(&doc, page).cloned();
+            let rotation = resolve_rotate(&doc, page);
+            let dict = doc
+                .get_object_mut(page)
+                .and_then(|o| o.as_dict_mut())
+                .map_err(|_| GenerateError::Reassemble)?;
+            if let Some(mb) = mediabox {
+                dict.set(
+                    "MediaBox",
+                    Object::Array(mb.iter().map(|&v| Object::Real(v)).collect()),
+                );
+            }
+            if let Some(res) = resources {
+                dict.set("Resources", Object::Dictionary(res));
+            }
+            dict.set("Rotate", Object::Integer(rotation));
+            dict.set("Parent", Object::Reference(pages_root));
+        }
+
+        let kids: Vec<Object> = kept.iter().map(|&id| Object::Reference(id)).collect();
+        let count = kids.len() as i64;
+        let root_dict = doc
+            .get_object_mut(pages_root)
+            .and_then(|o| o.as_dict_mut())
+            .map_err(|_| GenerateError::Reassemble)?;
+        root_dict.set("Kids", Object::Array(kids));
+        root_dict.set("Count", Object::Integer(count));
+
+        // Document-level interactive structure does not survive a subset; drop it.
+        if let Ok(catalog) = doc.get_object_mut(catalog_id).and_then(|o| o.as_dict_mut()) {
+            catalog.remove(b"Outlines");
+            catalog.remove(b"Names");
+            catalog.remove(b"AcroForm");
+        }
+        doc.prune_objects();
+
+        let mut out = Vec::new();
+        doc.save_to(&mut out)
+            .map_err(|_| GenerateError::Reassemble)?;
+        outputs.push(out);
+    }
+    Ok(outputs)
 }
 
 #[cfg(test)]
@@ -190,6 +276,59 @@ mod tests {
                 Rotation::Cw90,
                 &PageSelection::Pages(vec![5])
             ),
+            Err(GenerateError::PageOutOfRange)
+        );
+    }
+
+    fn page_count(bytes: &[u8]) -> usize {
+        Document::load_mem(bytes).unwrap().get_pages().len()
+    }
+
+    #[test]
+    fn split_one_range() {
+        let outs = split(&multi_page_doc(3), &[PageRange { start: 1, end: 2 }]).unwrap();
+        assert_eq!(outs.len(), 1);
+        assert_eq!(page_count(&outs[0]), 2);
+        // The output is an independent, renderable document.
+        assert_eq!(
+            crate::Document::load(outs[0].clone()).unwrap().page_count(),
+            2
+        );
+    }
+
+    #[test]
+    fn split_multiple_ranges() {
+        let outs = split(
+            &multi_page_doc(3),
+            &[
+                PageRange { start: 0, end: 0 },
+                PageRange { start: 1, end: 2 },
+            ],
+        )
+        .unwrap();
+        assert_eq!(outs.len(), 2);
+        assert_eq!(page_count(&outs[0]), 1);
+        assert_eq!(page_count(&outs[1]), 2);
+    }
+
+    #[test]
+    fn split_full_range_roundtrips() {
+        let outs = split(&multi_page_doc(3), &[PageRange { start: 0, end: 2 }]).unwrap();
+        assert_eq!(page_count(&outs[0]), 3);
+    }
+
+    #[test]
+    fn split_out_of_range_errs() {
+        assert_eq!(
+            split(&multi_page_doc(2), &[PageRange { start: 0, end: 5 }]),
+            Err(GenerateError::PageOutOfRange)
+        );
+    }
+
+    #[test]
+    fn split_inverted_range_errs() {
+        assert_eq!(
+            split(&multi_page_doc(3), &[PageRange { start: 2, end: 1 }]),
             Err(GenerateError::PageOutOfRange)
         );
     }
