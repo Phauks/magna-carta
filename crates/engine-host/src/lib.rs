@@ -5,7 +5,6 @@
 
 pub mod format;
 
-#[cfg(target_arch = "wasm32")]
 pub mod wasm_edge;
 
 #[cfg(not(target_arch = "wasm32"))]
