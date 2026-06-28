@@ -26,6 +26,10 @@ async fn spawn() -> (String, Store) {
             get(move |Path(key): Path<String>| {
                 let s = s_get.clone();
                 async move {
+                    // A key containing "boom" simulates a transient R2 5xx (for the 502-mapping test).
+                    if key.contains("boom") {
+                        return Err(axum::http::StatusCode::INTERNAL_SERVER_ERROR);
+                    }
                     s.lock()
                         .unwrap()
                         .get(&key)
@@ -285,6 +289,31 @@ async fn absurdly_small_max_part_bytes_is_rejected() {
     let body: serde_json::Value = serde_json::from_slice(&resp.bytes().await.unwrap()).unwrap();
     assert_eq!(body["ok"], false);
     assert!(body["error"].as_str().unwrap().contains("volumes"));
+}
+
+#[tokio::test]
+async fn transient_r2_error_maps_to_502() {
+    let (base, _store) = spawn().await;
+    let manifest = serde_json::json!({
+        "jobId": "jobBoom",
+        "format": "zip",
+        "compression": "store",
+        "entries": [
+            { "archivePath": "x.txt", "mtimeEpochSecs": null, "source": "r2", "r2Key": "inputs/boom" },
+        ],
+        "outputKeyPrefix": "bundles/boom.zip",
+    });
+    let resp = post_json(&base, &manifest).await;
+    // A transient R2 5xx is retryable, not a client error — it must NOT be reported as 422.
+    assert_eq!(resp.status(), 502);
+    let body: serde_json::Value = serde_json::from_slice(&resp.bytes().await.unwrap()).unwrap();
+    assert_eq!(body["ok"], false);
+    // The internal R2 URL/key must not leak in the message.
+    let error = body["error"].as_str().unwrap();
+    assert!(
+        !error.contains("boom") && !error.contains("http"),
+        "leaky error: {error}"
+    );
 }
 
 #[tokio::test]

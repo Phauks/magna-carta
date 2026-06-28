@@ -30,6 +30,56 @@ use std::task::{Context, Poll};
 /// `maxPartBytes` exploding the part count (and the R2 PUT loop); far above any legitimate split.
 const MAX_VOLUMES: u64 = 100_000;
 
+/// A build failure, carrying the right HTTP status so the caller can tell a bad manifest (permanent,
+/// don't retry) from a transient R2/upstream hiccup (retryable) from an internal fault.
+enum BuildError {
+    /// The request is wrong (bad manifest, unsafe key, undecodable inline bytes) — HTTP 422.
+    Client(String),
+    /// An R2 read/write failed transiently (transport error or R2 5xx) — HTTP 502. The message is
+    /// generic on purpose so the internal R2 URL/key never leaks into the response.
+    Upstream,
+    /// An internal fault (disk, encoder, blocking-task join) — HTTP 500.
+    Server(String),
+}
+
+impl BuildError {
+    fn into_response(self) -> Response {
+        let (status, message) = match self {
+            BuildError::Client(message) => (StatusCode::UNPROCESSABLE_ENTITY, message),
+            BuildError::Upstream => (
+                StatusCode::BAD_GATEWAY,
+                "an R2 read or write failed".to_string(),
+            ),
+            BuildError::Server(message) => (StatusCode::INTERNAL_SERVER_ERROR, message),
+        };
+        (
+            status,
+            Json(BuildResponse {
+                ok: false,
+                volumes: vec![],
+                error: Some(message),
+            }),
+        )
+            .into_response()
+    }
+}
+
+// Map an R2 transport result to the right build error: a 4xx (e.g. a missing input key) is the caller's
+// fault and permanent (422); a transport error or 5xx is transient and retryable (502); a local disk
+// error during the transfer is an internal fault (500). Never echoes the reqwest error (which embeds the
+// URL) for the upstream case.
+fn from_r2(error: r2::R2Error) -> BuildError {
+    match error {
+        r2::R2Error::Status(status) if status.is_client_error() => {
+            BuildError::Client(format!("an R2 object request failed with status {status}"))
+        }
+        r2::R2Error::Io(io_error) => {
+            BuildError::Server(format!("disk error during an R2 transfer: {io_error}"))
+        }
+        r2::R2Error::Http(_) | r2::R2Error::Status(_) => BuildError::Upstream,
+    }
+}
+
 /// The `/build` query string. `stream=1` selects the streaming (no-persist) lane.
 #[derive(serde::Deserialize)]
 pub struct BuildQuery {
@@ -77,51 +127,41 @@ pub async fn build_handler(
     Query(query): Query<BuildQuery>,
     Json(req): Json<BuildRequest>,
 ) -> Response {
-    if query.stream.as_deref() == Some("1") {
-        match build_stream(&state, req).await {
-            Ok(response) => response,
-            Err(message) => error_response(message),
-        }
+    let result = if query.stream.as_deref() == Some("1") {
+        build_stream(&state, req).await
     } else {
-        match build(&state, req).await {
-            Ok(volumes) => Json(BuildResponse {
+        build(&state, req).await.map(|volumes| {
+            Json(BuildResponse {
                 ok: true,
                 volumes,
                 error: None,
             })
-            .into_response(),
-            Err(message) => error_response(message),
-        }
+            .into_response()
+        })
+    };
+    match result {
+        Ok(response) => response,
+        Err(error) => error.into_response(),
     }
-}
-
-fn error_response(message: String) -> Response {
-    (
-        StatusCode::UNPROCESSABLE_ENTITY,
-        Json(BuildResponse {
-            ok: false,
-            volumes: vec![],
-            error: Some(message),
-        }),
-    )
-        .into_response()
 }
 
 /// Defense in depth at the last hop before R2: reject any key/prefix that could escape the intended
 /// scope or rewrite the request host (a scheme, an absolute path, or a `..` segment). The TS layer
 /// sanitizes upstream; this is the container refusing to be steered by a forged manifest.
-fn reject_unsafe_key(key: &str) -> Result<(), String> {
+fn reject_unsafe_key(key: &str) -> Result<(), BuildError> {
     if key.contains("://")
         || key.starts_with('/')
         || key.starts_with('\\')
         || key.split(['/', '\\']).any(|segment| segment == "..")
     {
-        return Err("rejected an unsafe R2 key or output prefix".into());
+        return Err(BuildError::Client(
+            "rejected an unsafe R2 key or output prefix".into(),
+        ));
     }
     Ok(())
 }
 
-fn validate_keys(req: &BuildRequest) -> Result<(), String> {
+fn validate_keys(req: &BuildRequest) -> Result<(), BuildError> {
     reject_unsafe_key(&req.output_key_prefix)?;
     for entry in &req.entries {
         if let EntrySource::R2 { r2_key } = &entry.source {
@@ -132,73 +172,87 @@ fn validate_keys(req: &BuildRequest) -> Result<(), String> {
 }
 
 /// Spills every input to a temp file under `scratch` (R2 GET streamed to disk, or inline base64 decoded),
-/// returning a lazy reader per entry. R2 bodies never fully buffer; the inline path is the small
-/// generated CONTENTS file (bounded by the request body limit).
+/// returning a lazy reader per entry and the spill paths (so the caller can free them once encoding has
+/// consumed them). R2 bodies never fully buffer; the inline path is the small generated CONTENTS file
+/// (bounded by the request body limit).
 async fn spill_inputs(
     state: &AppState,
     req: &BuildRequest,
     scratch: &Path,
-) -> Result<Vec<LocalEntry>, String> {
+) -> Result<(Vec<LocalEntry>, Vec<PathBuf>), BuildError> {
     let mut locals: Vec<LocalEntry> = Vec::with_capacity(req.entries.len());
+    let mut spill_paths: Vec<PathBuf> = Vec::with_capacity(req.entries.len());
     for (i, entry) in req.entries.iter().enumerate() {
         let spill = scratch.join(format!("in-{i}"));
-        let mut file = std::fs::File::create(&spill).map_err(|e| e.to_string())?;
+        let mut file =
+            std::fs::File::create(&spill).map_err(|e| BuildError::Server(e.to_string()))?;
         match &entry.source {
             EntrySource::R2 { r2_key } => {
                 r2::get_to_writer(&state.http, &state.r2_base_url, r2_key, &mut file)
                     .await
-                    .map_err(|e| e.to_string())?;
+                    .map_err(from_r2)?;
             }
             EntrySource::Inline { bytes_base64 } => {
                 let bytes = base64::engine::general_purpose::STANDARD
                     .decode(bytes_base64)
-                    .map_err(|e| e.to_string())?;
-                std::io::Write::write_all(&mut file, &bytes).map_err(|e| e.to_string())?;
+                    .map_err(|e| BuildError::Client(format!("invalid inline base64: {e}")))?;
+                std::io::Write::write_all(&mut file, &bytes)
+                    .map_err(|e| BuildError::Server(e.to_string()))?;
             }
         }
         drop(file);
         locals.push(LocalEntry {
             archive_path: entry.archive_path.clone(),
             mtime_epoch_secs: entry.mtime_epoch_secs,
-            reader: Box::new(LazyFile::new(spill)),
+            reader: Box::new(LazyFile::new(spill.clone())),
         });
+        spill_paths.push(spill);
     }
-    Ok(locals)
+    Ok((locals, spill_paths))
 }
 
-/// The CPU-bound encode, run on the blocking pool. Writes the archive to `out_path` (a seekable file).
+/// The CPU-bound encode, run on the blocking pool. Writes the archive to `out_path` (a seekable file),
+/// then deletes the now-consumed input spill files so peak disk during split/PUT is bounded by the
+/// archive, not the archive plus every input.
 fn encode_to_file(
     format: Format,
     compression: Compression,
     encryption: Option<Encryption>,
     locals: Vec<LocalEntry>,
+    spill_paths: &[PathBuf],
     out_path: &Path,
-) -> Result<(), String> {
-    let mut out = std::fs::File::create(out_path).map_err(|e| e.to_string())?;
+) -> Result<(), BuildError> {
+    let mut out = std::fs::File::create(out_path).map_err(|e| BuildError::Server(e.to_string()))?;
     let enc = encryption.as_ref();
     match format {
         Format::Zip => encode_zip(locals.into_iter(), compression, enc, &mut out),
         Format::SevenZip => encode_7z(locals.into_iter(), compression, enc, &mut out),
     }
-    .map_err(|e| e.to_string())?;
-    out.sync_all().map_err(|e| e.to_string())?;
+    .map_err(|e| BuildError::Server(e.to_string()))?;
+    out.sync_all()
+        .map_err(|e| BuildError::Server(e.to_string()))?;
+    for path in spill_paths {
+        let _ = std::fs::remove_file(path); // best-effort; the temp dir is removed regardless on drop
+    }
     Ok(())
 }
 
-async fn build(state: &AppState, req: BuildRequest) -> Result<Vec<Volume>, String> {
+async fn build(state: &AppState, req: BuildRequest) -> Result<Vec<Volume>, BuildError> {
     // ZIP has no format-native multi-volume splitting (the TS layer rejects it too).
     if matches!(req.format, Format::Zip) && req.split.is_some() {
-        return Err("zip does not support multi-volume splitting".into());
+        return Err(BuildError::Client(
+            "zip does not support multi-volume splitting".into(),
+        ));
     }
     if let Some(split) = &req.split {
         if split.max_part_bytes == 0 {
-            return Err("maxPartBytes must be positive".into());
+            return Err(BuildError::Client("maxPartBytes must be positive".into()));
         }
     }
     validate_keys(&req)?;
 
-    let scratch = tempfile::tempdir().map_err(|e| e.to_string())?;
-    let locals = spill_inputs(state, &req, scratch.path()).await?;
+    let scratch = tempfile::tempdir().map_err(|e| BuildError::Server(e.to_string()))?;
+    let (locals, spill_paths) = spill_inputs(state, &req, scratch.path()).await?;
     let out_path = scratch.path().join("archive.out");
 
     // Encode (and split) off the async worker thread so /ready stays responsive during a long build.
@@ -208,28 +262,36 @@ async fn build(state: &AppState, req: BuildRequest) -> Result<Vec<Volume>, Strin
     let split_max = req.split.as_ref().map(|s| s.max_part_bytes);
     let encode_out = out_path.clone();
     let parts: Vec<PathBuf> =
-        tokio::task::spawn_blocking(move || -> Result<Vec<PathBuf>, String> {
-            encode_to_file(format, compression, encryption, locals, &encode_out)?;
+        tokio::task::spawn_blocking(move || -> Result<Vec<PathBuf>, BuildError> {
+            encode_to_file(
+                format,
+                compression,
+                encryption,
+                locals,
+                &spill_paths,
+                &encode_out,
+            )?;
             match split_max {
                 Some(max) => {
                     // Cap the volume count before cutting: a pathologically small maxPartBytes (e.g. 1)
                     // would otherwise explode into millions of part files and R2 PUTs. Bounds the blast
                     // radius regardless of the requested part size.
                     let size = std::fs::metadata(&encode_out)
-                        .map_err(|e| e.to_string())?
+                        .map_err(|e| BuildError::Server(e.to_string()))?
                         .len();
                     if size.div_ceil(max) > MAX_VOLUMES {
-                        return Err(format!(
+                        return Err(BuildError::Client(format!(
                             "maxPartBytes too small: would produce more than {MAX_VOLUMES} volumes"
-                        ));
+                        )));
                     }
-                    split::split_file_into_volumes(&encode_out, max).map_err(|e| e.to_string())
+                    split::split_file_into_volumes(&encode_out, max)
+                        .map_err(|e| BuildError::Server(e.to_string()))
                 }
                 None => Ok(vec![encode_out.clone()]),
             }
         })
         .await
-        .map_err(|e| format!("encode task failed: {e}"))??;
+        .map_err(|e| BuildError::Server(format!("encode task failed: {e}")))??;
 
     // PUT each volume to R2. A single (unsplit) artifact keeps the bare prefix; split volumes get the
     // 7z `.NNN` suffix.
@@ -240,13 +302,15 @@ async fn build(state: &AppState, req: BuildRequest) -> Result<Vec<Volume>, Strin
         } else {
             req.output_key_prefix.clone()
         };
-        let len = std::fs::metadata(part).map_err(|e| e.to_string())?.len();
+        let len = std::fs::metadata(part)
+            .map_err(|e| BuildError::Server(e.to_string()))?
+            .len();
         let file = tokio::fs::File::open(part)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| BuildError::Server(e.to_string()))?;
         r2::put_file(&state.http, &state.r2_base_url, &key, file, len)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(from_r2)?;
         volumes.push(Volume {
             key,
             size_bytes: len,
@@ -257,16 +321,18 @@ async fn build(state: &AppState, req: BuildRequest) -> Result<Vec<Volume>, Strin
 
 /// The streaming lane: encode a single archive and stream it straight back, never split and never
 /// written to R2. This is the encrypted lane — the archive (and its password) exist only in flight.
-async fn build_stream(state: &AppState, req: BuildRequest) -> Result<Response, String> {
+async fn build_stream(state: &AppState, req: BuildRequest) -> Result<Response, BuildError> {
     // The streaming lane is single-file: splitting needs persisted, individually addressable volumes.
     // (encryption+split is already rejected upstream; this rejects split defensively here too.)
     if req.split.is_some() {
-        return Err("the streaming lane does not support multi-volume splitting".into());
+        return Err(BuildError::Client(
+            "the streaming lane does not support multi-volume splitting".into(),
+        ));
     }
     validate_keys(&req)?;
 
-    let scratch = tempfile::tempdir().map_err(|e| e.to_string())?;
-    let locals = spill_inputs(state, &req, scratch.path()).await?;
+    let scratch = tempfile::tempdir().map_err(|e| BuildError::Server(e.to_string()))?;
+    let (locals, spill_paths) = spill_inputs(state, &req, scratch.path()).await?;
     let out_path = scratch.path().join("archive.out");
 
     let format = req.format;
@@ -274,17 +340,24 @@ async fn build_stream(state: &AppState, req: BuildRequest) -> Result<Response, S
     let encryption = req.encryption.clone();
     let encode_out = out_path.clone();
     tokio::task::spawn_blocking(move || {
-        encode_to_file(format, compression, encryption, locals, &encode_out)
+        encode_to_file(
+            format,
+            compression,
+            encryption,
+            locals,
+            &spill_paths,
+            &encode_out,
+        )
     })
     .await
-    .map_err(|e| format!("encode task failed: {e}"))??;
+    .map_err(|e| BuildError::Server(format!("encode task failed: {e}")))??;
 
     // Stream the encoded file as the response body. The TempDir rides along in the stream so it is not
     // dropped (which would delete the file) until the body is fully sent. The worker sets the
     // user-facing content-type; the container emits a generic octet-stream.
     let file = tokio::fs::File::open(&out_path)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| BuildError::Server(e.to_string()))?;
     let stream = TempFileStream {
         _scratch: scratch,
         inner: tokio_util::io::ReaderStream::new(file),
