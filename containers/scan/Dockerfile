@@ -35,26 +35,61 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
  && mkdir -p /artifacts \
  && cp target/release/magna-carta-scan target/release/build-yara-rules /artifacts/
 
-# Resolve the release tag (latest unless pinned), download all three tier packages (core/extended/full),
-# then filter + compile + serialize them with build-yara-rules into a single binary rule blob and a
-# side-map JSON. build-yara-rules fails the build loud on an empty/inconsistent package or a systemic
-# compile failure, so a broken rules fetch stops the image rather than shipping a degraded scanner.
-# Each package is unpacked into its own directory and guarded for exactly one .yar — the layout
-# invariant from the original single-tier fetch applied per package, so a changed upstream layout
-# fails loud rather than silently bundling partial rules. The resolved tag is written next to the
-# blob and becomes the engine-version `yara-rules` component at runtime.
+# Resolve the release tag, download all three tier packages (core/extended/full), then filter +
+# compile + serialize them with build-yara-rules into a single binary rule blob and a side-map JSON.
+# build-yara-rules fails the build loud on an empty/inconsistent package or a systemic compile
+# failure, so a broken rules fetch stops the image rather than shipping a degraded scanner. Each
+# package is unpacked into its own directory and guarded for exactly one .yar — the layout invariant
+# from the original single-tier fetch applied per package, so a changed upstream layout fails loud
+# rather than silently bundling partial rules. The resolved tag is written next to the blob and
+# becomes the engine-version `yara-rules` component at runtime.
+#
+# Tag resolution deliberately avoids the api.github.com REST endpoint: it is rate-limited to 60
+# requests/hour per IP for unauthenticated callers, and the shared CI build runners exhaust that
+# quota, so the nightly self-updating rebuild would intermittently 403 → empty tag → 404 on the
+# asset URLs. Instead "latest" is read from the github.com/.../releases/latest 302 redirect, whose
+# Location carries /releases/tag/<TAG>; that web/CDN surface is the same one the asset downloads use
+# and is not API-rate-limited. The REST endpoint stays as a last-resort fallback, and every network
+# step retries with backoff so a transient blip does not fail the image. See
+# docs/conventions/build-performance.md.
 RUN set -eux; \
+    retry() { \
+      _n=0; \
+      while :; do \
+        if "$@"; then return 0; fi; \
+        _n=$((_n+1)); \
+        if [ "$_n" -ge 5 ]; then return 1; fi; \
+        echo "yara-forge: command failed, retry $_n/5" >&2; \
+        sleep $((_n*3)); \
+      done; \
+    }; \
     TAG="${YARA_FORGE_TAG}"; \
     if [ -z "$TAG" ]; then \
-      TAG="$(curl -fsSL https://api.github.com/repos/YARAHQ/yara-forge/releases/latest | jq -r .tag_name)"; \
+      _n=0; \
+      while [ -z "$TAG" ] && [ "$_n" -lt 5 ]; do \
+        TAG="$(curl -fsS -o /dev/null -w '%{redirect_url}' https://github.com/YARAHQ/yara-forge/releases/latest | sed -n 's#.*/releases/tag/##p')"; \
+        if [ -z "$TAG" ]; then \
+          _n=$((_n+1)); echo "yara-forge: latest-tag redirect resolve failed, retry $_n/5" >&2; sleep $((_n*3)); \
+        fi; \
+      done; \
+      if [ -z "$TAG" ]; then \
+        echo "yara-forge: redirect resolve exhausted; falling back to api.github.com" >&2; \
+        _n=0; \
+        while [ -z "$TAG" ] && [ "$_n" -lt 5 ]; do \
+          TAG="$(curl -fsSL https://api.github.com/repos/YARAHQ/yara-forge/releases/latest | jq -r '.tag_name // empty')"; \
+          if [ -z "$TAG" ]; then \
+            _n=$((_n+1)); echo "yara-forge: api.github.com tag resolve failed, retry $_n/5" >&2; sleep $((_n*5)); \
+          fi; \
+        done; \
+      fi; \
     fi; \
     test -n "$TAG" && test "$TAG" != "null"; \
     mkdir -p /out /forge/core /forge/extended /forge/full; \
-    curl -fsSL -o /forge/core.zip \
+    retry curl -fsSL -o /forge/core.zip \
       "https://github.com/YARAHQ/yara-forge/releases/download/${TAG}/yara-forge-rules-core.zip"; \
-    curl -fsSL -o /forge/extended.zip \
+    retry curl -fsSL -o /forge/extended.zip \
       "https://github.com/YARAHQ/yara-forge/releases/download/${TAG}/yara-forge-rules-extended.zip"; \
-    curl -fsSL -o /forge/full.zip \
+    retry curl -fsSL -o /forge/full.zip \
       "https://github.com/YARAHQ/yara-forge/releases/download/${TAG}/yara-forge-rules-full.zip"; \
     unzip -o /forge/core.zip     -d /forge/core     >/dev/null; \
     unzip -o /forge/extended.zip -d /forge/extended >/dev/null; \
