@@ -71,9 +71,12 @@ bash tests/acceptance.sh                            # build the image + R2-stub 
 ## Gotchas
 
 - The engine **cannot run under `@cloudflare/vitest-pool-workers`** (containers unsupported there), so the
-  worker binding is a **deploy-time activation** and the acceptance gate runs in the pre-push hook (when
-  `containers/bundle/` changed and Docker is available), not the local worker suite. Until the image deploys
-  and `BUNDLE_SERVICE` binds, the heavy/encrypted bundle lanes return 503.
+  worker binding is a **deploy-time activation**. Two verifications: the local Docker acceptance gate
+  (`tests/acceptance.sh`, in the pre-push hook when `containers/bundle/` changed and Docker is available)
+  and — the more faithful one — the bundle worker's guarded **`POST /self-test`** run against the live
+  deploy (exercises the real `env.R2` outbound mediation + both lanes; see `docs/conventions/operations.md`
+  "Testing a container on Cloudflare"). Until the image deploys and `BUNDLE_SERVICE` binds, the
+  heavy/encrypted bundle lanes return 503.
 - **7z tiny-archive header fallback.** `sevenz_rust2` writes the header in the clear when AES+LZMA would
   inflate a tiny header (`compress_size + 20 >= size`); with header encryption requested but the archive
   tiny, `SevenZReader::new` can open with a wrong password. The content stream is always encrypted, so the

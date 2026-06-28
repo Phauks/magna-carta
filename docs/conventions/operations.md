@@ -299,6 +299,23 @@ With GitHub Actions retired, Workers Builds builds and deploys but runs no check
 
 The scan image build uses BuildKit cache mounts (`containers/scan/Dockerfile`) so an unchanged Cargo dependency graph is not recompiled. Mounts are build-local; if cold Rust dependency compiles in the Workers Build become the bottleneck, a cache-mount export is the documented upgrade path ([`build-performance.md`](build-performance.md)).
 
+### Testing a container on Cloudflare (post-deploy self-test)
+
+A container is a Docker image that cannot run under the local Miniflare test pool, and Workers Builds builds the image **remotely** — so the most faithful test is to deploy and exercise the live container, which also covers what no local stub can: the real outbound-Workers `env.R2` mediation, the Container Durable Object lifecycle (cold start, `sleepAfter`, the warm cron), the real instance sizing, and the service-binding wiring. The bundle worker ships a **guarded self-test endpoint** for exactly this; it is the template other container subsystems should copy.
+
+`POST /self-test` on `magna-carta-bundle` runs the deployed container through `/ready`, a buffered ZIP build (R2 + inline entries, verified back in R2), the streaming encrypted lane (archive returned, nothing persisted), and a 7z multi-volume split — then deletes every object it wrote and returns a JSON report (`{ ok, runId, checks[], elapsedMs }`, HTTP 200 when all checks pass, 500 otherwise). It is **disabled by default**: the route 404s unless `BUNDLE_SELF_TEST_KEY` is set on the worker **and** the request presents it as the `x-self-test-key` header (constant-time compare), so it is safe to ship on every environment including production.
+
+To run it:
+
+1. **Set the secret** (only while testing; remove it after if you prefer the route fully dark):
+   `wrangler secret put BUNDLE_SELF_TEST_KEY` (or Dashboard → the Worker → Settings → Variables and Secrets). Generate a high-entropy value (e.g. `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`).
+2. **Reach the worker.** `magna-carta-bundle` is internal (`workers_dev: false`, no public routes), so pick one:
+   - **Through the app worker (preferred once `BUNDLE_SERVICE` is bound):** the app worker can relay a service-binding call to `http://bundle/self-test` with the header — no public exposure of the bundle worker.
+   - **Isolated (before the app worker is wired):** deploy a throwaway staging instance with `workers_dev: true` and the secret set, then `curl -X POST https://<worker>.<account>.workers.dev/self-test -H "x-self-test-key: <value>"`. Tear it down after. Keep the committed `wrangler.jsonc` at `workers_dev: false` — do not expose the production bundle worker publicly.
+3. **Read the report.** A 200 with every `checks[].ok === true` means the deployed image, both build lanes, the R2 mediation, and split all work end to end. A 500 lists the failing check and its detail.
+
+This makes the local Docker acceptance gate (`containers/bundle/tests/acceptance.sh`) optional — a fast pre-push smoke when Docker is present — rather than the only proof. The same pattern (a secret-gated `/self-test` that round-trips the container and cleans up) is the recommended post-deploy check for any future container subsystem.
+
 ---
 
 ## 13. Control-plane database migrations
