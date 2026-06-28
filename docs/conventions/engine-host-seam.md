@@ -17,10 +17,8 @@ the runtime seam. Home of the design: `docs/specs/2026-06-28-engine-host-framewo
   `engine_host::wasm_edge` (`bytes_out`, `ObjectBuilder`, `EdgeError` + `to_js_error`).
   Error codes are fixed `&'static str` values from a per-engine set — never file
   content (golden rule 4). Prove it with `wasm_edge::allowed_code` in a test.
-- **Container fail-safe.** Build the service with `engine_host::host` (`ready_app`,
-  `with_panic_net`, `serve`). Bind `0.0.0.0:8080`, expose `GET /ready`, cap the body,
-  catch panics. A panicking handler returns 500; it never crashes the container or
-  reports a silently-wrong success.
+- **Cheap format detection.** Identify a file's container type with `engine_host::format::detect` (magic-byte Format — Pdf/Zip/Ole2). It is the shared, growing first check; an engine that needs a richer or deeper identification composes on top of it rather than re-reading magic bytes. Ole2 is the honest magic-level identity of a compound file — the engine decides whether a given Ole2 is encrypted OOXML, legacy .doc, .msg, etc.
+- **Container fail-safe.** Build the service with `engine_host::host` (ready_app — adds GET /ready and the MAX_BODY_BYTES cap; serve / serve_on; with_panic_net; r2_client for R2 GET/PUT). Bind `0.0.0.0:8080`, catch panics. A panicking handler returns 500; it never crashes the container or reports a silently-wrong success.
 - **Runtime placement.** The Worker (wasm) is the default lane; the Container (native)
   is the heavy lane, entered only when file size or CPU exceeds the Worker budget.
   Heavy/async work goes through a Queue + a per-job Durable Object. Same engine crate,
