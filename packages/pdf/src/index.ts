@@ -536,3 +536,94 @@ export async function secureDocument(
   await ensureReady();
   return wasmSecureDocument(bytes, options) as { pdf: Uint8Array };
 }
+
+// ── Generate / assembly: merge, split, rotate, watermark ────────────────────────
+//
+// All run client-side in WebAssembly; the document bytes never leave the process.
+// merge / rotate / watermark are visible, reversible operations — they do not remove
+// hidden content or metadata (use redactDocument / sanitizeDocument for that).
+
+import {
+  mergeDocuments as wasmMergeDocuments,
+  splitDocument as wasmSplitDocument,
+  rotatePages as wasmRotatePages,
+  watermarkDocument as wasmWatermarkDocument,
+} from "./pkg/pdf_core.js";
+
+/** Combine the pages of several PDFs into one, in order, carrying each input's outlines,
+ * form fields, and named destinations across. */
+export async function mergeDocuments(documents: Uint8Array[]): Promise<{ pdf: Uint8Array }> {
+  await ensureReady();
+  return wasmMergeDocuments(documents) as { pdf: Uint8Array };
+}
+
+/** An inclusive, 0-based page range. */
+export interface PageRange {
+  start: number;
+  end: number;
+}
+
+/** Split a PDF into one independent document per page range. */
+export async function splitDocument(
+  bytes: Uint8Array,
+  ranges: PageRange[],
+): Promise<{ pdfs: Uint8Array[] }> {
+  await ensureReady();
+  return wasmSplitDocument(bytes, ranges) as { pdfs: Uint8Array[] };
+}
+
+/** Rotate pages clockwise by 90, 180, or 270 degrees, relative to each page's existing
+ * rotation. Omit `pages` to rotate every page; otherwise pass 0-based indices. */
+export async function rotatePages(
+  bytes: Uint8Array,
+  rotation: 90 | 180 | 270,
+  pages?: number[],
+): Promise<{ pdf: Uint8Array }> {
+  await ensureReady();
+  return wasmRotatePages(bytes, rotation, pages) as { pdf: Uint8Array };
+}
+
+/** A text watermark drawn in one of the built-in standard fonts. */
+export interface WatermarkTextContent {
+  kind: "text";
+  text: string;
+  /** One of the twelve standard fonts; defaults to `"helvetica"`. */
+  font?: BatesFont;
+  /** Default 48. */
+  fontSizePt?: number;
+  /** RGB 0..1; default light grey. */
+  color?: [number, number, number];
+}
+
+/** An image/logo watermark (PNG or JPEG). */
+export interface WatermarkImageContent {
+  kind: "image";
+  bytes: Uint8Array;
+  /** Mark width as a fraction of the page width; default 0.3. */
+  scale?: number;
+}
+
+export type WatermarkContent = WatermarkTextContent | WatermarkImageContent;
+
+export interface WatermarkOptions {
+  content: WatermarkContent;
+  /** Fill/stroke alpha 0..1; default 0.3. */
+  opacity?: number;
+  /** Clockwise rotation of the mark in degrees; default 45 (diagonal). */
+  rotationDeg?: number;
+  /** A single centred mark or a tiled repeat; default `"center"`. */
+  placement?: "center" | "tiled";
+}
+
+/**
+ * Stamp an additive watermark — diagonal text ("CONFIDENTIAL"/"DRAFT") or an image/logo —
+ * onto every page. Additive: it draws on top and removes nothing (use redactDocument /
+ * sanitizeDocument to remove content).
+ */
+export async function watermarkDocument(
+  bytes: Uint8Array,
+  options: WatermarkOptions,
+): Promise<{ pdf: Uint8Array }> {
+  await ensureReady();
+  return wasmWatermarkDocument(bytes, options) as { pdf: Uint8Array };
+}
