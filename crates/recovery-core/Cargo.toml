@@ -1,0 +1,21 @@
+[package]
+name = "recovery-core"
+version = "0.0.0"
+edition.workspace = true
+publish = false
+
+[lib]
+name = "recovery_core"
+
+[dependencies]
+# The engine-host harness, RENAMED to `engine_host` so source reads `engine_host::format::detect` etc.
+# (the package's lib name is `magna_carta_engine_host`; the rename keeps call sites short and consistent).
+engine_host = { path = "../engine-host", package = "magna-carta-engine-host" }
+# Pure-Rust DEFLATE/zlib/gzip decoder that returns the decoded prefix together with the error on a
+# truncated/corrupt stream — the compression-stream salvage primitive.
+zune-inflate = "0.2"
+
+[dev-dependencies]
+# Build deterministic DEFLATE/zlib fixtures (compress, then truncate) for the salvage tests. Pure-Rust
+# miniz_oxide backend (no C dep) — matches the engine-host feature discipline.
+flate2 = "1"

@@ -1,0 +1,9 @@
+//! recovery-core: the file-corruption recovery engine. Pure compute on the
+//! magna-carta-engine-host harness — bytes in, a diagnosis or a salvaged result
+//! out. NO I/O lives here; the worker/container host it. Diagnose broadly,
+//! repair narrowly: per-format diagnosers and repairers register in later plans.
+
+pub mod model;
+pub mod error;
+pub mod salvage;
+pub mod diagnose;
