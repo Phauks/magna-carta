@@ -22,12 +22,12 @@ firm owner wants an enhanced download experience: choose the **format**, optiona
 better download), not a legal-production workflow (no Bates, no production manifests, no closeout/
 retention coupling).
 
-The word **"archive"** is deliberately avoided: in this product *archive* means retired/retention items.
+The word **"archive"** is deliberately avoided: in this product _archive_ means retired/retention items.
 The codebase's own term for a packaged download is **"bundle"**, and that is the term used throughout.
 
 ### Classification
 
-This is **not a new Tool** (the Tools area is matter-grade work done *without* committing to a matter;
+This is **not a new Tool** (the Tools area is matter-grade work done _without_ committing to a matter;
 this only makes sense acting on files already in a matter) and **not a new subsystem**. It is an
 **enhancement of the existing bundle / bulk-download path**, surfaced as advanced options on the matter
 file download/export action. `matterContext` is effectively required.
@@ -65,16 +65,16 @@ file download/export action. `matterContext` is effectively required.
 A single `BundleOptions` shape (home: `@magna-carta/file-manager`, alongside the existing
 `zip-composition.ts`):
 
-| Option | Values | Notes |
-| --- | --- | --- |
-| `format` | `zip` \| `sevenZip` | Via a pluggable encoder registry (below). |
-| `compression` | `store` \| `normal` \| `maximum` | Builder maps to Deflate (ZIP) / LZMA2 + solid (7z). |
-| `encryption` | none \| `{ algorithm: "aes-256", encryptFileNames?: boolean }` | Password supplied at request time, never stored. `encryptFileNames` only meaningful for 7z (ZIP-AES always leaves names visible). |
-| `split` | none \| `{ maxPartBytes }` | Presets in UI (e.g. ~20 MB email); format-native multi-volume. |
-| `outputName` | string | The bundle's display file name. |
-| `wrapperFolder` | none \| `{ name }` | Default: the matter name. Nests all entries under one top folder. |
-| `layout` | `preserveTree` \| `flatten` | `flatten` collapses all entries into the (optional wrapper) root, re-running collision disambiguation. |
-| `manifest` | boolean | Include a generated `CONTENTS` file: per-entry path + size + SHA-256. |
+| Option          | Values                                                         | Notes                                                                                                                             |
+| --------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `format`        | `zip` \| `sevenZip`                                            | Via a pluggable encoder registry (below).                                                                                         |
+| `compression`   | `store` \| `normal` \| `maximum`                               | Builder maps to Deflate (ZIP) / LZMA2 + solid (7z).                                                                               |
+| `encryption`    | none \| `{ algorithm: "aes-256", encryptFileNames?: boolean }` | Password supplied at request time, never stored. `encryptFileNames` only meaningful for 7z (ZIP-AES always leaves names visible). |
+| `split`         | none \| `{ maxPartBytes }`                                     | Presets in UI (e.g. ~20 MB email); format-native multi-volume.                                                                    |
+| `outputName`    | string                                                         | The bundle's display file name.                                                                                                   |
+| `wrapperFolder` | none \| `{ name }`                                             | Default: the matter name. Nests all entries under one top folder.                                                                 |
+| `layout`        | `preserveTree` \| `flatten`                                    | `flatten` collapses all entries into the (optional wrapper) root, re-running collision disambiguation.                            |
+| `manifest`      | boolean                                                        | Include a generated `CONTENTS` file: per-entry path + size + SHA-256.                                                             |
 
 **Always-on correctness (not knobs):** ZIP64, UTF-8 entry names, cross-platform name sanitization
 (Windows reserved chars / length), and original-timestamp preservation.

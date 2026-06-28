@@ -1,8 +1,14 @@
 import { runIngest, type IngestInput } from "@magna-carta/file-manager/ingest-core";
-import type { MalwareScanPort, RawScanResult } from "@magna-carta/file-manager/scan-port";
+import type {
+  MalwareScanPort,
+  RawScanResult,
+  RuleMatch,
+} from "@magna-carta/file-manager/scan-port";
 import { unscannedAdapter } from "@magna-carta/file-manager/scan-port";
 import type { UploadPolicy } from "@magna-carta/file-manager/upload-policy";
 import { DEFAULT_UPLOAD_POLICY } from "@magna-carta/file-manager/upload-policy";
+import { DEFAULT_SCAN_POLICY, type ScanPolicy } from "@magna-carta/file-manager/verdict";
+import type { FlaggedTreatment } from "@magna-carta/file-manager/scan-policy-settings";
 import { describe, expect, it } from "vitest";
 
 // The ingest core uses crypto.DigestStream (a Workers-runtime API), so it is exercised here in the
@@ -42,6 +48,8 @@ function input(bytes: Uint8Array, overrides: Partial<IngestInput> = {}): IngestI
     policy: POLICY,
     scanPort: unscannedAdapter,
     inspectableSizeCap: 2 * 1024 * 1024 * 1024,
+    scanPolicy: DEFAULT_SCAN_POLICY,
+    flaggedTreatment: "block",
     ...overrides,
   };
 }
@@ -175,6 +183,8 @@ const baseInput = (bytes: Uint8Array) => ({
   },
   policy: DEFAULT_UPLOAD_POLICY,
   inspectableSizeCap: 2 * 1024 * 1024 * 1024,
+  scanPolicy: DEFAULT_SCAN_POLICY,
+  flaggedTreatment: "block" as FlaggedTreatment,
 });
 
 describe("runIngest uninspectable + raw scan verdict", () => {
@@ -269,6 +279,93 @@ describe("runIngest uninspectable + raw scan verdict", () => {
           timings: { clamdMs: 0, yaraMs: 0 },
         }),
       }),
+    ).rejects.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Treatment-aware flagged branch
+// ---------------------------------------------------------------------------
+
+function infectedRaw(signature: string): RawScanResult {
+  return {
+    engineVersion: "test-engine-1",
+    clam: { state: "infected", signature },
+    heuristic: { kind: "none" },
+    matches: [],
+    timings: { clamdMs: 1, yaraMs: 1 },
+  };
+}
+
+function matchRaw(match: RuleMatch): RawScanResult {
+  return {
+    engineVersion: "test-engine-1",
+    clam: { state: "clean" },
+    heuristic: { kind: "none" },
+    matches: [match],
+    timings: { clamdMs: 1, yaraMs: 1 },
+  };
+}
+
+function deployedUnavailableRaw(): RawScanResult {
+  return {
+    engineVersion: "test-engine-1",
+    clam: { state: "unavailable" },
+    heuristic: { kind: "none" },
+    matches: [],
+    timings: { clamdMs: 0, yaraMs: 0 },
+  };
+}
+
+async function runIngestWithPolicyTreatment(
+  raw: RawScanResult,
+  policy: ScanPolicy,
+  treatment: FlaggedTreatment,
+) {
+  const bytes = new Uint8Array([1, 2, 3, 4]);
+  return runIngest({
+    ...baseInput(bytes),
+    scanPort: fixedScan(raw),
+    scanPolicy: policy,
+    flaggedTreatment: treatment,
+  });
+}
+
+describe("runIngest treatment-aware flagged branch", () => {
+  it("flagged upload with treatment=block quarantines (scan-flagged)", async () => {
+    const raw = infectedRaw("Eicar");
+    const outcome = await runIngestWithPolicyTreatment(raw, DEFAULT_SCAN_POLICY, "block");
+    expect(outcome).toMatchObject({
+      kind: "quarantine",
+      reason: "scan-flagged",
+      scanDetail: "Eicar",
+    });
+  });
+
+  it("flagged upload with treatment=informed-access commits as flagged", async () => {
+    const raw = infectedRaw("Eicar");
+    const outcome = await runIngestWithPolicyTreatment(raw, DEFAULT_SCAN_POLICY, "informed-access");
+    expect(outcome).toMatchObject({ kind: "commit", scanVerdict: "flagged", scanDetail: "Eicar" });
+  });
+
+  it("flagged upload with treatment=allow-and-flag commits as flagged", async () => {
+    const outcome = await runIngestWithPolicyTreatment(
+      infectedRaw("Eicar"),
+      DEFAULT_SCAN_POLICY,
+      "allow-and-flag",
+    );
+    expect(outcome).toMatchObject({ kind: "commit", scanVerdict: "flagged" });
+  });
+
+  it("a full-tier match under an extended policy commits clean", async () => {
+    const raw = matchRaw({ ruleId: "R", tier: "full", score: 90, isSuspicious: false });
+    const outcome = await runIngestWithPolicyTreatment(raw, DEFAULT_SCAN_POLICY, "block");
+    expect(outcome).toMatchObject({ kind: "commit", scanVerdict: "clean" });
+  });
+
+  it("a deployed-engine fault throws (never commits) under any treatment", async () => {
+    await expect(
+      runIngestWithPolicyTreatment(deployedUnavailableRaw(), DEFAULT_SCAN_POLICY, "allow-and-flag"),
     ).rejects.toThrow();
   });
 });

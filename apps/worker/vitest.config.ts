@@ -16,14 +16,18 @@ function sqlAsText(): Plugin {
   };
 }
 
-// The fitness scan tests (timekeeping-wip-ledger-fitness, timekeeping-freeze-fitness) need to scan
-// packages/timekeeping/src/**/*.ts, but import.meta.glob cannot resolve outside the Vite root
-// (apps/worker). This plugin provides a virtual module that inlines those sources at build time so
-// the scans cover the package where the SQL statement strings actually live.
-function timekeepingPackageSources(): Plugin {
-  const virtualModuleId = "virtual:timekeeping-package-sources";
+// The fitness scan tests (billing-wip-ledger-fitness, billing-freeze-fitness) need to scan the
+// package sources where the SQL statement strings actually live — packages/timekeeping/src,
+// packages/costs/src, and packages/billing-core/src — but import.meta.glob cannot resolve outside
+// the Vite root (apps/worker). This plugin provides a virtual module that inlines those sources at
+// build time, each file keyed under its own package prefix, so the scans cover all three packages
+// and each can be floored for non-vacuity independently.
+function billingPackageSources(): Plugin {
+  const virtualModuleId = "virtual:billing-package-sources";
   const resolvedVirtualModuleId = "\0" + virtualModuleId;
-  const packageSrcDir = path.resolve(import.meta.dirname, "../../packages/timekeeping/src");
+  const timekeepingSrcDir = path.resolve(import.meta.dirname, "../../packages/timekeeping/src");
+  const costsSrcDir = path.resolve(import.meta.dirname, "../../packages/costs/src");
+  const billingCoreSrcDir = path.resolve(import.meta.dirname, "../../packages/billing-core/src");
 
   function collectSources(dir: string, prefix: string): Record<string, string> {
     const result: Record<string, string> = {};
@@ -40,14 +44,17 @@ function timekeepingPackageSources(): Plugin {
   }
 
   return {
-    name: "magna-carta:timekeeping-package-sources",
+    name: "magna-carta:billing-package-sources",
     resolveId(id) {
       if (id === virtualModuleId) return resolvedVirtualModuleId;
       return undefined;
     },
     load(id) {
       if (id !== resolvedVirtualModuleId) return undefined;
-      const sources = collectSources(packageSrcDir, "packages/timekeeping/src");
+      const sources: Record<string, string> = {};
+      Object.assign(sources, collectSources(timekeepingSrcDir, "packages/timekeeping/src"));
+      Object.assign(sources, collectSources(costsSrcDir, "packages/costs/src"));
+      Object.assign(sources, collectSources(billingCoreSrcDir, "packages/billing-core/src"));
       return `export default ${JSON.stringify(sources)};`;
     },
   };
@@ -84,6 +91,34 @@ export default {
 };
 `;
 
+// Stub for the magna-carta-bundle service binding in tests — no real bundle worker runs under
+// the local pool, so the service binding must resolve to something or workerd refuses to boot.
+// POST /build (non-streaming) returns a minimal canned BuildResponse (ok, one zero-byte volume
+// key) so bundle-coordinator tests can exercise the coordinator's happy path without a live worker.
+// POST /build?stream=1 (encrypted-stream lane) returns a small fixed body so the encrypted-stream
+// route tests can assert the 200 + content-type without a real container.
+const BUNDLE_SERVICE_STUB_SCRIPT = `
+export default {
+  fetch(request) {
+    const url = new URL(request.url);
+    if (url.searchParams.has("stream")) {
+      return new Response("stub-archive-bytes", {
+        status: 200,
+        headers: { "content-type": "application/zip" },
+      });
+    }
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        volumes: [{ key: "bundles/stub/bundle.zip", sizeBytes: 0 }],
+        error: null,
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  }
+};
+`;
+
 // Run Vitest inside Miniflare so the integration test gets real Worker bindings (D1/R2/Queues/ASSETS) loaded from wrangler.jsonc.
 // @cloudflare/vitest-pool-workers 0.16.x exposes the harness as the cloudflareTest() Vite plugin (the older defineWorkersConfig/poolOptions shape was removed); configPath points it at our Wrangler config so the same bindings back the test as back `wrangler dev`.
 // root is pinned to this package so the pool resolves `vitest/worker` (and the wrangler config) from apps/worker even when this config is loaded as a Vitest project from the repo-root `vp test`; without it the workerd VM reports `No such module "vitest/worker"`.
@@ -93,15 +128,17 @@ export default defineConfig({
   root: import.meta.dirname,
   plugins: [
     sqlAsText(),
-    timekeepingPackageSources(),
+    billingPackageSources(),
     cloudflareTest({
       wrangler: { configPath: `${import.meta.dirname}/wrangler.jsonc` },
       remoteBindings: false,
-      // Two service bindings in wrangler.jsonc reference dedicated workers that do not run under the
-      // local pool — magna-carta-scan (SCAN_SERVICE) and magna-carta-convert (CONVERT). Miniflare
-      // requires both to exist, so register minimal stubs. The scan stub returns the no-engine
-      // RawScanResult (an honest unscanned, never a fake clean); the convert stub only satisfies startup
-      // validation (conversion-engine tests inject fake CONVERT fetchers directly, never call it).
+      // Three service bindings in wrangler.jsonc reference dedicated workers that do not run under
+      // the local pool — magna-carta-scan (SCAN_SERVICE), magna-carta-convert (CONVERT), and
+      // magna-carta-bundle (BUNDLE_SERVICE). Miniflare requires all to exist, so register minimal
+      // stubs. The scan stub returns the no-engine RawScanResult (an honest unscanned, never a fake
+      // clean); the convert stub only satisfies startup validation (conversion-engine tests inject
+      // fake CONVERT fetchers directly, never call it); the bundle stub returns a canned BuildResponse
+      // so coordinator tests can exercise the happy path without a live bundle worker.
       miniflare: {
         workers: [
           {
@@ -113,6 +150,11 @@ export default defineConfig({
             name: "magna-carta-convert",
             modules: true,
             script: `export default { fetch() { return new Response("stub", { status: 501 }); } };`,
+          },
+          {
+            name: "magna-carta-bundle",
+            modules: true,
+            script: BUNDLE_SERVICE_STUB_SCRIPT,
           },
         ],
       },

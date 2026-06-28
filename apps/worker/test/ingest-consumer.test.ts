@@ -1,9 +1,10 @@
 import { env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
-import { initiateUpload } from "@magna-carta/file-manager/file-service";
+import { initiateCheckin, initiateUpload } from "@magna-carta/file-manager/file-service";
 import { listFiles } from "@magna-carta/file-manager/queries";
 import type { MalwareScanPort } from "@magna-carta/file-manager/scan-port";
+import { flaggedTreatmentDefinition } from "@magna-carta/file-manager/scan-policy-settings";
 import { inspectableSizeCapDefinition } from "@magna-carta/file-manager/upload-policy";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { FirmId, MatterId, UserId } from "@magna-carta/identifiers/types";
@@ -446,6 +447,151 @@ describe("handleIngestMessage", () => {
   });
 });
 
+describe("handleIngestMessage — offline check-in routing", () => {
+  // A pending version carrying a checkout_id is the return leg of an offline edit: the consumer routes
+  // it through commitCheckinVersion (divergence-aware) instead of a plain commit. The bytes still pass
+  // the full ingest gate first — the routing only changes how a cleared version lands.
+
+  async function seedCleanVersion(
+    fileId: string,
+    versionNumber: number,
+    hash: string,
+  ): Promise<string> {
+    const versionId = newIdentifier("fileVersion");
+    await firmDatabase
+      .prepare(
+        "INSERT INTO file_version (id, file_id, version_number, r2_key, size_bytes, content_sha256, status, uploaded_by, created_at, committed_at) VALUES (?1, ?2, ?3, ?4, 10, ?5, 'clean', ?6, ?7, ?7)",
+      )
+      .bind(
+        versionId,
+        fileId,
+        versionNumber,
+        `files/${fileId}/${versionId}`,
+        hash,
+        ACTOR,
+        clock.now(),
+      )
+      .run();
+    return versionId;
+  }
+
+  async function seedCheckedOutFile(currentHash: string): Promise<{
+    fileId: string;
+    baseVersionId: string;
+    checkoutId: string;
+  }> {
+    const fileId = newIdentifier("file");
+    await firmDatabase
+      .prepare(
+        "INSERT INTO file (id, matter_id, name, created_at, updated_at) VALUES (?1, ?2, 'checkin.pdf', ?3, ?3)",
+      )
+      .bind(fileId, matterId, clock.now())
+      .run();
+    const baseVersionId = await seedCleanVersion(fileId, 1, currentHash);
+    await firmDatabase
+      .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+      .bind(fileId, baseVersionId)
+      .run();
+    const checkoutId = newIdentifier("documentCheckout");
+    await firmDatabase
+      .prepare(
+        "INSERT INTO document_checkout (id, file_id, holder_member_id, lock_type, base_version_id, acquired_at, last_activity_at, status, idle_release_at) VALUES (?1, ?2, ?3, 'offline_working_copy', ?4, ?5, ?5, 'active', NULL)",
+      )
+      .bind(checkoutId, fileId, ACTOR, baseVersionId, clock.now())
+      .run();
+    return { fileId, baseVersionId, checkoutId };
+  }
+
+  async function mintCheckin(fileId: string, checkoutId: string): Promise<string> {
+    const initiated = await initiateCheckin(
+      firmDatabase,
+      {
+        fileId: fileId as never,
+        checkoutId: checkoutId as never,
+        declaredSize: PDF_BYTES.byteLength,
+        declaredContentType: "application/pdf",
+        uploadedBy: ACTOR,
+      },
+      options,
+    );
+    await commitEffectBatch(firmDatabase, initiated.effect, { now: clock.now });
+    await env.R2.put(initiated.r2Key, PDF_BYTES);
+    return initiated.versionId;
+  }
+
+  it("fast-forwards a clean check-in: advances current and releases the checkout", async () => {
+    const { fileId, checkoutId } = await seedCheckedOutFile("seed-hash");
+    const versionId = await mintCheckin(fileId, checkoutId);
+
+    await handleIngestMessage(
+      env,
+      event(BUCKET, `files/${fileId}/${versionId}`, PDF_BYTES.byteLength),
+    );
+
+    const version = await firmDatabase
+      .prepare("SELECT status, reconciliation_status FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .first<{ status: string; reconciliation_status: string }>();
+    expect(version).toEqual({ status: "clean", reconciliation_status: "clean" });
+
+    const file = await firmDatabase
+      .prepare("SELECT current_version_id FROM file WHERE id = ?1")
+      .bind(fileId)
+      .first<{ current_version_id: string }>();
+    expect(file?.current_version_id).toBe(versionId);
+
+    const checkout = await firmDatabase
+      .prepare("SELECT status FROM document_checkout WHERE id = ?1")
+      .bind(checkoutId)
+      .first<{ status: string }>();
+    expect(checkout?.status).toBe("released");
+  });
+
+  it("conflicts a check-in whose base advanced: flags the version, leaves current untouched, sets the checkout reconciling", async () => {
+    const { fileId, baseVersionId, checkoutId } = await seedCheckedOutFile("seed-hash");
+    // current advances to v2 while the offline copy is out.
+    const v2 = await seedCleanVersion(fileId, 2, "hash-v2");
+    await firmDatabase
+      .prepare("UPDATE file SET current_version_id = ?2 WHERE id = ?1")
+      .bind(fileId, v2)
+      .run();
+    const versionId = await mintCheckin(fileId, checkoutId);
+
+    await handleIngestMessage(
+      env,
+      event(BUCKET, `files/${fileId}/${versionId}`, PDF_BYTES.byteLength),
+    );
+
+    const version = await firmDatabase
+      .prepare(
+        "SELECT status, reconciliation_status, diverged_from_version_id FROM file_version WHERE id = ?1",
+      )
+      .bind(versionId)
+      .first<{
+        status: string;
+        reconciliation_status: string;
+        diverged_from_version_id: string | null;
+      }>();
+    expect(version).toEqual({
+      status: "clean",
+      reconciliation_status: "conflict_pending",
+      diverged_from_version_id: baseVersionId,
+    });
+
+    const file = await firmDatabase
+      .prepare("SELECT current_version_id FROM file WHERE id = ?1")
+      .bind(fileId)
+      .first<{ current_version_id: string }>();
+    expect(file?.current_version_id).toBe(v2);
+
+    const checkout = await firmDatabase
+      .prepare("SELECT status FROM document_checkout WHERE id = ?1")
+      .bind(checkoutId)
+      .first<{ status: string }>();
+    expect(checkout?.status).toBe("reconciling");
+  });
+});
+
 describe("resolveScanPort", () => {
   it("returns the unscanned adapter when no Container binding is present", () => {
     const port: MalwareScanPort = resolveScanPort(env);
@@ -688,7 +834,7 @@ describe("handleIngestMessage — access-triggered re-scan", () => {
       .bind(versionId)
       .first<{ scan_verdict: string; status: string }>();
     // Informed access: flagged but still committed/visible.
-    expect(v).toMatchObject({ scan_verdict: "infected", status: "clean" });
+    expect(v).toMatchObject({ scan_verdict: "flagged", status: "clean" });
     // The fresh scan's raw facts are cached under the current engine — the dedup row the next re-scan
     // of identical content reuses. The cache stores the full RawScanResult, not a pre-decided verdict.
     const cached = await firmDatabase
@@ -733,6 +879,77 @@ describe("handleIngestMessage — access-triggered re-scan", () => {
     expect(v?.scan_verdict).toBe("unscanned"); // unchanged — never downgraded or fabricated
   });
 
+  it("a deployed-engine UNAVAILABLE on re-scan throws (retry) and leaves the prior committed verdict untouched", async () => {
+    const { versionId, r2Key } = await seedCommittedVersion("fault.pdf", uniqueBytes(7));
+    // Give the version a DEFINITIVE prior verdict under an OLD engine so the re-scan sees it as stale.
+    await firmDatabase
+      .prepare(
+        "UPDATE file_version SET scan_verdict = 'flagged', scan_engine_version = 'clamav/old', scan_detail = 'Prior.Sig' WHERE id = ?1",
+      )
+      .bind(versionId)
+      .run();
+    await setCurrentEngine("clamav/3.0");
+
+    // A deployed engine (engineVersion non-null) reporting `unavailable` is a transient FAULT, not a
+    // verdict — computeVerdict throws ScanFaultError, which must propagate so the queue retries.
+    const faultingPort: MalwareScanPort = {
+      async scan(body) {
+        await body.cancel();
+        return {
+          engineVersion: "clamav/3.0",
+          clam: { state: "unavailable" },
+          heuristic: { kind: "none" },
+          matches: [],
+          timings: { clamdMs: 0, yaraMs: 0 },
+        };
+      },
+    };
+    await expect(
+      handleIngestMessage(env, event(BUCKET, r2Key, uniqueBytes(7).byteLength), faultingPort),
+    ).rejects.toThrow();
+
+    // The prior verdict is NEVER silently cleaned on a fault.
+    const v = await firmDatabase
+      .prepare("SELECT scan_verdict, scan_engine_version FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .first<{ scan_verdict: string; scan_engine_version: string }>();
+    expect(v).toMatchObject({ scan_verdict: "flagged", scan_engine_version: "clamav/old" });
+  });
+
+  it("an UNSCANNED re-scan result (encrypted) leaves the prior verdict untouched — never restamped to clean", async () => {
+    const { versionId, r2Key } = await seedCommittedVersion("encrypted.pdf", uniqueBytes(8));
+    await firmDatabase
+      .prepare(
+        "UPDATE file_version SET scan_verdict = 'flagged', scan_engine_version = 'clamav/old', scan_detail = 'Prior.Sig' WHERE id = ?1",
+      )
+      .bind(versionId)
+      .run();
+    await setCurrentEngine("clamav/3.0");
+
+    // An encrypted file yields an `unscanned` verdict — not definitive, so the version's prior verdict
+    // must stay as-is (never downgraded to clean without a real scan).
+    const encryptedPort: MalwareScanPort = {
+      async scan(body) {
+        await body.cancel();
+        return {
+          engineVersion: "clamav/3.0",
+          clam: { state: "clean" },
+          heuristic: { kind: "encrypted" },
+          matches: [],
+          timings: { clamdMs: 1, yaraMs: 0 },
+        };
+      },
+    };
+    await handleIngestMessage(env, event(BUCKET, r2Key, uniqueBytes(8).byteLength), encryptedPort);
+
+    const v = await firmDatabase
+      .prepare("SELECT scan_verdict, scan_engine_version FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .first<{ scan_verdict: string; scan_engine_version: string }>();
+    expect(v?.scan_verdict).not.toBe("clean");
+    expect(v).toMatchObject({ scan_verdict: "flagged", scan_engine_version: "clamav/old" });
+  });
+
   it("maybeEnqueueRescanOnAccess enqueues only for a STALE version, with a current engine, bound queue", async () => {
     const { versionId, r2Key } = await seedCommittedVersion("access.pdf", uniqueBytes(4));
     const captured: Array<{ bucket: string; object: { key: string } }> = [];
@@ -764,5 +981,113 @@ describe("handleIngestMessage — access-triggered re-scan", () => {
       .run();
     await maybeEnqueueRescanOnAccess(queue, firmDatabase, BUCKET, r2Key, 100);
     expect(captured).toHaveLength(1);
+  });
+});
+
+describe("handleIngestMessage — firm flagged-treatment policy", () => {
+  // Verifies that the consumer honours the firm's scan.flagged_treatment setting: an infected file
+  // should be committed as flagged (status='clean', scan_verdict='flagged') when the firm opts in to
+  // informed-access, and quarantined under the default block treatment.
+
+  const infectedPort: MalwareScanPort = {
+    scan: async (_body, _meta) => ({
+      engineVersion: "test-treatment-1",
+      clam: { state: "infected", signature: "Eicar-Treatment-Test" },
+      heuristic: { kind: "none" },
+      matches: [],
+      timings: { clamdMs: 1, yaraMs: 1 },
+    }),
+  };
+
+  async function seedInfectedPendingVersion(name: string): Promise<{
+    fileId: string;
+    versionId: string;
+    sessionId: string;
+    r2Key: string;
+  }> {
+    const fileId = newIdentifier("file");
+    const versionId = newIdentifier("fileVersion");
+    const sessionId = newIdentifier("uploadSession");
+    const r2Key = `files/${fileId}/${versionId}`;
+    await firmDatabase
+      .prepare(
+        "INSERT INTO file (id, matter_id, name, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?4)",
+      )
+      .bind(fileId, matterId, name, clock.now())
+      .run();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO file_version (id, file_id, version_number, r2_key, declared_content_type, status, uploaded_by, created_at) VALUES (?1, ?2, 1, ?3, 'application/pdf', 'pending', ?4, ?5)",
+      )
+      .bind(versionId, fileId, r2Key, ACTOR, clock.now())
+      .run();
+    await firmDatabase
+      .prepare(
+        "INSERT INTO upload_session (id, file_version_id, mode, declared_size, declared_content_type, status, created_at) VALUES (?1, ?2, 'put', ?3, 'application/pdf', 'open', ?4)",
+      )
+      .bind(sessionId, versionId, PDF_BYTES.byteLength, clock.now())
+      .run();
+    await env.R2.put(r2Key, PDF_BYTES);
+    return { fileId, versionId, sessionId, r2Key };
+  }
+
+  async function cleanupInfectedVersion(
+    fileId: string,
+    versionId: string,
+    sessionId: string,
+  ): Promise<void> {
+    await firmDatabase.prepare("DELETE FROM upload_session WHERE id = ?1").bind(sessionId).run();
+    // Nullify the FK on `file` before removing `file_version`: a committed version sets
+    // `current_version_id`, which would block the file_version delete otherwise.
+    await firmDatabase
+      .prepare("UPDATE file SET current_version_id = NULL WHERE id = ?1")
+      .bind(fileId)
+      .run();
+    await firmDatabase.prepare("DELETE FROM file_version WHERE id = ?1").bind(versionId).run();
+    await firmDatabase.prepare("DELETE FROM file WHERE id = ?1").bind(fileId).run();
+  }
+
+  it("commits as flagged (status='clean', scan_verdict='flagged') when treatment is 'informed-access'", async () => {
+    await firmDatabase
+      .prepare("INSERT OR REPLACE INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3)")
+      .bind(flaggedTreatmentDefinition.key, JSON.stringify("informed-access"), clock.now())
+      .run();
+
+    const { fileId, versionId, sessionId, r2Key } =
+      await seedInfectedPendingVersion("informed.pdf");
+    await handleIngestMessage(env, event(BUCKET, r2Key, PDF_BYTES.byteLength), infectedPort);
+
+    const version = await firmDatabase
+      .prepare("SELECT status, scan_verdict FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .first<{ status: string; scan_verdict: string }>();
+    // Committed (not quarantined) — visible behind the access gate.
+    expect(version?.status).toBe("clean");
+    expect(version?.scan_verdict).toBe("flagged");
+
+    await firmDatabase
+      .prepare("DELETE FROM setting WHERE key = ?1")
+      .bind(flaggedTreatmentDefinition.key)
+      .run();
+    await cleanupInfectedVersion(fileId, versionId, sessionId);
+  });
+
+  it("quarantines (status='quarantined') when no treatment setting is present (default 'block')", async () => {
+    // Ensure no residual setting from a prior test.
+    await firmDatabase
+      .prepare("DELETE FROM setting WHERE key = ?1")
+      .bind(flaggedTreatmentDefinition.key)
+      .run();
+
+    const { fileId, versionId, sessionId, r2Key } = await seedInfectedPendingVersion("blocked.pdf");
+    await handleIngestMessage(env, event(BUCKET, r2Key, PDF_BYTES.byteLength), infectedPort);
+
+    const version = await firmDatabase
+      .prepare("SELECT status FROM file_version WHERE id = ?1")
+      .bind(versionId)
+      .first<{ status: string }>();
+    expect(version?.status).toBe("quarantined");
+
+    await cleanupInfectedVersion(fileId, versionId, sessionId);
   });
 });

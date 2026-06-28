@@ -136,9 +136,21 @@ const RESOURCE_BY_PERMISSION_NAMESPACE: Record<string, string> = {
   // customFields:* governs firm-defined fields on matter/entity records; its routes carry the
   // matter resource (the nearest tenancy root — custom fields extend matter/entity records).
   customFields: "matter",
+  // documents:* governs in-app editing of matter-rooted file objects (the same tenancy root files:*
+  // carries), so its routes carry the matter resource.
+  documents: "matter",
   // time:* governs time entries and the rate engine, all scoped to matters; the matter resource
   // is the nearest tenancy root for every time-entry mutation and read.
   time: "matter",
+  // costs:* governs disbursement WIP entries, all scoped to matters; the matter resource is the
+  // nearest tenancy root for every cost-entry mutation and read (mirrors the time precedent).
+  costs: "matter",
+  // support:* governs help-desk access grants on a firm; grants are firm-scoped (the consent
+  // anchor is a firm member, the grant row lives in the control-plane firm namespace).
+  support: "firm",
+  // diagnostics:* is the read-only system-state surface granted only by a diagnostic support session;
+  // no firm role holds it. The resource is the firm — the overview is per-firm state.
+  diagnostics: "firm",
 };
 
 // Rule: every named permission exists in the registry, and its namespace binds to the route's
@@ -495,6 +507,17 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "conversions.status",
       "conversions.submit",
       "conversions.upload",
+      "costs.approve",
+      "costs.attachReceipt",
+      "costs.batch",
+      "costs.create",
+      "costs.detachReceipt",
+      "costs.get",
+      "costs.kickBack",
+      "costs.list",
+      "costs.submit",
+      "costs.update",
+      "costs.void",
       "customFields.applyConvert",
       "customFields.archiveField",
       "customFields.archiveOption",
@@ -533,6 +556,12 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "documentTypes.deactivate",
       "documentTypes.list",
       "documentTypes.update",
+      "documents.checkin",
+      "documents.checkout",
+      "documents.editSession",
+      "documents.forceRelease",
+      "documents.reconcile",
+      "documents.viewSession",
       "downloads.bundleStatus",
       "downloads.zip",
       "fileIntegrity.hash",
@@ -595,6 +624,8 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "safeBrowse.post",
       "scan.diagnose",
       "scan.matter",
+      "scanPolicy.get",
+      "scanPolicy.update",
       "shipping.connect",
       "shipping.createShipment",
       "shipping.label",
@@ -602,6 +633,12 @@ describe("conformance — the committed contract holds, and each rule catches a 
       "shipping.rateShipment",
       "shipping.refund",
       "shipping.tracking",
+      "supportDiagnostics.overview",
+      "supportGrants.cosign",
+      "supportGrants.list",
+      "supportGrants.request",
+      "supportGrants.revoke",
+      "supportSessions.redeem",
       "timeEntries.approve",
       "timeEntries.create",
       "timeEntries.get",

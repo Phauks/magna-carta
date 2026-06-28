@@ -66,12 +66,12 @@ The label's drawn width is computed from the baked Helvetica advance widths
 right/center alignment.
 
 **Coordinate math (the careful part).** The label is drawn by a content stream in the
-page's *unrotated* user space, but it must land at the chosen *visual* corner after the
+page's _unrotated_ user space, but it must land at the chosen _visual_ corner after the
 viewer applies `/Rotate` and the MediaBox origin. Given the effective MediaBox
 `[llx lly urx ury]` (width `W = urx-llx`, height `H = ury-lly`) and a normalized rotation
 `r ∈ {0,90,180,270}`:
 
-- Compute the target point and text orientation in the *rendered* (rotated) frame first
+- Compute the target point and text orientation in the _rendered_ (rotated) frame first
   (e.g. BottomRight at `(W_r - margin - width, margin)` where `W_r`/`H_r` are the rendered
   dimensions — swapped when `r` is 90/270).
 - Then map that back into unrotated user space by the inverse of the page rotation, and
@@ -91,7 +91,7 @@ For each page:
 2. **Measure** the label width from Helvetica metrics; compute the draw origin + `Tm` per
    the coordinate math above.
 3. **Merge the font resource — non-destructively (the spike's key lesson).** Resolve the
-   page's *effective* `/Resources` (`resolve_inherited_resources`, dereferencing indirect
+   page's _effective_ `/Resources` (`resolve_inherited_resources`, dereferencing indirect
    refs). Build the page's own `/Resources` as a shallow clone of the effective dict (its
    entries are mostly references to shared objects — cheap) with a `/Font` subdict that
    includes all existing fonts **plus** one new entry `/MagnaCartaBates` →

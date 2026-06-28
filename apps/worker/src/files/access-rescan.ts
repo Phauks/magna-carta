@@ -6,7 +6,7 @@ import { readScanEngineVersion } from "@magna-carta/file-manager/upload-policy";
 // re-scan of the served version IF its recorded scan engine version is stale relative to the firm's
 // current engine. Designed to run under `executionCtx.waitUntil`, so it NEVER blocks the response — the
 // file serves immediately under its last-known verdict, and the ingest consumer's re-scan branch
-// (cache-first) updates the verdict in the background; a fresh infected finding then gates the next
+// (cache-first) updates the verdict in the background; a fresh flagged finding then gates the next
 // access (informed access). Cost tracks attention, not corpus size: a file nobody opens is never
 // re-scanned, and the same file under the same engine is a cheap no-op here (already current).
 //

@@ -16,7 +16,13 @@ export type PreviewDecision =
     };
 
 export function decidePreview(version: CleanVersionForPreview): PreviewDecision {
-  // Verdict check first: NULL (never scanned) and any unrecognized string both collapse to download-only.
+  // Scan-verdict check before inline_playable: a flagged version is never served inline regardless of
+  // firm treatment or the stored playability verdict — the access gate (download) handles treatment;
+  // the preview path always degrades to download-only so the client must go through the gated path.
+  if (version.scanVerdict === "flagged") {
+    return { kind: "download-only", reason: "verdict" };
+  }
+  // Verdict check: NULL (never scanned) and any unrecognized string both collapse to download-only.
   // Only the explicit 'playable' string advances — this is the stored-XSS regression guard.
   if (version.inlinePlayable !== "playable") {
     return {

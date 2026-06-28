@@ -63,7 +63,7 @@ function memoryDatabase() {
 
 describe("firm-level timekeeping settings", () => {
   it("default the frictionless posture: no approval gate, a 10-hour abandoned threshold, no targets", () => {
-    expect(approvalRequiredDefinition.key).toBe("time.approval_required");
+    expect(approvalRequiredDefinition.key).toBe("billing.approval_required");
     expect(approvalRequiredDefinition.defaultValue).toBe(false);
 
     expect(abandonedThresholdMinutesDefinition.key).toBe("time.abandoned_threshold_minutes");

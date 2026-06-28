@@ -48,6 +48,7 @@ describe("permission registry", () => {
       "firm:reportIncident",
       "firm:scanFile",
       "firm:manageSecrets",
+      "firm:manageScanPolicy",
       "firm:manageReleaseChannel",
     ]);
   });
@@ -107,6 +108,15 @@ describe("permission registry", () => {
     ]);
   });
 
+  it("permissionsForNamespace('documents') returns exactly the documents keys, in registry order", () => {
+    expect(permissionsForNamespace("documents")).toEqual([
+      "documents:edit",
+      "documents:checkout",
+      "documents:forceReleaseLock",
+      "documents:reconcile",
+    ]);
+  });
+
   it("permissionsForNamespace returns an empty list for an unknown namespace", () => {
     // 'matter' (singular) is NOT the matters namespace — the keys live under 'matters'.
     expect(permissionsForNamespace("matter")).toEqual([]);
@@ -133,6 +143,15 @@ describe("permission registry", () => {
     ]);
   });
 
+  it("permissionsForNamespace('costs') returns exactly the costs keys, in registry order", () => {
+    expect(permissionsForNamespace("costs")).toEqual(["costs:track", "costs:approve"]);
+  });
+
+  it("registers the costs permissions", () => {
+    expect(isPermission("costs:track")).toBe(true);
+    expect(isPermission("costs:approve")).toBe(true);
+  });
+
   it("web-domains tool permissions are registered", () => {
     expect(isPermission("tools:whois")).toBe(true);
     expect(isPermission("tools:safeBrowse")).toBe(true);
@@ -150,5 +169,26 @@ describe("permission registry", () => {
 
   it("has no duplicate keys", () => {
     expect(new Set(PERMISSIONS).size).toBe(PERMISSIONS.length);
+  });
+
+  it("permissionsForNamespace('support') returns exactly the support keys, in registry order", () => {
+    expect(permissionsForNamespace("support")).toEqual([
+      "support:request",
+      "support:cosign",
+      "support:manage",
+      "support:mintSession",
+    ]);
+  });
+
+  it("permissionsForNamespace('diagnostics') returns exactly the diagnostics keys", () => {
+    expect(permissionsForNamespace("diagnostics")).toEqual(["diagnostics:overview"]);
+  });
+
+  it("registers the support and diagnostics permission keys", () => {
+    expect(isPermission("support:request")).toBe(true);
+    expect(isPermission("support:cosign")).toBe(true);
+    expect(isPermission("support:manage")).toBe(true);
+    expect(isPermission("support:mintSession")).toBe(true);
+    expect(isPermission("diagnostics:overview")).toBe(true);
   });
 });

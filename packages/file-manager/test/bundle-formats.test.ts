@@ -22,14 +22,46 @@ describe("bundle-formats", () => {
     expect(errors[0]).toMatch(/file name/i);
   });
 
-  it("allows 7z + encryptFileNames + split", () => {
+  it("allows 7z + encryptFileNames (no split)", () => {
     expect(
       validateOptionsForFormat({
         ...DEFAULT_BUNDLE_OPTIONS,
         format: "sevenZip",
         encryption: { algorithm: "aes-256", encryptFileNames: true },
+      }),
+    ).toEqual([]);
+  });
+
+  it("allows 7z + split (no encryption)", () => {
+    expect(
+      validateOptionsForFormat({
+        ...DEFAULT_BUNDLE_OPTIONS,
+        format: "sevenZip",
         split: { maxPartBytes: 20_000_000 },
       }),
     ).toEqual([]);
+  });
+
+  it("rejects encryption + split: an encrypted bundle is a single streamed file", () => {
+    const errors = validateOptionsForFormat({
+      ...DEFAULT_BUNDLE_OPTIONS,
+      format: "sevenZip",
+      encryption: { algorithm: "aes-256", encryptFileNames: false },
+      split: { maxPartBytes: 20_000_000 },
+    });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatch(/encrypted bundle cannot be split/i);
+  });
+
+  it("split is 7z-only: zip cannot split (no Rust crate writes spanned ZIP)", () => {
+    expect(capabilitiesFor("zip").supportsSplit).toBe(false);
+    expect(capabilitiesFor("sevenZip").supportsSplit).toBe(true);
+    const errors = validateOptionsForFormat({
+      ...DEFAULT_BUNDLE_OPTIONS,
+      format: "zip",
+      split: { maxPartBytes: 20_000_000 },
+    });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatch(/split/i);
   });
 });

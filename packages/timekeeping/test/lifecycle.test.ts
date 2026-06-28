@@ -5,6 +5,7 @@ import {
   isFrozen,
   type TimeEntryStatus,
 } from "../src/lifecycle.ts";
+import { IllegalTransitionError } from "@magna-carta/billing-core/lifecycle-error";
 import { TimeEntryValidationError } from "../src/time-entry-validation.ts";
 
 const STATUSES: TimeEntryStatus[] = ["draft", "submitted", "approved", "billed", "void"];
@@ -37,14 +38,14 @@ describe("assertTransition with the review gate ON", () => {
   });
 
   it("refuses skipping the gate (draft -> approved, draft -> billed, submitted -> billed)", () => {
-    expect(() => assertTransition("draft", "approved", true)).toThrow(TimeEntryValidationError);
-    expect(() => assertTransition("draft", "billed", true)).toThrow(TimeEntryValidationError);
-    expect(() => assertTransition("submitted", "billed", true)).toThrow(TimeEntryValidationError);
+    expect(() => assertTransition("draft", "approved", true)).toThrow(IllegalTransitionError);
+    expect(() => assertTransition("draft", "billed", true)).toThrow(IllegalTransitionError);
+    expect(() => assertTransition("submitted", "billed", true)).toThrow(IllegalTransitionError);
   });
 
-  it("the refusal carries the illegal-transition code", () => {
+  it("the refusal carries the source and target statuses", () => {
     expect(() => assertTransition("draft", "approved", true)).toThrow(
-      expect.objectContaining({ code: "illegal-transition" }),
+      expect.objectContaining({ from: "draft", to: "approved", gateOn: true }),
     );
   });
 });
@@ -55,10 +56,8 @@ describe("assertTransition with the review gate OFF", () => {
   });
 
   it("refuses the gated states when the gate is off", () => {
-    expect(() => assertTransition("draft", "submitted", false)).toThrow(TimeEntryValidationError);
-    expect(() => assertTransition("submitted", "approved", false)).toThrow(
-      TimeEntryValidationError,
-    );
+    expect(() => assertTransition("draft", "submitted", false)).toThrow(IllegalTransitionError);
+    expect(() => assertTransition("submitted", "approved", false)).toThrow(IllegalTransitionError);
   });
 
   it("still allows voiding a draft", () => {
@@ -75,8 +74,8 @@ describe("frozen states are terminal", () => {
   it("refuses every transition OUT of billed or void, under either gate", () => {
     for (const gateOn of [true, false]) {
       for (const to of STATUSES) {
-        expect(() => assertTransition("billed", to, gateOn)).toThrow(TimeEntryValidationError);
-        expect(() => assertTransition("void", to, gateOn)).toThrow(TimeEntryValidationError);
+        expect(() => assertTransition("billed", to, gateOn)).toThrow(IllegalTransitionError);
+        expect(() => assertTransition("void", to, gateOn)).toThrow(IllegalTransitionError);
       }
     }
   });

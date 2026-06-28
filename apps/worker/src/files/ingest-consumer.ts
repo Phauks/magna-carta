@@ -1,5 +1,6 @@
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import {
+  commitCheckinVersion,
   commitVersion,
   loadPendingVersionForIngest,
   quarantineVersion,
@@ -9,12 +10,16 @@ import { runIngest } from "@magna-carta/file-manager/ingest-core";
 import { loadCommittedVersionByR2Key } from "@magna-carta/file-manager/queries";
 import { lookupScanCache } from "@magna-carta/file-manager/scan-cache";
 import type { MalwareScanPort, RawScanResult } from "@magna-carta/file-manager/scan-port";
-import { computeVerdict, DEFAULT_SCAN_POLICY } from "@magna-carta/file-manager/verdict";
+import { computeVerdict } from "@magna-carta/file-manager/verdict";
 import {
   readInspectableSizeCap,
   readScanEngineVersion,
   readUploadPolicy,
 } from "@magna-carta/file-manager/upload-policy";
+import {
+  readFlaggedTreatment,
+  readFirmScanPolicy,
+} from "@magna-carta/file-manager/scan-policy-settings";
 import { ingestVerdict } from "@magna-carta/telemetry/events";
 import { newCorrelationId } from "@magna-carta/telemetry/ids";
 import type { Logger } from "@magna-carta/telemetry/logger";
@@ -85,9 +90,11 @@ export async function handleIngestMessage(
     throw new Error(`R2 object not readable for a pending version: ${message.object.key}`);
   }
 
-  const [policy, inspectableSizeCap] = await Promise.all([
+  const [policy, inspectableSizeCap, scanPolicy, flaggedTreatment] = await Promise.all([
     readUploadPolicy(firmDatabase),
     readInspectableSizeCap(firmDatabase),
+    readFirmScanPolicy(firmDatabase),
+    readFlaggedTreatment(firmDatabase),
   ]);
   const outcome = await runIngest({
     objectBody: object.body,
@@ -101,6 +108,8 @@ export async function handleIngestMessage(
     policy,
     scanPort,
     inspectableSizeCap,
+    scanPolicy,
+    flaggedTreatment,
   });
 
   const now = () => new Date().toISOString();
@@ -118,24 +127,30 @@ export async function handleIngestMessage(
     now,
     effect: async () => {
       if (outcome.kind === "commit") {
-        const result = await commitVersion(
-          firmDatabase,
-          {
-            versionId: pending.id,
-            sizeBytes: outcome.sizeBytes,
-            sniffedContentType: outcome.sniffedContentType,
-            contentSha256: outcome.contentSha256,
-            scanVerdict: outcome.scanVerdict,
-            scanEngineVersion: outcome.scanEngineVersion,
-            scanDetail: outcome.scanDetail,
-            now: now(),
-            // Carry the raw scan result into the commit so a clean commit repopulates the content-dedup
-            // cache atomically — the cache key derives from this result's engineVersion, the same source
-            // as scanEngineVersion above, so the scan-once dedup is keyed by the engine that just ran.
-            rawScanResult: outcome.rawScanResult,
-          },
-          options,
-        );
+        const commitInput = {
+          versionId: pending.id,
+          sizeBytes: outcome.sizeBytes,
+          sniffedContentType: outcome.sniffedContentType,
+          contentSha256: outcome.contentSha256,
+          scanVerdict: outcome.scanVerdict,
+          scanEngineVersion: outcome.scanEngineVersion,
+          scanDetail: outcome.scanDetail,
+          now: now(),
+          // Carry the raw scan result into the commit so a clean commit repopulates the content-dedup
+          // cache atomically — the cache key derives from this result's engineVersion, the same source
+          // as scanEngineVersion above, so the scan-once dedup is keyed by the engine that just ran.
+          rawScanResult: outcome.rawScanResult,
+        };
+        // The return leg of an offline checkout (checkout_id set) reconciles against current —
+        // fast-forward or a flagged conflicting copy. A plain upload commits straight through.
+        const result =
+          pending.checkoutId !== null
+            ? await commitCheckinVersion(
+                firmDatabase,
+                { ...commitInput, checkoutId: pending.checkoutId },
+                options,
+              )
+            : await commitVersion(firmDatabase, commitInput, options);
         return {
           write: result.effect,
           responseCode: 200,
@@ -205,6 +220,12 @@ async function handleRescanMessage(
   if (currentEngineVersion === null) return; // no current engine recorded yet → never fabricate a key
   if (committed.scanEngineVersion === currentEngineVersion) return; // already current → not stale
 
+  // Resolve the firm's scan policy here (outside the idempotency effect) so the verdict computation
+  // uses the firm's configured tier and threshold rather than the hardcoded default. The rescan does
+  // NOT apply flaggedTreatment — the version is already committed; a re-flagged finding stays
+  // committed and visible; the download gate (a later task) enforces treatment at access time.
+  const firmScanPolicy = await readFirmScanPolicy(firmDatabase);
+
   const contentSha256 = committed.contentSha256;
   const now = () => new Date().toISOString();
   const options = { clock: { now }, actorUserId: null };
@@ -235,10 +256,10 @@ async function handleRescanMessage(
         fromCache = false;
       }
 
-      // Decide the verdict app-side from the raw facts. A deployed engine reporting unavailable throws
-      // ScanFaultError, which propagates out of the effect → the queue retries; the version's prior
-      // verdict is never touched on a fault.
-      const fileVerdict = computeVerdict(raw, DEFAULT_SCAN_POLICY);
+      // Decide the verdict app-side from the raw facts using the firm's configured scan policy.
+      // A deployed engine reporting unavailable throws ScanFaultError, which propagates out of the
+      // effect → the queue retries; the version's prior verdict is never touched on a fault.
+      const fileVerdict = computeVerdict(raw, firmScanPolicy);
 
       // Only a DEFINITIVE verdict restamps the version. An `unscanned` result (encrypted / no-engine) is
       // not definitive — leave the version's prior verdict untouched (never downgrade without a real
@@ -253,7 +274,7 @@ async function handleRescanMessage(
       }
 
       // A `flagged` verdict (clamd signature, a counting YARA match, or a structural heuristic) stamps as
-      // `infected` so the already-committed version stays visible behind the download gate (informed
+      // `flagged` so the already-committed version stays visible behind the download gate (informed
       // access); `clean` clears it. The reason text is the recorded signature/detail.
       const isClean = fileVerdict.verdict === "clean";
       const signature = isClean ? null : fileVerdict.reason;
@@ -262,7 +283,16 @@ async function handleRescanMessage(
         {
           fileId: committed.fileId,
           versionId: committed.id,
-          scanVerdict: isClean ? "clean" : "infected",
+          scanVerdict: isClean ? "clean" : "flagged",
+          // Stamp the version with currentEngineVersion (the firm-setting staleness reference), NOT
+          // raw.engineVersion (which keys the dedup cache below). These are equal in steady state; they
+          // diverge only in the transient window where a newer engine is deployed but the firm setting
+          // has not yet advanced. Stamping the staleness reference is deliberate: the staleness gate
+          // above ("scanEngineVersion === currentEngineVersion → not stale") would otherwise re-trigger
+          // a re-scan on every access until the setting catches up. The verdict itself is computed from
+          // the real raw facts, so it is never wrong — only the recorded engine label trails by one
+          // deploy window, and self-heals on the next ingest that advances the setting. Do not "fix"
+          // this to raw.engineVersion without making the staleness gate engine-monotonic first.
           scanEngineVersion: currentEngineVersion,
           scanDetail: signature,
           signature,

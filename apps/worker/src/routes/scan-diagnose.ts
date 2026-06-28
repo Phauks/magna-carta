@@ -2,7 +2,8 @@ import { type OpenAPIHono, z } from "@hono/zod-openapi";
 import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
 import { insertAuditLogStatement } from "@magna-carta/data-access/audit-statements";
 import { readInspectableSizeCap } from "@magna-carta/file-manager/upload-policy";
-import { computeVerdict, DEFAULT_SCAN_POLICY } from "@magna-carta/file-manager/verdict";
+import { computeVerdict } from "@magna-carta/file-manager/verdict";
+import { readFirmScanPolicy } from "@magna-carta/file-manager/scan-policy-settings";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
@@ -116,10 +117,12 @@ export function registerScanDiagnoseRoute(app: ScanApp, chokepoint: Chokepoint):
         sniffedContentType: c.req.header("content-type") ?? null,
       });
 
-      // Decide the verdict app-side from the raw facts. A deployed engine reporting unavailable is a
-      // transient fault, never a verdict: computeVerdict throws ScanFaultError, which propagates to the
-      // route error boundary (a redacted error with an Error ID) rather than reporting a fabricated clean.
-      const fileVerdict = computeVerdict(raw, DEFAULT_SCAN_POLICY);
+      // Decide the verdict app-side from the raw facts, using the firm's own scan policy so the
+      // diagnostic reflects exactly what ingest would decide for this firm (tier + suspicious-score
+      // floor), not a fixed default. A deployed engine reporting unavailable is a transient fault, never
+      // a verdict: computeVerdict throws ScanFaultError, which propagates to the route error boundary (a
+      // redacted error with an Error ID) rather than reporting a fabricated clean.
+      const fileVerdict = computeVerdict(raw, await readFirmScanPolicy(firm.firmDatabase));
 
       // Collapse the verdict into the stable diagnosis enum: a flagged file reports `infected` when
       // clamd named a signature, otherwise `suspicious` with the triggering reason.

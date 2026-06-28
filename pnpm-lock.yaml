@@ -118,6 +118,31 @@ importers:
         specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
         version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))(yaml@2.9.0)'
 
+  apps/bundle-worker:
+    dependencies:
+      '@cloudflare/containers':
+        specifier: 'catalog:'
+        version: 0.3.7
+    devDependencies:
+      '@cloudflare/vitest-pool-workers':
+        specifier: 'catalog:'
+        version: 0.16.20(@cloudflare/workers-types@4.20260625.1)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))(yaml@2.9.0))
+      '@cloudflare/workers-types':
+        specifier: 'catalog:'
+        version: 4.20260625.1
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../../packages/tsconfig
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.1.24(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(svelte@5.56.2)(tsx@4.22.4)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))(yaml@2.9.0)
+      vitest:
+        specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))(yaml@2.9.0)'
+      wrangler:
+        specifier: 'catalog:'
+        version: 4.105.0(@cloudflare/workers-types@4.20260625.1)
+
   apps/convert-worker:
     dependencies:
       '@cloudflare/containers':
@@ -126,6 +151,31 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.4.3
+    devDependencies:
+      '@cloudflare/vitest-pool-workers':
+        specifier: 'catalog:'
+        version: 0.16.20(@cloudflare/workers-types@4.20260625.1)(@vitest/runner@4.1.8)(@vitest/snapshot@4.1.8)(@voidzero-dev/vite-plus-test@0.1.24(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))(yaml@2.9.0))
+      '@cloudflare/workers-types':
+        specifier: 'catalog:'
+        version: 4.20260625.1
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../../packages/tsconfig
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.1.24(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(svelte@5.56.2)(tsx@4.22.4)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))(yaml@2.9.0)
+      vitest:
+        specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))(yaml@2.9.0)'
+      wrangler:
+        specifier: 'catalog:'
+        version: 4.105.0(@cloudflare/workers-types@4.20260625.1)
+
+  apps/magna-carta-edit:
+    dependencies:
+      '@cloudflare/containers':
+        specifier: 'catalog:'
+        version: 0.3.7
     devDependencies:
       '@cloudflare/vitest-pool-workers':
         specifier: 'catalog:'
@@ -200,9 +250,15 @@ importers:
       '@magna-carta/access-control':
         specifier: workspace:*
         version: link:../../packages/access-control
+      '@magna-carta/billing-core':
+        specifier: workspace:*
+        version: link:../../packages/billing-core
       '@magna-carta/conversion':
         specifier: workspace:*
         version: link:../../packages/conversion
+      '@magna-carta/costs':
+        specifier: workspace:*
+        version: link:../../packages/costs
       '@magna-carta/custom-fields':
         specifier: workspace:*
         version: link:../../packages/custom-fields
@@ -351,12 +407,62 @@ importers:
         specifier: workspace:*
         version: link:../tsconfig
 
+  packages/billing-core:
+    dependencies:
+      '@magna-carta/data-access':
+        specifier: workspace:*
+        version: link:../data-access
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.1
+      vitest:
+        specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))(yaml@2.9.0)'
+
   packages/conversion:
     dependencies:
       wasm-vips:
         specifier: 'catalog:'
         version: 0.0.18
     devDependencies:
+      '@magna-carta/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.1
+      vitest:
+        specifier: npm:@voidzero-dev/vite-plus-test@0.1.24
+        version: '@voidzero-dev/vite-plus-test@0.1.24(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0))(yaml@2.9.0)'
+
+  packages/costs:
+    dependencies:
+      '@magna-carta/billing-core':
+        specifier: workspace:*
+        version: link:../billing-core
+      '@magna-carta/data-access':
+        specifier: workspace:*
+        version: link:../data-access
+      '@magna-carta/identifiers':
+        specifier: workspace:*
+        version: link:../identifiers
+      '@magna-carta/money':
+        specifier: workspace:*
+        version: link:../money
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@magna-carta/database':
+        specifier: workspace:*
+        version: link:../database
       '@magna-carta/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
@@ -597,6 +703,9 @@ importers:
       '@faker-js/faker':
         specifier: 'catalog:'
         version: 10.4.0
+      '@magna-carta/costs':
+        specifier: workspace:*
+        version: link:../costs
       '@magna-carta/custom-fields':
         specifier: workspace:*
         version: link:../custom-fields
@@ -929,6 +1038,9 @@ importers:
 
   packages/timekeeping:
     dependencies:
+      '@magna-carta/billing-core':
+        specifier: workspace:*
+        version: link:../billing-core
       '@magna-carta/data-access':
         specifier: workspace:*
         version: link:../data-access

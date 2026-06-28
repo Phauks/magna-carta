@@ -3,8 +3,8 @@
 import { type InfiniteData, infiniteQueryOptions, type MutationOptions, queryOptions } from '@tanstack/svelte-query';
 
 import { client } from '../client.gen';
-import { conversionsStatus, conversionsSubmit, conversionsUpload, customFieldsApplyConvert, customFieldsArchiveField, customFieldsArchiveOption, customFieldsClearValue, customFieldsCreateOption, customFieldsDefineField, customFieldsHardDeleteField, customFieldsHardDeleteOption, customFieldsListRecordValues, customFieldsPreviewConvert, customFieldsPurgeField, customFieldsRenameField, customFieldsRenameOption, customFieldsReorderField, customFieldsReorderOption, customFieldsResolveField, customFieldsSetRequired, customFieldsSetValue, customFieldsUnarchiveField, customFieldsValueHistory, directoryAddIdentifier, directoryAddName, directoryAssignCategory, directoryCreateCategory, directoryCreateEdge, directoryCreateOrganization, directoryCreatePerson, directoryDuplicateCandidates, directoryGetOrganization, directoryGetPerson, directoryLinkMatterParty, directoryMerge, directoryReadIdentifier, directorySearch, documentTypesCreate, documentTypesDeactivate, documentTypesList, documentTypesUpdate, downloadsBundleStatus, downloadsZip, fileIntegrityHash, fileIntegrityVerify, filesDelete, filesDownload, filesGet, filesList, filesPreview, filesUpdate, filesVersions, firmSetReleaseChannel, firmsProvision, firmUsageGet, foldersCreate, foldersDelete, foldersUpdate, healthRead, incidentsReport, locationsAssignMember, locationsClose, locationsCreate, locationsGet, locationsList, locationsSetAddresses, locationsUpdate, mattersClose, mattersCreate, mattersGet, mattersList, mattersListConsultations, mattersOpen, mattersRenumber, mattersReopen, mattersUpdate, matterTypesCreate, matterTypesDeactivate, matterTypesList, matterTypesUpdate, meGet, membersInvite, metadataInspect, metadataScrub, myDayGet, narrativeTemplatesCreate, narrativeTemplatesList, narrativeTemplatesRecentNarratives, nonBillableCategoriesArchive, nonBillableCategoriesCreate, nonBillableCategoriesList, nonBillableCategoriesUpdate, numberingGet, numberingPreview, numberingSet, type Options, platformSetFirmReleaseChannel, rateCardsCreate, rateCardsList, ratesAppend, ratesReRateDrafts, safeBrowsePost, scanDiagnose, scanMatter, shippingConnect, shippingCreateShipment, shippingLabel, shippingPurchase, shippingRateShipment, shippingRefund, shippingTracking, timeEntriesApprove, timeEntriesCreate, timeEntriesGet, timeEntriesGridBatch, timeEntriesKickBack, timeEntriesList, timeEntriesPreviewQuickAdd, timeEntriesSubmit, timeEntriesUpdate, timeEntriesVoid, timerBind, timerDiscard, timerPause, timerRead, timerResume, timerStart, timerStopCommit, uploadsAbort, uploadsComplete, uploadsInitiate, uploadsSignPart, utbmsCodesDisable, utbmsCodesEnable, utbmsCodesList, whoisGet } from '../sdk.gen';
-import type { ConversionsStatusData, ConversionsStatusError, ConversionsStatusResponse, ConversionsSubmitData, ConversionsSubmitError, ConversionsSubmitResponse, ConversionsUploadData, ConversionsUploadError, ConversionsUploadResponse, CustomFieldsApplyConvertData, CustomFieldsApplyConvertError, CustomFieldsApplyConvertResponse, CustomFieldsArchiveFieldData, CustomFieldsArchiveFieldError, CustomFieldsArchiveFieldResponse, CustomFieldsArchiveOptionData, CustomFieldsArchiveOptionError, CustomFieldsArchiveOptionResponse, CustomFieldsClearValueData, CustomFieldsClearValueError, CustomFieldsClearValueResponse, CustomFieldsCreateOptionData, CustomFieldsCreateOptionError, CustomFieldsCreateOptionResponse, CustomFieldsDefineFieldData, CustomFieldsDefineFieldError, CustomFieldsDefineFieldResponse, CustomFieldsHardDeleteFieldData, CustomFieldsHardDeleteFieldError, CustomFieldsHardDeleteFieldResponse, CustomFieldsHardDeleteOptionData, CustomFieldsHardDeleteOptionError, CustomFieldsHardDeleteOptionResponse, CustomFieldsListRecordValuesData, CustomFieldsListRecordValuesError, CustomFieldsListRecordValuesResponse, CustomFieldsPreviewConvertData, CustomFieldsPreviewConvertError, CustomFieldsPreviewConvertResponse, CustomFieldsPurgeFieldData, CustomFieldsPurgeFieldError, CustomFieldsPurgeFieldResponse, CustomFieldsRenameFieldData, CustomFieldsRenameFieldError, CustomFieldsRenameFieldResponse, CustomFieldsRenameOptionData, CustomFieldsRenameOptionError, CustomFieldsRenameOptionResponse, CustomFieldsReorderFieldData, CustomFieldsReorderFieldError, CustomFieldsReorderFieldResponse, CustomFieldsReorderOptionData, CustomFieldsReorderOptionError, CustomFieldsReorderOptionResponse, CustomFieldsResolveFieldData, CustomFieldsResolveFieldError, CustomFieldsResolveFieldResponse, CustomFieldsSetRequiredData, CustomFieldsSetRequiredError, CustomFieldsSetRequiredResponse, CustomFieldsSetValueData, CustomFieldsSetValueError, CustomFieldsSetValueResponse, CustomFieldsUnarchiveFieldData, CustomFieldsUnarchiveFieldError, CustomFieldsUnarchiveFieldResponse, CustomFieldsValueHistoryData, CustomFieldsValueHistoryError, CustomFieldsValueHistoryResponse, DirectoryAddIdentifierData, DirectoryAddIdentifierError, DirectoryAddIdentifierResponse, DirectoryAddNameData, DirectoryAddNameError, DirectoryAddNameResponse, DirectoryAssignCategoryData, DirectoryAssignCategoryError, DirectoryAssignCategoryResponse, DirectoryCreateCategoryData, DirectoryCreateCategoryError, DirectoryCreateCategoryResponse, DirectoryCreateEdgeData, DirectoryCreateEdgeError, DirectoryCreateEdgeResponse, DirectoryCreateOrganizationData, DirectoryCreateOrganizationError, DirectoryCreateOrganizationResponse, DirectoryCreatePersonData, DirectoryCreatePersonError, DirectoryCreatePersonResponse, DirectoryDuplicateCandidatesData, DirectoryDuplicateCandidatesError, DirectoryDuplicateCandidatesResponse2, DirectoryGetOrganizationData, DirectoryGetOrganizationError, DirectoryGetOrganizationResponse, DirectoryGetPersonData, DirectoryGetPersonError, DirectoryGetPersonResponse, DirectoryLinkMatterPartyData, DirectoryLinkMatterPartyError, DirectoryLinkMatterPartyResponse, DirectoryMergeData, DirectoryMergeError, DirectoryMergeResponse2, DirectoryReadIdentifierData, DirectoryReadIdentifierError, DirectoryReadIdentifierResponse, DirectorySearchData, DirectorySearchError, DirectorySearchResponse2, DocumentTypesCreateData, DocumentTypesCreateError, DocumentTypesCreateResponse, DocumentTypesDeactivateData, DocumentTypesDeactivateError, DocumentTypesDeactivateResponse, DocumentTypesListData, DocumentTypesListError, DocumentTypesListResponse, DocumentTypesUpdateData, DocumentTypesUpdateError, DocumentTypesUpdateResponse, DownloadsBundleStatusData, DownloadsBundleStatusError, DownloadsBundleStatusResponse, DownloadsZipData, DownloadsZipError, DownloadsZipResponse, FileIntegrityHashData, FileIntegrityHashError, FileIntegrityHashResponse2, FileIntegrityVerifyData, FileIntegrityVerifyError, FileIntegrityVerifyResponse2, FilesDeleteData, FilesDeleteError, FilesDeleteResponse, FilesDownloadData, FilesDownloadError, FilesGetData, FilesGetError, FilesGetResponse, FilesListData, FilesListError, FilesListResponse, FilesPreviewData, FilesPreviewError, FilesPreviewResponse, FilesUpdateData, FilesUpdateError, FilesUpdateResponse, FilesVersionsData, FilesVersionsError, FilesVersionsResponse, FirmSetReleaseChannelData, FirmSetReleaseChannelError, FirmSetReleaseChannelResponse, FirmsProvisionData, FirmsProvisionError, FirmsProvisionResponse, FirmUsageGetData, FirmUsageGetError, FirmUsageGetResponse, FoldersCreateData, FoldersCreateError, FoldersCreateResponse, FoldersDeleteData, FoldersDeleteError, FoldersDeleteResponse, FoldersUpdateData, FoldersUpdateError, FoldersUpdateResponse, HealthReadData, HealthReadError, HealthReadResponse, IncidentsReportData, IncidentsReportError, IncidentsReportResponse, LocationsAssignMemberData, LocationsAssignMemberError, LocationsAssignMemberResponse, LocationsCloseData, LocationsCloseError, LocationsCloseResponse, LocationsCreateData, LocationsCreateError, LocationsCreateResponse, LocationsGetData, LocationsGetError, LocationsGetResponse, LocationsListData, LocationsListError, LocationsListResponse, LocationsSetAddressesData, LocationsSetAddressesError, LocationsSetAddressesResponse, LocationsUpdateData, LocationsUpdateError, LocationsUpdateResponse, MattersCloseData, MattersCloseError, MattersCloseResponse, MattersCreateData, MattersCreateError, MattersCreateResponse, MattersGetData, MattersGetError, MattersGetResponse, MattersListConsultationsData, MattersListConsultationsError, MattersListConsultationsResponse, MattersListData, MattersListError, MattersListResponse, MattersOpenData, MattersOpenError, MattersOpenResponse, MattersRenumberData, MattersRenumberError, MattersRenumberResponse, MattersReopenData, MattersReopenError, MattersReopenResponse, MattersUpdateData, MattersUpdateError, MattersUpdateResponse, MatterTypesCreateData, MatterTypesCreateError, MatterTypesCreateResponse, MatterTypesDeactivateData, MatterTypesDeactivateError, MatterTypesDeactivateResponse, MatterTypesListData, MatterTypesListError, MatterTypesListResponse, MatterTypesUpdateData, MatterTypesUpdateError, MatterTypesUpdateResponse, MeGetData, MeGetError, MeGetResponse, MembersInviteData, MembersInviteError, MembersInviteResponse, MetadataInspectData, MetadataInspectError, MetadataInspectResponse, MetadataScrubData, MetadataScrubError, MetadataScrubResponse, MyDayGetData, MyDayGetError, MyDayGetResponse, NarrativeTemplatesCreateData, NarrativeTemplatesCreateError, NarrativeTemplatesCreateResponse, NarrativeTemplatesListData, NarrativeTemplatesListError, NarrativeTemplatesListResponse, NarrativeTemplatesRecentNarrativesData, NarrativeTemplatesRecentNarrativesError, NarrativeTemplatesRecentNarrativesResponse, NonBillableCategoriesArchiveData, NonBillableCategoriesArchiveError, NonBillableCategoriesArchiveResponse, NonBillableCategoriesCreateData, NonBillableCategoriesCreateError, NonBillableCategoriesCreateResponse, NonBillableCategoriesListData, NonBillableCategoriesListError, NonBillableCategoriesListResponse, NonBillableCategoriesUpdateData, NonBillableCategoriesUpdateError, NonBillableCategoriesUpdateResponse, NumberingGetData, NumberingGetError, NumberingGetResponse, NumberingPreviewData, NumberingPreviewError, NumberingPreviewResponse2, NumberingSetData, NumberingSetError, NumberingSetResponse, PlatformSetFirmReleaseChannelData, PlatformSetFirmReleaseChannelError, PlatformSetFirmReleaseChannelResponse, RateCardsCreateData, RateCardsCreateError, RateCardsCreateResponse, RateCardsListData, RateCardsListError, RateCardsListResponse, RatesAppendData, RatesAppendError, RatesAppendResponse, RatesReRateDraftsData, RatesReRateDraftsError, RatesReRateDraftsResponse, SafeBrowsePostData, SafeBrowsePostError, SafeBrowsePostResponse, ScanDiagnoseData, ScanDiagnoseError, ScanDiagnoseResponse, ScanMatterData, ScanMatterError, ScanMatterResponse, ShippingConnectData, ShippingConnectError, ShippingConnectResponse, ShippingCreateShipmentData, ShippingCreateShipmentError, ShippingCreateShipmentResponse, ShippingLabelData, ShippingLabelError, ShippingLabelResponse, ShippingPurchaseData, ShippingPurchaseError, ShippingPurchaseResponse, ShippingRateShipmentData, ShippingRateShipmentError, ShippingRateShipmentResponse, ShippingRefundData, ShippingRefundError, ShippingRefundResponse, ShippingTrackingData, ShippingTrackingError, ShippingTrackingResponse, TimeEntriesApproveData, TimeEntriesApproveError, TimeEntriesApproveResponse, TimeEntriesCreateData, TimeEntriesCreateError, TimeEntriesCreateResponse, TimeEntriesGetData, TimeEntriesGetError, TimeEntriesGetResponse, TimeEntriesGridBatchData, TimeEntriesGridBatchError, TimeEntriesGridBatchResponse, TimeEntriesKickBackData, TimeEntriesKickBackError, TimeEntriesKickBackResponse, TimeEntriesListData, TimeEntriesListError, TimeEntriesListResponse, TimeEntriesPreviewQuickAddData, TimeEntriesPreviewQuickAddError, TimeEntriesPreviewQuickAddResponse, TimeEntriesSubmitData, TimeEntriesSubmitError, TimeEntriesSubmitResponse, TimeEntriesUpdateData, TimeEntriesUpdateError, TimeEntriesUpdateResponse, TimeEntriesVoidData, TimeEntriesVoidError, TimeEntriesVoidResponse, TimerBindData, TimerBindError, TimerBindResponse, TimerDiscardData, TimerDiscardError, TimerDiscardResponse, TimerPauseData, TimerPauseError, TimerPauseResponse, TimerReadData, TimerReadError, TimerReadResponse, TimerResumeData, TimerResumeError, TimerResumeResponse, TimerStartData, TimerStartError, TimerStartResponse, TimerStopCommitData, TimerStopCommitError, TimerStopCommitResponse, UploadsAbortData, UploadsAbortError, UploadsAbortResponse, UploadsCompleteData, UploadsCompleteError, UploadsCompleteResponse, UploadsInitiateData, UploadsInitiateError, UploadsInitiateResponse, UploadsSignPartData, UploadsSignPartError, UploadsSignPartResponse, UtbmsCodesDisableData, UtbmsCodesDisableError, UtbmsCodesDisableResponse, UtbmsCodesEnableData, UtbmsCodesEnableError, UtbmsCodesEnableResponse, UtbmsCodesListData, UtbmsCodesListError, UtbmsCodesListResponse, WhoisGetData, WhoisGetError, WhoisGetResponse } from '../types.gen';
+import { conversionsStatus, conversionsSubmit, conversionsUpload, costsApprove, costsAttachReceipt, costsBatch, costsCreate, costsDetachReceipt, costsGet, costsKickBack, costsList, costsSubmit, costsUpdate, costsVoid, customFieldsApplyConvert, customFieldsArchiveField, customFieldsArchiveOption, customFieldsClearValue, customFieldsCreateOption, customFieldsDefineField, customFieldsHardDeleteField, customFieldsHardDeleteOption, customFieldsListRecordValues, customFieldsPreviewConvert, customFieldsPurgeField, customFieldsRenameField, customFieldsRenameOption, customFieldsReorderField, customFieldsReorderOption, customFieldsResolveField, customFieldsSetRequired, customFieldsSetValue, customFieldsUnarchiveField, customFieldsValueHistory, directoryAddIdentifier, directoryAddName, directoryAssignCategory, directoryCreateCategory, directoryCreateEdge, directoryCreateOrganization, directoryCreatePerson, directoryDuplicateCandidates, directoryGetOrganization, directoryGetPerson, directoryLinkMatterParty, directoryMerge, directoryReadIdentifier, directorySearch, documentsCheckin, documentsCheckout, documentsEditSession, documentsForceRelease, documentsReconcile, documentsViewSession, documentTypesCreate, documentTypesDeactivate, documentTypesList, documentTypesUpdate, downloadsBundleStatus, downloadsZip, fileIntegrityHash, fileIntegrityVerify, filesDelete, filesDownload, filesGet, filesList, filesPreview, filesUpdate, filesVersions, firmSetReleaseChannel, firmsProvision, firmUsageGet, foldersCreate, foldersDelete, foldersUpdate, healthRead, incidentsReport, locationsAssignMember, locationsClose, locationsCreate, locationsGet, locationsList, locationsSetAddresses, locationsUpdate, mattersClose, mattersCreate, mattersGet, mattersList, mattersListConsultations, mattersOpen, mattersRenumber, mattersReopen, mattersUpdate, matterTypesCreate, matterTypesDeactivate, matterTypesList, matterTypesUpdate, meGet, membersInvite, metadataInspect, metadataScrub, myDayGet, narrativeTemplatesCreate, narrativeTemplatesList, narrativeTemplatesRecentNarratives, nonBillableCategoriesArchive, nonBillableCategoriesCreate, nonBillableCategoriesList, nonBillableCategoriesUpdate, numberingGet, numberingPreview, numberingSet, type Options, platformSetFirmReleaseChannel, rateCardsCreate, rateCardsList, ratesAppend, ratesReRateDrafts, safeBrowsePost, scanDiagnose, scanMatter, scanPolicyGet, scanPolicyUpdate, shippingConnect, shippingCreateShipment, shippingLabel, shippingPurchase, shippingRateShipment, shippingRefund, shippingTracking, supportDiagnosticsOverview, supportGrantsCosign, supportGrantsList, supportGrantsRequest, supportGrantsRevoke, supportSessionsRedeem, timeEntriesApprove, timeEntriesCreate, timeEntriesGet, timeEntriesGridBatch, timeEntriesKickBack, timeEntriesList, timeEntriesPreviewQuickAdd, timeEntriesSubmit, timeEntriesUpdate, timeEntriesVoid, timerBind, timerDiscard, timerPause, timerRead, timerResume, timerStart, timerStopCommit, uploadsAbort, uploadsComplete, uploadsInitiate, uploadsSignPart, utbmsCodesDisable, utbmsCodesEnable, utbmsCodesList, whoisGet } from '../sdk.gen';
+import type { ConversionsStatusData, ConversionsStatusError, ConversionsStatusResponse, ConversionsSubmitData, ConversionsSubmitError, ConversionsSubmitResponse, ConversionsUploadData, ConversionsUploadError, ConversionsUploadResponse, CostsApproveData, CostsApproveError, CostsApproveResponse, CostsAttachReceiptData, CostsAttachReceiptError, CostsAttachReceiptResponse, CostsBatchData, CostsBatchError, CostsBatchResponse, CostsCreateData, CostsCreateError, CostsCreateResponse, CostsDetachReceiptData, CostsDetachReceiptError, CostsDetachReceiptResponse, CostsGetData, CostsGetError, CostsGetResponse, CostsKickBackData, CostsKickBackError, CostsKickBackResponse, CostsListData, CostsListError, CostsListResponse, CostsSubmitData, CostsSubmitError, CostsSubmitResponse, CostsUpdateData, CostsUpdateError, CostsUpdateResponse, CostsVoidData, CostsVoidError, CostsVoidResponse, CustomFieldsApplyConvertData, CustomFieldsApplyConvertError, CustomFieldsApplyConvertResponse, CustomFieldsArchiveFieldData, CustomFieldsArchiveFieldError, CustomFieldsArchiveFieldResponse, CustomFieldsArchiveOptionData, CustomFieldsArchiveOptionError, CustomFieldsArchiveOptionResponse, CustomFieldsClearValueData, CustomFieldsClearValueError, CustomFieldsClearValueResponse, CustomFieldsCreateOptionData, CustomFieldsCreateOptionError, CustomFieldsCreateOptionResponse, CustomFieldsDefineFieldData, CustomFieldsDefineFieldError, CustomFieldsDefineFieldResponse, CustomFieldsHardDeleteFieldData, CustomFieldsHardDeleteFieldError, CustomFieldsHardDeleteFieldResponse, CustomFieldsHardDeleteOptionData, CustomFieldsHardDeleteOptionError, CustomFieldsHardDeleteOptionResponse, CustomFieldsListRecordValuesData, CustomFieldsListRecordValuesError, CustomFieldsListRecordValuesResponse, CustomFieldsPreviewConvertData, CustomFieldsPreviewConvertError, CustomFieldsPreviewConvertResponse, CustomFieldsPurgeFieldData, CustomFieldsPurgeFieldError, CustomFieldsPurgeFieldResponse, CustomFieldsRenameFieldData, CustomFieldsRenameFieldError, CustomFieldsRenameFieldResponse, CustomFieldsRenameOptionData, CustomFieldsRenameOptionError, CustomFieldsRenameOptionResponse, CustomFieldsReorderFieldData, CustomFieldsReorderFieldError, CustomFieldsReorderFieldResponse, CustomFieldsReorderOptionData, CustomFieldsReorderOptionError, CustomFieldsReorderOptionResponse, CustomFieldsResolveFieldData, CustomFieldsResolveFieldError, CustomFieldsResolveFieldResponse, CustomFieldsSetRequiredData, CustomFieldsSetRequiredError, CustomFieldsSetRequiredResponse, CustomFieldsSetValueData, CustomFieldsSetValueError, CustomFieldsSetValueResponse, CustomFieldsUnarchiveFieldData, CustomFieldsUnarchiveFieldError, CustomFieldsUnarchiveFieldResponse, CustomFieldsValueHistoryData, CustomFieldsValueHistoryError, CustomFieldsValueHistoryResponse, DirectoryAddIdentifierData, DirectoryAddIdentifierError, DirectoryAddIdentifierResponse, DirectoryAddNameData, DirectoryAddNameError, DirectoryAddNameResponse, DirectoryAssignCategoryData, DirectoryAssignCategoryError, DirectoryAssignCategoryResponse, DirectoryCreateCategoryData, DirectoryCreateCategoryError, DirectoryCreateCategoryResponse, DirectoryCreateEdgeData, DirectoryCreateEdgeError, DirectoryCreateEdgeResponse, DirectoryCreateOrganizationData, DirectoryCreateOrganizationError, DirectoryCreateOrganizationResponse, DirectoryCreatePersonData, DirectoryCreatePersonError, DirectoryCreatePersonResponse, DirectoryDuplicateCandidatesData, DirectoryDuplicateCandidatesError, DirectoryDuplicateCandidatesResponse2, DirectoryGetOrganizationData, DirectoryGetOrganizationError, DirectoryGetOrganizationResponse, DirectoryGetPersonData, DirectoryGetPersonError, DirectoryGetPersonResponse, DirectoryLinkMatterPartyData, DirectoryLinkMatterPartyError, DirectoryLinkMatterPartyResponse, DirectoryMergeData, DirectoryMergeError, DirectoryMergeResponse2, DirectoryReadIdentifierData, DirectoryReadIdentifierError, DirectoryReadIdentifierResponse, DirectorySearchData, DirectorySearchError, DirectorySearchResponse2, DocumentsCheckinData, DocumentsCheckinError, DocumentsCheckinResponse, DocumentsCheckoutData, DocumentsCheckoutError, DocumentsCheckoutResponse, DocumentsEditSessionData, DocumentsEditSessionError, DocumentsEditSessionResponse, DocumentsForceReleaseData, DocumentsForceReleaseError, DocumentsForceReleaseResponse, DocumentsReconcileData, DocumentsReconcileError, DocumentsReconcileResponse, DocumentsViewSessionData, DocumentsViewSessionError, DocumentsViewSessionResponse, DocumentTypesCreateData, DocumentTypesCreateError, DocumentTypesCreateResponse, DocumentTypesDeactivateData, DocumentTypesDeactivateError, DocumentTypesDeactivateResponse, DocumentTypesListData, DocumentTypesListError, DocumentTypesListResponse, DocumentTypesUpdateData, DocumentTypesUpdateError, DocumentTypesUpdateResponse, DownloadsBundleStatusData, DownloadsBundleStatusError, DownloadsBundleStatusResponse, DownloadsZipData, DownloadsZipError, DownloadsZipResponse, FileIntegrityHashData, FileIntegrityHashError, FileIntegrityHashResponse2, FileIntegrityVerifyData, FileIntegrityVerifyError, FileIntegrityVerifyResponse2, FilesDeleteData, FilesDeleteError, FilesDeleteResponse, FilesDownloadData, FilesDownloadError, FilesGetData, FilesGetError, FilesGetResponse, FilesListData, FilesListError, FilesListResponse, FilesPreviewData, FilesPreviewError, FilesPreviewResponse, FilesUpdateData, FilesUpdateError, FilesUpdateResponse, FilesVersionsData, FilesVersionsError, FilesVersionsResponse, FirmSetReleaseChannelData, FirmSetReleaseChannelError, FirmSetReleaseChannelResponse, FirmsProvisionData, FirmsProvisionError, FirmsProvisionResponse, FirmUsageGetData, FirmUsageGetError, FirmUsageGetResponse, FoldersCreateData, FoldersCreateError, FoldersCreateResponse, FoldersDeleteData, FoldersDeleteError, FoldersDeleteResponse, FoldersUpdateData, FoldersUpdateError, FoldersUpdateResponse, HealthReadData, HealthReadError, HealthReadResponse, IncidentsReportData, IncidentsReportError, IncidentsReportResponse, LocationsAssignMemberData, LocationsAssignMemberError, LocationsAssignMemberResponse, LocationsCloseData, LocationsCloseError, LocationsCloseResponse, LocationsCreateData, LocationsCreateError, LocationsCreateResponse, LocationsGetData, LocationsGetError, LocationsGetResponse, LocationsListData, LocationsListError, LocationsListResponse, LocationsSetAddressesData, LocationsSetAddressesError, LocationsSetAddressesResponse, LocationsUpdateData, LocationsUpdateError, LocationsUpdateResponse, MattersCloseData, MattersCloseError, MattersCloseResponse, MattersCreateData, MattersCreateError, MattersCreateResponse, MattersGetData, MattersGetError, MattersGetResponse, MattersListConsultationsData, MattersListConsultationsError, MattersListConsultationsResponse, MattersListData, MattersListError, MattersListResponse, MattersOpenData, MattersOpenError, MattersOpenResponse, MattersRenumberData, MattersRenumberError, MattersRenumberResponse, MattersReopenData, MattersReopenError, MattersReopenResponse, MattersUpdateData, MattersUpdateError, MattersUpdateResponse, MatterTypesCreateData, MatterTypesCreateError, MatterTypesCreateResponse, MatterTypesDeactivateData, MatterTypesDeactivateError, MatterTypesDeactivateResponse, MatterTypesListData, MatterTypesListError, MatterTypesListResponse, MatterTypesUpdateData, MatterTypesUpdateError, MatterTypesUpdateResponse, MeGetData, MeGetError, MeGetResponse, MembersInviteData, MembersInviteError, MembersInviteResponse, MetadataInspectData, MetadataInspectError, MetadataInspectResponse, MetadataScrubData, MetadataScrubError, MetadataScrubResponse, MyDayGetData, MyDayGetError, MyDayGetResponse, NarrativeTemplatesCreateData, NarrativeTemplatesCreateError, NarrativeTemplatesCreateResponse, NarrativeTemplatesListData, NarrativeTemplatesListError, NarrativeTemplatesListResponse, NarrativeTemplatesRecentNarrativesData, NarrativeTemplatesRecentNarrativesError, NarrativeTemplatesRecentNarrativesResponse, NonBillableCategoriesArchiveData, NonBillableCategoriesArchiveError, NonBillableCategoriesArchiveResponse, NonBillableCategoriesCreateData, NonBillableCategoriesCreateError, NonBillableCategoriesCreateResponse, NonBillableCategoriesListData, NonBillableCategoriesListError, NonBillableCategoriesListResponse, NonBillableCategoriesUpdateData, NonBillableCategoriesUpdateError, NonBillableCategoriesUpdateResponse, NumberingGetData, NumberingGetError, NumberingGetResponse, NumberingPreviewData, NumberingPreviewError, NumberingPreviewResponse2, NumberingSetData, NumberingSetError, NumberingSetResponse, PlatformSetFirmReleaseChannelData, PlatformSetFirmReleaseChannelError, PlatformSetFirmReleaseChannelResponse, RateCardsCreateData, RateCardsCreateError, RateCardsCreateResponse, RateCardsListData, RateCardsListError, RateCardsListResponse, RatesAppendData, RatesAppendError, RatesAppendResponse, RatesReRateDraftsData, RatesReRateDraftsError, RatesReRateDraftsResponse, SafeBrowsePostData, SafeBrowsePostError, SafeBrowsePostResponse, ScanDiagnoseData, ScanDiagnoseError, ScanDiagnoseResponse, ScanMatterData, ScanMatterError, ScanMatterResponse, ScanPolicyGetData, ScanPolicyGetError, ScanPolicyGetResponse, ScanPolicyUpdateData, ScanPolicyUpdateError, ScanPolicyUpdateResponse, ShippingConnectData, ShippingConnectError, ShippingConnectResponse, ShippingCreateShipmentData, ShippingCreateShipmentError, ShippingCreateShipmentResponse, ShippingLabelData, ShippingLabelError, ShippingLabelResponse, ShippingPurchaseData, ShippingPurchaseError, ShippingPurchaseResponse, ShippingRateShipmentData, ShippingRateShipmentError, ShippingRateShipmentResponse, ShippingRefundData, ShippingRefundError, ShippingRefundResponse, ShippingTrackingData, ShippingTrackingError, ShippingTrackingResponse, SupportDiagnosticsOverviewData, SupportDiagnosticsOverviewError, SupportDiagnosticsOverviewResponse, SupportGrantsCosignData, SupportGrantsCosignError, SupportGrantsCosignResponse, SupportGrantsListData, SupportGrantsListError, SupportGrantsListResponse, SupportGrantsRequestData, SupportGrantsRequestError, SupportGrantsRequestResponse, SupportGrantsRevokeData, SupportGrantsRevokeError, SupportGrantsRevokeResponse, SupportSessionsRedeemData, SupportSessionsRedeemError, SupportSessionsRedeemResponse, TimeEntriesApproveData, TimeEntriesApproveError, TimeEntriesApproveResponse, TimeEntriesCreateData, TimeEntriesCreateError, TimeEntriesCreateResponse, TimeEntriesGetData, TimeEntriesGetError, TimeEntriesGetResponse, TimeEntriesGridBatchData, TimeEntriesGridBatchError, TimeEntriesGridBatchResponse, TimeEntriesKickBackData, TimeEntriesKickBackError, TimeEntriesKickBackResponse, TimeEntriesListData, TimeEntriesListError, TimeEntriesListResponse, TimeEntriesPreviewQuickAddData, TimeEntriesPreviewQuickAddError, TimeEntriesPreviewQuickAddResponse, TimeEntriesSubmitData, TimeEntriesSubmitError, TimeEntriesSubmitResponse, TimeEntriesUpdateData, TimeEntriesUpdateError, TimeEntriesUpdateResponse, TimeEntriesVoidData, TimeEntriesVoidError, TimeEntriesVoidResponse, TimerBindData, TimerBindError, TimerBindResponse, TimerDiscardData, TimerDiscardError, TimerDiscardResponse, TimerPauseData, TimerPauseError, TimerPauseResponse, TimerReadData, TimerReadError, TimerReadResponse, TimerResumeData, TimerResumeError, TimerResumeResponse, TimerStartData, TimerStartError, TimerStartResponse, TimerStopCommitData, TimerStopCommitError, TimerStopCommitResponse, UploadsAbortData, UploadsAbortError, UploadsAbortResponse, UploadsCompleteData, UploadsCompleteError, UploadsCompleteResponse, UploadsInitiateData, UploadsInitiateError, UploadsInitiateResponse, UploadsSignPartData, UploadsSignPartError, UploadsSignPartResponse, UtbmsCodesDisableData, UtbmsCodesDisableError, UtbmsCodesDisableResponse, UtbmsCodesEnableData, UtbmsCodesEnableError, UtbmsCodesEnableResponse, UtbmsCodesListData, UtbmsCodesListError, UtbmsCodesListResponse, WhoisGetData, WhoisGetError, WhoisGetResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -231,7 +231,7 @@ export const firmSetReleaseChannelMutation = (options?: Partial<Options<FirmSetR
 };
 
 /**
- * Provisions a tenant firm (platform-admin only): firm row, per-firm database created and migrated to head, bucket, owner user with the Owner/Admin role — resumable; re-invoking with the same name no-ops completed steps and returns the existing firm.
+ * Provisions a tenant firm (platform-admin only): firm row, bucket, owner user with the Owner/Admin role — resumable; re-invoking with the same name no-ops completed steps and returns the existing firm. The firm's per-firm database is the firmId-addressed database that self-migrates on first access, so it needs no provisioning step.
  */
 export const firmsProvisionMutation = (options?: Partial<Options<FirmsProvisionData>>): MutationOptions<FirmsProvisionResponse, FirmsProvisionError, Options<FirmsProvisionData>> => {
     const mutationOptions: MutationOptions<FirmsProvisionResponse, FirmsProvisionError, Options<FirmsProvisionData>> = {
@@ -1120,6 +1120,109 @@ export const downloadsZipMutation = (options?: Partial<Options<DownloadsZipData>
 };
 
 /**
+ * Launch an editing session for a document: joins the live co-editing session (or starts one), returns the editor URL to iframe, the editor origin, and a short-lived WOPI edit token.
+ */
+export const documentsEditSessionMutation = (options?: Partial<Options<DocumentsEditSessionData>>): MutationOptions<DocumentsEditSessionResponse, DocumentsEditSessionError, Options<DocumentsEditSessionData>> => {
+    const mutationOptions: MutationOptions<DocumentsEditSessionResponse, DocumentsEditSessionError, Options<DocumentsEditSessionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await documentsEditSession({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const documentsViewSessionQueryKey = (options: Options<DocumentsViewSessionData>) => createQueryKey('documentsViewSession', options);
+
+/**
+ * Open a read-only viewer for a document: returns the editor URL to iframe and a short-lived view-only WOPI token. Never takes the lock; reading is never blocked.
+ */
+export const documentsViewSessionOptions = (options: Options<DocumentsViewSessionData>) => queryOptions<DocumentsViewSessionResponse, DocumentsViewSessionError, DocumentsViewSessionResponse, ReturnType<typeof documentsViewSessionQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await documentsViewSession({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: documentsViewSessionQueryKey(options)
+});
+
+/**
+ * Take a checkout of a document: an optimistic offline working copy (default) or an opt-in exclusive lock. Records a checkout against the current version and returns a short-lived presigned download URL for that version's bytes.
+ */
+export const documentsCheckoutMutation = (options?: Partial<Options<DocumentsCheckoutData>>): MutationOptions<DocumentsCheckoutResponse, DocumentsCheckoutError, Options<DocumentsCheckoutData>> => {
+    const mutationOptions: MutationOptions<DocumentsCheckoutResponse, DocumentsCheckoutError, Options<DocumentsCheckoutData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await documentsCheckout({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Return an offline working copy: validates the checkout, mints a pending version, and returns a presigned PUT for the edited bytes. The bytes route the quarantine ingest, then reconcile against the document's current version (fast-forward or a flagged conflicting copy).
+ */
+export const documentsCheckinMutation = (options?: Partial<Options<DocumentsCheckinData>>): MutationOptions<DocumentsCheckinResponse, DocumentsCheckinError, Options<DocumentsCheckinData>> => {
+    const mutationOptions: MutationOptions<DocumentsCheckinResponse, DocumentsCheckinError, Options<DocumentsCheckinData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await documentsCheckin({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Resolve a divergent check-in by choosing which copy is authoritative (keep the current version, promote the incoming offline edit, or keep both). Flags the conflicting copy reconciled, releases the checkout, and audits the resolution. The conflicting copy is retained.
+ */
+export const documentsReconcileMutation = (options?: Partial<Options<DocumentsReconcileData>>): MutationOptions<DocumentsReconcileResponse, DocumentsReconcileError, Options<DocumentsReconcileData>> => {
+    const mutationOptions: MutationOptions<DocumentsReconcileResponse, DocumentsReconcileError, Options<DocumentsReconcileData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await documentsReconcile({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Force-release another member's lock on a document (an exclusive lock or a stranded offline checkout): releases the active checkout, frees the document, and audits both the actor and the displaced holder.
+ */
+export const documentsForceReleaseMutation = (options?: Partial<Options<DocumentsForceReleaseData>>): MutationOptions<DocumentsForceReleaseResponse, DocumentsForceReleaseError, Options<DocumentsForceReleaseData>> => {
+    const mutationOptions: MutationOptions<DocumentsForceReleaseResponse, DocumentsForceReleaseError, Options<DocumentsForceReleaseData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await documentsForceRelease({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
  * Scans an uploaded file — the raw bytes as the application/octet-stream request body — through the malware-scan engine and returns its verdict + details. A one-off diagnostic: the file is NOT stored and is NOT associated with any matter. Returns an honest `unscanned` verdict until the scan Container is activated (the engine-less adapter never reports a false `clean`).
  */
 export const scanDiagnoseMutation = (options?: Partial<Options<ScanDiagnoseData>>): MutationOptions<ScanDiagnoseResponse, ScanDiagnoseError, Options<ScanDiagnoseData>> => {
@@ -1143,6 +1246,41 @@ export const scanMatterMutation = (options?: Partial<Options<ScanMatterData>>): 
     const mutationOptions: MutationOptions<ScanMatterResponse, ScanMatterError, Options<ScanMatterData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await scanMatter({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const scanPolicyGetQueryKey = (options?: Options<ScanPolicyGetData>) => createQueryKey('scanPolicyGet', options);
+
+/**
+ * Reads the firm's malware scan-policy settings: the scan tier, suspicious-score floor, flagged-file treatment, and step-up re-auth preference. Missing rows return the built-in defaults so a fresh firm always reads a valid configuration.
+ */
+export const scanPolicyGetOptions = (options?: Options<ScanPolicyGetData>) => queryOptions<ScanPolicyGetResponse, ScanPolicyGetError, ScanPolicyGetResponse, ReturnType<typeof scanPolicyGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await scanPolicyGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: scanPolicyGetQueryKey(options)
+});
+
+/**
+ * Updates one or more of the firm's malware scan-policy settings. Only the supplied fields are changed; absent fields retain their current values. Writes are batched atomically with an audit log entry. Returns the full resolved settings after the update.
+ */
+export const scanPolicyUpdateMutation = (options?: Partial<Options<ScanPolicyUpdateData>>): MutationOptions<ScanPolicyUpdateResponse, ScanPolicyUpdateError, Options<ScanPolicyUpdateData>> => {
+    const mutationOptions: MutationOptions<ScanPolicyUpdateResponse, ScanPolicyUpdateError, Options<ScanPolicyUpdateData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await scanPolicyUpdate({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -1756,6 +1894,195 @@ export const customFieldsValueHistoryOptions = (options: Options<CustomFieldsVal
     queryKey: customFieldsValueHistoryQueryKey(options)
 });
 
+/**
+ * Captures a batch of cost entries from the grid in one request. All rows are written atomically — if any row is invalid the entire batch is refused.
+ */
+export const costsBatchMutation = (options?: Partial<Options<CostsBatchData>>): MutationOptions<CostsBatchResponse, CostsBatchError, Options<CostsBatchData>> => {
+    const mutationOptions: MutationOptions<CostsBatchResponse, CostsBatchError, Options<CostsBatchData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await costsBatch({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const costsListQueryKey = (options?: Options<CostsListData>) => createQueryKey('costsList', options);
+
+/**
+ * Lists cost entries for a matter, filtered by status. Returns an empty list when no matterId is supplied.
+ */
+export const costsListOptions = (options?: Options<CostsListData>) => queryOptions<CostsListResponse, CostsListError, CostsListResponse, ReturnType<typeof costsListQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await costsList({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: costsListQueryKey(options)
+});
+
+/**
+ * Captures a cost entry against a matter. The source is always set to 'manual'. The amount must be a positive integer in minor units.
+ */
+export const costsCreateMutation = (options?: Partial<Options<CostsCreateData>>): MutationOptions<CostsCreateResponse, CostsCreateError, Options<CostsCreateData>> => {
+    const mutationOptions: MutationOptions<CostsCreateResponse, CostsCreateError, Options<CostsCreateData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await costsCreate({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const costsGetQueryKey = (options: Options<CostsGetData>) => createQueryKey('costsGet', options);
+
+/**
+ * Returns one cost entry's detail.
+ */
+export const costsGetOptions = (options: Options<CostsGetData>) => queryOptions<CostsGetResponse, CostsGetError, CostsGetResponse, ReturnType<typeof costsGetQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await costsGet({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: costsGetQueryKey(options)
+});
+
+/**
+ * Updates a draft cost entry. A billed or void entry is frozen and cannot be edited. A submitted or approved entry is not draft and returns 409.
+ */
+export const costsUpdateMutation = (options?: Partial<Options<CostsUpdateData>>): MutationOptions<CostsUpdateResponse, CostsUpdateError, Options<CostsUpdateData>> => {
+    const mutationOptions: MutationOptions<CostsUpdateResponse, CostsUpdateError, Options<CostsUpdateData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await costsUpdate({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Submits a draft cost entry for review. Only legal when the firm's billing review gate is on.
+ */
+export const costsSubmitMutation = (options?: Partial<Options<CostsSubmitData>>): MutationOptions<CostsSubmitResponse, CostsSubmitError, Options<CostsSubmitData>> => {
+    const mutationOptions: MutationOptions<CostsSubmitResponse, CostsSubmitError, Options<CostsSubmitData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await costsSubmit({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Approves a submitted cost entry, making it eligible for billing.
+ */
+export const costsApproveMutation = (options?: Partial<Options<CostsApproveData>>): MutationOptions<CostsApproveResponse, CostsApproveError, Options<CostsApproveData>> => {
+    const mutationOptions: MutationOptions<CostsApproveResponse, CostsApproveError, Options<CostsApproveData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await costsApprove({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Returns a submitted cost entry to draft with an audited reason.
+ */
+export const costsKickBackMutation = (options?: Partial<Options<CostsKickBackData>>): MutationOptions<CostsKickBackResponse, CostsKickBackError, Options<CostsKickBackData>> => {
+    const mutationOptions: MutationOptions<CostsKickBackResponse, CostsKickBackError, Options<CostsKickBackData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await costsKickBack({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Voids a cost entry. The row freezes — it can no longer be edited or billed.
+ */
+export const costsVoidMutation = (options?: Partial<Options<CostsVoidData>>): MutationOptions<CostsVoidResponse, CostsVoidError, Options<CostsVoidData>> => {
+    const mutationOptions: MutationOptions<CostsVoidResponse, CostsVoidError, Options<CostsVoidData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await costsVoid({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Removes the receipt file from a cost entry.
+ */
+export const costsDetachReceiptMutation = (options?: Partial<Options<CostsDetachReceiptData>>): MutationOptions<CostsDetachReceiptResponse, CostsDetachReceiptError, Options<CostsDetachReceiptData>> => {
+    const mutationOptions: MutationOptions<CostsDetachReceiptResponse, CostsDetachReceiptError, Options<CostsDetachReceiptData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await costsDetachReceipt({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Attaches a receipt file to a cost entry. The file identifier is trusted as a matter-rooted document in the File Manager; a cross-existence check against the File Manager is a deferred follow-up.
+ */
+export const costsAttachReceiptMutation = (options?: Partial<Options<CostsAttachReceiptData>>): MutationOptions<CostsAttachReceiptResponse, CostsAttachReceiptError, Options<CostsAttachReceiptData>> => {
+    const mutationOptions: MutationOptions<CostsAttachReceiptResponse, CostsAttachReceiptError, Options<CostsAttachReceiptData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await costsAttachReceipt({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const timeEntriesListQueryKey = (options?: Options<TimeEntriesListData>) => createQueryKey('timeEntriesList', options);
 
 /**
@@ -2359,6 +2686,110 @@ export const conversionsStatusOptions = (options: Options<ConversionsStatusData>
         return data;
     },
     queryKey: conversionsStatusQueryKey(options)
+});
+
+export const supportGrantsListQueryKey = (options?: Options<SupportGrantsListData>) => createQueryKey('supportGrantsList', options);
+
+/**
+ * The firm's support grants — who requested help, the scope (tier), current status, and the staff principal who redeemed it. Ordered newest first. Visible to any authenticated firm member so every member can see when help-desk access is or was active on their firm.
+ */
+export const supportGrantsListOptions = (options?: Options<SupportGrantsListData>) => queryOptions<SupportGrantsListResponse, SupportGrantsListError, SupportGrantsListResponse, ReturnType<typeof supportGrantsListQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await supportGrantsList({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: supportGrantsListQueryKey(options)
+});
+
+/**
+ * A firm member requests time-boxed help-desk access to their firm. The request is the consent anchor — the requester's identity is the scope, and any staff who redeems the grant acts only within the tier the requester chose. A diagnostic grant opens immediately; a privileged grant waits for admin co-sign when the firm's co-sign policy is on.
+ */
+export const supportGrantsRequestMutation = (options?: Partial<Options<SupportGrantsRequestData>>): MutationOptions<SupportGrantsRequestResponse, SupportGrantsRequestError, Options<SupportGrantsRequestData>> => {
+    const mutationOptions: MutationOptions<SupportGrantsRequestResponse, SupportGrantsRequestError, Options<SupportGrantsRequestData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await supportGrantsRequest({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * An admin co-signs a privileged support grant that firm policy held for approval. Moves the grant from requested to active so a platform-staff principal may redeem it.
+ */
+export const supportGrantsCosignMutation = (options?: Partial<Options<SupportGrantsCosignData>>): MutationOptions<SupportGrantsCosignResponse, SupportGrantsCosignError, Options<SupportGrantsCosignData>> => {
+    const mutationOptions: MutationOptions<SupportGrantsCosignResponse, SupportGrantsCosignError, Options<SupportGrantsCosignData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await supportGrantsCosign({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * An admin revokes a support grant; in-flight support access ends on the next request the platform-staff principal makes against the grant-verification middleware.
+ */
+export const supportGrantsRevokeMutation = (options?: Partial<Options<SupportGrantsRevokeData>>): MutationOptions<SupportGrantsRevokeResponse, SupportGrantsRevokeError, Options<SupportGrantsRevokeData>> => {
+    const mutationOptions: MutationOptions<SupportGrantsRevokeResponse, SupportGrantsRevokeError, Options<SupportGrantsRevokeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await supportGrantsRevoke({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * A platform-staff principal redeems an active support grant for a short-lived support-session token. The token encodes the grant, principal, firm, and tier; the live grant row (checked on every subsequent request) remains the source of truth for revocation and expiry. Privileged grants may only be redeemed by a support_lead principal.
+ */
+export const supportSessionsRedeemMutation = (options?: Partial<Options<SupportSessionsRedeemData>>): MutationOptions<SupportSessionsRedeemResponse, SupportSessionsRedeemError, Options<SupportSessionsRedeemData>> => {
+    const mutationOptions: MutationOptions<SupportSessionsRedeemResponse, SupportSessionsRedeemError, Options<SupportSessionsRedeemData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await supportSessionsRedeem({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const supportDiagnosticsOverviewQueryKey = (options?: Options<SupportDiagnosticsOverviewData>) => createQueryKey('supportDiagnosticsOverview', options);
+
+/**
+ * Non-privileged firm system state for help-desk diagnosis: firm status, per-firm schema version, storage provisioning state, and active member count. Accessible only from a diagnostic support session — the permission is never seeded to a firm role.
+ */
+export const supportDiagnosticsOverviewOptions = (options?: Options<SupportDiagnosticsOverviewData>) => queryOptions<SupportDiagnosticsOverviewResponse, SupportDiagnosticsOverviewError, SupportDiagnosticsOverviewResponse, ReturnType<typeof supportDiagnosticsOverviewQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await supportDiagnosticsOverview({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: supportDiagnosticsOverviewQueryKey(options)
 });
 
 /**

@@ -6,9 +6,7 @@ let ready: Promise<unknown> | undefined;
 
 export async function ensureReady(wasmInput?: BufferSource | WebAssembly.Module): Promise<void> {
   if (ready === undefined) {
-    ready = wasmInput !== undefined
-      ? init({ module_or_path: wasmInput })
-      : init();
+    ready = wasmInput !== undefined ? init({ module_or_path: wasmInput }) : init();
   }
   await ready;
 }
@@ -34,7 +32,10 @@ export interface RenderOptions {
 export class PdfDocument {
   private constructor(private readonly handle: WasmDocument) {}
 
-  static async load(bytes: Uint8Array, wasmInput?: BufferSource | WebAssembly.Module): Promise<PdfDocument> {
+  static async load(
+    bytes: Uint8Array,
+    wasmInput?: BufferSource | WebAssembly.Module,
+  ): Promise<PdfDocument> {
     await ensureReady(wasmInput);
     return new PdfDocument(WasmDocument.load(bytes));
   }
@@ -71,7 +72,10 @@ export class PdfDocument {
   }
 }
 
-export async function loadDocument(bytes: Uint8Array, wasmInput?: BufferSource | WebAssembly.Module): Promise<PdfDocument> {
+export async function loadDocument(
+  bytes: Uint8Array,
+  wasmInput?: BufferSource | WebAssembly.Module,
+): Promise<PdfDocument> {
   return PdfDocument.load(bytes, wasmInput);
 }
 
@@ -425,4 +429,110 @@ export async function fillForm(
 export async function flattenForm(bytes: Uint8Array): Promise<FormFillResult> {
   await ensureReady();
   return wasmFlattenForm(bytes) as FormFillResult;
+}
+
+// ── Security: inspect / unlock / protect ────────────────────────────────────────
+//
+// Runs entirely in this module (WebAssembly): the password and document bytes never
+// leave the caller's process. The password is never included in a thrown error.
+
+import {
+  inspectSecurity as wasmInspectSecurity,
+  decryptDocument as wasmDecryptDocument,
+  secureDocument as wasmSecureDocument,
+} from "./pkg/pdf_core.js";
+
+/**
+ * A document's advisory permission policy. PDF permission bits are honoured only by
+ * cooperating viewers and can be stripped by any tool that opens the document — the
+ * open password plus the cipher is the only real confidentiality control.
+ */
+export interface SecurityPermissions {
+  print: boolean;
+  printHighRes: boolean;
+  copy: boolean;
+  modify: boolean;
+  annotate: boolean;
+  fillForms: boolean;
+  assemble: boolean;
+  accessibilityCopy: boolean;
+}
+
+/** What a document's security looks like, read without opening it. */
+export interface SecurityInfo {
+  encrypted: boolean;
+  handler: "standard" | "publicKey" | "none";
+  algorithm: "rc4" | "aes128" | "aes256" | "unknown" | "none";
+  /** True when an open (user) password is required to view the document. */
+  hasUserPassword: boolean;
+  /** The permission policy, or `null` when it could not be read (an open-password-free doc). */
+  permissions: SecurityPermissions | null;
+}
+
+/** Options for {@link secureDocument}. */
+export interface SecureOptions {
+  /** Required. Governs permission changes. */
+  ownerPassword: string;
+  /** Optional open password. Omit (or empty) for a document that opens without a prompt. */
+  userPassword?: string;
+  /** Omitted bits default to allowed. */
+  permissions?: Partial<SecurityPermissions>;
+  /** Default true. */
+  encryptMetadata?: boolean;
+  /** Default `"aes256"`. `"aes128"` is for older readers only; never RC4. */
+  algorithm?: "aes256" | "aes128";
+}
+
+/** Thrown by {@link decryptDocument} when the password does not open the document. */
+export class WrongPasswordError extends Error {
+  readonly code = "wrong-password" as const;
+  constructor() {
+    super("The password did not unlock the document.");
+    this.name = "WrongPasswordError";
+  }
+}
+
+/**
+ * Classify a PDF's security without a password. Lets a caller prompt for a password
+ * only when one is needed and refuse an unsupported (public-key) handler.
+ */
+export async function inspectSecurity(bytes: Uint8Array): Promise<SecurityInfo> {
+  await ensureReady();
+  return wasmInspectSecurity(bytes) as SecurityInfo;
+}
+
+/**
+ * Unlock a password-protected PDF, returning the plaintext bytes. An unencrypted input
+ * is returned unchanged. Throws {@link WrongPasswordError} for a bad password (distinct
+ * from a parse failure) so the caller can re-prompt. Unlocks with a *known* password
+ * only — it does not recover or guess passwords.
+ */
+export async function decryptDocument(
+  bytes: Uint8Array,
+  password: string,
+): Promise<{ pdf: Uint8Array }> {
+  await ensureReady();
+  try {
+    return wasmDecryptDocument(bytes, password) as { pdf: Uint8Array };
+  } catch (error) {
+    // The engine signals a bad password with this exact token and never echoes the
+    // password; re-throw as a typed error the UI can act on.
+    if (error instanceof Error && error.message === "wrong-password") {
+      throw new WrongPasswordError();
+    }
+    throw error;
+  }
+}
+
+/**
+ * Protect a PDF, returning the encrypted bytes. Writes AES-256 by default and never
+ * RC4. `ownerPassword` is required; an omitted/empty `userPassword` produces a document
+ * that opens without a prompt but still carries the owner password and permissions.
+ */
+export async function secureDocument(
+  bytes: Uint8Array,
+  options: SecureOptions,
+): Promise<{ pdf: Uint8Array }> {
+  await ensureReady();
+  return wasmSecureDocument(bytes, options) as { pdf: Uint8Array };
 }

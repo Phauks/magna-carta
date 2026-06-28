@@ -66,14 +66,14 @@ PdfDocument.free(): void                               // release wasm memory (a
 ## 4. Build & toolchain
 
 - **WASM:** `wasm-bindgen` + `wasm-pack` (target `web`) emit the JS bindings + `.wasm`; `@magna-carta/pdf` re-exports them; Vite consumes the package when the viewer is built. Size-optimized profile (the spike's `opt-level="z"`, `lto`, `strip`); `wasm-opt` in the release build.
-- **Native:** falls out free — the `pdf-eval` harness *is* the native build; no separate packaging this slice.
+- **Native:** falls out free — the `pdf-eval` harness _is_ the native build; no separate packaging this slice.
 - **`vp`:** gains `cargo build`/`test`/`fmt`/`clippy` and a `wasm-pack build` step wired into `vp run build-all` and `vp check`. **First Rust in `vp`** — this is the convention the `rust-workspace-layout` ADR records.
 - **CI:** a Rust job (fmt + clippy + `cargo test` + wasm build) added alongside the pnpm gate.
-- **ADR-0090 constraints (bind now):** the shipped WASM is a **generic primitive** (render/parse) — fine to ship and even upstream; **minification only, no source maps**; nothing proprietary in the client core (the redaction *verification gate* and product workflows are later, server-or-product-layer slices).
+- **ADR-0090 constraints (bind now):** the shipped WASM is a **generic primitive** (render/parse) — fine to ship and even upstream; **minification only, no source maps**; nothing proprietary in the client core (the redaction _verification gate_ and product workflows are later, server-or-product-layer slices).
 
 ## 5. Error handling
 
-`pdf-core` is a **pure compute library**: fallible operations return typed `Result`s (`PdfError { Parse, PageOutOfRange, Render, … }`) marshalled to JS as thrown typed errors — no logging, no Error-IDs inside the core. The **standard error pipeline** (golden rule 4 — redaction, Error-ID correlation, the in-house logger) lives at the **consuming Worker/route** that eventually calls the engine, not in the WASM core; the core just reports *what* failed. This keeps the core portable (it runs identically in a browser with no logger) and is stated as the boundary.
+`pdf-core` is a **pure compute library**: fallible operations return typed `Result`s (`PdfError { Parse, PageOutOfRange, Render, … }`) marshalled to JS as thrown typed errors — no logging, no Error-IDs inside the core. The **standard error pipeline** (golden rule 4 — redaction, Error-ID correlation, the in-house logger) lives at the **consuming Worker/route** that eventually calls the engine, not in the WASM core; the core just reports _what_ failed. This keeps the core portable (it runs identically in a browser with no logger) and is stated as the boundary.
 
 ## 6. Testing (the harness becomes permanent)
 

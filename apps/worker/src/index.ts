@@ -3,10 +3,13 @@ import { createWorkersLogger } from "@magna-carta/telemetry/workers-logger";
 import { createApp, type Bindings } from "./app.ts";
 import { conversionQueue } from "./conversions/conversion-consumer.ts";
 import type { ConversionMessage } from "./conversions/conversion-types.ts";
+import { perFirmQueue, type PerFirmQueueMessage } from "./costs/recoverable-charge-consumer.ts";
 import { bundleBuildQueue } from "./downloads/bundle-consumer.ts";
 import type { BundleBuildMessage } from "./downloads/bundle-types.ts";
 import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
 import { inferenceQueue, type InferenceJob } from "./inference/inference-consumer.ts";
+import { runIdleCheckoutSweep } from "./editing/idle-checkout-sweep.ts";
+import { runTieringSweep } from "./editing/tiering-sweep.ts";
 import { runScheduledSweep, runStorageReconciliation } from "./scheduled.ts";
 import { LiveTimerDurableObject } from "./timer/live-timer-durable-object.ts";
 
@@ -27,9 +30,17 @@ export { FirmDatabase } from "./firm-database/firm-database-object.ts";
 // batches to the bundle consumer, every other queue to the files-ingest consumer.
 const BUNDLE_BUILD_QUEUE = "magna-carta-production-bundle-build";
 
+// The per-document editing session coordinator. Re-exported so wrangler can register the Durable
+// Object class named in wrangler.jsonc (durable_objects + the SQLite migration).
+export { DocumentSession } from "./editing/document-session.ts";
+
 // The server-conversion queue's name — the queue() handler routes its batches to the conversion
 // consumer, which runs the ConversionPort adapter to convert the source to the target format.
 const CONVERSION_QUEUE = "magna-carta-production-conversion";
+
+// The shared per-firm job queue's name (the env.QUEUE producer the outbox relay publishes to) — the
+// queue() handler routes its batches to the per-firm cost-recovery consumer.
+const PER_FIRM_JOB_QUEUE = "magna-carta-production-platform-jobs";
 
 // createApp defaults the plugin runtime to the production seam — the firm_secret credential store
 // throws until the marketplace wires the live credential read; carrier calls use a fetch-backed
@@ -51,7 +62,17 @@ export default {
   scheduled(controller, env, executionContext) {
     const pass =
       controller.cron === RECONCILIATION_CRON
-        ? { operation: "cron:storage-reconciliation", run: () => runStorageReconciliation(env) }
+        ? {
+            // The daily storage-maintenance pass: reconcile the meter against the authoritative R2
+            // LIST first, THEN tier cold superseded versions (so the tiering meter shift lands on an
+            // already-reconciled baseline; next day's reconciliation backstops any tiering drift).
+            operation: "cron:storage-reconciliation",
+            run: async () => {
+              await runStorageReconciliation(env);
+              await runTieringSweep(env);
+              await runIdleCheckoutSweep(env);
+            },
+          }
         : { operation: "cron:scheduled-sweep", run: () => runScheduledSweep(env) };
     executionContext.waitUntil(
       pass.run().catch((caught: unknown) => {
@@ -71,6 +92,14 @@ export default {
     // The conversion queue routes to the conversion consumer (ConversionPort adapter).
     if (batch.queue === CONVERSION_QUEUE) {
       return conversionQueue(batch as MessageBatch<ConversionMessage>, env);
+    }
+    // The shared per-firm job queue carries the outbox relay's per-firm topics (firmId-tagged). The
+    // recoverable-charge consumer owns shipment.purchased (matter cost recovery) and ACK-AND-IGNOREs
+    // every other topic on the bus. (Routes here only once the queue is declared a consumer in
+    // wrangler.jsonc — a deploy-activation step deferred from this slice; the branch is dormant in
+    // production until then.)
+    if (batch.queue === PER_FIRM_JOB_QUEUE) {
+      return perFirmQueue(batch as MessageBatch<PerFirmQueueMessage>, env);
     }
     // Both the interactive files-ingest queue and the bulk files-ingest-bulk queue route to the
     // same ingest handler — the lane separation is entirely in queue topology and concurrency.
