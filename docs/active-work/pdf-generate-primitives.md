@@ -2,7 +2,7 @@
 branch: pdf-generate-primitives
 worktree: C:/dev/magna-carta-worktrees/pdf-generate-primitives
 area: PDF engine — generate primitives (merge / split / rotate / watermark) — the slice-4 remainder (Bates already shipped)
-status: designing
+status: engine + WASM binding + docs built (merge-ready, pending adversarial review); Tools UI deferred to the 0·7 cycle
 touches: crates/pdf-core/src/generate.rs (new — merge/split/rotate), crates/pdf-core/src/watermark.rs (new — overlay, reuses bates helpers), crates/pdf-core/src/lib.rs (exports), crates/pdf-core/src/wasm.rs (bindings), packages/pdf/src/index.ts (TS wrappers) + test, crates/pdf-eval (optional smoke), changelog.d/ + docs/decisions/pending/, STATUS.md (PDF-engine row), ROADMAP.md, docs/specs/2026-06-26-pdf-generate-primitives-{design,implementation-plan}.md
 ---
 

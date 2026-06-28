@@ -602,6 +602,66 @@ interface SecureOptions {
 class WrongPasswordError extends Error { readonly code: "wrong-password" }
 ```
 
+## Generate / assembly
+
+Combine, split, rotate, and watermark documents. These are visible, reversible operations —
+they reorganise pages or draw on top and **remove nothing** (use `redactDocument` /
+`sanitizeDocument` to remove hidden content or metadata). All run client-side.
+
+### `mergeDocuments(documents)`
+
+Concatenate the pages of several PDFs into one, in order. Each input's **outlines, AcroForm
+fields, and named destinations are carried across** — colliding top-level field and destination
+names are suffixed (`name` → `name_2`). Returns `{ pdf: Uint8Array }`.
+
+```ts
+const { pdf } = await mergeDocuments([exhibitA, exhibitB, exhibitC]);
+```
+
+### `splitDocument(bytes, ranges)`
+
+Return one independent document per inclusive, 0-based page range. Returns `{ pdfs: Uint8Array[] }`.
+
+```ts
+const { pdfs } = await splitDocument(doc, [{ start: 0, end: 4 }, { start: 5, end: 9 }]);
+```
+
+### `rotatePages(bytes, rotation, pages?)`
+
+Rotate pages clockwise by `90`, `180`, or `270` degrees, **relative** to each page's existing
+rotation (so it composes rather than overwrites). Omit `pages` to rotate all; otherwise pass
+0-based indices. Returns `{ pdf: Uint8Array }`.
+
+### `watermarkDocument(bytes, options)`
+
+Stamp an **additive** watermark on every page — diagonal text (`"CONFIDENTIAL"`, `"DRAFT"`) or an
+image/logo — at a chosen opacity, rotation, and placement. Returns `{ pdf: Uint8Array }`.
+
+```ts
+await watermarkDocument(doc, {
+  content: { kind: "text", text: "CONFIDENTIAL" },   // or { kind: "image", bytes: pngOrJpeg, scale: 0.3 }
+  opacity: 0.3,          // default 0.3
+  rotationDeg: 45,       // default 45 (diagonal)
+  placement: "center",   // or "tiled"
+});
+```
+
+```ts
+interface PageRange { start: number; end: number }   // inclusive, 0-based
+type WatermarkContent =
+  | { kind: "text"; text: string; font?: BatesFont; fontSizePt?: number; color?: [number, number, number] }
+  | { kind: "image"; bytes: Uint8Array; scale?: number };   // PNG or JPEG
+interface WatermarkOptions {
+  content: WatermarkContent;
+  opacity?: number;
+  rotationDeg?: number;
+  placement?: "center" | "tiled";
+}
+```
+
+**Stated limits:** merge does not carry the inputs' document metadata or attachments; image
+watermarks support PNG and JPEG; placement is centred or tiled.
+
 ## Build notes
 
 The WASM binary at `src/pkg/pdf_core_bg.wasm` is produced by `wasm-pack build crates/pdf-core --target web --out-dir packages/pdf/src/pkg --release --no-opt`. It is not committed to version control; run `vp run rust-wasm-build` (or `pnpm --filter @magna-carta/pdf run build:wasm`) to regenerate it. In development the binary is rebuilt automatically as part of `vp run build-all`.
