@@ -50,10 +50,17 @@ export default {
     // The guarded post-deploy self-test. 404 (indistinguishable from no route) unless the secret is set
     // AND the request presents it, so this is safe to ship on every environment, including production.
     if (request.method === "POST" && url.pathname === "/self-test") {
-      if (!selfTestAuthorized(env.BUNDLE_SELF_TEST_KEY, request.headers.get("x-self-test-key"))) {
+      if (
+        !(await selfTestAuthorized(
+          env.BUNDLE_SELF_TEST_KEY,
+          request.headers.get("x-self-test-key"),
+        ))
+      ) {
         return new Response("Not Found", { status: 404 });
       }
-      const report = await runSelfTest(getContainer(env.BUNDLE_CONTAINER, "bundle"), env.R2);
+      // A dedicated container instance, isolated from the "bundle" instance that serves live firm builds,
+      // so a self-test never contends with (or is degraded by) customer work.
+      const report = await runSelfTest(getContainer(env.BUNDLE_CONTAINER, "selftest"), env.R2);
       return Response.json(report, { status: report.ok ? 200 : 500 });
     }
     return new Response("Not Found", { status: 404 });
