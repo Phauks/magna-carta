@@ -37,6 +37,10 @@ export const PROBLEM_TYPES = {
   // the conversion graph — either the format is unknown or no engine covers the pair. DISTINCT from
   // `validation` (request-shape) — the request is well-formed; the registry has no path.
   "unsupported-conversion": "unsupported-conversion",
+  // A decryption attempt that failed because the supplied password did not open the file (HTTP 400).
+  // Generic — does not reveal whether the file or its format was otherwise valid; only that the
+  // password was wrong. The client can retry with a different password without re-uploading.
+  "wrong-password": "wrong-password",
   // An unexpected, unhandled server error (HTTP 500). The telemetry middleware's final catch maps
   // any escaped exception to this — the one error type the client cannot have caused, carrying only
   // the Error ID to quote.

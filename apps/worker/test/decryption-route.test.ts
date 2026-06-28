@@ -201,3 +201,179 @@ describe("POST /api/v1/decryption/inspect", () => {
     expect(response.headers.get("content-type")).toContain("application/problem+json");
   });
 });
+
+describe("POST /api/v1/decryption/unlock", () => {
+  it("decrypts the encrypted PDF fixture and returns bytes starting with %PDF, writing a redacted audit row", async () => {
+    const { userId } = await seedCredentialedUser("unlock-ok@example.com", {
+      userName: "Unlock OK",
+      firmId: poolFirmId,
+    });
+    await mirrorMemberWithOwnerRole(userId, "Unlock OK");
+    const cookie = await signInForSessionCookie("unlock-ok@example.com");
+
+    const response = await app.request(
+      "https://example.com/api/v1/decryption/unlock",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "https://example.com",
+          cookie,
+        },
+        body: JSON.stringify({
+          fileBase64: PDF_FIXTURE_BASE64,
+          password: "test",
+          attestation: { authorized: true },
+        }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { decryptedBase64: string; filenameHint?: string };
+    // The decrypted bytes must begin with the PDF magic bytes (%PDF).
+    const decryptedBytes = Uint8Array.from(atob(body.decryptedBase64), (ch) => ch.charCodeAt(0));
+    expect(decryptedBytes[0]).toBe(0x25); // %
+    expect(decryptedBytes[1]).toBe(0x50); // P
+    expect(decryptedBytes[2]).toBe(0x44); // D
+    expect(decryptedBytes[3]).toBe(0x46); // F
+
+    // Exactly one audit row must have been written for this operation.
+    const auditRow = await env.DB_FIRM_POOL_1.prepare(
+      "SELECT metadata FROM audit_log WHERE event = 'decryption.unlocked' LIMIT 1",
+    ).first<{ metadata: string }>();
+    expect(auditRow).not.toBeNull();
+
+    // The audit record must never contain the password or any decrypted file content.
+    // The password value "test" must not appear as a JSON string in the metadata.
+    const auditMetadataText = auditRow!.metadata;
+    expect(auditMetadataText).not.toContain('"password"');
+    // The decrypted base64 must not appear in the audit record (check first 20 chars as a proxy).
+    expect(auditMetadataText).not.toContain(body.decryptedBase64.slice(0, 20));
+    // The outcome field confirms what was recorded without leaking content.
+    expect(auditMetadataText).toContain('"outcome":"decrypted"');
+    expect(auditMetadataText).toContain("fileSha256");
+  });
+
+  it("returns 400 with stable wrong-password code on incorrect password and does not echo the password", async () => {
+    const { userId } = await seedCredentialedUser("unlock-wrongpw@example.com", {
+      userName: "Unlock Wrong PW",
+      firmId: poolFirmId,
+    });
+    await mirrorMemberWithOwnerRole(userId, "Unlock Wrong PW");
+    const cookie = await signInForSessionCookie("unlock-wrongpw@example.com");
+
+    const wrongPassword = "nope";
+    const response = await app.request(
+      "https://example.com/api/v1/decryption/unlock",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "https://example.com",
+          cookie,
+        },
+        body: JSON.stringify({
+          fileBase64: PDF_FIXTURE_BASE64,
+          password: wrongPassword,
+          attestation: { authorized: true },
+        }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+    const bodyText = await response.text();
+    // The stable problem code is returned.
+    expect(bodyText).toContain("wrong-password");
+    // The wrong password must not be echoed anywhere in the response body.
+    expect(bodyText).not.toContain(wrongPassword);
+  });
+
+  it("returns 400 when attestation.authorized is false", async () => {
+    const { userId } = await seedCredentialedUser("unlock-noattest@example.com", {
+      userName: "Unlock No Attestation",
+      firmId: poolFirmId,
+    });
+    await mirrorMemberWithOwnerRole(userId, "Unlock No Attestation");
+    const cookie = await signInForSessionCookie("unlock-noattest@example.com");
+
+    const response = await app.request(
+      "https://example.com/api/v1/decryption/unlock",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "https://example.com",
+          cookie,
+        },
+        body: JSON.stringify({
+          fileBase64: PDF_FIXTURE_BASE64,
+          password: "test",
+          attestation: { authorized: false },
+        }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+  });
+
+  it("returns 403 for an authenticated member without tools:decryption", async () => {
+    // seedCredentialedUser assigns no role; membership alone carries no permission.
+    await seedCredentialedUser("unlock-noperm@example.com", {
+      userName: "Unlock No Perm",
+      firmId: poolFirmId,
+    });
+    const cookie = await signInForSessionCookie("unlock-noperm@example.com");
+
+    const response = await app.request(
+      "https://example.com/api/v1/decryption/unlock",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", cookie },
+        body: JSON.stringify({
+          fileBase64: PDF_FIXTURE_BASE64,
+          password: "test",
+          attestation: { authorized: true },
+        }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(403);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+  });
+
+  it("returns 400 (not 500) for malformed base64 input", async () => {
+    const { userId } = await seedCredentialedUser("unlock-badb64@example.com", {
+      userName: "Unlock Bad Base64",
+      firmId: poolFirmId,
+    });
+    await mirrorMemberWithOwnerRole(userId, "Unlock Bad Base64");
+    const cookie = await signInForSessionCookie("unlock-badb64@example.com");
+
+    const response = await app.request(
+      "https://example.com/api/v1/decryption/unlock",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          origin: "https://example.com",
+          cookie,
+        },
+        body: JSON.stringify({
+          fileBase64: "!!!not-base64!!!",
+          password: "test",
+          attestation: { authorized: true },
+        }),
+      },
+      env,
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+  });
+});
