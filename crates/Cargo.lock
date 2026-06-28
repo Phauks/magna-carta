@@ -560,8 +560,6 @@ dependencies = [
  "rand 0.9.4",
  "rayon",
  "rc4",
- "serde",
- "serde-wasm-bindgen",
  "sha1",
  "sha2",
  "thiserror",
