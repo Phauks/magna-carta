@@ -49,3 +49,41 @@ mod tests {
         assert!(report.corruption.contains(&CorruptionKind::MissingEndOfCentralDirectory));
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct RecoveredItem {
+    pub name: String,
+    pub recovered: bool,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct LossManifest {
+    pub items: Vec<RecoveredItem>,
+    pub fully_recovered: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct RepairResult {
+    pub salvaged: Vec<u8>,
+    pub loss: LossManifest,
+}
+
+#[cfg(test)]
+mod repair_model_tests {
+    use super::*;
+
+    #[test]
+    fn a_partial_recovery_is_not_marked_fully_recovered() {
+        let loss = LossManifest {
+            items: vec![
+                RecoveredItem { name: "word/document.xml".into(), recovered: true, detail: String::new() },
+                RecoveredItem { name: "word/media/image1.png".into(), recovered: false, detail: "stream truncated".into() },
+            ],
+            fully_recovered: false,
+        };
+        let result = RepairResult { salvaged: vec![1, 2, 3], loss };
+        assert!(!result.loss.fully_recovered);
+        assert_eq!(result.loss.items.iter().filter(|i| !i.recovered).count(), 1);
+    }
+}
