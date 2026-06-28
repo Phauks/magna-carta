@@ -71,9 +71,12 @@ export default defineConfig({
       // wasm-pack on the bare machine. `--output type=local` exports exactly the wasm-pack output to
       // the host package dir (the import path packages/pdf/src/index.ts expects). Build context is
       // crates/. Like the container workers, this requires Docker available locally.
+      // --network=host: the Workers Builds runner's Docker isolates RUN-step networking (image pulls
+      // work, but RUN-step DNS fails), so the rustup/cargo downloads need the host network — which the
+      // bare runner has (it clones the repo + runs pnpm install). Harmless locally.
       "rust-wasm-build": {
         command:
-          "docker build --output type=local,dest=packages/pdf/src/pkg -f crates/pdf-core/wasm.Dockerfile crates",
+          "docker build --network=host --output type=local,dest=packages/pdf/src/pkg -f crates/pdf-core/wasm.Dockerfile crates",
       },
       // The worker serves apps/web/build, so its build and dev both depend on the SPA build (cross-package package#task notation).
       // Named worker-build / worker-dev (not build / dev) so they do not collide with the root package.json build / dev scripts.
