@@ -26,6 +26,8 @@ COPY src ./src
 # unchanged dependency graph is not recompiled. A cache mount is not part of the image layer, so the
 # two binaries are copied out to /artifacts (a normal path) in the same RUN before the mount drops —
 # later stages read them from there, not from target/. See docs/conventions/build-performance.md.
+# rust:1-bookworm (via buildpack-deps:bookworm) already provides libssl-dev + pkg-config —
+# no extra apt step needed for ort's openssl-sys build dependency.
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
     --mount=type=cache,target=/src/target \
