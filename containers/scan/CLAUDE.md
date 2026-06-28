@@ -91,12 +91,16 @@ firm's policy can re-tier it with no re-scan. Detection-only — it reports, nev
   infers through `ort` (ONNX Runtime, a C++ library). We pull the prebuilt runtime via `ort`'s
   `download-binaries` feature, which fetches it **at build time** and **statically links** it — the same
   build-time-fetch / runtime-sealed pattern as the baked clamd DB and YARA corpus, so the linked binary
-  needs no system `onnxruntime` and no network at run time. ONNX Runtime is a new **C/C++ dependency**;
-  per golden rule 14 (Rust/TS/Svelte without consent), it is **flagged for owner consent** — magika was
-  chosen as the identification engine, and ONNX Runtime is an inherent consequence of that crate (the
-  design's "pure-Rust" assumption was incorrect). On a dev host the `ort` link requires `download-binaries`
-  (already on by default for the crate); without it the link fails (`unresolved external OrtGetApiBase`).
-  Identification returns **raw facts**; the app decides the extension verdict.
+  needs no system `onnxruntime.so` and no network at run time. ONNX Runtime is a **C/C++ dependency**;
+  it is **owner-consented** under golden rule 14 (magika was chosen as the identification engine and
+  ONNX Runtime is an inherent consequence — the design's "pure-Rust" assumption was incorrect).
+  The runtime stage carries `libstdc++6` and `libgomp1` (C++ standard library + OpenMP): onnxruntime
+  is statically linked into the binary but its C++ code still calls into these shared system libs at
+  run time, so they must be present in the container. The container remains egress-free (`enableInternet
+  = false`) — no onnxruntime network traffic at run time. On a dev host the `ort` link requires
+  `download-binaries` (already on by default for the crate); without it the link fails
+  (`unresolved external OrtGetApiBase`). Identification returns **raw facts**; the app decides the
+  extension verdict.
 - **No runtime egress.** The Container runs `enableInternet = false`; the signature DB (freshclam) **and
   the YARA rule blob (`build-yara-rules`, the latest YARA Forge release)** are baked at image build, and a
   refresh is an image rebuild. The resolved Forge tag is the engine-version `yara-rules/<tag>` component
