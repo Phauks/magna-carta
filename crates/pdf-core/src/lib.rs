@@ -37,7 +37,7 @@ pub use secure::{secure, SecureOptions, WriteAlgorithm};
 mod surgery;
 
 mod generate;
-pub use generate::{rotate, split, GenerateError, PageRange, PageSelection, Rotation};
+pub use generate::{merge, rotate, split, GenerateError, PageRange, PageSelection, Rotation};
 
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_syntax::Pdf;

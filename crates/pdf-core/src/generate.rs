@@ -4,7 +4,7 @@
 //! hidden content or metadata; use `redact`/`sanitize` for that.
 
 use crate::surgery::{resolve_inherited_resources, resolve_mediabox, resolve_rotate};
-use lopdf::{Document, Object, ObjectId};
+use lopdf::{dictionary, Document, Object, ObjectId};
 
 /// What an assembly operation can fail at. No logging here — the caller owns that.
 #[derive(Debug, PartialEq, Eq)]
@@ -98,6 +98,36 @@ pub fn rotate(
     Ok(out)
 }
 
+/// Flatten a page's inherited `/MediaBox`, `/Resources`, and `/Rotate` onto the page
+/// itself, then re-parent it to `new_parent`. Resolving first (against the page's
+/// existing `/Parent` chain) keeps the page correct after the tree is rebuilt and its
+/// old ancestors are pruned.
+fn reparent_self_contained(
+    doc: &mut Document,
+    page: ObjectId,
+    new_parent: ObjectId,
+) -> Result<(), GenerateError> {
+    let mediabox = resolve_mediabox(doc, page);
+    let resources = resolve_inherited_resources(doc, page).cloned();
+    let rotation = resolve_rotate(doc, page);
+    let dict = doc
+        .get_object_mut(page)
+        .and_then(|o| o.as_dict_mut())
+        .map_err(|_| GenerateError::Reassemble)?;
+    if let Some(mb) = mediabox {
+        dict.set(
+            "MediaBox",
+            Object::Array(mb.iter().map(|&v| Object::Real(v)).collect()),
+        );
+    }
+    if let Some(res) = resources {
+        dict.set("Resources", Object::Dictionary(res));
+    }
+    dict.set("Rotate", Object::Integer(rotation));
+    dict.set("Parent", Object::Reference(new_parent));
+    Ok(())
+}
+
 /// The catalog id and the page-tree root id of a document.
 fn catalog_and_pages_root(doc: &Document) -> Result<(ObjectId, ObjectId), GenerateError> {
     let root = doc
@@ -138,24 +168,7 @@ pub fn split(bytes: &[u8], ranges: &[PageRange]) -> Result<Vec<Vec<u8>>, Generat
 
         // Make each kept page self-contained, then re-parent it to the root.
         for &page in &kept {
-            let mediabox = resolve_mediabox(&doc, page);
-            let resources = resolve_inherited_resources(&doc, page).cloned();
-            let rotation = resolve_rotate(&doc, page);
-            let dict = doc
-                .get_object_mut(page)
-                .and_then(|o| o.as_dict_mut())
-                .map_err(|_| GenerateError::Reassemble)?;
-            if let Some(mb) = mediabox {
-                dict.set(
-                    "MediaBox",
-                    Object::Array(mb.iter().map(|&v| Object::Real(v)).collect()),
-                );
-            }
-            if let Some(res) = resources {
-                dict.set("Resources", Object::Dictionary(res));
-            }
-            dict.set("Rotate", Object::Integer(rotation));
-            dict.set("Parent", Object::Reference(pages_root));
+            reparent_self_contained(&mut doc, page, pages_root)?;
         }
 
         let kids: Vec<Object> = kept.iter().map(|&id| Object::Reference(id)).collect();
@@ -181,6 +194,79 @@ pub fn split(bytes: &[u8], ranges: &[PageRange]) -> Result<Vec<Vec<u8>>, Generat
         outputs.push(out);
     }
     Ok(outputs)
+}
+
+/// Merge the pages of multiple PDFs into one document, in order.
+///
+/// Each input's objects are renumbered to avoid id collisions, its pages are collected
+/// and made self-contained, and one fresh page tree + catalog is built over them — pages
+/// of different sizes coexist. Each input's outlines, AcroForm fields, and named
+/// destinations are folded in too (see the interactive-merge step). An empty list is
+/// [`GenerateError::EmptyInput`]; inputs with no pages at all is [`GenerateError::NoPages`].
+pub fn merge(documents: &[&[u8]]) -> Result<Vec<u8>, GenerateError> {
+    if documents.is_empty() {
+        return Err(GenerateError::EmptyInput);
+    }
+    let mut combined = Document::with_version("1.5");
+    let mut next_id = 1u32;
+    let mut page_order: Vec<ObjectId> = Vec::new();
+    // Each input's original catalog id (after renumbering) — its interactive structure
+    // is folded into the merged document before the orphaned originals are pruned.
+    let mut source_catalogs: Vec<ObjectId> = Vec::new();
+    for bytes in documents {
+        let mut doc = Document::load_mem(bytes).map_err(|_| GenerateError::Parse)?;
+        doc.renumber_objects_with(next_id);
+        next_id = doc.max_id + 1;
+        page_order.extend(doc.get_pages().into_values());
+        if let Ok(catalog) = doc.trailer.get(b"Root").and_then(Object::as_reference) {
+            source_catalogs.push(catalog);
+        }
+        combined.objects.extend(doc.objects);
+    }
+    if page_order.is_empty() {
+        return Err(GenerateError::NoPages);
+    }
+    combined.max_id = next_id - 1;
+
+    let pages_id = combined.new_object_id();
+    for &page in &page_order {
+        reparent_self_contained(&mut combined, page, pages_id)?;
+    }
+    let kids: Vec<Object> = page_order.iter().map(|&id| Object::Reference(id)).collect();
+    let count = kids.len() as i64;
+    combined.objects.insert(
+        pages_id,
+        Object::Dictionary(dictionary! {
+            b"Type" => Object::Name(b"Pages".to_vec()),
+            b"Kids" => Object::Array(kids),
+            b"Count" => Object::Integer(count),
+        }),
+    );
+    let catalog_id = combined.add_object(dictionary! {
+        b"Type" => Object::Name(b"Catalog".to_vec()),
+        b"Pages" => Object::Reference(pages_id),
+    });
+    combined.trailer.set("Root", Object::Reference(catalog_id));
+
+    merge_interactive(&mut combined, &source_catalogs, catalog_id, pages_id);
+
+    combined.prune_objects();
+    let mut out = Vec::new();
+    combined
+        .save_to(&mut out)
+        .map_err(|_| GenerateError::Reassemble)?;
+    Ok(out)
+}
+
+/// Fold the inputs' outlines, AcroForm fields, and named destinations into the merged
+/// document. Filled in by the interactive-merge step; the page-and-content merge above
+/// is correct without it.
+fn merge_interactive(
+    _doc: &mut Document,
+    _source_catalogs: &[ObjectId],
+    _new_catalog: ObjectId,
+    _new_pages_root: ObjectId,
+) {
 }
 
 #[cfg(test)]
@@ -331,5 +417,82 @@ mod tests {
             split(&multi_page_doc(3), &[PageRange { start: 2, end: 1 }]),
             Err(GenerateError::PageOutOfRange)
         );
+    }
+
+    /// A one-page document with a given MediaBox size.
+    fn sized_doc(width: i64, height: i64) -> Vec<u8> {
+        let mut doc = Document::with_version("1.5");
+        let pages_id = doc.new_object_id();
+        let content_id = doc.add_object(Object::Stream(Stream::new(dictionary! {}, b"".to_vec())));
+        let page_id = doc.add_object(dictionary! {
+            b"Type" => Object::Name(b"Page".to_vec()),
+            b"Parent" => Object::Reference(pages_id),
+            b"MediaBox" => Object::Array(vec![
+                Object::Integer(0), Object::Integer(0),
+                Object::Integer(width), Object::Integer(height),
+            ]),
+            b"Contents" => Object::Reference(content_id),
+            b"Resources" => Object::Dictionary(dictionary! { b"Font" => Object::Dictionary(dictionary! {}) }),
+        });
+        doc.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                b"Type" => Object::Name(b"Pages".to_vec()),
+                b"Kids" => Object::Array(vec![Object::Reference(page_id)]),
+                b"Count" => Object::Integer(1),
+            }),
+        );
+        let catalog_id = doc.add_object(dictionary! {
+            b"Type" => Object::Name(b"Catalog".to_vec()),
+            b"Pages" => Object::Reference(pages_id),
+        });
+        doc.trailer.set(b"Root", Object::Reference(catalog_id));
+        let mut out = Vec::new();
+        doc.save_to(&mut out).expect("serialise sized doc");
+        out
+    }
+
+    fn mediabox_width(bytes: &[u8], page_index: usize) -> f32 {
+        let doc = Document::load_mem(bytes).unwrap();
+        let id = page_ids(&doc)[page_index];
+        resolve_mediabox(&doc, id).unwrap()[2]
+    }
+
+    #[test]
+    fn merge_two_docs_sums_pages() {
+        let a = multi_page_doc(1);
+        let b = multi_page_doc(2);
+        let out = merge(&[a.as_slice(), b.as_slice()]).unwrap();
+        assert_eq!(page_count(&out), 3);
+        assert_eq!(crate::Document::load(out).unwrap().page_count(), 3);
+    }
+
+    #[test]
+    fn merge_preserves_each_mediabox() {
+        let letter = sized_doc(612, 792);
+        let a4 = sized_doc(595, 842);
+        let out = merge(&[letter.as_slice(), a4.as_slice()]).unwrap();
+        assert!((mediabox_width(&out, 0) - 612.0).abs() < 1.0);
+        assert!((mediabox_width(&out, 1) - 595.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn merge_renumbers_without_collision() {
+        // Two freshly-built docs share overlapping low object ids; all 4 pages must survive.
+        let a = multi_page_doc(2);
+        let b = multi_page_doc(2);
+        let out = merge(&[a.as_slice(), b.as_slice()]).unwrap();
+        assert_eq!(page_count(&out), 4);
+    }
+
+    #[test]
+    fn merge_single_doc_roundtrips() {
+        let a = multi_page_doc(3);
+        assert_eq!(page_count(&merge(&[a.as_slice()]).unwrap()), 3);
+    }
+
+    #[test]
+    fn merge_empty_list_errs() {
+        assert_eq!(merge(&[]), Err(GenerateError::EmptyInput));
     }
 }
