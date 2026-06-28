@@ -151,6 +151,65 @@ infrastructure the rest of the phase consumes: the UTBMS task/activity/expense c
 scoped-setting resolver (the first realization of the settings-precedence chain — matter → client →
 user → location → firm). The AI narrative / UTBMS-suggestion feature is seamed but dark, gated on
 client consent (default off, no model reached).
+- **Matter bulk downloads can now be packaged with a chosen format, compression, encryption, and
+multi-volume splitting** (ADR `enhanced-bundling-formats-encryption-split`). When downloading a set of
+matter files as a bundle, you can now choose the archive **format** (ZIP or 7z), a **compression** level
+(store / normal / maximum), optional **AES-256 encryption** with your own password, and — for 7z —
+**multi-volume splitting** into fixed-size parts. Quality-of-life options round it out: name the output,
+wrap everything in a folder, flatten the folder tree, and include a CONTENTS manifest (each file's path,
+size, and SHA-256). Plain ZIP downloads keep their existing fast path; the heavier formats, compression,
+encryption, and splitting are produced by a dedicated archive-builder service. **Encryption passwords are
+never stored** — an encrypted bundle is built and streamed to you in one pass, with the password held only
+for that request, so re-downloading an encrypted bundle rebuilds it on demand.
+- PDF security — inspect, unlock, and protect. The PDF engine can now report whether a
+document is encrypted and how, unlock a password-protected PDF with a known password
+(RC4, AES-128, or AES-256), and re-protect a document with AES-256, owner/open passwords,
+and a permission policy. It runs entirely on the device, so the password and the document
+never leave the browser. Unlocking needs a password you already have — it does not recover
+or guess passwords — and the "Unlock & Secure PDF" tool that surfaces this arrives in a
+later release.
+- **Per-firm scan-policy backend rails (Slice B1):** three firm-level settings (`scan.policy` `{tier: core|extended|full, suspiciousScoreFloor: 0–100}`, `scan.flagged_treatment` `block`|`informed-access`|`allow-and-flag`, and `scan.step_up_reauth_on_flagged` boolean) are stored in the generic `setting` table via `FirmSettingDefinition` entries — no per-firm migration needed, missing row equals the default. The prior four-state scan verdict collapses to one `scanVerdict: "flagged"` state in `file_version` (the full raw engine result survives in `scan_cache`, so the persistence state is stable across schema changes); the old `infected`/`suspicious` distinction was an engine diagnosis not a persistence state. Treatment is enforced at two chokepoints: at ingest, `computeVerdict` applies the firm's resolved tier/floor to the raw container facts and routes each file to quarantine (`block`), informed-access commit, or allow-and-flag commit; at download/preview, the gate in `downloads.ts` reads `flaggedTreatment` at access time so a policy change takes effect on the next request without re-ingesting. `block` is the default, matching today's behavior for all firms. The step-up re-auth setting is stored and surfaced in 409 metadata (`stepUpRequired: true`) but the actual session-age challenge is deferred to a future auth slice. Permission `firm:manageScanPolicy` is seeded to Owner and Admin roles in migration `0025`. `GET /api/v1/firm/scan-policy` returns the resolved three settings; `PATCH /api/v1/firm/scan-policy` writes them. All suites (`ingest-core`, `scan-policy`, `files-routes`, `conformance`) + `pnpm check` + `lint:process-refs` green.
+- Costs and expenses — per-matter disbursement work-in-progress (WIP) (backend + API; no UI). A new
+`@magna-carta/costs` package captures hard and soft disbursements into a per-firm `cost_entry` WIP
+store that is independently tracked and never posts to the double-entry ledger (a cost converges onto
+an invoice only at billing, 3·4), and moves each entry Draft → (optional Submitted → Approved) →
+Billed under the same column-level freeze contract time entries use. The slice extracts that shared
+lifecycle out of `@magna-carta/timekeeping` into a new `@magna-carta/billing-core` package — the
+`BillableStatus` state machine, the `isFrozen`/`canTransition`/`assertTransition` freeze contract,
+and the `billing.approval_required` review-gate definition — so time and costs share ONE workflow
+(and 3·4 billing inherits it); timekeeping's `lifecycle.ts` is now a thin re-export that aliases
+`BillableStatus` as `TimeEntryStatus`, and 3·1's suite re-verifies green. Costs also land a
+generalized recoverable-charge seam: a producer that fronts a billable charge on a matter's behalf
+emits a canonical `RecoverableChargeEvent` instead of reaching into the cost tables, with a closed
+`pass_through` vs `platform_fee` kind — a third-party charge the firm fronted is always recovered as
+a client disbursement, while a Magna-Carta-absorbed fee (e-signature, messaging, shipping handling)
+is recovered only under a per-category firm policy (`cost.recover_platform_fee.<category>`, default
+off). Shipping (`shipment.purchased`) is the only wired producer (postage unblended from the firm
+service fee); e-signature, messaging, and voice are documented seams. Consuming that seam is the
+codebase's first per-firm queue consumer — a topic dispatch over the single bound per-firm queue,
+keyed on `message.topic`, resolving the firm database by a two-hop (`firmId` → control-plane
+`database_identifier` → bound D1), acking-and-ignoring topics it does not own (a deliberate
+divergence from the control-plane sweep's throw-on-unknown), and posting recovered disbursements
+idempotently behind a per-line `${shipmentId}:${category}` key and the `cost_entry` `recovery_ref`
+unique index. A billable cost on an electronic-billing matter requires a UTBMS expense code at
+capture, except a system-recovered cost, which lands as uncoded draft WIP rather than being dropped
+(the coding requirement re-enforces at the 3·4 bill gate). Migration `0022_burly_piledriver`;
+permissions `costs:track` and `costs:approve`; routes ride the chokepoint with a regenerated OpenAPI
+snapshot and extended conformance; load-profile `CostVolume`. Deferred to deploy-activation: the
+wrangler `consumers` declaration that subscribes the Worker to the per-firm queue (the dispatch
+branch is dormant until then). Deferred to 3·4: the `cost.recorded` emission, the cost → A/R posting,
+and how recovered costs get LEDES-coded.
+- Support access framework — the backend rails for help-desk access to a firm's instance (backend +
+API; UI follows). Access is pull-not-push: a firm member's request mints a time-boxed, audited grant,
+and a named platform-staff member redeems it for a short-lived session — help desk can never let
+themselves in. Two scopes ride the existing request chokepoint as an alternate, expiring principal: a
+**diagnostic** scope that sees only non-privileged system state (status, schema version, storage,
+member counts) and carries no decryption capability at all, and a **privileged** scope, hard-limited
+to exactly what the requesting member can already see themselves (with an optional firm setting to
+require an administrator's co-sign). The firm's owners are notified of every session and can revoke it
+at any time; every request, grant, and redemption is recorded in a firm-visible audit trail attributed
+to the named staff member. The firm's encryption key is never handed out — decryption stays on our
+servers and a session simply stops working the moment its grant expires or is revoked.
 
 ### Fixed
 

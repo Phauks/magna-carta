@@ -1,8 +1,9 @@
 ---
+number: 157
 slug: support-access-framework
 status: Accepted
-area: Platform / Support access
 date: 2026-06-26
+area: Platform / Support access
 summary: Help-desk access to a firm's instance is pull-not-push — a firm member's request mints a time-boxed, audited support_grant (control-plane), and a named platform_staff principal redeems it for a short-lived signed X-Support-Session token. The "temporary key" is a temporary GRANT, not handed-over crypto: decryption stays server-side and the firm data key is never given to help desk. Two tiers slot into the existing route chokepoint as an alternate principal — diagnostic (a fixed diagnostics:* allow-list carrying no decrypt capability, so privileged content is unreachable by construction) and privileged with scope:self (exactly the requesting member's own effective permissions, no firm-level escalation). Backend rails only; staff self-service auth+MFA, UI, notification transport, and AI-agent principals are deferred named seams.
 ---
 

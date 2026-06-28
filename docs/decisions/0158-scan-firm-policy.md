@@ -1,8 +1,9 @@
 ---
+number: 158
 slug: scan-firm-policy
 status: Accepted
-area: Untrusted-file pipeline / Malware scanning
 date: 2026-06-27
+area: Untrusted-file pipeline / Malware scanning
 summary: Per-firm scan-policy settings (tier + suspiciousScoreFloor compound, flagged-file treatment, step-up re-auth flag) stored in the generic setting table; computeVerdict applies the resolved policy at ingest and rescan; a treatment menu (block/informed-access/allow-and-flag) is enforced at both ingest and access; one persisted flagged verdict replaces the prior infected/suspicious distinction; step-up re-auth enforcement is deferred to a future auth slice.
 ---
 

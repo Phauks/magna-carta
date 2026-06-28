@@ -1,8 +1,9 @@
 ---
+number: 153
 slug: billing-core-extraction
 status: Accepted
-area: Financial Core / Billing core
 date: 2026-06-26
+area: Financial Core / Billing core
 summary: Slice 3·3 extracts the shared work-in-progress billable lifecycle out of `@magna-carta/timekeeping` into a new `@magna-carta/billing-core` package, so time entries and costs share ONE state machine and freeze contract instead of two copies drifting apart. `billing-core` holds `BillableStatus` + the gate-keyed transition tables + `isFrozen`/`canTransition`/`assertTransition` (+ `IllegalTransitionError`) and the `billing.approval_required` review-gate definition. Timekeeping's `lifecycle.ts` becomes a thin re-export that aliases `BillableStatus` as `TimeEntryStatus`, so the rest of the time package compiles unchanged; the extraction is behaviour-preserving and re-verifies 3·1's suite green.
 ---
 
