@@ -659,8 +659,11 @@ interface WatermarkOptions {
 }
 ```
 
-**Stated limits:** merge does not carry the inputs' document metadata or attachments; image
-watermarks support PNG and JPEG; placement is centred or tiled.
+**Stated limits:** merge does not carry the inputs' document metadata or attachments, and when two
+documents reuse the same named-destination *name* for different targets, by-name links in the
+second may resolve to the first's target (the destination table and explicit array destinations
+are unaffected). Image watermarks support PNG and RGB/grayscale JPEG (a CMYK JPEG is decoded to
+RGB); placement is centred or tiled.
 
 ## Build notes
 

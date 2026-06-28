@@ -863,9 +863,10 @@ pub fn split_document(bytes: Vec<u8>, ranges: JsValue) -> Result<JsValue, JsErro
 #[wasm_bindgen(js_name = rotatePages)]
 pub fn rotate_pages(bytes: Vec<u8>, rotation: i32, pages: JsValue) -> Result<JsValue, JsError> {
     let rot = match rotation {
+        90 => crate::Rotation::Cw90,
         180 => crate::Rotation::Cw180,
         270 => crate::Rotation::Cw270,
-        _ => crate::Rotation::Cw90,
+        _ => return Err(JsError::new("rotation must be 90, 180, or 270")),
     };
     let selection = if pages.is_undefined() || pages.is_null() {
         crate::PageSelection::All
@@ -902,21 +903,28 @@ fn watermark_font_from_str(name: Option<&str>) -> crate::bates::BatesFont {
 #[wasm_bindgen(js_name = watermarkDocument)]
 pub fn watermark_document(bytes: Vec<u8>, options: JsValue) -> Result<JsValue, JsError> {
     let get = |target: &JsValue, key: &str| js_sys::Reflect::get(target, &key.into()).ok();
+    // Non-finite JS numbers (NaN/Infinity) would format as malformed PDF operators, so
+    // they fall back to the default.
     let num = |target: &JsValue, key: &str, default: f32| {
         get(target, key)
             .and_then(|v| v.as_f64())
+            .filter(|v| v.is_finite())
             .map(|v| v as f32)
             .unwrap_or(default)
     };
 
     let opacity = num(&options, "opacity", 0.3);
     let rotation_deg = num(&options, "rotationDeg", 45.0);
-    let placement = match get(&options, "placement").and_then(|v| v.as_string()).as_deref() {
+    let placement = match get(&options, "placement")
+        .and_then(|v| v.as_string())
+        .as_deref()
+    {
         Some("tiled") => crate::WatermarkPlacement::Tiled,
         _ => crate::WatermarkPlacement::Center,
     };
 
-    let content_val = get(&options, "content").ok_or_else(|| JsError::new("watermark content is required"))?;
+    let content_val =
+        get(&options, "content").ok_or_else(|| JsError::new("watermark content is required"))?;
     let kind = get(&content_val, "kind").and_then(|v| v.as_string());
     let content = match kind.as_deref() {
         Some("image") => {
@@ -933,12 +941,20 @@ pub fn watermark_document(bytes: Vec<u8>, options: JsValue) -> Result<JsValue, J
                 .and_then(|v| v.as_string())
                 .unwrap_or_default();
             let font = watermark_font_from_str(
-                get(&content_val, "font").and_then(|v| v.as_string()).as_deref(),
+                get(&content_val, "font")
+                    .and_then(|v| v.as_string())
+                    .as_deref(),
             );
             let color = match get(&content_val, "color") {
                 Some(v) if v.is_object() => {
                     let arr = js_sys::Array::from(&v);
-                    let c = |i: u32, d: f32| arr.get(i).as_f64().map(|x| x as f32).unwrap_or(d);
+                    let c = |i: u32, d: f32| {
+                        arr.get(i)
+                            .as_f64()
+                            .filter(|x| x.is_finite())
+                            .map(|x| x as f32)
+                            .unwrap_or(d)
+                    };
                     [c(0, 0.5), c(1, 0.5), c(2, 0.5)]
                 }
                 _ => [0.5, 0.5, 0.5],

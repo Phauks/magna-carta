@@ -52,9 +52,11 @@ describe("generate primitives", () => {
     expect(await pageCount(pdfs[0])).toBe(1);
   });
 
-  it("rotatePages produces a loadable document", async () => {
+  it("rotatePages produces a loadable document and rejects out-of-set angles", async () => {
     const { pdf } = await rotatePages(w9, 90);
     expect(await pageCount(pdf)).toBeGreaterThan(0);
+    // An angle outside {90,180,270} is rejected rather than silently coerced.
+    await expect(rotatePages(w9, 45 as unknown as 90)).rejects.toThrow();
   });
 
   it("watermarkDocument (text) produces a loadable document", async () => {

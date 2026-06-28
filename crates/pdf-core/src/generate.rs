@@ -148,9 +148,10 @@ fn catalog_and_pages_root(doc: &Document) -> Result<(ObjectId, ObjectId), Genera
 ///
 /// Each output is an independent single document containing only its range's pages.
 /// Inherited `/MediaBox`, `/Resources`, and `/Rotate` are flattened onto the kept pages
-/// so they stay correct after the page tree is rebuilt. The combined document's
-/// outlines, named destinations, and AcroForm are dropped (subset preservation of those
-/// is not attempted). An inverted or out-of-range range is [`GenerateError::PageOutOfRange`].
+/// so they stay correct after the page tree is rebuilt. Document-level interactive and
+/// structural entries (outlines, named destinations, AcroForm, open action, page labels,
+/// the structure tree, …) are dropped — a subset cannot preserve them. An inverted or
+/// out-of-range range is [`GenerateError::PageOutOfRange`].
 pub fn split(bytes: &[u8], ranges: &[PageRange]) -> Result<Vec<Vec<u8>>, GenerateError> {
     let source = Document::load_mem(bytes).map_err(|_| GenerateError::Parse)?;
     let total = page_ids(&source).len();
@@ -181,11 +182,23 @@ pub fn split(bytes: &[u8], ranges: &[PageRange]) -> Result<Vec<Vec<u8>>, Generat
         root_dict.set("Kids", Object::Array(kids));
         root_dict.set("Count", Object::Integer(count));
 
-        // Document-level interactive structure does not survive a subset; drop it.
+        // Document-level interactive/structural entries reference pages across the whole
+        // document; a subset cannot preserve them, and leaving one in resurrects a dropped
+        // page (prune follows every reference) and leaves a target outside the page tree.
         if let Ok(catalog) = doc.get_object_mut(catalog_id).and_then(|o| o.as_dict_mut()) {
-            catalog.remove(b"Outlines");
-            catalog.remove(b"Names");
-            catalog.remove(b"AcroForm");
+            for key in [
+                b"Outlines".as_slice(),
+                b"Names",
+                b"AcroForm",
+                b"Dests",
+                b"OpenAction",
+                b"StructTreeRoot",
+                b"PageLabels",
+                b"AA",
+                b"Threads",
+            ] {
+                catalog.remove(key);
+            }
         }
         doc.prune_objects();
 
@@ -452,7 +465,8 @@ fn merge_named_dests(doc: &mut Document, source_catalogs: &[ObjectId], new_catal
         // Modern: /Names /Dests is a name tree.
         if let Some(names) = cloned_dict_entry(doc, catalog, b"Names") {
             if let Some(dests) = names.get(b"Dests").ok().and_then(|o| o.as_reference().ok()) {
-                collect_dest_tree(doc, dests, 0, &mut entries);
+                let mut visited = BTreeSet::new();
+                collect_dest_tree(doc, dests, &mut visited, &mut entries);
             } else if let Ok(Object::Dictionary(dests)) = names.get(b"Dests") {
                 collect_dest_node(dests, &mut entries);
             }
@@ -468,11 +482,19 @@ fn merge_named_dests(doc: &mut Document, source_catalogs: &[ObjectId], new_catal
         return;
     }
     let mut seen: BTreeSet<Vec<u8>> = BTreeSet::new();
-    let mut flat: Vec<Object> = Vec::with_capacity(entries.len() * 2);
+    let mut named: Vec<(Vec<u8>, Object)> = Vec::with_capacity(entries.len());
     for (name, dest) in entries {
         let unique = unique_name(&name, &seen);
         seen.insert(unique.clone());
-        flat.push(Object::String(unique, StringFormat::Literal));
+        named.push((unique, dest));
+    }
+    // A destination name tree's /Names array must be ordered by key: spec-compliant
+    // readers binary-search it, so an unsorted array (the natural collection order across
+    // several inputs) makes lookups silently fail.
+    named.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut flat: Vec<Object> = Vec::with_capacity(named.len() * 2);
+    for (name, dest) in named {
+        flat.push(Object::String(name, StringFormat::Literal));
         flat.push(dest);
     }
     let dests_id = doc.add_object(Object::Dictionary(dictionary! {
@@ -489,9 +511,17 @@ fn merge_named_dests(doc: &mut Document, source_catalogs: &[ObjectId], new_catal
     }
 }
 
-/// Collect `(name, dest)` pairs from a destination name-tree node (bounded recursion).
-fn collect_dest_tree(doc: &Document, node: ObjectId, depth: u8, out: &mut Vec<(Vec<u8>, Object)>) {
-    if depth > 32 {
+/// Collect `(name, dest)` pairs from a destination name-tree node.
+///
+/// `visited` guards against a malicious `/Kids` graph (shared or cyclic node references
+/// would otherwise re-walk exponentially); collection also stops at a hard entry cap.
+fn collect_dest_tree(
+    doc: &Document,
+    node: ObjectId,
+    visited: &mut BTreeSet<ObjectId>,
+    out: &mut Vec<(Vec<u8>, Object)>,
+) {
+    if out.len() >= 100_000 || !visited.insert(node) {
         return;
     }
     let Ok(dict) = doc.get_dictionary(node) else {
@@ -501,7 +531,7 @@ fn collect_dest_tree(doc: &Document, node: ObjectId, depth: u8, out: &mut Vec<(V
     if let Ok(Object::Array(kids)) = dict.get(b"Kids") {
         let kid_ids: Vec<ObjectId> = kids.iter().filter_map(|k| k.as_reference().ok()).collect();
         for kid in kid_ids {
-            collect_dest_tree(doc, kid, depth + 1, out);
+            collect_dest_tree(doc, kid, visited, out);
         }
     }
 }
@@ -1008,5 +1038,65 @@ mod tests {
         let names = dest_names(&out);
         assert!(names.contains(&b"intro".to_vec()));
         assert!(names.contains(&b"summary".to_vec()));
+    }
+
+    #[test]
+    fn merge_named_dests_are_sorted() {
+        // The /Names array must be lexically ordered — readers binary-search it. The
+        // inputs' names interleave (delta then alpha) so unsorted output would be wrong.
+        let a = doc_with_named_dest("delta");
+        let b = doc_with_named_dest("alpha");
+        let out = merge(&[a.as_slice(), b.as_slice()]).unwrap();
+        let names = dest_names(&out);
+        let mut sorted = names.clone();
+        sorted.sort();
+        assert_eq!(names, sorted);
+    }
+
+    #[test]
+    fn split_flattens_inherited_attributes() {
+        // A page that inherits MediaBox + Resources from the root /Pages node.
+        let mut doc = Document::with_version("1.5");
+        let pages_id = doc.new_object_id();
+        let content_id = doc.add_object(Object::Stream(Stream::new(dictionary! {}, b"".to_vec())));
+        let page_id = doc.add_object(dictionary! {
+            b"Type" => Object::Name(b"Page".to_vec()),
+            b"Parent" => Object::Reference(pages_id),
+            b"Contents" => Object::Reference(content_id),
+            // No MediaBox / Resources here — both inherited from the parent.
+        });
+        doc.objects.insert(pages_id, Object::Dictionary(dictionary! {
+            b"Type" => Object::Name(b"Pages".to_vec()),
+            b"Kids" => Object::Array(vec![Object::Reference(page_id)]),
+            b"Count" => Object::Integer(1),
+            b"MediaBox" => Object::Array(vec![
+                Object::Integer(0), Object::Integer(0),
+                Object::Integer(300), Object::Integer(400),
+            ]),
+            b"Resources" => Object::Dictionary(dictionary! { b"Font" => Object::Dictionary(dictionary! {}) }),
+        }));
+        let catalog_id = doc.add_object(dictionary! {
+            b"Type" => Object::Name(b"Catalog".to_vec()),
+            b"Pages" => Object::Reference(pages_id),
+        });
+        doc.trailer.set(b"Root", Object::Reference(catalog_id));
+        let mut bytes = Vec::new();
+        doc.save_to(&mut bytes).unwrap();
+
+        let outs = split(&bytes, &[PageRange { start: 0, end: 0 }]).unwrap();
+        // The kept page now carries its OWN MediaBox (flattened), correct value, and loads.
+        let out_doc = Document::load_mem(&outs[0]).unwrap();
+        let kept = page_ids(&out_doc)[0];
+        let mb = out_doc
+            .get_object(kept)
+            .and_then(|o| o.as_dict())
+            .unwrap()
+            .get(b"MediaBox");
+        assert!(matches!(mb, Ok(Object::Array(_))));
+        assert!((mediabox_width(&outs[0], 0) - 300.0).abs() < 1.0);
+        assert_eq!(
+            crate::Document::load(outs[0].clone()).unwrap().page_count(),
+            1
+        );
     }
 }

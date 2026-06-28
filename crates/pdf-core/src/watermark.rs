@@ -5,7 +5,7 @@
 
 use crate::bates::{escape_pdf_literal, label_width_pt, BatesFont};
 use crate::generate::GenerateError;
-use crate::surgery::{resolve_dict, resolve_inherited_resources, resolve_mediabox};
+use crate::surgery::{resolve_dict, resolve_inherited_resources, resolve_mediabox, resolve_rotate};
 use image::GenericImageView;
 use lopdf::{dictionary, Dictionary, Document, Object, ObjectId, Stream};
 
@@ -118,13 +118,19 @@ fn placement_centers(
     match placement {
         WatermarkPlacement::Center => vec![(llx + page_width / 2.0, lly + page_height / 2.0)],
         WatermarkPlacement::Tiled => {
+            // Cap the tile count so an adversarial (huge) /MediaBox cannot drive the loop
+            // and the centre vector unbounded.
+            const MAX_TILES: usize = 2000;
             let step = (mark_width.max(mark_height * 4.0) + 40.0).max(80.0);
             let mut centers = Vec::new();
             let mut y = lly + step / 2.0;
-            while y < lly + page_height {
+            'outer: while y < lly + page_height {
                 let mut x = llx + step / 2.0;
                 while x < llx + page_width {
                     centers.push((x, y));
+                    if centers.len() >= MAX_TILES {
+                        break 'outer;
+                    }
                     x += step;
                 }
                 y += step;
@@ -152,7 +158,11 @@ fn text_overlay_content(
     let [llx, lly, urx, ury] = resolve_mediabox(doc, page).ok_or(GenerateError::Parse)?;
     let (page_width, page_height) = (urx - llx, ury - lly);
     let mark_width = label_width_pt(font, text, size);
-    let theta = rotation_deg.to_radians();
+    // Pre-compensate the page's display rotation so the mark appears at `rotation_deg`
+    // regardless of `/Rotate` (the page centre maps to the displayed centre under any
+    // quarter-turn, so only the angle needs adjusting).
+    let page_rotate = resolve_rotate(doc, page).rem_euclid(360) as f32;
+    let theta = (rotation_deg + page_rotate).to_radians();
     let (cos, sin) = (theta.cos(), theta.sin());
     let ascent = size * 0.35; // vertical centring offset for the baseline
     let escaped = escape_pdf_literal(text);
@@ -199,7 +209,8 @@ fn image_overlay_content(
     } else {
         disp_w
     };
-    let theta = rotation_deg.to_radians();
+    let page_rotate = resolve_rotate(doc, page).rem_euclid(360) as f32;
+    let theta = (rotation_deg + page_rotate).to_radians();
     let (cos, sin) = (theta.cos(), theta.sin());
 
     let mut content = String::from("q /MagnaCartaWmGs gs ");
@@ -220,36 +231,51 @@ fn image_overlay_content(
     Ok(content)
 }
 
+/// The largest watermark image accepted, in pixels. Generous for a logo while bounding
+/// the post-decode allocation (a watermark image is decoded into uncompressed samples).
+const MAX_IMAGE_PIXELS: u64 = 40_000_000;
+
 /// Decode an image and add it as an image XObject, returning its id and pixel size.
 ///
-/// A JPEG is embedded verbatim via `/DCTDecode` (no re-encode); any other format is
+/// An RGB or grayscale JPEG is embedded verbatim via `/DCTDecode` with the matching
+/// colorspace; any other format (PNG, or a CMYK JPEG the `image` crate normalises) is
 /// decoded to RGB and stored (Flate-compressed), with an `/SMask` carrying the alpha
 /// channel when the source is not fully opaque.
 fn image_xobject(doc: &mut Document, data: &[u8]) -> Result<(ObjectId, f32, f32), GenerateError> {
     let is_jpeg = data.starts_with(&[0xFF, 0xD8, 0xFF]);
     let decoded = image::load_from_memory(data).map_err(|_| GenerateError::Image)?;
     let (w, h) = decoded.dimensions();
-    if w == 0 || h == 0 {
+    if w == 0 || h == 0 || u64::from(w) * u64::from(h) > MAX_IMAGE_PIXELS {
         return Err(GenerateError::Image);
     }
+    let pixels = w as usize * h as usize;
 
+    // A JPEG may embed verbatim only when its declared colorspace will match its actual
+    // component count — 1 (gray) or 3 (RGB). A CMYK (4-component) JPEG must not embed
+    // verbatim as DeviceRGB; it falls through to the decode-and-Flate path below.
     if is_jpeg {
-        let dict = dictionary! {
-            b"Type" => Object::Name(b"XObject".to_vec()),
-            b"Subtype" => Object::Name(b"Image".to_vec()),
-            b"Width" => Object::Integer(w as i64),
-            b"Height" => Object::Integer(h as i64),
-            b"ColorSpace" => Object::Name(b"DeviceRGB".to_vec()),
-            b"BitsPerComponent" => Object::Integer(8),
-            b"Filter" => Object::Name(b"DCTDecode".to_vec()),
-        };
-        let id = doc.add_object(Object::Stream(Stream::new(dict, data.to_vec())));
-        return Ok((id, w as f32, h as f32));
+        if let Some(colorspace) = match jpeg_components(data) {
+            Some(1) => Some(b"DeviceGray".as_slice()),
+            Some(3) => Some(b"DeviceRGB".as_slice()),
+            _ => None,
+        } {
+            let dict = dictionary! {
+                b"Type" => Object::Name(b"XObject".to_vec()),
+                b"Subtype" => Object::Name(b"Image".to_vec()),
+                b"Width" => Object::Integer(w as i64),
+                b"Height" => Object::Integer(h as i64),
+                b"ColorSpace" => Object::Name(colorspace.to_vec()),
+                b"BitsPerComponent" => Object::Integer(8),
+                b"Filter" => Object::Name(b"DCTDecode".to_vec()),
+            };
+            let id = doc.add_object(Object::Stream(Stream::new(dict, data.to_vec())));
+            return Ok((id, w as f32, h as f32));
+        }
     }
 
     let rgba = decoded.to_rgba8();
-    let mut rgb = Vec::with_capacity((w * h * 3) as usize);
-    let mut alpha = Vec::with_capacity((w * h) as usize);
+    let mut rgb = Vec::with_capacity(pixels * 3);
+    let mut alpha = Vec::with_capacity(pixels);
     let mut has_alpha = false;
     for pixel in rgba.pixels() {
         rgb.extend_from_slice(&[pixel[0], pixel[1], pixel[2]]);
@@ -290,6 +316,46 @@ fn image_xobject(doc: &mut Document, data: &[u8]) -> Result<(ObjectId, f32, f32)
     stream.compress().map_err(|_| GenerateError::Reassemble)?;
     let id = doc.add_object(Object::Stream(stream));
     Ok((id, w as f32, h as f32))
+}
+
+/// The component count (`Nf`) from a JPEG's frame header (SOF marker), or `None`.
+/// 1 = grayscale, 3 = YCbCr/RGB, 4 = CMYK/YCCK.
+fn jpeg_components(data: &[u8]) -> Option<u8> {
+    let mut i = 2; // skip the SOI marker (FF D8)
+    while i + 4 <= data.len() {
+        if data[i] != 0xFF {
+            i += 1;
+            continue;
+        }
+        let marker = data[i + 1];
+        // Standalone markers carry no length segment.
+        if (0xD0..=0xD9).contains(&marker) || marker == 0x01 {
+            i += 2;
+            continue;
+        }
+        let segment_len = ((data[i + 2] as usize) << 8) | (data[i + 3] as usize);
+        // Start-Of-Frame markers (but not DHT/JPG/DAC): … precision(1) height(2) width(2) Nf(1).
+        let is_sof = matches!(
+            marker,
+            0xC0 | 0xC1
+                | 0xC2
+                | 0xC3
+                | 0xC5
+                | 0xC6
+                | 0xC7
+                | 0xC9
+                | 0xCA
+                | 0xCB
+                | 0xCD
+                | 0xCE
+                | 0xCF
+        );
+        if is_sof {
+            return data.get(i + 9).copied();
+        }
+        i += 2 + segment_len;
+    }
+    None
 }
 
 /// Merge the watermark font / image XObject / graphics-state into the page `/Resources`
@@ -567,5 +633,41 @@ mod tests {
             watermark(&one_page_doc(), &image_opts(b"not an image".to_vec())),
             Err(GenerateError::Image)
         );
+    }
+
+    #[test]
+    fn jpeg_components_reads_grayscale_and_rgb() {
+        // SOI, SOF0(len=8, precision=8, height=1, width=1, Nf), …
+        let grayscale = [
+            0xFF, 0xD8, 0xFF, 0xC0, 0x00, 0x08, 0x08, 0x00, 0x01, 0x00, 0x01, 0x01,
+        ];
+        let rgb = [
+            0xFF, 0xD8, 0xFF, 0xC0, 0x00, 0x08, 0x08, 0x00, 0x01, 0x00, 0x01, 0x03,
+        ];
+        let cmyk = [
+            0xFF, 0xD8, 0xFF, 0xC0, 0x00, 0x08, 0x08, 0x00, 0x01, 0x00, 0x01, 0x04,
+        ];
+        assert_eq!(super::jpeg_components(&grayscale), Some(1));
+        assert_eq!(super::jpeg_components(&rgb), Some(3));
+        assert_eq!(super::jpeg_components(&cmyk), Some(4));
+        assert_eq!(super::jpeg_components(b"not a jpeg"), None);
+    }
+
+    #[test]
+    fn watermark_on_rotated_page_is_valid() {
+        // A page rotated 90° still produces a loadable watermarked document (the overlay
+        // pre-compensates the page rotation).
+        let rotated = crate::rotate(
+            &one_page_doc(),
+            crate::Rotation::Cw90,
+            &crate::PageSelection::All,
+        )
+        .unwrap();
+        let out = watermark(
+            &rotated,
+            &text_opts("CONFIDENTIAL", WatermarkPlacement::Center),
+        )
+        .unwrap();
+        assert_eq!(crate::Document::load(out).unwrap().page_count(), 1);
     }
 }
