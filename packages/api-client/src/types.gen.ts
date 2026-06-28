@@ -20,6 +20,7 @@ export type Problem = {
     instance?: string;
     errors?: Array<ProblemFieldError>;
     requestAccess?: boolean;
+    stepUpRequired?: boolean;
 };
 
 export type ProblemFieldError = {
@@ -688,6 +689,24 @@ export type ScanDiagnosis = {
 export type MatterRescanResult = {
     enqueued: number;
     capped: boolean;
+};
+
+export type ScanPolicyResponse = {
+    policy: {
+        tier: 'core' | 'extended' | 'full';
+        suspiciousScoreFloor: number;
+    };
+    flaggedTreatment: 'block' | 'informed-access' | 'allow-and-flag';
+    stepUpReauthOnFlagged: boolean;
+};
+
+export type PatchScanPolicyRequest = {
+    policy?: {
+        tier: 'core' | 'extended' | 'full';
+        suspiciousScoreFloor: number;
+    };
+    flaggedTreatment?: 'block' | 'informed-access' | 'allow-and-flag';
+    stepUpReauthOnFlagged?: boolean;
 };
 
 export type BundleStatus = {
@@ -4246,6 +4265,95 @@ export type ScanMatterResponses = {
 };
 
 export type ScanMatterResponse = ScanMatterResponses[keyof ScanMatterResponses];
+
+export type ScanPolicyGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/scan-policy';
+};
+
+export type ScanPolicyGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageScanPolicy
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ScanPolicyGetError = ScanPolicyGetErrors[keyof ScanPolicyGetErrors];
+
+export type ScanPolicyGetResponses = {
+    /**
+     * The firm scan-policy settings
+     */
+    200: ScanPolicyResponse;
+};
+
+export type ScanPolicyGetResponse = ScanPolicyGetResponses[keyof ScanPolicyGetResponses];
+
+export type ScanPolicyUpdateData = {
+    body: PatchScanPolicyRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/scan-policy';
+};
+
+export type ScanPolicyUpdateErrors = {
+    /**
+     * The Idempotency-Key header is missing on a write
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageScanPolicy
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is already in progress
+     */
+    409: Problem;
+    /**
+     * The request body is invalid, or the Idempotency-Key was reused with a different body
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ScanPolicyUpdateError = ScanPolicyUpdateErrors[keyof ScanPolicyUpdateErrors];
+
+export type ScanPolicyUpdateResponses = {
+    /**
+     * The updated scan-policy settings
+     */
+    200: ScanPolicyResponse;
+};
+
+export type ScanPolicyUpdateResponse = ScanPolicyUpdateResponses[keyof ScanPolicyUpdateResponses];
 
 export type DownloadsBundleStatusData = {
     body?: never;

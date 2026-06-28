@@ -21,6 +21,7 @@ runs logic mid-transaction.
 - `src/verdict.ts` — `computeVerdict(raw, policy)` turns the raw facts + a firm scan policy into a `clean | flagged | unscanned` file verdict (the per-firm decision, app-side); `ScanFaultError` marks a deployed-engine-unavailable fault the consumer must retry
 - `src/queries.ts` — the status-gated reads (`listFiles`, `getCurrentCleanVersion`, `listCleanVersions`, `listFoldersByMatter`, `listCleanCurrentVersionsByMatter`)
 - `src/metering-statements.ts` — the storage-meter delta/commit/tier/delete builders + `reconciliationDiff` + `normalizeR2StorageClass`
+- `src/scan-policy-settings.ts` — the three firm scan-policy `FirmSettingDefinition`s (`scan.policy`, `scan.flagged_treatment`, `scan.step_up_reauth_on_flagged`) + `readFirmScanPolicy` / `readFlaggedTreatment` / `readStepUpReauthOnFlagged` helpers; defaults preserve today's behaviour (`extended/75/block/off`)
 - `src/upload-policy.ts` — per-firm policy checks (presign-time + gate-time) + the mode threshold and the live-download threshold setting definitions (`liveMaxFileCount` / `liveMaxTotalBytes`, superseding `zipAsyncThreshold`)
 - `src/zip-composition.ts` — pure selection → clean-current entries + folder-tree paths, plus the content-addressed `bundleManifestHash` (the async-build dedup/artifact key)
 
@@ -60,6 +61,7 @@ runs logic mid-transaction.
 - **`scan_detail` records the badge/quarantine reason** — the human-readable string written to the
   `file_version.scan_detail` column explaining why a version received its verdict (e.g. the rule hit, the
   over-size reason, or the suspicious-type classification).
+- **Firm scan-policy settings control flagging and treatment.** `scan.policy` `{tier, suspiciousScoreFloor}` is resolved via `readFirmScanPolicy` before every `computeVerdict` call. A `flagged` result is then routed by `scan.flagged_treatment`: `block` quarantines (prior behaviour); `informed-access` and `allow-and-flag` commit the version with `scanVerdict: "flagged"` — the file is persisted but access-gated. The download/preview gate re-reads `flaggedTreatment` at request time (`scan-policy-settings.ts`), so a policy change takes effect on the next request without re-ingesting. `scan.step_up_reauth_on_flagged` surfaces `stepUpRequired: true` in 409 responses; the actual re-auth challenge is a future auth-slice seam.
 - **Two ingest lanes: interactive (`files/` queue) + bulk (`bulk/` queue).** Interactive ingests run on
   the `files-ingest` queue (bounded concurrency, low latency, interactive UI path). Bulk ingests run on
   the `magna-carta-production-files-ingest-bulk` queue (higher-throughput, background). Both lanes share

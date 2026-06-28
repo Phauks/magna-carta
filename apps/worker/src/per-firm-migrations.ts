@@ -29,7 +29,9 @@ import editingWorkingCopySql from "@magna-carta/database/drizzle/per-firm/0025_a
 import editingSweepIndexesSql from "@magna-carta/database/drizzle/per-firm/0026_needy_rage.sql";
 import idleReleaseIndexSql from "@magna-carta/database/drizzle/per-firm/0027_smart_stellaris.sql";
 import costEntrySql from "@magna-carta/database/drizzle/per-firm/0028_burly_piledriver.sql";
-import supportAccessPermissionsSql from "@magna-carta/database/drizzle/per-firm/0029_support-access-permissions.sql";
+import scanVerdictFlaggedSql from "@magna-carta/database/drizzle/per-firm/0029_scan_verdict_flagged.sql";
+import seedScanPolicyPermissionSql from "@magna-carta/database/drizzle/per-firm/0030_seed-scan-policy-permission.sql";
+import supportAccessPermissionsSql from "@magna-carta/database/drizzle/per-firm/0031_support-access-permissions.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -68,6 +70,8 @@ export function perFirmMigrations(): Migration[] {
     "0026_needy_rage": editingSweepIndexesSql,
     "0027_smart_stellaris": idleReleaseIndexSql,
     "0028_burly_piledriver": costEntrySql,
-    "0029_support-access-permissions": supportAccessPermissionsSql,
+    "0029_scan_verdict_flagged": scanVerdictFlaggedSql,
+    "0030_seed-scan-policy-permission": seedScanPolicyPermissionSql,
+    "0031_support-access-permissions": supportAccessPermissionsSql,
   });
 }

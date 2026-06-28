@@ -209,7 +209,21 @@
       "idx": 29,
       "version": "6",
       "when": 1782600000005,
-      "tag": "0029_support-access-permissions",
+      "tag": "0029_scan_verdict_flagged",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1782600000006,
+      "tag": "0030_seed-scan-policy-permission",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1782600000007,
+      "tag": "0031_support-access-permissions",
       "breakpoints": true
     }
   ]

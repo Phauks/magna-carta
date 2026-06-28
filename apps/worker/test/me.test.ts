@@ -79,6 +79,7 @@ describe("GET /api/v1/me", () => {
         "files:upload",
         "firm:manageMembers",
         "firm:manageReleaseChannel",
+        "firm:manageScanPolicy",
         "firm:manageSecrets",
         "firm:reportIncident",
         "firm:scanFile",
