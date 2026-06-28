@@ -77,9 +77,8 @@ mod glue {
         }
 
         pub fn set(self, key: &str, value: &JsValue) -> Self {
-            debug_assert!(
-                js_sys::Reflect::set(&self.object, &JsValue::from_str(key), value).is_ok()
-            );
+            let result = js_sys::Reflect::set(&self.object, &JsValue::from_str(key), value);
+            debug_assert!(result.is_ok());
             self
         }
 
