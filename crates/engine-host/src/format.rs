@@ -2,7 +2,7 @@
 //! Owns ONLY the leading-bytes layer; an engine that needs a richer check
 //! composes on top.
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Format {
     Pdf,
     Zip,
