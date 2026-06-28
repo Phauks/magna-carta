@@ -9,7 +9,12 @@ import init, {
 // Pass the result of `readFileSync(wasmPath)` — the loader handles both Buffer and Uint8Array.
 let ready: Promise<unknown> | undefined;
 
-export async function ensureReady(wasmInput?: Uint8Array | ArrayBuffer): Promise<void> {
+// In Cloudflare Workers the bundler provides the WASM as a pre-compiled WebAssembly.Module
+// (imported via the package's wasm export entry). Passing it here avoids the URL-fetch fallback
+// that wasm-bindgen's generated init() would otherwise attempt at runtime.
+export async function ensureReady(
+  wasmInput?: Uint8Array | ArrayBuffer | WebAssembly.Module,
+): Promise<void> {
   if (ready === undefined) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ready = wasmInput !== undefined ? init({ module_or_path: wasmInput as any }) : init();

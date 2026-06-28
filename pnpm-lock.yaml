@@ -212,6 +212,9 @@ importers:
       '@magna-carta/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@magna-carta/decryption':
+        specifier: workspace:*
+        version: link:../../packages/decryption
       '@magna-carta/directory':
         specifier: workspace:*
         version: link:../../packages/directory

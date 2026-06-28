@@ -43,6 +43,7 @@ import { registerMattersRoutes } from "./routes/matters.ts";
 import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
 import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
 import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
+import { registerDecryptionRoutes } from "./routes/decryption.ts";
 import { registerFileIntegrityRoutes } from "./routes/file-integrity.ts";
 import { registerMetadataRoutes } from "./routes/metadata.ts";
 import { registerDevWebToolsDemoRoute } from "./routes/dev-web-tools-demo.ts";
@@ -342,6 +343,7 @@ export function createApp(options: CreateAppOptions = {}) {
   // without touching the BROWSER binding. Production: createBrowserRenderer(c.env.BROWSER) +
   // createFetchRedirectProbe() — built lazily in the handler, never at startup.
   registerSafeBrowseRoute(app, chokepoint, options.safeBrowseDeps ?? {});
+  registerDecryptionRoutes(app, chokepoint);
   registerFileIntegrityRoutes(app, chokepoint);
   registerMetadataRoutes(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);

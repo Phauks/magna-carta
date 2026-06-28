@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./src/pkg/decryption_core_bg.wasm": "./src/pkg/decryption_core_bg.wasm"
   },
   "scripts": {
     "test": "vp test run",
