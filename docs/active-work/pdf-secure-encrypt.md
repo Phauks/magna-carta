@@ -2,7 +2,7 @@
 branch: pdf-secure-encrypt
 worktree: C:/dev/magna-carta-worktrees/pdf-secure-encrypt
 area: PDF engine — secure/encrypt (slice 5 completion) + Tools surface
-status: designing
+status: engine + WASM binding + docs built (merge-ready); Tools UI deferred to the 0·7 cycle
 touches: crates/pdf-core/** (new decrypt + secure modules, lib.rs exports, Cargo.toml crypto deps), packages/pdf/src/index.ts (decryptDocument/secureDocument bindings) + tests, packages/tools/src/catalog.ts (one row), packages/access-control/src/registry.ts (one permission), apps/worker/src/routes/pdf-secure.ts (new, only if a server route is kept) + app.ts registration, apps/worker migrations (role seed for the new permission), the SPA Tools shell (one id->component mapping), docs/specs/2026-06-26-pdf-secure-encrypt-design.md (+ plan), docs/decisions/pending/pdf-secure-encrypt.md, changelog.d/pdf-secure-encrypt.md, STATUS.md (own row), ROADMAP.md
 ---
 

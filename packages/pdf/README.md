@@ -520,6 +520,87 @@ interface FormFillOptions { flatten?: boolean }
 interface FormFillResult  { pdf: Uint8Array }
 ```
 
+## Security
+
+Inspect a PDF's protection, unlock a password-protected document, or re-protect one. These
+run entirely in WebAssembly: **the password and document bytes never leave the caller's
+process.** Unlocking needs a password you already have — it does not recover or guess
+passwords.
+
+### `inspectSecurity(bytes)`
+
+Classify a document's security without a password:
+
+```ts
+const info = await inspectSecurity(bytes);
+// { encrypted, handler, algorithm, hasUserPassword, permissions }
+```
+
+`handler` is `"standard" | "publicKey" | "none"`; a `"publicKey"` (certificate) document is
+reported but cannot be opened. `algorithm` is `"rc4" | "aes128" | "aes256" | "unknown" |
+"none"`. `permissions` is `null` when the policy cannot be read — which happens for a
+document that opens with an empty password (the underlying reader consumes the encryption
+dictionary on load). `hasUserPassword` is `true` when an open password is required to view.
+
+### `decryptDocument(bytes, password)`
+
+Unlock a protected PDF, returning `{ pdf: Uint8Array }` of plaintext. An unencrypted input
+is returned unchanged. A wrong password throws `WrongPasswordError` (distinct from a parse
+failure), so a caller can re-prompt; the password is never echoed in an error.
+
+```ts
+try {
+  const { pdf } = await decryptDocument(bytes, password);
+} catch (error) {
+  if (error instanceof WrongPasswordError) {
+    // ask the user for the password again
+  }
+}
+```
+
+### `secureDocument(bytes, options)`
+
+Protect a PDF, returning `{ pdf: Uint8Array }`. Writes **AES-256 by default and never RC4**.
+
+```ts
+const { pdf } = await secureDocument(bytes, {
+  ownerPassword: "…",            // required — governs permission changes
+  userPassword: "…",             // optional open password; omit for "opens without a prompt"
+  permissions: { copy: false },  // omitted bits default to allowed
+  // encryptMetadata?: boolean     (default true)
+  // algorithm?: "aes256" | "aes128"  (default aes256; aes128 for old readers, never RC4)
+});
+```
+
+**Permissions are advisory.** PDF permission bits are honored only by cooperating viewers
+and can be stripped by any tool that opens the document. The only real confidentiality
+control is the open password plus the cipher — do not rely on the permission flags to keep
+anyone out.
+
+### Types
+
+```ts
+interface SecurityPermissions {
+  print: boolean; printHighRes: boolean; copy: boolean; modify: boolean;
+  annotate: boolean; fillForms: boolean; assemble: boolean; accessibilityCopy: boolean;
+}
+interface SecurityInfo {
+  encrypted: boolean;
+  handler: "standard" | "publicKey" | "none";
+  algorithm: "rc4" | "aes128" | "aes256" | "unknown" | "none";
+  hasUserPassword: boolean;
+  permissions: SecurityPermissions | null;  // null when not readable
+}
+interface SecureOptions {
+  ownerPassword: string;
+  userPassword?: string;
+  permissions?: Partial<SecurityPermissions>;
+  encryptMetadata?: boolean;
+  algorithm?: "aes256" | "aes128";
+}
+class WrongPasswordError extends Error { readonly code: "wrong-password" }
+```
+
 ## Build notes
 
 The WASM binary at `src/pkg/pdf_core_bg.wasm` is produced by `wasm-pack build crates/pdf-core --target web --out-dir packages/pdf/src/pkg --release --no-opt`. It is not committed to version control; run `vp run rust-wasm-build` (or `pnpm --filter @magna-carta/pdf run build:wasm`) to regenerate it. In development the binary is rebuilt automatically as part of `vp run build-all`.

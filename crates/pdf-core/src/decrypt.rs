@@ -446,8 +446,8 @@ mod tests {
         bytes
     }
 
-    /// The spike: prove lopdf's whole-document decrypt produces bytes that the
-    /// `hayro` render path opens, and that the unlock/error/identity contracts hold.
+    /// Prove lopdf's whole-document decrypt produces bytes that the `hayro` render
+    /// path opens, and that the unlock / wrong-password / identity contracts hold.
     #[test]
     fn probe_decrypt_roundtrips_through_hayro() {
         let encrypted = encrypt_v5(
