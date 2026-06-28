@@ -1,8 +1,9 @@
 ---
+number: 155
 slug: first-per-firm-queue-consumer
 status: Accepted
-area: Financial Core / Costs & expenses
 date: 2026-06-26
+area: Financial Core / Costs & expenses
 summary: Slice 3·3 lands the codebase's first per-firm queue consumer — a topic-dispatch over the single bound `env.QUEUE` (queue `magna-carta-production-platform-jobs`), the symmetric analogue of the control-plane `CONSUMERS` map but keyed on `message.topic` and resolving the firm DB by a two-hop (`firmId` → control-plane `database_identifier` → bound D1). It ACK-AND-IGNOREs unknown topics — a deliberate divergence from the control-plane sweep's throw-on-unknown, because the shared per-firm bus carries `shipment.created`/`shipment.refunded`/future topics this consumer does not own. The shipping adapter maps `shipment.purchased` to recovered disbursements. Idempotency has two floors: the per-line `runIdempotentEffect` key `${shipmentId}:${category}` and the DB `cost_entry` `recovery_ref` unique index. DEFERRED: the wrangler `consumers` declaration for `platform-jobs` (a deploy-activation step — the `index.ts` branch is dormant until then) and the `cost.recorded` emission (3·4).
 ---
 

@@ -10,6 +10,10 @@ fn state_with_unreachable_clamd() -> AppState {
         clamd_address: "127.0.0.1:1".into(),
         caps: ArchiveCaps::default(),
         engine_version: "test".into(),
+        magika: Arc::new(
+            magna_carta_scan::identify::IdentifyEngine::new()
+                .expect("magika session builds with the embedded model"),
+        ),
     }
 }
 

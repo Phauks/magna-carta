@@ -98,9 +98,7 @@ describe("selectBundleLane", () => {
   describe("encryptedStream lane", () => {
     it("returns encryptedStream when encryption is non-null (zip, no header encryption)", () => {
       expect(
-        selectBundleLane(
-          opts({ encryption: { algorithm: "aes-256", encryptFileNames: false } }),
-        ),
+        selectBundleLane(opts({ encryption: { algorithm: "aes-256", encryptFileNames: false } })),
       ).toBe("encryptedStream");
     });
 

@@ -76,10 +76,10 @@ describe("bundleBuildQueue — lane branching", () => {
     const fakeService: BundleServiceFetcher = {
       fetch: async () => {
         serviceCalls += 1;
-        return new Response(
-          JSON.stringify({ ok: true, volumes: cannedVolumes, error: null }),
-          { status: 200, headers: { "content-type": "application/json" } },
-        );
+        return new Response(JSON.stringify({ ok: true, volumes: cannedVolumes, error: null }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
       },
     };
 

@@ -26,6 +26,8 @@ COPY src ./src
 # unchanged dependency graph is not recompiled. A cache mount is not part of the image layer, so the
 # two binaries are copied out to /artifacts (a normal path) in the same RUN before the mount drops —
 # later stages read them from there, not from target/. See docs/conventions/build-performance.md.
+# rust:1-bookworm (via buildpack-deps:bookworm) already provides libssl-dev + pkg-config —
+# no extra apt step needed for ort's openssl-sys build dependency.
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
     --mount=type=cache,target=/src/target \
@@ -74,9 +76,13 @@ RUN set -eux; \
 # --- runtime stage: clamd + the service -----------------------------------------------------------
 FROM debian:bookworm-slim
 
+# libstdc++6 + libgomp1: onnxruntime runtime libs for the Magika identify engine. ort statically
+# links onnxruntime (no libonnxruntime.so copy needed), but the compiled-in C++ code still calls
+# into libstdc++ and libgomp at run time, so they must be present in the container image.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       clamav clamav-daemon clamav-freshclam ca-certificates \
+      libstdc++6 libgomp1 \
  && rm -rf /var/lib/apt/lists/*
 
 # Bake the initial signature database at BUILD time. The container runs with no network egress

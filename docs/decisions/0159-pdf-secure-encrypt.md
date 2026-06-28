@@ -1,8 +1,9 @@
 ---
+number: 159
 slug: pdf-secure-encrypt
 status: Accepted
-area: Documents
 date: 2026-06-26
+area: Documents
 summary: Compose lopdf's Standard Security Handler for PDF unlock/protect; read every revision but write AES-256 only; treat permission bits as advisory.
 ---
 

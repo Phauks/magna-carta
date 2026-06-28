@@ -48,12 +48,15 @@ export default defineConfig({
   // Task keys are plain task names with a `command`; the `package#task` form is only valid inside `dependsOn` (see viteplus.dev/config/run).
   run: {
     tasks: {
-      // Build the whole app in dependency order: the SPA first, then (later) the worker that serves apps/web/build.
-      // Named `build-all` (not `build`) so it does not collide with the root package.json `build` script.
-      // The command builds every app package (filter excludes the root, which has no buildable entry); `dependsOn` uses the cross-package `package#task` notation to force apps/web's build first.
-      // Also depends on rust-wasm-build so the WASM artefact in packages/pdf/src/pkg is current before the SPA bundles it.
+      // Build the `magna-carta` app worker's deploy artefacts in dependency order: the wasm, then the
+      // SPA (which bundles it), then the worker that serves apps/web/build. This is the Workers Build
+      // command for `magna-carta` (operations.md §12), so it is deliberately SCOPED to the app worker —
+      // it does NOT build the standalone sibling workers (scan/bundle/convert/edit). Those are separate
+      // deployables with their own Workers Builds; building their container images here is both wasteful
+      // and fragile (e.g. the scan image's YARA Forge download is rate-limited, which would fail the app
+      // deploy on an unrelated worker). `dependsOn` forces the wasm + the SPA before the worker's build.
       "build-all": {
-        command: 'vp run --filter "./apps/*" build',
+        command: 'vp run --filter "@magna-carta/worker" build',
         dependsOn: ["@magna-carta/web#build", "rust-wasm-build"],
       },
       // Rust quality gate: fmt + clippy + unit tests for the crates/ workspace.
@@ -63,14 +66,20 @@ export default defineConfig({
         command:
           "cargo fmt --manifest-path crates/Cargo.toml --all --check && cargo clippy --manifest-path crates/Cargo.toml --all-targets -- -D warnings && cargo test --manifest-path crates/Cargo.toml",
       },
-      // Build the pdf-core WASM artefact into packages/pdf/src/pkg.
-      // --no-opt: wasm-opt is not required (and may not be installed); the artefact is semantically correct.
-      // The output directory matches the import path used by packages/pdf/src/index.ts.
-      // wasm-pack resolves --out-dir relative to the crate directory (crates/pdf-core/), so the correct
-      // relative path from there to packages/pdf/src/pkg is ../../packages/pdf/src/pkg.
+      // Build the pdf-core WASM artefact into packages/pdf/src/pkg — IN A PINNED RUST DOCKER IMAGE
+      // (crates/pdf-core/wasm.Dockerfile, mirroring containers/scan/Dockerfile), never on the host
+      // toolchain. This is the one canonical wasm build, invoked identically in local builds and in
+      // Cloudflare Workers Builds: the build environment needs only Docker (which the Workers Builds
+      // runner provides — the same way the scan/bundle/convert container images build), never Rust or
+      // wasm-pack on the bare machine. `--output type=local` exports exactly the wasm-pack output to
+      // the host package dir (the import path packages/pdf/src/index.ts expects). Build context is
+      // crates/. Like the container workers, this requires Docker available locally.
+      // --network=host: the Workers Builds runner's Docker isolates RUN-step networking (image pulls
+      // work, but RUN-step DNS fails), so the rustup/cargo downloads need the host network — which the
+      // bare runner has (it clones the repo + runs pnpm install). Harmless locally.
       "rust-wasm-build": {
         command:
-          "wasm-pack build crates/pdf-core --target web --out-dir ../../packages/pdf/src/pkg --release --no-opt",
+          "docker build --network=host --output type=local,dest=packages/pdf/src/pkg -f crates/pdf-core/wasm.Dockerfile crates",
       },
       // The worker serves apps/web/build, so its build and dev both depend on the SPA build (cross-package package#task notation).
       // Named worker-build / worker-dev (not build / dev) so they do not collide with the root package.json build / dev scripts.

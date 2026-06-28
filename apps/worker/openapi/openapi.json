@@ -5203,6 +5203,179 @@
           "status"
         ]
       },
+      "SupportGrantSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "diagnostic",
+              "privileged"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "active",
+              "revoked",
+              "expired",
+              "closed"
+            ]
+          },
+          "requestedByUserId": {
+            "type": "string"
+          },
+          "principalId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "requiresCosign": {
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tier",
+          "status",
+          "requestedByUserId",
+          "principalId",
+          "requiresCosign",
+          "expiresAt",
+          "createdAt"
+        ]
+      },
+      "RequestSupportGrant": {
+        "type": "object",
+        "properties": {
+          "tier": {
+            "type": "string",
+            "enum": [
+              "diagnostic",
+              "privileged"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "tier"
+        ]
+      },
+      "SupportGrantListResponse": {
+        "type": "object",
+        "properties": {
+          "grants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SupportGrantSummary"
+            }
+          }
+        },
+        "required": [
+          "grants"
+        ]
+      },
+      "SupportGrantStatusResult": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ]
+      },
+      "SupportSessionMinted": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "diagnostic",
+              "privileged"
+            ]
+          },
+          "firmId": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "tier",
+          "firmId",
+          "expiresAt"
+        ]
+      },
+      "RedeemSupportSession": {
+        "type": "object",
+        "properties": {
+          "grantId": {
+            "type": "string"
+          },
+          "principalId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "grantId",
+          "principalId"
+        ]
+      },
+      "SupportDiagnosticOverview": {
+        "type": "object",
+        "properties": {
+          "firmId": {
+            "type": "string"
+          },
+          "firmStatus": {
+            "type": "string"
+          },
+          "perFirmSchemaVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "bucketProvisioned": {
+            "type": "boolean"
+          },
+          "activeMemberCount": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "firmId",
+          "firmStatus",
+          "perFirmSchemaVersion",
+          "bucketProvisioned",
+          "activeMemberCount"
+        ]
+      },
       "ShippingConnectAck": {
         "type": "object",
         "properties": {
@@ -6138,6 +6311,169 @@
           },
           "429": {
             "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/file-type/verify": {
+      "post": {
+        "description": "Identify an uploaded file's true content type from its bytes, compare it to the extension the filename claims, and recommend an extension when it is missing or wrong. Nothing is stored.",
+        "operationId": "fileType.verify",
+        "tags": [
+          "fileType"
+        ],
+        "x-mc-operationId": "fileType.verify",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:fileTypeVerifier",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "fileType"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "filename",
+            "in": "query"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "File type report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "detected": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "detectedLabel": {
+                      "type": "string"
+                    },
+                    "group": {
+                      "type": "string"
+                    },
+                    "confidence": {
+                      "type": "number"
+                    },
+                    "claimedExtension": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "extensionMatch": {
+                      "type": "string",
+                      "enum": [
+                        "match",
+                        "mismatch",
+                        "unverifiable",
+                        "no-extension"
+                      ]
+                    },
+                    "recommendedExtensions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "note": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "detected",
+                    "detectedLabel",
+                    "group",
+                    "confidence",
+                    "claimedExtension",
+                    "extensionMatch",
+                    "recommendedExtensions",
+                    "note"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Empty request body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing tools:fileTypeVerifier",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "File exceeds the inspectable-size cap",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Identification engine unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -21441,6 +21777,523 @@
         }
       }
     },
+    "/api/v1/support/grants": {
+      "post": {
+        "description": "A firm member requests time-boxed help-desk access to their firm. The request is the consent anchor — the requester's identity is the scope, and any staff who redeems the grant acts only within the tier the requester chose. A diagnostic grant opens immediately; a privileged grant waits for admin co-sign when the firm's co-sign policy is on.",
+        "operationId": "supportGrants.request",
+        "tags": [
+          "supportGrants"
+        ],
+        "x-mc-operationId": "supportGrants.request",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "support:request",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "supportGrants"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestSupportGrant"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The created grant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportGrantSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks support:request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The session's firm is not reachable or the member is deactivated — structural absence, never an existence oracle",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The body failed validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "description": "The firm's support grants — who requested help, the scope (tier), current status, and the staff principal who redeemed it. Ordered newest first. Visible to any authenticated firm member so every member can see when help-desk access is or was active on their firm.",
+        "operationId": "supportGrants.list",
+        "tags": [
+          "supportGrants"
+        ],
+        "x-mc-operationId": "supportGrants.list",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": null,
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "supportGrants"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm's support grants, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportGrantListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The session's firm is not reachable or the member is deactivated — structural absence, never an existence oracle",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/support/grants/{grantId}/cosign": {
+      "post": {
+        "description": "An admin co-signs a privileged support grant that firm policy held for approval. Moves the grant from requested to active so a platform-staff principal may redeem it.",
+        "operationId": "supportGrants.cosign",
+        "tags": [
+          "supportGrants"
+        ],
+        "x-mc-operationId": "supportGrants.cosign",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "support:cosign",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "supportGrants"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "grantId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The grant after co-sign",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportGrantStatusResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks support:cosign",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such grant in this firm, or it is not awaiting co-sign",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/support/grants/{grantId}/revoke": {
+      "post": {
+        "description": "An admin revokes a support grant; in-flight support access ends on the next request the platform-staff principal makes against the grant-verification middleware.",
+        "operationId": "supportGrants.revoke",
+        "tags": [
+          "supportGrants"
+        ],
+        "x-mc-operationId": "supportGrants.revoke",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "support:manage",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "supportGrants"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "grantId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The grant after revoke",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportGrantStatusResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks support:manage",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such grant in this firm, or it is already terminal",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/support/sessions": {
+      "post": {
+        "description": "A platform-staff principal redeems an active support grant for a short-lived support-session token. The token encodes the grant, principal, firm, and tier; the live grant row (checked on every subsequent request) remains the source of truth for revocation and expiry. Privileged grants may only be redeemed by a support_lead principal.",
+        "operationId": "supportSessions.redeem",
+        "tags": [
+          "supportSessions"
+        ],
+        "x-mc-operationId": "supportSessions.redeem",
+        "x-mc-surface": "public",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "support:mintSession",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "required",
+        "x-mc-rateLimit": "auth",
+        "x-mc-tags": [
+          "supportSessions"
+        ],
+        "x-mc-deprecated": false,
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "idempotency-key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedeemSupportSession"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The minted support-session token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportSessionMinted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing Idempotency-Key (this operation requires one)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid X-Platform-Admin-Key",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Principal may not redeem this tier (privileged grants require support_lead role)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No redeemable grant (absent, not active, or expired), or unknown/disabled principal",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A request with this Idempotency-Key is still in progress",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The body failed validation",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/support/diagnostics/overview": {
+      "get": {
+        "description": "Non-privileged firm system state for help-desk diagnosis: firm status, per-firm schema version, storage provisioning state, and active member count. Accessible only from a diagnostic support session — the permission is never seeded to a firm role.",
+        "operationId": "supportDiagnostics.overview",
+        "tags": [
+          "supportDiagnostics"
+        ],
+        "x-mc-operationId": "supportDiagnostics.overview",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "diagnostics:overview",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "supportDiagnostics"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The firm system-state overview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportDiagnosticOverview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session, or the support-session token's backing grant is revoked or expired",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but the principal lacks diagnostics:overview",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The session's firm is not reachable or the member is deactivated",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/integrations/shipping/connection": {
       "post": {
         "description": "Connects the firm's EasyPost postage account by storing its API key as a firm secret.",
@@ -22300,6 +23153,9 @@
       "name": "fileIntegrity"
     },
     {
+      "name": "fileType"
+    },
+    {
       "name": "files"
     },
     {
@@ -22370,6 +23226,15 @@
     },
     {
       "name": "shipping"
+    },
+    {
+      "name": "supportDiagnostics"
+    },
+    {
+      "name": "supportGrants"
+    },
+    {
+      "name": "supportSessions"
     },
     {
       "name": "timeEntries"

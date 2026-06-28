@@ -97,6 +97,10 @@ export const ENTITY_PREFIXES = {
   // Costs & expenses WIP — one matter disbursement captured as a cost entry (the parallel to
   // timeEntry for non-time billables and cost-recovery amounts).
   costEntry: "costEntry",
+  // Support-access framework. `platformStaff` identifies a named help-desk operator on the control
+  // plane; `supportGrant` is a time-boxed, pull-redeemed access grant issued to that operator.
+  platformStaff: "platformStaff",
+  supportGrant: "supportGrant",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

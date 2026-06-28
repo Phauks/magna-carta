@@ -1,4 +1,5 @@
 import { getContainer } from "@cloudflare/containers";
+import { forwardIdentify } from "./forward-identify.ts";
 import { forwardScan } from "./forward-scan.ts";
 import { pokeContainer } from "./scan-warm.ts";
 import { triggerSignatureRefresh } from "./sig-refresh.ts";
@@ -38,6 +39,9 @@ export default {
     const url = new URL(request.url);
     if (request.method === "POST" && url.pathname === "/scan") {
       return forwardScan(request, getContainer(env.SCAN_CONTAINER, "scan"));
+    }
+    if (request.method === "POST" && url.pathname === "/identify") {
+      return forwardIdentify(request, getContainer(env.SCAN_CONTAINER, "scan"));
     }
     return new Response("Not Found", { status: 404 });
   },

@@ -31,6 +31,7 @@
     "./shipment-statements": "./src/shipment-statements.ts",
     "./shipment-service": "./src/shipment-service.ts",
     "./usage-consent-statements": "./src/usage-consent-statements.ts",
+    "./support-access-statements": "./src/support-access-statements.ts",
     "./firm-release-channel-statements": "./src/firm-release-channel-statements.ts"
   },
   "scripts": {

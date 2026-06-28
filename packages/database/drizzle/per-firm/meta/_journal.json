@@ -218,6 +218,20 @@
       "when": 1782600000006,
       "tag": "0030_seed-scan-policy-permission",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1782600000007,
+      "tag": "0031_support-access-permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1782600000008,
+      "tag": "0032_seed-tools-file-type-verifier",
+      "breakpoints": true
     }
   ]
 }

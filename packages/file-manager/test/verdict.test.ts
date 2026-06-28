@@ -75,3 +75,72 @@ describe("computeVerdict (default policy = extended/75)", () => {
     ).toEqual({ verdict: "clean", activeContent: true });
   });
 });
+
+// The precedence comment in verdict.ts calls the ordering "the behaviour-preservation core — do not
+// reorder", but the single-signal cases above each fire in isolation and so cannot catch a reorder.
+// These cross-signal cases pin the order itself. The load-bearing ones combine a definitive signal
+// (clamd hit / counting match / structural / encrypted) with a DEPLOYED engine reporting unavailable:
+// if the unavailable branch were moved above them it would throw ScanFaultError → retry → dead-letter
+// instead of acting on the malware/encrypted fact, so each asserts the verdict (or non-throw) wins.
+describe("computeVerdict — precedence ordering (do not reorder)", () => {
+  it("a clamd signature outranks a counting YARA match (returns the signature, not the rule)", () => {
+    expect(
+      computeVerdict(
+        {
+          ...base,
+          clam: { state: "infected", signature: "Eicar" },
+          matches: [{ ruleId: "R", tier: "core", score: 90, isSuspicious: false }],
+        },
+        DEFAULT_SCAN_POLICY,
+      ),
+    ).toEqual({ verdict: "flagged", reason: "Eicar" });
+  });
+
+  it("a counting YARA match outranks a structural heuristic (returns the rule, not the reason)", () => {
+    expect(
+      computeVerdict(
+        {
+          ...base,
+          matches: [{ ruleId: "R", tier: "core", score: 90, isSuspicious: false }],
+          heuristic: { kind: "structural", reason: "decompression-bomb" },
+        },
+        DEFAULT_SCAN_POLICY,
+      ),
+    ).toEqual({ verdict: "flagged", reason: "R" });
+  });
+
+  it("a counting YARA match outranks clamd-unavailable: flags, never throws (deployed engine)", () => {
+    expect(
+      computeVerdict(
+        {
+          ...base,
+          clam: { state: "unavailable" },
+          matches: [{ ruleId: "R", tier: "core", score: 90, isSuspicious: false }],
+        },
+        DEFAULT_SCAN_POLICY,
+      ),
+    ).toEqual({ verdict: "flagged", reason: "R" });
+  });
+
+  it("a structural heuristic outranks clamd-unavailable: flags, never throws (deployed engine)", () => {
+    expect(
+      computeVerdict(
+        {
+          ...base,
+          clam: { state: "unavailable" },
+          heuristic: { kind: "structural", reason: "archive-nesting" },
+        },
+        DEFAULT_SCAN_POLICY,
+      ),
+    ).toEqual({ verdict: "flagged", reason: "archive-nesting" });
+  });
+
+  it("encrypted outranks clamd-unavailable: unscanned/encrypted, never throws (deployed engine)", () => {
+    expect(
+      computeVerdict(
+        { ...base, clam: { state: "unavailable" }, heuristic: { kind: "encrypted" } },
+        DEFAULT_SCAN_POLICY,
+      ),
+    ).toEqual({ verdict: "unscanned", reason: "encrypted" });
+  });
+});
