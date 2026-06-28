@@ -67,6 +67,9 @@ export const PERMISSIONS = [
   "time:manageRates", // rate cards, rate versions, and the re-rate-unbilled-drafts action
   "time:manageUtbms", // enable/disable the UTBMS code catalog
   "time:manageSettings", // the scoped time settings, non-billable categories, narrative templates
+  // Costs / disbursements — soft costs and hard costs captured against a matter.
+  "costs:track", // create/edit cost entries (manual and grid sources)
+  "costs:approve", // approve / kick-back cost entries when the review gate is on
   // Support access — a firm member requests time-boxed help-desk access; admins co-sign/manage it.
   "support:request", // request a support session (seeded to EVERY default role — any member may ask)
   "support:cosign", // co-sign a privileged support grant when firm policy requires it (admin)

@@ -4,6 +4,7 @@ import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statement
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import type { RandomSource } from "@magna-carta/identifiers/random";
 import type { TimeEntryId, UserId } from "@magna-carta/identifiers/types";
+import { IllegalTransitionError } from "@magna-carta/billing-core/lifecycle-error";
 import { assertTransition, isFrozen, type TimeEntryStatus } from "./lifecycle.ts";
 import type { RateSource } from "./rate-resolution.ts";
 import {
@@ -17,6 +18,26 @@ import {
   type TimeEntrySource,
 } from "./time-entry-statements.ts";
 import { TimeEntryValidationError } from "./time-entry-validation.ts";
+
+// Maps the generic billing-core error to the timekeeping-domain error so the HTTP layer sees only
+// TimeEntryValidationError at the 409 boundary.
+function guardedAssertTransition(
+  from: TimeEntryStatus,
+  to: TimeEntryStatus,
+  gateOn: boolean,
+): void {
+  try {
+    assertTransition(from, to, gateOn);
+  } catch (error) {
+    if (error instanceof IllegalTransitionError) {
+      throw new TimeEntryValidationError(
+        "illegal-transition",
+        `cannot move a time entry from ${error.from} to ${error.to} (review gate ${error.gateOn ? "on" : "off"})`,
+      );
+    }
+    throw error;
+  }
+}
 
 // Wall-clock and actor arrive from the caller — the service reads no clock and trusts no ambient
 // identity. randomSource lets fixtures mint byte-deterministic ids. Mirrors ShipmentServiceOptions.
@@ -116,7 +137,7 @@ async function transition(
   if (isFrozen(from)) {
     throw new TimeEntryValidationError("frozen-entry", `time entry ${id} is ${from} and frozen`);
   }
-  assertTransition(from, to, options.approvalRequired ?? false);
+  guardedAssertTransition(from, to, options.approvalRequired ?? false);
   const updatedAt = options.clock.now();
   return {
     timeEntryId: id,
@@ -175,7 +196,7 @@ export async function submitTimeEntry(
       `time entry ${timeEntryId} is ${from} and frozen`,
     );
   }
-  assertTransition(from, "submitted", options.approvalRequired ?? false);
+  guardedAssertTransition(from, "submitted", options.approvalRequired ?? false);
   const updatedAt = options.clock.now();
   return {
     timeEntryId,
@@ -214,7 +235,7 @@ export async function kickBackTimeEntry(
       `time entry ${timeEntryId} is ${from} and frozen`,
     );
   }
-  assertTransition(from, "draft", options.approvalRequired ?? false);
+  guardedAssertTransition(from, "draft", options.approvalRequired ?? false);
   const updatedAt = options.clock.now();
   return {
     timeEntryId,
@@ -249,7 +270,7 @@ export async function voidTimeEntry(
       `time entry ${timeEntryId} is ${from} and frozen`,
     );
   }
-  assertTransition(from, "void", options.approvalRequired ?? false);
+  guardedAssertTransition(from, "void", options.approvalRequired ?? false);
   const updatedAt = options.clock.now();
   return {
     timeEntryId,

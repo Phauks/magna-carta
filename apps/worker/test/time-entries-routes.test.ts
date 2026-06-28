@@ -344,7 +344,7 @@ describe("draft-only freeze and the review path", () => {
   });
 
   it("refuses submit when the firm's approval gate is off (illegal-transition -> 409)", async () => {
-    // The firm has not set time.approval_required, so the default (false) applies.
+    // The firm has not set billing.approval_required, so the default (false) applies.
     const created = await post("/api/v1/time-entries", {
       matterId,
       timekeeperUserId: ownerUserId,
@@ -365,7 +365,7 @@ describe("draft-only freeze and the review path", () => {
       .prepare(
         "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
       )
-      .bind("time.approval_required", "true", new Date().toISOString())
+      .bind("billing.approval_required", "true", new Date().toISOString())
       .run();
 
     const created = await post("/api/v1/time-entries", {
@@ -393,7 +393,7 @@ describe("draft-only freeze and the review path", () => {
       .prepare(
         "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
       )
-      .bind("time.approval_required", "false", new Date().toISOString())
+      .bind("billing.approval_required", "false", new Date().toISOString())
       .run();
   });
 
@@ -776,7 +776,7 @@ describe("kickBack", () => {
       .prepare(
         "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
       )
-      .bind("time.approval_required", "true", new Date().toISOString())
+      .bind("billing.approval_required", "true", new Date().toISOString())
       .run();
 
     const created = await post("/api/v1/time-entries", {
@@ -808,7 +808,7 @@ describe("kickBack", () => {
       .prepare(
         "INSERT INTO setting (key, value, updated_at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
       )
-      .bind("time.approval_required", "false", new Date().toISOString())
+      .bind("billing.approval_required", "false", new Date().toISOString())
       .run();
   });
 

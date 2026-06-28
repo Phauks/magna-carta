@@ -961,6 +961,70 @@ export type CustomFieldValueRow = {
     validTo: string | null;
 };
 
+export type CostBatchAck = {
+    costEntryIds: Array<string>;
+};
+
+export type CostBatchRequest = {
+    rows: Array<CreateCostRequest>;
+};
+
+export type CreateCostRequest = {
+    matterId: string;
+    vendorId?: string | null;
+    incurredDate: string;
+    amountMinor: number;
+    currency: 'USD';
+    disbursementClass: 'hard' | 'soft';
+    billable: boolean;
+    utbmsExpenseCodeId?: string | null;
+    description: string;
+    recoveryCategory?: string;
+};
+
+export type CostAck = {
+    costEntryId: string;
+};
+
+export type CostListResponse = {
+    data: Array<CostSummary>;
+};
+
+export type CostSummary = {
+    id: string;
+    matterId: string;
+    vendorId: string | null;
+    incurredDate: string;
+    amountMinor: number;
+    currency: string;
+    disbursementClass: 'hard' | 'soft';
+    billable: boolean;
+    utbmsExpenseCodeId: string | null;
+    description: string;
+    status: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+    source: 'manual' | 'grid' | 'recovery';
+    recoveryCategory: string | null;
+};
+
+export type PatchCostRequest = {
+    vendorId?: string | null;
+    incurredDate?: string;
+    amountMinor?: number;
+    currency?: 'USD';
+    disbursementClass?: 'hard' | 'soft';
+    billable?: boolean;
+    utbmsExpenseCodeId?: string | null;
+    description?: string;
+};
+
+export type CostKickBackRequest = {
+    reason: string;
+};
+
+export type AttachReceiptRequest = {
+    fileId: string;
+};
+
 export type TimeEntryAck = {
     timeEntryId: string;
 };
@@ -5886,6 +5950,567 @@ export type CustomFieldsValueHistoryResponses = {
 };
 
 export type CustomFieldsValueHistoryResponse = CustomFieldsValueHistoryResponses[keyof CustomFieldsValueHistoryResponses];
+
+export type CostsBatchData = {
+    body: CostBatchRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/costs/batch';
+};
+
+export type CostsBatchErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the cost entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a UTBMS expense code is required, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CostsBatchError = CostsBatchErrors[keyof CostsBatchErrors];
+
+export type CostsBatchResponses = {
+    /**
+     * The batch was captured
+     */
+    201: CostBatchAck;
+};
+
+export type CostsBatchResponse = CostsBatchResponses[keyof CostsBatchResponses];
+
+export type CostsListData = {
+    body?: never;
+    path?: never;
+    query?: {
+        matterId?: string;
+        status?: 'draft' | 'submitted' | 'approved' | 'billed' | 'void';
+    };
+    url: '/api/v1/costs';
+};
+
+export type CostsListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the cost entry is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CostsListError = CostsListErrors[keyof CostsListErrors];
+
+export type CostsListResponses = {
+    /**
+     * The cost entries
+     */
+    200: CostListResponse;
+};
+
+export type CostsListResponse = CostsListResponses[keyof CostsListResponses];
+
+export type CostsCreateData = {
+    body: CreateCostRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/costs';
+};
+
+export type CostsCreateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the cost entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a UTBMS expense code is required, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CostsCreateError = CostsCreateErrors[keyof CostsCreateErrors];
+
+export type CostsCreateResponses = {
+    /**
+     * The cost entry was captured
+     */
+    201: CostAck;
+};
+
+export type CostsCreateResponse = CostsCreateResponses[keyof CostsCreateResponses];
+
+export type CostsGetData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/costs/{id}';
+};
+
+export type CostsGetErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the cost entry is unknown
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CostsGetError = CostsGetErrors[keyof CostsGetErrors];
+
+export type CostsGetResponses = {
+    /**
+     * The cost entry
+     */
+    200: CostSummary;
+};
+
+export type CostsGetResponse = CostsGetResponses[keyof CostsGetResponses];
+
+export type CostsUpdateData = {
+    body: PatchCostRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/costs/{id}';
+};
+
+export type CostsUpdateErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the cost entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a UTBMS expense code is required, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CostsUpdateError = CostsUpdateErrors[keyof CostsUpdateErrors];
+
+export type CostsUpdateResponses = {
+    /**
+     * The cost entry was updated
+     */
+    200: CostAck;
+};
+
+export type CostsUpdateResponse = CostsUpdateResponses[keyof CostsUpdateResponses];
+
+export type CostsSubmitData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/costs/{id}/submit';
+};
+
+export type CostsSubmitErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the cost entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a UTBMS expense code is required, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CostsSubmitError = CostsSubmitErrors[keyof CostsSubmitErrors];
+
+export type CostsSubmitResponses = {
+    /**
+     * The transition was applied
+     */
+    200: CostAck;
+};
+
+export type CostsSubmitResponse = CostsSubmitResponses[keyof CostsSubmitResponses];
+
+export type CostsApproveData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/costs/{id}/approve';
+};
+
+export type CostsApproveErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the cost entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a UTBMS expense code is required, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CostsApproveError = CostsApproveErrors[keyof CostsApproveErrors];
+
+export type CostsApproveResponses = {
+    /**
+     * The transition was applied
+     */
+    200: CostAck;
+};
+
+export type CostsApproveResponse = CostsApproveResponses[keyof CostsApproveResponses];
+
+export type CostsKickBackData = {
+    body: CostKickBackRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/costs/{id}/kick-back';
+};
+
+export type CostsKickBackErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the cost entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a UTBMS expense code is required, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CostsKickBackError = CostsKickBackErrors[keyof CostsKickBackErrors];
+
+export type CostsKickBackResponses = {
+    /**
+     * The transition was applied
+     */
+    200: CostAck;
+};
+
+export type CostsKickBackResponse = CostsKickBackResponses[keyof CostsKickBackResponses];
+
+export type CostsVoidData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/costs/{id}/void';
+};
+
+export type CostsVoidErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the cost entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a UTBMS expense code is required, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CostsVoidError = CostsVoidErrors[keyof CostsVoidErrors];
+
+export type CostsVoidResponses = {
+    /**
+     * The transition was applied
+     */
+    200: CostAck;
+};
+
+export type CostsVoidResponse = CostsVoidResponses[keyof CostsVoidResponses];
+
+export type CostsDetachReceiptData = {
+    body?: never;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/costs/{id}/receipt';
+};
+
+export type CostsDetachReceiptErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the cost entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a UTBMS expense code is required, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CostsDetachReceiptError = CostsDetachReceiptErrors[keyof CostsDetachReceiptErrors];
+
+export type CostsDetachReceiptResponses = {
+    /**
+     * The receipt was removed
+     */
+    200: CostAck;
+};
+
+export type CostsDetachReceiptResponse = CostsDetachReceiptResponses[keyof CostsDetachReceiptResponses];
+
+export type CostsAttachReceiptData = {
+    body: AttachReceiptRequest;
+    headers: {
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/costs/{id}/receipt';
+};
+
+export type CostsAttachReceiptErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks the required capability
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable, the member is deactivated, or the cost entry is unknown
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is in progress, the entry is frozen (billed or void), or the lifecycle transition is illegal
+     */
+    409: Problem;
+    /**
+     * The request is invalid, the Idempotency-Key was reused with a different payload, a UTBMS expense code is required, or the amount is not a positive integer
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type CostsAttachReceiptError = CostsAttachReceiptErrors[keyof CostsAttachReceiptErrors];
+
+export type CostsAttachReceiptResponses = {
+    /**
+     * The receipt was attached
+     */
+    200: CostAck;
+};
+
+export type CostsAttachReceiptResponse = CostsAttachReceiptResponses[keyof CostsAttachReceiptResponses];
 
 export type TimeEntriesListData = {
     body?: never;
