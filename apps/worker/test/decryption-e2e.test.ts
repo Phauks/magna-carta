@@ -93,14 +93,26 @@ beforeAll(async () => {
   ownerCookie = liveCookie(setCookies(signInResponse), "session_token")?.pair ?? "";
   expect(ownerCookie).not.toBe("");
 
-  // Seed a principal without tools:decryption. seedCredentialedUser creates the control-plane user
-  // row but does NOT mirror them into the per-firm member table — the chokepoint finds no
-  // membership row and returns 403, which is what the 403 step exercises.
+  // Seed a principal who IS a firm member (has a member row and a role assignment) but whose role
+  // does NOT include tools:decryption. All five default roles seeded by migration 0023 carry the
+  // permission, so this test creates a custom role with no permissions and mirrors the user with
+  // that role — the chokepoint finds a member row + role but no tools:decryption grant → 403.
+  // This exercises the PERMISSION gate, not just the membership gate (no member row at all).
   const firmId = assertIdentifier(firm.id, "firm");
-  await seedCredentialedUser("decryption-e2e-noperm@example.com", {
+  const { userId: nopermUserId } = await seedCredentialedUser("decryption-e2e-noperm@example.com", {
     userName: "No Decryption Permission",
     firmId,
   });
+  const nopermRoleId = "role_E2ENoDecryptionAccess0";
+  await env.DB_FIRM_POOL_1.prepare(
+    "INSERT INTO role (id, name, created_at) VALUES (?1, ?2, ?3)",
+  ).bind(nopermRoleId, "E2E No Decryption", new Date().toISOString()).run();
+  await env.DB_FIRM_POOL_1.prepare(
+    "INSERT INTO member (user_id, display_name, status, created_at) VALUES (?1, ?2, ?3, ?4)",
+  ).bind(nopermUserId, "No Decryption Permission", "active", new Date().toISOString()).run();
+  await env.DB_FIRM_POOL_1.prepare(
+    "INSERT INTO member_role (id, member_user_id, role_id) VALUES (?1, ?2, ?3)",
+  ).bind("memberRole_E2ENoDecryptAccess1", nopermUserId, nopermRoleId).run();
   unpermissionedCookie = await signInForSessionCookie("decryption-e2e-noperm@example.com");
   expect(unpermissionedCookie).not.toBe("");
 });
@@ -191,12 +203,17 @@ describe("decryption end-to-end: provisioned firm → inspect → unlock → aud
     // The JSON key "password" must never appear in either row — if the handler had logged the
     // password field, the key would be present in the serialised metadata.
     expect(combined).not.toContain('"password"');
+    // The password VALUE itself must also be absent as a JSON string literal — a leak under a
+    // differently-named key would survive the key check above but is caught here. Checking the
+    // quoted form '"test"' avoids a false-positive match inside the "attestation" key name.
+    expect(combined).not.toContain('"test"');
 
-    // No decrypted content must appear — a meaningful prefix of the decrypted base64 is unique
-    // enough to rule out accidental persistence of the plaintext bytes.
-    if (decryptedBase64Result.length >= 20) {
-      expect(combined).not.toContain(decryptedBase64Result.slice(0, 20));
-    }
+    // No decrypted content must appear. Guard with a fail-loud length assertion so that a
+    // zero-length or truncated unlock result cannot silently skip the prefix check below.
+    expect(decryptedBase64Result.length).toBeGreaterThanOrEqual(20);
+    // A meaningful prefix of the decrypted base64 is unique enough to rule out accidental
+    // persistence of the plaintext bytes.
+    expect(combined).not.toContain(decryptedBase64Result.slice(0, 20));
 
     // Each row must carry its expected outcome without leaking content.
     const inspectedRow = allRows.results.find((row) => row.event === "decryption.inspected");
@@ -208,7 +225,7 @@ describe("decryption end-to-end: provisioned firm → inspect → unlock → aud
     expect(unlockedRow?.metadata).toContain("fileSha256");
   });
 
-  it("403 for a principal without tools:decryption — enforced on both inspect and unlock", async () => {
+  it("403 for a firm member whose role lacks tools:decryption — permission gate enforced on both routes", async () => {
     const inspectResponse = await unpermissionedPost("/api/v1/decryption/inspect", {
       fileBase64: PDF_FIXTURE_BASE64,
       attestation: { authorized: true },
