@@ -28,13 +28,30 @@ pub enum WriteAlgorithm {
 /// without a prompt but still carries the owner password and permission policy. The
 /// `owner_password` always governs permission changes. Permission bits are advisory
 /// (see [`crate::Permissions`]); the open password plus the cipher is the real control.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct SecureOptions {
     pub owner_password: String,
     pub user_password: Option<String>,
     pub permissions: Permissions,
     pub encrypt_metadata: bool,
     pub algorithm: WriteAlgorithm,
+}
+
+// Hand-written so the passwords can never reach a log, error, or panic via `{:?}`.
+// A derived `Debug` would print both passwords verbatim.
+impl std::fmt::Debug for SecureOptions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SecureOptions")
+            .field("owner_password", &"<redacted>")
+            .field(
+                "user_password",
+                &self.user_password.as_ref().map(|_| "<redacted>"),
+            )
+            .field("permissions", &self.permissions)
+            .field("encrypt_metadata", &self.encrypt_metadata)
+            .field("algorithm", &self.algorithm)
+            .finish()
+    }
 }
 
 /// Encrypt a PDF, returning the protected bytes.
@@ -194,7 +211,60 @@ mod tests {
         let info = inspect_security(&secured).unwrap();
         assert!(info.encrypted);
         assert!(!info.has_user_password);
-        crate::decrypt(&secured, "").expect("opens with the empty password");
+        // Opening with the empty password must yield actually-DECRYPTED bytes — not the
+        // still-encrypted input handed back (the empty-password auto-open passthrough trap).
+        let plain = crate::decrypt(&secured, "").expect("opens with the empty password");
+        assert!(!Document::load_mem(&plain).unwrap().is_encrypted());
+        crate::Document::load(plain).expect("hayro loads the unlocked owner-only doc");
+    }
+
+    #[test]
+    fn secure_aes128_round_trips_through_decrypt() {
+        // Writing AES-128 must produce a document that actually decrypts and renders,
+        // not merely one that inspects as AES-128.
+        let mut o = opts(Some("open"));
+        o.algorithm = WriteAlgorithm::Aes128;
+        let secured = secure(&minimal_pdf(), &o).expect("secure AES-128");
+        let plain = crate::decrypt(&secured, "open").expect("decrypt AES-128 output");
+        assert!(!Document::load_mem(&plain).unwrap().is_encrypted());
+        assert_eq!(crate::Document::load(plain).unwrap().page_count(), 1);
+    }
+
+    #[test]
+    fn secure_all_eight_permission_bits_round_trip() {
+        // A distinct on/off pattern across every bit catches a transposed flag in
+        // Permissions::to_lopdf / from_p that the copy/modify-only tests would miss.
+        let perms = Permissions {
+            print: true,
+            print_high_res: false,
+            copy: true,
+            modify: false,
+            annotate: true,
+            fill_forms: false,
+            assemble: true,
+            accessibility_copy: false,
+        };
+        let mut o = opts(Some("open"));
+        o.permissions = perms;
+        let secured = secure(&minimal_pdf(), &o).expect("secure");
+        let got = inspect_security(&secured)
+            .unwrap()
+            .permissions
+            .expect("password-required doc exposes permissions");
+        assert_eq!(got, perms);
+    }
+
+    #[test]
+    fn load_protected_opens_an_encrypted_document() {
+        let secured = secure(&minimal_pdf(), &opts(Some("open"))).expect("secure");
+        let doc =
+            crate::Document::load_protected(secured.clone(), "open").expect("load_protected ok");
+        assert_eq!(doc.page_count(), 1);
+        // A wrong password propagates as WrongPassword, not Parse.
+        assert_eq!(
+            crate::Document::load_protected(secured, "wrong").err(),
+            Some(SecureError::WrongPassword)
+        );
     }
 
     #[test]
@@ -231,5 +301,20 @@ mod tests {
             secure(&secured, &opts(Some("again"))),
             Err(SecureError::AlreadyEncrypted)
         );
+    }
+
+    #[test]
+    fn secure_options_debug_redacts_passwords() {
+        // SecureOptions holds plaintext passwords; its Debug must never print them, so a
+        // stray {:?} in a future log or error cannot leak them.
+        let o = SecureOptions {
+            owner_password: "OWNER-SECRET".to_string(),
+            user_password: Some("USER-SECRET".to_string()),
+            ..opts(None)
+        };
+        let shown = format!("{o:?}");
+        assert!(!shown.contains("OWNER-SECRET"));
+        assert!(!shown.contains("USER-SECRET"));
+        assert!(shown.contains("redacted"));
     }
 }

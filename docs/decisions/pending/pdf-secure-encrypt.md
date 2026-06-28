@@ -13,8 +13,9 @@ complete the forms/secure slice of the engine roadmap.
 Handler bidirectionally — RC4 (R2/R3), AES-128 (V4/`AESV2`), and AES-256 (V5/R6/`AESV3`,
 PDF 2.0). Verifying that up front (the published-crate-first rule) turned the roadmap's
 assumed "build the missing modes" into an integration-and-policy slice. No cipher code is
-hand-rolled; the crypto crates (`aes`, `sha2`, `md-5`) arrive transitively through lopdf
-and are pure Rust, so no C dependency and no new licensing commitment.
+hand-rolled; the crypto crates (`aes`, `cbc`, `sha2`, `md-5`) arrive transitively through
+lopdf, and `getrandom` is added as a direct dependency to draw the AES-256 file key from
+the OS RNG — all pure Rust, so no C dependency and no new licensing commitment.
 
 **Read broadly, write strictly.** `decrypt` opens any of the three ciphers given a known
 password. `secure` writes **AES-256 by default and never RC4**; an AES-128 path exists for

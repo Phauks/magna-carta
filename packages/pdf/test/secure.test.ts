@@ -52,12 +52,17 @@ describe("pdf security", () => {
 
   it("decryptDocument throws WrongPasswordError without leaking the password", async () => {
     const { pdf } = await secureDocument(plain, baseOpts);
-    await expect(decryptDocument(pdf, "s3cr3t-wrong")).rejects.toBeInstanceOf(WrongPasswordError);
+    const attempt = "s3cr3t-wrong";
+    await expect(decryptDocument(pdf, attempt)).rejects.toBeInstanceOf(WrongPasswordError);
     try {
-      await decryptDocument(pdf, "s3cr3t-wrong");
+      await decryptDocument(pdf, attempt);
       throw new Error("expected a WrongPasswordError");
     } catch (error) {
-      expect((error as Error).message).not.toContain("s3cr3t-wrong");
+      // The attempted password must not surface anywhere on the thrown error — not the
+      // message, the string form, the stack, or any own/serialised property.
+      const e = error as Error;
+      const serialised = [e.message, String(e), e.stack ?? "", JSON.stringify(e)].join("\n");
+      expect(serialised).not.toContain(attempt);
     }
   });
 
@@ -74,7 +79,12 @@ describe("pdf security", () => {
     const info = await inspectSecurity(pdf);
     expect(info.encrypted).toBe(true);
     expect(info.hasUserPassword).toBe(false);
-    // Opens with the empty password.
-    await expect(decryptDocument(pdf, "")).resolves.toBeDefined();
+    // Opening with the empty password yields actually-decrypted bytes that load — not the
+    // still-encrypted input handed back.
+    const { pdf: plainAgain } = await decryptDocument(pdf, "");
+    expect((await inspectSecurity(plainAgain)).encrypted).toBe(false);
+    const doc = await loadDocument(plainAgain);
+    expect(doc.pageCount).toBeGreaterThan(0);
+    doc.free();
   });
 });

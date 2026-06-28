@@ -187,8 +187,11 @@ pub fn inspect_security(bytes: &[u8]) -> Result<SecurityInfo, SecureError> {
     }
 
     if doc.was_encrypted() {
-        // Opened with the empty user password; the /Encrypt dictionary was consumed
-        // during load. The Standard handler is implied — it is the only one lopdf opens.
+        // The document opened with the EMPTY password during load, which consumed the
+        // /Encrypt dictionary, so the cipher and permission detail are not recoverable.
+        // The Standard handler is implied — it is the only one lopdf opens. `false` here
+        // means "this engine opened it without a password"; in the rare case the empty
+        // password was the OWNER (not user) password, another viewer might still prompt.
         return Ok(SecurityInfo {
             encrypted: true,
             handler: Handler::Standard,
@@ -220,9 +223,15 @@ fn public_key_info() -> SecurityInfo {
 /// Heuristic detection of a public-key (certificate) security handler. The `/Encrypt`
 /// dictionary — including its `/Filter` name — is itself never encrypted, so the
 /// handler name appears verbatim in the bytes even when the document fails to load.
+///
+/// Only `Adobe.PubSec` (the public-key *encryption* handler) is matched. `Adobe.PPKLite`
+/// is deliberately excluded: it is the digital-*signature* handler and appears in every
+/// signed — but not necessarily encrypted — PDF, so scanning for it would misreport a
+/// merely-corrupt signed document as encrypted.
 fn is_public_key_handler(bytes: &[u8]) -> bool {
-    let has = |needle: &[u8]| bytes.windows(needle.len()).any(|w| w == needle);
-    has(b"Adobe.PubSec") || has(b"Adobe.PPKLite")
+    bytes
+        .windows(b"Adobe.PubSec".len())
+        .any(|w| w == b"Adobe.PubSec")
 }
 
 /// Resolve the content cipher. V1/V2 are RC4; V4/V5 name the cipher in the stream
@@ -267,13 +276,27 @@ pub fn decrypt(bytes: &[u8], password: &str) -> Result<Vec<u8>, SecureError> {
     // password, which decrypts every string and stream during the read. The two-step
     // "load then Document::decrypt" path does NOT work: the objects were never read.
     let probe = Document::load_mem(bytes).map_err(|_| SecureError::Parse)?;
-    if !probe.is_encrypted() {
+    // `is_encrypted()` is true while a `/Encrypt` dictionary survives the load (an open
+    // password is required). `was_encrypted()` is true when lopdf opened the document
+    // with the EMPTY password during the load and stripped `/Encrypt`. A document that
+    // is neither is genuinely plaintext and passes through unchanged. Gating only on
+    // `is_encrypted()` would hand an empty-password-protected document straight back
+    // still encrypted — so both signals must be checked.
+    if !probe.is_encrypted() && !probe.was_encrypted() {
         return Ok(bytes.to_vec());
     }
-    let mut doc = Document::load_mem_with_options(bytes, LoadOptions::with_password(password))
-        .map_err(map_unlock_error)?;
-    // The reader drops the encryption dictionary object during a password load; clear
-    // any lingering trailer reference so the output is plain and needs no password.
+    let mut doc = if probe.is_encrypted() {
+        // An open password is required; reload WITH it so every object is decrypted
+        // during the read (a plain load surfaces only the `/Encrypt` dictionary).
+        Document::load_mem_with_options(bytes, LoadOptions::with_password(password))
+            .map_err(map_unlock_error)?
+    } else {
+        // Opened with the empty password during the probe load: the objects are already
+        // decrypted in memory. The supplied password is irrelevant — the document needs
+        // none — so reuse the probe rather than failing on a non-empty guess.
+        probe
+    };
+    // Ensure no `/Encrypt` reference survives so the output is plain and needs no password.
     doc.trailer.remove(b"Encrypt");
     let mut output = Vec::new();
     doc.save_to(&mut output)
@@ -577,5 +600,67 @@ mod tests {
         let plain = decrypt(&enc, "open").expect("decrypt");
         let report = crate::detect(plain).expect("detector runs on decrypted bytes");
         assert_eq!(report.pages_scanned, 1);
+    }
+
+    #[test]
+    fn decrypt_owner_only_doc_actually_decrypts() {
+        // An empty user password: lopdf auto-opens the document during load and strips
+        // /Encrypt, so the cheap probe reports "unencrypted". decrypt() must still emit
+        // DECRYPTED plaintext, not hand back the original encrypted bytes.
+        let enc = encrypt_v5(&minimal_pdf(), "owner", "", default_perms());
+        // load_mem auto-opens it with the empty password (so is_encrypted() is already
+        // false), but was_encrypted() confirms it really was protected on disk.
+        assert!(Document::load_mem(&enc).unwrap().was_encrypted());
+        let plain = decrypt(&enc, "").expect("decrypt owner-only");
+        assert_ne!(plain, enc); // not the encrypted bytes verbatim
+        let reloaded = Document::load_mem(&plain).unwrap();
+        assert!(!reloaded.is_encrypted() && !reloaded.was_encrypted());
+        assert_eq!(crate::Document::load(plain).unwrap().page_count(), 1);
+    }
+
+    #[test]
+    fn decrypt_wrong_password_for_rc4_and_aes128() {
+        // map_unlock_error must classify a bad password as WrongPassword for the legacy
+        // ciphers too (their lopdf DecryptionError variants differ from AES-256/R6).
+        for enc in [
+            encrypt_rc4(&minimal_pdf(), "owner", "open"),
+            encrypt_aes128(&minimal_pdf(), "owner", "open"),
+        ] {
+            assert_eq!(
+                decrypt(&enc, "not-the-password"),
+                Err(SecureError::WrongPassword)
+            );
+        }
+    }
+
+    #[test]
+    fn inspect_flags_public_key_handler_when_load_fails() {
+        // A document that lopdf cannot load but that carries the public-key encryption
+        // handler name must still be classified (not reported as a plain parse failure).
+        let bytes = b"%PDF-1.7\n<< /Filter /Adobe.PubSec >>\nbroken-and-unparseable".to_vec();
+        assert!(Document::load_mem(&bytes).is_err()); // genuinely unloadable
+        let info = inspect_security(&bytes).expect("classified from the raw filter name");
+        assert!(info.encrypted);
+        assert_eq!(info.handler, Handler::PublicKey);
+    }
+
+    #[test]
+    fn inspect_does_not_flag_a_corrupt_signed_document_as_encrypted() {
+        // Adobe.PPKLite is the SIGNATURE handler, not encryption; a corrupt unencrypted
+        // signed document must not be misreported as public-key encrypted.
+        let bytes =
+            b"%PDF-1.7\n<< /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached >>\ntruncated"
+                .to_vec();
+        assert_eq!(inspect_security(&bytes), Err(SecureError::Parse));
+    }
+
+    #[test]
+    fn decrypt_error_never_carries_the_password() {
+        // The only value decrypt() returns on a bad password is the error; it must not
+        // embed the attempted password (the secrets-hygiene invariant).
+        let enc = encrypt_v5(&minimal_pdf(), "owner", "open", default_perms());
+        let err = decrypt(&enc, "TOPSECRET-attempt").unwrap_err();
+        assert_eq!(err, SecureError::WrongPassword);
+        assert!(!format!("{err:?}").contains("TOPSECRET"));
     }
 }

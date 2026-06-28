@@ -538,9 +538,10 @@ const info = await inspectSecurity(bytes);
 
 `handler` is `"standard" | "publicKey" | "none"`; a `"publicKey"` (certificate) document is
 reported but cannot be opened. `algorithm` is `"rc4" | "aes128" | "aes256" | "unknown" |
-"none"`. `permissions` is `null` when the policy cannot be read — which happens for a
-document that opens with an empty password (the underlying reader consumes the encryption
-dictionary on load). `hasUserPassword` is `true` when an open password is required to view.
+"none"`. `permissions` is `null` (and `algorithm` is `"unknown"`) when the detail cannot be read —
+which happens for a document that opens with an empty password (the underlying reader
+consumes the encryption dictionary on load). `hasUserPassword` is `true` when an open
+password is required to view.
 
 ### `decryptDocument(bytes, password)`
 
