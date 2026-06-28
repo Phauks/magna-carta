@@ -377,6 +377,44 @@
           "links"
         ]
       },
+      "DecryptionInspectResponse": {
+        "type": "object",
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": [
+              "pdf",
+              "zip",
+              "ooxml"
+            ]
+          },
+          "hash": {
+            "type": "string"
+          },
+          "hashcatMode": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "format",
+          "hash",
+          "hashcatMode"
+        ]
+      },
+      "DecryptionUnlockResponse": {
+        "type": "object",
+        "properties": {
+          "decryptedBase64": {
+            "type": "string"
+          },
+          "filenameHint": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "decryptedBase64"
+        ]
+      },
       "FileIntegrityHashResponse": {
         "type": "object",
         "properties": {
@@ -5232,6 +5270,219 @@
           },
           "502": {
             "description": "The remote browser renderer is unavailable or at capacity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/decryption/inspect": {
+      "post": {
+        "description": "Detect the encrypted format of an uploaded file (base64) and extract a hashcat-compatible recovery hash for offline password recovery. Requires explicit attestation that the requester holds the file legitimately. Nothing is stored; only a redacted audit record is written.",
+        "operationId": "decryption.inspect",
+        "tags": [
+          "decryption"
+        ],
+        "x-mc-operationId": "decryption.inspect",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:decryption",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "decryption"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fileBase64": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "attestation": {
+                    "type": "object",
+                    "properties": {
+                      "authorized": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "authorized"
+                    ]
+                  }
+                },
+                "required": [
+                  "fileBase64",
+                  "attestation"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Detected format, hashcat-compatible hash string, and hashcat mode number",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecryptionInspectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Attestation not authorised, file is not encrypted, format is unsupported, or bytes are malformed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but the member lacks tools:decryption",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/decryption/unlock": {
+      "post": {
+        "description": "Decrypt a password-protected file (PDF, ZIP, or OOXML) using the supplied key and return the decrypted bytes as base64. Requires explicit attestation that the requester holds the file legitimately. Nothing is stored; only a redacted audit record is written.",
+        "operationId": "decryption.unlock",
+        "tags": [
+          "decryption"
+        ],
+        "x-mc-operationId": "decryption.unlock",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:decryption",
+        "x-mc-resource": "firm",
+        "x-mc-audited": true,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "decryption"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fileBase64": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "attestation": {
+                    "type": "object",
+                    "properties": {
+                      "authorized": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "authorized"
+                    ]
+                  }
+                },
+                "required": [
+                  "fileBase64",
+                  "password",
+                  "attestation"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Decrypted file bytes encoded as base64, with an optional filename hint",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecryptionUnlockResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Attestation not authorised, wrong password, file is not encrypted, format unsupported, or bytes are malformed",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated but the member lacks tools:decryption",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -19258,6 +19509,9 @@
     },
     {
       "name": "customFields"
+    },
+    {
+      "name": "decryption"
     },
     {
       "name": "directory"
