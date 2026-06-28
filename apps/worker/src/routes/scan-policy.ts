@@ -195,7 +195,8 @@ const histogramRoute = defineOpenAPIRoute(histogramMeta, {
     "minScoreGate are null and buckets is empty.",
   responses: {
     200: {
-      description: "The scan engine's suspicious-score histogram, or the empty shape when no engine is deployed",
+      description:
+        "The scan engine's suspicious-score histogram, or the empty shape when no engine is deployed",
       content: { "application/json": { schema: ScoreHistogramResponse } },
     },
     401: errorResponses[401],
