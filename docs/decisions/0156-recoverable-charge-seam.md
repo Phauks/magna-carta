@@ -1,8 +1,9 @@
 ---
+number: 156
 slug: recoverable-charge-seam
 status: Accepted
-area: Financial Core / Costs & expenses
 date: 2026-06-26
+area: Financial Core / Costs & expenses
 summary: Slice 3·3 lands a generalized recoverable-charge seam — a canonical `RecoverableChargeEvent`/`RecoverableChargeLine` a producer emits instead of reaching into the cost-entry tables. A line's `kind` is the closed distinction that drives recovery: `pass_through` (a third-party charge the firm fronted for the client) is ALWAYS recovered as a client disbursement; `platform_fee` (a Magna-Carta-absorbed fee such as e-signature, messaging, or shipping handling) is recovered only when a per-category firm policy `cost.recover_platform_fee.<category>` (default off) is on. The seam's logic is `shouldRecover(line, policyOn)` + `chargeToCaptureInputs(event, policy, incurredDate)`. 3·3 builds only the firm→client recovery CAPTURE (a WIP cost appears); the firm→client BILLING is 3·4; the MC→firm recoupment of absorbed platform fees is not designed yet.
 ---
 

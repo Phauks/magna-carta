@@ -58,6 +58,7 @@ export const PERMISSIONS = [
   "documents:reconcile", // resolve a divergent check-in — choose which copy becomes authoritative
   "tools:metadataScrubber", // inspect/scrub a file's metadata & content artifacts (ephemeral, matter-free)
   "tools:fileIntegrity", // compute a file's cryptographic digests + verify a stored file against its ingest baseline
+  "tools:fileTypeVerifier", // identify a file's true content type and flag/repair an extension mismatch
   // Custom fields — define and maintain field schemas; purge hard-deletes all values for a field.
   "customFields:manage",
   "customFields:purge",
@@ -71,6 +72,15 @@ export const PERMISSIONS = [
   // Costs / disbursements — soft costs and hard costs captured against a matter.
   "costs:track", // create/edit cost entries (manual and grid sources)
   "costs:approve", // approve / kick-back cost entries when the review gate is on
+  // Support access — a firm member requests time-boxed help-desk access; admins co-sign/manage it.
+  "support:request", // request a support session (seeded to EVERY default role — any member may ask)
+  "support:cosign", // co-sign a privileged support grant when firm policy requires it (admin)
+  "support:manage", // revoke/oversee the firm's support grants (admin)
+  "support:mintSession", // platform-level: redeem a grant for a session token (never seeded to a firm role)
+  // Diagnostics — the read-only system-state surface a DIAGNOSTIC support session is scoped to. These
+  // keys carry NO decrypt capability, so privileged content stays unreachable from a diagnostic session.
+  // Never seeded to a firm role — granted only by holding a diagnostic support session.
+  "diagnostics:overview", // firm system-state overview (status, schema version, member count, storage)
 ] as const;
 
 // KnownPermission is for hardcoded compile-checked keys (route metadata, role seeds);

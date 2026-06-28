@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { newIdentifier } from "../src/generate.ts";
 import { ENTITY_PREFIXES, prefixFor } from "../src/registry.ts";
+import { isIdentifier } from "../src/validate.ts";
 
 describe("prefix registry", () => {
   it("spells the prefix out in full — it is the entity type verbatim, never abbreviated", () => {
@@ -46,5 +48,18 @@ describe("prefix registry", () => {
     expect(ENTITY_PREFIXES.customField).toBe("customField");
     expect(ENTITY_PREFIXES.picklistOption).toBe("picklistOption");
     expect(ENTITY_PREFIXES.customFieldValue).toBe("customFieldValue");
+  });
+});
+
+describe("support-access identifiers", () => {
+  it("mints and validates platformStaff and supportGrant handles", () => {
+    const staffId = newIdentifier("platformStaff");
+    const grantId = newIdentifier("supportGrant");
+    expect(staffId.startsWith("platformStaff_")).toBe(true);
+    expect(grantId.startsWith("supportGrant_")).toBe(true);
+    expect(isIdentifier(staffId, "platformStaff")).toBe(true);
+    expect(isIdentifier(grantId, "supportGrant")).toBe(true);
+    // cross-type rejection
+    expect(isIdentifier(staffId, "supportGrant")).toBe(false);
   });
 });

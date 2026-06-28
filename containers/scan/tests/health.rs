@@ -8,6 +8,10 @@ fn test_state() -> AppState {
         clamd_address: "127.0.0.1:3310".into(),
         caps: ArchiveCaps::default(),
         engine_version: "test".into(),
+        magika: Arc::new(
+            magna_carta_scan::identify::IdentifyEngine::new()
+                .expect("magika session builds with the embedded model"),
+        ),
     }
 }
 

@@ -237,7 +237,9 @@ describe("end-to-end", () => {
       // (0020_seed-tools-metadata-scrubber.sql, seeded onto every default role) +
       // tools:fileIntegrity (0022_seed-tools-file-integrity.sql, seeded onto every default role) +
       // firm:manageReleaseChannel (0024_seed-release-channel-permission, Owner/Admin only) + the
-      // costs: grants (0028_burly_piledriver: costs:track + costs:approve onto Owner/Admin). Sorted.
+      // costs: grants (0028_burly_piledriver: costs:track + costs:approve onto Owner/Admin) +
+      // tools:fileTypeVerifier (0032_seed-tools-file-type-verifier.sql, seeded onto every default role).
+      // Sorted.
       permissions: [
         "costs:approve",
         "costs:track",
@@ -273,6 +275,7 @@ describe("end-to-end", () => {
         "time:viewFirm",
         "tools:fileConverter",
         "tools:fileIntegrity",
+        "tools:fileTypeVerifier",
         "tools:firmUsage",
         "tools:metadataScrubber",
         "tools:safeBrowse",

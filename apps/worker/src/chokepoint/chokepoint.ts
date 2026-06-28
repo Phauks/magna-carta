@@ -34,6 +34,13 @@ import type { RateLimiter } from "./rate-limiter.ts";
 export interface ResolvedSession {
   readonly userId: UserId;
   readonly firmId: FirmId;
+  // Present when the principal is a support session (a staff identity under a firm grant). The
+  // chokepoint threads it to loadPermissions to choose the tier-scoped permission set.
+  readonly support?: {
+    readonly grantId: import("@magna-carta/identifiers/types").SupportGrantId;
+    readonly principalId: import("@magna-carta/identifiers/types").PlatformStaffId;
+    readonly tier: import("@magna-carta/data-access/support-access-statements").SupportGrantTier;
+  };
 }
 
 // The ports the chokepoint is built over. FirmContext is generic and opaque to the chokepoint: the
@@ -52,7 +59,10 @@ export interface ChokepointPorts<FirmContext> {
   resolveFirmContext: (c: Context, session: ResolvedSession) => Promise<FirmContext | null>;
   // Step 3b: the principal's effective permissions in THEIR firm. A missing required permission is
   // a within-firm denial → 403 + requestAccess (the trusted insider may request a grant).
-  loadPermissions: (firmContext: FirmContext, userId: UserId) => Promise<ReadonlySet<Permission>>;
+  loadPermissions: (
+    firmContext: FirmContext,
+    session: ResolvedSession,
+  ) => Promise<ReadonlySet<Permission>>;
   // Step 4: idempotency. For a route whose meta.idempotency === "required" the
   // chokepoint owns the WHOLE idempotency gate — the Idempotency-Key requirement (missing → 400)
   // AND the pre-decision (replay / 409 in-progress / 422 fingerprint-mismatch) — at the ONE point,
@@ -180,7 +190,7 @@ export function createChokepoint<FirmContext>(ports: ChokepointPorts<FirmContext
           // authenticated user" (a non-mutating read; the definition-time guard in route-meta.ts
           // forbids null on authenticated mutations), so it skips the capability check.
           if (meta.permission !== null) {
-            const permissions = await ports.loadPermissions(firmContext, session.userId);
+            const permissions = await ports.loadPermissions(firmContext, session);
             const required = assertPermission(meta.permission);
             if (!permissions.has(required)) {
               return problemJson(c, {

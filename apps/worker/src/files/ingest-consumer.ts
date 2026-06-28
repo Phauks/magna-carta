@@ -284,6 +284,15 @@ async function handleRescanMessage(
           fileId: committed.fileId,
           versionId: committed.id,
           scanVerdict: isClean ? "clean" : "flagged",
+          // Stamp the version with currentEngineVersion (the firm-setting staleness reference), NOT
+          // raw.engineVersion (which keys the dedup cache below). These are equal in steady state; they
+          // diverge only in the transient window where a newer engine is deployed but the firm setting
+          // has not yet advanced. Stamping the staleness reference is deliberate: the staleness gate
+          // above ("scanEngineVersion === currentEngineVersion → not stale") would otherwise re-trigger
+          // a re-scan on every access until the setting catches up. The verdict itself is computed from
+          // the real raw facts, so it is never wrong — only the recorded engine label trails by one
+          // deploy window, and self-heals on the next ingest that advances the setting. Do not "fix"
+          // this to raw.engineVersion without making the staleness gate engine-monotonic first.
           scanEngineVersion: currentEngineVersion,
           scanDetail: signature,
           signature,

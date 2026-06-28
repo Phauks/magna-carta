@@ -50,7 +50,11 @@ import { registerFirmUsageRoute } from "./routes/firm-usage.ts";
 import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
 import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
 import { registerFileIntegrityRoutes } from "./routes/file-integrity.ts";
+import { registerFileTypeRoutes } from "./routes/file-type.ts";
 import { registerMetadataRoutes } from "./routes/metadata.ts";
+import { registerSupportGrantsRoutes } from "./routes/support-grants.ts";
+import { registerSupportSessionsRoute } from "./routes/support-sessions.ts";
+import { registerSupportDiagnosticsRoute } from "./routes/support-diagnostics.ts";
 import { registerDevWebToolsDemoRoute } from "./routes/dev-web-tools-demo.ts";
 import { registerMeRoute } from "./routes/me.ts";
 import { registerMembersRoute } from "./routes/members.ts";
@@ -369,6 +373,7 @@ export function createApp(options: CreateAppOptions = {}) {
   // createFetchRedirectProbe() — built lazily in the handler, never at startup.
   registerSafeBrowseRoute(app, chokepoint, options.safeBrowseDeps ?? {});
   registerFileIntegrityRoutes(app, chokepoint);
+  registerFileTypeRoutes(app, chokepoint);
   registerMetadataRoutes(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);
   registerReleaseChannelRoute(app, chokepoint, authForEnv);
@@ -430,6 +435,17 @@ export function createApp(options: CreateAppOptions = {}) {
   // The server-conversion surface: presign an upload slot, submit a job, and poll its state.
   // Each route traverses the same chokepoint under the tools:fileConverter permission.
   registerConversionRoutes(app, chokepoint);
+  // Support access — firm members request time-boxed help-desk access; the list gives all members
+  // the transparency surface (who has or had access to their firm). Co-sign and revoke land in the
+  // next task.
+  registerSupportGrantsRoutes(app, chokepoint);
+  // Support sessions — a platform-staff principal redeems an active grant for a support-session
+  // token. Public surface (platform-admin-key guard); the chokepoint applies the idempotency and
+  // rate-limit gates.
+  registerSupportSessionsRoute(app, chokepoint);
+  // Support diagnostics — the read-only firm system-state overview gated on diagnostics:overview,
+  // a permission never seeded to any firm role. Only a diagnostic support session carries it.
+  registerSupportDiagnosticsRoute(app, chokepoint);
 
   // The plugin runtime: production defaults (a fetch-backed http client; the firm_secret store seam
   // that throws until the marketplace wires the live credential read), overridable in tests.

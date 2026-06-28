@@ -539,10 +539,12 @@ export async function commitCheckinVersion(
   const file = await loadFile(database, version.fileId);
   const baseIsCurrent = file?.currentVersionId === checkout.baseVersionId;
 
-  // Same scan-cache rule as commitVersion: cache only a definitive clean verdict from a real engine,
-  // with the full raw result available (rawScanResult is optional — the cache write is skipped without it).
+  // Same scan-cache rule as commitVersion: cache any definitive verdict from a real engine — clean OR
+  // flagged (a flagged-but-committed return leg under informed-access/allow-and-flag treatment must still
+  // seed the content-dedup cache, exactly as commitVersion does). `unscanned`/no-engine is never cached.
+  // rawScanResult is optional — the cache write is skipped without it.
   const scanCacheStatements =
-    input.scanVerdict === "clean" && input.rawScanResult != null && input.contentSha256 !== null
+    input.scanVerdict !== "unscanned" && input.rawScanResult != null && input.contentSha256 !== null
       ? [recordScanCacheStatement(database, input.contentSha256, input.rawScanResult, input.now)]
       : [];
 

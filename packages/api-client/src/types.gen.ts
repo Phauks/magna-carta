@@ -1289,6 +1289,51 @@ export type ConversionStatus = {
     reason?: string;
 };
 
+export type SupportGrantSummary = {
+    id: string;
+    tier: 'diagnostic' | 'privileged';
+    status: 'requested' | 'active' | 'revoked' | 'expired' | 'closed';
+    requestedByUserId: string;
+    principalId: string | null;
+    requiresCosign: boolean;
+    expiresAt: string;
+    createdAt: string;
+};
+
+export type RequestSupportGrant = {
+    tier: 'diagnostic' | 'privileged';
+    reason?: string;
+};
+
+export type SupportGrantListResponse = {
+    grants: Array<SupportGrantSummary>;
+};
+
+export type SupportGrantStatusResult = {
+    id: string;
+    status: string;
+};
+
+export type SupportSessionMinted = {
+    token: string;
+    tier: 'diagnostic' | 'privileged';
+    firmId: string;
+    expiresAt: string;
+};
+
+export type RedeemSupportSession = {
+    grantId: string;
+    principalId: string;
+};
+
+export type SupportDiagnosticOverview = {
+    firmId: string;
+    firmStatus: string;
+    perFirmSchemaVersion: string | null;
+    bucketProvisioned: boolean;
+    activeMemberCount: number;
+};
+
 export type ShippingConnectAck = {
     id: string;
     status: string;
@@ -8202,6 +8247,247 @@ export type ConversionsStatusResponses = {
 };
 
 export type ConversionsStatusResponse = ConversionsStatusResponses[keyof ConversionsStatusResponses];
+
+export type SupportGrantsListData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/support/grants';
+};
+
+export type SupportGrantsListErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session's firm is not reachable or the member is deactivated — structural absence, never an existence oracle
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SupportGrantsListError = SupportGrantsListErrors[keyof SupportGrantsListErrors];
+
+export type SupportGrantsListResponses = {
+    /**
+     * The firm's support grants, newest first
+     */
+    200: SupportGrantListResponse;
+};
+
+export type SupportGrantsListResponse = SupportGrantsListResponses[keyof SupportGrantsListResponses];
+
+export type SupportGrantsRequestData = {
+    body: RequestSupportGrant;
+    path?: never;
+    query?: never;
+    url: '/api/v1/support/grants';
+};
+
+export type SupportGrantsRequestErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks support:request
+     */
+    403: Problem;
+    /**
+     * The session's firm is not reachable or the member is deactivated — structural absence, never an existence oracle
+     */
+    404: Problem;
+    /**
+     * The body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SupportGrantsRequestError = SupportGrantsRequestErrors[keyof SupportGrantsRequestErrors];
+
+export type SupportGrantsRequestResponses = {
+    /**
+     * The created grant
+     */
+    201: SupportGrantSummary;
+};
+
+export type SupportGrantsRequestResponse = SupportGrantsRequestResponses[keyof SupportGrantsRequestResponses];
+
+export type SupportGrantsCosignData = {
+    body?: never;
+    path: {
+        grantId: string;
+    };
+    query?: never;
+    url: '/api/v1/support/grants/{grantId}/cosign';
+};
+
+export type SupportGrantsCosignErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks support:cosign
+     */
+    403: Problem;
+    /**
+     * No such grant in this firm, or it is not awaiting co-sign
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SupportGrantsCosignError = SupportGrantsCosignErrors[keyof SupportGrantsCosignErrors];
+
+export type SupportGrantsCosignResponses = {
+    /**
+     * The grant after co-sign
+     */
+    200: SupportGrantStatusResult;
+};
+
+export type SupportGrantsCosignResponse = SupportGrantsCosignResponses[keyof SupportGrantsCosignResponses];
+
+export type SupportGrantsRevokeData = {
+    body?: never;
+    path: {
+        grantId: string;
+    };
+    query?: never;
+    url: '/api/v1/support/grants/{grantId}/revoke';
+};
+
+export type SupportGrantsRevokeErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks support:manage
+     */
+    403: Problem;
+    /**
+     * No such grant in this firm, or it is already terminal
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SupportGrantsRevokeError = SupportGrantsRevokeErrors[keyof SupportGrantsRevokeErrors];
+
+export type SupportGrantsRevokeResponses = {
+    /**
+     * The grant after revoke
+     */
+    200: SupportGrantStatusResult;
+};
+
+export type SupportGrantsRevokeResponse = SupportGrantsRevokeResponses[keyof SupportGrantsRevokeResponses];
+
+export type SupportSessionsRedeemData = {
+    body: RedeemSupportSession;
+    headers: {
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/support/sessions';
+};
+
+export type SupportSessionsRedeemErrors = {
+    /**
+     * Missing Idempotency-Key (this operation requires one)
+     */
+    400: Problem;
+    /**
+     * Missing or invalid X-Platform-Admin-Key
+     */
+    401: Problem;
+    /**
+     * Principal may not redeem this tier (privileged grants require support_lead role)
+     */
+    403: Problem;
+    /**
+     * No redeemable grant (absent, not active, or expired), or unknown/disabled principal
+     */
+    404: Problem;
+    /**
+     * A request with this Idempotency-Key is still in progress
+     */
+    409: Problem;
+    /**
+     * The body failed validation
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SupportSessionsRedeemError = SupportSessionsRedeemErrors[keyof SupportSessionsRedeemErrors];
+
+export type SupportSessionsRedeemResponses = {
+    /**
+     * The minted support-session token
+     */
+    201: SupportSessionMinted;
+};
+
+export type SupportSessionsRedeemResponse = SupportSessionsRedeemResponses[keyof SupportSessionsRedeemResponses];
+
+export type SupportDiagnosticsOverviewData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/support/diagnostics/overview';
+};
+
+export type SupportDiagnosticsOverviewErrors = {
+    /**
+     * No valid session, or the support-session token's backing grant is revoked or expired
+     */
+    401: Problem;
+    /**
+     * Authenticated, but the principal lacks diagnostics:overview
+     */
+    403: Problem;
+    /**
+     * The session's firm is not reachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type SupportDiagnosticsOverviewError = SupportDiagnosticsOverviewErrors[keyof SupportDiagnosticsOverviewErrors];
+
+export type SupportDiagnosticsOverviewResponses = {
+    /**
+     * The firm system-state overview
+     */
+    200: SupportDiagnosticOverview;
+};
+
+export type SupportDiagnosticsOverviewResponse = SupportDiagnosticsOverviewResponses[keyof SupportDiagnosticsOverviewResponses];
 
 export type ShippingConnectData = {
     body: ShippingConnectRequest;

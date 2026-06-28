@@ -1,8 +1,9 @@
 ---
+number: 154
 slug: cost-entry-model
 status: Accepted
-area: Financial Core / Costs & expenses
 date: 2026-06-26
+area: Financial Core / Costs & expenses
 summary: Slice 3·3's `cost_entry` is the per-firm disbursement WIP store (migration `0022_burly_piledriver`): integer-minor `amount_minor`, a `disbursement_class` of hard|soft (the column is `disbursement_class`, renamed from `cost_class` to clear the money-naming conformance gate — never `cost_class`), a `source` of manual|grid|recovery, the shared billing-core lifecycle (draft → submitted → approved → billed → void, with billed/void frozen), and a partial-unique `recovery_ref`. Permissions are `costs:track` (capture/read/receipts) and `costs:approve` (the review-path transitions). E-BILLING DECISION: a billable cost on an e-billing matter normally requires a UTBMS expense code at capture, but a SYSTEM-recovered cost (`source=recovery`) is EXEMPT at capture — it lands as uncoded draft WIP rather than being dropped (which would lose the fronted disbursement); the coding requirement re-enforces at the 3·4 submit/bill gate. OPEN 3·4 QUESTION: how recovered costs get LEDES-coded.
 ---
 
