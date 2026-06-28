@@ -290,6 +290,58 @@ describe("commitCheckinVersion", () => {
     expect(checkout?.status).toBe("reconciling");
   });
 
+  it("seeds the content-dedup cache for a flagged-but-committed check-in (same rule as commitVersion)", async () => {
+    // A flagged file returned through an offline check-in (informed-access / allow-and-flag treatment
+    // commits rather than quarantines) must still populate scan_cache, exactly as commitVersion does —
+    // otherwise an access-triggered re-scan of identical content needlessly re-runs the engine.
+    const database = freshDatabase();
+    const { fileId, baseVersionId } = await seedBase(database);
+    const checkoutId = await seedCheckout(database, fileId, baseVersionId);
+
+    const initiated = await initiateCheckin(
+      database,
+      {
+        fileId,
+        checkoutId,
+        declaredSize: docx.declaredSize,
+        declaredContentType: docx.declaredContentType,
+        uploadedBy: ACTOR,
+      },
+      options,
+    );
+    await commitEffectBatch(database, initiated.effect, { now });
+    const result = await commitCheckinVersion(
+      database,
+      {
+        versionId: initiated.versionId,
+        checkoutId,
+        sizeBytes: docx.declaredSize,
+        sniffedContentType: docx.declaredContentType,
+        contentSha256: "hash-flagged-checkin",
+        scanVerdict: "flagged",
+        scanEngineVersion: "test-1",
+        scanDetail: "Eicar-Test",
+        rawScanResult: {
+          engineVersion: "test-1",
+          clam: { state: "infected", signature: "Eicar-Test" },
+          heuristic: { kind: "none" },
+          matches: [],
+          timings: { clamdMs: 1, yaraMs: 1 },
+        },
+        now: now(),
+      },
+      options,
+    );
+    await commitEffectBatch(database, result.effect, { now });
+
+    const cached = await firstRow<{ engine_version: string }>(
+      database,
+      "SELECT engine_version FROM scan_cache WHERE content_sha256 = ?1",
+      "hash-flagged-checkin",
+    );
+    expect(cached?.engine_version).toBe("test-1");
+  });
+
   it("fast-forward no-op: an unchanged check-in cuts no version and releases the checkout", async () => {
     const database = freshDatabase();
     const { fileId, baseVersionId } = await seedBase(database);
