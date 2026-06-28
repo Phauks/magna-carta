@@ -791,3 +791,189 @@ pub fn secure_document(bytes: Vec<u8>, options: JsValue) -> Result<JsValue, JsEr
         .map_err(|e| JsError::new(&format!("{e:?}")))?;
     Ok(result.into())
 }
+
+// ── Generate primitives: merge / split / rotate / watermark ─────────────────────
+
+impl From<crate::GenerateError> for JsError {
+    fn from(e: crate::GenerateError) -> Self {
+        JsError::new(match e {
+            crate::GenerateError::Parse => "failed to parse PDF",
+            crate::GenerateError::NoPages => "document has no pages",
+            crate::GenerateError::PageOutOfRange => "page index out of range",
+            crate::GenerateError::EmptyInput => "no documents provided",
+            crate::GenerateError::Reassemble => "failed to reassemble PDF",
+            crate::GenerateError::Image => "could not decode the watermark image",
+        })
+    }
+}
+
+/// Build the `{ pdf: Uint8Array }` result object.
+fn pdf_result(pdf: &[u8]) -> Result<JsValue, JsError> {
+    let result = js_sys::Object::new();
+    js_sys::Reflect::set(&result, &"pdf".into(), &js_sys::Uint8Array::from(pdf))
+        .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    Ok(result.into())
+}
+
+/// Combine the pages of several PDFs into one. `documents` is an array of `Uint8Array`.
+/// Returns `{ pdf: Uint8Array }`. Carries each input's outlines, form fields, and named
+/// destinations across.
+#[wasm_bindgen(js_name = mergeDocuments)]
+pub fn merge_documents(documents: JsValue) -> Result<JsValue, JsError> {
+    let array = js_sys::Array::from(&documents);
+    let docs: Vec<Vec<u8>> = (0..array.length())
+        .map(|i| js_sys::Uint8Array::new(&array.get(i)).to_vec())
+        .collect();
+    let refs: Vec<&[u8]> = docs.iter().map(|d| d.as_slice()).collect();
+    let pdf = crate::merge(&refs)?;
+    pdf_result(&pdf)
+}
+
+/// Split a PDF into one document per page range. `ranges` is an array of
+/// `{ start, end }` (inclusive, 0-based). Returns `{ pdfs: Uint8Array[] }`.
+#[wasm_bindgen(js_name = splitDocument)]
+pub fn split_document(bytes: Vec<u8>, ranges: JsValue) -> Result<JsValue, JsError> {
+    #[derive(serde::Deserialize)]
+    struct JsRange {
+        start: usize,
+        end: usize,
+    }
+    let js_ranges: Vec<JsRange> = serde_wasm_bindgen::from_value(ranges)?;
+    let ranges: Vec<crate::PageRange> = js_ranges
+        .into_iter()
+        .map(|r| crate::PageRange {
+            start: r.start,
+            end: r.end,
+        })
+        .collect();
+    let pdfs = crate::split(&bytes, &ranges)?;
+    let array = js_sys::Array::new();
+    for pdf in pdfs {
+        array.push(&js_sys::Uint8Array::from(&pdf[..]));
+    }
+    let result = js_sys::Object::new();
+    js_sys::Reflect::set(&result, &"pdfs".into(), &array)
+        .map_err(|e| JsError::new(&format!("{e:?}")))?;
+    Ok(result.into())
+}
+
+/// Rotate pages clockwise by `rotation` (90/180/270) degrees, relative to each page's
+/// existing rotation. `pages` is an array of 0-based indices, or undefined for all pages.
+/// Returns `{ pdf: Uint8Array }`.
+#[wasm_bindgen(js_name = rotatePages)]
+pub fn rotate_pages(bytes: Vec<u8>, rotation: i32, pages: JsValue) -> Result<JsValue, JsError> {
+    let rot = match rotation {
+        90 => crate::Rotation::Cw90,
+        180 => crate::Rotation::Cw180,
+        270 => crate::Rotation::Cw270,
+        _ => return Err(JsError::new("rotation must be 90, 180, or 270")),
+    };
+    let selection = if pages.is_undefined() || pages.is_null() {
+        crate::PageSelection::All
+    } else {
+        let indices: Vec<usize> = serde_wasm_bindgen::from_value(pages)?;
+        crate::PageSelection::Pages(indices)
+    };
+    let pdf = crate::rotate(&bytes, rot, &selection)?;
+    pdf_result(&pdf)
+}
+
+fn watermark_font_from_str(name: Option<&str>) -> crate::bates::BatesFont {
+    use crate::bates::BatesFont;
+    match name {
+        Some("helvetica-bold") => BatesFont::HelveticaBold,
+        Some("helvetica-oblique") => BatesFont::HelveticaOblique,
+        Some("helvetica-boldoblique") => BatesFont::HelveticaBoldOblique,
+        Some("times-roman") => BatesFont::TimesRoman,
+        Some("times-bold") => BatesFont::TimesBold,
+        Some("times-italic") => BatesFont::TimesItalic,
+        Some("times-bolditalic") => BatesFont::TimesBoldItalic,
+        Some("courier") => BatesFont::Courier,
+        Some("courier-bold") => BatesFont::CourierBold,
+        Some("courier-oblique") => BatesFont::CourierOblique,
+        Some("courier-boldoblique") => BatesFont::CourierBoldOblique,
+        _ => BatesFont::Helvetica,
+    }
+}
+
+/// Stamp an additive watermark onto every page. `options`:
+/// `{ content: { kind: "text", text, font?, fontSizePt?, color? } |
+///    { kind: "image", bytes, scale? }, opacity?, rotationDeg?, placement? }`.
+/// Returns `{ pdf: Uint8Array }`.
+#[wasm_bindgen(js_name = watermarkDocument)]
+pub fn watermark_document(bytes: Vec<u8>, options: JsValue) -> Result<JsValue, JsError> {
+    let get = |target: &JsValue, key: &str| js_sys::Reflect::get(target, &key.into()).ok();
+    // Non-finite JS numbers (NaN/Infinity) would format as malformed PDF operators, so
+    // they fall back to the default.
+    let num = |target: &JsValue, key: &str, default: f32| {
+        get(target, key)
+            .and_then(|v| v.as_f64())
+            .filter(|v| v.is_finite())
+            .map(|v| v as f32)
+            .unwrap_or(default)
+    };
+
+    let opacity = num(&options, "opacity", 0.3);
+    let rotation_deg = num(&options, "rotationDeg", 45.0);
+    let placement = match get(&options, "placement")
+        .and_then(|v| v.as_string())
+        .as_deref()
+    {
+        Some("tiled") => crate::WatermarkPlacement::Tiled,
+        _ => crate::WatermarkPlacement::Center,
+    };
+
+    let content_val =
+        get(&options, "content").ok_or_else(|| JsError::new("watermark content is required"))?;
+    let kind = get(&content_val, "kind").and_then(|v| v.as_string());
+    let content = match kind.as_deref() {
+        Some("image") => {
+            let image_bytes = get(&content_val, "bytes")
+                .ok_or_else(|| JsError::new("image watermark requires bytes"))?;
+            let bytes = js_sys::Uint8Array::new(&image_bytes).to_vec();
+            crate::WatermarkContent::Image {
+                bytes,
+                scale: num(&content_val, "scale", 0.3),
+            }
+        }
+        _ => {
+            let text = get(&content_val, "text")
+                .and_then(|v| v.as_string())
+                .unwrap_or_default();
+            let font = watermark_font_from_str(
+                get(&content_val, "font")
+                    .and_then(|v| v.as_string())
+                    .as_deref(),
+            );
+            let color = match get(&content_val, "color") {
+                Some(v) if v.is_object() => {
+                    let arr = js_sys::Array::from(&v);
+                    let c = |i: u32, d: f32| {
+                        arr.get(i)
+                            .as_f64()
+                            .filter(|x| x.is_finite())
+                            .map(|x| x as f32)
+                            .unwrap_or(d)
+                    };
+                    [c(0, 0.5), c(1, 0.5), c(2, 0.5)]
+                }
+                _ => [0.5, 0.5, 0.5],
+            };
+            crate::WatermarkContent::Text {
+                text,
+                font,
+                font_size_pt: num(&content_val, "fontSizePt", 48.0),
+                color,
+            }
+        }
+    };
+
+    let opts = crate::WatermarkOptions {
+        content,
+        opacity,
+        rotation_deg,
+        placement,
+    };
+    let pdf = crate::watermark(&bytes, &opts)?;
+    pdf_result(&pdf)
+}
