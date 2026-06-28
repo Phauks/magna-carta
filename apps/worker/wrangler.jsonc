@@ -183,14 +183,17 @@
     ],
   },
   // SQLite-backed DO classes are introduced through a migration tag — ONE consolidated lineage (a
-  // second "migrations" key would override this one). Never modify an applied tag, add a new one:
-  // v1 the bulk-download + conversion-job coordinators; v2 the live-timer coordinator; v3 the per-firm
-  // database DO; v4 the editing document-session DO.
+  // second "migrations" key would override this one). The tag chain is append-only and MUST match the
+  // sequence already applied on the deployed worker (Cloudflare rejects a deploy that drops or renames
+  // an applied tag), so the names follow the order they actually landed in: v1 the bulk-download +
+  // conversion-job coordinators; v1-live-timer the live-timer coordinator; v1-editing-document-session
+  // the editing document-session DO; v2-firm-database the per-firm database DO (the most recent class,
+  // appended last). Never modify an applied tag — only append a new one.
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["BundleBuildCoordinator", "ConversionJob"] },
-    { "tag": "v2", "new_sqlite_classes": ["LiveTimerDurableObject"] },
-    { "tag": "v3", "new_sqlite_classes": ["FirmDatabase"] },
-    { "tag": "v4", "new_sqlite_classes": ["DocumentSession"] },
+    { "tag": "v1-live-timer", "new_sqlite_classes": ["LiveTimerDurableObject"] },
+    { "tag": "v1-editing-document-session", "new_sqlite_classes": ["DocumentSession"] },
+    { "tag": "v2-firm-database", "new_sqlite_classes": ["FirmDatabase"] },
   ],
   // Workers Logs at full sampling (current volumes; the golden-rule-4 structured-JSON event lines
   // the telemetry Workers logger emits land here). Logpush → R2 is a deploy-time runbook step

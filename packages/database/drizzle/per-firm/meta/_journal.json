@@ -197,6 +197,13 @@
       "when": 1782600000003,
       "tag": "0027_smart_stellaris",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
+      "when": 1782600000004,
+      "tag": "0028_burly_piledriver",
+      "breakpoints": true
     }
   ]
 }

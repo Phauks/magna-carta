@@ -75,9 +75,10 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     expect(grantsFor("Owner/Admin")).toContain("matters:create");
     // Paralegal: firm:reportIncident (0003) + matters:create + files upload/organize (0004)
     // + tools:whois/safeBrowse (0017) + firm:scanFile (0019) + tools:metadataScrubber (0020)
-    // + tools:fileIntegrity (0022).
+    // + tools:fileIntegrity (0022) + costs:track (0028).
     expect(grantsFor("Paralegal").sort()).toEqual(
       [
+        "costs:track",
         "files:organize",
         "files:upload",
         "firm:reportIncident",
@@ -91,9 +92,10 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     );
     // Billing and Read-only carry firm:reportIncident (0003) + tools:whois/safeBrowse (0017) +
     // firm:scanFile (0019) + tools:metadataScrubber (0020) + tools:fileIntegrity (0022) by default
-    // (all seeded to every role).
+    // (all seeded to every role); Billing additionally carries costs:approve (0028).
     expect(grantsFor("Billing").sort()).toEqual(
       [
+        "costs:approve",
         "firm:reportIncident",
         "firm:scanFile",
         "tools:fileIntegrity",

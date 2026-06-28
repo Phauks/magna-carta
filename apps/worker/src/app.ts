@@ -17,6 +17,7 @@ import { createLoggingEmailAdapter, type SendEmail } from "./email-port.ts";
 import { registerBundleStatusRoute } from "./routes/bundle-status.ts";
 import { registerConversionRoutes } from "./routes/conversions.ts";
 import { registerCustomFieldsRoutes } from "./routes/custom-fields.ts";
+import { registerCostsRoutes } from "./routes/costs.ts";
 import { registerTimeEntriesRoutes } from "./routes/time-entries.ts";
 import { registerTimerRoutes } from "./routes/timer.ts";
 import { registerRateCardsRoutes } from "./routes/rate-cards.ts";
@@ -407,6 +408,8 @@ export function createApp(options: CreateAppOptions = {}) {
   // Slice 1·4: firm-defined custom fields (definitions, picklist options, temporal values, the
   // non-destructive Convert, and the compliance purge seam) — composed through the same chokepoint.
   registerCustomFieldsRoutes(app, chokepoint);
+  // Costs / disbursements — the cost-entry WIP store, composed through the same chokepoint.
+  registerCostsRoutes(app, chokepoint);
   // Time tracking — the work-in-progress entry surface, composed through the same chokepoint.
   registerTimeEntriesRoutes(app, chokepoint);
   // Timer routes: the per-timekeeper live timer (DO proxy) and the idempotent stop-commit.

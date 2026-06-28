@@ -18,11 +18,11 @@
       "class_name": "BundleContainer",
       "image": "../../containers/bundle/Dockerfile",
       "instance_type": "standard-2",
-      "max_instances": 5
-    }
+      "max_instances": 5,
+    },
   ],
   "durable_objects": {
-    "bindings": [{ "name": "BUNDLE_CONTAINER", "class_name": "BundleContainer" }]
+    "bindings": [{ "name": "BUNDLE_CONTAINER", "class_name": "BundleContainer" }],
   },
   // SQLite-backed DO class introduced via migration tag; first migration for this worker.
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["BundleContainer"] }],
@@ -33,7 +33,7 @@
   // Cron trigger: warm-poke every 8 minutes to keep one container instance alive within the
   // 10-minute sleepAfter window.
   "triggers": {
-    "crons": ["*/8 * * * *"]
+    "crons": ["*/8 * * * *"],
   },
-  "observability": { "enabled": true, "head_sampling_rate": 1 }
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
 }

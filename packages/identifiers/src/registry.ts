@@ -94,6 +94,9 @@ export const ENTITY_PREFIXES = {
   // Server-side conversion — a transient job identifier minted at presign time and used to key the
   // coordinator Durable Object. Not persisted in D1; the DO itself is the state store for the job.
   conversionJob: "conversionJob",
+  // Costs & expenses WIP — one matter disbursement captured as a cost entry (the parallel to
+  // timeEntry for non-time billables and cost-recovery amounts).
+  costEntry: "costEntry",
 } as const;
 
 export type EntityType = keyof typeof ENTITY_PREFIXES;

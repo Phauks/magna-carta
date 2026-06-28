@@ -2,6 +2,7 @@ import { getContainer } from "@cloudflare/containers";
 import { BundleContainer } from "./bundle-container.ts";
 import { forwardBuild } from "./forward-build.ts";
 import { handleBundleR2 } from "./outbound-r2.ts";
+import { runSelfTest, selfTestAuthorized } from "./self-test.ts";
 
 // The bundle worker's runtime bindings. It owns the BundleContainer Durable Object and the R2
 // bucket the container reads source files from and writes assembled archives to.
@@ -13,6 +14,10 @@ export type Bindings = {
   // The R2 bucket storing source files (at their ingest keys) and receiving assembled archives.
   // The container accesses R2 via the outbound handler below — never via real internet egress.
   R2: R2Bucket;
+  // Optional secret that gates the post-deploy self-test (POST /self-test). Unset on every environment
+  // by default → the route 404s. Set it (and present it as the x-self-test-key header) to run the test
+  // against a live deploy. Set via `wrangler secret put BUNDLE_SELF_TEST_KEY`, never as a plaintext var.
+  BUNDLE_SELF_TEST_KEY?: string;
 };
 
 // The BundleContainer class must be re-exported from the worker's main entrypoint so the
@@ -42,15 +47,29 @@ export default {
     if (request.method === "POST" && url.pathname === "/build") {
       return forwardBuild(request, getContainer(env.BUNDLE_CONTAINER, "bundle"));
     }
+    // The guarded post-deploy self-test. 404 (indistinguishable from no route) unless the secret is set
+    // AND the request presents it, so this is safe to ship on every environment, including production.
+    if (request.method === "POST" && url.pathname === "/self-test") {
+      if (
+        !(await selfTestAuthorized(
+          env.BUNDLE_SELF_TEST_KEY,
+          request.headers.get("x-self-test-key"),
+        ))
+      ) {
+        return new Response("Not Found", { status: 404 });
+      }
+      // A dedicated container instance, isolated from the "bundle" instance that serves live firm builds,
+      // so a self-test never contends with (or is degraded by) customer work.
+      const report = await runSelfTest(getContainer(env.BUNDLE_CONTAINER, "selftest"), env.R2);
+      return Response.json(report, { status: report.ok ? 200 : 500 });
+    }
     return new Response("Not Found", { status: 404 });
   },
 
   scheduled(controller: ScheduledController, env: Bindings, executionContext: ExecutionContext) {
     if (controller.cron === BUNDLE_WARM_CRON) {
       executionContext.waitUntil(
-        getContainer(env.BUNDLE_CONTAINER, "bundle").fetch(
-          new Request("http://bundle/ready"),
-        ),
+        getContainer(env.BUNDLE_CONTAINER, "bundle").fetch(new Request("http://bundle/ready")),
       );
     }
   },
