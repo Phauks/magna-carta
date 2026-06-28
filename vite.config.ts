@@ -63,14 +63,20 @@ export default defineConfig({
         command:
           "cargo fmt --manifest-path crates/Cargo.toml --all --check && cargo clippy --manifest-path crates/Cargo.toml --all-targets -- -D warnings && cargo test --manifest-path crates/Cargo.toml",
       },
-      // Build the pdf-core WASM artefact into packages/pdf/src/pkg.
-      // --no-opt: wasm-opt is not required (and may not be installed); the artefact is semantically correct.
-      // The output directory matches the import path used by packages/pdf/src/index.ts.
-      // wasm-pack resolves --out-dir relative to the crate directory (crates/pdf-core/), so the correct
-      // relative path from there to packages/pdf/src/pkg is ../../packages/pdf/src/pkg.
+      // Build the pdf-core WASM artefact into packages/pdf/src/pkg — IN A PINNED RUST DOCKER IMAGE
+      // (crates/pdf-core/wasm.Dockerfile, mirroring containers/scan/Dockerfile), never on the host
+      // toolchain. This is the one canonical wasm build, invoked identically in local builds and in
+      // Cloudflare Workers Builds: the build environment needs only Docker (which the Workers Builds
+      // runner provides — the same way the scan/bundle/convert container images build), never Rust or
+      // wasm-pack on the bare machine. `--output type=local` exports exactly the wasm-pack output to
+      // the host package dir (the import path packages/pdf/src/index.ts expects). Build context is
+      // crates/. Like the container workers, this requires Docker available locally.
+      // --network=host: the Workers Builds runner's Docker isolates RUN-step networking (image pulls
+      // work, but RUN-step DNS fails), so the rustup/cargo downloads need the host network — which the
+      // bare runner has (it clones the repo + runs pnpm install). Harmless locally.
       "rust-wasm-build": {
         command:
-          "wasm-pack build crates/pdf-core --target web --out-dir ../../packages/pdf/src/pkg --release --no-opt",
+          "docker build --network=host --output type=local,dest=packages/pdf/src/pkg -f crates/pdf-core/wasm.Dockerfile crates",
       },
       // The worker serves apps/web/build, so its build and dev both depend on the SPA build (cross-package package#task notation).
       // Named worker-build / worker-dev (not build / dev) so they do not collide with the root package.json build / dev scripts.

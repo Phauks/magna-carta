@@ -1,0 +1,4 @@
+# Keep the wasm build context (crates/pdf-core/wasm.Dockerfile) small + reproducible: never ship
+# local Cargo build output into the image context (the build uses a BuildKit cache mount instead).
+target
+**/target
