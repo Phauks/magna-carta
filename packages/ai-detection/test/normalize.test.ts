@@ -23,6 +23,12 @@ describe("bandForScore", () => {
   it("maps high scores to likely", () => {
     expect(bandForScore(0.95)).toBe("likely");
   });
+  it("treats UNLIKELY_MAX (0.2) as exclusive of unlikely", () => {
+    expect(bandForScore(0.2)).toBe("mixed");
+  });
+  it("treats LIKELY_MIN (0.8) as inclusive of likely", () => {
+    expect(bandForScore(0.8)).toBe("likely");
+  });
 });
 
 describe("caveatsFor", () => {
@@ -94,5 +100,18 @@ describe("normalize", () => {
   it("records the external service that saw the text", () => {
     const report = normalize(input({ languageHint: "en" }), raw(), { ...META, egressedTo: "example-vendor" });
     expect(report.provenance.egressedTo).toBe("example-vendor");
+  });
+
+  it("keeps the score-derived band when reliability is only moderate", () => {
+    // A non-English hint yields a non-fatal caveat → moderate reliability, which must NOT
+    // be forced to inconclusive; the high score still reads as 'likely'.
+    const report = normalize(input({ languageHint: "zh-CN" }), raw({ score: 0.92 }), META);
+    expect(report.reliability).toBe("moderate");
+    expect(report.band).toBe("likely");
+  });
+
+  it("omits segments entirely when the raw detection has none", () => {
+    const report = normalize(input({ languageHint: "en" }), raw(), META);
+    expect(report.segments).toBeUndefined();
   });
 });
