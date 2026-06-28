@@ -4,7 +4,8 @@
 //! hidden content or metadata; use `redact`/`sanitize` for that.
 
 use crate::surgery::{resolve_inherited_resources, resolve_mediabox, resolve_rotate};
-use lopdf::{dictionary, Document, Object, ObjectId};
+use lopdf::{dictionary, Dictionary, Document, Object, ObjectId, StringFormat};
+use std::collections::BTreeSet;
 
 /// What an assembly operation can fail at. No logging here — the caller owns that.
 #[derive(Debug, PartialEq, Eq)]
@@ -248,7 +249,7 @@ pub fn merge(documents: &[&[u8]]) -> Result<Vec<u8>, GenerateError> {
     });
     combined.trailer.set("Root", Object::Reference(catalog_id));
 
-    merge_interactive(&mut combined, &source_catalogs, catalog_id, pages_id);
+    merge_interactive(&mut combined, &source_catalogs, catalog_id);
 
     combined.prune_objects();
     let mut out = Vec::new();
@@ -259,14 +260,278 @@ pub fn merge(documents: &[&[u8]]) -> Result<Vec<u8>, GenerateError> {
 }
 
 /// Fold the inputs' outlines, AcroForm fields, and named destinations into the merged
-/// document. Filled in by the interactive-merge step; the page-and-content merge above
-/// is correct without it.
-fn merge_interactive(
-    _doc: &mut Document,
-    _source_catalogs: &[ObjectId],
-    _new_catalog: ObjectId,
-    _new_pages_root: ObjectId,
-) {
+/// document. Every input was renumbered before its objects were combined, so the inputs'
+/// destinations and field references already point at the correct (renumbered) objects in
+/// the combined map — no remapping is needed, only grafting.
+fn merge_interactive(doc: &mut Document, source_catalogs: &[ObjectId], new_catalog: ObjectId) {
+    merge_outlines(doc, source_catalogs, new_catalog);
+    merge_acroform(doc, source_catalogs, new_catalog);
+    merge_named_dests(doc, source_catalogs, new_catalog);
+}
+
+/// The dictionary named by `key` in `owner`, cloned, whether it is inline or a reference.
+fn cloned_dict_entry(doc: &Document, owner: ObjectId, key: &[u8]) -> Option<Dictionary> {
+    match doc.get_dictionary(owner).ok()?.get(key).ok()? {
+        Object::Dictionary(dict) => Some(dict.clone()),
+        Object::Reference(id) => doc.get_dictionary(*id).ok().cloned(),
+        _ => None,
+    }
+}
+
+fn entry_ref(doc: &Document, owner: ObjectId, key: &[u8]) -> Option<ObjectId> {
+    doc.get_dictionary(owner)
+        .ok()?
+        .get(key)
+        .ok()?
+        .as_reference()
+        .ok()
+}
+
+/// Chain every input's top-level outline items under one merged `/Outlines` root.
+fn merge_outlines(doc: &mut Document, source_catalogs: &[ObjectId], new_catalog: ObjectId) {
+    let mut items: Vec<ObjectId> = Vec::new();
+    let mut total_count = 0i64;
+    for &catalog in source_catalogs {
+        let Some(outlines) = entry_ref(doc, catalog, b"Outlines") else {
+            continue;
+        };
+        let Ok(root) = doc.get_dictionary(outlines) else {
+            continue;
+        };
+        total_count += root
+            .get(b"Count")
+            .and_then(|o| o.as_i64())
+            .unwrap_or(0)
+            .abs();
+        let mut current = root.get(b"First").ok().and_then(|o| o.as_reference().ok());
+        let mut guard = 0;
+        while let Some(id) = current {
+            items.push(id);
+            guard += 1;
+            if guard > 100_000 {
+                break;
+            }
+            current = doc
+                .get_dictionary(id)
+                .ok()
+                .and_then(|d| d.get(b"Next").ok())
+                .and_then(|o| o.as_reference().ok());
+        }
+    }
+    if items.is_empty() {
+        return;
+    }
+    let outlines_id = doc.new_object_id();
+    for i in 0..items.len() {
+        let prev = i.checked_sub(1).map(|j| items[j]);
+        let next = items.get(i + 1).copied();
+        if let Ok(item) = doc.get_object_mut(items[i]).and_then(|o| o.as_dict_mut()) {
+            item.set("Parent", Object::Reference(outlines_id));
+            match prev {
+                Some(p) => item.set("Prev", Object::Reference(p)),
+                None => {
+                    item.remove(b"Prev");
+                }
+            }
+            match next {
+                Some(n) => item.set("Next", Object::Reference(n)),
+                None => {
+                    item.remove(b"Next");
+                }
+            }
+        }
+    }
+    let (first, last) = (items[0], *items.last().expect("non-empty"));
+    doc.objects.insert(
+        outlines_id,
+        Object::Dictionary(dictionary! {
+            b"Type" => Object::Name(b"Outlines".to_vec()),
+            b"First" => Object::Reference(first),
+            b"Last" => Object::Reference(last),
+            b"Count" => Object::Integer(total_count.max(items.len() as i64)),
+        }),
+    );
+    if let Ok(catalog) = doc
+        .get_object_mut(new_catalog)
+        .and_then(|o| o.as_dict_mut())
+    {
+        catalog.set("Outlines", Object::Reference(outlines_id));
+    }
+}
+
+/// Union every input's AcroForm `/Fields` into one `/AcroForm`, renaming top-level field
+/// names on collision and merging `/DR` and `/NeedAppearances`.
+fn merge_acroform(doc: &mut Document, source_catalogs: &[ObjectId], new_catalog: ObjectId) {
+    let mut fields: Vec<ObjectId> = Vec::new();
+    let mut seen_names: BTreeSet<Vec<u8>> = BTreeSet::new();
+    let mut need_appearances = false;
+    let mut dr_fonts: Vec<(Vec<u8>, Object)> = Vec::new();
+
+    for &catalog in source_catalogs {
+        let Some(acroform) = cloned_dict_entry(doc, catalog, b"AcroForm") else {
+            continue;
+        };
+        if matches!(acroform.get(b"NeedAppearances"), Ok(Object::Boolean(true))) {
+            need_appearances = true;
+        }
+        if let Some(dr) = acroform.get(b"DR").ok().and_then(|o| match o {
+            Object::Dictionary(d) => Some(d.clone()),
+            _ => None,
+        }) {
+            if let Ok(Object::Dictionary(font)) = dr.get(b"Font") {
+                for (key, value) in font.iter() {
+                    dr_fonts.push((key.clone(), value.clone()));
+                }
+            }
+        }
+        let Ok(Object::Array(field_refs)) = acroform.get(b"Fields") else {
+            continue;
+        };
+        for field in field_refs {
+            let Ok(field_id) = field.as_reference() else {
+                continue;
+            };
+            // Resolve the top-level field name and rename it if it collides.
+            let name = match doc
+                .get_dictionary(field_id)
+                .ok()
+                .and_then(|f| f.get(b"T").ok())
+            {
+                Some(Object::String(bytes, _)) => Some(bytes.clone()),
+                _ => None,
+            };
+            if let Some(name) = name {
+                let unique = unique_name(&name, &seen_names);
+                seen_names.insert(unique.clone());
+                if unique != name {
+                    if let Ok(dict) = doc.get_object_mut(field_id).and_then(|o| o.as_dict_mut()) {
+                        dict.set("T", Object::String(unique, StringFormat::Literal));
+                    }
+                }
+            }
+            fields.push(field_id);
+        }
+    }
+
+    if fields.is_empty() {
+        return;
+    }
+    let mut acroform = Dictionary::new();
+    acroform.set(
+        "Fields",
+        Object::Array(fields.iter().map(|&id| Object::Reference(id)).collect()),
+    );
+    if need_appearances {
+        acroform.set("NeedAppearances", Object::Boolean(true));
+    }
+    if !dr_fonts.is_empty() {
+        let mut font = Dictionary::new();
+        for (key, value) in dr_fonts {
+            if font.get(&key).is_err() {
+                font.set(key, value);
+            }
+        }
+        let mut dr = Dictionary::new();
+        dr.set("Font", Object::Dictionary(font));
+        acroform.set("DR", Object::Dictionary(dr));
+    }
+    let acroform_id = doc.add_object(Object::Dictionary(acroform));
+    if let Ok(catalog) = doc
+        .get_object_mut(new_catalog)
+        .and_then(|o| o.as_dict_mut())
+    {
+        catalog.set("AcroForm", Object::Reference(acroform_id));
+    }
+}
+
+/// Merge every input's named destinations into one flat `/Names /Dests`, suffixing
+/// colliding names.
+fn merge_named_dests(doc: &mut Document, source_catalogs: &[ObjectId], new_catalog: ObjectId) {
+    let mut entries: Vec<(Vec<u8>, Object)> = Vec::new();
+    for &catalog in source_catalogs {
+        // Modern: /Names /Dests is a name tree.
+        if let Some(names) = cloned_dict_entry(doc, catalog, b"Names") {
+            if let Some(dests) = names.get(b"Dests").ok().and_then(|o| o.as_reference().ok()) {
+                collect_dest_tree(doc, dests, 0, &mut entries);
+            } else if let Ok(Object::Dictionary(dests)) = names.get(b"Dests") {
+                collect_dest_node(dests, &mut entries);
+            }
+        }
+        // Legacy: catalog /Dests is a name → destination dictionary.
+        if let Some(legacy) = cloned_dict_entry(doc, catalog, b"Dests") {
+            for (key, value) in legacy.iter() {
+                entries.push((key.clone(), value.clone()));
+            }
+        }
+    }
+    if entries.is_empty() {
+        return;
+    }
+    let mut seen: BTreeSet<Vec<u8>> = BTreeSet::new();
+    let mut flat: Vec<Object> = Vec::with_capacity(entries.len() * 2);
+    for (name, dest) in entries {
+        let unique = unique_name(&name, &seen);
+        seen.insert(unique.clone());
+        flat.push(Object::String(unique, StringFormat::Literal));
+        flat.push(dest);
+    }
+    let dests_id = doc.add_object(Object::Dictionary(dictionary! {
+        b"Names" => Object::Array(flat),
+    }));
+    let names_id = doc.add_object(Object::Dictionary(dictionary! {
+        b"Dests" => Object::Reference(dests_id),
+    }));
+    if let Ok(catalog) = doc
+        .get_object_mut(new_catalog)
+        .and_then(|o| o.as_dict_mut())
+    {
+        catalog.set("Names", Object::Reference(names_id));
+    }
+}
+
+/// Collect `(name, dest)` pairs from a destination name-tree node (bounded recursion).
+fn collect_dest_tree(doc: &Document, node: ObjectId, depth: u8, out: &mut Vec<(Vec<u8>, Object)>) {
+    if depth > 32 {
+        return;
+    }
+    let Ok(dict) = doc.get_dictionary(node) else {
+        return;
+    };
+    collect_dest_node(dict, out);
+    if let Ok(Object::Array(kids)) = dict.get(b"Kids") {
+        let kid_ids: Vec<ObjectId> = kids.iter().filter_map(|k| k.as_reference().ok()).collect();
+        for kid in kid_ids {
+            collect_dest_tree(doc, kid, depth + 1, out);
+        }
+    }
+}
+
+fn collect_dest_node(dict: &Dictionary, out: &mut Vec<(Vec<u8>, Object)>) {
+    if let Ok(Object::Array(names)) = dict.get(b"Names") {
+        let mut i = 0;
+        while i + 1 < names.len() {
+            if let Object::String(name, _) = &names[i] {
+                out.push((name.clone(), names[i + 1].clone()));
+            }
+            i += 2;
+        }
+    }
+}
+
+/// `name` if unused, else `name_2`, `name_3`, … until one is free.
+fn unique_name(name: &[u8], seen: &BTreeSet<Vec<u8>>) -> Vec<u8> {
+    if !seen.contains(name) {
+        return name.to_vec();
+    }
+    let mut suffix = 2;
+    loop {
+        let mut candidate = name.to_vec();
+        candidate.extend_from_slice(format!("_{suffix}").as_bytes());
+        if !seen.contains(&candidate) {
+            return candidate;
+        }
+        suffix += 1;
+    }
 }
 
 #[cfg(test)]
@@ -494,5 +759,254 @@ mod tests {
     #[test]
     fn merge_empty_list_errs() {
         assert_eq!(merge(&[]), Err(GenerateError::EmptyInput));
+    }
+
+    // ── Interactive-merge fixtures + helpers ────────────────────────────────────
+
+    fn base_page(doc: &mut Document, pages_id: ObjectId, annots: Option<Object>) -> ObjectId {
+        let content_id = doc.add_object(Object::Stream(Stream::new(dictionary! {}, b"".to_vec())));
+        let mut page = dictionary! {
+            b"Type" => Object::Name(b"Page".to_vec()),
+            b"Parent" => Object::Reference(pages_id),
+            b"MediaBox" => Object::Array(vec![
+                Object::Integer(0), Object::Integer(0),
+                Object::Integer(612), Object::Integer(792),
+            ]),
+            b"Contents" => Object::Reference(content_id),
+            b"Resources" => Object::Dictionary(dictionary! { b"Font" => Object::Dictionary(dictionary! {}) }),
+        };
+        if let Some(annots) = annots {
+            page.set("Annots", annots);
+        }
+        doc.add_object(page)
+    }
+
+    fn finish(doc: &mut Document, catalog: Dictionary) -> Vec<u8> {
+        let catalog_id = doc.add_object(Object::Dictionary(catalog));
+        doc.trailer.set(b"Root", Object::Reference(catalog_id));
+        let mut out = Vec::new();
+        doc.save_to(&mut out).expect("serialise fixture");
+        out
+    }
+
+    fn doc_with_bookmark(title: &str) -> Vec<u8> {
+        let mut doc = Document::with_version("1.5");
+        let pages_id = doc.new_object_id();
+        let outlines_id = doc.new_object_id();
+        let page_id = base_page(&mut doc, pages_id, None);
+        let item_id = doc.add_object(dictionary! {
+            b"Title" => Object::String(title.as_bytes().to_vec(), StringFormat::Literal),
+            b"Parent" => Object::Reference(outlines_id),
+            b"Dest" => Object::Array(vec![Object::Reference(page_id), Object::Name(b"Fit".to_vec())]),
+        });
+        doc.objects.insert(
+            outlines_id,
+            Object::Dictionary(dictionary! {
+                b"Type" => Object::Name(b"Outlines".to_vec()),
+                b"First" => Object::Reference(item_id),
+                b"Last" => Object::Reference(item_id),
+                b"Count" => Object::Integer(1),
+            }),
+        );
+        doc.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                b"Type" => Object::Name(b"Pages".to_vec()),
+                b"Kids" => Object::Array(vec![Object::Reference(page_id)]),
+                b"Count" => Object::Integer(1),
+            }),
+        );
+        finish(
+            &mut doc,
+            dictionary! {
+                b"Type" => Object::Name(b"Catalog".to_vec()),
+                b"Pages" => Object::Reference(pages_id),
+                b"Outlines" => Object::Reference(outlines_id),
+            },
+        )
+    }
+
+    fn doc_with_form_field(name: &str) -> Vec<u8> {
+        let mut doc = Document::with_version("1.5");
+        let pages_id = doc.new_object_id();
+        let field_id = doc.new_object_id();
+        let page_id = base_page(
+            &mut doc,
+            pages_id,
+            Some(Object::Array(vec![Object::Reference(field_id)])),
+        );
+        // A terminal text field that is also its own widget annotation.
+        doc.objects.insert(
+            field_id,
+            Object::Dictionary(dictionary! {
+                b"FT" => Object::Name(b"Tx".to_vec()),
+                b"T" => Object::String(name.as_bytes().to_vec(), StringFormat::Literal),
+                b"Subtype" => Object::Name(b"Widget".to_vec()),
+                b"Rect" => Object::Array(vec![
+                    Object::Integer(100), Object::Integer(100),
+                    Object::Integer(300), Object::Integer(120),
+                ]),
+                b"P" => Object::Reference(page_id),
+            }),
+        );
+        let acroform_id = doc.add_object(dictionary! {
+            b"Fields" => Object::Array(vec![Object::Reference(field_id)]),
+            b"NeedAppearances" => Object::Boolean(true),
+        });
+        doc.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                b"Type" => Object::Name(b"Pages".to_vec()),
+                b"Kids" => Object::Array(vec![Object::Reference(page_id)]),
+                b"Count" => Object::Integer(1),
+            }),
+        );
+        finish(
+            &mut doc,
+            dictionary! {
+                b"Type" => Object::Name(b"Catalog".to_vec()),
+                b"Pages" => Object::Reference(pages_id),
+                b"AcroForm" => Object::Reference(acroform_id),
+            },
+        )
+    }
+
+    fn doc_with_named_dest(name: &str) -> Vec<u8> {
+        let mut doc = Document::with_version("1.5");
+        let pages_id = doc.new_object_id();
+        let page_id = base_page(&mut doc, pages_id, None);
+        let dests_id = doc.add_object(dictionary! {
+            b"Names" => Object::Array(vec![
+                Object::String(name.as_bytes().to_vec(), StringFormat::Literal),
+                Object::Array(vec![Object::Reference(page_id), Object::Name(b"Fit".to_vec())]),
+            ]),
+        });
+        let names_id = doc.add_object(dictionary! { b"Dests" => Object::Reference(dests_id) });
+        doc.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                b"Type" => Object::Name(b"Pages".to_vec()),
+                b"Kids" => Object::Array(vec![Object::Reference(page_id)]),
+                b"Count" => Object::Integer(1),
+            }),
+        );
+        finish(
+            &mut doc,
+            dictionary! {
+                b"Type" => Object::Name(b"Catalog".to_vec()),
+                b"Pages" => Object::Reference(pages_id),
+                b"Names" => Object::Reference(names_id),
+            },
+        )
+    }
+
+    fn outline_titles(bytes: &[u8]) -> Vec<Vec<u8>> {
+        let doc = Document::load_mem(bytes).unwrap();
+        let root = doc
+            .trailer
+            .get(b"Root")
+            .and_then(Object::as_reference)
+            .unwrap();
+        let outlines = entry_ref(&doc, root, b"Outlines").unwrap();
+        let mut titles = Vec::new();
+        let mut cur = doc
+            .get_dictionary(outlines)
+            .unwrap()
+            .get(b"First")
+            .ok()
+            .and_then(|o| o.as_reference().ok());
+        while let Some(id) = cur {
+            let d = doc.get_dictionary(id).unwrap();
+            if let Ok(Object::String(t, _)) = d.get(b"Title") {
+                titles.push(t.clone());
+            }
+            cur = d.get(b"Next").ok().and_then(|o| o.as_reference().ok());
+        }
+        titles
+    }
+
+    fn field_names(bytes: &[u8]) -> Vec<Vec<u8>> {
+        let doc = Document::load_mem(bytes).unwrap();
+        let root = doc
+            .trailer
+            .get(b"Root")
+            .and_then(Object::as_reference)
+            .unwrap();
+        let acroform = entry_ref(&doc, root, b"AcroForm").unwrap();
+        let mut names = Vec::new();
+        if let Ok(Object::Array(fields)) = doc.get_dictionary(acroform).unwrap().get(b"Fields") {
+            for f in fields {
+                if let Ok(id) = f.as_reference() {
+                    if let Ok(Object::String(t, _)) = doc.get_dictionary(id).unwrap().get(b"T") {
+                        names.push(t.clone());
+                    }
+                }
+            }
+        }
+        names
+    }
+
+    fn dest_names(bytes: &[u8]) -> Vec<Vec<u8>> {
+        let doc = Document::load_mem(bytes).unwrap();
+        let root = doc
+            .trailer
+            .get(b"Root")
+            .and_then(Object::as_reference)
+            .unwrap();
+        let names = entry_ref(&doc, root, b"Names").unwrap();
+        let dests = entry_ref(&doc, names, b"Dests").unwrap();
+        let mut out = Vec::new();
+        if let Ok(Object::Array(arr)) = doc.get_dictionary(dests).unwrap().get(b"Names") {
+            let mut i = 0;
+            while i < arr.len() {
+                if let Object::String(n, _) = &arr[i] {
+                    out.push(n.clone());
+                }
+                i += 2;
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn merge_outline_one_node_per_doc() {
+        let a = doc_with_bookmark("Doc A");
+        let b = doc_with_bookmark("Doc B");
+        let out = merge(&[a.as_slice(), b.as_slice()]).unwrap();
+        assert_eq!(
+            outline_titles(&out),
+            vec![b"Doc A".to_vec(), b"Doc B".to_vec()]
+        );
+        assert_eq!(crate::Document::load(out).unwrap().page_count(), 2);
+    }
+
+    #[test]
+    fn merge_unions_form_fields() {
+        let a = doc_with_form_field("alpha");
+        let b = doc_with_form_field("beta");
+        let out = merge(&[a.as_slice(), b.as_slice()]).unwrap();
+        let names = field_names(&out);
+        assert!(names.contains(&b"alpha".to_vec()));
+        assert!(names.contains(&b"beta".to_vec()));
+    }
+
+    #[test]
+    fn merge_renames_colliding_field() {
+        let a = doc_with_form_field("Name");
+        let b = doc_with_form_field("Name");
+        let out = merge(&[a.as_slice(), b.as_slice()]).unwrap();
+        let names = field_names(&out);
+        assert!(names.contains(&b"Name".to_vec()));
+        assert!(names.contains(&b"Name_2".to_vec()));
+    }
+
+    #[test]
+    fn merge_merges_named_dests() {
+        let a = doc_with_named_dest("intro");
+        let b = doc_with_named_dest("summary");
+        let out = merge(&[a.as_slice(), b.as_slice()]).unwrap();
+        let names = dest_names(&out);
+        assert!(names.contains(&b"intro".to_vec()));
+        assert!(names.contains(&b"summary".to_vec()));
     }
 }
