@@ -158,7 +158,10 @@ function fakeR2Bucket(store: Map<string, Uint8Array>): R2Bucket {
         blob: async () => new Blob([data]),
       } as unknown as R2ObjectBody;
     },
-    async put(key: string, value: ReadableStream | ArrayBuffer | ArrayBufferView | string | null | Blob) {
+    async put(
+      key: string,
+      value: ReadableStream | ArrayBuffer | ArrayBufferView | string | null | Blob,
+    ) {
       if (value !== null && value !== undefined) {
         const bytes = new Uint8Array(await new Response(value as BodyInit).arrayBuffer());
         store.set(key, bytes);
