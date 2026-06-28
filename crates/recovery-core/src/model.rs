@@ -31,25 +31,6 @@ pub struct DiagnosisReport {
     pub detail: String,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_report_carries_format_and_recoverability() {
-        let report = DiagnosisReport {
-            detected_format: Some(Format::Zip),
-            corruption: vec![CorruptionKind::MissingEndOfCentralDirectory],
-            recoverability: Recoverability::Repairable,
-            repair_supported: true,
-            detail: "central directory missing".into(),
-        };
-        assert_eq!(report.detected_format, Some(Format::Zip));
-        assert_eq!(report.recoverability, Recoverability::Repairable);
-        assert!(report.corruption.contains(&CorruptionKind::MissingEndOfCentralDirectory));
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct RecoveredItem {
     pub name: String,
@@ -70,6 +51,27 @@ pub struct RepairResult {
 }
 
 #[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_report_carries_format_and_recoverability() {
+        let report = DiagnosisReport {
+            detected_format: Some(Format::Zip),
+            corruption: vec![CorruptionKind::MissingEndOfCentralDirectory],
+            recoverability: Recoverability::Repairable,
+            repair_supported: true,
+            detail: "central directory missing".into(),
+        };
+        assert_eq!(report.detected_format, Some(Format::Zip));
+        assert_eq!(report.recoverability, Recoverability::Repairable);
+        assert!(report
+            .corruption
+            .contains(&CorruptionKind::MissingEndOfCentralDirectory));
+    }
+}
+
+#[cfg(test)]
 mod repair_model_tests {
     use super::*;
 
@@ -77,12 +79,23 @@ mod repair_model_tests {
     fn a_partial_recovery_is_not_marked_fully_recovered() {
         let loss = LossManifest {
             items: vec![
-                RecoveredItem { name: "word/document.xml".into(), recovered: true, detail: String::new() },
-                RecoveredItem { name: "word/media/image1.png".into(), recovered: false, detail: "stream truncated".into() },
+                RecoveredItem {
+                    name: "word/document.xml".into(),
+                    recovered: true,
+                    detail: String::new(),
+                },
+                RecoveredItem {
+                    name: "word/media/image1.png".into(),
+                    recovered: false,
+                    detail: "stream truncated".into(),
+                },
             ],
             fully_recovered: false,
         };
-        let result = RepairResult { salvaged: vec![1, 2, 3], loss };
+        let result = RepairResult {
+            salvaged: vec![1, 2, 3],
+            loss,
+        };
         assert!(!result.loss.fully_recovered);
         assert_eq!(result.loss.items.iter().filter(|i| !i.recovered).count(), 1);
     }

@@ -2,8 +2,8 @@
 
 use engine_host::wasm_edge::EdgeError;
 
-/// Recovery failures, mapped to fixed edge codes. A `&'static str` code cannot
-/// carry file content (golden rule 4).
+/// Recovery failures, mapped to fixed edge codes. A `&'static str` code is a
+/// compile-time constant and cannot carry runtime file paths or file content.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RepairError {
     /// No known format magic — nothing to attempt.

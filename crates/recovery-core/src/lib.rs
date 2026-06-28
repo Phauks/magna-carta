@@ -3,7 +3,7 @@
 //! out. NO I/O lives here; the worker/container host it. Diagnose broadly,
 //! repair narrowly: per-format diagnosers and repairers register in later plans.
 
-pub mod model;
-pub mod error;
-pub mod salvage;
 pub mod diagnose;
+pub mod error;
+pub mod model;
+pub mod salvage;
