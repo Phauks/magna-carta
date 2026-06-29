@@ -11,6 +11,7 @@ impl From<PdfError> for JsError {
             PdfError::Parse => "failed to parse PDF",
             PdfError::PageOutOfRange => "page index out of range",
             PdfError::Render => "failed to render page",
+            PdfError::Rejected => "decompression-bomb",
         })
     }
 }
@@ -96,6 +97,7 @@ impl From<crate::RedactError> for JsError {
             crate::RedactError::GateFailed { detail } => {
                 JsError::new(&format!("redaction verification failed: {detail}"))
             }
+            crate::RedactError::Rejected => JsError::new("decompression-bomb"),
         }
     }
 }
@@ -204,6 +206,7 @@ impl From<crate::ScrubError> for JsError {
             crate::ScrubError::GateFailed { detail } => {
                 JsError::new(&format!("sanitize verification failed: {detail}"))
             }
+            crate::ScrubError::Rejected => JsError::new("decompression-bomb"),
         }
     }
 }
@@ -258,6 +261,7 @@ impl From<crate::bates::BatesError> for JsError {
             crate::bates::BatesError::RangeExceeded => {
                 "bates numbering exceeds the configured stop number"
             }
+            crate::bates::BatesError::Rejected => "decompression-bomb",
         })
     }
 }
@@ -288,6 +292,7 @@ impl From<crate::FormError> for JsError {
             crate::FormError::Parse(_) => "failed to parse PDF",
             crate::FormError::Reassemble(_) => "failed to reassemble PDF",
             crate::FormError::NoAcroForm => "document has no interactive form",
+            crate::FormError::Rejected => "decompression-bomb",
         })
     }
 }
@@ -529,6 +534,7 @@ impl From<crate::DetectError> for JsError {
     fn from(e: crate::DetectError) -> Self {
         match e {
             crate::DetectError::Parse => JsError::new("failed to parse PDF"),
+            crate::DetectError::Rejected => JsError::new("decompression-bomb"),
         }
     }
 }
@@ -640,6 +646,7 @@ impl From<crate::SecureError> for JsError {
             crate::SecureError::UnsupportedHandler => "unsupported-encryption",
             crate::SecureError::AlreadyEncrypted => "already-encrypted",
             crate::SecureError::Reassemble => "failed to reassemble PDF",
+            crate::SecureError::Rejected => "decompression-bomb",
         })
     }
 }
@@ -803,6 +810,7 @@ impl From<crate::GenerateError> for JsError {
             crate::GenerateError::EmptyInput => "no documents provided",
             crate::GenerateError::Reassemble => "failed to reassemble PDF",
             crate::GenerateError::Image => "could not decode the watermark image",
+            crate::GenerateError::Rejected => "decompression-bomb",
         })
     }
 }
