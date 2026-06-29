@@ -21,6 +21,9 @@ pub use pdf::PdfAdapter;
 mod zip_adapter;
 pub use zip_adapter::ZipAdapter;
 
+mod rules;
+pub use rules::{apply_rule, expand, parse_rules, Rule, RuleError, RuleSet};
+
 #[cfg(not(target_arch = "wasm32"))]
 mod dictionary;
 #[cfg(not(target_arch = "wasm32"))]
