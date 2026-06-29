@@ -169,4 +169,13 @@ export default defineConfig({
       },
     }),
   ],
+  test: {
+    // 16 CPUs but a RAM-constrained dev box (~3 GB free under normal load): each test file boots a
+    // Miniflare/workerd VM holding the full app + bindings + the three stub service workers, so the
+    // default CPU-wide file parallelism OOMs the box (exit 137). Cap the concurrent VMs to fit
+    // memory — peak ≈ maxWorkers × per-VM, independent of file count. CI (more RAM) raises it via the
+    // env. Mirrors the fileParallelism guard packages/conversion uses for its wasm heaps.
+    maxWorkers: Number(process.env.MC_WORKER_TEST_MAX_WORKERS ?? 4),
+    minWorkers: 1,
+  },
 });
