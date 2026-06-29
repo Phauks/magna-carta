@@ -433,8 +433,8 @@ fn apply_op(op: &Op, mut word: String) -> Option<String> {
 
         Op::ExtractSubstr(pos, len) => {
             let chars: Vec<char> = word.chars().collect();
-            // Reject only when the start position is strictly past the end.
-            if *pos > chars.len() {
+            // Hashcat rejects when pos >= word length (start at or past the end).
+            if *pos >= chars.len() {
                 return None;
             }
             let end = (*pos + *len).min(chars.len());
@@ -558,5 +558,61 @@ mod tests {
         for r in &set.0 {
             let _ = apply_rule(r, "Password1");
         }
+    }
+
+    /// Correctness vectors for position-based ops, verifying both the happy path
+    /// and the reject boundary against hashcat semantics.
+    #[test]
+    fn position_op_boundary_vectors() {
+        // ExtractSubstr (O): pos=0, len=2 on "password" → "pa"
+        assert_eq!(
+            apply_rule(&Rule::parse("O02").unwrap(), "password"),
+            Some("pa".into()),
+            "O02 on 'password' extracts chars [0,2)"
+        );
+
+        // ExtractSubstr (O): pos=1, len=4 on "ab" — pos(1) < len(2), so
+        // accepted; end clamped to len → extracts "b"
+        assert_eq!(
+            apply_rule(&Rule::parse("O14").unwrap(), "ab"),
+            Some("b".into()),
+            "O14 on 'ab' clamps extraction to word end"
+        );
+
+        // ExtractSubstr (O): pos=1 == len(1) on "a" → reject (None).
+        // This is the case the prior `>` condition accepted, emitting Some("").
+        assert_eq!(
+            apply_rule(&Rule::parse("O11").unwrap(), "a"),
+            None,
+            "O11 on 'a': pos equals word length → hashcat reject"
+        );
+
+        // SwapAt (*): confirmed-correct at boundary — pos 1 is valid in "ab"
+        assert_eq!(
+            apply_rule(&Rule::parse("*01").unwrap(), "ab"),
+            Some("ba".into()),
+            "*01 on 'ab' swaps positions 0 and 1"
+        );
+
+        // SwapAt (*): pos 1 out of range for a single-char word → reject
+        assert_eq!(
+            apply_rule(&Rule::parse("*01").unwrap(), "a"),
+            None,
+            "*01 on 'a': position 1 out of range → reject"
+        );
+
+        // DeleteAt (D): pos == last valid index → accepted
+        assert_eq!(
+            apply_rule(&Rule::parse("D1").unwrap(), "ab"),
+            Some("a".into()),
+            "D1 on 'ab' deletes the char at position 1"
+        );
+
+        // DeleteAt (D): pos == len → reject
+        assert_eq!(
+            apply_rule(&Rule::parse("D2").unwrap(), "ab"),
+            None,
+            "D2 on 'ab': position 2 equals word length → reject"
+        );
     }
 }
