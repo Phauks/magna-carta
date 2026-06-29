@@ -51,4 +51,12 @@ mod tests {
     fn a_content_like_string_is_not_a_valid_code() {
         assert!(!allowed_code("client-secret.docx", REPAIR_ERROR_CODES));
     }
+
+    #[test]
+    fn error_code_count_matches_variant_count() {
+        // RepairError has exactly 4 variants. If a new variant is added without a
+        // matching entry in REPAIR_ERROR_CODES (or vice versa), this test fails.
+        // 4 = NotRecognized, Unsupported, Unrepairable, Malformed.
+        assert_eq!(REPAIR_ERROR_CODES.len(), 4);
+    }
 }

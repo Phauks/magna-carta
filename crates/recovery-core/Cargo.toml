@@ -16,6 +16,6 @@ engine_host = { path = "../engine-host", package = "magna-carta-engine-host" }
 zune-inflate = "0.2"
 
 [dev-dependencies]
-# Build deterministic DEFLATE/zlib fixtures (compress, then truncate) for the salvage tests. Pure-Rust
-# miniz_oxide backend (no C dep) — matches the engine-host feature discipline.
-flate2 = "1"
+# Build deterministic DEFLATE/zlib/gzip fixtures (compress, then truncate) for the salvage tests.
+# rust_backend selects the pure-Rust miniz_oxide backend — no C dep, matches engine-host discipline.
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
