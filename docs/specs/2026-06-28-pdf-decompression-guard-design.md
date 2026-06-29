@@ -92,8 +92,25 @@ internal helper, not public surface.
 
 **Default caps.** `max_input_bytes` 256 MiB · `max_stream_inflated` 256 MiB ·
 `max_total_inflated` 1 GiB. Legit PDFs hold their large payloads in DCTDecode/JPXDecode
-(JPEG — will not zlib-inflate), so Flate streams are small; a bomb crosses 256 MiB almost
+(JPEG — will not zlib-inflate), so Flate streams are small; a bomb crosses the cap almost
 immediately and aborts cheaply. Caps are generous for real documents, tight for bombs.
+
+**Basis for the defaults (evidence, not guesswork):**
+
+- `max_input_bytes` = **256 MiB** — bracketed by what the field accepts. US federal court
+  e-filing (CM/ECF) caps per district at 35–75 MB, with a 200 MB outlier (Court of Federal
+  Claims); Adobe PDF Services and Smallpdf cap at 100 MB. A legitimate legal PDF essentially
+  never exceeds ~200 MB, so 256 MiB clears the real-world ceiling with margin while staying
+  inside the wasm32 memory envelope (~2 GiB practical, allocations failing earlier).
+  Chrome/PDFium and PDF.js impose *no* clean cap and simply OOM on huge files — the very
+  failure this guard prevents, so they are a cautionary example, not a target.
+- `max_stream_inflated` = **256 MiB** and `max_total_inflated` = **1 GiB** — grounded by
+  measuring the committed corpus (W-9 AcroForm, the API/image samples, the fixtures): the
+  largest single inflated stream observed was **0.24 MiB** and the largest per-document
+  total **0.43 MiB**. The reasoned legitimate worst case is a full-page 300-DPI RGB image
+  stored as Flate (~25 MiB/page inflated); 256 MiB clears that by ~10× per stream, and 1 GiB
+  bounds a multi-image document. Both sit ~1000× above the measured floor, so false
+  positives are not a concern; the gap to the memory envelope is the safety margin.
 
 ### Pre-flight (the core)
 
@@ -101,14 +118,15 @@ immediately and aborts cheaply. Caps are generous for real documents, tight for 
 bytes**:
 
 1. **Input cap** — reject if `bytes.len() > max_input_bytes` (`InputTooLarge`).
-2. **Raw-bytes scan** — walk the file for top-level `stream … endstream` objects. Bound
-   each blob by a direct integer `/Length` when present, else by scanning to the next
-   `endstream`. Attempt a **bounded inflate** of each blob (zlib → raw-deflate → LZW
-   fallback, mirroring lopdf's decoder order) into a **counting sink that discards the
-   decompressed bytes** — so pre-flight peak memory is a single small chunk buffer, not the
-   cap. Abort the moment one stream exceeds `max_stream_inflated` (`StreamTooLarge`) or the
-   running cumulative crosses `max_total_inflated` (`TotalTooLarge`). Non-inflatable blobs
-   (JPEG, random bytes) error out instantly and are skipped.
+2. **Raw-bytes scan** — walk the file for each `stream` keyword (the start of a top-level
+   stream object's data). From each, run a **bounded inflate** of the following bytes
+   (zlib → raw-deflate → LZW → RunLengthDecode, mirroring lopdf's decoder order) into a
+   **counting sink that discards the decompressed bytes** — so pre-flight peak memory is a
+   single small chunk buffer, not the cap. Abort the moment one stream exceeds
+   `max_stream_inflated` (`StreamTooLarge`) or the running cumulative crosses
+   `max_total_inflated` (`TotalTooLarge`). Non-inflatable blobs (JPEG, random bytes) error
+   out instantly and are skipped; resume scanning after the bytes the decoder consumed (or
+   past the next `endstream`).
 
 Why this suffices:
 
@@ -116,9 +134,11 @@ Why this suffices:
   both lopdf and hayro**.
 - It catches **ObjStm bombs** because an object stream is itself a top-level `stream`
   object, and objects cannot nest inside a nested ObjStm per the PDF spec.
-- Over-cutting a blob boundary (a spurious early `endstream`, or trailing bytes) only
-  inflates *more*, which is safe. Under-cutting still expands a uniform bomb past the cap
-  before the cut point.
+- **No `endstream`/`/Length` boundary detection is needed for safety.** Every amplifying
+  filter we decode — deflate, raw-deflate, LZW, RunLength — is *self-terminating* (an
+  end-of-stream marker / Adler-32 trailer), so the decoder stops on its own at the true
+  stream end regardless of trailing bytes, and a bomb hits the cap long before then. The
+  `endstream` keyword is used only to advance the scan cursor, never to bound the inflate.
 
 ### Wiring
 
@@ -164,11 +184,12 @@ needed):
 
 ## Residual (disclosed)
 
-- A bomb using an exotic, non-Flate/LZW amplifying filter, or one whose benign prefix
-  inflates small while the tail blows up after a mis-detected `stream`/`endstream` boundary,
-  falls back to the input cap rather than the per-stream cap. In the boundary case the
-  explicit decode sites, bounded only transitively, would inflate the under-counted stream
-  in full — accepted as part of this residual.
+- A bomb using an amplifying filter the pre-flight does not decode — beyond Flate, LZW, and
+  RunLength, the only such cases are image codecs (JBIG2/CCITT can expand bilevel rasters),
+  which decode to *images* and belong to the render/raster class below, not to general
+  stream inflation. Such a payload falls back to the input cap rather than the per-stream
+  cap. (The earlier `stream`/`endstream` boundary residual is **dissolved**: every filter we
+  decode is self-terminating, so boundary detection no longer gates safety.)
 - Render / raster bombs are out of scope (see Non-goals).
 - `GuardLimits` is not yet caller-configurable through the WASM/TS API; v1 ships fixed
   defaults.
