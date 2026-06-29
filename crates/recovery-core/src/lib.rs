@@ -6,8 +6,8 @@
 pub mod diagnose;
 pub mod error;
 pub mod model;
-pub mod salvage;
 pub mod ooxml;
+pub mod salvage;
 pub mod zip_repair;
 
 pub use diagnose::diagnose;
