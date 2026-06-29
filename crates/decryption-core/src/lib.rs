@@ -32,6 +32,11 @@ mod dictionary;
 #[cfg(not(target_arch = "wasm32"))]
 pub use dictionary::{run_dictionary, verify};
 
+#[cfg(not(target_arch = "wasm32"))]
+mod recover;
+#[cfg(not(target_arch = "wasm32"))]
+pub use recover::{recover_shard, ShardOutcome};
+
 #[cfg(target_arch = "wasm32")]
 mod wasm;
 
