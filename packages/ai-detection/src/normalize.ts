@@ -8,7 +8,7 @@ import {
 } from "./report.ts";
 
 // Below this many characters (~50 words) detection is unreliable regardless of the vendor's claim.
-export const MIN_RELIABLE_CHARS = 280;
+export const MIN_RELIABLE_CHARACTERS = 280;
 // Score thresholds. The band is coarse on purpose; the wide mid-zone is `mixed`, not a forced binary.
 export const UNLIKELY_MAX = 0.2;
 export const LIKELY_MIN = 0.8;
@@ -16,6 +16,7 @@ export const LIKELY_MIN = 0.8;
 export const LOW_VENDOR_CONFIDENCE_MAX = 0.5;
 
 export function bandForScore(score: number): LikelihoodBand {
+  if (!Number.isFinite(score)) return "inconclusive";
   if (score < UNLIKELY_MAX) return "unlikely";
   if (score >= LIKELY_MIN) return "likely";
   return "mixed";
@@ -23,8 +24,13 @@ export function bandForScore(score: number): LikelihoodBand {
 
 export function caveatsFor(input: DetectionInput, raw: RawDetection): Caveat[] {
   const caveats: Caveat[] = [];
-  if (input.text.length < MIN_RELIABLE_CHARS) caveats.push("text-too-short");
-  if (input.languageHint !== undefined && !input.languageHint.toLowerCase().startsWith("en")) {
+  if (input.text.length < MIN_RELIABLE_CHARACTERS) caveats.push("text-too-short");
+  const languageHint = input.languageHint?.trim();
+  if (
+    languageHint !== undefined &&
+    languageHint !== "" &&
+    !languageHint.toLowerCase().startsWith("en")
+  ) {
     caveats.push("non-target-language");
   }
   if (raw.vendorConfidence !== undefined && raw.vendorConfidence <= LOW_VENDOR_CONFIDENCE_MAX) {
@@ -36,8 +42,17 @@ export function caveatsFor(input: DetectionInput, raw: RawDetection): Caveat[] {
   return caveats;
 }
 
-// Reliability-fatal caveats bottom the grade out; any other caveat downgrades to moderate.
-const FATAL_CAVEATS: ReadonlySet<Caveat> = new Set(["text-too-short", "low-vendor-confidence"]);
+// Every spec-§0 accuracy-collapse vector is fatal: a result on short, non-target-language,
+// paraphrased/humanized, or mixed/edited text never asserts a direction. `low-vendor-confidence`
+// is fatal too. (All currently-defined caveats are fatal, so `reliabilityFor` returns only
+// high/low today; the `moderate` tier is reserved for any future non-fatal caveat.)
+const FATAL_CAVEATS: ReadonlySet<Caveat> = new Set([
+  "text-too-short",
+  "non-target-language",
+  "possible-paraphrase-or-humanization",
+  "mixed-or-edited-authorship",
+  "low-vendor-confidence",
+]);
 
 export function reliabilityFor(caveats: readonly Caveat[]): Reliability {
   if (caveats.some((caveat) => FATAL_CAVEATS.has(caveat))) return "low";
@@ -48,7 +63,7 @@ export function reliabilityFor(caveats: readonly Caveat[]): Reliability {
 export interface NormalizeMetadata {
   readonly adapterId: string;
   readonly detectedAt: string;
-  readonly egressedTo?: string;
+  readonly egressedTo: string;
 }
 
 // The agnostic heart: a vendor's raw score becomes OUR framed report. A low-reliability result never
@@ -62,7 +77,12 @@ export function normalize(
   const reliability = reliabilityFor(caveats);
   const band: LikelihoodBand = reliability === "low" ? "inconclusive" : bandForScore(raw.score);
   const segments = raw.segments?.map((segment) =>
-    segmentScore(segment.startChar, segment.endChar, segment.score, bandForScore(segment.score)),
+    segmentScore(
+      segment.startCharacter,
+      segment.endCharacter,
+      segment.score,
+      reliability === "low" ? "inconclusive" : bandForScore(segment.score),
+    ),
   );
   return {
     band,
@@ -75,7 +95,7 @@ export function normalize(
       ...(raw.vendorModel !== undefined ? { vendorModel: raw.vendorModel } : {}),
       ...(raw.vendorVersion !== undefined ? { vendorVersion: raw.vendorVersion } : {}),
       detectedAt: metadata.detectedAt,
-      ...(metadata.egressedTo !== undefined ? { egressedTo: metadata.egressedTo } : {}),
+      egressedTo: metadata.egressedTo,
     },
   };
 }

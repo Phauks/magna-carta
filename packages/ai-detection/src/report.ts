@@ -1,6 +1,8 @@
 // The detection result is deliberately NOT a boolean. A reader gets a coarse likelihood band, an
-// explicit reliability grade, and the structured reasons to hesitate — so a confident-looking wrong
-// answer is structurally impossible to produce. `inconclusive` is a first-class, common answer.
+// explicit reliability grade, and the structured reasons to hesitate. The headline band degrades to
+// `inconclusive` whenever reliability is low, so a directional verdict is never asserted on an
+// unreliable input. Consumers must lead with `band`, never the raw `score` (which is audit-only).
+// `inconclusive` is a first-class, common answer.
 
 export type LikelihoodBand = "unlikely" | "mixed" | "likely" | "inconclusive";
 export const LIKELIHOOD_BANDS: readonly LikelihoodBand[] = [
@@ -29,8 +31,8 @@ export const CAVEATS: readonly Caveat[] = [
 ];
 
 export interface SegmentScore {
-  readonly startChar: number;
-  readonly endChar: number;
+  readonly startCharacter: number;
+  readonly endCharacter: number;
   readonly score: number; // normalized 0..1
   readonly band: LikelihoodBand;
 }
@@ -40,7 +42,7 @@ export interface DetectionProvenance {
   readonly vendorModel?: string;
   readonly vendorVersion?: string;
   readonly detectedAt: string; // ISO 8601, passed in — never Date.now() in the pure core
-  readonly egressedTo?: string; // which external service saw the text (consent provenance)
+  readonly egressedTo: string; // which external service saw the text (consent provenance)
 }
 
 export interface DetectionReport {
@@ -53,10 +55,10 @@ export interface DetectionReport {
 }
 
 export function segmentScore(
-  startChar: number,
-  endChar: number,
+  startCharacter: number,
+  endCharacter: number,
   score: number,
   band: LikelihoodBand,
 ): SegmentScore {
-  return { startChar, endChar, score, band };
+  return { startCharacter, endCharacter, score, band };
 }

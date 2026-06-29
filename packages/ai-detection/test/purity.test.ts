@@ -2,9 +2,10 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// The core stays pure: every import is a relative path OR one of the allowed workspace TYPE packages.
+// The core stays pure: every import is a relative path OR one of the allowed workspace packages
+// (themselves pure; runtime value imports permitted).
 // No D1, Hono, env, Svelte, network, or vendor SDK ever enters this package.
-const importPattern = /import[^"']*["']([^"']+)["']/g;
+const importPattern = /\b(?:import|from)\b\s*["']([^"']+)["']/g;
 const allowedPackages = new Set([
   "@magna-carta/integrations/dispatch",
   "@magna-carta/integrations/problem",

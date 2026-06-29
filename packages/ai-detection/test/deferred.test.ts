@@ -12,9 +12,9 @@ describe("deferred ai-detection adapter", () => {
     expect(deferredAiDetectionAdapter.descriptor.operations.detect?.supported).toBe(false);
   });
 
-  it("detect returns not-connected and never throws", async () => {
+  it("detect returns capability-unsupported and never throws", async () => {
     const port = deferredAiDetectionAdapter.create({});
     const result = await port.detect(INPUT);
-    expect(result).toEqual({ ok: false, reason: "not-connected" });
+    expect(result).toEqual({ ok: false, reason: "capability-unsupported" });
   });
 });

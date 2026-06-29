@@ -14,8 +14,8 @@ export interface DetectionInput {
 // A vendor adapter's normalized-but-unframed output. The agnostic normalizer turns this into a
 // DetectionReport; the framing (band/reliability/caveats) is OURS, not the vendor's.
 export interface RawSegment {
-  readonly startChar: number;
-  readonly endChar: number;
+  readonly startCharacter: number;
+  readonly endCharacter: number;
   readonly score: number; // 0..1
 }
 
