@@ -116,24 +116,34 @@ The SPA is a skeleton (one layout, one page, one lib file); only `health.ts` tou
 
 ## Operational plan
 
-**Now (this change):** write the convention and ADR; add a changelog fragment; build the shared
-client transport seam; add the slow-network / transfer-weight harness profile; fold in the
-`zipEntriesFromR2` extraction with green tests; record the backlog below; add the conventions README
-row; add the active-work note.
+**Now (this change):** write the convention and ADR; add a changelog fragment; add the slow-network
+measurement _rule_ to `performance.md`; fold in the `zipEntriesFromR2` extraction with green tests;
+record the backlog below; add the conventions README row; add the active-work note.
 
-**Forward (designed-in, built when the area opens):** per-route budget gate goes enforcing once the
-baseline is measured; upload/download client UX surfaces progress, pause, and resume; client-portal
-lite-mode; inline-ZIP constrained-network tuning; Range-serve helper extraction at the second
-consumer.
+The shared client transport seam (commitment 3) and the harness transfer-weight measurement
+(commitment 2) are **decided here as required seams** but **built when the first real consumer
+exists**. The SPA is a one-page skeleton whose only `fetch` is a liveness ping; there is no
+data-fetch consumer to route through a transport seam and no multi-route bundle to baseline, so
+building either now would be speculative machinery (golden rule 10; `performance.md`'s "gates land
+with the code to measure"). Deciding them now is what makes them cheap to honour when the area opens.
+
+**Forward (designed-in, built when the area opens):** the shared client transport seam lands with the
+first data-fetch consumer; the harness transfer-weight profile lands with the first real SPA routes;
+the per-route budget gate goes enforcing once that baseline is measured; upload/download client UX
+surfaces progress, pause, and resume; client-portal lite-mode; inline-ZIP constrained-network tuning;
+Range-serve helper extraction at the second byte-serving consumer.
 
 ## Migration backlog (tracked)
 
-1. Inline-ZIP (`routes/downloads.ts`): constrained-network threshold / async-route tuning.
-2. Range-serve helper: extract from `files/preview-serve.ts` at the second byte-serving consumer.
-3. SPA: per-route transfer-weight measurement → set initial budgets → enforce the fitness-function
+1. Shared client transport seam (timeout / backoff / retry / stale-cache): build with the first
+   data-fetch consumer; route call sites through it.
+2. Harness transfer-weight profile: add to the load-profile harness with the first real SPA routes.
+3. Per-route transfer budget: set initial budgets from that baseline → enforce the fitness-function
    gate.
-4. Upload/download client UX: surface progress, pause, resume, ETA.
-5. Client portal: lite-mode bundle + resumable delivery at build time.
+4. Inline-ZIP (`routes/downloads.ts`): constrained-network threshold / async-route tuning.
+5. Range-serve helper: extract from `files/preview-serve.ts` at the second byte-serving consumer.
+6. Upload/download client UX: surface progress, pause, resume, ETA.
+7. Client portal: lite-mode bundle + resumable delivery at build time.
 
 ## Scope guard
 
