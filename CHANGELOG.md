@@ -210,6 +210,20 @@ require an administrator's co-sign). The firm's owners are notified of every ses
 at any time; every request, grant, and redemption is recorded in a firm-visible audit trail attributed
 to the named staff member. The firm's encryption key is never handed out — decryption stays on our
 servers and a session simply stops working the moment its grant expires or is revoked.
+- AI-Text Detection (Tools) — a vendor-agnostic core that estimates the likelihood a document was machine-generated, presented as a calibrated signal with explicit reliability caveats, never a definitive verdict. Built on the integration ports-and-adapters framework with a deferred adapter; a concrete detection vendor is wired in a follow-on.
+- **Engine-host harness** — a shared `magna-carta-engine-host` crate giving the pure-Rust document engines one runtime seam (magic-byte format detection, the wasm32 JS-marshalling edge, and the axum container skeleton) instead of re-implementing it per engine.
+- **File Type Verifier tool.** Identify a file's true content type, flag when its extension lies about the
+content, and recommend the correct extension when it is missing or wrong. Powered by Google Magika,
+running as an identification capability of the untrusted-byte scan subsystem. Detection runs in the
+sealed scan Container (no network egress); verdict assembly (`match` / `mismatch` / `no-extension` /
+`unverifiable`) and extension-mismatch reporting are handled by `@magna-carta/file-type` in the app
+Worker.
+- PDF assembly — combine, split, rotate, and watermark. The PDF engine can now merge several
+PDFs into one (carrying their bookmarks, form fields, and named links across), split a PDF
+into separate documents by page range, rotate pages, and stamp a watermark — diagonal text
+such as "CONFIDENTIAL" or an image/logo — across every page. Watermarking and rotation are
+additive and reversible: they draw on top and remove nothing. Everything runs on the device.
+The assembly tools surface in a later release.
 
 ### Fixed
 

@@ -1,8 +1,9 @@
 ---
+number: 161
 slug: engine-host-harness
 status: Accepted
-area: Architecture / Rust document engines
 date: 2026-06-28
+area: Architecture / Rust document engines
 summary: Extract the shared runtime seam (wasm32 JS edge, axum container skeleton, magic-byte Format detection, pure-Rust feature discipline) from the pure-Rust document engines into a magna-carta-engine-host crate; the hosting pattern is shared, the deep format logic stays per-engine; detection/ML containers may adopt the container half but are not dual-target; engines are retrofitted incrementally behind green tests after the harness is proven on the File Repair & Salvage tool.
 ---
 

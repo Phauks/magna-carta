@@ -1,8 +1,9 @@
 ---
+number: 160
 slug: file-type-verifier
 status: Accepted
-area: Tools / Scan
 date: 2026-06-28
+area: Tools / Scan
 summary: The File Type Verifier identifies a file's true content type by running the Magika ML engine in the sealed scan Container, returning raw identification facts; the app Worker assembles the extension-match verdict and recommendation via `@magna-carta/file-type`. Key decisions: Magika over a signature table or `file-type` (text/source coverage); co-located in the scan subsystem (shared containment and deployment cadence); raw-facts-in-Container / verdict-in-app split; probabilistic-with-confidence framing; `ort`/ONNX Runtime (C++) accepted as a contained golden-rule-14 exception.
 ---
 
