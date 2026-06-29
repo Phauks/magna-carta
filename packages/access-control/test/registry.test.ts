@@ -102,6 +102,7 @@ describe("permission registry", () => {
       "tools:whois",
       "tools:safeBrowse",
       "tools:fileConverter",
+      "tools:aiTextDetection",
       "tools:metadataScrubber",
       "tools:fileIntegrity",
     ]);
@@ -189,5 +190,9 @@ describe("permission registry", () => {
     expect(isPermission("support:manage")).toBe(true);
     expect(isPermission("support:mintSession")).toBe(true);
     expect(isPermission("diagnostics:overview")).toBe(true);
+  });
+
+  it("registers the AI-text detection tool permission", () => {
+    expect(isPermission("tools:aiTextDetection")).toBe(true);
   });
 });

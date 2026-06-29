@@ -126,4 +126,14 @@ export const CATALOG: readonly ToolManifest[] = [
     backing: { kind: "library" },
     matterContext: "none",
   },
+  {
+    id: "ai-text-detection",
+    name: "AI-Text Detection",
+    icon: "scan-text",
+    subjectGroup: "documents",
+    permission: assertPermission("tools:aiTextDetection"),
+    contextTags: ["none"],
+    backing: { kind: "integration", category: "ai-detection" },
+    matterContext: "optional",
+  },
 ];
