@@ -10,6 +10,8 @@ use std::collections::BTreeSet;
 /// What an assembly operation can fail at. No logging here — the caller owns that.
 #[derive(Debug, PartialEq, Eq)]
 pub enum GenerateError {
+    /// Input rejected by the decompression-bomb guard (oversize or a bomb).
+    Rejected,
     /// The bytes are not a parseable PDF.
     Parse,
     /// The document has no pages.
@@ -71,6 +73,8 @@ pub fn rotate(
     rotation: Rotation,
     pages: &PageSelection,
 ) -> Result<Vec<u8>, GenerateError> {
+    crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
+        .map_err(|_| GenerateError::Rejected)?;
     let mut doc = Document::load_mem(bytes).map_err(|_| GenerateError::Parse)?;
     let ids = page_ids(&doc);
     if ids.is_empty() {
@@ -153,6 +157,8 @@ fn catalog_and_pages_root(doc: &Document) -> Result<(ObjectId, ObjectId), Genera
 /// the structure tree, …) are dropped — a subset cannot preserve them. An inverted or
 /// out-of-range range is [`GenerateError::PageOutOfRange`].
 pub fn split(bytes: &[u8], ranges: &[PageRange]) -> Result<Vec<Vec<u8>>, GenerateError> {
+    crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
+        .map_err(|_| GenerateError::Rejected)?;
     let source = Document::load_mem(bytes).map_err(|_| GenerateError::Parse)?;
     let total = page_ids(&source).len();
     if total == 0 {
@@ -218,6 +224,10 @@ pub fn split(bytes: &[u8], ranges: &[PageRange]) -> Result<Vec<Vec<u8>>, Generat
 /// destinations are folded in too (see the interactive-merge step). An empty list is
 /// [`GenerateError::EmptyInput`]; inputs with no pages at all is [`GenerateError::NoPages`].
 pub fn merge(documents: &[&[u8]]) -> Result<Vec<u8>, GenerateError> {
+    for doc in documents {
+        crate::guard::guard_input(doc, &crate::guard::GuardLimits::default())
+            .map_err(|_| GenerateError::Rejected)?;
+    }
     if documents.is_empty() {
         return Err(GenerateError::EmptyInput);
     }
@@ -1051,6 +1061,17 @@ mod tests {
         let mut sorted = names.clone();
         sorted.sort();
         assert_eq!(names, sorted);
+    }
+
+    #[test]
+    fn generate_ops_reject_oversize_input() {
+        let big = vec![0u8; crate::guard::GuardLimits::default().max_input_bytes + 1];
+        assert_eq!(split(&big, &[]), Err(GenerateError::Rejected));
+        assert_eq!(
+            rotate(&big, Rotation::Cw90, &PageSelection::All),
+            Err(GenerateError::Rejected)
+        );
+        assert_eq!(merge(&[&big]), Err(GenerateError::Rejected));
     }
 
     #[test]

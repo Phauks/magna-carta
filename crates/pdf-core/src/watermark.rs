@@ -40,6 +40,8 @@ pub enum WatermarkPlacement {
 
 /// Stamp a watermark onto every page, returning the new document bytes.
 pub fn watermark(bytes: &[u8], opts: &WatermarkOptions) -> Result<Vec<u8>, GenerateError> {
+    crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
+        .map_err(|_| GenerateError::Rejected)?;
     let mut doc = Document::load_mem(bytes).map_err(|_| GenerateError::Parse)?;
     let pages: Vec<ObjectId> = doc.get_pages().into_values().collect();
     if pages.is_empty() {
@@ -651,6 +653,14 @@ mod tests {
         assert_eq!(super::jpeg_components(&rgb), Some(3));
         assert_eq!(super::jpeg_components(&cmyk), Some(4));
         assert_eq!(super::jpeg_components(b"not a jpeg"), None);
+    }
+
+    #[test]
+    fn watermark_rejects_oversize_input() {
+        let big = vec![0u8; crate::guard::GuardLimits::default().max_input_bytes + 1];
+        // `text_opts(..)` is the existing WatermarkOptions test helper in this module.
+        let opts = text_opts("x", WatermarkPlacement::Center);
+        assert_eq!(watermark(&big, &opts), Err(crate::GenerateError::Rejected));
     }
 
     #[test]

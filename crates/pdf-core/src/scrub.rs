@@ -42,6 +42,8 @@ impl Default for ScrubOptions {
 /// survived verification — no PDF is emitted.
 #[derive(Debug)]
 pub enum ScrubError {
+    /// Input rejected by the decompression-bomb guard (oversize or a bomb).
+    Rejected,
     Parse,
     Reassemble,
     GateFailed { detail: String },
@@ -320,6 +322,8 @@ pub(crate) fn verify_scrub_absence(doc: &Document, opts: &ScrubOptions) -> Resul
 /// objects, verify their structural absence, and re-serialize. Standalone — no
 /// page redaction. Returns `GateFailed` (emitting nothing) if a surface survives.
 pub fn sanitize(bytes: Vec<u8>, opts: &ScrubOptions) -> Result<Vec<u8>, ScrubError> {
+    crate::guard::guard_input(&bytes, &crate::guard::GuardLimits::default())
+        .map_err(|_| ScrubError::Rejected)?;
     let mut doc = Document::load_mem(&bytes).map_err(|_| ScrubError::Parse)?;
     sanitize_document(&mut doc, opts)?;
     doc.prune_objects();
@@ -587,6 +591,15 @@ mod tests {
             .unwrap();
         assert_eq!(annots.len(), 1);
         assert_eq!(annots[0].as_reference().unwrap(), text_annot_id);
+    }
+
+    #[test]
+    fn sanitize_rejects_oversize_input() {
+        let big = vec![0u8; crate::guard::GuardLimits::default().max_input_bytes + 1];
+        assert!(matches!(
+            sanitize(big, &ScrubOptions::default()),
+            Err(ScrubError::Rejected)
+        ));
     }
 
     #[test]
