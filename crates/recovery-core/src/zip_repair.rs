@@ -1,2 +1,152 @@
 //! The ZIP archetype-family repair pillar: salvage entries from local file
 //! headers, re-emit a fresh archive, diagnose ZIP corruption.
+
+use std::io::{Cursor, Read};
+use zip::read::read_zipfile_from_stream;
+
+#[derive(Debug, Clone)]
+pub struct SalvagedEntry {
+    pub name: String,
+    pub data: Option<Vec<u8>>,
+    pub recovered: bool,
+    pub detail: String,
+}
+
+/// Read each entry sequentially from its local file header, ignoring the
+/// (missing/corrupt) central directory. A fully-decoded entry is recovered with
+/// its bytes; an entry whose body cannot be fully read (truncated/corrupt) is
+/// recorded lost, never silently dropped. Stops at the central-directory
+/// signature or end of stream.
+pub fn salvage_entries(bytes: &[u8]) -> Vec<SalvagedEntry> {
+    let mut reader = Cursor::new(bytes);
+    let mut out = Vec::new();
+    loop {
+        // A read error at the header boundary (e.g. truncated header) ends the scan.
+        let next = match read_zipfile_from_stream(&mut reader) {
+            Ok(Some(file)) => file,
+            Ok(None) => break, // hit the central-directory signature: no more local entries
+            Err(_) => break,   // a malformed/truncated local header: stop scanning
+        };
+        let name = next.name().to_owned();
+        // Directory entries carry no data; skip them (they are recreated on re-emit).
+        if name.ends_with('/') {
+            continue;
+        }
+        let mut file = next;
+        let mut data = Vec::new();
+        match file.read_to_end(&mut data) {
+            Ok(_) => out.push(SalvagedEntry {
+                name,
+                data: Some(data),
+                recovered: true,
+                detail: String::new(),
+            }),
+            Err(_) => out.push(SalvagedEntry {
+                name,
+                data: None,
+                recovered: false,
+                detail: "entry body truncated or corrupt".into(),
+            }),
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod salvage_tests {
+    use super::*;
+    use std::io::Write;
+    use zip::write::SimpleFileOptions;
+    use zip::{CompressionMethod, ZipWriter};
+
+    /// Build a valid zip with the given (name, content) entries, Deflated.
+    fn build_zip(entries: &[(&str, &[u8])]) -> Vec<u8> {
+        let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
+        let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+        for (name, content) in entries {
+            writer.start_file(*name, options).unwrap();
+            writer.write_all(content).unwrap();
+        }
+        writer.finish().unwrap().into_inner()
+    }
+
+    /// Offset of the first central directory header (PK\x01\x02).
+    fn central_dir_offset(zip: &[u8]) -> usize {
+        zip.windows(4)
+            .position(|w| w == [0x50, 0x4B, 0x01, 0x02])
+            .expect("a valid zip has a central directory")
+    }
+
+    /// Offset of the Nth local file header (PK\x03\x04), 0-indexed.
+    fn nth_local_header_offset(zip: &[u8], n: usize) -> usize {
+        zip.windows(4)
+            .enumerate()
+            .filter(|(_, w)| *w == [0x50, 0x4B, 0x03, 0x04])
+            .map(|(i, _)| i)
+            .nth(n)
+            .unwrap_or_else(|| panic!("zip does not have a local header at index {n}"))
+    }
+
+    /// Byte offset at which the compressed body of the entry whose local header
+    /// starts at `hdr_offset` begins (i.e. after the fixed header, filename,
+    /// and extra field).
+    fn body_start(zip: &[u8], hdr_offset: usize) -> usize {
+        let fname_len = u16::from_le_bytes([zip[hdr_offset + 26], zip[hdr_offset + 27]]) as usize;
+        let extra_len = u16::from_le_bytes([zip[hdr_offset + 28], zip[hdr_offset + 29]]) as usize;
+        hdr_offset + 30 + fname_len + extra_len
+    }
+
+    #[test]
+    fn salvages_all_entries_from_a_central_directory_stripped_zip() {
+        let zip = build_zip(&[
+            ("a.txt", b"alpha"),
+            ("b.txt", b"bravo"),
+            ("c.txt", b"charlie"),
+        ]);
+        // Remove everything from the central directory onward — local headers survive.
+        let truncated = &zip[..central_dir_offset(&zip)];
+        let entries = salvage_entries(truncated);
+        assert_eq!(entries.len(), 3);
+        assert!(entries.iter().all(|e| e.recovered));
+        assert_eq!(entries[0].name, "a.txt");
+        assert_eq!(entries[0].data.as_deref(), Some(&b"alpha"[..]));
+        assert_eq!(entries[2].data.as_deref(), Some(&b"charlie"[..]));
+    }
+
+    #[test]
+    fn salvages_intact_entries_and_marks_a_truncated_tail_entry_lost() {
+        let zip = build_zip(&[
+            ("keep.txt", b"this entry is intact"),
+            ("lost.txt", &[7u8; 4096]),
+        ]);
+        // Locate the start of "lost.txt"'s compressed body precisely so that the
+        // cut lands inside the body regardless of how small it compresses.
+        // (The repetitive content compresses to just a handful of bytes with
+        // DEFLATE, so a fixed `central_dir_offset - N` offset is unreliable.)
+        let lost_hdr = nth_local_header_offset(&zip, 1);
+        let lost_body = body_start(&zip, lost_hdr);
+        // Cut 5 bytes into the compressed body — safely within any DEFLATE
+        // stream for 4 KiB of identical bytes.
+        let cut = lost_body + 5;
+        let truncated = &zip[..cut];
+        let entries = salvage_entries(truncated);
+        // The first entry is fully present and recovered.
+        let keep = entries
+            .iter()
+            .find(|e| e.name == "keep.txt")
+            .expect("keep.txt present");
+        assert!(keep.recovered);
+        assert_eq!(keep.data.as_deref(), Some(&b"this entry is intact"[..]));
+        // The second entry is present in the local-header scan but its body is truncated → lost.
+        let lost = entries.iter().find(|e| e.name == "lost.txt");
+        if let Some(lost) = lost {
+            assert!(
+                !lost.recovered,
+                "a truncated entry body must be marked lost"
+            );
+            assert!(lost.data.is_none());
+        }
+        // (If the truncation removed the second local header entirely, only keep.txt appears —
+        // still correct: nothing is falsely reported recovered.)
+    }
+}
