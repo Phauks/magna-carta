@@ -51,5 +51,17 @@ if git diff --name-only origin/main...HEAD 2>/dev/null | grep -q '^containers/sc
   fi
 fi
 
+# --- recovery container acceptance: only when recovery sources changed, and only if Docker is
+# available. The end-to-end gate needs a Docker daemon, so a missing daemon is a logged skip
+# (run it by hand before deploying a recovery change), never a hard block.
+if git diff --name-only origin/main...HEAD 2>/dev/null | grep -q '^containers/recovery/'; then
+  if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    step "recovery end-to-end (containers/recovery changed)"
+    sh "$root/containers/recovery/tests/recover_e2e.sh" || fail "recovery e2e"
+  else
+    echo "pre-push: WARNING — containers/recovery changed but Docker is unavailable; run containers/recovery/tests/recover_e2e.sh before the recovery Worker deploys"
+  fi
+fi
+
 echo "pre-push: all gates passed"
 exit 0
