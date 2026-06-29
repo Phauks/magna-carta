@@ -7,19 +7,8 @@ use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
 
 use crate::error::RepairError;
+use crate::limits::{MAX_ENTRY_COUNT, MAX_ENTRY_UNCOMPRESSED_BYTES, MAX_TOTAL_UNCOMPRESSED_BYTES};
 use crate::model::{CorruptionKind, LossManifest, Recoverability, RecoveredItem, RepairResult};
-
-/// Maximum uncompressed size for a single salvaged entry. Entries whose
-/// decompressed payload exceeds this are recorded as lost rather than loaded
-/// into memory, guarding against decompression-bomb exploits.
-const MAX_ENTRY_UNCOMPRESSED_BYTES: u64 = 512 * 1024 * 1024; // 512 MiB
-
-/// Maximum total uncompressed bytes across all recovered entries in a single
-/// salvage run. Once this ceiling is hit the scan stops inflating further.
-const MAX_TOTAL_UNCOMPRESSED_BYTES: u64 = 2 * 1024 * 1024 * 1024; // 2 GiB
-
-/// Maximum number of entries to scan per archive, regardless of size.
-const MAX_ENTRY_COUNT: usize = 100_000;
 
 #[derive(Debug, Clone)]
 pub struct SalvagedEntry {

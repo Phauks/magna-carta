@@ -20,3 +20,7 @@ zip = { version = "8.6", default-features = false, features = ["deflate-flate2"]
 # The DEFLATE backend zip's `deflate-flate2` selects — declared directly to pin the pure-Rust
 # miniz_oxide backend (never a C zlib backend).
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+# Read/write CFB (OLE2 compound files) — the container behind legacy .doc/.xls/.ppt, .msg, MSI.
+# Pure Rust; open() reads damaged files best-effort (validates header/FAT/directory, reads stream
+# sectors lazily) so a truncated file's intact streams are still recoverable.
+cfb = "0.14"
