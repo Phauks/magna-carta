@@ -24,6 +24,11 @@ pnpm run lint:process-refs || fail "lint:process-refs"
 step "governance — dependency license allowlist"
 pnpm run lint:licenses || fail "lint:licenses"
 
+# Runs first and fast (node:sqlite, no Miniflare) so migration corruption fail-fasts before the heavy
+# suite — and stays a reliable guard even on a host where the full Miniflare run is memory-starved.
+step "migration integrity (journal/chain/rebuild guards)"
+pnpm --filter @magna-carta/database exec vp test run test/migration-integrity.test.ts || fail "migration integrity"
+
 step "tests (Miniflare worker integration)"
 vp test || fail "vp test"
 
