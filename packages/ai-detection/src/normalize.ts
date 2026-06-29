@@ -30,7 +30,8 @@ export function caveatsFor(input: DetectionInput, raw: RawDetection): Caveat[] {
   if (raw.vendorConfidence !== undefined && raw.vendorConfidence <= LOW_VENDOR_CONFIDENCE_MAX) {
     caveats.push("low-vendor-confidence");
   }
-  if (raw.signals?.paraphraseSuspected === true) caveats.push("possible-paraphrase-or-humanization");
+  if (raw.signals?.paraphraseSuspected === true)
+    caveats.push("possible-paraphrase-or-humanization");
   if (raw.signals?.mixedAuthorship === true) caveats.push("mixed-or-edited-authorship");
   return caveats;
 }

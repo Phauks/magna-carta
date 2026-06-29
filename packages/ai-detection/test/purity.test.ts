@@ -40,7 +40,9 @@ describe("purity (fitness)", () => {
       for (const specifier of importSpecifiers(file)) {
         const isRelative = specifier.startsWith("./") || specifier.startsWith("../");
         const allowed = isRelative || allowedPackages.has(specifier);
-        expect(allowed, `${normalizedFile} imports disallowed specifier: "${specifier}"`).toBe(true);
+        expect(allowed, `${normalizedFile} imports disallowed specifier: "${specifier}"`).toBe(
+          true,
+        );
       }
     }
   });

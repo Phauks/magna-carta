@@ -24,6 +24,7 @@
 ### Task 1: Scaffold the package + the `DetectionReport` model + purity fitness
 
 **Files:**
+
 - Create: `packages/ai-detection/package.json`
 - Create: `packages/ai-detection/tsconfig.json`
 - Create: `packages/ai-detection/vitest.config.ts`
@@ -32,6 +33,7 @@
 - Test: `packages/ai-detection/test/purity.test.ts`
 
 **Interfaces:**
+
 - Produces: `LikelihoodBand`, `Reliability`, `Caveat` (string-literal unions); `SegmentScore` `{ startChar:number; endChar:number; score:number; band:LikelihoodBand }`; `DetectionReport` (see Step 3); `LIKELIHOOD_BANDS` / `CAVEATS` readonly arrays; `segmentScore(startChar, endChar, score, band): SegmentScore`.
 
 - [ ] **Step 1: Write the failing test for the report model**
@@ -251,7 +253,9 @@ describe("purity (fitness)", () => {
       for (const specifier of importSpecifiers(file)) {
         const isRelative = specifier.startsWith("./") || specifier.startsWith("../");
         const allowed = isRelative || allowedPackages.has(specifier);
-        expect(allowed, `${normalizedFile} imports disallowed specifier: "${specifier}"`).toBe(true);
+        expect(allowed, `${normalizedFile} imports disallowed specifier: "${specifier}"`).toBe(
+          true,
+        );
       }
     }
   });
@@ -275,11 +279,13 @@ git commit -m "feat(ai-detection): scaffold package + DetectionReport model + pu
 ### Task 2: The port, input, raw-vendor, and consent types
 
 **Files:**
+
 - Create: `packages/ai-detection/src/port.ts`
 - Create: `packages/ai-detection/src/consent.ts`
 - Test: `packages/ai-detection/test/consent.test.ts`
 
 **Interfaces:**
+
 - Consumes: `DetectionReport`, `SegmentScore` from `./report.ts`; `Dispatch` from `@magna-carta/integrations/dispatch`; `FirmId` from `@magna-carta/identifiers/types`.
 - Produces:
   - `DetectionInput` `{ text:string; languageHint?:string; firmId:FirmId }`
@@ -391,10 +397,12 @@ git commit -m "feat(ai-detection): add AiTextDetectionPort, raw-vendor types, an
 ### Task 3: The vendor-agnostic normalizer (the high-value core)
 
 **Files:**
+
 - Create: `packages/ai-detection/src/normalize.ts`
 - Test: `packages/ai-detection/test/normalize.test.ts`
 
 **Interfaces:**
+
 - Consumes: `DetectionReport`, `LikelihoodBand`, `Reliability`, `Caveat`, `segmentScore` from `./report.ts`; `DetectionInput`, `RawDetection` from `./port.ts`.
 - Produces:
   - `MIN_RELIABLE_CHARS = 280`, `UNLIKELY_MAX = 0.2`, `LIKELY_MIN = 0.8`, `LOW_VENDOR_CONFIDENCE_MAX = 0.5`
@@ -443,13 +451,18 @@ describe("caveatsFor", () => {
     expect(caveatsFor(input({ languageHint: "fr-FR" }), raw())).toContain("non-target-language");
   });
   it("accepts English language hints without the language caveat", () => {
-    expect(caveatsFor(input({ languageHint: "en-US" }), raw())).not.toContain("non-target-language");
+    expect(caveatsFor(input({ languageHint: "en-US" }), raw())).not.toContain(
+      "non-target-language",
+    );
   });
   it("flags low vendor confidence", () => {
     expect(caveatsFor(input(), raw({ vendorConfidence: 0.3 }))).toContain("low-vendor-confidence");
   });
   it("flags suspected paraphrase and mixed authorship from vendor signals", () => {
-    const result = caveatsFor(input(), raw({ signals: { paraphraseSuspected: true, mixedAuthorship: true } }));
+    const result = caveatsFor(
+      input(),
+      raw({ signals: { paraphraseSuspected: true, mixedAuthorship: true } }),
+    );
     expect(result).toContain("possible-paraphrase-or-humanization");
     expect(result).toContain("mixed-or-edited-authorship");
   });
@@ -502,7 +515,10 @@ describe("normalize", () => {
   });
 
   it("records the external service that saw the text", () => {
-    const report = normalize(input({ languageHint: "en" }), raw(), { ...META, egressedTo: "example-vendor" });
+    const report = normalize(input({ languageHint: "en" }), raw(), {
+      ...META,
+      egressedTo: "example-vendor",
+    });
     expect(report.provenance.egressedTo).toBe("example-vendor");
   });
 });
@@ -550,7 +566,8 @@ export function caveatsFor(input: DetectionInput, raw: RawDetection): Caveat[] {
   if (raw.vendorConfidence !== undefined && raw.vendorConfidence <= LOW_VENDOR_CONFIDENCE_MAX) {
     caveats.push("low-vendor-confidence");
   }
-  if (raw.signals?.paraphraseSuspected === true) caveats.push("possible-paraphrase-or-humanization");
+  if (raw.signals?.paraphraseSuspected === true)
+    caveats.push("possible-paraphrase-or-humanization");
   if (raw.signals?.mixedAuthorship === true) caveats.push("mixed-or-edited-authorship");
   return caveats;
 }
@@ -617,12 +634,14 @@ git commit -m "feat(ai-detection): vendor-agnostic normalizer (band/caveats/reli
 ### Task 4: The `ai-detection` category manifest + deferred adapter
 
 **Files:**
+
 - Create: `packages/ai-detection/src/manifest.ts`
 - Create: `packages/ai-detection/src/adapters/deferred.ts`
 - Test: `packages/ai-detection/test/manifest.test.ts`
 - Test: `packages/ai-detection/test/deferred.test.ts`
 
 **Interfaces:**
+
 - Consumes: `CapabilityDescriptor`, `Adapter`, `AdapterContext` from `@magna-carta/integrations/port`; `IntegrationManifest`, `isWellFormedManifest` from `@magna-carta/integrations/manifest`; `notConnected` + `Dispatch` from `@magna-carta/integrations/dispatch`; `AiTextDetectionPort` from `../port.ts` (deferred adapter).
 - Produces:
   - `AI_DETECTION_CATEGORY = "ai-detection"`
@@ -662,7 +681,10 @@ import { describe, expect, it } from "vitest";
 import type { DetectionInput } from "../src/port.ts";
 import { deferredAiDetectionAdapter } from "../src/adapters/deferred.ts";
 
-const INPUT: DetectionInput = { text: "a".repeat(400), firmId: "firm_test" as DetectionInput["firmId"] };
+const INPUT: DetectionInput = {
+  text: "a".repeat(400),
+  firmId: "firm_test" as DetectionInput["firmId"],
+};
 
 describe("deferred ai-detection adapter", () => {
   it("declares no supported operations", () => {
@@ -763,12 +785,14 @@ git commit -m "feat(ai-detection): register ai-detection category + deferred ada
 ### Task 5: Register the permission + add the Tools catalog row
 
 **Files:**
+
 - Modify: `packages/access-control/src/registry.ts` (the `PERMISSIONS` array, after `"tools:fileConverter"`)
 - Modify: `packages/tools/src/catalog.ts` (append a manifest row)
 - Test: `packages/access-control/test/registry.test.ts` (add a case) — verify path first; if absent, add a focused test file `packages/access-control/test/registry.test.ts`
 - Test: `packages/tools/test/catalog.test.ts` (add a case)
 
 **Interfaces:**
+
 - Consumes: `assertPermission` (already imported in `catalog.ts`); the `ToolManifest` shape from `packages/tools/src/types.ts` (`subjectGroup: "documents"` and `contextTags: ["none"]` already exist in the unions — no `types.ts` change needed).
 - Produces: permission key `"tools:aiTextDetection"`; catalog row `id: "ai-text-detection"`.
 

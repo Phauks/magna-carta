@@ -39,13 +39,18 @@ describe("caveatsFor", () => {
     expect(caveatsFor(input({ languageHint: "fr-FR" }), raw())).toContain("non-target-language");
   });
   it("accepts English language hints without the language caveat", () => {
-    expect(caveatsFor(input({ languageHint: "en-US" }), raw())).not.toContain("non-target-language");
+    expect(caveatsFor(input({ languageHint: "en-US" }), raw())).not.toContain(
+      "non-target-language",
+    );
   });
   it("flags low vendor confidence", () => {
     expect(caveatsFor(input(), raw({ vendorConfidence: 0.3 }))).toContain("low-vendor-confidence");
   });
   it("flags suspected paraphrase and mixed authorship from vendor signals", () => {
-    const result = caveatsFor(input(), raw({ signals: { paraphraseSuspected: true, mixedAuthorship: true } }));
+    const result = caveatsFor(
+      input(),
+      raw({ signals: { paraphraseSuspected: true, mixedAuthorship: true } }),
+    );
     expect(result).toContain("possible-paraphrase-or-humanization");
     expect(result).toContain("mixed-or-edited-authorship");
   });
@@ -98,7 +103,10 @@ describe("normalize", () => {
   });
 
   it("records the external service that saw the text", () => {
-    const report = normalize(input({ languageHint: "en" }), raw(), { ...META, egressedTo: "example-vendor" });
+    const report = normalize(input({ languageHint: "en" }), raw(), {
+      ...META,
+      egressedTo: "example-vendor",
+    });
     expect(report.provenance.egressedTo).toBe("example-vendor");
   });
 
