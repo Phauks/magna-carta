@@ -9,6 +9,18 @@ use zip::{CompressionMethod, ZipWriter};
 use crate::error::RepairError;
 use crate::model::{CorruptionKind, LossManifest, Recoverability, RecoveredItem, RepairResult};
 
+/// Maximum uncompressed size for a single salvaged entry. Entries whose
+/// decompressed payload exceeds this are recorded as lost rather than loaded
+/// into memory, guarding against decompression-bomb exploits.
+const MAX_ENTRY_UNCOMPRESSED_BYTES: u64 = 512 * 1024 * 1024; // 512 MiB
+
+/// Maximum total uncompressed bytes across all recovered entries in a single
+/// salvage run. Once this ceiling is hit the scan stops inflating further.
+const MAX_TOTAL_UNCOMPRESSED_BYTES: u64 = 2 * 1024 * 1024 * 1024; // 2 GiB
+
+/// Maximum number of entries to scan per archive, regardless of size.
+const MAX_ENTRY_COUNT: usize = 100_000;
+
 #[derive(Debug, Clone)]
 pub struct SalvagedEntry {
     pub name: String,
@@ -22,10 +34,36 @@ pub struct SalvagedEntry {
 /// its bytes; an entry whose body cannot be fully read (truncated/corrupt) is
 /// recorded lost, never silently dropped. Stops at the central-directory
 /// signature or end of stream.
+///
+/// Enforces `MAX_ENTRY_COUNT`, `MAX_ENTRY_UNCOMPRESSED_BYTES`, and
+/// `MAX_TOTAL_UNCOMPRESSED_BYTES` to guard against decompression bombs.
 pub fn salvage_entries(bytes: &[u8]) -> Vec<SalvagedEntry> {
+    salvage_entries_capped(
+        bytes,
+        MAX_ENTRY_UNCOMPRESSED_BYTES,
+        MAX_TOTAL_UNCOMPRESSED_BYTES,
+        MAX_ENTRY_COUNT,
+    )
+}
+
+/// Inner implementation of `salvage_entries` with explicit caps. Used directly
+/// in tests to exercise the cap logic with small synthetic limits.
+fn salvage_entries_capped(
+    bytes: &[u8],
+    max_entry_bytes: u64,
+    max_total_bytes: u64,
+    max_count: usize,
+) -> Vec<SalvagedEntry> {
     let mut reader = Cursor::new(bytes);
     let mut out = Vec::new();
+    let mut total_recovered_bytes: u64 = 0;
+
     loop {
+        // Stop after max_count entries have been seen.
+        if out.len() >= max_count {
+            break;
+        }
+
         // A read error at the header boundary (e.g. truncated header) ends the scan.
         let next = match read_zipfile_from_stream(&mut reader) {
             Ok(Some(file)) => file,
@@ -38,45 +76,100 @@ pub fn salvage_entries(bytes: &[u8]) -> Vec<SalvagedEntry> {
             continue;
         }
         let mut file = next;
+
+        // Read at most max_entry_bytes + 1 decompressed bytes. Reading one byte beyond
+        // the cap detects whether the full entry exceeds it without loading the entire
+        // payload into memory first.
+        let cap: u64 = max_entry_bytes.saturating_add(1);
         let mut data = Vec::new();
-        match file.read_to_end(&mut data) {
-            Ok(_) => out.push(SalvagedEntry {
-                name,
-                data: Some(data),
-                recovered: true,
-                detail: String::new(),
-            }),
-            Err(_) => out.push(SalvagedEntry {
-                name,
-                data: None,
-                recovered: false,
-                detail: "entry body truncated or corrupt".into(),
-            }),
+        let read_result = (&mut file).take(cap).read_to_end(&mut data);
+
+        match read_result {
+            Err(_) => {
+                out.push(SalvagedEntry {
+                    name,
+                    data: None,
+                    recovered: false,
+                    detail: "entry body truncated or corrupt".into(),
+                });
+            }
+            Ok(_) => {
+                if data.len() as u64 > max_entry_bytes {
+                    // Only cap bytes were read; drain the remaining compressed bytes
+                    // so the stream cursor stays aligned with the next local file header.
+                    std::io::copy(&mut file, &mut std::io::sink()).ok();
+                    out.push(SalvagedEntry {
+                        name,
+                        data: None,
+                        recovered: false,
+                        detail: "entry exceeds the per-entry size cap".into(),
+                    });
+                } else {
+                    let entry_bytes = data.len() as u64;
+                    if total_recovered_bytes.saturating_add(entry_bytes) > max_total_bytes {
+                        out.push(SalvagedEntry {
+                            name,
+                            data: None,
+                            recovered: false,
+                            detail: "archive exceeds the total size cap".into(),
+                        });
+                        break; // stop inflating further
+                    }
+                    total_recovered_bytes += entry_bytes;
+                    out.push(SalvagedEntry {
+                        name,
+                        data: Some(data),
+                        recovered: true,
+                        detail: String::new(),
+                    });
+                }
+            }
         }
     }
     out
 }
 
 /// Write a fresh, valid zip (with a correct central directory) from recovered
-/// (name, bytes) pairs. Entries are Deflated. A writer failure → Unrepairable.
-pub fn rebuild_archive(entries: &[(String, Vec<u8>)]) -> Result<Vec<u8>, RepairError> {
+/// (name, bytes) pairs. Entries are Deflated.
+///
+/// Per-entry write failures (from `start_file` or `write_all`) skip the entry
+/// and push its name to the returned `skipped_names` — the loop continues so
+/// remaining entries can still be written. Only `finish()` failing returns
+/// `Err(Unrepairable)`. If every entry was skipped and there were entries to
+/// write, `Err(Unrepairable)` is also returned.
+pub fn rebuild_archive(
+    entries: &[(String, Vec<u8>)],
+) -> Result<(Vec<u8>, Vec<String>), RepairError> {
     let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
     let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+    let mut skipped_names: Vec<String> = Vec::new();
+
     for (name, bytes) in entries {
-        writer
-            .start_file(name, options)
-            .map_err(|_| RepairError::Unrepairable)?;
-        writer
-            .write_all(bytes)
-            .map_err(|_| RepairError::Unrepairable)?;
+        if writer.start_file(name, options).is_err() {
+            skipped_names.push(name.clone());
+            continue;
+        }
+        if writer.write_all(bytes).is_err() {
+            skipped_names.push(name.clone());
+            continue;
+        }
     }
+
+    // All entries were skipped and there were entries to write → nothing to salvage.
+    if !entries.is_empty() && skipped_names.len() == entries.len() {
+        return Err(RepairError::Unrepairable);
+    }
+
     let cursor = writer.finish().map_err(|_| RepairError::Unrepairable)?;
-    Ok(cursor.into_inner())
+    Ok((cursor.into_inner(), skipped_names))
 }
 
 /// Classify a zip's health: a readable central directory means intact; an
 /// unreadable one with recoverable local-header entries is repairable; nothing
 /// recoverable is unrecoverable.
+///
+/// The entry scan is delegated to `salvage_entries`, which enforces
+/// decompression-bomb caps; diagnose inherits those caps.
 pub fn diagnose_zip(bytes: &[u8]) -> (Vec<CorruptionKind>, Recoverability) {
     if ZipArchive::new(Cursor::new(bytes)).is_ok() {
         return (Vec::new(), Recoverability::Intact);
@@ -111,13 +204,33 @@ pub fn repair_zip(bytes: &[u8]) -> Result<RepairResult, RepairError> {
     if recovered.is_empty() {
         return Err(RepairError::Unrepairable);
     }
-    let recovered = if crate::ooxml::is_ooxml(&recovered) {
+
+    // Snapshot names before OPC reconstruction to identify synthesized parts later.
+    let is_ooxml = crate::ooxml::is_ooxml(&recovered);
+    let names_before: std::collections::HashSet<String> =
+        recovered.iter().map(|(n, _)| n.clone()).collect();
+
+    let recovered = if is_ooxml {
         crate::ooxml::reconstruct_opc(recovered)
     } else {
         recovered
     };
-    let bytes_out = rebuild_archive(&recovered)?;
-    let items: Vec<RecoveredItem> = salvaged
+
+    // Synthesized = parts added by OPC reconstruction that were not in the salvage scan.
+    let synthesized: Vec<String> = recovered
+        .iter()
+        .filter_map(|(n, _)| {
+            if names_before.contains(n) {
+                None
+            } else {
+                Some(n.clone())
+            }
+        })
+        .collect();
+
+    let (bytes_out, skipped_names) = rebuild_archive(&recovered)?;
+
+    let mut items: Vec<RecoveredItem> = salvaged
         .iter()
         .map(|e| RecoveredItem {
             name: e.name.clone(),
@@ -125,12 +238,36 @@ pub fn repair_zip(bytes: &[u8]) -> Result<RepairResult, RepairError> {
             detail: e.detail.clone(),
         })
         .collect();
+
+    // Entries skipped during rebuild are recorded as not recovered in the loss manifest.
+    if !skipped_names.is_empty() {
+        let skipped_set: std::collections::HashSet<&str> =
+            skipped_names.iter().map(String::as_str).collect();
+        for item in &mut items {
+            if item.recovered && skipped_set.contains(item.name.as_str()) {
+                item.recovered = false;
+                item.detail = "entry lost during archive rebuild".into();
+            }
+        }
+        // Synthesized parts that were also skipped during rebuild are recorded as lost.
+        for name in &skipped_names {
+            if synthesized.contains(name) {
+                items.push(RecoveredItem {
+                    name: name.clone(),
+                    recovered: false,
+                    detail: "synthesized entry lost during archive rebuild".into(),
+                });
+            }
+        }
+    }
+
     let fully_recovered = items.iter().all(|i| i.recovered);
     Ok(RepairResult {
         salvaged: bytes_out,
         loss: LossManifest {
             items,
             fully_recovered,
+            synthesized,
         },
     })
 }
@@ -243,6 +380,18 @@ mod salvage_tests {
         // (If the truncation removed the second local header entirely, only keep.txt appears —
         // still correct: nothing is falsely reported recovered.)
     }
+
+    #[test]
+    fn per_entry_size_cap_marks_oversized_entry_as_lost() {
+        // Entry content is 10 bytes; cap is 8 bytes → entry must be marked lost.
+        let zip = build_zip(&[("big.txt", b"0123456789")]);
+        let truncated = &zip[..central_dir_offset(&zip)];
+        let entries = salvage_entries_capped(truncated, 8, u64::MAX, usize::MAX);
+        assert_eq!(entries.len(), 1);
+        assert!(!entries[0].recovered, "oversized entry must be marked lost");
+        assert!(entries[0].data.is_none());
+        assert_eq!(entries[0].detail, "entry exceeds the per-entry size cap");
+    }
 }
 
 #[cfg(test)]
@@ -255,7 +404,8 @@ mod rebuild_tests {
             ("a.txt".to_string(), b"alpha".to_vec()),
             ("dir/b.txt".to_string(), b"bravo".to_vec()),
         ];
-        let zip = rebuild_archive(&entries).expect("rebuild");
+        let (zip, skipped) = rebuild_archive(&entries).expect("rebuild");
+        assert!(skipped.is_empty(), "no entries should be skipped");
         // The result must be a valid, central-directory-bearing zip.
         let mut archive = ZipArchive::new(Cursor::new(zip)).expect("valid zip");
         assert_eq!(archive.len(), 2);
@@ -263,6 +413,27 @@ mod rebuild_tests {
         let mut content = String::new();
         std::io::Read::read_to_string(&mut a, &mut content).unwrap();
         assert_eq!(content, "alpha");
+    }
+
+    #[test]
+    fn duplicate_entry_names_do_not_panic_or_cause_total_loss() {
+        // Empirical check: zip 8.6 start_file does not return an error for a
+        // duplicate entry name — both entries are written, the archive is valid,
+        // and skipped_names is empty. This test asserts resilience regardless of
+        // the outcome: no panic and at least unique.txt survives.
+        let entries = vec![
+            ("dupe.txt".to_string(), b"first".to_vec()),
+            ("dupe.txt".to_string(), b"second".to_vec()),
+            ("unique.txt".to_string(), b"unique content".to_vec()),
+        ];
+        let (zip, _skipped) = rebuild_archive(&entries)
+            .expect("rebuild must not fail entirely when unique.txt is present");
+        let mut archive = ZipArchive::new(Cursor::new(zip)).expect("valid zip");
+        // unique.txt must survive regardless of what happened to the duplicate.
+        assert!(
+            archive.by_name("unique.txt").is_ok(),
+            "unique.txt must be in the rebuilt archive"
+        );
     }
 }
 
@@ -282,6 +453,8 @@ mod repair_tests {
         // The loss manifest lists both as recovered, fully_recovered = true.
         assert!(result.loss.fully_recovered);
         assert_eq!(result.loss.items.iter().filter(|i| i.recovered).count(), 2);
+        // A plain zip has no synthesized parts.
+        assert!(result.loss.synthesized.is_empty());
     }
 
     #[test]
@@ -289,6 +462,24 @@ mod repair_tests {
         // Random non-zip bytes routed here directly must not produce a "repaired" empty archive.
         let result = repair_zip(b"\x50\x4b\x03\x04 garbage that is not a real local header body");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn repairing_an_ooxml_missing_content_types_reports_synthesized() {
+        // A package with only word/document.xml — the OPC skeleton is absent.
+        let zip = salvage_tests::build_zip(&[("word/document.xml", b"<w:document/>")]);
+        let truncated = &zip[..salvage_tests::central_dir_offset(&zip)];
+        let result = repair_zip(truncated).expect("repairable");
+        // OPC reconstruction must have synthesized [Content_Types].xml.
+        assert!(
+            result
+                .loss
+                .synthesized
+                .iter()
+                .any(|n| n == "[Content_Types].xml"),
+            "expected [Content_Types].xml in synthesized, got: {:?}",
+            result.loss.synthesized
+        );
     }
 }
 

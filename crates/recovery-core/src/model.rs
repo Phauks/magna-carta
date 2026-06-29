@@ -42,6 +42,11 @@ pub struct RecoveredItem {
 pub struct LossManifest {
     pub items: Vec<RecoveredItem>,
     pub fully_recovered: bool,
+    /// Names of parts that were not present in the salvaged data but were
+    /// synthesized during repair (e.g., OPC skeleton parts regenerated for
+    /// an OOXML package). These parts exist in the output archive but were
+    /// not recovered from the original bytes.
+    pub synthesized: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -91,6 +96,7 @@ mod repair_model_tests {
                 },
             ],
             fully_recovered: false,
+            synthesized: Vec::new(),
         };
         let result = RepairResult {
             salvaged: vec![1, 2, 3],
