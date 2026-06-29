@@ -11,7 +11,7 @@ function input(over: Partial<DetectionInput> = {}): DetectionInput {
 function raw(over: Partial<RawDetection> = {}): RawDetection {
   return { score: 0.9, ...over };
 }
-const META = { adapterId: "deferred", detectedAt: "2026-06-28T00:00:00.000Z" };
+const METADATA = { adapterId: "deferred", detectedAt: "2026-06-28T00:00:00.000Z" };
 
 describe("bandForScore", () => {
   it("maps low scores to unlikely", () => {
@@ -76,7 +76,7 @@ describe("reliabilityFor", () => {
 
 describe("normalize", () => {
   it("produces a full report for clean high-score input", () => {
-    const report = normalize(input({ languageHint: "en" }), raw({ score: 0.92 }), META);
+    const report = normalize(input({ languageHint: "en" }), raw({ score: 0.92 }), METADATA);
     expect(report.band).toBe("likely");
     expect(report.reliability).toBe("high");
     expect(report.caveats).toEqual([]);
@@ -87,7 +87,7 @@ describe("normalize", () => {
 
   it("forces the headline band to inconclusive when reliability is low", () => {
     // A vendor 'likely' verdict on a 9-char snippet must NOT assert a direction.
-    const report = normalize(input({ text: "too short" }), raw({ score: 0.99 }), META);
+    const report = normalize(input({ text: "too short" }), raw({ score: 0.99 }), METADATA);
     expect(report.reliability).toBe("low");
     expect(report.band).toBe("inconclusive");
     expect(report.caveats).toContain("text-too-short");
@@ -97,14 +97,14 @@ describe("normalize", () => {
     const report = normalize(
       input({ languageHint: "en" }),
       raw({ score: 0.5, segments: [{ startChar: 0, endChar: 50, score: 0.95 }] }),
-      META,
+      METADATA,
     );
     expect(report.segments).toEqual([{ startChar: 0, endChar: 50, score: 0.95, band: "likely" }]);
   });
 
   it("records the external service that saw the text", () => {
     const report = normalize(input({ languageHint: "en" }), raw(), {
-      ...META,
+      ...METADATA,
       egressedTo: "example-vendor",
     });
     expect(report.provenance.egressedTo).toBe("example-vendor");
@@ -113,13 +113,13 @@ describe("normalize", () => {
   it("keeps the score-derived band when reliability is only moderate", () => {
     // A non-English hint yields a non-fatal caveat → moderate reliability, which must NOT
     // be forced to inconclusive; the high score still reads as 'likely'.
-    const report = normalize(input({ languageHint: "zh-CN" }), raw({ score: 0.92 }), META);
+    const report = normalize(input({ languageHint: "zh-CN" }), raw({ score: 0.92 }), METADATA);
     expect(report.reliability).toBe("moderate");
     expect(report.band).toBe("likely");
   });
 
   it("omits segments entirely when the raw detection has none", () => {
-    const report = normalize(input({ languageHint: "en" }), raw(), META);
+    const report = normalize(input({ languageHint: "en" }), raw(), METADATA);
     expect(report.segments).toBeUndefined();
   });
 });

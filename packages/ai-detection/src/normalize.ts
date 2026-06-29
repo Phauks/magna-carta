@@ -45,7 +45,7 @@ export function reliabilityFor(caveats: readonly Caveat[]): Reliability {
   return "high";
 }
 
-export interface NormalizeMeta {
+export interface NormalizeMetadata {
   readonly adapterId: string;
   readonly detectedAt: string;
   readonly egressedTo?: string;
@@ -56,7 +56,7 @@ export interface NormalizeMeta {
 export function normalize(
   input: DetectionInput,
   raw: RawDetection,
-  meta: NormalizeMeta,
+  metadata: NormalizeMetadata,
 ): DetectionReport {
   const caveats = caveatsFor(input, raw);
   const reliability = reliabilityFor(caveats);
@@ -71,11 +71,11 @@ export function normalize(
     caveats,
     ...(segments !== undefined ? { segments } : {}),
     provenance: {
-      adapterId: meta.adapterId,
+      adapterId: metadata.adapterId,
       ...(raw.vendorModel !== undefined ? { vendorModel: raw.vendorModel } : {}),
       ...(raw.vendorVersion !== undefined ? { vendorVersion: raw.vendorVersion } : {}),
-      detectedAt: meta.detectedAt,
-      ...(meta.egressedTo !== undefined ? { egressedTo: meta.egressedTo } : {}),
+      detectedAt: metadata.detectedAt,
+      ...(metadata.egressedTo !== undefined ? { egressedTo: metadata.egressedTo } : {}),
     },
   };
 }
