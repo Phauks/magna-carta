@@ -1,7 +1,7 @@
 //! The diagnose dispatch framework (format -> diagnosis).
 
 use crate::model::{CorruptionKind, DiagnosisReport, Recoverability};
-use engine_host::format::detect;
+use engine_host::format::{detect, Format};
 
 pub fn diagnose(bytes: &[u8]) -> DiagnosisReport {
     if bytes.len() < 8 {
@@ -14,6 +14,16 @@ pub fn diagnose(bytes: &[u8]) -> DiagnosisReport {
         };
     }
     match detect(bytes) {
+        Some(Format::Zip) => {
+            let (corruption, recoverability) = crate::zip_repair::diagnose_zip(bytes);
+            DiagnosisReport {
+                detected_format: Some(Format::Zip),
+                corruption,
+                recoverability,
+                repair_supported: true,
+                detail: "zip family".into(),
+            }
+        }
         Some(format) => DiagnosisReport {
             detected_format: Some(format),
             corruption: Vec::new(),
@@ -34,7 +44,6 @@ pub fn diagnose(bytes: &[u8]) -> DiagnosisReport {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use engine_host::format::Format;
 
     #[test]
     fn identifies_a_known_format_but_reports_no_pillar_yet() {
@@ -56,5 +65,15 @@ mod tests {
         let report = diagnose(b"PK");
         assert_eq!(report.recoverability, Recoverability::Unrecoverable);
         assert!(report.corruption.contains(&CorruptionKind::Truncated));
+    }
+
+    #[test]
+    fn a_recognized_zip_reports_repair_supported() {
+        // A minimal stored zip: local header for an empty file then EOCD is complex to
+        // hand-build, so reuse the zip_repair helper indirectly via a real archive.
+        let zip = crate::zip_repair::tests_build_minimal_zip();
+        let report = diagnose(&zip);
+        assert_eq!(report.detected_format, Some(Format::Zip));
+        assert!(report.repair_supported);
     }
 }

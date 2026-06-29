@@ -2,11 +2,12 @@
 //! headers, re-emit a fresh archive, diagnose ZIP corruption.
 
 use std::io::{Cursor, Read, Write};
-use zip::read::read_zipfile_from_stream;
+use zip::read::{read_zipfile_from_stream, ZipArchive};
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
 
 use crate::error::RepairError;
+use crate::model::{CorruptionKind, Recoverability};
 
 #[derive(Debug, Clone)]
 pub struct SalvagedEntry {
@@ -73,6 +74,41 @@ pub fn rebuild_archive(entries: &[(String, Vec<u8>)]) -> Result<Vec<u8>, RepairE
     Ok(cursor.into_inner())
 }
 
+/// Classify a zip's health: a readable central directory means intact; an
+/// unreadable one with recoverable local-header entries is repairable; nothing
+/// recoverable is unrecoverable.
+pub fn diagnose_zip(bytes: &[u8]) -> (Vec<CorruptionKind>, Recoverability) {
+    if ZipArchive::new(Cursor::new(bytes)).is_ok() {
+        return (Vec::new(), Recoverability::Intact);
+    }
+    let recovered = salvage_entries(bytes)
+        .into_iter()
+        .filter(|e| e.recovered)
+        .count();
+    if recovered > 0 {
+        (
+            vec![CorruptionKind::MissingEndOfCentralDirectory],
+            Recoverability::Repairable,
+        )
+    } else {
+        (
+            vec![CorruptionKind::Truncated],
+            Recoverability::Unrecoverable,
+        )
+    }
+}
+
+/// Test-support: build a minimal valid zip (one stored entry). Public for the
+/// diagnose-framework test; not part of the repair API.
+#[doc(hidden)]
+pub fn tests_build_minimal_zip() -> Vec<u8> {
+    let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
+    let options = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+    writer.start_file("a.txt", options).unwrap();
+    writer.write_all(b"alpha").unwrap();
+    writer.finish().unwrap().into_inner()
+}
+
 #[cfg(test)]
 mod salvage_tests {
     use super::*;
@@ -81,7 +117,7 @@ mod salvage_tests {
     use zip::{CompressionMethod, ZipWriter};
 
     /// Build a valid zip with the given (name, content) entries, Deflated.
-    fn build_zip(entries: &[(&str, &[u8])]) -> Vec<u8> {
+    pub(super) fn build_zip(entries: &[(&str, &[u8])]) -> Vec<u8> {
         let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
         let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
         for (name, content) in entries {
@@ -92,7 +128,7 @@ mod salvage_tests {
     }
 
     /// Offset of the first central directory header (PK\x01\x02).
-    fn central_dir_offset(zip: &[u8]) -> usize {
+    pub(super) fn central_dir_offset(zip: &[u8]) -> usize {
         zip.windows(4)
             .position(|w| w == [0x50, 0x4B, 0x01, 0x02])
             .expect("a valid zip has a central directory")
@@ -175,7 +211,6 @@ mod salvage_tests {
 #[cfg(test)]
 mod rebuild_tests {
     use super::*;
-    use zip::read::ZipArchive;
 
     #[test]
     fn rebuilt_archive_is_a_valid_zip_with_the_same_entries() {
@@ -191,5 +226,28 @@ mod rebuild_tests {
         let mut content = String::new();
         std::io::Read::read_to_string(&mut a, &mut content).unwrap();
         assert_eq!(content, "alpha");
+    }
+}
+
+#[cfg(test)]
+mod diagnose_tests {
+    use super::*;
+    use crate::model::{CorruptionKind, Recoverability};
+
+    #[test]
+    fn an_intact_zip_is_intact() {
+        let zip = salvage_tests::build_zip(&[("a.txt", b"alpha")]);
+        let (corruption, recoverability) = diagnose_zip(&zip);
+        assert_eq!(recoverability, Recoverability::Intact);
+        assert!(corruption.is_empty());
+    }
+
+    #[test]
+    fn a_central_directory_stripped_zip_is_repairable() {
+        let zip = salvage_tests::build_zip(&[("a.txt", b"alpha"), ("b.txt", b"bravo")]);
+        let truncated = &zip[..salvage_tests::central_dir_offset(&zip)];
+        let (corruption, recoverability) = diagnose_zip(truncated);
+        assert_eq!(recoverability, Recoverability::Repairable);
+        assert!(corruption.contains(&CorruptionKind::MissingEndOfCentralDirectory));
     }
 }
