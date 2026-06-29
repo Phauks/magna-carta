@@ -50,7 +50,8 @@ export default defineConfig({
     tasks: {
       // Build the `magna-carta` app worker's deploy artefacts in dependency order: the wasm, then the
       // SPA (which bundles it), then the worker that serves apps/web/build. This is the Workers Build
-      // command for `magna-carta` (operations.md §12), so it is deliberately SCOPED to the app worker —
+      // command for `magna-carta` (see the deploy runbook, docs/conventions/operations.md), so it is
+      // deliberately SCOPED to the app worker —
       // it does NOT build the standalone sibling workers (scan/bundle/convert/edit). Those are separate
       // deployables with their own Workers Builds; building their container images here is both wasteful
       // and fragile (e.g. the scan image's YARA Forge download is rate-limited, which would fail the app
