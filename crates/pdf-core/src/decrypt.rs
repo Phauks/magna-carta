@@ -28,6 +28,8 @@ pub enum SecureError {
     AlreadyEncrypted,
     /// The decrypted (or secured) document could not be re-serialised.
     Reassemble,
+    /// Input rejected by the decompression-bomb guard (oversize or a bomb).
+    Rejected,
 }
 
 /// Which security handler a document declares.
@@ -147,6 +149,8 @@ pub struct SecurityInfo {
 /// actionable facts only. A public-key handler — which lopdf does not implement, and
 /// which may fail to load at all — is still classified from the raw `/Filter` name.
 pub fn inspect_security(bytes: &[u8]) -> Result<SecurityInfo, SecureError> {
+    crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
+        .map_err(|_| SecureError::Rejected)?;
     let doc = match Document::load_mem(bytes) {
         Ok(doc) => doc,
         // A public-key handler can fail to load; classify it from the raw bytes rather
@@ -270,6 +274,14 @@ fn algorithm_of(dict: &lopdf::Dictionary, version: i64) -> Algorithm {
 /// yields [`SecureError::WrongPassword`] (distinct from [`SecureError::Parse`]) so
 /// a caller can re-prompt rather than report a corrupt file.
 pub fn decrypt(bytes: &[u8], password: &str) -> Result<Vec<u8>, SecureError> {
+    crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
+        .map_err(|_| SecureError::Rejected)?;
+    decrypt_unguarded(bytes, password)
+}
+
+/// Decrypt without running the bomb guard. Callers that already ran `guard_input` on the
+/// same bytes use this to avoid scanning twice (e.g. `Document::load_protected`).
+pub(crate) fn decrypt_unguarded(bytes: &[u8], password: &str) -> Result<Vec<u8>, SecureError> {
     // A plain load fully reads an unencrypted file but surfaces only the `/Encrypt`
     // dictionary of an encrypted one — lopdf cannot enumerate encrypted objects
     // without the key. So detect cheaply here, then (only if needed) reload WITH the
@@ -652,6 +664,14 @@ mod tests {
             b"%PDF-1.7\n<< /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached >>\ntruncated"
                 .to_vec();
         assert_eq!(inspect_security(&bytes), Err(SecureError::Parse));
+    }
+
+    #[test]
+    fn decrypt_and_inspect_reject_oversize_input() {
+        let limits = crate::guard::GuardLimits::default();
+        let big = vec![0u8; limits.max_input_bytes + 1];
+        assert_eq!(decrypt(&big, "pw"), Err(SecureError::Rejected));
+        assert_eq!(inspect_security(&big), Err(SecureError::Rejected));
     }
 
     #[test]
