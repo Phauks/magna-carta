@@ -3,6 +3,7 @@ mod wasm;
 
 mod standard_fonts;
 mod standard_fonts_data;
+mod guard;
 
 mod forms;
 pub use forms::{
