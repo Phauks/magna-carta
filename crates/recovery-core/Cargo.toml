@@ -14,8 +14,9 @@ engine_host = { path = "../engine-host", package = "magna-carta-engine-host" }
 # Pure-Rust DEFLATE/zlib/gzip decoder that returns the decoded prefix together with the error on a
 # truncated/corrupt stream — the compression-stream salvage primitive.
 zune-inflate = "0.2"
-
-[dev-dependencies]
-# Build deterministic DEFLATE/zlib/gzip fixtures (compress, then truncate) for the salvage tests.
-# rust_backend selects the pure-Rust miniz_oxide backend — no C dep, matches engine-host discipline.
+# Read damaged archives from local file headers (no central directory) and re-emit a fresh archive.
+# Lean pure-Rust features only — deflate via flate2/miniz_oxide, no bzip2/zstd/lzma C deps.
+zip = { version = "8.6", default-features = false, features = ["deflate-flate2"] }
+# The DEFLATE backend zip's `deflate-flate2` selects — declared directly to pin the pure-Rust
+# miniz_oxide backend (never a C zlib backend).
 flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
