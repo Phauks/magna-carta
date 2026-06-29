@@ -45,6 +45,8 @@ describe("problem-type URI registry", () => {
         "unsupported-conversion",
         "internal",
         "not-implemented",
+        "beta-consent-required",
+        "service-unavailable",
       ].sort(),
     );
   });

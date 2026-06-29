@@ -238,7 +238,10 @@ describe("end-to-end", () => {
       // tools:fileIntegrity (0022_seed-tools-file-integrity.sql, seeded onto every default role) +
       // firm:manageReleaseChannel (0024_seed-release-channel-permission, Owner/Admin only) + the
       // costs: grants (0028_burly_piledriver: costs:track + costs:approve onto Owner/Admin) +
-      // tools:fileTypeVerifier (0032_seed-tools-file-type-verifier.sql, seeded onto every default role).
+      // tools:fileTypeVerifier (0032_seed-tools-file-type-verifier.sql, seeded onto every default role) +
+      // firm:manageScanPolicy (0030_seed-scan-policy-permission, Owner/Admin only) + the support:
+      // grants (0031_support-access-permissions: support:request onto every default role,
+      // support:cosign / support:manage onto Owner/Admin).
       // Sorted.
       permissions: [
         "costs:approve",
@@ -253,6 +256,7 @@ describe("end-to-end", () => {
         "files:upload",
         "firm:manageMembers",
         "firm:manageReleaseChannel",
+        "firm:manageScanPolicy",
         "firm:manageSecrets",
         "firm:reportIncident",
         "firm:scanFile",
@@ -267,6 +271,9 @@ describe("end-to-end", () => {
         "matters:renumber",
         "matters:reopen",
         "shipping:manage",
+        "support:cosign",
+        "support:manage",
+        "support:request",
         "time:approve",
         "time:manageRates",
         "time:manageSettings",
@@ -427,6 +434,8 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
       "metadata.scrub",
       // Pure computation over the streamed request body — computes five digests; nothing is stored.
       "fileIntegrity.hash",
+      // Streams the bytes to the scan Container for identification; nothing is stored.
+      "fileType.verify",
     ]);
 
     for (const { operation, label } of mutatingV1) {
@@ -454,15 +463,17 @@ describe("route conformance fitness (emitted OpenAPI document)", () => {
     );
 
     // The operations that document the platform-admin posture (x-mc-surface "public" — the
-    // header-secret guard, no session): the firm provisioner and the platform release-channel
-    // setter. A future unguarded route cannot hide behind the exception, because the exception is
-    // this exact set, and each member is asserted guarded below.
+    // header-secret guard, no session): the firm provisioner, the platform release-channel setter,
+    // and the support-session redeem (platform_staff redeems a grant). A future unguarded route
+    // cannot hide behind the exception, because the exception is this exact set, and each member is
+    // asserted guarded below.
     const publicSurface = v1Operations.filter(
       (entry) => entry.operation["x-mc-surface"] === "public",
     );
     expect(publicSurface.map((entry) => entry.operation["operationId"]).sort()).toEqual([
       "firms.provision",
       "platform.setFirmReleaseChannel",
+      "supportSessions.redeem",
     ]);
     // And even the exception is no signup hole: each public operation is authenticated (the
     // X-Platform-Admin-Key guard) and carries a registered registry permission.
