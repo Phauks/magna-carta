@@ -119,14 +119,21 @@ bytes**:
 
 1. **Input cap** — reject if `bytes.len() > max_input_bytes` (`InputTooLarge`).
 2. **Raw-bytes scan** — walk the file for each `stream` keyword (the start of a top-level
-   stream object's data). From each, run a **bounded inflate** of the following bytes
-   (zlib → raw-deflate → LZW → RunLengthDecode, mirroring lopdf's decoder order) into a
-   **counting sink that discards the decompressed bytes** — so pre-flight peak memory is a
-   single small chunk buffer, not the cap. Abort the moment one stream exceeds
-   `max_stream_inflated` (`StreamTooLarge`) or the running cumulative crosses
-   `max_total_inflated` (`TotalTooLarge`). Non-inflatable blobs (JPEG, random bytes) error
-   out instantly and are skipped; resume scanning after the bytes the decoder consumed (or
-   past the next `endstream`).
+   stream object's data). From each, run a **bounded inflate** of the following bytes —
+   zlib (RFC 1950) then raw-deflate (RFC 1951), the dominant bomb vector — into a **counting
+   sink that discards the decompressed bytes**, so pre-flight peak memory is a single small
+   chunk buffer, not the cap. Abort the moment one stream exceeds `max_stream_inflated`
+   (`StreamTooLarge`) or the running cumulative crosses `max_total_inflated`
+   (`TotalTooLarge`). Blobs that are not deflate (JPEG, raw image data, random bytes) fail
+   the decoder's header/block check almost instantly and are skipped; resume scanning past
+   the next `endstream`.
+
+Why deflate-only: zlib and raw-deflate reject non-deflate input on the first read (header /
+block-type check), so attempting them on every blob is cheap and clean. LZW and RunLength,
+by contrast, have no header and will "decode" arbitrary image bytes into same-size garbage
+that would then have to be counted — adding cost on image-heavy documents and a false-
+positive risk on the cumulative cap, in exchange for covering two rare vectors. Deflate is
+bounded rigorously; LZW/RunLength bombs are disclosed residual (see below).
 
 Why this suffices:
 
@@ -134,11 +141,11 @@ Why this suffices:
   both lopdf and hayro**.
 - It catches **ObjStm bombs** because an object stream is itself a top-level `stream`
   object, and objects cannot nest inside a nested ObjStm per the PDF spec.
-- **No `endstream`/`/Length` boundary detection is needed for safety.** Every amplifying
-  filter we decode — deflate, raw-deflate, LZW, RunLength — is *self-terminating* (an
-  end-of-stream marker / Adler-32 trailer), so the decoder stops on its own at the true
-  stream end regardless of trailing bytes, and a bomb hits the cap long before then. The
-  `endstream` keyword is used only to advance the scan cursor, never to bound the inflate.
+- **No `endstream`/`/Length` boundary detection is needed for safety.** Deflate and
+  raw-deflate are *self-terminating* (end-of-block marker / Adler-32 trailer), so the
+  decoder stops on its own at the true stream end regardless of trailing bytes, and a bomb
+  hits the cap long before then. The `endstream` keyword is used only to advance the scan
+  cursor, never to bound the inflate.
 
 ### Wiring
 
@@ -180,16 +187,16 @@ needed):
   each with the typed error and **zero output bytes**.
 - Real fixtures (the W-9 AcroForm, `hello.pdf`, the eval corpus) still pass under the caps:
   no false positives.
-- An LZW bomb is rejected (exercises the LZW fallback in the pre-flight inflate).
+- A raw-deflate (header-less) bomb is rejected (exercises the raw-deflate fallback).
 
 ## Residual (disclosed)
 
-- A bomb using an amplifying filter the pre-flight does not decode — beyond Flate, LZW, and
-  RunLength, the only such cases are image codecs (JBIG2/CCITT can expand bilevel rasters),
-  which decode to *images* and belong to the render/raster class below, not to general
-  stream inflation. Such a payload falls back to the input cap rather than the per-stream
-  cap. (The earlier `stream`/`endstream` boundary residual is **dissolved**: every filter we
-  decode is self-terminating, so boundary detection no longer gates safety.)
+- A bomb using an amplifying filter the pre-flight does not decode — **LZWDecode (~9-bit
+  table, modest ratio) and RunLengthDecode (≤128×)**, plus image codecs (JBIG2/CCITT can
+  expand bilevel rasters, which belong to the render/raster class below). All of these fall
+  back to the input cap rather than the per-stream cap. Deflate — the dominant, high-ratio
+  vector — is bounded rigorously. (The earlier `stream`/`endstream` boundary residual is
+  **dissolved**: deflate is self-terminating, so boundary detection no longer gates safety.)
 - Render / raster bombs are out of scope (see Non-goals).
 - `GuardLimits` is not yet caller-configurable through the WASM/TS API; v1 ships fixed
   defaults.
