@@ -24,6 +24,9 @@ pub use zip_adapter::ZipAdapter;
 mod rules;
 pub use rules::{apply_rule, expand, parse_rules, Rule, RuleError, RuleSet};
 
+mod tier;
+pub use tier::{recovery_tier, RecoveryTier};
+
 mod shard;
 pub use shard::{shard_candidate_count, split_keyspace, ShardSpec};
 

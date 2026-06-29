@@ -1,9 +1,19 @@
 //! Thin JS marshalling edge — compiled only for wasm32. No engine logic here;
 //! everything delegates to the format adapters and the top-level helpers.
 use crate::{
-    DecryptError, ExtractError, Format, OoxmlAdapter, PdfAdapter, RecoveryJob, ZipAdapter,
+    recovery_tier, DecryptError, ExtractError, Format, OoxmlAdapter, PdfAdapter, RecoveryJob,
+    RecoveryTier, ZipAdapter,
 };
 use wasm_bindgen::prelude::*;
+
+fn str_to_format(format: &str) -> Option<Format> {
+    match format {
+        "pdf" => Some(Format::Pdf),
+        "zip" => Some(Format::Zip),
+        "ooxml" => Some(Format::Ooxml),
+        _ => None,
+    }
+}
 
 fn format_to_str(format: Format) -> &'static str {
     match format {
@@ -84,6 +94,20 @@ pub fn extract_hash(bytes: &[u8]) -> Result<JsValue, JsError> {
     set("hashcatMode", &JsValue::from(job.hashcat_mode))?;
 
     Ok(result.into())
+}
+
+/// Classify a hashcat mode into a recovery tier.
+///
+/// `format` must be `"pdf"`, `"zip"`, or `"ooxml"` (unrecognised values are treated
+/// as `"pdf"` for mode resolution — mode is the primary signal, not format).
+/// Returns `"cfCapable"` or `"gpuRequired"`.
+#[wasm_bindgen(js_name = recoveryTier)]
+pub fn recovery_tier_wasm(format: &str, hashcat_mode: u32) -> String {
+    let fmt = str_to_format(format).unwrap_or(Format::Pdf);
+    match recovery_tier(fmt, hashcat_mode) {
+        RecoveryTier::CfCapable => "cfCapable".to_owned(),
+        RecoveryTier::GpuRequired => "gpuRequired".to_owned(),
+    }
 }
 
 /// Test a single candidate password against a hash string without touching the original file.

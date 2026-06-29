@@ -6,6 +6,7 @@ import {
   detectFormat,
   ensureReady,
   extractHash,
+  recoveryTier,
   stripWithKey,
   verifyGuess,
 } from "../src/index.js";
@@ -58,6 +59,24 @@ describe("@magna-carta/decryption wasm wrapper", () => {
     it("verifyGuess returns false for a wrong candidate", async () => {
       const { hash } = await extractHash(pdfFixture);
       expect(await verifyGuess(hash, "pdf", "definitely-wrong")).toBe(false);
+    });
+  });
+
+  describe("recoveryTier", () => {
+    it("PDF R6 (mode 10700) is gpuRequired", async () => {
+      expect(await recoveryTier("pdf", 10700)).toBe("gpuRequired");
+    });
+
+    it("PDF RC4 (mode 10500) is cfCapable", async () => {
+      expect(await recoveryTier("pdf", 10500)).toBe("cfCapable");
+    });
+
+    it("OOXML agile (mode 9600) is gpuRequired", async () => {
+      expect(await recoveryTier("ooxml", 9600)).toBe("gpuRequired");
+    });
+
+    it("unknown mode defaults to gpuRequired (safety property)", async () => {
+      expect(await recoveryTier("pdf", 99999)).toBe("gpuRequired");
     });
   });
 

@@ -1,6 +1,7 @@
 import init, {
   detect,
   extractHash as wasmExtractHash,
+  recoveryTier as wasmRecoveryTier,
   stripWithKey as wasmStripWithKey,
   verifyGuess as wasmVerifyGuess,
 } from "./pkg/decryption_core.js";
@@ -113,6 +114,26 @@ export async function extractHash(bytes: Uint8Array): Promise<ExtractHashResult>
   } catch (thrown) {
     throw wrapEngineError(thrown);
   }
+}
+
+/**
+ * Classify a hashcat mode into a recovery tier.
+ *
+ * `"cfCapable"` — the mode is fast or medium enough to run a meaningful dictionary
+ * pass within Cloudflare CPU budget (legacy RC4, ZipCrypto, WinZip-AES).
+ *
+ * `"gpuRequired"` — the mode uses a slow KDF and requires offline GPU hardware
+ * (PDF R5/R6, OOXML agile encryption, 7-Zip).
+ *
+ * Any unrecognised mode resolves to `"gpuRequired"` — the safe default that
+ * prevents unbounded Cloudflare CPU spend on formats with unknown hardness.
+ */
+export async function recoveryTier(
+  format: EncryptedFormat,
+  hashcatMode: number,
+): Promise<"cfCapable" | "gpuRequired"> {
+  await ensureReady();
+  return wasmRecoveryTier(format, hashcatMode) as "cfCapable" | "gpuRequired";
 }
 
 /**
