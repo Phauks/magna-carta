@@ -1,8 +1,12 @@
 //! The ZIP archetype-family repair pillar: salvage entries from local file
 //! headers, re-emit a fresh archive, diagnose ZIP corruption.
 
-use std::io::{Cursor, Read};
+use std::io::{Cursor, Read, Write};
 use zip::read::read_zipfile_from_stream;
+use zip::write::SimpleFileOptions;
+use zip::{CompressionMethod, ZipWriter};
+
+use crate::error::RepairError;
 
 #[derive(Debug, Clone)]
 pub struct SalvagedEntry {
@@ -50,6 +54,23 @@ pub fn salvage_entries(bytes: &[u8]) -> Vec<SalvagedEntry> {
         }
     }
     out
+}
+
+/// Write a fresh, valid zip (with a correct central directory) from recovered
+/// (name, bytes) pairs. Entries are Deflated. A writer failure → Unrepairable.
+pub fn rebuild_archive(entries: &[(String, Vec<u8>)]) -> Result<Vec<u8>, RepairError> {
+    let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
+    let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+    for (name, bytes) in entries {
+        writer
+            .start_file(name, options)
+            .map_err(|_| RepairError::Unrepairable)?;
+        writer
+            .write_all(bytes)
+            .map_err(|_| RepairError::Unrepairable)?;
+    }
+    let cursor = writer.finish().map_err(|_| RepairError::Unrepairable)?;
+    Ok(cursor.into_inner())
 }
 
 #[cfg(test)]
@@ -148,5 +169,27 @@ mod salvage_tests {
         }
         // (If the truncation removed the second local header entirely, only keep.txt appears —
         // still correct: nothing is falsely reported recovered.)
+    }
+}
+
+#[cfg(test)]
+mod rebuild_tests {
+    use super::*;
+    use zip::read::ZipArchive;
+
+    #[test]
+    fn rebuilt_archive_is_a_valid_zip_with_the_same_entries() {
+        let entries = vec![
+            ("a.txt".to_string(), b"alpha".to_vec()),
+            ("dir/b.txt".to_string(), b"bravo".to_vec()),
+        ];
+        let zip = rebuild_archive(&entries).expect("rebuild");
+        // The result must be a valid, central-directory-bearing zip.
+        let mut archive = ZipArchive::new(Cursor::new(zip)).expect("valid zip");
+        assert_eq!(archive.len(), 2);
+        let mut a = archive.by_name("a.txt").expect("a.txt present");
+        let mut content = String::new();
+        std::io::Read::read_to_string(&mut a, &mut content).unwrap();
+        assert_eq!(content, "alpha");
     }
 }
