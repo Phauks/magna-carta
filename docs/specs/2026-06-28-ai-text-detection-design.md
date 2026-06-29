@@ -39,7 +39,7 @@ Mirroring the codebase's existing tool packages (`whois`, `safe-browse`, `conver
   - `src/report.ts` — the `DetectionReport` model + the band/caveat enums.
   - `src/normalize.ts` — the vendor-agnostic normalizer (raw vendor score → our band; input characteristics → caveats). The valuable agnostic core.
   - `src/manifest.ts` — the `ai-detection` category registration + the deferred adapter's manifest/capability descriptor.
-  - `src/adapters/deferred.ts` — the one runnable adapter shipped now: returns a clean `not-connected`.
+  - `src/adapters/deferred.ts` — the one runnable adapter shipped now: returns `capability-unsupported` (the descriptor declares `detect.supported = false`, so the honest signal is that the capability has not been wired to a concrete vendor, not that a connection is missing).
   - `src/consent.ts` — the confidentiality consent/policy types (declared now; the firm setting + gate are seams, §5).
   - `test/*` — purity, manifest well-formedness, normalizer logic, deferred-adapter Dispatch contract.
 
@@ -95,6 +95,7 @@ interface DetectionReport {
 - `band` is the headline and is **coarse by design** — `inconclusive` is a legitimate, common answer.
 - `reliability` and `caveats` are computed by **our** normalizer from input characteristics, independent of the vendor's claimed confidence. A vendor returning "99% AI" on a 40-word snippet still yields `reliability: "low"` + `text-too-short`.
 - `score` exists for provenance/auditing, not as the headline — the UI leads with the band and caveats.
+- **Every §0 accuracy-collapse vector forces `inconclusive`:** short text, non-target-language input, suspected paraphrase/humanization, and mixed/edited authorship are all fatal caveats that bottom out reliability to `"low"` and force the headline `band` to `"inconclusive"`. Per-segment bands inherit this override — a segment cannot assert a direction when the overall input is unreliable. `score` is audit-only; consumers must always lead with `band`.
 
 ## 4. The normalizer — the agnostic heart (built now, real logic)
 
@@ -110,13 +111,17 @@ This logic is **vendor-independent** — it is what guarantees the "signal, not 
 
 Sending privileged content to a third-party detector is the exact situation the AI-inference confidentiality decisions already govern (ADR-0109/0110): an **opt-in firm policy, off by default, with recorded consent.** This tool inherits that posture rather than inventing a new one.
 
-- The core declares the consent/policy types (`src/consent.ts`) and the report carries `provenance.egressedTo` so every external analysis is self-describing.
+- The core declares the consent/policy types (`src/consent.ts`) and the report carries `provenance.egressedTo` (REQUIRED — every detection is external, so every report must name where the privileged text went) so every external analysis is self-describing.
 - The **firm setting**, the **UI consent gate**, and the **worker route** that enforces them are designed-in seams (a follow-on slice), consistent with how `inference` shipped its chokepoint before its consumer surfaces.
 - An in-house engine option is **not** in scope — the owner's decision (2026-06-28) is to rely on an actively-maintained external vendor (detection is an arms race a static local model loses); confidentiality is handled by vendor zero-data-retention terms + recorded consent, not by keeping analysis in-tenant.
+- **Additional designed-in seams (not yet built):**
+  - The consent gate must mint a consent witness bound into the `detect()` call path so a vendor adapter cannot egress privileged text without recorded consent being in scope.
+  - A vendor adapter's `IntegrationProblem.detail` must never echo the analyzed text — only error metadata, never the input.
+  - `firmId` must be carried onto provenance and used to scope any cache key when per-firm metering lands.
 
 ## 6. Adapters & registry — complete scope, vendor deferred
 
-- Register the **`ai-detection` category** and a single **deferred/unconfigured adapter** whose `detect` returns a clean `not-connected`. The package is whole and fully testable with **zero vendor wired**.
+- Register the **`ai-detection` category** and a single **deferred/unconfigured adapter** whose `detect` returns `capability-unsupported` (the descriptor declares `detect.supported = false`; there is no connection to be missing — the capability simply has not been wired to a concrete vendor yet). The package is whole and fully testable with **zero vendor wired**.
 - Do **not** register per-vendor manifests yet (owner decision, 2026-06-28). Each vendor manifest + HTTP body is added when that vendor is actually chosen and built — no interface change, just a new adapter dropped into the registry (the conversion package's registered-but-deferred-engine pattern).
 - **Credential scope is intentionally left open** (owner undecided 2026-06-28 between firm-provides-key / billed-service / absorbed-cost). The framework already represents `apiKey`/`oauth` at `firm` or `user` scope, plus platform-managed (the inference precedent); since no concrete adapter exists yet, nothing forces the choice. It is pinned when the first vendor is wired.
 - Vendor research context (the shortlist, June-2026 pricing/terms, and the benchmark-instability finding) is captured in `docs/research/` for when that decision is made — Pangram, GPTZero, and Copyleaks are the confidentiality-cleared front-runners; the agnostic core makes the pick low-stakes.
@@ -141,7 +146,7 @@ One catalog row (`packages/tools/src/catalog.ts`):
 - **Purity fitness** — no D1/Hono/env/Svelte/network/vendor-SDK imports (mirrors `conversion`/`tools` purity tests).
 - **Manifest well-formedness** — the `ai-detection` category + deferred adapter satisfy `isWellFormedManifest`.
 - **Normalizer logic** — the part that must never mislead: band mapping (including the `inconclusive` zone), caveat emission on short/paraphrased/non-target-language input, and reliability downgrades. This is the highest-value test surface.
-- **Deferred-adapter Dispatch contract** — `detect` returns `not-connected`, never throws.
+- **Deferred-adapter Dispatch contract** — `detect` returns `capability-unsupported`, never throws.
 - End-of-build **7-angle adversarial review** per `docs/conventions/testing.md`.
 
 ## 9. Out of scope for this build (designed-in seams)
