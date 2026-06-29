@@ -7,3 +7,5 @@ pub mod diagnose;
 pub mod error;
 pub mod model;
 pub mod salvage;
+
+pub use diagnose::diagnose;
