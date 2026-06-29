@@ -7,7 +7,9 @@ pub mod diagnose;
 pub mod error;
 pub mod model;
 pub mod ooxml;
+pub mod repair;
 pub mod salvage;
 pub mod zip_repair;
 
 pub use diagnose::diagnose;
+pub use repair::repair;

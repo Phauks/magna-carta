@@ -7,7 +7,7 @@ use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
 
 use crate::error::RepairError;
-use crate::model::{CorruptionKind, Recoverability};
+use crate::model::{CorruptionKind, LossManifest, Recoverability, RecoveredItem, RepairResult};
 
 #[derive(Debug, Clone)]
 pub struct SalvagedEntry {
@@ -96,6 +96,43 @@ pub fn diagnose_zip(bytes: &[u8]) -> (Vec<CorruptionKind>, Recoverability) {
             Recoverability::Unrecoverable,
         )
     }
+}
+
+/// Repair a damaged zip: salvage entries from local file headers, reconstruct the
+/// OPC skeleton if it is an OOXML package, re-emit a fresh archive, and record an
+/// honest loss manifest. Errors (rather than emitting an empty archive) when
+/// nothing is recoverable.
+pub fn repair_zip(bytes: &[u8]) -> Result<RepairResult, RepairError> {
+    let salvaged = salvage_entries(bytes);
+    let recovered: Vec<(String, Vec<u8>)> = salvaged
+        .iter()
+        .filter_map(|e| e.data.clone().map(|d| (e.name.clone(), d)))
+        .collect();
+    if recovered.is_empty() {
+        return Err(RepairError::Unrepairable);
+    }
+    let recovered = if crate::ooxml::is_ooxml(&recovered) {
+        crate::ooxml::reconstruct_opc(recovered)
+    } else {
+        recovered
+    };
+    let bytes_out = rebuild_archive(&recovered)?;
+    let items: Vec<RecoveredItem> = salvaged
+        .iter()
+        .map(|e| RecoveredItem {
+            name: e.name.clone(),
+            recovered: e.recovered,
+            detail: e.detail.clone(),
+        })
+        .collect();
+    let fully_recovered = items.iter().all(|i| i.recovered);
+    Ok(RepairResult {
+        salvaged: bytes_out,
+        loss: LossManifest {
+            items,
+            fully_recovered,
+        },
+    })
 }
 
 /// Test-support: build a minimal valid zip (one stored entry). Public for the
@@ -226,6 +263,32 @@ mod rebuild_tests {
         let mut content = String::new();
         std::io::Read::read_to_string(&mut a, &mut content).unwrap();
         assert_eq!(content, "alpha");
+    }
+}
+
+#[cfg(test)]
+mod repair_tests {
+    use super::*;
+    use zip::read::ZipArchive;
+
+    #[test]
+    fn repairs_a_central_directory_stripped_zip_and_lists_recovered_entries() {
+        let zip = salvage_tests::build_zip(&[("a.txt", b"alpha"), ("b.txt", b"bravo")]);
+        let truncated = &zip[..salvage_tests::central_dir_offset(&zip)];
+        let result = repair_zip(truncated).expect("repairable");
+        // The salvaged output is a valid, reopenable zip.
+        let archive = ZipArchive::new(Cursor::new(result.salvaged.clone())).expect("valid zip");
+        assert_eq!(archive.len(), 2);
+        // The loss manifest lists both as recovered, fully_recovered = true.
+        assert!(result.loss.fully_recovered);
+        assert_eq!(result.loss.items.iter().filter(|i| i.recovered).count(), 2);
+    }
+
+    #[test]
+    fn an_unrecoverable_input_errors_rather_than_emitting_an_empty_zip() {
+        // Random non-zip bytes routed here directly must not produce a "repaired" empty archive.
+        let result = repair_zip(b"\x50\x4b\x03\x04 garbage that is not a real local header body");
+        assert!(result.is_err());
     }
 }
 
