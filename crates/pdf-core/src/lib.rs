@@ -232,6 +232,15 @@ mod tests {
     }
 
     #[test]
+    fn load_protected_rejects_oversize_input() {
+        let limits = crate::guard::GuardLimits::default();
+        let big = vec![0u8; limits.max_input_bytes + 1];
+        // Document doesn't implement PartialEq/Debug (it wraps an opaque parser type),
+        // so use matches! rather than assert_eq! — same pattern as load_rejects_oversize_input.
+        assert!(matches!(Document::load_protected(big, "pw"), Err(SecureError::Rejected)));
+    }
+
+    #[test]
     fn load_protected_opens_an_unencrypted_document() {
         // blank.pdf renders in hayro but is not loadable by the model parser, so this
         // also exercises load_protected's fallback to the plain render-path load.

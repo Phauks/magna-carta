@@ -29,6 +29,9 @@ impl Default for GuardLimits {
     }
 }
 
+// The shared `TooLarge` suffix is intentional: every variant is a size-cap
+// violation. Clarity beats clippy's distinct-name preference here.
+#[allow(clippy::enum_variant_names)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum BombError {
     InputTooLarge,
