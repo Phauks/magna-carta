@@ -137,7 +137,7 @@ export type Bindings = {
   // Cloudflare REST FirmResourceProvider credentials — DEPLOY-TIME secrets only (`wrangler
   // secret put`), deliberately absent from .dev.vars: locally the dev pool-claiming adapter runs
   // instead, selected by these being unset (see routes/firms.ts resourceProviderForEnv).
-  CLOUDFLARE_API_TOKEN?: string;
+  CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
   // The account-scoped R2 S3 API token the presigner signs upload/download URLs with — the bytes
   // bypass the Worker, so it holds only this signing credential. Production secrets (placeholder
