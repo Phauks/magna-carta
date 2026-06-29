@@ -42,7 +42,7 @@ export function caveatsFor(input: DetectionInput, raw: RawDetection): Caveat[] {
   return caveats;
 }
 
-// Every spec-§0 accuracy-collapse vector is fatal: a result on short, non-target-language,
+// Every accuracy-collapse vector is fatal: a result on short, non-target-language,
 // paraphrased/humanized, or mixed/edited text never asserts a direction. `low-vendor-confidence`
 // is fatal too. (All currently-defined caveats are fatal, so `reliabilityFor` returns only
 // high/low today; the `moderate` tier is reserved for any future non-fatal caveat.)

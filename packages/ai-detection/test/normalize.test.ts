@@ -92,7 +92,7 @@ describe("reliabilityFor", () => {
   it("is low on low vendor confidence", () => {
     expect(reliabilityFor(["low-vendor-confidence"])).toBe("low");
   });
-  it("is low for each spec-§0 collapse caveat", () => {
+  it("is low for each accuracy-collapse caveat", () => {
     const collapseCaveats = [
       "text-too-short",
       "non-target-language",
@@ -125,13 +125,13 @@ describe("normalize", () => {
     expect(report.caveats).toContain("text-too-short");
   });
 
-  it("forces inconclusive for non-English text (spec-§0 collapse vector)", () => {
+  it("forces inconclusive for non-English text (accuracy-collapse vector)", () => {
     const report = normalize(input({ languageHint: "es" }), raw({ score: 0.92 }), METADATA);
     expect(report.band).toBe("inconclusive");
     expect(report.reliability).toBe("low");
   });
 
-  it("forces inconclusive for suspected paraphrase/humanization (spec-§0 collapse vector)", () => {
+  it("forces inconclusive for suspected paraphrase/humanization (accuracy-collapse vector)", () => {
     const report = normalize(
       input(),
       raw({ score: 0.92, signals: { paraphraseSuspected: true } }),
@@ -141,7 +141,7 @@ describe("normalize", () => {
     expect(report.reliability).toBe("low");
   });
 
-  it("forces inconclusive for mixed authorship (spec-§0 collapse vector)", () => {
+  it("forces inconclusive for mixed authorship (accuracy-collapse vector)", () => {
     const report = normalize(
       input(),
       raw({ score: 0.05, signals: { mixedAuthorship: true } }),
