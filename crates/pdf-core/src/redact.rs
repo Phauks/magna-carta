@@ -310,7 +310,7 @@ pub fn redact(
         by_page.entry(region.page).or_default().push(region.rect);
     }
 
-    let render_doc = Document::load(bytes.clone()).map_err(|_| RedactError::Parse)?; // hayro, for rendering
+    let render_doc = Document::load_unguarded(bytes.clone()).map_err(|_| RedactError::Parse)?; // hayro, for rendering
     let mut lo = lopdf::Document::load_mem(&bytes).map_err(|_| RedactError::Parse)?;
     let pages = lo.get_pages(); // 1-based number -> ObjectId
 

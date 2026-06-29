@@ -8,11 +8,6 @@
 //! indirect object, bounding the raw blobs transitively bounds everything either
 //! parser can later inflate.
 
-// The public surface (`guard_input`, `GuardLimits`, `BombError`) is consumed by
-// other pdf-core modules once they are wired up in later hardening tasks; suppress
-// the premature dead-code lint until those call-sites exist.
-#![allow(dead_code)]
-
 use std::io::Write;
 
 const MIB: usize = 1024 * 1024;
