@@ -27,8 +27,10 @@ pub struct ShardOutcome {
 /// Run password recovery over the slice of `words` described by `spec`.
 ///
 /// For each word in `words[spec.word_start..spec.word_end]` (the range is
-/// clamped to `words.len()` — this function never panics on an out-of-range
-/// spec), every rule in `rules` is applied via `expand` to produce candidates.
+/// clamped to `words.len()`, and `end` is additionally clamped to `>= start`
+/// so that an inverted spec such as `word_start=5, word_end=2` yields an empty
+/// slice rather than a panic — this function never panics on any spec value),
+/// every rule in `rules` is applied via `expand` to produce candidates.
 /// Candidates are verified against `job` in parallel across rayon threads;
 /// the first candidate that authenticates is returned together with the count
 /// of candidates actually verified.
@@ -38,9 +40,12 @@ pub fn recover_shard(
     spec: &ShardSpec,
     rules: &RuleSet,
 ) -> ShardOutcome {
-    // Clamp the range so an over-sized spec never causes a slice-index panic.
+    // Clamp the range so an over-sized or inverted spec never causes a
+    // slice-index panic. `start` is clamped to words.len() first, then `end`
+    // is clamped to words.len() AND to at least `start`: an inverted spec
+    // (word_start > word_end) therefore produces an empty slice → found: None.
     let start = spec.word_start.min(words.len());
-    let end = spec.word_end.min(words.len());
+    let end = spec.word_end.min(words.len()).max(start);
     let word_slice = &words[start..end];
 
     let candidates_tried = AtomicUsize::new(0);
@@ -147,6 +152,36 @@ mod tests {
         );
         assert_eq!(outcome.found.as_deref(), Some("hashcat"));
         assert_eq!(outcome.candidates_tried, 1);
+    }
+
+    /// An inverted spec (word_start > word_end, both within bounds) must not
+    /// panic and must return found == None with candidates_tried == 0.
+    #[test]
+    fn inverted_spec_returns_none_without_panic() {
+        let job = office_2013_job();
+        let words: Vec<String> = vec![
+            "foo".into(),
+            "bar".into(),
+            "baz".into(),
+            "qux".into(),
+            "quux".into(),
+            "corge".into(),
+        ];
+        let rules = parse_rules(":").expect("noop rule parses");
+        // word_start=5 > word_end=2 — both are within words.len()=6, so
+        // neither the start nor the end clamp to words.len() first; the
+        // inversion guard (max(start)) must catch this.
+        let outcome = recover_shard(
+            &job,
+            &words,
+            &ShardSpec {
+                word_start: 5,
+                word_end: 2,
+            },
+            &rules,
+        );
+        assert_eq!(outcome.found, None);
+        assert_eq!(outcome.candidates_tried, 0);
     }
 
     /// A spec whose end exceeds words.len() is clamped — no panic.

@@ -10,7 +10,7 @@ function fakeContainer(response: Response): { fetch(req: Request): Promise<Respo
 
 describe("forwardRecoveryShard", () => {
   it("forwards POST /recover-shard to the container and returns the response verbatim", async () => {
-    const shardOutcome = { found: false, password: null, candidatesChecked: 14344392 };
+    const shardOutcome = { found: null, candidatesTried: 14344392 };
     const container = fakeContainer(
       new Response(JSON.stringify(shardOutcome), {
         status: 200,
@@ -46,7 +46,7 @@ describe("forwardRecoveryShard", () => {
   });
 
   it("propagates a 200 found response when the password is recovered", async () => {
-    const shardOutcome = { found: true, password: "hashcat", candidatesChecked: 1 };
+    const shardOutcome = { found: "hashcat", candidatesTried: 1 };
     const container = fakeContainer(
       new Response(JSON.stringify(shardOutcome), {
         status: 200,
@@ -67,8 +67,8 @@ describe("forwardRecoveryShard", () => {
     const response = await forwardRecoveryShard(request, container);
     expect(response.status).toBe(200);
     const body = (await response.json()) as typeof shardOutcome;
-    expect(body.found).toBe(true);
-    expect(body.password).toBe("hashcat");
+    expect(body.found).toBe("hashcat");
+    expect(body.candidatesTried).toBe(1);
   });
 });
 
@@ -116,7 +116,7 @@ describe("routeRequest routing", () => {
   });
 
   it("routes POST /recover-shard to the container via routeRequest", async () => {
-    const shardOutcome = { found: true, password: "hashcat", candidatesChecked: 1 };
+    const shardOutcome = { found: "hashcat", candidatesTried: 1 };
     const container = fakeContainer(new Response(JSON.stringify(shardOutcome), { status: 200 }));
     const response = await routeRequest(
       new Request("http://recovery-worker/recover-shard", { method: "POST", body: "{}" }),
