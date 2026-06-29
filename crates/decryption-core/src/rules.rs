@@ -242,6 +242,18 @@ impl Rule {
 /// A collection of parsed hashcat rules.
 pub struct RuleSet(pub Vec<Rule>);
 
+impl RuleSet {
+    /// The number of rules in this set.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Returns `true` when the set contains no rules.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
 /// Parse a hashcat `.rule` file into a `RuleSet`.
 ///
 /// Blank lines and lines whose first non-whitespace character is `#` are

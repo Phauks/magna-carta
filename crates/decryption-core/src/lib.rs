@@ -24,6 +24,9 @@ pub use zip_adapter::ZipAdapter;
 mod rules;
 pub use rules::{apply_rule, expand, parse_rules, Rule, RuleError, RuleSet};
 
+mod shard;
+pub use shard::{shard_candidate_count, split_keyspace, ShardSpec};
+
 #[cfg(not(target_arch = "wasm32"))]
 mod dictionary;
 #[cfg(not(target_arch = "wasm32"))]
