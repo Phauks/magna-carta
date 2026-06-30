@@ -24,6 +24,7 @@
     "./preview-policy": "./src/preview-policy.ts",
     "./bundle-paths": "./src/bundle-paths.ts",
     "./zip-composition": "./src/zip-composition.ts",
+    "./zip-entries-from-r2": "./src/zip-entries-from-r2.ts",
     "./audit": "./src/audit.ts",
     "./bundle-layout": "./src/bundle-layout.ts",
     "./bundle-options": "./src/bundle-options.ts",

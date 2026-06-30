@@ -1,3 +1,4 @@
+import { zipEntriesFromR2 } from "@magna-carta/file-manager/zip-entries-from-r2";
 import { makeZip } from "client-zip";
 import type { Bindings } from "../app.ts";
 import { bundleContainerAdapter } from "./bundle-container-adapter.ts";
@@ -103,16 +104,10 @@ async function buildOne(env: Bindings, message: BundleBuildMessage): Promise<voi
     }
 
     // The plain client-zip lane: stream each entry's R2 object body through client-zip into a single
-    // R2 object, then mark ready with that one artifact key.
+    // R2 object, then mark ready with that one artifact key. zipEntriesFromR2 fetches and skips reaped
+    // objects (shared with the inline download path in routes/downloads.ts).
     const key = `bundles/${message.manifestHash}.zip`;
-    async function* inputs() {
-      for (const entry of message.entries) {
-        const object = await env.R2.get(entry.r2Key);
-        if (object === null) continue; // reaped between resolve and build — skip, never abort the archive
-        yield { name: entry.path, input: object.body };
-      }
-    }
-    await putStreamMultipart(env.R2, key, makeZip(inputs()));
+    await putStreamMultipart(env.R2, key, makeZip(zipEntriesFromR2(env.R2, message.entries)));
     await coordinator.markReady(key);
   } catch (error) {
     // markFailed only transitions a still-`building` job (the coordinator guards it), so a transient
