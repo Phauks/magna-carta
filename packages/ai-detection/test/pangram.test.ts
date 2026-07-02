@@ -78,20 +78,60 @@ describe("createPangramAdapter.detect", () => {
     expect(result.value.segments?.[0]?.endCharacter).toBe(50);
   });
 
-  it("returns adapter-error (no text leak) on a 5xx", async () => {
+  it("returns adapter-error (upstream) with no text leak on a 5xx", async () => {
     const port = adapter(stubClient(jsonResponse(503, { error: "upstream" })));
     const result = await port.detect({ text: "secret privileged content", firmId: FIRM });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe("adapter-error");
+    expect(result.problem?.category).toBe("upstream");
+    expect(result.problem?.status).toBe(502);
     expect(JSON.stringify(result)).not.toContain("secret privileged content");
   });
 
-  it("returns adapter-error (validation) on a malformed 200 body, not a throw", async () => {
+  it("returns adapter-error (upstream) on a malformed 200 body, not a throw", async () => {
     const port = adapter(stubClient(jsonResponse(200, { not_a_prediction: true })));
     const result = await port.detect({ text: LONG_TEXT, firmId: FIRM });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe("adapter-error");
+    expect(result.problem?.category).toBe("upstream");
+    expect(result.problem?.status).toBe(502);
+  });
+
+  it("returns adapter-error (network), no text leak, when the transport throws", async () => {
+    const throwingClient: HttpClient = {
+      async request() {
+        throw new Error("connection refused");
+      },
+    };
+    const port = adapter(throwingClient);
+    const result = await port.detect({ text: "secret privileged content", firmId: FIRM });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("adapter-error");
+    expect(result.problem?.category).toBe("network");
+    expect(result.problem?.status).toBe(502);
+    expect(JSON.stringify(result)).not.toContain("secret privileged content");
+  });
+
+  it("returns adapter-error (upstream) when response.json() throws, not network", async () => {
+    const badBodyClient: HttpClient = {
+      async request() {
+        return {
+          status: 200,
+          json: async () => {
+            throw new SyntaxError("bad json");
+          },
+        };
+      },
+    };
+    const port = adapter(badBodyClient);
+    const result = await port.detect({ text: LONG_TEXT, firmId: FIRM });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe("adapter-error");
+    expect(result.problem?.category).toBe("upstream");
+    expect(result.problem?.status).toBe(502);
   });
 });

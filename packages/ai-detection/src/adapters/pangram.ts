@@ -1,5 +1,5 @@
 import { adapterError, ok, type Dispatch } from "@magna-carta/integrations/dispatch";
-import type { HttpClient } from "@magna-carta/integrations/http";
+import type { HttpClient, HttpResponse } from "@magna-carta/integrations/http";
 import { integrationProblem } from "@magna-carta/integrations/problem";
 import type { AiTextDetectionPort, DetectionInput, RawDetection, RawSegment } from "../port.ts";
 import type { DetectionReport } from "../report.ts";
@@ -58,10 +58,9 @@ function toRawDetection(prediction: PangramPrediction): RawDetection {
 export function createPangramAdapter(config: PangramAdapterConfig): AiTextDetectionPort {
   return {
     async detect(input: DetectionInput): Promise<Dispatch<DetectionReport>> {
-      let status: number;
-      let body: unknown;
+      let response: HttpResponse;
       try {
-        const response = await config.http.request({
+        response = await config.http.request({
           method: "POST",
           url: `${config.baseUrl}/predict`,
           headers: {
@@ -70,20 +69,32 @@ export function createPangramAdapter(config: PangramAdapterConfig): AiTextDetect
           },
           body: JSON.stringify({ text: input.text, public_dashboard_link: false }),
         });
-        status = response.status;
-        body = await response.json();
       } catch {
-        // A transport failure carries nothing caller-safe from the request; never include the text.
+        // The request never completed — a transport/network failure. It carries nothing caller-safe;
+        // never include the text.
         return adapterError(
           integrationProblem("network", 502, "Detection provider unreachable", {
             detail: "The detection provider could not be reached.",
           }),
         );
       }
+      const status = response.status;
       if (status < 200 || status >= 300) {
         return adapterError(
           integrationProblem("upstream", 502, "Detection provider error", {
             detail: `The detection provider returned status ${status}.`,
+          }),
+        );
+      }
+      // The request completed with a 2xx: a body that fails to decode is a malformed upstream
+      // response, not a network failure. Same treatment as a body that parses to the wrong shape.
+      let body: unknown;
+      try {
+        body = await response.json();
+      } catch {
+        return adapterError(
+          integrationProblem("upstream", 502, "Unexpected detection response", {
+            detail: "The detection provider returned an unexpected response shape.",
           }),
         );
       }
