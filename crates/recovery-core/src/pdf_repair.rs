@@ -124,11 +124,12 @@ fn is_pdf_delimiter(b: u8) -> bool {
     )
 }
 
-/// Locate the document catalog by scanning each object's body for a `/Type`
-/// dictionary entry naming `/Catalog`. Best-effort — the object's byte span runs
-/// from its header offset to the next object's offset (or end of file). The
-/// trailer's `/Root` reference ultimately validates the choice when the file
-/// reloads; a false positive simply fails that reload and is caught upstream.
+/// Locate the document catalog: the first scanned object that declares
+/// `/Type /Catalog`. The object's byte span runs from its header offset to the
+/// next object's offset (or end of file). Requiring `/Type` to be *followed by*
+/// `/Catalog` (not two independent substring hits) avoids mistaking an object
+/// that merely mentions `/Catalog` elsewhere — e.g. a `/Type /Page` carrying an
+/// unrelated `/Catalog` reference — for the document catalog.
 pub fn find_root(bytes: &[u8], scanned: &[ScannedObject]) -> Option<(u32, u16)> {
     for (index, object) in scanned.iter().enumerate() {
         let end = scanned
@@ -136,11 +137,46 @@ pub fn find_root(bytes: &[u8], scanned: &[ScannedObject]) -> Option<(u32, u16)> 
             .map(|next| next.offset)
             .unwrap_or(bytes.len());
         let body = &bytes[object.offset..end];
-        if contains(body, b"/Type") && contains(body, b"/Catalog") {
+        if declares_catalog(body) {
             return Some((object.number, object.generation));
         }
     }
     None
+}
+
+/// True if `body` declares `/Type /Catalog` — a `/Type` key whose value is the
+/// `/Catalog` name (PDF whitespace allowed between them, and `/Catalog` must end
+/// at a name boundary so `/CatalogFoo` does not match).
+fn declares_catalog(body: &[u8]) -> bool {
+    let mut from = 0;
+    while let Some(at) = find_from(body, b"/Type", from) {
+        let mut i = at + 5;
+        while i < body.len() && is_pdf_whitespace(body[i]) {
+            i += 1;
+        }
+        if body.get(i..i + 8) == Some(b"/Catalog") {
+            let boundary = match body.get(i + 8) {
+                None => true,
+                Some(&b) => is_pdf_whitespace(b) || is_pdf_delimiter(b),
+            };
+            if boundary {
+                return true;
+            }
+        }
+        from = at + 5;
+    }
+    false
+}
+
+/// Index of the first occurrence of `needle` in `haystack` at or after `start`.
+fn find_from(haystack: &[u8], needle: &[u8], start: usize) -> Option<usize> {
+    if needle.is_empty() || start >= haystack.len() || haystack.len() - start < needle.len() {
+        return None;
+    }
+    haystack[start..]
+        .windows(needle.len())
+        .position(|window| window == needle)
+        .map(|position| start + position)
 }
 
 /// True if `haystack` contains `needle` (small, non-allocating substring search).
@@ -213,10 +249,21 @@ pub fn rebuild_with_xref(bytes: &[u8], scanned: &[ScannedObject], root: (u32, u1
 /// the file, synthesize a fresh xref, reload through lopdf, and re-emit a clean
 /// PDF — recording every object lopdf could not re-parse as lost, so a silent
 /// drop never becomes a silent overclaim. Errors (rather than emitting a hollow
-/// file) when no objects or no catalog can be found, or the rebuild will not load.
+/// file) when no real objects or no catalog can be found, or the rebuild will not
+/// load.
+///
+/// This assumes a *broken* cross-reference table: callers gate on [`diagnose_pdf`]
+/// (which reports `Intact` for a file that already loads). Recovery is by object
+/// NUMBER via re-parse and re-index — `recovered` means an object of that number
+/// re-parsed and was re-emitted, not that its original bytes are byte-identical.
+/// The rebuilt cross-reference table and trailer (and the heuristically-located
+/// catalog) are disclosed in the loss manifest's `synthesized` list.
 pub fn repair_pdf(bytes: &[u8]) -> Result<RepairResult, RepairError> {
     let scanned = scan_objects(bytes, MAX_ENTRY_COUNT);
-    if scanned.is_empty() {
+    // Object number 0 is the reserved free-list head, never a real object. Require
+    // at least one real object to recover — otherwise there is nothing to salvage
+    // and re-emitting a header-only file would falsely read as a full recovery.
+    if scanned.iter().all(|object| object.number == 0) {
         return Err(RepairError::Unrepairable);
     }
     let root = find_root(bytes, &scanned).ok_or(RepairError::Unrepairable)?;
@@ -266,14 +313,23 @@ pub fn repair_pdf(bytes: &[u8]) -> Result<RepairResult, RepairError> {
         });
     }
 
-    let fully_recovered = items.iter().all(|i| i.recovered);
+    // Disclose the reconstructed index: the cross-reference table and trailer are
+    // rebuilt from the scanned offsets and the catalog is located heuristically,
+    // so the re-emitted file's structure is recovered, not the original bytes. This
+    // is surfaced to the owner, not implied away.
+    let synthesized = vec![
+        "cross-reference table and trailer (rebuilt from recovered object offsets; document catalog located heuristically)".to_string(),
+    ];
+
+    // An empty item list would make `all` vacuously true; the guard above ensures
+    // at least one real object, but keep the check explicit against future edits.
+    let fully_recovered = !items.is_empty() && items.iter().all(|i| i.recovered);
     Ok(RepairResult {
         salvaged,
         loss: LossManifest {
-            // Nothing is fabricated — the xref is rebuilt from real offsets.
             items,
             fully_recovered,
-            synthesized: Vec::new(),
+            synthesized,
         },
     })
 }
@@ -428,8 +484,37 @@ mod repair_tests {
         let reopened = Document::load_mem(&result.salvaged).expect("valid pdf");
         assert!(reopened.objects.contains_key(&(1, 0)));
         assert!(result.loss.fully_recovered);
-        assert!(result.loss.synthesized.is_empty());
         assert_eq!(result.loss.items.iter().filter(|i| i.recovered).count(), 3);
+        // The rebuilt cross-reference structure is disclosed, not implied away —
+        // "fully recovered" here means every object was re-indexed, and the index
+        // itself is reconstructed.
+        assert!(
+            result
+                .loss
+                .synthesized
+                .iter()
+                .any(|note| note.contains("cross-reference")),
+            "the rebuilt xref/trailer must be disclosed in synthesized"
+        );
+    }
+
+    #[test]
+    fn a_file_whose_only_object_is_number_zero_is_unrepairable() {
+        // Object 0 is the reserved free-list head, never a real object. A file that
+        // scans to only object 0 must error, not emit a header-only file that reads
+        // as a full recovery.
+        let bytes = b"%PDF-1.5\n0 0 obj\n<< /Type /Catalog >>\nendobj\n";
+        assert!(repair_pdf(bytes).is_err());
+    }
+
+    #[test]
+    fn an_object_mentioning_catalog_without_being_one_is_not_chosen_as_root() {
+        // The first object is /Type /Page but also carries a stray "/Catalog" token;
+        // the real catalog is object 2. find_root must pick object 2, not object 1.
+        let bytes = b"1 0 obj\n<< /Type /Page /Note (/Catalog) >>\nendobj\n\
+2 0 obj\n<< /Type /Catalog /Pages 3 0 R >>\nendobj\n";
+        let scanned = scan_objects(bytes, 1000);
+        assert_eq!(find_root(bytes, &scanned), Some((2, 0)));
     }
 
     #[test]
