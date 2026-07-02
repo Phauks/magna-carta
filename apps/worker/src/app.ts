@@ -51,6 +51,7 @@ import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
 import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
 import { registerFileIntegrityRoutes } from "./routes/file-integrity.ts";
 import { registerFileTypeRoutes } from "./routes/file-type.ts";
+import { registerAiDetectionRoutes } from "./routes/ai-detection.ts";
 import { registerMetadataRoutes } from "./routes/metadata.ts";
 import { registerSupportGrantsRoutes } from "./routes/support-grants.ts";
 import { registerSupportSessionsRoute } from "./routes/support-sessions.ts";
@@ -380,6 +381,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerSafeBrowseRoute(app, chokepoint, options.safeBrowseDeps ?? {});
   registerFileIntegrityRoutes(app, chokepoint);
   registerFileTypeRoutes(app, chokepoint);
+  registerAiDetectionRoutes(app, chokepoint);
   registerMetadataRoutes(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);
   registerReleaseChannelRoute(app, chokepoint, authForEnv);

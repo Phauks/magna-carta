@@ -133,6 +133,32 @@ export type FileIntegrityVerifyResponse = {
     receipt?: unknown;
 };
 
+export type AiDetectionReport = {
+    band: 'unlikely' | 'mixed' | 'likely' | 'inconclusive';
+    score: number;
+    reliability: 'high' | 'moderate' | 'low';
+    caveats: Array<string>;
+    segments?: Array<{
+        startCharacter: number;
+        endCharacter: number;
+        score: number;
+        band: 'unlikely' | 'mixed' | 'likely' | 'inconclusive';
+    }>;
+    provenance: {
+        adapterId: string;
+        vendorModel?: string;
+        vendorVersion?: string;
+        detectedAt: string;
+        egressedTo: string;
+    };
+};
+
+export type AiDetectionDetectRequest = {
+    text: string;
+    languageHint?: string;
+    matterId?: string;
+};
+
 export type MetadataReport = {
     format: string;
     findings: Array<{
@@ -1753,6 +1779,47 @@ export type FileTypeVerifyResponses = {
 };
 
 export type FileTypeVerifyResponse = FileTypeVerifyResponses[keyof FileTypeVerifyResponses];
+
+export type AiDetectionDetectData = {
+    body: AiDetectionDetectRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ai-detection/detect';
+};
+
+export type AiDetectionDetectErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks tools:aiTextDetection
+     */
+    403: Problem;
+    /**
+     * External detection is disabled for this firm, or detection is unavailable
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The detection provider rejected the request or is unavailable
+     */
+    502: Problem;
+};
+
+export type AiDetectionDetectError = AiDetectionDetectErrors[keyof AiDetectionDetectErrors];
+
+export type AiDetectionDetectResponses = {
+    /**
+     * The detection report
+     */
+    200: AiDetectionReport;
+};
+
+export type AiDetectionDetectResponse = AiDetectionDetectResponses[keyof AiDetectionDetectResponses];
 
 export type MetadataInspectData = {
     body: {

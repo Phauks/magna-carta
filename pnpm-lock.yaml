@@ -250,6 +250,9 @@ importers:
       '@magna-carta/access-control':
         specifier: workspace:*
         version: link:../../packages/access-control
+      '@magna-carta/ai-detection':
+        specifier: workspace:*
+        version: link:../../packages/ai-detection
       '@magna-carta/billing-core':
         specifier: workspace:*
         version: link:../../packages/billing-core
@@ -402,6 +405,9 @@ importers:
       '@magna-carta/integrations':
         specifier: workspace:*
         version: link:../integrations
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@magna-carta/tsconfig':
         specifier: workspace:*
