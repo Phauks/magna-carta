@@ -11,6 +11,7 @@ crate-type = ["cdylib", "rlib"]
 hayro = { workspace = true }
 image = { workspace = true }
 kurbo = "0.13"
+flate2 = "1"
 lopdf = "0.41"
 # Cross-platform OS RNG for the AES-256 file-encryption key in `secure`. The wasm
 # target additionally needs the wasm_js backend feature (below).

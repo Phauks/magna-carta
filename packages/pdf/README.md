@@ -693,6 +693,36 @@ second may resolve to the first's target (the destination table and explicit arr
 are unaffected). Image watermarks support PNG and RGB/grayscale JPEG (a CMYK JPEG is decoded to
 RGB); placement is centred or tiled.
 
+## Decompression-bomb guard
+
+Every operation in this package — load, redact, sanitize, detect, Bates stamping, forms,
+security, and generate/assembly — rejects a malicious input before doing any real work:
+oversize input (over 256 MiB) and any compressed stream that would inflate past the
+engine's caps are both rejected up front, throwing a typed `DecompressionBombError`
+rather than exhausting memory.
+
+```ts
+import { loadDocument, DecompressionBombError } from "@magna-carta/pdf";
+
+try {
+  const doc = await loadDocument(bytes);
+} catch (error) {
+  if (error instanceof DecompressionBombError) {
+    // reject the document — do not retry with the same bytes
+  }
+}
+```
+
+The bound is **rigorous for deflate** (`FlateDecode`, the dominant high-ratio compression
+filter in PDF), which the guard scans and caps before either underlying parser touches the
+bytes. **LZW and RunLength compression, and image-codec expansion (e.g. JBIG2/CCITT
+bilevel rasters), are not decoded by the guard** and fall back to the plain input-size cap
+rather than the tighter per-stream bound — a disclosed residual for those rarer,
+lower-ratio vectors. **Encrypted stream bodies fall back to the input cap too:** the guard
+scans raw bytes before decryption, so it cannot see inside an encrypted stream, and a
+password-protected document that decrypts to a compression bomb is only bounded by the
+oversize-input check, not the tighter per-stream/cumulative caps.
+
 ## Build notes
 
 The WASM binary at `src/pkg/pdf_core_bg.wasm` is produced by `wasm-pack build crates/pdf-core --target web --out-dir packages/pdf/src/pkg --release --no-opt`. It is not committed to version control; run `vp run rust-wasm-build` (or `pnpm --filter @magna-carta/pdf run build:wasm`) to regenerate it. In development the binary is rebuilt automatically as part of `vp run build-all`.
