@@ -1,0 +1,291 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Wellbeing Resources — Coverage</title>
+<style>
+ body{font:14px system-ui,sans-serif;margin:0;background:#f6f7f9;color:#1a1a1a}
+ header{position:sticky;top:0;background:#fff;border-bottom:1px solid #ddd;padding:10px 16px;z-index:5}
+ .national{background:#fff8e6;border:1px solid #e8d48a;margin:12px 16px;padding:8px 12px;border-radius:8px}
+ section.jx{margin:12px 16px}
+ h2{font-size:16px;margin:8px 0} h2 small{color:#888;font-weight:400}
+ .resource{background:#fff;border:1px solid #e2e4e8;border-radius:8px;padding:8px 12px;margin:6px 0}
+ .rhead{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+ .conf{font-size:11px;padding:1px 6px;border-radius:10px;color:#fff}
+ .conf-HIGH{background:#2e7d32} .conf-MEDIUM{background:#ef6c00} .conf-LOW{background:#c62828} .conf-NA{background:#607d8b}
+ .tier,.optype,.verified{font-size:11px;color:#666}
+ .rbody div{margin:2px 0} .phone em{color:#666;font-style:normal;font-size:12px}
+ .src{font-size:11px;color:#888} .actions{margin-top:6px}
+ button{cursor:pointer;border:1px solid #ccc;background:#fafafa;border-radius:6px;padding:3px 10px;margin-right:6px}
+ .state{font-weight:600} .st-verify{color:#2e7d32} .st-needsfix{color:#c62828}
+ [data-conf][hidden]{display:none}
+</style></head><body>
+<header>
+ <b>Wellbeing Resources — Coverage</b> · 5 jurisdictions
+ &nbsp; filter:
+ <label><input type=checkbox class=cf value=HIGH checked>HIGH</label>
+ <label><input type=checkbox class=cf value=MEDIUM checked>MEDIUM</label>
+ <label><input type=checkbox class=cf value=LOW checked>LOW</label>
+ <label><input type=checkbox class=cf value=NA checked>NA</label>
+</header>
+<div class="national"><h2>National safety net (always present)</h2>
+    <div class="resource" data-conf="HIGH" data-id="NATIONAL:0">
+      <div class="rhead">
+        <b>988 Suicide &amp; Crisis Lifeline</b>
+        <span class="conf conf-HIGH">HIGH</span>
+        <span class="tier">primary-official</span>
+        <span class="optype">national · national</span>
+        <span class="verified">verified 2026-07-02</span>
+      </div>
+      <div class="rbody">
+        <div>SAMHSA / Vibrant Emotional Health</div>
+        <div><a href="https://988lifeline.org/" target="_blank" rel="noreferrer">https://988lifeline.org/</a></div>
+        <div class="phones"><span class="phone">988 <em>Call, text, or chat · 24/7</em></span></div>
+        <div class="svc">crisisLine, mentalHealth</div>
+        <div class="meta">Free and confidential · Free</div>
+        <div class="desc">US national crisis line for anyone in emotional distress or thinking about suicide — call, text, or chat, 24/7.</div>
+        <div class="src">source: <a href="https://988lifeline.org/" target="_blank" rel="noreferrer">https://988lifeline.org/</a></div>
+      </div>
+      <div class="actions">
+        <button class="verify" onclick="mark('NATIONAL:0','verify')">verify</button>
+        <button class="needsfix" onclick="mark('NATIONAL:0','needsfix')">needs-fix</button>
+        <span class="state" id="st-NATIONAL:0"></span>
+      </div>
+    </div>
+    <div class="resource" data-conf="HIGH" data-id="NATIONAL:1">
+      <div class="rhead">
+        <b>SAMHSA National Helpline</b>
+        <span class="conf conf-HIGH">HIGH</span>
+        <span class="tier">primary-official</span>
+        <span class="optype">national · national</span>
+        <span class="verified">verified 2026-07-02</span>
+      </div>
+      <div class="rbody">
+        <div>Substance Abuse and Mental Health Services Administration</div>
+        <div><a href="https://www.samhsa.gov/find-help/helplines/national-helpline" target="_blank" rel="noreferrer">https://www.samhsa.gov/find-help/helplines/national-helpline</a></div>
+        <div class="phones"><span class="phone">1-800-662-4357 <em>Treatment referral &amp; information · 24/7</em></span></div>
+        <div class="svc">substanceUse, mentalHealth</div>
+        <div class="meta">Free and confidential · Free</div>
+        <div class="desc">Confidential treatment referral and information service for mental-health and substance-use disorders.</div>
+        <div class="src">source: <a href="https://www.samhsa.gov/find-help/helplines/national-helpline" target="_blank" rel="noreferrer">https://www.samhsa.gov/find-help/helplines/national-helpline</a></div>
+      </div>
+      <div class="actions">
+        <button class="verify" onclick="mark('NATIONAL:1','verify')">verify</button>
+        <button class="needsfix" onclick="mark('NATIONAL:1','needsfix')">needs-fix</button>
+        <span class="state" id="st-NATIONAL:1"></span>
+      </div>
+    </div>
+    <div class="resource" data-conf="HIGH" data-id="NATIONAL:2">
+      <div class="rhead">
+        <b>ABA Commission on Lawyer Assistance Programs (CoLAP) — Directory of state programs</b>
+        <span class="conf conf-HIGH">HIGH</span>
+        <span class="tier">primary-official</span>
+        <span class="optype">national · national</span>
+        <span class="verified">verified 2026-07-02</span>
+      </div>
+      <div class="rbody">
+        <div>American Bar Association</div>
+        <div><a href="https://www.americanbar.org/groups/lawyer_assistance/resources/lap_programs_by_state/" target="_blank" rel="noreferrer">https://www.americanbar.org/groups/lawyer_assistance/resources/lap_programs_by_state/</a></div>
+        <div class="phones"></div>
+        <div class="svc">peerSupport, mentalHealth, substanceUse</div>
+        <div class="meta">Routes to confidential state programs · Free</div>
+        <div class="desc">The ABA&#x27;s maintained by-state directory of Lawyer Assistance Programs — the lawyer-specific fallback for finding a local program.</div>
+        <div class="src">source: <a href="https://www.americanbar.org/groups/lawyer_assistance/" target="_blank" rel="noreferrer">https://www.americanbar.org/groups/lawyer_assistance/</a></div>
+      </div>
+      <div class="actions">
+        <button class="verify" onclick="mark('NATIONAL:2','verify')">verify</button>
+        <button class="needsfix" onclick="mark('NATIONAL:2','needsfix')">needs-fix</button>
+        <span class="state" id="st-NATIONAL:2"></span>
+      </div>
+    </div></div>
+<section class="jx" data-code="CA"><h2>California <small>CA · 06</small></h2>
+    <div class="resource" data-conf="HIGH" data-id="US-CA:0">
+      <div class="rhead">
+        <b>Lawyer Assistance Program (LAP)</b>
+        <span class="conf conf-HIGH">HIGH</span>
+        <span class="tier">primary-official</span>
+        <span class="optype">stateBar · statewide</span>
+        <span class="verified">verified 2026-07-02</span>
+      </div>
+      <div class="rbody">
+        <div>State Bar of California</div>
+        <div><a href="https://www.calbar.ca.gov/legal-professionals/legal-resource-center/lawyer-assistance-program" target="_blank" rel="noreferrer">https://www.calbar.ca.gov/legal-professionals/legal-resource-center/lawyer-assistance-program</a></div>
+        <div class="phones"><span class="phone">877-527-4435 <em>Confidential intake (877-LAP-4HELP) · hours n/a</em></span></div>
+        <div class="svc">counseling, substanceUse, mentalHealth, peerSupport, monitoring, financialAid</div>
+        <div class="meta">Confidential by statute (Bus. &amp; Prof. Code §6234) · Some services free; fees may apply</div>
+        <div class="desc">State Bar of California program: confidential assessment, short-term counseling, peer support, and referrals for lawyers, applicants, and law students.</div>
+        <div class="src">source: <a href="https://www.calbar.ca.gov/legal-professionals/legal-resource-center/lawyer-assistance-program" target="_blank" rel="noreferrer">https://www.calbar.ca.gov/legal-professionals/legal-resource-center/lawyer-assistance-program</a></div>
+      </div>
+      <div class="actions">
+        <button class="verify" onclick="mark('US-CA:0','verify')">verify</button>
+        <button class="needsfix" onclick="mark('US-CA:0','needsfix')">needs-fix</button>
+        <span class="state" id="st-US-CA:0"></span>
+      </div>
+    </div></section><section class="jx" data-code="NY"><h2>New York <small>NY · 36</small></h2>
+    <div class="resource" data-conf="HIGH" data-id="US-NY:0">
+      <div class="rhead">
+        <b>Lawyer Assistance Program (LAP)</b>
+        <span class="conf conf-HIGH">HIGH</span>
+        <span class="tier">primary-official</span>
+        <span class="optype">stateBar · statewide</span>
+        <span class="verified">verified 2026-07-02</span>
+      </div>
+      <div class="rbody">
+        <div>New York State Bar Association</div>
+        <div><a href="https://nysba.org/lawyer-assistance-program/" target="_blank" rel="noreferrer">https://nysba.org/lawyer-assistance-program/</a></div>
+        <div class="phones"><span class="phone">877-772-8835 <em>Confidential hotline · 24/7</em></span> <span class="phone">518-487-5669 <em>Intake coordinator · business hrs</em></span></div>
+        <div class="svc">counseling, substanceUse, mentalHealth, peerSupport, monitoring, familySupport</div>
+        <div class="meta">Confidential under Judiciary Law §499 · Free (4 free counseling sessions/yr for members)</div>
+        <div class="desc">Statewide NYSBA program: free confidential support, referrals, and peer help for lawyers, judges, law students, and families.</div>
+        <div class="src">source: <a href="https://nysba.org/lawyer-assistance-program/" target="_blank" rel="noreferrer">https://nysba.org/lawyer-assistance-program/</a></div>
+      </div>
+      <div class="actions">
+        <button class="verify" onclick="mark('US-NY:0','verify')">verify</button>
+        <button class="needsfix" onclick="mark('US-NY:0','needsfix')">needs-fix</button>
+        <span class="state" id="st-US-NY:0"></span>
+      </div>
+    </div>
+    <div class="resource" data-conf="HIGH" data-id="US-NY:1">
+      <div class="rhead">
+        <b>Lawyer Assistance Program (NYC)</b>
+        <span class="conf conf-HIGH">HIGH</span>
+        <span class="tier">primary-official</span>
+        <span class="optype">nonprofit · metro</span>
+        <span class="verified">verified 2026-07-02</span>
+      </div>
+      <div class="rbody">
+        <div>New York City Bar Association</div>
+        <div><a href="https://www.nycbar.org/serving-the-community/lawyer-assistance-program/" target="_blank" rel="noreferrer">https://www.nycbar.org/serving-the-community/lawyer-assistance-program/</a></div>
+        <div class="phones"><span class="phone">212-302-5787 <em>Confidential helpline · 24/7</em></span></div>
+        <div class="svc">counseling, substanceUse, mentalHealth, peerSupport</div>
+        <div class="meta">Free and confidential (Judiciary Law §499) · Free</div>
+        <div class="desc">NYC-area program (no bar membership required) for lawyers, judges, law students, and families in the five boroughs and Westchester.</div>
+        <div class="src">source: <a href="https://www.nycbar.org/serving-the-community/lawyer-assistance-program/" target="_blank" rel="noreferrer">https://www.nycbar.org/serving-the-community/lawyer-assistance-program/</a></div>
+      </div>
+      <div class="actions">
+        <button class="verify" onclick="mark('US-NY:1','verify')">verify</button>
+        <button class="needsfix" onclick="mark('US-NY:1','needsfix')">needs-fix</button>
+        <span class="state" id="st-US-NY:1"></span>
+      </div>
+    </div></section><section class="jx" data-code="SD"><h2>South Dakota <small>SD · 46</small></h2>
+    <div class="resource" data-conf="HIGH" data-id="US-SD:0">
+      <div class="rhead">
+        <b>Lawyers Assistance Program</b>
+        <span class="conf conf-HIGH">HIGH</span>
+        <span class="tier">primary-official</span>
+        <span class="optype">stateBar · statewide</span>
+        <span class="verified">verified 2026-07-02</span>
+      </div>
+      <div class="rbody">
+        <div>State Bar of South Dakota (Sand Creek / ALLONE Health)</div>
+        <div><a href="https://www.sdlawyerwellness.com/gethelp" target="_blank" rel="noreferrer">https://www.sdlawyerwellness.com/gethelp</a></div>
+        <div class="phones"><span class="phone">1-888-243-5744 <em>Sand Creek member assistance (24/7) · 24/7</em></span> <span class="phone">605-391-5191 <em>Lawyers Concerned for Lawyers peer contact · hours n/a</em></span></div>
+        <div class="svc">counseling, substanceUse, mentalHealth, peerSupport, crisisLine, familySupport</div>
+        <div class="meta">Free, confidential assessment; records not shared with the Bar · Free (short-term); cost-coverage project up to $500</div>
+        <div class="desc">South Dakota program on its own site: 24/7 assessment and short-term counseling via Sand Creek/ALLONE, plus confidential peer support.</div>
+        <div class="src">source: <a href="https://www.sdlawyerwellness.com/gethelp" target="_blank" rel="noreferrer">https://www.sdlawyerwellness.com/gethelp</a></div>
+      </div>
+      <div class="actions">
+        <button class="verify" onclick="mark('US-SD:0','verify')">verify</button>
+        <button class="needsfix" onclick="mark('US-SD:0','needsfix')">needs-fix</button>
+        <span class="state" id="st-US-SD:0"></span>
+      </div>
+    </div></section><section class="jx" data-code="TX"><h2>Texas <small>TX · 48</small></h2>
+    <div class="resource" data-conf="HIGH" data-id="US-TX:0">
+      <div class="rhead">
+        <b>Texas Lawyers&#x27; Assistance Program (TLAP)</b>
+        <span class="conf conf-HIGH">HIGH</span>
+        <span class="tier">primary-official</span>
+        <span class="optype">stateBar · statewide</span>
+        <span class="verified">verified 2026-07-02</span>
+      </div>
+      <div class="rbody">
+        <div>State Bar of Texas</div>
+        <div><a href="https://www.tlaphelps.org/" target="_blank" rel="noreferrer">https://www.tlaphelps.org/</a></div>
+        <div class="phones"><span class="phone">1-800-343-8527 <em>Confidential helpline (1-800-343-TLAP) · 24/7</em></span></div>
+        <div class="svc">counseling, substanceUse, mentalHealth, peerSupport, crisisLine</div>
+        <div class="meta">Confidential by statute · Free</div>
+        <div class="desc">State Bar of Texas program: confidential 24/7 support, peer assistance, and referrals for lawyers, judges, and law students.</div>
+        <div class="src">source: <a href="https://www.tlaphelps.org/" target="_blank" rel="noreferrer">https://www.tlaphelps.org/</a></div>
+      </div>
+      <div class="actions">
+        <button class="verify" onclick="mark('US-TX:0','verify')">verify</button>
+        <button class="needsfix" onclick="mark('US-TX:0','needsfix')">needs-fix</button>
+        <span class="state" id="st-US-TX:0"></span>
+      </div>
+    </div>
+    <div class="resource" data-conf="HIGH" data-id="US-TX:1">
+      <div class="rhead">
+        <b>Sheeran-Crowley Lawyer Wellness Trust</b>
+        <span class="conf conf-HIGH">HIGH</span>
+        <span class="tier">primary-official</span>
+        <span class="optype">nonprofit · statewide</span>
+        <span class="verified">verified 2026-07-02</span>
+      </div>
+      <div class="rbody">
+        <div>Texas Lawyers Concerned for Lawyers</div>
+        <div><a href="https://www.sheerancrowley.org/get-help" target="_blank" rel="noreferrer">https://www.sheerancrowley.org/get-help</a></div>
+        <div class="phones"></div>
+        <div class="svc">financialAid, substanceUse, mentalHealth</div>
+        <div class="meta">Works with TLAP · Grants toward treatment for those in need</div>
+        <div class="desc">Nonprofit trust that funds treatment (paid to providers) for Texas legal professionals working with TLAP.</div>
+        <div class="src">source: <a href="https://www.sheerancrowley.org/what-we-do" target="_blank" rel="noreferrer">https://www.sheerancrowley.org/what-we-do</a></div>
+      </div>
+      <div class="actions">
+        <button class="verify" onclick="mark('US-TX:1','verify')">verify</button>
+        <button class="needsfix" onclick="mark('US-TX:1','needsfix')">needs-fix</button>
+        <span class="state" id="st-US-TX:1"></span>
+      </div>
+    </div></section><section class="jx" data-code="WY"><h2>Wyoming <small>WY · 56</small></h2>
+    <div class="resource" data-conf="HIGH" data-id="US-WY:0">
+      <div class="rhead">
+        <b>Wyoming Lawyer Assistance Program (WyLAP)</b>
+        <span class="conf conf-HIGH">HIGH</span>
+        <span class="tier">primary-official</span>
+        <span class="optype">stateBar · statewide</span>
+        <span class="verified">verified 2026-07-02</span>
+      </div>
+      <div class="rbody">
+        <div>Wyoming State Bar</div>
+        <div><a href="https://www.wyomingbar.org/for-lawyers/lawyer-resources/lawyer-assistance-program/" target="_blank" rel="noreferrer">https://www.wyomingbar.org/for-lawyers/lawyer-resources/lawyer-assistance-program/</a></div>
+        <div class="phones"><span class="phone">307-432-2101 <em>WyLAP Director · hours n/a</em></span></div>
+        <div class="svc">peerSupport, substanceUse, mentalHealth, financialAid</div>
+        <div class="meta">Strictly confidential · Free intake</div>
+        <div class="desc">Wyoming State Bar program: confidential peer support and referrals; clinical services via a contracted provider (WPAP).</div>
+        <div class="src">source: <a href="https://www.wyomingbar.org/for-lawyers/lawyer-resources/lawyer-assistance-program/" target="_blank" rel="noreferrer">https://www.wyomingbar.org/for-lawyers/lawyer-resources/lawyer-assistance-program/</a></div>
+      </div>
+      <div class="actions">
+        <button class="verify" onclick="mark('US-WY:0','verify')">verify</button>
+        <button class="needsfix" onclick="mark('US-WY:0','needsfix')">needs-fix</button>
+        <span class="state" id="st-US-WY:0"></span>
+      </div>
+    </div>
+    <div class="resource" data-conf="HIGH" data-id="US-WY:1">
+      <div class="rhead">
+        <b>Wyoming Professional Assistance Program (WPAP)</b>
+        <span class="conf conf-HIGH">HIGH</span>
+        <span class="tier">primary-official</span>
+        <span class="optype">vendor · statewide</span>
+        <span class="verified">verified 2026-07-02</span>
+      </div>
+      <div class="rbody">
+        <div>WPAP (contracted provider)</div>
+        <div><a href="https://wpapro.org/" target="_blank" rel="noreferrer">https://wpapro.org/</a></div>
+        <div class="phones"><span class="phone">307-472-1222 <em>Direct line · hours n/a</em></span></div>
+        <div class="svc">counseling, substanceUse, mentalHealth, monitoring</div>
+        <div class="meta">Anonymous, confidential, voluntary · Free evaluation/consultation</div>
+        <div class="desc">Independent professional-assistance program (serves multiple licensed professions) contracted for WyLAP&#x27;s clinical evaluation, referral, and monitoring.</div>
+        <div class="src">source: <a href="https://wpapro.org/" target="_blank" rel="noreferrer">https://wpapro.org/</a></div>
+      </div>
+      <div class="actions">
+        <button class="verify" onclick="mark('US-WY:1','verify')">verify</button>
+        <button class="needsfix" onclick="mark('US-WY:1','needsfix')">needs-fix</button>
+        <span class="state" id="st-US-WY:1"></span>
+      </div>
+    </div></section>
+<script>
+ function mark(id,kind){localStorage.setItem('wb:'+id,kind);render(id);}
+ function render(id){var k=localStorage.getItem('wb:'+id)||'';var el=document.getElementById('st-'+id);
+   if(el){el.textContent=k?('→ '+k):'';el.className='state st-'+k;}}
+ document.querySelectorAll('.resource').forEach(function(r){render(r.dataset.id);});
+ function applyFilters(){var on={};document.querySelectorAll('.cf').forEach(function(c){on[c.value]=c.checked;});
+   document.querySelectorAll('.resource').forEach(function(r){r.hidden=!on[r.dataset.conf];});}
+ document.querySelectorAll('.cf').forEach(function(c){c.addEventListener('change',applyFilters);});
+</script>
+</body></html>
