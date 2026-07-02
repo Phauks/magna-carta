@@ -1,0 +1,3 @@
+# Captured source pages can be large; keep the .txt extractions and manifest in git,
+# ignore heavy binaries unless a source needs its exact bytes committed.
+sources/**/*.pdf

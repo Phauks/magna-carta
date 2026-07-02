@@ -1,0 +1,4 @@
+# Provenance for every captured source. Research tasks append one entry per fetched page.
+# sha256 is of the captured .txt extraction (or .html/.pdf where committed).
+schemaVersion: 1
+sources: []
