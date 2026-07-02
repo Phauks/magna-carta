@@ -45,7 +45,8 @@
     color: var(--mc-text-subtle);
     font-size: var(--mc-text-xs);
     font-weight: var(--mc-weight-semibold);
-    letter-spacing: var(--mc-tracking-normal);
+    /* The letterspaced-caps label voice — headers are structure, and uppercase needs the air. */
+    letter-spacing: var(--mc-tracking-caps);
     text-transform: uppercase;
     text-align: start;
     white-space: nowrap;
@@ -134,6 +135,11 @@
     color: inherit;
     font: inherit;
     font-weight: var(--mc-weight-semibold);
+    /* The UA stylesheet gives <button> `text-transform: none` and `letter-spacing: normal`, which
+       silently discarded the head's caps voice — inherit puts the button back in the header's
+       register (`font: inherit` covers neither property). */
+    text-transform: inherit;
+    letter-spacing: inherit;
     cursor: pointer;
     border-radius: var(--mc-radius-sm);
     outline-offset: var(--mc-focus-ring-offset);
@@ -223,7 +229,8 @@
     font-size: var(--mc-text-xs);
     font-weight: var(--mc-weight-semibold);
     text-transform: uppercase;
-    letter-spacing: var(--mc-tracking-normal);
+    /* The letterspaced-caps label voice, same as the column headers this heading filters. */
+    letter-spacing: var(--mc-tracking-caps);
   }
   .mc-table-filter-field {
     display: flex;

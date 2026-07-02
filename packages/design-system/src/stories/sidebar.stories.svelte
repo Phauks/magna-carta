@@ -14,9 +14,9 @@
   import Calendar from "@lucide/svelte/icons/calendar";
   import Users from "@lucide/svelte/icons/users";
   import Clock from "@lucide/svelte/icons/clock";
-  import Landmark from "@lucide/svelte/icons/landmark";
   import ReceiptText from "@lucide/svelte/icons/receipt-text";
   import Settings from "@lucide/svelte/icons/settings";
+  import BrandMark from "../lib/components/brand-mark/brand-mark.svelte";
   import * as Sidebar from "../lib/components/sidebar/index.ts";
   import * as Tooltip from "../lib/components/tooltip/index.ts";
   import SidebarRoot from "../lib/components/sidebar/sidebar.svelte";
@@ -54,11 +54,11 @@
       await expect(expand).toHaveAttribute("aria-expanded", "false");
       // The label went sr-only, so the link is still findable by its accessible name.
       await expect(canvas.getByRole("link", { name: "Matters" })).toBeInTheDocument();
-      // Regression: the brand mark keeps its full size in the rail (flex: none) — it used to shrink
-      // to a ~2px sliver because an invalid flex-shrink token left the icon shrinkable.
-      const brandIcon = canvasElement.querySelector(".mc-sidebar-header svg.mc-sidebar-icon");
-      await expect(brandIcon).toBeInTheDocument();
-      await expect(brandIcon!.getBoundingClientRect().width).toBeGreaterThan(16);
+      // Regression: the brand mark keeps its full size in the rail — the header once shrank its
+      // icon to a ~2px sliver when it was left flex-shrinkable. The gold glyph must hold width.
+      const brandGlyph = canvasElement.querySelector(".mc-sidebar-header .mc-brand-mark-glyph");
+      await expect(brandGlyph).toBeInTheDocument();
+      await expect(brandGlyph!.getBoundingClientRect().width).toBeGreaterThan(10);
     });
 
     await step("The trigger now says Expand, and expanding restores the labelled rail", async () => {
@@ -76,16 +76,9 @@
       <div class="flex overflow-hidden">
         <Sidebar.Root bind:collapsed aria-label="Primary">
           <Sidebar.Header>
-            <Landmark class="mc-sidebar-icon text-chrome-accent" aria-hidden="true" />
-            <!-- Transparent (not sr-only) in the rail so the brand keeps its height — the header stays
-                 the same size, so collapsing never shifts the icons below it — and fades with the rest. -->
-            <span
-              class="overflow-hidden font-semibold whitespace-nowrap transition-colors duration-normal {collapsed
-                ? 'text-transparent'
-                : 'text-chrome-text-strong'}"
-            >
-              Magna Carta
-            </span>
+            <!-- The wordmark hides by color in the rail (brand-mark.css keys on the sidebar's
+                 data-state), so the header keeps its height and the accessible name persists. -->
+            <BrandMark />
           </Sidebar.Header>
 
           <Sidebar.Content>

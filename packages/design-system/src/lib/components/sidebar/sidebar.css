@@ -73,7 +73,8 @@
     font-size: var(--mc-text-xs);
     font-weight: var(--mc-weight-semibold);
     text-transform: uppercase;
-    letter-spacing: var(--mc-tracking-normal);
+    /* The letterspaced-caps label voice — structural labels get air, data stays untracked. */
+    letter-spacing: var(--mc-tracking-caps);
     white-space: nowrap;
   }
   .mc-sidebar-menu {

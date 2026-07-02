@@ -4,6 +4,7 @@
     "sans": {
       "$type": "fontFamily",
       "$value": [
+        "Atkinson Hyperlegible Next Variable",
         "Atkinson Hyperlegible Next",
         "Atkinson Hyperlegible",
         "system-ui",
@@ -13,6 +14,16 @@
         "Arial",
         "sans-serif"
       ]
+    },
+    "display": {
+      "$description": "The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut.",
+      "$type": "fontFamily",
+      "$value": ["Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", "serif"]
+    },
+    "blackletter": {
+      "$description": "The brand mark face (illuminated M / wordmark contexts) ONLY — a fixed glyph treated as artwork, never running text. A drawn SVG mark is the planned successor; this face is the launch stand-in the design language names.",
+      "$type": "fontFamily",
+      "$value": ["UnifrakturMaguntia", "serif"]
     },
     "mono": {
       "$type": "fontFamily",
@@ -43,6 +54,16 @@
   "tracking": {
     "$description": "Letter spacing. Pixel values approximate em-based tracking at the base 16px size.",
     "tight": { "$type": "dimension", "$value": { "value": -0.16, "unit": "px" } },
-    "normal": { "$type": "dimension", "$value": { "value": 0, "unit": "px" } }
+    "normal": { "$type": "dimension", "$value": { "value": 0, "unit": "px" } },
+    "caps": {
+      "$description": "The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders.",
+      "$type": "dimension",
+      "$value": { "value": 1, "unit": "px" }
+    },
+    "wordmark": {
+      "$description": "The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label.",
+      "$type": "dimension",
+      "$value": { "value": 2, "unit": "px" }
+    }
   }
 }

@@ -16,11 +16,11 @@
   import Users from "@lucide/svelte/icons/users";
   import Clock from "@lucide/svelte/icons/clock";
   import ReceiptText from "@lucide/svelte/icons/receipt-text";
-  import Scale from "@lucide/svelte/icons/scale";
   import Settings from "@lucide/svelte/icons/settings";
   import Search from "@lucide/svelte/icons/search";
   import Plus from "@lucide/svelte/icons/plus";
   import Bell from "@lucide/svelte/icons/bell";
+  import BrandMark from "../lib/components/brand-mark/brand-mark.svelte";
   import * as Sidebar from "../lib/components/sidebar/index.ts";
   import * as Tooltip from "../lib/components/tooltip/index.ts";
   import Button from "../lib/components/button/index.ts";
@@ -60,8 +60,8 @@
 </script>
 
 <script lang="ts">
-  // Mirrors the brand label's collapse to the rail: it fades with the rest of the chrome so the rail
-  // shows only the gold mark (the Trigger flips this through Sidebar's view-transition).
+  // The Trigger flips this through Sidebar's view-transition; the brand wordmark and labels key
+  // their rail fade off the sidebar's data-state, so nothing here mirrors it manually.
   let collapsed = $state(false);
 </script>
 
@@ -73,12 +73,9 @@
       <div class="flex h-screen overflow-hidden bg-surface-default">
         <Sidebar.Root bind:collapsed aria-label="Primary">
           <Sidebar.Header>
-            <Scale class="mc-sidebar-icon text-chrome-accent" aria-hidden="true" />
-            <span
-              class="font-semibold whitespace-nowrap {collapsed
-                ? 'text-transparent'
-                : 'text-chrome-text-strong'}">Magna Carta</span
-            >
+            <!-- The wordmark hides by color in the rail (brand-mark.css keys on the sidebar's
+                 data-state), so the header keeps its height and the accessible name persists. -->
+            <BrandMark />
           </Sidebar.Header>
           <Sidebar.Content>
             <Sidebar.Group>

@@ -13,6 +13,10 @@ catalog:
   "@cloudflare/workers-types": 4.20260604.1
   # Fixtures (packages/fixtures). Seeded via faker.seed(); locale en.
   "@faker-js/faker": 10.4.0
+  # Self-hosted fonts (design language: in-custody, no font CDN). Variable builds where available.
+  "@fontsource-variable/atkinson-hyperlegible-next": 5.2.6
+  "@fontsource-variable/fraunces": 5.2.9
+  "@fontsource/unifrakturmaguntia": 5.2.8
   "@hono/zod-openapi": 1.4.0
   "@internationalized/date": 3.12.2
   "@lucide/svelte": 1.17.0

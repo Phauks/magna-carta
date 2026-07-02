@@ -10,6 +10,7 @@
  * is part of the same root as `@import "tailwindcss"`.
  * The @source pin makes Tailwind scan this package's stories and components for utility usage.
  */
+@import "../src/lib/styles/fonts.css";
 @import "tailwindcss";
 @import "@magna-carta/design-tokens/tokens.css";
 @import "@magna-carta/design-tokens/tailwind-theme.css";

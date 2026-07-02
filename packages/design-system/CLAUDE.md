@@ -215,7 +215,7 @@ main.ts` `viteFinal` and must stay UNSHIFTED (docgen/csf transforms expect compi
   sub-pixel **paint seam**. Fix: the collapsed-state widths/tracks now change **instantly** and the
   collapse is composited via the **View Transitions API** — the Trigger flips state through
   `runViewTransition` (`internal/view-transition.ts`), `.mc-sidebar` carries `view-transition-name:
-  mc-sidebar`, and the work canvas (in the shell/story) carries `view-transition-name: mc-app-canvas` so
+mc-sidebar`, and the work canvas (in the shell/story) carries `view-transition-name: mc-app-canvas` so
   it morphs rather than ghosting. The browser tweens before/after layouts on the GPU, so the seam is
   sampled, never re-rasterized → no tear. Reduced-motion / unsupported browsers fall back to an instant
   collapse. **The UX principle this establishes platform-wide: animate only compositor properties

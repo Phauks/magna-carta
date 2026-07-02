@@ -106,8 +106,12 @@
   --mc-focus-ring: var(--mc-color-brand-500);
   --mc-focus-ring-offset: 2px;
   --mc-focus-ring-width: 2px;
+  /* The brand mark face (illuminated M / wordmark contexts) ONLY — a fixed glyph treated as artwork, never running text. A drawn SVG mark is the planned successor; this face is the launch stand-in the design language names. */
+  --mc-font-blackletter: "UnifrakturMaguntia", serif;
+  /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
+  --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -168,8 +172,12 @@
   --mc-text-subtle: var(--mc-color-neutral-600);
   --mc-text-xl: 1.25rem;
   --mc-text-xs: 0.75rem;
+  /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
+  --mc-tracking-caps: 1px;
   --mc-tracking-normal: 0px;
   --mc-tracking-tight: -0.16px;
+  /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
+  --mc-tracking-wordmark: 2px;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -319,8 +327,12 @@
   --mc-focus-ring: var(--mc-color-brand-400);
   --mc-focus-ring-offset: 2px;
   --mc-focus-ring-width: 2px;
+  /* The brand mark face (illuminated M / wordmark contexts) ONLY — a fixed glyph treated as artwork, never running text. A drawn SVG mark is the planned successor; this face is the launch stand-in the design language names. */
+  --mc-font-blackletter: "UnifrakturMaguntia", serif;
+  /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
+  --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -381,8 +393,12 @@
   --mc-text-subtle: var(--mc-color-neutral-400);
   --mc-text-xl: 1.25rem;
   --mc-text-xs: 0.75rem;
+  /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
+  --mc-tracking-caps: 1px;
   --mc-tracking-normal: 0px;
   --mc-tracking-tight: -0.16px;
+  /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
+  --mc-tracking-wordmark: 2px;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -532,8 +548,12 @@
   --mc-focus-ring: var(--mc-color-brand-500);
   --mc-focus-ring-offset: 2px;
   --mc-focus-ring-width: 2px;
+  /* The brand mark face (illuminated M / wordmark contexts) ONLY — a fixed glyph treated as artwork, never running text. A drawn SVG mark is the planned successor; this face is the launch stand-in the design language names. */
+  --mc-font-blackletter: "UnifrakturMaguntia", serif;
+  /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
+  --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -594,8 +614,12 @@
   --mc-text-subtle: var(--mc-color-neutral-600);
   --mc-text-xl: 1.25rem;
   --mc-text-xs: 0.75rem;
+  /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
+  --mc-tracking-caps: 1px;
   --mc-tracking-normal: 0px;
   --mc-tracking-tight: -0.16px;
+  /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
+  --mc-tracking-wordmark: 2px;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -745,8 +769,12 @@
   --mc-focus-ring: var(--mc-color-brand-400);
   --mc-focus-ring-offset: 2px;
   --mc-focus-ring-width: 2px;
+  /* The brand mark face (illuminated M / wordmark contexts) ONLY — a fixed glyph treated as artwork, never running text. A drawn SVG mark is the planned successor; this face is the launch stand-in the design language names. */
+  --mc-font-blackletter: "UnifrakturMaguntia", serif;
+  /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
+  --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -807,8 +835,12 @@
   --mc-text-subtle: var(--mc-color-neutral-400);
   --mc-text-xl: 1.25rem;
   --mc-text-xs: 0.75rem;
+  /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
+  --mc-tracking-caps: 1px;
   --mc-tracking-normal: 0px;
   --mc-tracking-tight: -0.16px;
+  /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
+  --mc-tracking-wordmark: 2px;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -958,8 +990,12 @@
   --mc-focus-ring: var(--mc-color-brand-500);
   --mc-focus-ring-offset: 2px;
   --mc-focus-ring-width: 2px;
+  /* The brand mark face (illuminated M / wordmark contexts) ONLY — a fixed glyph treated as artwork, never running text. A drawn SVG mark is the planned successor; this face is the launch stand-in the design language names. */
+  --mc-font-blackletter: "UnifrakturMaguntia", serif;
+  /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
+  --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -1020,8 +1056,12 @@
   --mc-text-subtle: var(--mc-color-neutral-600);
   --mc-text-xl: 1.25rem;
   --mc-text-xs: 0.75rem;
+  /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
+  --mc-tracking-caps: 1px;
   --mc-tracking-normal: 0px;
   --mc-tracking-tight: -0.16px;
+  /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
+  --mc-tracking-wordmark: 2px;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -1171,8 +1211,12 @@
   --mc-focus-ring: var(--mc-color-brand-400);
   --mc-focus-ring-offset: 2px;
   --mc-focus-ring-width: 2px;
+  /* The brand mark face (illuminated M / wordmark contexts) ONLY — a fixed glyph treated as artwork, never running text. A drawn SVG mark is the planned successor; this face is the launch stand-in the design language names. */
+  --mc-font-blackletter: "UnifrakturMaguntia", serif;
+  /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
+  --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -1233,8 +1277,12 @@
   --mc-text-subtle: var(--mc-color-neutral-400);
   --mc-text-xl: 1.25rem;
   --mc-text-xs: 0.75rem;
+  /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
+  --mc-tracking-caps: 1px;
   --mc-tracking-normal: 0px;
   --mc-tracking-tight: -0.16px;
+  /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
+  --mc-tracking-wordmark: 2px;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -1384,8 +1432,12 @@
   --mc-focus-ring: var(--mc-color-brand-500);
   --mc-focus-ring-offset: 2px;
   --mc-focus-ring-width: 2px;
+  /* The brand mark face (illuminated M / wordmark contexts) ONLY — a fixed glyph treated as artwork, never running text. A drawn SVG mark is the planned successor; this face is the launch stand-in the design language names. */
+  --mc-font-blackletter: "UnifrakturMaguntia", serif;
+  /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
+  --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -1446,8 +1498,12 @@
   --mc-text-subtle: var(--mc-color-neutral-600);
   --mc-text-xl: 1.25rem;
   --mc-text-xs: 0.75rem;
+  /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
+  --mc-tracking-caps: 1px;
   --mc-tracking-normal: 0px;
   --mc-tracking-tight: -0.16px;
+  /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
+  --mc-tracking-wordmark: 2px;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -1597,8 +1653,12 @@
   --mc-focus-ring: var(--mc-color-brand-400);
   --mc-focus-ring-offset: 2px;
   --mc-focus-ring-width: 2px;
+  /* The brand mark face (illuminated M / wordmark contexts) ONLY — a fixed glyph treated as artwork, never running text. A drawn SVG mark is the planned successor; this face is the launch stand-in the design language names. */
+  --mc-font-blackletter: "UnifrakturMaguntia", serif;
+  /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
+  --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -1659,8 +1719,12 @@
   --mc-text-subtle: var(--mc-color-neutral-400);
   --mc-text-xl: 1.25rem;
   --mc-text-xs: 0.75rem;
+  /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
+  --mc-tracking-caps: 1px;
   --mc-tracking-normal: 0px;
   --mc-tracking-tight: -0.16px;
+  /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
+  --mc-tracking-wordmark: 2px;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -1810,8 +1874,12 @@
   --mc-focus-ring: var(--mc-color-brand-500);
   --mc-focus-ring-offset: 2px;
   --mc-focus-ring-width: 2px;
+  /* The brand mark face (illuminated M / wordmark contexts) ONLY — a fixed glyph treated as artwork, never running text. A drawn SVG mark is the planned successor; this face is the launch stand-in the design language names. */
+  --mc-font-blackletter: "UnifrakturMaguntia", serif;
+  /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
+  --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -1872,8 +1940,12 @@
   --mc-text-subtle: var(--mc-color-neutral-600);
   --mc-text-xl: 1.25rem;
   --mc-text-xs: 0.75rem;
+  /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
+  --mc-tracking-caps: 1px;
   --mc-tracking-normal: 0px;
   --mc-tracking-tight: -0.16px;
+  /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
+  --mc-tracking-wordmark: 2px;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -2023,8 +2095,12 @@
   --mc-focus-ring: var(--mc-color-brand-400);
   --mc-focus-ring-offset: 2px;
   --mc-focus-ring-width: 2px;
+  /* The brand mark face (illuminated M / wordmark contexts) ONLY — a fixed glyph treated as artwork, never running text. A drawn SVG mark is the planned successor; this face is the launch stand-in the design language names. */
+  --mc-font-blackletter: "UnifrakturMaguntia", serif;
+  /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
+  --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -2085,8 +2161,12 @@
   --mc-text-subtle: var(--mc-color-neutral-400);
   --mc-text-xl: 1.25rem;
   --mc-text-xs: 0.75rem;
+  /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
+  --mc-tracking-caps: 1px;
   --mc-tracking-normal: 0px;
   --mc-tracking-tight: -0.16px;
+  /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
+  --mc-tracking-wordmark: 2px;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -2236,8 +2316,12 @@
   --mc-focus-ring: var(--mc-color-brand-500);
   --mc-focus-ring-offset: 2px;
   --mc-focus-ring-width: 2px;
+  /* The brand mark face (illuminated M / wordmark contexts) ONLY — a fixed glyph treated as artwork, never running text. A drawn SVG mark is the planned successor; this face is the launch stand-in the design language names. */
+  --mc-font-blackletter: "UnifrakturMaguntia", serif;
+  /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
+  --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -2298,8 +2382,12 @@
   --mc-text-subtle: var(--mc-color-neutral-600);
   --mc-text-xl: 1.25rem;
   --mc-text-xs: 0.75rem;
+  /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
+  --mc-tracking-caps: 1px;
   --mc-tracking-normal: 0px;
   --mc-tracking-tight: -0.16px;
+  /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
+  --mc-tracking-wordmark: 2px;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -2449,8 +2537,12 @@
   --mc-focus-ring: var(--mc-color-brand-400);
   --mc-focus-ring-offset: 2px;
   --mc-focus-ring-width: 2px;
+  /* The brand mark face (illuminated M / wordmark contexts) ONLY — a fixed glyph treated as artwork, never running text. A drawn SVG mark is the planned successor; this face is the launch stand-in the design language names. */
+  --mc-font-blackletter: "UnifrakturMaguntia", serif;
+  /* The display serif for ceremonial edges only — page mastheads, matter-name captions, greeting headers. Never workflow cells or running text (the reading face governs those; the user typeface axis must not fight a decorative heading). Variable: opsz gives display sizes the optical cut. */
+  --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
-  --mc-font-sans: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -2511,8 +2603,12 @@
   --mc-text-subtle: var(--mc-color-neutral-400);
   --mc-text-xl: 1.25rem;
   --mc-text-xs: 0.75rem;
+  /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
+  --mc-tracking-caps: 1px;
   --mc-tracking-normal: 0px;
   --mc-tracking-tight: -0.16px;
+  /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
+  --mc-tracking-wordmark: 2px;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;

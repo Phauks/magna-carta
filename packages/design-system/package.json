@@ -10,6 +10,7 @@
     "./alert-dialog": "./src/lib/components/alert-dialog/index.ts",
     "./avatar": "./src/lib/components/avatar/index.ts",
     "./badge": "./src/lib/components/badge/index.ts",
+    "./brand-mark": "./src/lib/components/brand-mark/index.ts",
     "./button": "./src/lib/components/button/index.ts",
     "./calendar": "./src/lib/components/calendar/index.ts",
     "./card": "./src/lib/components/card/index.ts",
@@ -46,6 +47,7 @@
     "./internal/types": "./src/lib/internal/types.ts",
     "./internal/virtual-list": "./src/lib/internal/virtual-list.svelte",
     "./styles/animations.css": "./src/lib/styles/animations.css",
+    "./styles/fonts.css": "./src/lib/styles/fonts.css",
     "./styles/components.css": "./src/lib/styles/components.css"
   },
   "scripts": {
@@ -58,6 +60,9 @@
     "csp-spike": "vite build --config test/csp-spike/vite.config.mjs && node test/csp-spike/run-csp-spike.mjs"
   },
   "dependencies": {
+    "@fontsource-variable/atkinson-hyperlegible-next": "catalog:",
+    "@fontsource-variable/fraunces": "catalog:",
+    "@fontsource/unifrakturmaguntia": "catalog:",
     "@internationalized/date": "catalog:",
     "@lucide/svelte": "catalog:",
     "@magna-carta/design-tokens": "workspace:*",

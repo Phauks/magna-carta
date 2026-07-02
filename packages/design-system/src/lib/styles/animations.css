@@ -113,6 +113,30 @@
   }
 }
 
+/*
+ * The gilt draw — the house motion signature for gold identity marks (tab underlines, edge bars):
+ * gold never fades in, it DRAWS, like leaf being laid — a scale from the mark's center along its
+ * axis. Same keyframe rationale as above (animations replay on mount; transitions have no from-value
+ * on first paint), and the 0/1 multipliers are structural motion values that cannot be tokens.
+ * Recipes drive duration/easing/color/size with tokens and reference these names only.
+ */
+@keyframes mc-draw-x {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes mc-draw-y {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
 @keyframes mc-scale-fade-in {
   from {
     opacity: 0;

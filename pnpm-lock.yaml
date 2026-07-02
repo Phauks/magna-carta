@@ -18,6 +18,15 @@ catalogs:
     '@faker-js/faker':
       specifier: 10.4.0
       version: 10.4.0
+    '@fontsource-variable/atkinson-hyperlegible-next':
+      specifier: 5.2.6
+      version: 5.2.6
+    '@fontsource-variable/fraunces':
+      specifier: 5.2.9
+      version: 5.2.9
+    '@fontsource/unifrakturmaguntia':
+      specifier: 5.2.8
+      version: 5.2.8
     '@hono/zod-openapi':
       specifier: 1.4.0
       version: 1.4.0
@@ -334,6 +343,15 @@ importers:
 
   packages/design-system:
     dependencies:
+      '@fontsource-variable/atkinson-hyperlegible-next':
+        specifier: 'catalog:'
+        version: 5.2.6
+      '@fontsource-variable/fraunces':
+        specifier: 'catalog:'
+        version: 5.2.9
+      '@fontsource/unifrakturmaguntia':
+        specifier: 'catalog:'
+        version: 5.2.8
       '@internationalized/date':
         specifier: 'catalog:'
         version: 3.12.2
@@ -1374,6 +1392,15 @@ packages:
 
   '@floating-ui/utils@0.2.11':
     resolution: {integrity: sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg==}
+
+  '@fontsource-variable/atkinson-hyperlegible-next@5.2.6':
+    resolution: {integrity: sha512-D0Z8peFkRGYACvmWp8Sl8YPGYLBEJbzqapugtsMEYSUUtpQDiZVDHjk9s7bqB4hSCRYCrKuW6V1V+mnHybVnPw==}
+
+  '@fontsource-variable/fraunces@5.2.9':
+    resolution: {integrity: sha512-Y6IjunlN9Ni723np+GIgAaKzCDBrPRrqNi01TZxHs5wtHYROWFM9W6yiT+/gGwSjWIRD18oX17kD/BRWekc/Lw==}
+
+  '@fontsource/unifrakturmaguntia@5.2.8':
+    resolution: {integrity: sha512-FN6yt2BPasuXuwttsz31qlgcMMx6SZdY9HFv/GPAPonFfF5e4Y11j9mGRGGXY6V0iZzaZnQ4Yx6UPRCE/ECRqA==}
 
   '@hapi/hoek@9.3.0':
     resolution: {integrity: sha512-/c6rf4UJlmHlC9b5BaNvzAcFv7HZ2QHaV0D4/HNlBdvFnvQq8RI4kYdhyPCl7Xj+oWvTWQ8ujhqS53LIgAe6KQ==}
@@ -4689,6 +4716,12 @@ snapshots:
       '@floating-ui/utils': 0.2.11
 
   '@floating-ui/utils@0.2.11': {}
+
+  '@fontsource-variable/atkinson-hyperlegible-next@5.2.6': {}
+
+  '@fontsource-variable/fraunces@5.2.9': {}
+
+  '@fontsource/unifrakturmaguntia@5.2.8': {}
 
   '@hapi/hoek@9.3.0':
     optional: true

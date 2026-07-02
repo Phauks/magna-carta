@@ -1,9 +1,10 @@
 @layer components {
   /*
    * Tabs (Tier 2 exemplar, Bits UI). Underlined tabs: the List carries the hairline track; each
-   * Trigger is a quiet button that emphasises (text-default) and grows a brand underline on
-   * Bits' `data-state="active"` — a box-shadow line sitting over the track (offsets are tokens, so
-   * no `calc`). Focus is the system's flush ring; a disabled trigger mutes. Content takes the same
+   * Trigger is a quiet button that emphasises (text-default) on Bits' `data-state="active"` and
+   * shows the GOLD indicator — a real child element (the purity grammar has no pseudo-element
+   * `content` escape) that draws in via the gilt-draw keyframes (animations.css): gold never fades,
+   * it draws. Focus is the system's flush ring; a disabled trigger mutes. Content takes the same
    * flush focus ring (Bits makes the active panel focusable).
    */
   .mc-tabs {
@@ -20,6 +21,7 @@
     border-block-end-color: var(--mc-border-default);
   }
   .mc-tabs-trigger {
+    position: relative;
     display: inline-flex;
     align-items: center;
     padding-block: var(--mc-space-8);
@@ -32,7 +34,7 @@
     line-height: var(--mc-leading-tight);
     border-style: none;
     cursor: pointer;
-    transition-property: color, box-shadow, outline-color;
+    transition-property: color, outline-color;
     transition-duration: var(--mc-duration-fast);
     transition-timing-function: var(--mc-easing-standard);
     outline-color: transparent;
@@ -45,8 +47,29 @@
   }
   .mc-tabs-trigger[data-state="active"] {
     color: var(--mc-text-default);
-    box-shadow: var(--mc-space-0) var(--mc-border-width-default) var(--mc-space-0) var(--mc-space-0)
-      var(--mc-action-primary);
+    font-weight: var(--mc-weight-semibold);
+  }
+  /* The gold indicator: sits over the list's hairline track, spans the label (the trigger's inline
+     padding), and draws in from center (the gilt draw). Hidden — not removed — when inactive so
+     activation only toggles display + the animation replays each activation. */
+  .mc-tabs-trigger-indicator {
+    position: absolute;
+    inset-inline: var(--mc-space-12);
+    inset-block-end: var(--mc-space-0);
+    block-size: var(--mc-focus-ring-width);
+    background-color: var(--mc-accent-default);
+    display: none;
+  }
+  .mc-tabs-trigger[data-state="active"] .mc-tabs-trigger-indicator {
+    display: block;
+    animation-name: mc-draw-x;
+    animation-duration: var(--mc-duration-normal);
+    animation-timing-function: var(--mc-easing-decelerate);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mc-tabs-trigger[data-state="active"] .mc-tabs-trigger-indicator {
+      animation-duration: var(--mc-duration-instant);
+    }
   }
   /* Flush focus ring, same shape as the Button (borderless control). */
   .mc-tabs-trigger:focus-visible {
@@ -91,8 +114,18 @@
   .mc-tabs-list[data-orientation="vertical"] .mc-tabs-trigger {
     justify-content: flex-start;
   }
-  .mc-tabs-list[data-orientation="vertical"] .mc-tabs-trigger[data-state="active"] {
-    box-shadow: var(--mc-border-width-default) var(--mc-space-0) var(--mc-space-0) var(--mc-space-0)
-      var(--mc-action-primary);
+  /* Vertical rail: the indicator moves to the inline-end edge (over the rail's track) and draws
+     along the block axis. */
+  .mc-tabs-list[data-orientation="vertical"] .mc-tabs-trigger-indicator {
+    inset-inline: auto;
+    inset-inline-end: var(--mc-space-0);
+    inset-block: var(--mc-space-8);
+    inline-size: var(--mc-focus-ring-width);
+    block-size: auto;
+  }
+  .mc-tabs-list[data-orientation="vertical"]
+    .mc-tabs-trigger[data-state="active"]
+    .mc-tabs-trigger-indicator {
+    animation-name: mc-draw-y;
   }
 }
