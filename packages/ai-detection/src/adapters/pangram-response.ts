@@ -21,20 +21,27 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function optionalNumber(value: unknown): value is number | undefined {
-  return value === undefined || typeof value === "number";
-}
-
 function optionalString(value: unknown): value is string | undefined {
   return value === undefined || typeof value === "string";
+}
+
+// A probability field must be a finite number in [0, 1]; a NaN, an infinity, or an out-of-range value
+// (e.g. a buggy vendor emitting fraction_ai: 5) is a malformed body, not a signal to trust — reject it
+// at the boundary rather than let it drive a band.
+function isUnitProbability(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
+}
+
+function optionalUnitProbability(value: unknown): value is number | undefined {
+  return value === undefined || isUnitProbability(value);
 }
 
 function parseWindow(value: unknown): PangramWindow | null {
   if (!isRecord(value)) return null;
   if (typeof value.start_index !== "number") return null;
   if (typeof value.end_index !== "number") return null;
-  if (typeof value.ai_assistance_score !== "number") return null;
-  if (!optionalNumber(value.confidence)) return null;
+  if (!isUnitProbability(value.ai_assistance_score)) return null;
+  if (!optionalUnitProbability(value.confidence)) return null;
   return {
     start_index: value.start_index,
     end_index: value.end_index,
@@ -45,8 +52,8 @@ function parseWindow(value: unknown): PangramWindow | null {
 
 export function parsePangramResponse(json: unknown): PangramPrediction | null {
   if (!isRecord(json)) return null;
-  if (typeof json.fraction_ai !== "number") return null;
-  if (!optionalNumber(json.fraction_ai_assisted)) return null;
+  if (!isUnitProbability(json.fraction_ai)) return null;
+  if (!optionalUnitProbability(json.fraction_ai_assisted)) return null;
   if (!optionalString(json.version)) return null;
   if (!optionalString(json.stage)) return null;
 

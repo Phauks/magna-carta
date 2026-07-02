@@ -32,4 +32,27 @@ describe("parsePangramResponse", () => {
   it("rejects a malformed window rather than dropping it", () => {
     expect(parsePangramResponse({ fraction_ai: 0.5, windows: [{ start_index: 0 }] })).toBeNull();
   });
+
+  it("rejects a fraction_ai outside [0, 1] (a probability the vendor should never emit)", () => {
+    expect(parsePangramResponse({ fraction_ai: 5 })).toBeNull();
+    expect(parsePangramResponse({ fraction_ai: -0.1 })).toBeNull();
+    expect(parsePangramResponse({ fraction_ai: Number.NaN })).toBeNull();
+    expect(parsePangramResponse({ fraction_ai: Number.POSITIVE_INFINITY })).toBeNull();
+  });
+
+  it("rejects out-of-range optional and per-window probabilities", () => {
+    expect(parsePangramResponse({ fraction_ai: 0.5, fraction_ai_assisted: 2 })).toBeNull();
+    expect(
+      parsePangramResponse({
+        fraction_ai: 0.5,
+        windows: [{ start_index: 0, end_index: 10, ai_assistance_score: 1.5 }],
+      }),
+    ).toBeNull();
+    expect(
+      parsePangramResponse({
+        fraction_ai: 0.5,
+        windows: [{ start_index: 0, end_index: 10, ai_assistance_score: 0.9, confidence: 9 }],
+      }),
+    ).toBeNull();
+  });
 });
