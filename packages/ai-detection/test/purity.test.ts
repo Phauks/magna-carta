@@ -11,6 +11,7 @@ const allowedPackages = new Set([
   "@magna-carta/integrations/problem",
   "@magna-carta/integrations/port",
   "@magna-carta/integrations/manifest",
+  "@magna-carta/integrations/http", // the HttpClient interface type — a pure transport seam, no network here
   "@magna-carta/identifiers/types",
 ]);
 

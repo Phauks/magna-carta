@@ -10,7 +10,8 @@
     "./normalize": "./src/normalize.ts",
     "./consent": "./src/consent.ts",
     "./manifest": "./src/manifest.ts",
-    "./adapters/deferred": "./src/adapters/deferred.ts"
+    "./adapters/deferred": "./src/adapters/deferred.ts",
+    "./adapters/pangram": "./src/adapters/pangram.ts"
   },
   "scripts": {
     "test": "vp test run"
