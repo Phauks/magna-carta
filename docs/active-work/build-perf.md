@@ -2,7 +2,7 @@
 branch: build-perf
 worktree: C:/dev/magna-carta-worktrees/build-perf
 area: Build-time performance — static-check (type-check/lint) speed: TS project references + TS 7 (tsgo) trajectory
-status: designing
+status: infra landed (non-gating); type-check gate + latent-error fixes deferred
 touches: docs/conventions/build-performance.md (new "Static analysis & type-check speed" section), docs/specs/ (references-rollout design), docs/decisions/pending/ (likely 1 ADR when the rollout is decided). Later, if the rollout implements: every package tsconfig.json (composite + references), root tsconfig, CI.
 ---
 

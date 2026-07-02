@@ -1,6 +1,7 @@
 # TypeScript project-references rollout — design
 
-**Status:** Approved-in-shape (spike-validated); implementation pending review.
+**Status:** Infra landed (generator + graph + `vp run typecheck` task); the type-check gate is
+**deferred** until pre-existing latent type errors are fixed — see _Landing status_ below.
 **Date:** 2026-06-30.
 **Home for the standing rules:** [`docs/conventions/build-performance.md`](../conventions/build-performance.md)
 (_Type-checking and static analysis_). This spec is the point-in-time rollout design; the durable
@@ -120,6 +121,54 @@ drift is error-prone, so:
 
 Adopting project references (and the deferred `tsgo` cutover) is an architecture decision → an ADR
 fragment (`docs/decisions/pending/typescript-project-references.md`) accompanies the implementation.
+
+## Landing status (2026-06-30)
+
+The full-graph build (`tsc -b tsconfig.build.json`) surfaced a discovery: **35 of 37 members type-check
+clean under composite, but the whole graph reports 16 errors — and at least some are real, pre-existing
+type errors that the current `vp check` type-check does not catch.** Confirmed: `file-manager`'s own
+plain `tsc --noEmit -p packages/file-manager/tsconfig.json` reports its error in ~10s, so it is real,
+not induced by composite/references. A plausible cause of the gap: the whole-repo check is slow enough
+(`apps/worker` alone exceeded 3 minutes) that it is not being run to completion, so latent errors
+accumulate. **The incremental type-check would not just be faster — it would catch more.**
+
+Because fixing these errors touches `apps/worker`, `packages/pdf`, and `packages/file-manager` — shared
+files in flight on other branches — and one is a domain question (whether `scanVerdict: "infected"`
+belongs in `CleanVersion`, or is an upstream bug), the fixes are **deferred to a follow-up** rather
+than bundled here. This keeps the landing non-disruptive.
+
+**What landed (non-gating):** the generator (`tooling/tsconfig-refs/`), the 38 generated
+`tsconfig.build.json` (+ root solution), the `typescript` catalog pin + root devDep, `.gitignore`
+(`.tsbuild/`), and the `vp run typecheck` / `vp run typecheck-refs` tasks. **None is wired into the
+`pnpm check` gate**, so every branch's gate behaves exactly as before — the new files, the devDep, and
+the available tasks are inert until the gate is turned on.
+
+**The error inventory (the fix-forward work):**
+
+- `packages/file-manager/src/queries.ts:177` — TS2322: a value with `scanVerdict: "infected"` assigned
+  to `CleanVersion` (whose `scanVerdict` excludes it). **Real** (confirmed under plain `noEmit`). Needs
+  a domain call: widen `CleanVersion`, or fix the producer.
+- `apps/worker/src/routes/time-entries.ts:603,904,975,1057` — TS2345: `ProxyBatchDatabase` passed where
+  `D1Database` is expected (missing `exec`/`withSession`/`dump`). Real-class assignability errors.
+- `apps/worker/src/routes/file-type.ts:88` — TS2345 (`readonly string[]` → mutable `string[]`);
+  `:114,129` — TS2820: `"engine-unavailable"` is not a member of the Problem `type` union
+  (`"service-unavailable"`?).
+- `apps/worker/src/app.ts:527` — TS2883: `buildOpenAPIDocument`'s inferred type is not nameable in the
+  emitted declaration; needs an explicit return-type annotation. **Emit-specific** (only under the build
+  graph's declaration emit).
+- `packages/pdf/src/index.ts` (×6) — `WebAssembly` / `BufferSource` unresolved: pdf's `lib` is
+  `["ES2022"]` + `types: ["node"]`, missing the lib that declares them (also requires the wasm artifact
+  built). A tsconfig `lib` fix.
+
+**Go-green steps (the follow-up):** fix the inventory above → confirm `tsc -b tsconfig.build.json` is
+clean → wire `vp run typecheck` and the sync check (`node tooling/tsconfig-refs/index.mjs --check`) into
+the root `check` script (and consider dropping vp check's own `typeCheck` to avoid a double type-pass,
+after confirming type-aware lint coverage is preserved). Coordinate the shared-file fixes via
+`vp run worktrees`.
+
+**Independent finding to raise:** `vp check`'s type-check (tsgolint, `typeCheck: true`) is not catching
+real type errors that full `tsc` does. Worth a separate look regardless of this rollout — the gate may
+be giving false confidence.
 
 ## Coordination with concurrent branches
 
