@@ -79,7 +79,10 @@ export default defineConfig({
           lg: "font-size.lg",
           xl: "font-size.xl",
           "2xl": "font-size.2xl",
+          "3xl": "font-size.3xl",
         },
+        // weight.display is deliberately NOT mapped: the display register enters only through
+        // the Masthead component (same reasoning as font.display staying unmapped).
         "font-weight": {
           regular: "weight.regular",
           medium: "weight.medium",

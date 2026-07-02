@@ -123,6 +123,8 @@
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
+  /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
+  --mc-font-size-3xl: 2rem;
   --mc-font-size-lg: 1.125rem;
   --mc-font-size-md: 1rem;
   --mc-font-size-sm: 0.875rem;
@@ -190,6 +192,7 @@
   --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
   --mc-tracking-wordmark: 0.125rem;
+  --mc-weight-display: 460;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -356,6 +359,8 @@
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
+  /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
+  --mc-font-size-3xl: 2rem;
   --mc-font-size-lg: 1.125rem;
   --mc-font-size-md: 1rem;
   --mc-font-size-sm: 0.875rem;
@@ -423,6 +428,7 @@
   --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
   --mc-tracking-wordmark: 0.125rem;
+  --mc-weight-display: 460;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -589,6 +595,8 @@
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
+  /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
+  --mc-font-size-3xl: 2rem;
   --mc-font-size-lg: 1.125rem;
   --mc-font-size-md: 1rem;
   --mc-font-size-sm: 0.875rem;
@@ -656,6 +664,7 @@
   --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
   --mc-tracking-wordmark: 0.125rem;
+  --mc-weight-display: 460;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -822,6 +831,8 @@
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
+  /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
+  --mc-font-size-3xl: 2rem;
   --mc-font-size-lg: 1.125rem;
   --mc-font-size-md: 1rem;
   --mc-font-size-sm: 0.875rem;
@@ -889,6 +900,7 @@
   --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
   --mc-tracking-wordmark: 0.125rem;
+  --mc-weight-display: 460;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -1055,6 +1067,8 @@
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
+  /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
+  --mc-font-size-3xl: 2rem;
   --mc-font-size-lg: 1.125rem;
   --mc-font-size-md: 1rem;
   --mc-font-size-sm: 0.875rem;
@@ -1122,6 +1136,7 @@
   --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
   --mc-tracking-wordmark: 0.125rem;
+  --mc-weight-display: 460;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -1288,6 +1303,8 @@
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
+  /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
+  --mc-font-size-3xl: 2rem;
   --mc-font-size-lg: 1.125rem;
   --mc-font-size-md: 1rem;
   --mc-font-size-sm: 0.875rem;
@@ -1355,6 +1372,7 @@
   --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
   --mc-tracking-wordmark: 0.125rem;
+  --mc-weight-display: 460;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -1521,6 +1539,8 @@
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
+  /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
+  --mc-font-size-3xl: 2rem;
   --mc-font-size-lg: 1.125rem;
   --mc-font-size-md: 1rem;
   --mc-font-size-sm: 0.875rem;
@@ -1588,6 +1608,7 @@
   --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
   --mc-tracking-wordmark: 0.125rem;
+  --mc-weight-display: 460;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -1754,6 +1775,8 @@
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
+  /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
+  --mc-font-size-3xl: 2rem;
   --mc-font-size-lg: 1.125rem;
   --mc-font-size-md: 1rem;
   --mc-font-size-sm: 0.875rem;
@@ -1821,6 +1844,7 @@
   --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
   --mc-tracking-wordmark: 0.125rem;
+  --mc-weight-display: 460;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -1987,6 +2011,8 @@
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
+  /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
+  --mc-font-size-3xl: 2rem;
   --mc-font-size-lg: 1.125rem;
   --mc-font-size-md: 1rem;
   --mc-font-size-sm: 0.875rem;
@@ -2054,6 +2080,7 @@
   --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
   --mc-tracking-wordmark: 0.125rem;
+  --mc-weight-display: 460;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -2220,6 +2247,8 @@
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
+  /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
+  --mc-font-size-3xl: 2rem;
   --mc-font-size-lg: 1.125rem;
   --mc-font-size-md: 1rem;
   --mc-font-size-sm: 0.875rem;
@@ -2287,6 +2316,7 @@
   --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
   --mc-tracking-wordmark: 0.125rem;
+  --mc-weight-display: 460;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -2453,6 +2483,8 @@
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
+  /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
+  --mc-font-size-3xl: 2rem;
   --mc-font-size-lg: 1.125rem;
   --mc-font-size-md: 1rem;
   --mc-font-size-sm: 0.875rem;
@@ -2520,6 +2552,7 @@
   --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
   --mc-tracking-wordmark: 0.125rem;
+  --mc-weight-display: 460;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -2686,6 +2719,8 @@
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
   --mc-font-size-2xl: 1.5rem;
+  /* Display size — page mastheads and ceremonial headings (the serif register). Deliberately a big jump from 2xl: the scale contrast between a masthead and its metadata is part of the register's voice. */
+  --mc-font-size-3xl: 2rem;
   --mc-font-size-lg: 1.125rem;
   --mc-font-size-md: 1rem;
   --mc-font-size-sm: 0.875rem;
@@ -2753,6 +2788,7 @@
   --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
   --mc-tracking-wordmark: 0.125rem;
+  --mc-weight-display: 460;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;

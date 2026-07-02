@@ -27,6 +27,7 @@
     "./input": "./src/lib/components/input/index.ts",
     "./keyboard": "./src/lib/components/keyboard/index.ts",
     "./label": "./src/lib/components/label/index.ts",
+    "./masthead": "./src/lib/components/masthead/index.ts",
     "./popover": "./src/lib/components/popover/index.ts",
     "./progress": "./src/lib/components/progress/index.ts",
     "./radio-group": "./src/lib/components/radio-group/index.ts",

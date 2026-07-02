@@ -21,6 +21,7 @@
   import Plus from "@lucide/svelte/icons/plus";
   import Bell from "@lucide/svelte/icons/bell";
   import BrandMark from "../lib/components/brand-mark/brand-mark.svelte";
+  import * as Masthead from "../lib/components/masthead/index.ts";
   import * as Sidebar from "../lib/components/sidebar/index.ts";
   import * as Tooltip from "../lib/components/tooltip/index.ts";
   import Button from "../lib/components/button/index.ts";
@@ -177,12 +178,22 @@
             </Avatar.Root>
           </header>
 
-          <!-- Work canvas — light and calm. Page header + the matters table; identity recedes here. -->
+          <!-- Work canvas — light and calm. The Masthead is the page's ceremonial edge (the one
+               place the display serif appears); identity recedes below it. -->
           <main class="grow overflow-auto p-24">
-            <div class="mb-16 flex items-baseline gap-12">
-              <h1 class="text-2xl font-semibold text-default">Matters</h1>
-              <span class="text-sm text-muted">8 open · 42 total</span>
-            </div>
+            <Masthead.Root class="mb-16">
+              <Masthead.Heading>
+                <Masthead.Title>Matters</Masthead.Title>
+                <Masthead.Meta>
+                  <span>8 open</span>
+                  <Masthead.MetaSeparator />
+                  <span>42 total</span>
+                </Masthead.Meta>
+              </Masthead.Heading>
+              <Masthead.Actions>
+                <Button variant="primary">New matter</Button>
+              </Masthead.Actions>
+            </Masthead.Root>
             <MattersTable data={MATTERS} {columns} caption="Open matters" />
           </main>
         </div>
