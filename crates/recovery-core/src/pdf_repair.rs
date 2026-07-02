@@ -116,6 +116,33 @@ fn is_pdf_delimiter(b: u8) -> bool {
     )
 }
 
+/// Locate the document catalog by scanning each object's body for a `/Type`
+/// dictionary entry naming `/Catalog`. Best-effort — the object's byte span runs
+/// from its header offset to the next object's offset (or end of file). The
+/// trailer's `/Root` reference ultimately validates the choice when the file
+/// reloads; a false positive simply fails that reload and is caught upstream.
+pub fn find_root(bytes: &[u8], scanned: &[ScannedObject]) -> Option<(u32, u16)> {
+    for (index, object) in scanned.iter().enumerate() {
+        let end = scanned
+            .get(index + 1)
+            .map(|next| next.offset)
+            .unwrap_or(bytes.len());
+        let body = &bytes[object.offset..end];
+        if contains(body, b"/Type") && contains(body, b"/Catalog") {
+            return Some((object.number, object.generation));
+        }
+    }
+    None
+}
+
+/// True if `haystack` contains `needle` (small, non-allocating substring search).
+fn contains(haystack: &[u8], needle: &[u8]) -> bool {
+    if needle.is_empty() || haystack.len() < needle.len() {
+        return needle.is_empty();
+    }
+    haystack.windows(needle.len()).any(|w| w == needle)
+}
+
 #[cfg(test)]
 mod scan_tests {
     use super::*;
@@ -143,5 +170,24 @@ mod scan_tests {
     fn respects_the_count_cap() {
         let bytes = b"1 0 obj\nendobj\n2 0 obj\nendobj\n3 0 obj\nendobj\n";
         assert_eq!(scan_objects(bytes, 2).len(), 2);
+    }
+}
+
+#[cfg(test)]
+mod root_tests {
+    use super::*;
+
+    #[test]
+    fn locates_the_catalog_object() {
+        let bytes = b"1 0 obj\n<< /Type /Pages /Count 0 >>\nendobj\n2 0 obj\n<< /Type /Catalog /Pages 1 0 R >>\nendobj\n";
+        let scanned = scan_objects(bytes, 1000);
+        assert_eq!(find_root(bytes, &scanned), Some((2, 0)));
+    }
+
+    #[test]
+    fn returns_none_when_no_catalog_is_present() {
+        let bytes = b"1 0 obj\n<< /Type /Pages >>\nendobj\n";
+        let scanned = scan_objects(bytes, 1000);
+        assert_eq!(find_root(bytes, &scanned), None);
     }
 }
