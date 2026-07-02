@@ -3,7 +3,7 @@ branch: service-status
 worktree: C:/dev/magna-carta-worktrees/service-status
 area: Platform — Service Status (in-app + public status page systems; extends ADR-0048)
 status: design committed 2026-07-02 (brainstormed); plan next. No UI (deferred).
-touches: docs/specs/2026-07-02-service-status-design.md, docs/decisions/pending/ (1 ADR fragment — extends ADR-0048), changelog.d/, NEW packages/status (snapshot schema + provider registry/adapters + health derivation + mergeSnapshot), NEW apps/status-worker (isolated read-only public worker), apps/worker (secret-guarded /api/v1/platform/status/* write routes + cron probe/poll additions + OpenAPI regen), wrangler.jsonc (FIRST kv_namespaces binding STATUS_KV, on both workers; new cron trigger; status.<domain> route), ROADMAP.md/STATUS.md rows
+touches: docs/specs/2026-07-02-service-status-design.md, docs/decisions/pending/ (2 ADR fragments — extends ADR-0048 + the new platform-operator principal), changelog.d/, NEW packages/status (snapshot schema + provider registry/adapters + health derivation + audience-scoped mergeSnapshot), NEW apps/status-worker (isolated read-only public worker), apps/worker (platform-operator-guarded /api/v1/platform/status/* write routes + platformOperatorGuard + cron probe/poll additions + OpenAPI regen), packages/database (control-plane platform_operator table + control-plane migration), packages/access-control (platform-operator membership check), wrangler.jsonc (FIRST kv_namespaces binding STATUS_KV, on both workers; new cron trigger; status.<domain> route), ROADMAP.md/STATUS.md rows
 ---
 
 Platform **Service Status** — one truthful "is anything out of service?" surface covering
@@ -26,11 +26,17 @@ operator-owned) merged **at read time** — no lost-update race. `STATUS_KV` is 
 **Naming:** operator disruptions are called **"service event"**, NOT "incident" — the per-firm
 `incident` table / `incidents.ts` are diagnostic bug reports, unrelated. Don't conflate.
 
-**Auth:** writes ride the existing `PLATFORM_ADMIN_KEY` secret-header gate (same as
-firm-provisioning) — there is no global RBAC role, and no `platform_staff`/support-access model in
-code to reuse. Inherits firm-provisioning's "real platform-admin principal is a later seam" TODO.
+**Auth:** builds the codebase's **first platform-level authorization axis** — a minimal
+`platform_operator` principal (control-plane table + `platformOperatorGuard`, session-based, seeded
+by hand). NOT the `PLATFORM_ADMIN_KEY` secret: a shared secret has no identity to attribute a
+status timeline to, and suits a rare machine call, not a repeated human incident action. This fills
+firm-provisioning's own deferred "real platform-admin principal" seam. Writes stamp the session
+`userId` as author; a public/internal audience split strips operator identity from the public feed.
 
 **Cross-cutting contention for other streams:**
+- **First platform-level auth axis** (`platform_operator`) — control-plane schema + a new
+  control-plane migration + a check in `packages/access-control`. If your stream touches the
+  control-plane schema or access-control, coordinate.
 - **First `kv_namespaces` binding in the repo** (`STATUS_KV`) lands in `wrangler.jsonc` — if your
   stream also edits wrangler bindings/cron, coordinate + sync `main`.
 - New top-level `apps/status-worker` (own wrangler, own route `status.<domain>`) — a second
