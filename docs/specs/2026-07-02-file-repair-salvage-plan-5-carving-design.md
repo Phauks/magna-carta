@@ -30,9 +30,19 @@ Carving is inherently **best-effort and incomplete** — it cannot know how many
 
 3. **Validation — pure-Rust, two layers; Magika deferred.** A carved candidate is validated by (a) an `infer`/`file-format` signature check, and (b) for images, a `zune-jpeg`/`zune-png` best-effort decode that confirms the run actually renders. Both are pure Rust, so the whole pillar rides the WASM default lane and the container lane alike. The **Magika ML validation layer is container-only** (ort/ONNX C dependency) and **deferred** — a documented seam and a later container-lane enhancement, exactly as the SP2 design frames it ("the container lane *may additionally* use Magika"). No GPL code (PhotoRec/Scalpel are study-only; signatures are facts).
 
+## Reusability / where it lives
+
+Build carving **self-contained in `recovery-core`** — do NOT share into the `engine-host` crate yet. Rationale, grounded in the codebase:
+
+- **What carving reuses is external, not internal:** validation is the `infer`/`file-format` crates + `zune-jpeg`/`zune-png` (none currently a dependency anywhere — standard external reuse, no internal duplication). The only internal magic-byte facility is `engine_host::format` (Zip/Ole2/Pdf, leading-bytes only, no footers), too minimal for carving, and its `Format` enum is wired into the repair/diagnose dispatch — growing it to carve types would pollute that dispatch.
+- **No second consumer today.** The only plausible future reuser is discovery/e-discovery (embedded-file extraction), not on the near roadmap.
+- **The program's own discipline is promote-on-second-consumer,** not speculative sharing (the HttpClient seam "promote to standalone only when a non-integration consumer needs it"; engine-host itself was extracted only when duplication was real). Editing the shared merged `engine-host` crate for a single consumer would violate that and add coordination cost.
+
+**So: the signature table is the deliberate reuse seam.** Put it in a clean, standalone, dependency-free data module `crates/recovery-core/src/carve/signatures.rs` — rows of `{ media_type, header, footer }` — so it can be lifted into a future `engine_host::signatures` *verbatim* the day a second consumer appears. The carving *algorithm* (scan/extent/extract/validate) stays local; it is the genuinely carving-specific part. Note (do not act on): the table's PDF/ZIP header rows overlap `engine_host::format`'s facts by a few bytes each — not worth coupling now.
+
 ## Architecture
 
-New pure-Rust module `crates/recovery-core/src/carve.rs`, plus a small shared `signatures` table. Entry point:
+New pure-Rust module `crates/recovery-core/src/carve.rs` (algorithm) + `crates/recovery-core/src/carve/signatures.rs` (the standalone signature-table data module, structured for later extraction). Entry point:
 
 ```rust
 pub fn carve(bytes: &[u8]) -> Result<RepairResult, RepairError>;
