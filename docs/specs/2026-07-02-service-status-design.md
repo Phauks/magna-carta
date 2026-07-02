@@ -226,14 +226,16 @@ So this slice builds the small, real thing that firm-provisioning's own comment 
 anticipated ("a real platform-admin principal model is a later seam"):
 
 - **`platform_operator` table** in the **control-plane** D1 — `{ user_id, granted_at,
-  granted_by, note }`. It is a distinct **platform** authorization axis, separate from per-firm
-  RBAC (which stays per-firm). Membership is **seeded by hand** (SQL) for the operating firm's
-  owner — no self-service grant UI in this slice.
+  granted_by, expires_at (nullable), note }`. It is a distinct **platform** authorization axis,
+  separate from per-firm RBAC (which stays per-firm). `expires_at` mirrors the per-firm
+  `direct_grant` time-boxing pattern: `NULL` = standing membership, a timestamp = a grant that
+  lapses automatically. Membership is **seeded by hand** (SQL) for the operating firm's owner —
+  no self-service grant UI in this slice.
 - **`platformOperatorGuard`** middleware in `apps/worker` — reuses the Better Auth session the
-  chokepoint already resolves, and requires the session `userId` to be an active
-  `platform_operator`. Non-members get `403`; unauthenticated get `401`. It runs as a
-  route-level guard on the status write group, on the **platform** axis (not the per-firm RBAC
-  chokepoint permission check).
+  chokepoint already resolves, and requires the session `userId` to be an **active, unexpired**
+  `platform_operator` (`expires_at IS NULL OR expires_at > now`). Non-members and lapsed grants
+  get `403`; unauthenticated get `401`. It runs as a route-level guard on the status write
+  group, on the **platform** axis (not the per-firm RBAC chokepoint permission check).
 - Every write is **stamped with the session `userId`** as `authorUserId` → attribution and
   audit fall out for free. (Public exposure of that identity is prevented by the
   audience-scoped merge, above.)
@@ -280,8 +282,9 @@ Migrating provisioning onto this principal later is a natural cleanup but out of
 - **Integration (Miniflare):**
   - Cron writes `status:derived`.
   - Write endpoints via `platformOperatorGuard`: **`401`** unauthenticated, **`403`** for an
-    authenticated non-operator session, **`200`**/effect for a seeded `platform_operator` — and
-    the resulting event is stamped with that operator's `userId`.
+    authenticated non-operator session **and for a lapsed (`expires_at` past) grant**, **`200`**/
+    effect for an active `platform_operator` — and the resulting event is stamped with that
+    operator's `userId`.
   - Status-worker read is unauthenticated, merges both keys, and its public feed contains no
     `authorUserId`.
   - **Isolation assertion:** the status worker binding set contains `STATUS_KV` and **not** any
