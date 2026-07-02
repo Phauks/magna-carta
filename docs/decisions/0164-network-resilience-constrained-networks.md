@@ -1,8 +1,9 @@
 ---
+number: 164
 slug: network-resilience-constrained-networks
 status: Accepted
-area: Delivery / Performance
 date: 2026-06-29
+area: Delivery / Performance
 summary: Magna Carta adopts a forward-binding network-resilience standard for slow, high-latency, metered, and intermittent connections — because its users work from courthouses, rural offices, hotels, and the road against hard filing deadlines, where a transfer that aborts and restarts is a missed filing, not a nuisance. The standard ratifies four commitments and lives as a cited convention (`docs/conventions/network-resilience.md`); behaviour-vs-measurement is split so each fact has one home (this file and the convention own how to BEHAVE; `performance.md` owns how to MEASURE). (1) Resumable transfer is a required seam NOW — file bytes move only through the established R2 seam (multipart-resumable upload, presigned-GET download, HTTP Range serving), never a monolithic non-resumable in-app fetch; the backend already realises it, so this codifies the reference rather than retrofitting. (2) A slow-network / transfer-weight profile is added to the load-profile harness. (3) A shared client transport seam (one utility owning timeout, backoff, retry, and stale-cache exposure) is required so "no hardcoded timeout" and "render last-known value" are implemented once, not per call site. (4) A per-route transfer budget is a fitness function — mechanism decided now, numeric gate triggers once (2) lands and the SPA route baseline is measured. The standard binds all NEW work immediately; existing surfaces are audited once (the backend is conformant; the single bounded retrofit is the inline-ZIP stream) and migrated from findings, not reworked en masse. Commitments (2) and (3) are decided-but-deferred: the SPA is a one-page skeleton with nothing to route or measure, so building the machinery now would be speculative (ADR-0039). Builds on ADR-0078 (build expensive-to-retrofit seams up front), ADR-0039 (off the hot path / measure-first), ADR-0083 (load-profile harness), and respects ADR-0003 / ADR-0067 at the transfer seam.
 ---
 
