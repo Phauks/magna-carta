@@ -1,0 +1,24 @@
+---
+jurisdiction: US-FL
+publisher: Florida Lawyers Assistance, Inc. + The Florida Bar
+sourceUrl: https://www.fla-lap.org/what-we-do
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Florida Lawyers Assistance, Inc. (FLA)] — fla-lap.org
+QUOTE: "Confidentiality in voluntary cases is protected by a written contract with The Florida Bar which guarantees the confidentiality of FLA records, as well as by Bar Rule 3-7.1(j), Chap. 397.482-486, F.S., and other state and federal regulations."
+
+Nonprofit established 1986 in response to the Florida Supreme Court's mandate to identify and assist
+bar members with substance abuse, mental health, or other disorders. Independent of, but funded by,
+The Florida Bar. Support groups are completely confidential; no record of attendance reported to FLA
+or the Bar (unless required by probation/conditional admission). Toll-Free Hotline (800) 282-8981;
+Judges' Hotline (888) 972-4040; office (954) 566-9040; mail@fla-lap.org. NOTE: the 24-hour claim for
+the hotline appears only in secondary sources (ABA directory, which 403'd) — NOT confirmed on FLA's
+own page → availability unspecified.
+
+[Florida Lawyers Helpline] — floridabar.org/helpline (vendor: CuraLinc Health Care)
+QUOTE: "Counseling sessions are completely anonymous and there is no cost to our members."
+Offers 24/7/365 access to therapists and professional counselors (in-person or teletherapy); free,
+up to five sessions annually. Call 1-833-351-9355. The 24/7/365 availability IS stated verbatim on
+the primary floridabar.org page. The Florida Bar is a mandatory/integrated bar.

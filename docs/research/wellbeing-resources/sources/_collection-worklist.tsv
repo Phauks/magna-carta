@@ -1,1 +1,13 @@
 sourceKey	jurisdiction	sourceUrl	method	accessedOn	notes
+US-AK-lac-alaskabar-2026	US-AK	https://alaskabar.org/sections-committees/lawyers-assistance-committee/	web search + direct fetch	2026-07-02	
+US-AL-alap-alabar-2026	US-AL	https://www.alabar.org/programs/alabama-lawyer-assistance-program/	web search + direct fetch	2026-07-02	
+US-AR-jlap-arjlap-2026	US-AR	https://www.arjlap.org/	web search + direct fetch	2026-07-02	
+US-AZ-map-azbar-2026	US-AZ	https://azbar.org/for-legal-professionals/benefits-services/member-assistance-program-wellness-resource/support/	web search + direct fetch	2026-07-02	
+US-CO-colap-and-affiliates-2026	US-CO	https://coloradolap.org/	web search + direct fetch	2026-07-02	
+US-CT-lclct-2026	US-CT	https://lclct.org/	web search + direct fetch	2026-07-02	
+US-DC-lap-dcbar-2026	US-DC	https://www.dcbar.org/for-lawyers/lawyer-assistance-program	web search + direct fetch	2026-07-02	
+US-DE-delap-dsba-2026	US-DE	https://www.dsba.org/resources/delaware-lawyers-assistance-program/	web search + direct fetch (de-lap.org served a mismatched TLS cert; verified via DSBA-hosted page)	2026-07-02	
+US-FL-fla-and-helpline-2026	US-FL	https://www.fla-lap.org/what-we-do	web search + direct fetch	2026-07-02	
+US-GA-lap-gabar-2026	US-GA	https://www.gabar.org/programs/lawyer-wellbeing/mental-wellbeing/lawyer-assistance-program	web search + direct fetch	2026-07-02	
+US-HI-aap-hawaiiaap-2026	US-HI	http://hawaiiaap.com/contactus.html	web search + direct fetch	2026-07-02	
+US-ID-lap-isb-2026	US-ID	https://isb.idaho.gov/member-services/programs-resources/lap/	web search + direct fetch	2026-07-02	
