@@ -5,13 +5,15 @@ use crate::model::RepairResult;
 use engine_host::format::{detect, Format};
 
 /// Repair a damaged file by detecting its format and dispatching to the matching
-/// pillar. Unrecognized input → NotRecognized; a recognized format with no pillar
-/// yet → Unsupported. Never emits a silently-empty result.
+/// pillar. Every format `detect` currently recognizes has a pillar; unrecognized
+/// input → NotRecognized. Adding a new `Format` variant stops this match compiling
+/// until it is given an arm — a deliberate prompt to route it to a pillar or
+/// return `Unsupported`. Never emits a silently-empty result.
 pub fn repair(bytes: &[u8]) -> Result<RepairResult, RepairError> {
     match detect(bytes) {
         Some(Format::Zip) => crate::zip_repair::repair_zip(bytes),
         Some(Format::Ole2) => crate::cfb_repair::repair_cfb(bytes),
-        Some(_) => Err(RepairError::Unsupported),
+        Some(Format::Pdf) => crate::pdf_repair::repair_pdf(bytes),
         None => Err(RepairError::NotRecognized),
     }
 }
@@ -30,11 +32,12 @@ mod tests {
     }
 
     #[test]
-    fn a_recognized_unsupported_format_is_unsupported() {
-        // A PDF is recognized but its pillar is not in this plan.
+    fn a_pdf_without_recoverable_objects_is_unrepairable() {
+        // PDF now dispatches to its pillar; a %PDF header with no indirect objects
+        // has nothing to recover, so the pillar reports it unrepairable.
         assert!(matches!(
             repair(b"%PDF-1.7\nstuff"),
-            Err(RepairError::Unsupported)
+            Err(RepairError::Unrepairable)
         ));
     }
 }

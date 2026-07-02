@@ -3,7 +3,13 @@
 //! reload through lopdf, and re-emit a clean PDF — recording every object that
 //! could not be re-parsed as lost. Diagnose PDF xref corruption.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+
+use lopdf::Document;
+
+use crate::error::RepairError;
+use crate::limits::MAX_ENTRY_COUNT;
+use crate::model::{LossManifest, RecoveredItem, RepairResult};
 
 /// One indirect-object header (`N G obj`) found by the raw scan, with the byte
 /// offset of its first digit (the offset a cross-reference entry must point at).
@@ -203,6 +209,75 @@ pub fn rebuild_with_xref(bytes: &[u8], scanned: &[ScannedObject], root: (u32, u1
     out
 }
 
+/// Repair a PDF whose cross-reference table is broken: scan the objects still in
+/// the file, synthesize a fresh xref, reload through lopdf, and re-emit a clean
+/// PDF — recording every object lopdf could not re-parse as lost, so a silent
+/// drop never becomes a silent overclaim. Errors (rather than emitting a hollow
+/// file) when no objects or no catalog can be found, or the rebuild will not load.
+pub fn repair_pdf(bytes: &[u8]) -> Result<RepairResult, RepairError> {
+    let scanned = scan_objects(bytes, MAX_ENTRY_COUNT);
+    if scanned.is_empty() {
+        return Err(RepairError::Unrepairable);
+    }
+    let root = find_root(bytes, &scanned).ok_or(RepairError::Unrepairable)?;
+    let patched = rebuild_with_xref(bytes, &scanned, root);
+    let mut document = Document::load_mem(&patched).map_err(|_| RepairError::Unrepairable)?;
+
+    let mut salvaged = Vec::new();
+    document
+        .save_to(&mut salvaged)
+        .map_err(|_| RepairError::Unrepairable)?;
+
+    // Honest loss: which scanned object numbers did lopdf actually load? A number
+    // the raw scan found but the loaded document lacks was silently dropped by
+    // lopdf's parser and must be reported.
+    let loaded: BTreeSet<u32> = document.objects.keys().map(|(number, _)| *number).collect();
+    let scanned_numbers: BTreeSet<u32> = scanned
+        .iter()
+        .map(|o| o.number)
+        .filter(|n| *n != 0)
+        .collect();
+
+    let mut items: Vec<RecoveredItem> = scanned_numbers
+        .iter()
+        .map(|number| {
+            let recovered = loaded.contains(number);
+            RecoveredItem {
+                name: format!("object {number}"),
+                recovered,
+                detail: if recovered {
+                    String::new()
+                } else {
+                    "object could not be parsed and was dropped".to_string()
+                },
+            }
+        })
+        .collect();
+
+    // Objects packed inside a compressed object stream are invisible to the raw
+    // `N G obj` scan; when the original xref is unusable they cannot be recovered
+    // by this rebuild. Disclose the possibility rather than imply a complete
+    // accounting — a coverage gap, not a fabrication.
+    if contains(bytes, b"/ObjStm") {
+        items.push(RecoveredItem {
+            name: "(compressed object streams)".to_string(),
+            recovered: false,
+            detail: "this file uses compressed object streams; objects packed inside them are not recovered by cross-reference rebuild".to_string(),
+        });
+    }
+
+    let fully_recovered = items.iter().all(|i| i.recovered);
+    Ok(RepairResult {
+        salvaged,
+        loss: LossManifest {
+            // Nothing is fabricated — the xref is rebuilt from real offsets.
+            items,
+            fully_recovered,
+            synthesized: Vec::new(),
+        },
+    })
+}
+
 #[cfg(test)]
 mod scan_tests {
     use super::*;
@@ -255,7 +330,6 @@ mod root_tests {
 #[cfg(test)]
 mod xref_tests {
     use super::*;
-    use lopdf::Document;
 
     #[test]
     fn appended_xref_makes_a_headerless_body_loadable() {
@@ -272,5 +346,52 @@ mod xref_tests {
         assert!(doc.objects.contains_key(&(1, 0)));
         assert!(doc.objects.contains_key(&(2, 0)));
         assert!(doc.objects.contains_key(&(3, 0)));
+    }
+}
+
+#[cfg(test)]
+mod repair_tests {
+    use super::*;
+
+    /// A PDF body (objects present) with NO trailing xref/trailer.
+    fn headerless_pdf() -> Vec<u8> {
+        b"%PDF-1.5\n\
+1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n\
+2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n\
+3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n"
+            .to_vec()
+    }
+
+    #[test]
+    fn repairs_a_broken_xref_and_reopens() {
+        let result = repair_pdf(&headerless_pdf()).expect("repairable");
+        // The re-emitted file is a valid PDF that lopdf reloads cleanly.
+        let reopened = Document::load_mem(&result.salvaged).expect("valid pdf");
+        assert!(reopened.objects.contains_key(&(1, 0)));
+        assert!(result.loss.fully_recovered);
+        assert!(result.loss.synthesized.is_empty());
+        assert_eq!(result.loss.items.iter().filter(|i| i.recovered).count(), 3);
+    }
+
+    #[test]
+    fn a_corrupt_object_is_reported_lost_not_dropped_silently() {
+        // Object 4 has a malformed body lopdf cannot parse; it must be reported
+        // lost, and the file must not claim full recovery.
+        let mut bytes = headerless_pdf();
+        bytes.extend_from_slice(b"4 0 obj\n<< /Broken << << /a >> endobj\n");
+        let result = repair_pdf(&bytes).expect("repairable");
+        let four = result
+            .loss
+            .items
+            .iter()
+            .find(|i| i.name.contains('4'))
+            .expect("object 4 accounted for");
+        assert!(!four.recovered);
+        assert!(!result.loss.fully_recovered);
+    }
+
+    #[test]
+    fn input_without_objects_is_unrepairable() {
+        assert!(repair_pdf(b"%PDF-1.5\nno objects here\n").is_err());
     }
 }
