@@ -191,6 +191,12 @@ export type Bindings = {
   // before the Flagship provider is wired. The resolver (src/flags/flag-evaluator.ts) falls back to
   // defaultOffEvaluator when this is undefined, so every flag returns its stable default safely.
   FLAGS?: import("@magna-carta/feature-flags").FlagshipBinding;
+  // The platform-managed AI-text-detection provider key + base URL. Optional: absent in tests and
+  // until the deploy-time secret is set, in which case the detection route reports detection
+  // unavailable. A platform secret, never a per-firm credential; production sets it with
+  // `wrangler secret put PANGRAM_API_KEY`. PANGRAM_BASE_URL is public config (a var, not a secret).
+  PANGRAM_API_KEY?: string;
+  PANGRAM_BASE_URL?: string;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
