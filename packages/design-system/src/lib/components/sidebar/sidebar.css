@@ -23,7 +23,9 @@
     inline-size: var(--mc-size-sidebar);
     background-color: var(--mc-chrome-surface);
     color: var(--mc-chrome-text);
-    border-inline-end: var(--mc-border-width-default) solid var(--mc-chrome-border);
+    /* NO inline-end hairline (owner-directed 2026-07-02): the chrome↔canvas surface contrast IS
+       the edge, and the brand corner flows into the top bar as one smooth chrome surface. Bonus:
+       the rail↔canvas seam that used to shimmer at fractional DPR no longer has an edge to tear. */
     overflow: hidden;
     /* Collapse is composited, not a width transition (see the recipe note above): the width snaps and
        the view-transition tweens the rail↔canvas resize on the GPU, so the seam can't tear. */
@@ -36,14 +38,14 @@
     display: flex;
     align-items: center;
     gap: var(--mc-space-8);
-    /* Pinned to the control-lg row height so the brand corner lines up with the app-shell top bar
-       (their bottom hairlines meet). The brand mark aligns with the nav icons below via padding-inline
-       (content padding 8 + button padding 8 = 16). */
+    /* Pinned to the control-lg row height so the brand corner lines up with the app-shell top bar.
+       NO bottom hairline (owner-directed 2026-07-02): the brand corner transitions smoothly into
+       the nav below and the top bar beside it — the chrome is one unbroken ink surface. The brand
+       mark aligns with the nav icons below via padding-inline (content 8 + button 8 = 16). */
     min-block-size: var(--mc-control-lg);
     padding-inline: var(--mc-space-16);
     padding-block: var(--mc-space-8);
     color: var(--mc-chrome-text-strong);
-    border-block-end: var(--mc-border-width-default) solid var(--mc-chrome-border);
   }
   .mc-sidebar-content {
     display: flex;
