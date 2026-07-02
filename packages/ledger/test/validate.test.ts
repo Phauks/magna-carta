@@ -43,7 +43,7 @@ function codeOf(run: () => void): string {
   throw new Error("expected validateEntry to throw");
 }
 
-describe("validateEntry — the ledger invariants (ADR-0072)", () => {
+describe("validateEntry — the ledger invariants", () => {
   it("accepts a balanced two-line single-currency entry on active leaf accounts", () => {
     const a = account();
     const b = account({ type: "liability" });
@@ -121,12 +121,14 @@ describe("validateEntry — the ledger invariants (ADR-0072)", () => {
     expect(codeOf(() => validateEntry(lopsided, snapshotMap(a, b), TODAY))).toBe("unbalanced");
   });
 
-  it("rejects an imbalance that float accumulation would round away near 2^53", () => {
+  it("refuses an entry whose total line magnitude exceeds the exactness cap", () => {
     const a = account();
     const b = account({ type: "liability" });
-    // Every amount is an individually safe integer, but the true net is +1 minor: float
-    // accumulation rounds (2^53 - 1) + 2 to 2^53 (ties-to-even) and the imbalance vanishes.
-    const nearLimit = {
+    // Each amount is an individually safe integer, but past 2^53 total magnitude float
+    // accumulation rounds — here the true net is +1 minor and (2^53 - 1) + 2 rounds to 2^53
+    // (ties-to-even), so without the cap the imbalance would vanish and the entry would commit.
+    // The cap refuses the whole class by name before any arithmetic can go inexact.
+    const overCap = {
       ...balancedInput(a, b),
       lines: [
         { accountId: a.id, direction: "debit" as const, amount: money(9007199254740991, USD) },
@@ -135,7 +137,23 @@ describe("validateEntry — the ledger invariants (ADR-0072)", () => {
         { accountId: b.id, direction: "credit" as const, amount: money(4503599627370496, USD) },
       ],
     };
-    expect(codeOf(() => validateEntry(nearLimit, snapshotMap(a, b), TODAY))).toBe("unbalanced");
+    expect(codeOf(() => validateEntry(overCap, snapshotMap(a, b), TODAY))).toBe("entry-too-large");
+  });
+
+  it("at the cap boundary, accumulation is exact: a 1-minor imbalance is still caught", () => {
+    const a = account();
+    const b = account({ type: "liability" });
+    // Total magnitude 2^52 + (2^52 - 1) = 2^53 - 1 — exactly MAX_SAFE_INTEGER, the largest entry
+    // the cap admits. Under the cap every partial sum is ≤ 2^53 - 1, where integer float addition
+    // is exact, so the net of +1 minor cannot round away.
+    const atCap = {
+      ...balancedInput(a, b),
+      lines: [
+        { accountId: a.id, direction: "debit" as const, amount: money(4503599627370496, USD) },
+        { accountId: b.id, direction: "credit" as const, amount: money(4503599627370495, USD) },
+      ],
+    };
+    expect(codeOf(() => validateEntry(atCap, snapshotMap(a, b), TODAY))).toBe("unbalanced");
   });
 
   it("backdating is allowed (effective date in the past)", () => {

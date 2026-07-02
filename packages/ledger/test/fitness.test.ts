@@ -1,10 +1,5 @@
-import { DatabaseSync } from "node:sqlite";
-import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
-import {
-  applyMigrations,
-  loadMigrationsFromDisk,
-  nodeSqliteBatchDatabase,
-} from "@magna-carta/database/node-sqlite";
+import { commitEffectBatch } from "@magna-carta/data-access/effect-batch";
+import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import { money, USD } from "@magna-carta/money/money";
 import { describe, expect, it } from "vitest";
 import { createAccount } from "../src/create-account.ts";
@@ -21,9 +16,7 @@ const clock: ClockPort = { now: () => "2026-06-09T15:00:00.000Z", today: () => "
 const now = () => clock.now();
 
 async function setupHealthyLedger() {
-  const raw = new DatabaseSync(":memory:");
-  applyMigrations(raw, loadMigrationsFromDisk("per-firm"));
-  const database: BatchDatabase = nodeSqliteBatchDatabase(raw);
+  const { database, raw } = createMigratedNodeDatabase("per-firm");
   const bank = await createAccount(
     database,
     { name: "Bank", type: "asset", currency: "USD" },
@@ -52,7 +45,7 @@ async function setupHealthyLedger() {
   return { raw, database };
 }
 
-describe("ledger fitness queries (ADR-0051) — prove the whole table, not one write", () => {
+describe("ledger fitness queries — prove the whole table, not one write", () => {
   it("a healthy ledger yields zero rows from every query", async () => {
     const { database } = await setupHealthyLedger();
     expect((await unbalancedEntriesStatement(database).all()).results).toEqual([]);
@@ -68,7 +61,7 @@ describe("ledger fitness queries (ADR-0051) — prove the whole table, not one w
     // direct tampering can produce this state, which is exactly what fitness exists to catch).
     raw
       .prepare(
-        "INSERT INTO ledger_account (id, name, type, currency, parent_account_id, active, created_at) SELECT 'acct_racechild0000000000', 'Race child', type, currency, id, 1, created_at FROM ledger_account WHERE name = 'Bank'",
+        "INSERT INTO ledger_account (id, name, type, currency, parent_account_id, active, created_at) SELECT 'ledgerAccount_racechild0000000000', 'Race child', type, currency, id, 1, created_at FROM ledger_account WHERE name = 'Bank'",
       )
       .run();
     const offenders = (await parentAccountsWithPostingsStatement(database).all()).results;

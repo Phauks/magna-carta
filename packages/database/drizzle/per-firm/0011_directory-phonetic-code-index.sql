@@ -1,0 +1,1 @@
+CREATE INDEX `directory_name_phonetic_code_code_index` ON `directory_name_phonetic_code` (`code`);

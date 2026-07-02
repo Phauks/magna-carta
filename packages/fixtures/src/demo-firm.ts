@@ -14,7 +14,7 @@ export interface DemoFirmSummary {
 
 // The demo-firm bundle ("Demo, LLP" — becomes a real provisioned firm in slice 0·4): the demo
 // chart of accounts plus a coherent dozen-entry story. Stays MINIMAL until matters/clients exist
-// to hang richness on (ADR-0072). Every write goes through the real domain services.
+// to hang richness on. Every write goes through the real domain services.
 export async function seedDemoFirm(
   database: BatchDatabase,
   context: FixtureContext,

@@ -6,7 +6,7 @@ import { splitSqlStatements } from "../src/migration.ts";
 const DRIZZLE = join(import.meta.dirname, "..", "drizzle");
 const CONTRACT_MARKER = "-- contract:";
 
-// Destructive patterns per ADR-0065's expand-contract discipline. ADD COLUMN ... NOT NULL is
+// Destructive patterns per the expand-contract discipline. ADD COLUMN ... NOT NULL is
 // destructive only without a DEFAULT (existing rows cannot satisfy it); plain
 // CREATE TABLE ... NOT NULL is fine.
 function destructiveReason(statement: string): string | null {
@@ -40,7 +40,7 @@ describe("destructiveReason (the detector itself)", () => {
   });
 });
 
-describe("expand-contract guard over the committed migrations (ADR-0065)", () => {
+describe("expand-contract guard over the committed migrations", () => {
   it("every destructive statement in either lineage carries an explicit -- contract: annotation", async () => {
     const violations: string[] = [];
     for (const lineage of ["control-plane", "per-firm"]) {

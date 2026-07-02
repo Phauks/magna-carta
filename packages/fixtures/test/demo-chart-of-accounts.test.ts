@@ -34,6 +34,55 @@ describe("demo chart of accounts (DEMO DATA — not the Phase-3 product chart)",
   });
 });
 
+describe("aBalancedEntryInput — the primitive entry factory", () => {
+  it("draws deterministically, balances by construction, and posts via the real write path", async () => {
+    const a = fixtureContext("factory-test");
+    const b = fixtureContext("factory-test");
+    const { aBalancedEntryInput } = await import("../src/factories.ts");
+    const { createAccount } = await import("@magna-carta/ledger/create-account");
+    const { postEntry } = await import("@magna-carta/ledger/post-entry");
+    const { assertLedgerFitness } = await import("@magna-carta/ledger/fitness");
+    const { commitEffectBatch } = await import("@magna-carta/data-access/effect-batch");
+    const { toMinor } = await import("@magna-carta/money/format");
+
+    const { database } = createLocalPerFirmDatabase();
+    const serviceOptions = { clock: a.clock, randomSource: a.randomSource };
+    const bank = await createAccount(
+      database,
+      { name: "Bank", type: "asset", currency: "USD" },
+      serviceOptions,
+    );
+    await commitEffectBatch(database, bank.effect, { now: () => a.clock.now() });
+    const income = await createAccount(
+      database,
+      { name: "Fee Income", type: "income", currency: "USD" },
+      serviceOptions,
+    );
+    await commitEffectBatch(database, income.effect, { now: () => a.clock.now() });
+
+    const accountPair = { debitAccountId: bank.accountId, creditAccountId: income.accountId };
+    const inputA = aBalancedEntryInput(a, accountPair);
+    const inputB = aBalancedEntryInput(b, accountPair);
+    expect(inputB.description).toBe(inputA.description); // seeded faker narrative
+    expect(inputB.lines.map((line) => toMinor(line.amount))).toEqual(
+      inputA.lines.map((line) => toMinor(line.amount)),
+    );
+    expect(toMinor(inputA.lines[0]!.amount)).toBe(toMinor(inputA.lines[1]!.amount)); // balanced
+
+    const overridden = aBalancedEntryInput(a, {
+      ...accountPair,
+      amountMinor: 12345,
+      description: "Fixed description",
+    });
+    expect(overridden.description).toBe("Fixed description");
+    expect(toMinor(overridden.lines[0]!.amount)).toBe(12345);
+
+    const posted = await postEntry(database, inputA, serviceOptions);
+    await commitEffectBatch(database, posted.effect, { now: () => a.clock.now() });
+    await assertLedgerFitness(database);
+  });
+});
+
 describe("anAccountInput — the primitive account factory", () => {
   it("builds a plausible input deterministically; overrides win; commits via createAccount", async () => {
     const a = fixtureContext("factory-test");

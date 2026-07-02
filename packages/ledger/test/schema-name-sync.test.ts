@@ -33,7 +33,7 @@ import {
 } from "../src/statements.ts";
 
 // Fitness function: the raw SQL in this package must track @magna-carta/database's schema — the
-// single source of truth (ADR-0065). Renaming a table/column there fails here, not in production.
+// single source of truth. Renaming a table/column there fails here, not in production.
 
 // SQL-capturing stub: the builders only need prepare/bind, and SqlStatement carries the SQL text.
 function stubDatabase(): SqlDatabase {
@@ -42,6 +42,7 @@ function stubDatabase(): SqlDatabase {
     bind: () => statement(sql),
     run: () => Promise.resolve({ meta: { changes: 0 } }),
     all: <T>() => Promise.resolve({ results: [] as T[] }),
+    first: () => Promise.resolve(null),
   });
   return { prepare: statement };
 }
@@ -70,10 +71,10 @@ function expectOnlyKnownIdentifiers(sql: string, allowed: ReadonlySet<string>, l
   }
 }
 
-const ACCOUNT_ID = "acct_x" as never;
-const PARENT_ID = "acct_p" as never;
-const ENTRY_ID = "led_x" as never;
-const LINE_ID = "lln_x" as never;
+const ACCOUNT_ID = "ledgerAccount_x" as never;
+const PARENT_ID = "ledgerAccount_p" as never;
+const ENTRY_ID = "ledgerEntry_x" as never;
+const LINE_ID = "ledgerLine_x" as never;
 
 describe("schema name sync (ledger SQL pinned to @magna-carta/database)", () => {
   it("table names match the drizzle schema", () => {

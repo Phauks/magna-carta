@@ -304,7 +304,7 @@ Dev adapter: claims the next pool binding not present in any firm row (query inj
 
 ### Task 14: End-to-end + conformance fitness
 
-- [ ] `apps/worker/test/slice-0-4-e2e.test.ts`: provision firm A and firm B → owner A activates (reset link from the captured email port → set password → verify) → login → optional TOTP enable → `GET /v1/me` shows firm A + Owner/Admin permissions → invite a Paralegal → sweep → invitee row in firm A only; firm B's database has no trace (isolation assert).
+- [ ] `apps/worker/test/auth-provisioning-e2e.test.ts`: provision firm A and firm B → owner A activates (reset link from the captured email port → set password → verify) → login → optional TOTP enable → `GET /v1/me` shows firm A + Owner/Admin permissions → invite a Paralegal → sweep → invitee row in firm A only; firm B's database has no trace (isolation assert).
 - [ ] Fitness: the emitted OpenAPI document (now containing `/v1/*`) — every mutating `/v1` route carries `x-mc-audited: true`, non-null `x-mc-idempotency`, and a registry-known `x-mc-permission` or the documented platform-admin exception (the spike's conformance-sweep pattern, now over real routes); no operation resembling public signup outside `/api/auth/*`.
 - [ ] Full `vp test` + `pnpm check` green; commit `test(worker): slice 0·4 end-to-end + route conformance fitness`.
 

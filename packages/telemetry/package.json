@@ -1,0 +1,30 @@
+{
+  "name": "@magna-carta/telemetry",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./event": "./src/event.ts",
+    "./events": "./src/events.ts",
+    "./operation": "./src/operation.ts",
+    "./scrub": "./src/scrub.ts",
+    "./ids": "./src/ids.ts",
+    "./logger": "./src/logger.ts",
+    "./workers-logger": "./src/workers-logger.ts",
+    "./pseudonymize": "./src/pseudonymize.ts",
+    "./usage-features": "./src/usage-features.ts",
+    "./usage-suppression": "./src/usage-suppression.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/identifiers": "workspace:*"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

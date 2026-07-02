@@ -8,19 +8,44 @@
     "./canonical": "./src/canonical.ts",
     "./idempotency-decision": "./src/idempotency-decision.ts",
     "./idempotency-statements": "./src/idempotency-statements.ts",
+    "./member-statements": "./src/member-statements.ts",
+    "./auth-audit-statements": "./src/auth-audit-statements.ts",
+    "./audit-statements": "./src/audit-statements.ts",
+    "./setting-statements": "./src/setting-statements.ts",
+    "./scoped-setting-statements": "./src/scoped-setting-statements.ts",
+    "./token-usage-statements": "./src/token-usage-statements.ts",
     "./outbox-statements": "./src/outbox-statements.ts",
     "./effect-batch": "./src/effect-batch.ts",
     "./run-idempotent-effect": "./src/run-idempotent-effect.ts",
     "./outbox-relay": "./src/outbox-relay.ts",
-    "./hono-idempotency-middleware": "./src/hono-idempotency-middleware.ts"
+    "./cursor-pagination": "./src/cursor-pagination.ts",
+    "./classification-type-service": "./src/classification-type-service.ts",
+    "./hono-idempotency-middleware": "./src/hono-idempotency-middleware.ts",
+    "./firm-key-provider": "./src/firm-key-provider.ts",
+    "./protected-fields": "./src/protected-fields.ts",
+    "./protected-field-registry": "./src/protected-field-registry.ts",
+    "./secret-statements": "./src/secret-statements.ts",
+    "./integration-connection-statements": "./src/integration-connection-statements.ts",
+    "./integration-connection-store": "./src/integration-connection-store.ts",
+    "./firm-secret-credential-store": "./src/firm-secret-credential-store.ts",
+    "./shipment-statements": "./src/shipment-statements.ts",
+    "./shipment-service": "./src/shipment-service.ts",
+    "./usage-consent-statements": "./src/usage-consent-statements.ts",
+    "./support-access-statements": "./src/support-access-statements.ts",
+    "./firm-release-channel-statements": "./src/firm-release-channel-statements.ts"
   },
   "scripts": {
     "test": "vp test run"
   },
   "dependencies": {
+    "@magna-carta/access-control": "workspace:*",
     "@magna-carta/database": "workspace:*",
+    "@magna-carta/encryption": "workspace:*",
+    "@magna-carta/feature-flags": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
-    "hono": "catalog:"
+    "@magna-carta/integrations": "workspace:*",
+    "hono": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",

@@ -143,7 +143,7 @@ Both date fields are ISO-8601 TEXT — different subsets by **kind** (ADR-0055):
 
 ### 5.1 `FixtureContext` — one seed carries all determinism
 
-Built from a single seed; same seed → byte-identical database (and that property is itself a regression test: re-run, diff rows). Holds the three nondeterminism sources the white paper bans:
+Built from a single seed; same seed → byte-identical database (and that property is itself a regression test: re-run, diff rows). _Amended 2026-06-10 (post-build review):_ byte-identical **excepting outbox row ids** — they are minted unseeded inside `@magna-carta/data-access` (`insertOutboxMessageStatement` exposes no `randomSource` seam, deliberately: widening a data-access API for a fixtures-only nicety was rejected); the determinism test compares outbox rows without `id`, and the exception is documented in the fixtures package `CLAUDE.md`. Holds the three nondeterminism sources the white paper bans:
 
 - **Seeded faker** — names, descriptions.
 - **Fixed clock** — starts at an anchor instant, advances only when scenarios explicitly move it (entries get distinct, reproducible `recorded_at`s; `effective_date`s derive from it). Wall-clock time is banned.
@@ -165,7 +165,7 @@ A tiny (10–15 account) small-law-firm CoA lives in the fixtures package, **exp
 
 ### 5.4 Production guard
 
-Seeding entry points take an explicit opt-in (e.g. `{ allowSeeding: true }` on a non-production target) and assert the environment is local/preview/CI — generation can never run against production (white paper requirement). The fixtures package is never imported by production worker code (boundary-enforced per ADR-0070; the dependency-cruiser rule is the fitness function).
+Seeding entry points take an explicit opt-in (e.g. `{ allowSeeding: true }` on a non-production target) and assert the environment is local/preview/CI — generation can never run against production (white paper requirement). The fixtures package is never imported by production worker code (boundary rule per ADR-0070). _Amended 2026-06-10 (post-build review):_ the dependency-cruiser rule that mechanizes the import boundary is **not built yet** — it arrives with the coherence-tooling work per the walking-skeleton plan; until then the boundary holds by the fail-closed opt-in guard (the only layer that works in the Workers runtime, where `process.env` does not exist) and convention.
 
 ### 5.5 Deferred
 
@@ -175,7 +175,8 @@ The R2 document layer, volume load profile (thousands of matters), and snapshot 
 
 - **Sum-to-zero, table-wide:** a fitness query asserts every entry balances (`HAVING SUM(CASE …) <> 0` returns no rows).
 - **Balance consistency:** per account, `SUM(lines in normal-balance terms) = account_balance.balance_minor`.
-- **Append-only:** no UPDATE/DELETE statement targets `ledger_entry`/`ledger_line` anywhere in the codebase (source scan; `account_balance` UPDATE is the sanctioned exception, `ledger_account.active` the second once the closing service exists).
+- **Append-only:** no UPDATE/DELETE statement targets `ledger_entry`/`ledger_line` anywhere in the codebase (source scan; `account_balance` UPDATE is the sanctioned exception, `ledger_account.active` the second once the closing service exists). _Shipped 2026-06-10 (post-build review)_ as the ledger's append-only source-scan test, matching literal and constant-interpolated table names.
+- **Leaf-only backstop** _(added 2026-06-10, post-build review)_: `parentAccountsWithPostingsStatement` re-proves table-wide that no parent account carries direct postings — the backstop for the acknowledged createAccount/postEntry cross-batch race that the write-path pre-checks cannot close (cross-row predicates cannot abort a D1 batch). `assertLedgerFitness` runs every fitness query at the seeding chokepoint and in tests, so a new query is automatically part of every proof.
 - **Schema fitness (existing):** TEXT identifier PKs, INTEGER `*_minor` columns — already enforced by `@magna-carta/database` tests; the new tables ride them.
 - **Determinism:** the seed-twice-diff-rows fixtures test.
 

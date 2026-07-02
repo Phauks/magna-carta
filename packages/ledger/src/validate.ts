@@ -11,6 +11,7 @@ export type LedgerValidationCode =
   | "invalid-effective-date"
   | "future-effective-date"
   | "non-positive-amount"
+  | "entry-too-large"
   | "unknown-account"
   | "inactive-account"
   | "non-leaf-account"
@@ -38,6 +39,16 @@ export class LedgerValidationError extends Error {
 
 const ISO_CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+// The exactness cap: the sum of ALL line magnitudes in one entry must stay ≤ 2^53 - 1. Doubles
+// add integers exactly while the true sum stays in that range, so under the cap every partial sum
+// here (the net) AND every per-account delta aggregation in composePostedEntry — a subset of the
+// same contributions — is provably exact in plain number arithmetic; past it, float rounding could
+// hide a real imbalance or land a silently wrong balance. No honest entry comes near it (~$90T of
+// total line magnitude): only corrupt or malicious input does, and that is refused by name rather
+// than computed. Mirrors the money package's posture — amounts at this scale are out-of-domain,
+// fail loud.
+export const MAX_ENTRY_MAGNITUDE_MINOR = Number.MAX_SAFE_INTEGER;
+
 // A real ISO calendar date — the round-trip catches rollovers like 2026-02-30 without a Temporal
 // dependency (UTC parse, so no zone can shift the date). Year 0000 is excluded explicitly: it
 // round-trips in V8 (astronomical year zero) but is no ledger date, and engines differ on it.
@@ -47,7 +58,7 @@ export function isValidCalendarDate(date: string): boolean {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
 }
 
-// The ledger invariants (ADR-0072) — what makes the ledger a ledger; consumer rules (trust
+// The ledger invariants — what makes the ledger a ledger; consumer rules (trust
 // bounds values, period close) bind elsewhere. Pure: accounts arrive as pre-loaded snapshots.
 export function validateEntry(
   input: PostEntryInput,
@@ -75,10 +86,11 @@ export function validateEntry(
     );
   }
 
-  // Sum-to-zero over signed minor units. Each amount is a safe integer (money() asserts it), but
-  // the running SUM can exceed 2^53, where float accumulation rounds and a real imbalance can
-  // vanish — so the net runs in BigInt, exact at any magnitude (ADR-0061 held at the aggregate).
-  let net = 0n;
+  // Sum-to-zero over signed minor units. Each amount is a safe integer (money() asserts it) and
+  // the magnitude cap keeps every running sum below 2^53, where integer float addition is exact —
+  // the no-rounding promise holds at the aggregate BECAUSE the cap is checked first.
+  let magnitude = 0;
+  let net = 0;
   let entryCurrency: string | undefined;
   for (const line of input.lines) {
     if (!isPositive(line.amount)) {
@@ -114,10 +126,19 @@ export function validateEntry(
     if (lineCurrency !== entryCurrency) {
       throw new LedgerValidationError("currency-mismatch", "all lines must share one currency");
     }
-    const minor = BigInt(toMinor(line.amount));
+    const minor = toMinor(line.amount);
+    // Checked BEFORE adding (both operands ≤ 2^53 - 1, so the subtraction is exact too): after
+    // this guard, magnitude + minor cannot leave the exact-integer range.
+    if (minor > MAX_ENTRY_MAGNITUDE_MINOR - magnitude) {
+      throw new LedgerValidationError(
+        "entry-too-large",
+        `entry line magnitudes exceed the exactness cap (${MAX_ENTRY_MAGNITUDE_MINOR} minor total)`,
+      );
+    }
+    magnitude += minor;
     net += line.direction === "debit" ? minor : -minor;
   }
-  if (net !== 0n) {
+  if (net !== 0) {
     throw new LedgerValidationError("unbalanced", `entry does not balance (net ${net} minor)`);
   }
 }

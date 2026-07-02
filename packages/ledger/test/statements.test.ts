@@ -1,10 +1,5 @@
-import { DatabaseSync } from "node:sqlite";
 import type { BatchDatabase } from "@magna-carta/data-access/effect-batch";
-import {
-  applyMigrations,
-  loadMigrationsFromDisk,
-  nodeSqliteBatchDatabase,
-} from "@magna-carta/database/node-sqlite";
+import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { describe, expect, it } from "vitest";
 import {
@@ -21,9 +16,7 @@ const NOW = "2026-01-05T09:00:00.000Z";
 // Typed as the data-access BatchDatabase (the shape the builders compose into) — the node:sqlite
 // adapter satisfies it structurally, so these tests exercise the REAL D1-shaped surface.
 function freshDatabase(): BatchDatabase {
-  const raw = new DatabaseSync(":memory:");
-  applyMigrations(raw, loadMigrationsFromDisk("per-firm"));
-  return nodeSqliteBatchDatabase(raw);
+  return createMigratedNodeDatabase("per-firm").database;
 }
 
 describe("ledger statement builders against the real schema", () => {

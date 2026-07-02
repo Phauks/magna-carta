@@ -14,6 +14,13 @@ const HANDLE_PATTERNS = Object.fromEntries(
   ]),
 ) as Record<EntityType, RegExp>;
 
+// The well-formed-handle pattern for an entity type (anchored, no flags) — for consumers that need
+// the shape itself, e.g. a zod `.regex()` in an API schema, so the alphabet/length are sourced from
+// this package instead of hardcoded at the call site.
+export function identifierPattern(type: EntityType): RegExp {
+  return HANDLE_PATTERNS[type];
+}
+
 // Type guard: is `value` a well-formed handle for entity `type`? Narrows an untrusted value to the brand.
 export function isIdentifier<T extends EntityType>(value: unknown, type: T): value is BrandFor<T> {
   return typeof value === "string" && HANDLE_PATTERNS[type].test(value);

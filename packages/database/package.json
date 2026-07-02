@@ -7,11 +7,14 @@
   "exports": {
     "./control-plane-schema": "./src/control-plane-schema.ts",
     "./per-firm-schema": "./src/per-firm-schema.ts",
+    "./protected-columns": "./src/protected-columns.ts",
     "./migration": "./src/migration.ts",
     "./migration-runner": "./src/migration-runner.ts",
     "./d1-migration-target": "./src/d1-migration-target.ts",
+    "./do-sqlite-migration-target": "./src/do-sqlite-migration-target.ts",
+    "./do-sqlite-batch-database": "./src/do-sqlite-batch-database.ts",
     "./node-sqlite": "./src/node-sqlite.ts",
-    "./fleet-rollout": "./src/fleet-rollout.ts"
+    "./drizzle/*": "./drizzle/*"
   },
   "scripts": {
     "test": "vp test run",
@@ -24,6 +27,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
+    "@magna-carta/access-control": "workspace:*",
     "@magna-carta/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "drizzle-kit": "catalog:",

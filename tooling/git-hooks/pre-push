@@ -1,0 +1,72 @@
+#!/bin/sh
+# pre-push — the quality gate. The build/deploy pipeline is Cloudflare Workers Builds, which builds
+# and deploys on push but runs no checks of its own, so this hook is where the gates live: it blocks
+# a push that would deploy a broken change. Activated by `vp run setup-hooks` (core.hooksPath ->
+# tooling/git-hooks). Mirrors the checks that used to run before the GitHub Actions workflow was
+# retired. Set SKIP_PREPUSH=1 to bypass in a genuine emergency, then fix forward.
+[ -n "$SKIP_PREPUSH" ] && { echo "pre-push: skipped (SKIP_PREPUSH set) — fix forward"; exit 0; }
+
+root="$(git rev-parse --show-toplevel)" || exit 1
+cd "$root" || exit 1
+
+fail() { echo "pre-push: FAILED — $1"; exit 1; }
+step() { echo "pre-push: $1"; }
+
+step "dependency audit (high+)"
+pnpm audit --audit-level high || fail "vulnerable dependency (or adjust the audit allowlist)"
+
+step "quality gate (fmt + lint + TS type-check + svelte-check)"
+pnpm check || fail "pnpm check"
+
+step "governance — no process-artifact references (golden rule 13)"
+pnpm run lint:process-refs || fail "lint:process-refs"
+
+step "governance — dependency license allowlist"
+pnpm run lint:licenses || fail "lint:licenses"
+
+step "tests (Miniflare worker integration)"
+vp test || fail "vp test"
+
+# --- API contract gates: the committed snapshot is the source of truth; re-derive and fail on drift.
+step "contract — OpenAPI snapshot drift"
+pnpm --filter @magna-carta/worker run emit-openapi || fail "emit-openapi"
+git diff --exit-code apps/worker/openapi/openapi.json || fail "OpenAPI snapshot drift — commit the re-emitted snapshot"
+
+step "contract — generated client drift"
+pnpm run generate-client || fail "generate-client"
+git diff --exit-code packages/api-client/src || fail "generated client drift — commit the regenerated client"
+
+step "contract — Spectral hygiene lint"
+pnpm --filter @magna-carta/worker exec spectral lint openapi/openapi.json --fail-severity warn || fail "spectral"
+
+# Design tokens are the same code-as-contract shape: generated/ must byte-match a fresh tz build
+# (and the golden twins are asserted equal by the package's own test gate).
+step "contract — design-token drift"
+pnpm --filter @magna-carta/design-tokens run build || fail "design-tokens build"
+git diff --exit-code packages/design-tokens/generated || fail "design-token drift — regenerate + re-pin the goldens in the same commit"
+
+# --- scan engine acceptance: only when scan sources changed, and only if Docker is available. The
+# EICAR end-to-end gate needs a Docker daemon, so a missing daemon is a logged skip (run it by hand
+# before deploying a scan change), never a hard block — matching the post-merge clean hook.
+if git diff --name-only origin/main...HEAD 2>/dev/null | grep -q '^containers/scan/'; then
+  if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    step "scan EICAR end-to-end (containers/scan changed)"
+    sh "$root/containers/scan/tests/eicar_e2e.sh" || fail "scan EICAR e2e"
+  else
+    echo "pre-push: WARNING — containers/scan changed but Docker is unavailable; run containers/scan/tests/eicar_e2e.sh before the scan Worker deploys"
+  fi
+fi
+
+# --- bundle engine acceptance: same model as the scan gate. The /build end-to-end gate needs a Docker
+# daemon (plus python3 + unzip), so a missing daemon is a logged skip, never a hard block.
+if git diff --name-only origin/main...HEAD 2>/dev/null | grep -q '^containers/bundle/'; then
+  if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    step "bundle /build end-to-end (containers/bundle changed)"
+    bash "$root/containers/bundle/tests/acceptance.sh" || fail "bundle acceptance"
+  else
+    echo "pre-push: WARNING — containers/bundle changed but Docker is unavailable; run containers/bundle/tests/acceptance.sh before the bundle Worker deploys"
+  fi
+fi
+
+echo "pre-push: all gates passed"
+exit 0

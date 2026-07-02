@@ -10,8 +10,8 @@ export function fromMinor(minor: number, currency: NumberCurrency): Money {
   return money(minor, currency);
 }
 
-// Ledger/validation boundary: the ISO-4217 code a Money is tagged with (ADR-0061 — every value
-// carries its currency). Read-only; constructing Money with a currency stays money()'s job.
+// Ledger/validation boundary: the ISO-4217 code a Money is tagged with (every value carries its
+// currency). Read-only; constructing Money with a currency stays money()'s job.
 export function currencyCode(value: Money): string {
   return snapshot(value).currency.code;
 }

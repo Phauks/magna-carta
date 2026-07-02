@@ -3,90 +3,6 @@ packages:
   - "packages/*"
   - "plugins/*"
 
-# Single source of truth for dependency versions (pnpm catalog).
-# Bump a version here once; every package.json that references `catalog:` follows.
-# Keep exact pins (no ^/~) — upgrades are deliberate, one line at a time.
-catalog:
-  # Toolchain
-  "@chromatic-com/storybook": 5.2.1
-  "@cloudflare/vitest-pool-workers": 0.16.13
-  "@cloudflare/workers-types": 4.20260604.1
-  # Fixtures (packages/fixtures). Seeded via faker.seed(); locale en.
-  "@faker-js/faker": 10.4.0
-  # Self-hosted fonts (design language: in-custody, no font CDN). Variable builds where available.
-  "@fontsource-variable/atkinson-hyperlegible-next": 5.2.6
-  "@fontsource-variable/fraunces": 5.2.9
-  "@fontsource/unifrakturmaguntia": 5.2.8
-  "@hono/zod-openapi": 1.4.0
-  "@internationalized/date": 3.12.2
-  "@lucide/svelte": 1.17.0
-  "@playwright/test": 1.60.0
-  "@storybook/addon-a11y": 10.4.3
-  "@storybook/addon-docs": 10.4.3
-  "@storybook/addon-svelte-csf": 5.1.2
-  "@storybook/addon-vitest": 10.4.3
-  "@storybook/svelte-vite": 10.4.3
-  "@sveltejs/adapter-static": 3.0.10
-  "@sveltejs/kit": 2.63.0
-  "@sveltejs/vite-plugin-svelte": 7.1.2
-  "@tailwindcss/vite": 4.3.0
-  "@tanstack/table-core": 8.21.3
-  # Design tokens (packages/design-tokens)
-  "@terrazzo/cli": 2.3.0
-  "@terrazzo/plugin-css": 2.3.0
-  "@terrazzo/plugin-tailwind": 2.3.0
-  "@types/culori": 4.0.1
-  # Web (apps/web)
-  "@types/node": 25.9.1
-  # Signature-moment animation (design-system internal/signature-motion.ts is the ONLY import
-  # site — gated). MIT; supersedes the GSAP+DrawSVG+SplitText plan (ADR with the first consumer).
-  animejs: 4.5.0
-  apca-w3: 0.1.9
-  # Auth (apps/worker). Better Auth runs on the control-plane D1 via its drizzle adapter;
-  # otpauth is a devDependency that verifies TOTP codes in two-factor tests.
-  better-auth: 1.6.16
-  bits-ui: 2.18.1
-  clsx: 2.1.1
-  culori: 4.0.2
-  decimal.js: 10.6.0
-  # Money (packages/money). Bigint API: the consolidated `dinero.js/bigint` subpath bundles the
-  # calculator + bigint currencies, so no separate (deprecated) @dinero.js/calculator-bigint is needed.
-  "dinero.js": 2.0.2
-  drizzle-kit: 0.31.10
-  # Database (packages/database). Stable line, NOT the 1.0 RC: 0.31.x drizzle-kit emits
-  # NNNN_tag.sql + meta/_journal.json, which src/migration.ts consumes. Bump both together.
-  drizzle-orm: 0.45.2
-  formsnap: 2.0.1
-  # happy-dom is the DOM test environment for browser-facing unit tests (an optional peer of the
-  # Vite+ test distribution); opted into per test file via the `@vitest-environment happy-dom`
-  # pragma so everything else stays in the default node pool.
-  happy-dom: 20.10.2
-  # API / Worker (apps/worker)
-  hono: 4.12.23
-  # Identifiers (packages/identifiers). nanoid v5 (ESM, Web Crypto); customRandom + urlAlphabet.
-  nanoid: 5.1.11
-  otpauth: 9.5.1
-  paneforge: 1.0.2
-  storybook: 10.4.3
-  svelte: 5.56.2
-  svelte-check: 4.6.0
-  svelte-sonner: 1.1.1
-  sveltekit-superforms: 2.30.1
-  tailwind-merge: 3.6.0
-  # Design system (packages/design-system)
-  tailwindcss: 4.3.0
-  # The IANA top-level-domain list (auto-published from the root zone). The single source for
-  # email/URL TLD validation, shared by the design-system form story and the app's real form schemas
-  # so both track the same list — never a hand-maintained set.
-  tlds: 1.261.0
-  virtua: 0.49.1
-  vite-plus: 0.1.24
-  # vitest is declared by apps/worker so @cloudflare/vitest-pool-workers can resolve `vitest/worker` into the workerd VM; the `overrides` below alias the actual resolution to the Vite+ test distribution, so this version only has to satisfy the pool's `vitest@^4.1.0` peer range (it is the upstream vitest that Vite+ bundles).
-  vitest: 4.1.8
-  # Cloudflare
-  wrangler: 4.98.0
-  zod: 4.4.3
-
 # Allow postinstall build scripts for packages that require native compilation.
 # Without this, pnpm 10 blocks lifecycle scripts by default (interactive approve is
 # unavailable in CI). workerd ships a pre-built binary via the platform-specific
@@ -96,6 +12,117 @@ onlyBuiltDependencies:
   - workerd
   - esbuild
   - sharp
+
+# Single source of truth for dependency versions (pnpm catalog).
+# Bump a version here once; every package.json that references `catalog:` follows.
+# Keep exact pins (no ^/~) — upgrades are deliberate, one line at a time.
+catalog:
+  # Toolchain
+  vite-plus: 0.1.24
+  # Cloudflare
+  wrangler: 4.105.0
+  "@cloudflare/workers-types": 4.20260625.1
+  # Bump in lockstep with wrangler: this pin hard-depends on an exact (wrangler, miniflare) pair, and
+  # the bundled miniflare is what pulls undici/ws into the dev/test graph — moving wrangler alone
+  # leaves the old miniflare (and its vulnerable undici/ws) resolved under this package. workers-types
+  # tracks the same compatibility date as wrangler; keep all three aligned.
+  "@cloudflare/vitest-pool-workers": 0.16.20
+  # The Container base class + getContainer helper for the scan Container (slice 2·1 Plan 2).
+  "@cloudflare/containers": 0.3.7
+  # vitest is declared by apps/worker so @cloudflare/vitest-pool-workers can resolve `vitest/worker` into the workerd VM; the `overrides` below alias the actual resolution to the Vite+ test distribution, so this version only has to satisfy the pool's `vitest@^4.1.0` peer range (it is the upstream vitest that Vite+ bundles).
+  vitest: 4.1.8
+  # API / Worker (apps/worker)
+  hono: 4.12.27
+  "@hono/zod-openapi": 1.4.0
+  zod: 4.4.3
+  # API contract pipeline. Hey API generates the typed client (packages/api-client) from the
+  # OpenAPI document; Spectral lints the document and Prism mock-serves it (apps/worker devDeps).
+  "@hey-api/openapi-ts": 0.98.2
+  "@stoplight/prism-cli": 5.15.11
+  "@stoplight/spectral-cli": 6.16.0
+  "@tanstack/svelte-query": 6.1.34
+  # Auth (apps/worker). Better Auth runs on the control-plane D1 via its drizzle adapter;
+  # otpauth is a devDependency that verifies TOTP codes in two-factor tests.
+  better-auth: 1.6.16
+  otpauth: 9.5.1
+  # Money (packages/money). Bigint API: the consolidated `dinero.js/bigint` subpath bundles the
+  # calculator + bigint currencies, so no separate (deprecated) @dinero.js/calculator-bigint is needed.
+  "dinero.js": 2.0.2
+  decimal.js: 10.6.0
+  # Identifiers (packages/identifiers). nanoid v5 (ESM, Web Crypto); customRandom + urlAlphabet.
+  nanoid: 5.1.11
+  # Directory (packages/directory). double-metaphone: ES module phonetic encoder, used for fuzzy
+  # name search alongside soundex and metaphone. Import: `import { doubleMetaphone } from "double-metaphone"`.
+  double-metaphone: 2.0.1
+  # Database (packages/database). Stable line, NOT the 1.0 RC: 0.31.x drizzle-kit emits
+  # NNNN_tag.sql + meta/_journal.json, which src/migration.ts consumes. Bump both together.
+  drizzle-orm: 0.45.2
+  drizzle-kit: 0.31.10
+  # File Manager — uploads & bulk download (packages/file-manager, apps/worker).
+  # aws4fetch: SigV4 presigning of R2's S3-compatible endpoint (single-key, single-method, short-TTL
+  # signed URLs; bytes never transit the Worker). client-zip 2.x: streaming store-mode ZIP64 (no
+  # buffering, >4 GiB bundles). file-type 22.x: magic-byte sniffing over the head bytes — the
+  # Uint8Array API (no Node streams), so it runs unchanged in the Workers runtime.
+  aws4fetch: 1.0.20
+  client-zip: 2.5.0
+  file-type: 22.0.1
+  # Fixtures (packages/fixtures). Seeded via faker.seed(); locale en.
+  "@faker-js/faker": 10.4.0
+  # Web (apps/web)
+  "@types/node": 25.9.1
+  svelte: 5.56.2
+  svelte-check: 4.6.0
+  "@sveltejs/kit": 2.63.0
+  "@sveltejs/adapter-static": 3.0.10
+  "@sveltejs/vite-plugin-svelte": 7.1.2
+  # Image processing (packages/conversion). wasm-vips: libvips compiled to WebAssembly via
+  # Emscripten; runs in Node for the conversion test suite and in Workers for small raster jobs.
+  wasm-vips: 0.0.18
+  # Design tokens (packages/design-tokens)
+  "@terrazzo/cli": 2.3.0
+  "@terrazzo/plugin-css": 2.3.0
+  "@terrazzo/plugin-tailwind": 2.3.0
+  "@types/culori": 4.0.1
+  apca-w3: 0.1.9
+  culori: 4.0.2
+  # Design system (packages/design-system)
+  bits-ui: 2.18.1
+  clsx: 2.1.1
+  formsnap: 2.0.1
+  paneforge: 1.0.2
+  svelte-sonner: 1.1.1
+  sveltekit-superforms: 2.30.1
+  tailwind-merge: 3.6.0
+  tailwindcss: 4.3.0
+  "@tailwindcss/vite": 4.3.0
+  "@tanstack/table-core": 8.21.3
+  "@internationalized/date": 3.12.2
+  "@lucide/svelte": 1.17.0
+  virtua: 0.49.1
+  # The IANA top-level-domain list (auto-published from the root zone). The single source for
+  # email/URL TLD validation, shared by the design-system form story and the app's real form schemas
+  # so both track the same list — never a hand-maintained set.
+  tlds: 1.261.0
+  # Self-hosted fonts (design language: in-custody, no font CDN). Variable builds where available.
+  "@fontsource-variable/atkinson-hyperlegible-next": 5.2.6
+  "@fontsource-variable/fraunces": 5.2.9
+  "@fontsource/unifrakturmaguntia": 5.2.8
+  # Signature-moment animation (design-system internal/signature-motion.ts is the ONLY import
+  # site — gated). MIT; supersedes the GSAP+DrawSVG+SplitText plan (ADR with the first consumer).
+  animejs: 4.5.0
+  # Catalog / stories (packages/design-system Storybook + Playwright VRT)
+  storybook: 10.4.3
+  "@storybook/addon-a11y": 10.4.3
+  "@storybook/addon-docs": 10.4.3
+  "@storybook/addon-svelte-csf": 5.1.2
+  "@storybook/addon-vitest": 10.4.3
+  "@storybook/svelte-vite": 10.4.3
+  "@chromatic-com/storybook": 5.2.1
+  "@playwright/test": 1.60.0
+  # happy-dom is the DOM test environment for browser-facing unit tests (an optional peer of the
+  # Vite+ test distribution); opted into per test file via the `@vitest-environment happy-dom`
+  # pragma so everything else stays in the default node pool.
+  happy-dom: 20.10.2
 
 overrides:
   vite: "npm:@voidzero-dev/vite-plus-core@0.1.24"

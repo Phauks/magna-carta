@@ -8,6 +8,34 @@
       "when": 1781030266036,
       "tag": "0000_firm-registry",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1781303255585,
+      "tag": "0001_auth-and-provisioning",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1781631920442,
+      "tag": "0002_firm-key-columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1782416893926,
+      "tag": "0003_handy_rattler",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1782588922248,
+      "tag": "0004_support-access",
+      "breakpoints": true
     }
   ]
 }

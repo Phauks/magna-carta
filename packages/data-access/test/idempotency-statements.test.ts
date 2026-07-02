@@ -25,7 +25,7 @@ describe("idempotency statement builders", () => {
         key: "client-key-1",
         fingerprint: "f".repeat(64),
         responseCode: 201,
-        responseBody: '{"id":"inv_x"}',
+        responseBody: '{"id":"invoice_x"}',
         createdAt: "2026-06-09T00:00:00.000Z",
       }),
     );
@@ -36,7 +36,7 @@ describe("idempotency statement builders", () => {
       "client-key-1",
       "f".repeat(64),
       201,
-      '{"id":"inv_x"}',
+      '{"id":"invoice_x"}',
       "2026-06-09T00:00:00.000Z",
     ]);
   });

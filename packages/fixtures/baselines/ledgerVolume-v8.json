@@ -1,0 +1,252 @@
+{
+  "profileName": "ledgerVolume",
+  "profileVersion": 8,
+  "cacheKey": "3be8af6eab2f1d61",
+  "results": [
+    {
+      "name": "balance-read.busy-subledger",
+      "iterations": 30,
+      "minMs": 0.055,
+      "medianMs": 0.072,
+      "p95Ms": 0.146
+    },
+    {
+      "name": "checkout.active-exclusive-lock",
+      "iterations": 30,
+      "minMs": 0.072,
+      "medianMs": 0.079,
+      "p95Ms": 0.143
+    },
+    {
+      "name": "create-account.trust-subledger",
+      "iterations": 30,
+      "minMs": 4.641,
+      "medianMs": 6.021,
+      "p95Ms": 9.799
+    },
+    {
+      "name": "custom-field.merge-repoint",
+      "iterations": 30,
+      "minMs": 7.53,
+      "medianMs": 9.474,
+      "p95Ms": 11.046
+    },
+    {
+      "name": "custom-field.preview-convert-scan",
+      "iterations": 30,
+      "minMs": 0.424,
+      "medianMs": 0.551,
+      "p95Ms": 1.618
+    },
+    {
+      "name": "custom-field.read-current-values",
+      "iterations": 30,
+      "minMs": 0.129,
+      "medianMs": 0.159,
+      "p95Ms": 0.271
+    },
+    {
+      "name": "custom-field.reference-lookup",
+      "iterations": 30,
+      "minMs": 0.117,
+      "medianMs": 0.164,
+      "p95Ms": 0.3
+    },
+    {
+      "name": "directory.candidate-generation",
+      "iterations": 30,
+      "minMs": 3.175,
+      "medianMs": 3.689,
+      "p95Ms": 7.178
+    },
+    {
+      "name": "directory.find-by-identifier",
+      "iterations": 30,
+      "minMs": 0.566,
+      "medianMs": 0.772,
+      "p95Ms": 1.988
+    },
+    {
+      "name": "directory.graph-expansion",
+      "iterations": 30,
+      "minMs": 0.131,
+      "medianMs": 0.179,
+      "p95Ms": 0.281
+    },
+    {
+      "name": "directory.read-protected-list",
+      "iterations": 30,
+      "minMs": 302.651,
+      "medianMs": 345.666,
+      "p95Ms": 398.123
+    },
+    {
+      "name": "get-current-clean-version",
+      "iterations": 30,
+      "minMs": 0.08,
+      "medianMs": 0.111,
+      "p95Ms": 0.208
+    },
+    {
+      "name": "idle-checkout-sweep.find-idle",
+      "iterations": 30,
+      "minMs": 0.131,
+      "medianMs": 0.236,
+      "p95Ms": 0.556
+    },
+    {
+      "name": "ledger-fitness.table-wide",
+      "iterations": 30,
+      "minMs": 388.796,
+      "medianMs": 435.225,
+      "p95Ms": 514.735
+    },
+    {
+      "name": "list-clean-versions.by-file",
+      "iterations": 30,
+      "minMs": 0.089,
+      "medianMs": 0.101,
+      "p95Ms": 0.152
+    },
+    {
+      "name": "list-consultations.by-member",
+      "iterations": 30,
+      "minMs": 0.211,
+      "medianMs": 0.273,
+      "p95Ms": 0.565
+    },
+    {
+      "name": "list-files.by-folder",
+      "iterations": 30,
+      "minMs": 0.086,
+      "medianMs": 0.101,
+      "p95Ms": 0.149
+    },
+    {
+      "name": "list-files.by-matter",
+      "iterations": 30,
+      "minMs": 0.13,
+      "medianMs": 0.147,
+      "p95Ms": 0.213
+    },
+    {
+      "name": "list-matters.filtered",
+      "iterations": 30,
+      "minMs": 0.177,
+      "medianMs": 0.214,
+      "p95Ms": 0.313
+    },
+    {
+      "name": "list-matters.first-page",
+      "iterations": 30,
+      "minMs": 0.266,
+      "medianMs": 0.315,
+      "p95Ms": 0.423
+    },
+    {
+      "name": "list-shipments.by-matter",
+      "iterations": 30,
+      "minMs": 0.089,
+      "medianMs": 0.159,
+      "p95Ms": 0.317
+    },
+    {
+      "name": "list-tracking-events.by-shipment",
+      "iterations": 30,
+      "minMs": 0.075,
+      "medianMs": 0.09,
+      "p95Ms": 0.297
+    },
+    {
+      "name": "matter-number.counter-draw",
+      "iterations": 30,
+      "minMs": 6.512,
+      "medianMs": 8.95,
+      "p95Ms": 11.529
+    },
+    {
+      "name": "post-entry.two-line",
+      "iterations": 30,
+      "minMs": 18.075,
+      "medianMs": 22.231,
+      "p95Ms": 25.825
+    },
+    {
+      "name": "protected.blind-index-compute",
+      "iterations": 30,
+      "minMs": 0.249,
+      "medianMs": 0.419,
+      "p95Ms": 1.125
+    },
+    {
+      "name": "protected.firm-secret-read",
+      "iterations": 30,
+      "minMs": 6.093,
+      "medianMs": 6.969,
+      "p95Ms": 8.554
+    },
+    {
+      "name": "protected.incident-decrypt-page",
+      "iterations": 30,
+      "minMs": 285.444,
+      "medianMs": 332.307,
+      "p95Ms": 388.897
+    },
+    {
+      "name": "reconcile.find-conflict",
+      "iterations": 30,
+      "minMs": 0.074,
+      "medianMs": 0.085,
+      "p95Ms": 0.161
+    },
+    {
+      "name": "rescan-sweep.find-unscanned",
+      "iterations": 30,
+      "minMs": 0.214,
+      "medianMs": 0.259,
+      "p95Ms": 0.426
+    },
+    {
+      "name": "reverse-entry.two-line",
+      "iterations": 30,
+      "minMs": 19.158,
+      "medianMs": 24.599,
+      "p95Ms": 28.338
+    },
+    {
+      "name": "storage-meter.summary",
+      "iterations": 30,
+      "minMs": 0.053,
+      "medianMs": 0.061,
+      "p95Ms": 0.13
+    },
+    {
+      "name": "tiering-sweep.find-candidates",
+      "iterations": 30,
+      "minMs": 1.641,
+      "medianMs": 2.648,
+      "p95Ms": 3.796
+    },
+    {
+      "name": "version-cut.commit",
+      "iterations": 30,
+      "minMs": 7.483,
+      "medianMs": 8.965,
+      "p95Ms": 12.397
+    },
+    {
+      "name": "zip-resolution.clean-current-versions",
+      "iterations": 30,
+      "minMs": 0.133,
+      "medianMs": 0.225,
+      "p95Ms": 0.341
+    },
+    {
+      "name": "zip-resolution.folders-by-matter",
+      "iterations": 30,
+      "minMs": 0.073,
+      "medianMs": 0.089,
+      "p95Ms": 0.253
+    }
+  ]
+}

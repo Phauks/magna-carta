@@ -1,0 +1,13 @@
+import { Container } from "@cloudflare/containers";
+
+// The malware-scan Container — a long-lived clamd daemon + the Rust scan service.
+// Its default fetch() proxies to the Rust service on :8080; the warm-poke cron hits its `ready` health
+// endpoint to keep one instance (and clamd's signature DB) resident. Untrusted bytes never reach the
+// network: the container runs with outbound networking disabled (enableInternet = false).
+export class ScanContainer extends Container {
+  override defaultPort = 8080;
+  override requiredPorts = [8080];
+  override sleepAfter = "30m"; // generous; the warm-poke cron keeps one instance alive
+  override enableInternet = false; // the container processes untrusted bytes — no egress
+  override pingEndpoint = "ready";
+}

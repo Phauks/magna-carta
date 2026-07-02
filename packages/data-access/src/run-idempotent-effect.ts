@@ -18,14 +18,18 @@ export interface IdempotentEffectOptions {
   // undefined = an optional route called without an Idempotency-Key: execute with no record.
   key: string | undefined;
   fingerprint: string;
-  // The handler's effect, executed SPECULATIVELY: it prepares statements and describes outbox
-  // messages but commits nothing — the commit happens here, in one atomic batch.
+  // The handler's effect. The default shape is SPECULATIVE: it prepares statements and describes
+  // outbox messages but commits nothing — the commit happens here, in one atomic batch. An effect
+  // MAY instead perform its own guarded, individually-idempotent commits along the way (the firm
+  // provisioner's resumable steps), PROVIDED the response-bearing write rides the final atomic
+  // batch with the idempotency record: a crash before that batch stores no record, so a retry
+  // re-executes the effect and its own guards resume the remaining work.
   effect: () => Promise<{ write: EffectWrite; responseCode: number; responseBody: string | null }>;
   now?: () => string;
   newRecordId?: () => IdempotencyRecordId; // injectable for deterministic tests/fixtures
 }
 
-// The ADR-0063 write path, realized for D1 (no interactive transactions):
+// The idempotency write path, realized for D1 (no interactive transactions):
 //   pre-check -> speculative effect -> ONE batch [completed record, business writes, outbox rows].
 // A concurrent duplicate hits the record's UNIQUE(key) and the WHOLE batch rolls back — the loser
 // re-reads and replays the winner's stored response. Crash-between-effect-and-record is impossible
@@ -51,7 +55,7 @@ export async function runIdempotentEffect(
   if (decision.kind !== "execute") return resultFromDecision(decision);
 
   // A THROWN effect (vs. a returned failure responseCode) propagates with nothing committed and NO
-  // record stored — no response existed to replay, so a retry safely re-executes. The spec's
+  // record stored — no response existed to replay, so a retry safely re-executes. The
   // "replay the failure" rule binds only stored failure responses the handler actually produced.
   const outcome = await options.effect();
   try {

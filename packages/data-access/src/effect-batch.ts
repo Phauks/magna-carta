@@ -12,14 +12,14 @@ export interface BatchDatabase extends SqlDatabase {
 }
 
 // What a handler's effect produces: prepared business statements plus the outbox messages describing
-// any external consequences. Handlers never call external services directly (ADR-0064 chokepoint) —
+// any external consequences. Handlers never call external services directly (the outbox chokepoint) —
 // that is what makes speculative execution safe: a rolled-back batch leaves no trace anywhere.
 export interface EffectWrite {
   readonly statements: readonly SqlStatement[];
   readonly outboxMessages: readonly OutboxMessage[];
 }
 
-// THE chokepoint: the one place a write batch is assembled (ADR-0063 + ADR-0064 batch realization).
+// THE chokepoint: the one place a write batch is assembled.
 // Order matters — the idempotency record goes FIRST so its UNIQUE conflict aborts the transaction
 // before any business statement executes; outbox rows ride in the same commit as the change they
 // describe (the transactional-outbox guarantee).

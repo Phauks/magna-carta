@@ -1,0 +1,33 @@
+{
+  "name": "@magna-carta/government-links",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./types": "./src/types.ts",
+    "./keys": "./src/keys.ts",
+    "./platforms": "./src/platforms.ts",
+    "./resolve": "./src/resolve.ts",
+    "./registry": "./src/registry.ts",
+    "./property": "./src/property/registry.ts",
+    "./business": "./src/business/registry.ts",
+    "./licensing": "./src/licensing/registry.ts",
+    "./manifest": "./src/manifest.ts"
+  },
+  "scripts": {
+    "test": "vp test run",
+    "coverage:data": "tsx scripts/dump-coverage.mts",
+    "coverage:serve": "tsx scripts/serve-coverage-map.mts",
+    "coverage": "tsx scripts/dump-coverage.mts && start mockups/coverage-map.html"
+  },
+  "dependencies": {
+    "@magna-carta/integrations": "workspace:*"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "tsx": "^4.22.4",
+    "vitest": "catalog:"
+  }
+}

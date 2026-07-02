@@ -1,0 +1,27 @@
+{
+  "name": "@magna-carta/ai-detection",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./report": "./src/report.ts",
+    "./port": "./src/port.ts",
+    "./normalize": "./src/normalize.ts",
+    "./consent": "./src/consent.ts",
+    "./manifest": "./src/manifest.ts",
+    "./adapters/deferred": "./src/adapters/deferred.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@magna-carta/identifiers": "workspace:*",
+    "@magna-carta/integrations": "workspace:*"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

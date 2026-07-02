@@ -11,18 +11,42 @@
     "./demo-chart-of-accounts": "./src/demo-chart-of-accounts.ts",
     "./factories": "./src/factories.ts",
     "./scenarios": "./src/scenarios.ts",
-    "./demo-firm": "./src/demo-firm.ts"
+    "./demo-firm": "./src/demo-firm.ts",
+    "./load-profile/profile": "./src/load-profile/profile.ts",
+    "./load-profile/generate": "./src/load-profile/generate.ts",
+    "./load-profile/matters-generate": "./src/load-profile/matters-generate.ts",
+    "./load-profile/shipping-generate": "./src/load-profile/shipping-generate.ts",
+    "./load-profile/snapshot": "./src/load-profile/snapshot.ts",
+    "./load-profile/runner": "./src/load-profile/runner.ts",
+    "./load-profile/ledger-measurements": "./src/load-profile/ledger-measurements.ts",
+    "./load-profile/matters-measurements": "./src/load-profile/matters-measurements.ts",
+    "./load-profile/protected-generate": "./src/load-profile/protected-generate.ts",
+    "./load-profile/protected-measurements": "./src/load-profile/protected-measurements.ts",
+    "./load-profile/directory-generate": "./src/load-profile/directory-generate.ts",
+    "./load-profile/directory-measurements": "./src/load-profile/directory-measurements.ts",
+    "./load-profile/shipping-measurements": "./src/load-profile/shipping-measurements.ts",
+    "./load-profile/custom-field-generate": "./src/load-profile/custom-field-generate.ts",
+    "./load-profile/custom-field-measurements": "./src/load-profile/custom-field-measurements.ts"
   },
   "scripts": {
+    "measure": "node --experimental-transform-types src/load-profile/measure-cli.ts",
     "test": "vp test run"
   },
   "dependencies": {
     "@faker-js/faker": "catalog:",
+    "@magna-carta/costs": "workspace:*",
+    "@magna-carta/custom-fields": "workspace:*",
     "@magna-carta/data-access": "workspace:*",
     "@magna-carta/database": "workspace:*",
+    "@magna-carta/directory": "workspace:*",
+    "@magna-carta/encryption": "workspace:*",
+    "@magna-carta/file-manager": "workspace:*",
     "@magna-carta/identifiers": "workspace:*",
     "@magna-carta/ledger": "workspace:*",
-    "@magna-carta/money": "workspace:*"
+    "@magna-carta/locations": "workspace:*",
+    "@magna-carta/matters": "workspace:*",
+    "@magna-carta/money": "workspace:*",
+    "@magna-carta/timekeeping": "workspace:*"
   },
   "devDependencies": {
     "@magna-carta/tsconfig": "workspace:*",

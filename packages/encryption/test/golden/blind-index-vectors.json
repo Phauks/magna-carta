@@ -1,0 +1,23 @@
+[
+  {
+    "description": "SSN at 16 bits",
+    "transform": "normalizeToDigits",
+    "lengthBits": 16,
+    "plaintext": "123-45-6789",
+    "expected": "1:taE="
+  },
+  {
+    "description": "account number at 24 bits",
+    "transform": "normalizeToDigits",
+    "lengthBits": 24,
+    "plaintext": "0001112223",
+    "expected": "1:onZi"
+  },
+  {
+    "description": "driver's license at 32 bits (NV-prefixed)",
+    "transform": "withState",
+    "lengthBits": 32,
+    "plaintext": "d1234 567",
+    "expected": "1:SKAz8g=="
+  }
+]

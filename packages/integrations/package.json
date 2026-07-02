@@ -1,0 +1,30 @@
+{
+  "name": "@magna-carta/integrations",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./problem": "./src/problem.ts",
+    "./canonical": "./src/canonical.ts",
+    "./credentials": "./src/credentials.ts",
+    "./port": "./src/port.ts",
+    "./dispatch": "./src/dispatch.ts",
+    "./connection": "./src/connection.ts",
+    "./registry": "./src/registry.ts",
+    "./manifest": "./src/manifest.ts",
+    "./http": "./src/http.ts",
+    "./safe-target": "./src/safe-target.ts"
+  },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@magna-carta/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
+  }
+}

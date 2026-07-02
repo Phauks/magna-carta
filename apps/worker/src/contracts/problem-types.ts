@@ -1,0 +1,66 @@
+// The problem-type URI registry: every RFC 9457 `type` URI the API
+// emits is a key here (registry-first — stable URIs, one docs page each). A closed union: handing
+// problemType() an unregistered key is a compile error, so a new problem type means a new row here.
+//
+// The value is a SECOND axis from the key, not redundant machinery: the key is the stable internal
+// name callers reference (problemType("not-found")), the value is the URI slug emitted in the
+// document. Today every value equals its key (the identity-map pin in problem.test.ts holds the
+// two in sync), but keeping them separate gives headroom to remap one key to a different URI slug
+// later — renaming a public slug without breaking internal callers, or vice versa — without
+// collapsing the two roles into one.
+export const PROBLEM_TYPES = {
+  validation: "validation",
+  unauthenticated: "unauthenticated",
+  "permission-denied": "permission-denied",
+  "not-found": "not-found",
+  "idempotency-key-missing": "idempotency-key-missing",
+  "idempotency-key-conflict": "idempotency-key-conflict",
+  "idempotency-fingerprint-mismatch": "idempotency-fingerprint-mismatch",
+  "rate-limited": "rate-limited",
+  // A business resource clash (HTTP 409): a firm name already taken, a concurrent provisioning
+  // that won the race. DISTINCT from the idempotency-* conflicts (those are key/payload clashes on
+  // the idempotency record, not the business resource).
+  conflict: "conflict",
+  // An email / owner-email uniqueness violation (HTTP 422). A DISTINCT slug from `validation`
+  // (which the app-level defaultHook owns for Zod request-shape failures): this is a semantic
+  // uniqueness clash surfaced from a committed write, not a request-shape rejection.
+  "email-in-use": "email-in-use",
+  // An upload the firm's policy refuses (HTTP 422): a size over the cap, a blocked extension, or a
+  // disallowed content type — checked at presign against the declared facts and re-checked against
+  // the real bytes at the ingest gate. DISTINCT from `validation` (request-shape) — the request is
+  // well-formed; the firm policy refuses its content.
+  "upload-not-allowed": "upload-not-allowed",
+  // A download of a version a re-scan flagged as malware (HTTP 409). Informed access: the file is not
+  // hidden, but the raw download is gated until the member acknowledges the risk (acknowledgeMalware).
+  "malware-flagged": "malware-flagged",
+  // An unsupported format conversion (HTTP 422): the requested from→to format pair has no path in
+  // the conversion graph — either the format is unknown or no engine covers the pair. DISTINCT from
+  // `validation` (request-shape) — the request is well-formed; the registry has no path.
+  "unsupported-conversion": "unsupported-conversion",
+  // A beta-channel activation rejected because the required consent acknowledgment was absent.
+  // Distinct from `validation` (request-shape failures) — the request is well-formed; a business
+  // rule gates the channel transition on explicit opt-in.
+  "beta-consent-required": "beta-consent-required",
+  // An unexpected, unhandled server error (HTTP 500). The telemetry middleware's final catch maps
+  // any escaped exception to this — the one error type the client cannot have caused, carrying only
+  // the Error ID to quote.
+  internal: "internal",
+  // A feature that is known but not yet wired end-to-end (HTTP 501). Used for interim stubs where
+  // the route schema and lane routing are in place but the backing implementation lands in a later
+  // task. Clients should treat this like a transient error and retry after a deployment.
+  "not-implemented": "not-implemented",
+  // A required downstream service is absent or unreachable (HTTP 503): the worker cannot fulfil
+  // the request because a backing worker service binding is not configured. Callers should retry
+  // after a short delay; the condition resolves when the binding is activated at deploy time.
+  "service-unavailable": "service-unavailable",
+} as const;
+
+export type ProblemTypeKey = keyof typeof PROBLEM_TYPES;
+
+// The full `type` URI for a registered key — a template-literal type, not `string`, so the
+// registry guarantee (only registered URIs are ever emitted) carries through to consumers.
+export type ProblemTypeUri = `https://api.magnacarta.esq/problems/${ProblemTypeKey}`;
+
+export function problemType(key: ProblemTypeKey): ProblemTypeUri {
+  return `https://api.magnacarta.esq/problems/${PROBLEM_TYPES[key]}`;
+}

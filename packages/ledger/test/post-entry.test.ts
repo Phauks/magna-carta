@@ -1,10 +1,5 @@
-import { DatabaseSync } from "node:sqlite";
 import { commitEffectBatch, type BatchDatabase } from "@magna-carta/data-access/effect-batch";
-import {
-  applyMigrations,
-  loadMigrationsFromDisk,
-  nodeSqliteBatchDatabase,
-} from "@magna-carta/database/node-sqlite";
+import { createMigratedNodeDatabase } from "@magna-carta/database/node-sqlite";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
 import { money, USD } from "@magna-carta/money/money";
 import { describe, expect, it } from "vitest";
@@ -22,9 +17,8 @@ const clock: ClockPort = {
 };
 
 async function setup() {
-  const raw = new DatabaseSync(":memory:");
-  applyMigrations(raw, loadMigrationsFromDisk("per-firm"));
-  const database: BatchDatabase = nodeSqliteBatchDatabase(raw);
+  // Typed as the data-access BatchDatabase so the tests exercise the REAL D1-shaped surface.
+  const database: BatchDatabase = createMigratedNodeDatabase("per-firm").database;
   const trustBank = newIdentifier("ledgerAccount");
   const smith = newIdentifier("ledgerAccount");
   await database.batch([
@@ -50,7 +44,7 @@ async function setup() {
   return { database, trustBank, smith };
 }
 
-describe("postEntry — the posting write path (ADR-0072)", () => {
+describe("postEntry — the posting write path", () => {
   it("commits entry + lines + balance updates + outbox row in one batch", async () => {
     const { database, trustBank, smith } = await setup();
     const { entryId, effect } = await postEntry(
@@ -123,21 +117,43 @@ describe("postEntry — the posting write path (ADR-0072)", () => {
     ).rejects.toMatchObject({ name: "LedgerValidationError", code: "too-few-lines" });
   });
 
-  it("aggregates per-account deltas exactly near the safe-integer limit", async () => {
+  it("refuses an over-cap entry with the named code — never posts past float exactness", async () => {
     const { database, trustBank, smith } = await setup();
-    // trustBank (debit-normal asset): debit (2^53 - 1), debit 2, credit 4 — true delta 2^53 - 3.
-    // Float order-of-operations rounds the running sum to 2^53 - 4 and silently writes a wrong
-    // balance; BigInt aggregation keeps it exact.
+    // Balanced and individually-safe amounts, but the total magnitude exceeds 2^53 - 1: past the
+    // cap, per-account delta accumulation could round (e.g. a true delta of 2^53 - 3 lands as
+    // 2^53 - 4) and a silently wrong balance would commit. The cap turns that into a refusal.
+    await expect(
+      postEntry(
+        database,
+        {
+          description: "Over the exactness cap",
+          effectiveDate: "2026-06-09",
+          lines: [
+            { accountId: trustBank, direction: "debit", amount: money(9007199254740991, USD) },
+            { accountId: trustBank, direction: "debit", amount: money(2, USD) },
+            { accountId: trustBank, direction: "credit", amount: money(4, USD) },
+            { accountId: smith, direction: "credit", amount: money(9007199254740989, USD) },
+          ],
+        },
+        { clock },
+      ),
+    ).rejects.toMatchObject({ name: "LedgerValidationError", code: "entry-too-large" });
+  });
+
+  it("aggregates per-account deltas exactly for the largest entries under the cap", async () => {
+    const { database, trustBank, smith } = await setup();
+    // trustBank (debit-normal asset): debit 2^51, debit 2, credit 4 — true delta 2^51 - 2; total
+    // entry magnitude 2^52 + 4 stays under the cap, where every partial sum is provably exact.
     const { effect } = await postEntry(
       database,
       {
-        description: "Near-limit aggregation",
+        description: "Large under-cap aggregation",
         effectiveDate: "2026-06-09",
         lines: [
-          { accountId: trustBank, direction: "debit", amount: money(9007199254740991, USD) },
+          { accountId: trustBank, direction: "debit", amount: money(2251799813685248, USD) },
           { accountId: trustBank, direction: "debit", amount: money(2, USD) },
           { accountId: trustBank, direction: "credit", amount: money(4, USD) },
-          { accountId: smith, direction: "credit", amount: money(9007199254740989, USD) },
+          { accountId: smith, direction: "credit", amount: money(2251799813685246, USD) },
         ],
       },
       { clock },
@@ -147,7 +163,7 @@ describe("postEntry — the posting write path (ADR-0072)", () => {
       .prepare("SELECT balance_minor FROM account_balance WHERE account_id = ?1")
       .bind(trustBank)
       .all<{ balance_minor: number }>();
-    expect(results[0]?.balance_minor).toBe(9007199254740989);
+    expect(results[0]?.balance_minor).toBe(2251799813685246);
   });
 
   it("posts an entry touching more than 100 distinct accounts (snapshot load chunks under D1's cap)", async () => {

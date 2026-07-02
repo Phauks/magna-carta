@@ -7,8 +7,25 @@ export const OUTBOX_TABLE = "outbox";
 
 export interface OutboxMessage {
   readonly topic: string; // e.g. 'payment.capture', 'comms.send'
-  readonly payload: unknown; // ids + non-privileged fields ONLY (ADR-0038); stored as canonical JSON
+  readonly payload: unknown; // ids + non-privileged fields ONLY; stored as canonical JSON
   readonly aggregateKey?: string; // ordering scope; consumers apply by (aggregateKey, seq)
+}
+
+// Revive a dead-lettered row (the operator-intervention seam — sweepOutbox marks status='failed'
+// TERMINAL by design, so nothing re-queues a stranded message on its own). Resets status to
+// 'pending' and attempts to 0 so the next sweep re-dispatches it. Guarded on `status = 'failed'`:
+// it only ever revives a genuinely dead-lettered row, never disturbs a pending/dispatched one
+// (meta.changes is 0 when the id isn't a failed row). The documented manual seam until an admin
+// surface exists (security.md).
+export function requeueDeadLetteredMessageStatement(
+  database: SqlDatabase,
+  options: { id: string },
+): SqlStatement {
+  return database
+    .prepare(
+      `UPDATE ${OUTBOX_TABLE} SET status = 'pending', attempts = 0 WHERE id = ?1 AND status = 'failed'`,
+    )
+    .bind(options.id);
 }
 
 // seq is computed INSIDE the insert: batch statements cannot share JS-side results, but a subselect

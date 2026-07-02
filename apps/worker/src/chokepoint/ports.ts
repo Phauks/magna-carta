@@ -1,0 +1,136 @@
+// The real chokepoint ports: the bridge from the chokepoint's injected
+// interfaces (chokepoint.ts) to the implementations (session-context.ts, firm-database-proxy.ts).
+// The chokepoint is built over fakes; this module supplies the production resolvers and the
+// FirmContext the handlers read. One home for the wiring so app.ts stays a thin composition root.
+import type { Context } from "hono";
+import type { Permission } from "@magna-carta/access-control/registry";
+import type { IdempotencyContext } from "@magna-carta/data-access/hono-idempotency-middleware";
+import { selectMemberStatusStatement } from "@magna-carta/data-access/member-statements";
+import type { FirmId } from "@magna-carta/identifiers/types";
+import type { Logger } from "@magna-carta/telemetry/logger";
+import type { Bindings } from "../app.ts";
+import type { createAuth } from "../auth.ts";
+import { firmDatabaseFor, type ProxyBatchDatabase } from "../firm-database/firm-database-proxy.ts";
+import {
+  loadEffectivePermissions,
+  resolveSession,
+  type SessionContext,
+} from "../session-context.ts";
+import type { ChokepointPorts, ResolvedSession } from "./chokepoint.ts";
+import { resolveSupportSession } from "../support/resolve-support-session.ts";
+import { resolveSupportPermissions } from "../support/tier-permissions.ts";
+
+// What resolveFirmContext returns and the chokepoint threads to loadPermissions and the handler:
+// the session firm's per-firm database handle plus its display name (so a handler reading the firm
+// need not re-query the control plane). Opaque to the chokepoint; consumed by handlers via c.get(
+// "chokepointFirmContext"). The firm came from the SESSION, never the URL.
+export interface FirmContext {
+  readonly firmDatabase: ProxyBatchDatabase;
+  readonly firmName: string;
+  // The firm's R2 bucket name, for the upload/download presigner (null until provisioning created it;
+  // an active firm always has it). The bucket came from the SESSION firm row, never client input.
+  readonly bucketName: string | null;
+}
+
+// The typed context variables the chokepoint stashes (chokepoint.ts step 3a) and the handlers
+// read. Declared once here so app.ts types the OpenAPIHono Variables and handlers get typed
+// c.get(...) — formalizing the string-keyed stash into a typed contract.
+export interface ChokepointVariables {
+  chokepointFirmId: FirmId;
+  chokepointUserId: SessionContext["userId"];
+  chokepointFirmContext: FirmContext;
+}
+
+// The full app context Variables: the chokepoint-stashed tenancy plus the idempotency context the
+// chokepoint's idempotency gate sets (read by the required-idempotency handlers). One home so the
+// OpenAPIHono instance and every route's c.get(...) type against the same shape — and so the route
+// modules type their `app` parameter without importing app.ts at value level.
+//
+// correlationId + logger are stashed by the telemetry middleware (installed first, ahead of the
+// chokepoint): every downstream guard/handler emits events through the request-scoped `logger`
+// against the request's `correlationId`, and problemJson reads correlationId to stamp every reply.
+// Both optional: a code path running before the middleware (none today) would see neither.
+export type AppVariables = ChokepointVariables & {
+  idempotency?: IdempotencyContext;
+  correlationId?: string;
+  logger?: Logger;
+};
+
+// resolveSession port: the cookie → { userId, firmId } resolver, bound to the per-env Better Auth
+// instance app.ts owns. SessionContext IS the ResolvedSession shape (both { userId, firmId }).
+function makeResolveSession(
+  authForEnv: (env: Bindings) => ReturnType<typeof createAuth>,
+): (c: Context) => Promise<ResolvedSession | null> {
+  return async (c) => {
+    const env = (c as Context<{ Bindings: Bindings }>).env;
+    const support = await resolveSupportSession(env, c, Math.floor(Date.now() / 1000));
+    if (support !== null) return support;
+    return resolveSession(authForEnv(env), c);
+  };
+}
+
+// resolveFirmContext port (the structural-absence gate). Returns null — mapped to the
+// chokepoint's 404, no existence oracle — for EVERY structural absence:
+//   • the firm row is missing from this control plane,
+//   • the session member is DEACTIVATED in the firm (a deliberate absent state).
+// A NEVER-MIRRORED user (no member row yet — the owner-activation sweep-lag window) is NOT absent:
+// it returns the context so the read self-heals to a 200 with empty permissions; only an explicit
+// non-active status is the absence. (me.get carries permission: null, so the chokepoint resolves
+// the firm here and skips the permission gate; the handler loads the empty permission set itself.)
+function makeResolveFirmContext(): (
+  c: Context,
+  session: ResolvedSession,
+) => Promise<FirmContext | null> {
+  return async (c, session) => {
+    const env = (c as Context<{ Bindings: Bindings }>).env;
+    const firmRow = await env.DB_CONTROL.prepare("SELECT name, bucket_name FROM firm WHERE id = ?1")
+      .bind(session.firmId)
+      .first<{ name: string; bucket_name: string | null }>();
+    if (firmRow === null) return null;
+
+    // Every firm is reachable by name through its per-firm FirmDatabase Durable Object; the stub
+    // self-migrates the per-firm lineage on first access. The firm is addressed by its session
+    // firmId — never client input.
+    const firmDatabase = firmDatabaseFor(env.FIRM_DATABASE, session.firmId);
+
+    // Member-active check: a row whose status is anything other than 'active' is a
+    // DEACTIVATED member → absent → 404. Zero rows is the never-mirrored sweep-lag window → present.
+    const memberStatusResult = await selectMemberStatusStatement(firmDatabase, session.userId).all<{
+      status: string;
+    }>();
+    const memberStatus = memberStatusResult.results[0]?.status;
+    if (memberStatus !== undefined && memberStatus !== "active") return null;
+
+    return { firmDatabase, firmName: firmRow.name, bucketName: firmRow.bucket_name };
+  };
+}
+
+// loadPermissions port: the session member's effective permissions in THEIR firm (the firm DB came
+// from the session-derived FirmContext — never client input), folded through the access-control
+// resolver. The member-active filter already lives in the permission statements (a deactivated
+// member's roles confer nothing), but the chokepoint never reaches here for a deactivated member —
+// resolveFirmContext already 404'd them.
+function makeLoadPermissions(): (
+  firmContext: FirmContext,
+  session: ResolvedSession,
+) => Promise<ReadonlySet<Permission>> {
+  return async (firmContext, session) =>
+    session.support === undefined
+      ? loadEffectivePermissions(firmContext.firmDatabase, session.userId)
+      : resolveSupportPermissions(session.support.tier, firmContext.firmDatabase, session.userId);
+}
+
+// Assembles the production ports MINUS the idempotency port (app.ts adds createChokepointIdempotency
+// — it lives in its own module to avoid a value-import cycle through this one). The rate limiter is
+// injected because app.ts owns its lifetime: one per worker isolate, never one per request.
+export function createChokepointPorts(
+  authForEnv: (env: Bindings) => ReturnType<typeof createAuth>,
+  rateLimiter: ChokepointPorts<FirmContext>["rateLimiter"],
+): Omit<ChokepointPorts<FirmContext>, "idempotency"> {
+  return {
+    resolveSession: makeResolveSession(authForEnv),
+    resolveFirmContext: makeResolveFirmContext(),
+    loadPermissions: makeLoadPermissions(),
+    rateLimiter,
+  };
+}

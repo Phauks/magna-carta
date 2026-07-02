@@ -1,18 +1,277 @@
-import { sqliteTable, text } from "drizzle-orm/sqlite-core";
-import type { FirmId } from "@magna-carta/identifiers/types";
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+import type {
+  AccountId,
+  AuthAuditId,
+  FirmId,
+  IdempotencyRecordId,
+  OutboxId,
+  PlatformStaffId,
+  SessionId,
+  SupportGrantId,
+  TwoFactorId,
+  UserId,
+  VerificationId,
+} from "@magna-carta/identifiers/types";
 
 // CONTROL-PLANE LINEAGE. The firm registry: one row per tenant firm, in the single control-plane D1.
 // This file is the source of truth drizzle-kit generates control-plane migrations from — schema changes
-// happen HERE, never by hand-editing SQL (ADR-0065).
+// happen HERE, never by hand-editing SQL.
 export const firm = sqliteTable("firm", {
-  // The firm_ handle is both primary key and public id (ADR-0062).
+  // The firm_ handle is both primary key and public id.
   id: text("id").primaryKey().$type<FirmId>(),
-  name: text("name").notNull(),
-  // The Cloudflare D1 database backing this firm (the database UUID from the Cloudflare API).
-  databaseIdentifier: text("database_identifier").notNull().unique(),
-  // Mirror of the firm database's latest applied migration tag (fleet-wide visibility, ADR-0065).
-  // Null = the firm database has not been provisioned yet. Tags order lexicographically (NNNN_ prefix).
+  // UNIQUE: the firm name is the provisioner's RESUME IDENTITY — a crashed
+  // provisioning run re-invoked with the same name must find its own partial row, and firm ids
+  // are CSPRNG handles minted per attempt, so the name is the only stable client-supplied handle.
+  // Platform-admin-controlled input on a fleet of ~1; revisit if self-serve signup ever exists.
+  name: text("name").notNull().unique(),
+  // vestigial: per-firm DB is the firmId-addressed FirmDatabase DO; drop in a later control-plane migration
+  databaseIdentifier: text("database_identifier").unique(),
+  // vestigial: the FirmDatabase DO self-migrates on first access; drop in a later control-plane migration
   perFirmSchemaVersion: text("per_firm_schema_version"),
-  // ISO-8601 UTC instant (ADR-0055).
+  // Provisioning lifecycle: the provisioner writes 'provisioning' first and flips to 'active' once
+  // the firm's resources exist. The DEFAULT keeps pre-lifecycle rows valid (expand-contract).
+  status: text("status").notNull().default("active"),
+  // The firm's release channel — which behavior is lit for this tenant. stable (default) is the
+  // vetted line; beta is firm-admin opt-in; alpha is a platform-only grant. Channels gate behavior
+  // through feature flags, never schema. DEFAULT keeps pre-channel rows valid (expand-contract).
+  releaseChannel: text("release_channel").notNull().default("stable"),
+  // The per-firm R2 bucket backing this firm. Null = the bucket has not been provisioned yet.
+  bucketName: text("bucket_name"),
+  // WHO owns the firm: set in the same activation batch that inserts the owner user
+  // — the provisioner's already-active no-op matches the REQUESTED owner against this column, so a
+  // mere invited member's email cannot impersonate the owner. Null while provisioning and for
+  // pre-lifecycle rows. Deliberately NOT a foreign key: user.firm_id already references firm.id,
+  // and the reverse edge would make the firm<->user pair circular.
+  ownerUserId: text("owner_user_id").$type<UserId>(),
+  // The firm's data key, sealed under the root key-encryption key — the wrapped form that never
+  // leaves the control plane in the clear. Null = not yet minted (the key-mint sweep fills it for
+  // active firms); nulling it is also the crypto-shred mechanism, after which the firm's protected
+  // values become permanently unreadable. The unwrap/cache lives in @magna-carta/data-access.
+  wrappedFirmKey: text("wrapped_firm_key"),
+  // Which key version the wrapped data key is at, and which root key-encryption key version sealed
+  // it. Both default 1 so pre-mint rows are valid (expand-contract); rotation bumps them.
+  firmKeyVersion: integer("firm_key_version").notNull().default(1),
+  rootKeyVersion: integer("root_key_version").notNull().default(1),
+  // Firm policy: when true, a PRIVILEGED support grant is created in 'requested' state and needs an
+  // admin co-sign before it becomes redeemable. Default false — self-scoping already bounds a
+  // privileged session to the requester's own access, so co-sign is opt-in hardening. Promoted into
+  // the declarative settings registry later; an interim control-plane column keeps grant creation a
+  // single control-plane read.
+  supportRequiresCosign: integer("support_requires_cosign", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  // ISO-8601 UTC instant.
   createdAt: text("created_at").notNull(),
 });
+
+// BETTER AUTH-OWNED TABLES. Transcribed from better-auth 1.6.16's own table definitions (getAuthTables
+// with emailAndPassword + the twoFactor plugin + our firmId additional field) — Better Auth NEVER runs
+// migrations; this file stays the source of truth and the generate output is reference material only.
+// Storage is what Better Auth's drizzle adapter expects: snake_case columns, epoch-MILLISECOND integer
+// timestamps (mode "timestamp_ms"), boolean-mode integers — the one sanctioned exception to the
+// house ISO-8601 text-timestamp convention, scoped to these five tables. Ids are still our prefixed
+// handles: the auth config's generateId hook mints them.
+
+export const user = sqliteTable("user", {
+  id: text("id").primaryKey().$type<UserId>(), // usr_ handle
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  emailVerified: integer("email_verified", { mode: "boolean" }).notNull().default(false),
+  image: text("image"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
+  // The twoFactor plugin's user flag — optional in Better Auth's reference, defaults false.
+  twoFactorEnabled: integer("two_factor_enabled", { mode: "boolean" }).default(false),
+  // OUR additional field: every user belongs to exactly one tenant firm.
+  firmId: text("firm_id")
+    .notNull()
+    .$type<FirmId>()
+    .references(() => firm.id),
+});
+
+export const session = sqliteTable(
+  "session",
+  {
+    id: text("id").primaryKey().$type<SessionId>(), // ses_ handle
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    token: text("token").notNull().unique(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    userId: text("user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  // The better-auth 1.6.16 reference generator marks user_id `index: true`.
+  (table) => [index("session_user_id_index").on(table.userId)],
+);
+
+export const account = sqliteTable(
+  "account",
+  {
+    id: text("id").primaryKey().$type<AccountId>(), // acc_ handle
+    accountId: text("account_id").notNull(), // provider-side account id; equals user id for credentials
+    providerId: text("provider_id").notNull(), // 'credential' for email-and-password
+    userId: text("user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => user.id, { onDelete: "cascade" }),
+    accessToken: text("access_token"),
+    refreshToken: text("refresh_token"),
+    idToken: text("id_token"),
+    accessTokenExpiresAt: integer("access_token_expires_at", { mode: "timestamp_ms" }),
+    refreshTokenExpiresAt: integer("refresh_token_expires_at", { mode: "timestamp_ms" }),
+    scope: text("scope"),
+    password: text("password"), // Better Auth stores the scrypt hash, never plaintext
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  // The better-auth 1.6.16 reference generator marks user_id `index: true`.
+  (table) => [index("account_user_id_index").on(table.userId)],
+);
+
+export const verification = sqliteTable(
+  "verification",
+  {
+    id: text("id").primaryKey().$type<VerificationId>(), // ver_ handle
+    identifier: text("identifier").notNull(),
+    value: text("value").notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`),
+  },
+  // The better-auth 1.6.16 reference generator marks identifier `index: true`.
+  (table) => [index("verification_identifier_index").on(table.identifier)],
+);
+
+export const twoFactor = sqliteTable(
+  "two_factor",
+  {
+    id: text("id").primaryKey().$type<TwoFactorId>(), // twf_ handle
+    secret: text("secret").notNull(), // encrypted TOTP secret (Better Auth encrypts before storing)
+    backupCodes: text("backup_codes").notNull(), // encrypted, Better Auth-managed
+    userId: text("user_id")
+      .notNull()
+      .$type<UserId>()
+      .references(() => user.id, { onDelete: "cascade" }),
+    verified: integer("verified", { mode: "boolean" }).default(true),
+  },
+  // The twoFactor plugin schema marks secret and user_id `index: true`.
+  (table) => [
+    index("two_factor_secret_index").on(table.secret),
+    index("two_factor_user_id_index").on(table.userId),
+  ],
+);
+
+// OUR CONTROL-PLANE TABLES — house conventions resume here: ISO-8601 UTC text timestamps.
+
+// Auth audit trail: sign-in/sign-out/2FA lifecycle events. user_id is deliberately NOT a foreign key —
+// audit rows must outlive the user row they describe, and pre-identification events (e.g. a failed
+// sign-in) have no user at all.
+export const authAudit = sqliteTable("auth_audit", {
+  id: text("id").primaryKey().$type<AuthAuditId>(), // aud_ handle
+  event: text("event").notNull(), // e.g. 'sign_in.success', 'two_factor.enabled'
+  userId: text("user_id").$type<UserId>(), // null for pre-identification events
+  metadata: text("metadata"), // JSON: ids + non-privileged fields ONLY, redacted (never privileged content)
+  createdAt: text("created_at").notNull(), // ISO-8601 instant
+});
+
+// Platform support staff — named human (later: agent) principals who redeem support grants. Separate
+// from firm `user` (every user belongs to exactly one firm; staff belong to none). Self-service staff
+// login + MFA is built later; until then rows are seeded and the redeem route is platform-admin-gated.
+export const platformStaff = sqliteTable("platform_staff", {
+  id: text("id").primaryKey().$type<PlatformStaffId>(), // platformStaff_ handle
+  email: text("email").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  // 'support' may redeem diagnostic grants; 'support_lead' additionally may redeem privileged grants.
+  role: text("role", { enum: ["support", "support_lead"] }).notNull(),
+  status: text("status", { enum: ["active", "disabled"] })
+    .notNull()
+    .default("active"),
+  createdAt: text("created_at").notNull(), // ISO-8601 instant
+});
+
+// Support grant — one row per firm member's request for help-desk access. The request IS the consent;
+// there is no staff-initiated path. A grant is redeemable only while status='active' AND now<=expires_at.
+export const supportGrant = sqliteTable(
+  "support_grant",
+  {
+    id: text("id").primaryKey().$type<SupportGrantId>(), // supportGrant_ handle
+    firmId: text("firm_id")
+      .notNull()
+      .$type<FirmId>()
+      .references(() => firm.id),
+    // The firm member who requested help — the consent anchor and the privileged-tier authority source.
+    requestedByUserId: text("requested_by_user_id").notNull().$type<UserId>(),
+    tier: text("tier", { enum: ["diagnostic", "privileged"] }).notNull(),
+    scope: text("scope", { enum: ["self"] })
+      .notNull()
+      .default("self"),
+    status: text("status", {
+      enum: ["requested", "active", "revoked", "expired", "closed"],
+    }).notNull(),
+    reason: text("reason"), // non-privileged free text
+    // The staff principal that redeemed the grant (null until first redeemed).
+    principalId: text("principal_id").$type<PlatformStaffId>(),
+    requiresCosign: integer("requires_cosign", { mode: "boolean" }).notNull().default(false),
+    cosignedByUserId: text("cosigned_by_user_id").$type<UserId>(),
+    expiresAt: text("expires_at").notNull(), // ISO-8601 instant; hard time-box
+    createdAt: text("created_at").notNull(), // ISO-8601 instant
+  },
+  (table) => [index("support_grant_firm_id_index").on(table.firmId)],
+);
+
+// Control-plane copies of the reliability tables — same shapes as the per-firm lineage so the
+// data-access middleware and relay run identically against either database.
+
+// Idempotency records. The UNIQUE(key) insert inside the effect's transaction IS the
+// concurrency guard — exactly-once with no separate lock.
+export const idempotencyKey = sqliteTable(
+  "idempotency_key",
+  {
+    id: text("id").primaryKey().$type<IdempotencyRecordId>(), // idr_ handle (server record id)
+    key: text("key").notNull(), // client-supplied Idempotency-Key
+    fingerprint: text("fingerprint").notNull(), // hash(method + path + canonical body)
+    status: text("status", { enum: ["in_progress", "completed"] }).notNull(),
+    responseCode: integer("response_code"), // captured on completion
+    responseBody: text("response_body"), // captured on completion, redacted (no privileged content)
+    createdAt: text("created_at").notNull(), // ISO-8601 instant; TTL purge keys off this
+  },
+  (table) => [
+    uniqueIndex("idempotency_key_key_unique_index").on(table.key),
+    index("idempotency_key_created_at_index").on(table.createdAt),
+  ],
+);
+
+// Transactional outbox: the effect row commits in the SAME D1 transaction as the business
+// change; the relay sweeps pending rows to Queues.
+export const outbox = sqliteTable(
+  "outbox",
+  {
+    id: text("id").primaryKey().$type<OutboxId>(), // obx_ handle
+    topic: text("topic").notNull(), // e.g. 'payment.capture', 'comms.send'
+    payload: text("payload").notNull(), // JSON: ids + non-privileged fields ONLY (never privileged content)
+    aggregateKey: text("aggregate_key"), // ordering scope for ordered topics
+    seq: integer("seq"), // monotonic within aggregate_key
+    status: text("status", { enum: ["pending", "dispatched", "failed"] }).notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+    dispatchedAt: text("dispatched_at"),
+  },
+  (table) => [index("outbox_status_created_at_index").on(table.status, table.createdAt)],
+);

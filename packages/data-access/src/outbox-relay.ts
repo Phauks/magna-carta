@@ -2,7 +2,7 @@ import type { BatchDatabase } from "./effect-batch.ts";
 import { OUTBOX_TABLE } from "./outbox-statements.ts";
 
 // A pending row as the relay reads it. Consumers dedup on `id` (Queues are at-least-once) and apply
-// ordered topics by (aggregate_key, seq) — skip-stale / last-write-wins (ADR-0064).
+// ordered topics by (aggregate_key, seq) — skip-stale / last-write-wins.
 export interface OutboxRow {
   readonly id: string;
   readonly topic: string;
@@ -18,11 +18,15 @@ export interface OutboxSweepReport {
   readonly deadLettered: number;
 }
 
-// The relay floor (ADR-0064): sweep pending rows and publish them. Ordering is PUBLISH FIRST, then
+// The relay floor: sweep pending rows and publish them. Ordering is PUBLISH FIRST, then
 // mark dispatched — a crash between the two republishes next sweep (at-least-once, consumers dedup).
 // Marking first would risk losing the effect entirely (at-most-once), never acceptable here.
 // A publish failure increments attempts; reaching maxAttempts marks the row failed and hands it to
-// the dead-letter callback (surfaced to observability, ADR-0038). Failures are per-row isolated.
+// the dead-letter callback (surfaced to observability). Failures are per-row isolated.
+// status='failed' is TERMINAL — the relay never re-dispatches a dead-lettered row on its own. The
+// recovery seam is requeueDeadLetteredMessageStatement (outbox-statements.ts): an operator flips a
+// failed row back to pending and the next sweep retries it (the documented manual intervention
+// until an admin surface exists — security.md).
 //
 // Sweeps may OVERLAP (a slow run meeting the next Cron fire), so every status transition is guarded
 // with `AND status = 'pending'` and branches on meta.changes: a row another sweep already claimed is

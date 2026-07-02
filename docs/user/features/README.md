@@ -4,4 +4,8 @@ One plain-language guide per user-visible feature. Naming: `<feature>.md` (e.g. 
 
 Each guide follows the per-feature pattern in [`../README.md`](../README.md): what it does, how to do the common tasks, tips/edge cases, related features — no internal architecture.
 
-_None yet — authored as features ship (a definition-of-done item)._
+- [`shipping.md`](shipping.md) — Shipping & postage (stub; backend built, screens pending).
+- [`whois-lookup.md`](whois-lookup.md) — WHOIS Lookup (stub; backend built, screens pending).
+- [`safe-website-viewer.md`](safe-website-viewer.md) — Safe Website Viewer (stub; backend built, screens pending).
+- [`metadata-inspector-scrubber.md`](metadata-inspector-scrubber.md) — Metadata Inspector & Scrubber (stub; backend built, screens pending).
+- [`file-hash-integrity.md`](file-hash-integrity.md) — File Hash & Integrity (stub; backend built, screens pending).

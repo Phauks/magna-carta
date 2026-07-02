@@ -6,8 +6,8 @@ import type { MatterId } from "../src/types.ts";
 describe("newIdentifier", () => {
   it("builds a <prefix>_<token> handle with the registered prefix", () => {
     const id = newIdentifier("matter");
-    expect(id).toMatch(/^mat_[A-Za-z0-9_-]{21}$/);
-    expect(newIdentifier("document")).toMatch(/^doc_[A-Za-z0-9_-]{21}$/);
+    expect(id).toMatch(/^matter_[A-Za-z0-9_-]{21}$/);
+    expect(newIdentifier("document")).toMatch(/^document_[A-Za-z0-9_-]{21}$/);
   });
 
   it("returns the entity's brand (compile-time) and is assignable to string", () => {
@@ -34,7 +34,7 @@ describe("generateUniqueIdentifier", () => {
       return true;
     });
     expect(calls).toBe(1);
-    expect(id).toMatch(/^mat_/);
+    expect(id).toMatch(/^matter_/);
   });
 
   it("retries on collision with a fresh candidate each time, then succeeds", async () => {
@@ -50,7 +50,7 @@ describe("generateUniqueIdentifier", () => {
 
   it("supports an async tryInsert", async () => {
     const id = await generateUniqueIdentifier("invoice", async () => Promise.resolve(true));
-    expect(id).toMatch(/^inv_/);
+    expect(id).toMatch(/^invoice_/);
   });
 
   it("throws after exhausting maxAttempts (signals a broken random source)", async () => {

@@ -4,8 +4,8 @@ import { assertSafeInteger, MONEY_SCALE, type Intermediate, type Money } from ".
 // Collapse a high-precision Intermediate to Money (scale 2) at the chosen rounding mode.
 // No global default — the mode is the caller's stated intent.
 // Guards the raw amount first: the number calculator is exact only below 2^53, so a breach here means
-// an upstream multiplyByQuantity/percentOf grew past the safe range and the value can't be trusted
-// (ADR-0061). This is the single choke point through which every Intermediate becomes Money.
+// an upstream multiplyByQuantity/percentOf grew past the safe range and the value can't be trusted.
+// This is the single choke point through which every Intermediate becomes Money.
 function collapse(value: Intermediate, mode: typeof halfUp): Money {
   assertSafeInteger(snapshot(value).amount);
   return transformScale(value, MONEY_SCALE, mode) as Money;

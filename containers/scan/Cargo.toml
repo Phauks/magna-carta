@@ -1,0 +1,92 @@
+[package]
+name = "magna-carta-scan"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# A lib (the router + engine modules, unit-testable) plus a thin binary that serves it on :8080.
+[lib]
+name = "magna_carta_scan"
+path = "src/lib.rs"
+
+[[bin]]
+name = "magna-carta-scan"
+path = "src/main.rs"
+
+# The build-time signature-database extractor. Runs in the image build (never at runtime): reads the
+# unpacked CVD/CLD signature files and writes the prefilter's atoms.db. Fail-closed + fail-loud — see
+# src/bin/build-atoms.rs. Depends only on the lib's atoms.rs parsers + serde_json (already direct deps).
+[[bin]]
+name = "build-atoms"
+path = "src/bin/build-atoms.rs"
+
+# The build-time YARA Forge bundler. Runs in the image build (never at runtime): reads the downloaded
+# YARA Forge package, drops the FP-prone heuristic pocket, compiles the kept rules with yara-x, and
+# serializes them to the blob the runtime deserializes. Fail-closed + fail-loud — see
+# src/bin/build-yara-rules.rs. Depends on the lib's forge.rs + yara.rs.
+[[bin]]
+name = "build-yara-rules"
+path = "src/bin/build-yara-rules.rs"
+
+# A throwaway RSS benchmark comparing the SCAN (mmap, file-backed) vs INSTREAM (heap buffer, anonymous)
+# transports' service-side memory. Measurement only — not shipped in the runtime image.
+[[bin]]
+name = "rss-bench"
+path = "src/bin/rss-bench.rs"
+
+# Heavy engine dependencies (yara-x, lopdf, cfb, zip) are added in the tasks that introduce them, so the
+# early skeleton builds fast.
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# The container transport: stream the request body straight to clamd's scratch file (futures-util drives
+# the body's data-frame stream) and map it read-only (memmap2) so the in-process engines (yara, the
+# structural heuristics) read the same bytes with no heap copy while clamd scans the file by path.
+memmap2 = "0.9"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+# Pure-Rust YARA engine (the heuristic-rule scanner); no libyara C dependency.
+yara-x = "1.18"
+# Structural-heuristic parsers (all pure Rust). zip uses the lean deflate-flate2 feature set so it
+# pulls no bzip2/zstd/lzma C deps (Windows-clean); encrypted-entry detection still works without AES.
+lopdf = "0.41"
+cfb = "0.14"
+zip = { version = "8.6", default-features = false, features = ["deflate-flate2"] }
+# Inflate `/Type /ObjStm` object-stream bodies in the PDF abort guard so the structural depth pre-check
+# also covers the recursion lopdf drives over decompressed object streams (same engine `zip` uses).
+flate2 = "1"
+# The prefilter's file-hash leg: MD5 + SHA1 + SHA256 over each buffer, looked up in the baked hash sets.
+md-5 = "0.10"
+sha1 = "0.10"
+sha2 = "0.10"
+# The PORTABLE prefilter matcher backend (default): aho-corasick multi-literal scanning for the escaped
+# atoms and the `regex` engine for the residual PCREs. It builds with no C toolchain, so the crate (and
+# its full test suite) compiles on every dev host. The production container swaps in the `vectorscan`
+# feature for the SIMD engine; the prefilter's verdict logic and soundness are identical across both.
+aho-corasick = "1"
+regex = "1"
+# The PRODUCTION matcher backend: Vectorscan/Hyperscan SIMD literal+regex scanning. Optional because its
+# `-sys` crate vendors C++ (cmake/g++/libboost/ragel) that only builds in the Linux scan image — the
+# `vectorscan` feature turns it on there. The default (portable) build needs none of that toolchain.
+vectorscan-rs = { version = "0.0.6", optional = true }
+# Google Magika: ML content-type identification for the `/identify` route. The standard model is EMBEDDED
+# in the crate (a const byte array), so no model file is fetched AT RUNTIME — the container keeps its
+# no-egress posture. NOTE: magika 1.1 is NOT pure Rust — it runs inference through `ort` (ONNX Runtime, a
+# C++ library); there is no pure-Rust backend. This is a C/C++ dependency (golden rule 14 — flagged for
+# consent in containers/scan/CLAUDE.md).
+magika = "1.1"
+# ONNX Runtime backend for magika. `download-binaries` fetches a prebuilt onnxruntime AT BUILD TIME and
+# statically links it (no system lib to install, no runtime egress, no runtime external file) — the same
+# build-time-fetch / runtime-sealed pattern as the baked clamd DB and YARA Forge corpus. Pinned to the
+# exact version magika resolves so the added feature unifies onto magika's own `ort`. Build-time download
+# only; the running container never reaches the network.
+ort = { version = "=2.0.0-rc.12", features = ["download-binaries"] }
+
+[features]
+# Off by default so the crate compiles on any dev host; the scan image's build stage enables it to bake
+# the SIMD matcher (the Dockerfile already installs cmake/g++/libboost-dev/ragel for it).
+vectorscan = ["dep:vectorscan-rs"]
+
+[dev-dependencies]
+reqwest = { version = "0.12", default-features = false }

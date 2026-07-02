@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { applyMigrations, loadMigrationsFromDisk } from "../src/node-sqlite.ts";
 import { accountBalance, ledgerAccount, ledgerEntry, ledgerLine } from "../src/per-firm-schema.ts";
 
-describe("ledger tables (ADR-0072)", () => {
+describe("ledger tables", () => {
   it("ledger_account: TEXT handle PK, type enum + CHECK, parent seam, active flag", () => {
     const config = getTableConfig(ledgerAccount);
     expect(config.name).toBe("ledger_account");
@@ -33,8 +33,8 @@ describe("ledger tables (ADR-0072)", () => {
           "INSERT INTO ledger_account (id, name, type, currency, active, created_at) VALUES (?, ?, ?, 'USD', 1, 't')",
         )
         .run(id, "Account", type);
-    expect(() => insert("acct_badtype000000000000", "Asset")).toThrow(/CHECK/);
-    expect(() => insert("acct_goodtype00000000000", "asset")).not.toThrow();
+    expect(() => insert("ledgerAccount_badtype000000000000", "Asset")).toThrow(/CHECK/);
+    expect(() => insert("ledgerAccount_goodtype00000000000", "asset")).not.toThrow();
   });
 
   it("ledger_entry: dual dates, UNIQUE reverses_entry_id, non-empty description CHECK", () => {

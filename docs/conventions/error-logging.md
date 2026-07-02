@@ -16,11 +16,14 @@
 - **Diagnostics agent (propose-only).** Triage → root-cause draft → **draft PR** (money/trust/conflicts always human-reviewed) → acknowledge the reporter.
 - **Diagnostics setting.** Per firm, per-user override: **Off/strict** (default) · **Standard** (breadcrumbs attached) · **Verbose/auto** (standing-consent auto-submit — the beta posture).
 
-## To build (Phase 0)
+## Built / to build
 
-- The standard logging utility (Worker + frontend) with the allowlist/scrub boundary and correlation IDs.
-- The client reporter library (error boundary, handlers, breadcrumb buffer, Error ID surfacing) and the two report surfaces.
-- The bug-report Worker + the firm-scoped incident schema (D1) + screenshot handling (R2).
-- The Queue wiring and the diagnostics-agent steps; the diagnostics setting.
+Slice 0·6 (2026-06-13) built the **backend** of this standard; the **UI** surfaces are inherited by the design-system/auth-UI slice (0·7a/0·7b), which has something to attach them to.
+
+- **[built — 0·6]** The standard logging path: `@magna-carta/telemetry` — allowlist event builders (redaction structural: an undeclared field has no slot to be logged in), the scrubbing-backstop tripwire, `cor_` correlation + `err_` Error IDs, the pure `Logger` seam + the Workers adapter (the one `console.*` site) emitting structured JSON to Workers Logs + counters to Analytics Engine. The telemetry middleware mints correlation per request and the `app.onError` boundary turns any escaped exception into the RFC 9457 500 carrying its Error ID. Enforced by the **console-ban** + **errorId-coverage** fitness functions.
+- **[built — 0·6]** The bug-report Worker realized as **`POST /v1/incidents`** in the single Worker (ADR-0069), writing the firm-scoped `incident` row + an `incident.created` outbox→Queue message (no consumer yet — the diagnostics agent's future feed). The `screenshot_key` is schema'd; capture/upload arrives with the UI surfaces.
+- **[→ 0·7a/0·7b]** The client reporter library (Svelte error boundary, `onerror`/`unhandledrejection` handlers, breadcrumb ring buffer, Error ID surfacing) and the two report surfaces (crash screen, "Report a problem"); screenshot capture/redaction; the diagnostics-level setting UI; visual-regression CI.
+- **[→ later]** The **diagnostics agent** steps (triage → root-cause → draft PR → acknowledge), once incidents actually flow — the `incident.created` Queue message is its contract.
+- **[seam]** Incident `description` is firm-boundary plaintext today; it moves under `protected()` (access-gated, audited reads) when the crypto module lands (slice 1·2).
 
 > The hard rule — **redact by default, never log privileged content** — is a golden rule in [`CLAUDE.md`](../../CLAUDE.md).

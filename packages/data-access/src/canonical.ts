@@ -1,5 +1,5 @@
 // Canonical form: object keys sorted recursively (arrays keep order). Semantically-identical bodies
-// share one fingerprint (ADR-0063) regardless of client key order.
+// share one fingerprint regardless of client key order.
 export function canonicalJsonStringify(value: unknown): string {
   return JSON.stringify(sortKeysDeep(value));
 }
@@ -17,7 +17,7 @@ function sortKeysDeep(value: unknown): unknown {
 }
 
 // fingerprint = SHA-256(METHOD path \n canonical body). Includes the endpoint, so one key reused
-// across endpoints trips the mismatch path (ADR-0063). The fingerprint is a hash, never the body —
+// across endpoints trips the mismatch path. The fingerprint is a hash, never the body —
 // large or sensitive payloads never land in the idempotency record through this path.
 export async function fingerprintRequest(request: {
   method: string;

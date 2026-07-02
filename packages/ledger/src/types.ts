@@ -14,18 +14,18 @@ export interface EntryLineInput {
 
 export interface PostEntryInput {
   readonly description: string;
-  readonly effectiveDate: string; // YYYY-MM-DD civil date (ADR-0055)
+  readonly effectiveDate: string; // YYYY-MM-DD civil date
   readonly lines: readonly EntryLineInput[];
 }
 
 // Injected time — the ledger never reads wall-clock. now() is an ISO-8601 UTC instant; today() is
-// the caller's resolved civil date (zone resolution is a boundary concern, ADR-0055/ADR-0072).
+// the caller's resolved civil date (zone resolution is a boundary concern).
 export interface ClockPort {
   now(): string;
   today(): string;
 }
 
-// What validation needs to know about an account, loaded pre-batch (ADR-0063 pre-check pattern).
+// What validation needs to know about an account, loaded pre-batch (the pre-check pattern).
 export interface AccountSnapshot {
   readonly id: LedgerAccountId;
   readonly type: AccountType;

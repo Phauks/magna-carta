@@ -35,22 +35,131 @@ describe("permission registry", () => {
     expect(permission).toBe("firm:manageMembers");
   });
 
-  it("assertPermission throws on an unknown key, naming the offending value", () => {
-    expect(() => assertPermission("firm:deleteEverything")).toThrowError(/firm:deleteEverything/);
-    expect(() => assertPermission("")).toThrowError();
+  it("assertPermission throws a TypeError naming the JSON-quoted offending value", () => {
+    expect(() => assertPermission("firm:deleteEverything")).toThrowError(TypeError);
+    expect(() => assertPermission("firm:deleteEverything")).toThrowError('"firm:deleteEverything"');
+    expect(() => assertPermission("")).toThrowError(TypeError);
   });
 
   it("permissionsForNamespace('firm') returns exactly the firm keys", () => {
-    expect(permissionsForNamespace("firm")).toEqual(["firm:manageMembers", "firm:provision"]);
+    expect(permissionsForNamespace("firm")).toEqual([
+      "firm:manageMembers",
+      "firm:provision",
+      "firm:reportIncident",
+      "firm:scanFile",
+      "firm:manageSecrets",
+      "firm:manageScanPolicy",
+      "firm:manageReleaseChannel",
+    ]);
+  });
+
+  it("permissionsForNamespace('matters') returns exactly the matters keys, in registry order", () => {
+    expect(permissionsForNamespace("matters")).toEqual([
+      "matters:create",
+      "matters:open",
+      "matters:close",
+      "matters:reopen",
+      "matters:edit",
+      "matters:renumber",
+      "matters:manageTypes",
+      "matters:manageNumbering",
+    ]);
+  });
+
+  it("permissionsForNamespace('directory') returns exactly the directory keys", () => {
+    expect(permissionsForNamespace("directory")).toEqual([
+      "directory:edit",
+      "directory:viewSensitiveIdentifiers",
+    ]);
+  });
+
+  it("permissionsForNamespace('locations') returns exactly the locations keys", () => {
+    expect(permissionsForNamespace("locations")).toEqual(["locations:manage"]);
+  });
+
+  it("permissionsForNamespace('shipping') returns exactly the shipping keys", () => {
+    expect(permissionsForNamespace("shipping")).toEqual(["shipping:manage"]);
+  });
+
+  it("permissionsForNamespace('files') returns exactly the files keys, in registry order", () => {
+    expect(permissionsForNamespace("files")).toEqual([
+      "files:upload",
+      "files:organize",
+      "files:delete",
+      "files:manageDocumentTypes",
+    ]);
+  });
+
+  it("permissionsForNamespace('tools') returns exactly the tools keys, in registry order", () => {
+    expect(permissionsForNamespace("tools")).toEqual([
+      "tools:propertyListings",
+      "tools:propertyRecords",
+      "tools:businessLookup",
+      "tools:attorneyLicense",
+      "tools:shipping",
+      "tools:speedTest",
+      "tools:firmUsage",
+      "tools:whois",
+      "tools:safeBrowse",
+      "tools:fileConverter",
+      "tools:aiTextDetection",
+      "tools:metadataScrubber",
+      "tools:fileIntegrity",
+      "tools:fileTypeVerifier",
+    ]);
+  });
+
+  it("permissionsForNamespace('documents') returns exactly the documents keys, in registry order", () => {
+    expect(permissionsForNamespace("documents")).toEqual([
+      "documents:edit",
+      "documents:checkout",
+      "documents:forceReleaseLock",
+      "documents:reconcile",
+    ]);
   });
 
   it("permissionsForNamespace returns an empty list for an unknown namespace", () => {
+    // 'matter' (singular) is NOT the matters namespace — the keys live under 'matters'.
     expect(permissionsForNamespace("matter")).toEqual([]);
   });
 
   it("permissionsForNamespace matches the whole namespace, not a prefix of it", () => {
     expect(permissionsForNamespace("fir")).toEqual([]);
     expect(permissionsForNamespace("")).toEqual([]);
+  });
+
+  it("registers the custom-fields permissions", () => {
+    expect(isPermission("customFields:manage")).toBe(true);
+    expect(isPermission("customFields:purge")).toBe(true);
+  });
+
+  it("permissionsForNamespace('time') returns exactly the time keys, in registry order", () => {
+    expect(permissionsForNamespace("time")).toEqual([
+      "time:track",
+      "time:viewFirm",
+      "time:approve",
+      "time:manageRates",
+      "time:manageUtbms",
+      "time:manageSettings",
+    ]);
+  });
+
+  it("permissionsForNamespace('costs') returns exactly the costs keys, in registry order", () => {
+    expect(permissionsForNamespace("costs")).toEqual(["costs:track", "costs:approve"]);
+  });
+
+  it("registers the costs permissions", () => {
+    expect(isPermission("costs:track")).toBe(true);
+    expect(isPermission("costs:approve")).toBe(true);
+  });
+
+  it("web-domains tool permissions are registered", () => {
+    expect(isPermission("tools:whois")).toBe(true);
+    expect(isPermission("tools:safeBrowse")).toBe(true);
+  });
+
+  it("registers firm:manageReleaseChannel", () => {
+    expect(isPermission("firm:manageReleaseChannel")).toBe(true);
   });
 
   it("every registered key is `<subsystem>:<action>` — lowercase-led camelCase segments", () => {
@@ -61,5 +170,30 @@ describe("permission registry", () => {
 
   it("has no duplicate keys", () => {
     expect(new Set(PERMISSIONS).size).toBe(PERMISSIONS.length);
+  });
+
+  it("permissionsForNamespace('support') returns exactly the support keys, in registry order", () => {
+    expect(permissionsForNamespace("support")).toEqual([
+      "support:request",
+      "support:cosign",
+      "support:manage",
+      "support:mintSession",
+    ]);
+  });
+
+  it("permissionsForNamespace('diagnostics') returns exactly the diagnostics keys", () => {
+    expect(permissionsForNamespace("diagnostics")).toEqual(["diagnostics:overview"]);
+  });
+
+  it("registers the support and diagnostics permission keys", () => {
+    expect(isPermission("support:request")).toBe(true);
+    expect(isPermission("support:cosign")).toBe(true);
+    expect(isPermission("support:manage")).toBe(true);
+    expect(isPermission("support:mintSession")).toBe(true);
+    expect(isPermission("diagnostics:overview")).toBe(true);
+  });
+
+  it("registers the AI-text detection tool permission", () => {
+    expect(isPermission("tools:aiTextDetection")).toBe(true);
   });
 });

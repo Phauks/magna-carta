@@ -29,11 +29,11 @@ const tailwindMergeWithTokenNamespaces = extendTailwindMerge({
   extend: {
     theme: {
       shadow: ["elevation-0", "elevation-1", "elevation-2", "elevation-3"],
-      ease: ["standard", "decelerate", "accelerate"],
+      ease: ["standard", "decelerate", "accelerate", "settle", "travel"],
       "font-weight": ["regular"],
     },
     classGroups: {
-      duration: [{ duration: ["instant", "fast", "normal", "slow"] }],
+      duration: [{ duration: ["instant", "fast", "normal", "slow", "signature"] }],
       z: [{ z: ["base", "dropdown", "sticky", "overlay", "modal", "toast"] }],
     },
   },

@@ -1,0 +1,25 @@
+[package]
+name = "pdf-core"
+version = "0.0.0"
+edition.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+hayro = { workspace = true }
+image = { workspace = true }
+kurbo = "0.13"
+lopdf = "0.41"
+# Cross-platform OS RNG for the AES-256 file-encryption key in `secure`. The wasm
+# target additionally needs the wasm_js backend feature (below).
+getrandom = "0.4"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
+js-sys = "0.3"
+# lopdf pulls in getrandom; wasm32-unknown-unknown requires the wasm_js feature to compile.
+getrandom = { version = "0.4", features = ["wasm_js"] }

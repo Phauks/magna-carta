@@ -32,7 +32,7 @@ export const LEDGER_AGGREGATE_KEY = "ledger";
 
 export interface PostEntryOptions {
   readonly clock: ClockPort;
-  readonly randomSource?: RandomSource; // fixtures pass the seeded source (ADR-0034)
+  readonly randomSource?: RandomSource; // fixtures pass the seeded source
 }
 
 export interface PostedEntry {
@@ -74,7 +74,7 @@ export async function loadAccountSnapshots(
 }
 
 // Validate in memory, then COMPOSE statements — no logic runs mid-transaction (D1 single-batch
-// reality, ADR-0063/0064 amendments). The caller commits via the data-access chokepoint
+// reality). The caller commits via the data-access chokepoint
 // (commitEffectBatch / runIdempotentEffect), which is what makes the write idempotency-capable.
 export async function postEntry(
   database: SqlDatabase,
@@ -134,19 +134,19 @@ export function composePostedEntry(
   // a D1 batch); the sequential version of that hazard is closed on the creation side instead
   // (createAccount refuses a parent that already has postings), and
   // parentAccountsWithPostingsStatement (fitness.ts) re-proves the invariant table-wide.
-  // Aggregated in BigInt for the same reason validateEntry sums in BigInt: per-line deltas are
-  // safe integers, their running sum near 2^53 is not. Number() at the statement boundary makes an
-  // unsafe aggregate fail loud there (assertMinorUnits), never silently rounded.
-  const deltas = new Map<string, bigint>();
+  // Plain number aggregation is exact here BY the validateEntry magnitude cap: every per-account
+  // partial sum is bounded by the entry's total line magnitude, which the cap holds ≤ 2^53 - 1 —
+  // inside the range where integer float addition cannot round (see MAX_ENTRY_MAGNITUDE_MINOR).
+  const deltas = new Map<string, number>();
   for (const line of input.lines) {
     const account = accounts.get(line.accountId);
     if (!account) throw new Error(`unreachable: validated account missing ${line.accountId}`);
-    const delta = BigInt(balanceDelta(account.type, line.direction, minorOf(line)));
-    deltas.set(line.accountId, (deltas.get(line.accountId) ?? 0n) + delta);
+    const delta = balanceDelta(account.type, line.direction, minorOf(line));
+    deltas.set(line.accountId, (deltas.get(line.accountId) ?? 0) + delta);
   }
   for (const [accountId, delta] of deltas) {
     statements.push(
-      applyBalanceDeltaStatement(database, accountId as LedgerAccountId, Number(delta), recordedAt),
+      applyBalanceDeltaStatement(database, accountId as LedgerAccountId, delta, recordedAt),
     );
   }
 

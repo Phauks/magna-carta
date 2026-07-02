@@ -15,6 +15,223 @@
       "when": 1781046389393,
       "tag": "0001_ledger-core",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1781158345202,
+      "tag": "0002_member-rbac",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1781374968069,
+      "tag": "0003_incident-intake",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1781560957387,
+      "tag": "0004_matters-locations-file-manager",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1781595491489,
+      "tag": "0005_list-keyset-indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1781631922580,
+      "tag": "0006_protected-secrets-and-incident-ciphertext",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1781637646026,
+      "tag": "0007_incident-description-nullable",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1781719384670,
+      "tag": "0008_elite_genesis",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1781719484670,
+      "tag": "0009_directory",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1781720000000,
+      "tag": "0010_seed-tools-firm-usage",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1781810424941,
+      "tag": "0011_directory-phonetic-code-index",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1781899585835,
+      "tag": "0012_usage-analytics-opt-out",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1781900000000,
+      "tag": "0013_custom-fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1781935813801,
+      "tag": "0014_inference-token-usage",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1782113019196,
+      "tag": "0015_odd_mesmero",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1782153310818,
+      "tag": "0016_warm_talkback",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1782200000000,
+      "tag": "0017_seed-tools-web-domains",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1782200100000,
+      "tag": "0018_seed-tools-file-converter",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1782241880229,
+      "tag": "0019_seed-scan-file-permission",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1782300000001,
+      "tag": "0020_seed-tools-metadata-scrubber",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1782250982099,
+      "tag": "0021_outgoing_talon",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1782300200000,
+      "tag": "0022_seed-tools-file-integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1782500000000,
+      "tag": "0023_raw_scan_cache",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1782600000000,
+      "tag": "0024_seed-release-channel-permission",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1782600000001,
+      "tag": "0025_amusing_robbie_robertson",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1782600000002,
+      "tag": "0026_needy_rage",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "6",
+      "when": 1782600000003,
+      "tag": "0027_smart_stellaris",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
+      "when": 1782600000004,
+      "tag": "0028_burly_piledriver",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1782600000005,
+      "tag": "0029_scan_verdict_flagged",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1782600000006,
+      "tag": "0030_seed-scan-policy-permission",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1782600000007,
+      "tag": "0031_support-access-permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "6",
+      "when": 1782600000008,
+      "tag": "0032_seed-tools-file-type-verifier",
+      "breakpoints": true
     }
   ]
 }
