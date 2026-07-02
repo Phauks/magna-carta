@@ -166,9 +166,11 @@ the root `check` script (and consider dropping vp check's own `typeCheck` to avo
 after confirming type-aware lint coverage is preserved). Coordinate the shared-file fixes via
 `vp run worktrees`.
 
-**Independent finding to raise:** `vp check`'s type-check (tsgolint, `typeCheck: true`) is not catching
-real type errors that full `tsc` does. Worth a separate look regardless of this rollout — the gate may
-be giving false confidence.
+**Independent finding (investigated):** the whole-repo `vp check` type-check does not complete in a
+practical time (timed out at 10 minutes with no output), so real type errors sit on `main` unenforced —
+`vp check` catches them when scoped, so this is performance-induced, not a linter-capability gap. The
+incremental gate is the fix. Full evidence + recommendation:
+[`docs/research/vp-check-typecheck-coverage-gap.md`](../research/vp-check-typecheck-coverage-gap.md).
 
 ## Coordination with concurrent branches
 
