@@ -187,13 +187,17 @@ pub fn rebuild_cfb(
     streams: &[(String, Vec<u8>)],
     root_clsid: Uuid,
     root_state_bits: u32,
-) -> Result<(Vec<u8>, Vec<String>), RepairError> {
+) -> Result<RebuildOutput, RepairError> {
     let mut compound =
         CompoundFile::create(Cursor::new(Vec::new())).map_err(|_| RepairError::Unrepairable)?;
 
-    // Root identity first; a failure here is non-fatal (the nil default remains).
-    let _ = compound.set_storage_clsid("/", root_clsid);
-    let _ = compound.set_state_bits("/", root_state_bits);
+    // Root identity first. A failure is non-fatal to the re-emit (the nil default
+    // remains), but it IS a loss — reported back so the manifest can never claim
+    // full recovery while root identity was silently dropped. Both calls run
+    // (no short-circuit) so state bits are attempted even if the CLSID set fails.
+    let clsid_set = compound.set_storage_clsid("/", root_clsid).is_ok();
+    let state_bits_set = compound.set_state_bits("/", root_state_bits).is_ok();
+    let root_identity_preserved = clsid_set && state_bits_set;
 
     let mut skipped: Vec<String> = Vec::new();
 
@@ -219,7 +223,21 @@ pub fn rebuild_cfb(
         return Err(RepairError::Unrepairable);
     }
     compound.flush().map_err(|_| RepairError::Unrepairable)?;
-    Ok((compound.into_inner().into_inner(), skipped))
+    Ok(RebuildOutput {
+        bytes: compound.into_inner().into_inner(),
+        skipped,
+        root_identity_preserved,
+    })
+}
+
+/// The product of a rebuild: the fresh compound-file bytes, the paths of any
+/// nodes the writer rejected (so the caller can mark them lost), and whether the
+/// root's identity metadata was carried over (a dropped root identity is a loss,
+/// not a silent reset).
+pub struct RebuildOutput {
+    pub bytes: Vec<u8>,
+    pub skipped: Vec<String>,
+    pub root_identity_preserved: bool,
 }
 
 /// Create a storage (and any missing parents) and stamp its identity metadata.
@@ -308,15 +326,16 @@ fn build_result(salvage: Salvage) -> Result<RepairResult, RepairError> {
         return Err(RepairError::Unrepairable);
     }
 
-    let (bytes_out, skipped) = rebuild_cfb(
+    let rebuilt = rebuild_cfb(
         &salvage.storages,
         &recovered,
         salvage.root_clsid,
         salvage.root_state_bits,
     )?;
+    let bytes_out = rebuilt.bytes;
     // Set membership (not first-match) so every same-named node is reconciled —
     // the safe reconciliation pattern for pillars where names can repeat.
-    let skipped: HashSet<&str> = skipped.iter().map(String::as_str).collect();
+    let skipped: HashSet<&str> = rebuilt.skipped.iter().map(String::as_str).collect();
 
     // One manifest item per stream (the content units). A stream lost at re-emit
     // flips to lost.
@@ -357,6 +376,17 @@ fn build_result(salvage: Salvage) -> Result<RepairResult, RepairError> {
             detail:
                 "additional directory entries exceeded the processing cap and were not recovered"
                     .to_string(),
+        });
+    }
+
+    // Root identity dropped at re-emit is a loss — recorded so full recovery is
+    // never claimed while it was silently reset. (Infallible against the current
+    // writer, but enforced by code, not assumption.)
+    if !rebuilt.root_identity_preserved {
+        items.push(RecoveredItem {
+            name: "(root identity)".to_string(),
+            recovered: false,
+            detail: "root identity metadata was not preserved".to_string(),
         });
     }
 
@@ -520,9 +550,9 @@ mod tests {
             ("/WordDocument".to_string(), b"recovered body".to_vec()),
             ("/ObjectPool/item".to_string(), b"nested".to_vec()),
         ];
-        let (bytes, skipped) = rebuild_cfb(&[], &streams, Uuid::nil(), 0).expect("rebuild");
-        assert!(skipped.is_empty());
-        let mut reopened = CompoundFile::open(Cursor::new(bytes)).expect("valid cfb");
+        let rebuilt = rebuild_cfb(&[], &streams, Uuid::nil(), 0).expect("rebuild");
+        assert!(rebuilt.skipped.is_empty());
+        let mut reopened = CompoundFile::open(Cursor::new(rebuilt.bytes)).expect("valid cfb");
         let mut data = Vec::new();
         reopened
             .open_stream("/WordDocument")
@@ -542,9 +572,10 @@ mod tests {
             clsid,
             state_bits: 0,
         }];
-        let (bytes, skipped) = rebuild_cfb(&storages, &[], root_clsid, 0).expect("rebuild");
-        assert!(skipped.is_empty());
-        let reopened = CompoundFile::open(Cursor::new(bytes)).expect("valid cfb");
+        let rebuilt = rebuild_cfb(&storages, &[], root_clsid, 0).expect("rebuild");
+        assert!(rebuilt.skipped.is_empty());
+        assert!(rebuilt.root_identity_preserved);
+        let reopened = CompoundFile::open(Cursor::new(rebuilt.bytes)).expect("valid cfb");
         // The empty storage and both CLSIDs survive the round-trip.
         assert!(reopened.exists("/EmptyStore"));
         assert_eq!(reopened.entry("/EmptyStore").unwrap().clsid(), &clsid);
