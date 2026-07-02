@@ -77,10 +77,13 @@ GET /api/v1/firm/scan-policy/score-histogram
 ### 5. Data shape (TS contract)
 
 ```ts
-interface ScoreHistogramBucket { floor: number; count: number }
+interface ScoreHistogramBucket {
+  floor: number;
+  count: number;
+}
 interface ScoreHistogramResponse {
-  engineVersion: string | null;       // null = no engine deployed
-  minScoreGate: number | null;        // null when engineVersion is null
+  engineVersion: string | null; // null = no engine deployed
+  minScoreGate: number | null; // null when engineVersion is null
   total: number;
   buckets: ScoreHistogramBucket[];
 }

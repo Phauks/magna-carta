@@ -1,0 +1,53 @@
+@layer components {
+  /*
+   * Switch (Tier 2, Bits UI). A pill track with a sliding thumb. Off = action-disabled track; on
+   * (data-state="checked") = action-primary. The thumb slides via a transitionable
+   * margin-inline-start (the travel — track inner width minus the thumb — equals space-16, so no
+   * calc). Borderless control, so the flush focus ring (like the Button).
+   */
+  .mc-switch {
+    display: inline-flex;
+    align-items: center;
+    inline-size: var(--mc-space-40);
+    block-size: var(--mc-space-24);
+    padding: var(--mc-space-4);
+    border-style: none;
+    border-radius: var(--mc-radius-full);
+    background-color: var(--mc-action-disabled);
+    cursor: pointer;
+    transition-property: background-color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-switch[data-state="checked"] {
+    background-color: var(--mc-action-primary);
+  }
+  .mc-switch:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-switch:disabled {
+    background-color: var(--mc-action-disabled);
+    cursor: not-allowed;
+  }
+  .mc-switch:disabled .mc-switch-thumb {
+    background-color: var(--mc-action-disabled-foreground);
+  }
+  .mc-switch-thumb {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    border-radius: var(--mc-radius-full);
+    background-color: var(--mc-surface-default);
+    transition-property: margin-inline-start;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-switch[data-state="checked"] .mc-switch-thumb {
+    margin-inline-start: var(--mc-space-16);
+  }
+}

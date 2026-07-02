@@ -51,7 +51,10 @@ const verifyRoute = defineOpenAPIRoute(fileTypeVerifyMeta, {
     body: { content: { "application/octet-stream": { schema: z.any() } }, required: true },
   },
   responses: {
-    200: { description: "File type report", content: { "application/json": { schema: ReportSchema } } },
+    200: {
+      description: "File type report",
+      content: { "application/json": { schema: ReportSchema } },
+    },
     400: {
       description: "Empty request body",
       content: { "application/problem+json": { schema: Problem } },

@@ -1,0 +1,22 @@
+@layer components {
+  /*
+   * Progress (Tier 2, Bits UI). A rounded track with a primary fill. The track is full-width
+   * (w-full on the component); the fill height matches and its width is set inline from the value
+   * (a runtime dimension), animated so updates glide.
+   */
+  .mc-progress {
+    display: block;
+    block-size: var(--mc-space-8);
+    border-radius: var(--mc-radius-full);
+    background-color: var(--mc-surface-sunken);
+    overflow: hidden;
+  }
+  .mc-progress-fill {
+    block-size: var(--mc-space-8);
+    border-radius: var(--mc-radius-full);
+    background-color: var(--mc-action-primary);
+    transition-property: inline-size;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+}

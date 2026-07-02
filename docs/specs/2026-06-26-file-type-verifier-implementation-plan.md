@@ -24,6 +24,7 @@
 ## File Structure
 
 **New — pure package `packages/file-type/`:**
+
 - `package.json`, `tsconfig.json`, `vitest.config.ts` — scaffold (copy `packages/metadata/`).
 - `src/raw.ts` — `RawIdentifyResult` (the Container's wire shape).
 - `src/labels.ts` — Magika-label → `{ human, extensions }` table + `humanLabel` / `canonicalExtensions`.
@@ -33,6 +34,7 @@
 - `test/*.test.ts` — one file per module.
 
 **Modified:**
+
 - `packages/access-control/src/registry.ts` — add `tools:fileTypeVerifier`.
 - `packages/tools/src/catalog.ts` — one manifest row.
 - `packages/database/drizzle/per-firm/0025_seed-tools-file-type-verifier.sql` — new; seed the permission.
@@ -51,10 +53,12 @@
 ### Task 1: Scaffold the `@magna-carta/file-type` pure package
 
 **Files:**
+
 - Create: `packages/file-type/package.json`, `packages/file-type/tsconfig.json`, `packages/file-type/vitest.config.ts`, `packages/file-type/src/index.ts`
 - Test: `packages/file-type/test/smoke.test.ts`
 
 **Interfaces:**
+
 - Produces: `PACKAGE_NAME: string` from `@magna-carta/file-type`.
 
 - [ ] **Step 1: Create `packages/file-type/package.json`**
@@ -144,10 +148,12 @@ git commit -m "feat(file-type): scaffold the @magna-carta/file-type pure package
 ### Task 2: The Magika-label → human-label + extension table
 
 **Files:**
+
 - Create: `packages/file-type/src/labels.ts`
 - Test: `packages/file-type/test/labels.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `humanLabel(label: string): string` — a display label; falls back to the raw label if unmapped.
   - `canonicalExtensions(label: string): readonly string[]` — canonical extension(s) for a label, `[]` if unmapped.
@@ -258,10 +264,12 @@ git commit -m "feat(file-type): Magika-label to human-label and extension table"
 ### Task 3: Extract the claimed extension from a filename
 
 **Files:**
+
 - Create: `packages/file-type/src/filename.ts`
 - Test: `packages/file-type/test/filename.test.ts`
 
 **Interfaces:**
+
 - Produces: `claimedExtensionOf(filename: string): string | null` — the lowercased extension without the dot, or `null` if the filename has none.
 
 - [ ] **Step 1: Write the failing test** — `packages/file-type/test/filename.test.ts`
@@ -329,11 +337,13 @@ git commit -m "feat(file-type): claimed-extension extraction from a filename"
 ### Task 4: The raw type and the report builder (the core)
 
 **Files:**
+
 - Create: `packages/file-type/src/raw.ts`, `packages/file-type/src/report.ts`
 - Modify: `packages/file-type/src/index.ts`
 - Test: `packages/file-type/test/report.test.ts`
 
 **Interfaces:**
+
 - Consumes: `humanLabel`, `canonicalExtensions` (Task 2); `claimedExtensionOf` (Task 3).
 - Produces:
   - `RawIdentifyResult = { label: string; score: number; group: string; magikaVersion: string; modelVersion: string }`
@@ -368,7 +378,14 @@ import type { RawIdentifyResult } from "../src/raw.ts";
 import { buildFileTypeReport } from "../src/report.ts";
 
 function raw(over: Partial<RawIdentifyResult>): RawIdentifyResult {
-  return { label: "pdf", score: 0.99, group: "document", magikaVersion: "1.0", modelVersion: "x", ...over };
+  return {
+    label: "pdf",
+    score: 0.99,
+    group: "document",
+    magikaVersion: "1.0",
+    modelVersion: "x",
+    ...over,
+  };
 }
 
 describe("buildFileTypeReport", () => {
@@ -400,7 +417,10 @@ describe("buildFileTypeReport", () => {
   });
 
   it("is unverifiable when Magika returns no usable type", () => {
-    const report = buildFileTypeReport(raw({ label: "unknown", group: "unknown", score: 0.2 }), "x.pdf");
+    const report = buildFileTypeReport(
+      raw({ label: "unknown", group: "unknown", score: 0.2 }),
+      "x.pdf",
+    );
     expect(report.detected).toBeNull();
     expect(report.extensionMatch).toBe("unverifiable");
     expect(report.recommendedExtensions).toEqual([]);
@@ -525,10 +545,12 @@ git commit -m "feat(file-type): raw type and buildFileTypeReport verdict logic"
 ### Task 5: Register the `tools:fileTypeVerifier` permission
 
 **Files:**
+
 - Modify: `packages/access-control/src/registry.ts`
 - Test: `packages/access-control/test/file-type-verifier-permission.test.ts`
 
 **Interfaces:**
+
 - Produces: the registered key `"tools:fileTypeVerifier"` (usable via `assertPermission`).
 
 - [ ] **Step 1: Write the failing test** — `packages/access-control/test/file-type-verifier-permission.test.ts`
@@ -573,18 +595,22 @@ git commit -m "feat(access-control): register tools:fileTypeVerifier permission"
 ### Task 6: Seed the permission to the default roles (per-firm migration 0025)
 
 **Files:**
+
 - Create: `packages/database/drizzle/per-firm/0025_seed-tools-file-type-verifier.sql`
 - Modify: `apps/worker/src/per-firm-migrations.ts`, and the per-firm journal (`packages/database/drizzle/per-firm/meta/_journal.json` — follow the existing journal-entry shape for the prior migration).
 
 **Interfaces:**
+
 - Produces: every default role granted `tools:fileTypeVerifier`.
 
 - [ ] **Step 1: Generate five fresh `rolePermission_` ids**
 
 Run (from repo root, prints five identifier values to paste below):
+
 ```bash
 node -e "const {newIdentifier}=await import('@magna-carta/identifiers'); for(let i=0;i<5;i++) console.log(newIdentifier('rolePermission'))"
 ```
+
 If that entrypoint differs, copy the id format from `0022_seed-tools-file-integrity.sql` and mint five unique values. Record them; they are committed as literals (the seed convention).
 
 - [ ] **Step 2: Create `packages/database/drizzle/per-firm/0025_seed-tools-file-type-verifier.sql`**
@@ -608,10 +634,13 @@ Replace `<ID_1..5>` with the values from Step 1. (The five `role_*` ids are the 
 ```typescript
 import seedToolsFileTypeVerifierSql from "@magna-carta/database/drizzle/per-firm/0025_seed-tools-file-type-verifier.sql";
 ```
+
 and in the `migrationsFromJournal(perFirmJournal, { ... })` map:
+
 ```typescript
     "0025_seed-tools-file-type-verifier": seedToolsFileTypeVerifierSql,
 ```
+
 Add the matching entry to `packages/database/drizzle/per-firm/meta/_journal.json` following the shape of the `0024` entry (idx, version, `when`, tag `0025_seed-tools-file-type-verifier`).
 
 - [ ] **Step 4: Run the worker test suite's migration check**
@@ -631,10 +660,12 @@ git commit -m "feat(file-type): seed tools:fileTypeVerifier to default roles (mi
 ### Task 7: Add the Tools catalog row
 
 **Files:**
+
 - Modify: `packages/tools/src/catalog.ts`
 - Test: `packages/tools/test/file-type-verifier-row.test.ts`
 
 **Interfaces:**
+
 - Consumes: `tools:fileTypeVerifier` (Task 5).
 - Produces: a catalog manifest with `id: "file-type-verifier"`.
 
@@ -693,10 +724,12 @@ git commit -m "feat(tools): catalog row for the File Type Verifier"
 ### Task 8: scan-worker `/identify` proxy route
 
 **Files:**
+
 - Create: `apps/scan-worker/src/forward-identify.ts`, `apps/scan-worker/test/forward-identify.test.ts`
 - Modify: `apps/scan-worker/src/index.ts`
 
 **Interfaces:**
+
 - Produces: `forwardIdentify(request: Request, container: ScanContainerFetcher): Promise<Response>` — POSTs the body to the Container's `/identify` and returns its response verbatim.
 
 - [ ] **Step 1: Write the failing test** — `apps/scan-worker/test/forward-identify.test.ts`
@@ -791,11 +824,13 @@ export async function forwardIdentify(
 ```typescript
 import { forwardIdentify } from "./forward-identify.ts";
 ```
+
 and inside `fetch`, after the existing `/scan` branch:
+
 ```typescript
-    if (request.method === "POST" && url.pathname === "/identify") {
-      return forwardIdentify(request, getContainer(env.SCAN_CONTAINER, "scan"));
-    }
+if (request.method === "POST" && url.pathname === "/identify") {
+  return forwardIdentify(request, getContainer(env.SCAN_CONTAINER, "scan"));
+}
 ```
 
 - [ ] **Step 5: Run to verify it passes**
@@ -815,10 +850,12 @@ git commit -m "feat(scan-worker): /identify proxy route to the scan Container"
 ### Task 9: App-worker `POST /api/v1/file-type/verify` route
 
 **Files:**
+
 - Create: `apps/worker/src/routes/file-type.ts`, `apps/worker/test/routes/file-type.test.ts`
 - Modify: `apps/worker/src/app.ts` (register the route), `apps/worker/vitest.config.ts` (extend the scan stub to answer `/identify`)
 
 **Interfaces:**
+
 - Consumes: `buildFileTypeReport`, `RawIdentifyResult` from `@magna-carta/file-type`; `resolveScanPort` pattern / the `SCAN_SERVICE` binding; `readInspectableSizeCap` from `@magna-carta/file-manager`.
 - Produces: `registerFileTypeRoutes(app, chokepoint)`; the route `POST /api/v1/file-type/verify` returning a `FileTypeReport` JSON body.
 
@@ -943,7 +980,10 @@ const verifyRoute = defineOpenAPIRoute(fileTypeVerifyMeta, {
     body: { content: { "application/octet-stream": { schema: z.any() } }, required: true },
   },
   responses: {
-    200: { description: "File type report", content: { "application/json": { schema: ReportSchema } } },
+    200: {
+      description: "File type report",
+      content: { "application/json": { schema: ReportSchema } },
+    },
     403: {
       description: "Missing tools:fileTypeVerifier",
       content: { "application/problem+json": { schema: Problem } },
@@ -1043,6 +1083,7 @@ git commit -m "feat(worker): POST /api/v1/file-type/verify route"
 ### Task 10: Regenerate the OpenAPI contract
 
 **Files:**
+
 - Modify: `apps/worker/openapi/openapi.json` (generated)
 
 - [ ] **Step 1: Regenerate**
@@ -1069,10 +1110,12 @@ git commit -m "chore(worker): regenerate OpenAPI snapshot for file-type.verify"
 > This task's HTTP path runs only in the `scan-container` CI job (Containers are unsupported in the local Vitest pool — `containers/scan/CLAUDE.md`). Drive it with `cargo test` (the embedded Magika model needs no network), which runs everywhere.
 
 **Files:**
+
 - Modify: `containers/scan/Cargo.toml`, `containers/scan/src/lib.rs`, `containers/scan/src/main.rs`
 - Create: `containers/scan/src/identify.rs`, `containers/scan/tests/identify.rs`
 
 **Interfaces:**
+
 - Produces: `RawIdentifyResult` (Rust, serde) matching the TS shape in Task 4; a `/identify` axum route; `AppState.magika`.
 
 - [ ] **Step 1: Add the crate** — in `containers/scan/Cargo.toml` `[dependencies]`, add (with a comment mirroring the yara-x note):
@@ -1151,7 +1194,6 @@ pub fn identify_bytes(engine: &IdentifyEngine, bytes: &[u8]) -> RawIdentifyResul
 ```
 
 - [ ] **Step 5: Wire the route + state** — in `containers/scan/src/lib.rs`:
-
   - Add `pub mod identify;` with the other `pub mod` lines.
   - Add a field to `AppState`: `pub magika: std::sync::Arc<identify::IdentifyEngine>,`
   - Add the route in `router(...)`: `.route("/identify", post(identify))`
@@ -1173,7 +1215,7 @@ async fn identify(State(state): State<AppState>, body: Body) -> Response {
 }
 ```
 
-  - Update the `#[cfg(test)] fn test_state()` helpers (in `lib.rs` tests and `tests/health.rs`) to add `magika: std::sync::Arc::new(identify::IdentifyEngine::new().unwrap()),`.
+- Update the `#[cfg(test)] fn test_state()` helpers (in `lib.rs` tests and `tests/health.rs`) to add `magika: std::sync::Arc::new(identify::IdentifyEngine::new().unwrap()),`.
 
 - [ ] **Step 6: Build the engine in `containers/scan/src/main.rs`** — where `AppState` is constructed, add `magika: std::sync::Arc::new(magna_carta_scan::identify::IdentifyEngine::new()?)` (the model is embedded; failure is fatal at boot, consistent with the rules-blob load).
 
@@ -1196,6 +1238,7 @@ git commit -m "feat(scan): Magika /identify engine returning raw identification 
 ### Task 12: Documentation — roadmap, status, changelog & decision fragments
 
 **Files:**
+
 - Modify: `ROADMAP.md`, `STATUS.md`
 - Create: `changelog.d/file-type-verifier.md`, `docs/decisions/pending/file-type-verifier.md`, `packages/file-type/CLAUDE.md`
 
@@ -1236,6 +1279,7 @@ git commit -m "docs(file-type): roadmap/status rows, changelog & decision fragme
 ## Self-Review
 
 **Spec coverage:**
+
 - Pure `@magna-carta/file-type` (raw type, report builder, label table) — Tasks 1–4. ✓
 - `containers/scan` Magika `identify` module + route + raw facts — Task 11. ✓
 - `apps/scan-worker` `/identify` — Task 8. ✓

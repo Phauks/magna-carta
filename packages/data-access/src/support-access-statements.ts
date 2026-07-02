@@ -129,7 +129,11 @@ export function selectFirmSupportGrantsStatement(
 // the caller detects via changes === 0.
 export function redeemSupportGrantStatement(
   database: SqlDatabase,
-  input: { readonly id: SupportGrantId; readonly principalId: PlatformStaffId; readonly firmId: FirmId },
+  input: {
+    readonly id: SupportGrantId;
+    readonly principalId: PlatformStaffId;
+    readonly firmId: FirmId;
+  },
 ): SqlStatement {
   return database
     .prepare(
@@ -142,7 +146,11 @@ export function redeemSupportGrantStatement(
 // the calling firm — firm_id = ? prevents a cross-firm co-sign even if the pre-check is bypassed.
 export function cosignSupportGrantStatement(
   database: SqlDatabase,
-  input: { readonly id: SupportGrantId; readonly cosignedByUserId: UserId; readonly firmId: FirmId },
+  input: {
+    readonly id: SupportGrantId;
+    readonly cosignedByUserId: UserId;
+    readonly firmId: FirmId;
+  },
 ): SqlStatement {
   return database
     .prepare(

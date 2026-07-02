@@ -1,0 +1,43 @@
+@layer components {
+  /*
+   * Shared presence recipes for floating/overlay surfaces (keyframes in styles/animations.css).
+   * A CSS ANIMATION, not a transition, so presence animates on mount IN as well as OUT — a
+   * transition has nothing to animate from on first mount, so the surface would "pop" in and only
+   * fade out. animation-fill-mode: both holds the first frame before paint and the last after.
+   * IN and OUT are SEPARATE keyframe names (the per-state rules swap animation-name) because a
+   * browser only restarts an animation when the name changes. The constants in internal/floating.ts
+   * (PRESENCE_FADE / PRESENCE_SCALE_FADE) point at these class names, so every overlay, tooltip,
+   * popover, and menu upgrades at once. Reduced motion overrides the base duration once below —
+   * specificity-safe, since the per-state rules only set the name, never the duration. mc-presence-
+   * fade is for low-emphasis surfaces (scrims, tooltips); mc-presence-scale-fade for popovers,
+   * menus, and dialog/alert-dialog panels.
+   */
+  .mc-presence-fade {
+    animation-duration: var(--mc-duration-fast);
+    animation-timing-function: var(--mc-easing-standard);
+    animation-fill-mode: both;
+  }
+  .mc-presence-fade[data-state="open"] {
+    animation-name: mc-fade-in;
+  }
+  .mc-presence-fade[data-state="closed"] {
+    animation-name: mc-fade-out;
+  }
+  .mc-presence-scale-fade {
+    animation-duration: var(--mc-duration-fast);
+    animation-timing-function: var(--mc-easing-standard);
+    animation-fill-mode: both;
+  }
+  .mc-presence-scale-fade[data-state="open"] {
+    animation-name: mc-scale-fade-in;
+  }
+  .mc-presence-scale-fade[data-state="closed"] {
+    animation-name: mc-scale-fade-out;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mc-presence-fade,
+    .mc-presence-scale-fade {
+      animation-duration: var(--mc-duration-instant);
+    }
+  }
+}

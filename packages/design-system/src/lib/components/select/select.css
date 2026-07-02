@@ -1,0 +1,139 @@
+@layer components {
+  /*
+   * Select (Tier 4, Bits UI). A form control whose listbox floats from the trigger. The Trigger is a
+   * styled control (unlike a DropdownMenu/Popover trigger) — it shares the Input box and the single
+   * focus shape (border + flush outline both turn focus-ring, so they read as one edge); Bits sets
+   * data-placeholder when nothing is selected (text mutes) and data-disabled. Positioning, the
+   * z-layer, and the scale-fade presence come from the floating module; the trigger-width and
+   * available-height anchoring ride inline styles on the elements (Bits-owned --bits-* variables, not
+   * --mc- tokens). Only the look lives here.
+   */
+  .mc-select-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--mc-space-8);
+    min-block-size: var(--mc-density-control-md);
+    padding-inline: var(--mc-space-12);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    background-color: var(--mc-surface-field);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-tight);
+    cursor: pointer;
+    transition-property: border-color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-select-trigger[data-placeholder] {
+    color: var(--mc-text-muted);
+  }
+  .mc-select-trigger:focus-visible {
+    border-color: var(--mc-focus-ring);
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-select-trigger[data-disabled] {
+    background-color: var(--mc-action-disabled);
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+  /* The trailing chevron; muted and held at a fixed size so it never shrinks under a long label. */
+  .mc-select-trigger-icon {
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    color: var(--mc-text-muted);
+  }
+  /* The selected label sits to the inline-start; truncate rather than push the chevron out. */
+  .mc-select-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mc-select-content {
+    padding: var(--mc-space-4);
+    background-color: var(--mc-surface-overlay);
+    color: var(--mc-text-default);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    box-shadow: var(--mc-elevation-2);
+    overflow: hidden;
+  }
+  /* The scrollable list region; its height is bounded inline by the Bits available-height variable. */
+  .mc-select-viewport {
+    overflow-y: auto;
+  }
+  /*
+   * An option row. Bits sets data-highlighted on the hovered/keyboard-active row and data-disabled on
+   * a disabled one; the recipe keys its highlight/disabled looks off those. The leading indicator box
+   * holds the check for the selected row (mirrors the DropdownMenu.CheckboxItem indicator).
+   */
+  .mc-select-item {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+    border-radius: var(--mc-radius-sm);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+    cursor: pointer;
+    user-select: none;
+    outline-style: none;
+  }
+  .mc-select-item[data-highlighted] {
+    background-color: var(--mc-action-secondary);
+  }
+  .mc-select-item[data-disabled] {
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+  .mc-select-item-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+  .mc-select-item-indicator-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+  .mc-select-group-heading {
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-8);
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-medium);
+    line-height: var(--mc-leading-tight);
+  }
+  /* The top/bottom auto-scroll affordances Bits mounts inside the viewport when the list overflows. */
+  .mc-select-scroll-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-block: var(--mc-space-4);
+    color: var(--mc-text-muted);
+    cursor: pointer;
+  }
+  .mc-select-scroll-button-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+}

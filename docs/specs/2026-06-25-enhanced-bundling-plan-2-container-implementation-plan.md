@@ -11,7 +11,7 @@
 ## Global Constraints
 
 - **Mirror `containers/scan`** (`containers/scan/CLAUDE.md`): lib (`src/lib.rs`, unit-testable router + modules) + thin bin (`src/main.rs`) serving `:8080`; multi-stage `Dockerfile`; the engine cannot run under `@cloudflare/vitest-pool-workers`, so verification is a **CI image-build acceptance gate**, not the worker test pool.
-- **Crate pins verified against docs.rs before use** (golden rule 11). This environment does not compile the container; every crate API call below is written to the documented API, and the implementer MUST confirm the exact signature on docs.rs for the pinned version and adjust the call if it differs (the *behavior* is fixed; the spelling may need a tweak). Pins: `axum 0.8`, `zip 8.6`, `sevenz-rust2 0.7`, `reqwest 0.12`, `tempfile 3`. Commit `Cargo.lock` (binary crate).
+- **Crate pins verified against docs.rs before use** (golden rule 11). This environment does not compile the container; every crate API call below is written to the documented API, and the implementer MUST confirm the exact signature on docs.rs for the pinned version and adjust the call if it differs (the _behavior_ is fixed; the spelling may need a tweak). Pins: `axum 0.8`, `zip 8.6`, `sevenz-rust2 0.7`, `reqwest 0.12`, `tempfile 3`. Commit `Cargo.lock` (binary crate).
 - **Code explains itself; no process-doc refs** (golden rule 13): no "ADR-NNNN", "spec", "Plan N", "spike", `§` in source/tests. Explain reasoning inline or cite a concrete file.
 - **Names fully spelled out** (golden rule 12).
 - **Never buffer the whole archive in memory.** Inputs stream from R2 into the encoder; the encoded archive lives on ephemeral disk; output streams to R2. The password is never logged or persisted.
@@ -95,10 +95,12 @@ pub struct Volume { pub key: String, pub size_bytes: u64 }
 ### Task 1: Crate skeleton + `/ready` + contract types
 
 **Files:**
+
 - Create: `containers/bundle/Cargo.toml`, `containers/bundle/src/lib.rs`, `containers/bundle/src/main.rs`, `containers/bundle/src/contract.rs`, `containers/bundle/.gitignore`, `containers/bundle/.dockerignore`
 - Test: `containers/bundle/tests/health.rs`
 
 **Interfaces:**
+
 - Produces: the contract types above (in `contract.rs`); `router(state: AppState) -> axum::Router`; `AppState { r2_base_url: Arc<str>, http: reqwest::Client }`.
 
 - [ ] **Step 1: `Cargo.toml`**
@@ -237,10 +239,12 @@ git commit -m "feat(bundle-container): crate skeleton, /ready, build manifest co
 ### Task 2: R2 I/O over the outbound-Workers base URL
 
 **Files:**
+
 - Modify: `containers/bundle/src/r2.rs`
 - Test: `containers/bundle/tests/r2_roundtrip.rs`
 
 **Interfaces:**
+
 - Produces: `async fn get_to_writer(http, base, key, dst: &mut (impl Write)) -> Result<u64, R2Error>` (streams a GET body into `dst`, returns bytes written); `async fn put_file(http, base, key, file: tokio::fs::File, len: u64) -> Result<(), R2Error>` (streams a sized PUT). `enum R2Error`.
 
 **Why:** the container never holds R2 credentials. It performs plain HTTP `GET`/`PUT` against `{base}/{key}`; in production the owner Worker intercepts that host (outbound Workers) and services it via `env.R2`. The PUT carries a known `Content-Length` (the spooled file's size) so R2 stores it (an unknown-length stream would be rejected).
@@ -393,10 +397,12 @@ git commit -m "feat(bundle-container): R2 GET/PUT streaming over the outbound-Wo
 ### Task 3: ZIP encoder (store/Deflate, AES, ZIP64, timestamps)
 
 **Files:**
+
 - Modify: `containers/bundle/src/encode.rs`
 - Test: `containers/bundle/tests/encode_zip.rs`
 
 **Interfaces:**
+
 - Produces: `trait EntryReader` (an entry's bytes as a `Read`); `struct LocalEntry { archive_path, mtime_epoch_secs, reader }`; `fn encode_zip(entries: impl Iterator<Item = LocalEntry>, compression: Compression, encryption: Option<&Encryption>, out: &mut (impl Write + Seek)) -> Result<(), EncodeError>`.
 
 **Notes for the implementer (confirm against docs.rs `zip` 8.6):** `zip::write::ZipWriter::new(out)`; per file `FileOptions::default().compression_method(...).large_file(true)` for ZIP64; `.with_aes_encryption(zip::AesMode::Aes256, password)` when encrypting; `.last_modified_time(zip::DateTime::...)` for the timestamp; `writer.start_file(archive_path, options)?` then `std::io::copy(reader, &mut writer)?`; `writer.finish()?`. Map compression: `Store → Stored`, `Normal → Deflated` (default level), `Maximum → Deflated` with the max level via `.compression_level(Some(9))`.
@@ -444,7 +450,7 @@ fn aes_zip_opens_with_password_and_rejects_wrong_one() {
 }
 ```
 
-(Confirm the `zip` reader's decrypt method name on docs.rs — `by_name_decrypt`/`by_index_decrypt` — and adjust the test call if the 8.6 spelling differs. The *behavior* asserted is fixed: right password reads, wrong password errors.)
+(Confirm the `zip` reader's decrypt method name on docs.rs — `by_name_decrypt`/`by_index_decrypt` — and adjust the test call if the 8.6 spelling differs. The _behavior_ asserted is fixed: right password reads, wrong password errors.)
 
 - [ ] **Step 2: Run it (RED)**
 
@@ -561,10 +567,12 @@ git commit -m "feat(bundle-container): ZIP encoder (store/Deflate, AES-256, ZIP6
 ### Task 4: 7z encoder (LZMA2, AES-256, header encryption)
 
 **Files:**
+
 - Modify: `containers/bundle/src/encode.rs`
 - Test: `containers/bundle/tests/encode_7z.rs`
 
 **Interfaces:**
+
 - Produces: `fn encode_7z(entries: impl Iterator<Item = LocalEntry>, compression: Compression, encryption: Option<&Encryption>, out: &mut (impl Write + Seek)) -> Result<(), EncodeError>`.
 
 **Notes (confirm against docs.rs `sevenz-rust2` 0.7):** `sevenz_rust2::ArchiveWriter::new(out)?`; `writer.set_content_methods(vec![...])` with `AesEncoderOptions::new(password)` (push it BEFORE the LZMA2 method so content is compressed then encrypted) and `Lzma2Options::from_level(level)`; `writer.set_encrypt_header(encrypt_file_names)`; add each entry via the writer's add-reader/add-entry API (e.g. `writer.push_archive_entry(SevenZArchiveEntry::from_path/name(...), Some(reader))?` — confirm the exact constructor); `writer.finish()?`. Compression level: `Store → 0`, `Normal → 5`, `Maximum → 9`.
@@ -669,10 +677,12 @@ git commit -m "feat(bundle-container): 7z encoder (LZMA2, AES-256, header encryp
 ### Task 5: 7z multi-volume splitting (byte-split of the spooled archive)
 
 **Files:**
+
 - Create: `containers/bundle/src/split.rs` (+ `pub mod split;` in `lib.rs`)
 - Test: `containers/bundle/tests/split.rs`
 
 **Interfaces:**
+
 - Produces: `fn split_file_into_volumes(path: &Path, max_part_bytes: u64) -> Result<Vec<PathBuf>, std::io::Error>` — cuts a file into `<path>.001`, `.002`, … each ≤ `max_part_bytes` (the last smaller), returning the part paths in order. A file at or under the limit still produces a single `.001` (7z volume convention). Concatenating the parts reproduces the original bytes exactly.
 
 **Why:** a 7z multi-volume archive is the single `.7z` stream cut into fixed-size pieces (`docs/specs/2026-06-25-enhanced-bundling-plan-2-crate-feasibility-findings.md`); 7-Zip reassembles by reading `.001` onward. ZIP never reaches this code (the handler rejects `format:"zip" + split`).
@@ -773,10 +783,12 @@ git commit -m "feat(bundle-container): 7z multi-volume byte-split of the spooled
 ### Task 6: The `POST /build` handler (manifest → fetch → encode → split → PUT)
 
 **Files:**
+
 - Modify: `containers/bundle/src/build.rs`, `containers/bundle/src/lib.rs` (re-add the `/build` route)
 - Test: `containers/bundle/tests/build_e2e.rs`
 
 **Interfaces:**
+
 - Produces: `pub async fn build_handler(State(state): State<AppState>, Json(req): Json<BuildRequest>) -> Response`.
 
 **Flow:** validate (reject `Zip + split`); for each entry, open a temp spill file and stream its bytes into it (R2 GET for `R2` source, base64-decode for `Inline`) — producing a `LocalEntry` reader over the spill file; encode (zip or 7z) into an output temp file (seekable); if `split`, cut the output into volumes else keep one; PUT each volume to `{output_key_prefix}.NNN` (or `{output_key_prefix}` for a single ZIP); return `BuildResponse`. Inputs and output both transit ephemeral disk, never fully in memory. The password (in `req.encryption`) is used only for `encode_*` and never logged.
@@ -891,6 +903,7 @@ git commit -m "feat(bundle-container): /build handler — manifest to encoded, s
 ### Task 7: Dockerfile, ignore files, area CLAUDE.md, CI acceptance gate
 
 **Files:**
+
 - Create: `containers/bundle/Dockerfile`, `containers/bundle/CLAUDE.md`
 - Modify: the CI workflow that builds container images (mirror the `scan-container` job) to add a `bundle-container` job that builds the image and runs the acceptance gate.
 - Create: `containers/bundle/tests/acceptance.sh` (build the image, run it with `R2_BASE_URL` pointed at a tiny local stub, POST a manifest, verify the written archive re-opens).
@@ -918,7 +931,7 @@ git commit -m "build(bundle-container): Dockerfile, area CLAUDE.md, CI image-bui
 
 - **Spec coverage:** manifest contract + service (Task 1); credential-free R2 I/O via outbound-Workers base URL (Task 2); ZIP encoder — store/Deflate/AES/ZIP64/timestamps (Task 3); 7z encoder — LZMA2/AES-256/header encryption (Task 4); 7z byte-split volumes, ZIP guarded out (Task 5); the `/build` orchestration with disk-spool + inline CONTENTS entry (Task 6); Dockerfile + CLAUDE.md + CI acceptance gate (Task 7). Matches the design's "heavy lane" and the feasibility findings (disk-spool output model, split 7z-only, outbound-Workers data flow).
 - **Out of this plan:** the worker side — the `BundleContainer` Container class + `outboundByHost` `env.R2` handler, extending `apps/worker/src/downloads/` (coordinator/queue/routes) for `BundleOptions`, multi-volume artifacts, and the encrypted in-memory-password path; threading the `file_version` SHA-256 into the inline CONTENTS entry. That is **Plan 3** (worker orchestration). UI is **Plan 4**.
-- **Crate-API caveat:** this environment does not compile Rust; every `zip`/`sevenz-rust2` call is written to the documented API with an inline "confirm the signature on docs.rs" note where the spelling is most likely to differ (golden rule 11). The asserted *behavior* in each test is fixed; the implementer adjusts call spellings to compile, never the behavior.
+- **Crate-API caveat:** this environment does not compile Rust; every `zip`/`sevenz-rust2` call is written to the documented API with an inline "confirm the signature on docs.rs" note where the spelling is most likely to differ (golden rule 11). The asserted _behavior_ in each test is fixed; the implementer adjusts call spellings to compile, never the behavior.
 - **Type consistency:** the contract types (Task 1) are consumed by the handler (Task 6); `LocalEntry`/`encode_zip`/`encode_7z` (Tasks 3-4) and `split_file_into_volumes` (Task 5) are consumed by Task 6; `r2::get_to_writer`/`put_file` (Task 2) by Task 6.
 
 ## Follow-on (not Plan 2)

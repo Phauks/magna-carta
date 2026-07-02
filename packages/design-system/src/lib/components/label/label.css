@@ -1,0 +1,18 @@
+@layer components {
+  /*
+   * Label (Tier 1). A styled native <label> — the field caption. Medium weight at the small
+   * reading size; the gap spaces an inline control (e.g. a checkbox) from its caption when the
+   * label wraps one. The association itself is native (for/id), not styling.
+   */
+  .mc-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    font-weight: var(--mc-weight-medium);
+    line-height: var(--mc-leading-tight);
+    color: var(--mc-text-default);
+    user-select: none;
+  }
+}

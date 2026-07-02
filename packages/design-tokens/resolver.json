@@ -1,0 +1,77 @@
+{
+  "name": "Magna Carta design tokens",
+  "description": "Resolver for the Magna Carta design-token source: primitive ramps + semantic aliases (the light/default truth), modified by theme and mode. Mode overlays re-point semantic aliases to ramp positions and are shared across all themes; a new theme adds one context that swaps ramp values only.",
+  "version": "2025.10",
+  "sets": {
+    "primitives": {
+      "description": "Primitive scales: color ramps, dimensions, typography, shadows, z-index, motion.",
+      "sources": [
+        { "$ref": "tokens/primitives/color.json" },
+        { "$ref": "tokens/primitives/dimension.json" },
+        { "$ref": "tokens/primitives/typography.json" },
+        { "$ref": "tokens/primitives/shadow.json" },
+        { "$ref": "tokens/primitives/z-index.json" },
+        { "$ref": "tokens/primitives/motion.json" }
+      ]
+    },
+    "semantic": {
+      "description": "Semantic aliases onto primitives; the only names components consume.",
+      "sources": [{ "$ref": "tokens/semantic.json" }]
+    }
+  },
+  "modifiers": {
+    "theme": {
+      "description": "Visual theme (firm-picked). chancery is the flagship default (Ink & Gold, baked into the primitives); each showcase theme adds one context that swaps the neutral+brand ramp VALUES only. The shared accent (gold) and status ramps never vary by theme.",
+      "contexts": {
+        "chancery": [],
+        "verdigris": [{ "$ref": "tokens/themes/verdigris.json" }],
+        "parchment": [{ "$ref": "tokens/themes/parchment.json" }],
+        "oxblood": [{ "$ref": "tokens/themes/oxblood.json" }],
+        "aubergine": [{ "$ref": "tokens/themes/aubergine.json" }],
+        "slate": [{ "$ref": "tokens/themes/slate.json" }]
+      },
+      "default": "chancery"
+    },
+    "mode": {
+      "description": "Light or dark color mode, shared across all themes. Light is empty: tokens/semantic.json is the light/default truth. Dark re-points color-bearing semantic aliases to other ramp positions.",
+      "contexts": {
+        "light": [],
+        "dark": [{ "$ref": "tokens/modes/dark.json" }]
+      },
+      "default": "light"
+    },
+    "density": {
+      "description": "The user density axis (design language §5: comfortable / compact). comfortable is the semantic truth; compact re-points the density.* aliases ONLY (dimensions are theme- and mode-invariant), emitted as one small :root[data-density=…] overlay block after the theme x mode permutations. Recipes consume control heights and row geometry exclusively through density.* — that consumption IS the axis compliance.",
+      "contexts": {
+        "comfortable": [],
+        "compact": [{ "$ref": "tokens/density/compact.json" }]
+      },
+      "default": "comfortable"
+    },
+    "motion": {
+      "description": "The user motion axis (design language §7: full / reduced / off, honoring OS prefers-reduced-motion as the default). full is the primitive truth; reduced/off re-point the duration ladder ONLY (durations are theme- and mode-invariant), emitted as small :root[data-motion=…] overlay blocks AFTER the theme x mode permutations so they win the duration variables at equal specificity. Recipes never gate themselves — referencing the ladder IS the compliance.",
+      "contexts": {
+        "full": [],
+        "reduced": [{ "$ref": "tokens/motion/reduced.json" }],
+        "off": [{ "$ref": "tokens/motion/off.json" }]
+      },
+      "default": "full"
+    },
+    "contrast": {
+      "description": "Reserved high-contrast axis (design language §6; the home for stronger boundaries + OS prefers-contrast / forced-colors). Unpopulated at launch — only the no-op 'standard' context exists; a future 'high' context strengthens borders and drops subtle shadows. The plugin permutations (terrazzo.config.mjs) emit theme x mode only, so this resolves to its default and adds no output until populated.",
+      "contexts": {
+        "standard": []
+      },
+      "default": "standard"
+    }
+  },
+  "resolutionOrder": [
+    { "$ref": "#/sets/primitives" },
+    { "$ref": "#/sets/semantic" },
+    { "$ref": "#/modifiers/theme" },
+    { "$ref": "#/modifiers/mode" },
+    { "$ref": "#/modifiers/density" },
+    { "$ref": "#/modifiers/motion" },
+    { "$ref": "#/modifiers/contrast" }
+  ]
+}

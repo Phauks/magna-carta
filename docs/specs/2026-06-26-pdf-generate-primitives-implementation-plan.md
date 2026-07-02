@@ -75,6 +75,7 @@ pub fn watermark(bytes: &[u8], opts: &WatermarkOptions) -> Result<Vec<u8>, Gener
 **Files:** modify `generate.rs` (extend `merge`).
 
 After the page tree is built, fold the inputs' interactive structure (object ids already renumbered, so refs are valid in the combined map):
+
 - **Outlines:** for each input with `/Outlines`, graft its top-level items under one merged `/Outlines` root, re-parenting and fixing `/First`/`/Last`/`/Count`; `/Dest`s already reference renumbered pages.
 - **AcroForm:** union the inputs' `/AcroForm /Fields`; on a fully-qualified-name collision, suffix the later field's `/T` (e.g. `name` → `name_2`); merge `/DR` (`/Font` etc.) non-destructively; `/NeedAppearances true` if any input had it.
 - **Named dests:** merge `/Names /Dests` (+ legacy `/Dests`) name→dest entries; suffix colliding names.
@@ -116,6 +117,7 @@ Per page: effective MediaBox `[w,h]`; one shared Helvetica-or-chosen font object
 **Files:** `crates/pdf-core/src/wasm.rs` (`mergeDocuments`/`splitDocument`/`rotatePages`/`watermarkDocument` + `From<GenerateError>`); `packages/pdf/src/index.ts` (wrappers + types); `packages/pdf/test/generate.test.ts`. Rebuild wasm (`pnpm --filter @magna-carta/pdf run build:wasm`).
 
 TS surface:
+
 ```ts
 mergeDocuments(documents: Uint8Array[]): Promise<{ pdf: Uint8Array }>;
 splitDocument(bytes: Uint8Array, ranges: { start: number; end: number }[]): Promise<{ pdfs: Uint8Array[] }>;

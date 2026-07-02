@@ -201,7 +201,11 @@ export interface DetectionReport {
   pagesUnreadable: number[];
 }
 
-import { readForm as wasmReadForm, fillForm as wasmFillForm, flattenForm as wasmFlattenForm } from "./pkg/pdf_core.js";
+import {
+  readForm as wasmReadForm,
+  fillForm as wasmFillForm,
+  flattenForm as wasmFlattenForm,
+} from "./pkg/pdf_core.js";
 import { stampBates as wasmStampBates } from "./pkg/pdf_core.js";
 import { detectDocument as wasmDetect } from "./pkg/pdf_core.js";
 

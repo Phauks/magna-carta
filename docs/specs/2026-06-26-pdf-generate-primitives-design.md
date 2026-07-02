@@ -38,6 +38,7 @@ objects, then build one fresh `/Pages` tree referencing every page in order unde
 different sizes coexist (the "combine exhibits" reality).
 
 **Interactive structure is carried across** (full merge):
+
 - **Outlines / bookmarks** — each input's `/Outlines` tree is rebuilt into one merged outline (one
   top-level node per source document), with every `/Dest` remapped to the renumbered page object.
 - **AcroForm fields** — each input's `/AcroForm /Fields` are collected into one merged `/AcroForm`;
@@ -92,7 +93,7 @@ a `q /GS gs … Q` overlay stream **last** so it draws on top. Shared resources 
 image XObject) are deduped to one object each per document.
 
 - **Text:** width from the baked standard-font tables; `… BT /<font> <size> Tf <color> <matrix> Tm
-  (escaped text) Tj ET …` (the Bates text path, extended to an arbitrary rotation matrix and centring).
+(escaped text) Tj ET …` (the Bates text path, extended to an arbitrary rotation matrix and centring).
 - **Image (logo):** the PNG/JPEG is decoded with the `image` crate (already a dependency) and embedded
   as an image XObject — JPEG bytes embed directly via `/DCTDecode`; other formats decode to RGB samples
   Flate-encoded, with an `/SMask` carrying the alpha channel when the source has transparency. Drawn
@@ -108,9 +109,19 @@ process):
 
 ```ts
 export function mergeDocuments(documents: Uint8Array[]): Promise<{ pdf: Uint8Array }>;
-export function splitDocument(bytes: Uint8Array, ranges: { start: number; end: number }[]): Promise<{ pdfs: Uint8Array[] }>;
-export function rotatePages(bytes: Uint8Array, rotation: 90 | 180 | 270, pages?: number[]): Promise<{ pdf: Uint8Array }>;
-export function watermarkDocument(bytes: Uint8Array, options: WatermarkOptions): Promise<{ pdf: Uint8Array }>;
+export function splitDocument(
+  bytes: Uint8Array,
+  ranges: { start: number; end: number }[],
+): Promise<{ pdfs: Uint8Array[] }>;
+export function rotatePages(
+  bytes: Uint8Array,
+  rotation: 90 | 180 | 270,
+  pages?: number[],
+): Promise<{ pdf: Uint8Array }>;
+export function watermarkDocument(
+  bytes: Uint8Array,
+  options: WatermarkOptions,
+): Promise<{ pdf: Uint8Array }>;
 ```
 
 `rotation` is the clockwise degrees (`90|180|270`); omitting `pages` rotates all. `WatermarkOptions`

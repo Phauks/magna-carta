@@ -13,7 +13,7 @@
 - Pure-compute: typed `Result`, no logging, no `unwrap`/`panic` on input data outside tests.
 - No process references in source/tests/README/consumer strings. Full names. Changelog/ADR via fragments.
 - Forms is NOT redaction — never imply it removes hidden content; say so in docs.
-- Reuse before building (the resolve_* helpers, the Helvetica metrics, the AcroForm walk).
+- Reuse before building (the resolve\_\* helpers, the Helvetica metrics, the AcroForm walk).
 - Appearance font name in generated streams: `MagnaCartaFormFont` (distinctive).
 
 ## Interfaces produced
@@ -43,7 +43,7 @@ pub(crate) fn text_appearance(doc: &mut lopdf::Document, rect: [f32;4], da_size:
 
 **Files:** Create `crates/pdf-core/src/forms.rs`; modify `lib.rs` (`mod forms;` + re-export `FormField`, `FieldKind`, `FieldValue`, `FormFillOptions`, `FormError`, `read_form`).
 
-Walk `catalog /AcroForm /Fields` depth-first over `/Kids`. Resolve inherited `/FT`, `/Ff`, `/DA`, `/V` from parents (carry them down the walk). A node is a **terminal field** when it has an effective `/FT` and no field-kids (a kid is a *field* if it has `/T`; a kid with only `/Subtype /Widget` and no `/T` is a widget of the same field). `kind` from `/FT`+`/Ff`: `Tx`→Text, `Ch`→Choice, `Sig`→Signature, `Btn`→ PushButton if `/Ff` bit 17 (0x10000) set, Radio if bit 16 (0x8000) set, else Checkbox. Fully-qualified `name` = ancestor `/T` values joined by `.` (decode UTF-16BE strings — a `/T` beginning `\xFE\xFF` is UTF-16BE; else PDFDocEncoding/ASCII). `read_only` = `/Ff` bit 1. `value` = effective `/V` (Name→its text; String→decoded). `options` = `/Opt` (Choice) or the kids' on-state names (Radio). `widgets` = the field id itself if it has `/Rect`, else its widget kids. `page`/`rect` from the first widget: find the page whose deref'd `/Annots` references the widget; `rect` = that widget's `/Rect`.
+Walk `catalog /AcroForm /Fields` depth-first over `/Kids`. Resolve inherited `/FT`, `/Ff`, `/DA`, `/V` from parents (carry them down the walk). A node is a **terminal field** when it has an effective `/FT` and no field-kids (a kid is a _field_ if it has `/T`; a kid with only `/Subtype /Widget` and no `/T` is a widget of the same field). `kind` from `/FT`+`/Ff`: `Tx`→Text, `Ch`→Choice, `Sig`→Signature, `Btn`→ PushButton if `/Ff` bit 17 (0x10000) set, Radio if bit 16 (0x8000) set, else Checkbox. Fully-qualified `name` = ancestor `/T` values joined by `.` (decode UTF-16BE strings — a `/T` beginning `\xFE\xFF` is UTF-16BE; else PDFDocEncoding/ASCII). `read_only` = `/Ff` bit 1. `value` = effective `/V` (Name→its text; String→decoded). `options` = `/Opt` (Choice) or the kids' on-state names (Radio). `widgets` = the field id itself if it has `/Rect`, else its widget kids. `page`/`rect` from the first widget: find the page whose deref'd `/Annots` references the widget; `rect` = that widget's `/Rect`.
 
 - [ ] **Step 1: failing tests** (build AcroForms programmatically with lopdf):
   - `reads_text_and_checkbox_fields`: a 1-page doc, AcroForm with a `/Tx` field (`/T (Name)`) and a `/Btn` checkbox (`/T (Agree)`, `/Ff 0`), each a merged widget with `/Rect` referenced from the page `/Annots`. `read_form` returns 2 fields with `FieldKind::Text`/`Checkbox`, the right names, `page == 0`, and a `Some(rect)`.
@@ -79,11 +79,12 @@ Dict: `/Type /XObject /Subtype /Form /FormType 1 /BBox [0 0 w h] /Resources << /
 **Files:** modify `forms.rs`.
 
 `fill_form(bytes, values, opts)`: `load_mem` (→Parse); if no AcroForm → `NoAcroForm`. Add ONE shared Helvetica font object (reuse the bates approach). Build the `name → TerminalField` map (Task 1). For each `(name, FieldValue)` present:
+
 - **Text/Choice** (`FieldValue::Text`/`Choice`): set the field's `/V` (string). For each widget, generate `text_appearance(...)` (font_id shared) and set the widget `/AP` `/N` to it. (Choice: same text appearance for the selected value.)
 - **Checkbox** (`FieldValue::Bool`): determine the on-state name = the non-`Off` key of the widget's `/AP /N` dict (default `/Yes`). `true` → set field `/V` and each widget `/AS` to the on-state; `false` → both `/Off`.
 - **Radio** (`FieldValue::Choice(state)`): set field `/V` to `/state`; each kid widget `/AS` to `/state` if the kid's `/AP /N` has that key, else `/Off`.
 - **PushButton/Signature/Unknown**: no-op.
-Set AcroForm `/NeedAppearances` to `false`. If `opts.flatten`, call `flatten_form` on the serialized bytes (Task 4) and return that; else `save_to` (→Reassemble).
+  Set AcroForm `/NeedAppearances` to `false`. If `opts.flatten`, call `flatten_form` on the serialized bytes (Task 4) and return that; else `save_to` (→Reassemble).
 
 - [ ] **Step 1: failing tests**
   - `fills_text_field_value_renders`: programmatic text-field AcroForm → `fill_form` with `Text("ACME")` → reload + observe (hayro) → render contains `"ACME"`; the field `/V` is set.
@@ -100,10 +101,11 @@ Set AcroForm `/NeedAppearances` to `false`. If `opts.flatten`, call `flatten_for
 **Files:** modify `forms.rs`.
 
 `flatten_form(bytes)`: `load_mem` (→Parse). For each page (`get_pages`), deref `/Annots` (inline array OR indirect reference — MUST deref). For each annotation whose `/Subtype` is `/Widget` and which has an `/AP`:
+
 - Pick the appearance stream id: if `/AP /N` is a dictionary of states (button), the substream keyed by the widget `/AS` (skip if absent); else `/AP /N` directly (a reference to a stream).
 - Read the appearance `BBox` and optional `/Matrix`; compute `cm` mapping the (matrix-transformed) BBox onto the widget `/Rect` (translate to `rect` origin + scale `rect_w/bbox_w`, `rect_h/bbox_h`). Append `q <a> <b> <c> <d> <e> <f> cm /<name> Do Q` to the page content (a new stream pushed last). Add the appearance stream to the page effective `/Resources /XObject` under a fresh name, **non-destructively** (deref via `resolve_inherited_resources`/`resolve_dict`, clone, set page-level — the Bates pattern).
 - Mark the widget annotation for removal.
-After processing a page: rebuild `/Annots` keeping only the non-removed (non-widget) annotations; remove `/Annots` if empty. Finally remove `/AcroForm` and `/NeedAppearances` from the catalog. `save_to` (→Reassemble).
+  After processing a page: rebuild `/Annots` keeping only the non-removed (non-widget) annotations; remove `/Annots` if empty. Finally remove `/AcroForm` and `/NeedAppearances` from the catalog. `save_to` (→Reassemble).
 
 - [ ] **Step 1: failing tests**
   - `flatten_bakes_value_and_drops_form`: a filled text-field AcroForm (use Task 3 output or build one with an `/AP`) → `flatten_form` → reload: `read_form` returns empty (no AcroForm), no page has widget `/Annots`, and observe renders the value.

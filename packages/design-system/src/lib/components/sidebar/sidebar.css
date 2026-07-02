@@ -1,0 +1,183 @@
+@layer components {
+  /*
+   * Sidebar (Tier 4 / app shell) — the global navigation rail (page-archetypes Layout A). This is
+   * EDGE CHROME: it renders on the dark ink register (chrome-* tokens) so it frames the light work
+   * canvas, and the identity gold lives here — the active destination takes a gilt left bar + gold
+   * icon. A fixed width that snaps to the icon-rail width when collapsed; the rail hides labels (the
+   * name then rides a Tooltip). Height fills its container (h-full); the content region scrolls.
+   *
+   * COLLAPSE MOTION is composited, not a layout transition. Animating `inline-size` (or the button's
+   * grid track) repaints the rail↔canvas seam every frame, and at a fractional device-pixel ratio
+   * (Windows 150% scaling) that 1px border edge shimmers/tears. So the collapsed-state widths/tracks
+   * change INSTANTLY and the sidebar carries a `view-transition-name`: the Trigger flips state through
+   * runViewTransition (internal/view-transition.ts), and the browser tweens the before/after layouts on
+   * the GPU. The seam is sampled, never re-rasterized → no tearing. Reduced-motion / unsupported
+   * browsers fall back to an instant collapse. Only interaction colour (hover/active) still transitions.
+   */
+  .mc-sidebar {
+    display: flex;
+    flex-direction: column;
+    /* flex: none (shrink 0) so the flex algorithm does not override (and snap) the animated width.
+       A unitless flex-shrink can't be a length token, so the keyword shorthand is the token-pure form. */
+    flex: none;
+    inline-size: var(--mc-size-sidebar);
+    background-color: var(--mc-chrome-surface);
+    color: var(--mc-chrome-text);
+    /* NO inline-end hairline (owner-directed 2026-07-02): the chrome↔canvas surface contrast IS
+       the edge, and the brand corner flows into the top bar as one smooth chrome surface. Bonus:
+       the rail↔canvas seam that used to shimmer at fractional DPR no longer has an edge to tear. */
+    overflow: hidden;
+    /* Collapse is composited, not a width transition (see the recipe note above): the width snaps and
+       the view-transition tweens the rail↔canvas resize on the GPU, so the seam can't tear. */
+    view-transition-name: mc-sidebar;
+  }
+  .mc-sidebar[data-state="collapsed"] {
+    inline-size: var(--mc-size-sidebar-rail);
+  }
+  .mc-sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    /* Pinned to the control-lg row height so the brand corner lines up with the app-shell top bar.
+       NO bottom hairline (owner-directed 2026-07-02): the brand corner transitions smoothly into
+       the nav below and the top bar beside it — the chrome is one unbroken ink surface. The brand
+       mark aligns with the nav icons below via padding-inline (content 8 + button 8 = 16). */
+    min-block-size: var(--mc-control-lg);
+    padding-inline: var(--mc-space-16);
+    padding-block: var(--mc-space-8);
+    color: var(--mc-chrome-text-strong);
+  }
+  .mc-sidebar-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-16);
+    padding: var(--mc-space-8);
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  .mc-sidebar-footer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    padding: var(--mc-space-8);
+    border-block-start: var(--mc-border-width-default) solid var(--mc-chrome-border);
+  }
+  .mc-sidebar-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+  }
+  .mc-sidebar-group-label {
+    padding-inline: var(--mc-space-8);
+    padding-block: var(--mc-space-4);
+    color: var(--mc-chrome-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-semibold);
+    text-transform: uppercase;
+    /* The letterspaced-caps label voice — structural labels get air, data stays untracked. */
+    letter-spacing: var(--mc-tracking-caps);
+    white-space: nowrap;
+  }
+  .mc-sidebar-menu {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    margin: var(--mc-space-0);
+    padding: var(--mc-space-0);
+    list-style: none;
+  }
+  .mc-sidebar-menu-item {
+    display: block;
+  }
+  /*
+   * The button is a GRID (icon | label): collapsed, the label column goes to 0fr (the label is
+   * removed from the row) and its text fades to `color: transparent` (opacity has no token and is
+   * gate-banned). This change is INSTANT — the view-transition on the sidebar composites the visual
+   * collapse, so the track isn't transitioned per-frame. The label stays in the DOM (not sr-only), so
+   * the link keeps its accessible name; a Tooltip surfaces the name visually in the rail.
+   */
+  .mc-sidebar-menu-button {
+    display: grid;
+    /* A FIXED icon track (not auto) keeps the icon a constant size as the label column collapses to
+       0fr. The icon is exactly this size (mc-sidebar-icon). */
+    grid-template-columns: var(--mc-space-20) 1fr;
+    align-items: center;
+    justify-content: start;
+    min-block-size: var(--mc-control-md);
+    padding-inline: var(--mc-space-8);
+    padding-block: var(--mc-space-8);
+    border-radius: var(--mc-radius-md);
+    background-color: transparent;
+    color: var(--mc-chrome-text);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    font-weight: var(--mc-weight-medium);
+    line-height: var(--mc-leading-tight);
+    text-align: start;
+    text-decoration-line: none;
+    white-space: nowrap;
+    cursor: pointer;
+    /* Interaction colour only — the collapse itself is composited (view-transition), not transitioned. */
+    transition-property: background-color, color;
+    transition-duration: var(--mc-duration-normal);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-sidebar-menu-button:hover {
+    background-color: var(--mc-chrome-surface-hover);
+    color: var(--mc-chrome-text-strong);
+  }
+  .mc-sidebar-menu-button:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-chrome-accent);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  /* Active destination: the identity moment — a gilt left bar (inset box-shadow, so the rounded
+     corners stay clean) + a gold icon + bright text on the raised ink fill. */
+  .mc-sidebar-menu-button[data-active="true"] {
+    background-color: var(--mc-chrome-surface-hover);
+    color: var(--mc-chrome-text-strong);
+    font-weight: var(--mc-weight-semibold);
+    box-shadow: inset var(--mc-focus-ring-width) var(--mc-space-0) var(--mc-space-0)
+      var(--mc-space-0) var(--mc-chrome-accent);
+  }
+  .mc-sidebar-menu-button[data-active="true"] .mc-sidebar-icon {
+    color: var(--mc-chrome-accent);
+  }
+  .mc-sidebar-icon {
+    flex: none;
+    inline-size: var(--mc-space-20);
+    block-size: var(--mc-space-20);
+  }
+  .mc-sidebar-label {
+    overflow: hidden;
+    padding-inline-start: var(--mc-space-8);
+    color: inherit;
+    text-overflow: ellipsis;
+    /* Colour follows the button on hover/active; the collapse (padding/colour to 0/transparent) is
+       instant and composited by the sidebar view-transition. */
+    transition-property: color;
+    transition-duration: var(--mc-duration-normal);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  /* Collapsed icon rail: the label column goes to 0 (its width AND its leading padding to zero so it
+     leaves the row) and its text fades. The icon does NOT recentre — it stays exactly where it is (the
+     rail width is sized so a left-aligned icon reads centred), so collapsing never slides the icons
+     sideways. The before→after change is composited by the sidebar view-transition. */
+  .mc-sidebar[data-state="collapsed"] .mc-sidebar-menu-button {
+    grid-template-columns: var(--mc-space-20) 0fr;
+  }
+  .mc-sidebar[data-state="collapsed"] .mc-sidebar-label {
+    padding-inline-start: var(--mc-space-0);
+    color: transparent;
+  }
+  /* Group labels fade out in the rail; the change is instant and composited by the sidebar
+     view-transition (no per-frame colour transition needed). */
+  .mc-sidebar[data-state="collapsed"] .mc-sidebar-group-label {
+    color: transparent;
+  }
+  /* The collapse Trigger reuses the menu-button look (icon + "Collapse"/"Expand" label); it mutes its
+     icon to read as a control rather than a destination. */
+  .mc-sidebar-trigger .mc-sidebar-icon {
+    color: var(--mc-chrome-text-muted);
+  }
+}

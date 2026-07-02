@@ -1,6 +1,10 @@
 # Store and check out all text files as LF on every platform (matches .editorconfig + oxfmt; stops Git autocrlf from fighting the formatter and CI). This is line endings only -- .gitattributes has no line-length setting.
 * text=auto eol=lf
 
+# Windows batch files: CRLF on checkout (cmd.exe parsing), and keep them ASCII-only -- multibyte
+# characters shear cmd.exe's batch parser under the UTF-8 console codepage (65001).
+*.cmd text eol=crlf
+
 # Binary types -- never normalize. Extend as real assets are added.
 *.png binary
 *.jpg binary

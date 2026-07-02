@@ -1,0 +1,93 @@
+{
+  "$description": "Semantic aliases onto primitives — the light/default truth (tokens/modes/* override per mode). Adding a color-bearing semantic token requires adding its @theme inline mapping in tailwind.template.css (until a gate enforces it).",
+  "surface": {
+    "$description": "Background colors for layered surfaces. `selected` is the persistent chosen-state fill (rows, list items) — its OWN role so selection can diverge from hover per theme without a recipe sweep; `field` is the form-control resting background, distinct from the page surface for dense forms.",
+    "default": { "$type": "color", "$value": "{color.neutral.0}" },
+    "raised": { "$type": "color", "$value": "{color.neutral.50}" },
+    "sunken": { "$type": "color", "$value": "{color.neutral.100}" },
+    "overlay": { "$type": "color", "$value": "{color.neutral.0}" },
+    "scrim": { "$type": "color", "$value": "{color.scrim}" },
+    "selected": { "$type": "color", "$value": "{color.neutral.100}" },
+    "field": { "$type": "color", "$value": "{color.neutral.0}" }
+  },
+  "text": {
+    "default": { "$type": "color", "$value": "{color.neutral.900}" },
+    "muted": { "$type": "color", "$value": "{color.neutral.700}" },
+    "subtle": { "$type": "color", "$value": "{color.neutral.600}" },
+    "inverse": { "$type": "color", "$value": "{color.neutral.0}" },
+    "link": { "$type": "color", "$value": "{color.brand.600}" }
+  },
+  "action": {
+    "$description": "Interactive control colors.",
+    "primary": { "$type": "color", "$value": "{color.brand.800}" },
+    "primary-hover": { "$type": "color", "$value": "{color.brand.700}" },
+    "primary-active": { "$type": "color", "$value": "{color.brand.900}" },
+    "primary-foreground": { "$type": "color", "$value": "{color.neutral.0}" },
+    "secondary": { "$type": "color", "$value": "{color.neutral.100}" },
+    "secondary-hover": { "$type": "color", "$value": "{color.neutral.200}" },
+    "secondary-foreground": { "$type": "color", "$value": "{color.neutral.900}" },
+    "destructive": { "$type": "color", "$value": "{color.red.500}" },
+    "destructive-hover": { "$type": "color", "$value": "{color.red.700}" },
+    "destructive-foreground": { "$type": "color", "$value": "{color.neutral.0}" },
+    "disabled": { "$type": "color", "$value": "{color.neutral.200}" },
+    "disabled-foreground": { "$type": "color", "$value": "{color.neutral.500}" }
+  },
+  "border": {
+    "default": { "$type": "color", "$value": "{color.neutral.200}" },
+    "strong": { "$type": "color", "$value": "{color.neutral.500}" },
+    "focus": { "$type": "color", "$value": "{color.brand.600}" }
+  },
+  "focus": {
+    "ring": { "$type": "color", "$value": "{color.brand.500}" }
+  },
+  "accent": {
+    "$description": "Brand accent — gold by default (the signature thread: active nav, selected, held states, the wordmark). Shared across themes, not theme-varying; a swappable anchor (the role is named, not the value).",
+    "default": { "$type": "color", "$value": "{color.accent.700}" },
+    "subtle": { "$type": "color", "$value": "{color.accent.100}" },
+    "subtle-foreground": { "$type": "color", "$value": "{color.accent.700}" },
+    "strong": { "$type": "color", "$value": "{color.accent.400}" },
+    "strong-foreground": { "$type": "color", "$value": "{color.accent.900}" }
+  },
+  "chrome": {
+    "$description": "The application's EDGE chrome — the dark 'ink' register that FRAMES the work (app-shell rail + top bar). Identity lives here (gold accents read on this ground), so the work canvas can stay light and calm. Follows the brand 'ink' ramp, so the chrome travels with the theme.",
+    "surface": { "$type": "color", "$value": "{color.brand.900}" },
+    "surface-hover": { "$type": "color", "$value": "{color.brand.800}" },
+    "text": { "$type": "color", "$value": "{color.neutral.300}" },
+    "text-muted": { "$type": "color", "$value": "{color.neutral.400}" },
+    "text-strong": { "$type": "color", "$value": "{color.neutral.0}" },
+    "border": { "$type": "color", "$value": "{color.brand.800}" },
+    "accent": { "$type": "color", "$value": "{color.accent.400}" }
+  },
+  "status": {
+    "$description": "Status and feedback colors. The solid pair (saturated fill + light foreground) is for emphasis banners; the SUBTLE trio (pale same-hue tint + deep same-hue text + a soft same-hue hairline) is the default register for chips/pills and inline callouts — calm on a work surface, not a saturated block. The -subtle-border step sits one notch above the tint (a defined edge, not another saturated block); it is decorative, so it carries no contrast pair.",
+    "info": { "$type": "color", "$value": "{color.blue.700}" },
+    "info-foreground": { "$type": "color", "$value": "{color.neutral.0}" },
+    "info-subtle": { "$type": "color", "$value": "{color.blue.100}" },
+    "info-subtle-foreground": { "$type": "color", "$value": "{color.blue.700}" },
+    "info-subtle-border": { "$type": "color", "$value": "{color.blue.300}" },
+    "success": { "$type": "color", "$value": "{color.green.700}" },
+    "success-foreground": { "$type": "color", "$value": "{color.neutral.0}" },
+    "success-subtle": { "$type": "color", "$value": "{color.green.100}" },
+    "success-subtle-foreground": { "$type": "color", "$value": "{color.green.700}" },
+    "success-subtle-border": { "$type": "color", "$value": "{color.green.300}" },
+    "warning": { "$type": "color", "$value": "{color.amber.500}" },
+    "warning-foreground": { "$type": "color", "$value": "{color.neutral.1000}" },
+    "warning-subtle": { "$type": "color", "$value": "{color.amber.100}" },
+    "warning-subtle-foreground": { "$type": "color", "$value": "{color.amber.700}" },
+    "warning-subtle-border": { "$type": "color", "$value": "{color.amber.300}" },
+    "danger": { "$type": "color", "$value": "{color.red.500}" },
+    "danger-foreground": { "$type": "color", "$value": "{color.neutral.0}" },
+    "danger-subtle": { "$type": "color", "$value": "{color.red.100}" },
+    "danger-subtle-foreground": { "$type": "color", "$value": "{color.red.700}" },
+    "danger-subtle-border": { "$type": "color", "$value": "{color.red.300}" }
+  },
+  "density": {
+    "$description": "Layout density dimensions — the user density axis (data-density on <html>) re-points this whole group via the resolver's density modifier (comfortable is this default truth; compact shifts the control ladder one rung and tightens the row geometry). Recipes consume control heights ONLY through these aliases, never {control.*} directly — referencing the aliases IS the axis compliance.",
+    "gutter": { "$type": "dimension", "$value": "{space.16}" },
+    "stack": { "$type": "dimension", "$value": "{space.12}" },
+    "control-height": { "$type": "dimension", "$value": "{control.md}" },
+    "control-sm": { "$type": "dimension", "$value": "{control.sm}" },
+    "control-md": { "$type": "dimension", "$value": "{control.md}" },
+    "control-lg": { "$type": "dimension", "$value": "{control.lg}" }
+  }
+}

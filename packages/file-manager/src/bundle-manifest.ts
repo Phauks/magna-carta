@@ -87,8 +87,7 @@ export function buildBundleManifest(args: BuildBundleManifestArgs): BundleManife
     encryption = { password, encryptFileNames: options.encryption.encryptFileNames };
   }
 
-  const split =
-    options.split === null ? null : { maxPartBytes: options.split.maxPartBytes };
+  const split = options.split === null ? null : { maxPartBytes: options.split.maxPartBytes };
 
   return {
     jobId,

@@ -1,0 +1,66 @@
+@layer components {
+  /*
+   * Masthead — the page's ceremonial edge: the ONE place the display serif enters a screen
+   * (font.display + the off-grid weight.display are deliberately unmapped as utilities, so this
+   * recipe is their only door). The register: a serif title with real scale contrast over a
+   * letterspaced-caps eyebrow and a quiet citation-style meta line; actions sit on the title's
+   * baseline row, pushed to the inline end. Everything below the masthead stays the calm reading
+   * sans — if a workflow cell wants serif, it is in the wrong register.
+   */
+  .mc-masthead {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--mc-space-16);
+  }
+  .mc-masthead-heading {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    /* The heading block yields to the actions but never collapses under them. */
+    min-inline-size: var(--mc-space-0);
+  }
+  .mc-masthead-eyebrow {
+    color: var(--mc-text-subtle);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-semibold);
+    letter-spacing: var(--mc-tracking-caps);
+    text-transform: uppercase;
+  }
+  .mc-masthead-title {
+    margin: var(--mc-space-0);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-display);
+    font-size: var(--mc-font-size-3xl);
+    font-weight: var(--mc-weight-display);
+    letter-spacing: var(--mc-tracking-tight);
+    line-height: var(--mc-leading-tight);
+    /* The display face's optical axis: at masthead sizes the display cut, not the text cut. */
+    font-optical-sizing: auto;
+    text-wrap: balance;
+  }
+  .mc-masthead-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--mc-space-8);
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+  }
+  /* The citation line's interpunct — a separator, not content (hidden from the tree). */
+  .mc-masthead-meta-separator {
+    color: var(--mc-border-strong);
+    user-select: none;
+  }
+  .mc-masthead-actions {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: var(--mc-space-8);
+    margin-inline-start: auto;
+    /* Optically level with the title's cap height rather than the eyebrow above it. */
+    padding-block-start: var(--mc-space-4);
+  }
+}

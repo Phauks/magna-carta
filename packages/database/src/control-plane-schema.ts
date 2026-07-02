@@ -58,7 +58,9 @@ export const firm = sqliteTable("firm", {
   // privileged session to the requester's own access, so co-sign is opt-in hardening. Promoted into
   // the declarative settings registry later; an interim control-plane column keeps grant creation a
   // single control-plane read.
-  supportRequiresCosign: integer("support_requires_cosign", { mode: "boolean" }).notNull().default(false),
+  supportRequiresCosign: integer("support_requires_cosign", { mode: "boolean" })
+    .notNull()
+    .default(false),
   // ISO-8601 UTC instant.
   createdAt: text("created_at").notNull(),
 });
@@ -198,7 +200,9 @@ export const platformStaff = sqliteTable("platform_staff", {
   displayName: text("display_name").notNull(),
   // 'support' may redeem diagnostic grants; 'support_lead' additionally may redeem privileged grants.
   role: text("role", { enum: ["support", "support_lead"] }).notNull(),
-  status: text("status", { enum: ["active", "disabled"] }).notNull().default("active"),
+  status: text("status", { enum: ["active", "disabled"] })
+    .notNull()
+    .default("active"),
   createdAt: text("created_at").notNull(), // ISO-8601 instant
 });
 
@@ -215,7 +219,9 @@ export const supportGrant = sqliteTable(
     // The firm member who requested help — the consent anchor and the privileged-tier authority source.
     requestedByUserId: text("requested_by_user_id").notNull().$type<UserId>(),
     tier: text("tier", { enum: ["diagnostic", "privileged"] }).notNull(),
-    scope: text("scope", { enum: ["self"] }).notNull().default("self"),
+    scope: text("scope", { enum: ["self"] })
+      .notNull()
+      .default("self"),
     status: text("status", {
       enum: ["requested", "active", "revoked", "expired", "closed"],
     }).notNull(),
