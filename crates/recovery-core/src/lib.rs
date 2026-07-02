@@ -15,5 +15,6 @@ pub mod repair;
 pub mod salvage;
 pub mod zip_repair;
 
+pub use carve::carve;
 pub use diagnose::diagnose;
 pub use repair::repair;

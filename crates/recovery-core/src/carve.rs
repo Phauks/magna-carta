@@ -8,6 +8,9 @@ mod signatures;
 
 pub use signatures::{Signature, SIGNATURES};
 
+use crate::error::RepairError;
+use crate::limits::MAX_ENTRY_COUNT;
+use crate::model::{LossManifest, RecoveredItem, RepairResult, SalvagedFile};
 use aho_corasick::AhoCorasick;
 
 /// One located candidate: which signature matched, the extracted byte range, and
@@ -127,6 +130,85 @@ fn image_header_ok(media_type: &str, run: &[u8]) -> bool {
         "image/png" => zune_png::PngDecoder::new(run).decode_headers().is_ok(),
         _ => false,
     }
+}
+
+/// Extract embedded known-type files from an arbitrary blob. Format-agnostic
+/// fallback for when the format pillars cannot help. Returns each extracted
+/// fragment as a `SalvagedFile`; the loss manifest lists every candidate and is
+/// deliberately never "fully recovered" — carving cannot certify it found every
+/// embedded file. `Err(Unrepairable)` when nothing extractable is present.
+pub fn carve(bytes: &[u8]) -> Result<RepairResult, RepairError> {
+    let candidates = scan_candidates(bytes, MAX_ENTRY_COUNT);
+    if candidates.is_empty() {
+        return Err(RepairError::Unrepairable);
+    }
+
+    let mut files = Vec::new();
+    let mut items = Vec::new();
+    let mut index = 0u32;
+    for candidate in &candidates {
+        index += 1;
+        let sig = &SIGNATURES[candidate.signature];
+        let run = &bytes[candidate.start..candidate.end];
+        let confidence = validate(run, candidate);
+        let name = format!("{index:04}.{}", sig.extension);
+
+        // recovered = fully validated; emit = worth handing back at all. A truncated
+        // fragment is emitted (the partial bytes may be salvageable) but flagged not
+        // recovered; a bounded candidate that fails validation is a false-positive
+        // header — listed lost and NOT emitted, so garbage is never handed back as
+        // an output file.
+        let (recovered, emit, detail) = match confidence {
+            Confidence::Decoded => (true, true, String::new()),
+            Confidence::Delimited => (
+                true,
+                true,
+                "extracted by signature: header and terminator found".to_string(),
+            ),
+            Confidence::Unconfirmed if candidate.truncated => (
+                false,
+                true,
+                "header found but no terminator within the size cap; extraction is truncated"
+                    .to_string(),
+            ),
+            Confidence::Unconfirmed => (
+                false,
+                false,
+                "signature matched but the content did not validate".to_string(),
+            ),
+        };
+
+        if emit {
+            files.push(SalvagedFile {
+                name: name.clone(),
+                bytes: run.to_vec(),
+                media_type: Some(sig.media_type.to_string()),
+            });
+        }
+        // Every candidate is accounted for in the manifest, emitted or not.
+        items.push(RecoveredItem {
+            name,
+            recovered,
+            detail,
+        });
+    }
+
+    if files.is_empty() {
+        // Candidates were found but all were false-positive headers — nothing
+        // trustworthy to hand back.
+        return Err(RepairError::Unrepairable);
+    }
+
+    Ok(RepairResult {
+        files,
+        loss: LossManifest {
+            items,
+            // Carving can never certify it found every embedded file.
+            fully_recovered: false,
+            // Every output is a verbatim byte range — nothing is fabricated.
+            synthesized: Vec::new(),
+        },
+    })
 }
 
 #[cfg(test)]
@@ -261,5 +343,56 @@ mod validate_tests {
             .iter()
             .position(|s| s.media_type == "image/png")
             .unwrap()
+    }
+}
+
+#[cfg(test)]
+mod carve_tests {
+    use super::*;
+
+    /// A blob with a real 1x1 PNG embedded between junk.
+    fn blob_with_png() -> Vec<u8> {
+        let png: &[u8] = &[
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
+            0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00,
+            0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54, 0x78,
+            0x9C, 0x63, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00,
+            0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+        ];
+        let mut v = b"leading junk".to_vec();
+        v.extend_from_slice(png);
+        v.extend_from_slice(b"trailing junk");
+        v
+    }
+
+    #[test]
+    fn carves_an_embedded_png_and_never_claims_full_recovery() {
+        let result = carve(&blob_with_png()).expect("carvable");
+        assert_eq!(result.files.len(), 1);
+        assert_eq!(result.files[0].media_type.as_deref(), Some("image/png"));
+        assert_eq!(result.files[0].name, "0001.png");
+        // Byte-exact extraction: the carved file re-decodes.
+        assert!(zune_png::PngDecoder::new(&result.files[0].bytes)
+            .decode_headers()
+            .is_ok());
+        // Carving never certifies completeness.
+        assert!(!result.loss.fully_recovered);
+        assert!(result.loss.synthesized.is_empty());
+        assert_eq!(result.loss.items.iter().filter(|i| i.recovered).count(), 1);
+    }
+
+    #[test]
+    fn a_blob_with_no_signatures_is_unrepairable() {
+        assert!(carve(b"just some plain text, nothing embedded").is_err());
+    }
+
+    #[test]
+    fn a_truncated_candidate_is_listed_lost() {
+        let mut blob = b"junk".to_vec();
+        blob.extend_from_slice(&[0xFF, 0xD8, 0xFF]); // JPEG header, no footer
+        blob.extend_from_slice(b"incomplete");
+        let result = carve(&blob).expect("something was found");
+        assert!(!result.loss.fully_recovered);
+        assert!(result.loss.items.iter().any(|i| !i.recovered));
     }
 }
