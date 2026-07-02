@@ -8,7 +8,7 @@ use cfb::CompoundFile;
 
 use crate::error::RepairError;
 use crate::limits::{MAX_ENTRY_COUNT, MAX_ENTRY_UNCOMPRESSED_BYTES, MAX_TOTAL_UNCOMPRESSED_BYTES};
-use crate::model::{CorruptionKind, Recoverability};
+use crate::model::{CorruptionKind, LossManifest, Recoverability, RecoveredItem, RepairResult};
 
 #[derive(Debug, Clone)]
 pub struct SalvagedStream {
@@ -158,6 +158,45 @@ pub fn tests_build_minimal_cfb() -> Vec<u8> {
     compound.into_inner().into_inner()
 }
 
+/// Repair a damaged compound file: salvage every readable stream, re-emit a fresh
+/// CFB, and record an honest loss manifest. Errors (rather than emitting an empty
+/// file) when nothing is recoverable.
+pub fn repair_cfb(bytes: &[u8]) -> Result<RepairResult, RepairError> {
+    let salvaged = salvage_streams(bytes)?;
+    let recovered: Vec<(String, Vec<u8>)> = salvaged
+        .iter()
+        .filter_map(|s| s.data.clone().map(|d| (s.path.clone(), d)))
+        .collect();
+    if recovered.is_empty() {
+        return Err(RepairError::Unrepairable);
+    }
+    let (bytes_out, skipped) = rebuild_cfb(&recovered)?;
+    let mut items: Vec<RecoveredItem> = salvaged
+        .iter()
+        .map(|s| RecoveredItem {
+            name: s.path.clone(),
+            recovered: s.recovered,
+            detail: s.detail.clone(),
+        })
+        .collect();
+    // A stream lost at re-emit is recorded lost.
+    for name in &skipped {
+        if let Some(item) = items.iter_mut().find(|i| &i.name == name) {
+            item.recovered = false;
+            item.detail = "stream lost during rebuild".into();
+        }
+    }
+    let fully_recovered = items.iter().all(|i| i.recovered);
+    Ok(RepairResult {
+        salvaged: bytes_out,
+        loss: LossManifest {
+            items,
+            fully_recovered,
+            synthesized: Vec::new(),
+        },
+    })
+}
+
 #[cfg(test)]
 mod salvage_tests {
     use super::*;
@@ -245,5 +284,27 @@ mod rebuild_tests {
             .unwrap();
         assert_eq!(data, b"recovered body");
         assert!(reopened.exists("/ObjectPool/item"));
+    }
+}
+
+#[cfg(test)]
+mod repair_tests {
+    use super::*;
+
+    #[test]
+    fn repairs_a_healthy_cfb_and_reopens() {
+        let cfb = salvage_tests::build_cfb(&[("/WordDocument", b"body"), ("/\x01CompObj", b"co")]);
+        let result = repair_cfb(&cfb).expect("repairable");
+        // Reopen the salvaged compound file.
+        let reopened = CompoundFile::open(Cursor::new(result.salvaged.clone())).expect("valid cfb");
+        assert!(reopened.exists("/WordDocument"));
+        assert!(result.loss.fully_recovered);
+        assert!(result.loss.synthesized.is_empty());
+        assert_eq!(result.loss.items.iter().filter(|i| i.recovered).count(), 2);
+    }
+
+    #[test]
+    fn an_unopenable_input_errors() {
+        assert!(repair_cfb(b"\xD0\xCF\x11\xE0 garbage after the magic, not a real cfb").is_err());
     }
 }

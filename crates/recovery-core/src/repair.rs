@@ -10,6 +10,7 @@ use engine_host::format::{detect, Format};
 pub fn repair(bytes: &[u8]) -> Result<RepairResult, RepairError> {
     match detect(bytes) {
         Some(Format::Zip) => crate::zip_repair::repair_zip(bytes),
+        Some(Format::Ole2) => crate::cfb_repair::repair_cfb(bytes),
         Some(_) => Err(RepairError::Unsupported),
         None => Err(RepairError::NotRecognized),
     }
