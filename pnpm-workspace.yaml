@@ -19,6 +19,10 @@ onlyBuiltDependencies:
 catalog:
   # Toolchain
   vite-plus: 0.1.24
+  # The type-check compiler for the project-references build graph (`tsc -b tsconfig.build.json`).
+  # Distinct from vp's bundled tsc: this is the engine our `vp run typecheck` task owns, and the swap
+  # point for the TypeScript 7 native compiler (tsgo) later. See docs/conventions/build-performance.md.
+  typescript: 6.0.3
   # Cloudflare
   wrangler: 4.105.0
   "@cloudflare/workers-types": 4.20260625.1

@@ -20,3 +20,7 @@ docs/research/trust-rules/_tmp_*
 # Rust build artifacts (crates workspace + throwaway spikes)
 /crates/target/
 /spikes/*/target/
+
+# TypeScript project-references build output: composite .d.ts + .tsbuildinfo emitted by
+# `tsc -b tsconfig.build.json` (regenerable; the shipped declarations come from the bundler).
+.tsbuild/
