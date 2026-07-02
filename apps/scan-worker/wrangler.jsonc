@@ -26,13 +26,18 @@
   // SQLite-backed DO class introduced via migration tag; first migration for this worker.
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ScanContainer"] }],
   // Cron triggers:
-  //   */20 * * * * — warm-poke: keeps one container instance (and clamd's signature DB) alive
-  //                  by hitting /ready before the 30-minute sleepAfter lapses.
-  //   0 7 * * *   — daily signature-refresh: triggers a wrangler deploy via SCAN_BUILD_DEPLOY_HOOK_URL
-  //                  so the container image (and therefore ClamAV signatures) is rebuilt daily. A no-op
-  //                  when SCAN_BUILD_DEPLOY_HOOK_URL is unset (the secret is not required at deploy time).
+  //   0 7 * * * — daily signature-refresh: triggers a wrangler deploy via SCAN_BUILD_DEPLOY_HOOK_URL
+  //               so the container image (and therefore ClamAV signatures) is rebuilt daily. A no-op
+  //               when SCAN_BUILD_DEPLOY_HOOK_URL is unset (the secret is not required at deploy time).
+  //
+  // The */20 warm-poke is intentionally OFF while no firms are onboarded: with zero scan traffic,
+  // pinning a standard-1 instance resident keeps its 4 GiB billed continuously (~$26/mo memory) for
+  // no benefit. Without the poke the container reaches its 30-minute sleepAfter and scales to zero,
+  // so it bills only while an actual scan runs. Re-add "*/20 * * * *" when the first firm is
+  // onboarded — that keeps clamd's signature DB resident so the first real scan isn't a ~30-60s cold
+  // start. The poke handler stays wired in index.ts (SCAN_WARM_CRON), so re-enabling is this one line.
   "triggers": {
-    "crons": ["*/20 * * * *", "0 7 * * *"],
+    "crons": ["0 7 * * *"],
   },
   "observability": { "enabled": true, "head_sampling_rate": 1 },
 }
