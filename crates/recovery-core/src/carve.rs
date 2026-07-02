@@ -1,201 +1,118 @@
 //! The carving fallback pillar: format-agnostic extraction of embedded known-type
-//! files from any blob. Scans a header/footer signature table, bounds each
-//! candidate, validates it, and returns the found files with an honest,
-//! never-complete loss manifest. A separate entry point — NOT part of the
-//! detect()-keyed repair/diagnose dispatch.
+//! files from any blob. Scans a header/footer signature table, resolves each
+//! candidate's extent by trying footer positions until one actually PARSES/DECODES
+//! as its type, and returns the found files with an honest, never-complete loss
+//! manifest. A separate entry point — NOT part of the detect()-keyed dispatch.
+//!
+//! `recovered: true` always means a carved run actually parsed/decoded as its type
+//! (a real image/zip/pdf), never merely that a header and a terminator byte were
+//! present — a coincidental or premature terminator (a ZIP end-of-central-directory
+//! signature inside compressed data, a JPEG thumbnail's EOI before the main image)
+//! is stepped over, and a run that never validates is reported lost, not recovered.
 
 mod signatures;
 
 pub use signatures::{Signature, SIGNATURES};
 
+use std::io::Cursor;
+
+use aho_corasick::AhoCorasick;
+
 use crate::error::RepairError;
 use crate::limits::MAX_ENTRY_COUNT;
 use crate::model::{LossManifest, RecoveredItem, RepairResult, SalvagedFile};
-use aho_corasick::AhoCorasick;
 
-/// One located candidate: which signature matched, the extracted byte range, and
-/// whether it was cut at the size cap because no footer was found.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Candidate {
-    pub signature: usize,
-    pub start: usize,
-    pub end: usize,
-    pub truncated: bool,
+/// The most footer positions to try per header before giving up. Bounds the work
+/// on a pathological blob (a header followed by a dense field of terminator bytes)
+/// while still stepping over a handful of premature terminators (a thumbnail EOI,
+/// an incremental-update marker).
+const MAX_FOOTER_ATTEMPTS: usize = 256;
+
+/// How one header's extent resolved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Outcome {
+    /// A footer-delimited run that actually parsed/decoded as its type.
+    Validated,
+    /// A header with NO terminator within the cap — a truncated partial (real data
+    /// up to the cap, but incomplete): worth handing back, flagged not recovered.
+    Truncated,
+    /// A header (with one or more terminators present) but no extent that parsed —
+    /// a false-positive header or content too corrupt to trust: listed lost, not
+    /// emitted.
+    NoValidExtent,
 }
 
-/// Scan `bytes` for every signature header, and bound each match's extent by the
-/// type's footer (searched after the header, within `max_len`) or, failing that,
-/// by `max_len` / the next header / end of blob (recorded `truncated`). Overlapping
-/// candidates are skipped: after emitting one, scanning resumes at its end. Stops
-/// after `max_count` candidates.
-pub fn scan_candidates(bytes: &[u8], max_count: usize) -> Vec<Candidate> {
+/// Extract embedded known-type files from an arbitrary blob. Format-agnostic
+/// fallback for when the format pillars cannot help. Each recovered fragment is a
+/// run that actually parsed/decoded as its type; the loss manifest lists every
+/// candidate and is deliberately never "fully recovered" — carving cannot certify
+/// it found every embedded file. `Err(Unrepairable)` when nothing extractable and
+/// trustworthy is present.
+pub fn carve(bytes: &[u8]) -> Result<RepairResult, RepairError> {
     // Build the automaton from the header patterns, in SIGNATURES order so a match's
     // pattern index maps straight back to the signature.
     let headers: Vec<&[u8]> = SIGNATURES.iter().map(|s| s.header).collect();
     let automaton = match AhoCorasick::new(&headers) {
         Ok(automaton) => automaton,
-        Err(_) => return Vec::new(),
+        Err(_) => return Err(RepairError::Unrepairable),
     };
 
-    let mut out = Vec::new();
+    let mut files = Vec::new();
+    let mut items = Vec::new();
     let mut cursor = 0;
-    while cursor < bytes.len() {
+    let mut index = 0u32;
+    while cursor < bytes.len() && items.len() < MAX_ENTRY_COUNT {
         let Some(m) = automaton.find(&bytes[cursor..]) else {
             break;
         };
         let signature = m.pattern().as_usize();
         let start = cursor + m.start();
         let sig = &SIGNATURES[signature];
+        let (end, outcome) = resolve_extent(bytes, sig, start);
 
-        let body_start = start + sig.header.len();
-        let cap_end = start.saturating_add(sig.max_len).min(bytes.len());
-        let (end, truncated) = match sig.footer {
-            Some(footer) => match find_from(&bytes[..cap_end], footer, body_start) {
-                Some(at) => (at + footer.len(), false),
-                None => (cap_end, true),
-            },
-            None => (cap_end, true),
-        };
-
-        out.push(Candidate {
-            signature,
-            start,
-            end,
-            truncated,
-        });
-        if out.len() >= max_count {
-            break;
-        }
-        // Resume after this candidate to avoid re-matching a header inside it.
-        cursor = end.max(start + 1);
-    }
-    out
-}
-
-/// Index of the first occurrence of `needle` in `haystack` at or after `start`.
-fn find_from(haystack: &[u8], needle: &[u8], start: usize) -> Option<usize> {
-    if needle.is_empty() || start >= haystack.len() || haystack.len() - start < needle.len() {
-        return None;
-    }
-    haystack[start..]
-        .windows(needle.len())
-        .position(|window| window == needle)
-        .map(|position| start + position)
-}
-
-/// How well a candidate was validated. `Decoded` (image header parsed) and
-/// `Delimited` (non-image, header and footer both present) are reported recovered;
-/// `Unconfirmed` (truncated, or an image whose header will not parse) is reported
-/// lost — a signature match is not proof of a complete file.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Confidence {
-    Decoded,
-    Delimited,
-    Unconfirmed,
-}
-
-/// Validate a carved run. A truncated candidate is always `Unconfirmed`. An image
-/// is `Decoded` only if its header parses; a delimited non-image is `Delimited`.
-pub fn validate(run: &[u8], candidate: &Candidate) -> Confidence {
-    if candidate.truncated {
-        return Confidence::Unconfirmed;
-    }
-    let sig = &SIGNATURES[candidate.signature];
-    if sig.image {
-        if image_header_ok(sig.media_type, run) {
-            Confidence::Decoded
-        } else {
-            Confidence::Unconfirmed
-        }
-    } else {
-        // Non-image, header+footer found (truncated == false): structurally bounded.
-        Confidence::Delimited
-    }
-}
-
-/// Best-effort image validation via a header-only decode (never a full pixel
-/// decode — that bounds work and avoids a decode bomb on a huge carved image).
-fn image_header_ok(media_type: &str, run: &[u8]) -> bool {
-    match media_type {
-        // zune-jpeg 0.5's `JpegDecoder` reads via `ZByteReaderTrait`, which a bare
-        // `&[u8]` does not implement directly — wrap it in `ZCursor` (re-exported
-        // from zune_jpeg so no separate zune-core dependency is needed).
-        "image/jpeg" => {
-            zune_jpeg::JpegDecoder::new(zune_jpeg::zune_core::bytestream::ZCursor::new(run))
-                .decode_headers()
-                .is_ok()
-        }
-        // zune-png 0.4's `PngDecoder` reads via `ZReaderTrait`, implemented directly
-        // for `&[u8]`, so no wrapper is needed here.
-        "image/png" => zune_png::PngDecoder::new(run).decode_headers().is_ok(),
-        _ => false,
-    }
-}
-
-/// Extract embedded known-type files from an arbitrary blob. Format-agnostic
-/// fallback for when the format pillars cannot help. Returns each extracted
-/// fragment as a `SalvagedFile`; the loss manifest lists every candidate and is
-/// deliberately never "fully recovered" — carving cannot certify it found every
-/// embedded file. `Err(Unrepairable)` when nothing extractable is present.
-pub fn carve(bytes: &[u8]) -> Result<RepairResult, RepairError> {
-    let candidates = scan_candidates(bytes, MAX_ENTRY_COUNT);
-    if candidates.is_empty() {
-        return Err(RepairError::Unrepairable);
-    }
-
-    let mut files = Vec::new();
-    let mut items = Vec::new();
-    let mut index = 0u32;
-    for candidate in &candidates {
         index += 1;
-        let sig = &SIGNATURES[candidate.signature];
-        let run = &bytes[candidate.start..candidate.end];
-        let confidence = validate(run, candidate);
         let name = format!("{index:04}.{}", sig.extension);
-
-        // recovered = fully validated; emit = worth handing back at all. A truncated
-        // fragment is emitted (the partial bytes may be salvageable) but flagged not
-        // recovered; a bounded candidate that fails validation is a false-positive
-        // header — listed lost and NOT emitted, so garbage is never handed back as
-        // an output file.
-        let (recovered, emit, detail) = match confidence {
-            Confidence::Decoded => (true, true, String::new()),
-            Confidence::Delimited => (
-                true,
-                true,
-                "extracted by signature: header and terminator found".to_string(),
-            ),
-            Confidence::Unconfirmed if candidate.truncated => (
+        // recovered = actually parsed/decoded; emit = worth handing back. A truncated
+        // partial is emitted but flagged not recovered; a header that never validated
+        // is listed lost and NOT emitted, so garbage is never handed back.
+        let (recovered, emit, detail) = match outcome {
+            Outcome::Validated => (true, true, String::new()),
+            Outcome::Truncated => (
                 false,
                 true,
                 "header found but no terminator within the size cap; extraction is truncated"
                     .to_string(),
             ),
-            Confidence::Unconfirmed => (
+            Outcome::NoValidExtent => (
                 false,
                 false,
-                "signature matched but the content did not validate".to_string(),
+                "signature matched but no valid file could be extracted".to_string(),
             ),
         };
-
         if emit {
             files.push(SalvagedFile {
                 name: name.clone(),
-                bytes: run.to_vec(),
+                bytes: bytes[start..end].to_vec(),
                 media_type: Some(sig.media_type.to_string()),
             });
         }
-        // Every candidate is accounted for in the manifest, emitted or not.
         items.push(RecoveredItem {
             name,
             recovered,
             detail,
         });
+
+        // Advance past a validated/truncated run (its bytes are consumed); for a
+        // header that never validated, step just past the header so a real file
+        // sitting right after a false-positive header is still found.
+        cursor = match outcome {
+            Outcome::Validated | Outcome::Truncated => end.max(start + 1),
+            Outcome::NoValidExtent => start + sig.header.len(),
+        };
     }
 
     if files.is_empty() {
-        // Candidates were found but all were false-positive headers — nothing
-        // trustworthy to hand back.
+        // No candidates, or candidates found but none produced a trustworthy file.
         return Err(RepairError::Unrepairable);
     }
 
@@ -211,188 +128,256 @@ pub fn carve(bytes: &[u8]) -> Result<RepairResult, RepairError> {
     })
 }
 
-#[cfg(test)]
-mod scan_tests {
-    use super::*;
-
-    /// A blob = junk + a tiny fake JPEG (header..footer) + junk.
-    fn blob_with_jpeg() -> Vec<u8> {
-        let mut v = b"....junk....".to_vec();
-        v.extend_from_slice(&[0xFF, 0xD8, 0xFF]); // JPEG header
-        v.extend_from_slice(b"body");
-        v.extend_from_slice(&[0xFF, 0xD9]); // JPEG footer
-        v.extend_from_slice(b"....trailing....");
-        v
-    }
-
-    #[test]
-    fn finds_an_embedded_candidate_bounded_by_its_footer() {
-        let blob = blob_with_jpeg();
-        let found = scan_candidates(&blob, 1000);
-        assert_eq!(found.len(), 1);
-        let c = &found[0];
-        assert_eq!(SIGNATURES[c.signature].media_type, "image/jpeg");
-        assert!(!c.truncated);
-        // The extracted range is exactly header..=footer.
-        assert_eq!(
-            &blob[c.start..c.end],
-            &[0xFF, 0xD8, 0xFF, b'b', b'o', b'd', b'y', 0xFF, 0xD9]
-        );
-    }
-
-    #[test]
-    fn a_header_without_a_footer_is_truncated_and_bounded() {
-        let mut blob = b"junk".to_vec();
-        blob.extend_from_slice(&[0xFF, 0xD8, 0xFF]);
-        blob.extend_from_slice(b"no footer here");
-        let found = scan_candidates(&blob, 1000);
-        assert_eq!(found.len(), 1);
-        assert!(found[0].truncated);
-        assert_eq!(found[0].end, blob.len()); // bounded to end of blob
-    }
-
-    #[test]
-    fn junk_yields_no_candidates() {
-        assert!(scan_candidates(b"nothing to see here at all", 1000).is_empty());
-    }
-
-    #[test]
-    fn respects_the_count_cap() {
-        let mut blob = Vec::new();
-        for _ in 0..5 {
-            blob.extend_from_slice(&[0xFF, 0xD8, 0xFF]);
-            blob.extend_from_slice(&[0xFF, 0xD9]);
+/// Resolve one header's extent. Try each footer occurrence (shortest run first)
+/// and accept the first run that VALIDATES as a real file of its type; this steps
+/// over premature terminators (a thumbnail's EOI, a coincidental end-of-archive
+/// signature). If no footer occurrence validates, report `NoValidExtent` (a footer
+/// was present but nothing parsed) or `Truncated` (no footer at all within the cap).
+fn resolve_extent(bytes: &[u8], sig: &Signature, start: usize) -> (usize, Outcome) {
+    let body_start = start + sig.header.len();
+    let cap_end = start.saturating_add(sig.max_len).min(bytes.len());
+    match sig.footer {
+        None => {
+            if validate_run(sig, &bytes[start..cap_end]) {
+                (cap_end, Outcome::Validated)
+            } else {
+                (cap_end, Outcome::NoValidExtent)
+            }
         }
-        assert_eq!(scan_candidates(&blob, 2).len(), 2);
+        Some(footer) => {
+            let mut search = body_start;
+            let mut any_footer = false;
+            let mut attempts = 0;
+            while attempts < MAX_FOOTER_ATTEMPTS {
+                let Some(at) = find_from(&bytes[..cap_end], footer, search) else {
+                    break;
+                };
+                any_footer = true;
+                attempts += 1;
+                // The footer signature is not always the file's last byte — a ZIP's
+                // end-of-central-directory record carries 18 fixed bytes plus a
+                // variable comment after its signature. Compute the true end.
+                let end = footer_end(sig, bytes, at, cap_end);
+                if validate_run(sig, &bytes[start..end]) {
+                    return (end, Outcome::Validated);
+                }
+                search = at + 1;
+            }
+            if any_footer {
+                (cap_end, Outcome::NoValidExtent)
+            } else {
+                (cap_end, Outcome::Truncated)
+            }
+        }
     }
 }
 
+/// The byte index just past a file's real end, given its footer signature matched
+/// at `at`. For most types the footer IS the last bytes; ZIP's end-of-central-
+/// directory record extends 22 fixed bytes plus its comment beyond the signature.
+fn footer_end(sig: &Signature, bytes: &[u8], at: usize, cap_end: usize) -> usize {
+    match sig.media_type {
+        "application/zip" => {
+            // EOCD layout: signature(4) + 16 fixed bytes + comment length(2) at
+            // offset 20 + comment. Fall back to the bare signature if the fixed
+            // record does not fit (a truncated EOCD — validation will then reject it).
+            if at + 22 <= bytes.len() {
+                let comment_len = u16::from_le_bytes([bytes[at + 20], bytes[at + 21]]) as usize;
+                (at + 22 + comment_len).min(cap_end)
+            } else {
+                at + sig.footer.map_or(0, |f| f.len())
+            }
+        }
+        _ => at + sig.footer.map_or(0, |f| f.len()),
+    }
+}
+
+/// Validate a carved run by actually parsing/decoding it as its type — so a
+/// recovered fragment is a real file, not a coincidental header+footer. Images use
+/// a header-only decode (bounds work, no full-pixel decode bomb); ZIP/PDF use their
+/// readers. An unknown type never validates.
+fn validate_run(sig: &Signature, run: &[u8]) -> bool {
+    match sig.media_type {
+        // zune-jpeg 0.5's `JpegDecoder` reads via `ZByteReaderTrait`, which a bare
+        // `&[u8]` does not implement — wrap it in `ZCursor` (re-exported from
+        // zune_jpeg, so no separate zune-core dependency is needed).
+        "image/jpeg" => {
+            zune_jpeg::JpegDecoder::new(zune_jpeg::zune_core::bytestream::ZCursor::new(run))
+                .decode_headers()
+                .is_ok()
+        }
+        // zune-png 0.4's `PngDecoder` reads via `ZReaderTrait`, implemented for `&[u8]`.
+        "image/png" => zune_png::PngDecoder::new(run).decode_headers().is_ok(),
+        // A real archive opens (central directory present and consistent).
+        "application/zip" => zip::ZipArchive::new(Cursor::new(run)).is_ok(),
+        // A real PDF loads (a findable, parseable cross-reference + trailer).
+        "application/pdf" => lopdf::Document::load_mem(run).is_ok(),
+        _ => false,
+    }
+}
+
+/// Index of the first occurrence of `needle` in `haystack` at or after `start`.
+fn find_from(haystack: &[u8], needle: &[u8], start: usize) -> Option<usize> {
+    if needle.is_empty() || start >= haystack.len() || haystack.len() - start < needle.len() {
+        return None;
+    }
+    haystack[start..]
+        .windows(needle.len())
+        .position(|window| window == needle)
+        .map(|position| start + position)
+}
+
 #[cfg(test)]
-mod validate_tests {
+mod tests {
     use super::*;
 
-    #[test]
-    fn a_real_png_header_decodes() {
-        // Minimal valid PNG (1x1) — decode_headers must accept it.
-        let png: &[u8] = &[
-            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
-            0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00,
-            0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54, 0x78,
-            0x9C, 0x63, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00,
-            0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
-        ];
-        let candidate = Candidate {
-            signature: png_index(),
-            start: 0,
-            end: png.len(),
-            truncated: false,
-        };
-        assert_eq!(validate(png, &candidate), Confidence::Decoded);
-    }
+    /// A minimal valid 1x1 PNG.
+    const TINY_PNG: &[u8] = &[
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44,
+        0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F,
+        0x15, 0xC4, 0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00,
+        0x01, 0x00, 0x00, 0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49,
+        0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+    ];
 
-    #[test]
-    fn a_fake_png_that_does_not_decode_is_unconfirmed() {
-        let fake = &[
-            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0xFF, 0xFF, 0xFF, 0xFF,
-        ];
-        let candidate = Candidate {
-            signature: png_index(),
-            start: 0,
-            end: fake.len(),
-            truncated: false,
-        };
-        assert_eq!(validate(fake, &candidate), Confidence::Unconfirmed);
-    }
-
-    #[test]
-    fn a_delimited_non_image_is_delimited() {
-        // A ZIP candidate with header+footer found (truncated: false) validates structurally.
-        let zip_index = SIGNATURES
-            .iter()
-            .position(|s| s.media_type == "application/zip")
-            .unwrap();
-        let candidate = Candidate {
-            signature: zip_index,
-            start: 0,
-            end: 8,
-            truncated: false,
-        };
-        assert_eq!(
-            validate(b"PK\x03\x04PK\x05\x06", &candidate),
-            Confidence::Delimited
-        );
-    }
-
-    #[test]
-    fn a_truncated_candidate_is_unconfirmed() {
-        let zip_index = SIGNATURES
-            .iter()
-            .position(|s| s.media_type == "application/zip")
-            .unwrap();
-        let candidate = Candidate {
-            signature: zip_index,
-            start: 0,
-            end: 4,
-            truncated: true,
-        };
-        assert_eq!(validate(b"PK\x03\x04", &candidate), Confidence::Unconfirmed);
-    }
-
-    fn png_index() -> usize {
+    fn sig_for(media_type: &str) -> &'static Signature {
         SIGNATURES
             .iter()
-            .position(|s| s.media_type == "image/png")
+            .find(|s| s.media_type == media_type)
             .unwrap()
     }
-}
 
-#[cfg(test)]
-mod carve_tests {
-    use super::*;
-
-    /// A blob with a real 1x1 PNG embedded between junk.
-    fn blob_with_png() -> Vec<u8> {
-        let png: &[u8] = &[
-            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
-            0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00,
-            0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54, 0x78,
-            0x9C, 0x63, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00,
-            0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
-        ];
-        let mut v = b"leading junk".to_vec();
-        v.extend_from_slice(png);
-        v.extend_from_slice(b"trailing junk");
-        v
+    fn minimal_pdf() -> Vec<u8> {
+        use lopdf::{dictionary, Document, Object};
+        let mut doc = Document::with_version("1.5");
+        let pages_id = doc.new_object_id();
+        let page_id = doc.add_object(dictionary! {
+            "Type" => "Page",
+            "Parent" => pages_id,
+            "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+        });
+        doc.objects.insert(
+            pages_id,
+            Object::Dictionary(dictionary! {
+                "Type" => "Pages",
+                "Kids" => vec![page_id.into()],
+                "Count" => 1,
+            }),
+        );
+        let catalog_id = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages_id });
+        doc.trailer.set("Root", catalog_id);
+        let mut buf = Vec::new();
+        doc.save_to(&mut buf).unwrap();
+        buf
     }
+
+    // ── validate_run: recovered:true means a real parse/decode ────────────────
+
+    #[test]
+    fn validate_run_accepts_a_real_png_and_rejects_garbage() {
+        let sig = sig_for("image/png");
+        assert!(validate_run(sig, TINY_PNG));
+        assert!(!validate_run(
+            sig,
+            &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0xFF, 0xFF]
+        ));
+    }
+
+    #[test]
+    fn validate_run_accepts_a_real_zip_and_rejects_a_fake_delimited_one() {
+        let sig = sig_for("application/zip");
+        let zip = crate::zip_repair::tests_build_minimal_zip();
+        assert!(validate_run(sig, &zip));
+        // A coincidental header+EOCD-signature bounding garbage must NOT validate —
+        // this is the crown-rule fix: structural delimiting alone is not recovery.
+        assert!(!validate_run(
+            sig,
+            b"PK\x03\x04 not a real archive PK\x05\x06 tail"
+        ));
+    }
+
+    #[test]
+    fn validate_run_accepts_a_real_pdf_and_rejects_a_fake_delimited_one() {
+        let sig = sig_for("application/pdf");
+        assert!(validate_run(sig, &minimal_pdf()));
+        assert!(!validate_run(sig, b"%PDF-1.5 not a real document %%EOF"));
+    }
+
+    // ── carve end to end ──────────────────────────────────────────────────────
 
     #[test]
     fn carves_an_embedded_png_and_never_claims_full_recovery() {
-        let result = carve(&blob_with_png()).expect("carvable");
+        let mut blob = b"leading junk".to_vec();
+        blob.extend_from_slice(TINY_PNG);
+        blob.extend_from_slice(b"trailing junk");
+        let result = carve(&blob).expect("carvable");
         assert_eq!(result.files.len(), 1);
         assert_eq!(result.files[0].media_type.as_deref(), Some("image/png"));
         assert_eq!(result.files[0].name, "0001.png");
-        // Byte-exact extraction: the carved file re-decodes.
-        assert!(zune_png::PngDecoder::new(&result.files[0].bytes)
-            .decode_headers()
-            .is_ok());
-        // Carving never certifies completeness.
+        assert_eq!(result.files[0].bytes, TINY_PNG);
         assert!(!result.loss.fully_recovered);
         assert!(result.loss.synthesized.is_empty());
         assert_eq!(result.loss.items.iter().filter(|i| i.recovered).count(), 1);
     }
 
     #[test]
-    fn a_blob_with_no_signatures_is_unrepairable() {
-        assert!(carve(b"just some plain text, nothing embedded").is_err());
+    fn carves_an_embedded_zip() {
+        let zip = crate::zip_repair::tests_build_minimal_zip();
+        let mut blob = b"....".to_vec();
+        blob.extend_from_slice(&zip);
+        blob.extend_from_slice(b"....");
+        let result = carve(&blob).expect("carvable");
+        assert!(result
+            .files
+            .iter()
+            .any(|f| f.media_type.as_deref() == Some("application/zip")));
     }
 
     #[test]
-    fn a_truncated_candidate_is_listed_lost() {
+    fn a_fake_delimited_candidate_is_listed_lost_not_recovered() {
+        // A real PNG plus a coincidental zip header+EOCD around garbage: the PNG is
+        // recovered, the fake zip is NOT emitted and is reported lost.
+        let mut blob = b"PK\x03\x04garbage between PK\x05\x06".to_vec();
+        blob.extend_from_slice(TINY_PNG);
+        let result = carve(&blob).expect("the png is carvable");
+        assert!(result
+            .files
+            .iter()
+            .all(|f| f.media_type.as_deref() != Some("application/zip")));
+        assert!(result
+            .files
+            .iter()
+            .any(|f| f.media_type.as_deref() == Some("image/png")));
+        // The fake zip is accounted for as lost.
+        assert!(result.loss.items.iter().any(|i| !i.recovered));
+    }
+
+    #[test]
+    fn a_blob_with_no_signatures_is_unrepairable() {
+        assert!(carve(b"just some plain text, nothing embedded at all").is_err());
+    }
+
+    #[test]
+    fn a_blob_of_only_false_positive_headers_is_unrepairable() {
+        // A zip header + EOCD around garbage, nothing else — no valid file → Err.
+        assert!(carve(b"PK\x03\x04 nope PK\x05\x06").is_err());
+    }
+
+    #[test]
+    fn a_truncated_jpeg_is_emitted_but_flagged_not_recovered() {
         let mut blob = b"junk".to_vec();
-        blob.extend_from_slice(&[0xFF, 0xD8, 0xFF]); // JPEG header, no footer
-        blob.extend_from_slice(b"incomplete");
-        let result = carve(&blob).expect("something was found");
+        blob.extend_from_slice(&[0xFF, 0xD8, 0xFF]); // JPEG header, no FF D9 terminator
+        blob.extend_from_slice(b"incomplete image data with no terminator");
+        let result = carve(&blob).expect("a truncated partial is handed back");
         assert!(!result.loss.fully_recovered);
         assert!(result.loss.items.iter().any(|i| !i.recovered));
+        assert_eq!(result.files.len(), 1); // the truncated partial is emitted
+    }
+
+    #[test]
+    fn a_gif_header_is_no_longer_carved() {
+        // GIF was dropped (its 1-byte 0x3B trailer cannot honestly delimit a file).
+        let blob = b"GIF89a\x00\x01\x02\x3b trailing";
+        assert!(carve(blob).is_err());
     }
 }
