@@ -9,7 +9,7 @@ use lopdf::Document;
 
 use crate::error::RepairError;
 use crate::limits::MAX_ENTRY_COUNT;
-use crate::model::{LossManifest, RecoveredItem, RepairResult};
+use crate::model::{CorruptionKind, LossManifest, Recoverability, RecoveredItem, RepairResult};
 
 /// One indirect-object header (`N G obj`) found by the raw scan, with the byte
 /// offset of its first digit (the offset a cross-reference entry must point at).
@@ -278,6 +278,65 @@ pub fn repair_pdf(bytes: &[u8]) -> Result<RepairResult, RepairError> {
     })
 }
 
+/// Classify a PDF's cross-reference health. Loads as-is → intact; original will
+/// not load but a rebuilt xref loads every scanned object → repairable; the
+/// rebuild loads but is missing some scanned objects → partial; no catalog or a
+/// rebuild that still will not load → unrecoverable by this pillar.
+///
+/// The "loads as-is → intact" fast path deliberately does not second-guess a file
+/// lopdf already accepts (an xref-stream file's own xref object would otherwise
+/// skew an object-count check); the repair manifest remains the authoritative
+/// per-object accounting. The repairable-vs-partial split uses a scanned ⊆ loaded
+/// object-number SET check (not a length compare) so it agrees with the manifest.
+pub fn diagnose_pdf(bytes: &[u8]) -> (Vec<CorruptionKind>, Recoverability) {
+    let scanned = scan_objects(bytes, MAX_ENTRY_COUNT);
+    if scanned.is_empty() {
+        return (vec![CorruptionKind::Other], Recoverability::Unrecoverable);
+    }
+
+    // Loads as-is → nothing to repair.
+    if Document::load_mem(bytes).is_ok() {
+        return (Vec::new(), Recoverability::Intact);
+    }
+
+    let root = match find_root(bytes, &scanned) {
+        Some(root) => root,
+        None => {
+            return (
+                vec![CorruptionKind::MissingRequiredParts],
+                Recoverability::Unrecoverable,
+            )
+        }
+    };
+    let patched = rebuild_with_xref(bytes, &scanned, root);
+    match Document::load_mem(&patched) {
+        Ok(document) => {
+            let scanned_numbers: BTreeSet<u32> = scanned
+                .iter()
+                .map(|o| o.number)
+                .filter(|n| *n != 0)
+                .collect();
+            let loaded: BTreeSet<u32> =
+                document.objects.keys().map(|(number, _)| *number).collect();
+            if scanned_numbers.iter().all(|number| loaded.contains(number)) {
+                (
+                    vec![CorruptionKind::BrokenCrossReference],
+                    Recoverability::Repairable,
+                )
+            } else {
+                (
+                    vec![CorruptionKind::BrokenCrossReference],
+                    Recoverability::Partial,
+                )
+            }
+        }
+        Err(_) => (
+            vec![CorruptionKind::BrokenCrossReference],
+            Recoverability::Unrecoverable,
+        ),
+    }
+}
+
 #[cfg(test)]
 mod scan_tests {
     use super::*;
@@ -393,5 +452,53 @@ mod repair_tests {
     #[test]
     fn input_without_objects_is_unrepairable() {
         assert!(repair_pdf(b"%PDF-1.5\nno objects here\n").is_err());
+    }
+}
+
+#[cfg(test)]
+mod diagnose_tests {
+    use super::*;
+    use crate::model::Recoverability;
+    use lopdf::Document;
+
+    /// A well-formed PDF (valid xref) built by lopdf.
+    fn valid_pdf() -> Vec<u8> {
+        // Reuse the repair-test body then repair it once to get a clean file with
+        // a real xref, so "loads as-is" is exercised.
+        let body = b"%PDF-1.5\n\
+1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n\
+2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n\
+3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n";
+        let scanned = scan_objects(body, 1000);
+        let root = find_root(body, &scanned).unwrap();
+        let patched = rebuild_with_xref(body, &scanned, root);
+        let mut doc = Document::load_mem(&patched).unwrap();
+        let mut clean = Vec::new();
+        doc.save_to(&mut clean).unwrap();
+        clean
+    }
+
+    #[test]
+    fn a_valid_pdf_is_intact() {
+        let (corruption, recoverability) = diagnose_pdf(&valid_pdf());
+        assert_eq!(recoverability, Recoverability::Intact);
+        assert!(corruption.is_empty());
+    }
+
+    #[test]
+    fn a_broken_xref_with_objects_is_repairable() {
+        let body = b"%PDF-1.5\n\
+1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n\
+2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n\
+3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n";
+        let (corruption, recoverability) = diagnose_pdf(body);
+        assert_eq!(recoverability, Recoverability::Repairable);
+        assert_eq!(corruption, vec![CorruptionKind::BrokenCrossReference]);
+    }
+
+    #[test]
+    fn input_without_objects_is_unrecoverable() {
+        let (_c, recoverability) = diagnose_pdf(b"%PDF-1.5\nnothing here\n");
+        assert_eq!(recoverability, Recoverability::Unrecoverable);
     }
 }

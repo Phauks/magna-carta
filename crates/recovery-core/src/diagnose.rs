@@ -34,13 +34,16 @@ pub fn diagnose(bytes: &[u8]) -> DiagnosisReport {
                 detail: "cfb / ole2 compound file".into(),
             }
         }
-        Some(format) => DiagnosisReport {
-            detected_format: Some(format),
-            corruption: Vec::new(),
-            recoverability: Recoverability::Unknown,
-            repair_supported: false,
-            detail: "format identified; no repair pillar registered yet".into(),
-        },
+        Some(Format::Pdf) => {
+            let (corruption, recoverability) = crate::pdf_repair::diagnose_pdf(bytes);
+            DiagnosisReport {
+                detected_format: Some(Format::Pdf),
+                corruption,
+                recoverability,
+                repair_supported: true,
+                detail: "pdf document".into(),
+            }
+        }
         None => DiagnosisReport {
             detected_format: None,
             corruption: vec![CorruptionKind::Other],
@@ -54,14 +57,6 @@ pub fn diagnose(bytes: &[u8]) -> DiagnosisReport {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn identifies_a_known_format_but_reports_no_pillar_yet() {
-        let report = diagnose(b"%PDF-1.7\nmore bytes here");
-        assert_eq!(report.detected_format, Some(Format::Pdf));
-        assert!(!report.repair_supported);
-        assert_eq!(report.recoverability, Recoverability::Unknown);
-    }
 
     #[test]
     fn unknown_bytes_are_unrecoverable() {
@@ -92,6 +87,14 @@ mod tests {
         let cfb = crate::cfb_repair::tests_build_minimal_cfb();
         let report = diagnose(&cfb);
         assert_eq!(report.detected_format, Some(Format::Ole2));
+        assert!(report.repair_supported);
+    }
+
+    #[test]
+    fn a_recognized_pdf_reports_repair_supported() {
+        let pdf = b"%PDF-1.5\n1 0 obj\n<< /Type /Catalog >>\nendobj\n";
+        let report = diagnose(pdf);
+        assert_eq!(report.detected_format, Some(Format::Pdf));
         assert!(report.repair_supported);
     }
 }
