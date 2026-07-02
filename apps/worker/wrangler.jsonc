@@ -31,7 +31,10 @@
   // value lets the Miniflare test pool exercise the host branch. The editor half is USERCONTENT_DOMAIN
   // (the bare content domain), which defaults to magnacartausercontent.com in code — no deploy var, prod
   // can't forget it; only local dev overrides it.
-  "vars": { "FILES_ORIGIN": "files.example.com", "PANGRAM_BASE_URL": "https://text.api.pangram.com" },
+  "vars": {
+    "FILES_ORIGIN": "files.example.com",
+    "PANGRAM_BASE_URL": "https://text.api.pangram.com",
+  },
   // Real production resources (created 2026-06-09; naming convention in ADR-0075:
   // magna-carta-<environment>-<scope>[-<purpose-or-slug>]). Binding names are the code-facing
   // contract and never change; resource names are environment-scoped and permanent (D1/R2

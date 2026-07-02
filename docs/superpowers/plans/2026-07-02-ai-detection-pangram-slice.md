@@ -33,6 +33,7 @@ Every task's requirements implicitly include this section.
 ## File Structure
 
 **`packages/ai-detection/`** (pure — extend)
+
 - `src/adapters/pangram-response.ts` — the Pangram `predict` response shape + a hand-rolled `parsePangramResponse(json: unknown)` type guard (trust-boundary validation, no zod).
 - `src/adapters/pangram.ts` — `createPangramAdapter(config)` → `AiTextDetectionPort`; maps the validated response → `RawDetection`, runs `normalize()`, maps transport/vendor failures → `adapterError`.
 - `src/settings.ts` — `externalDetectionEnabledDefinition: FirmSettingDefinition<boolean>`.
@@ -41,19 +42,23 @@ Every task's requirements implicitly include this section.
 - `package.json` — add the three new `exports` subpaths.
 
 **`packages/data-access/`** (extend)
+
 - `src/ai-detection-usage-statements.ts` — `recordAiDetectionUsageStatement(...)` (one-row insert) + `readAiDetectionUsage(...)` (the firm-usage read).
 - `test/ai-detection-usage-statements.test.ts`.
 
 **`packages/identifiers/`** (extend)
+
 - `src/registry.ts` — add `aiDetectionUsage` prefix.
 - `src/types.ts` — add `AiDetectionUsageId` alias.
 
 **`packages/database/`** (extend)
+
 - `src/per-firm-schema.ts` — add the `aiDetectionUsage` `sqliteTable`.
 - `drizzle/per-firm/0033_ai-detection-usage.sql` + `meta/0033_snapshot.json` + `meta/_journal.json` entry — the CREATE TABLE migration (drizzle-generated, then verified).
 - `drizzle/per-firm/0034_seed-tools-ai-text-detection.sql` + `meta/_journal.json` entry — the role-permission seed (hand-authored, no snapshot).
 
 **`apps/worker/`** (extend)
+
 - `src/routes/ai-detection.ts` — `POST /api/v1/ai-detection/detect` through the chokepoint; consent gate; adapter construction (Pangram when the key is set, deferred otherwise); metering write; problem mapping.
 - `src/app.ts` — import + call `registerAiDetectionRoutes`; add `PANGRAM_API_KEY?: string` + `PANGRAM_BASE_URL?: string` to `Bindings`.
 - `wrangler.jsonc` / `.dev.vars` (or the test var seam) — declare the binding.
@@ -61,6 +66,7 @@ Every task's requirements implicitly include this section.
 - OpenAPI snapshot + generated client — regenerated.
 
 **Docs**
+
 - `changelog.d/ai-detection-pangram.md`, `docs/decisions/pending/ai-detection-pangram-adapter.md`, `STATUS.md` row.
 
 ---
@@ -68,10 +74,12 @@ Every task's requirements implicitly include this section.
 ## Task 1: Pangram response contract + boundary parser (pure)
 
 **Files:**
+
 - Create: `packages/ai-detection/src/adapters/pangram-response.ts`
 - Test: `packages/ai-detection/test/pangram-response.test.ts`
 
 **Interfaces:**
+
 - Produces: `interface PangramWindow { start_index: number; end_index: number; ai_assistance_score: number; confidence?: number }`; `interface PangramPrediction { fraction_ai: number; fraction_ai_assisted?: number; version?: string; stage?: string; windows?: readonly PangramWindow[] }`; `parsePangramResponse(json: unknown): PangramPrediction | null` (returns `null` on any shape violation — never throws).
 
 - [ ] **Step 1: Write the failing test**
@@ -110,9 +118,7 @@ describe("parsePangramResponse", () => {
   });
 
   it("rejects a malformed window rather than dropping it", () => {
-    expect(
-      parsePangramResponse({ fraction_ai: 0.5, windows: [{ start_index: 0 }] }),
-    ).toBeNull();
+    expect(parsePangramResponse({ fraction_ai: 0.5, windows: [{ start_index: 0 }] })).toBeNull();
   });
 });
 ```
@@ -218,11 +224,13 @@ git commit -m "feat(ai-detection): Pangram response boundary parser"
 ## Task 2: Pangram adapter (pure)
 
 **Files:**
+
 - Create: `packages/ai-detection/src/adapters/pangram.ts`
 - Modify: `packages/ai-detection/test/purity.test.ts` (allowlist), `packages/ai-detection/package.json` (exports)
 - Test: `packages/ai-detection/test/pangram.test.ts`
 
 **Interfaces:**
+
 - Consumes: `parsePangramResponse` / `PangramPrediction` (Task 1); `normalize`, `MIN_RELIABLE_CHARACTERS` (`../normalize.ts`); `AiTextDetectionPort`, `DetectionInput`, `RawDetection`, `RawSegment` (`../port.ts`); `HttpClient`, `HttpRequest` (`@magna-carta/integrations/http`); `ok`, `adapterError`, `Dispatch` (`@magna-carta/integrations/dispatch`); `IntegrationProblem` (`@magna-carta/integrations/problem`).
 - Produces: `interface PangramAdapterConfig { http: HttpClient; apiKey: string; baseUrl: string; now: () => string }`; `createPangramAdapter(config: PangramAdapterConfig): AiTextDetectionPort`.
 
@@ -481,11 +489,13 @@ git commit -m "feat(ai-detection): platform-managed Pangram adapter"
 ## Task 3: Firm consent setting (pure)
 
 **Files:**
+
 - Create: `packages/ai-detection/src/settings.ts`
 - Modify: `packages/ai-detection/test/purity.test.ts` (allowlist), `packages/ai-detection/package.json` (exports)
 - Test: `packages/ai-detection/test/settings.test.ts`
 
 **Interfaces:**
+
 - Consumes: `FirmSettingDefinition` (`@magna-carta/data-access/setting-statements`, type-only).
 - Produces: `externalDetectionEnabledDefinition: FirmSettingDefinition<boolean>` — key `aiDetection.externalDetectionEnabled`, default `false`.
 
@@ -560,9 +570,11 @@ git commit -m "feat(ai-detection): firm consent setting (external detection, def
 ## Task 4: Identifier registration for the usage handle
 
 **Files:**
+
 - Modify: `packages/identifiers/src/registry.ts`, `packages/identifiers/src/types.ts`
 
 **Interfaces:**
+
 - Produces: entity type `aiDetectionUsage`; `AiDetectionUsageId = Identifier<"aiDetectionUsage">`.
 
 - [ ] **Step 1: Add the prefix**
@@ -598,10 +610,12 @@ git commit -m "feat(identifiers): aiDetectionUsage handle prefix"
 ## Task 5: Metering data-access statements
 
 **Files:**
+
 - Create: `packages/data-access/src/ai-detection-usage-statements.ts`
 - Test: `packages/data-access/test/ai-detection-usage-statements.test.ts`
 
 **Interfaces:**
+
 - Consumes: `SqlDatabase`, `SqlStatement` (`./idempotency-statements.ts`); `AiDetectionUsageId` (`@magna-carta/identifiers/types`).
 - Produces: `AI_DETECTION_USAGE_TABLE = "ai_detection_usage"`; `interface AiDetectionUsageInsert { id: AiDetectionUsageId; requestedBy: string; wordCount: number; mode: "realtime" | "bulk"; costMinor: number; adapterId: string; vendorVersion: string | null; resultBand: string | null; matterId: string | null; createdAt: string }`; `recordAiDetectionUsageStatement(db, row): SqlStatement`; `readAiDetectionUsage(db): Promise<AiDetectionUsageSummary>`.
 
@@ -757,10 +771,12 @@ git commit -m "feat(data-access): ai_detection_usage metering statements"
 ## Task 6: Per-firm table + CREATE TABLE migration
 
 **Files:**
+
 - Modify: `packages/database/src/per-firm-schema.ts`
 - Create (via drizzle-kit, then verify): `packages/database/drizzle/per-firm/0033_ai-detection-usage.sql`, `.../meta/0033_snapshot.json`, `.../meta/_journal.json` entry
 
 **Interfaces:**
+
 - Produces: the `ai_detection_usage` per-firm table (matches Task 5's DDL).
 
 **Reference — a hand-authored table migration (`packages/database/drizzle/per-firm/0014_inference-token-usage.sql`)** and its schema (`per-firm-schema.ts` line 784, `tokenUsageMeter`).
@@ -819,11 +835,12 @@ git commit -m "feat(database): per-firm ai_detection_usage table"
 ## Task 7: Role-permission seed migration
 
 **Files:**
+
 - Create: `packages/database/drizzle/per-firm/0034_seed-tools-ai-text-detection.sql`
 - Modify: `packages/database/drizzle/per-firm/meta/_journal.json`
 - Test: `packages/database/test/generated-migrations.test.ts` (add an assertion), `apps/worker/test/seed-tools-ai-text-detection.test.ts` (new)
 
-**Reference — the seed pattern (`packages/database/drizzle/per-firm/0032_seed-tools-file-type-verifier.sql`):** five `INSERT INTO \`role_permission\`` rows, one per default role, with freshly-minted `rolePermission_` handle literals. The five default role ids (committed literals from `0002_member-rbac.sql`): `role_Gw-zKO8hOHQuNv2bWokMp` (Owner/Admin), `role_gEyJ_YqL1_RI_yDqSa28Y`, `role_917LCQyRKP50Z9bW89vXl`, `role_hwwC1D98d8Lazc_asL6vO`, `role_WojF9F7kksBEftsmZGNhb`.
+**Reference — the seed pattern (`packages/database/drizzle/per-firm/0032_seed-tools-file-type-verifier.sql`):** five `INSERT INTO \`role*permission\``rows, one per default role, with freshly-minted`rolePermission*`handle literals. The five default role ids (committed literals from`0002_member-rbac.sql`): `role_Gw-zKO8hOHQuNv2bWokMp`(Owner/Admin),`role_gEyJ_YqL1_RI_yDqSa28Y`, `role_917LCQyRKP50Z9bW89vXl`, `role_hwwC1D98d8Lazc_asL6vO`, `role_WojF9F7kksBEftsmZGNhb`.
 
 **Decision — grant breadth:** AI-text detection egresses privileged content to a third party, gated by a firm consent setting that defaults OFF. Unlike the everyday `tools:*` utilities (metadata, file-type) that seed onto ALL five roles, this tool is only usable once an admin opts the firm in. Seed it onto **all five default roles** (consistent with the sibling Tools utilities — the consent setting, not the permission, is the egress gate), OR restrict to Owner/Admin if the reviewer prefers a tighter default. **This plan seeds all five** for parity with the other Tools utilities; the consent setting is the meaningful control.
 
@@ -854,13 +871,13 @@ INSERT INTO `role_permission` (`id`, `role_id`, `permission`) VALUES ('rolePermi
 In `packages/database/drizzle/per-firm/meta/_journal.json`, append after the idx-33 entry (from Task 6):
 
 ```json
-    {
-      "idx": 34,
-      "version": "6",
-      "when": 1782950000000,
-      "tag": "0034_seed-tools-ai-text-detection",
-      "breakpoints": true
-    }
+{
+  "idx": 34,
+  "version": "6",
+  "when": 1782950000000,
+  "tag": "0034_seed-tools-ai-text-detection",
+  "breakpoints": true
+}
 ```
 
 > Seed-only migrations carry NO snapshot (see `0032`, `0020` — no `00NN_snapshot.json`). Do not create one.
@@ -870,19 +887,19 @@ In `packages/database/drizzle/per-firm/meta/_journal.json`, append after the idx
 In `packages/database/test/generated-migrations.test.ts`, add a test mirroring the `0010 seeds tools:firmUsage` test:
 
 ```typescript
-  it("per-firm 0034 seeds tools:aiTextDetection onto all five default roles", async () => {
-    const migrations = await loadLineage("per-firm");
-    const migration = migrations.find((m) => m.tag === "0034_seed-tools-ai-text-detection");
-    expect(migration, "0034 missing from the per-firm lineage").toBeDefined();
-    const seeds = (migration?.statements ?? [])
-      .filter((statement) => statement.includes("INSERT INTO `role_permission`"))
-      .map(parseSingleRowInsert);
-    expect(seeds).toHaveLength(5);
-    for (const seed of seeds) {
-      expect(seed.permission).toBe("tools:aiTextDetection");
-      expect(isIdentifier(seed.id, "rolePermission"), String(seed.id)).toBe(true);
-    }
-  });
+it("per-firm 0034 seeds tools:aiTextDetection onto all five default roles", async () => {
+  const migrations = await loadLineage("per-firm");
+  const migration = migrations.find((m) => m.tag === "0034_seed-tools-ai-text-detection");
+  expect(migration, "0034 missing from the per-firm lineage").toBeDefined();
+  const seeds = (migration?.statements ?? [])
+    .filter((statement) => statement.includes("INSERT INTO `role_permission`"))
+    .map(parseSingleRowInsert);
+  expect(seeds).toHaveLength(5);
+  for (const seed of seeds) {
+    expect(seed.permission).toBe("tools:aiTextDetection");
+    expect(isIdentifier(seed.id, "rolePermission"), String(seed.id)).toBe(true);
+  }
+});
 ```
 
 - [ ] **Step 5: Run the database tests**
@@ -902,9 +919,11 @@ git commit -m "feat(database): seed tools:aiTextDetection onto default roles"
 ## Task 8: Worker binding for the platform key
 
 **Files:**
+
 - Modify: `apps/worker/src/app.ts` (`Bindings`), `apps/worker/wrangler.jsonc`, `apps/worker/.dev.vars` (and the test var seam if separate)
 
 **Interfaces:**
+
 - Produces: `Bindings.PANGRAM_API_KEY?: string`, `Bindings.PANGRAM_BASE_URL?: string`.
 
 - [ ] **Step 1: Add the binding fields**
@@ -941,12 +960,14 @@ git commit -m "feat(worker): PANGRAM_API_KEY / PANGRAM_BASE_URL bindings"
 ## Task 9: The detection route
 
 **Files:**
+
 - Create: `apps/worker/src/routes/ai-detection.ts`
 - Modify: `apps/worker/src/app.ts` (import + register)
 - Test: `apps/worker/test/ai-detection-route.test.ts`
 - Regenerate: OpenAPI snapshot + generated client
 
 **Interfaces:**
+
 - Consumes: `createPangramAdapter` (`@magna-carta/ai-detection/adapters/pangram`), `deferredAiDetectionAdapter` (`@magna-carta/ai-detection/adapters/deferred`), `externalDetectionEnabledDefinition` (`@magna-carta/ai-detection/settings`); `readFirmSetting` (`@magna-carta/data-access/setting-statements`), `recordAiDetectionUsageStatement` (`@magna-carta/data-access/ai-detection-usage-statements`), `commitEffectBatch` (`@magna-carta/data-access/effect-batch`); `fetchHttpClient` (`@magna-carta/integrations/http`); `newIdentifier` (`@magna-carta/identifiers/generate`); the chokepoint helpers (`requireChokepointFirmContext`, `requireChokepointFirmId`, `requireChokepointUserId`), `defineOpenAPIRoute`, `chokepointMiddleware`, `problemJson`, `Problem`.
 - Produces: `registerAiDetectionRoutes(app, chokepoint): void`; route `POST /api/v1/ai-detection/detect`.
 
@@ -1041,7 +1062,10 @@ const detectRoute = defineOpenAPIRoute(detectMeta, {
       description: "The detection report",
       content: { "application/json": { schema: DetectResponse } },
     },
-    401: { description: "No valid session", content: { "application/problem+json": { schema: Problem } } },
+    401: {
+      description: "No valid session",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     403: {
       description: "The session member lacks tools:aiTextDetection",
       content: { "application/problem+json": { schema: Problem } },
@@ -1050,7 +1074,10 @@ const detectRoute = defineOpenAPIRoute(detectMeta, {
       description: "External detection is disabled for this firm, or detection is unavailable",
       content: { "application/problem+json": { schema: Problem } },
     },
-    429: { description: "Rate limit exceeded", content: { "application/problem+json": { schema: Problem } } },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     502: {
       description: "The detection provider rejected the request or is unavailable",
       content: { "application/problem+json": { schema: Problem } },
@@ -1197,7 +1224,11 @@ async function authed(email: string): Promise<string> {
 function post(cookie: string, body: unknown) {
   return app.request(
     "https://example.com/api/v1/ai-detection/detect",
-    { method: "POST", headers: { cookie, "content-type": "application/json" }, body: JSON.stringify(body) },
+    {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    },
     env,
   );
 }
@@ -1260,6 +1291,7 @@ git commit -m "feat(worker): AI-text detection route (consent-gated, metered)"
 ## Task 10: Worker seed test + docs fragments
 
 **Files:**
+
 - Create: `apps/worker/test/seed-tools-ai-text-detection.test.ts` (mirror `seed-tools-metadata-scrubber.test.ts`)
 - Create: `changelog.d/ai-detection-pangram.md`, `docs/decisions/pending/ai-detection-pangram-adapter.md`
 - Modify: `STATUS.md` (this slice's row only)
@@ -1277,7 +1309,9 @@ Expected: PASS.
 
 ```markdown
 <!-- changelog.d/ai-detection-pangram.md -->
+
 ### Added
+
 - **AI-Text Detection (Pangram):** the AI-Text Detection tool now works end to end — paste text and
   get a calibrated likelihood band (a signal, not proof). Detection is platform-managed, off by
   default per firm (an admin enables it in settings before any text is sent to the provider), and
@@ -1288,17 +1322,20 @@ Expected: PASS.
 
 ```markdown
 <!-- docs/decisions/pending/ai-detection-pangram-adapter.md -->
+
 # Pangram first-vendor adapter for AI-Text Detection
 
 **Status:** Accepted
 **Date:** 2026-07-02
 
 ## Context
+
 The vendor-agnostic AI-Text Detection core shipped with a deferred adapter. A concrete vendor was
 needed to make the tool work. Detection is an arms race; an external, actively-maintained vendor beats
 a static in-house model.
 
 ## Decision
+
 Wire **Pangram** as the first vendor behind `AiTextDetectionPort`, **platform-managed**: the platform
 holds one provider key (a Cloudflare secret, `credential: none`), exposes detection to all firms, and
 meters per firm itself. Consent is a per-firm setting (`aiDetection.externalDetectionEnabled`, default
@@ -1307,6 +1344,7 @@ table (word-native — the provider bills by words). BYO-key is a deferred separ
 billing pass-through, document text-extraction, a bulk endpoint, and the UI are out of scope.
 
 ## Consequences
+
 The heavy per-firm credentialed-adapter infrastructure is not built. The consent setting is the single
 egress gate for privileged content. A future billing decision reads the usage table's word counts.
 ```
@@ -1341,6 +1379,7 @@ Expected: PASS — no `ADR-NNNN`/"slice N"/"spec §" in the new source; the pure
 - [ ] **Step 3: 7-angle adversarial review**
 
 Review the slice against these angles; record findings and fix material ones:
+
 1. **Confidentiality/egress** — is text ever logged, echoed in a problem `detail`, or sent with `public_dashboard_link: true`? Does every report carry `egressedTo: "pangram"`? Is the consent gate un-bypassable (no adapter constructed when off)?
 2. **Signal-not-proof integrity** — can any path return a directional band on low reliability? Confirm `normalize()` is the only framing path and `FATAL_CAVEATS` is intact.
 3. **Tenancy** — is the metering write firm-scoped (per-firm DO)? Any cross-firm cache key? Is `firmId` carried, never a connection object?

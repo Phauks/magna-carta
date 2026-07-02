@@ -95,7 +95,10 @@ const detectRoute = defineOpenAPIRoute(detectMeta, {
       description: "External detection is disabled for this firm, or detection is unavailable",
       content: { "application/problem+json": { schema: Problem } },
     },
-    429: { description: "Rate limit exceeded", content: { "application/problem+json": { schema: Problem } } },
+    429: {
+      description: "Rate limit exceeded",
+      content: { "application/problem+json": { schema: Problem } },
+    },
     502: {
       description: "The detection provider rejected the request or is unavailable",
       content: { "application/problem+json": { schema: Problem } },
@@ -192,7 +195,23 @@ export function registerAiDetectionRoutes(
         { now },
       );
 
-      return c.json(result.value, 200);
+      // Map the domain report onto the wire contract. DetectionReport's arrays are readonly (the pure
+      // core never hands out mutable state); the response schema's inferred type is mutable, so copy
+      // the arrays/objects at the boundary rather than leaking readonly types into the contract.
+      const report = result.value;
+      return c.json(
+        {
+          band: report.band,
+          score: report.score,
+          reliability: report.reliability,
+          caveats: [...report.caveats],
+          ...(report.segments !== undefined
+            ? { segments: report.segments.map((segment) => ({ ...segment })) }
+            : {}),
+          provenance: { ...report.provenance },
+        },
+        200,
+      );
     },
   );
 }

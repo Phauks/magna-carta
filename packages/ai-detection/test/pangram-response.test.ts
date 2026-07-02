@@ -30,8 +30,6 @@ describe("parsePangramResponse", () => {
   });
 
   it("rejects a malformed window rather than dropping it", () => {
-    expect(
-      parsePangramResponse({ fraction_ai: 0.5, windows: [{ start_index: 0 }] }),
-    ).toBeNull();
+    expect(parsePangramResponse({ fraction_ai: 0.5, windows: [{ start_index: 0 }] })).toBeNull();
   });
 });

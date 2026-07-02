@@ -31,11 +31,12 @@ This slice makes the AI-Text Detection tool **actually work** by wiring **Pangra
 
 ## 2. The Pangram adapter
 
-**Credential model.** The adapter's `CapabilityDescriptor` declares `credential: { kind: "none" }` — there is no *per-firm* credential, so the registry resolves it `ok` for every firm and the heavy credentialed-adapter infrastructure (the `firm_secret` `CredentialStore`, the connection D1 repo, the refresh lock) is **not** built here. The platform key is injected at construction in the worker (the inference precedent: a platform-managed secret, not a firm connection). When the key is absent (dev/test), the worker wires the existing deferred adapter instead, which returns `capability-unsupported`.
+**Credential model.** The adapter's `CapabilityDescriptor` declares `credential: { kind: "none" }` — there is no _per-firm_ credential, so the registry resolves it `ok` for every firm and the heavy credentialed-adapter infrastructure (the `firm_secret` `CredentialStore`, the connection D1 repo, the refresh lock) is **not** built here. The platform key is injected at construction in the worker (the inference precedent: a platform-managed secret, not a firm connection). When the key is absent (dev/test), the worker wires the existing deferred adapter instead, which returns `capability-unsupported`.
 
 **Request.** Pangram's `predict` takes the text (+ a `public_dashboard_link: false` flag — never create a public link for privileged content). Confirm the exact REST endpoint path + auth header scheme with Pangram (the Python SDK wraps `PANGRAM_API_KEY`); the adapter takes a configurable base URL + key so go-live config is a binding, not a code change. Build/test behind the injected `HttpClient` with a recorded response fixture.
 
 **Response → `RawDetection` mapping** (validated by a zod schema at the boundary first):
+
 - `fraction_ai` → `score` (0..1, proportion AI-generated).
 - per-window `confidence` (aggregated/min) → `vendorConfidence`.
 - `version` / `stage` → `vendorModel` / `vendorVersion` (provenance).

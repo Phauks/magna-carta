@@ -263,7 +263,10 @@ describe("generated migrations (committed artifacts)", () => {
   it("per-firm 0034 seeds tools:aiTextDetection onto all five default roles", async () => {
     const migrations = await loadLineage("per-firm");
     const migration = migrations.find((m) => m.tag === "0034_seed-tools-ai-text-detection");
-    expect(migration, "0034_seed-tools-ai-text-detection missing from the per-firm lineage").toBeDefined();
+    expect(
+      migration,
+      "0034_seed-tools-ai-text-detection missing from the per-firm lineage",
+    ).toBeDefined();
     const seeds = (migration?.statements ?? [])
       .filter((statement) => statement.includes("INSERT INTO `role_permission`"))
       .map(parseSingleRowInsert);

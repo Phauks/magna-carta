@@ -40,7 +40,11 @@ async function authed(email: string): Promise<string> {
 function post(cookie: string, body: unknown) {
   return app.request(
     "https://example.com/api/v1/ai-detection/detect",
-    { method: "POST", headers: { cookie, "content-type": "application/json" }, body: JSON.stringify(body) },
+    {
+      method: "POST",
+      headers: { cookie, "content-type": "application/json" },
+      body: JSON.stringify(body),
+    },
     env,
   );
 }
