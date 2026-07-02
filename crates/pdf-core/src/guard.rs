@@ -126,6 +126,7 @@ pub(crate) fn guard_input(bytes: &[u8], limits: &GuardLimits) -> Result<(), Bomb
     let mut cumulative: u64 = 0;
     let mut cursor = 0usize;
 
+    let mut endstream_absent = false;
     while let Some(kw) = find_from(bytes, b"stream", cursor) {
         // Stream data begins after the EOL that follows the `stream` keyword
         // (CRLF or LF), per the PDF spec. Be lenient about which.
@@ -150,13 +151,24 @@ pub(crate) fn guard_input(bytes: &[u8], limits: &GuardLimits) -> Result<(), Bomb
             }
         }
 
-        // Advance the scan cursor. The inflate already self-terminated; `endstream`
-        // only moves us past this object's data efficiently. A spurious early match
-        // inside binary content merely costs an extra (bounded, fast-failing) inflate.
-        cursor = match find_from(bytes, b"endstream", start) {
-            Some(e) => e + b"endstream".len(),
-            None => start + 1,
-        };
+        // Advance the scan cursor. `endstream` only skips ahead over a well-formed
+        // stream body; it never bounds the inflate (deflate self-terminates). Once
+        // `endstream` is absent from `start` to EOF it is absent from every later
+        // suffix too, so stop searching for it — otherwise a crafted input of many
+        // `stream` keywords with no `endstream` re-scans to EOF each iteration
+        // (O(n^2)). Advancing to `start` keeps every `stream` keyword inflate-checked
+        // and, because the outer search is forward-only, total work stays linear.
+        if endstream_absent {
+            cursor = start;
+        } else {
+            match find_from(bytes, b"endstream", start) {
+                Some(e) => cursor = e + b"endstream".len(),
+                None => {
+                    endstream_absent = true;
+                    cursor = start;
+                }
+            }
+        }
     }
     Ok(())
 }
@@ -269,5 +281,23 @@ mod tests {
         // An uncompressed (non-deflate) stream body is skipped, not rejected.
         let pdf = pdf_with_stream(b"plain uncompressed bytes, not deflate");
         assert_eq!(guard_input(&pdf, &small()), Ok(()));
+    }
+
+    #[test]
+    fn many_stream_keywords_without_endstream_stay_linear() {
+        // Crafted input: repeated `stream` keywords, no `endstream`. Quadratic
+        // scanning would hang for minutes; linear scanning returns immediately.
+        //
+        // Each repeat unit appends 4 trailing 0xFF bytes after `stream` so every
+        // occurrence's suffix begins with an invalid deflate block-type header
+        // (fails the decoder on the first read, Bytes(0)) rather than the bare
+        // `b"stream"` repeat, whose periodic bytes raw-deflate (headerless, so it
+        // never rejects on a bad magic number) happens to decode as if they were
+        // real compressed data — tripping the *cumulative* cap and masking the
+        // O(n^2) check this test exists for.
+        let mut unit = b"stream".to_vec();
+        unit.extend_from_slice(&[0xFFu8; 4]);
+        let spam = unit.repeat(100_000); // ~1 MiB, no deflate content
+        assert_eq!(guard_input(&spam, &small()), Ok(()));
     }
 }

@@ -84,7 +84,13 @@ impl Document {
         crate::guard::guard_input(&bytes, &crate::guard::GuardLimits::default())
             .map_err(|_| SecureError::Rejected)?;
         match crate::decrypt::decrypt_unguarded(&bytes, password) {
-            Ok(plain) => Self::load_unguarded(plain).map_err(|_| SecureError::Parse),
+            Ok(plain) => {
+                // `plain` is different bytes than the (already-guarded) ciphertext, so
+                // re-guard the decrypted output before the render parser inflates it.
+                crate::guard::guard_input(&plain, &crate::guard::GuardLimits::default())
+                    .map_err(|_| SecureError::Rejected)?;
+                Self::load_unguarded(plain).map_err(|_| SecureError::Parse)
+            }
             // The model parser could not read it at all — it may still be a valid
             // unencrypted document the render parser accepts. Try it directly.
             Err(SecureError::Parse) => Self::load_unguarded(bytes).map_err(|_| SecureError::Parse),

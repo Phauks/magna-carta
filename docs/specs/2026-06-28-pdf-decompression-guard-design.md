@@ -139,8 +139,10 @@ Why this suffices:
 
 - It operates on **raw bytes**, ignoring xref structure entirely, so **one pass covers
   both lopdf and hayro**.
-- It catches **ObjStm bombs** because an object stream is itself a top-level `stream`
-  object, and objects cannot nest inside a nested ObjStm per the PDF spec.
+- It catches **ObjStm bombs in unencrypted documents** because an object stream is
+  itself a top-level `stream` object, and objects cannot nest inside a nested ObjStm
+  per the PDF spec. For an **encrypted** document the pre-flight sees ciphertext, not
+  the decoded object stream — see Residual below.
 - **No `endstream`/`/Length` boundary detection is needed for safety.** Deflate and
   raw-deflate are *self-terminating* (end-of-block marker / Adler-32 trailer), so the
   decoder stops on its own at the true stream end regardless of trailing bytes, and a bomb
@@ -200,3 +202,12 @@ needed):
 - Render / raster bombs are out of scope (see Non-goals).
 - `GuardLimits` is not yet caller-configurable through the WASM/TS API; v1 ships fixed
   defaults.
+- **Encrypted stream bodies.** The pre-flight reads ciphertext, so an encrypted ObjStm
+  (or any encrypted stream) that decrypts to a deflate bomb is inflated by lopdf's
+  decrypt-and-load (`decrypt` / `load_protected` / `inspect_security`) beyond the
+  guard's reach; encrypted documents get the input cap only. Fully closing this needs
+  a bounded loader (a follow-up; forking the parser is out of scope per Non-goals).
+- The raw-byte scanner keys off the literal `stream` keyword position, so a
+  non-conformant file whose real deflate body sits at a different offset could evade
+  the inflate while remaining parser-loadable — a theoretical residual under trusted
+  input.

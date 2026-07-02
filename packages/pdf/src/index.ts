@@ -37,7 +37,11 @@ export class PdfDocument {
     wasmInput?: BufferSource | WebAssembly.Module,
   ): Promise<PdfDocument> {
     await ensureReady(wasmInput);
-    return new PdfDocument(WasmDocument.load(bytes));
+    try {
+      return new PdfDocument(WasmDocument.load(bytes));
+    } catch (error) {
+      mapGuardError(error);
+    }
   }
 
   get pageCount(): number {

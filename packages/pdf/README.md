@@ -690,7 +690,10 @@ filter in PDF), which the guard scans and caps before either underlying parser t
 bytes. **LZW and RunLength compression, and image-codec expansion (e.g. JBIG2/CCITT
 bilevel rasters), are not decoded by the guard** and fall back to the plain input-size cap
 rather than the tighter per-stream bound — a disclosed residual for those rarer,
-lower-ratio vectors.
+lower-ratio vectors. **Encrypted stream bodies fall back to the input cap too:** the guard
+scans raw bytes before decryption, so it cannot see inside an encrypted stream, and a
+password-protected document that decrypts to a compression bomb is only bounded by the
+oversize-input check, not the tighter per-stream/cumulative caps.
 
 ## Build notes
 
