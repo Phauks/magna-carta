@@ -61,10 +61,15 @@ The techniques, in leverage order:
 
 ### Scope the check to what changed (now)
 
-`vp check [paths]` type-checks only the files it is given (plus their dependencies). Locally, drive it
-from the git diff — check the changed files and their dependents, not the whole repo — for a
-seconds-not-minutes inner loop; CI keeps the full sweep. This is the cheapest win and needs no
-restructuring.
+**The gate (`pnpm check`)** runs `vp check` (fmt + lint) and **`vp run typecheck` (`tsc -b`) as the
+authoritative type-check** — `tsc -b` is fast and incremental, so the type pass actually completes and
+real errors can no longer slip (`vp check`'s own whole-repo type-error pass is off; `typeCheck: false`).
+
+**The fast local loop:** run `vp run typecheck` (types — seconds when warm) plus `vp check [paths]` for
+fmt + lint on just your changed files (`vp check` type-checks/lints only the files given, plus their
+dependencies). Drive the paths from the git diff — the changed files and their dependents, not the
+whole repo — for a seconds-not-minutes inner loop, instead of skipping the full sweep because it is
+slow.
 
 ### TypeScript project references + incremental (the structural scaler)
 
@@ -113,7 +118,6 @@ files that were already correct); pin them like any other build input.
 
 - Build-time budgets and a signal that flags a regression in build wall-clock, once there is a baseline worth holding.
 - Persisting BuildKit **cache mounts** across Workers Builds runs (the registry/`target` mounts are build-local today) if cold Rust dependency compiles in the Container build become the bottleneck.
-- **Project-references type-check gate** — the reference graph + generator + `vp run typecheck` (`tsc -b`) have landed (non-gating); wire them into the root `check` once the pre-existing latent type errors the full-graph build surfaced are fixed. Design + error inventory: `docs/specs/2026-06-30-typescript-project-references-rollout-design.md`.
-- **`vp check` type-coverage gap** — the whole-repo type-check is too slow to complete (timed out at 10 min), so real type errors sit on `main` unenforced; `vp check` catches them when scoped, so this is performance-induced, not a linter gap. The incremental gate is the fix. Evidence + recommendation: [`docs/research/vp-check-typecheck-coverage-gap.md`](../research/vp-check-typecheck-coverage-gap.md).
+- **Scope the type-aware lint pass to changed files in the gate** — `vp check`'s type-aware lint still builds a whole-program model for the full `pnpm check`. `tsc -b` already gives the gate its fast, complete type-errors; making the type-aware _lint_ equally fast (scoping it, or a tsgolint-on-changed step) is the remaining speed-up. Depends on a vp mechanism to scope `typeAware` independently of the global config.
 - **`tsgo` cutover** — swap the type-check engine to the TypeScript 7 native compiler once references have landed and it reaches GA, keeping a pinned JavaScript `typescript` for the Compiler-API tooling.
 - **CI affected-graph** — run checks only for the packages a change affects (plus dependents), sharding and persisting `.tsbuildinfo` between runs, once references make "affected" precise.
