@@ -53,13 +53,13 @@
   }
   .mc-alert-title {
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-sm);
+    font-size: var(--mc-font-size-sm);
     font-weight: var(--mc-weight-semibold);
     line-height: var(--mc-leading-tight);
   }
   .mc-alert-description {
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-sm);
+    font-size: var(--mc-font-size-sm);
     line-height: var(--mc-leading-normal);
   }
 }

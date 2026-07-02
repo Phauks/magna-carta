@@ -9,7 +9,7 @@
     align-items: center;
     gap: var(--mc-space-8);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-sm);
+    font-size: var(--mc-font-size-sm);
     font-weight: var(--mc-weight-medium);
     line-height: var(--mc-leading-tight);
     color: var(--mc-text-default);

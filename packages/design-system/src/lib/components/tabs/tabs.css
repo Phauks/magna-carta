@@ -29,7 +29,7 @@
     background-color: transparent;
     color: var(--mc-text-muted);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-sm);
+    font-size: var(--mc-font-size-sm);
     font-weight: var(--mc-weight-medium);
     line-height: var(--mc-leading-tight);
     border-style: none;
@@ -84,7 +84,7 @@
   .mc-tabs-content {
     color: var(--mc-text-default);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-sm);
+    font-size: var(--mc-font-size-sm);
     line-height: var(--mc-leading-normal);
     outline-color: transparent;
     outline-style: solid;

@@ -18,7 +18,7 @@
     border-width: var(--mc-border-width-default);
     border-color: var(--mc-border-default);
     border-radius: var(--mc-radius-sm);
-    background-color: var(--mc-surface-default);
+    background-color: var(--mc-surface-field);
     color: var(--mc-action-primary-foreground);
     cursor: pointer;
     transition-property: background-color, border-color, outline-color;

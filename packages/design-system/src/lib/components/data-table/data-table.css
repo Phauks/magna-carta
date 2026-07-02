@@ -24,7 +24,7 @@
     border-collapse: separate;
     border-spacing: var(--mc-space-0);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-sm);
+    font-size: var(--mc-font-size-sm);
     line-height: var(--mc-leading-normal);
     color: var(--mc-text-default);
     text-align: start;
@@ -32,7 +32,7 @@
   .mc-table-caption {
     margin-block-start: var(--mc-space-12);
     color: var(--mc-text-muted);
-    font-size: var(--mc-text-xs);
+    font-size: var(--mc-font-size-xs);
     text-align: start;
   }
   /* Header cells: a sunken fill with an uppercase, tracked, small-caps-weight label — the column
@@ -43,7 +43,7 @@
     background-color: var(--mc-surface-sunken);
     border-block-end: var(--mc-border-width-default) solid var(--mc-border-default);
     color: var(--mc-text-subtle);
-    font-size: var(--mc-text-xs);
+    font-size: var(--mc-font-size-xs);
     font-weight: var(--mc-weight-semibold);
     /* The letterspaced-caps label voice — headers are structure, and uppercase needs the air. */
     letter-spacing: var(--mc-tracking-caps);
@@ -67,7 +67,9 @@
     background-color: var(--mc-action-secondary);
   }
   .mc-table-body .mc-table-row[data-state="selected"] {
-    background-color: var(--mc-action-secondary);
+    /* Selection has its OWN semantic role (not the hover/secondary fill), so a theme or a future
+       design pass can diverge chosen-state from hover without touching recipes. Same value today. */
+    background-color: var(--mc-surface-selected);
   }
   /* The last body row drops its cell hairline so it meets the table-card frame cleanly. */
   .mc-table-body .mc-table-row:last-child .mc-table-cell {
@@ -116,11 +118,13 @@
   .mc-table[data-dividers="on"] .mc-table-cell:last-child {
     border-inline-end-width: var(--mc-space-0);
   }
-  .mc-table[data-density="compact"] .mc-table-cell {
+  /* data-ROW-density: the per-table View-menu option — deliberately a different attribute than
+     the global data-density user axis on <html>, so neither reads as the other. */
+  .mc-table[data-row-density="compact"] .mc-table-cell {
     padding-block: var(--mc-space-4);
   }
-  .mc-table[data-density="compact"] .mc-table-head {
-    block-size: var(--mc-control-sm);
+  .mc-table[data-row-density="compact"] .mc-table-head {
+    block-size: var(--mc-density-control-sm);
   }
   /*
    * Sortable column header — a borderless text button that fills the head cell, inherits its muted
@@ -226,7 +230,7 @@
   .mc-table-filter-heading {
     margin: var(--mc-space-0);
     color: var(--mc-text-muted);
-    font-size: var(--mc-text-xs);
+    font-size: var(--mc-font-size-xs);
     font-weight: var(--mc-weight-semibold);
     text-transform: uppercase;
     /* The letterspaced-caps label voice, same as the column headers this heading filters. */
@@ -239,7 +243,7 @@
   }
   .mc-table-filter-field-label {
     color: var(--mc-text-muted);
-    font-size: var(--mc-text-xs);
+    font-size: var(--mc-font-size-xs);
   }
   .mc-table-filter-facets {
     display: flex;
@@ -253,7 +257,7 @@
     display: flex;
     align-items: center;
     gap: var(--mc-space-8);
-    font-size: var(--mc-text-sm);
+    font-size: var(--mc-font-size-sm);
     color: var(--mc-text-default);
     cursor: pointer;
   }

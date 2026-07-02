@@ -13,14 +13,14 @@
   }
   .mc-brand-mark-glyph {
     font-family: var(--mc-font-blackletter);
-    font-size: var(--mc-text-2xl);
+    font-size: var(--mc-font-size-2xl);
     font-weight: var(--mc-weight-regular);
     line-height: var(--mc-leading-tight);
     color: var(--mc-chrome-accent);
   }
   .mc-brand-mark-word {
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-xs);
+    font-size: var(--mc-font-size-xs);
     font-weight: var(--mc-weight-semibold);
     letter-spacing: var(--mc-tracking-wordmark);
     text-transform: uppercase;

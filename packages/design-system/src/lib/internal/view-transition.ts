@@ -14,16 +14,10 @@
  * state change instant where the API can't help.
  */
 
+import { prefersReducedMotion } from "./motion-preference.ts";
+
 /** The subset of the View Transitions API we depend on (not yet in every TS DOM lib). */
 type StartViewTransition = (callback: () => void | Promise<void>) => unknown;
-
-function prefersReducedMotion(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
-}
 
 /**
  * Apply `update` (a reactive-state mutation) inside a View Transition when supported and motion is

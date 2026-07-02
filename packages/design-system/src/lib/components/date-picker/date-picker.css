@@ -10,18 +10,18 @@
     margin-block-end: var(--mc-space-4);
     color: var(--mc-text-default);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-sm);
+    font-size: var(--mc-font-size-sm);
     font-weight: var(--mc-weight-medium);
   }
   .mc-date-field {
     display: inline-flex;
     align-items: center;
-    block-size: var(--mc-control-md);
+    min-block-size: var(--mc-density-control-md);
     padding-inline: var(--mc-space-12);
-    background-color: var(--mc-surface-default);
+    background-color: var(--mc-surface-field);
     color: var(--mc-text-default);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-sm);
+    font-size: var(--mc-font-size-sm);
     border-style: solid;
     border-width: var(--mc-border-width-default);
     border-color: var(--mc-border-default);

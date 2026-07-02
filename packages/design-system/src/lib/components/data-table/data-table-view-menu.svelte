@@ -3,7 +3,8 @@
    * DataTable.ViewMenu — the table's View/Settings control: a dropdown that holds both column
    * visibility (a checkbox per hideable column) AND appearance (zebra striping, column dividers, and
    * density). Composable — it takes the shared table instance plus a bindable `appearance` object the
-   * consumer also feeds to the table as data-attributes (data-zebra / data-dividers / data-density).
+   * consumer also feeds to the table as data-attributes (data-zebra / data-dividers /
+   * data-row-density — row-density, not the global data-density axis).
    */
   import type { Table } from "@tanstack/table-core";
   import Settings from "@lucide/svelte/icons/settings-2";

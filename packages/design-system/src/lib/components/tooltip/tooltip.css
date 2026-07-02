@@ -30,7 +30,7 @@
     background-color: var(--mc-surface-overlay);
     color: var(--mc-text-default);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-xs);
+    font-size: var(--mc-font-size-xs);
     line-height: var(--mc-leading-tight);
   }
 }

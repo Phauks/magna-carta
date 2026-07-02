@@ -1,12 +1,14 @@
 {
   "$description": "Semantic aliases onto primitives — the light/default truth (tokens/modes/* override per mode). Adding a color-bearing semantic token requires adding its @theme inline mapping in tailwind.template.css (until a gate enforces it).",
   "surface": {
-    "$description": "Background colors for layered surfaces.",
+    "$description": "Background colors for layered surfaces. `selected` is the persistent chosen-state fill (rows, list items) — its OWN role so selection can diverge from hover per theme without a recipe sweep; `field` is the form-control resting background, distinct from the page surface for dense forms.",
     "default": { "$type": "color", "$value": "{color.neutral.0}" },
     "raised": { "$type": "color", "$value": "{color.neutral.50}" },
     "sunken": { "$type": "color", "$value": "{color.neutral.100}" },
     "overlay": { "$type": "color", "$value": "{color.neutral.0}" },
-    "scrim": { "$type": "color", "$value": "{color.scrim}" }
+    "scrim": { "$type": "color", "$value": "{color.scrim}" },
+    "selected": { "$type": "color", "$value": "{color.neutral.100}" },
+    "field": { "$type": "color", "$value": "{color.neutral.0}" }
   },
   "text": {
     "default": { "$type": "color", "$value": "{color.neutral.900}" },
@@ -80,9 +82,12 @@
     "danger-subtle-border": { "$type": "color", "$value": "{color.red.300}" }
   },
   "density": {
-    "$description": "Layout density dimensions.",
+    "$description": "Layout density dimensions — the user density axis (data-density on <html>) re-points this whole group via the resolver's density modifier (comfortable is this default truth; compact shifts the control ladder one rung and tightens the row geometry). Recipes consume control heights ONLY through these aliases, never {control.*} directly — referencing the aliases IS the axis compliance.",
     "gutter": { "$type": "dimension", "$value": "{space.16}" },
     "stack": { "$type": "dimension", "$value": "{space.12}" },
-    "control-height": { "$type": "dimension", "$value": "{control.md}" }
+    "control-height": { "$type": "dimension", "$value": "{control.md}" },
+    "control-sm": { "$type": "dimension", "$value": "{control.sm}" },
+    "control-md": { "$type": "dimension", "$value": "{control.md}" },
+    "control-lg": { "$type": "dimension", "$value": "{control.lg}" }
   }
 }

@@ -84,6 +84,9 @@ catalogs:
     '@types/node':
       specifier: 25.9.1
       version: 25.9.1
+    animejs:
+      specifier: 4.5.0
+      version: 4.5.0
     apca-w3:
       specifier: 0.1.9
       version: 0.1.9
@@ -364,6 +367,9 @@ importers:
       '@tanstack/table-core':
         specifier: 'catalog:'
         version: 8.21.3
+      animejs:
+        specifier: 'catalog:'
+        version: 4.5.0
       bits-ui:
         specifier: 'catalog:'
         version: 2.18.1(patch_hash=7d787af242974593b77e2ecbdd226a8a068590c48722e4eb190ab2a9fd140bd3)(@internationalized/date@3.12.2)(@sveltejs/kit@2.63.0(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.2)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0)))(svelte@5.56.2)(typescript@6.0.3)(vite@8.0.16(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0)))(svelte@5.56.2)
@@ -2834,6 +2840,17 @@ packages:
     resolution: {integrity: sha512-UVJyE9MttOsBQIDKw1skb9nAwQuR5wuGD3+82K6JgJlm/Y+KI92oNsMNGZCYdDsVtRHSak0pcV5Dno5+4jh9sw==}
     engines: {node: '>=0.4.0'}
     hasBin: true
+
+  animejs@4.5.0:
+    resolution: {integrity: sha512-NQimYX+lz8WaXonGS9zVVoviCIAjONeJayxacUditaivYLqyXgGjFKjuyl0aUUhFKm5MriX9ty1TGovNzoJQWA==}
+    peerDependencies:
+      '@types/three': '>=0.150.0'
+      three: '>=0.150.0'
+    peerDependenciesMeta:
+      '@types/three':
+        optional: true
+      three:
+        optional: true
 
   ansi-regex@5.0.1:
     resolution: {integrity: sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==}
@@ -5790,6 +5807,8 @@ snapshots:
   '@webcontainer/env@1.1.1': {}
 
   acorn@8.16.0: {}
+
+  animejs@4.5.0: {}
 
   ansi-regex@5.0.1: {}
 

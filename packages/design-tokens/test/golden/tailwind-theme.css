@@ -47,14 +47,17 @@
   --leading-tight: 1.25;
   --leading-normal: 1.5;
   --leading-relaxed: 1.625;
-  --tracking-tight: -0.16px;
-  --tracking-normal: 0px;
+  --tracking-tight: -0.01rem;
+  --tracking-normal: 0rem;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
   --ease-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --ease-settle: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-travel: cubic-bezier(0.77, 0, 0.175, 1);
   --transition-duration-fast: 120ms;
   --transition-duration-instant: 0ms;
   --transition-duration-normal: 200ms;
+  --transition-duration-signature: 500ms;
   --transition-duration-slow: 300ms;
   --z-index-base: 0;
   --z-index-dropdown: 1000;
@@ -76,6 +79,8 @@
   --color-surface-sunken: var(--mc-surface-sunken);
   --color-surface-overlay: var(--mc-surface-overlay);
   --color-surface-scrim: var(--mc-surface-scrim);
+  --color-surface-selected: var(--mc-surface-selected);
+  --color-surface-field: var(--mc-surface-field);
   --color-text-default: var(--mc-text-default);
   --color-text-muted: var(--mc-text-muted);
   --color-text-subtle: var(--mc-text-subtle);

@@ -8,13 +8,13 @@
   .mc-combobox-input-wrapper {
     display: flex;
     align-items: center;
-    block-size: var(--mc-control-md);
+    min-block-size: var(--mc-density-control-md);
     padding-inline-end: var(--mc-space-4);
     border-style: solid;
     border-width: var(--mc-border-width-default);
     border-color: var(--mc-border-default);
     border-radius: var(--mc-radius-md);
-    background-color: var(--mc-surface-default);
+    background-color: var(--mc-surface-field);
     transition-property: border-color, outline-color;
     transition-duration: var(--mc-duration-fast);
     transition-timing-function: var(--mc-easing-standard);
@@ -34,7 +34,7 @@
     background-color: transparent;
     color: var(--mc-text-default);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-sm);
+    font-size: var(--mc-font-size-sm);
     line-height: var(--mc-leading-tight);
     border-style: none;
     outline-style: none;

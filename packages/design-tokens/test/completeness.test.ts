@@ -20,7 +20,12 @@ interface ResolverModifier {
 }
 
 const resolver = JSON.parse(readFileSync(join(PACKAGE_ROOT, "resolver.json"), "utf8")) as {
-  modifiers: { theme: ResolverModifier; mode: ResolverModifier };
+  modifiers: {
+    theme: ResolverModifier;
+    mode: ResolverModifier;
+    density: ResolverModifier;
+    motion: ResolverModifier;
+  };
 };
 
 const themes = Object.keys(resolver.modifiers.theme.contexts);
@@ -34,6 +39,30 @@ function expectedSelector(theme: string, mode: string): string {
 const expectedSelectors = themes.flatMap((theme) =>
   modes.map((mode) => expectedSelector(theme, mode)),
 );
+
+// The motion and density axes emit one small OVERLAY block per non-default level
+// (`:root[data-motion="…"]` / `:root[data-density="…"]`) after the theme x mode matrix — an
+// overlay, not a context: each re-points exactly one variable namespace and must carry nothing
+// else (a color there would silently override every theme). Default levels are the primitive/
+// semantic truth (no block). Each overlay's namespace is pinned below.
+function nonDefaultLevels(modifier: ResolverModifier): string[] {
+  return Object.keys(modifier.contexts).filter((level) => level !== modifier.default);
+}
+const overlayExpectations = [
+  // Density overlay values stay ALIASED (var() chains onto the primitive scales) — the overlay
+  // re-points which primitive each alias reads, it never mints its own lengths.
+  ...nonDefaultLevels(resolver.modifiers.density).map((level) => ({
+    selector: `:root[data-density="${level}"]`,
+    variablePrefix: "--mc-density-",
+    valuePattern: /^var\(--mc-(control|space)-[\w-]+\)$/,
+  })),
+  ...nonDefaultLevels(resolver.modifiers.motion).map((level) => ({
+    selector: `:root[data-motion="${level}"]`,
+    variablePrefix: "--mc-duration-",
+    valuePattern: /^\d+(\.\d+)?m?s$/,
+  })),
+];
+const expectedOverlaySelectors = overlayExpectations.map(({ selector }) => selector);
 
 /** A token is an object carrying `$value`; names are dot-joined paths, `$`-keys are metadata. */
 function collectTokenNames(node: unknown, path = ""): string[] {
@@ -173,9 +202,26 @@ describe("theme-and-mode completeness (resolver matrix vs generated/tokens.css)"
     expect(modes).toContain(defaultMode);
   });
 
-  it("the base context selectors equal exactly the expected matrix", () => {
-    expect(Object.keys(parsed.base).sort()).toEqual([...expectedSelectors].sort());
+  it("the base context selectors equal exactly the expected matrix plus the axis overlays", () => {
+    expect(Object.keys(parsed.base).sort()).toEqual(
+      [...expectedSelectors, ...expectedOverlaySelectors].sort(),
+    );
   });
+
+  it.each(overlayExpectations)(
+    "$selector is a single-namespace overlay ($variablePrefix)",
+    ({ selector, variablePrefix, valuePattern }) => {
+      const variables = parsed.base[selector];
+      expect(variables).toBeDefined();
+      const names = Object.keys(variables ?? {});
+      expect(names.length).toBeGreaterThanOrEqual(4);
+      // Single-namespace: anything else here would silently override every theme x mode context.
+      expect(names.filter((name) => !name.startsWith(variablePrefix))).toEqual([]);
+      for (const value of Object.values(variables ?? {})) {
+        expect(value.trim()).toMatch(valuePattern);
+      }
+    },
+  );
 
   it("the missing-variable check itself catches absent and empty values (self-check)", () => {
     // Empirical verifier: the gate must actually flag a dropped or emptied variable.

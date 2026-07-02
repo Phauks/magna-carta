@@ -17,7 +17,7 @@
     border-color: transparent;
     border-radius: var(--mc-radius-full);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-xs);
+    font-size: var(--mc-font-size-xs);
     font-weight: var(--mc-weight-semibold);
     line-height: var(--mc-leading-tight);
     white-space: nowrap;

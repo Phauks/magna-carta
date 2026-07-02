@@ -38,6 +38,9 @@ catalog:
   "@types/culori": 4.0.1
   # Web (apps/web)
   "@types/node": 25.9.1
+  # Signature-moment animation (design-system internal/signature-motion.ts is the ONLY import
+  # site — gated). MIT; supersedes the GSAP+DrawSVG+SplitText plan (ADR with the first consumer).
+  animejs: 4.5.0
   apca-w3: 0.1.9
   # Auth (apps/worker). Better Auth runs on the control-plane D1 via its drizzle adapter;
   # otpauth is a devDependency that verifies TOTP codes in two-factor tests.

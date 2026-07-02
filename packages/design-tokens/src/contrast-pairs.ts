@@ -41,6 +41,26 @@ export const CONTRAST_PAIRS: ReadonlyArray<ContrastPair> = [
     minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
   },
   {
+    foreground: "text-default",
+    background: "surface-selected",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
+  {
+    foreground: "text-muted",
+    background: "surface-selected",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
+  {
+    foreground: "text-default",
+    background: "surface-field",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
+  {
+    foreground: "text-subtle",
+    background: "surface-field",
+    minimumRatio: WCAG_TEXT_MINIMUM_RATIO,
+  },
+  {
     foreground: "action-primary-foreground",
     background: "action-primary",
     minimumRatio: WCAG_TEXT_MINIMUM_RATIO,

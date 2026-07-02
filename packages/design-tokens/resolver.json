@@ -40,6 +40,23 @@
       },
       "default": "light"
     },
+    "density": {
+      "description": "The user density axis (design language §5: comfortable / compact). comfortable is the semantic truth; compact re-points the density.* aliases ONLY (dimensions are theme- and mode-invariant), emitted as one small :root[data-density=…] overlay block after the theme x mode permutations. Recipes consume control heights and row geometry exclusively through density.* — that consumption IS the axis compliance.",
+      "contexts": {
+        "comfortable": [],
+        "compact": [{ "$ref": "tokens/density/compact.json" }]
+      },
+      "default": "comfortable"
+    },
+    "motion": {
+      "description": "The user motion axis (design language §7: full / reduced / off, honoring OS prefers-reduced-motion as the default). full is the primitive truth; reduced/off re-point the duration ladder ONLY (durations are theme- and mode-invariant), emitted as small :root[data-motion=…] overlay blocks AFTER the theme x mode permutations so they win the duration variables at equal specificity. Recipes never gate themselves — referencing the ladder IS the compliance.",
+      "contexts": {
+        "full": [],
+        "reduced": [{ "$ref": "tokens/motion/reduced.json" }],
+        "off": [{ "$ref": "tokens/motion/off.json" }]
+      },
+      "default": "full"
+    },
     "contrast": {
       "description": "Reserved high-contrast axis (design language §6; the home for stronger boundaries + OS prefers-contrast / forced-colors). Unpopulated at launch — only the no-op 'standard' context exists; a future 'high' context strengthens borders and drops subtle shadows. The plugin permutations (terrazzo.config.mjs) emit theme x mode only, so this resolves to its default and adds no output until populated.",
       "contexts": {
@@ -53,6 +70,8 @@
     { "$ref": "#/sets/semantic" },
     { "$ref": "#/modifiers/theme" },
     { "$ref": "#/modifiers/mode" },
+    { "$ref": "#/modifiers/density" },
+    { "$ref": "#/modifiers/motion" },
     { "$ref": "#/modifiers/contrast" }
   ]
 }

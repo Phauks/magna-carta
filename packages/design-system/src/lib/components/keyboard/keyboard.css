@@ -15,7 +15,7 @@
     background-color: var(--mc-surface-sunken);
     color: var(--mc-text-muted);
     font-family: var(--mc-font-mono);
-    font-size: var(--mc-text-xs);
+    font-size: var(--mc-font-size-xs);
     line-height: var(--mc-leading-tight);
   }
 }

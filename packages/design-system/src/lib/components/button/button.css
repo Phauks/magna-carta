@@ -13,7 +13,7 @@
     gap: var(--mc-space-8);
     border-radius: var(--mc-radius-md);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-sm);
+    font-size: var(--mc-font-size-sm);
     font-weight: var(--mc-weight-medium);
     line-height: var(--mc-leading-tight);
     text-decoration-line: none;
@@ -88,24 +88,27 @@
     background-color: var(--mc-action-secondary);
   }
 
-  /* Sizes — heights map to the control scale; icon is a square at the default height. */
+  /* Sizes — heights map to the control scale THROUGH the density aliases (the user density axis
+     re-points them; consuming the alias is the compliance). min-block-size, not block-size, so
+     OS/browser text-only scaling can grow the label without clipping it. Icon is a square at the
+     default height (exact, not min — it holds no text). */
   .mc-button-sm {
-    block-size: var(--mc-control-sm);
+    min-block-size: var(--mc-density-control-sm);
     padding-inline: var(--mc-space-12);
-    font-size: var(--mc-text-xs);
+    font-size: var(--mc-font-size-xs);
   }
   .mc-button-md {
-    block-size: var(--mc-control-md);
+    min-block-size: var(--mc-density-control-md);
     padding-inline: var(--mc-space-16);
   }
   .mc-button-lg {
-    block-size: var(--mc-control-lg);
+    min-block-size: var(--mc-density-control-lg);
     padding-inline: var(--mc-space-20);
-    font-size: var(--mc-text-md);
+    font-size: var(--mc-font-size-md);
   }
   .mc-button-icon {
-    block-size: var(--mc-control-md);
-    inline-size: var(--mc-control-md);
+    block-size: var(--mc-density-control-md);
+    inline-size: var(--mc-density-control-md);
     padding-inline: var(--mc-space-0);
   }
 }

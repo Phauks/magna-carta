@@ -23,7 +23,8 @@
     "full": { "$type": "dimension", "$value": { "value": 9999, "unit": "px" } }
   },
   "control": {
-    "$description": "Interactive control heights.",
+    "$description": "Interactive control heights. Recipes consume these through the density.* semantic aliases (never directly), so the user density axis can shift the whole ladder; xs exists as the compact floor for sm controls (still a workable pointer target beside 15-16px text).",
+    "xs": { "$type": "dimension", "$value": { "value": 28, "unit": "px" } },
     "sm": { "$type": "dimension", "$value": { "value": 32, "unit": "px" } },
     "md": { "$type": "dimension", "$value": { "value": 36, "unit": "px" } },
     "lg": { "$type": "dimension", "$value": { "value": 40, "unit": "px" } }

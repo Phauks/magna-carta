@@ -3,7 +3,9 @@
     "default": { "$type": "color", "$value": "{color.neutral.1000}" },
     "raised": { "$type": "color", "$value": "{color.neutral.900}" },
     "sunken": { "$type": "color", "$value": "{color.neutral.1000}" },
-    "overlay": { "$type": "color", "$value": "{color.neutral.900}" }
+    "overlay": { "$type": "color", "$value": "{color.neutral.900}" },
+    "selected": { "$type": "color", "$value": "{color.neutral.800}" },
+    "field": { "$type": "color", "$value": "{color.neutral.1000}" }
   },
   "text": {
     "default": { "$type": "color", "$value": "{color.neutral.50}" },

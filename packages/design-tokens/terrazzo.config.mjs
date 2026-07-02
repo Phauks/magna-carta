@@ -15,12 +15,32 @@ function variableName(token) {
 // whose light permutation doubles as the default set plugin-tailwind reads.
 const themes = ["chancery", "verdigris", "parchment", "oxblood", "aubergine", "slate"];
 const modes = ["light", "dark"];
-const permutations = themes.flatMap((theme) =>
+const themeModePermutations = themes.flatMap((theme) =>
   modes.map((mode) => ({
     input: { theme, mode },
     prepare: (css) => `:root[data-theme="${theme}"]${mode === "dark" ? ".dark" : ""} {\n${css}\n}`,
   })),
 );
+
+// The motion axis re-points the duration ladder only (theme- and mode-invariant), so each level
+// is ONE small overlay block scoped to the duration namespace — emitted AFTER the theme x mode
+// blocks so it wins the duration variables at equal (0,2,0) specificity. "full" is the primitive
+// truth and needs no overlay.
+const motionPermutations = ["reduced", "off"].map((motion) => ({
+  input: { theme: "chancery", mode: "light", motion },
+  include: ["duration.*"],
+  prepare: (css) => `:root[data-motion="${motion}"] {\n${css}\n}`,
+}));
+
+// Same shape for the density axis: compact re-points the density.* aliases only (dimensions are
+// theme- and mode-invariant); "comfortable" is the semantic truth and needs no overlay.
+const densityPermutations = ["compact"].map((density) => ({
+  input: { theme: "chancery", mode: "light", density },
+  include: ["density.*"],
+  prepare: (css) => `:root[data-density="${density}"] {\n${css}\n}`,
+}));
+
+const permutations = [...themeModePermutations, ...densityPermutations, ...motionPermutations];
 
 export default defineConfig({
   // The resolver document is the single entry point; it pulls in every token file.
@@ -49,13 +69,16 @@ export default defineConfig({
           sans: "font.sans",
           mono: "font.mono",
         },
+        // Tailwind's text-* SIZE utilities map to the font-size.* primitives; the token group is
+        // named font-size so its variables (--mc-font-size-*) cannot collide with the semantic
+        // text COLOR roles (--mc-text-*).
         text: {
-          xs: "text.xs",
-          sm: "text.sm",
-          md: "text.md",
-          lg: "text.lg",
-          xl: "text.xl",
-          "2xl": "text.2xl",
+          xs: "font-size.xs",
+          sm: "font-size.sm",
+          md: "font-size.md",
+          lg: "font-size.lg",
+          xl: "font-size.xl",
+          "2xl": "font-size.2xl",
         },
         "font-weight": {
           regular: "weight.regular",
@@ -75,6 +98,8 @@ export default defineConfig({
           standard: "easing.standard",
           decelerate: "easing.decelerate",
           accelerate: "easing.accelerate",
+          settle: "easing.settle",
+          travel: "easing.travel",
         },
         // Tailwind v4 namespace names verified against the installed tailwindcss 4.3.0:
         // `duration-*` utilities resolve the --transition-duration-* theme keys and

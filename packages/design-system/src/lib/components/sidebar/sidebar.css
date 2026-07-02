@@ -70,7 +70,7 @@
     padding-block: var(--mc-space-4);
     color: var(--mc-chrome-text-muted);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-xs);
+    font-size: var(--mc-font-size-xs);
     font-weight: var(--mc-weight-semibold);
     text-transform: uppercase;
     /* The letterspaced-caps label voice — structural labels get air, data stays untracked. */
@@ -109,7 +109,7 @@
     background-color: transparent;
     color: var(--mc-chrome-text);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-sm);
+    font-size: var(--mc-font-size-sm);
     font-weight: var(--mc-weight-medium);
     line-height: var(--mc-leading-tight);
     text-align: start;

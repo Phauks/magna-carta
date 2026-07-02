@@ -13,13 +13,13 @@
   .mc-form-description {
     color: var(--mc-text-muted);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-xs);
+    font-size: var(--mc-font-size-xs);
     line-height: var(--mc-leading-normal);
   }
   .mc-form-errors {
     color: var(--mc-status-danger);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-xs);
+    font-size: var(--mc-font-size-xs);
     line-height: var(--mc-leading-normal);
   }
 }

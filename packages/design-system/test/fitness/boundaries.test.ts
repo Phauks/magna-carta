@@ -147,6 +147,65 @@ describe("bits-ui import boundary (golden rule 2; ADR-0076)", () => {
   });
 });
 
+// --- gate 1b: anime.js stays inside internal/signature-motion.ts ----------------------------
+
+/**
+ * Same discipline as the bits-ui gate: any string literal naming the animejs module specifier
+ * counts. The library is the third motion lane (signature moments) and its platform contracts
+ * (lazy import, compositor-only surface, the motion-axis jump-to-end) live in ONE wrapper —
+ * internal/signature-motion.ts. A second import site would be a second place to get them wrong.
+ */
+const ANIMEJS_MODULE_REFERENCE_PATTERN = /["']animejs(?:\/[^"']*)?["']/;
+
+export function findAnimejsReferences(filePath: string, content: string): string[] {
+  const violations: string[] = [];
+  content.split("\n").forEach((line, index) => {
+    const hit = ANIMEJS_MODULE_REFERENCE_PATTERN.exec(line);
+    if (hit) {
+      violations.push(
+        `${filePath}:${index + 1} [animejs-boundary] ${hit[0]} — animejs is imported only by ` +
+          "internal/signature-motion.ts; call the wrapper (it carries the lazy-load, " +
+          "compositor-only, and motion-axis contracts)",
+      );
+    }
+  });
+  return violations;
+}
+
+const animejsSweep = collectWorkspaceSourceFiles([...FITNESS_SELF_EXCLUSIONS]).filter(
+  (file) => file !== "packages/design-system/src/lib/internal/signature-motion.ts",
+);
+
+describe("animejs import boundary (signature motion stays behind its wrapper)", () => {
+  it("sweeps a real surface and excludes only the wrapper (vacuity guard)", () => {
+    expect(animejsSweep).toContain("packages/design-system/src/lib/internal/floating.ts");
+    expect(animejsSweep).not.toContain(
+      "packages/design-system/src/lib/internal/signature-motion.ts",
+    );
+  });
+
+  it("no swept file references animejs", () => {
+    const violations = animejsSweep.flatMap((file) =>
+      findAnimejsReferences(file, readFileSync(join(REPOSITORY_ROOT, file), "utf8")),
+    );
+    expect(violations).toEqual([]);
+  });
+
+  it("the detector finds the real import in the wrapper (positive control)", () => {
+    const wrapper = "packages/design-system/src/lib/internal/signature-motion.ts";
+    const content = readFileSync(join(REPOSITORY_ROOT, wrapper), "utf8");
+    expect(findAnimejsReferences(wrapper, content)).not.toEqual([]);
+  });
+
+  it("catches crafted offending imports (self-check)", () => {
+    expect(findAnimejsReferences("crafted.ts", 'import { animate } from "animejs";')).toHaveLength(
+      1,
+    );
+    expect(findAnimejsReferences("crafted.ts", 'await import("animejs");')).toHaveLength(1);
+    expect(findAnimejsReferences("crafted.ts", "// prose mention of animejs")).toEqual([]);
+  });
+});
+
 // --- gate 2: Lucide deep imports only -------------------------------------------------------
 
 /**
@@ -320,13 +379,76 @@ export function findOffTokenValueParts(value: string): string[] {
 }
 
 export function findComponentsCssViolations(filePath: string, css: string): string[] {
-  return extractCssDeclarations(css).flatMap(({ property, value, line }) =>
-    findOffTokenValueParts(value).map(
+  return extractCssDeclarations(css).flatMap(({ property, value, line }) => {
+    // Deliberate widening (reviewed 2026-07-02): an EMPTY-string `content` is the structural
+    // enabler of pseudo-element ornament (gilt bars, engraved rules) and carries no themeable
+    // design value. Only the exact form `content: ""` is admitted — any non-empty string (real
+    // content smuggled into CSS) still violates.
+    if (property === "content" && value === '""') return [];
+    return findOffTokenValueParts(value).map(
       (part) =>
         `${filePath}:${line} [components-css-token-purity] ${property}: ${value} — "${part}" ` +
         "is not a var(--mc-...) token reference or a structural keyword",
-    ),
-  );
+    );
+  });
+}
+
+/*
+ * Physical box properties are banned in recipes: the recipe set is (and must stay) logical-
+ * property based so RTL falls out for free — `inline-size`/`block-size`, `margin-inline-start`,
+ * `border-block-end`, `inset-inline`, `text-align: start/end`. One exception: the WebKit
+ * scrollbar pseudo-elements only accept physical `width`/`height`, so styles/recipes/scrollbar.css
+ * is exempted where it is scanned.
+ */
+const PHYSICAL_BOX_PROPERTIES = new Set([
+  "width",
+  "height",
+  "min-width",
+  "min-height",
+  "max-width",
+  "max-height",
+  "top",
+  "right",
+  "bottom",
+  "left",
+  "margin-top",
+  "margin-right",
+  "margin-bottom",
+  "margin-left",
+  "padding-top",
+  "padding-right",
+  "padding-bottom",
+  "padding-left",
+  "border-top",
+  "border-right",
+  "border-bottom",
+  "border-left",
+  "border-top-width",
+  "border-right-width",
+  "border-bottom-width",
+  "border-left-width",
+  "border-top-color",
+  "border-right-color",
+  "border-bottom-color",
+  "border-left-color",
+  "border-top-style",
+  "border-right-style",
+  "border-bottom-style",
+  "border-left-style",
+  "border-top-left-radius",
+  "border-top-right-radius",
+  "border-bottom-left-radius",
+  "border-bottom-right-radius",
+]);
+
+export function findPhysicalBoxProperties(filePath: string, css: string): string[] {
+  return extractCssDeclarations(css)
+    .filter(({ property }) => PHYSICAL_BOX_PROPERTIES.has(property))
+    .map(
+      ({ property, line }) =>
+        `${filePath}:${line} [physical-box-property] ${property} — use the logical equivalent ` +
+        "(inline-size/block-size, *-inline-*/*-block-*) so RTL keeps working",
+    );
 }
 
 /*
@@ -456,6 +578,37 @@ describe("recipe-file token purity (golden rule 2; ADR-0076 component-layer disc
         .mc-button:hover[data-state="open"] { }
       }`;
     expect(extractCssDeclarations(structuralOnly)).toEqual([]);
+  });
+});
+
+describe("recipe files stay logical-property based (RTL discipline)", () => {
+  it("has no physical box properties (scrollbar pseudo-elements exempt)", () => {
+    const violations = RECIPE_CSS_FILES.filter(
+      (file) => !file.endsWith("styles/recipes/scrollbar.css"),
+    ).flatMap((file) =>
+      findPhysicalBoxProperties(file, readFileSync(join(REPOSITORY_ROOT, file), "utf8")),
+    );
+    expect(violations).toEqual([]);
+  });
+
+  it("catches a crafted physical property and allows the logical form (self-check)", () => {
+    const physical = "@layer components {\n  .mc-x {\n    margin-left: var(--mc-space-8);\n  }\n}";
+    expect(findPhysicalBoxProperties("crafted.css", physical)).toHaveLength(1);
+    expect(findPhysicalBoxProperties("crafted.css", physical)[0]).toContain(
+      "[physical-box-property]",
+    );
+    const logical =
+      "@layer components {\n  .mc-y {\n    margin-inline-start: var(--mc-space-8);\n  }\n}";
+    expect(findPhysicalBoxProperties("crafted.css", logical)).toEqual([]);
+  });
+});
+
+describe("recipe files may use empty pseudo-element content, nothing more (self-check)", () => {
+  it('admits content: "" and rejects non-empty content strings', () => {
+    const empty = '@layer components {\n  .mc-x::before {\n    content: "";\n  }\n}';
+    expect(findComponentsCssViolations("crafted.css", empty)).toEqual([]);
+    const smuggled = '@layer components {\n  .mc-x::before {\n    content: "→";\n  }\n}';
+    expect(findComponentsCssViolations("crafted.css", smuggled)).toHaveLength(1);
   });
 });
 

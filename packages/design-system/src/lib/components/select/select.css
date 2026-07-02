@@ -13,16 +13,16 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--mc-space-8);
-    block-size: var(--mc-control-md);
+    min-block-size: var(--mc-density-control-md);
     padding-inline: var(--mc-space-12);
     border-style: solid;
     border-width: var(--mc-border-width-default);
     border-color: var(--mc-border-default);
     border-radius: var(--mc-radius-md);
-    background-color: var(--mc-surface-default);
+    background-color: var(--mc-surface-field);
     color: var(--mc-text-default);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-sm);
+    font-size: var(--mc-font-size-sm);
     line-height: var(--mc-leading-tight);
     cursor: pointer;
     transition-property: border-color, outline-color;
@@ -89,7 +89,7 @@
     border-radius: var(--mc-radius-sm);
     color: var(--mc-text-default);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-sm);
+    font-size: var(--mc-font-size-sm);
     line-height: var(--mc-leading-normal);
     cursor: pointer;
     user-select: none;
@@ -119,7 +119,7 @@
     padding-inline: var(--mc-space-8);
     color: var(--mc-text-muted);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-xs);
+    font-size: var(--mc-font-size-xs);
     font-weight: var(--mc-weight-medium);
     line-height: var(--mc-leading-tight);
   }

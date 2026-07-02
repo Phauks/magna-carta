@@ -19,7 +19,7 @@
     border-width: var(--mc-border-width-default);
     border-color: var(--mc-border-default);
     border-radius: var(--mc-radius-full);
-    background-color: var(--mc-surface-default);
+    background-color: var(--mc-surface-field);
     cursor: pointer;
     transition-property: border-color, outline-color;
     transition-duration: var(--mc-duration-fast);

@@ -89,16 +89,26 @@
   --mc-control-lg: 40px;
   --mc-control-md: 36px;
   --mc-control-sm: 32px;
+  --mc-control-xs: 28px;
   --mc-density-control-height: var(--mc-control-md);
+  --mc-density-control-lg: var(--mc-control-lg);
+  --mc-density-control-md: var(--mc-control-md);
+  --mc-density-control-sm: var(--mc-control-sm);
   --mc-density-gutter: var(--mc-space-16);
   --mc-density-stack: var(--mc-space-12);
   --mc-duration-fast: 120ms;
   --mc-duration-instant: 0ms;
   --mc-duration-normal: 200ms;
+  /* The signature-moment rung (design language: 500ms+): the written-live wordmark, hero choreography — ceremonial edges only, never workflow feedback. */
+  --mc-duration-signature: 500ms;
   --mc-duration-slow: 300ms;
   --mc-easing-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
   --mc-easing-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  /* Entrances and user-triggered changes: the authoritative snap-then-settle (strong ease-out). */
+  --mc-easing-settle: cubic-bezier(0.23, 1, 0.32, 1);
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  /* On-screen movement between two visible positions (strong ease-in-out). */
+  --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
   --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
   --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
@@ -112,6 +122,12 @@
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-size-2xl: 1.5rem;
+  --mc-font-size-lg: 1.125rem;
+  --mc-font-size-md: 1rem;
+  --mc-font-size-sm: 0.875rem;
+  --mc-font-size-xl: 1.25rem;
+  --mc-font-size-xs: 0.75rem;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -156,28 +172,24 @@
   --mc-status-warning-subtle-border: var(--mc-color-amber-300);
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
   --mc-surface-default: var(--mc-color-neutral-0);
+  --mc-surface-field: var(--mc-color-neutral-0);
   --mc-surface-overlay: var(--mc-color-neutral-0);
   --mc-surface-raised: var(--mc-color-neutral-50);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-surface-scrim: var(--mc-color-scrim);
+  --mc-surface-selected: var(--mc-color-neutral-100);
   --mc-surface-sunken: var(--mc-color-neutral-100);
-  --mc-text-2xl: 1.5rem;
   --mc-text-default: var(--mc-color-neutral-900);
   --mc-text-inverse: var(--mc-color-neutral-0);
-  --mc-text-lg: 1.125rem;
   --mc-text-link: var(--mc-color-brand-600);
-  --mc-text-md: 1rem;
   --mc-text-muted: var(--mc-color-neutral-700);
-  --mc-text-sm: 0.875rem;
   --mc-text-subtle: var(--mc-color-neutral-600);
-  --mc-text-xl: 1.25rem;
-  --mc-text-xs: 0.75rem;
   /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
-  --mc-tracking-caps: 1px;
-  --mc-tracking-normal: 0px;
-  --mc-tracking-tight: -0.16px;
+  --mc-tracking-caps: 0.0675rem;
+  --mc-tracking-normal: 0rem;
+  --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
-  --mc-tracking-wordmark: 2px;
+  --mc-tracking-wordmark: 0.125rem;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -310,16 +322,26 @@
   --mc-control-lg: 40px;
   --mc-control-md: 36px;
   --mc-control-sm: 32px;
+  --mc-control-xs: 28px;
   --mc-density-control-height: var(--mc-control-md);
+  --mc-density-control-lg: var(--mc-control-lg);
+  --mc-density-control-md: var(--mc-control-md);
+  --mc-density-control-sm: var(--mc-control-sm);
   --mc-density-gutter: var(--mc-space-16);
   --mc-density-stack: var(--mc-space-12);
   --mc-duration-fast: 120ms;
   --mc-duration-instant: 0ms;
   --mc-duration-normal: 200ms;
+  /* The signature-moment rung (design language: 500ms+): the written-live wordmark, hero choreography — ceremonial edges only, never workflow feedback. */
+  --mc-duration-signature: 500ms;
   --mc-duration-slow: 300ms;
   --mc-easing-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
   --mc-easing-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  /* Entrances and user-triggered changes: the authoritative snap-then-settle (strong ease-out). */
+  --mc-easing-settle: cubic-bezier(0.23, 1, 0.32, 1);
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  /* On-screen movement between two visible positions (strong ease-in-out). */
+  --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
   --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
   --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
@@ -333,6 +355,12 @@
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-size-2xl: 1.5rem;
+  --mc-font-size-lg: 1.125rem;
+  --mc-font-size-md: 1rem;
+  --mc-font-size-sm: 0.875rem;
+  --mc-font-size-xl: 1.25rem;
+  --mc-font-size-xs: 0.75rem;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -377,28 +405,24 @@
   --mc-status-warning-subtle-border: var(--mc-color-amber-700);
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   --mc-surface-default: var(--mc-color-neutral-1000);
+  --mc-surface-field: var(--mc-color-neutral-1000);
   --mc-surface-overlay: var(--mc-color-neutral-900);
   --mc-surface-raised: var(--mc-color-neutral-900);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-surface-scrim: var(--mc-color-scrim);
+  --mc-surface-selected: var(--mc-color-neutral-800);
   --mc-surface-sunken: var(--mc-color-neutral-1000);
-  --mc-text-2xl: 1.5rem;
   --mc-text-default: var(--mc-color-neutral-50);
   --mc-text-inverse: var(--mc-color-neutral-1000);
-  --mc-text-lg: 1.125rem;
   --mc-text-link: var(--mc-color-brand-300);
-  --mc-text-md: 1rem;
   --mc-text-muted: var(--mc-color-neutral-300);
-  --mc-text-sm: 0.875rem;
   --mc-text-subtle: var(--mc-color-neutral-400);
-  --mc-text-xl: 1.25rem;
-  --mc-text-xs: 0.75rem;
   /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
-  --mc-tracking-caps: 1px;
-  --mc-tracking-normal: 0px;
-  --mc-tracking-tight: -0.16px;
+  --mc-tracking-caps: 0.0675rem;
+  --mc-tracking-normal: 0rem;
+  --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
-  --mc-tracking-wordmark: 2px;
+  --mc-tracking-wordmark: 0.125rem;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -531,16 +555,26 @@
   --mc-control-lg: 40px;
   --mc-control-md: 36px;
   --mc-control-sm: 32px;
+  --mc-control-xs: 28px;
   --mc-density-control-height: var(--mc-control-md);
+  --mc-density-control-lg: var(--mc-control-lg);
+  --mc-density-control-md: var(--mc-control-md);
+  --mc-density-control-sm: var(--mc-control-sm);
   --mc-density-gutter: var(--mc-space-16);
   --mc-density-stack: var(--mc-space-12);
   --mc-duration-fast: 120ms;
   --mc-duration-instant: 0ms;
   --mc-duration-normal: 200ms;
+  /* The signature-moment rung (design language: 500ms+): the written-live wordmark, hero choreography — ceremonial edges only, never workflow feedback. */
+  --mc-duration-signature: 500ms;
   --mc-duration-slow: 300ms;
   --mc-easing-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
   --mc-easing-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  /* Entrances and user-triggered changes: the authoritative snap-then-settle (strong ease-out). */
+  --mc-easing-settle: cubic-bezier(0.23, 1, 0.32, 1);
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  /* On-screen movement between two visible positions (strong ease-in-out). */
+  --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
   --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
   --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
@@ -554,6 +588,12 @@
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-size-2xl: 1.5rem;
+  --mc-font-size-lg: 1.125rem;
+  --mc-font-size-md: 1rem;
+  --mc-font-size-sm: 0.875rem;
+  --mc-font-size-xl: 1.25rem;
+  --mc-font-size-xs: 0.75rem;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -598,28 +638,24 @@
   --mc-status-warning-subtle-border: var(--mc-color-amber-300);
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
   --mc-surface-default: var(--mc-color-neutral-0);
+  --mc-surface-field: var(--mc-color-neutral-0);
   --mc-surface-overlay: var(--mc-color-neutral-0);
   --mc-surface-raised: var(--mc-color-neutral-50);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-surface-scrim: var(--mc-color-scrim);
+  --mc-surface-selected: var(--mc-color-neutral-100);
   --mc-surface-sunken: var(--mc-color-neutral-100);
-  --mc-text-2xl: 1.5rem;
   --mc-text-default: var(--mc-color-neutral-900);
   --mc-text-inverse: var(--mc-color-neutral-0);
-  --mc-text-lg: 1.125rem;
   --mc-text-link: var(--mc-color-brand-600);
-  --mc-text-md: 1rem;
   --mc-text-muted: var(--mc-color-neutral-700);
-  --mc-text-sm: 0.875rem;
   --mc-text-subtle: var(--mc-color-neutral-600);
-  --mc-text-xl: 1.25rem;
-  --mc-text-xs: 0.75rem;
   /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
-  --mc-tracking-caps: 1px;
-  --mc-tracking-normal: 0px;
-  --mc-tracking-tight: -0.16px;
+  --mc-tracking-caps: 0.0675rem;
+  --mc-tracking-normal: 0rem;
+  --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
-  --mc-tracking-wordmark: 2px;
+  --mc-tracking-wordmark: 0.125rem;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -752,16 +788,26 @@
   --mc-control-lg: 40px;
   --mc-control-md: 36px;
   --mc-control-sm: 32px;
+  --mc-control-xs: 28px;
   --mc-density-control-height: var(--mc-control-md);
+  --mc-density-control-lg: var(--mc-control-lg);
+  --mc-density-control-md: var(--mc-control-md);
+  --mc-density-control-sm: var(--mc-control-sm);
   --mc-density-gutter: var(--mc-space-16);
   --mc-density-stack: var(--mc-space-12);
   --mc-duration-fast: 120ms;
   --mc-duration-instant: 0ms;
   --mc-duration-normal: 200ms;
+  /* The signature-moment rung (design language: 500ms+): the written-live wordmark, hero choreography — ceremonial edges only, never workflow feedback. */
+  --mc-duration-signature: 500ms;
   --mc-duration-slow: 300ms;
   --mc-easing-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
   --mc-easing-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  /* Entrances and user-triggered changes: the authoritative snap-then-settle (strong ease-out). */
+  --mc-easing-settle: cubic-bezier(0.23, 1, 0.32, 1);
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  /* On-screen movement between two visible positions (strong ease-in-out). */
+  --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
   --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
   --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
@@ -775,6 +821,12 @@
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-size-2xl: 1.5rem;
+  --mc-font-size-lg: 1.125rem;
+  --mc-font-size-md: 1rem;
+  --mc-font-size-sm: 0.875rem;
+  --mc-font-size-xl: 1.25rem;
+  --mc-font-size-xs: 0.75rem;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -819,28 +871,24 @@
   --mc-status-warning-subtle-border: var(--mc-color-amber-700);
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   --mc-surface-default: var(--mc-color-neutral-1000);
+  --mc-surface-field: var(--mc-color-neutral-1000);
   --mc-surface-overlay: var(--mc-color-neutral-900);
   --mc-surface-raised: var(--mc-color-neutral-900);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-surface-scrim: var(--mc-color-scrim);
+  --mc-surface-selected: var(--mc-color-neutral-800);
   --mc-surface-sunken: var(--mc-color-neutral-1000);
-  --mc-text-2xl: 1.5rem;
   --mc-text-default: var(--mc-color-neutral-50);
   --mc-text-inverse: var(--mc-color-neutral-1000);
-  --mc-text-lg: 1.125rem;
   --mc-text-link: var(--mc-color-brand-300);
-  --mc-text-md: 1rem;
   --mc-text-muted: var(--mc-color-neutral-300);
-  --mc-text-sm: 0.875rem;
   --mc-text-subtle: var(--mc-color-neutral-400);
-  --mc-text-xl: 1.25rem;
-  --mc-text-xs: 0.75rem;
   /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
-  --mc-tracking-caps: 1px;
-  --mc-tracking-normal: 0px;
-  --mc-tracking-tight: -0.16px;
+  --mc-tracking-caps: 0.0675rem;
+  --mc-tracking-normal: 0rem;
+  --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
-  --mc-tracking-wordmark: 2px;
+  --mc-tracking-wordmark: 0.125rem;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -973,16 +1021,26 @@
   --mc-control-lg: 40px;
   --mc-control-md: 36px;
   --mc-control-sm: 32px;
+  --mc-control-xs: 28px;
   --mc-density-control-height: var(--mc-control-md);
+  --mc-density-control-lg: var(--mc-control-lg);
+  --mc-density-control-md: var(--mc-control-md);
+  --mc-density-control-sm: var(--mc-control-sm);
   --mc-density-gutter: var(--mc-space-16);
   --mc-density-stack: var(--mc-space-12);
   --mc-duration-fast: 120ms;
   --mc-duration-instant: 0ms;
   --mc-duration-normal: 200ms;
+  /* The signature-moment rung (design language: 500ms+): the written-live wordmark, hero choreography — ceremonial edges only, never workflow feedback. */
+  --mc-duration-signature: 500ms;
   --mc-duration-slow: 300ms;
   --mc-easing-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
   --mc-easing-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  /* Entrances and user-triggered changes: the authoritative snap-then-settle (strong ease-out). */
+  --mc-easing-settle: cubic-bezier(0.23, 1, 0.32, 1);
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  /* On-screen movement between two visible positions (strong ease-in-out). */
+  --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
   --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
   --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
@@ -996,6 +1054,12 @@
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-size-2xl: 1.5rem;
+  --mc-font-size-lg: 1.125rem;
+  --mc-font-size-md: 1rem;
+  --mc-font-size-sm: 0.875rem;
+  --mc-font-size-xl: 1.25rem;
+  --mc-font-size-xs: 0.75rem;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -1040,28 +1104,24 @@
   --mc-status-warning-subtle-border: var(--mc-color-amber-300);
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
   --mc-surface-default: var(--mc-color-neutral-0);
+  --mc-surface-field: var(--mc-color-neutral-0);
   --mc-surface-overlay: var(--mc-color-neutral-0);
   --mc-surface-raised: var(--mc-color-neutral-50);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-surface-scrim: var(--mc-color-scrim);
+  --mc-surface-selected: var(--mc-color-neutral-100);
   --mc-surface-sunken: var(--mc-color-neutral-100);
-  --mc-text-2xl: 1.5rem;
   --mc-text-default: var(--mc-color-neutral-900);
   --mc-text-inverse: var(--mc-color-neutral-0);
-  --mc-text-lg: 1.125rem;
   --mc-text-link: var(--mc-color-brand-600);
-  --mc-text-md: 1rem;
   --mc-text-muted: var(--mc-color-neutral-700);
-  --mc-text-sm: 0.875rem;
   --mc-text-subtle: var(--mc-color-neutral-600);
-  --mc-text-xl: 1.25rem;
-  --mc-text-xs: 0.75rem;
   /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
-  --mc-tracking-caps: 1px;
-  --mc-tracking-normal: 0px;
-  --mc-tracking-tight: -0.16px;
+  --mc-tracking-caps: 0.0675rem;
+  --mc-tracking-normal: 0rem;
+  --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
-  --mc-tracking-wordmark: 2px;
+  --mc-tracking-wordmark: 0.125rem;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -1194,16 +1254,26 @@
   --mc-control-lg: 40px;
   --mc-control-md: 36px;
   --mc-control-sm: 32px;
+  --mc-control-xs: 28px;
   --mc-density-control-height: var(--mc-control-md);
+  --mc-density-control-lg: var(--mc-control-lg);
+  --mc-density-control-md: var(--mc-control-md);
+  --mc-density-control-sm: var(--mc-control-sm);
   --mc-density-gutter: var(--mc-space-16);
   --mc-density-stack: var(--mc-space-12);
   --mc-duration-fast: 120ms;
   --mc-duration-instant: 0ms;
   --mc-duration-normal: 200ms;
+  /* The signature-moment rung (design language: 500ms+): the written-live wordmark, hero choreography — ceremonial edges only, never workflow feedback. */
+  --mc-duration-signature: 500ms;
   --mc-duration-slow: 300ms;
   --mc-easing-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
   --mc-easing-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  /* Entrances and user-triggered changes: the authoritative snap-then-settle (strong ease-out). */
+  --mc-easing-settle: cubic-bezier(0.23, 1, 0.32, 1);
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  /* On-screen movement between two visible positions (strong ease-in-out). */
+  --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
   --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
   --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
@@ -1217,6 +1287,12 @@
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-size-2xl: 1.5rem;
+  --mc-font-size-lg: 1.125rem;
+  --mc-font-size-md: 1rem;
+  --mc-font-size-sm: 0.875rem;
+  --mc-font-size-xl: 1.25rem;
+  --mc-font-size-xs: 0.75rem;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -1261,28 +1337,24 @@
   --mc-status-warning-subtle-border: var(--mc-color-amber-700);
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   --mc-surface-default: var(--mc-color-neutral-1000);
+  --mc-surface-field: var(--mc-color-neutral-1000);
   --mc-surface-overlay: var(--mc-color-neutral-900);
   --mc-surface-raised: var(--mc-color-neutral-900);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-surface-scrim: var(--mc-color-scrim);
+  --mc-surface-selected: var(--mc-color-neutral-800);
   --mc-surface-sunken: var(--mc-color-neutral-1000);
-  --mc-text-2xl: 1.5rem;
   --mc-text-default: var(--mc-color-neutral-50);
   --mc-text-inverse: var(--mc-color-neutral-1000);
-  --mc-text-lg: 1.125rem;
   --mc-text-link: var(--mc-color-brand-300);
-  --mc-text-md: 1rem;
   --mc-text-muted: var(--mc-color-neutral-300);
-  --mc-text-sm: 0.875rem;
   --mc-text-subtle: var(--mc-color-neutral-400);
-  --mc-text-xl: 1.25rem;
-  --mc-text-xs: 0.75rem;
   /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
-  --mc-tracking-caps: 1px;
-  --mc-tracking-normal: 0px;
-  --mc-tracking-tight: -0.16px;
+  --mc-tracking-caps: 0.0675rem;
+  --mc-tracking-normal: 0rem;
+  --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
-  --mc-tracking-wordmark: 2px;
+  --mc-tracking-wordmark: 0.125rem;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -1415,16 +1487,26 @@
   --mc-control-lg: 40px;
   --mc-control-md: 36px;
   --mc-control-sm: 32px;
+  --mc-control-xs: 28px;
   --mc-density-control-height: var(--mc-control-md);
+  --mc-density-control-lg: var(--mc-control-lg);
+  --mc-density-control-md: var(--mc-control-md);
+  --mc-density-control-sm: var(--mc-control-sm);
   --mc-density-gutter: var(--mc-space-16);
   --mc-density-stack: var(--mc-space-12);
   --mc-duration-fast: 120ms;
   --mc-duration-instant: 0ms;
   --mc-duration-normal: 200ms;
+  /* The signature-moment rung (design language: 500ms+): the written-live wordmark, hero choreography — ceremonial edges only, never workflow feedback. */
+  --mc-duration-signature: 500ms;
   --mc-duration-slow: 300ms;
   --mc-easing-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
   --mc-easing-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  /* Entrances and user-triggered changes: the authoritative snap-then-settle (strong ease-out). */
+  --mc-easing-settle: cubic-bezier(0.23, 1, 0.32, 1);
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  /* On-screen movement between two visible positions (strong ease-in-out). */
+  --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
   --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
   --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
@@ -1438,6 +1520,12 @@
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-size-2xl: 1.5rem;
+  --mc-font-size-lg: 1.125rem;
+  --mc-font-size-md: 1rem;
+  --mc-font-size-sm: 0.875rem;
+  --mc-font-size-xl: 1.25rem;
+  --mc-font-size-xs: 0.75rem;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -1482,28 +1570,24 @@
   --mc-status-warning-subtle-border: var(--mc-color-amber-300);
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
   --mc-surface-default: var(--mc-color-neutral-0);
+  --mc-surface-field: var(--mc-color-neutral-0);
   --mc-surface-overlay: var(--mc-color-neutral-0);
   --mc-surface-raised: var(--mc-color-neutral-50);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-surface-scrim: var(--mc-color-scrim);
+  --mc-surface-selected: var(--mc-color-neutral-100);
   --mc-surface-sunken: var(--mc-color-neutral-100);
-  --mc-text-2xl: 1.5rem;
   --mc-text-default: var(--mc-color-neutral-900);
   --mc-text-inverse: var(--mc-color-neutral-0);
-  --mc-text-lg: 1.125rem;
   --mc-text-link: var(--mc-color-brand-600);
-  --mc-text-md: 1rem;
   --mc-text-muted: var(--mc-color-neutral-700);
-  --mc-text-sm: 0.875rem;
   --mc-text-subtle: var(--mc-color-neutral-600);
-  --mc-text-xl: 1.25rem;
-  --mc-text-xs: 0.75rem;
   /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
-  --mc-tracking-caps: 1px;
-  --mc-tracking-normal: 0px;
-  --mc-tracking-tight: -0.16px;
+  --mc-tracking-caps: 0.0675rem;
+  --mc-tracking-normal: 0rem;
+  --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
-  --mc-tracking-wordmark: 2px;
+  --mc-tracking-wordmark: 0.125rem;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -1636,16 +1720,26 @@
   --mc-control-lg: 40px;
   --mc-control-md: 36px;
   --mc-control-sm: 32px;
+  --mc-control-xs: 28px;
   --mc-density-control-height: var(--mc-control-md);
+  --mc-density-control-lg: var(--mc-control-lg);
+  --mc-density-control-md: var(--mc-control-md);
+  --mc-density-control-sm: var(--mc-control-sm);
   --mc-density-gutter: var(--mc-space-16);
   --mc-density-stack: var(--mc-space-12);
   --mc-duration-fast: 120ms;
   --mc-duration-instant: 0ms;
   --mc-duration-normal: 200ms;
+  /* The signature-moment rung (design language: 500ms+): the written-live wordmark, hero choreography — ceremonial edges only, never workflow feedback. */
+  --mc-duration-signature: 500ms;
   --mc-duration-slow: 300ms;
   --mc-easing-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
   --mc-easing-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  /* Entrances and user-triggered changes: the authoritative snap-then-settle (strong ease-out). */
+  --mc-easing-settle: cubic-bezier(0.23, 1, 0.32, 1);
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  /* On-screen movement between two visible positions (strong ease-in-out). */
+  --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
   --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
   --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
@@ -1659,6 +1753,12 @@
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-size-2xl: 1.5rem;
+  --mc-font-size-lg: 1.125rem;
+  --mc-font-size-md: 1rem;
+  --mc-font-size-sm: 0.875rem;
+  --mc-font-size-xl: 1.25rem;
+  --mc-font-size-xs: 0.75rem;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -1703,28 +1803,24 @@
   --mc-status-warning-subtle-border: var(--mc-color-amber-700);
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   --mc-surface-default: var(--mc-color-neutral-1000);
+  --mc-surface-field: var(--mc-color-neutral-1000);
   --mc-surface-overlay: var(--mc-color-neutral-900);
   --mc-surface-raised: var(--mc-color-neutral-900);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-surface-scrim: var(--mc-color-scrim);
+  --mc-surface-selected: var(--mc-color-neutral-800);
   --mc-surface-sunken: var(--mc-color-neutral-1000);
-  --mc-text-2xl: 1.5rem;
   --mc-text-default: var(--mc-color-neutral-50);
   --mc-text-inverse: var(--mc-color-neutral-1000);
-  --mc-text-lg: 1.125rem;
   --mc-text-link: var(--mc-color-brand-300);
-  --mc-text-md: 1rem;
   --mc-text-muted: var(--mc-color-neutral-300);
-  --mc-text-sm: 0.875rem;
   --mc-text-subtle: var(--mc-color-neutral-400);
-  --mc-text-xl: 1.25rem;
-  --mc-text-xs: 0.75rem;
   /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
-  --mc-tracking-caps: 1px;
-  --mc-tracking-normal: 0px;
-  --mc-tracking-tight: -0.16px;
+  --mc-tracking-caps: 0.0675rem;
+  --mc-tracking-normal: 0rem;
+  --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
-  --mc-tracking-wordmark: 2px;
+  --mc-tracking-wordmark: 0.125rem;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -1857,16 +1953,26 @@
   --mc-control-lg: 40px;
   --mc-control-md: 36px;
   --mc-control-sm: 32px;
+  --mc-control-xs: 28px;
   --mc-density-control-height: var(--mc-control-md);
+  --mc-density-control-lg: var(--mc-control-lg);
+  --mc-density-control-md: var(--mc-control-md);
+  --mc-density-control-sm: var(--mc-control-sm);
   --mc-density-gutter: var(--mc-space-16);
   --mc-density-stack: var(--mc-space-12);
   --mc-duration-fast: 120ms;
   --mc-duration-instant: 0ms;
   --mc-duration-normal: 200ms;
+  /* The signature-moment rung (design language: 500ms+): the written-live wordmark, hero choreography — ceremonial edges only, never workflow feedback. */
+  --mc-duration-signature: 500ms;
   --mc-duration-slow: 300ms;
   --mc-easing-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
   --mc-easing-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  /* Entrances and user-triggered changes: the authoritative snap-then-settle (strong ease-out). */
+  --mc-easing-settle: cubic-bezier(0.23, 1, 0.32, 1);
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  /* On-screen movement between two visible positions (strong ease-in-out). */
+  --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
   --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
   --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
@@ -1880,6 +1986,12 @@
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-size-2xl: 1.5rem;
+  --mc-font-size-lg: 1.125rem;
+  --mc-font-size-md: 1rem;
+  --mc-font-size-sm: 0.875rem;
+  --mc-font-size-xl: 1.25rem;
+  --mc-font-size-xs: 0.75rem;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -1924,28 +2036,24 @@
   --mc-status-warning-subtle-border: var(--mc-color-amber-300);
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
   --mc-surface-default: var(--mc-color-neutral-0);
+  --mc-surface-field: var(--mc-color-neutral-0);
   --mc-surface-overlay: var(--mc-color-neutral-0);
   --mc-surface-raised: var(--mc-color-neutral-50);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-surface-scrim: var(--mc-color-scrim);
+  --mc-surface-selected: var(--mc-color-neutral-100);
   --mc-surface-sunken: var(--mc-color-neutral-100);
-  --mc-text-2xl: 1.5rem;
   --mc-text-default: var(--mc-color-neutral-900);
   --mc-text-inverse: var(--mc-color-neutral-0);
-  --mc-text-lg: 1.125rem;
   --mc-text-link: var(--mc-color-brand-600);
-  --mc-text-md: 1rem;
   --mc-text-muted: var(--mc-color-neutral-700);
-  --mc-text-sm: 0.875rem;
   --mc-text-subtle: var(--mc-color-neutral-600);
-  --mc-text-xl: 1.25rem;
-  --mc-text-xs: 0.75rem;
   /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
-  --mc-tracking-caps: 1px;
-  --mc-tracking-normal: 0px;
-  --mc-tracking-tight: -0.16px;
+  --mc-tracking-caps: 0.0675rem;
+  --mc-tracking-normal: 0rem;
+  --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
-  --mc-tracking-wordmark: 2px;
+  --mc-tracking-wordmark: 0.125rem;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -2078,16 +2186,26 @@
   --mc-control-lg: 40px;
   --mc-control-md: 36px;
   --mc-control-sm: 32px;
+  --mc-control-xs: 28px;
   --mc-density-control-height: var(--mc-control-md);
+  --mc-density-control-lg: var(--mc-control-lg);
+  --mc-density-control-md: var(--mc-control-md);
+  --mc-density-control-sm: var(--mc-control-sm);
   --mc-density-gutter: var(--mc-space-16);
   --mc-density-stack: var(--mc-space-12);
   --mc-duration-fast: 120ms;
   --mc-duration-instant: 0ms;
   --mc-duration-normal: 200ms;
+  /* The signature-moment rung (design language: 500ms+): the written-live wordmark, hero choreography — ceremonial edges only, never workflow feedback. */
+  --mc-duration-signature: 500ms;
   --mc-duration-slow: 300ms;
   --mc-easing-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
   --mc-easing-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  /* Entrances and user-triggered changes: the authoritative snap-then-settle (strong ease-out). */
+  --mc-easing-settle: cubic-bezier(0.23, 1, 0.32, 1);
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  /* On-screen movement between two visible positions (strong ease-in-out). */
+  --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
   --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
   --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
@@ -2101,6 +2219,12 @@
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-size-2xl: 1.5rem;
+  --mc-font-size-lg: 1.125rem;
+  --mc-font-size-md: 1rem;
+  --mc-font-size-sm: 0.875rem;
+  --mc-font-size-xl: 1.25rem;
+  --mc-font-size-xs: 0.75rem;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -2145,28 +2269,24 @@
   --mc-status-warning-subtle-border: var(--mc-color-amber-700);
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   --mc-surface-default: var(--mc-color-neutral-1000);
+  --mc-surface-field: var(--mc-color-neutral-1000);
   --mc-surface-overlay: var(--mc-color-neutral-900);
   --mc-surface-raised: var(--mc-color-neutral-900);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-surface-scrim: var(--mc-color-scrim);
+  --mc-surface-selected: var(--mc-color-neutral-800);
   --mc-surface-sunken: var(--mc-color-neutral-1000);
-  --mc-text-2xl: 1.5rem;
   --mc-text-default: var(--mc-color-neutral-50);
   --mc-text-inverse: var(--mc-color-neutral-1000);
-  --mc-text-lg: 1.125rem;
   --mc-text-link: var(--mc-color-brand-300);
-  --mc-text-md: 1rem;
   --mc-text-muted: var(--mc-color-neutral-300);
-  --mc-text-sm: 0.875rem;
   --mc-text-subtle: var(--mc-color-neutral-400);
-  --mc-text-xl: 1.25rem;
-  --mc-text-xs: 0.75rem;
   /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
-  --mc-tracking-caps: 1px;
-  --mc-tracking-normal: 0px;
-  --mc-tracking-tight: -0.16px;
+  --mc-tracking-caps: 0.0675rem;
+  --mc-tracking-normal: 0rem;
+  --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
-  --mc-tracking-wordmark: 2px;
+  --mc-tracking-wordmark: 0.125rem;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -2299,16 +2419,26 @@
   --mc-control-lg: 40px;
   --mc-control-md: 36px;
   --mc-control-sm: 32px;
+  --mc-control-xs: 28px;
   --mc-density-control-height: var(--mc-control-md);
+  --mc-density-control-lg: var(--mc-control-lg);
+  --mc-density-control-md: var(--mc-control-md);
+  --mc-density-control-sm: var(--mc-control-sm);
   --mc-density-gutter: var(--mc-space-16);
   --mc-density-stack: var(--mc-space-12);
   --mc-duration-fast: 120ms;
   --mc-duration-instant: 0ms;
   --mc-duration-normal: 200ms;
+  /* The signature-moment rung (design language: 500ms+): the written-live wordmark, hero choreography — ceremonial edges only, never workflow feedback. */
+  --mc-duration-signature: 500ms;
   --mc-duration-slow: 300ms;
   --mc-easing-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
   --mc-easing-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  /* Entrances and user-triggered changes: the authoritative snap-then-settle (strong ease-out). */
+  --mc-easing-settle: cubic-bezier(0.23, 1, 0.32, 1);
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  /* On-screen movement between two visible positions (strong ease-in-out). */
+  --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
   --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
   --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
@@ -2322,6 +2452,12 @@
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-size-2xl: 1.5rem;
+  --mc-font-size-lg: 1.125rem;
+  --mc-font-size-md: 1rem;
+  --mc-font-size-sm: 0.875rem;
+  --mc-font-size-xl: 1.25rem;
+  --mc-font-size-xs: 0.75rem;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -2366,28 +2502,24 @@
   --mc-status-warning-subtle-border: var(--mc-color-amber-300);
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-700);
   --mc-surface-default: var(--mc-color-neutral-0);
+  --mc-surface-field: var(--mc-color-neutral-0);
   --mc-surface-overlay: var(--mc-color-neutral-0);
   --mc-surface-raised: var(--mc-color-neutral-50);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-surface-scrim: var(--mc-color-scrim);
+  --mc-surface-selected: var(--mc-color-neutral-100);
   --mc-surface-sunken: var(--mc-color-neutral-100);
-  --mc-text-2xl: 1.5rem;
   --mc-text-default: var(--mc-color-neutral-900);
   --mc-text-inverse: var(--mc-color-neutral-0);
-  --mc-text-lg: 1.125rem;
   --mc-text-link: var(--mc-color-brand-600);
-  --mc-text-md: 1rem;
   --mc-text-muted: var(--mc-color-neutral-700);
-  --mc-text-sm: 0.875rem;
   --mc-text-subtle: var(--mc-color-neutral-600);
-  --mc-text-xl: 1.25rem;
-  --mc-text-xs: 0.75rem;
   /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
-  --mc-tracking-caps: 1px;
-  --mc-tracking-normal: 0px;
-  --mc-tracking-tight: -0.16px;
+  --mc-tracking-caps: 0.0675rem;
+  --mc-tracking-normal: 0rem;
+  --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
-  --mc-tracking-wordmark: 2px;
+  --mc-tracking-wordmark: 0.125rem;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -2520,16 +2652,26 @@
   --mc-control-lg: 40px;
   --mc-control-md: 36px;
   --mc-control-sm: 32px;
+  --mc-control-xs: 28px;
   --mc-density-control-height: var(--mc-control-md);
+  --mc-density-control-lg: var(--mc-control-lg);
+  --mc-density-control-md: var(--mc-control-md);
+  --mc-density-control-sm: var(--mc-control-sm);
   --mc-density-gutter: var(--mc-space-16);
   --mc-density-stack: var(--mc-space-12);
   --mc-duration-fast: 120ms;
   --mc-duration-instant: 0ms;
   --mc-duration-normal: 200ms;
+  /* The signature-moment rung (design language: 500ms+): the written-live wordmark, hero choreography — ceremonial edges only, never workflow feedback. */
+  --mc-duration-signature: 500ms;
   --mc-duration-slow: 300ms;
   --mc-easing-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
   --mc-easing-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  /* Entrances and user-triggered changes: the authoritative snap-then-settle (strong ease-out). */
+  --mc-easing-settle: cubic-bezier(0.23, 1, 0.32, 1);
   --mc-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  /* On-screen movement between two visible positions (strong ease-in-out). */
+  --mc-easing-travel: cubic-bezier(0.77, 0, 0.175, 1);
   --mc-elevation-0: 0px 0px 0px 0px oklch(13% 0.006 250 / 0);
   --mc-elevation-1: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.08);
   --mc-elevation-2: 0px 1px 2px 0px oklch(13% 0.006 250 / 0.06), 0px 2px 8px -2px oklch(13% 0.006 250 / 0.1);
@@ -2543,6 +2685,12 @@
   --mc-font-display: "Fraunces Variable", "Fraunces", "Georgia", "Times New Roman", serif;
   --mc-font-mono: ui-monospace, "SFMono-Regular", "Consolas", "Menlo", monospace;
   --mc-font-sans: "Atkinson Hyperlegible Next Variable", "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", sans-serif;
+  --mc-font-size-2xl: 1.5rem;
+  --mc-font-size-lg: 1.125rem;
+  --mc-font-size-md: 1rem;
+  --mc-font-size-sm: 0.875rem;
+  --mc-font-size-xl: 1.25rem;
+  --mc-font-size-xs: 0.75rem;
   --mc-leading-normal: 1.5;
   --mc-leading-relaxed: 1.625;
   --mc-leading-tight: 1.25;
@@ -2587,28 +2735,24 @@
   --mc-status-warning-subtle-border: var(--mc-color-amber-700);
   --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   --mc-surface-default: var(--mc-color-neutral-1000);
+  --mc-surface-field: var(--mc-color-neutral-1000);
   --mc-surface-overlay: var(--mc-color-neutral-900);
   --mc-surface-raised: var(--mc-color-neutral-900);
   /* Modal/overlay backdrop wash — a shared near-black at low alpha, held constant across every theme (like the accent + status ramps, not theme-varying). It dims the page behind an overlay without obscuring it; the overlay's own elevation carries focus. The low alpha is deliberate — a light wash that keeps the page behind legible rather than blacking it out. Same value in light and dark (in dark the page is already near-black, so elevation does the separating). The role is named, not the exact value. */
   --mc-surface-scrim: var(--mc-color-scrim);
+  --mc-surface-selected: var(--mc-color-neutral-800);
   --mc-surface-sunken: var(--mc-color-neutral-1000);
-  --mc-text-2xl: 1.5rem;
   --mc-text-default: var(--mc-color-neutral-50);
   --mc-text-inverse: var(--mc-color-neutral-1000);
-  --mc-text-lg: 1.125rem;
   --mc-text-link: var(--mc-color-brand-300);
-  --mc-text-md: 1rem;
   --mc-text-muted: var(--mc-color-neutral-300);
-  --mc-text-sm: 0.875rem;
   --mc-text-subtle: var(--mc-color-neutral-400);
-  --mc-text-xl: 1.25rem;
-  --mc-text-xs: 0.75rem;
   /* The letterspaced-caps label voice (structural labels: column headers, group labels, eyebrows, status text). ~0.09em at the xs size the voice is set in; uppercase needs the air that lowercase gets from ascenders/descenders. */
-  --mc-tracking-caps: 1px;
-  --mc-tracking-normal: 0px;
-  --mc-tracking-tight: -0.16px;
+  --mc-tracking-caps: 0.0675rem;
+  --mc-tracking-normal: 0rem;
+  --mc-tracking-tight: -0.01rem;
   /* The brand wordmark's wide tracking (MAGNA CARTA beside the illuminated M). Wider than the caps voice — the wordmark is engraved lettering, not a data label. */
-  --mc-tracking-wordmark: 2px;
+  --mc-tracking-wordmark: 0.125rem;
   --mc-weight-medium: 500;
   --mc-weight-regular: 400;
   --mc-weight-semibold: 600;
@@ -2652,4 +2796,31 @@
     --mc-status-warning-subtle: var(--mc-color-amber-900);
     --mc-status-warning-subtle-foreground: var(--mc-color-amber-300);
   }
+}
+
+:root[data-density="compact"] {
+--mc-density-control-height: var(--mc-control-sm);
+  --mc-density-control-lg: var(--mc-control-md);
+  --mc-density-control-md: var(--mc-control-sm);
+  --mc-density-control-sm: var(--mc-control-xs);
+  --mc-density-gutter: var(--mc-space-12);
+  --mc-density-stack: var(--mc-space-8);
+}
+
+:root[data-motion="reduced"] {
+--mc-duration-fast: 80ms;
+  --mc-duration-instant: 0ms;
+  --mc-duration-normal: 120ms;
+  /* The signature-moment rung (design language: 500ms+): the written-live wordmark, hero choreography — ceremonial edges only, never workflow feedback. */
+  --mc-duration-signature: 200ms;
+  --mc-duration-slow: 150ms;
+}
+
+:root[data-motion="off"] {
+--mc-duration-fast: 0ms;
+  --mc-duration-instant: 0ms;
+  --mc-duration-normal: 0ms;
+  /* The signature-moment rung (design language: 500ms+): the written-live wordmark, hero choreography — ceremonial edges only, never workflow feedback. */
+  --mc-duration-signature: 0ms;
+  --mc-duration-slow: 0ms;
 }

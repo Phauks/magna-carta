@@ -101,14 +101,14 @@
   }
   .mc-sheet-title {
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-lg);
+    font-size: var(--mc-font-size-lg);
     font-weight: var(--mc-weight-semibold);
     line-height: var(--mc-leading-tight);
     color: var(--mc-text-default);
   }
   .mc-sheet-description {
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-sm);
+    font-size: var(--mc-font-size-sm);
     line-height: var(--mc-leading-normal);
     color: var(--mc-text-muted);
   }

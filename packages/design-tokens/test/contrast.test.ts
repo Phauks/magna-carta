@@ -146,7 +146,12 @@ describe("the contrast computation (known-ratio sanity check)", () => {
 });
 
 const parsed = parseGeneratedCss();
-const contexts = Object.entries(parsed.base);
+// Contrast is a COLOR contract, so the sweep covers the theme x mode context blocks only. The
+// motion overlays (`:root[data-motion="…"]`) are duration-only re-points with no color variables
+// — the completeness gate asserts that shape, so nothing color-bearing can hide in one.
+const contexts = Object.entries(parsed.base).filter(([selector]) =>
+  selector.startsWith(':root[data-theme="'),
+);
 
 describe("WCAG 2.2 contrast gate (every theme x mode context, every declared pair)", () => {
   it("has non-degenerate inputs (contexts and pairs)", () => {

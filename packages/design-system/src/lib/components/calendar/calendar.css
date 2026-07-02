@@ -25,8 +25,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    inline-size: var(--mc-control-md);
-    block-size: var(--mc-control-md);
+    inline-size: var(--mc-density-control-md);
+    block-size: var(--mc-density-control-md);
     color: var(--mc-text-default);
     background-color: transparent;
     border-style: none;
@@ -66,7 +66,7 @@
     background-color: transparent;
     color: var(--mc-text-default);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-sm);
+    font-size: var(--mc-font-size-sm);
     font-weight: var(--mc-weight-medium);
     text-align: center;
     border-style: none;
@@ -92,7 +92,7 @@
     padding-block: var(--mc-space-4);
     color: var(--mc-text-muted);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-xs);
+    font-size: var(--mc-font-size-xs);
     font-weight: var(--mc-weight-medium);
     text-align: center;
   }
@@ -104,12 +104,12 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    inline-size: var(--mc-control-md);
-    block-size: var(--mc-control-md);
+    inline-size: var(--mc-density-control-md);
+    block-size: var(--mc-density-control-md);
     border-radius: var(--mc-radius-md);
     color: var(--mc-text-default);
     font-family: var(--mc-font-sans);
-    font-size: var(--mc-text-sm);
+    font-size: var(--mc-font-size-sm);
     cursor: pointer;
     user-select: none;
     outline-color: transparent;

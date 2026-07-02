@@ -17,7 +17,9 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_THEME,
+  DENSITY_STORAGE_KEY,
   MODE_STORAGE_KEY,
+  MOTION_STORAGE_KEY,
   THEME_STORAGE_KEY,
 } from "../src/lib/internal/theme-preference.ts";
 
@@ -38,5 +40,17 @@ describe("apps/web/src/app.html inline boot script mirrors theme-preference.ts",
 
   it("resolves system mode via the same media query", () => {
     expect(appHtml).toContain('"(prefers-color-scheme: dark)"');
+  });
+
+  it("reads the same motion storage key", () => {
+    expect(appHtml).toContain(`"${MOTION_STORAGE_KEY}"`);
+  });
+
+  it("resolves system motion via the same media query", () => {
+    expect(appHtml).toContain('"(prefers-reduced-motion: reduce)"');
+  });
+
+  it("reads the same density storage key", () => {
+    expect(appHtml).toContain(`"${DENSITY_STORAGE_KEY}"`);
   });
 });

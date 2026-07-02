@@ -38,6 +38,10 @@ properties; off-token values are machine-rejected.
   **`--mc-border-width-default`** hairline are dimension primitives added to design-tokens for
   exactly this reason — when a recipe needs a length with no token, add the token (regenerate +
   re-pin the golden in the same commit), do not reach for a literal or a keyword like `thin`.
+  Two reviewed widenings (2026-07-02): the exact form **`content: ""`** is structural (enables
+  pseudo-element ornament; non-empty strings still violate), and **physical box properties are
+  banned** (`width`/`margin-left`/`border-top`…) — recipes are logical-property only so RTL keeps
+  working; the WebKit scrollbar recipe is the sole exemption.
 - **`bits-ui` is imported only inside `src/`** (and the csp-spike probe) — gated.
 - **Lucide deep imports only** (`@lucide/svelte/icons/<name>`) — gated.
 - **Z and presence live in `floating.ts` only.** Apply `floatingContentClasses()` output to the
