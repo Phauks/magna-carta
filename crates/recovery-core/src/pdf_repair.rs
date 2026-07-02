@@ -3,6 +3,8 @@
 //! reload through lopdf, and re-emit a clean PDF — recording every object that
 //! could not be re-parsed as lost. Diagnose PDF xref corruption.
 
+use std::collections::BTreeMap;
+
 /// One indirect-object header (`N G obj`) found by the raw scan, with the byte
 /// offset of its first digit (the offset a cross-reference entry must point at).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -143,6 +145,64 @@ fn contains(haystack: &[u8], needle: &[u8]) -> bool {
     haystack.windows(needle.len()).any(|w| w == needle)
 }
 
+/// Append a fresh classic cross-reference table + trailer + `startxref` to a copy
+/// of `bytes`, indexing every scanned object at its original offset. The original
+/// object bytes are untouched (so their offsets stay valid); lopdf reads the last
+/// `startxref` (this one) and loads through it. Object 0 is the mandatory free
+/// head; object number 0 is never a real object and is ignored if scanned. When an
+/// object number appears more than once, the physically-latest offset wins.
+pub fn rebuild_with_xref(bytes: &[u8], scanned: &[ScannedObject], root: (u32, u16)) -> Vec<u8> {
+    // number -> (generation, offset); insertion order is file order, so a later
+    // duplicate overwrites an earlier one (latest revision wins).
+    let mut by_number: BTreeMap<u32, (u16, usize)> = BTreeMap::new();
+    for object in scanned {
+        if object.number == 0 {
+            continue;
+        }
+        by_number.insert(object.number, (object.generation, object.offset));
+    }
+
+    let size = by_number.keys().copied().max().map(|n| n + 1).unwrap_or(1);
+
+    let mut out = bytes.to_vec();
+    // The xref keyword must begin its own line.
+    if !out.is_empty() && *out.last().unwrap() != b'\n' {
+        out.push(b'\n');
+    }
+    let xref_offset = out.len();
+
+    out.extend_from_slice(b"xref\n");
+    // Free-list head: object 0.
+    out.extend_from_slice(b"0 1\n");
+    out.extend_from_slice(b"0000000000 65535 f \n");
+
+    // Group present object numbers into contiguous runs (xref subsections). Each
+    // in-use entry is exactly 20 bytes: 10-digit offset, gen, type, 2-byte EOL.
+    let numbers: Vec<u32> = by_number.keys().copied().collect();
+    let mut i = 0;
+    while i < numbers.len() {
+        let mut j = i;
+        while j + 1 < numbers.len() && numbers[j + 1] == numbers[j] + 1 {
+            j += 1;
+        }
+        let start = numbers[i];
+        let count = (j - i + 1) as u32;
+        out.extend_from_slice(format!("{start} {count}\n").as_bytes());
+        for number in &numbers[i..=j] {
+            let (generation, offset) = by_number[number];
+            out.extend_from_slice(format!("{offset:010} {generation:05} n \n").as_bytes());
+        }
+        i = j + 1;
+    }
+
+    out.extend_from_slice(b"trailer\n");
+    out.extend_from_slice(format!("<< /Size {size} /Root {} {} R >>\n", root.0, root.1).as_bytes());
+    out.extend_from_slice(b"startxref\n");
+    out.extend_from_slice(format!("{xref_offset}\n").as_bytes());
+    out.extend_from_slice(b"%%EOF\n");
+    out
+}
+
 #[cfg(test)]
 mod scan_tests {
     use super::*;
@@ -189,5 +249,28 @@ mod root_tests {
         let bytes = b"1 0 obj\n<< /Type /Pages >>\nendobj\n";
         let scanned = scan_objects(bytes, 1000);
         assert_eq!(find_root(bytes, &scanned), None);
+    }
+}
+
+#[cfg(test)]
+mod xref_tests {
+    use super::*;
+    use lopdf::Document;
+
+    #[test]
+    fn appended_xref_makes_a_headerless_body_loadable() {
+        // A PDF body with objects but NO xref/trailer (as if truncated before them).
+        let body = b"%PDF-1.5\n\
+1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n\
+2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n\
+3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n";
+        let scanned = scan_objects(body, 1000);
+        let root = find_root(body, &scanned).expect("catalog present");
+        let patched = rebuild_with_xref(body, &scanned, root);
+        let doc = Document::load_mem(&patched).expect("loads via the synthesized xref");
+        // All three objects are present and the catalog is the trailer Root.
+        assert!(doc.objects.contains_key(&(1, 0)));
+        assert!(doc.objects.contains_key(&(2, 0)));
+        assert!(doc.objects.contains_key(&(3, 0)));
     }
 }
