@@ -27,7 +27,7 @@ Per-slice progress across the build pipeline — the **stage-status home**. [`RO
 | 0·5a — API contract foundation | [-] | [x] | [x] | [x]\* | [-] | [-] | [ ] | Contracts layer (problem module, fragments, RouteMeta, rate-limiter seam); unwired, merged additively. |
 | 0·5b — API contract enforcement + pipeline | [-] | [x] | [x] | [x]\* | [-] | [-] | [ ] | The ADR-0067 ordered chokepoint + committed OpenAPI snapshot + §3.5 conformance suite + CI contract gates. Slice 0·5 complete. |
 | 0·6 — Telemetry baseline + platform closeout | [-] | [x] | [x] | [x] Opus 4.8\* | [ ] | [-] | [ ] | `@magna-carta/telemetry`, incident table + `POST /v1/incidents`, Email Service adapter. Closes Phase 0's backend. |
-| 0·7a — Design-system foundation | [-] | [x] | [x] | [~] | [~] | [-] | [ ] | Token pipeline + Bits-UI component layer; build complete, in review, **deferred until Fable**. |
+| 0·7a — Design-system foundation | [-] | [x] | [x] | [x] Fable 5 | [~] Fable 5 | [-] | [ ] | Token pipeline + Bits-UI component layer + the Engraved Ledger register; **merged to main 2026-07-02** after the Fable craft pass + architecture-audit hardening (motion/density axes proven, anime.js seam). Remaining before close-out: NVDA passes, owner Storybook sign-off, first container VRT baselines, dark design pass. |
 | 0·7b — Auth UI + deferred surfaces | [-] | [ ] | [ ] | [ ] | [ ] | [-] | [ ] | First human-operable surface; own design cycle when it starts. |
 
 ## Phase 1 — Core domain (firm + matters)
