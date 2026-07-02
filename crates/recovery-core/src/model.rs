@@ -28,6 +28,9 @@ pub struct DiagnosisReport {
     pub corruption: Vec<CorruptionKind>,
     pub recoverability: Recoverability,
     pub repair_supported: bool,
+    /// True when the format pillars cannot help (unrecognized, or unrecoverable):
+    /// carving may still extract embedded known-type files. Set by `diagnose`.
+    pub carve_suggested: bool,
     pub detail: String,
 }
 
@@ -78,6 +81,7 @@ mod tests {
             corruption: vec![CorruptionKind::MissingEndOfCentralDirectory],
             recoverability: Recoverability::Repairable,
             repair_supported: true,
+            carve_suggested: false,
             detail: "central directory missing".into(),
         };
         assert_eq!(report.detected_format, Some(Format::Zip));
