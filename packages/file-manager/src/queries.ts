@@ -165,7 +165,7 @@ export async function getFileWithCurrentCleanVersion(
       r2_key: string | null;
       size_bytes: number | null;
       version_number: number | null;
-      scan_verdict: "unscanned" | "clean" | "infected" | null;
+      scan_verdict: "unscanned" | "clean" | "flagged" | null;
       scan_detail: string | null;
     }>();
   const row = results[0];
