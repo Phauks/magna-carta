@@ -9,6 +9,7 @@ pub mod error;
 pub mod limits;
 pub mod model;
 pub mod ooxml;
+pub mod pdf_repair;
 pub mod repair;
 pub mod salvage;
 pub mod zip_repair;

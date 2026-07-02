@@ -28,3 +28,14 @@ cfb = "0.14"
 # `set_storage_clsid`/`Entry::clsid`, so a faithful rebuild that carries those CLSIDs must name
 # the type directly. Version unified with cfb's own `uuid` requirement.
 uuid = "1"
+# Read/write PDF object model. The recovery pillar cannot brute-force a broken
+# xref through lopdf (its reader errors on an unparseable xref and its object
+# parser is private), so it synthesizes a fresh xref and reloads; lopdf then
+# parses the objects and re-emits a clean file. default-features=false drops the
+# date/parallelism features (chrono/jiff/rayon/time) the load/save path never needs.
+lopdf = { version = "0.41", default-features = false }
+
+# lopdf pulls getrandom; the Worker (wasm32-unknown-unknown) lane requires the
+# wasm_js backend to compile.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.4", features = ["wasm_js"] }
