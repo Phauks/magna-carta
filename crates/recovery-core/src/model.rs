@@ -49,9 +49,21 @@ pub struct LossManifest {
     pub synthesized: Vec<String>,
 }
 
+/// One output file a repair/carve produced. `media_type` is the detected MIME
+/// where known (None when unknown). `name` is a sensible default the worker may
+/// override from the original upload (a carve names fragments by index).
+#[derive(Debug, Clone)]
+pub struct SalvagedFile {
+    pub name: String,
+    pub bytes: Vec<u8>,
+    pub media_type: Option<String>,
+}
+
+/// The product of a repair or carve: one-or-more recovered files plus the honest
+/// loss manifest. Format pillars return exactly one file; carving returns many.
 #[derive(Debug, Clone)]
 pub struct RepairResult {
-    pub salvaged: Vec<u8>,
+    pub files: Vec<SalvagedFile>,
     pub loss: LossManifest,
 }
 
@@ -99,7 +111,11 @@ mod repair_model_tests {
             synthesized: Vec::new(),
         };
         let result = RepairResult {
-            salvaged: vec![1, 2, 3],
+            files: vec![SalvagedFile {
+                name: "repaired".to_string(),
+                bytes: vec![1, 2, 3],
+                media_type: None,
+            }],
             loss,
         };
         assert!(!result.loss.fully_recovered);

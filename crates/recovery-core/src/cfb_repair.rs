@@ -392,7 +392,11 @@ fn build_result(salvage: Salvage) -> Result<RepairResult, RepairError> {
 
     let fully_recovered = items.iter().all(|i| i.recovered);
     Ok(RepairResult {
-        salvaged: bytes_out,
+        files: vec![crate::model::SalvagedFile {
+            name: "repaired".to_string(),
+            bytes: bytes_out,
+            media_type: Some("application/x-ole-storage".to_string()),
+        }],
         loss: LossManifest {
             // CFB fabricates nothing — the hierarchy is preserved or recorded lost.
             items,
@@ -588,7 +592,8 @@ mod tests {
     fn repairs_a_healthy_cfb_and_reopens() {
         let cfb = build_cfb(&[("/WordDocument", b"body"), ("/\x01CompObj", b"co")]);
         let result = repair_cfb(&cfb).expect("repairable");
-        let reopened = CompoundFile::open(Cursor::new(result.salvaged.clone())).expect("valid cfb");
+        let reopened =
+            CompoundFile::open(Cursor::new(result.files[0].bytes.clone())).expect("valid cfb");
         assert!(reopened.exists("/WordDocument"));
         assert!(result.loss.fully_recovered);
         assert!(result.loss.synthesized.is_empty());
@@ -612,7 +617,7 @@ mod tests {
             .unwrap();
         assert!(!big.recovered);
         let mut reopened =
-            CompoundFile::open(Cursor::new(result.salvaged.clone())).expect("valid cfb");
+            CompoundFile::open(Cursor::new(result.files[0].bytes.clone())).expect("valid cfb");
         assert!(!reopened.exists("/Big"));
         let mut data = Vec::new();
         reopened
@@ -652,7 +657,7 @@ mod tests {
         assert_eq!(diagnose_cfb(&bytes).1, Recoverability::Intact);
         let result = repair_cfb(&bytes).expect("repairable");
         assert!(result.loss.fully_recovered);
-        assert!(CompoundFile::open(Cursor::new(result.salvaged)).is_ok());
+        assert!(CompoundFile::open(Cursor::new(result.files[0].bytes.clone())).is_ok());
     }
 
     #[test]

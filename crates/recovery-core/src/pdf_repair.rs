@@ -325,7 +325,11 @@ pub fn repair_pdf(bytes: &[u8]) -> Result<RepairResult, RepairError> {
     // at least one real object, but keep the check explicit against future edits.
     let fully_recovered = !items.is_empty() && items.iter().all(|i| i.recovered);
     Ok(RepairResult {
-        salvaged,
+        files: vec![crate::model::SalvagedFile {
+            name: "repaired.pdf".to_string(),
+            bytes: salvaged,
+            media_type: Some("application/pdf".to_string()),
+        }],
         loss: LossManifest {
             items,
             fully_recovered,
@@ -481,7 +485,7 @@ mod repair_tests {
     fn repairs_a_broken_xref_and_reopens() {
         let result = repair_pdf(&headerless_pdf()).expect("repairable");
         // The re-emitted file is a valid PDF that lopdf reloads cleanly.
-        let reopened = Document::load_mem(&result.salvaged).expect("valid pdf");
+        let reopened = Document::load_mem(&result.files[0].bytes).expect("valid pdf");
         assert!(reopened.objects.contains_key(&(1, 0)));
         assert!(result.loss.fully_recovered);
         assert_eq!(result.loss.items.iter().filter(|i| i.recovered).count(), 3);

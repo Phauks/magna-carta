@@ -252,7 +252,11 @@ pub fn repair_zip(bytes: &[u8]) -> Result<RepairResult, RepairError> {
 
     let fully_recovered = items.iter().all(|i| i.recovered);
     Ok(RepairResult {
-        salvaged: bytes_out,
+        files: vec![crate::model::SalvagedFile {
+            name: "repaired.zip".to_string(),
+            bytes: bytes_out,
+            media_type: Some("application/zip".to_string()),
+        }],
         loss: LossManifest {
             items,
             fully_recovered,
@@ -437,7 +441,8 @@ mod repair_tests {
         let truncated = &zip[..salvage_tests::central_dir_offset(&zip)];
         let result = repair_zip(truncated).expect("repairable");
         // The salvaged output is a valid, reopenable zip.
-        let archive = ZipArchive::new(Cursor::new(result.salvaged.clone())).expect("valid zip");
+        let archive =
+            ZipArchive::new(Cursor::new(result.files[0].bytes.clone())).expect("valid zip");
         assert_eq!(archive.len(), 2);
         // The loss manifest lists both as recovered, fully_recovered = true.
         assert!(result.loss.fully_recovered);
