@@ -24,3 +24,7 @@ flate2 = { version = "1", default-features = false, features = ["rust_backend"] 
 # Pure Rust; open() reads damaged files best-effort (validates header/FAT/directory, reads stream
 # sectors lazily) so a truncated file's intact streams are still recoverable.
 cfb = "0.14"
+# Compound-file storage identity (CLSID) type. `cfb` takes and returns `uuid::Uuid` for
+# `set_storage_clsid`/`Entry::clsid`, so a faithful rebuild that carries those CLSIDs must name
+# the type directly. Version unified with cfb's own `uuid` requirement.
+uuid = "1"

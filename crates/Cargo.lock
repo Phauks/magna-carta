@@ -2394,6 +2394,7 @@ dependencies = [
  "cfb",
  "flate2",
  "magna-carta-engine-host",
+ "uuid",
  "zip",
  "zune-inflate",
 ]
