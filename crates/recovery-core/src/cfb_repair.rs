@@ -1,7 +1,7 @@
 //! The CFB/OLE2 repair pillar: open a compound file, best-effort read each
 //! stream, re-emit a fresh compound file. Diagnose CFB corruption.
 
-use std::io::{Cursor, Read};
+use std::io::{Cursor, Read, Write};
 use std::path::PathBuf;
 
 use cfb::CompoundFile;
@@ -91,6 +91,42 @@ fn read_capped(
     Ok(data)
 }
 
+/// Write a fresh version-3 CFB from recovered (path, bytes) streams, creating
+/// parent storages as needed. A stream the writer rejects is skipped and its
+/// path returned, so one bad path never discards the rest. A flush/finalize
+/// failure → Unrepairable; if every stream was skipped (and there were streams)
+/// → Unrepairable rather than an empty file.
+pub fn rebuild_cfb(streams: &[(String, Vec<u8>)]) -> Result<(Vec<u8>, Vec<String>), RepairError> {
+    let mut compound =
+        CompoundFile::create(Cursor::new(Vec::new())).map_err(|_| RepairError::Unrepairable)?;
+    let mut skipped: Vec<String> = Vec::new();
+    for (path, data) in streams {
+        if write_one_stream(&mut compound, path, data).is_err() {
+            skipped.push(path.clone());
+        }
+    }
+    if !streams.is_empty() && skipped.len() == streams.len() {
+        return Err(RepairError::Unrepairable);
+    }
+    compound.flush().map_err(|_| RepairError::Unrepairable)?;
+    let bytes = compound.into_inner().into_inner();
+    Ok((bytes, skipped))
+}
+
+fn write_one_stream(
+    compound: &mut CompoundFile<Cursor<Vec<u8>>>,
+    path: &str,
+    data: &[u8],
+) -> std::io::Result<()> {
+    let p = std::path::Path::new(path);
+    if let Some(parent) = p.parent() {
+        if parent != std::path::Path::new("/") && !compound.exists(parent) {
+            compound.create_storage_all(parent)?;
+        }
+    }
+    compound.create_stream(path)?.write_all(data)
+}
+
 #[cfg(test)]
 mod salvage_tests {
     use super::*;
@@ -133,5 +169,30 @@ mod salvage_tests {
     fn a_non_cfb_input_cannot_be_opened() {
         let result = salvage_streams(b"not a compound file at all, just bytes");
         assert!(result.is_err());
+    }
+}
+
+#[cfg(test)]
+mod rebuild_tests {
+    use super::*;
+
+    #[test]
+    fn rebuilt_cfb_reopens_with_the_same_streams() {
+        let streams = vec![
+            ("/WordDocument".to_string(), b"recovered body".to_vec()),
+            ("/ObjectPool/item".to_string(), b"nested".to_vec()),
+        ];
+        let (bytes, skipped) = rebuild_cfb(&streams).expect("rebuild");
+        assert!(skipped.is_empty());
+        // The result must reopen as a valid compound file with both streams.
+        let mut reopened = CompoundFile::open(Cursor::new(bytes)).expect("valid cfb");
+        let mut data = Vec::new();
+        reopened
+            .open_stream("/WordDocument")
+            .unwrap()
+            .read_to_end(&mut data)
+            .unwrap();
+        assert_eq!(data, b"recovered body");
+        assert!(reopened.exists("/ObjectPool/item"));
     }
 }
