@@ -24,6 +24,16 @@ pub fn diagnose(bytes: &[u8]) -> DiagnosisReport {
                 detail: "zip family".into(),
             }
         }
+        Some(Format::Ole2) => {
+            let (corruption, recoverability) = crate::cfb_repair::diagnose_cfb(bytes);
+            DiagnosisReport {
+                detected_format: Some(Format::Ole2),
+                corruption,
+                recoverability,
+                repair_supported: true,
+                detail: "cfb / ole2 compound file".into(),
+            }
+        }
         Some(format) => DiagnosisReport {
             detected_format: Some(format),
             corruption: Vec::new(),
@@ -74,6 +84,14 @@ mod tests {
         let zip = crate::zip_repair::tests_build_minimal_zip();
         let report = diagnose(&zip);
         assert_eq!(report.detected_format, Some(Format::Zip));
+        assert!(report.repair_supported);
+    }
+
+    #[test]
+    fn a_recognized_cfb_reports_repair_supported() {
+        let cfb = crate::cfb_repair::tests_build_minimal_cfb();
+        let report = diagnose(&cfb);
+        assert_eq!(report.detected_format, Some(Format::Ole2));
         assert!(report.repair_supported);
     }
 }

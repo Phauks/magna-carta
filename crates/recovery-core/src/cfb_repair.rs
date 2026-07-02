@@ -8,6 +8,7 @@ use cfb::CompoundFile;
 
 use crate::error::RepairError;
 use crate::limits::{MAX_ENTRY_COUNT, MAX_ENTRY_UNCOMPRESSED_BYTES, MAX_TOTAL_UNCOMPRESSED_BYTES};
+use crate::model::{CorruptionKind, Recoverability};
 
 #[derive(Debug, Clone)]
 pub struct SalvagedStream {
@@ -127,6 +128,36 @@ fn write_one_stream(
     compound.create_stream(path)?.write_all(data)
 }
 
+/// Classify a compound file's health by opening it and reading every stream.
+/// All readable → intact; opens but some streams lost → partial; cannot open at
+/// all → unrecoverable by this pillar (manual reconstruction is a deeper effort).
+pub fn diagnose_cfb(bytes: &[u8]) -> (Vec<CorruptionKind>, Recoverability) {
+    match salvage_streams(bytes) {
+        Err(_) => (vec![CorruptionKind::Other], Recoverability::Unrecoverable),
+        Ok(streams) => {
+            if streams.iter().all(|s| s.recovered) {
+                (Vec::new(), Recoverability::Intact)
+            } else {
+                (vec![CorruptionKind::Truncated], Recoverability::Partial)
+            }
+        }
+    }
+}
+
+/// Test-support: build a minimal valid compound file (one stream). Public for
+/// the diagnose-framework test; not part of the repair API.
+#[doc(hidden)]
+pub fn tests_build_minimal_cfb() -> Vec<u8> {
+    let mut compound = CompoundFile::create(Cursor::new(Vec::new())).unwrap();
+    compound
+        .create_stream("/WordDocument")
+        .unwrap()
+        .write_all(b"alpha")
+        .unwrap();
+    compound.flush().unwrap();
+    compound.into_inner().into_inner()
+}
+
 #[cfg(test)]
 mod salvage_tests {
     use super::*;
@@ -169,6 +200,26 @@ mod salvage_tests {
     fn a_non_cfb_input_cannot_be_opened() {
         let result = salvage_streams(b"not a compound file at all, just bytes");
         assert!(result.is_err());
+    }
+}
+
+#[cfg(test)]
+mod diagnose_tests {
+    use super::*;
+    use crate::model::Recoverability;
+
+    #[test]
+    fn a_healthy_cfb_is_intact() {
+        let cfb = salvage_tests::build_cfb(&[("/WordDocument", b"text")]);
+        let (corruption, recoverability) = diagnose_cfb(&cfb);
+        assert_eq!(recoverability, Recoverability::Intact);
+        assert!(corruption.is_empty());
+    }
+
+    #[test]
+    fn a_non_cfb_is_unrecoverable() {
+        let (_corruption, recoverability) = diagnose_cfb(b"not a compound file");
+        assert_eq!(recoverability, Recoverability::Unrecoverable);
     }
 }
 
