@@ -1,4 +1,5 @@
 ---
+number: 163
 slug: ai-text-detection-architecture
 status: Accepted
 date: 2026-06-28

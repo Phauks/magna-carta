@@ -1,8 +1,9 @@
 ---
+number: 162
 slug: pdf-generate-primitives
 status: Accepted
-area: Documents
 date: 2026-06-26
+area: Documents
 summary: Merge / split / rotate / watermark in the pure-Rust PDF engine; merge carries interactive structure; watermark does text and image; all additive, never redaction.
 ---
 

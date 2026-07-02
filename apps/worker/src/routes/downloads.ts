@@ -16,6 +16,7 @@ import {
   resolveZipSelection,
   type ZipEntry,
 } from "@magna-carta/file-manager/zip-composition";
+import { zipEntriesFromR2 } from "@magna-carta/file-manager/zip-entries-from-r2";
 import { bundleOptionsSchema } from "@magna-carta/file-manager/bundle-options";
 import {
   FORMAT_CAPABILITIES,
@@ -479,20 +480,11 @@ export function registerDownloadsRoutes(app: DownloadsApp, chokepoint: Chokepoin
       }
 
       // Inline (multiple files under the threshold): stream a store-mode ZIP of the R2 object bodies.
-      // Each entry's input
-      // is the R2 object stream — never buffered into memory — so a large bundle streams within the
-      // Worker's limits. A missing object (reaped between resolve and stream) is skipped rather than
-      // aborting the whole archive.
-      const env = c.env;
-      async function* zipInputs() {
-        for (const entry of resolved.entries) {
-          const object = await env.R2.get(entry.r2Key);
-          if (object === null) continue;
-          yield { name: entry.path, input: object.body };
-        }
-      }
+      // Each entry's input is the R2 object stream — never buffered into memory — so a large bundle
+      // streams within the Worker's limits. A missing object (reaped between resolve and stream) is
+      // skipped rather than aborting the whole archive (zipEntriesFromR2, shared with the async build).
       await recordExport(delivery);
-      const zipStream = makeZip(zipInputs());
+      const zipStream = makeZip(zipEntriesFromR2(c.env.R2, resolved.entries));
       return new Response(zipStream, {
         status: 200,
         headers: {
