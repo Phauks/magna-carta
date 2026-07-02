@@ -33,7 +33,8 @@ import type { BundleOptions } from "./bundle-options.ts";
 export interface BundleManifestEntry {
   readonly archivePath: string;
   readonly mtimeEpochSecs: number | null;
-  readonly source: { readonly source: "r2"; readonly r2Key: string }
+  readonly source:
+    | { readonly source: "r2"; readonly r2Key: string }
     | { readonly source: "inline"; readonly bytesBase64: string };
 }
 export interface BundleManifest {
@@ -54,11 +55,13 @@ export interface BundleManifest {
 ### Task A1: Shared manifest type + manifest builder
 
 **Files:**
+
 - Create: `packages/file-manager/src/bundle-manifest.ts` (the type above + `buildBundleManifest(...)`)
 - Modify: `packages/file-manager/package.json` (`"./bundle-manifest": "./src/bundle-manifest.ts"`)
 - Test: `packages/file-manager/test/bundle-manifest.test.ts`
 
 **Interfaces:**
+
 - Consumes: `BundleOptions`, `ResolvedZip`/`ZipEntry` (`./zip-composition.ts`), `applyBundleLayout` (`./bundle-layout.ts`), `buildContentsManifest`/`ManifestEntry` (`./contents-manifest.ts`).
 - Produces: `BundleManifest`, `BundleManifestEntry`, `buildBundleManifest(args): BundleManifest`.
 
@@ -72,10 +75,12 @@ export interface BundleManifest {
 ### Task A2: `bundleContainerAdapter` over the `BUNDLE_SERVICE` Fetcher
 
 **Files:**
+
 - Create: `apps/worker/src/downloads/bundle-container-adapter.ts`
 - Test: `apps/worker/test/bundle-container-adapter.test.ts`
 
 **Interfaces:**
+
 - Produces: `interface BundleServiceFetcher { fetch(request: Request): Promise<Response> }`; `interface BuildResultVolume { key: string; sizeBytes: number }`; `bundleContainerAdapter(service, requestTimeoutMs?)` returning `{ build(manifest: BundleManifest): Promise<BuildResultVolume[]>, buildStream(manifest): Promise<Response> }`.
 
 Mirror `containerScanAdapter` (`apps/worker/src/files/container-scan-adapter.ts`): `build` POSTs `manifest` JSON to `http://bundle/build`, validates the `BuildResponse` with a zod schema (`{ ok, volumes, error }`), throws on non-200 / `ok:false` / malformed. `buildStream` POSTs to `http://bundle/build?stream=1` and returns the raw streaming `Response` (for the encrypted lane) after asserting `200`. Both use `AbortSignal.timeout`.
@@ -90,11 +95,13 @@ Mirror `containerScanAdapter` (`apps/worker/src/files/container-scan-adapter.ts`
 **Scope note (ordering):** A3 is self-contained — it adds the request `options` field, the `422` validation, and a **pure `selectBundleLane` function** (unit-tested in isolation), and keeps today's plain behavior for absent/plain options. It does NOT execute the optioned lanes — that wiring lands in A4 (async) and A5 (encrypted), which consume `selectBundleLane`'s result. So A3 has no dependency on A4/A5.
 
 **Files:**
+
 - Create: `apps/worker/src/downloads/bundle-lane.ts` (the pure `selectBundleLane`)
 - Modify: `apps/worker/src/routes/downloads.ts` (add `options` to the schema + `422` validation; call `selectBundleLane`; for now, an optioned lane that isn't yet wired returns a `501`/clear problem OR falls through to the existing behavior only for the plain case — see below)
 - Test: `apps/worker/test/bundle-lane.test.ts` (the pure selector) + extend `apps/worker/test/...downloads...` for the `422` path
 
 **Behavior:**
+
 - `ZipRequest` gains `options: bundleOptionsSchema.optional()`. Absent → today's behavior unchanged.
 - Present → `validateOptionsForFormat(options)` non-empty → `422` problem listing the violations.
 - `selectBundleLane(options | undefined): "plain" | "heavyAsync" | "encryptedStream"` (pure): `undefined` OR (`format==="zip"` && `compression==="store"` && `encryption===null` && `split===null`) → `"plain"`; else `encryption!==null` → `"encryptedStream"`; else → `"heavyAsync"`.
@@ -106,6 +113,7 @@ Mirror `containerScanAdapter` (`apps/worker/src/files/container-scan-adapter.ts`
 ### Task A4: Heavy unencrypted async lane (coordinator + queue + consumer)
 
 **Files:**
+
 - Modify: `apps/worker/src/downloads/bundle-types.ts`, `bundle-coordinator.ts`, `bundle-consumer.ts`, `routes/bundle-status.ts`
 - Test: `apps/worker/test/bundle-build-optioned.test.ts`
 
@@ -116,6 +124,7 @@ Mirror `containerScanAdapter` (`apps/worker/src/files/container-scan-adapter.ts`
 ### Task A5: Encrypted single-file stream lane
 
 **Files:**
+
 - Modify: `apps/worker/src/routes/downloads.ts`
 - Test: `apps/worker/test/downloads-encrypted.test.ts`
 
@@ -126,6 +135,7 @@ Mirror `containerScanAdapter` (`apps/worker/src/files/container-scan-adapter.ts`
 ### Task A6: Wire `BUNDLE_SERVICE` binding + finalize the contract
 
 **Files:**
+
 - Modify: `apps/worker/src/app.ts` (the `Bindings` type — add `BUNDLE_SERVICE: Fetcher`), `apps/worker/wrangler.jsonc` (the `services` binding to `magna-carta-bundle`), `apps/worker/openapi/openapi.json` (re-emit), the generated client.
 - Test: the existing conformance suite + a Miniflare integration smoke that the route is registered.
 
@@ -138,10 +148,12 @@ Mirror `containerScanAdapter` (`apps/worker/src/files/container-scan-adapter.ts`
 ### Task B1: `apps/bundle-worker` scaffold + `BundleContainer` + `/build` proxy + outbound R2 handler
 
 **Files:**
+
 - Create: `apps/bundle-worker/package.json`, `tsconfig.json`, `vitest.config.ts`, `wrangler.jsonc`, `src/index.ts`, `src/bundle-container.ts`, `src/forward-build.ts`
 - Test: `apps/bundle-worker/test/forward-build.test.ts`
 
 **Mirror `apps/scan-worker` exactly** (read `apps/scan-worker/{src/index.ts,src/scan-container.ts,src/forward-scan.ts,wrangler.jsonc}`):
+
 - `src/bundle-container.ts`: `export class BundleContainer extends Container { defaultPort = 8080; requiredPorts = [8080]; sleepAfter = "10m"; pingEndpoint = "ready"; enableInternet = false; }` (R2 reached via the outbound handler, so no real egress).
 - `src/index.ts`: `Bindings = { BUNDLE_CONTAINER: DurableObjectNamespace<BundleContainer>; R2: R2Bucket }`; re-export `BundleContainer`; `fetch` routes `POST /build` → `forwardBuild(request, getContainer(env.BUNDLE_CONTAINER, "bundle"))`; **set `BundleContainer.outboundByHost = { "bundle-r2": async (request, env) => { /* GET → env.R2.get(key).body ; PUT → env.R2.put(key, request.body) */ } }`** so the container's `http://bundle-r2/<key>` calls are serviced by this worker's `env.R2` (stream bodies; a GET miss → 404, a PUT → 200). A warm-poke cron (`*/8 * * * *`) hits the container `ready` within `sleepAfter`.
 - `src/forward-build.ts`: forwards the manifest POST (and `?stream=1`) to the container, returns its response verbatim (the streamed archive for the encrypted lane, or the `BuildResponse` JSON otherwise). Mirror `forward-scan.ts` (streaming body, `duplex: "half"`, timeout backstop).
@@ -152,6 +164,7 @@ Mirror `containerScanAdapter` (`apps/worker/src/files/container-scan-adapter.ts`
 ### Task B2: Register the worker in the monorepo + deploy notes
 
 **Files:**
+
 - Modify: `pnpm-workspace.yaml` (already globs `apps/*` — confirm), the root build pipeline if it enumerates apps, and `docs/conventions/operations.md` (a deploy section mirroring the scan worker: build the `containers/bundle` image, deploy `magna-carta-bundle`, bind `BUNDLE_SERVICE` from the app worker).
 - Test: `pnpm --filter @magna-carta/bundle-worker run test` green; `pnpm --filter @magna-carta/bundle-worker exec wrangler deploy --dry-run` validates.
 

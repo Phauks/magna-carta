@@ -6,10 +6,7 @@ import { ensureReady, fillForm, flattenForm, loadDocument, readForm } from "../s
 const w9 = new Uint8Array(
   readFileSync(
     fileURLToPath(
-      new URL(
-        "../../../crates/pdf-eval/corpus-ci/gov_irs_w9_acroform.pdf",
-        import.meta.url,
-      ),
+      new URL("../../../crates/pdf-eval/corpus-ci/gov_irs_w9_acroform.pdf", import.meta.url),
     ),
   ),
 );

@@ -1,0 +1,47 @@
+{
+  "space": {
+    "$description": "Spacing scale on a 4px grid; keys are the pixel value.",
+    "0": { "$type": "dimension", "$value": { "value": 0, "unit": "px" } },
+    "4": { "$type": "dimension", "$value": { "value": 4, "unit": "px" } },
+    "8": { "$type": "dimension", "$value": { "value": 8, "unit": "px" } },
+    "12": { "$type": "dimension", "$value": { "value": 12, "unit": "px" } },
+    "16": { "$type": "dimension", "$value": { "value": 16, "unit": "px" } },
+    "20": { "$type": "dimension", "$value": { "value": 20, "unit": "px" } },
+    "24": { "$type": "dimension", "$value": { "value": 24, "unit": "px" } },
+    "32": { "$type": "dimension", "$value": { "value": 32, "unit": "px" } },
+    "40": { "$type": "dimension", "$value": { "value": 40, "unit": "px" } },
+    "48": { "$type": "dimension", "$value": { "value": 48, "unit": "px" } },
+    "64": { "$type": "dimension", "$value": { "value": 64, "unit": "px" } },
+    "96": { "$type": "dimension", "$value": { "value": 96, "unit": "px" } }
+  },
+  "radius": {
+    "$description": "Corner radii.",
+    "none": { "$type": "dimension", "$value": { "value": 0, "unit": "px" } },
+    "sm": { "$type": "dimension", "$value": { "value": 2, "unit": "px" } },
+    "md": { "$type": "dimension", "$value": { "value": 7, "unit": "px" } },
+    "lg": { "$type": "dimension", "$value": { "value": 10, "unit": "px" } },
+    "full": { "$type": "dimension", "$value": { "value": 9999, "unit": "px" } }
+  },
+  "control": {
+    "$description": "Interactive control heights. Recipes consume these through the density.* semantic aliases (never directly), so the user density axis can shift the whole ladder; xs exists as the compact floor for sm controls (still a workable pointer target beside 15-16px text).",
+    "xs": { "$type": "dimension", "$value": { "value": 28, "unit": "px" } },
+    "sm": { "$type": "dimension", "$value": { "value": 32, "unit": "px" } },
+    "md": { "$type": "dimension", "$value": { "value": 36, "unit": "px" } },
+    "lg": { "$type": "dimension", "$value": { "value": 40, "unit": "px" } }
+  },
+  "focus-ring": {
+    "$description": "Focus-ring outline geometry — mode-invariant lengths consumed directly by recipes (the focus-ring COLOR is the semantic focus.ring token). Tokenized so components.css carries no literal lengths (design-system area CLAUDE.md: focus-ring width/offset must become tokens before the Tier 1 Button lands).",
+    "width": { "$type": "dimension", "$value": { "value": 2, "unit": "px" } },
+    "offset": { "$type": "dimension", "$value": { "value": 2, "unit": "px" } }
+  },
+  "border-width": {
+    "$description": "Border widths — mode-invariant lengths consumed directly by recipes (the border COLOR is the semantic border.* token). Design language §6: structure is 1px hairline rules and surface tints, shadow reserved for floating layers. Tokenized so components.css carries no literal lengths, exactly as focus-ring width/offset were before the Tier 1 control recipes (Input, Card, Separator, ...) landed.",
+    "default": { "$type": "dimension", "$value": { "value": 1, "unit": "px" } }
+  },
+  "size": {
+    "$description": "Named layout dimensions for app-shell chrome — mode-invariant, consumed directly by recipes (like control/focus-ring/border-width). The global sidebar (page-archetypes Layout A) is a fixed-width rail that collapses to an icon rail; its two widths are tokens so the mc-sidebar recipe carries no literal length.",
+    "sidebar": { "$type": "dimension", "$value": { "value": 256, "unit": "px" } },
+    "sidebar-rail": { "$type": "dimension", "$value": { "value": 52, "unit": "px" } },
+    "popover": { "$type": "dimension", "$value": { "value": 224, "unit": "px" } }
+  }
+}

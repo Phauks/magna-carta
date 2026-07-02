@@ -45,7 +45,7 @@ export function createDevFirmResourceProvider(): FirmResourceProvider {
 
 export interface CloudflareRestFirmResourceProviderOptions {
   readonly accountId: string;
-  // A deploy-time Worker secret (wrangler secret put CLOUDFLARE_API_TOKEN) — never needed
+  // A deploy-time Worker secret (wrangler secret put CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER) — never needed
   // locally, where the dev adapter runs instead.
   readonly apiToken: string;
   // The files-ingest queue's Cloudflare UUID — the target of every firm bucket's object-create

@@ -12,7 +12,7 @@ describe("controlPlaneMigrations bundle", () => {
     const migrations = controlPlaneMigrations();
     expect(migrations.length).toBeGreaterThanOrEqual(4);
     expect(migrations.at(-1)?.tag).toBe(controlPlaneHeadSchemaVersion());
-    expect(controlPlaneHeadSchemaVersion()).toMatch(/^0003_/);
+    expect(controlPlaneHeadSchemaVersion()).toMatch(/^0004_/);
   });
 
   it("applies the whole lineage from empty, then is a no-op when re-run", async () => {

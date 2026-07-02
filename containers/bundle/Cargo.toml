@@ -18,7 +18,11 @@ axum = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # ZIP: Deflate + ZIP64 + AES write. Lean features — no bzip2/zstd/xz C deps (Windows-clean dev host).
-zip = { version = "8.6", default-features = false, features = ["deflate-flate2", "aes-crypto", "time"] }
+zip = { version = "8.6", default-features = false, features = [
+  "deflate-flate2",
+  "aes-crypto",
+  "time",
+] }
 # Deflate backend for zip's `deflate-flate2`. Declared directly so flate2's default `rust_backend`
 # (pure-Rust miniz_oxide) is selected — otherwise zip pulls flate2 with no backend and its ffi is empty.
 flate2 = "1"

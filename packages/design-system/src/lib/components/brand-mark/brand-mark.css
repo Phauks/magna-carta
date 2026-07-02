@@ -1,0 +1,35 @@
+@layer components {
+  /*
+   * BrandMark — the illuminated-M + wordmark lockup. Chrome register: gold glyph, strong chrome
+   * text, engraved-wide tracking. The word hides by COLOR in the collapsed sidebar rail (the
+   * mc-sidebar-label pattern: the accessible name stays in the DOM; opacity has no token and is
+   * gate-banned), so the rail shows only the gold mark.
+   */
+  .mc-brand-mark {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    white-space: nowrap;
+  }
+  .mc-brand-mark-glyph {
+    font-family: var(--mc-font-blackletter);
+    font-size: var(--mc-font-size-2xl);
+    font-weight: var(--mc-weight-regular);
+    line-height: var(--mc-leading-tight);
+    color: var(--mc-chrome-accent);
+  }
+  .mc-brand-mark-word {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-semibold);
+    letter-spacing: var(--mc-tracking-wordmark);
+    text-transform: uppercase;
+    color: var(--mc-chrome-text-strong);
+    transition-property: color;
+    transition-duration: var(--mc-duration-normal);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-sidebar[data-state="collapsed"] .mc-brand-mark-word {
+    color: transparent;
+  }
+}

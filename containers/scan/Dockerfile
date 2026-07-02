@@ -3,7 +3,11 @@
 # TCP), yara-x, and the structural heuristics. Build context is this directory (containers/scan).
 
 # --- build stage: compile the Rust scan service + bundle the YARA rules ----------------------------
-FROM rust:1-bookworm AS build
+# trixie (glibc 2.41), not bookworm (glibc 2.36): ort's prebuilt onnxruntime (download-binaries, for
+# the Magika /identify engine) is compiled against glibc >= 2.38 and references __isoc23_strtol*
+# symbols, so it only links against a glibc that provides them. The runtime stage must match (the
+# statically-linked onnxruntime resolves those symbols against the runtime libc too).
+FROM rust:1-trixie AS build
 WORKDIR /src
 
 # The heuristic-_SUSP_ score floor below which the FP-prone pocket is dropped (histogram/log only —
@@ -26,7 +30,7 @@ COPY src ./src
 # unchanged dependency graph is not recompiled. A cache mount is not part of the image layer, so the
 # two binaries are copied out to /artifacts (a normal path) in the same RUN before the mount drops —
 # later stages read them from there, not from target/. See docs/conventions/build-performance.md.
-# rust:1-bookworm (via buildpack-deps:bookworm) already provides libssl-dev + pkg-config —
+# rust:1-trixie (via buildpack-deps:trixie) already provides libssl-dev + pkg-config —
 # no extra apt step needed for ort's openssl-sys build dependency.
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
@@ -109,7 +113,9 @@ RUN set -eux; \
     printf '%s' "$TAG" > /out/yara-rules.tag
 
 # --- runtime stage: clamd + the service -----------------------------------------------------------
-FROM debian:bookworm-slim
+# trixie (glibc 2.41) must match the build stage: the statically-linked onnxruntime references
+# glibc >= 2.38 symbols (__isoc23_strtol*) that the dynamic libc resolves at run time.
+FROM debian:trixie-slim
 
 # libstdc++6 + libgomp1: onnxruntime runtime libs for the Magika identify engine. ort statically
 # links onnxruntime (no libonnxruntime.so copy needed), but the compiled-in C++ code still calls

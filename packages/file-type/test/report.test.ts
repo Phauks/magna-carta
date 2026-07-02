@@ -3,7 +3,14 @@ import type { RawIdentifyResult } from "../src/raw.ts";
 import { buildFileTypeReport } from "../src/report.ts";
 
 function raw(over: Partial<RawIdentifyResult>): RawIdentifyResult {
-  return { label: "pdf", score: 0.99, group: "document", magikaVersion: "1.0", modelVersion: "x", ...over };
+  return {
+    label: "pdf",
+    score: 0.99,
+    group: "document",
+    magikaVersion: "1.0",
+    modelVersion: "x",
+    ...over,
+  };
 }
 
 describe("buildFileTypeReport", () => {
@@ -35,7 +42,10 @@ describe("buildFileTypeReport", () => {
   });
 
   it("is unverifiable when Magika returns no usable type", () => {
-    const report = buildFileTypeReport(raw({ label: "unknown", group: "unknown", score: 0.2 }), "x.pdf");
+    const report = buildFileTypeReport(
+      raw({ label: "unknown", group: "unknown", score: 0.2 }),
+      "x.pdf",
+    );
     expect(report.detected).toBeNull();
     expect(report.extensionMatch).toBe("unverifiable");
     expect(report.recommendedExtensions).toEqual([]);

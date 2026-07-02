@@ -11,10 +11,10 @@ import {
 // Object, which self-migrates on first access.
 
 // Adapter selection: deploy-time credentials present → real Cloudflare REST creation; otherwise
-// the dev adapter (local dev and tests — CLOUDFLARE_API_TOKEN/CLOUDFLARE_ACCOUNT_ID are
+// the dev adapter (local dev and tests — CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER/CLOUDFLARE_ACCOUNT_ID are
 // deploy-time secrets, deliberately absent from .dev.vars).
 export function resourceProviderForEnv(env: Bindings): FirmResourceProvider {
-  const apiToken = env.CLOUDFLARE_API_TOKEN;
+  const apiToken = env.CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER;
   const accountId = env.CLOUDFLARE_ACCOUNT_ID;
   if (apiToken !== undefined && apiToken !== "" && accountId !== undefined && accountId !== "") {
     return createCloudflareRestFirmResourceProvider({

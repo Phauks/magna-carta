@@ -1,0 +1,11 @@
+{
+  "z": {
+    "$description": "Stacking-order scale.",
+    "base": { "$type": "number", "$value": 0 },
+    "dropdown": { "$type": "number", "$value": 1000 },
+    "sticky": { "$type": "number", "$value": 1100 },
+    "overlay": { "$type": "number", "$value": 1200 },
+    "modal": { "$type": "number", "$value": 1300 },
+    "toast": { "$type": "number", "$value": 1400 }
+  }
+}

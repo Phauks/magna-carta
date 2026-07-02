@@ -10,7 +10,7 @@ import devVarsContent from "../.dev.vars?raw";
 const EXPECTED_PLACEHOLDER_CONTENT = `# Local development and test secrets ONLY — committed because every value here is a placeholder.
 # NEVER put a production value in this file; production secrets are set with
 # \`wrangler secret put <NAME>\`. Both \`wrangler dev\` and the Miniflare test pool load this file.
-# CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID are deliberately ABSENT: they are deploy-time
+# CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER / CLOUDFLARE_ACCOUNT_ID are deliberately ABSENT: they are deploy-time
 # secrets for the Cloudflare REST FirmResourceProvider — locally the dev pool-claiming adapter
 # runs instead, selected by their absence. The R2_S3_* placeholders satisfy the secrets.required
 # gate locally; the upload presigner still falls back to the dev presigner because real presigning

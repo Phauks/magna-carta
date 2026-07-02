@@ -12,7 +12,7 @@
 
 ## Decided up front (read before coding)
 
-1. **Build timing & version re-verification.** This plan is written ahead of its build window (after slice 0·6 lands). **Task 0 re-verifies every pinned version and every external API shape against current documentation before anything else** (golden rule 11). Versions named in this plan are the June-2026 verified baselines; bump-and-re-verify, never trust silently.
+1. **Build timing & version re-verification.** The build runs **now, as Phase 0's parallel UI-foundation lane** (owner-decided 2026-06-10), on branch `slice-0.7a-design-system` in a worktree outside the main checkout — the backend lane (0·4 → 0·5 → 0·6) proceeds independently; the only shared file expected to conflict is `ci.yml` (mergeable) and `pnpm-workspace.yaml` (append-only catalog additions). **Task 0 re-verifies every pinned version and every external API shape against current documentation before anything else** (golden rule 11). Versions named in this plan are the June-2026 verified baselines; bump-and-re-verify, never trust silently.
 2. **Source-direct package exports, no dist build.** Every package in this repo exports TypeScript source directly (`"./x": "./src/x.ts"`) and nothing has a build step — Vite/`vp` compiles workspace sources, including `.svelte` files via `vite-plugin-svelte`. `@magna-carta/design-system` follows suit: subpath exports point at `src/`, **no `@sveltejs/package` dist step** (the spec's packaging note is realized this way for the internal monorepo; revisit only if the package ever publishes externally). Tailwind's `@source` directive points at the workspace package's `src/`.
 3. **Provisional theme before the design language.** The pipeline is built and gated against a provisional flagship theme (`slate`, light + dark, generated neutral ramps). The Phase B design-language workshop (owner-deciding) replaces values and adds the showcase themes; the gates and golden files then re-pin. This keeps engineering unblocked and makes the workshop a data change, proving the whole premise.
 4. **Token CSS variable prefix is `--mc-`** (e.g. `--mc-surface-default`, `--mc-space-4`, `--mc-z-modal`). Tailwind utilities map onto them via the generated `@theme`. Semantic names follow the spec §2.2 taxonomy.
@@ -260,13 +260,24 @@ export const CONTRAST_PAIRS: ReadonlyArray<{
 
 ## Phase B — design language & archetypes (owner-gated; collaborative, not autonomous)
 
-### Task 7: Design-language workshop → final flagship + showcase themes
+### Task 7: Brand + design-language workshop → brand document + final flagship + showcase themes
 
-**Files:** Create: `docs/specs/<date>-design-language.md`; Modify: `packages/design-tokens/tokens/**`
+**Files:** Create: `docs/specs/<date>-design-language.md`, `docs/specs/<date>-brand.md`; Modify: `packages/design-tokens/tokens/**`
 
-- [ ] **Step 1: Run the workshop with the owner** (visual companion): type system + scale, flagship palette anchors, showcase theme anchors (2–3 themes, e.g. distinct hue families), spacing/density decision, elevation/border philosophy, motion, signature elements — anchored to named best-in-class references. **This step blocks on the owner; do not improvise values.**
-- [ ] **Step 2: Encode** — write the design-language document; set typography/spacing/radius/shadow primitives to the decided values; run `generate-theme` for the flagship + each showcase theme; extend `resolver.json` with the new theme contexts.
-- [ ] **Step 3: All gates green; goldens updated.** Run package tests; commit — `feat(design-tokens): design language encoded — flagship + showcase themes (owner-approved)`.
+**Inputs (read first):** [`docs/research/brand-typography-and-wordmark.md`](../research/brand-typography-and-wordmark.md) (wordmark font candidates — P22 Morris Troy the researched front-runner — licensing mechanics, monogram/favicon/Tauri deliverable checklist), [`docs/research/magna-carta-text-motif.md`](../research/magna-carta-text-motif.md) (text-motif options ranked; celebrated-excerpt hero + 1297 statute texture recommended), [`docs/research/motion-animation-stack.md`](../research/motion-animation-stack.md) (motion personality + the zero-dependency core stack, GSAP lazy for signature moments).
+
+- [ ] **Step 1: Run the workshop with the owner** (visual companion). **Design language:** type system + scale (UI workhorse faces — distinct from the brand display face), flagship palette anchors, showcase theme anchors (2–3 themes, distinct hue families), spacing/density decision, elevation/border philosophy, **motion personality** (duration ladder + easing pair + reduced-motion scalar; where signature motion is allowed), signature elements — anchored to named best-in-class references. **Brand:** wordmark display font decision (owner picks from the researched candidates in browser — Adobe Fonts pages must be eyeballed), monogram direction (illuminated-initial MC), brand colors (these seed the flagship theme), text-motif decision (the ranked options), wordmark-animation route (DIY mask + DrawSVG vs outsource). **This step blocks on the owner; do not improvise values or brand decisions.**
+- [ ] **Step 2: Encode** — write the design-language document AND the brand document (font choice + licensing record, monogram direction, text-motif decision with the version-choice rationale paragraph, motion personality, the deliverables checklist from the research doc); set typography/spacing/radius/shadow/motion primitives to the decided values; run `generate-theme` for the flagship + each showcase theme; extend `resolver.json` with the new theme contexts.
+- [ ] **Step 3: All gates green; goldens updated.** Run package tests; commit — `feat(design-tokens): design language + brand encoded — flagship + showcase themes (owner-approved)`.
+
+### Task 7b: Brand assets (after Task 7 decides; sequencing flexible — can run parallel to Phase C/D)
+
+**Files:** Create: `apps/web/static/{favicon.svg,favicon.ico,apple-touch-icon.png}`, brand asset sources under `docs/specs/` or a `brand/` directory (workshop decides the home)
+
+- [ ] **Step 1:** Wordmark set in the chosen face → outlined SVG (record font + version in the brand document — the Adobe Fonts license permits outlining + trademark; outlined artwork needs no ongoing license).
+- [ ] **Step 2:** Monogram master (full + simplified-small + monochrome variants, reduction-first: must survive 16 px) → the three web favicon files; the 1024×1024 Tauri master PNG is produced now, consumed when the Tauri shell lands.
+- [ ] **Step 3:** Wordmark writing animation — DIY route: hand-trace pen paths, mask, GSAP DrawSVG sequence as a lazy-loaded component with a reduced-motion static fallback; outsource route: hand the freelancer spec from the research doc. Either way the deliverable includes the reduced-motion variant, and the component ships with a Storybook story like everything else.
+- [ ] **Step 4:** Commit — `feat(design-system,web): brand assets — wordmark, monogram, favicons (owner-approved)`.
 
 ### Task 8: Page-archetype documents
 
@@ -603,6 +614,10 @@ with `components.css` recipes targeting `.mc-tabs-trigger[data-state="active"]` 
 - [ ] **Step 3:** ROADMAP (slice 0·7a → shipped summary), CHANGELOG `[Unreleased]` entry. Commit — `docs: slice 0·7a close-out — ui-design standard, area CLAUDE.md, roadmap/changelog`.
 
 ---
+
+## Deferred follow-ups (revisit at slice completion — before Task 29)
+
+- **Reconsider splitting a component/artifact once the full set exists (owner, 2026-06-15).** The owner asked, mid Tier-3 build, to revisit "splitting this component" once all components are generally built — to be weighed at the completion of the general UI design, when the right boundaries are clear. **Referent to confirm with the owner** (candidates: a specific component, the Dialog/AlertDialog/Sheet modal family that share the Bits Dialog primitives + scroll-lock, or the monolithic `src/lib/styles/components.css` recipe file — ~1300+ lines, accreting one block per component, a natural per-component split candidate). Treat as a deferred refactor decision, not in-flight scope; raise it when every component is in.
 
 ## Self-review checklist (run before declaring the plan done)
 

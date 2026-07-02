@@ -1,0 +1,55 @@
+@layer components {
+  /*
+   * Resizable (paneforge) — split panes for per-view layouts (a folder tree, a list + detail rail),
+   * NOT the fixed app-shell sidebar. The group fills its container (h-full/w-full utilities) and
+   * paneforge sets the flex direction inline; panes clip overflow. The handle is a hairline that
+   * brightens to the focus colour on hover/drag (paneforge sets data-active while dragging), and
+   * orients off the resizer's data-direction. The optional grip is a small centred affordance.
+   */
+  .mc-resizable-group {
+    display: flex;
+  }
+  .mc-resizable-pane {
+    overflow: hidden;
+  }
+  .mc-resizable-handle {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    background-color: var(--mc-border-default);
+    transition-property: background-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-resizable-handle[data-direction="horizontal"] {
+    inline-size: var(--mc-border-width-default);
+  }
+  .mc-resizable-handle[data-direction="vertical"] {
+    block-size: var(--mc-border-width-default);
+  }
+  .mc-resizable-handle:hover,
+  .mc-resizable-handle[data-active] {
+    background-color: var(--mc-border-focus);
+  }
+  .mc-resizable-handle:focus-visible {
+    outline: var(--mc-focus-ring-width) solid var(--mc-focus-ring);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-resizable-grip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--mc-space-12);
+    block-size: var(--mc-space-24);
+    border-radius: var(--mc-radius-sm);
+    border: var(--mc-border-width-default) solid var(--mc-border-default);
+    background-color: var(--mc-surface-raised);
+  }
+  .mc-resizable-grip-icon {
+    inline-size: var(--mc-space-12);
+    block-size: var(--mc-space-12);
+    color: var(--mc-text-muted);
+  }
+}

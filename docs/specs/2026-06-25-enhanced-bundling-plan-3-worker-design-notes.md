@@ -67,9 +67,10 @@ other. Options:
   the user to use 7z split (which would then need B) or an unencrypted bundle. Smallest scope.
 
 Recommendation: **A** for v1 (single encrypted artifact, streamed, never stored) — it is the strongest
-confidentiality story and covers the common "email a password-protected archive" case; **defer encrypted
-+ split** to a later iteration (option B) and have the capability surface reflect that (encrypted disables
-split in the UI, and vice versa). This keeps Plan 3 shippable and the secret posture airtight.
+confidentiality story and covers the common "email a password-protected archive" case; \*\*defer encrypted
+
+- split\*\* to a later iteration (option B) and have the capability surface reflect that (encrypted disables
+  split in the UI, and vice versa). This keeps Plan 3 shippable and the secret posture airtight.
 
 ### DECISION (resolved 2026-06-26): option A — stream, never store
 

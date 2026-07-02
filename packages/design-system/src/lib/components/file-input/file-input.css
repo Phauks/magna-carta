@@ -1,0 +1,76 @@
+@layer components {
+  /*
+   * FileInput (Tier 1). A styled native <input type="file"> — Input's border/focus/disabled
+   * treatment around the file picker, at the same control-md height. Its only reliably-styleable
+   * part is `::file-selector-button`, dressed to the secondary-button look so the control reads as
+   * part of the system instead of the raw browser default. The button and the filename text are
+   * inline content the browser lays out itself (the button is NOT a flex item — `display: flex`
+   * here does not affect it), so vertical centring is `align-content: center` on the block; a
+   * fixed-height flex row would leave the button stuck on the text baseline, overlapping the top
+   * edge. The button keeps `vertical-align: baseline` so its label sits on the SAME baseline as the
+   * filename text — the two text runs then read as aligned to each other. (Centring the button box
+   * independently, e.g. `vertical-align: middle`, makes the baseline-set filename text look high
+   * beside it: its visual weight rides above the geometric centre while the descender space sits
+   * empty below.) The button is sized by its own padding, not a fixed height.
+   */
+  .mc-file-input {
+    align-content: center;
+    min-block-size: var(--mc-density-control-md);
+    padding-inline: var(--mc-space-12);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    background-color: var(--mc-surface-field);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-tight);
+    cursor: pointer;
+    transition-property: border-color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-file-input::file-selector-button {
+    margin-inline-end: var(--mc-space-12);
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-12);
+    border-style: none;
+    border-radius: var(--mc-radius-md);
+    background-color: var(--mc-action-secondary);
+    color: var(--mc-action-secondary-foreground);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-medium);
+    line-height: var(--mc-leading-tight);
+    vertical-align: baseline;
+    cursor: pointer;
+    transition-property: background-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-file-input::file-selector-button:hover {
+    background-color: var(--mc-action-secondary-hover);
+  }
+  /* Merged-edge focus, same as Input (no detached offset ring). */
+  .mc-file-input:focus-visible {
+    border-color: var(--mc-focus-ring);
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-file-input:disabled {
+    background-color: var(--mc-action-disabled);
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+  .mc-file-input:disabled::file-selector-button {
+    background-color: var(--mc-action-disabled);
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+}

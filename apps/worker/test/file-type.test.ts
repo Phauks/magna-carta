@@ -29,7 +29,11 @@ beforeAll(async () => {
   // run before that migration lands.
   await firmDatabaseFor(env.FIRM_DATABASE, poolFirmId)
     .prepare("INSERT OR IGNORE INTO role_permission (id, role_id, permission) VALUES (?1, ?2, ?3)")
-    .bind("rolePermission_FileTypeVerifierOwnerTest0001", OWNER_ADMIN_ROLE_ID, "tools:fileTypeVerifier")
+    .bind(
+      "rolePermission_FileTypeVerifierOwnerTest0001",
+      OWNER_ADMIN_ROLE_ID,
+      "tools:fileTypeVerifier",
+    )
     .run();
 });
 

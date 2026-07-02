@@ -25,11 +25,13 @@
 ### Task 1: Crate skeleton + workspace wiring
 
 **Files:**
+
 - Create: `crates/engine-host/Cargo.toml`
 - Create: `crates/engine-host/src/lib.rs`
 - Modify: `crates/Cargo.toml` (add `"engine-host"` to `members`)
 
 **Interfaces:**
+
 - Produces: the `magna-carta-engine-host` crate with `cfg`-gated modules `format` (always), `wasm_edge` (wasm32), `host` (non-wasm). Public surface filled by later tasks.
 
 - [ ] **Step 1: Add the crate to the workspace**
@@ -119,9 +121,11 @@ git commit -m "feat(engine-host): crate skeleton + workspace wiring"
 ### Task 2: `format` — magic-byte detection
 
 **Files:**
+
 - Modify: `crates/engine-host/src/format.rs`
 
 **Interfaces:**
+
 - Produces: `pub enum Format { Pdf, Zip, Ole2 }` and `pub fn detect(bytes: &[u8]) -> Option<Format>`. `Ole2` is the honest magic-level identity of the D0CF11E0 compound-file container (an engine decides whether a given OLE2 is encrypted-OOXML, legacy .doc, .msg, …).
 
 - [ ] **Step 1: Write the failing tests**
@@ -214,10 +218,12 @@ git commit -m "feat(engine-host): magic-byte Format detection"
 ### Task 3: `host` — the axum skeleton (`ready_app`, `serve_on`, `serve`, body limit)
 
 **Files:**
+
 - Create: `crates/engine-host/src/host.rs`
 - Test: inline `#[cfg(test)]` in `crates/engine-host/src/host.rs`
 
 **Interfaces:**
+
 - Consumes: `Format` (none directly).
 - Produces:
   - `pub fn ready_app(router: axum::Router) -> axum::Router` — adds `GET /ready` and a request-body-size limit to a caller's router.
@@ -337,9 +343,11 @@ git commit -m "feat(engine-host): axum host skeleton (ready, serve, body cap)"
 ### Task 4: `host` — R2 client helper + panic-net layer
 
 **Files:**
+
 - Modify: `crates/engine-host/src/host.rs`
 
 **Interfaces:**
+
 - Produces:
   - `pub fn r2_client() -> reqwest::Result<reqwest::Client>` — a `reqwest::Client` with a 10 s connect timeout and no overall request timeout (the bundle pattern: a wedged R2 host errors promptly; a large transfer is never cut short).
   - `pub fn with_panic_net(router: axum::Router) -> axum::Router` — wraps a router so a panicking handler becomes a `500` response, not a process crash.
@@ -421,9 +429,11 @@ git commit -m "feat(engine-host): R2 client helper + panic-net layer"
 ### Task 5: `wasm_edge` — the JS-marshalling toolkit
 
 **Files:**
+
 - Create: `crates/engine-host/src/wasm_edge.rs`
 
 **Interfaces:**
+
 - Produces:
   - `pub trait EdgeError { fn code(&self) -> &'static str; }` — the stable-error-code contract (a `&'static str` cannot carry dynamic file content).
   - `pub fn allowed_code(code: &str, allowed: &[&str]) -> bool` — native-testable guard that an emitted code is from a fixed set.
@@ -605,9 +615,11 @@ git commit -m "feat(engine-host): wasm edge toolkit (codes, bytes_out, ObjectBui
 ### Task 6: Fitness — dependency-inversion guard
 
 **Files:**
+
 - Create: `crates/engine-host/tests/fitness.rs`
 
 **Interfaces:**
+
 - Consumes: nothing (reads the crate's own manifest).
 - Produces: a test asserting `engine-host`'s manifest names no engine-logic crate.
 
@@ -658,6 +670,7 @@ git commit -m "test(engine-host): dependency-inversion fitness guard"
 ### Task 7: The seam convention doc
 
 **Files:**
+
 - Create: `docs/conventions/engine-host-seam.md`
 
 - [ ] **Step 1: Write the convention**
@@ -709,6 +722,7 @@ git commit -m "docs(engine-host): the engine-host seam convention"
 ### Task 8: Close-out — ROADMAP / STATUS / changelog / ADR fragments
 
 **Files:**
+
 - Modify: `ROADMAP.md` (add a cross-cutting row — append only)
 - Modify: `STATUS.md` (add a row for this slice — your row only)
 - Create: `changelog.d/engine-host-harness.md`
@@ -727,6 +741,7 @@ Create `changelog.d/engine-host-harness.md` — per `changelog.d/README.md`, a f
 ---
 category: Added
 ---
+
 **Engine-host harness** — a shared `magna-carta-engine-host` crate giving the pure-Rust document engines one runtime seam (magic-byte format detection, the wasm32 JS-marshalling edge, and the axum container skeleton) instead of re-implementing it per engine.
 ```
 

@@ -12,6 +12,7 @@ import {
   stepUpReauthDefinition,
 } from "@magna-carta/file-manager/scan-policy-settings";
 import { newIdentifier } from "@magna-carta/identifiers/generate";
+import { fetchScoreHistogram } from "../files/score-histogram.ts";
 import type { Bindings } from "../app.ts";
 import type { Chokepoint } from "../chokepoint/chokepoint.ts";
 import {
@@ -55,6 +56,20 @@ const PatchScanPolicyRequest = z
   })
   .openapi("PatchScanPolicyRequest");
 
+// The `_SUSP_` score distribution of the deployed scan engine's baked rule corpus — the reference data
+// the firm's custom suspicious-score-floor control plots. Engine-global (identical for every firm), so it
+// carries no firm data. `engineVersion`/`minScoreGate` are null when no scan engine is deployed (every
+// local/test environment, and before the scan worker is wired in production), in which case the control
+// renders unbounded rather than erroring.
+const ScoreHistogramResponse = z
+  .object({
+    engineVersion: z.string().nullable(),
+    minScoreGate: z.number().int().nullable(),
+    total: z.number().int(),
+    buckets: z.array(z.object({ floor: z.number().int(), count: z.number().int() })),
+  })
+  .openapi("ScoreHistogramResponse");
+
 const PERMISSION = "firm:manageScanPolicy" as const;
 
 const getMeta: RouteMeta = {
@@ -77,6 +92,17 @@ const patchMeta: RouteMeta = {
   audited: true,
   idempotency: "required",
   idempotencyStore: "firm",
+  rateLimit: "default",
+};
+
+const histogramMeta: RouteMeta = {
+  operationId: "scanPolicy.scoreHistogram",
+  surface: "app",
+  authenticated: true,
+  permission: PERMISSION,
+  resource: "firm",
+  audited: false,
+  idempotency: "optional",
   rateLimit: "default",
 };
 
@@ -160,6 +186,27 @@ const patchRoute = defineOpenAPIRoute(patchMeta, {
   },
 });
 
+const histogramRoute = defineOpenAPIRoute(histogramMeta, {
+  method: "get",
+  path: "/api/v1/firm/scan-policy/score-histogram",
+  description:
+    "Returns the deployed scan engine's heuristic (`_SUSP_`) rule-score distribution as 5-point " +
+    "buckets — the reference data for the firm's custom suspicious-score-floor control. The data is " +
+    "engine-global (identical for every firm). When no scan engine is deployed, engineVersion and " +
+    "minScoreGate are null and buckets is empty.",
+  responses: {
+    200: {
+      description:
+        "The scan engine's suspicious-score histogram, or the empty shape when no engine is deployed",
+      content: { "application/json": { schema: ScoreHistogramResponse } },
+    },
+    401: errorResponses[401],
+    403: errorResponses[403],
+    404: errorResponses[404],
+    429: errorResponses[429],
+  },
+});
+
 type ScanApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 
 export function registerScanPolicyRoutes(app: ScanApp, chokepoint: Chokepoint): void {
@@ -175,6 +222,15 @@ export function registerScanPolicyRoutes(app: ScanApp, chokepoint: Chokepoint): 
       ]);
       return c.json({ policy, flaggedTreatment, stepUpReauthOnFlagged }, 200);
     },
+  );
+
+  // GET /api/v1/firm/scan-policy/score-histogram — the scan engine's _SUSP_ score distribution, gated
+  // like the policy itself. Engine-global data, so it reaches the scan engine over the SCAN_SERVICE
+  // binding rather than firm storage. The fetch + no-engine + fault handling lives in fetchScoreHistogram
+  // (unit-tested for all three branches); a deployed-but-unreachable engine throws, never a masked empty.
+  app.openapi(
+    { ...histogramRoute, middleware: chokepointMiddleware(chokepoint, histogramRoute) },
+    async (c) => c.json(await fetchScoreHistogram(c.env.SCAN_SERVICE), 200),
   );
 
   // PATCH /api/v1/firm/scan-policy — update the present fields and audit the change atomically.

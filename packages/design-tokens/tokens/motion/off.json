@@ -1,0 +1,9 @@
+{
+  "$description": "Motion axis — OFF: everything is instant. Zeroing the duration ladder collapses every CSS animation and transition structurally; JS-driven motion consults the same axis through the design system's motion-preference module.",
+  "duration": {
+    "fast": { "$type": "duration", "$value": { "value": 0, "unit": "ms" } },
+    "normal": { "$type": "duration", "$value": { "value": 0, "unit": "ms" } },
+    "slow": { "$type": "duration", "$value": { "value": 0, "unit": "ms" } },
+    "signature": { "$type": "duration", "$value": { "value": 0, "unit": "ms" } }
+  }
+}
