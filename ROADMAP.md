@@ -131,18 +131,55 @@ Each integration is a Worker behind its port, on the `@magna-carta/integrations`
 
 - Maintenance agents, ADRs, user + developer docs, the load-profile performance harness (golden rule 10's measurer — **built 2026-06-12, ADR-0083**; see _Cross-cutting_ above). **When available:** the one-time **LEAP migration** — the sole legacy input; trust balances are the hard reconciliation gate before any cutover.
 
-## Pending UI surfaces — built headless, awaiting the design-system shell
+## UI roadmap — the deferred-surface build order
 
-The consolidated sweep-list of backend/headless work that ships ahead of its UI, to be picked up when the design-system shell (slice 0·7a) and the first human-operable surfaces (0·7b) land. **In-commit discipline:** every slice that ships a backend/headless capability without its UI adds or updates a line here, and removes it once the UI lands — the same definition-of-done as ROADMAP/STATUS/CHANGELOG. (Stage detail per slice lives in [`STATUS.md`](STATUS.md); this is the cross-slice _UI-debt_ view.)
+Every backend/headless capability that shipped ahead of its UI, in the order the UI stream builds them (agreed with the owner 2026-07-02). The design system (0·7a) is on `main`; this is the queue it unblocks. **In-commit discipline:** a slice that ships a backend capability without its UI adds its surface to a stage here; the line leaves when the UI lands — the same definition-of-done as ROADMAP/STATUS/CHANGELOG. Re-sequencing is a deliberate edit by the UI stream, not drift. (Per-slice stage detail lives in [`STATUS.md`](STATUS.md); design decisions in the register live with the design-system docs.)
 
-- **Auth (slice 0·4)** — login / 2FA / passkey-enrollment UI → 0·7b.
-- **Telemetry & diagnostics (slice 0·6)** — the client-reporter surfaces ("Send to developer" crash screen, "Report a problem" menu item), the breadcrumb ring-buffer library, screenshot capture/redaction, and the diagnostics-level settings UI → 0·7a/0·7b.
-- **Matters · Locations · File Manager (slice 1·1)** — the whole slice's UI (matter lifecycle, numbering config, locations, the folder/file manager + upload/download) → after 0·7a/0·7b; its UI plan is the open item on the slice.
-- **Directory (slice 1·3)** — the entity-graph UI → after 0·7a/0·7b (once the backend builds).
-- **Property external-links (`@magna-carta/property-links`)** — the provider buttons ride the Locations UI (self-hosted brand SVGs keyed by provider).
-- **Tools area (`@magna-carta/tools`, ADR-0101)** — the left-nav Tools sidebar, the `id → component` map, and the integration `Dispatch`/health branching → 0·7a; role-seeding of the remaining `tools:` permissions lands with this UI work. Per-tool widgets pending the shell: the **network speed test** (`@cloudflare/speedtest`), the **firm-usage** snapshot view (over the built `GET /api/v1/firm-usage`, ADR-0103), and the **Metadata Inspector & Scrubber** widget (upload + findings display + scrub options + download).
-- **Integration connection-management UI** — connect an account, view connection health, re-auth, disable: the deferred surface behind every integration-backed tool's "Connect…" entry point (ADR-0092). **Unowned** — assign a slice when the first credentialed adapter's UI is built.
-- **Support access (platform)** — the platform-side support console (the diagnostic view of a firm's system state) and the privileged **view-as** render path, plus the firm-facing surfaces: the request-support entry point, the admin grant-list / revoke / co-sign controls, and the firm-visible support-access audit view. Backend rails shipped 2026-06-26 (ADR `support-access-framework`); staff self-service auth + MFA and the admin-notification transport are the other deferred seams on the same rails. → after 0·7a/0·7b.
+**Ordering principle:** the frame first (everything renders inside it), then the session (every API call needs one), then the two archetype screens everything else copies (List, Detail), then maximum "humans can exercise built backends" per unit of work — the project's testing bottleneck. Craft threads (dark design pass, empty/loading/error states, NVDA passes, VRT baselines) run through every stage rather than being one.
+
+**Stage 1 — the frame (slice 0·7b core; strictly ordered)**
+
+- **Real App Shell in `apps/web`** — routes, the assembled chrome (Sidebar/TopBar/BrandMark parts from the design system; nav registry + permission filtering in the app), route-level View Transitions. No backend dependency.
+- **Auth (slice 0·4 backend)** — login / 2FA / passkey-enrollment UI. Sequenced for plumbing, not ceremony: it gates real data on every later screen. Ships functional with a modest ceremonial edge; the written-live wordmark (anime.js's first consumer + its ADR) enriches it later without rework.
+- **Appearance settings** — theme/mode/density/motion pickers over the wired axes; proves the Settings archetype.
+
+**Stage 2 — archetype proofs on real data (slice 1·1; strictly ordered after stage 1)**
+
+- **Matters list** — the owner-approved Engraved Ledger list screen on the real matters API; the remaining register details land as components here (two-line matter cells, avatar chips, saved-views toolbar, ledger totals).
+- **Matter workspace** — masthead + tabs + overview; the Detail archetype. List + Detail extraction on rule-of-two happens here.
+- **Files: upload + browser** — drag-and-drop upload (progress, allow-list messaging — built against the corrected policy: Office formats accepted), the file table, Locations. The reusable upload machinery for every later tool.
+- **Command palette wiring** — the Ctrl+K trigger is in the chrome; matters + navigation are the first providers. Early because it compounds with every later surface.
+
+**Stage 3 — tools area (cheapest real utility; most test-unblocking)**
+
+- **Tools shell** — the Tools nav section, the `id → component` map, integration `Dispatch`/health branching; role-seeding of the remaining `tools:` permissions lands here.
+- **First tool widgets (backends done + tested):** Metadata Inspector & Scrubber (upload + findings + scrub options + download), File Hash & Integrity, File Type Verifier, the network speed test (`@cloudflare/speedtest`), the firm-usage snapshot view.
+- **AI-text detection UI** — band-not-proof contract (the numeric score lives under `provenance`; never a "% AI" headline). _Coordinate: its vendor adapter is still on the backend queue._
+
+**Stage 4 — the money spine (backends on `main`; order flexes with appetite)**
+
+- **Time tracking (slice 3·1)** — the running-timer chip in the chrome + time entries.
+- **Ledger-voice components** (MoneyText/MoneyCell + the double-rule total, on `@magna-carta/money`), then **billing/costs surfaces (slice 3·3)**.
+- **Trust UI (slice 3·2)** — slots in when its backend lands; inherits the ledger voice.
+
+**Stage 5 — documents deepening**
+
+- **Editing (slice 2·2)** — the Collabora embed, plus the live-sessions/force-close admin surface (named high-value). _Coordinate: the editing backend highs are on the remediation queue._
+- **Preview/safe-delivery (2·3), enhanced bundling, PDF services surfaces (2·5).**
+
+**Stage 6 — the long tail (small, independent; pull forward freely as backends land)**
+
+- **Directory (1·3)** — the entity-graph UI (once the backend builds).
+- **Custom fields (1·4)** — admin UI + the Convert preview/apply flow. _Coordinate: the Convert re-scaling fix must land first; show pre/post values._
+- **Telemetry & diagnostics (0·6)** — "Send to developer" crash screen, "Report a problem", breadcrumb ring-buffer, screenshot capture/redaction, diagnostics-level settings.
+- **Property external-links** — provider buttons riding the Locations UI (self-hosted brand SVGs keyed by provider).
+- **Shipping & postage** — over the built backend.
+- **Release channels** — the beta opt-in Settings surface over the built rails.
+- **Support access** — the firm-facing request/grant/revoke/audit surfaces + the platform console and view-as path (backend rails shipped 2026-06-26).
+- **Integration connection-management** — connect / health / re-auth / disable, behind every integration-backed tool's "Connect…" entry (ADR-0092). **Unowned** — assign a slice when the first credentialed adapter's UI is built.
+- **Usage analytics** — the consent surface over the built pseudonymizer/consent resolver.
+
+Out of scope here: the client portal (Phase 6) — stage 1 keeps components shell-agnostic so it costs nothing later.
 
 ## Deferred — operational setup (do when convenient, not blocking)
 
