@@ -36,7 +36,9 @@ export const PII_TABLES: readonly PiiTableEntry[] = [
   // Directory contact & identifier PII — hard-deletable at the entity.
   { table: "directory_identifier", subjectKey: "entity_id", action: "hard-delete" },
   { table: "directory_name", subjectKey: "entity_id", action: "hard-delete" },
-  { table: "directory_name_phonetic_code", subjectKey: "entity_id", action: "hard-delete" },
+  // Phonetic codes are derived from a name row, so they resolve to a subject via name_id →
+  // directory_name.entity_id (a two-hop), not a direct entity_id column.
+  { table: "directory_name_phonetic_code", subjectKey: "name_id", action: "hard-delete" },
   { table: "directory_email", subjectKey: "entity_id", action: "hard-delete" },
   { table: "directory_phone", subjectKey: "entity_id", action: "hard-delete" },
   { table: "directory_address", subjectKey: "entity_id", action: "hard-delete" },
