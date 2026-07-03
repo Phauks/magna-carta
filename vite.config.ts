@@ -31,6 +31,11 @@ export default defineConfig({
       // build-decisions.mjs. Formatter reflow would fight those assemblers (same case as docs/decisions/**).
       "CHANGELOG.md",
       "docs/Decision-Log.md",
+      // Assembled by tooling/doc-fragments/build-status.mjs from status.d/* — same case: the generator
+      // owns the exact bytes (tables are emitted width-independent so a note edit can't re-pad, and diff,
+      // every row) and CI re-derives + diff-gates them. Never hand-edit; never let the formatter reflow.
+      "STATUS.md",
+      "STATUS.json",
     ],
   },
   // Type-errors are owned by `vp run typecheck` (`tsc -b` over the project-references graph — fast,
@@ -135,6 +140,11 @@ export default defineConfig({
       // Fold changelog.d/* fragments into CHANGELOG.md [Unreleased] and consume them.
       "changelog-build": {
         command: "node tooling/doc-fragments/build-changelog.mjs",
+      },
+      // Regenerate STATUS.md + STATUS.json from status.d/* fragments (persistent — NOT consumed, since
+      // a slice's status keeps moving across the pipeline). See docs/conventions/documentation.md.
+      "status-build": {
+        command: "node tooling/doc-fragments/build-status.mjs",
       },
       // Print the active-work registry: git worktrees + docs/active-work notes + touch-overlaps.
       // Run before starting a stream or editing a cross-cutting file (see docs/active-work/README.md).
