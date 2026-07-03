@@ -7,12 +7,23 @@ publish = false
 [lib]
 name = "magna_carta_engine_host"
 
+[features]
+# The R2 GET/PUT helper (`host::r2_client`) for engines that stream to/from R2. Off by default so a
+# container that never touches R2 (e.g. recovery) links no HTTP/TLS stack — and therefore no `ring`
+# C/assembly. An engine that needs R2 egress enables `r2` and weighs its TLS backend at that point.
+r2 = ["dep:reqwest"]
+
 # Native (Cloudflare Container) hosting toolkit.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 axum = "0.8"
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"], optional = true }
 tower-http = { version = "0.6", features = ["catch-panic"] }
+
+# reqwest is available to this crate's OWN tests (an HTTP client to drive the axum server) regardless of
+# the `r2` feature. A test binary never ships, so the `ring` it pulls reaches no container image.
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 
 # wasm32 JS-marshalling edge toolkit.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
