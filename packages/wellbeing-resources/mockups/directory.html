@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Wellbeing Resources — coverage</title>
+    <style>
+      body {
+        font:
+          14px/1.5 system-ui,
+          sans-serif;
+        margin: 2rem;
+        color: #1a1a1a;
+      }
+      h1 {
+        font-size: 1.25rem;
+      }
+      .summary {
+        color: #444;
+        margin-bottom: 1rem;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 8px;
+      }
+      .cell {
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 8px 10px;
+      }
+      .cell.fallback {
+        background: #fbf4e6;
+        border-color: #e6d3a3;
+      }
+      .code {
+        font-weight: 600;
+      }
+      .count {
+        color: #555;
+        font-size: 12px;
+      }
+      .national {
+        margin-top: 1.5rem;
+      }
+      .national li {
+        margin: 2px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Wellbeing Resources — coverage</h1>
+    <p class="summary" id="summary"></p>
+    <div class="grid" id="grid"></div>
+    <div class="national">
+      <h2>National safety net (always present)</h2>
+      <ul id="national"></ul>
+    </div>
+    <script src="./directory-data.js"></script>
+    <script>
+      const d = window.WELLBEING;
+      const m = d.manifest;
+      document.getElementById("summary").textContent =
+        `${m.jurisdictions} jurisdictions · ${m.covered} with a dedicated program · ` +
+        `${m.nationalFallbackOnly} national-fallback-only · ${m.totalResources} resources · ` +
+        `verified ${m.newestVerifiedOn}`;
+      const grid = document.getElementById("grid");
+      for (const j of d.jurisdictions) {
+        const cell = document.createElement("div");
+        cell.className = "cell" + (j.fallbackOnly ? " fallback" : "");
+        cell.innerHTML =
+          `<div class="code">${j.code} — ${j.name}</div>` +
+          `<div class="count">${j.fallbackOnly ? "national fallback" : j.count + " resource(s)"}</div>`;
+        grid.appendChild(cell);
+      }
+      const nat = document.getElementById("national");
+      for (const r of d.national) {
+        const li = document.createElement("li");
+        li.textContent = r.url ? `${r.name} — ${r.url}` : r.name;
+        nat.appendChild(li);
+      }
+    </script>
+  </body>
+</html>
