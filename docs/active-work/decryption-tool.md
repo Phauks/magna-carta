@@ -1,7 +1,9 @@
 # decryption-tool — HANDOVER
 
 **Stream:** File Decryption & Recovery — a new ethereal Tools-area utility (subject group `documents`).
-**Owner:** Trevor Goldsmith · **Branch:** `decryption-tool` · **Worktree:** `C:/dev/magna-carta-worktrees/decryption-tool` · **Off** `main` `413b43b` · **HEAD:** `fd8502f` (49 commits) · **NOT merged** (owner keeps building before merge).
+**Owner:** Trevor Goldsmith · **Branch:** `decryption-tool` · **Worktree:** `C:/dev/magna-carta-worktrees/decryption-tool` · **Synced with `main` 2026-07-02** (merge `ebfc30c`; base was 428 commits behind) · **HEAD:** `ebfc30c` · **NOT merged** (owner keeps building before merge).
+
+> **After the 2026-07-02 main sync, run `vp install` + rebuild the decryption wasm** (`pnpm --filter @magna-carta/decryption run build:wasm`) in this worktree before Plan-2 work — the lockfile advanced and `src/pkg/` is a gitignored artifact. Sync notes: the decryption per-firm seed was renumbered **0023 → 0035** (main reached 0034); the decryption route/e2e tests were migrated off the removed per-firm-D1 test harness (`DB_FIRM_POOL_1` / `apply-per-firm-migrations`, both deleted on main) to the **`FirmDatabase` Durable Object** (`firmDatabaseFor`), mirroring `apps/worker/test/file-integrity.test.ts`.
 
 > **Read this whole file first.** It is the single source of truth for picking this up cold.
 
@@ -83,4 +85,4 @@ decryption-core: tier unknown-format-string→Pdf fallback (documented); a few c
 
 ## 7. Pending at merge (golden rule 5)
 
-ADR fragments AAAA–EEEE (raise at the shipping slice), `STATUS.md` row, `ROADMAP.md`, `changelog.d/`, user docs. Sync `main` first (branch is ~49 commits off an old `main`; main has moved a lot — engine-host, file-type-verifier, support-access, etc. merged). The worktree-lifecycle cleanup (remove worktree + branch + this active-work note) happens after merge.
+ADR fragments AAAA–EEEE (raise at the shipping slice), `STATUS.md` row, `ROADMAP.md`, `changelog.d/`, user docs. **Main was synced 2026-07-02** (merge `ebfc30c`) — re-sync on a cadence from here (drift was 428 commits; don't let it recur). The worktree-lifecycle cleanup (remove worktree + branch + this active-work note) happens after merge.
