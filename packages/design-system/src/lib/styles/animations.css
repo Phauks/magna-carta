@@ -38,13 +38,6 @@
 ::view-transition-image-pair(mc-sidebar) {
   overflow: clip;
 }
-::view-transition-old(mc-sidebar),
-::view-transition-new(mc-sidebar) {
-  height: 100%;
-  width: auto;
-  object-fit: none;
-  object-position: left top;
-}
 /* The work canvas morphs alongside; same timing so the seam moves as one. */
 ::view-transition-group(mc-app-canvas) {
   animation-duration: var(--mc-duration-normal);
@@ -53,12 +46,25 @@
 ::view-transition-image-pair(mc-app-canvas) {
   overflow: clip;
 }
+/*
+ * NO crossfade on either pair — the sweep IS the animation (`animation: none` kills the UA
+ * fade-out/fade-in + plus-lighter blend). With a fade, the strip between the narrow rail
+ * snapshot and the still-moving edge dissolved to the page background mid-flight (owner
+ * diagnosis, slowed 15x: "green disappears, white appears, the canvas covers it"). Opaque
+ * snapshots restore the conveyor: the OLD wide sidebar is clipped by the narrowing box (the
+ * green slides away under the edge), the NEW rail sits pinned on top at the inline start (the
+ * icons never move), and the canvas — its end-state snapshot on top, edge-anchored — slides
+ * along attached to the seam.
+ */
+::view-transition-old(mc-sidebar),
+::view-transition-new(mc-sidebar),
 ::view-transition-old(mc-app-canvas),
 ::view-transition-new(mc-app-canvas) {
   height: 100%;
   width: auto;
   object-fit: none;
   object-position: left top;
+  animation: none;
 }
 
 @keyframes mc-sheet-in-right {
