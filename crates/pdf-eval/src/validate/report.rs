@@ -1,5 +1,5 @@
-//! Per-document records and (Tasks 6–7) their aggregation into a summary plus a
-//! regression diff against a committed baseline.
+//! Per-document records and their aggregation into a summary plus a regression
+//! diff against a committed baseline.
 
 use crate::validate::operation::{Outcome, Safety};
 use serde::Deserialize;
