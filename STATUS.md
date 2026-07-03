@@ -72,6 +72,7 @@ Per-slice progress across the build pipeline — the **stage-status home**. [`RO
 | Release channels (backend rails) | [-] | [x] Sonnet 4.6 | [x] Sonnet 4.6 | [x] Sonnet 4.6 | [ ] | [-] | [ ] | `firm.release_channel` + beta/alpha doors + `@magna-carta/feature-flags` (Flagship) + control-plane migration auto-applier. Frontend (Plan 2) deferred past 0·7. |
 | Engine-host harness | [-] | [x] Sonnet 4.6 | [x] Sonnet 4.6 | [x] Sonnet 4.6 | [-] | [-] | [ ] | `crates/engine-host` — shared hosting seam for the pure-Rust engines (format / wasm_edge / host). SP2 File Repair & Salvage + SP3 retrofit to follow. |
 | Support access framework | [-] | [x] Opus 4.8 | [x] Opus 4.8 | [x] Opus 4.8 | [ ] | [-] | [ ] | Pull-not-push help-desk access; time-boxed audited `support_grant`; diagnostic vs privileged-self tiers. Dormant until `platform_staff` is seeded. UI deferred. |
+| Service status | [-] | [x] | [x] | [x] | [ ] | [-] | [x] | `@magna-carta/status` + `apps/status-worker` (isolated, `STATUS_KV`-only) + the new `platform_operator` principal; extends ADR-0048. UI deferred. |
 
 ## Phase 3 — Financial Core (slice map firmed up; per-slice rows as cycles open)
 
