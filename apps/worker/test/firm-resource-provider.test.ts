@@ -10,13 +10,16 @@ describe("dev FirmResourceProvider (bucket-name adapter)", () => {
   it("createBucket answers a per-firm-unique deterministic name (the event→firm resolution key)", async () => {
     const provider = createDevFirmResourceProvider();
     const firmId = newIdentifier("firm");
-    const created = await provider.createBucket(firmId);
+    // Region is irrelevant to the dev adapter's deterministic name — "us" exercises the common case.
+    const created = await provider.createBucket(firmId, "us");
     // The same deterministic shape production uses, derived from the firm id — unique per firm so
     // the ingest consumer's bucket_name → firm lookup is unambiguous with more than one dev firm.
     expect(created.bucketName).toBe(await firmResourceName(firmId));
     expect(created.bucketName).toMatch(/^magna-carta-production-firm-[0-9a-f]{32}$/);
     const otherFirmId = newIdentifier("firm");
-    expect((await provider.createBucket(otherFirmId)).bucketName).not.toBe(created.bucketName);
+    expect((await provider.createBucket(otherFirmId, "us")).bucketName).not.toBe(
+      created.bucketName,
+    );
   });
 
   it("configureBucketNotifications is a no-op (Miniflare delivers no R2 notifications)", async () => {
@@ -90,7 +93,7 @@ describe("Cloudflare REST FirmResourceProvider", () => {
       BUCKET_NOT_FOUND,
       { status: 200, body: { success: true, result: {} } },
     ]);
-    const created = await restProvider(stub).createBucket(firmId);
+    const created = await restProvider(stub).createBucket(firmId, "us");
     expect(created.bucketName).toMatch(/^magna-carta-production-firm-[0-9a-f]{32}$/);
     // Find-first: the existence probe precedes the create.
     expect(stub.calls[0]?.method).toBe("GET");
@@ -109,7 +112,7 @@ describe("Cloudflare REST FirmResourceProvider", () => {
 
   it("answers an existing bucket straight from the probe — idempotent resume issues NO create", async () => {
     const stub = stubFetch([{ status: 200, body: { success: true, result: {} } }]);
-    const created = await restProvider(stub).createBucket(firmId);
+    const created = await restProvider(stub).createBucket(firmId, "us");
     expect(created.bucketName).toMatch(/^magna-carta-production-firm-[0-9a-f]{32}$/);
     expect(stub.calls).toHaveLength(1);
     expect(stub.calls[0]?.method).toBe("GET");
@@ -131,7 +134,7 @@ describe("Cloudflare REST FirmResourceProvider", () => {
         },
       },
     ]);
-    const created = await restProvider(stub).createBucket(firmId);
+    const created = await restProvider(stub).createBucket(firmId, "us");
     expect(created.bucketName).toMatch(/^magna-carta-production-firm-[0-9a-f]{32}$/);
   });
 
@@ -143,7 +146,7 @@ describe("Cloudflare REST FirmResourceProvider", () => {
         body: { success: false, errors: [{ code: 10001, message: "internal error" }] },
       },
     ]);
-    await expect(restProvider(stub).createBucket(firmId)).rejects.toThrow(
+    await expect(restProvider(stub).createBucket(firmId, "us")).rejects.toThrow(
       /createBucket failed.*500.*internal error/s,
     );
   });
@@ -151,7 +154,7 @@ describe("Cloudflare REST FirmResourceProvider", () => {
   it("describes a non-JSON edge error page as an operation failure, never an opaque parse error", async () => {
     const stub = stubFetch([{ status: 502, body: "<html><body>502 Bad Gateway</body></html>" }]);
     const failure: unknown = await restProvider(stub)
-      .createBucket(firmId)
+      .createBucket(firmId, "us")
       .then(() => {
         throw new Error("createBucket resolved against an HTML 502 — it must throw");
       })
@@ -170,9 +173,32 @@ describe("Cloudflare REST FirmResourceProvider", () => {
       BUCKET_NOT_FOUND,
       { status: 200, body: { success: true, result: {} } },
     ]);
-    await restProvider(firstStub).createBucket(firmId);
-    await restProvider(secondStub).createBucket(firmId);
+    await restProvider(firstStub).createBucket(firmId, "us");
+    await restProvider(secondStub).createBucket(firmId, "us");
     expect(requestedName(firstStub.calls[1])).toBe(requestedName(secondStub.calls[1]));
+  });
+
+  it("eu firm's create carries the eu jurisdiction header and no locationHint; us firm's create carries a North-America locationHint and no jurisdiction header", async () => {
+    const euStub = stubFetch([
+      BUCKET_NOT_FOUND,
+      { status: 200, body: { success: true, result: {} } },
+    ]);
+    const euCreated = await restProvider(euStub).createBucket(firmId, "eu");
+    // Both the probe (GET) and the create (POST) must carry the same jurisdiction header, or the
+    // probe queries the wrong jurisdiction and always misses.
+    expect(euStub.calls[0]?.headers["cf-r2-jurisdiction"]).toBe("eu");
+    expect(euStub.calls[1]?.headers["cf-r2-jurisdiction"]).toBe("eu");
+    expect(requestedName(euStub.calls[1])).toBe(euCreated.bucketName);
+    expect((euStub.calls[1]?.body as { locationHint?: string }).locationHint).toBeUndefined();
+
+    const usStub = stubFetch([
+      BUCKET_NOT_FOUND,
+      { status: 200, body: { success: true, result: {} } },
+    ]);
+    await restProvider(usStub).createBucket(firmId, "us");
+    expect(usStub.calls[0]?.headers["cf-r2-jurisdiction"]).toBeUndefined();
+    expect(usStub.calls[1]?.headers["cf-r2-jurisdiction"]).toBeUndefined();
+    expect((usStub.calls[1]?.body as { locationHint?: string }).locationHint).toBe("enam");
   });
 
   it("configureBucketNotifications PUTs the object-create rule to the files-ingest queue", async () => {
