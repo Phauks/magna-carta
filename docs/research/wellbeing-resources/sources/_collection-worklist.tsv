@@ -1,0 +1,49 @@
+sourceKey	jurisdiction	sourceUrl	method	accessedOn	notes
+US-AK-lac-alaskabar-2026	US-AK	https://alaskabar.org/sections-committees/lawyers-assistance-committee/	web search + direct fetch	2026-07-02	
+US-AL-alap-alabar-2026	US-AL	https://www.alabar.org/programs/alabama-lawyer-assistance-program/	web search + direct fetch	2026-07-02	
+US-AR-jlap-arjlap-2026	US-AR	https://www.arjlap.org/	web search + direct fetch	2026-07-02	
+US-AZ-map-azbar-2026	US-AZ	https://azbar.org/for-legal-professionals/benefits-services/member-assistance-program-wellness-resource/support/	web search + direct fetch	2026-07-02	
+US-CO-colap-and-affiliates-2026	US-CO	https://coloradolap.org/	web search + direct fetch	2026-07-02	
+US-CT-lclct-2026	US-CT	https://lclct.org/	web search + direct fetch	2026-07-02	
+US-DC-lap-dcbar-2026	US-DC	https://www.dcbar.org/for-lawyers/lawyer-assistance-program	web search + direct fetch	2026-07-02	
+US-DE-delap-dsba-2026	US-DE	https://www.dsba.org/resources/delaware-lawyers-assistance-program/	web search + direct fetch (de-lap.org served a mismatched TLS cert; verified via DSBA-hosted page)	2026-07-02	
+US-FL-fla-and-helpline-2026	US-FL	https://www.fla-lap.org/what-we-do	web search + direct fetch	2026-07-02	
+US-GA-lap-gabar-2026	US-GA	https://www.gabar.org/programs/lawyer-wellbeing/mental-wellbeing/lawyer-assistance-program	web search + direct fetch	2026-07-02	
+US-GU-wellness-committee-2026	US-GU	https://guambar.org/about-us/laws	Playwright load of the Guam Bar bylaws page	2026-07-02	
+US-HI-aap-hawaiiaap-2026	US-HI	http://hawaiiaap.com/contactus.html	web search + direct fetch	2026-07-02	
+US-IA-ilap-eap-2026	US-IA	http://www.iowalap.org/	web search + corroborated (iowalap.org cert mismatch; iowacourts.gov/iowabar.org 403)	2026-07-02	
+US-ID-lap-isb-2026	US-ID	https://isb.idaho.gov/member-services/programs-resources/lap/	web search + direct fetch	2026-07-02	
+US-IL-lap-illinoislap-2026	US-IL	https://illinoislap.org/	web search + direct fetch	2026-07-02	
+US-IN-jlap-incourts-2026	US-IN	https://www.in.gov/courts/jlaphelps/how/	web search + direct fetch	2026-07-02	
+US-KS-kalap-2026	US-KS	https://kalapks.gov/	web search + direct fetch	2026-07-02	
+US-KY-kylap-2026	US-KY	https://www.kylap.org/how-can-we-help/	web search + direct fetch	2026-07-02	
+US-LA-jlap-2026	US-LA	https://louisianajlap.com/faq/	web search + direct fetch	2026-07-02	
+US-MA-lcl-2026	US-MA	https://www.lclma.org/	browser-agent fetch (WebFetch hit a TLS-chain error)	2026-07-02	
+US-MD-lap-msba-2026	US-MD	https://www.msba.org/health-and-wellness/	web search + direct fetch	2026-07-02	
+US-ME-map-2026	US-ME	http://www.me-lap.org/	web search + direct fetch	2026-07-02	
+US-MI-ljap-2026	US-MI	https://www.michbar.org/generalinfo/ljap/home	web search + direct fetch	2026-07-02	
+US-MN-lcl-allonehealth-2026	US-MN	https://mnlcl.org/	web search + direct fetch	2026-07-02	
+US-MO-molap-2026	US-MO	https://publicdefender.mo.gov/wp-content/uploads/2019/07/MOLAP-Brochure.pdf	official MOLAP brochure PDF loaded (mobar.org 403 this session)	2026-07-02	
+US-MS-ljap-2026	US-MS	https://www.msbar.org/programs-affiliates/lawyers-judges-assistance-program/	web search + corroborated (msbar.org 403; courts.ms.gov 500)	2026-07-02	
+US-MT-lap-montanabar-2026	US-MT	https://www.montanabar.org/For-Attorneys/Lawyer-Assistance-Program	web search + direct fetch	2026-07-02	
+US-NC-nclap-barcares-2026	US-NC	https://www.nclap.org/contact/	web search + direct fetch	2026-07-02	
+US-ND-lap-sband-2026	US-ND	https://cdn.ymaws.com/www.sband.org/resource/resmgr/docs/for_lawyers/LAP_Brochure.pdf	official SBAND LAP brochure PDF loaded (sband.org LAP web page 403 this session)	2026-07-02	
+US-NE-nlap-2026	US-NE	https://nebraskajudicial.gov/administration/attorneys/nebraska-lawyers-assistance-program	web search + direct fetch (nebar.com 403 this session)	2026-07-02	
+US-NH-nhlap-lapnh-2026	US-NH	https://www.lapnh.org/	web search + direct fetch	2026-07-02	
+US-NJ-njlap-2026	US-NJ	https://www.njcourts.gov/attorneys/attorney-ethics-and-discipline/attorney-resources	NJ Judiciary official page loaded (njlap.org 403 this session)	2026-07-02	
+US-NM-nmlap-2026	US-NM	https://www.sbnm.org/Member-Services/New-Mexico-Lawyer-Assistance-Program/For-Judges	web search + direct fetch	2026-07-02	
+US-NV-nlap-lcl-2026	US-NV	https://nvbar.org/for-lawyers/resources/wellbeing/nlap/	corroborated from search index (nvbar.org 403 this session; browser tool unavailable)	2026-07-02	
+US-OH-olap-2026	US-OH	https://www.ohiolap.org/faq	web search + direct fetch	2026-07-02	
+US-OK-lhl-2026	US-OK	https://www.okbar.org/lhl/	web search + direct fetch	2026-07-02	
+US-OR-oaap-2026	US-OR	https://oaap.org/about/	web search + direct fetch	2026-07-02	
+US-PA-lclpa-2026	US-PA	https://www.lclpa.org/	web search + direct fetch	2026-07-02	
+US-RI-lhl-2026	US-RI	https://ribar.com/page.aspx?id=50	corroborated from RI Bar page content surfaced via search (ribar.com 403 this session)	2026-07-02	
+US-SC-sclhl-2026	US-SC	https://www.scbar.org/for-lawyers/membership/member-benefits/lawyers-helping-lawyers/	web search + direct fetch	2026-07-02	
+US-TN-tlap-2026	US-TN	https://www.tncourts.gov/press/2020/03/23/tennessee-lawyers-assistance-program-ready-assist-attorneys-need	tncourts.gov official pages loaded (tlap.org rendered but truncated)	2026-07-02	
+US-UT-lhl-tava-2026	US-UT	https://www.utahbar.org/member-services/lawyers-helping-lawyers/	web search + direct fetch	2026-07-02	
+US-VA-vjlap-2026	US-VA	https://www.vacle.org/lawyers-helping-lawyers/	VA CLE official affiliated page loaded (vjlap.org 403 this session)	2026-07-02	
+US-VI-lap-committee-2026	US-VI	https://www.usvibar.org/page/Committees	direct fetch of the VIBA committees page	2026-07-02	
+US-VT-lap-2026	US-VT	https://www.vtbar.org/attorney-well-being/	VBA attorney-wellness page loaded (lapvt.org 403 this session)	2026-07-02	
+US-WA-wsba-wellness-2026	US-WA	https://www.wsba.org/for-legal-professionals/member-support/wellness	web search + direct fetch	2026-07-02	
+US-WI-wislap-2026	US-WI	https://www.wisbar.org/formembers/wislap/pages/lawyer-assistance-program.aspx	web search + direct fetch	2026-07-02	
+US-WV-wvjlap-2026	US-WV	https://wvjlap.org/	web search + direct fetch	2026-07-02	

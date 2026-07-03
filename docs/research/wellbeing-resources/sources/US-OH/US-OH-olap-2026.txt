@@ -1,0 +1,19 @@
+---
+jurisdiction: US-OH
+publisher: Ohio Lawyers Assistance Program, Inc. (+ Toledo Bar MAP)
+sourceUrl: https://www.ohiolap.org/faq
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Ohio Lawyers Assistance Program (OLAP)]
+QUOTE: "We are 100% confidential." / "OLAP is governed by strong rules of confidentiality. No one will ever know you called."
+Cost (FAQ): "We do not charge a fee unless you have a recovery contract with us." "Don't let concern
+about cost keep you from seeking help. We never deny assistance because of money issues." Private
+501(c)(3) since 1991 for Ohio judges, attorneys, and law students (alcohol, drugs, depression,
+anxiety, bipolar, PTSD, gambling). Main office 800-348-4343; Cleveland 440-338-4650 / 800-618-8606;
+bendslow@ohiolap.org. Homepage/FAQ do NOT state 24/7 → unspecified.
+
+[Toledo Bar Association Member Assistance Program (MAP)] (metro; corroborated — page 403'd)
+QUOTE: "Participation in the program is confidential and completely voluntary. The TBA will pay for up to six appointments with the MAP provider on an annual basis..."
+Metro benefit via teletherapy vendor Lighthouse Telehealth LLC; contact 419-242-9363 / tba@toledobar.org.

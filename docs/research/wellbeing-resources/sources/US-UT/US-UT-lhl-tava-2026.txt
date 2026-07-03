@@ -1,0 +1,20 @@
+---
+jurisdiction: US-UT
+publisher: Utah State Bar (Lawyers Helping Lawyers + Tava Mental Health)
+sourceUrl: https://www.utahbar.org/member-services/lawyers-helping-lawyers/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Lawyers Helping Lawyers (LHL)]
+QUOTE: "LHL falls under the protection of Rule 8.3 of the Utah Rules of Professional Conduct... That means what you say to LHL stays with LHL."
+Phone (801) 900-3834; contact@lawyershelpinglawyers.org. Matches lawyers with one-on-one volunteer
+peer mentors and conducts CLE. "LHL is a committee providing confidential peer-to-peer support. LHL
+does not provide treatment or evaluation services." 24/7 not stated → unspecified.
+
+[Tava Mental Health] (Utah State Bar member benefit; vendor) — utahbar.org/well-being/resources
+QUOTE: "These services are now available to U.S. based active lawyers, Licensed Paralegal Practitioners (LPPS), and members of the Paralegal Division"
+Free, confidential teletherapy via https://www.tavahealth.com/ (registration at care.tavahealth.com);
+reported up to 6 free sessions/year (exact count not printed on the loaded page).
+NOTE: Utah's dedicated program is LHL peer support; there is no separately branded "Utah Lawyers
+Assistance Program." 988 (national) is surfaced on the Bar's well-being page as a crisis resource.

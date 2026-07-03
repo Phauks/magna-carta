@@ -1,0 +1,18 @@
+---
+jurisdiction: US-NJ
+publisher: New Jersey Lawyers Assistance Program (via NJ Judiciary)
+sourceUrl: https://www.njcourts.gov/attorneys/attorney-ethics-and-discipline/attorney-resources
+accessedOn: 2026-07-02
+accessGate: open
+method: NJ Judiciary official page loaded (njlap.org 403 this session)
+---
+[New Jersey Lawyers Assistance Program (NJLAP)]
+QUOTE: "free and confidential"
+
+New Jersey Lawyers Assistance Program (NJLAP). Helpline: 800-246-5527. Serves "all NJ Lawyers,
+Judges, Law Students, and Law Graduates." Described as "free and confidential," a resource to help
+members "achieve and maintain personal and professional well-being." Established under NJ Court Rule
+R. 1:28B and funded by a mandatory annual assessment on every licensed NJ attorney. Runs sub-programs
+(Senior Attorneys, Small/Solo Firm Support). Verbatim block captured from the NJ Judiciary official
+page (njcourts.gov); njlap.org itself returned HTTP 403 this session. Helpline hours not stated →
+unspecified.

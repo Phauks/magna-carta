@@ -1,0 +1,24 @@
+---
+jurisdiction: US-AL
+publisher: Alabama State Bar
+sourceUrl: https://www.alabar.org/programs/alabama-lawyer-assistance-program/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[Alabama Lawyer Assistance Program (ALAP)]
+QUOTE: "While ALAP is a program of the Alabama State Bar, we preserve the anonymity of participants and do not disclose to other departments within the state bar."
+
+We provide free and confidential support to law students, lawyers, and judges. While ALAP is a
+program of the Alabama State Bar, we preserve the anonymity of participants and do not disclose to
+other departments within the state bar. Services include intervention, assessments, referrals to
+vetted clinical professionals and treatment centers, peer support groups (in-person and virtual),
+mentorship from volunteer attorneys and judges, monitoring, and advocacy for disciplinary and
+Character and Fitness hearings. Crisis referrals given on-page: 988 Suicide & Crisis Lifeline
+(available any time, day or night) and Crisis Text Line (text HOME to 741741). Contact: ALAP office
+334-224-6920; director contact 334-517-2216; shannon.knight@alabar.org.
+
+[Alabama Lawyer Assistance Foundation] (corroborated, no standalone page loaded)
+QUOTE: "Alabama Lawyer Assistance Foundation (nonprofit managed by elected Board of Directors)"
+The ALAP page references an affiliated nonprofit, the Alabama Lawyer Assistance Foundation, managed
+by an elected Board of Directors — the charitable/funding entity associated with ALAP.

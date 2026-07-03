@@ -1,0 +1,20 @@
+---
+jurisdiction: US-NC
+publisher: North Carolina State Bar (NC LAP) + NC Bar Association (BarCARES)
+sourceUrl: https://www.nclap.org/contact/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[North Carolina Lawyer Assistance Program (NC LAP)]
+QUOTE: "All communications with LAP staff are strictly confidential."
+Site tagline "Safe. Free. Confidential." Free, confidential, non-disciplinary help for lawyers,
+judges, and law students; absorbed the historic PALS/FRIENDS peer-volunteer network. Two offices —
+Charlotte (704-503-9695, Western) and Raleigh (919-719-9290, Eastern). "Office hours are M-F
+(9:00-5:00) and in-person consultations are by appointment only." Crisis referrals: 911; 988.
+
+[BarCARES of North Carolina] — barcares.org/about (HRC Behavioral Health & Psychiatry, P.A.)
+QUOTE: "provided cost free to members of participating bar groups and law schools"
+Confidential counseling/assessment/referral of the NC Bar Association via clinical vendor HRC
+Behavioral Health; intake 1-800-640-0735; typically a three-session assessment/referral benefit.
+NC LAP and BarCARES cross-refer. BarCARES line hours not stated → unspecified.

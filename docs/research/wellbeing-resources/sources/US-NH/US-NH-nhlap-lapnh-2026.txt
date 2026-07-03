@@ -1,0 +1,19 @@
+---
+jurisdiction: US-NH
+publisher: New Hampshire Lawyers Assistance Program (LAPNH)
+sourceUrl: https://www.lapnh.org/
+accessedOn: 2026-07-02
+accessGate: open
+method: web search + direct fetch
+---
+[New Hampshire Lawyers Assistance Program (NHLAP / LAPNH)]
+QUOTE: "When you call NHLAP, you can be sure that complete confidentiality will be maintained."
+
+"NHLAP provides FREE 100% CONFIDENTIAL assistance to New Hampshire lawyers, judges, and law students
+who experience substance abuse, depression, stress or other distress..." "All communications with
+NHLAP are confidential and members of NHLAP are relieved of their duty to report ethical violations
+discovered as a result of their NHLAP work." Established under NH Supreme Court Rule 58 (2007); funded
+through bar renewal fees. Contact: Jill O'Neill, Executive Director, 125 Airport Road, Suite 5B,
+Concord, NH 03301; jill@lapnh.org; 603-491-0282 (also toll-free 1-877-224-6060). Crisis: call/text
+988. NOTE: the live official domain is lapnh.org (the 'nhlap.org' hint does not resolve). Office/
+helpline hours not stated → unspecified.
