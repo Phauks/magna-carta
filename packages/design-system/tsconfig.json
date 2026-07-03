@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig/base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.svelte",
+    "test/**/*.ts",
+    "test/**/*.svelte",
+    ".storybook/**/*.ts",
+    "visual-regression/**/*.ts"
+  ]
+}

@@ -1,0 +1,49 @@
+/*
+ * Component recipes — the styled layer (golden rule 2). Each component owns its `mc-*` recipe file,
+ * co-located in its component folder; the genuinely shared recipes live in ./recipes/. THIS file is
+ * the aggregator and the single public entry (`@magna-carta/design-system/styles/components.css`):
+ * it @imports every recipe in source order, so the `@layer components` cascade is identical to the
+ * former monolith. Slotting into Tailwind v4's same-named layer (declared by the app's
+ * `@import "tailwindcss"`) means utility classes can still override these recipes.
+ *
+ * Every value in a recipe is a var(--mc-…) token reference or a structural keyword — no literals
+ * (the components.css token-purity fitness gate now scans every recipe file under this index).
+ */
+@import "../components/button/button.css";
+@import "../components/label/label.css";
+@import "../components/input/input.css";
+@import "../components/textarea/textarea.css";
+@import "../components/file-input/file-input.css";
+@import "../components/badge/badge.css";
+@import "../components/brand-mark/brand-mark.css";
+@import "../components/masthead/masthead.css";
+@import "../components/card/card.css";
+@import "../components/separator/separator.css";
+@import "../components/skeleton/skeleton.css";
+@import "../components/alert/alert.css";
+@import "../components/keyboard/keyboard.css";
+@import "../components/tabs/tabs.css";
+@import "../components/switch/switch.css";
+@import "../components/checkbox/checkbox.css";
+@import "../components/radio-group/radio-group.css";
+@import "../components/avatar/avatar.css";
+@import "../components/progress/progress.css";
+@import "../components/accordion/accordion.css";
+@import "../components/tooltip/tooltip.css";
+@import "./recipes/presence.css";
+@import "../components/dialog/dialog.css";
+@import "../components/alert-dialog/alert-dialog.css";
+@import "../components/sheet/sheet.css";
+@import "../components/popover/popover.css";
+@import "../components/dropdown-menu/dropdown-menu.css";
+@import "../components/select/select.css";
+@import "../components/command/command.css";
+@import "../components/combobox/combobox.css";
+@import "../components/calendar/calendar.css";
+@import "../components/date-picker/date-picker.css";
+@import "../components/date-range-picker/date-range-picker.css";
+@import "./recipes/scrollbar.css";
+@import "../components/form/form.css";
+@import "../components/data-table/data-table.css";
+@import "../components/sidebar/sidebar.css";
+@import "../components/resizable/resizable.css";

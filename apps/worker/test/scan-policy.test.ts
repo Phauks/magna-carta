@@ -173,3 +173,43 @@ describe("PATCH /api/v1/firm/scan-policy", () => {
     expect(response.headers.get("content-type")).toContain("application/problem+json");
   });
 });
+
+describe("GET /api/v1/firm/scan-policy/score-histogram", () => {
+  it("returns the no-engine empty shape (200) through the bound stub", async () => {
+    // SCAN_SERVICE resolves to the no-engine stub in the test pool (vitest.config.ts), which answers the
+    // histogram path with the empty shape — so this exercises the full bound/proxy path and asserts the
+    // route returns it. The genuinely-unbound and fault branches are unit-tested in
+    // test/files/score-histogram.test.ts; the live-engine path is CI/deploy-gated.
+    const { userId } = await seedCredentialedUser("scan-policy-hist@example.com", {
+      userName: "Scan Policy Histogram Reader",
+      firmId: poolFirmId,
+    });
+    await mirrorMemberWithOwnerRole(userId, "Scan Policy Histogram Reader", poolFirmId);
+    const cookie = await signInForSessionCookie("scan-policy-hist@example.com");
+    const response = await SELF.fetch(
+      "https://example.com/api/v1/firm/scan-policy/score-histogram",
+      { headers: { cookie } },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      engineVersion: null,
+      minScoreGate: null,
+      total: 0,
+      buckets: [],
+    });
+  });
+
+  it("returns 403 for an authenticated member without firm:manageScanPolicy", async () => {
+    await seedCredentialedUser("scan-policy-hist-noperm@example.com", {
+      userName: "No Perm",
+      firmId: poolFirmId,
+    });
+    const cookie = await signInForSessionCookie("scan-policy-hist-noperm@example.com");
+    const response = await SELF.fetch(
+      "https://example.com/api/v1/firm/scan-policy/score-histogram",
+      { headers: { cookie } },
+    );
+    expect(response.status).toBe(403);
+    expect(response.headers.get("content-type")).toContain("application/problem+json");
+  });
+});

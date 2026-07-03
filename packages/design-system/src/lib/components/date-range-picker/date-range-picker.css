@@ -1,0 +1,74 @@
+@layer components {
+  /*
+   * DateRangePicker (Tier 4, Bits UI). Adds to the date field: the two segment groups (start/end)
+   * sit inline with a separator between them; the range calendar adds the range day states to the
+   * shared mc-calendar-day recipe — the endpoints read as selected, the in-between span is muted.
+   */
+  .mc-date-range-input {
+    display: inline-flex;
+    align-items: center;
+  }
+  .mc-date-range-separator {
+    padding-inline: var(--mc-space-8);
+    color: var(--mc-text-muted);
+  }
+  /* The in-range span: a readable muted band. Text stays default (the endpoints' white foreground
+     must NOT bleed onto the light band — that was unreadable). Square so the days connect. */
+  .mc-calendar-day[data-highlighted],
+  .mc-calendar-day[data-range-middle] {
+    background-color: var(--mc-action-secondary);
+    color: var(--mc-text-default);
+    border-radius: var(--mc-radius-none);
+  }
+  /*
+   * The selection's darker edge — a grey border-strong ring. It frames the selected cells only and
+   * never the seams where selected days touch: each endpoint is OPEN on the side meeting the band
+   * (start: no right edge; end: no left edge). Today is a full rounded ring on a TRANSPARENT
+   * background; the colour BEHIND it does the work — a standalone today sits on the white surface, and
+   * inside a range its CELL is painted the band colour (below) so the ring reveals grey at its corners
+   * instead of a white cut-out. Today is declared BEFORE the endpoints so an endpoint that happens to
+   * be today keeps its open ring: the endpoint rules collapse today's band-facing border back to zero.
+   */
+  .mc-calendar-day[data-today] {
+    background-color: transparent;
+    border: var(--mc-border-width-default) solid var(--mc-border-strong);
+    border-radius: var(--mc-radius-md);
+  }
+  /* Inside a range, paint today's CELL with the band colour so the rounded ring reveals the grey band
+     at its corners, not the white surface (the owner's "white around 16"). `:has` scopes this to a
+     mid-range today; a standalone today keeps the white surface behind its ring. */
+  .mc-calendar-cell:has(.mc-calendar-day[data-today][data-range-middle]),
+  .mc-calendar-cell:has(.mc-calendar-day[data-today][data-highlighted]) {
+    background-color: var(--mc-action-secondary);
+  }
+  /* Endpoints are a filled primary chip; the ring is OPEN toward the band and the outer corners round. */
+  .mc-calendar-day[data-range-start],
+  .mc-calendar-day[data-range-end],
+  .mc-calendar-day[data-selection-start],
+  .mc-calendar-day[data-selection-end] {
+    background-color: var(--mc-action-primary);
+    color: var(--mc-action-primary-foreground);
+  }
+  .mc-calendar-day[data-range-start],
+  .mc-calendar-day[data-selection-start] {
+    border-block: var(--mc-border-width-default) solid var(--mc-border-strong);
+    border-inline-start: var(--mc-border-width-default) solid var(--mc-border-strong);
+    border-inline-end-width: var(--mc-space-0);
+    border-radius: var(--mc-radius-md) var(--mc-radius-none) var(--mc-radius-none)
+      var(--mc-radius-md);
+  }
+  .mc-calendar-day[data-range-end],
+  .mc-calendar-day[data-selection-end] {
+    border-block: var(--mc-border-width-default) solid var(--mc-border-strong);
+    border-inline-end: var(--mc-border-width-default) solid var(--mc-border-strong);
+    border-inline-start-width: var(--mc-space-0);
+    border-radius: var(--mc-radius-none) var(--mc-radius-md) var(--mc-radius-md)
+      var(--mc-radius-none);
+  }
+  /* A lone selected date is BOTH start and end — a full ring, not a half-open one. */
+  .mc-calendar-day[data-range-start][data-range-end],
+  .mc-calendar-day[data-selection-start][data-selection-end] {
+    border: var(--mc-border-width-default) solid var(--mc-border-strong);
+    border-radius: var(--mc-radius-md);
+  }
+}

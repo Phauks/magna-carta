@@ -37,7 +37,11 @@ export class PdfDocument {
     wasmInput?: BufferSource | WebAssembly.Module,
   ): Promise<PdfDocument> {
     await ensureReady(wasmInput);
-    return new PdfDocument(WasmDocument.load(bytes));
+    try {
+      return new PdfDocument(WasmDocument.load(bytes));
+    } catch (error) {
+      mapGuardError(error);
+    }
   }
 
   get pageCount(): number {
@@ -76,7 +80,11 @@ export async function loadDocument(
   bytes: Uint8Array,
   wasmInput?: BufferSource | WebAssembly.Module,
 ): Promise<PdfDocument> {
-  return PdfDocument.load(bytes, wasmInput);
+  try {
+    return await PdfDocument.load(bytes, wasmInput);
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 export interface RedactionRect {
@@ -137,7 +145,11 @@ export async function redactDocument(
   opts: RedactionOptions = {},
 ): Promise<RedactionResult> {
   await ensureReady();
-  return wasmRedact(bytes, regions, opts) as RedactionResult;
+  try {
+    return wasmRedact(bytes, regions, opts) as RedactionResult;
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 export interface ScrubOptions {
@@ -174,7 +186,11 @@ export async function sanitizeDocument(
   opts: ScrubOptions = {},
 ): Promise<SanitizeResult> {
   await ensureReady();
-  return wasmSanitize(bytes, opts) as SanitizeResult;
+  try {
+    return wasmSanitize(bytes, opts) as SanitizeResult;
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 export interface DetectionFinding {
@@ -201,7 +217,11 @@ export interface DetectionReport {
   pagesUnreadable: number[];
 }
 
-import { readForm as wasmReadForm, fillForm as wasmFillForm, flattenForm as wasmFlattenForm } from "./pkg/pdf_core.js";
+import {
+  readForm as wasmReadForm,
+  fillForm as wasmFillForm,
+  flattenForm as wasmFlattenForm,
+} from "./pkg/pdf_core.js";
 import { stampBates as wasmStampBates } from "./pkg/pdf_core.js";
 import { detectDocument as wasmDetect } from "./pkg/pdf_core.js";
 
@@ -297,7 +317,11 @@ export async function stampBates(
   options: BatesStampOptions = {},
 ): Promise<BatesStampResult> {
   await ensureReady();
-  return wasmStampBates(bytes, options) as BatesStampResult;
+  try {
+    return wasmStampBates(bytes, options) as BatesStampResult;
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 /**
@@ -308,7 +332,11 @@ export async function stampBates(
  */
 export async function detectDocument(bytes: Uint8Array): Promise<DetectionReport> {
   await ensureReady();
-  return wasmDetect(bytes) as DetectionReport;
+  try {
+    return wasmDetect(bytes) as DetectionReport;
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 // ── Forms ─────────────────────────────────────────────────────────────────────
@@ -381,7 +409,11 @@ export interface FormFillResult {
  */
 export async function readForm(bytes: Uint8Array): Promise<FormField[]> {
   await ensureReady();
-  return wasmReadForm(bytes) as FormField[];
+  try {
+    return wasmReadForm(bytes) as FormField[];
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 /**
@@ -411,7 +443,11 @@ export async function fillForm(
   options?: FormFillOptions,
 ): Promise<FormFillResult> {
   await ensureReady();
-  return wasmFillForm(bytes, values, options ?? {}) as FormFillResult;
+  try {
+    return wasmFillForm(bytes, values, options ?? {}) as FormFillResult;
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 /**
@@ -428,7 +464,11 @@ export async function fillForm(
  */
 export async function flattenForm(bytes: Uint8Array): Promise<FormFillResult> {
   await ensureReady();
-  return wasmFlattenForm(bytes) as FormFillResult;
+  try {
+    return wasmFlattenForm(bytes) as FormFillResult;
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 // ── Security: inspect / unlock / protect ────────────────────────────────────────
@@ -492,13 +532,35 @@ export class WrongPasswordError extends Error {
   }
 }
 
+/** Thrown by any operation when the decompression-bomb guard rejects the input
+ * (oversize, or a stream that inflates past the engine's caps). */
+export class DecompressionBombError extends Error {
+  readonly code = "decompression-bomb" as const;
+  constructor() {
+    super("The document was rejected as a potential decompression bomb.");
+    this.name = "DecompressionBombError";
+  }
+}
+
+/** Re-throw the engine's guard token as a typed error; pass anything else through. */
+function mapGuardError(error: unknown): never {
+  if (error instanceof Error && error.message === "decompression-bomb") {
+    throw new DecompressionBombError();
+  }
+  throw error;
+}
+
 /**
  * Classify a PDF's security without a password. Lets a caller prompt for a password
  * only when one is needed and refuse an unsupported (public-key) handler.
  */
 export async function inspectSecurity(bytes: Uint8Array): Promise<SecurityInfo> {
   await ensureReady();
-  return wasmInspectSecurity(bytes) as SecurityInfo;
+  try {
+    return wasmInspectSecurity(bytes) as SecurityInfo;
+  } catch (error) {
+    mapGuardError(error);
+  }
 }
 
 /**
@@ -520,7 +582,7 @@ export async function decryptDocument(
     if (error instanceof Error && error.message === "wrong-password") {
       throw new WrongPasswordError();
     }
-    throw error;
+    mapGuardError(error);
   }
 }
 
@@ -534,5 +596,116 @@ export async function secureDocument(
   options: SecureOptions,
 ): Promise<{ pdf: Uint8Array }> {
   await ensureReady();
-  return wasmSecureDocument(bytes, options) as { pdf: Uint8Array };
+  try {
+    return wasmSecureDocument(bytes, options) as { pdf: Uint8Array };
+  } catch (error) {
+    mapGuardError(error);
+  }
+}
+
+// ── Generate / assembly: merge, split, rotate, watermark ────────────────────────
+//
+// All run client-side in WebAssembly; the document bytes never leave the process.
+// merge / rotate / watermark are visible, reversible operations — they do not remove
+// hidden content or metadata (use redactDocument / sanitizeDocument for that).
+
+import {
+  mergeDocuments as wasmMergeDocuments,
+  splitDocument as wasmSplitDocument,
+  rotatePages as wasmRotatePages,
+  watermarkDocument as wasmWatermarkDocument,
+} from "./pkg/pdf_core.js";
+
+/** Combine the pages of several PDFs into one, in order, carrying each input's outlines,
+ * form fields, and named destinations across. */
+export async function mergeDocuments(documents: Uint8Array[]): Promise<{ pdf: Uint8Array }> {
+  await ensureReady();
+  try {
+    return wasmMergeDocuments(documents) as { pdf: Uint8Array };
+  } catch (error) {
+    mapGuardError(error);
+  }
+}
+
+/** An inclusive, 0-based page range. */
+export interface PageRange {
+  start: number;
+  end: number;
+}
+
+/** Split a PDF into one independent document per page range. */
+export async function splitDocument(
+  bytes: Uint8Array,
+  ranges: PageRange[],
+): Promise<{ pdfs: Uint8Array[] }> {
+  await ensureReady();
+  try {
+    return wasmSplitDocument(bytes, ranges) as { pdfs: Uint8Array[] };
+  } catch (error) {
+    mapGuardError(error);
+  }
+}
+
+/** Rotate pages clockwise by 90, 180, or 270 degrees, relative to each page's existing
+ * rotation. Omit `pages` to rotate every page; otherwise pass 0-based indices. */
+export async function rotatePages(
+  bytes: Uint8Array,
+  rotation: 90 | 180 | 270,
+  pages?: number[],
+): Promise<{ pdf: Uint8Array }> {
+  await ensureReady();
+  try {
+    return wasmRotatePages(bytes, rotation, pages) as { pdf: Uint8Array };
+  } catch (error) {
+    mapGuardError(error);
+  }
+}
+
+/** A text watermark drawn in one of the built-in standard fonts. */
+export interface WatermarkTextContent {
+  kind: "text";
+  text: string;
+  /** One of the twelve standard fonts; defaults to `"helvetica"`. */
+  font?: BatesFont;
+  /** Default 48. */
+  fontSizePt?: number;
+  /** RGB 0..1; default light grey. */
+  color?: [number, number, number];
+}
+
+/** An image/logo watermark (PNG or JPEG). */
+export interface WatermarkImageContent {
+  kind: "image";
+  bytes: Uint8Array;
+  /** Mark width as a fraction of the page width; default 0.3. */
+  scale?: number;
+}
+
+export type WatermarkContent = WatermarkTextContent | WatermarkImageContent;
+
+export interface WatermarkOptions {
+  content: WatermarkContent;
+  /** Fill/stroke alpha 0..1; default 0.3. */
+  opacity?: number;
+  /** Clockwise rotation of the mark in degrees; default 45 (diagonal). */
+  rotationDeg?: number;
+  /** A single centred mark or a tiled repeat; default `"center"`. */
+  placement?: "center" | "tiled";
+}
+
+/**
+ * Stamp an additive watermark — diagonal text ("CONFIDENTIAL"/"DRAFT") or an image/logo —
+ * onto every page. Additive: it draws on top and removes nothing (use redactDocument /
+ * sanitizeDocument to remove content).
+ */
+export async function watermarkDocument(
+  bytes: Uint8Array,
+  options: WatermarkOptions,
+): Promise<{ pdf: Uint8Array }> {
+  await ensureReady();
+  try {
+    return wasmWatermarkDocument(bytes, options) as { pdf: Uint8Array };
+  } catch (error) {
+    mapGuardError(error);
+  }
 }

@@ -133,6 +133,32 @@ export type FileIntegrityVerifyResponse = {
     receipt?: unknown;
 };
 
+export type AiDetectionReport = {
+    band: 'unlikely' | 'mixed' | 'likely' | 'inconclusive';
+    score: number;
+    reliability: 'high' | 'moderate' | 'low';
+    caveats: Array<string>;
+    segments?: Array<{
+        startCharacter: number;
+        endCharacter: number;
+        score: number;
+        band: 'unlikely' | 'mixed' | 'likely' | 'inconclusive';
+    }>;
+    provenance: {
+        adapterId: string;
+        vendorModel?: string;
+        vendorVersion?: string;
+        detectedAt: string;
+        egressedTo: string;
+    };
+};
+
+export type AiDetectionDetectRequest = {
+    text: string;
+    languageHint?: string;
+    matterId?: string;
+};
+
 export type MetadataReport = {
     format: string;
     findings: Array<{
@@ -698,6 +724,16 @@ export type ScanPolicyResponse = {
     };
     flaggedTreatment: 'block' | 'informed-access' | 'allow-and-flag';
     stepUpReauthOnFlagged: boolean;
+};
+
+export type ScoreHistogramResponse = {
+    engineVersion: string | null;
+    minScoreGate: number | null;
+    total: number;
+    buckets: Array<{
+        floor: number;
+        count: number;
+    }>;
 };
 
 export type PatchScanPolicyRequest = {
@@ -1687,6 +1723,103 @@ export type FileIntegrityVerifyResponses = {
 };
 
 export type FileIntegrityVerifyResponse2 = FileIntegrityVerifyResponses[keyof FileIntegrityVerifyResponses];
+
+export type FileTypeVerifyData = {
+    body: unknown;
+    path?: never;
+    query: {
+        filename: string;
+    };
+    url: '/api/v1/file-type/verify';
+};
+
+export type FileTypeVerifyErrors = {
+    /**
+     * Empty request body
+     */
+    400: Problem;
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * Missing tools:fileTypeVerifier
+     */
+    403: Problem;
+    /**
+     * File exceeds the inspectable-size cap
+     */
+    413: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * Identification engine unavailable
+     */
+    503: Problem;
+};
+
+export type FileTypeVerifyError = FileTypeVerifyErrors[keyof FileTypeVerifyErrors];
+
+export type FileTypeVerifyResponses = {
+    /**
+     * File type report
+     */
+    200: {
+        detected: string | null;
+        detectedLabel: string;
+        group: string;
+        confidence: number;
+        claimedExtension: string | null;
+        extensionMatch: 'match' | 'mismatch' | 'unverifiable' | 'no-extension';
+        recommendedExtensions: Array<string>;
+        note: string;
+    };
+};
+
+export type FileTypeVerifyResponse = FileTypeVerifyResponses[keyof FileTypeVerifyResponses];
+
+export type AiDetectionDetectData = {
+    body: AiDetectionDetectRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ai-detection/detect';
+};
+
+export type AiDetectionDetectErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks tools:aiTextDetection
+     */
+    403: Problem;
+    /**
+     * External detection is disabled for this firm, or detection is unavailable
+     */
+    422: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+    /**
+     * The detection provider rejected the request or is unavailable
+     */
+    502: Problem;
+};
+
+export type AiDetectionDetectError = AiDetectionDetectErrors[keyof AiDetectionDetectErrors];
+
+export type AiDetectionDetectResponses = {
+    /**
+     * The detection report
+     */
+    200: AiDetectionReport;
+};
+
+export type AiDetectionDetectResponse = AiDetectionDetectResponses[keyof AiDetectionDetectResponses];
 
 export type MetadataInspectData = {
     body: {
@@ -4354,6 +4487,43 @@ export type ScanPolicyUpdateResponses = {
 };
 
 export type ScanPolicyUpdateResponse = ScanPolicyUpdateResponses[keyof ScanPolicyUpdateResponses];
+
+export type ScanPolicyScoreHistogramData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/firm/scan-policy/score-histogram';
+};
+
+export type ScanPolicyScoreHistogramErrors = {
+    /**
+     * No valid session
+     */
+    401: Problem;
+    /**
+     * The session member lacks firm:manageScanPolicy
+     */
+    403: Problem;
+    /**
+     * The firm is unreachable or the member is deactivated
+     */
+    404: Problem;
+    /**
+     * Rate limit exceeded
+     */
+    429: Problem;
+};
+
+export type ScanPolicyScoreHistogramError = ScanPolicyScoreHistogramErrors[keyof ScanPolicyScoreHistogramErrors];
+
+export type ScanPolicyScoreHistogramResponses = {
+    /**
+     * The scan engine's suspicious-score histogram, or the empty shape when no engine is deployed
+     */
+    200: ScoreHistogramResponse;
+};
+
+export type ScanPolicyScoreHistogramResponse = ScanPolicyScoreHistogramResponses[keyof ScanPolicyScoreHistogramResponses];
 
 export type DownloadsBundleStatusData = {
     body?: never;

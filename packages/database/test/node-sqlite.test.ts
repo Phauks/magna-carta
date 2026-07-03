@@ -76,7 +76,8 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     // Paralegal: firm:reportIncident (0003) + matters:create + files upload/organize (0004)
     // + tools:whois/safeBrowse (0017) + firm:scanFile (0019) + tools:metadataScrubber (0020)
     // + tools:fileIntegrity (0022) + costs:track (0028) + support:request (0029 — seeded to every role so any member can request help)
-    // + tools:fileTypeVerifier (0032).
+    // + tools:fileTypeVerifier (0032) + tools:aiTextDetection (0034 — seeded to every role; the consent
+    // setting, not the permission, gates egress).
     expect(grantsFor("Paralegal").sort()).toEqual(
       [
         "costs:track",
@@ -86,6 +87,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "firm:scanFile",
         "matters:create",
         "support:request",
+        "tools:aiTextDetection",
         "tools:fileIntegrity",
         "tools:fileTypeVerifier",
         "tools:metadataScrubber",
@@ -95,14 +97,16 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
     );
     // Billing and Read-only carry firm:reportIncident (0003) + tools:whois/safeBrowse (0017) +
     // firm:scanFile (0019) + tools:metadataScrubber (0020) + tools:fileIntegrity (0022) +
-    // tools:fileTypeVerifier (0032) by default (all seeded to every role); Billing additionally
-    // carries costs:approve (0028); support:request (0029) by default (all seeded to every role).
+    // tools:fileTypeVerifier (0032) + tools:aiTextDetection (0034) by default (all seeded to every
+    // role); Billing additionally carries costs:approve (0028); support:request (0029) by default
+    // (all seeded to every role).
     expect(grantsFor("Billing").sort()).toEqual(
       [
         "costs:approve",
         "firm:reportIncident",
         "firm:scanFile",
         "support:request",
+        "tools:aiTextDetection",
         "tools:fileIntegrity",
         "tools:fileTypeVerifier",
         "tools:metadataScrubber",
@@ -115,6 +119,7 @@ describe("node:sqlite D1-shaped adapter (dev/test only)", () => {
         "firm:reportIncident",
         "firm:scanFile",
         "support:request",
+        "tools:aiTextDetection",
         "tools:fileIntegrity",
         "tools:fileTypeVerifier",
         "tools:metadataScrubber",

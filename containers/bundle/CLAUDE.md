@@ -17,7 +17,7 @@ R2 mediation, coordinator/queue/routes):** `apps/worker/src/downloads/` and `app
 - `src/lib.rs` — the axum router + `AppState { r2_base_url, http }`; routes `/ready` and `POST /build`.
 - `src/contract.rs` — the Rust⇄TS wire contract: `BuildRequest` (manifest) and `BuildResponse`. The
   per-entry `source` discriminator is **flattened** onto the entry (`{ archivePath, mtimeEpochSecs,
-  source:"r2", r2Key }` / `{ …, source:"inline", bytesBase64 }`) to byte-match the worker's
+source:"r2", r2Key }` / `{ …, source:"inline", bytesBase64 }`) to byte-match the worker's
   `BundleManifestEntry` (`packages/file-manager/src/bundle-manifest.ts`).
 - `src/r2.rs` — credential-free R2 I/O: streaming `GET`/`PUT` against `{R2_BASE_URL}/{key}`. The PUT
   carries an explicit `Content-Length` (the spooled file's size) — R2 rejects an unknown-length body.

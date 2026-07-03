@@ -1,0 +1,9 @@
+{
+  "$description": "Motion axis — REDUCED: motion still orients but travels less and settles sooner (design language: shorter, near-zero travel, no large entrances). Re-points the duration ladder only; easing and travel-distance restraint are recipe-level concerns.",
+  "duration": {
+    "fast": { "$type": "duration", "$value": { "value": 80, "unit": "ms" } },
+    "normal": { "$type": "duration", "$value": { "value": 120, "unit": "ms" } },
+    "slow": { "$type": "duration", "$value": { "value": 150, "unit": "ms" } },
+    "signature": { "$type": "duration", "$value": { "value": 200, "unit": "ms" } }
+  }
+}

@@ -1,0 +1,35 @@
+/*
+ * External stylesheet for the CSP spike probe — the only CSP-legal styling channel under
+ * style-src 'self'. Keeps the probe page scrollable (the scroll-lock probe needs a real
+ * scrollbar) and gives the floating parts a visible footprint so positioning is measurable.
+ * No design intent here; this is a behavior probe, not a styled component.
+ */
+
+.tall-spacer {
+  /* Forces a vertical scrollbar so the Dialog scroll-lock has something to lock. */
+  height: 3000px;
+}
+
+[data-dialog-overlay] {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 0.4);
+}
+
+[data-dialog-content] {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 16rem;
+  padding: 1rem;
+  background: white;
+  border: 1px solid black;
+}
+
+[data-popover-content],
+[data-tooltip-content] {
+  width: 10rem;
+  padding: 0.5rem;
+  background: white;
+  border: 1px solid black;
+}

@@ -51,6 +51,7 @@ import { registerWhoisRoute, type WhoisRouteDeps } from "./routes/whois.ts";
 import { registerSafeBrowseRoute, type SafeBrowseRouteDeps } from "./routes/safe-browse.ts";
 import { registerFileIntegrityRoutes } from "./routes/file-integrity.ts";
 import { registerFileTypeRoutes } from "./routes/file-type.ts";
+import { registerAiDetectionRoutes } from "./routes/ai-detection.ts";
 import { registerMetadataRoutes } from "./routes/metadata.ts";
 import { registerSupportGrantsRoutes } from "./routes/support-grants.ts";
 import { registerSupportSessionsRoute } from "./routes/support-sessions.ts";
@@ -137,7 +138,7 @@ export type Bindings = {
   // Cloudflare REST FirmResourceProvider credentials — DEPLOY-TIME secrets only (`wrangler
   // secret put`), deliberately absent from .dev.vars: locally the dev pool-claiming adapter runs
   // instead, selected by these being unset (see routes/firms.ts resourceProviderForEnv).
-  CLOUDFLARE_API_TOKEN?: string;
+  CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
   // The account-scoped R2 S3 API token the presigner signs upload/download URLs with — the bytes
   // bypass the Worker, so it holds only this signing credential. Production secrets (placeholder
@@ -191,6 +192,12 @@ export type Bindings = {
   // before the Flagship provider is wired. The resolver (src/flags/flag-evaluator.ts) falls back to
   // defaultOffEvaluator when this is undefined, so every flag returns its stable default safely.
   FLAGS?: import("@magna-carta/feature-flags").FlagshipBinding;
+  // The platform-managed AI-text-detection provider key + base URL. Optional: absent in tests and
+  // until the deploy-time secret is set, in which case the detection route reports detection
+  // unavailable. A platform secret, never a per-firm credential; production sets it with
+  // `wrangler secret put PANGRAM_API_KEY`. PANGRAM_BASE_URL is public config (a var, not a secret).
+  PANGRAM_API_KEY?: string;
+  PANGRAM_BASE_URL?: string;
 };
 
 // One Better Auth instance per worker env: the env object is stable across requests within an
@@ -374,6 +381,7 @@ export function createApp(options: CreateAppOptions = {}) {
   registerSafeBrowseRoute(app, chokepoint, options.safeBrowseDeps ?? {});
   registerFileIntegrityRoutes(app, chokepoint);
   registerFileTypeRoutes(app, chokepoint);
+  registerAiDetectionRoutes(app, chokepoint);
   registerMetadataRoutes(app, chokepoint);
   registerMembersRoute(app, chokepoint, authForEnv);
   registerReleaseChannelRoute(app, chokepoint, authForEnv);
@@ -507,7 +515,9 @@ export const openAPIDocumentConfig = {
 // (the generated SDK/docs group by tag) and satisfies Spectral's operation-tag-defined. The single
 // emit path shared by the committed snapshot and the live /api/openapi.json route, so they never
 // diverge. getOpenAPI31Document is pure (no request, no env), so this needs no bindings.
-export function emitOpenAPIDocument(app: ReturnType<typeof createApp>) {
+export function emitOpenAPIDocument(
+  app: ReturnType<typeof createApp>,
+): ReturnType<typeof app.getOpenAPI31Document> {
   const document = app.getOpenAPI31Document(openAPIDocumentConfig);
   const methods = ["get", "put", "post", "delete", "patch", "options", "head", "trace"] as const;
   const tagNames = new Set<string>();
@@ -524,7 +534,7 @@ export function emitOpenAPIDocument(app: ReturnType<typeof createApp>) {
 // Builds the committed-contract document with no bindings: createApp() registers every route at
 // construction time. The emit script loads this through the Vite pipeline; the snapshot sanity test
 // calls it in-pool.
-export function buildOpenAPIDocument() {
+export function buildOpenAPIDocument(): ReturnType<typeof emitOpenAPIDocument> {
   return emitOpenAPIDocument(createApp());
 }
 

@@ -70,14 +70,14 @@ Each identification carries Magika's **group** (e.g. document / image / archive 
 
 ```ts
 interface FileTypeReport {
-  detected: string;            // Magika content-type label, e.g. "pdf", "python", "jpeg"
-  detectedLabel: string;       // human label, e.g. "PDF document", "Python source", "JPEG image"
-  group: string;               // Magika group: document | image | archive | code | executable | text | …
-  confidence: number;          // Magika score, 0..1 — always surfaced (probabilistic engine)
-  claimedExtension: string | null;             // from the filename, lowercased; null if none
+  detected: string; // Magika content-type label, e.g. "pdf", "python", "jpeg"
+  detectedLabel: string; // human label, e.g. "PDF document", "Python source", "JPEG image"
+  group: string; // Magika group: document | image | archive | code | executable | text | …
+  confidence: number; // Magika score, 0..1 — always surfaced (probabilistic engine)
+  claimedExtension: string | null; // from the filename, lowercased; null if none
   extensionMatch: "match" | "mismatch" | "unverifiable" | "no-extension";
-  recommendedExtensions: readonly string[];    // canonical extension(s) for the detected type
-  note: string;                                // plain explanation, especially on mismatch / no-extension
+  recommendedExtensions: readonly string[]; // canonical extension(s) for the detected type
+  note: string; // plain explanation, especially on mismatch / no-extension
 }
 ```
 

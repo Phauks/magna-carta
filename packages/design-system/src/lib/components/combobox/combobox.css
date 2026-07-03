@@ -1,0 +1,59 @@
+@layer components {
+  /*
+   * Combobox (Tier 4, Bits UI). An editable Input that filters a floating listbox; the dropdown reuses
+   * the mc-select-content surface + the Select option rows (shared bits components). Only the input
+   * control is dressed here: a bordered box (the single focus shape on :focus-within) holding the
+   * borderless Input and a trailing chevron Trigger. The listbox height is the VirtualList's concern.
+   */
+  .mc-combobox-input-wrapper {
+    display: flex;
+    align-items: center;
+    min-block-size: var(--mc-density-control-md);
+    padding-inline-end: var(--mc-space-4);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    background-color: var(--mc-surface-field);
+    transition-property: border-color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-combobox-input-wrapper:focus-within {
+    border-color: var(--mc-focus-ring);
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-combobox-input {
+    padding-inline: var(--mc-space-12);
+    background-color: transparent;
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-tight);
+    border-style: none;
+    outline-style: none;
+  }
+  .mc-combobox-input::placeholder {
+    color: var(--mc-text-muted);
+  }
+  .mc-combobox-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    color: var(--mc-text-muted);
+    background-color: transparent;
+    border-style: none;
+    cursor: pointer;
+  }
+  .mc-combobox-trigger-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "elevation": {
+    "$description": "Elevation shadow scale. elevation.0 is the no-shadow baseline (fully transparent).",
+    "0": {
+      "$type": "shadow",
+      "$value": [
+        {
+          "color": { "colorSpace": "oklch", "components": [0.13, 0.006, 250], "alpha": 0 },
+          "offsetX": { "value": 0, "unit": "px" },
+          "offsetY": { "value": 0, "unit": "px" },
+          "blur": { "value": 0, "unit": "px" },
+          "spread": { "value": 0, "unit": "px" }
+        }
+      ]
+    },
+    "1": {
+      "$type": "shadow",
+      "$value": [
+        {
+          "color": { "colorSpace": "oklch", "components": [0.13, 0.006, 250], "alpha": 0.08 },
+          "offsetX": { "value": 0, "unit": "px" },
+          "offsetY": { "value": 1, "unit": "px" },
+          "blur": { "value": 2, "unit": "px" },
+          "spread": { "value": 0, "unit": "px" }
+        }
+      ]
+    },
+    "2": {
+      "$type": "shadow",
+      "$value": [
+        {
+          "color": { "colorSpace": "oklch", "components": [0.13, 0.006, 250], "alpha": 0.06 },
+          "offsetX": { "value": 0, "unit": "px" },
+          "offsetY": { "value": 1, "unit": "px" },
+          "blur": { "value": 2, "unit": "px" },
+          "spread": { "value": 0, "unit": "px" }
+        },
+        {
+          "color": { "colorSpace": "oklch", "components": [0.13, 0.006, 250], "alpha": 0.1 },
+          "offsetX": { "value": 0, "unit": "px" },
+          "offsetY": { "value": 2, "unit": "px" },
+          "blur": { "value": 8, "unit": "px" },
+          "spread": { "value": -2, "unit": "px" }
+        }
+      ]
+    },
+    "3": {
+      "$type": "shadow",
+      "$value": [
+        {
+          "color": { "colorSpace": "oklch", "components": [0.13, 0.006, 250], "alpha": 0.06 },
+          "offsetX": { "value": 0, "unit": "px" },
+          "offsetY": { "value": 2, "unit": "px" },
+          "blur": { "value": 4, "unit": "px" },
+          "spread": { "value": -1, "unit": "px" }
+        },
+        {
+          "color": { "colorSpace": "oklch", "components": [0.13, 0.006, 250], "alpha": 0.14 },
+          "offsetX": { "value": 0, "unit": "px" },
+          "offsetY": { "value": 8, "unit": "px" },
+          "blur": { "value": 24, "unit": "px" },
+          "spread": { "value": -4, "unit": "px" }
+        }
+      ]
+    }
+  }
+}

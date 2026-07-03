@@ -1912,6 +1912,7 @@ dependencies = [
 name = "pdf-core"
 version = "0.0.0"
 dependencies = [
+ "flate2",
  "getrandom 0.4.3",
  "hayro",
  "image",

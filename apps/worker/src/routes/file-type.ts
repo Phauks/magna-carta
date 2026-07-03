@@ -36,7 +36,7 @@ const ReportSchema = z.object({
   confidence: z.number(),
   claimedExtension: z.string().nullable(),
   extensionMatch: z.enum(["match", "mismatch", "unverifiable", "no-extension"]),
-  recommendedExtensions: z.array(z.string()),
+  recommendedExtensions: z.array(z.string()).readonly(),
   note: z.string(),
 });
 
@@ -51,7 +51,10 @@ const verifyRoute = defineOpenAPIRoute(fileTypeVerifyMeta, {
     body: { content: { "application/octet-stream": { schema: z.any() } }, required: true },
   },
   responses: {
-    200: { description: "File type report", content: { "application/json": { schema: ReportSchema } } },
+    200: {
+      description: "File type report",
+      content: { "application/json": { schema: ReportSchema } },
+    },
     400: {
       description: "Empty request body",
       content: { "application/problem+json": { schema: Problem } },
@@ -111,7 +114,7 @@ export function registerFileTypeRoutes(
       const scan = c.env.SCAN_SERVICE;
       if (scan === undefined) {
         return problemJson(c, {
-          type: "engine-unavailable",
+          type: "service-unavailable",
           title: "Identification engine unavailable",
           status: 503,
           detail: "The identification engine is not currently reachable. Try again shortly.",
@@ -126,7 +129,7 @@ export function registerFileTypeRoutes(
       );
       if (response.status !== 200) {
         return problemJson(c, {
-          type: "engine-unavailable",
+          type: "service-unavailable",
           title: "Identification failed",
           status: 503,
           detail: "The identification engine returned an error. Try again shortly.",

@@ -5,10 +5,10 @@ requirements (golden rule 11). Dated 2026-06-25._
 
 ## Candidate crates
 
-| Need | Crate | Verdict |
-| --- | --- | --- |
-| ZIP: Deflate + ZIP64 + AES-256 + UTF-8 + timestamps | **`zip` 8.6** (zip-rs/zip2) | ✅ Available. `FileOptions::with_aes_encryption` (AE-1/AE-2), ZIP64 force flag, Deflate levels, `time` feature for timestamps. **Already pinned by `containers/scan`** (its `Cargo.toml`), so the workspace knows it. |
-| 7z: LZMA2 + AES-256 + header (filename) encryption | **`sevenz-rust2` 0.7.x** (hasenbanck fork; original `sevenz-rust` unmaintained) | ✅ Available. `ArchiveWriter` + `AesEncoderOptions` (AES-256) + `Lzma2Options`; `set_encrypt_header(true)` is the default → filenames/metadata encrypted. Pure Rust. |
+| Need                                                | Crate                                                                           | Verdict                                                                                                                                                                                                               |
+| --------------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ZIP: Deflate + ZIP64 + AES-256 + UTF-8 + timestamps | **`zip` 8.6** (zip-rs/zip2)                                                     | ✅ Available. `FileOptions::with_aes_encryption` (AE-1/AE-2), ZIP64 force flag, Deflate levels, `time` feature for timestamps. **Already pinned by `containers/scan`** (its `Cargo.toml`), so the workspace knows it. |
+| 7z: LZMA2 + AES-256 + header (filename) encryption  | **`sevenz-rust2` 0.7.x** (hasenbanck fork; original `sevenz-rust` unmaintained) | ✅ Available. `ArchiveWriter` + `AesEncoderOptions` (AES-256) + `Lzma2Options`; `set_encrypt_header(true)` is the default → filenames/metadata encrypted. Pure Rust.                                                  |
 
 Both are pure-Rust (no new C dependency — clean under golden rule 14). `zip` is already in the
 dependency graph via the scan container.
@@ -60,6 +60,7 @@ manifest comes from the existing `file_version` hash (D1 metadata) — the conta
 ## Open decision (blocks Plan 2 scope + the `zip.supportsSplit` capability value)
 
 Splitting cannot be format-native for ZIP. Options:
+
 1. **Split offered only for 7z** (recommended) — set `zip.supportsSplit = false`; the UI hides "split"
    when ZIP is chosen. 7z is the better split format anyway (it is what 7-Zip itself produces). Honest,
    uses the capability registry as designed, smallest scope.
@@ -106,5 +107,6 @@ worker's `@cloudflare/containers` Container class at ≥ 0.2.0 (verify the pinne
 ## Conclusion
 
 Crates are sufficient for ZIP (Deflate/ZIP64/AES, single-artifact) and 7z (LZMA2/AES-256/header-encryption
-+ byte-split volumes) with a disk-spool output model, and the container reaches R2 through the owner
-Worker's `env.R2` binding via outbound Workers — credential-free and egress-free. Plan 2 is feasible.
+
+- byte-split volumes) with a disk-spool output model, and the container reaches R2 through the owner
+  Worker's `env.R2` binding via outbound Workers — credential-free and egress-free. Plan 2 is feasible.

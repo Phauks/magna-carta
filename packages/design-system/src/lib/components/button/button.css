@@ -1,0 +1,114 @@
+@layer components {
+  /*
+   * Button (Tier 1 exemplar). The base recipe + per-variant color sets + per-size geometry.
+   * Every value is a var(--mc-...) token reference or a structural keyword — the components.css
+   * token-purity gate (test/fitness/boundaries.test.ts) rejects any literal length, color, or
+   * number. Sizes map to the --mc-control-* heights; the focus ring uses the tokenized
+   * --mc-focus-ring-width/offset (added to design-tokens for exactly this recipe).
+   */
+  .mc-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--mc-space-8);
+    border-radius: var(--mc-radius-md);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    font-weight: var(--mc-weight-medium);
+    line-height: var(--mc-leading-tight);
+    text-decoration-line: none;
+    cursor: pointer;
+    user-select: none;
+    transition-property: background-color, color, border-color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  /* Flush focus edge (offset 0), consistent with the bordered controls — no detached ring. */
+  .mc-button:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-button:disabled {
+    background-color: var(--mc-action-disabled);
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  /* Variants — color sets. */
+  .mc-button-primary {
+    background-color: var(--mc-action-primary);
+    color: var(--mc-action-primary-foreground);
+  }
+  .mc-button-primary:hover {
+    background-color: var(--mc-action-primary-hover);
+  }
+  .mc-button-primary:active {
+    background-color: var(--mc-action-primary-active);
+  }
+
+  /* The gilt CTA — bright gold fill + dark-gold text (a monochrome gilt that holds across themes).
+     The accent ramp has no stop between bright and deep gold that keeps AA with the dark text, so the
+     hover signal is a calm elevation lift rather than a colour shift. */
+  .mc-button-accent {
+    background-color: var(--mc-accent-strong);
+    color: var(--mc-accent-strong-foreground);
+    font-weight: var(--mc-weight-semibold);
+  }
+  .mc-button-accent:hover {
+    box-shadow: var(--mc-elevation-1);
+  }
+
+  .mc-button-secondary {
+    background-color: var(--mc-action-secondary);
+    color: var(--mc-action-secondary-foreground);
+  }
+  .mc-button-secondary:hover {
+    background-color: var(--mc-action-secondary-hover);
+  }
+
+  .mc-button-destructive {
+    background-color: var(--mc-action-destructive);
+    color: var(--mc-action-destructive-foreground);
+  }
+  .mc-button-destructive:hover {
+    background-color: var(--mc-action-destructive-hover);
+  }
+
+  .mc-button-ghost {
+    background-color: transparent;
+    color: var(--mc-text-default);
+  }
+  .mc-button-ghost:hover {
+    background-color: var(--mc-action-secondary);
+  }
+
+  /* Sizes — heights map to the control scale THROUGH the density aliases (the user density axis
+     re-points them; consuming the alias is the compliance). min-block-size, not block-size, so
+     OS/browser text-only scaling can grow the label without clipping it. Icon is a square at the
+     default height (exact, not min — it holds no text). */
+  .mc-button-sm {
+    min-block-size: var(--mc-density-control-sm);
+    padding-inline: var(--mc-space-12);
+    font-size: var(--mc-font-size-xs);
+  }
+  .mc-button-md {
+    min-block-size: var(--mc-density-control-md);
+    padding-inline: var(--mc-space-16);
+  }
+  .mc-button-lg {
+    min-block-size: var(--mc-density-control-lg);
+    padding-inline: var(--mc-space-20);
+    font-size: var(--mc-font-size-md);
+  }
+  .mc-button-icon {
+    block-size: var(--mc-density-control-md);
+    inline-size: var(--mc-density-control-md);
+    padding-inline: var(--mc-space-0);
+  }
+}

@@ -105,6 +105,7 @@ describe("GET /api/v1/me", () => {
         "time:manageUtbms",
         "time:track",
         "time:viewFirm",
+        "tools:aiTextDetection",
         "tools:fileConverter",
         "tools:fileIntegrity",
         "tools:fileTypeVerifier",

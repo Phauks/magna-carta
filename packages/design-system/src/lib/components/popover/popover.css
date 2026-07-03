@@ -1,0 +1,20 @@
+@layer components {
+  /*
+   * Popover (Tier 3, Bits UI). A click-triggered floating panel anchored to its trigger — an
+   * overlay surface with a hairline and the dropdown-layer elevation. Positioning (Floating UI),
+   * the z-layer, and the scale-fade presence come from the floating module; only the panel's look
+   * lives here. The panel's width is layout — a utility on the element (e.g. w-72), not the recipe.
+   * The Trigger and the Close part carry NO recipe — they are caller-styled buttons (typically the
+   * mc-button recipes), so nothing here fights the caller's chosen variant.
+   */
+  .mc-popover-content {
+    padding: var(--mc-space-16);
+    background-color: var(--mc-surface-overlay);
+    color: var(--mc-text-default);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    box-shadow: var(--mc-elevation-2);
+  }
+}

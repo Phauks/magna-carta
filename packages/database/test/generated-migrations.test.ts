@@ -260,6 +260,23 @@ describe("generated migrations (committed artifacts)", () => {
     expect(isIdentifier(seeds[0]?.id, "rolePermission")).toBe(true);
   });
 
+  it("per-firm 0034 seeds tools:aiTextDetection onto all five default roles", async () => {
+    const migrations = await loadLineage("per-firm");
+    const migration = migrations.find((m) => m.tag === "0034_seed-tools-ai-text-detection");
+    expect(
+      migration,
+      "0034_seed-tools-ai-text-detection missing from the per-firm lineage",
+    ).toBeDefined();
+    const seeds = (migration?.statements ?? [])
+      .filter((statement) => statement.includes("INSERT INTO `role_permission`"))
+      .map(parseSingleRowInsert);
+    expect(seeds).toHaveLength(5);
+    for (const seed of seeds) {
+      expect(seed.permission).toBe("tools:aiTextDetection");
+      expect(isIdentifier(seed.id, "rolePermission"), String(seed.id)).toBe(true);
+    }
+  });
+
   it("per-firm lineage never creates the auth tables — they are control-plane only", async () => {
     const migrations = await loadLineage("per-firm");
     const allSql = migrations.flatMap((migration) => migration.statements).join("\n");

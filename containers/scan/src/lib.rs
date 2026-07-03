@@ -72,12 +72,57 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/ready", get(ready))
         .route("/scan", post(scan))
+        .route("/rules/score-histogram", get(score_histogram))
         .route("/identify", post(identify))
         .with_state(state)
 }
 
 async fn ready() -> &'static str {
     "ok"
+}
+
+#[derive(serde::Serialize)]
+struct HistogramBucket {
+    floor: i32,
+    count: usize,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ScoreHistogram {
+    engine_version: String,
+    min_score_gate: i32,
+    total: usize,
+    buckets: Vec<HistogramBucket>,
+}
+
+/// The default suspicious-score floor, surfaced as a reference line for the firm scan-policy slider (the
+/// same default the app's DEFAULT_SCAN_POLICY uses). Informational only — no rules are gated here.
+const DEFAULT_SUSP_SCORE_GATE: i32 = 75;
+
+/// The `_SUSP_` score distribution of the baked corpus, the data the firm scan-policy custom-floor slider
+/// plots. Static for this instance's lifetime; computed from the side-map already in `AppState` (one pass
+/// over the corpus, called only on a settings load — no need to precompute). The container reports facts;
+/// the floor itself is applied app-side per firm policy.
+async fn score_histogram(State(state): State<AppState>) -> Response {
+    let buckets: Vec<HistogramBucket> = yara::susp_score_histogram(
+        state
+            .side_map
+            .values()
+            .filter(|meta| meta.is_suspicious)
+            .map(|meta| meta.score),
+    )
+    .into_iter()
+    .map(|(floor, count)| HistogramBucket { floor, count })
+    .collect();
+    let total = buckets.iter().map(|bucket| bucket.count).sum();
+    Json(ScoreHistogram {
+        engine_version: state.engine_version.to_string(),
+        min_score_gate: DEFAULT_SUSP_SCORE_GATE,
+        total,
+        buckets,
+    })
+    .into_response()
 }
 
 #[derive(serde::Deserialize)]
@@ -382,5 +427,43 @@ mod tests {
             engines_unavailable().status(),
             StatusCode::SERVICE_UNAVAILABLE
         );
+    }
+
+    #[tokio::test]
+    async fn rules_score_histogram_returns_the_suspicious_distribution() {
+        use axum::body::to_bytes;
+        // Two suspicious rules in the 40-bucket plus one non-suspicious rule that must NOT be counted.
+        let mut side_map = yara::SideMap::new();
+        side_map.insert(
+            "A".into(),
+            yara::RuleMeta { tier: forge::Tier::Extended, score: 40, is_suspicious: true },
+        );
+        side_map.insert(
+            "B".into(),
+            yara::RuleMeta { tier: forge::Tier::Extended, score: 42, is_suspicious: true },
+        );
+        side_map.insert(
+            "C".into(),
+            yara::RuleMeta { tier: forge::Tier::Core, score: 90, is_suspicious: false },
+        );
+        let state = AppState {
+            rules: Arc::new(yara::build_rules(&[])),
+            side_map: Arc::new(side_map),
+            clamd_address: Arc::from("127.0.0.1:3310"),
+            caps: ArchiveCaps::default(),
+            engine_version: Arc::from("engine/1+yara-rules/none+clamav-db/0"),
+            magika: Arc::new(
+                identify::IdentifyEngine::new().expect("magika builds with the embedded model"),
+            ),
+        };
+
+        let response = score_histogram(State(state)).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(json["total"], 2);
+        assert_eq!(json["minScoreGate"], 75);
+        assert_eq!(json["buckets"], serde_json::json!([{ "floor": 40, "count": 2 }]));
+        assert_eq!(json["engineVersion"], "engine/1+yara-rules/none+clamav-db/0");
     }
 }

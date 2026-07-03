@@ -1,0 +1,17 @@
+<!doctype html>
+<!--
+  CSP spike probe page (bits-ui issue #1995). Served by run-csp-spike.mjs with a strict
+  Content-Security-Policy header; everything here must load from 'self' only — external
+  stylesheet, module script, no inline style or script anywhere in this file.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>CSP spike - bits-ui Dialog / Popover / Tooltip probe</title>
+    <link rel="stylesheet" href="./probe.css" />
+  </head>
+  <body>
+    <div id="probe-root"></div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

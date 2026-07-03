@@ -3,6 +3,7 @@ mod wasm;
 
 mod standard_fonts;
 mod standard_fonts_data;
+mod guard;
 
 mod forms;
 pub use forms::{
@@ -36,6 +37,12 @@ pub use secure::{secure, SecureOptions, WriteAlgorithm};
 
 mod surgery;
 
+mod generate;
+pub use generate::{merge, rotate, split, GenerateError, PageRange, PageSelection, Rotation};
+
+mod watermark;
+pub use watermark::{watermark, WatermarkContent, WatermarkOptions, WatermarkPlacement};
+
 use hayro::hayro_interpret::InterpreterSettings;
 use hayro::hayro_syntax::Pdf;
 use hayro::{render, RenderCache, RenderSettings};
@@ -46,6 +53,8 @@ pub enum PdfError {
     Parse,
     PageOutOfRange,
     Render,
+    /// Input rejected by the decompression-bomb guard (oversize or a bomb).
+    Rejected,
 }
 
 /// A parsed PDF held in memory.
@@ -54,21 +63,37 @@ pub struct Document {
 }
 
 impl Document {
-    pub fn load(bytes: Vec<u8>) -> Result<Self, PdfError> {
+    /// Parse without the bomb guard. Callers that already ran `guard_input` on the
+    /// same bytes use this to avoid scanning twice.
+    pub(crate) fn load_unguarded(bytes: Vec<u8>) -> Result<Self, PdfError> {
         Pdf::new(bytes)
             .map(|pdf| Document { pdf })
             .map_err(|_| PdfError::Parse)
+    }
+
+    pub fn load(bytes: Vec<u8>) -> Result<Self, PdfError> {
+        crate::guard::guard_input(&bytes, &crate::guard::GuardLimits::default())
+            .map_err(|_| PdfError::Rejected)?;
+        Self::load_unguarded(bytes)
     }
 
     /// Load a possibly-encrypted PDF, decrypting with `password` first so the render
     /// path sees plaintext. An unencrypted input loads normally; a wrong password
     /// yields [`SecureError::WrongPassword`].
     pub fn load_protected(bytes: Vec<u8>, password: &str) -> Result<Self, SecureError> {
-        match decrypt(&bytes, password) {
-            Ok(plain) => Self::load(plain).map_err(|_| SecureError::Parse),
+        crate::guard::guard_input(&bytes, &crate::guard::GuardLimits::default())
+            .map_err(|_| SecureError::Rejected)?;
+        match crate::decrypt::decrypt_unguarded(&bytes, password) {
+            Ok(plain) => {
+                // `plain` is different bytes than the (already-guarded) ciphertext, so
+                // re-guard the decrypted output before the render parser inflates it.
+                crate::guard::guard_input(&plain, &crate::guard::GuardLimits::default())
+                    .map_err(|_| SecureError::Rejected)?;
+                Self::load_unguarded(plain).map_err(|_| SecureError::Parse)
+            }
             // The model parser could not read it at all — it may still be a valid
             // unencrypted document the render parser accepts. Try it directly.
-            Err(SecureError::Parse) => Self::load(bytes).map_err(|_| SecureError::Parse),
+            Err(SecureError::Parse) => Self::load_unguarded(bytes).map_err(|_| SecureError::Parse),
             Err(other) => Err(other),
         }
     }
@@ -201,6 +226,24 @@ mod tests {
         let page = doc.render_page(0, 72.0, true).unwrap();
         assert!(page.png);
         assert_eq!(&page.data[1..4], b"PNG");
+    }
+
+    #[test]
+    fn load_rejects_oversize_input() {
+        let limits = crate::guard::GuardLimits::default();
+        let big = vec![0u8; limits.max_input_bytes + 1];
+        // Document doesn't implement PartialEq/Debug (it wraps an opaque parser type),
+        // so use matches! as the existing tests do for this result shape.
+        assert!(matches!(Document::load(big), Err(PdfError::Rejected)));
+    }
+
+    #[test]
+    fn load_protected_rejects_oversize_input() {
+        let limits = crate::guard::GuardLimits::default();
+        let big = vec![0u8; limits.max_input_bytes + 1];
+        // Document doesn't implement PartialEq/Debug (it wraps an opaque parser type),
+        // so use matches! rather than assert_eq! — same pattern as load_rejects_oversize_input.
+        assert!(matches!(Document::load_protected(big, "pw"), Err(SecureError::Rejected)));
     }
 
     #[test]

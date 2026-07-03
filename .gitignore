@@ -5,6 +5,11 @@ dist/
 .wrangler/
 .vite/
 coverage/
+# Storybook static build (the CI/VRT artifact; built on demand via `storybook-build`)
+storybook-static/
+# Playwright visual-regression run output (actual/diff images); committed baselines live in
+# packages/design-system/visual-regression/baselines/, which is NOT ignored
+packages/design-system/visual-regression/test-results/
 *.log
 .DS_Store
 # pre-existing scraping artifacts
@@ -20,3 +25,7 @@ docs/research/trust-rules/_tmp_*
 # Rust build artifacts (crates workspace + throwaway spikes)
 /crates/target/
 /spikes/*/target/
+
+# TypeScript project-references build output: composite .d.ts + .tsbuildinfo emitted by
+# `tsc -b tsconfig.build.json` (regenerable; the shipped declarations come from the bundler).
+.tsbuild/

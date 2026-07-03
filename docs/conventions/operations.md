@@ -46,7 +46,7 @@ The Worker declares the `send_email` binding (`SEND_EMAIL`) and the code selects
 
 > **`ROOT_KEK` is not freely rotatable.** It wraps every per-firm key; replacing it without a re-wrap migration makes all `protected()` data permanently unrecoverable. Generate it **once**, set it, and **back it up in ≥2 secure places** (a secrets manager + a sealed offline copy) before any firm stores protected data. Rotation machinery is not built — the ciphertext frame reserves `algo_version | key_version` as the seam, and the re-wrap sweep is a scheduled hardening build (see [`../../ROADMAP.md`](../../ROADMAP.md) → _Hardening_), gated to before the first real client or a compromise event.
 
-`CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` are **optional** deploy-time secrets for the REST `FirmResourceProvider`; absent them, the dev pool-claiming adapter runs. Secrets posture detail lives in [`security.md`](security.md).
+`CLOUDFLARE_API_TOKEN_FIRM_PROVISIONER` / `CLOUDFLARE_ACCOUNT_ID` are **optional** deploy-time secrets for the REST `FirmResourceProvider`; absent them, the dev pool-claiming adapter runs. Secrets posture detail lives in [`security.md`](security.md).
 
 > The gate covers **secrets** only. The Worker's declared **Queues** must also already exist in the target account — `wrangler deploy` aborts on the first missing one. The declared queues live in `apps/worker/wrangler.jsonc` (`…-platform-jobs`, `…-files-ingest` + `…-files-ingest-deadletter`, `…-inference` + `…-inference-deadletter`); create any that are absent with `wrangler queues create <name>` (or the dashboard) before deploying.
 
@@ -221,7 +221,7 @@ The Worker `wrangler.jsonc` binds both; Wrangler errors on deploy if they do not
 
 The scan engine lives in its own Worker (`apps/scan-worker`, service `magna-carta-scan`). It owns the `ScanContainer` — a `linux/amd64` Container (`containers/scan/`): a long-lived clamd daemon plus a Rust HTTP service that fans each file to clamd (signatures), yara-x (heuristic rules), and structural heuristics (PDF/Office/archive). The app Worker (`apps/worker`) reaches it exclusively over a `SCAN_SERVICE` service binding; `resolveScanPort` selects the remote engine when that binding is present, otherwise the engine-less `unscanned` adapter (an honest `unscanned`/no-engine verdict, never a false `clean`). The app Worker carries **no** container config of its own.
 
-The scan worker is **built and unit-tested, but not yet connected to Workers Builds and not yet deployed** — the `SCAN_SERVICE` service binding in the app Worker is absent until the scan service is live. Until activation, every firm runs the engine-less adapter.
+The scan worker is **built, connected to Workers Builds, and deployed** as of 2026-06-28 — the `SCAN_SERVICE` binding in the app Worker is wired and live, so production runs the real engine (local/test envs still use the engine-less adapter — no container pool). The first-activation steps below are retained as the record of what activation entailed; the **acceptance checks** are **deferred** until a prod firm/member is provisioned (none yet — the auth UI is slice 0·7b), since they need an authenticated principal to call `POST /api/v1/scan/diagnose`. The container required a `bookworm`→`trixie` base for onnxruntime's glibc-2.38 symbols (Magika `/identify`).
 
 ### First-activation steps
 

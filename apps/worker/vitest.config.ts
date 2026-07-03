@@ -70,6 +70,14 @@ const SCAN_SERVICE_STUB_SCRIPT = `
 export default {
   fetch(request) {
     const url = new URL(request.url);
+    // GET /rules/score-histogram returns the no-engine histogram shape — the engine-less equivalent of
+    // the real container endpoint, matching what production returns before the scan engine is wired.
+    if (url.pathname === "/rules/score-histogram") {
+      return new Response(
+        JSON.stringify({ engineVersion: null, minScoreGate: null, total: 0, buckets: [] }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
     if (url.pathname === "/identify") {
       return new Response(
         JSON.stringify({ label: "jpeg", score: 0.99, group: "image",
@@ -77,6 +85,7 @@ export default {
         { status: 200, headers: { "content-type": "application/json" } }
       );
     }
+    // The default (/scan): the no-engine RawScanResult, an honest unscanned verdict (not a fake clean).
     return new Response(
       JSON.stringify({
         engineVersion: null,
@@ -160,4 +169,13 @@ export default defineConfig({
       },
     }),
   ],
+  test: {
+    // 16 CPUs but a RAM-constrained dev box (~3 GB free under normal load): each test file boots a
+    // Miniflare/workerd VM holding the full app + bindings + the three stub service workers, so the
+    // default CPU-wide file parallelism OOMs the box (exit 137). Cap the concurrent VMs to fit
+    // memory — peak ≈ maxWorkers × per-VM, independent of file count. CI (more RAM) raises it via the
+    // env. Mirrors the fileParallelism guard packages/conversion uses for its wasm heaps.
+    maxWorkers: Number(process.env.MC_WORKER_TEST_MAX_WORKERS ?? 4),
+    minWorkers: 1,
+  },
 });

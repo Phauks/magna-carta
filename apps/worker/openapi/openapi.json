@@ -514,6 +514,119 @@
           "computedAt"
         ]
       },
+      "AiDetectionReport": {
+        "type": "object",
+        "properties": {
+          "band": {
+            "type": "string",
+            "enum": [
+              "unlikely",
+              "mixed",
+              "likely",
+              "inconclusive"
+            ]
+          },
+          "score": {
+            "type": "number"
+          },
+          "reliability": {
+            "type": "string",
+            "enum": [
+              "high",
+              "moderate",
+              "low"
+            ]
+          },
+          "caveats": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "segments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "startCharacter": {
+                  "type": "number"
+                },
+                "endCharacter": {
+                  "type": "number"
+                },
+                "score": {
+                  "type": "number"
+                },
+                "band": {
+                  "type": "string",
+                  "enum": [
+                    "unlikely",
+                    "mixed",
+                    "likely",
+                    "inconclusive"
+                  ]
+                }
+              },
+              "required": [
+                "startCharacter",
+                "endCharacter",
+                "score",
+                "band"
+              ]
+            }
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "adapterId": {
+                "type": "string"
+              },
+              "vendorModel": {
+                "type": "string"
+              },
+              "vendorVersion": {
+                "type": "string"
+              },
+              "detectedAt": {
+                "type": "string"
+              },
+              "egressedTo": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "adapterId",
+              "detectedAt",
+              "egressedTo"
+            ]
+          }
+        },
+        "required": [
+          "band",
+          "score",
+          "reliability",
+          "caveats",
+          "provenance"
+        ]
+      },
+      "AiDetectionDetectRequest": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "languageHint": {
+            "type": "string"
+          },
+          "matterId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
       "MetadataReport": {
         "type": "object",
         "properties": {
@@ -2863,6 +2976,50 @@
           "policy",
           "flaggedTreatment",
           "stepUpReauthOnFlagged"
+        ]
+      },
+      "ScoreHistogramResponse": {
+        "type": "object",
+        "properties": {
+          "engineVersion": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "minScoreGate": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "total": {
+            "type": "integer"
+          },
+          "buckets": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "floor": {
+                  "type": "integer"
+                },
+                "count": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "floor",
+                "count"
+              ]
+            }
+          }
+        },
+        "required": [
+          "engineVersion",
+          "minScoreGate",
+          "total",
+          "buckets"
         ]
       },
       "PatchScanPolicyRequest": {
@@ -6474,6 +6631,99 @@
           },
           "503": {
             "description": "Identification engine unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai-detection/detect": {
+      "post": {
+        "description": "Estimate the likelihood that pasted text was machine-generated. Returns a coarse likelihood band with an explicit reliability grade and the reasons to hesitate — a signal, not proof. Requires the firm to have enabled external detection; text is sent to the configured provider and is not retained. Nothing is stored except a usage meter entry.",
+        "operationId": "aiDetection.detect",
+        "tags": [
+          "aiDetection"
+        ],
+        "x-mc-operationId": "aiDetection.detect",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "tools:aiTextDetection",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "expensive",
+        "x-mc-tags": [
+          "aiDetection"
+        ],
+        "x-mc-deprecated": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AiDetectionDetectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The detection report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiDetectionReport"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks tools:aiTextDetection",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "External detection is disabled for this firm, or detection is unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The detection provider rejected the request or is unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -12667,6 +12917,79 @@
           },
           "422": {
             "description": "The request body is invalid, or the Idempotency-Key was reused with a different body",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/firm/scan-policy/score-histogram": {
+      "get": {
+        "description": "Returns the deployed scan engine's heuristic (`_SUSP_`) rule-score distribution as 5-point buckets — the reference data for the firm's custom suspicious-score-floor control. The data is engine-global (identical for every firm). When no scan engine is deployed, engineVersion and minScoreGate are null and buckets is empty.",
+        "operationId": "scanPolicy.scoreHistogram",
+        "tags": [
+          "scanPolicy"
+        ],
+        "x-mc-operationId": "scanPolicy.scoreHistogram",
+        "x-mc-surface": "app",
+        "x-mc-authenticated": true,
+        "x-mc-permission": "firm:manageScanPolicy",
+        "x-mc-resource": "firm",
+        "x-mc-audited": false,
+        "x-mc-idempotency": "optional",
+        "x-mc-rateLimit": "default",
+        "x-mc-tags": [
+          "scanPolicy"
+        ],
+        "x-mc-deprecated": false,
+        "responses": {
+          "200": {
+            "description": "The scan engine's suspicious-score histogram, or the empty shape when no engine is deployed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoreHistogramResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The session member lacks firm:manageScanPolicy",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The firm is unreachable or the member is deactivated",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -23128,6 +23451,9 @@
   },
   "webhooks": {},
   "tags": [
+    {
+      "name": "aiDetection"
+    },
     {
       "name": "conversions"
     },

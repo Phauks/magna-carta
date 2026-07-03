@@ -59,6 +59,8 @@ impl std::fmt::Debug for SecureOptions {
 /// Writes AES-256 by default. The input must not already be encrypted — unlock it with
 /// [`crate::decrypt`] first (this yields [`SecureError::AlreadyEncrypted`]).
 pub fn secure(bytes: &[u8], opts: &SecureOptions) -> Result<Vec<u8>, SecureError> {
+    crate::guard::guard_input(bytes, &crate::guard::GuardLimits::default())
+        .map_err(|_| SecureError::Rejected)?;
     let mut doc = Document::load_mem(bytes).map_err(|_| SecureError::Parse)?;
     if doc.is_encrypted() {
         return Err(SecureError::AlreadyEncrypted);
@@ -301,6 +303,14 @@ mod tests {
             secure(&secured, &opts(Some("again"))),
             Err(SecureError::AlreadyEncrypted)
         );
+    }
+
+    #[test]
+    fn secure_rejects_oversize_input() {
+        let limits = crate::guard::GuardLimits::default();
+        let big = vec![0u8; limits.max_input_bytes + 1];
+        // `opts(..)` is the existing SecureOptions test helper in this module.
+        assert_eq!(secure(&big, &opts(None)), Err(crate::SecureError::Rejected));
     }
 
     #[test]

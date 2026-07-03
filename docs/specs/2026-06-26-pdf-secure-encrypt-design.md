@@ -4,7 +4,7 @@
 **Branch:** pdf-secure-encrypt (off merged main)
 **Roadmap home:** [`2026-06-21-rust-pdf-engine-roadmap-design.md`](2026-06-21-rust-pdf-engine-roadmap-design.md) — slice 5 (forms + **secure/encrypt**); forms shipped, this completes the slice.
 **Reuse:** the `lopdf` object model already linked by `redact`/`scrub`/`forms`/`detect`; the additive byte-to-byte transform shape of `sanitizeDocument`; the `packages/pdf` WASM binding's `ensureReady` + handle pattern; the Tools catalog row + access-control permission pattern (`metadata-scrubber`, `file-hash-integrity`).
-**Relates to:** ADR-0026 (envelope key management — AES-256 doctrine) · ADR-0046 (post-quantum agility-first posture) · ADR-0045 (PAdES platform seal — the *next* slice; decrypt is a dependency of signing an encrypted input).
+**Relates to:** ADR-0026 (envelope key management — AES-256 doctrine) · ADR-0046 (post-quantum agility-first posture) · ADR-0045 (PAdES platform seal — the _next_ slice; decrypt is a dependency of signing an encrypted input).
 **ADRs to raise:** `pdf-secure-encrypt` (adopt `lopdf`'s Standard Security Handler; write AES-256 only; permission flags are advisory, stated).
 
 ---
@@ -30,11 +30,11 @@ The whole-engine roadmap (§4) listed encrypt/secure as `lopdf (partial) → bui
 Verified against the `lopdf 0.41` source (golden rule 11), that is now too pessimistic. `lopdf`
 implements the **full Standard Security Handler, bidirectionally**:
 
-| Revision / version | Algorithm | Read | Write |
-| --- | --- | --- | --- |
-| R2/R3, V1/V2 | RC4 (40–128) | ✅ | ✅ (we **won't** emit) |
-| R4, V4 `/AESV2` | AES-128-CBC | ✅ | ✅ (we **won't** emit by default) |
-| R6, V5 `/AESV3` | AES-256-CBC + SHA-2 (alg 2.B) | ✅ | ✅ **(our write target)** |
+| Revision / version | Algorithm                     | Read | Write                             |
+| ------------------ | ----------------------------- | ---- | --------------------------------- |
+| R2/R3, V1/V2       | RC4 (40–128)                  | ✅   | ✅ (we **won't** emit)            |
+| R4, V4 `/AESV2`    | AES-128-CBC                   | ✅   | ✅ (we **won't** emit by default) |
+| R6, V5 `/AESV3`    | AES-256-CBC + SHA-2 (alg 2.B) | ✅   | ✅ **(our write target)**         |
 
 Public surface we build on: `EncryptionVersion::V5 { encrypt_metadata, owner_password, user_password,
 permissions, .. }`, `Document::encrypt(&state)`, `EncryptionState::encode()`,
@@ -50,6 +50,7 @@ permissions actually guarantee. No hand-rolled cipher code — `lopdf` pulls `ae
 ## Scope
 
 **In:**
+
 - **Decrypt** any handler revision (RC4, AES-128, AES-256) given the correct password — read broadly.
 - **Secure** with **AES-256 (V5/R6) only** — write strictly. Owner password, optional user (open)
   password, a permissions policy, and an `encryptMetadata` toggle.
@@ -58,11 +59,12 @@ permissions actually guarantee. No hand-rolled cipher code — `lopdf` pulls `ae
 - The client-side Tools surface.
 
 **Out (stated, with reason):**
+
 - **Emitting RC4 or AES-128** — weaker than the AES-256 doctrine (ADR-0026). A documented
   reader-compat escape hatch (`Aes128`) is designed for but defaults off and is not surfaced in the
   Tools UI in v1.
 - **Password recovery / cracking** — that is the separate Decryption & Recovery tool's job; this tool
-  unlocks with a *known* password only.
+  unlocks with a _known_ password only.
 - **Public-key (certificate) security handlers** — recipient-certificate encryption is rare in this
   domain; detect and report, don't implement.
 - **Digital signatures / PAdES** — the next slice (ADR-0045). Decrypt here is a dependency of it.
@@ -141,7 +143,7 @@ pub enum SecureError {
 already uses). `hayro` does not own the decryption. The resolution keeps the architecture clean:
 **`decrypt` is a byte→byte transform via `lopdf`** (load → `decrypt_object` over the object graph →
 drop `/Encrypt` from the trailer → save). It produces ordinary plaintext PDF bytes, which then feed
-*whichever* parser the downstream op uses. The two-parser split never has to coordinate on keys —
+_whichever_ parser the downstream op uses. The two-parser split never has to coordinate on keys —
 decrypt once to bytes, parse the bytes. **Build-time spike (≤1 day):** confirm `lopdf` exposes a
 whole-document decrypt (or assemble it from `decrypt_object` + trailer surgery), and that a re-saved
 decrypted document round-trips through `hayro` render and through `redact`/`detect`.
@@ -149,7 +151,7 @@ decrypted document round-trips through `hayro` render and through `redact`/`dete
 ### Permissions honesty (stated in code docs and UI)
 
 PDF permission bits are **advisory**: they are enforced only by cooperating viewers and are trivially
-stripped by any tool that has the document open (every permission bit lives under the *owner*
+stripped by any tool that has the document open (every permission bit lives under the _owner_
 password, and a document with no user password is readable by anyone). The **only** real
 confidentiality control is the **user (open) password** + the AES-256 cipher. The engine doc comments
 and the Tools UI both say this plainly — overselling permission flags as security would be a
@@ -170,17 +172,22 @@ export interface SecurityInfo {
   hasUserPassword: boolean;
   permissions: Permissions;
 }
-export interface Permissions { /* the eight booleans above */ }
+export interface Permissions {
+  /* the eight booleans above */
+}
 export interface SecureOptions {
   ownerPassword: string;
   userPassword?: string;
-  permissions?: Partial<Permissions>;   // omitted bits default to permissive
-  encryptMetadata?: boolean;            // default true
+  permissions?: Partial<Permissions>; // omitted bits default to permissive
+  encryptMetadata?: boolean; // default true
 }
 
 export function inspectSecurity(bytes: Uint8Array): Promise<SecurityInfo>;
 export function decryptDocument(bytes: Uint8Array, password: string): Promise<{ pdf: Uint8Array }>;
-export function secureDocument(bytes: Uint8Array, options: SecureOptions): Promise<{ pdf: Uint8Array }>;
+export function secureDocument(
+  bytes: Uint8Array,
+  options: SecureOptions,
+): Promise<{ pdf: Uint8Array }>;
 ```
 
 A `WrongPassword` engine error marshals to a typed thrown error the UI distinguishes from a parse
@@ -219,11 +226,12 @@ client-side-by-default doctrine (white paper _Delivery model_).
 bundle. If that plumbing is not yet wired (the viewer/consumer-surface work is still open on the
 roadmap), the fallback is a metadata-style worker route (`apps/worker/src/routes/pdf-secure.ts`,
 chokepoint-gated on `tools:pdfSecure`, `audited:false`, `rateLimit:"expensive"`, nothing stored). The
-fallback transmits the password + document to the *firm's own* trusted, ephemeral worker (acceptable,
+fallback transmits the password + document to the _firm's own_ trusted, ephemeral worker (acceptable,
 not stored) but is strictly weaker than client-side. **Recommendation: client-side; wire the SPA WASM
 load as part of this slice if it isn't already.**
 
 **UX shape (two modes in one tool):**
+
 - Drop a file → `inspectSecurity` runs immediately. If encrypted, prompt for the password and offer
   **Unlock** (download the decrypted copy). If it carries an unsupported (public-key) handler, say so
   and stop.

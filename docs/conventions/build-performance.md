@@ -43,6 +43,70 @@ Note: BuildKit cache mounts are build-local. Persisting them across Workers Buil
 
 Work that would otherwise happen on every cold start belongs in the image, fetched and pre-processed once at build time: baked databases, compiled/serialized rule blobs, prebuilt indexes. The scan Container is the worked example — it bakes the ClamAV signature DB and a compiled YARA-rule blob at build time, so the runtime container neither downloads nor recompiles them. This trades a slightly longer build for a fast, network-free start; prefer it whenever a runtime input is large and slow-changing.
 
+## Type-checking and static analysis — the local feedback loop
+
+The other half of "build time fast" is the **static-check loop** every contributor runs constantly:
+`vp check` (format + lint + type-check) and the per-package `tsc --noEmit` / `svelte-check` passes.
+Its cost profile is uneven, and knowing where the cost is prevents optimizing the wrong thing:
+
+- **Format (`oxfmt`) and lint (`oxlint` + the `tsgolint` type-aware path) are already Rust-native and
+  fast** — whole-repo formatting checks finish in seconds. They are not the bottleneck and need no
+  structural work; keep them enforced (below) rather than sped up.
+- **Full TypeScript type-checking (`tsc`) is the cost center.** It runs over the whole program with no
+  incrementality, so its wall-clock scales with _total_ code, not _changed_ code — the one part of the
+  loop that gets worse as the monorepo grows. A scoped type-check of a few files is seconds; a cold
+  whole-repo type-check is minutes.
+
+The techniques, in leverage order:
+
+### Scope the check to what changed (now)
+
+**The gate (`pnpm check`)** runs `vp check` (fmt + lint) and **`vp run typecheck` (`tsc -b`) as the
+authoritative type-check** — `tsc -b` is fast and incremental, so the type pass actually completes and
+real errors can no longer slip (`vp check`'s own whole-repo type-error pass is off; `typeCheck: false`).
+
+**The fast local loop:** run `vp run typecheck` (types — seconds when warm) plus `vp check [paths]` for
+fmt + lint on just your changed files (`vp check` type-checks/lints only the files given, plus their
+dependencies). Drive the paths from the git diff — the changed files and their dependents, not the
+whole repo — for a seconds-not-minutes inner loop, instead of skipping the full sweep because it is
+slow.
+
+### TypeScript project references + incremental (the structural scaler)
+
+Make each package a `composite` project that `references` its workspace dependencies, with
+`incremental` + a `tsBuildInfoFile`. Then `tsc -b` (build mode) re-checks only changed projects and
+their dependents and reads the rest from `.tsbuildinfo`; a package whose _public API_ is unchanged is
+not re-checked downstream at all. Check time then scales with **changed** code — the durable fix for a
+growing monorepo. The prerequisite is an **acyclic** package graph (composite references cannot express
+a cycle); the workspace is acyclic today (a source-scan/graph check keeps it so), which is what makes
+this a mechanical rollout rather than an untangling. The build order falls out of the existing
+dependency graph.
+
+### The native compiler (TypeScript 7 / `tsgo`) — after references
+
+The Go-native TypeScript compiler (shipping as TypeScript 7; `tsgo`) type-checks roughly **10× faster**
+than the JavaScript `tsc`, from native execution plus worker-thread parallelism, and supports
+`--incremental`, project references, and `-b` — so it **compounds with** the references work rather than
+replacing it. Two rules govern adopting it:
+
+- **References first, native second.** Land project references under the current (JavaScript) `tsc -b`,
+  which is mature, then swap the engine to `tsgo`. `tsgo`'s `-b` orchestration of complex composite
+  graphs is still stabilizing as of its RC; sequencing this way isolates the change to one variable at
+  a time (our acyclic graph is the easy case, but the mature path is still taken first).
+- **Keep the JavaScript compiler for Compiler-API tooling until the new API lands.** `tsgo` does not
+  expose the JavaScript `typescript` Compiler API (a replacement arrives in a later 7.x). Tools that
+  consume it — here, OpenAPI client generation, the database migration tool, and `svelte-check` for the
+  SPA — keep a pinned JavaScript `typescript` while `tsgo` becomes the _type-checker_ for the packages
+  and the Worker. Our source imports the Compiler API nowhere, so this split is clean; the SPA's
+  `svelte-check` stays on the JavaScript compiler longest.
+
+### Keep the fast checks trustworthy
+
+Speed is worthless if the check is ignored. Format and lint must be **enforced in the pipeline** so the
+tree never drifts — a repo full of format-drifted files trains everyone to skip the check and hides
+real failures behind noise. Commit to the enforced formatter/linter versions (a version skew reformats
+files that were already correct); pin them like any other build input.
+
 ## When you add something that builds, check
 
 - Is Build Caching on for the Worker, and are Build Watch Paths scoped so it only rebuilds when its inputs change?
@@ -54,3 +118,6 @@ Work that would otherwise happen on every cold start belongs in the image, fetch
 
 - Build-time budgets and a signal that flags a regression in build wall-clock, once there is a baseline worth holding.
 - Persisting BuildKit **cache mounts** across Workers Builds runs (the registry/`target` mounts are build-local today) if cold Rust dependency compiles in the Container build become the bottleneck.
+- **Scope the type-aware lint pass to changed files in the gate** — `vp check`'s type-aware lint still builds a whole-program model for the full `pnpm check`. `tsc -b` already gives the gate its fast, complete type-errors; making the type-aware _lint_ equally fast (scoping it, or a tsgolint-on-changed step) is the remaining speed-up. Depends on a vp mechanism to scope `typeAware` independently of the global config.
+- **`tsgo` cutover** — swap the type-check engine to the TypeScript 7 native compiler once references have landed and it reaches GA, keeping a pinned JavaScript `typescript` for the Compiler-API tooling.
+- **CI affected-graph** — run checks only for the packages a change affects (plus dependents), sharding and persisting `.tsbuildinfo` between runs, once references make "affected" precise.
