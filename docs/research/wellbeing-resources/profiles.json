@@ -2094,6 +2094,130 @@
         }
       ]
     },
+    "US-PA": {
+      "fips": "42",
+      "code": "PA",
+      "name": "Pennsylvania",
+      "source": "US-PA",
+      "resources": [
+        {
+          "name": "Lawyers Concerned for Lawyers of Pennsylvania (LCLPA)",
+          "operator": "Lawyers Concerned for Lawyers of Pennsylvania, Inc.",
+          "operatorType": "nonprofit",
+          "scope": "statewide",
+          "url": "https://www.lclpa.org/",
+          "email": "info@lclpa.org",
+          "phones": [
+            {
+              "number": "888-999-1941",
+              "label": "Confidential 24/7 Helpline",
+              "availability": "aroundTheClock",
+              "hoursNote": "Page: available 24/7/365"
+            },
+            {
+              "number": "800-335-2572",
+              "label": "Administrative Office",
+              "availability": "businessHours",
+              "hoursNote": "Mon-Fri business hours"
+            }
+          ],
+          "services": [
+            "counseling",
+            "substanceUse",
+            "mentalHealth",
+            "peerSupport",
+            "crisisLine",
+            "familySupport",
+            "monitoring"
+          ],
+          "confidential": "100% confidential; not affiliated with the Disciplinary Board and does not report participation",
+          "cost": "Free (incl. LCLPA-covered referrals to mental-health professionals)",
+          "description": "Statewide independent nonprofit (501(c)(3), founded 1988; IOLTA-funded) for Pennsylvania lawyers, judges, law students, and families: a confidential 24/7 helpline, peer support, intervention assistance, and covered professional referrals.",
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.lclpa.org/",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
+        }
+      ]
+    },
+    "US-RI": {
+      "fips": "44",
+      "code": "RI",
+      "name": "Rhode Island",
+      "source": "US-RI",
+      "resources": [
+        {
+          "name": "Lawyers Helping Lawyers (Rhode Island Bar Association)",
+          "operator": "Rhode Island Bar Association (EAP via SupportLinc / CuraLinc Healthcare, formerly CorpCare)",
+          "operatorType": "stateBar",
+          "scope": "statewide",
+          "url": "https://ribar.com/page.aspx?id=50",
+          "phones": [
+            {
+              "number": "866-482-8378",
+              "label": "Confidential support line",
+              "availability": "aroundTheClock",
+              "hoursNote": "Page: 'confidential, round the clock support'; counselors answer 24/7 (ribar.com 403'd this session, so corroborated)"
+            }
+          ],
+          "services": [
+            "counseling",
+            "substanceUse",
+            "mentalHealth",
+            "peerSupport",
+            "crisisLine",
+            "teletherapy",
+            "familySupport"
+          ],
+          "confidential": "Confidential; Committee members hold statutory immunity/confidentiality (1991 RI Supreme Court rule)",
+          "cost": "Free to RI Bar members and their dependents",
+          "description": "The RI Bar Association's lawyer assistance program: a volunteer Lawyers Helping Lawyers Committee of peer attorneys plus a contracted EAP (SupportLinc/CuraLinc, formerly CorpCare) providing confidential assessment, referral, counseling, and teletherapy. ribar.com 403'd this session, so corroborated.",
+          "confidence": "MEDIUM",
+          "sourceUrl": "https://ribar.com/page.aspx?id=50",
+          "sourceTier": "corroborated",
+          "verifiedOn": "2026-07-02"
+        }
+      ]
+    },
+    "US-SC": {
+      "fips": "45",
+      "code": "SC",
+      "name": "South Carolina",
+      "source": "US-SC",
+      "resources": [
+        {
+          "name": "Lawyers Helping Lawyers (SCLHL)",
+          "operator": "South Carolina Bar (clinical/EAP provider CuraLinc Healthcare)",
+          "operatorType": "stateBar",
+          "scope": "statewide",
+          "url": "https://www.scbar.org/for-lawyers/membership/member-benefits/lawyers-helping-lawyers/",
+          "phones": [
+            {
+              "number": "855-321-4384",
+              "label": "Confidential Helpline",
+              "availability": "aroundTheClock",
+              "hoursNote": "Page: answered '24 hours a day/seven days a week'; CuraLinc online support 24/7/365"
+            }
+          ],
+          "services": [
+            "counseling",
+            "substanceUse",
+            "mentalHealth",
+            "peerSupport",
+            "crisisLine",
+            "teletherapy",
+            "monitoring"
+          ],
+          "confidential": "Strictly confidential; callers remain anonymous",
+          "cost": "Five free counseling sessions per year for each SC Bar member",
+          "description": "The SC Bar's LAP for lawyers, judges, and law students (substance use, mental illness, stress): a confidential 24/7 helpline, peer support, referral to treatment, five free annual counseling sessions (via clinical vendor CuraLinc), law-student assistance, Character & Fitness evaluations, and court-mandated monitoring oversight.",
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.scbar.org/for-lawyers/membership/member-benefits/lawyers-helping-lawyers/",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
+        }
+      ]
+    },
     "US-SD": {
       "fips": "46",
       "code": "SD",
@@ -2132,6 +2256,50 @@
           "description": "South Dakota program on its own site: 24/7 assessment and short-term counseling via Sand Creek/ALLONE, plus confidential peer support.",
           "confidence": "HIGH",
           "sourceUrl": "https://www.sdlawyerwellness.com/gethelp",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
+        }
+      ]
+    },
+    "US-TN": {
+      "fips": "47",
+      "code": "TN",
+      "name": "Tennessee",
+      "source": "US-TN",
+      "resources": [
+        {
+          "name": "Tennessee Lawyers Assistance Program (TLAP)",
+          "operator": "Tennessee Supreme Court / Administrative Office of the Courts",
+          "operatorType": "court",
+          "scope": "statewide",
+          "url": "https://tlap.org/",
+          "email": "tlap@tncourts.gov",
+          "phones": [
+            {
+              "number": "877-424-8527",
+              "label": "Toll-free",
+              "availability": "unspecified",
+              "hoursNote": "24/7 not stated on loaded pages"
+            },
+            {
+              "number": "615-741-3238",
+              "label": "Local (Nashville)",
+              "availability": "unspecified"
+            }
+          ],
+          "services": [
+            "counseling",
+            "substanceUse",
+            "mentalHealth",
+            "peerSupport",
+            "crisisLine",
+            "monitoring"
+          ],
+          "confidential": "Free, confidential and anonymous; TLAP members relieved of the duty to report ethical violations",
+          "cost": "Free",
+          "description": "Statewide program established by the Tennessee Supreme Court (Rule 33), administered by the Administrative Office of the Courts: crisis counseling, consultation, intervention, referral, and long-term monitoring for lawyers, judges, bar applicants, and law students. Verified via tncourts.gov (tlap.org rendered but truncated).",
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.tncourts.gov/press/2020/03/23/tennessee-lawyers-assistance-program-ready-assist-attorneys-need",
           "sourceTier": "primary-official",
           "verifiedOn": "2026-07-02"
         }
@@ -2189,6 +2357,292 @@
           "description": "Nonprofit trust that funds treatment (paid to providers) for Texas legal professionals working with TLAP.",
           "confidence": "HIGH",
           "sourceUrl": "https://www.sheerancrowley.org/what-we-do",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
+        }
+      ]
+    },
+    "US-UT": {
+      "fips": "49",
+      "code": "UT",
+      "name": "Utah",
+      "source": "US-UT",
+      "resources": [
+        {
+          "name": "Lawyers Helping Lawyers (LHL)",
+          "operator": "Utah State Bar",
+          "operatorType": "stateBar",
+          "scope": "statewide",
+          "url": "https://www.utahbar.org/member-services/lawyers-helping-lawyers/",
+          "email": "contact@lawyershelpinglawyers.org",
+          "phones": [
+            {
+              "number": "801-900-3834",
+              "label": "Lawyers Helping Lawyers",
+              "availability": "unspecified",
+              "hoursNote": "24/7 not stated"
+            }
+          ],
+          "services": [
+            "peerSupport",
+            "mentalHealth",
+            "substanceUse"
+          ],
+          "confidential": "Under Utah RPC Rule 8.3 — 'what you say to LHL stays with LHL'",
+          "cost": "Free",
+          "description": "Utah State Bar peer-support committee matching lawyers with one-on-one volunteer peer mentors for professional problems, substance use, mental illness, grief, and trauma. Provides confidential peer support (not treatment or evaluation).",
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.utahbar.org/member-services/lawyers-helping-lawyers/",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
+        },
+        {
+          "name": "Tava Mental Health (Utah State Bar member benefit)",
+          "operator": "Tava Health (contracted by the Utah State Bar)",
+          "operatorType": "vendor",
+          "scope": "statewide",
+          "url": "https://www.tavahealth.com/",
+          "phones": [],
+          "services": [
+            "teletherapy",
+            "counseling",
+            "mentalHealth"
+          ],
+          "confidential": "Free, confidential member benefit",
+          "cost": "Free (reported up to 6 sessions annually)",
+          "description": "Free, confidential teletherapy benefit sponsored by the Utah State Bar: video sessions with licensed clinicians via Tava's platform for active lawyers, Licensed Paralegal Practitioners, and Paralegal Division members.",
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.utahbar.org/well-being/resources/",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
+        }
+      ]
+    },
+    "US-VA": {
+      "fips": "51",
+      "code": "VA",
+      "name": "Virginia",
+      "source": "US-VA",
+      "resources": [
+        {
+          "name": "Virginia Judges and Lawyers Assistance Program (VJLAP)",
+          "operator": "Virginia Judges and Lawyers Assistance Program (independent non-stock corporation)",
+          "operatorType": "nonprofit",
+          "scope": "statewide",
+          "url": "https://vjlap.org/",
+          "email": "info@vjlap.org",
+          "phones": [
+            {
+              "number": "1-877-545-4682",
+              "label": "24-Hour Confidential HelpLine",
+              "availability": "aroundTheClock",
+              "hoursNote": "Official VA CLE page: '24-hour confidential help line' (vjlap.org 403'd, so corroborated)"
+            }
+          ],
+          "services": [
+            "counseling",
+            "substanceUse",
+            "mentalHealth",
+            "peerSupport",
+            "crisisLine",
+            "monitoring",
+            "familySupport"
+          ],
+          "confidential": "Confidential, non-disciplinary assistance",
+          "cost": "Free (services provided 'without fee')",
+          "description": "Confidential, non-disciplinary help for lawyers, judges, law students, bar applicants, and families (substance use, chronic stress, mental health): information/referral, assessment, intervention, compliance monitoring, and family/staff support. Formerly Virginia Lawyers Helping Lawyers. vjlap.org 403'd; verified via the VA CLE page.",
+          "confidence": "MEDIUM",
+          "sourceUrl": "https://www.vacle.org/lawyers-helping-lawyers/",
+          "sourceTier": "corroborated",
+          "verifiedOn": "2026-07-02"
+        }
+      ]
+    },
+    "US-VT": {
+      "fips": "50",
+      "code": "VT",
+      "name": "Vermont",
+      "source": "US-VT",
+      "resources": [
+        {
+          "name": "Vermont Lawyers Assistance Program (VT LAP)",
+          "operator": "Vermont Lawyers Assistance Program (lapvt.org)",
+          "operatorType": "nonprofit",
+          "scope": "statewide",
+          "url": "https://lapvt.org/",
+          "phones": [
+            {
+              "number": "802-355-4352",
+              "label": "Vermont Lawyers Assistance Program",
+              "availability": "unspecified",
+              "hoursNote": "24/7 not confirmed; lapvt.org 403'd this session"
+            }
+          ],
+          "services": [
+            "counseling",
+            "substanceUse",
+            "mentalHealth",
+            "peerSupport"
+          ],
+          "confidential": "Confidential support (per VBA wellness page)",
+          "cost": "Free (not primary-verified; lapvt.org 403'd)",
+          "description": "Vermont's dedicated lawyer-assistance program for judges, lawyers, and law students facing substance use or mental-health issues, promoted via the Vermont Bar Association. lapvt.org 403'd this session, so corroborated from the loaded VBA attorney-wellness page.",
+          "confidence": "MEDIUM",
+          "sourceUrl": "https://www.vtbar.org/attorney-well-being/",
+          "sourceTier": "corroborated",
+          "verifiedOn": "2026-07-02"
+        },
+        {
+          "name": "Vermont Bar Assistance Program / Bar Counsel wellness contact",
+          "operator": "Vermont Judiciary Professional Responsibility Program (Bar Counsel)",
+          "operatorType": "court",
+          "scope": "statewide",
+          "url": "https://www.vtbar.org/attorney-well-being/",
+          "phones": [
+            {
+              "number": "802-859-3004",
+              "label": "Bar Counsel (Professional Responsibility Program)",
+              "availability": "businessHours",
+              "hoursNote": "Staffed office line; hours not printed"
+            }
+          ],
+          "services": [
+            "peerSupport"
+          ],
+          "confidential": "Confidential guidance/referral",
+          "cost": "Free",
+          "description": "Vermont Bar Counsel, via the Supreme Court's Professional Responsibility Program, provides attorneys and judges with wellness guidance, referrals, and educational materials (not clinical treatment). Distinct from the clinical VT LAP.",
+          "confidence": "MEDIUM",
+          "sourceUrl": "https://www.vtbar.org/attorney-well-being/",
+          "sourceTier": "corroborated",
+          "verifiedOn": "2026-07-02"
+        }
+      ]
+    },
+    "US-WA": {
+      "fips": "53",
+      "code": "WA",
+      "name": "Washington",
+      "source": "US-WA",
+      "resources": [
+        {
+          "name": "WSBA Member Wellness Program",
+          "operator": "Washington State Bar Association",
+          "operatorType": "stateBar",
+          "scope": "statewide",
+          "url": "https://www.wsba.org/for-legal-professionals/member-support/wellness",
+          "email": "wellness@wsba.org",
+          "phones": [
+            {
+              "number": "206-727-8268",
+              "label": "Member Wellness Program",
+              "availability": "unspecified",
+              "hoursNote": "Contact invited for urgent situations; no 24/7 stated"
+            },
+            {
+              "number": "206-727-8267",
+              "label": "Member Wellness Program (alternate)",
+              "availability": "unspecified"
+            }
+          ],
+          "services": [
+            "counseling",
+            "substanceUse",
+            "mentalHealth",
+            "peerSupport"
+          ],
+          "confidential": "All services confidential (references Washington court rule APR 19)",
+          "cost": "Free of charge to WSBA members, law students, and those concerned about an attorney",
+          "description": "In-house wellness program with WSBA's own licensed clinicians: free confidential consultation/short-term therapy, ~50 attorney peer advisors statewide, substance-use referrals, job-seeker groups, and education. Includes a Judicial Assistance Service Program track for judicial officers.",
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.wsba.org/for-legal-professionals/member-support/wellness",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
+        }
+      ]
+    },
+    "US-WI": {
+      "fips": "55",
+      "code": "WI",
+      "name": "Wisconsin",
+      "source": "US-WI",
+      "resources": [
+        {
+          "name": "Wisconsin Lawyers Assistance Program (WisLAP)",
+          "operator": "State Bar of Wisconsin",
+          "operatorType": "stateBar",
+          "scope": "statewide",
+          "url": "https://www.wisbar.org/formembers/wislap/pages/lawyer-assistance-program.aspx",
+          "email": "callwislap@wisbar.org",
+          "phones": [
+            {
+              "number": "800-543-2625",
+              "label": "WisLAP Line",
+              "availability": "unspecified",
+              "hoursNote": "Hours not stated"
+            },
+            {
+              "number": "800-444-9404",
+              "label": "WisLAP Program Manager (ext. 6159)",
+              "availability": "unspecified"
+            }
+          ],
+          "services": [
+            "counseling",
+            "substanceUse",
+            "mentalHealth",
+            "peerSupport",
+            "monitoring"
+          ],
+          "confidential": "Confidential; callers need not disclose identity; exempt from reporting to the Office of Lawyer Regulation",
+          "cost": "Free as a benefit of State Bar membership",
+          "description": "State Bar of Wisconsin program on a 'Lawyers Helping Lawyers / Judges Helping Judges' model with 150+ trained volunteers: initial evaluation, referrals, consultation, monitoring, CLE/education, and well-being presentations for lawyers, judges, law students, and legal professionals.",
+          "confidence": "HIGH",
+          "sourceUrl": "https://www.wisbar.org/formembers/wislap/pages/lawyer-assistance-program.aspx",
+          "sourceTier": "primary-official",
+          "verifiedOn": "2026-07-02"
+        }
+      ]
+    },
+    "US-WV": {
+      "fips": "54",
+      "code": "WV",
+      "name": "West Virginia",
+      "source": "US-WV",
+      "resources": [
+        {
+          "name": "West Virginia Judicial & Lawyer Assistance Program (WVJLAP)",
+          "operator": "Supreme Court of Appeals of West Virginia",
+          "operatorType": "court",
+          "scope": "statewide",
+          "url": "https://wvjlap.org/",
+          "phones": [
+            {
+              "number": "304-553-7232",
+              "label": "WVJLAP main line",
+              "availability": "unspecified",
+              "hoursNote": "Hours not stated"
+            },
+            {
+              "number": "304-553-4745",
+              "label": "Support-group eligibility contact",
+              "availability": "unspecified"
+            }
+          ],
+          "services": [
+            "counseling",
+            "substanceUse",
+            "mentalHealth",
+            "peerSupport",
+            "crisisLine",
+            "monitoring",
+            "familySupport"
+          ],
+          "confidential": "Confidential absent express consent; independent of the Court, State Bar, and Office of Disciplinary Counsel",
+          "cost": "Free",
+          "description": "Court-created (2013), confidential program: consultation, referral, intervention, crisis management, monitoring, and peer support for judges, attorneys, bar applicants, and law students. Runs weekly Zoom peer groups (Lawyers-in-Recovery Thu noon; Mental Health/Stress Mon noon).",
+          "confidence": "HIGH",
+          "sourceUrl": "https://wvjlap.org/",
           "sourceTier": "primary-official",
           "verifiedOn": "2026-07-02"
         }

@@ -35,3 +35,13 @@ US-NV-nlap-lcl-2026	US-NV	https://nvbar.org/for-lawyers/resources/wellbeing/nlap
 US-OH-olap-2026	US-OH	https://www.ohiolap.org/faq	web search + direct fetch	2026-07-02	
 US-OK-lhl-2026	US-OK	https://www.okbar.org/lhl/	web search + direct fetch	2026-07-02	
 US-OR-oaap-2026	US-OR	https://oaap.org/about/	web search + direct fetch	2026-07-02	
+US-PA-lclpa-2026	US-PA	https://www.lclpa.org/	web search + direct fetch	2026-07-02	
+US-RI-lhl-2026	US-RI	https://ribar.com/page.aspx?id=50	corroborated from RI Bar page content surfaced via search (ribar.com 403 this session)	2026-07-02	
+US-SC-sclhl-2026	US-SC	https://www.scbar.org/for-lawyers/membership/member-benefits/lawyers-helping-lawyers/	web search + direct fetch	2026-07-02	
+US-TN-tlap-2026	US-TN	https://www.tncourts.gov/press/2020/03/23/tennessee-lawyers-assistance-program-ready-assist-attorneys-need	tncourts.gov official pages loaded (tlap.org rendered but truncated)	2026-07-02	
+US-UT-lhl-tava-2026	US-UT	https://www.utahbar.org/member-services/lawyers-helping-lawyers/	web search + direct fetch	2026-07-02	
+US-VA-vjlap-2026	US-VA	https://www.vacle.org/lawyers-helping-lawyers/	VA CLE official affiliated page loaded (vjlap.org 403 this session)	2026-07-02	
+US-VT-lap-2026	US-VT	https://www.vtbar.org/attorney-well-being/	VBA attorney-wellness page loaded (lapvt.org 403 this session)	2026-07-02	
+US-WA-wsba-wellness-2026	US-WA	https://www.wsba.org/for-legal-professionals/member-support/wellness	web search + direct fetch	2026-07-02	
+US-WI-wislap-2026	US-WI	https://www.wisbar.org/formembers/wislap/pages/lawyer-assistance-program.aspx	web search + direct fetch	2026-07-02	
+US-WV-wvjlap-2026	US-WV	https://wvjlap.org/	web search + direct fetch	2026-07-02	
