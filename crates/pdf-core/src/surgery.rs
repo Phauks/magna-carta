@@ -52,6 +52,16 @@ pub(crate) fn resolve_dict<'a>(
     }
 }
 
+/// Resolve an object through indirection, following reference chains to the
+/// underlying direct object. A non-reference passes through unchanged; a
+/// dangling reference yields `None`. Values like `/Widths` and `/FirstChar` are
+/// routinely stored as indirect references, so callers that only accept a
+/// concrete `Array`/number must resolve first or they misread the reference as
+/// unsupported.
+fn resolve_object<'a>(doc: &'a lopdf::Document, obj: &'a Object) -> Option<&'a Object> {
+    doc.dereference(obj).ok().map(|(_, resolved)| resolved)
+}
+
 // ── Width array parsers ───────────────────────────────────────────────────────
 
 /// Parse the `/W` array of a CIDFont descendant into a CID → width map.
@@ -236,12 +246,20 @@ fn resolve_simple_font_metrics(
     font_dict: &lopdf::Dictionary,
 ) -> Option<FontMetrics> {
     // When the font carries an explicit `/Widths` array, use it directly.
-    // Standard-14 fonts omit `/Widths`; for those, fall through to the
-    // standard_font_widths resolver below.
+    // `/Widths` and `/FirstChar` (and each width element) are frequently stored
+    // as indirect references — including on base-14-named fonts — so resolve
+    // each through indirection before reading it. A present-but-indirect
+    // `/Widths` read without dereferencing would look like a non-array and be
+    // mistaken for an unsupported font. Standard-14 fonts omit `/Widths`; for
+    // those, fall through to the standard_font_widths resolver below.
     if let Ok(widths_obj) = font_dict.get(b"Widths") {
-        let first_char = font_dict.get(b"FirstChar").ok().and_then(integer_value)? as u32;
+        let first_char = font_dict
+            .get(b"FirstChar")
+            .ok()
+            .and_then(|obj| resolve_object(doc, obj))
+            .and_then(integer_value)? as u32;
 
-        let width_objects = match widths_obj {
+        let width_objects = match resolve_object(doc, widths_obj)? {
             Object::Array(arr) => arr,
             _ => return None,
         };
@@ -249,7 +267,11 @@ fn resolve_simple_font_metrics(
         let widths: BTreeMap<u32, f32> = width_objects
             .iter()
             .enumerate()
-            .filter_map(|(offset, obj)| number_value(obj).map(|w| (first_char + offset as u32, w)))
+            .filter_map(|(offset, obj)| {
+                resolve_object(doc, obj)
+                    .and_then(number_value)
+                    .map(|w| (first_char + offset as u32, w))
+            })
             .collect();
 
         // `/MissingWidth` lives in the `/FontDescriptor` subdictionary.
@@ -1310,6 +1332,41 @@ mod tests {
                 assert_eq!(widths.get(&67), None);
             }
             _ => panic!("expected Supported"),
+        }
+    }
+
+    #[test]
+    fn simple_font_indirect_widths_are_resolved() {
+        // `/Widths` and `/FirstChar` as indirect references (the common real-world
+        // form, seen on non-embedded TrueType and base-14-named fonts). Reading
+        // `/Widths` without dereferencing would misclassify the font as unsupported.
+        let mut d = Document::with_version("1.5");
+        let widths_id = d.add_object(Object::Array(vec![
+            Object::Integer(500),
+            Object::Integer(600),
+        ]));
+        let first_char_id = d.add_object(Object::Integer(65));
+        let font = dictionary! {
+            "Type" => "Font", "Subtype" => "TrueType", "BaseFont" => "TimesNewRomanPSMT",
+            "FirstChar" => Object::Reference(first_char_id),
+            "Widths" => Object::Reference(widths_id),
+        };
+        let fid = d.add_object(font);
+        let page = d.add_object(dictionary! {
+            "Type" => "Page",
+            "Resources" => dictionary! { "Font" => dictionary! { "F0" => Object::Reference(fid) } },
+        });
+        match page_fonts(&d, page).get(b"F0".as_ref()).unwrap() {
+            FontMetrics::Supported {
+                bytes_per_code,
+                widths,
+                ..
+            } => {
+                assert_eq!(*bytes_per_code, 1);
+                assert_eq!(widths.get(&65), Some(&500.0));
+                assert_eq!(widths.get(&66), Some(&600.0));
+            }
+            _ => panic!("expected Supported for indirect /Widths"),
         }
     }
 

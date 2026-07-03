@@ -176,6 +176,24 @@ impl Document {
             png: false,
         })
     }
+
+    /// The bounding rectangle of every non-whitespace text glyph rendered on page
+    /// `index`, in redaction [`Rect`] coordinates (PDF user space, bottom-left
+    /// origin). Observation runs through the same path as the redaction outcome
+    /// gate, so the rectangles reflect what a viewer actually sees — text drawn
+    /// directly on the page, by Form XObjects, and by annotation appearance
+    /// streams alike. Whitespace glyphs are excluded (they carry no visible ink).
+    /// Returns an empty vector for a page with no visible text; `PageOutOfRange`
+    /// if the page cannot be observed. Locates text to redact or inspect.
+    pub fn page_text_rects(&self, index: usize) -> Result<Vec<Rect>, PdfError> {
+        let obs = crate::textpos::observe_page(&self.pdf, index).ok_or(PdfError::PageOutOfRange)?;
+        Ok(obs
+            .glyphs
+            .iter()
+            .filter(|g| !crate::redact::is_whitespace_glyph(&g.text))
+            .map(|g| crate::detect::to_display_rect(g.bbox, obs.height_pt))
+            .collect())
+    }
 }
 
 #[cfg(test)]
@@ -207,6 +225,19 @@ mod tests {
         assert!((size.width_pt - 612.0).abs() < 1.0);
         assert!((size.height_pt - 792.0).abs() < 1.0);
         assert_eq!(doc.page_size(5), Err(PdfError::PageOutOfRange));
+    }
+
+    #[test]
+    fn page_text_rects_locates_visible_text() {
+        let doc = Document::load(include_bytes!("../tests/fixtures/hello.pdf").to_vec()).unwrap();
+        let rects = doc.page_text_rects(0).unwrap();
+        assert!(!rects.is_empty(), "hello.pdf page 0 has visible text");
+    }
+
+    #[test]
+    fn page_text_rects_empty_for_blank_page() {
+        let doc = Document::load(blank()).unwrap();
+        assert!(doc.page_text_rects(0).unwrap().is_empty());
     }
 
     #[test]
