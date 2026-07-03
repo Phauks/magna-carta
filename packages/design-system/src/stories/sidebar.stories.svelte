@@ -146,7 +146,7 @@
 
         <!-- Named so the work canvas resizes as its own view-transition group (geometry morph) rather
              than crossfading with the page root when the rail collapses. -->
-        <div class="grow p-16" style="view-transition-name: mc-app-canvas">
+        <div class="grow bg-surface-default p-16" style="view-transition-name: mc-app-canvas">
           <p class="text-muted">Matters, Contacts, and the rest of the app render here.</p>
         </div>
       </div>

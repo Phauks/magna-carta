@@ -141,7 +141,12 @@
 
         <!-- Named so the work column resizes as its own view-transition group (geometry morph) rather
              than crossfading with the page root when the rail collapses — no canvas ghosting. -->
-        <div class="flex grow flex-col overflow-hidden" style="view-transition-name: mc-app-canvas">
+        <!-- The canvas paints its own surface: the collapse layers old/new snapshots with no
+             crossfade, so a transparent snapshot would double-expose the outgoing text. -->
+        <div
+          class="flex grow flex-col overflow-hidden bg-surface-default"
+          style="view-transition-name: mc-app-canvas"
+        >
           <!-- Top bar — the TopBar chrome parts, starting to the right of the brand corner; its
                row height pins to the brand header so the chrome reads as one band. -->
           <TopBar.Root>

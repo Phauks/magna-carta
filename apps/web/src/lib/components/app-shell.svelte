@@ -103,8 +103,14 @@
       </Sidebar.Footer>
     </Sidebar.Root>
 
-    <!-- Named so the work canvas resizes as its own view-transition group when the rail collapses. -->
-    <div class="flex grow flex-col overflow-hidden" style="view-transition-name: mc-app-canvas">
+    <!-- Named so the work canvas resizes as its own view-transition group when the rail
+         collapses. It paints its OWN surface: the collapse animation layers the old and new
+         canvas snapshots without a crossfade, so a transparent-background snapshot would let the
+         outgoing text show through the incoming one (the owner caught the double-exposure). -->
+    <div
+      class="flex grow flex-col overflow-hidden bg-surface-default"
+      style="view-transition-name: mc-app-canvas"
+    >
       <TopBar.Root>
         <TopBar.Search
           shortcut={paletteShortcut}
