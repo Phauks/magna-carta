@@ -110,3 +110,68 @@ mod summary_tests {
         assert_eq!(s.safety_violations, vec!["d".to_string()]);
     }
 }
+
+/// A single regression versus the baseline.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Regression {
+    pub kind: String,
+    pub detail: String,
+}
+
+/// Compare a run against the baseline. New panics, new timeouts, new safety
+/// violations, and a drop in successes are regressions.
+pub fn diff_baseline(current: &Summary, baseline: &Summary) -> Vec<Regression> {
+    let mut out = Vec::new();
+    let new_names = |cur: &[String], base: &[String]| -> Vec<String> {
+        cur.iter().filter(|n| !base.contains(n)).cloned().collect()
+    };
+    for n in new_names(&current.panicked, &baseline.panicked) {
+        out.push(Regression { kind: "new_panic".into(), detail: n });
+    }
+    for n in new_names(&current.timed_out, &baseline.timed_out) {
+        out.push(Regression { kind: "new_timeout".into(), detail: n });
+    }
+    for n in new_names(&current.safety_violations, &baseline.safety_violations) {
+        out.push(Regression { kind: "new_safety_violation".into(), detail: n });
+    }
+    let cur_success = current.outcomes.get("success").copied().unwrap_or(0);
+    let base_success = baseline.outcomes.get("success").copied().unwrap_or(0);
+    if cur_success < base_success {
+        out.push(Regression {
+            kind: "coverage_drop".into(),
+            detail: format!("success {cur_success} < baseline {base_success}"),
+        });
+    }
+    out
+}
+
+#[cfg(test)]
+mod diff_tests {
+    use super::*;
+
+    fn base() -> Summary {
+        Summary {
+            total: 2,
+            outcomes: BTreeMap::from([("success".to_string(), 2)]),
+            fallback_reasons: BTreeMap::new(),
+            panicked: vec![],
+            timed_out: vec![],
+            safety_violations: vec![],
+        }
+    }
+
+    #[test]
+    fn clean_run_matches_baseline() {
+        assert!(diff_baseline(&base(), &base()).is_empty());
+    }
+
+    #[test]
+    fn new_panic_and_coverage_drop_are_regressions() {
+        let mut cur = base();
+        cur.outcomes.insert("success".into(), 1);
+        cur.panicked.push("evil.pdf".into());
+        let regs = diff_baseline(&cur, &base());
+        assert!(regs.iter().any(|r| r.kind == "new_panic" && r.detail == "evil.pdf"));
+        assert!(regs.iter().any(|r| r.kind == "coverage_drop"));
+    }
+}
