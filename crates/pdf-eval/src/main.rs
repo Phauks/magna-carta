@@ -21,6 +21,8 @@ use pdfium_render::prelude::*;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 
+mod validate;
+
 #[cfg(feature = "pdfium")]
 const MAX_PAGES_PER_DOC: usize = 3;
 

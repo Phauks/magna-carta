@@ -1909,6 +1909,8 @@ dependencies = [
  "pdf",
  "pdf-core",
  "pdfium-render",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
