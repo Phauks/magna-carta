@@ -10,6 +10,8 @@ import { ingestQueue, type R2EventMessage } from "./files/ingest-consumer.ts";
 import { inferenceQueue, type InferenceJob } from "./inference/inference-consumer.ts";
 import { runIdleCheckoutSweep } from "./editing/idle-checkout-sweep.ts";
 import { runTieringSweep } from "./editing/tiering-sweep.ts";
+import { recoveryQueue } from "./recovery/recovery-consumer.ts";
+import type { RecoveryShardMessage } from "./recovery/recovery-types.ts";
 import { runScheduledSweep, runStorageReconciliation } from "./scheduled.ts";
 import { LiveTimerDurableObject } from "./timer/live-timer-durable-object.ts";
 
@@ -26,6 +28,11 @@ export { ConversionJob } from "./conversions/conversion-coordinator.ts";
 // wrangler.jsonc's durable_objects binding.
 export { FirmDatabase } from "./firm-database/firm-database-object.ts";
 
+// The password-recovery job coordinator Durable Object: fans a recovery job out across shards and
+// aggregates outcomes. Exported so the runtime can instantiate the class named in wrangler.jsonc's
+// durable_objects binding.
+export { RecoveryJobCoordinator } from "./recovery/recovery-coordinator.ts";
+
 // The bundle-build queue's name (wrangler.jsonc queues.consumers) — the queue() handler routes its
 // batches to the bundle consumer, every other queue to the files-ingest consumer.
 const BUNDLE_BUILD_QUEUE = "magna-carta-production-bundle-build";
@@ -41,6 +48,11 @@ const CONVERSION_QUEUE = "magna-carta-production-conversion";
 // The shared per-firm job queue's name (the env.QUEUE producer the outbox relay publishes to) — the
 // queue() handler routes its batches to the per-firm cost-recovery consumer.
 const PER_FIRM_JOB_QUEUE = "magna-carta-production-platform-jobs";
+
+// The password-recovery shard queue's name — the queue() handler routes its batches to the recovery
+// consumer, which runs one shard of a dictionary/rule search and reports its outcome back to the
+// coordinator Durable Object.
+const RECOVERY_QUEUE = "magna-carta-production-recovery-shard";
 
 // createApp defaults the plugin runtime to the production seam — the firm_secret credential store
 // throws until the marketplace wires the live credential read; carrier calls use a fetch-backed
@@ -100,6 +112,10 @@ export default {
     // production until then.)
     if (batch.queue === PER_FIRM_JOB_QUEUE) {
       return perFirmQueue(batch as MessageBatch<PerFirmQueueMessage>, env);
+    }
+    // The recovery shard queue routes to the recovery consumer (one dictionary/rule shard per message).
+    if (batch.queue === RECOVERY_QUEUE) {
+      return recoveryQueue(batch as MessageBatch<RecoveryShardMessage>, env);
     }
     // Both the interactive files-ingest queue and the bulk files-ingest-bulk queue route to the
     // same ingest handler — the lane separation is entirely in queue topology and concurrency.

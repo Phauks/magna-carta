@@ -118,6 +118,17 @@ export type Bindings = {
   // Optional: absent in every test environment and until the deploy-time binding is added; while
   // unset, resolveEnginePort returns the deferred port (engine-not-implemented).
   CONVERT?: Fetcher;
+  // The password-recovery job coordinator: fans a recovery job out across shards and aggregates
+  // outcomes into the job's final state.
+  RECOVERY_JOB: DurableObjectNamespace<
+    import("./recovery/recovery-coordinator.ts").RecoveryJobCoordinator
+  >;
+  // The recovery shard queue the coordinator enqueues onto; the consumer runs one dictionary/rule
+  // shard and reports its outcome back to the coordinator.
+  RECOVERY_QUEUE: Queue<import("./recovery/recovery-types.ts").RecoveryShardMessage>;
+  // The dedicated password-recovery worker (magna-carta-recovery), reached over a service binding.
+  // Optional here so the pool can start without a running recovery worker.
+  RECOVERY_SERVICE?: Fetcher;
   // The authenticated Workers AI binding — the only path inference reaches the gateway through (no raw
   // gateway token in any firm-reachable config). Pre-authenticated within the account.
   AI: Ai;
