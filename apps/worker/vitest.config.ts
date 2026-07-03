@@ -141,13 +141,13 @@ export default defineConfig({
     cloudflareTest({
       wrangler: { configPath: `${import.meta.dirname}/wrangler.jsonc` },
       remoteBindings: false,
-      // Three service bindings in wrangler.jsonc reference dedicated workers that do not run under
-      // the local pool — magna-carta-scan (SCAN_SERVICE), magna-carta-convert (CONVERT), and
-      // magna-carta-bundle (BUNDLE_SERVICE). Miniflare requires all to exist, so register minimal
-      // stubs. The scan stub returns the no-engine RawScanResult (an honest unscanned, never a fake
-      // clean); the convert stub only satisfies startup validation (conversion-engine tests inject
-      // fake CONVERT fetchers directly, never call it); the bundle stub returns a canned BuildResponse
-      // so coordinator tests can exercise the happy path without a live bundle worker.
+      // Four service bindings in wrangler.jsonc reference dedicated workers that do not run under the
+      // local pool — magna-carta-scan (SCAN_SERVICE), magna-carta-convert (CONVERT), magna-carta-bundle
+      // (BUNDLE_SERVICE), and magna-carta-recovery (RECOVERY_SERVICE). Miniflare requires all to exist,
+      // so register minimal stubs. The scan stub returns the no-engine RawScanResult (an honest
+      // unscanned, never a fake clean); the convert and recovery stubs only satisfy startup validation
+      // (those route tests inject fake fetchers directly, never call the stub); the bundle stub returns
+      // a canned BuildResponse so coordinator tests can exercise the happy path without a live worker.
       miniflare: {
         workers: [
           {
@@ -164,6 +164,11 @@ export default defineConfig({
             name: "magna-carta-bundle",
             modules: true,
             script: BUNDLE_SERVICE_STUB_SCRIPT,
+          },
+          {
+            name: "magna-carta-recovery",
+            modules: true,
+            script: `export default { fetch() { return new Response("stub", { status: 501 }); } };`,
           },
         ],
       },

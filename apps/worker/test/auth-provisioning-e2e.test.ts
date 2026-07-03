@@ -283,6 +283,7 @@ describe("end-to-end", () => {
         "tools:aiTextDetection",
         "tools:fileConverter",
         "tools:fileIntegrity",
+        "tools:fileRepair",
         "tools:fileTypeVerifier",
         "tools:firmUsage",
         "tools:metadataScrubber",

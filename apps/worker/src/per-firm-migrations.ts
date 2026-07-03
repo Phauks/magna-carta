@@ -35,6 +35,7 @@ import supportAccessPermissionsSql from "@magna-carta/database/drizzle/per-firm/
 import seedToolsFileTypeVerifierSql from "@magna-carta/database/drizzle/per-firm/0032_seed-tools-file-type-verifier.sql";
 import aiDetectionUsageSql from "@magna-carta/database/drizzle/per-firm/0033_ai-detection-usage.sql";
 import seedToolsAiTextDetectionSql from "@magna-carta/database/drizzle/per-firm/0034_seed-tools-ai-text-detection.sql";
+import seedToolsFileRepairSql from "@magna-carta/database/drizzle/per-firm/0035_seed-tools-file-repair.sql";
 
 // The per-firm migration lineage bundled INTO the worker (no filesystem at runtime): the FirmDatabase
 // Durable Object runs this lineage against its own SQLite storage on wake (firm-database-object.ts),
@@ -79,5 +80,6 @@ export function perFirmMigrations(): Migration[] {
     "0032_seed-tools-file-type-verifier": seedToolsFileTypeVerifierSql,
     "0033_ai-detection-usage": aiDetectionUsageSql,
     "0034_seed-tools-ai-text-detection": seedToolsAiTextDetectionSql,
+    "0035_seed-tools-file-repair": seedToolsFileRepairSql,
   });
 }
