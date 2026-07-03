@@ -44,6 +44,12 @@ git diff --exit-code packages/api-client/src || fail "generated client drift —
 step "contract — Spectral hygiene lint"
 pnpm --filter @magna-carta/worker exec spectral lint openapi/openapi.json --fail-severity warn || fail "spectral"
 
+# Design tokens are the same code-as-contract shape: generated/ must byte-match a fresh tz build
+# (and the golden twins are asserted equal by the package's own test gate).
+step "contract — design-token drift"
+pnpm --filter @magna-carta/design-tokens run build || fail "design-tokens build"
+git diff --exit-code packages/design-tokens/generated || fail "design-token drift — regenerate + re-pin the goldens in the same commit"
+
 # --- scan engine acceptance: only when scan sources changed, and only if Docker is available. The
 # EICAR end-to-end gate needs a Docker daemon, so a missing daemon is a logged skip (run it by hand
 # before deploying a scan change), never a hard block — matching the post-merge clean hook.

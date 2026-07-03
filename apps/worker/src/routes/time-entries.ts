@@ -4,6 +4,7 @@ import type { BatchDatabase, EffectWrite } from "@magna-carta/data-access/effect
 import { runIdempotentEffect } from "@magna-carta/data-access/run-idempotent-effect";
 import { resolveScopedSetting } from "@magna-carta/data-access/scoped-setting-statements";
 import { readFirmSetting } from "@magna-carta/data-access/setting-statements";
+import type { SqlDatabase } from "@magna-carta/data-access/idempotency-statements";
 import {
   captureTimeEntry,
   updateDraftTimeEntry,
@@ -476,10 +477,10 @@ type TimeApp = OpenAPIHono<{ Bindings: Bindings; Variables: AppVariables }>;
 // the precedence chain (override > matter > client > timekeeper > role > card_default), rounds the
 // raw duration to the scope-resolved increment/direction, then returns the values captureTimeEntry
 // stores. When no rateCardId is provided, the first non-archived card is tried (the common single-
-// card firm scenario). A non-billable entry resolves to no rate and a null amount. Uses D1Database
-// directly (the handler's firm.firmDatabase) so it can call .all() on the native statement.
+// card firm scenario). A non-billable entry resolves to no rate and a null amount. Takes the firm's
+// SqlDatabase (the handler's firm.firmDatabase) so it can call .all() on the prepared statement.
 async function resolveCaptureValues(
-  database: D1Database,
+  database: SqlDatabase,
   input: z.infer<typeof CreateTimeEntryRequest>,
 ) {
   const increment = await resolveScopedSetting(database, incrementMinutesDefinition, {
@@ -1081,7 +1082,7 @@ export function registerTimeEntriesRoutes(app: TimeApp, chokepoint: Chokepoint):
 // missing or belongs to another timekeeper — the caller emits a not-found (rather than a 403) so
 // existence is not leaked: a caller learns nothing more than "no such entry" for rows they do not own.
 async function ownsEntry(
-  database: D1Database,
+  database: SqlDatabase,
   id: TimeEntryId,
   sessionUserId: string,
 ): Promise<boolean> {

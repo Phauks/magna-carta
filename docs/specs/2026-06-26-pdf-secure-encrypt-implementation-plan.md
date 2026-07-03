@@ -131,6 +131,7 @@ Read the trailer `/Encrypt` dictionary **without** needing a password: `/Filter`
 **Client-side decision (resolve first):** confirm whether `pdf-core` WASM is already loadable in the SPA bundle (check how/if the viewer or another surface loads it). **If yes** → the component calls the `packages/pdf` functions directly; password + bytes never leave the browser; **no worker route, no audit row**. **If not** → either wire the SPA WASM load here (recommended) or add `apps/worker/src/routes/pdf-secure.ts` (mirror `metadata.ts`: chokepoint on `tools:pdfSecure`, `audited:false`, `rateLimit:"expensive"`, base64 in/out, nothing stored) and register in `app.ts` + regenerate the OpenAPI contract. Record the choice in the active-work note.
 
 Catalog row:
+
 ```ts
 { id: "pdf-secure", name: "Unlock & Secure PDF", icon: "file-lock-2",
   subjectGroup: "documents", permission: assertPermission("tools:pdfSecure"),
@@ -149,7 +150,7 @@ UI: drop a file → `inspectSecurity`; if encrypted, prompt + **Unlock**; **Secu
 
 **Files:** `changelog.d/pdf-secure-encrypt.md`; `docs/decisions/pending/pdf-secure-encrypt.md` (the ADR — adopt lopdf's handler; write AES-256 only; permissions advisory); `packages/pdf/README.md` (the three functions, the not-redaction / advisory-permissions caveats); `docs/user/` (the Tools tool's help page); `STATUS.md` (own row); `ROADMAP.md` (slice 5 complete); the roadmap design's slice-5 line ticked.
 
-- [ ] **Step 1:** write all fragments + docs. No process refs in README/user docs. State plainly: this unlocks with a *known* password (recovery is the separate Decryption tool); permission bits are advisory; secure writes AES-256.
+- [ ] **Step 1:** write all fragments + docs. No process refs in README/user docs. State plainly: this unlocks with a _known_ password (recovery is the separate Decryption tool); permission bits are advisory; secure writes AES-256.
 - [ ] **Step 2:** `pnpm check` clean; `vp run worktrees` before editing STATUS/ROADMAP; edit only this slice's STATUS row.
 - [ ] **Step 3:** commit `docs(pdf-secure): changelog + ADR + user guide + status`.
 

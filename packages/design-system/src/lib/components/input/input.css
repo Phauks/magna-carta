@@ -1,0 +1,58 @@
+@layer components {
+  /*
+   * Input (Tier 1). A styled native <input> at the control height. Hairline border from the
+   * border-width token; on :focus-visible the border shifts to border.focus and the tokenized
+   * focus ring is painted (same outline geometry as the Button). The component layers `w-full`
+   * so the control fills its field; the recipe owns the rest. Disabled mirrors the Button's
+   * disabled treatment.
+   */
+  .mc-input {
+    min-block-size: var(--mc-density-control-md);
+    padding-inline: var(--mc-space-12);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    background-color: var(--mc-surface-field);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-tight);
+    transition-property: border-color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-input::placeholder {
+    color: var(--mc-text-muted);
+  }
+  /*
+   * Focus is a SINGLE merged edge, not a detached ring: the border and the outline both take the
+   * focus-ring colour and the outline sits flush (zero offset), so a control that already has a
+   * resting border reads as one thicker colored edge rather than a box-plus-ring "double shape".
+   * (The Button has no resting border, so it keeps the detached offset ring.)
+   */
+  .mc-input:focus-visible {
+    border-color: var(--mc-focus-ring);
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-input:disabled {
+    background-color: var(--mc-action-disabled);
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+  /* Drop the native number spin buttons so a number field reads the same as the text fields. */
+  .mc-input[type="number"] {
+    appearance: textfield;
+  }
+  .mc-input[type="number"]::-webkit-inner-spin-button,
+  .mc-input[type="number"]::-webkit-outer-spin-button {
+    appearance: none;
+    margin-inline: var(--mc-space-0);
+  }
+}

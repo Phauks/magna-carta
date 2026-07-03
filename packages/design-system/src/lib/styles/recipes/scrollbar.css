@@ -1,0 +1,26 @@
+@layer components {
+  /*
+   * Scrollbar — a slim, tokenised scrollbar applied wherever our own scroll regions appear (the
+   * Select/Command/Combobox dropdowns). Native <select> dropdowns (the calendar month/year jumps)
+   * are OS-rendered and cannot take this styling. Standard `scrollbar-*` for Firefox; the
+   * ::-webkit-scrollbar pseudos for Chromium/WebKit.
+   */
+  .mc-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--mc-border-strong) transparent;
+  }
+  .mc-scrollbar::-webkit-scrollbar {
+    width: var(--mc-space-8);
+    height: var(--mc-space-8);
+  }
+  .mc-scrollbar::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+  .mc-scrollbar::-webkit-scrollbar-thumb {
+    background-color: var(--mc-border-strong);
+    border-radius: var(--mc-radius-full);
+  }
+  .mc-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: var(--mc-text-subtle);
+  }
+}

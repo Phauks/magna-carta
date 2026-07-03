@@ -76,6 +76,8 @@ pub struct RedactionOutcome {
 /// What redaction can fail at. `GateFailed` means text survived — no PDF is emitted.
 #[derive(Debug)]
 pub enum RedactError {
+    /// Input rejected by the decompression-bomb guard (oversize or a bomb).
+    Rejected,
     Parse,
     PageOutOfRange,
     Render,
@@ -293,6 +295,7 @@ pub(crate) fn verify_gate(
 
 fn map_scrub_err(e: crate::ScrubError) -> RedactError {
     match e {
+        crate::ScrubError::Rejected => RedactError::Rejected,
         crate::ScrubError::Parse => RedactError::Parse,
         crate::ScrubError::Reassemble => RedactError::Reassemble,
         crate::ScrubError::GateFailed { detail } => RedactError::GateFailed { detail },
@@ -304,13 +307,15 @@ pub fn redact(
     regions: &[RedactionRegion],
     opts: &RedactionOptions,
 ) -> Result<RedactionOutcome, RedactError> {
+    crate::guard::guard_input(&bytes, &crate::guard::GuardLimits::default())
+        .map_err(|_| RedactError::Rejected)?;
     // Group regions by 0-based page index.
     let mut by_page: BTreeMap<usize, Vec<Rect>> = BTreeMap::new();
     for region in regions {
         by_page.entry(region.page).or_default().push(region.rect);
     }
 
-    let render_doc = Document::load(bytes.clone()).map_err(|_| RedactError::Parse)?; // hayro, for rendering
+    let render_doc = Document::load_unguarded(bytes.clone()).map_err(|_| RedactError::Parse)?; // hayro, for rendering
     let mut lo = lopdf::Document::load_mem(&bytes).map_err(|_| RedactError::Parse)?;
     let pages = lo.get_pages(); // 1-based number -> ObjectId
 
@@ -1110,5 +1115,14 @@ mod tests {
             "page 0 must be in pages_flattened"
         );
         assert_eq!(outcome.report.pages_redacted, vec![0]);
+    }
+
+    #[test]
+    fn redact_rejects_oversize_input() {
+        let big = vec![0u8; crate::guard::GuardLimits::default().max_input_bytes + 1];
+        assert!(matches!(
+            redact(big, &[], &RedactionOptions::default()),
+            Err(RedactError::Rejected)
+        ));
     }
 }

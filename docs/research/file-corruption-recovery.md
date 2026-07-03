@@ -104,8 +104,8 @@ scan/bound/validate loop.
 
 ## Crate landscape — reuse vs. build
 
-| Already vendored (org) | New permissive crates to add | Build ourselves |
-| --- | --- | --- |
+| Already vendored (org)                                                                                                                                                                                                     | New permissive crates to add                                                                                                                                                          | Build ourselves                                                                                                                                                                                |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `lopdf`, `cfb`, `zip`, `flate2`/`miniz_oxide`, RustCrypto hashes, `aho-corasick` (scan); `office-crypto`, RustCrypto (decryption-core); `sevenz-rust2` (bundling); pure-Rust PDF engine + object surgery; Magika (planned) | `zune-inflate`, `rc-zip`, `ruzstd`, `lzma-rs`, `bzip2` 0.6, `infer`/`file-format`, `zune-jpeg`/`zune-png`, `chardetng` + `encoding_rs`, `jsonrepair`, (`rust-par2` for protect-ahead) | ZIP signature-scan re-index · OPC/OOXML part + rels reconstruction · CFB FAT rebuild · **PDF xref rebuild (biggest)** · carving signature DB + scan loop · JPEG/PNG deep salvage · lenient XML |
 
 All listed crates are permissive (MIT / Apache-2.0 / Zlib), pure-Rust (WASM-friendly, no C toolchain), no
@@ -134,12 +134,13 @@ degrades gracefully on _unknown_ formats by rescuing whatever intact content is 
 ## Architecture fit
 
 Same **raw-facts-in-container → verdict-in-app** pattern as scan / type-verifier; pure-Rust → WASM (browser)
-+ native (container); shares the Magika substrate with the File Type Verifier; reuses the PDF engine's
-surgery and decryption-core's vendored parsers; no GPL ships, no upload. Co-locates with the existing
-file-tool family and honors the Tools "ethereal principle" (core-first, pullable into a matter) and the
-evidentiary-receipt model the Hash tool established. The pure-Rust core + WASM(worker)/native(container)
-hosting is provided by the shared `engine-host` harness (see
-`docs/specs/2026-06-28-engine-host-framework-design.md`).
+
+- native (container); shares the Magika substrate with the File Type Verifier; reuses the PDF engine's
+  surgery and decryption-core's vendored parsers; no GPL ships, no upload. Co-locates with the existing
+  file-tool family and honors the Tools "ethereal principle" (core-first, pullable into a matter) and the
+  evidentiary-receipt model the Hash tool established. The pure-Rust core + WASM(worker)/native(container)
+  hosting is provided by the shared `engine-host` harness (see
+  `docs/specs/2026-06-28-engine-host-framework-design.md`).
 
 ## Open items to settle in the File Repair & Salvage design (SP2)
 

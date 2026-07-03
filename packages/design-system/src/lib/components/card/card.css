@@ -1,0 +1,48 @@
+@layer components {
+  /*
+   * Card (Tier 1). A flat raised surface bounded by a hairline rule — no shadow (design language
+   * §6: shadow is reserved for floating layers). The root stacks its sections with a 24px rhythm
+   * and a 24px block padding; each section carries the matching 24px inline gutter, so parts can
+   * be omitted or reordered without the gutters drifting.
+   */
+  .mc-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-24);
+    padding-block: var(--mc-space-24);
+    background-color: var(--mc-surface-raised);
+    color: var(--mc-text-default);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-lg);
+  }
+  .mc-card-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--mc-space-4);
+    padding-inline: var(--mc-space-24);
+  }
+  .mc-card-title {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-lg);
+    font-weight: var(--mc-weight-semibold);
+    line-height: var(--mc-leading-tight);
+    color: var(--mc-text-default);
+  }
+  .mc-card-description {
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+    color: var(--mc-text-muted);
+  }
+  .mc-card-content {
+    padding-inline: var(--mc-space-24);
+  }
+  .mc-card-footer {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-8);
+    padding-inline: var(--mc-space-24);
+  }
+}

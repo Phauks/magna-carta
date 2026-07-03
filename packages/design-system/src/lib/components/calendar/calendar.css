@@ -1,0 +1,140 @@
+@layer components {
+  /*
+   * Calendar (Tier 4, Bits UI). A month grid; Bits owns the date math, keyboard navigation, and the
+   * grid a11y. The day recipe keys its states off Bits' data attributes (data-today, data-selected,
+   * data-outside-month, data-disabled, data-unavailable); order matters, so selected sits after the
+   * resting/today rules and the unavailable states sit last.
+   */
+  .mc-calendar {
+    display: inline-block;
+    padding: var(--mc-space-16);
+    background-color: var(--mc-surface-default);
+    color: var(--mc-text-default);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+  }
+  .mc-calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-block-end: var(--mc-space-12);
+  }
+  .mc-calendar-nav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--mc-density-control-md);
+    block-size: var(--mc-density-control-md);
+    color: var(--mc-text-default);
+    background-color: transparent;
+    border-style: none;
+    border-radius: var(--mc-radius-md);
+    cursor: pointer;
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-calendar-nav:hover {
+    background-color: var(--mc-action-secondary);
+  }
+  .mc-calendar-nav:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-calendar-nav-icon {
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+  }
+  .mc-calendar-selects {
+    display: flex;
+    align-items: center;
+    gap: var(--mc-space-4);
+  }
+  /*
+   * Month/year jump-to selects (native <select>). They read as the heading — bold text, no border,
+   * no OS dropdown arrow (appearance: none) — since month/year navigation is implied; a hover wash
+   * and the focus ring are the only affordances. Still a real <select>, so the picker stays native.
+   */
+  .mc-calendar-select {
+    appearance: none;
+    padding-block: var(--mc-space-4);
+    padding-inline: var(--mc-space-4);
+    background-color: transparent;
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    font-weight: var(--mc-weight-medium);
+    text-align: center;
+    border-style: none;
+    border-radius: var(--mc-radius-sm);
+    cursor: pointer;
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-calendar-select:hover {
+    background-color: var(--mc-action-secondary);
+  }
+  .mc-calendar-select:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-calendar-grid {
+    border-collapse: collapse;
+  }
+  .mc-calendar-weekday {
+    padding-block: var(--mc-space-4);
+    color: var(--mc-text-muted);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-xs);
+    font-weight: var(--mc-weight-medium);
+    text-align: center;
+  }
+  .mc-calendar-cell {
+    padding: var(--mc-space-0);
+    text-align: center;
+  }
+  .mc-calendar-day {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    inline-size: var(--mc-density-control-md);
+    block-size: var(--mc-density-control-md);
+    border-radius: var(--mc-radius-md);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    cursor: pointer;
+    user-select: none;
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-calendar-day:hover {
+    background-color: var(--mc-action-secondary);
+  }
+  .mc-calendar-day:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-calendar-day[data-outside-month] {
+    color: var(--mc-text-subtle);
+  }
+  .mc-calendar-day[data-selected] {
+    background-color: var(--mc-action-primary);
+    color: var(--mc-action-primary-foreground);
+  }
+  .mc-calendar-day[data-disabled],
+  .mc-calendar-day[data-unavailable] {
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+}

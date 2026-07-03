@@ -1,0 +1,84 @@
+/*
+ * Template for generated/tailwind-theme.css (@terrazzo/plugin-tailwind).
+ *
+ * The plugin inlines resolved alias TARGETS for aliased tokens, so a generated
+ * semantic color would read var(--mc-color-neutral-0) — a mode-constant primitive —
+ * freezing utilities to light-mode values. Semantic colors are therefore hand-mapped
+ * below via @theme inline to the SEMANTIC --mc-* variables, which cascade per
+ * theme-and-mode in generated/tokens.css, keeping every color utility mode-responsive.
+ * Primitive color ramps are deliberately unmapped: components must use semantic names.
+ */
+
+/* Mode-invariant namespaces (spacing, radius, typography, easing, durations, z-index) — generated. */
+@theme {
+  @tz (theme: "chancery", mode: "light");
+}
+
+/* Semantic colors + elevation — hand-authored; `inline` keeps the var() reference in utilities. */
+@theme inline {
+  /* Elevation: dark themes may later override --mc-elevation-* per mode; the wiring already permits it. */
+  --shadow-elevation-0: var(--mc-elevation-0);
+  --shadow-elevation-1: var(--mc-elevation-1);
+  --shadow-elevation-2: var(--mc-elevation-2);
+  --shadow-elevation-3: var(--mc-elevation-3);
+  --color-surface-default: var(--mc-surface-default);
+  --color-surface-raised: var(--mc-surface-raised);
+  --color-surface-sunken: var(--mc-surface-sunken);
+  --color-surface-overlay: var(--mc-surface-overlay);
+  --color-surface-scrim: var(--mc-surface-scrim);
+  --color-surface-selected: var(--mc-surface-selected);
+  --color-surface-field: var(--mc-surface-field);
+  --color-text-default: var(--mc-text-default);
+  --color-text-muted: var(--mc-text-muted);
+  --color-text-subtle: var(--mc-text-subtle);
+  --color-text-inverse: var(--mc-text-inverse);
+  --color-text-link: var(--mc-text-link);
+  --color-action-primary: var(--mc-action-primary);
+  --color-action-primary-hover: var(--mc-action-primary-hover);
+  --color-action-primary-active: var(--mc-action-primary-active);
+  --color-action-primary-foreground: var(--mc-action-primary-foreground);
+  --color-action-secondary: var(--mc-action-secondary);
+  --color-action-secondary-hover: var(--mc-action-secondary-hover);
+  --color-action-secondary-foreground: var(--mc-action-secondary-foreground);
+  --color-action-destructive: var(--mc-action-destructive);
+  --color-action-destructive-hover: var(--mc-action-destructive-hover);
+  --color-action-destructive-foreground: var(--mc-action-destructive-foreground);
+  --color-action-disabled: var(--mc-action-disabled);
+  --color-action-disabled-foreground: var(--mc-action-disabled-foreground);
+  --color-border-default: var(--mc-border-default);
+  --color-border-strong: var(--mc-border-strong);
+  --color-border-focus: var(--mc-border-focus);
+  --color-focus-ring: var(--mc-focus-ring);
+  --color-accent-default: var(--mc-accent-default);
+  --color-accent-subtle: var(--mc-accent-subtle);
+  --color-accent-subtle-foreground: var(--mc-accent-subtle-foreground);
+  --color-accent-strong: var(--mc-accent-strong);
+  --color-accent-strong-foreground: var(--mc-accent-strong-foreground);
+  --color-chrome-surface: var(--mc-chrome-surface);
+  --color-chrome-surface-hover: var(--mc-chrome-surface-hover);
+  --color-chrome-text: var(--mc-chrome-text);
+  --color-chrome-text-muted: var(--mc-chrome-text-muted);
+  --color-chrome-text-strong: var(--mc-chrome-text-strong);
+  --color-chrome-border: var(--mc-chrome-border);
+  --color-chrome-accent: var(--mc-chrome-accent);
+  --color-status-info: var(--mc-status-info);
+  --color-status-info-foreground: var(--mc-status-info-foreground);
+  --color-status-info-subtle: var(--mc-status-info-subtle);
+  --color-status-info-subtle-foreground: var(--mc-status-info-subtle-foreground);
+  --color-status-info-subtle-border: var(--mc-status-info-subtle-border);
+  --color-status-success: var(--mc-status-success);
+  --color-status-success-foreground: var(--mc-status-success-foreground);
+  --color-status-success-subtle: var(--mc-status-success-subtle);
+  --color-status-success-subtle-foreground: var(--mc-status-success-subtle-foreground);
+  --color-status-success-subtle-border: var(--mc-status-success-subtle-border);
+  --color-status-warning: var(--mc-status-warning);
+  --color-status-warning-foreground: var(--mc-status-warning-foreground);
+  --color-status-warning-subtle: var(--mc-status-warning-subtle);
+  --color-status-warning-subtle-foreground: var(--mc-status-warning-subtle-foreground);
+  --color-status-warning-subtle-border: var(--mc-status-warning-subtle-border);
+  --color-status-danger: var(--mc-status-danger);
+  --color-status-danger-foreground: var(--mc-status-danger-foreground);
+  --color-status-danger-subtle: var(--mc-status-danger-subtle);
+  --color-status-danger-subtle-foreground: var(--mc-status-danger-subtle-foreground);
+  --color-status-danger-subtle-border: var(--mc-status-danger-subtle-border);
+}

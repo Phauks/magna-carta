@@ -1,0 +1,73 @@
+@layer components {
+  /*
+   * Accordion (Tier 2, Bits UI). Stacked sections divided by a hairline; each header is a quiet
+   * full-width button with a chevron that rotates on open (the rotation is a Tailwind group-data
+   * utility on the icon, so no off-token angle here). Borderless control → flush focus ring. The
+   * open/close height animation is deferred (see accordion.svelte).
+   */
+  .mc-accordion {
+    display: flex;
+    flex-direction: column;
+  }
+  .mc-accordion-item {
+    border-block-end-style: solid;
+    border-block-end-width: var(--mc-border-width-default);
+    border-block-end-color: var(--mc-border-default);
+  }
+  .mc-accordion-header {
+    display: flex;
+    margin-block: var(--mc-space-0);
+  }
+  .mc-accordion-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--mc-space-8);
+    padding-block: var(--mc-space-16);
+    padding-inline: var(--mc-space-0);
+    background-color: transparent;
+    border-style: none;
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    font-weight: var(--mc-weight-medium);
+    line-height: var(--mc-leading-tight);
+    text-align: start;
+    cursor: pointer;
+    transition-property: color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-accordion-trigger:focus-visible {
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-accordion-trigger:disabled {
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+  .mc-accordion-trigger:disabled .mc-accordion-chevron {
+    color: var(--mc-action-disabled-foreground);
+  }
+  .mc-accordion-chevron {
+    flex: none;
+    inline-size: var(--mc-space-16);
+    block-size: var(--mc-space-16);
+    color: var(--mc-text-muted);
+    transition-property: transform;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+  }
+  .mc-accordion-content {
+    padding-block-end: var(--mc-space-16);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+  }
+}

@@ -80,6 +80,7 @@ half, distinct from its scan loop). An engine that wants a richer check composes
 only the cheap, shared magic-byte layer.
 
 **`wasm_edge`** — the helpers every `wasm.rs` re-implements:
+
 - `bytes_out(&[u8]) -> Uint8Array` and an object-builder helper (the `set(obj, key, val)` closure, lifted).
 - A small `EdgeError` convention: engine errors map to **stable string codes**; a helper asserts the message
   carries **no file content** (the privileged-content rule, golden rule 4). Each engine still writes its own
@@ -87,6 +88,7 @@ only the cheap, shared magic-byte layer.
 - It holds **no engine logic** — the convention the current files already state, now enforceable.
 
 **`host`** — the container skeleton:
+
 - `serve(router)` — bind `0.0.0.0:8080`, `axum::serve`, the resolved-`io::Result` propagation `scan`/`bundle`
   already use.
 - A `/ready` route and the `AppState`-cloning shape.

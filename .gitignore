@@ -5,6 +5,11 @@ dist/
 .wrangler/
 .vite/
 coverage/
+# Storybook static build (the CI/VRT artifact; built on demand via `storybook-build`)
+storybook-static/
+# Playwright visual-regression run output (actual/diff images); committed baselines live in
+# packages/design-system/visual-regression/baselines/, which is NOT ignored
+packages/design-system/visual-regression/test-results/
 *.log
 .DS_Store
 # pre-existing scraping artifacts

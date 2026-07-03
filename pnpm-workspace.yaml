@@ -82,7 +82,54 @@ catalog:
   # Image processing (packages/conversion). wasm-vips: libvips compiled to WebAssembly via
   # Emscripten; runs in Node for the conversion test suite and in Workers for small raster jobs.
   wasm-vips: 0.0.18
+  # Design tokens (packages/design-tokens)
+  "@terrazzo/cli": 2.3.0
+  "@terrazzo/plugin-css": 2.3.0
+  "@terrazzo/plugin-tailwind": 2.3.0
+  "@types/culori": 4.0.1
+  apca-w3: 0.1.9
+  culori: 4.0.2
+  # Design system (packages/design-system)
+  bits-ui: 2.18.1
+  clsx: 2.1.1
+  formsnap: 2.0.1
+  paneforge: 1.0.2
+  svelte-sonner: 1.1.1
+  sveltekit-superforms: 2.30.1
+  tailwind-merge: 3.6.0
+  tailwindcss: 4.3.0
+  "@tailwindcss/vite": 4.3.0
+  "@tanstack/table-core": 8.21.3
+  "@internationalized/date": 3.12.2
+  "@lucide/svelte": 1.17.0
+  virtua: 0.49.1
+  # The IANA top-level-domain list (auto-published from the root zone). The single source for
+  # email/URL TLD validation, shared by the design-system form story and the app's real form schemas
+  # so both track the same list — never a hand-maintained set.
+  tlds: 1.261.0
+  # Self-hosted fonts (design language: in-custody, no font CDN). Variable builds where available.
+  "@fontsource-variable/atkinson-hyperlegible-next": 5.2.6
+  "@fontsource-variable/fraunces": 5.2.9
+  "@fontsource/unifrakturmaguntia": 5.2.8
+  # Signature-moment animation (design-system internal/signature-motion.ts is the ONLY import
+  # site — gated). MIT; supersedes the GSAP+DrawSVG+SplitText plan (ADR with the first consumer).
+  animejs: 4.5.0
+  # Catalog / stories (packages/design-system Storybook + Playwright VRT)
+  storybook: 10.4.3
+  "@storybook/addon-a11y": 10.4.3
+  "@storybook/addon-docs": 10.4.3
+  "@storybook/addon-svelte-csf": 5.1.2
+  "@storybook/addon-vitest": 10.4.3
+  "@storybook/svelte-vite": 10.4.3
+  "@chromatic-com/storybook": 5.2.1
+  "@playwright/test": 1.60.0
+  # happy-dom is the DOM test environment for browser-facing unit tests (an optional peer of the
+  # Vite+ test distribution); opted into per test file via the `@vitest-environment happy-dom`
+  # pragma so everything else stays in the default node pool.
+  happy-dom: 20.10.2
 
 overrides:
   vite: "npm:@voidzero-dev/vite-plus-core@0.1.24"
   vitest: "npm:@voidzero-dev/vite-plus-test@0.1.24"
+patchedDependencies:
+  bits-ui@2.18.1: patches/bits-ui@2.18.1.patch

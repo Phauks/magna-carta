@@ -1,0 +1,44 @@
+@layer components {
+  /*
+   * Textarea (Tier 1). The multi-line Input: same border, focus, and disabled treatment, with a
+   * minimum height of a few lines and vertical-only resize (horizontal resize would break a
+   * form's column width). Line height is `normal` rather than `tight` for multi-line reading.
+   */
+  .mc-textarea {
+    min-block-size: var(--mc-space-64);
+    padding-block: var(--mc-space-8);
+    padding-inline: var(--mc-space-12);
+    border-style: solid;
+    border-width: var(--mc-border-width-default);
+    border-color: var(--mc-border-default);
+    border-radius: var(--mc-radius-md);
+    background-color: var(--mc-surface-field);
+    color: var(--mc-text-default);
+    font-family: var(--mc-font-sans);
+    font-size: var(--mc-font-size-sm);
+    line-height: var(--mc-leading-normal);
+    resize: vertical;
+    transition-property: border-color, outline-color;
+    transition-duration: var(--mc-duration-fast);
+    transition-timing-function: var(--mc-easing-standard);
+    outline-color: transparent;
+    outline-style: solid;
+    outline-width: var(--mc-space-0);
+    outline-offset: var(--mc-focus-ring-offset);
+  }
+  .mc-textarea::placeholder {
+    color: var(--mc-text-muted);
+  }
+  /* Merged-edge focus, same as Input (no detached offset ring). */
+  .mc-textarea:focus-visible {
+    border-color: var(--mc-focus-ring);
+    outline-color: var(--mc-focus-ring);
+    outline-width: var(--mc-focus-ring-width);
+    outline-offset: var(--mc-space-0);
+  }
+  .mc-textarea:disabled {
+    background-color: var(--mc-action-disabled);
+    color: var(--mc-action-disabled-foreground);
+    cursor: not-allowed;
+  }
+}

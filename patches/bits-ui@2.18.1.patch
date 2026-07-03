@@ -1,0 +1,20 @@
+diff --git a/dist/internal/body-scroll-lock.svelte.js b/dist/internal/body-scroll-lock.svelte.js
+index 04833253a9e04813a458a8e1a7c12b720dd4a15b..4c0436cdef07554332f167eeb1ae971965001d4b 100644
+--- a/dist/internal/body-scroll-lock.svelte.js
++++ b/dist/internal/body-scroll-lock.svelte.js
+@@ -31,7 +31,14 @@ const bodyLockStackCount = new SharedState(() => {
+     function resetBodyStyle() {
+         if (!BROWSER)
+             return;
+-        document.body.setAttribute("style", initialBodyStyle ?? "");
++        // Magna Carta patch (bits-ui issue #1995): restore via style.cssText (CSSOM) instead of
++        // setAttribute("style", ...). Under the platform's strict style-src (no 'unsafe-inline'),
++        // the attribute write is blocked by style-src-attr, which in Chromium/WebKit leaves the
++        // old overflow:hidden;pointer-events:none block in place — the page stays permanently
++        // unscrollable after the first dialog close. cssText is the same CSP-clean CSSOM channel
++        // Svelte's own set_style uses for every style prop; semantics are identical (both replace
++        // the whole inline declaration block). See packages/design-system/test/csp-spike/VERDICT.md.
++        document.body.style.cssText = initialBodyStyle ?? "";
+         document.body.style.removeProperty("--scrollbar-width");
+         isIOS && stopTouchMoveListener?.();
+         // reset initialBodyStyle so next locker captures the correct styles

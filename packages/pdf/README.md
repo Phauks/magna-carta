@@ -472,10 +472,14 @@ Returns a `FormField[]`. Each entry carries the fully-qualified field name, kind
 ```ts
 import { fillForm } from "@magna-carta/pdf";
 
-const result = await fillForm(new Uint8Array(inputBytes), {
-  "topmostSubform[0].Page1[0].f1_01[0]": "Jane Smith",
-  "topmostSubform[0].Page1[0].c1_1[0]": true,  // checkbox
-}, { flatten: false });
+const result = await fillForm(
+  new Uint8Array(inputBytes),
+  {
+    "topmostSubform[0].Page1[0].f1_01[0]": "Jane Smith",
+    "topmostSubform[0].Page1[0].c1_1[0]": true, // checkbox
+  },
+  { flatten: false },
+);
 // result.pdf — Uint8Array of the PDF with field values written
 ```
 
@@ -506,18 +510,22 @@ Bakes each widget's current appearance into the page via a `Do` operator, merges
 type FieldKind = "text" | "checkbox" | "radio" | "choice" | "pushButton" | "signature" | "unknown";
 
 interface FormField {
-  name: string;                               // fully-qualified dot-joined field name
+  name: string; // fully-qualified dot-joined field name
   kind: FieldKind;
-  value: string | boolean | null;             // current value, or null
-  options: string[];                          // /Opt entries (choice/radio)
+  value: string | boolean | null; // current value, or null
+  options: string[]; // /Opt entries (choice/radio)
   readOnly: boolean;
-  page: number | null;                        // 0-based page index
-  rect: [number, number, number, number] | null;  // [llx, lly, urx, ury] display points
+  page: number | null; // 0-based page index
+  rect: [number, number, number, number] | null; // [llx, lly, urx, ury] display points
 }
 
 type FormFillValues = Record<string, string | boolean>;
-interface FormFillOptions { flatten?: boolean }
-interface FormFillResult  { pdf: Uint8Array }
+interface FormFillOptions {
+  flatten?: boolean;
+}
+interface FormFillResult {
+  pdf: Uint8Array;
+}
 ```
 
 ## Security
@@ -565,9 +573,9 @@ Protect a PDF, returning `{ pdf: Uint8Array }`. Writes **AES-256 by default and 
 
 ```ts
 const { pdf } = await secureDocument(bytes, {
-  ownerPassword: "…",            // required — governs permission changes
-  userPassword: "…",             // optional open password; omit for "opens without a prompt"
-  permissions: { copy: false },  // omitted bits default to allowed
+  ownerPassword: "…", // required — governs permission changes
+  userPassword: "…", // optional open password; omit for "opens without a prompt"
+  permissions: { copy: false }, // omitted bits default to allowed
   // encryptMetadata?: boolean     (default true)
   // algorithm?: "aes256" | "aes128"  (default aes256; aes128 for old readers, never RC4)
 });
@@ -582,15 +590,21 @@ anyone out.
 
 ```ts
 interface SecurityPermissions {
-  print: boolean; printHighRes: boolean; copy: boolean; modify: boolean;
-  annotate: boolean; fillForms: boolean; assemble: boolean; accessibilityCopy: boolean;
+  print: boolean;
+  printHighRes: boolean;
+  copy: boolean;
+  modify: boolean;
+  annotate: boolean;
+  fillForms: boolean;
+  assemble: boolean;
+  accessibilityCopy: boolean;
 }
 interface SecurityInfo {
   encrypted: boolean;
   handler: "standard" | "publicKey" | "none";
   algorithm: "rc4" | "aes128" | "aes256" | "unknown" | "none";
   hasUserPassword: boolean;
-  permissions: SecurityPermissions | null;  // null when not readable
+  permissions: SecurityPermissions | null; // null when not readable
 }
 interface SecureOptions {
   ownerPassword: string;
@@ -599,7 +613,9 @@ interface SecureOptions {
   encryptMetadata?: boolean;
   algorithm?: "aes256" | "aes128";
 }
-class WrongPasswordError extends Error { readonly code: "wrong-password" }
+class WrongPasswordError extends Error {
+  readonly code: "wrong-password";
+}
 ```
 
 ## Generate / assembly
@@ -623,7 +639,10 @@ const { pdf } = await mergeDocuments([exhibitA, exhibitB, exhibitC]);
 Return one independent document per inclusive, 0-based page range. Returns `{ pdfs: Uint8Array[] }`.
 
 ```ts
-const { pdfs } = await splitDocument(doc, [{ start: 0, end: 4 }, { start: 5, end: 9 }]);
+const { pdfs } = await splitDocument(doc, [
+  { start: 0, end: 4 },
+  { start: 5, end: 9 },
+]);
 ```
 
 ### `rotatePages(bytes, rotation, pages?)`
@@ -639,18 +658,27 @@ image/logo — at a chosen opacity, rotation, and placement. Returns `{ pdf: Uin
 
 ```ts
 await watermarkDocument(doc, {
-  content: { kind: "text", text: "CONFIDENTIAL" },   // or { kind: "image", bytes: pngOrJpeg, scale: 0.3 }
-  opacity: 0.3,          // default 0.3
-  rotationDeg: 45,       // default 45 (diagonal)
-  placement: "center",   // or "tiled"
+  content: { kind: "text", text: "CONFIDENTIAL" }, // or { kind: "image", bytes: pngOrJpeg, scale: 0.3 }
+  opacity: 0.3, // default 0.3
+  rotationDeg: 45, // default 45 (diagonal)
+  placement: "center", // or "tiled"
 });
 ```
 
 ```ts
-interface PageRange { start: number; end: number }   // inclusive, 0-based
+interface PageRange {
+  start: number;
+  end: number;
+} // inclusive, 0-based
 type WatermarkContent =
-  | { kind: "text"; text: string; font?: BatesFont; fontSizePt?: number; color?: [number, number, number] }
-  | { kind: "image"; bytes: Uint8Array; scale?: number };   // PNG or JPEG
+  | {
+      kind: "text";
+      text: string;
+      font?: BatesFont;
+      fontSizePt?: number;
+      color?: [number, number, number];
+    }
+  | { kind: "image"; bytes: Uint8Array; scale?: number }; // PNG or JPEG
 interface WatermarkOptions {
   content: WatermarkContent;
   opacity?: number;
@@ -660,10 +688,40 @@ interface WatermarkOptions {
 ```
 
 **Stated limits:** merge does not carry the inputs' document metadata or attachments, and when two
-documents reuse the same named-destination *name* for different targets, by-name links in the
+documents reuse the same named-destination _name_ for different targets, by-name links in the
 second may resolve to the first's target (the destination table and explicit array destinations
 are unaffected). Image watermarks support PNG and RGB/grayscale JPEG (a CMYK JPEG is decoded to
 RGB); placement is centred or tiled.
+
+## Decompression-bomb guard
+
+Every operation in this package — load, redact, sanitize, detect, Bates stamping, forms,
+security, and generate/assembly — rejects a malicious input before doing any real work:
+oversize input (over 256 MiB) and any compressed stream that would inflate past the
+engine's caps are both rejected up front, throwing a typed `DecompressionBombError`
+rather than exhausting memory.
+
+```ts
+import { loadDocument, DecompressionBombError } from "@magna-carta/pdf";
+
+try {
+  const doc = await loadDocument(bytes);
+} catch (error) {
+  if (error instanceof DecompressionBombError) {
+    // reject the document — do not retry with the same bytes
+  }
+}
+```
+
+The bound is **rigorous for deflate** (`FlateDecode`, the dominant high-ratio compression
+filter in PDF), which the guard scans and caps before either underlying parser touches the
+bytes. **LZW and RunLength compression, and image-codec expansion (e.g. JBIG2/CCITT
+bilevel rasters), are not decoded by the guard** and fall back to the plain input-size cap
+rather than the tighter per-stream bound — a disclosed residual for those rarer,
+lower-ratio vectors. **Encrypted stream bodies fall back to the input cap too:** the guard
+scans raw bytes before decryption, so it cannot see inside an encrypted stream, and a
+password-protected document that decrypts to a compression bomb is only bounded by the
+oversize-input check, not the tighter per-stream/cumulative caps.
 
 ## Build notes
 

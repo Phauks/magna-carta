@@ -10,7 +10,8 @@
   })
 </script>
 
-<main>
+<!-- Token-utility probe: exercises semantic utilities from the generated Tailwind theme so the build emits them (theme/mode switching restyles this element via the custom-property cascade). -->
+<main class="bg-surface-default text-text-default">
   <h1>Magna Carta</h1>
   {#if state.kind === 'loading'}
     <p>Checking API...</p>
