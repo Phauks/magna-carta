@@ -92,7 +92,7 @@ describe("forwardReady", () => {
 describe("routeRequest routing", () => {
   it("returns 404 for unknown routes", async () => {
     const container = fakeContainer(new Response("ok", { status: 200 }));
-    const response = await routeRequest(new Request("http://recovery-worker/unknown"), container);
+    const response = await routeRequest(new Request("http://recovery-worker/unknown"), () => container);
     expect(response.status).toBe(404);
     expect(await response.text()).toBe("Not Found");
   });
@@ -101,7 +101,7 @@ describe("routeRequest routing", () => {
     const container = fakeContainer(new Response("ok", { status: 200 }));
     const response = await routeRequest(
       new Request("http://recovery-worker/recover-shard", { method: "GET" }),
-      container,
+      () => container,
     );
     expect(response.status).toBe(404);
   });
@@ -110,7 +110,7 @@ describe("routeRequest routing", () => {
     const container = fakeContainer(new Response("ok", { status: 200 }));
     const response = await routeRequest(
       new Request("http://recovery-worker/ready", { method: "POST", body: "{}" }),
-      container,
+      () => container,
     );
     expect(response.status).toBe(404);
   });
@@ -120,17 +120,47 @@ describe("routeRequest routing", () => {
     const container = fakeContainer(new Response(JSON.stringify(shardOutcome), { status: 200 }));
     const response = await routeRequest(
       new Request("http://recovery-worker/recover-shard", { method: "POST", body: "{}" }),
-      container,
+      () => container,
     );
     expect(response.status).toBe(200);
+  });
+
+  it("routes /recover-shard to the fallback \"recovery\" instance when X-Recovery-Instance is absent", async () => {
+    const seen: string[] = [];
+    const resolve = (id: string) => {
+      seen.push(id);
+      return fakeContainer(new Response("{}", { status: 200 }));
+    };
+    const response = await routeRequest(
+      new Request("http://recovery-worker/recover-shard", { method: "POST", body: "{}" }),
+      resolve,
+    );
+    expect(response.status).toBe(200);
+    expect(seen).toEqual(["recovery"]);
   });
 
   it("routes GET /ready to the container via routeRequest", async () => {
     const container = fakeContainer(new Response("ok", { status: 200 }));
     const response = await routeRequest(
       new Request("http://recovery-worker/ready", { method: "GET" }),
-      container,
+      () => container,
     );
     expect(response.status).toBe(200);
+  });
+
+  it("routes /recover-shard to the container instance named by X-Recovery-Instance", async () => {
+    const seen: string[] = [];
+    const resolve = (id: string) => {
+      seen.push(id);
+      return { fetch: async () => new Response('{"found":null,"candidatesTried":3}', { status: 200 }) };
+    };
+    const req = new Request("http://recovery/recover-shard", {
+      method: "POST",
+      headers: { "X-Recovery-Instance": "job_abc:2" },
+      body: "{}",
+    });
+    const res = await routeRequest(req, resolve);
+    expect(res.status).toBe(200);
+    expect(seen).toEqual(["job_abc:2"]);
   });
 });

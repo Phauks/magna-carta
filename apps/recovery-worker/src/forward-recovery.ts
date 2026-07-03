@@ -39,16 +39,23 @@ export async function forwardReady(container: RecoveryEngineContainerFetcher): P
 // Route an incoming request to the appropriate forwarding function, or return 404.
 // Extracted from index.ts so that routing can be tested without importing @cloudflare/containers
 // (which requires the cloudflare:workers runtime module unavailable in the node test pool).
+//
+// `resolveContainer` maps a container instance id to its Fetcher rather than taking a single fixed
+// instance: the app worker sets the X-Recovery-Instance header per shard so shards fan out across
+// distinct container instances instead of piling onto one.
 export async function routeRequest(
   request: Request,
-  container: RecoveryEngineContainerFetcher,
+  resolveContainer: (instanceId: string) => RecoveryEngineContainerFetcher,
 ): Promise<Response> {
   const url = new URL(request.url);
   if (request.method === "POST" && url.pathname === "/recover-shard") {
-    return forwardRecoveryShard(request, container);
+    // Fall back to a fixed instance id when the header is absent, preserving single-instance
+    // behavior for any direct/legacy caller that doesn't set it.
+    const instanceId = request.headers.get("X-Recovery-Instance") ?? "recovery";
+    return forwardRecoveryShard(request, resolveContainer(instanceId));
   }
   if (request.method === "GET" && url.pathname === "/ready") {
-    return forwardReady(container);
+    return forwardReady(resolveContainer("recovery"));
   }
   return new Response("Not Found", { status: 404 });
 }

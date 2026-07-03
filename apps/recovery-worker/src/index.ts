@@ -23,6 +23,6 @@ export default {
   // No authentication is performed here — the service binding provides the trust boundary
   // (only the app worker can reach this worker; it is not reachable from the public internet).
   async fetch(request: Request, env: Bindings): Promise<Response> {
-    return routeRequest(request, getContainer(env.RECOVERY_ENGINE, "recovery"));
+    return routeRequest(request, (id) => getContainer(env.RECOVERY_ENGINE, id));
   },
 } satisfies ExportedHandler<Bindings>;
