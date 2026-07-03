@@ -1,7 +1,0 @@
-*
-!crates/engine-host
-!crates/recovery-core
-!containers/recovery
-# drop build artifacts even within the allowed trees
-**/target
-**/node_modules

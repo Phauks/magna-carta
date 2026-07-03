@@ -1,0 +1,12 @@
+# Docker build-context filter for the engine containers whose image_build_context is the repo root
+# (currently containers/recovery — see apps/recovery-worker/wrangler.jsonc). A .dockerignore is read
+# from the build-context root, so an engine container that builds on the crates/ workspace needs this
+# file HERE, not beside its Dockerfile. Allowlist only the source the engine images copy — the Rust
+# workspace and the container hosts — so .git, secrets (.dev.vars), node_modules, and every package's
+# build output never transit to the builder. Each Dockerfile still COPYs only its own subset.
+*
+!crates
+!containers
+# Never ship build output even from the allowlisted trees.
+**/target
+**/node_modules

@@ -44,15 +44,27 @@ and hand-roll their axum, and are the retrofit targets, not the pattern to copy.
   binding `0.0.0.0:8080`. It owns the request/response DTOs (`serde` camelCase, file bytes
   as base64) and the `From<engine_type>` mappings. An engine error becomes a `422` carrying
   only the stable error `code`, never file content (golden rule 4).
-- **A repo-root build context.** Because the host copies two `crates/*` path-dependencies,
-  the Docker build context must be the repo root, not the container directory. Set
-  `image` (the Dockerfile path) and `image_build_context` (the context dir, e.g. `"../../"`)
-  as sibling fields on the container config; the Dockerfile `COPY`s exactly
-  `crates/engine-host`, `crates/<engine>`, and `containers/<engine>`, and a tight
-  `.dockerignore` allowlists only those. This is a verified wrangler capability, not a hack.
-  Images build in Cloudflare Workers Builds on push (there is no local Docker build);
+- **A repo-root build context.** Because the host path-depends on crates in `crates/`, the
+  Docker build context must be the repo root, not the container directory. Set `image` (the
+  Dockerfile path) and `image_build_context` (the context dir, e.g. `"../../"`) as sibling
+  fields on the container config. The Dockerfile `COPY`s the **whole `crates/` workspace**
+  (`COPY crates crates`) plus `containers/<engine>` — not just the two crates the binary
+  uses: engine crates inherit `edition` (and may inherit shared dependencies) from the
+  workspace root manifest `crates/Cargo.toml`, so cargo must see that root to resolve the
+  inheritance, and it errors `failed to find a workspace root` without it. The workspace is
+  ~1 MB of source and cargo still compiles only the target binary's dependency closure, never
+  the other members. This is a verified wrangler capability, not a hack. Images build in
+  Cloudflare Workers Builds on push (there is no local Docker build);
   `wrangler deploy --dry-run --containers-rollout=none` validates the worker bundle and
-  config without attempting the image.
+  config without attempting the image, so the image itself is first proven by the in-cloud build.
+- **A `.dockerignore` at the build-context root.** Docker reads `.dockerignore` from the
+  build-context root, so for a repo-root context it lives at the **repo root** (`/.dockerignore`),
+  not beside the Dockerfile — a file at `containers/<engine>/.dockerignore` is silently ignored.
+  Allowlist only the trees the engine images copy (`crates/`, `containers/`) and re-exclude
+  build output, so `.git`, secrets (`.dev.vars`), `node_modules`, and every package's `target/`
+  never transit to the builder. This one root file serves every repo-root-context engine
+  container; it does not affect the older self-contained containers (they use their own
+  directory as the context and read their own `.dockerignore`).
 - **A dedicated container worker.** `apps/<engine>-worker` owns the Container Durable Object
   (`defaultPort=8080`, `sleepAfter`, `enableInternet=false` for untrusted bytes,
   `pingEndpoint="ready"`), a `getContainer(env.<ENGINE>, "<name>")` dispatch, and a forward
