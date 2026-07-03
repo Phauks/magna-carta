@@ -78,3 +78,31 @@ export function parsePangramResponse(json: unknown): PangramPrediction | null {
     ...(windows !== undefined ? { windows } : {}),
   };
 }
+
+// The async external-api submit response — a task handle to poll. `task_id` is the only field we need.
+export function parsePangramSubmit(json: unknown): { readonly taskId: string } | null {
+  if (!isRecord(json)) return null;
+  if (typeof json.task_id !== "string") return null;
+  return { taskId: json.task_id };
+}
+
+// A poll response's meaning, driven by the task lifecycle `stage` field. STAGE_SUCCESS carries the
+// terminal prediction (validated the same way as the sync body); STAGE_FAILED is a terminal failure;
+// any other/absent stage means the task is still running (keep polling). A non-object — or a claimed
+// success whose prediction does not validate — is malformed.
+export type PangramTaskStatus =
+  | { readonly kind: "success"; readonly prediction: PangramPrediction }
+  | { readonly kind: "failed" }
+  | { readonly kind: "pending" }
+  | { readonly kind: "malformed" };
+
+export function parsePangramTaskStatus(json: unknown): PangramTaskStatus {
+  if (!isRecord(json)) return { kind: "malformed" };
+  const stage = typeof json.stage === "string" ? json.stage : undefined;
+  if (stage === "STAGE_FAILED") return { kind: "failed" };
+  if (stage === "STAGE_SUCCESS") {
+    const prediction = parsePangramResponse(json);
+    return prediction === null ? { kind: "malformed" } : { kind: "success", prediction };
+  }
+  return { kind: "pending" };
+}
